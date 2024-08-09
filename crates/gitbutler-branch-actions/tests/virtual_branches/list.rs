@@ -10,9 +10,10 @@ fn one_vbranch_on_integration() -> Result<()> {
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "virtual",
+            identity: "virtual".into(),
             virtual_branch_given_name: Some("virtual"),
             virtual_branch_in_workspace: true,
+            has_local: false,
             ..Default::default()
         },
         "It's a bare virtual branch with no commit",
@@ -30,10 +31,10 @@ fn one_vbranch_on_integration_one_commit() -> Result<()> {
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "virtual",
+            identity: "virtual".into(),
             virtual_branch_given_name: Some("virtual"),
             virtual_branch_in_workspace: true,
-            number_of_commits: 1,
+            has_local: false,
             ..Default::default()
         },
         "It's a bare virtual branch with a single commit",
@@ -48,7 +49,7 @@ fn two_vbranches_on_integration_one_commit() -> Result<()> {
     let list = list_branches(
         &ctx,
         Some(BranchListingFilter {
-            own_branches: Some(true),
+            local: Some(true),
             applied: Some(true),
         }),
     )?;
@@ -56,9 +57,10 @@ fn two_vbranches_on_integration_one_commit() -> Result<()> {
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "other",
+            identity: "other".into(),
             virtual_branch_given_name: Some("other"),
             virtual_branch_in_workspace: true,
+            has_local: false,
             ..Default::default()
         },
         "It's a bare virtual branch without any branches with the same identity",
@@ -67,7 +69,7 @@ fn two_vbranches_on_integration_one_commit() -> Result<()> {
     let list = list_branches(
         &ctx,
         Some(BranchListingFilter {
-            own_branches: Some(true),
+            local: Some(true),
             applied: Some(false),
         }),
     )?;
@@ -75,10 +77,10 @@ fn two_vbranches_on_integration_one_commit() -> Result<()> {
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "virtual",
+            identity: "virtual".into(),
             virtual_branch_given_name: Some("virtual"),
             virtual_branch_in_workspace: false,
-            number_of_commits: 1,
+            has_local: true,
             ..Default::default()
         },
         "It's a bare virtual branch without any branches with the same identity",
@@ -99,12 +101,11 @@ fn one_feature_branch_and_one_vbranch_on_integration_one_commit() -> Result<()> 
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "main",
+            identity: "main".into(),
             remotes: vec!["origin"],
             virtual_branch_given_name: Some("main"),
             virtual_branch_in_workspace: true,
-            number_of_commits: 1,
-            ..Default::default()
+            has_local: true,
         },
         "virtual branches can have the name of the target, even though it's probably not going to work when pushing. \
         The remotes of the local `refs/heads/main` are shown."
@@ -123,43 +124,13 @@ fn one_branch_on_integration_multiple_remotes() -> Result<()> {
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "main",
-            remotes: vec!["other-remote", "origin"],
+            identity: "main".into(),
+            remotes: vec!["origin", "other-remote"],
             virtual_branch_given_name: Some("main"),
             virtual_branch_in_workspace: true,
-            ..Default::default()
+            has_local: true,
         },
         "multiple remotes are detected",
-    );
-    Ok(())
-}
-
-#[test]
-fn own_branch_one_commit_other_branch_without_commit_without_virtual_branch() -> Result<()> {
-    init_env();
-    let ctx = project_ctx("one-branch-one-commit-other-branch-without-commit")?;
-    let list = list_branches(&ctx, None)?;
-    assert_eq!(list.len(), 2, "two local branches");
-
-    assert_equal(
-        &list[0],
-        ExpectedBranchListing {
-            identity: "feature",
-            number_of_commits: 1,
-            own_branch: true,
-            ..Default::default()
-        },
-        "a local ref can be owned if there are commits",
-    );
-    assert_equal(
-        &list[1],
-        ExpectedBranchListing {
-            identity: "other-feature",
-            number_of_commits: 0,
-            own_branch: false,
-            ..Default::default()
-        },
-        "a local ref is not owned without commits",
     );
     Ok(())
 }
@@ -167,19 +138,29 @@ fn own_branch_one_commit_other_branch_without_commit_without_virtual_branch() ->
 mod util {
     use anyhow::Result;
     use bstr::BString;
-    use gitbutler_branch_actions::{Author, BranchListing, BranchListingFilter};
+    use gitbutler_branch_actions::{BranchIdentity, BranchListing, BranchListingFilter};
     use gitbutler_command_context::CommandContext;
 
     /// A flattened and simplified mirror of `BranchListing` for comparing the actual and expected data.
-    #[derive(Default, Debug, PartialEq)]
+    #[derive(Debug, PartialEq)]
     pub struct ExpectedBranchListing<'a> {
-        pub identity: &'a str,
+        pub identity: BranchIdentity,
         pub remotes: Vec<&'a str>,
         pub virtual_branch_given_name: Option<&'a str>,
         pub virtual_branch_in_workspace: bool,
-        pub number_of_commits: usize,
-        pub authors: Vec<Author>,
-        pub own_branch: bool,
+        pub has_local: bool,
+    }
+
+    impl Default for ExpectedBranchListing<'static> {
+        fn default() -> Self {
+            ExpectedBranchListing {
+                identity: "<invalid identity - should always be specified".into(),
+                remotes: vec![],
+                virtual_branch_given_name: None,
+                virtual_branch_in_workspace: false,
+                has_local: false,
+            }
+        }
     }
 
     pub fn assert_equal(
@@ -187,13 +168,12 @@ mod util {
             name,
             remotes,
             virtual_branch,
-            number_of_commits,
             updated_at: _,
-            authors,
-            own_branch,
             head: _, // NOTE: can't have stable commits while `gitbutler-change-id` is not stable/is a UUID.
+            last_commiter: _,
+            has_local,
         }: &BranchListing,
-        mut expected: ExpectedBranchListing,
+        expected: ExpectedBranchListing,
         msg: &str,
     ) {
         assert_eq!(*name, expected.identity, "identity: {msg}");
@@ -216,18 +196,7 @@ mod util {
             expected.virtual_branch_in_workspace,
             "virtual-branch-in-workspace: {msg}"
         );
-        assert_eq!(
-            *number_of_commits, expected.number_of_commits,
-            "number-of-commits: {msg}"
-        );
-        if expected.number_of_commits > 0 && expected.authors.is_empty() {
-            expected.authors = vec![default_author()];
-        }
-        assert_eq!(*authors, expected.authors, "authors: {msg}");
-        if expected.virtual_branch_given_name.is_some() {
-            expected.own_branch = true;
-        }
-        assert_eq!(*own_branch, expected.own_branch, "{msg}");
+        assert_eq!(*has_local, expected.has_local, "{msg}");
     }
 
     /// This function affects all tests, but those who care should just call it, assuming
@@ -247,13 +216,6 @@ mod util {
         }
     }
 
-    pub fn default_author() -> Author {
-        Author {
-            name: Some("author".into()),
-            email: Some("author@example.com".into()),
-        }
-    }
-
     pub fn project_ctx(name: &str) -> Result<CommandContext> {
         gitbutler_testsupport::read_only::fixture("for-listing.sh", name)
     }
@@ -262,7 +224,7 @@ mod util {
         ctx: &CommandContext,
         filter: Option<BranchListingFilter>,
     ) -> Result<Vec<BranchListing>> {
-        let mut branches = gitbutler_branch_actions::list_branches(ctx, filter)?;
+        let mut branches = gitbutler_branch_actions::list_branches(ctx, filter, None)?;
         branches.sort_by(|a, b| a.name.cmp(&b.name));
         Ok(branches)
     }

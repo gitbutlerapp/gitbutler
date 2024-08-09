@@ -1,7 +1,7 @@
 <script lang="ts">
 	import CopyLinkContextMenu from './CopyLinkContextMenu.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 
 	const { url }: { url: string } = $props();
 
@@ -16,12 +16,12 @@
 	outline
 	shrinkable
 	bind:el={viewPrButton}
-	on:click={(e) => {
+	onclick={(e) => {
 		openExternalUrl(url);
 		e.preventDefault();
 		e.stopPropagation();
 	}}
-	on:contextmenu={(e) => {
+	oncontextmenu={(e) => {
 		e.preventDefault();
 		copyLinkContextMenu?.openByMouse(e);
 	}}

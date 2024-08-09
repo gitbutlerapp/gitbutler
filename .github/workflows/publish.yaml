@@ -64,7 +64,7 @@ jobs:
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
       - name: Build SvelteKit
-        run: pnpm build -- --mode ${{ env.vitemode }}
+        run: pnpm build:desktop -- --mode ${{ env.vitemode }}
         env:
           SENTRY_RELEASE: ${{ env.version }}
       - uses: actions/upload-artifact@v4
@@ -77,6 +77,8 @@ jobs:
 
   build-tauri:
     needs: build-sveltekit
+    env:
+      CARGO_TERM_COLOR: always
     strategy:
       fail-fast: false
       matrix:
@@ -124,8 +126,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT_JUNON }} # custom token here so that we can push tags later
-      - name: Init Rust Environment
-        uses: ./.github/actions/init-env-rust
       - name: Init Node Environment
         uses: ./.github/actions/init-env-node
 

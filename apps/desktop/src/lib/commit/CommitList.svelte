@@ -15,7 +15,6 @@
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
-	import Button from '$lib/shared/Button.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -28,6 +27,7 @@
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import LineGroup from '@gitbutler/ui/CommitLines/LineGroup.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;
@@ -159,7 +159,7 @@
 							style="warning"
 							kind="solid"
 							loading={isIntegratingCommits}
-							on:click={async () => {
+							onclick={async () => {
 								isIntegratingCommits = true;
 								try {
 									await branchController.mergeUpstream($branch.id);
@@ -225,7 +225,7 @@
 							kind="solid"
 							wide
 							loading={isPushingCommits}
-							on:click={async () => {
+							onclick={async () => {
 								isPushingCommits = true;
 								try {
 									await branchController.pushBranch($branch.id, $branch.requiresForce);

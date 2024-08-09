@@ -1,14 +1,14 @@
 <script lang="ts">
-	import Checkbox from '../shared/Checkbox.svelte';
 	import Spacer from '../shared/Spacer.svelte';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { showInfo } from '$lib/notifications/toasts';
-	import Button from '$lib/shared/Button.svelte';
-	import Modal from '$lib/shared/Modal.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Checkbox from '@gitbutler/ui/inputs/Checkbox.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 
@@ -46,7 +46,7 @@
 			style="pop"
 			kind="solid"
 			help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
-			on:click={() => {
+			onclick={() => {
 				if ($mergeUpstreamWarningDismissed) {
 					updateBaseBranch();
 				} else {
@@ -116,11 +116,11 @@
 	</label>
 
 	{#snippet controls(close)}
-		<Button style="ghost" outline on:click={close}>Cancel</Button>
+		<Button style="ghost" outline onclick={close}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
-			on:click={() => {
+			onclick={() => {
 				updateBaseBranch();
 				if (mergeUpstreamWarningDismissedCheckbox) {
 					mergeUpstreamWarningDismissed.set(true);

@@ -2,12 +2,12 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import Button from '$lib/shared/Button.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Branch } from '$lib/vbranches/types';
@@ -18,12 +18,12 @@
 	export let pr: PullRequest | undefined;
 
 	$: branch = remoteBranch || localBranch!;
-	$: upstream = branch.upstream;
+	$: upstream = remoteBranch?.givenName;
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 	const gitHost = getGitHost();
-	const gitHostBranch = upstream ? $gitHost?.branch(upstream) : undefined;
+	$: gitHostBranch = upstream ? $gitHost?.branch(upstream) : undefined;
 
 	let isApplying = false;
 </script>
@@ -41,21 +41,23 @@
 						<Icon name="remote-branch-small" />
 						{localBranch ? 'local and remote' : 'remote'}
 					</div>
-					<Button
-						size="tag"
-						icon="open-link"
-						style="ghost"
-						outline
-						shrinkable
-						on:click={(e) => {
-							const url = gitHostBranch?.url;
-							if (url) openExternalUrl(url);
-							e.preventDefault();
-							e.stopPropagation();
-						}}
-					>
-						{branch.displayName}
-					</Button>
+					{#if gitHostBranch}
+						<Button
+							size="tag"
+							icon="open-link"
+							style="ghost"
+							outline
+							shrinkable
+							onclick={(e) => {
+								const url = gitHostBranch.url;
+								if (url) openExternalUrl(url);
+								e.preventDefault();
+								e.stopPropagation();
+							}}
+						>
+							{branch.displayName}
+						</Button>
+					{/if}
 				{:else}
 					<div class="status-tag text-base-11 text-semibold remote">
 						<Icon name="remote-branch-small" /> local
@@ -68,7 +70,7 @@
 						icon="pr-small"
 						style="ghost"
 						outline
-						on:click={(e) => {
+						onclick={(e) => {
 							const url = pr?.htmlUrl;
 							if (url) openExternalUrl(url);
 							e.preventDefault();
@@ -88,7 +90,7 @@
 					help="Restores these changes into your working directory"
 					icon="plus-small"
 					loading={isApplying}
-					on:click={async () => {
+					onclick={async () => {
 						isApplying = true;
 						try {
 							if (localBranch) {

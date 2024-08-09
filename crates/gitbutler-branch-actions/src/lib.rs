@@ -41,6 +41,6 @@ mod commit;
 mod hunk;
 
 pub use branch::{
-    get_branch_listing_details, list_branches, Author, BranchListing, BranchListingDetails,
-    BranchListingFilter,
+    get_branch_listing_details, list_branches, Author, BranchIdentity, BranchListing,
+    BranchListingDetails, BranchListingFilter,
 };

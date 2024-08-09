@@ -9,10 +9,10 @@
 	import { editor } from '$lib/editorLink/editorLink';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { persisted } from '$lib/persisted/persisted';
-	import Icon from '$lib/shared/Icon.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import { open } from '@tauri-apps/api/shell';
 
 	const vbranchService = getContext(VirtualBranchService);
@@ -60,7 +60,7 @@
 				dropPosition = 0;
 				// We account for the NewBranchDropZone by subtracting 2
 				for (let i = 0; i < children.length - 1; i++) {
-					const pos = children[i].getBoundingClientRect();
+					const pos = children[i]?.getBoundingClientRect() as DOMRect;
 					if (e.clientX > pos.left + dragged.offsetWidth / 2) {
 						dropPosition = i + 1;
 					} else {
@@ -70,9 +70,9 @@
 				const idx = children.indexOf(dragged);
 				if (idx !== dropPosition) {
 					if (idx >= dropPosition) {
-						children[dropPosition].before(dragged);
+						children[dropPosition]?.before(dragged);
 					} else {
-						children[dropPosition].after(dragged);
+						children[dropPosition]?.after(dragged);
 					}
 				}
 			}}

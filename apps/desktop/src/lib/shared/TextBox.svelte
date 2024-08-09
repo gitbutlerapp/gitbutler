@@ -1,8 +1,9 @@
 <script lang="ts">
-	import Icon from '$lib/shared/Icon.svelte';
+	import { clickOutside } from '$lib/clickOutside';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { createEventDispatcher, onMount } from 'svelte';
-	import type iconsJson from '$lib/icons/icons.json';
+	import type iconsJson from '@gitbutler/ui/icon/icons.json';
 
 	export let element: HTMLElement | undefined = undefined;
 	export let id: string | undefined = undefined; // Required to make label clickable
@@ -27,6 +28,8 @@
 	export let autocorrect = false;
 	export let autocomplete = false;
 	export let focus = false;
+	// eslint-disable-next-line func-style
+	export let onClickOutside = () => {};
 
 	export let type: 'text' | 'password' | 'select' | 'number' | 'email' = 'text';
 
@@ -52,6 +55,7 @@
 	class:wide
 	style:width={width ? pxToRem(width) : undefined}
 	class:wiggle={!isInputValid}
+	use:clickOutside={{ excludeElement: element, handler: onClickOutside }}
 >
 	{#if label}
 		<label class="textbox__label text-base-13 text-semibold" for={id}>

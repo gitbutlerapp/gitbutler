@@ -63,13 +63,13 @@ export default tsEslint.config(
 			'**/eslint.config.js',
 			'**/eslint.config.mjs',
 			'**/svelte.config.js',
-			'**/postcss.config.cjs',
-			'**/playwright.config.ts',
 			'**/.pnpm-store',
 			'**/vite.config.ts.timestamp-*',
 			'!.storybook',
 			'target/',
-			'crates/'
+			'crates/',
+			// We're having issues parsing splat syntax in svelte components
+			'packages/ui/src/stories/**/*.svelte'
 		]
 	},
 	{

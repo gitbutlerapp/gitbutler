@@ -7,12 +7,8 @@
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
-	import Button from '$lib/shared/Button.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
-	import Modal from '$lib/shared/Modal.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { getTimeAgo } from '$lib/utils/timeAgo';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
@@ -24,6 +20,10 @@
 		VirtualBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
+	import { getTimeAgo } from '@gitbutler/ui/timeAgo/timeAgo';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { type Snippet } from 'svelte';
 
@@ -125,13 +125,13 @@
 		isExpanded={true}
 	/>
 	{#snippet controls(close)}
-		<Button style="ghost" outline on:click={close}>Cancel</Button>
+		<Button style="ghost" outline onclick={close}>Cancel</Button>
 		<Button
 			style="neutral"
 			kind="solid"
 			grow
 			disabled={!commitMessageValid}
-			on:click={submitCommitMessageModal}
+			onclick={submitCommitMessageModal}
 		>
 			Submit
 		</Button>
@@ -304,7 +304,7 @@
 										style="ghost"
 										outline
 										icon="undo-small"
-										on:click={(e) => {
+										onclick={(e) => {
 											currentCommitMessage.set(commit.description);
 											e.stopPropagation();
 											undoCommit(commit);
@@ -315,7 +315,7 @@
 										style="ghost"
 										outline
 										icon="edit-small"
-										on:click={openCommitMessageModal}>Edit message</Button
+										onclick={openCommitMessageModal}>Edit message</Button
 									>
 								{/if}
 							</div>

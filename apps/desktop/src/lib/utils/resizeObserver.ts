@@ -4,7 +4,7 @@ export function resizeObserver(
 ) {
 	const resizeObserver = new ResizeObserver((entries) => {
 		for (const entry of entries) {
-			const { inlineSize, blockSize } = entry.borderBoxSize[0];
+			const { inlineSize = 0, blockSize = 0 } = entry.borderBoxSize[0] ?? {};
 
 			callback({
 				currentTarget: element,

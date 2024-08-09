@@ -39,8 +39,8 @@ export class HunkSection {
 			return 0;
 		}
 		return Math.max(
-			lastSection.lines[lastSection.lines.length - 1].afterLineNumber || 0,
-			lastSection.lines[lastSection.lines.length - 1].afterLineNumber || 0
+			lastSection.lines[lastSection.lines.length - 1]?.afterLineNumber || 0,
+			lastSection.lines[lastSection.lines.length - 1]?.afterLineNumber || 0
 		);
 	}
 }
@@ -52,8 +52,8 @@ export class ContentSection {
 
 	get maxLineNumber(): number {
 		return Math.max(
-			this.lines[this.lines.length - 1].afterLineNumber || 0,
-			this.lines[this.lines.length - 1].afterLineNumber || 0
+			this.lines[this.lines.length - 1]?.afterLineNumber || 0,
+			this.lines[this.lines.length - 1]?.afterLineNumber || 0
 		);
 	}
 }
@@ -66,9 +66,11 @@ export function parseHunkHeader(header: string | undefined): HunkHeader {
 	if (split.length < 2) {
 		return { beforeStart: 0, beforeLength: 0, afterStart: 0, afterLength: 0 };
 	}
-	const [before, after] = split[1].trim().split(' ');
-	const [beforeStart, beforeLength] = before.split(',').map((n) => Math.abs(parseInt(n, 10)));
-	const [afterStart, afterLength] = after.split(',').map((n) => Math.abs(parseInt(n, 10)));
+	const [before, after] = split[1]?.trim().split(' ') as [string, string];
+	const [beforeStart = 0, beforeLength = 0] = before
+		.split(',')
+		.map((n) => Math.abs(parseInt(n, 10)));
+	const [afterStart = 0, afterLength = 0] = after.split(',').map((n) => Math.abs(parseInt(n, 10)));
 	return { beforeStart, beforeLength, afterStart, afterLength };
 }
 
@@ -182,7 +184,7 @@ export function parseFileSections(file: AnyFile): (ContentSection | HunkSection)
 			currentContext.lines.push({
 				beforeLineNumber: currentBeforeLineNumber,
 				afterLineNumber: currentAfterLineNumber,
-				content: lines[i]
+				content: lines[i] ?? ''
 			});
 			currentBeforeLineNumber++;
 			currentAfterLineNumber++;

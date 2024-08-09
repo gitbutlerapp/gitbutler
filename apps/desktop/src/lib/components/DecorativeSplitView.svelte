@@ -1,9 +1,9 @@
 <script lang="ts">
 	import AccountLink from '../shared/AccountLink.svelte';
-	import Icon from '../shared/Icon.svelte';
 	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
 	import { User } from '$lib/stores/user';
 	import { getContextStore } from '$lib/utils/context';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 
 	export let showLinks: boolean = true;
 	export let img: string | undefined = undefined;
@@ -18,10 +18,10 @@
 		</div>
 	</div>
 
-	<div class="right-side">
+	<div class="right-side" data-tauri-drag-region>
 		<div class="right-side-wrapper" data-tauri-drag-region>
 			{#if user}
-				<div class="right-side__header">
+				<div class="right-side__header" data-tauri-drag-region>
 					<div class="account-button">
 						<AccountLink pop />
 					</div>
@@ -35,7 +35,7 @@
 			{/if}
 
 			{#if showLinks}
-				<div class="right-side__footer">
+				<div class="right-side__footer" data-tauri-drag-region>
 					<div class="right-side__links">
 						<a
 							class="right-side__link"

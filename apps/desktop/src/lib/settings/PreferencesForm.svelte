@@ -7,12 +7,12 @@
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
-	import Button from '$lib/shared/Button.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import Link from '$lib/shared/Link.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
 
@@ -201,7 +201,7 @@
 				</InfoMessage>
 			{/if}
 
-			<Button style="pop" kind="solid" wide icon="item-tick" on:click={checkSigning}>
+			<Button style="pop" kind="solid" wide icon="item-tick" onclick={checkSigning}>
 				{#if !checked}
 					Test signing
 				{:else}

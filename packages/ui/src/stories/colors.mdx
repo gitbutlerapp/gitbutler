@@ -1,0 +1,126 @@
+import { Meta } from '@storybook/addon-docs';
+
+<Meta title="About/Colors" />
+
+# 🎨 Colors
+
+In our design system, we use different types of colors.
+The first group is the Core colors.
+
+---
+
+## Core colors
+
+Core colors doesn't have any specific meaning or themes. They are just color ranges that used in the next color groups.
+It's better to avoid using core colors directly in the app. Use color `Scale` colors instead.
+
+<iframe
+	style={{
+		border: '1px solid rgba(0, 0, 0, 0.1)'
+	}}
+	width="100%"
+	height="500"
+	src="https://www.figma.com/embed?embed_host=share&url=https%3A%2F%2Fwww.figma.com%2Fdesign%2FJir22AjzvPokdbMbe8yt5k%2F%25F0%259F%2592%258E-Core%3Fnode-id%3D404-4319%26t%3Dd8WJEYZK76vUHeB6-1"
+	allowFullScreen
+/>
+
+Core colors still have some useage areas.
+All colors in the app could be breaked down to 4 areas — from the very light to the very dark:
+
+- **Background colors** — colors that are used for backgrounds on large areas - like pages, modals, containers, etc.
+- **Soft colors** — colors a bit darker and suitable for smaller elements like buttons, inputs, borders, etc.
+- **Solid colors** — these colors are strong and dark. It's suitable small elements that should be highlighted - like error buttons, borders, alerts, etc.
+- **Text colors** — these colors are dark and therefore suitable for text.
+
+<iframe
+	style={{
+		border: '1px solid rgba(0, 0, 0, 0.1)'
+	}}
+	width="100%"
+	height="700"
+	src="https://www.figma.com/embed?embed_host=share&url=https%3A%2F%2Fwww.figma.com%2Fdesign%2FJir22AjzvPokdbMbe8yt5k%2F%25F0%259F%2592%258E-Core%3Fnode-id%3D3709-9834%26t%3Dd8WJEYZK76vUHeB6-1"
+	allowFullScreen
+/>
+
+All colors in the app could be also split into 6 color groups:
+
+- **Ntrl colors** — neutral colors. These colors are used for backgrounds, text, and other elements that should not be highlighted.
+- **Pop colors** — this color used to highlight elements.
+
+- **Err colors** — error colors — a service group.
+- **Warn colors** — warning colors — a service group.
+- **Succ colors** — success colors - a service group.
+
+- **Purp colors** — info colors.
+
+---
+
+## Scale colors
+
+Scale colors also doesn't have any specific meaning, but they have themes.
+
+This is how you use scale colors:
+
+```css
+/* Use scale colors */
+background-color: var(--clr-scale-ntrl-10);
+color: var(--clr-scale-pop-90);
+```
+
+<iframe
+	style={{
+		border: '1px solid rgba(0, 0, 0, 0.1)'
+	}}
+	width="100%"
+	height="500"
+	src="https://www.figma.com/embed?embed_host=share&url=https%3A%2F%2Fwww.figma.com%2Fdesign%2FJir22AjzvPokdbMbe8yt5k%2F%25F0%259F%2592%258E-Core%3Fnode-id%3D3835-268%26t%3Dd8WJEYZK76vUHeB6-1"
+	allowFullScreen
+/>
+
+---
+
+## Theme colors
+
+Theme colors are functional colors that could be used for general elements like buttons, links, etc.
+This color palette are preffered compared to the Scale colors. _eleborate why_
+
+There are 2 theme groups and one additional background color:
+
+- **Element**
+- **Element hover**
+- **Soft**
+- **Soft hover**
+- **Background**
+
+<iframe
+	style={{
+		border: '1px solid rgba(0, 0, 0, 0.1)'
+	}}
+	width="100%"
+	height="600"
+	src="https://www.figma.com/embed?embed_host=share&url=https%3A%2F%2Fwww.figma.com%2Fdesign%2FJir22AjzvPokdbMbe8yt5k%2F%25F0%259F%2592%258E-Core%3Fnode-id%3D3920-59%26t%3DGK9Nb44CzAd8BTne-1"
+	allowFullScreen
+/>
+
+---
+
+## Role colors
+
+Role colors are used for specific elements. THis color palette has the highest specificity. Currently, we have 6 role colors:
+
+- **bg** — background colors
+- **border** — outline colors
+- **text** — text colors
+- **illustration** — colors for illustrations
+- **commit** — colors for commit lines and commits indicators
+- **diff** — colors for diff lines
+
+<iframe
+	style={{
+		border: '1px solid rgba(0, 0, 0, 0.1)'
+	}}
+	width="100%"
+	height="700"
+	src="https://www.figma.com/embed?embed_host=share&url=https%3A%2F%2Fwww.figma.com%2Fdesign%2FJir22AjzvPokdbMbe8yt5k%2F%25F0%259F%2592%258E-Core%3Fnode-id%3D3920-146%26t%3DGK9Nb44CzAd8BTne-1"
+	allowFullScreen
+/>

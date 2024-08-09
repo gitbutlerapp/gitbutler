@@ -3,6 +3,7 @@ import { invoke, listen } from '$lib/backend/ipc';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { plainToInstance } from 'class-transformer';
 import { writable } from 'svelte/store';
+import type { BranchListingService } from '$lib/branches/branchListing';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 
 export class VirtualBranchService {
@@ -21,7 +22,8 @@ export class VirtualBranchService {
 	constructor(
 		private projectId: string,
 		private projectMetrics: ProjectMetrics,
-		private remoteBranchService: RemoteBranchService
+		private remoteBranchService: RemoteBranchService,
+		private branchListingService: BranchListingService
 	) {}
 
 	async refresh() {
@@ -69,6 +71,8 @@ export class VirtualBranchService {
 		this.branches.set(branches);
 		this.branchesError.set(undefined);
 		this.logMetrics(branches);
+
+		this.branchListingService.refresh();
 	}
 
 	private async listVirtualBranches(): Promise<VirtualBranch[]> {
@@ -102,14 +106,14 @@ export class VirtualBranchService {
 function linkAsParentChildren(commits: DetailedCommit[] | Commit[]) {
 	for (let j = 0; j < commits.length; j++) {
 		const commit = commits[j];
-		if (j === 0) {
+		if (commit && j === 0) {
 			commit.next = undefined;
-		} else {
+		} else if (commit) {
 			const child = commits[j - 1];
 			if (child instanceof DetailedCommit) commit.next = child;
 			if (child instanceof Commit) commit.next = child;
 		}
-		if (j !== commits.length - 1) {
+		if (commit && j !== commits.length - 1) {
 			commit.prev = commits[j + 1];
 		}
 	}

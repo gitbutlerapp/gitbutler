@@ -62,6 +62,6 @@ export default defineConfig({
 			inline: ['sorcery']
 		},
 		includeSource: ['src/**/*.{js,ts}'],
-		exclude: ['**/e2e/playwright/**/*', 'node_modules/**/*']
+		exclude: ['node_modules/**/*', 'e2e/**/*']
 	}
 });

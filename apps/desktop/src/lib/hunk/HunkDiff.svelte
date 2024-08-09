@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { type Row, Operation, type DiffRows } from './types';
-	import Icon from '$lib/shared/Icon.svelte';
+	import { featureInlineUnifiedDiffs } from '$lib/config/uiFeatureFlags';
 	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { type Hunk } from '$lib/vbranches/types';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import diff_match_patch from 'diff-match-patch';
 	import type { Writable } from 'svelte/store';
 
@@ -59,6 +60,8 @@
 	const selected = $derived($selectedOwnership?.contains(hunk.filePath, hunk.id) ?? false);
 	let isSelected = $derived(selectable && selected);
 
+	const inlineUnifiedDiffs = featureInlineUnifiedDiffs();
+
 	function charDiff(text1: string, text2: string): { 0: number; 1: string }[] {
 		const differ = new diff_match_patch();
 		const diff = differ.diff_main(text1, text2);
@@ -68,7 +71,7 @@
 
 	function isLineEmpty(lines: Line[]) {
 		const whitespaceRegex = new RegExp(WHITESPACE_REGEX);
-		if (!lines[0].content.match(whitespaceRegex)) {
+		if (!lines[0]?.content.match(whitespaceRegex)) {
 			return true;
 		}
 
@@ -122,8 +125,8 @@
 		// Loop through every line in the section
 		// We're only bothered with prev/next sections with equal # of lines changes
 		for (let i = 0; i < numberOfLines; i++) {
-			const oldLine = prevSection.lines[i];
-			const newLine = nextSection.lines[i];
+			const oldLine = prevSection.lines[i] as Line;
+			const newLine = nextSection.lines[i] as Line;
 			const prevSectionRow = {
 				beforeLineNumber: oldLine.beforeLineNumber,
 				afterLineNumber: oldLine.afterLineNumber,
@@ -161,6 +164,47 @@
 		return returnRows;
 	}
 
+	function computeInlineWordDiff(prevSection: ContentSection, nextSection: ContentSection): Row[] {
+		const numberOfLines = nextSection.lines.length;
+
+		const rows = [];
+
+		// Loop through every line in the section
+		// We're only bothered with prev/next sections with equal # of lines changes
+		for (let i = 0; i < numberOfLines; i++) {
+			const oldLine = prevSection.lines[i] as Line;
+			const newLine = nextSection.lines[i] as Line;
+
+			const sectionRow = {
+				beforeLineNumber: newLine.beforeLineNumber,
+				afterLineNumber: newLine.afterLineNumber,
+				tokens: [] as string[],
+				type: nextSection.sectionType,
+				size: newLine.content.length
+			};
+
+			const diff = charDiff(oldLine.content, newLine.content);
+
+			for (const token of diff) {
+				const text = token[1];
+				const type = token[0];
+
+				if (type === Operation.Equal) {
+					sectionRow.tokens.push(...toTokens(text));
+				} else if (type === Operation.Insert) {
+					sectionRow.tokens.push(`<span data-no-drag class="token-inserted">${text}</span>`);
+				} else if (type === Operation.Delete) {
+					sectionRow.tokens.push(
+						`<span data-no-drag class="token-deleted token-strikethrough">${text}</span>`
+					);
+				}
+			}
+			rows.push(sectionRow);
+		}
+
+		return rows;
+	}
+
 	function generateRows(subsections: ContentSection[]) {
 		return subsections.reduce((acc, nextSection, i) => {
 			const prevSection = subsections[i - 1];
@@ -186,24 +230,26 @@
 				return acc;
 			}
 
-			const { prevRows, nextRows } = computeWordDiff(prevSection, nextSection);
+			if ($inlineUnifiedDiffs) {
+				const rows = computeInlineWordDiff(prevSection, nextSection);
 
-			// Insert returned row datastructures into the correct place
-			// Find and replace previous rows with tokenized version
-			prevRows.forEach((row) => {
-				const accIndex = acc.findIndex(
-					(accRow) =>
-						accRow.beforeLineNumber === row.beforeLineNumber &&
-						accRow.afterLineNumber === row.afterLineNumber
-				);
-				if (!accIndex) return;
+				acc.splice(-prevSection.lines.length);
 
-				acc[accIndex] = row;
-			});
+				acc.push(...rows);
+				return acc;
+			} else {
+				const { prevRows, nextRows } = computeWordDiff(prevSection, nextSection);
 
-			acc.push(...nextRows);
+				// Insert returned row datastructures into the correct place
+				// Find and replace previous rows with tokenized version
+				prevRows.forEach((row, previousRowIndex) => {
+					acc[acc.length - (prevRows.length - previousRowIndex)] = row;
+				});
 
-			return acc;
+				acc.push(...nextRows);
+
+				return acc;
+			}
 		}, [] as Row[]);
 	}
 
@@ -254,7 +300,7 @@
 							const lineNumber = (line.beforeLineNumber
 								? line.beforeLineNumber
 								: line.afterLineNumber) as number;
-							handleLineContextMenu({ event, hunk, lineNumber, subsection: subsections[0] });
+							handleLineContextMenu({ event, hunk, lineNumber, subsection: subsections[0] as ContentSection });
 						}}
 					>
 						{@html line.tokens.join('')}
@@ -270,7 +316,7 @@
 	.table__wrapper {
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-s);
-		background-color: var(--clr-bg-1);
+		background-color: var(--clr-diff-line-bg);
 		overflow-x: auto;
 
 		&:hover .table__drag-handle {
@@ -308,9 +354,9 @@
 	}
 
 	.table__numberColumn {
-		color: color-mix(in srgb, var(--clr-text-1), transparent 60%);
-		border-color: var(--clr-border-2);
-		background-color: var(--clr-bg-1-muted);
+		color: var(--clr-diff-count-text);
+		border-color: var(--clr-diff-count-border);
+		background-color: var(--clr-diff-count-bg);
 		font-size: 11px;
 		text-align: center;
 		padding: 0 4px;
@@ -323,24 +369,24 @@
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
 
-		box-shadow: inset -1px 0 0 0 var(--clr-border-2);
+		box-shadow: inset -1px 0 0 0 var(--clr-diff-count-border);
 
 		&.diff-line-addition {
-			background-color: var(--override-addition-counter-background);
-			color: var(--override-addition-counter-text);
-			box-shadow: inset -1px 0 0 0 var(--override-addition-counter-border);
+			background-color: var(--clr-diff-addition-count-bg);
+			color: var(--clr-diff-addition-count-text);
+			box-shadow: inset -1px 0 0 0 var(--clr-diff-addition-count-border);
 		}
 
 		&.diff-line-deletion {
-			background-color: var(--override-deletion-counter-background);
-			color: var(--override-deletion-counter-text);
-			box-shadow: inset -1px 0 0 0 var(--override-deletion-counter-border);
+			background-color: var(--clr-diff-deletion-count-bg);
+			color: var(--clr-diff-deletion-count-text);
+			box-shadow: inset -1px 0 0 0 var(--clr-diff-deletion-count-border);
 		}
 
 		&.selected {
-			background-color: var(--hunk-line-selected-bg);
-			box-shadow: inset -1px 0 0 0 var(--hunk-line-selected-border);
-			color: rgba(255, 255, 255, 0.9);
+			background-color: var(--clr-diff-selected-count-bg);
+			box-shadow: inset -1px 0 0 0 var(--clr-diff-selected-count-border);
+			color: var(--clr-diff-selected-count-text);
 		}
 	}
 
@@ -358,9 +404,6 @@
 		tab-size: var(--tab-size);
 		white-space: pre;
 		user-select: text;
-
-		&:hover {
-			cursor: text;
-		}
+		cursor: text;
 	}
 </style>

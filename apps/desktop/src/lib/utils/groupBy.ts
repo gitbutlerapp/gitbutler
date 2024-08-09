@@ -5,7 +5,7 @@ export function groupBy<T>(array: T[], callback: (item: T) => string) {
 	for (const item of array) {
 		const key = callback(item);
 		if (!groups[key]) groups[key] = [];
-		groups[key].push(item);
+		groups[key]?.push(item);
 	}
 
 	return groups;

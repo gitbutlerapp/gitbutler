@@ -103,6 +103,12 @@ pub mod read_only {
     ///
     /// Returns the project that is strictly for read-only use.
     pub fn fixture(script_name: &str, project_directory: &str) -> anyhow::Result<CommandContext> {
+        let project = fixture_project(script_name, project_directory)?;
+        CommandContext::open(&project)
+    }
+
+    /// Like [`fixture()`], but will return only the `Project` at `project_directory` after executing `script_name`.
+    pub fn fixture_project(script_name: &str, project_directory: &str) -> anyhow::Result<Project> {
         static IS_VALID_PROJECT: Lazy<Mutex<BTreeSet<(String, String)>>> =
             Lazy::new(|| Mutex::new(Default::default()));
 
@@ -128,7 +134,7 @@ pub mod read_only {
                 ..Default::default()
             }
         };
-        CommandContext::open(&project)
+        Ok(project)
     }
 }
 

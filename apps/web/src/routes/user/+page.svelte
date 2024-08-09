@@ -1,39 +1,59 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import { env } from '$env/dynamic/public';
+	import { AuthService } from '$lib/auth/authService';
+	import { UserService } from '$lib/user/userService';
+	import { getContext } from '$lib/utils/context';
 
-	let state = 'loading';
-	let user: any = {};
+	const authService = getContext(AuthService);
+	const userService = getContext(UserService);
 
-	onMount(() => {
-		let key = localStorage.getItem('gb_access_token');
-		if (key) {
-			fetch(env.PUBLIC_APP_HOST + 'api/user', {
-				method: 'GET',
-				headers: {
-					'X-AUTH-TOKEN': key || ''
-				}
-			})
-				.then(async (response) => await response.json())
-				.then((data) => {
-					console.log(data);
-					user = data;
-					state = 'loaded';
-				});
-		} else {
-			state = 'unauthorized';
-		}
-	});
+	const user = $derived(userService.user);
+	const token = $derived(authService.token);
+	let userAvatarUrl = $state($user?.picture);
+
+	function handleImageLoadError() {
+		userAvatarUrl = `https://unavatar.io/${$user?.email}`;
+	}
 </script>
 
-{#if state === 'loading'}
-	<p>Loading...</p>
-{:else if state === 'unauthorized'}
+<svelte:head>
+	<title>GitButler | User</title>
+</svelte:head>
+
+{#if !$token}
 	<p>Unauthorized</p>
+{:else if !$user?.id}
+	<p>Loading...</p>
 {:else}
-	{user.name}
-	<div>{user.email}</div>
-	<img alt="User Avatar" width="50" src={user.avatar_url} />
-	{user.created_at}
-	{user.supporter}
+	<div class="user__wrapper">
+		<div class="user__id">
+			<img
+				class="user__id--img"
+				alt="User Avatar"
+				width="48"
+				src={userAvatarUrl}
+				onerror={handleImageLoadError}
+			/>
+			<div class="user__id--name">{$user?.name}</div>
+		</div>
+		<div><b>Email</b>: {$user?.email}</div>
+		<div><b>Joined</b>: {$user?.created_at}</div>
+		<div><b>Supporter</b>: {$user?.supporter}</div>
+	</div>
 {/if}
+
+<style>
+	.user__wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+	.user__id {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+
+		.user__id--img {
+			border-radius: 0.5rem;
+		}
+	}
+</style>

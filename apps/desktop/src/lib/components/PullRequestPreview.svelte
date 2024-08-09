@@ -3,9 +3,7 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { RemotesService } from '$lib/remotes/service';
-	import Button from '$lib/shared/Button.svelte';
 	import Link from '$lib/shared/Link.svelte';
-	import Modal from '$lib/shared/Modal.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { getMarkdownRenderer } from '$lib/utils/markdown';
@@ -13,6 +11,8 @@
 	import { remoteUrlIsHttp } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 	import { marked } from 'marked';
 	import { get } from 'svelte/store';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
@@ -89,10 +89,8 @@
 	</p>
 	<TextBox label="Choose a remote name" bind:value={remoteName}></TextBox>
 	{#snippet controls(close)}
-		<Button style="ghost" outline on:click={() => closeModal(close)}>Cancel</Button>
-		<Button style="pop" kind="solid" grow on:click={createRemoteAndBranch} {loading}>
-			Confirm
-		</Button>
+		<Button style="ghost" outline onclick={() => closeModal(close)}>Cancel</Button>
+		<Button style="pop" kind="solid" grow onclick={createRemoteAndBranch} {loading}>Confirm</Button>
 	{/snippet}
 </Modal>
 
@@ -141,7 +139,7 @@
 				style="pop"
 				kind="solid"
 				help="Does not create a commit. Can be toggled."
-				on:click={async () => createRemoteModal?.show()}>Apply from fork</Button
+				onclick={async () => createRemoteModal?.show()}>Apply from fork</Button
 			>
 		</div>
 	</div>

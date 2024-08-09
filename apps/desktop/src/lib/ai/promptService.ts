@@ -68,8 +68,8 @@ export class PromptService {
 			const [index, promptMessage] = indexPromptMessage;
 
 			if (
-				promptMessage.role !== prompt2[index].role ||
-				promptMessage.content !== prompt2[index].content
+				promptMessage.role !== prompt2[index]?.role ||
+				promptMessage.content !== prompt2[index]?.content
 			) {
 				return false;
 			}

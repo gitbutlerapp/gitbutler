@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { type SelectItem } from './Select.svelte';
-	import Icon from '$lib/shared/Icon.svelte';
+	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 
 	interface Props {
 		placeholder?: string;

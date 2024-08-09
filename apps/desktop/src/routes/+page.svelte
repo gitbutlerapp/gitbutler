@@ -17,7 +17,7 @@
 		if (debug || !projects) return null;
 		const projectId = projects.find((p) => p.id === persistedId)?.id;
 		if (projectId) return projectId;
-		if (projects.length > 0) return projects[0].id;
+		if (projects.length > 0) return projects[0]?.id;
 		return null;
 	});
 

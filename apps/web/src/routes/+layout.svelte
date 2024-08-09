@@ -1,52 +1,38 @@
 <script lang="ts">
-	import '../app.css';
-	import { onMount } from 'svelte';
+	import '$lib/styles/global.css';
+	import { AuthService } from '$lib/auth/authService';
+	import Navigation from '$lib/components/Navigation.svelte';
+	import { UserService } from '$lib/user/userService';
+	import { setContext, type Snippet } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { env } from '$env/dynamic/public';
 
-	// onMount, check for page params
-	let token: string | null = null;
-	onMount(() => {
-		// if searchparams has token, save it to localstorage
+	interface Props {
+		children: Snippet;
+	}
+
+	const { children }: Props = $props();
+
+	setContext(AuthService, $page.data.authService);
+	setContext(UserService, $page.data.userService);
+
+	$effect(() => {
 		if ($page.url.searchParams.get('gb_access_token')) {
-			let token = $page.url.searchParams.get('gb_access_token');
+			const token = $page.url.searchParams.get('gb_access_token');
 			if (token && token.length > 0) {
-				localStorage.setItem('gb_access_token', token);
-				// redirect to remove search params
-				window.location.href = '/';
+				$page.data.authService.setToken(token);
+
+				$page.url.searchParams.delete('gb_access_token');
+				goto(`?${$page.url.searchParams.toString()}`);
 			}
 		}
-		if (localStorage.getItem('gb_access_token')) {
-			token = localStorage.getItem('gb_access_token');
-		}
 	});
-
-	function logout() {
-		localStorage.removeItem('gb_access_token');
-		token = null;
-		window.location.href = env.PUBLIC_APP_HOST + 'cloud/logout';
-	}
 </script>
 
 <div class="app">
-	<header>
-		<h2>GitButler</h2>
-		<div>
-			<a href="/user">User</a>
-			|
-			<a href="/downloads">Downloads</a>
-		</div>
-		<div class="login">
-			{#if token}
-				<p><button on:click={logout}>Log Out</button></p>
-			{:else}
-				<p><a href={`${env.PUBLIC_APP_HOST}cloud/login`}>Log In</a></p>
-			{/if}
-		</div>
-	</header>
-
+	<Navigation />
 	<main>
-		<slot />
+		{@render children()}
 	</main>
 
 	<footer>
@@ -69,7 +55,6 @@
 		width: 100%;
 		max-width: 64rem;
 		margin: 0 auto;
-		box-sizing: border-box;
 	}
 
 	footer {
@@ -84,13 +69,5 @@
 		footer {
 			padding: 12px 0;
 		}
-	}
-
-	header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: 1px 12px;
-		border-bottom: 1px solid #ccc;
 	}
 </style>

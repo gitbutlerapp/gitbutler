@@ -4,6 +4,7 @@
 	import ProjectSettingsMenuAction from '$lib/barmenuActions/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import { BranchService, createBranchServiceStore } from '$lib/branches/service';
@@ -67,6 +68,7 @@
 		setContext(CommitDragActionsFactory, data.commitDragActionsFactory);
 		setContext(ReorderDropzoneManagerFactory, data.reorderDropzoneManagerFactory);
 		setContext(RemoteBranchService, data.remoteBranchService);
+		setContext(BranchListingService, data.branchListingService);
 	});
 
 	let intervalId: any;

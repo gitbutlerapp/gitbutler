@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
 	import { createKeybind } from '$lib/utils/hotkeys';
-	import { portal } from '$lib/utils/portal';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import { portal } from '@gitbutler/ui/utils/portal';
 	import { type Snippet } from 'svelte';
 
 	interface Props {
@@ -189,7 +189,7 @@
 		background: var(--clr-bg-2);
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
-		box-shadow: var(--fx-shadow-s);
+		box-shadow: var(--shadow-s);
 
 		animation: fadeIn 0.08s ease-out forwards;
 	}
