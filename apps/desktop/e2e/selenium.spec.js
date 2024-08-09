@@ -1,8 +1,8 @@
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { Builder, By, Capabilities } from 'selenium-webdriver';
-import { expect } from 'chai'
+import { Builder, By, until, Capabilities } from 'selenium-webdriver';
+import { expect } from 'chai';
 
 // See: https://tauri.app/v1/guides/testing/webdriver/example/selenium/
 
@@ -40,11 +40,24 @@ after(async function () {
 
 console.log('\nSTARTING TEST');
 
-describe('GitButler', () => {
-	it('should have body', async () => {
-		const text = await driver.findElement(By.css('body.text-base'))
-		expect(text).to.exist
+describe('GitButler', function () {
+	it('should have body', async function () {
+		const text = await driver.findElement(By.css('body.text-base'));
+		expect(text).to.exist;
 	});
 });
 
-console.log('\nFINISHING TEST');
+describe('On-Boarding', function () {
+	this.timeout(20000);
+	it('should add a local project', async function () {
+		// await driver.manage().setTimeouts({ explicit: 20000, implicit: 20000 });
+		await driver.sleep(2000);
+
+		const telemetryAgreementShown = await driver.findElement(By.css('h1'));
+		await driver.wait(until.elementIsVisible(telemetryAgreementShown), 10000);
+
+		const acceptTelemetryBtn = await driver.findElement(By.css('button'));
+		// By.css('button[data-testid="analytics-continue"]')
+		await acceptTelemetryBtn.click();
+	});
+});
