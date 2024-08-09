@@ -4,28 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-catalogs:
-  default:
-    vite:
-      specifier: 5.2.13
-      version: 5.2.13
-  svelte:
-    '@sveltejs/adapter-static':
-      specifier: 3.0.2
-      version: 3.0.2
-    '@sveltejs/kit':
-      specifier: 2.5.18
-      version: 2.5.18
-    '@sveltejs/vite-plugin-svelte':
-      specifier: 3.1.1
-      version: 3.1.1
-    svelte:
-      specifier: 5.0.0-next.196
-      version: 5.0.0-next.196
-    svelte-check:
-      specifier: 3.8.4
-      version: 3.8.4
-
 importers:
 
   .:
@@ -277,6 +255,15 @@ importers:
       '@sentry/sveltekit':
         specifier: ^8.9.2
         version: 8.9.2(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.52.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.25.0)(@sveltejs/kit@2.5.18(@sveltejs/vite-plugin-svelte@3.1.1(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(svelte@5.0.0-next.196)(vite@5.2.13(@types/node@20.14.13)))(svelte@5.0.0-next.196)
+      highlight.js:
+        specifier: ^11.10.0
+        version: 11.10.0
+      marked:
+        specifier: ^10.0.0
+        version: 10.0.0
+      moment:
+        specifier: ^2.30.1
+        version: 2.30.1
     devDependencies:
       '@fontsource/fira-mono':
         specifier: ^4.5.10
@@ -4041,6 +4028,13 @@ packages:
     resolution: {integrity: sha512-puUZAUKT5m8Zzvs72XWy3HtvVbTWljRE66cP60bxJzAqf2DgICo7lYTY2IHUmLnNpjYvw5bvmoHvPc0QO2a62w==}
     engines: {node: ^16.14.0 || >=18.0.0}
 
+  highlight.js@11.10.0:
+    resolution: {integrity: sha512-SYVnVFswQER+zu1laSya563s+F8VDGt7o35d4utbamowvUNLLMovFqwCLSocpZTz3MgaSRA1IbqRWZv97dtErQ==}
+    engines: {node: '>=12.0.0'}
+
+  hosted-git-info@2.8.9:
+    resolution: {integrity: sha512-mxIDAb9Lsm6DoOJ7xH+5+X4y1LU/4Hi50L9C5sIswK3JzULS4bwk1FvjdBgvYR4bzT4tuUQiC15FE2f5HbLvYw==}
+
   htmlparser2-svelte@4.1.0:
     resolution: {integrity: sha512-+4f4RBFz7Rj2Hp0ZbFbXC+Kzbd6S9PgjiuFtdT76VMNgKogrEZy0pG2UrPycPbrZzVEIM5lAT3lAdkSTCHLPjg==}
 
@@ -4733,6 +4727,9 @@ packages:
 
   module-details-from-path@1.0.3:
     resolution: {integrity: sha512-ySViT69/76t8VhE1xXHK6Ch4NcDd26gx0MzKXLO+F7NOtnqH68d9zF94nT8ZWSxXh8ELOERsnJO/sWt1xZYw5A==}
+
+  moment@2.30.1:
+    resolution: {integrity: sha512-uEmtNhbDOrWPFS+hdjFCBfy9f2YoyzRpwcl+DqpC6taX21FzsTLQVbMV/W7PzNSX6x/bhC1zA3c2UQ5NzH6how==}
 
   mri@1.2.0:
     resolution: {integrity: sha512-tzzskb3bG8LvYGFF/mDTpq3jpI6Q9wc3LEmBaghu+DdCssd1FakN7Bc0hVNmEyGq1bq3RgfkCb3cmQLpNPOroA==}
@@ -6478,6 +6475,28 @@ packages:
   zip-stream@6.0.1:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
     engines: {node: '>= 14'}
+
+catalogs:
+  default:
+    vite:
+      specifier: 5.2.13
+      version: 5.2.13
+  svelte:
+    '@sveltejs/adapter-static':
+      specifier: 3.0.2
+      version: 3.0.2
+    '@sveltejs/kit':
+      specifier: 2.5.18
+      version: 2.5.18
+    '@sveltejs/vite-plugin-svelte':
+      specifier: 3.1.1
+      version: 3.1.1
+    svelte:
+      specifier: 5.0.0-next.196
+      version: 5.0.0-next.196
+    svelte-check:
+      specifier: 3.8.4
+      version: 3.8.4
 
 snapshots:
 
@@ -11209,6 +11228,9 @@ snapshots:
   hosted-git-info@7.0.2:
     dependencies:
       lru-cache: 10.2.2
+  highlight.js@11.10.0: {}
+
+  hosted-git-info@2.8.9: {}
 
   htmlparser2-svelte@4.1.0:
     dependencies:
@@ -11886,6 +11908,8 @@ snapshots:
       yargs-unparser: 2.0.0
 
   module-details-from-path@1.0.3: {}
+
+  moment@2.30.1: {}
 
   mri@1.2.0: {}
 

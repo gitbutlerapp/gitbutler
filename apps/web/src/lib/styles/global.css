@@ -52,11 +52,13 @@ a:hover {
 
 h1 {
 	font-size: 2rem;
-	text-align: center;
 }
 
 h2 {
-	font-size: 1rem;
+	font-size: 1.8rem;
+	margin: 0;
+	margin-bottom: 8px;
+	padding: 0;
 }
 
 pre {
