@@ -15,6 +15,7 @@ export const config: Options.WebdriverIO = {
 		{
 			// @ts-expect-error custom tauri capabilities
 			'tauri:options': {
+				maxInstances: 1,
 				application: '../../target/release/git-butler-dev'
 			}
 		}
@@ -43,8 +44,7 @@ export const config: Options.WebdriverIO = {
 	},
 
 	waitforTimeout: 10000,
-	connectionRetryTimeout: 10000,
-	connectionRetryCount: 3,
+	connectionRetryTimeout: 120000,
 
 	// ensure we are running `tauri-driver` before the session starts so that we can proxy the webdriver requests
 	beforeSession: () =>
