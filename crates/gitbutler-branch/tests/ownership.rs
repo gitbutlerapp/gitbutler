@@ -39,6 +39,7 @@ fn reconcile_ownership_simple() {
         in_workspace: true,
         not_in_workspace_wip_change_id: None,
         source_refname: None,
+        references: vec![],
     };
     let branch_b = Branch {
         name: "b".to_string(),
@@ -67,6 +68,7 @@ fn reconcile_ownership_simple() {
         in_workspace: true,
         not_in_workspace_wip_change_id: None,
         source_refname: None,
+        references: vec![],
     };
     let all_branches: Vec<Branch> = vec![branch_a.clone(), branch_b.clone()];
     let claim: Vec<OwnershipClaim> = vec![OwnershipClaim {

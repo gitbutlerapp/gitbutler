@@ -16,6 +16,8 @@ pub use ownership::{reconcile_claims, BranchOwnershipClaims, ClaimOutcome};
 pub mod serde;
 mod target;
 pub use target::Target;
+mod reference;
+pub use reference::BranchReference;
 
 mod state;
 use lazy_static::lazy_static;

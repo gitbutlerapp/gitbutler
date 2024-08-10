@@ -251,6 +251,7 @@ pub(crate) fn set_base_branch(
                 applied: true,
                 in_workspace: true,
                 not_in_workspace_wip_change_id: None,
+                references: vec![],
             };
 
             vb_state.set_branch(branch)?;
