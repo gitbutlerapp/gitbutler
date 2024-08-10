@@ -153,7 +153,7 @@
 
 	.drag-region {
 		flex-shrink: 0;
-		height: 20px;
+		height: 30px;
 	}
 	.navigation-top {
 		display: flex;
