@@ -414,8 +414,8 @@ pub struct VirtualBranchReference {
     pub in_workspace: bool,
 }
 
-/// Takes a list of branch names (the given name, as returned by `BranchListing`) and returns
-/// a list of enriched branch data in the form of `BranchData`.
+/// Takes a list of `branch_names` (the given name, as returned by `BranchListing`) and returns
+/// a list of enriched branch data.
 pub fn get_branch_listing_details(
     ctx: &CommandContext,
     branch_names: impl IntoIterator<Item = impl TryInto<BranchIdentity>>,
@@ -428,18 +428,17 @@ pub fn get_branch_listing_details(
     let repo = ctx.repository();
     let branches = list_branches(ctx, None, Some(branch_names))?;
 
-    let (default_target_upstream_commit_id, default_target_commit_id) = {
-        let default_target = ctx
+    let (default_target_upstream_commit_id, default_target_merge_base) = {
+        let target = ctx
             .project()
             .virtual_branches()
             .get_default_target()
             .context("failed to get default target")?;
-        let default_local_branch =
-            repo.find_branch(default_target.branch.branch(), git2::BranchType::Local)?;
-        let default_branch = default_local_branch.upstream()?;
+        let local_branch = repo.find_branch(target.branch.branch(), git2::BranchType::Local)?;
+        let local_tracking_branch = local_branch.upstream()?;
         (
-            default_branch.get().peel_to_commit()?.id(),
-            default_target.sha,
+            local_tracking_branch.get().peel_to_commit()?.id(),
+            target.sha,
         )
     };
 
@@ -447,7 +446,7 @@ pub fn get_branch_listing_details(
     for branch in branches {
         let other_branch_commit_id = if let Some(virtual_branch) = branch.virtual_branch {
             if virtual_branch.in_workspace {
-                default_target_commit_id
+                default_target_merge_base
             } else {
                 default_target_upstream_commit_id
             }

@@ -3,9 +3,16 @@ use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializ
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Target {
+    /// The combination of remote name and branch name, i.e. `origin` and `main`.
+    /// The remote name is the one used to fetch from.
     pub branch: RemoteRefname,
+    /// The URL of the remote behind the symbolic name.
     pub remote_url: String,
+    /// The merge-base between `branch` and the current worktree `HEAD`.
+    // TODO(ST): is it safe/correct to rename this to `merge_base_commit_id`?
+    //           It seems like it, but why was it named just `sha` in the first place?
     pub sha: git2::Oid,
+    /// The name of the remote to push to.
     pub push_remote_name: Option<String>,
 }
 
