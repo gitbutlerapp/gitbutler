@@ -3,27 +3,45 @@ mod refname;
 use anyhow::bail;
 use gitbutler_tagged_string::TaggedString;
 pub use refname::{LocalRefname, Refname, RemoteRefname, VirtualRefname};
-use regex::Regex;
 
+// TODO(ST): return `BString`, probably take BString, as branch names don't have to be valid UTF8
 pub fn normalize_branch_name(name: &str) -> anyhow::Result<String> {
-    // Remove specific symbols
-    let exclude_pattern = Regex::new(r"[|\+^~<>\\:*]").unwrap();
-    let mut result = exclude_pattern.replace_all(name, "-").to_string();
-
-    // Replace spaces with hyphens
-    let space_pattern = Regex::new(r"\s+").unwrap();
-    result = space_pattern.replace_all(&result, "-").to_string();
-
-    // Remove leading and trailing hyphens and slashes and dots
-    let trim_pattern = Regex::new(r"^[-/\.]+|[-/\.]+$").unwrap();
-    result = trim_pattern.replace_all(&result, "").to_string();
-
-    let refname = format!("refs/gitbutler/{result}");
-    if gix::validate::reference::name(refname.as_str().into()).is_err() {
-        bail!("Could not turn {result:?} into a valid reference name")
+    let mut sanitized = gix::validate::reference::name_partial_or_sanitize(name.into());
+    fn is_forbidden_in_trailer_or_leader(b: u8) -> bool {
+        b == b'-' || b == b'.' || b == b'/'
+    }
+    while let Some(last) = sanitized.last() {
+        if is_forbidden_in_trailer_or_leader(*last) {
+            sanitized.pop();
+        } else {
+            break;
+        }
+    }
+    while let Some(first) = sanitized.first() {
+        if is_forbidden_in_trailer_or_leader(*first) {
+            sanitized.remove(0);
+        } else {
+            break;
+        }
     }
 
-    Ok(result)
+    let mut previous_is_hyphen = false;
+    sanitized.retain(|b| {
+        if *b == b'-' {
+            if previous_is_hyphen {
+                return false;
+            }
+            previous_is_hyphen = true;
+        } else {
+            previous_is_hyphen = false;
+        }
+        true
+    });
+
+    if sanitized.is_empty() {
+        bail!("Could not turn {name:?} into a valid reference name")
+    }
+    Ok(sanitized.to_string())
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq, Hash)]
