@@ -1,6 +1,6 @@
 <script async lang="ts">
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
-	import { Project } from '$lib/backend/projects';
+	import { ProjectService, Project } from '$lib/backend/projects';
 	import BackButton from '$lib/components/BackButton.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import SetupFeature from '$lib/components/SetupFeature.svelte';
@@ -75,6 +75,16 @@
 	async function onSetTargetClick() {
 		if (!selectedBranch) return;
 		dispatch('branchSelected', [selectedBranch.name, selectedRemote.name]);
+	}
+
+	const projectService = getContext(ProjectService);
+	async function deleteProject() {
+		try {
+			await projectService.deleteProject(project.id);
+			await projectService.reload();
+		} catch (err: any) {
+			console.error(err);
+		}
 	}
 </script>
 
@@ -248,7 +258,7 @@
 		</SetupFeature>
 	</div>
 	<div class="action-buttons">
-		<BackButton>Cancel</BackButton>
+		<BackButton beforeOnMouseDown={deleteProject}>Cancel</BackButton>
 		<Button
 			style="pop"
 			kind="solid"
