@@ -38,7 +38,7 @@
 <style lang="postcss">
 	.wrapper {
 		position: relative;
-		margin-top: 14px;
+		margin-top: 4px;
 		margin-bottom: 16px;
 		height: fit-content;
 
