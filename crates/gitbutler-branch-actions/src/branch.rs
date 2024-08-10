@@ -425,58 +425,65 @@ pub fn get_branch_listing_details(
         .filter_map(Result::ok)
         .collect();
     let repo = ctx.repository();
-    let branches = list_branches(ctx, None, Some(branch_names.clone()))?;
-    let default_target = ctx
-        .project()
-        .virtual_branches()
-        .get_default_target()
-        .context("failed to get default target")?;
+    let branches = list_branches(ctx, None, Some(branch_names))?;
+
+    let (default_target_upstream_commit_id, default_target_commit_id) = {
+        let default_target = ctx
+            .project()
+            .virtual_branches()
+            .get_default_target()
+            .context("failed to get default target")?;
+        let default_local_branch =
+            repo.find_branch(default_target.branch.branch(), git2::BranchType::Local)?;
+        let default_branch = default_local_branch.upstream()?;
+        (
+            default_branch.get().peel_to_commit()?.id(),
+            default_target.sha,
+        )
+    };
+
     let mut enriched_branches = Vec::new();
-
-    let default_local_branch =
-        repo.find_branch(default_target.branch.branch(), git2::BranchType::Local)?;
-    let default_branch = default_local_branch.upstream()?;
-    let head_commit = default_branch.get().peel_to_commit()?;
-
     for branch in branches {
-        let merge_base_comparison = if let Some(virtual_branch) = branch.virtual_branch {
+        let other_branch_commit_id = if let Some(virtual_branch) = branch.virtual_branch {
             if virtual_branch.in_workspace {
-                default_target.sha
+                default_target_commit_id
             } else {
-                head_commit.id()
+                default_target_upstream_commit_id
             }
         } else {
-            head_commit.id()
+            default_target_upstream_commit_id
         };
-        if let Ok(base) = repo.merge_base(merge_base_comparison, branch.head) {
-            let base_tree = repo.find_commit(base)?.tree()?;
-            let head_tree = repo.find_commit(branch.head)?.tree()?;
-            let diff_stats = repo
-                .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), None)?
-                .stats()?;
+        let Ok(base) = repo.merge_base(other_branch_commit_id, branch.head) else {
+            continue;
+        };
 
-            let head = branch.head;
+        let base_tree = repo.find_commit(base)?.tree()?;
+        let head_tree = repo.find_commit(branch.head)?.tree()?;
+        let diff_stats = repo
+            .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), None)?
+            .stats()?;
 
-            let mut revwalk = repo.revwalk()?;
-            revwalk.push(head)?;
-            revwalk.hide(base)?;
-            let mut commits = Vec::new();
-            let mut authors = HashSet::new();
-            for oid in revwalk {
-                let commit = repo.find_commit(oid?)?;
-                authors.insert(commit.author().into());
-                commits.push(commit);
-            }
-            let branch_data = BranchListingDetails {
-                name: branch.name,
-                lines_added: diff_stats.insertions(),
-                lines_removed: diff_stats.deletions(),
-                number_of_files: diff_stats.files_changed(),
-                authors: authors.into_iter().collect(),
-                number_of_commits: commits.len(),
-            };
-            enriched_branches.push(branch_data);
+        let head = branch.head;
+
+        let mut revwalk = repo.revwalk()?;
+        revwalk.push(head)?;
+        revwalk.hide(base)?;
+        let mut commits = Vec::new();
+        let mut authors = HashSet::new();
+        for oid in revwalk {
+            let commit = repo.find_commit(oid?)?;
+            authors.insert(commit.author().into());
+            commits.push(commit);
         }
+        let branch_data = BranchListingDetails {
+            name: branch.name,
+            lines_added: diff_stats.insertions(),
+            lines_removed: diff_stats.deletions(),
+            number_of_files: diff_stats.files_changed(),
+            authors: authors.into_iter().collect(),
+            number_of_commits: commits.len(),
+        };
+        enriched_branches.push(branch_data);
     }
     Ok(enriched_branches)
 }
