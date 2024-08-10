@@ -9,6 +9,7 @@
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import * as Sentry from '@sentry/sveltekit';
 	import { open } from '@tauri-apps/api/dialog';
 	import { documentDir } from '@tauri-apps/api/path';
 	import { join } from '@tauri-apps/api/path';
@@ -87,6 +88,8 @@
 			posthog.capture('Repository Cloned', { protocol: remoteUrl.protocol });
 			await projectService.addProject(targetDir);
 		} catch (e) {
+			Sentry.captureException(e);
+			posthog.capture('Repository Clone Failure', { error: String(e) });
 			errors.push({
 				label: String(e)
 			});
@@ -150,7 +153,15 @@
 	</Button>
 </div>
 
-{#snippet Notification({ title, items, style }: { title: string, items?: any[], style: MessageStyle})}
+{#snippet Notification({
+	title,
+	items,
+	style
+}: {
+	title: string;
+	items?: any[];
+	style: MessageStyle;
+})}
 	<div class="clone__info-message">
 		<InfoMessage {style} filled outlined={false}>
 			<svelte:fragment slot="title">
