@@ -11,7 +11,7 @@
 <Button
 	style="ghost"
 	outline
-	on:mousedown={() => {
+	onmousedown={() => {
 		beforeOnMouseDown().then(
 			() => {
 				if (history.length > 0) {
