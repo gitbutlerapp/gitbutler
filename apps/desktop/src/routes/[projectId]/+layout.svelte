@@ -88,7 +88,8 @@
 	$effect.pre(() => {
 		const combinedBranchListingService = new CombinedBranchListingService(
 			data.branchListingService,
-			listServiceStore
+			listServiceStore,
+			projectId
 		);
 
 		setContext(CombinedBranchListingService, combinedBranchListingService);

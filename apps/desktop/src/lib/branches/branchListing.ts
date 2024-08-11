@@ -8,7 +8,7 @@ import {
 	getEntryWorkspaceStatus,
 	type SidebarEntrySubject
 } from '$lib/navigation/types';
-import { persisted } from '$lib/persisted/persisted';
+import { persisted, type Persisted } from '$lib/persisted/persisted';
 import { debouncedDerive } from '$lib/utils/debounce';
 import { Transform, Type, plainToInstance } from 'class-transformer';
 import Fuse from 'fuse.js';
@@ -98,7 +98,7 @@ export type GroupedSidebarEntries = Record<
 
 export class CombinedBranchListingService {
 	private pullRequests: Readable<PullRequest[]>;
-	selectedOption = persisted<'all' | 'pullRequest' | 'local'>('all', 'branches-selectedOption');
+	selectedOption: Persisted<'all' | 'pullRequest' | 'local'>;
 
 	combinedSidebarEntries: Readable<SidebarEntrySubject[]>;
 	groupedSidebarEntries: Readable<GroupedSidebarEntries>;
@@ -106,8 +106,13 @@ export class CombinedBranchListingService {
 
 	constructor(
 		branchListingService: BranchListingService,
-		gitHostListingService: Readable<GitHostListingService | undefined>
+		gitHostListingService: Readable<GitHostListingService | undefined>,
+		projectId: string
 	) {
+		this.selectedOption = persisted<'all' | 'pullRequest' | 'local'>(
+			'all',
+			`branches-selectedOption-${projectId}`
+		);
 		this.pullRequests = readable([] as PullRequest[], (set) => {
 			const unsubscribeListingService = gitHostListingService.subscribe((gitHostListingService) => {
 				if (!gitHostListingService) return;
