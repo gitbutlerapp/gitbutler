@@ -21,7 +21,7 @@ serde = { workspace = true, features = ["std"] }
 bstr.workspace = true
 md5 = "0.7.0"
 hex = "0.4.3"
-tracing = "0.1.40"
+tracing.workspace = true
 lazy_static = "1.4.0"
 
 [[test]]

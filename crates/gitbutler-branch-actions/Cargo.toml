@@ -6,7 +6,7 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [dependencies]
-tracing = "0.1.40"
+tracing.workspace = true
 anyhow = "1.0.86"
 git2.workspace = true
 gix.workspace = true

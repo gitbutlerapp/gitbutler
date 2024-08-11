@@ -11,6 +11,11 @@ fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
     gitbutler_project::configure_git2();
 
+    if args.trace {
+        trace::init()?;
+    }
+    let _op_span = tracing::info_span!("cli-op").entered();
+
     match args.cmd {
         args::Subcommands::Branch(vbranch::Platform { cmd }) => {
             let project = command::prepare::project_from_path(args.current_dir)?;
@@ -63,5 +68,19 @@ fn main() -> Result<()> {
                 None => command::snapshot::list(project),
             }
         }
+    }
+}
+
+mod trace {
+    use tracing_subscriber::layer::SubscriberExt;
+    use tracing_subscriber::util::SubscriberInitExt;
+
+    pub fn init() -> anyhow::Result<()> {
+        tracing_subscriber::registry()
+            .with(tracing_forest::ForestLayer::from(
+                tracing_forest::printer::PrettyPrinter::new().writer(std::io::stderr),
+            ))
+            .init();
+        Ok(())
     }
 }

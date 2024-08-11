@@ -44,9 +44,9 @@ log = "^0.4"
 thiserror.workspace = true
 # The features here optimize for performance.
 tokio = { workspace = true, features = ["rt-multi-thread", "parking_lot"] }
-tracing = "0.1.40"
+tracing.workspace = true
 tracing-appender = "0.2.3"
-tracing-subscriber = "0.3.17"
+tracing-subscriber.workspace = true
 gitbutler-watcher.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-oplog.workspace = true

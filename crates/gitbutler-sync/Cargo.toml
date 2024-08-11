@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 anyhow = "1.0.86"
-tracing = "0.1.40"
+tracing.workspace = true
 itertools = "0.13"
 git2.workspace = true
 gitbutler-oplog.workspace = true
