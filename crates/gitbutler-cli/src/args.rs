@@ -69,6 +69,8 @@ pub mod vbranch {
             /// The short-name/identity of branches to list.
             names: Vec<BranchIdentity>,
         },
+        /// List all branches that can be relevant.
+        ListAll,
     }
 }
 

@@ -2,11 +2,16 @@ use anyhow::{bail, Result};
 use gitbutler_branch::{
     Branch, BranchCreateRequest, BranchIdentity, BranchUpdateRequest, VirtualBranchesHandle,
 };
-use gitbutler_branch_actions::{get_branch_listing_details, VirtualBranchActions};
+use gitbutler_branch_actions::{get_branch_listing_details, list_branches, VirtualBranchActions};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
 use crate::command::debug_print;
+
+pub fn list_all(project: Project) -> Result<()> {
+    let ctx = CommandContext::open(&project)?;
+    debug_print(list_branches(&ctx, None, None)?)
+}
 
 pub fn details(project: Project, branch_names: Vec<BranchIdentity>) -> Result<()> {
     let ctx = CommandContext::open(&project)?;

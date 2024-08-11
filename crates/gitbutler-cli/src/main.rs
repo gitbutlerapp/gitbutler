@@ -35,6 +35,7 @@ fn main() -> Result<()> {
                 Some(vbranch::SubCommands::Details { names }) => {
                     command::vbranch::details(project, names)
                 }
+                Some(vbranch::SubCommands::ListAll) => command::vbranch::list_all(project),
                 None => command::vbranch::list(project),
             }
         }
