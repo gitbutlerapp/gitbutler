@@ -71,6 +71,8 @@ pub mod vbranch {
         },
         /// List all branches that can be relevant.
         ListAll,
+        /// After fetching the target (i.e. local tracking branch), recompute our workspace against it.
+        UpdateTarget,
     }
 }
 

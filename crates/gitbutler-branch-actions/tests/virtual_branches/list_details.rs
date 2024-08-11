@@ -52,12 +52,13 @@ fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
         list[0],
         BranchListingDetails {
             name: "feature".into(),
-            lines_added: 100 + 5,
+            lines_added: 100,
             lines_removed: 0,
             number_of_files: 1,
-            number_of_commits: 100 + 5, /* local tracking branch is merge base */
+            number_of_commits: 100,
             authors: vec![default_author()],
-        }
+        },
+        "local branches use the *current* local tracking branch…"
     );
     assert_eq!(
         list[1],
@@ -66,21 +67,24 @@ fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
             lines_added: 15,
             lines_removed: 0,
             number_of_files: 1,
-            // TODO(ST): why is it also going against the local tracking branch instead of the local `main`?
             number_of_commits: 10 + 5,
             authors: vec![default_author()],
-        }
+        },
+        "…while virtual branches use the 'target' stored when the workspace was last updated.\
+        That way the 'update' of the workspace performs the calculation to put it back on top of \
+        the local tracking branch."
     );
     assert_eq!(
         list[2],
         BranchListingDetails {
             name: "non-virtual-feature".into(),
-            lines_added: 55,
+            lines_added: 50,
             lines_removed: 0,
             number_of_files: 1,
-            number_of_commits: 50 + 5,
+            number_of_commits: 50,
             authors: vec![default_author()],
-        }
+        },
+        "This is a non-virtual brnach, so it sees the local tracking branch as well"
     );
     Ok(())
 }

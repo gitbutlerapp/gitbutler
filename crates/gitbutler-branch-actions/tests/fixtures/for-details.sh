@@ -49,4 +49,7 @@ git clone remote complex-repo
     echo non-virtual-feature >> file
     git commit -am "non-virtual-feat-$round"
   done
+
+  # pretend the remote is at the same state as our local `main`
+  git update-ref refs/remotes/origin/main main
 )

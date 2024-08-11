@@ -428,7 +428,7 @@ pub fn get_branch_listing_details(
     let repo = ctx.repository();
     let branches = list_branches(ctx, None, Some(branch_names))?;
 
-    let (default_target_upstream_commit_id, default_target_merge_base) = {
+    let (default_target_current_upstream_commit_id, default_target_seen_at_last_update) = {
         let target = ctx
             .project()
             .virtual_branches()
@@ -446,12 +446,12 @@ pub fn get_branch_listing_details(
     for branch in branches {
         let other_branch_commit_id = if let Some(virtual_branch) = branch.virtual_branch {
             if virtual_branch.in_workspace {
-                default_target_merge_base
+                default_target_seen_at_last_update
             } else {
-                default_target_upstream_commit_id
+                default_target_current_upstream_commit_id
             }
         } else {
-            default_target_upstream_commit_id
+            default_target_current_upstream_commit_id
         };
         let Ok(base) = repo.merge_base(other_branch_commit_id, branch.head) else {
             continue;

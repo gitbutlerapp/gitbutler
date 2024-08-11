@@ -8,6 +8,11 @@ use gitbutler_project::Project;
 
 use crate::command::debug_print;
 
+pub fn update_target(project: Project) -> Result<()> {
+    let unapplied = VirtualBranchActions.update_base_branch(&project)?;
+    debug_print(unapplied)
+}
+
 pub fn list_all(project: Project) -> Result<()> {
     let ctx = CommandContext::open(&project)?;
     debug_print(list_branches(&ctx, None, None)?)
