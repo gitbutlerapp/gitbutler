@@ -71,9 +71,11 @@
 		}
 	});
 
-	const selectedFilterIndex = $derived(
-		Object.keys(filterOptions).findIndex((item) => $selectedOption === item)
-	);
+	const selectedFilterIndex = $derived.by(() => {
+		const index = Object.keys(filterOptions).findIndex((item) => $selectedOption === item);
+		if (index === -1) return 0;
+		return index;
+	});
 
 	function setFilter(id: string) {
 		if (Object.keys(filterOptions).includes(id)) {
