@@ -2141,6 +2141,7 @@ dependencies = [
  "dirs-next",
  "gitbutler-branch",
  "gitbutler-branch-actions",
+ "gitbutler-command-context",
  "gitbutler-diff",
  "gitbutler-oplog",
  "gitbutler-project",

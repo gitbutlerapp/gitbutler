@@ -25,6 +25,8 @@ pub enum Subcommands {
 }
 
 pub mod vbranch {
+    use gitbutler_branch::BranchIdentity;
+
     #[derive(Debug, clap::Parser)]
     pub struct Platform {
         #[clap(subcommand)]
@@ -58,6 +60,11 @@ pub mod vbranch {
             set_default: bool,
             /// The name of the virtual branch to create
             name: String,
+        },
+        /// Provide details about given branches.
+        Details {
+            /// The short-name/identity of branches to list.
+            names: Vec<BranchIdentity>,
         },
     }
 }

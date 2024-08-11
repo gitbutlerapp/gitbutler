@@ -60,11 +60,12 @@ pub fn list_branches(
         });
     }
 
-    let virtual_branches = vb_handle.list_all_branches()?;
-
-    for branch in virtual_branches {
-        branches.push(GroupBranch::Virtual(branch));
-    }
+    branches.extend(
+        vb_handle
+            .list_all_branches()?
+            .into_iter()
+            .map(GroupBranch::Virtual),
+    );
     let mut branches = combine_branches(branches, &repo, vb_handle.get_default_target()?)?;
 
     // Apply the filter

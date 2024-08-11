@@ -27,6 +27,9 @@ fn main() -> Result<()> {
                 Some(vbranch::SubCommands::Create { set_default, name }) => {
                     command::vbranch::create(project, name, set_default)
                 }
+                Some(vbranch::SubCommands::Details { names }) => {
+                    command::vbranch::details(project, names)
+                }
                 None => command::vbranch::list(project),
             }
         }
