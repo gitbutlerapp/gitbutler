@@ -4,7 +4,7 @@
 	import ProjectSettingsMenuAction from '$lib/barmenuActions/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { BranchListingService } from '$lib/branches/branchListing';
+	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import { BranchService, createBranchServiceStore } from '$lib/branches/service';
@@ -84,6 +84,15 @@
 	const listServiceStore = createGitHostListingServiceStore(undefined);
 	const gitHostStore = createGitHostStore(undefined);
 	const branchServiceStore = createBranchServiceStore(undefined);
+
+	$effect.pre(() => {
+		const combinedBranchListingService = new CombinedBranchListingService(
+			data.branchListingService,
+			listServiceStore
+		);
+
+		setContext(CombinedBranchListingService, combinedBranchListingService);
+	});
 
 	// Refresh base branch if git fetch event is detected.
 	const head = $derived(headService.head);

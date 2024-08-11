@@ -1,167 +1,27 @@
 <script lang="ts">
 	import GroupHeader from './GroupHeader.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
-	import { BranchListingService } from '$lib/branches/branchListing';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { CombinedBranchListingService } from '$lib/branches/branchListing';
 	import BranchListingSidebarEntry from '$lib/navigation/BranchListingSidebarEntry.svelte';
+	import ChunkyList from '$lib/navigation/ChunkyList.svelte';
 	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
-	import {
-		getEntryName,
-		getEntryUpdatedDate,
-		getEntryWorkspaceStatus,
-		type SidebarEntrySubject
-	} from '$lib/navigation/types';
-	import { persisted } from '$lib/persisted/persisted';
+	import { type SidebarEntrySubject } from '$lib/navigation/types';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import Segment from '@gitbutler/ui/SegmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/SegmentControl/SegmentControl.svelte';
 	import Icon from '@gitbutler/ui/icon/Icon.svelte';
 	import Badge from '@gitbutler/ui/shared/Badge.svelte';
-	import Fuse from 'fuse.js';
-	import type { PullRequest } from '$lib/gitHost/interface/types';
+	import { writable } from 'svelte/store';
 
-	const gitHostListingService = getGitHostListingService();
-	const pullRequestsStore = $derived($gitHostListingService?.prs);
-	const pullRequests = $derived($pullRequestsStore || []);
-
-	const branchListingService = getContext(BranchListingService);
-	const branchListings = branchListingService.branchListings;
-
-	let sidebarEntries = $state<SidebarEntrySubject[]>([]);
-
-	$effect(() => {
-		const branchListingNames = new Set<string>(
-			$branchListings.map((branchListing) => branchListing.name)
-		);
-
-		let output: SidebarEntrySubject[] = [];
-
-		output.push(
-			...pullRequests
-				.filter((pullRequest) => !branchListingNames.has(pullRequest.sourceBranch))
-				.map((pullRequest): SidebarEntrySubject => ({ type: 'pullRequest', subject: pullRequest }))
-		);
-
-		output.push(
-			...$branchListings.map(
-				(branchListing): SidebarEntrySubject => ({ type: 'branchListing', subject: branchListing })
-			)
-		);
-
-		output.sort((a, b) => {
-			const timeDifference = getEntryUpdatedDate(b).getTime() - getEntryUpdatedDate(a).getTime();
-			if (timeDifference !== 0) {
-				return timeDifference;
-			}
-
-			return getEntryName(a).localeCompare(getEntryName(b));
-		});
-
-		sidebarEntries = output;
-	});
-
-	const oneDay = 1000 * 60 * 60 * 24;
-
-	function groupBranches(branches: SidebarEntrySubject[]) {
-		const grouped: Record<
-			'applied' | 'today' | 'yesterday' | 'lastWeek' | 'older',
-			SidebarEntrySubject[]
-		> = {
-			applied: [],
-			today: [],
-			yesterday: [],
-			lastWeek: [],
-			older: []
-		};
-
-		const now = Date.now();
-
-		branches.forEach((b) => {
-			if (!getEntryUpdatedDate(b)) {
-				grouped.older.push(b);
-				return;
-			}
-
-			const msSinceLastCommit = now - getEntryUpdatedDate(b).getTime();
-
-			if (getEntryWorkspaceStatus(b)) {
-				grouped.applied.push(b);
-			} else if (msSinceLastCommit < oneDay) {
-				grouped.today.push(b);
-			} else if (msSinceLastCommit < 2 * oneDay) {
-				grouped.yesterday.push(b);
-			} else if (msSinceLastCommit < 7 * oneDay) {
-				grouped.lastWeek.push(b);
-			} else {
-				grouped.older.push(b);
-			}
-		});
-
-		return grouped;
-	}
+	const combinedBranchListingService = getContext(CombinedBranchListingService);
 
 	let viewport = $state<HTMLDivElement>();
 	let contents = $state<HTMLDivElement>();
 
-	const selectedOption = persisted<string>('all', 'branches-selectedOption');
-	const selectedIndex = $derived(
-		['all', 'pullRequest', 'local'].findIndex((option) => $selectedOption === option)
-	);
-
-	function setFilter(option: string) {
-		$selectedOption = option;
-	}
-
-	function filterSidebarEntries(
-		pullRequests: PullRequest[],
-		selectedOption: string,
-		sidebarEntries: SidebarEntrySubject[]
-	): SidebarEntrySubject[] {
-		switch (selectedOption) {
-			case 'pullRequest': {
-				return sidebarEntries.filter(
-					(sidebarEntry) =>
-						sidebarEntry.type === 'pullRequest' ||
-						pullRequests.some(
-							(pullRequest) => pullRequest.sourceBranch === sidebarEntry.subject.name
-						)
-				);
-			}
-			case 'local': {
-				return sidebarEntries.filter(
-					(sidebarEntry) =>
-						sidebarEntry.type === 'branchListing' &&
-						(sidebarEntry.subject.hasLocal || sidebarEntry.subject.virtualBranch)
-				);
-			}
-			default: {
-				return sidebarEntries;
-			}
-		}
-	}
-
-	function search(searchTerm: string, sidebarEntries: SidebarEntrySubject[]) {
-		const fuse = new Fuse(sidebarEntries, {
-			keys: ['subject.name', 'subject.title']
-		});
-
-		return fuse.search(searchTerm).map((searchResult) => searchResult.item);
-	}
-
 	let searchEl: HTMLInputElement;
 	let searching = $state(false);
-	let searchTerm = $state<string>();
-
-	const searchedBranches = $derived.by(() => {
-		const filtered = filterSidebarEntries(pullRequests, $selectedOption, sidebarEntries);
-		if (searchTerm) {
-			return search(searchTerm, filtered);
-		} else {
-			return filtered;
-		}
-	});
-	const groupedBranches = $derived(groupBranches(searchedBranches));
+	let searchTerm = writable<string | undefined>();
 
 	function handleSearchKeyDown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
@@ -171,7 +31,7 @@
 
 	function closeSearch() {
 		searching = false;
-		searchTerm = undefined;
+		searchTerm.set(undefined);
 	}
 
 	function openSearch() {
@@ -189,22 +49,53 @@
 			openSearch();
 		}
 	}
+
+	const branchListings = combinedBranchListingService.combinedSidebarEntries;
+	const searchedBranches = combinedBranchListingService.search(searchTerm);
+	const groupedBranches = combinedBranchListingService.groupedSidebarEntries;
+	const selectedOption = combinedBranchListingService.selectedOption;
+	const pullRequestsListed = combinedBranchListingService.pullRequestsListed;
+
+	const filterOptions = $derived.by(() => {
+		if ($pullRequestsListed) {
+			return {
+				all: 'All',
+				pullRequest: 'PRs',
+				local: 'Local'
+			};
+		} else {
+			return {
+				all: 'All',
+				local: 'Local'
+			};
+		}
+	});
+
+	const selectedFilterIndex = $derived(
+		Object.keys(filterOptions).findIndex((item) => $selectedOption === item)
+	);
+
+	function setFilter(id: string) {
+		if (Object.keys(filterOptions).includes(id)) {
+			// Not a fan of this
+			$selectedOption = id as 'all' | 'pullRequest' | 'local';
+		}
+	}
 </script>
 
-{#snippet branchGroup(props: {
-	title: string,
-	children: SidebarEntrySubject[]
-})}
+{#snippet sidebarEntry(sidebarEntrySubject: SidebarEntrySubject)}
+	{#if sidebarEntrySubject.type === 'branchListing'}
+		<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
+	{:else}
+		<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
+	{/if}
+{/snippet}
+
+{#snippet branchGroup(props: { title: string; children: SidebarEntrySubject[] })}
 	{#if props.children.length > 0}
 		<div class="group">
 			<GroupHeader title={props.title} />
-			{#each props.children as sidebarEntrySubject}
-				{#if sidebarEntrySubject.type === 'branchListing'}
-					<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
-				{:else}
-					<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
-				{/if}
-			{/each}
+			<ChunkyList items={props.children} item={sidebarEntry}></ChunkyList>
 		</div>
 	{/if}
 {/snippet}
@@ -215,9 +106,7 @@
 			<div class="branches-title" class:hide-branch-title={searching}>
 				<span class="text-base-14 text-bold">Branches</span>
 
-				{#if searchedBranches.length > 0}
-					<Badge count={searchedBranches.length} />
-				{/if}
+				<Badge count={$branchListings.length} />
 			</div>
 
 			<div class="search-container" class:show-search={searching}>
@@ -227,7 +116,7 @@
 
 				<input
 					bind:this={searchEl}
-					bind:value={searchTerm}
+					bind:value={$searchTerm}
 					class="search-input text-base-13"
 					type="text"
 					placeholder="Search branches"
@@ -236,20 +125,24 @@
 			</div>
 		</div>
 
-		<SegmentControl fullWidth defaultIndex={selectedIndex} onselect={setFilter}>
-			<Segment id="all">All</Segment>
-			<Segment id="pullRequest">PRs</Segment>
-			<Segment id="local">Local</Segment>
+		<SegmentControl fullWidth defaultIndex={selectedFilterIndex} onselect={setFilter}>
+			{#each Object.entries(filterOptions) as [segmentId, segmentCopy]}
+				<Segment id={segmentId}>{segmentCopy}</Segment>
+			{/each}
 		</SegmentControl>
 	</div>
 
 	{#if $branchListings.length > 0}
-		{#if searchedBranches.length > 0}
-			<ScrollableContainer bind:viewport bind:contents fillViewport={searchedBranches.length === 0}>
+		{#if $searchedBranches.length > 0 || $searchTerm === undefined}
+			<ScrollableContainer
+				bind:viewport
+				bind:contents
+				fillViewport={$searchedBranches.length === 0}
+			>
 				<div bind:this={contents} class="scroll-container">
-					{#if searchTerm}
+					{#if $searchTerm}
 						<div class="group">
-							{#each searchedBranches as sidebarEntrySubject}
+							{#each $searchedBranches as sidebarEntrySubject}
 								{#if sidebarEntrySubject.type === 'branchListing'}
 									<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
 								{:else}
@@ -258,11 +151,11 @@
 							{/each}
 						</div>
 					{:else}
-						{@render branchGroup({ title: 'Applied', children: groupedBranches.applied })}
-						{@render branchGroup({ title: 'Today', children: groupedBranches.today })}
-						{@render branchGroup({ title: 'Yesterday', children: groupedBranches.yesterday })}
-						{@render branchGroup({ title: 'Last week', children: groupedBranches.lastWeek })}
-						{@render branchGroup({ title: 'Older', children: groupedBranches.older })}
+						{@render branchGroup({ title: 'Applied', children: $groupedBranches.applied })}
+						{@render branchGroup({ title: 'Today', children: $groupedBranches.today })}
+						{@render branchGroup({ title: 'Yesterday', children: $groupedBranches.yesterday })}
+						{@render branchGroup({ title: 'Last week', children: $groupedBranches.lastWeek })}
+						{@render branchGroup({ title: 'Older', children: $groupedBranches.older })}
 					{/if}
 				</div>
 			</ScrollableContainer>

@@ -13,31 +13,36 @@
 
 	let lazyContainerEl: HTMLDivElement;
 
-	onMount(() => {
-		const containerChildren = lazyContainerEl.children;
+	const mutuationObserver = new MutationObserver(attachIntersectionObserver);
+	$effect(() => {
+		if (lazyContainerEl) {
+			mutuationObserver.disconnect();
+			mutuationObserver.observe(lazyContainerEl, { childList: true });
+		}
+	});
+	const intersectionObserver = new IntersectionObserver((entries) => {
+		entries.forEach((entry) => {
+			if (entry.isIntersecting) {
+				ontrigger(entry.target);
+				intersectionObserver.unobserve(entry.target);
+			}
+		});
+	});
 
+	function attachIntersectionObserver() {
+		// unattach all intersection observers
+		intersectionObserver.disconnect();
+
+		const containerChildren = lazyContainerEl.children;
 		if (containerChildren.length < minTriggerCount) return;
 
-		const iObserver = new IntersectionObserver((entries) => {
-			const lastChild = containerChildren[containerChildren.length - 1] as HTMLElement;
-			if (entries[0]?.target === lastChild && entries[0]?.isIntersecting) {
-				ontrigger(lastChild);
-			}
-		});
+		intersectionObserver.observe(containerChildren[containerChildren.length - 1] as HTMLElement);
+	}
 
-		const mObserver = new MutationObserver(() => {
-			const lastChild = containerChildren[containerChildren.length - 1];
-			if (lastChild) {
-				iObserver.observe(lastChild);
-			}
-		});
-
-		iObserver.observe(containerChildren[containerChildren.length - 1] as HTMLElement);
-		mObserver.observe(lazyContainerEl, { childList: true });
-
+	onMount(() => {
 		return () => {
-			iObserver.disconnect();
-			mObserver.disconnect();
+			intersectionObserver.disconnect();
+			mutuationObserver.disconnect();
 		};
 	});
 </script>
