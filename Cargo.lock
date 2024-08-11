@@ -2147,6 +2147,9 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gix",
+ "tracing",
+ "tracing-forest",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -3531,6 +3534,9 @@ checksum = "f924267408915fddcd558e3f37295cc7d6a3e50f8bd8b606cee0808c3915157e"
 name = "gix-trace"
 version = "0.1.9"
 source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+dependencies = [
+ "tracing-core",
+]
 
 [[package]]
 name = "gix-transport"
@@ -7786,6 +7792,18 @@ checksum = "c06d3da6113f116aaee68e4d601191614c9053067f9ab7f6edbcb161237daa54"
 dependencies = [
  "once_cell",
  "valuable",
+]
+
+[[package]]
+name = "tracing-forest"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee40835db14ddd1e3ba414292272eddde9dad04d3d4b65509656414d1c42592f"
+dependencies = [
+ "smallvec",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
