@@ -1,4 +1,3 @@
-import video from 'wdio-video-reporter';
 import { spawn, ChildProcess } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -20,16 +19,7 @@ export const config: Options.WebdriverIO = {
 			}
 		}
 	],
-	reporters: [
-		// [
-		// 	video,
-		// 	{
-		// 		saveAllVideos: true,
-		// 		outputDir: './e2e/videos/'
-		// 	}
-		// ],
-		'spec'
-	],
+	reporters: ['spec'],
 	framework: 'mocha',
 	mochaOpts: {
 		ui: 'bdd',
@@ -53,5 +43,7 @@ export const config: Options.WebdriverIO = {
 			stdio: [null, process.stdout, process.stderr]
 		})),
 
-	afterSession: () => tauriDriver.kill()
+	afterSession: () => {
+		tauriDriver.kill();
+	}
 };
