@@ -426,6 +426,8 @@ pub fn get_branch_listing_details(
         .filter_map(Result::ok)
         .collect();
     let repo = ctx.repository();
+    let mut repo2 = ctx.gix_repository_minimal()?;
+    repo2.object_cache_size_if_unset(4 * 1024);
     let branches = list_branches(ctx, None, Some(branch_names))?;
 
     let (default_target_current_upstream_commit_id, default_target_seen_at_last_update) = {
@@ -457,7 +459,8 @@ pub fn get_branch_listing_details(
             continue;
         };
 
-        let base_tree = repo.find_commit(base)?.tree()?;
+        let base_commit = repo.find_commit(base)?;
+        let base_tree = base_commit.tree()?;
         let head_tree = repo.find_commit(branch.head)?.tree()?;
         let diff_stats = repo
             .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), None)?
@@ -465,15 +468,27 @@ pub fn get_branch_listing_details(
 
         let head = branch.head;
 
-        let mut revwalk = repo.revwalk()?;
-        revwalk.push(head)?;
-        revwalk.hide(base)?;
-        let mut commits = Vec::new();
+        let gix_base = git2_to_gix_object_id(base);
+        // TODO: make this API nicer, maybe have one that is not based on `ancestors()` but
+        //       similar to revwalk because it's so common?
+        let revwalk = git2_to_gix_object_id(head)
+            .attach(&repo2)
+            .ancestors()
+            // When allowing to skip branches without a filter, make sure it automatically skips by date!
+            .sorting(
+                gix::traverse::commit::simple::Sorting::ByCommitTimeNewestFirstCutoffOlderThan {
+                    seconds: base_commit.time().seconds(),
+                },
+            )
+            .selected(|id| id != gix_base)?;
+        let mut num_commits = 0;
         let mut authors = HashSet::new();
-        for oid in revwalk {
-            let commit = repo.find_commit(oid?)?;
-            authors.insert(commit.author().into());
-            commits.push(commit);
+        for commit_info in revwalk {
+            let commit_info = commit_info?;
+            // TODO: offer direct `find_<kind>` methods.
+            let commit = repo2.find_object(commit_info.id)?.try_into_commit()?;
+            authors.insert(commit.author()?.into());
+            num_commits += 1;
         }
         let branch_data = BranchListingDetails {
             name: branch.name,
@@ -481,7 +496,7 @@ pub fn get_branch_listing_details(
             lines_removed: diff_stats.deletions(),
             number_of_files: diff_stats.files_changed(),
             authors: authors.into_iter().collect(),
-            number_of_commits: commits.len(),
+            number_of_commits: num_commits,
         };
         enriched_branches.push(branch_data);
     }

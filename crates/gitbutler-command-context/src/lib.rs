@@ -71,7 +71,8 @@ impl CommandContext {
         &self.git_repository
     }
 
-    /// Return a currently newly opened `gitoxide` repository.
+    /// Return a newly opened `gitoxide` repository, with all configuration available
+    /// to correctly figure out author and committer names (i.e. with most global configuration loaded).
     ///
     /// ### Note
     ///
@@ -83,5 +84,17 @@ impl CommandContext {
     /// there is no need to use this type there at all - opening a repo is very cheap still.
     pub fn gix_repository(&self) -> Result<gix::Repository> {
         Ok(gix::open(self.repository().path())?)
+    }
+
+    /// Return a newly opened `gitoxide` repository with only the repository-local configuration
+    /// available. This is a little faster as it has to open less files upon startup.
+    ///
+    /// Such repositories are only useful for reference and object-access, but *can't be used* to create
+    /// commits, fetch or push.
+    pub fn gix_repository_minimal(&self) -> Result<gix::Repository> {
+        Ok(gix::open_opts(
+            self.repository().path(),
+            gix::open::Options::isolated(),
+        )?)
     }
 }

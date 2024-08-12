@@ -10075,4 +10075,5 @@ git clone remote revwalk-repo
 
   # pretend the remote is at the same state as our local `main`
   git update-ref refs/remotes/origin/main main
+  git gc --aggressive
 )
