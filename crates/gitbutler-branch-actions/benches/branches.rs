@@ -102,6 +102,21 @@ pub fn benchmark_branch_details(c: &mut Criterion) {
             })
         });
     }
+
+    let mut group = c.benchmark_group("branch-details [revwalk]");
+    let project = fixture_project("revwalk-repo", "branch-details-benches.sh");
+    group.throughput(Throughput::Elements(100 + 15 + 50));
+    group.bench_function("count commits/collect authors", |b| {
+        b.iter(|| {
+            let ctx = CommandContext::open(&project).unwrap();
+            let details = get_branch_listing_details(
+                black_box(&ctx),
+                ["feature", "main", "non-virtual-feature"],
+            )
+            .unwrap();
+            assert_eq!(details.len(), 3);
+        })
+    });
 }
 
 criterion_group!(benches, benchmark_list_branches, benchmark_branch_details);
