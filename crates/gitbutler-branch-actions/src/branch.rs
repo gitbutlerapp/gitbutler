@@ -26,7 +26,7 @@ pub fn list_branches(
     filter: Option<BranchListingFilter>,
     filter_branch_names: Option<Vec<BranchIdentity>>,
 ) -> Result<Vec<BranchListing>> {
-    let mut repo = gix::open(ctx.repository().path())?;
+    let mut repo = ctx.gix_repository()?;
     repo.object_cache_size_if_unset(1024 * 1024);
     let has_filter = filter.is_some();
     let filter = filter.unwrap_or_default();

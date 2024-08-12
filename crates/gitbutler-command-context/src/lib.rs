@@ -70,4 +70,18 @@ impl CommandContext {
     pub fn repository(&self) -> &git2::Repository {
         &self.git_repository
     }
+
+    /// Return a currently newly opened `gitoxide` repository.
+    ///
+    /// ### Note
+    ///
+    /// The plan is to eventually phase out the `git2` version of the repository, and open
+    /// the `gitoxide` repository right away. Meanwhile, we open `gitoxide` repositories on the fly
+    /// on top-level functions, and pass them down as needed.
+    ///
+    /// Also note that there are plenty of other places where repositories are opened ad-hoc, and
+    /// there is no need to use this type there at all - opening a repo is very cheap still.
+    pub fn gix_repository(&self) -> Result<gix::Repository> {
+        Ok(gix::open(self.repository().path())?)
+    }
 }
