@@ -34,11 +34,7 @@
 	>
 		{#if commitNode.type === 'large' && commitNode.commit}
 			<div class="large-node">
-				<Avatar
-					srcUrl={commitNode.commit?.author.gravatarUrl ?? ''}
-					tooltipText={hoverText}
-					altText={`Gravatar for ${commitNode.commit.author.email}`}
-				/>
+				<Avatar srcUrl={commitNode.commit?.author.gravatarUrl ?? ''} tooltip={hoverText} />
 			</div>
 		{:else}
 			<div class="small-node" use:tooltip={hoverText}></div>

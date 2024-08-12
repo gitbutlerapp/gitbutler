@@ -1,17 +1,6 @@
 import DemoSidebarEntry from './DemoSidebarEntry.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
-interface _Props {
-	selected?: boolean;
-	title: string;
-	applied?: boolean;
-	pullRequestDetails?: { title: string };
-	lastCommitDetails?: { authorName: string; lastCommitAt: Date };
-	branchDetails?: { commitCount: number; linesAdded: number; linesRemoved: number };
-	remotes?: string[];
-	local?: boolean;
-}
-
 const meta = {
 	component: DemoSidebarEntry,
 	argTypes: {
@@ -46,8 +35,7 @@ export const SidebarEntry: Story = {
 		},
 		remotes: [],
 		local: true
-	},
-	argTypes: {}
+	}
 };
 
 export const SidebarEntryPr: Story = {
@@ -73,9 +61,7 @@ export const SidebarEntryPr: Story = {
 		pullRequestDetails: {
 			title: 'bestest pr'
 		}
-	},
-
-	argTypes: {}
+	}
 };
 
 export const SidebarEntryInWorkspace: Story = {
@@ -101,7 +87,5 @@ export const SidebarEntryInWorkspace: Story = {
 		pullRequestDetails: {
 			title: 'bestest pr'
 		}
-	},
-
-	argTypes: {}
+	}
 };
