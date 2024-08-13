@@ -27,6 +27,7 @@
 		icon?: keyof typeof iconsJson | undefined;
 		help?: string;
 		helpShowDelay?: number;
+		testId?: string;
 		// Events
 		onclick?: (e: MouseEvent) => void;
 		onmousedown?: (e: MouseEvent) => void;
@@ -66,6 +67,7 @@
 		outline = false,
 		dashed = false,
 		solidBackground = false,
+		testId,
 		icon,
 		help = '',
 		helpShowDelay = 1200,
@@ -112,6 +114,7 @@
 	{onkeydown}
 	{type}
 	{id}
+	{...testId ? { 'data-testid': testId } : null}
 	tabindex={clickable ? tabindex : -1}
 >
 	{#if children}

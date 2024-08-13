@@ -255,6 +255,7 @@
 			{loading}
 			onclick={onSetTargetClick}
 			icon="chevron-right-small"
+			testId="set-base-branch"
 			id="set-base-branch"
 		>
 			{#if $platformName === 'win32'}

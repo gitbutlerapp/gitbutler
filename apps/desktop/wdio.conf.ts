@@ -1,4 +1,3 @@
-import { browser } from '@wdio/globals';
 import { spawn, ChildProcess } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
@@ -9,11 +8,12 @@ let tauriDriver: ChildProcess;
 export const config: Options.WebdriverIO = {
 	hostname: '127.0.0.1',
 	port: 4444,
-	specs: ['./e2e/**/*.spec.js'],
+	specs: ['./e2e/tests/**/*.spec.ts'],
 	maxInstances: 1,
 	capabilities: [
 		{
 			// @ts-expect-error custom tauri capabilities
+			maxInstances: 1,
 			'tauri:options': {
 				application: '../../target/release/git-butler-dev'
 			}
@@ -35,7 +35,7 @@ export const config: Options.WebdriverIO = {
 
 	waitforTimeout: 10000,
 	connectionRetryTimeout: 120000,
-	connectionRetryCount: 3,
+	connectionRetryCount: 0,
 
 	// ensure we are running `tauri-driver` before the session starts so that we can proxy the webdriver requests
 	beforeSession: () =>
@@ -43,11 +43,7 @@ export const config: Options.WebdriverIO = {
 			stdio: [null, process.stdout, process.stderr]
 		})),
 
-	afterTest: function ({ error }: { error: Error }) {
-		if (error) {
-			browser.takeScreenshot();
-		}
-	},
-
-	afterSession: () => tauriDriver.kill()
+	afterSession: () => {
+		tauriDriver.kill();
+	}
 };

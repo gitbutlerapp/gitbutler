@@ -15,6 +15,7 @@
 		<Button
 			style="pop"
 			kind="solid"
+			testId="analytics-continue"
 			icon="chevron-right-small"
 			onclick={() => {
 				$analyticsConfirmed = true;

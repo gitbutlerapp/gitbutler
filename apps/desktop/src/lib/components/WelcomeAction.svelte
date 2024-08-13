@@ -11,10 +11,11 @@
 		message,
 		dimMessage,
 		row,
-		rowReverse
+		rowReverse,
+		testId
 	}: {
 		title: string;
-		loading: boolean;
+		loading?: boolean;
 		onmousedown?: (e: MouseEvent) => void;
 		onclick?: (e: MouseEvent) => void;
 		icon: Snippet;
@@ -22,6 +23,7 @@
 		dimMessage?: boolean;
 		row?: boolean;
 		rowReverse?: boolean;
+		testId?: string;
 	} = $props();
 </script>
 
@@ -33,6 +35,7 @@
 	{onclick}
 	{onmousedown}
 	disabled={loading}
+	data-testid={testId}
 >
 	<div class="icon">
 		{@render icon()}
