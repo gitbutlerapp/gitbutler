@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { browser } from '@wdio/globals';
 
 const DEFAULT_TIMEOUT = 5_000;
 
@@ -17,4 +18,14 @@ export async function findAndClick(selector: string, timeout?: number) {
 		timeout: timeout ?? DEFAULT_TIMEOUT
 	});
 	await browser.execute('arguments[0].click();', button);
+}
+
+export async function setElementValue(targetElement: WebdriverIO.Element, value: string) {
+	await browser.execute(
+		(input, path) => {
+			(input as any).value = path;
+		},
+		targetElement,
+		value
+	);
 }

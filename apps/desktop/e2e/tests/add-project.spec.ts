@@ -1,5 +1,4 @@
-import { spawnAndLog, findAndClick } from '../utils.js';
-import { browser } from '@wdio/globals';
+import { setElementValue, spawnAndLog, findAndClick } from '../utils.js';
 
 describe('Project', () => {
 	before(() => {
@@ -12,21 +11,15 @@ describe('Project', () => {
 	it('should add a local project', async () => {
 		await findAndClick('button=Continue');
 
-		// For now, workaround by setting a file path in a new hidden input
+		// Workaround selecting path via fileDialog by setting a hidden input value
 		const dirInput = await $('input[data-testid="test-directory-path"]');
-
-		await browser.execute(
-			(input, path) => {
-				(input as any).value = path;
-			},
-			dirInput,
-			process.cwd() + '/one-vbranch-on-integration'
-		);
+		setElementValue(dirInput, `${process.cwd()}/one-vbranch-on-integration`);
 
 		await findAndClick('[data-testid="add-local-project"]');
 		await findAndClick('button=Continue');
 		await findAndClick("button=Let's go!");
 		const workspaceButton = await $('button=Workspace');
+		console.log('WORKSPACE.BUTTON', workspaceButton);
 		await expect(workspaceButton).toExist();
 	});
 });
