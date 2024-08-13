@@ -4,7 +4,7 @@ set -eu -o pipefail
 
 CLI=${1:?The first argument is the GitButler CLI}
 # Convert to absolute path
-CLI=`realpath $CLI`
+CLI=$(realpath "$CLI")
 
 function tick() {
   if test -z "${tick+set}"; then
@@ -18,11 +18,12 @@ function tick() {
 }
 tick
 
-git config --global user.email "test@example.com"
-git config --global user.name "Test User"
-git config --global init.defaultBranch master
-
 git init remote
+
+git config user.email "test@example.com"
+git config user.name "Test User"
+git config init.defaultBranch master
+
 (
   cd remote
   echo first >file
