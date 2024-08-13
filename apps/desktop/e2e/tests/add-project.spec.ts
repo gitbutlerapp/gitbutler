@@ -18,8 +18,8 @@ describe('Project', () => {
 		await findAndClick('[data-testid="add-local-project"]');
 		await findAndClick('button=Continue');
 		await findAndClick("button=Let's go!");
+
 		const workspaceButton = await $('button=Workspace');
-		console.log('WORKSPACE.BUTTON', workspaceButton);
 		await expect(workspaceButton).toExist();
 	});
 });
