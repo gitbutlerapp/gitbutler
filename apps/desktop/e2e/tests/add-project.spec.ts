@@ -16,7 +16,7 @@ describe('Project', () => {
 		setElementValue(dirInput, `${process.cwd()}/one-vbranch-on-integration`);
 
 		await findAndClick('button[data-testid="add-local-project"]');
-		await findAndClick('button[data-testid="add-base-branch"]');
+		await findAndClick('button[data-testid="set-base-branch"]');
 		await findAndClick('button[data-testid="accept-git-auth"]');
 
 		const workspaceButton = await $('button=Workspace');
