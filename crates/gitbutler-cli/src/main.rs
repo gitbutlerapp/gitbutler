@@ -9,6 +9,7 @@ mod command;
 
 fn main() -> Result<()> {
     let args: Args = clap::Parser::parse();
+    gitbutler_project::configure_git2();
 
     match args.cmd {
         args::Subcommands::Branch(vbranch::Platform { cmd }) => {
