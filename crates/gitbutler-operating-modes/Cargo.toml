@@ -7,9 +7,14 @@ publish = false
 
 [dependencies]
 serde = { workspace = true, features = ["std"] }
+tracing = "0.1.40"
 git2.workspace = true
 anyhow.workspace = true
+toml.workspace = true
 gitbutler-command-context.workspace = true
+gitbutler-serde.workspace = true
+gitbutler-fs.workspace = true
+gitbutler-reference.workspace = true
 
 [dev-dependencies]
 gitbutler-testsupport.workspace = true

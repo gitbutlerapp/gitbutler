@@ -33,7 +33,7 @@ jobs:
       - name: Setup rust-toolchain stable
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
