@@ -258,8 +258,8 @@ fn branch_group_to_branch(
     }))
 }
 
-fn gix_to_git2_oid(id: gix::ObjectId) -> git2::Oid {
-    git2::Oid::from_bytes(id.as_bytes()).expect("always valid")
+fn gix_to_git2_oid(id: impl Into<gix::ObjectId>) -> git2::Oid {
+    git2::Oid::from_bytes(id.into().as_bytes()).expect("always valid")
 }
 
 fn git2_to_gix_object_id(id: git2::Oid) -> gix::ObjectId {
@@ -426,9 +426,9 @@ pub fn get_branch_listing_details(
         .map(TryInto::try_into)
         .filter_map(Result::ok)
         .collect();
-    let repo = ctx.repository();
-    let mut repo2 = ctx.gix_repository_minimal()?;
-    repo2.object_cache_size_if_unset(4 * 1024);
+    let git2_repo = ctx.repository();
+    let mut repo = ctx.gix_repository_minimal()?;
+    repo.object_cache_size_if_unset(4 * 1024);
     let branches = list_branches(ctx, None, Some(branch_names))?;
 
     let (default_target_current_upstream_commit_id, default_target_seen_at_last_update) = {
@@ -437,10 +437,20 @@ pub fn get_branch_listing_details(
             .virtual_branches()
             .get_default_target()
             .context("failed to get default target")?;
-        let local_branch = repo.find_branch(target.branch.branch(), git2::BranchType::Local)?;
-        let local_tracking_branch = local_branch.upstream()?;
+        let local_branch = repo.find_reference(target.branch.branch())?;
+        let local_tracking_ref_name = local_branch
+            .remote_tracking_ref_name(gix::remote::Direction::Fetch)
+            .with_context(|| {
+                format!(
+                    "Branch {} did not have a remote tracking branch",
+                    local_branch.name().as_bstr()
+                )
+            })??;
+        // TODO(ST): implement PartialName from `Cow<'_, FullNameRef>`
+        let local_tracking_ref = repo.find_reference(local_tracking_ref_name.as_ref())?;
         (
-            local_tracking_branch.get().peel_to_commit()?.id(),
+            // TODO(ST): a way to peel to a specific object type, not just the first one.
+            gix_to_git2_oid(local_tracking_ref.into_fully_peeled_id()?),
             target.sha,
         )
     };
@@ -456,18 +466,18 @@ pub fn get_branch_listing_details(
         } else {
             default_target_current_upstream_commit_id
         };
-        let Ok(base) = repo.merge_base(other_branch_commit_id, branch.head) else {
+        let Ok(base) = git2_repo.merge_base(other_branch_commit_id, branch.head) else {
             continue;
         };
 
         let branch_head = git2_to_gix_object_id(branch.head);
         let gix_base = git2_to_gix_object_id(base);
-        let base_commit = repo2.find_object(gix_base)?.try_into_commit()?;
+        let base_commit = repo.find_object(gix_base)?.try_into_commit()?;
         let base_tree = base_commit.tree()?;
-        let head_tree = repo2.find_object(branch_head)?.peel_to_tree()?;
+        let head_tree = repo.find_object(branch_head)?.peel_to_tree()?;
         // TODO(ST): make it easier to get a resource cache preconfigured for different purposes,
         //           like tree-tree. Should probably be on the platform and separate?
-        let mut resource_cache = repo2.diff_resource_cache(
+        let mut resource_cache = repo.diff_resource_cache(
             gix::diff::blob::pipeline::Mode::ToGit,
             gix::diff::blob::pipeline::WorktreeRoots::default(),
         )?;
@@ -497,7 +507,7 @@ pub fn get_branch_listing_details(
         // TODO(ST): make this API nicer, maybe have one that is not based on `ancestors()` but
         //       similar to revwalk because it's so common?
         let revwalk = branch_head
-            .attach(&repo2)
+            .attach(&repo)
             .ancestors()
             // When allowing to skip branches without a filter, make sure it automatically skips by date!
             .sorting(
@@ -511,7 +521,7 @@ pub fn get_branch_listing_details(
         for commit_info in revwalk {
             let commit_info = commit_info?;
             // TODO(ST): offer direct `find_<kind>` methods.
-            let commit = repo2.find_object(commit_info.id)?.try_into_commit()?;
+            let commit = repo.find_object(commit_info.id)?.try_into_commit()?;
             authors.insert(commit.author()?.into());
             num_commits += 1;
         }
