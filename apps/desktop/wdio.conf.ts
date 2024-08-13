@@ -8,7 +8,7 @@ let tauriDriver: ChildProcess;
 export const config: Options.WebdriverIO = {
 	hostname: '127.0.0.1',
 	port: 4444,
-	specs: ['./e2e/tests/**/*.spec.js', './e2e/tests/**/*.spec.ts'],
+	specs: ['./e2e/tests/**/*.spec.ts'],
 	maxInstances: 1,
 	capabilities: [
 		{
