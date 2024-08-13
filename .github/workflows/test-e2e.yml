@@ -65,7 +65,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: WebdriverIO Videos
+          name: WebdriverIO Artifacts
           overwrite: true
           path: |
             ./apps/desktop/e2e/videos
+            ~/.config/com.gitbutler.app*/logs
