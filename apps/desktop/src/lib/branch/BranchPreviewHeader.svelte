@@ -38,7 +38,7 @@
 			<div class="header__remote-branch">
 				{#if remoteBranch}
 					<div
-						class="status-tag text-base-11 text-semibold remote"
+						class="status-tag text-11 text-semibold remote"
 						use:tooltip={'At least some of your changes have been pushed'}
 					>
 						<Icon name="remote-branch-small" />
@@ -62,7 +62,7 @@
 						</Button>
 					{/if}
 				{:else}
-					<div class="status-tag text-base-11 text-semibold remote">
+					<div class="status-tag text-11 text-semibold remote">
 						<Icon name="remote-branch-small" /> local
 					</div>
 				{/if}

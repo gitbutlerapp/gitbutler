@@ -1,4 +1,4 @@
-<div class="disclaimer text-base-12 text-body">
+<div class="disclaimer text-12 text-body">
 	<slot />
 </div>
 

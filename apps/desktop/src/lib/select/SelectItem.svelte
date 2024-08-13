@@ -20,7 +20,7 @@
 	class:highlighted
 	on:click={() => dispatch('click', value)}
 >
-	<div class="label text-base-13">
+	<div class="label text-13">
 		<slot />
 	</div>
 	{#if icon || selected}

@@ -198,8 +198,8 @@ export function createCommitElement(
 	dateAndAuthor: string | undefined
 ): HTMLDivElement {
 	const cardEl = createElement('div', ['draggable-commit']) as HTMLDivElement;
-	const labelEl = createElement('span', ['text-base-13', 'text-bold'], label || 'Empty commit');
-	const infoEl = createElement('div', ['draggable-commit-info', 'text-base-11']);
+	const labelEl = createElement('span', ['text-13', 'text-bold'], label || 'Empty commit');
+	const infoEl = createElement('div', ['draggable-commit-info', 'text-11']);
 	const shaEl = createElement('span', ['draggable-commit-info-text'], sha);
 	const dateAndAuthorEl = createElement('span', ['draggable-commit-info-text'], dateAndAuthor);
 
@@ -242,13 +242,13 @@ export function createChipsElement(
 		chipEl.appendChild(iconEl);
 	}
 
-	const labelEl = createElement('span', ['text-base-12'], label);
+	const labelEl = createElement('span', ['text-12'], label);
 	chipEl.appendChild(labelEl);
 
 	if (childrenAmount > 1) {
 		const amountTag = createElement(
 			'div',
-			['text-base-11', 'text-bold', 'draggable-chip-amount'],
+			['text-11', 'text-bold', 'draggable-chip-amount'],
 			childrenAmount.toString()
 		);
 		chipEl.appendChild(amountTag);

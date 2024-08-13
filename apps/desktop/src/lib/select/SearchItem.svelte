@@ -48,7 +48,7 @@
 
 	<input
 		bind:this={inputEl}
-		class="text-base-13 search-input"
+		class="text-13 search-input"
 		type="text"
 		{placeholder}
 		bind:value

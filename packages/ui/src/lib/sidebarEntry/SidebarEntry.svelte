@@ -60,7 +60,7 @@
 </script>
 
 <button class="branch" class:selected onmousedown={onMouseDown} bind:this={intersectionTarget}>
-	<h4 class="text-base-13 text-semibold branch-name">
+	<h4 class="text-13 text-semibold branch-name">
 		{title}
 	</h4>
 
@@ -71,12 +71,12 @@
 				<!-- NEED API -->
 				{#each remotes as remote}
 					<div class="branch-tag tag-remote">
-						<span class="text-base-10 text-semibold">{remote}</span>
+						<span class="text-10 text-semibold">{remote}</span>
 					</div>
 				{/each}
 				{#if local}
 					<div class="branch-tag tag-local">
-						<span class="text-base-10 text-semibold">local</span>
+						<span class="text-10 text-semibold">local</span>
 					</div>
 				{/if}
 			</div>
@@ -88,13 +88,13 @@
 					use:tooltip={{ text: pullRequestDetails.title, delay: tooltipDelay }}
 					class="branch-tag tag-pr"
 				>
-					<span class="text-base-10 text-semibold">PR</span>
+					<span class="text-10 text-semibold">PR</span>
 					<Icon name="pr-small" />
 				</div>
 			{/if}
 			{#if applied}
 				<div class="branch-tag tag-applied">
-					<span class="text-base-10 text-semibold">Workspace</span>
+					<span class="text-10 text-semibold">Workspace</span>
 				</div>
 			{/if}
 		</div>
@@ -103,7 +103,7 @@
 	<div class="row">
 		{#if lastCommitDetails?.lastCommitAt}
 			<span
-				class="branch-time text-base-11 details truncate"
+				class="branch-time text-11 details truncate"
 				use:tooltip={lastCommitDetails.lastCommitAt.toLocaleString('en-GB')}
 			>
 				{#if lastCommitDetails}
@@ -112,7 +112,7 @@
 				{/if}
 			</span>
 		{:else}
-			<span class="branch-time text-base-11 details truncate">
+			<span class="branch-time text-11 details truncate">
 				{#if lastCommitDetails}
 					by {lastCommitDetails.authorName}
 				{/if}
@@ -128,8 +128,8 @@
 					}}
 					class="code-changes"
 				>
-					<span class="text-base-10 text-semibold">+{branchDetails.linesAdded}</span>
-					<span class="text-base-10 text-semibold">-{branchDetails.linesRemoved}</span>
+					<span class="text-10 text-semibold">+{branchDetails.linesAdded}</span>
+					<span class="text-10 text-semibold">-{branchDetails.linesRemoved}</span>
 				</div>
 
 				<div
@@ -151,7 +151,7 @@
 						<path d="M0.333374 4H3.66671" stroke="currentColor" stroke-width="1.5" />
 					</svg>
 
-					<span class="text-base-10 text-semibold">{branchDetails.commitCount}</span>
+					<span class="text-10 text-semibold">{branchDetails.commitCount}</span>
 				</div>
 			{/if}
 		</div>

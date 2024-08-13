@@ -29,7 +29,7 @@
 	{#if isNavCollapsed}
 		{#if ($base?.behind || 0) > 0}
 			<div class="small-count-badge">
-				<span class="text-base-9 text-bold">{$base?.behind || 0}</span>
+				<span class="text-9 text-bold">{$base?.behind || 0}</span>
 			</div>
 		{/if}
 	{/if}
@@ -40,7 +40,7 @@
 			<div class="button-head">
 				<span
 					use:tooltip={'The branch that your Workspace virtual branches are based on and will be merged into.'}
-					class="text-base-14 text-semibold trunk-label">Target</span
+					class="text-14 text-semibold trunk-label">Target</span
 				>
 				{#if ($base?.behind || 0) > 0}
 					<Badge count={$base?.behind || 0} help="Unmerged upstream commits" />
@@ -66,7 +66,7 @@
 				{:else}
 					<Icon name="branch" />
 				{/if}
-				<span class="text-base-12">{$base?.branchName}</span>
+				<span class="text-12">{$base?.branchName}</span>
 			</div>
 		</div>
 	{/if}

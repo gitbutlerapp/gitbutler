@@ -16,12 +16,12 @@
 
 		<div class="empty-state__content">
 			{#if $$slots.title}
-				<h2 class="empty-state__title text-base-15 text-body text-semibold">
+				<h2 class="empty-state__title text-15 text-body text-semibold">
 					<slot name="title" />
 				</h2>
 			{/if}
 			{#if $$slots.caption}
-				<p class="empty-state__caption text-base-13 text-body">
+				<p class="empty-state__caption text-13 text-body">
 					<slot name="caption" />
 				</p>
 			{/if}

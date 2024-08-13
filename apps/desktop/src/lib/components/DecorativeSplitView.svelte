@@ -43,7 +43,7 @@
 							href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
 						>
 							<Icon name="docs" opacity={0.6} />
-							<span class="text-base-14 text-semibold">GitButler docs</span>
+							<span class="text-14 text-semibold">GitButler docs</span>
 						</a>
 						<a
 							class="right-side__link"
@@ -51,7 +51,7 @@
 							href="https://discord.com/invite/MmFkmaJ42D"
 						>
 							<Icon name="discord" opacity={0.6} />
-							<span class="text-base-14 text-semibold">Join community</span>
+							<span class="text-14 text-semibold">Join community</span>
 						</a>
 					</div>
 

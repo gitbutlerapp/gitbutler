@@ -50,7 +50,7 @@
 				delay: 500
 			}}
 		>
-			<span class="text-base-11 text-semibold">+{avatars.length - maxAvatars}</span>
+			<span class="text-11 text-semibold">+{avatars.length - maxAvatars}</span>
 		</div>
 	{/if}
 </div>

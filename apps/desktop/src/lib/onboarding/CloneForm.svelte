@@ -110,11 +110,11 @@
 <h1 class="clone-title text-serif-40">Clone a repository</h1>
 <Section>
 	<div class="clone__field repositoryUrl">
-		<div class="text-base-13 text-semibold clone__field--label">Clone URL</div>
+		<div class="text-13 text-semibold clone__field--label">Clone URL</div>
 		<TextBox bind:value={repositoryUrl} placeholder={'https://'} />
 	</div>
 	<div class="clone__field repositoryTargetPath">
-		<div class="text-base-13 text-semibold clone__field--label">Where to clone</div>
+		<div class="text-13 text-semibold clone__field--label">Where to clone</div>
 		<TextBox bind:value={targetDirPath} placeholder={'/Users/tipsy/Documents'} />
 		<Button style="ghost" outline kind="solid" disabled={loading} onclick={handleCloneTargetSelect}>
 			Choose..

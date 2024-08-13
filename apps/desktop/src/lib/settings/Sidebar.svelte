@@ -38,7 +38,7 @@
 						}}
 					/>
 				</div>
-				<h2 class="profile-sidebar__title text-base-18 text-bold">Preferences</h2>
+				<h2 class="profile-sidebar__title text-18 text-bold">Preferences</h2>
 			</div>
 
 			<ul class="profile-sidebar__menu">
@@ -49,7 +49,7 @@
 						on:mousedown={() => onMenuClick('profile')}
 					>
 						<Icon name="profile" />
-						<span class="text-base-14 text-semibold">Profile</span>
+						<span class="text-14 text-semibold">Profile</span>
 					</button>
 				</li>
 				<li>
@@ -59,7 +59,7 @@
 						on:mousedown={() => onMenuClick('git')}
 					>
 						<Icon name="git" />
-						<span class="text-base-14 text-semibold">Git stuff</span>
+						<span class="text-14 text-semibold">Git stuff</span>
 					</button>
 				</li>
 
@@ -70,7 +70,7 @@
 						on:mousedown={() => onMenuClick('integrations')}
 					>
 						<Icon name="integrations" />
-						<span class="text-base-14 text-semibold">Integrations</span>
+						<span class="text-14 text-semibold">Integrations</span>
 					</button>
 				</li>
 				<li>
@@ -80,7 +80,7 @@
 						on:mousedown={() => onMenuClick('ai')}
 					>
 						<Icon name="ai" />
-						<span class="text-base-14 text-semibold">AI options</span>
+						<span class="text-14 text-semibold">AI options</span>
 					</button>
 				</li>
 				<li>
@@ -90,7 +90,7 @@
 						on:mousedown={() => onMenuClick('telemetry')}
 					>
 						<Icon name="stat" />
-						<span class="text-base-14 text-semibold">Telemetry</span>
+						<span class="text-14 text-semibold">Telemetry</span>
 					</button>
 				</li>
 				<li>
@@ -100,7 +100,7 @@
 						on:mousedown={() => onMenuClick('experimental')}
 					>
 						<Icon name="idea" />
-						<span class="text-base-14 text-semibold">Experimental</span>
+						<span class="text-14 text-semibold">Experimental</span>
 					</button>
 				</li>
 			</ul>
@@ -114,7 +114,7 @@
 				href="mailto:hello@gitbutler.com?subject=Feedback or question!"
 				target="_blank"
 			>
-				<span class="text-base-14 text-bold">Contact us</span>
+				<span class="text-14 text-bold">Contact us</span>
 				<Icon name="mail" />
 			</a>
 			<a
@@ -123,7 +123,7 @@
 				target="_blank"
 				rel="noreferrer"
 			>
-				<span class="text-base-14 text-bold">Join our Discord</span>
+				<span class="text-14 text-bold">Join our Discord</span>
 				<Icon name="discord" />
 			</a>
 		</div>

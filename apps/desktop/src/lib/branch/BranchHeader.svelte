@@ -134,7 +134,7 @@
 		<div class="collapsed-lane__info-wrap" bind:clientHeight={headerInfoHeight}>
 			<div class="collapsed-lane__info" style="width: {headerInfoHeight}px">
 				<div class="collapsed-lane__label-wrap">
-					<h3 class="collapsed-lane__label text-base-13 text-bold">
+					<h3 class="collapsed-lane__label text-13 text-bold">
 						{branch.name}
 					</h3>
 					{#if uncommittedChanges > 0}

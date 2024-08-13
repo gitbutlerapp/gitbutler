@@ -8,7 +8,7 @@
 
 <a class="link" target="_blank" {href}>
 	<Icon name={icon} />
-	<span class="text-base-12"><slot /></span>
+	<span class="text-12"><slot /></span>
 </a>
 
 <style lang="postcss">

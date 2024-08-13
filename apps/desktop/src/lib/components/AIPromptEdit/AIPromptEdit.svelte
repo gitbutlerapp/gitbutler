@@ -35,7 +35,7 @@
 
 {#if prompts && $userPrompts}
 	<div class="prompt-item__title">
-		<h3 class="text-base-15 text-bold">
+		<h3 class="text-15 text-bold">
 			{promptUse === 'commits' ? 'Commit message' : 'Branch name'}
 		</h3>
 		<Button style="ghost" outline icon="plus-small" onclick={createNewPrompt}>New prompt</Button>

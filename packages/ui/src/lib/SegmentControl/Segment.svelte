@@ -68,7 +68,7 @@
 		delay: 1000
 	}}
 >
-	<span class="text-base-12 label">
+	<span class="text-12 label">
 		{@render children()}
 	</span>
 </button>

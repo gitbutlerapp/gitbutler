@@ -17,7 +17,7 @@
 	class:collapsed={isNavCollapsed}
 >
 	{#if !isNavCollapsed}
-		<span class="name text-base-13 text-semibold">
+		<span class="name text-13 text-semibold">
 			{#if $user}
 				{$user.name || $user.given_name || $user.email}
 			{:else}

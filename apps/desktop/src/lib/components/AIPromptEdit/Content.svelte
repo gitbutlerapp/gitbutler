@@ -107,7 +107,7 @@
 	>
 		{#if !isInEditing}
 			<Icon name="doc" />
-			<h3 class="text-base-15 text-bold title">{promptName}</h3>
+			<h3 class="text-15 text-bold title">{promptName}</h3>
 			<div class="icon">
 				<Icon name={expanded ? 'chevron-up' : 'chevron-down'} />
 			</div>
