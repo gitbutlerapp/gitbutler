@@ -8,6 +8,7 @@ use gitbutler_branch::{
 use gitbutler_command_context::CommandContext;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_serde::BStringForFrontend;
+use gix::object::tree::diff::Action;
 use gix::prelude::ObjectIdExt;
 use gix::reference::Category;
 use serde::{Deserialize, Serialize};
@@ -459,25 +460,49 @@ pub fn get_branch_listing_details(
             continue;
         };
 
-        let base_commit = repo.find_commit(base)?;
-        let base_tree = base_commit.tree()?;
-        let head_tree = repo.find_commit(branch.head)?.tree()?;
-        let diff_stats = repo
-            .diff_tree_to_tree(Some(&base_tree), Some(&head_tree), None)?
-            .stats()?;
-
-        let head = branch.head;
-
+        let branch_head = git2_to_gix_object_id(branch.head);
         let gix_base = git2_to_gix_object_id(base);
-        // TODO: make this API nicer, maybe have one that is not based on `ancestors()` but
+        let base_commit = repo2.find_object(gix_base)?.try_into_commit()?;
+        let base_tree = base_commit.tree()?;
+        let head_tree = repo2.find_object(branch_head)?.peel_to_tree()?;
+        // TODO(ST): make it easier to get a resource cache preconfigured for different purposes,
+        //           like tree-tree. Should probably be on the platform and separate?
+        let mut resource_cache = repo2.diff_resource_cache(
+            gix::diff::blob::pipeline::Mode::ToGit,
+            gix::diff::blob::pipeline::WorktreeRoots::default(),
+        )?;
+        let (mut number_of_files, mut lines_added, mut lines_removed) = (0, 0, 0);
+        base_tree
+            .changes()?
+            .track_rewrites(None)
+            // TODO(ST): definitely have `stats()` just like `git2`.
+            .for_each_to_obtain_tree(&head_tree, |change| -> anyhow::Result<Action> {
+                if let Some(counts) = change
+                    .diff(&mut resource_cache)
+                    .ok()
+                    .and_then(|mut platform| platform.line_counts().ok())
+                    .flatten()
+                {
+                    number_of_files += 1;
+                    lines_added += counts.insertions as usize;
+                    lines_removed += counts.removals as usize;
+                }
+                // Let's not attempt to reuse the cache as it's only useful if we know the diff repeats
+                // over different objects, like when doing rename tracking.
+                // TODO(ST): consider not using it unless it's for rename tracking. However, there should
+                //           be a way to re-use memory for the two objects to compare, at least.
+                resource_cache.clear_resource_cache();
+                Ok(Action::Continue)
+            })?;
+        // TODO(ST): make this API nicer, maybe have one that is not based on `ancestors()` but
         //       similar to revwalk because it's so common?
-        let revwalk = git2_to_gix_object_id(head)
+        let revwalk = branch_head
             .attach(&repo2)
             .ancestors()
             // When allowing to skip branches without a filter, make sure it automatically skips by date!
             .sorting(
                 gix::traverse::commit::simple::Sorting::ByCommitTimeNewestFirstCutoffOlderThan {
-                    seconds: base_commit.time().seconds(),
+                    seconds: base_commit.time()?.seconds,
                 },
             )
             .selected(|id| id != gix_base)?;
@@ -485,16 +510,16 @@ pub fn get_branch_listing_details(
         let mut authors = HashSet::new();
         for commit_info in revwalk {
             let commit_info = commit_info?;
-            // TODO: offer direct `find_<kind>` methods.
+            // TODO(ST): offer direct `find_<kind>` methods.
             let commit = repo2.find_object(commit_info.id)?.try_into_commit()?;
             authors.insert(commit.author()?.into());
             num_commits += 1;
         }
         let branch_data = BranchListingDetails {
             name: branch.name,
-            lines_added: diff_stats.insertions(),
-            lines_removed: diff_stats.deletions(),
-            number_of_files: diff_stats.files_changed(),
+            lines_added,
+            lines_removed,
+            number_of_files,
             authors: authors.into_iter().collect(),
             number_of_commits: num_commits,
         };
