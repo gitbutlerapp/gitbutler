@@ -9,11 +9,6 @@ generated-do-not-edit/
 .sentryclirc
 .DS_Store
 
-# E2E Artifacts
-**/e2e/videos
-apps/desktop/one-vbranch-on-integration
-apps/desktop/remote
-
 .env
 .env.*
 node_modules
