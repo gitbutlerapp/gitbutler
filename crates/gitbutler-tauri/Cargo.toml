@@ -63,6 +63,7 @@ gitbutler-secret.workspace = true
 gitbutler-id.workspace = true
 gitbutler-storage.workspace = true
 gitbutler-diff.workspace = true
+gitbutler-operating-modes.workspace = true
 open = "5"
 
 [dependencies.tauri]

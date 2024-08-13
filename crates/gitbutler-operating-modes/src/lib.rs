@@ -5,6 +5,8 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_reference::ReferenceName;
 use serde::{Deserialize, Serialize};
 
+pub mod commands;
+
 /// The reference the app will checkout when the workspace is open
 pub const INTEGRATION_BRANCH_REF: &str = "refs/heads/gitbutler/integration";
 /// The reference the app will checkout when in edit mode
@@ -39,7 +41,7 @@ pub fn write_edit_mode_metadata(
 }
 
 /// Holds relevant state required to switch to and from edit mode
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct EditModeMetadata {
     /// The sha of the commit getting edited.
     #[serde(with = "gitbutler_serde::oid")]
@@ -48,7 +50,8 @@ pub struct EditModeMetadata {
     pub editee_branch: ReferenceName,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug, Clone, Serialize)]
+#[serde(tag = "type", content = "subject")]
 pub enum OperatingMode {
     /// The typical app state when its on the gitbutler/integration branch
     OpenWorkspace,

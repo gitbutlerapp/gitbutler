@@ -43,7 +43,7 @@
 		projectMetrics,
 		baseBranchService,
 		remoteBranchService,
-		headService,
+		modeService,
 		userService,
 		fetchSignal
 	} = $derived(data);
@@ -96,8 +96,9 @@
 	});
 
 	// Refresh base branch if git fetch event is detected.
-	const head = $derived(headService.head);
-	const gbBranchActive = $derived($head === 'gitbutler/integration');
+	const mode = $derived(modeService.mode);
+	const head = $derived(modeService.head);
+	const openWorkspace = $derived($mode?.type === 'OpenWorkspace');
 
 	// We end up with a `state_unsafe_mutation` when switching projects if we
 	// don't use $effect.pre here.
@@ -155,7 +156,10 @@
 		if (intervalId) clearInterval(intervalId);
 	}
 
-	onDestroy(() => clearFetchInterval());
+	onDestroy(() => {
+		clearFetchInterval();
+		modeService.unsubscribe?.();
+	});
 </script>
 
 <!-- forces components to be recreated when projectId changes -->
@@ -176,7 +180,7 @@
 		<ProblemLoadingRepo error={$branchesError} />
 	{:else if $projectError}
 		<ProblemLoadingRepo error={$projectError} />
-	{:else if !gbBranchActive && $baseBranch}
+	{:else if !openWorkspace && $baseBranch}
 		<NotOnGitButlerBranch baseBranch={$baseBranch} />
 	{:else if $baseBranch}
 		<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
