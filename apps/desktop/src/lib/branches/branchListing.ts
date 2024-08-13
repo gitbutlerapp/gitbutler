@@ -2,53 +2,34 @@
 import 'reflect-metadata';
 
 import { invoke } from '$lib/backend/ipc';
-import { persisted } from '$lib/persisted/persisted';
+import {
+	getEntryName,
+	getEntryUpdatedDate,
+	getEntryWorkspaceStatus,
+	type SidebarEntrySubject
+} from '$lib/navigation/types';
+import { persisted, type Persisted } from '$lib/persisted/persisted';
+import { debouncedDerive } from '$lib/utils/debounce';
 import { Transform, Type, plainToInstance } from 'class-transformer';
-import { get, writable, type Readable, type Writable } from 'svelte/store';
+import Fuse from 'fuse.js';
+import { derived, readable, writable, type Readable, type Writable } from 'svelte/store';
+import type { GitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+import type { PullRequest } from '$lib/gitHost/interface/types';
 
-const FILTER_STORAGE_KEY = 'branchListingService-selectedFilter';
 export class BranchListingService {
-	private selectedFilterPresisted = persisted<BranchListingFilter>(
-		{ local: undefined, applied: undefined },
-		FILTER_STORAGE_KEY
-	);
-
 	private branchListingsWritable = writable<BranchListing[]>([]);
 
 	constructor(private projectId: string) {
-		// For now we're not using the selected filter
-		this.selectedFilter = {};
-		this.refresh();
-	}
-
-	async refresh() {
-		const listedValues = (await this.list(get(this.selectedFilterPresisted))) || [];
-		this.branchListingsWritable.set(listedValues);
-
-		const listedBranchNames = new Set(listedValues.map((entry) => entry.name));
-
-		// Remove branch listings details stores that no longer have cooresponding branches
-		for (const key of this.branchListingDetails.keys()) {
-			if (!listedBranchNames.has(key)) {
-				this.branchListingDetails.delete(key);
-			}
-		}
-
-		const branchNames = Array.from(this.branchListingDetails.keys());
-		this.updateBranchListingDetails(branchNames);
-	}
-
-	get selectedFilter(): Readable<BranchListingFilter> {
-		return this.selectedFilterPresisted;
-	}
-
-	set selectedFilter(value: BranchListingFilter) {
-		this.selectedFilterPresisted.set(value);
 		this.refresh();
 	}
 
 	get branchListings(): Readable<BranchListing[]> {
 		return this.branchListingsWritable;
+	}
+
+	async refresh() {
+		const listedValues = (await this.list({})) || [];
+		this.branchListingsWritable.set(listedValues);
 	}
 
 	private async list(filter: BranchListingFilter | undefined = undefined) {
@@ -70,9 +51,25 @@ export class BranchListingService {
 		const store = writable<BranchListingDetails | undefined>();
 		this.branchListingDetails.set(branchName, store);
 
-		this.updateBranchListingDetails([branchName]);
+		this.updateBranchListing(branchName);
 
 		return store;
+	}
+
+	private accumulatedBranchListings: string[] = [];
+	private updateBranchListingTimeout: ReturnType<typeof setTimeout> | undefined;
+	// Accumulates multiple update calls
+	private async updateBranchListing(branchName: string) {
+		this.accumulatedBranchListings.push(branchName);
+
+		clearTimeout(this.updateBranchListingTimeout);
+		this.updateBranchListingTimeout = setTimeout(
+			(() => {
+				this.updateBranchListingDetails(this.accumulatedBranchListings);
+				this.accumulatedBranchListings = [];
+			}).bind(this),
+			50
+		);
 	}
 
 	private async updateBranchListingDetails(branchNames: string[]) {
@@ -90,6 +87,184 @@ export class BranchListingService {
 
 			store.set(branchListingDetails);
 		});
+	}
+}
+
+const oneDay = 1000 * 60 * 60 * 24;
+export type GroupedSidebarEntries = Record<
+	'applied' | 'today' | 'yesterday' | 'lastWeek' | 'older',
+	SidebarEntrySubject[]
+>;
+
+export class CombinedBranchListingService {
+	private pullRequests: Readable<PullRequest[]>;
+	selectedOption: Persisted<'all' | 'pullRequest' | 'local'>;
+
+	combinedSidebarEntries: Readable<SidebarEntrySubject[]>;
+	groupedSidebarEntries: Readable<GroupedSidebarEntries>;
+	pullRequestsListed: Readable<boolean>;
+
+	constructor(
+		branchListingService: BranchListingService,
+		gitHostListingService: Readable<GitHostListingService | undefined>,
+		projectId: string
+	) {
+		this.selectedOption = persisted<'all' | 'pullRequest' | 'local'>(
+			'all',
+			`branches-selectedOption-${projectId}`
+		);
+		this.pullRequests = readable([] as PullRequest[], (set) => {
+			const unsubscribeListingService = gitHostListingService.subscribe((gitHostListingService) => {
+				if (!gitHostListingService) return;
+
+				const unsubscribePullRequests = gitHostListingService.prs.subscribe((prs) => {
+					set(prs);
+				});
+
+				return unsubscribePullRequests;
+			});
+
+			return unsubscribeListingService;
+		});
+
+		this.pullRequestsListed = derived(
+			gitHostListingService,
+			(gitHostListingService) => {
+				return !!gitHostListingService;
+			},
+			false
+		);
+
+		const branchListingsByName = derived(branchListingService.branchListings, (branchListings) => {
+			const set = new Set<string>(branchListings.map((branchListing) => branchListing.name));
+			return set;
+		});
+
+		this.combinedSidebarEntries = debouncedDerive(
+			[
+				branchListingsByName,
+				this.pullRequests,
+				branchListingService.branchListings,
+				this.selectedOption
+			],
+			([branchListingsByName, pullRequests, branchListings, selectedOption]) => {
+				const pullRequestSubjects: SidebarEntrySubject[] = pullRequests
+					.filter((pullRequests) => !branchListingsByName.has(pullRequests.sourceBranch))
+					.map((pullRequests) => ({ type: 'pullRequest', subject: pullRequests }));
+
+				const branchListingSubjects: SidebarEntrySubject[] = branchListings.map(
+					(branchListing) => ({
+						type: 'branchListing',
+						subject: branchListing
+					})
+				);
+
+				const output = [...pullRequestSubjects, ...branchListingSubjects];
+
+				output.sort((a, b) => {
+					const timeDifference =
+						getEntryUpdatedDate(b).getTime() - getEntryUpdatedDate(a).getTime();
+					if (timeDifference !== 0) {
+						return timeDifference;
+					}
+
+					return getEntryName(a).localeCompare(getEntryName(b));
+				});
+
+				const filtered = this.filterSidebarEntries(pullRequests, selectedOption, output);
+
+				return filtered;
+			},
+			[] as SidebarEntrySubject[],
+			50
+		);
+
+		this.groupedSidebarEntries = derived(this.combinedSidebarEntries, (combinedSidebarEntries) => {
+			const groupings = this.groupBranches(combinedSidebarEntries);
+			return groupings;
+		});
+	}
+
+	search(searchTerm: Readable<string | undefined>) {
+		return derived(
+			[searchTerm, this.combinedSidebarEntries],
+			([searchTerm, combinedSidebarEntries]) => {
+				if (!searchTerm) return [];
+
+				const fuse = new Fuse(combinedSidebarEntries, {
+					keys: ['subject.name', 'subject.title']
+				});
+
+				return fuse
+					.search(searchTerm)
+					.slice(0, 100)
+					.map((searchResult) => searchResult.item);
+			},
+			[] as SidebarEntrySubject[]
+		);
+	}
+
+	private groupBranches(branches: SidebarEntrySubject[]) {
+		const grouped: GroupedSidebarEntries = {
+			applied: [],
+			today: [],
+			yesterday: [],
+			lastWeek: [],
+			older: []
+		};
+
+		const now = Date.now();
+
+		branches.forEach((b) => {
+			if (!getEntryUpdatedDate(b)) {
+				grouped.older.push(b);
+				return;
+			}
+
+			const msSinceLastCommit = now - getEntryUpdatedDate(b).getTime();
+
+			if (getEntryWorkspaceStatus(b)) {
+				grouped.applied.push(b);
+			} else if (msSinceLastCommit < oneDay) {
+				grouped.today.push(b);
+			} else if (msSinceLastCommit < 2 * oneDay) {
+				grouped.yesterday.push(b);
+			} else if (msSinceLastCommit < 7 * oneDay) {
+				grouped.lastWeek.push(b);
+			} else {
+				grouped.older.push(b);
+			}
+		});
+
+		return grouped;
+	}
+
+	private filterSidebarEntries(
+		pullRequests: PullRequest[],
+		selectedOption: string,
+		sidebarEntries: SidebarEntrySubject[]
+	): SidebarEntrySubject[] {
+		switch (selectedOption) {
+			case 'pullRequest': {
+				return sidebarEntries.filter(
+					(sidebarEntry) =>
+						sidebarEntry.type === 'pullRequest' ||
+						pullRequests.some(
+							(pullRequest) => pullRequest.sourceBranch === sidebarEntry.subject.name
+						)
+				);
+			}
+			case 'local': {
+				return sidebarEntries.filter(
+					(sidebarEntry) =>
+						sidebarEntry.type === 'branchListing' &&
+						(sidebarEntry.subject.hasLocal || sidebarEntry.subject.virtualBranch)
+				);
+			}
+			default: {
+				return sidebarEntries;
+			}
+		}
 	}
 }
 

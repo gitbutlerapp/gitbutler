@@ -43,6 +43,7 @@
 				loading={newProjectLoading}
 				onclick={onNewProject}
 				dimMessage
+				testid="add-local-project"
 			>
 				{#snippet icon()}
 					{@html newProjectSvg}

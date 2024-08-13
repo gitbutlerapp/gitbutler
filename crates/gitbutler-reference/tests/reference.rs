@@ -5,11 +5,12 @@ mod normalize_branch_name {
     fn valid_substitutions() {
         for (input, expected) in [
             ("a", "a"),
-            ("a+b", "a-b"),
+            ("a+b", "a+b"),
             ("a^b", "a-b"),
+            ("a^^^b", "a-b"),
             ("a~b", "a-b"),
-            ("a<b", "a-b"),
-            ("a>b", "a-b"),
+            ("a<b", "a<b"),
+            ("a>b", "a>b"),
             ("a\\b", "a-b"),
             ("a:b", "a-b"),
             ("a*b", "a-b"),
@@ -24,7 +25,11 @@ mod normalize_branch_name {
             ("/-a-/", "a"),
             (".a.", "a"),
         ] {
-            assert_eq!(normalize_branch_name(input).expect("valid"), expected);
+            assert_eq!(
+                normalize_branch_name(input).expect("valid"),
+                expected,
+                "{input} -> {expected}"
+            );
         }
     }
 
@@ -32,17 +37,15 @@ mod normalize_branch_name {
     fn clear_error_on_failure() {
         assert_eq!(
             normalize_branch_name("-").unwrap_err().to_string(),
-            "Could not turn \"\" into a valid reference name"
-        );
-        assert_eq!(
-            normalize_branch_name("#[test]").unwrap_err().to_string(),
-            "Could not turn \"#[test]\" into a valid reference name"
+            "Could not turn \"-\" into a valid reference name",
+            "show the original value, not the processed one to be familiar to the user"
         );
     }
 
     #[test]
     fn complex_valid() -> anyhow::Result<()> {
         assert_eq!(normalize_branch_name("feature/branch")?, "feature/branch");
+        assert_eq!(normalize_branch_name("#[test]")?, "#-test]");
         assert_eq!(normalize_branch_name("foo#branch")?, "foo#branch");
         assert_eq!(normalize_branch_name("foo!branch")?, "foo!branch");
         let input = r#"Revert "GitButler Integration Commit"

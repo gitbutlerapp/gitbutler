@@ -74,6 +74,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: cargo fmt --check --all
+      - run: cargo check --workspace --all-targets
 
   rust-docs:
     needs: changes
@@ -149,4 +150,4 @@ jobs:
           shared-key: windows-rust-testing
           key: ${{ inputs.features }}
       - name: "cargo check"
-        run: cargo check --workspace --bins --examples --features windows
+        run: cargo check --workspace --all-targets --features windows

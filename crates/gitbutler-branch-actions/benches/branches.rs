@@ -45,7 +45,7 @@ pub fn benchmark_list_branches(c: &mut Criterion) {
                 b.iter(|| list_branches(black_box(&ctx), None, None))
             })
             .bench_function("name-filter rejecting all", |b| {
-                b.iter(|| list_branches(black_box(&ctx), None, Some(vec!["not available".into()])))
+                b.iter(|| list_branches(black_box(&ctx), None, Some(vec!["not-available".into()])))
             });
     }
 }

@@ -237,6 +237,13 @@ impl VirtualBranchesHandle {
 
         Ok(order)
     }
+
+    pub fn delete_branch_entry(&self, branch_id: &BranchId) -> Result<()> {
+        let mut virtual_branches = self.read_file()?;
+        virtual_branches.branches.remove(branch_id);
+        self.write_file(&virtual_branches)?;
+        Ok(())
+    }
 }
 
 fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> Result<()> {
