@@ -18,7 +18,7 @@ gitbutler-branch-actions.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-diff.workspace = true
-gix = { workspace = true, features = ["max-performance-safe", "tracing"] }
+gix = { workspace = true, features = ["max-performance", "tracing"] }
 dirs-next = "2.0.0"
 clap = { version = "4.5.13", features = ["derive", "env"] }
 anyhow = "1.0.86"

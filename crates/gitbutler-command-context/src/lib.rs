@@ -99,6 +99,7 @@ impl CommandContext {
     }
 }
 
+// TODO(ST): put this into `gix`, the logic seems good, add unit-test for number generation.
 pub trait GixRepositoryExt: Sized {
     /// Configure the repository for diff operations between trees.
     /// This means it needs an object cache relative to the amount of files in the repository.

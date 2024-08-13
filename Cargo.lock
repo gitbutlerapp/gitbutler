@@ -46,6 +46,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
 dependencies = [
  "cfg-if",
+ "getrandom 0.2.15",
  "once_cell",
  "version_check",
  "zerocopy",
@@ -928,6 +929,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cbd0f76e066e64fdc5631e3bb46381254deab9ef1158292f27c8c57e3bf3fe59"
 
 [[package]]
+name = "cmake"
+version = "0.1.51"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb1e43aa7fd152b1f968787f7dbcdeb306d1867ff373c69955211876c053f91a"
+dependencies = [
+ "cc",
+]
+
+[[package]]
 name = "cocoa"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1268,6 +1278,20 @@ dependencies = [
  "darling_core",
  "quote",
  "syn 2.0.68",
+]
+
+[[package]]
+name = "dashmap"
+version = "6.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "804c8821570c3f8b70230c2ba75ffa5c0f9a4189b9a432b6656c536712acae28"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+ "hashbrown 0.14.5",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core 0.9.10",
 ]
 
 [[package]]
@@ -1643,6 +1667,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f54427cfd1c7829e2a139fcefea601bf088ebca651d2bf53ebc600eac295dae"
 dependencies = [
  "crc32fast",
+ "libz-ng-sys",
  "miniz_oxide",
 ]
 
@@ -2841,8 +2866,16 @@ version = "0.44.1"
 source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
 dependencies = [
  "bstr",
+ "gix-command",
+ "gix-filter",
+ "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
  "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
  "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-tempfile 14.0.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-worktree 0.34.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "imara-diff",
  "thiserror",
 ]
 
@@ -2926,6 +2959,7 @@ dependencies = [
  "once_cell",
  "parking_lot 0.12.3",
  "prodash 29.0.0",
+ "sha1",
  "sha1_smol",
  "thiserror",
  "walkdir",
@@ -3492,6 +3526,7 @@ name = "gix-tempfile"
 version = "14.0.1"
 source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
 dependencies = [
+ "dashmap",
  "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
  "libc",
  "once_cell",
@@ -4273,6 +4308,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "imara-diff"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc9da1a252bd44cd341657203722352efc9bc0c847d06ea6d2dc1cd1135e0a01"
+dependencies = [
+ "ahash 0.8.11",
+ "hashbrown 0.14.5",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4657,6 +4702,16 @@ dependencies = [
  "openssl-sys",
  "pkg-config",
  "vcpkg",
+]
+
+[[package]]
+name = "libz-ng-sys"
+version = "1.1.15"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c6409efc61b12687963e602df8ecf70e8ddacf95bc6576bcf16e3ac6328083c5"
+dependencies = [
+ "cmake",
+ "libc",
 ]
 
 [[package]]
@@ -6685,6 +6740,16 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+ "sha1-asm",
+]
+
+[[package]]
+name = "sha1-asm"
+version = "0.5.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "286acebaf8b67c1130aedffad26f594eff0c1292389158135327d2e23aed582b"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
