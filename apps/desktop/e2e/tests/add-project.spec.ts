@@ -9,15 +9,15 @@ describe('Project', () => {
 	});
 
 	it('should add a local project', async () => {
-		await findAndClick('button=Continue');
+		await findAndClick('button[data-testid="analytics-continue"]');
 
 		// Workaround selecting path via fileDialog by setting a hidden input value
 		const dirInput = await $('input[data-testid="test-directory-path"]');
 		setElementValue(dirInput, `${process.cwd()}/one-vbranch-on-integration`);
 
 		await findAndClick('button[data-testid="add-local-project"]');
-		await findAndClick('button=Continue');
-		await findAndClick("button=Let's go!");
+		await findAndClick('button[data-testid="add-base-branch"]');
+		await findAndClick('button[data-testid="accept-git-auth"]');
 
 		const workspaceButton = await $('button=Workspace');
 		await expect(workspaceButton).toExist();
