@@ -92,7 +92,7 @@ impl Handler {
     fn calculate_virtual_branches(&self, project_id: ProjectId) -> Result<()> {
         let ctx = self.open_command_context(project_id)?;
         // Skip if we're not on the open workspace mode
-        if !in_open_workspace_mode(&ctx)? {
+        if !in_open_workspace_mode(&ctx) {
             return Ok(());
         }
 
@@ -124,7 +124,7 @@ impl Handler {
     fn recalculate_everything(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
         let ctx = self.open_command_context(project_id)?;
         // Skip if we're not on the open workspace mode
-        if !in_open_workspace_mode(&ctx)? {
+        if !in_open_workspace_mode(&ctx) {
             return Ok(());
         }
 
@@ -174,7 +174,7 @@ impl Handler {
 
                     // If the user has left gitbutler/integration, we want to delete the reference.
                     // TODO: why do we want to do this?
-                    if in_outside_workspace_mode(&ctx)? {
+                    if in_outside_workspace_mode(&ctx) {
                         let mut integration_reference = ctx.repository().find_reference(
                             &Refname::from(LocalRefname::new("gitbutler/integration", None))
                                 .to_string(),
