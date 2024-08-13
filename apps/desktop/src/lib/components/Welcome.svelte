@@ -32,7 +32,12 @@
 	<h1 class="welcome-title text-serif-40" data-tauri-drag-region>Welcome to GitButler</h1>
 	<div class="welcome__actions">
 		<div class="welcome__actions--repo">
-			<input type="text" hidden bind:this={directoryInputElement} testId="test-directory-path" />
+			<input
+				type="text"
+				hidden
+				bind:this={directoryInputElement}
+				data-testid="test-directory-path"
+			/>
 			<WelcomeAction
 				title="Add local project"
 				loading={newProjectLoading}
