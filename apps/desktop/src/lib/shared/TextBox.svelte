@@ -146,7 +146,7 @@
 		{/if}
 
 		{#if helperText}
-			<p class="text-base-body-11 textbox__helper-text">{helperText}</p>
+			<p class="text-base-11 text-body textbox__helper-text">{helperText}</p>
 		{/if}
 	</div>
 </div>

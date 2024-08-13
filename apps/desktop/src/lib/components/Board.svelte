@@ -136,7 +136,7 @@
 					<div class="empty-board__content">
 						<div class="empty-board__about">
 							<h3 class="text-serif-40">You are up to date</h3>
-							<p class="text-base-body-14">
+							<p class="text-base-14 text-body">
 								Your working directory matches the base branch.
 								<br />
 								Any edits auto-create a virtual branch for easy management.

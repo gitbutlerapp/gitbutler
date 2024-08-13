@@ -57,7 +57,7 @@
 				</h3>
 			{/if}
 			{#if $$slots.caption}
-				<p class="text-base-body-12 section-card__text">
+				<p class="text-base-12 text-body section-card__text">
 					<slot name="caption" />
 				</p>
 			{/if}

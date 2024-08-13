@@ -148,7 +148,7 @@
 
 <div class="select-wrapper" class:wide bind:this={selectWrapperEl}>
 	{#if label}
-		<label for={id} class="select__label text-base-body-13 text-semibold">{label}</label>
+		<label for={id} class="select__label text-base-13 text-body text-semibold">{label}</label>
 	{/if}
 	<TextBox
 		{id}

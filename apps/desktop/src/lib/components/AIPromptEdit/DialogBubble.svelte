@@ -59,7 +59,7 @@
 			<textarea
 				bind:this={textareaElement}
 				bind:value={promptMessage.content}
-				class="textarea scrollbar text-base-body-13"
+				class="textarea scrollbar text-base-13 text-body"
 				class:is-error={isError}
 				rows={1}
 				on:input={(e) => {
@@ -72,7 +72,7 @@
 				}}
 			></textarea>
 		{:else}
-			<div class="markdown bubble-message scrollbar text-base-body-13">
+			<div class="markdown bubble-message scrollbar text-base-13 text-body">
 				{@html marked.parse(promptMessage.content, { renderer: markedRenderer })}
 			</div>
 		{/if}

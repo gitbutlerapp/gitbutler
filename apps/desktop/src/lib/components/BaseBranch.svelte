@@ -93,19 +93,21 @@
 
 <Modal width="small" bind:this={updateTargetModal} title="Merge Upstream Work">
 	<div class="modal-content">
-		<p class="text-base-body-14">You are about to merge upstream work from your base branch.</p>
+		<p class="text-base-14 text-body">
+			You are about to merge upstream work from your base branch.
+		</p>
 	</div>
 	<div class="modal-content">
-		<h4 class="text-base-body-14 text-semibold">What will this do?</h4>
-		<p class="modal__small-text text-base-body-12">
+		<h4 class="text-base-14 text-body text-semibold">What will this do?</h4>
+		<p class="modal__small-text text-base-12 text-body">
 			We will try to merge the work that is upstream into each of your virtual branches, so that
 			they are all up to date.
 		</p>
-		<p class="modal__small-text text-base-body-12">
+		<p class="modal__small-text text-base-12 text-body">
 			Any virtual branches that we can't merge cleanly, we will unapply and mark with a blue dot.
 			You can merge these manually later.
 		</p>
-		<p class="modal__small-text text-base-body-12">
+		<p class="modal__small-text text-base-12 text-body">
 			Any virtual branches that are fully integrated upstream will be automatically removed.
 		</p>
 	</div>

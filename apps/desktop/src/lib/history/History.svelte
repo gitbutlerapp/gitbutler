@@ -199,7 +199,7 @@
 						<!-- LOAD MORE -->
 						{#if $loading}
 							<div class="load-more">
-								<span class="text-base-body-13"> Loading more snapshots… </span>
+								<span class="text-base-13 text-body"> Loading more snapshots… </span>
 							</div>
 						{/if}
 
@@ -211,7 +211,7 @@
 								</div>
 								<div class="welcome-point__content">
 									<p class="text-base-13 text-semibold">Welcome to history!</p>
-									<p class="welcome-point__caption text-base-body-12">
+									<p class="welcome-point__caption text-base-12 text-body">
 										Gitbutler saves your work, including file changes, so your progress is always
 										secure. Adjust snapshot settings in project settings.
 									</p>

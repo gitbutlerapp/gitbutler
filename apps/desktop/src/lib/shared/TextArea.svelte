@@ -29,7 +29,7 @@
 	{/if}
 	<textarea
 		bind:this={textareaElement}
-		class="text-input text-base-body-13 textarea scrollbar"
+		class="text-input text-base-13 text-body textarea scrollbar"
 		bind:value
 		{disabled}
 		{id}

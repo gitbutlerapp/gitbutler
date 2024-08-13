@@ -42,7 +42,7 @@
 	</div>
 	<div class="action__content">
 		<div class="action__title text-base-18 text-bold">{title}</div>
-		<div class="action__message text-base-body-12" class:dim-message={dimMessage}>
+		<div class="action__message text-base-12 text-body" class:dim-message={dimMessage}>
 			{@render message()}
 		</div>
 	</div>

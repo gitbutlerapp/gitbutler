@@ -54,7 +54,7 @@
 				</div>
 			{/if}
 
-			<div class="modal__body custom-scrollbar text-base-body-13">
+			<div class="modal__body custom-scrollbar text-base-13 text-body">
 				{@render children(item)}
 			</div>
 

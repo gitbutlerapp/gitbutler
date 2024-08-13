@@ -186,9 +186,9 @@
 
 	<div class="snapshot-content">
 		<div class="snapshot-details">
-			<h4 class="snapshot-title text-base-body-13 text-semibold">
+			<h4 class="snapshot-title text-base-13 text-body text-semibold">
 				<span>{operation.text}</span>
-				<span class="snapshot-sha text-base-body-12"> • {getShortSha(entry.id)}</span>
+				<span class="snapshot-sha text-base-12 text-body"> • {getShortSha(entry.id)}</span>
 			</h4>
 
 			{#if operation.commitMessage}
@@ -257,7 +257,7 @@
 			</SnapshotAttachment>
 		{/if}
 		{#if error}
-			<div class="error-text text-base-body-12">
+			<div class="error-text text-base-12 text-body">
 				{error}
 			</div>
 		{/if}

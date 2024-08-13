@@ -157,7 +157,7 @@
 
 <Modal bind:this={modal} title="Share debug data with GitButler team for review">
 	<div class="content-wrapper">
-		<p class="content-wrapper__help-text text-base-body-13">
+		<p class="content-wrapper__help-text text-base-13 text-body">
 			If you are having trouble, please share your project and logs with the GitButler team. We will
 			review it for you and help identify how we can help resolve the issue.
 		</p>
@@ -189,7 +189,7 @@
 
 		<div class="content-wrapper__section">
 			<span class="text-base-16 text-semibold"> Share logs </span>
-			<span class="content-wrapper__help-text text-base-body-13">
+			<span class="content-wrapper__help-text text-base-13 text-body">
 				We personally ensure all information you share with us will be reviewed internally only and
 				discarded post-resolution
 			</span>

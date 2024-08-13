@@ -96,7 +96,7 @@
 
 <div class="wrapper">
 	<div class="card">
-		<div class="card__header text-base-body-14 text-semibold">
+		<div class="card__header text-base-14 text-body text-semibold">
 			<h2 class="text-base-14 text-semibold">
 				{pullrequest.title}
 				<span class="card__title-pr">

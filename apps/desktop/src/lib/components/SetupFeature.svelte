@@ -23,7 +23,7 @@
 		</div>
 
 		<div class="setup-feature__row">
-			<div class="setup-feature__body text-base-body-12">
+			<div class="setup-feature__body text-base-12 text-body">
 				<slot name="body" />
 			</div>
 			{#if $$slots.actions}

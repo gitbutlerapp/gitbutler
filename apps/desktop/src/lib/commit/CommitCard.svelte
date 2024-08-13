@@ -234,11 +234,14 @@
 				{/if}
 
 				{#if isUndoable && !commit.descriptionTitle}
-					<span class="text-base-body-13 text-semibold commit__empty-title"
+					<span class="text-base-13 text-body text-semibold commit__empty-title"
 						>empty commit message</span
 					>
 				{:else}
-					<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
+					<h5
+						class="text-base-13 text-body text-semibold commit__title"
+						class:truncate={!showDetails}
+					>
 						{commit.descriptionTitle}
 					</h5>
 
@@ -291,7 +294,7 @@
 				{#if commit.descriptionBody || isUndoable}
 					<div class="commit__details">
 						{#if commit.descriptionBody}
-							<span class="commit__description text-base-body-12">
+							<span class="commit__description text-base-12 text-body">
 								{commit.descriptionBody}
 							</span>
 						{/if}

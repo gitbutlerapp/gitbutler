@@ -166,7 +166,7 @@
 				<div class="branches__empty-state__image">
 					{@html noBranchesSvg}
 				</div>
-				<span class="branches__empty-state__caption text-base-body-14 text-semibold"
+				<span class="branches__empty-state__caption text-base-14 text-body text-semibold"
 					>No branches match your filter</span
 				>
 			</div>
@@ -176,7 +176,7 @@
 			<div class="branches__empty-state__image">
 				{@html noBranchesSvg}
 			</div>
-			<span class="branches__empty-state__caption text-base-body-14 text-semibold"
+			<span class="branches__empty-state__caption text-base-14 text-body text-semibold"
 				>You have no branches</span
 			>
 		</div>

@@ -19,7 +19,7 @@
 				</h2>
 			{/if}
 			{#if $$slots.description}
-				<p class="text-base-body-12">
+				<p class="text-base-12 text-body">
 					<slot name="description" />
 				</p>
 			{/if}
