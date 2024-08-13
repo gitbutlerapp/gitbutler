@@ -20,17 +20,19 @@ tick
 
 git init remote
 
-git config user.email "test@example.com"
-git config user.name "Test User"
-git config init.defaultBranch master
-
 (
   cd remote
+
+  git config user.email "test@example.com"
+  git config user.name "Test User"
+  git config init.defaultBranch master
+
   echo first >file
   git add . && git commit -m "init"
 )
 
 git clone remote one-vbranch-on-integration
+
 # This code will be useful for scenarios that assumes a project
 # already exists.
 # (

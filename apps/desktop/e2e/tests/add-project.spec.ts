@@ -15,7 +15,7 @@ describe('Project', () => {
 		const dirInput = await $('input[data-testid="test-directory-path"]');
 		setElementValue(dirInput, `${process.cwd()}/one-vbranch-on-integration`);
 
-		await findAndClick('[data-testid="add-local-project"]');
+		await findAndClick('button[data-testid="add-local-project"]');
 		await findAndClick('button=Continue');
 		await findAndClick("button=Let's go!");
 
