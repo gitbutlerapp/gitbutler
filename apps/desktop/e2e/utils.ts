@@ -1,4 +1,15 @@
+import { spawnSync } from 'node:child_process';
+
 const DEFAULT_TIMEOUT = 5_000;
+
+export async function spawnAndLog(command: string, args: string[]) {
+	const result = spawnSync(command, args);
+	console.log(`Exec command: ${command} ${args.join(' ')}`);
+	console.log('==== STDOUT ====\n', result.stdout?.toString());
+	console.log('==== STDERR ====\n', result.stderr?.toString());
+	console.log('==== EXIT STATUS ====\n', result.status);
+	return result.status;
+}
 
 export async function findAndClick(selector: string, timeout?: number) {
 	const button = await $(selector);
@@ -6,12 +17,4 @@ export async function findAndClick(selector: string, timeout?: number) {
 		timeout: timeout ?? DEFAULT_TIMEOUT
 	});
 	await browser.execute('arguments[0].click();', button);
-}
-
-export async function handleTelemetryPage() {
-	// const telemetryAgreement = await $('h1=Before we begin');
-	// if (await telemetryAgreement.isExisting()) {
-	const acceptTelemetryBtn = await $('button=Continue');
-	await acceptTelemetryBtn.click();
-	// }
 }
