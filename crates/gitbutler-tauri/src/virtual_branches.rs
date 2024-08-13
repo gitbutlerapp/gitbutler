@@ -80,6 +80,21 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
+    pub fn delete_local_branch(
+        windows: State<'_, WindowState>,
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        refname: Refname,
+        given_name: String,
+    ) -> Result<(), Error> {
+        let project = projects.get(project_id)?;
+        VirtualBranchActions.delete_local_branch(&project, &refname, given_name)?;
+        emit_vbranches(&windows, project_id);
+        Ok(())
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects, windows), err(Debug))]
     pub fn create_virtual_branch_from_branch(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,

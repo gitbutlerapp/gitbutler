@@ -18,8 +18,7 @@ type Story = StoryObj<typeof meta>;
 export const AvatarSmall: Story = {
 	args: {
 		srcUrl: 'https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c',
-		tooltipText: 'The avatar of bob',
-		altText: 'Bobs avatar',
+		tooltip: 'The avatar of bob',
 		size: 'small'
 	}
 };
@@ -27,8 +26,7 @@ export const AvatarSmall: Story = {
 export const AvatarMedium: Story = {
 	args: {
 		srcUrl: 'https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c',
-		tooltipText: 'The avatar of bob',
-		altText: 'Bobs avatar',
+		tooltip: 'The avatar of bob',
 		size: 'medium'
 	}
 };

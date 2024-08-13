@@ -149,6 +149,7 @@ fn main() {
                     repo::commands::git_clone_repository,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
+                    virtual_branches::commands::delete_local_branch,
                     virtual_branches::commands::commit_virtual_branch,
                     virtual_branches::commands::get_base_branch_data,
                     virtual_branches::commands::set_base_branch,

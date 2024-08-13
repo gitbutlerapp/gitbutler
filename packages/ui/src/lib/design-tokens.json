@@ -51,7 +51,7 @@
 			},
 			"20": {
 				"$type": "color",
-				"$value": "#302c2b",
+				"$value": "#383433",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -179,7 +179,7 @@
 			},
 			"95": {
 				"$type": "color",
-				"$value": "#f7f7f6",
+				"$value": "#f8f8f7",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -4097,7 +4097,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius"],
-			"createdAt": "2024-08-04T22:03:52.888Z"
+			"createdAt": "2024-08-10T21:58:58.533Z"
 		}
 	}
 }
