@@ -2,6 +2,8 @@
 
 set -eu -o pipefail
 
+TEMP_DIR="/tmp/gb-e2e-repos"
+
 CLI=${1:?The first argument is the GitButler CLI}
 # Convert to absolute path
 CLI=$(realpath "$CLI")
@@ -17,6 +19,9 @@ function tick() {
   export GIT_COMMITTER_DATE GIT_AUTHOR_DATE
 }
 tick
+
+mkdir "$TEMP_DIR"
+cd "$TEMP_DIR"
 
 git init remote
 
