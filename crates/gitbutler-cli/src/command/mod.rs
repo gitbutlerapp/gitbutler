@@ -27,6 +27,6 @@ pub mod snapshot {
 }
 
 fn debug_print(this: impl std::fmt::Debug) -> anyhow::Result<()> {
-    eprintln!("{:#?}", this);
+    println!("{:#?}", this);
     Ok(())
 }

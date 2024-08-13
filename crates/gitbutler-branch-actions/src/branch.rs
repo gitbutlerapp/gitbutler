@@ -5,7 +5,7 @@ use core::fmt;
 use gitbutler_branch::{
     Branch as GitButlerBranch, BranchId, BranchIdentity, ReferenceExtGix, Target,
 };
-use gitbutler_command_context::CommandContext;
+use gitbutler_command_context::{CommandContext, GixRepositoryExt};
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_serde::BStringForFrontend;
 use gix::object::tree::diff::Action;
@@ -427,8 +427,7 @@ pub fn get_branch_listing_details(
         .filter_map(Result::ok)
         .collect();
     let git2_repo = ctx.repository();
-    let mut repo = ctx.gix_repository_minimal()?;
-    repo.object_cache_size_if_unset(4 * 1024);
+    let repo = ctx.gix_repository_minimal()?.for_tree_diffing()?;
     let branches = list_branches(ctx, None, Some(branch_names))?;
 
     let (default_target_current_upstream_commit_id, default_target_seen_at_last_update) = {
