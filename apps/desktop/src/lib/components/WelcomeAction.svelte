@@ -12,7 +12,7 @@
 		dimMessage,
 		row,
 		rowReverse,
-		testid
+		testId
 	}: {
 		title: string;
 		loading?: boolean;
@@ -23,7 +23,7 @@
 		dimMessage?: boolean;
 		row?: boolean;
 		rowReverse?: boolean;
-		testid?: string;
+		testId?: string;
 	} = $props();
 </script>
 
@@ -35,7 +35,7 @@
 	{onclick}
 	{onmousedown}
 	disabled={loading}
-	data-testid={testid}
+	data-testid={testId}
 >
 	<div class="icon">
 		{@render icon()}

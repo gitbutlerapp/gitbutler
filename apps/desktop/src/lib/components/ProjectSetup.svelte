@@ -48,7 +48,7 @@
 			<Button style="ghost" outline disabled={loading} onclick={() => (selectedBranch[0] = '')}>
 				Back
 			</Button>
-			<Button style="pop" kind="solid" {loading} onclick={setTarget} data-testid="accept-git-auth">
+			<Button style="pop" kind="solid" {loading} onclick={setTarget} testId="accept-git-auth">
 				Let's go!
 			</Button>
 		</div>
