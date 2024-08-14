@@ -8,6 +8,12 @@ CLI=${1:?The first argument is the GitButler CLI}
 # Convert to absolute path
 CLI=$(realpath "$CLI")
 
+function setGitDefaults() {
+  git config user.email "test@example.com"
+  git config user.name "Test User"
+  git config init.defaultBranch master
+}
+
 function tick() {
   if test -z "${tick+set}"; then
     tick=1675176957
@@ -28,9 +34,7 @@ git init remote
 (
   cd remote
 
-  git config user.email "test@example.com"
-  git config user.name "Test User"
-  git config init.defaultBranch master
+  setGitDefaults
 
   echo first >file
   git add . && git commit -m "init"
@@ -45,3 +49,5 @@ git clone remote one-vbranch-on-integration
 #   $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name "@{u}")"
 #   $CLI branch create virtual
 # )
+
+rm -r "$TEMP_DIR"
