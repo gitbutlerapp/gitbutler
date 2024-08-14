@@ -2,35 +2,35 @@ import { invoke, listen } from '$lib/backend/ipc';
 import { derived, writable } from 'svelte/store';
 
 type Mode = { type: 'OpenWorkspace' } | { type: 'OutsideWorksapce' } | { type: 'Edit' };
+interface HeadAndMode {
+	head?: string;
+	operatingMode?: Mode;
+}
 
 export class ModeService {
-	readonly head = writable<string | undefined>(undefined);
-	readonly mode = writable<Mode | undefined>(undefined);
-
-	readonly gbBranchActive = derived(this.head, (head) => head === 'gitbutler/integration');
-
-	unsubscribe?: () => Promise<void>;
-
-	constructor(private projectId: string) {
-		this.unsubscribe = subscribeToHead(projectId, (head, mode) => {
-			this.head.set(head);
-			this.mode.set(mode);
-		});
+	private headAndMode = writable<HeadAndMode>({}, (set) => {
 		this.refresh();
-	}
+
+		const unsubscribe = subscribeToHead(this.projectId, (headAndMode) => {
+			set(headAndMode);
+		});
+
+		return unsubscribe;
+	});
+
+	readonly head = derived(this.headAndMode, ({ head }) => head);
+	readonly mode = derived(this.headAndMode, ({ operatingMode }) => operatingMode);
+
+	constructor(private projectId: string) {}
 
 	private async refresh() {
 		const head = await invoke<string>('git_head', { projectId: this.projectId });
-		this.head.set(head);
+		const operatingMode = await invoke<Mode>('operating_mode', { projectId: this.projectId });
 
-		const mode = await invoke<Mode>('operating_mode', { projectId: this.projectId });
-		this.mode.set(mode);
+		this.headAndMode.set({ head, operatingMode });
 	}
 }
 
-function subscribeToHead(projectId: string, callback: (head: string, mode: Mode) => void) {
-	return listen<{ head: string; operating_mode: Mode }>(
-		`project://${projectId}/git/head`,
-		(event) => callback(event.payload.head, event.payload.operating_mode)
-	);
+function subscribeToHead(projectId: string, callback: (headAndMode: HeadAndMode) => void) {
+	return listen<HeadAndMode>(`project://${projectId}/git/head`, (event) => callback(event.payload));
 }

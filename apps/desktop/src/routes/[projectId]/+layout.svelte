@@ -158,7 +158,6 @@
 
 	onDestroy(() => {
 		clearFetchInterval();
-		modeService.unsubscribe?.();
 	});
 </script>
 
