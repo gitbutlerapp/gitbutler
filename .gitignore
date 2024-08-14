@@ -8,6 +8,7 @@ generated-do-not-edit/
 
 .sentryclirc
 .DS_Store
+apps/desktop/e2e/videos/*.mp4
 
 .env
 .env.*

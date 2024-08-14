@@ -1,10 +1,12 @@
-import videoRecorder from 'test-video-recorder';
+import { TestRecorder } from './e2e/record.js';
 import { spawn, ChildProcess } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
-import type { Options } from '@wdio/types';
+import type { Options, Frameworks } from '@wdio/types';
 
 let tauriDriver: ChildProcess;
+
+const videoRecorder = new TestRecorder();
 
 videoRecorder.setPath(path.join(import.meta.dirname, '/e2e/videos'));
 
@@ -40,12 +42,11 @@ export const config: Options.WebdriverIO = {
 	connectionRetryTimeout: 120000,
 	connectionRetryCount: 0,
 
-	beforeTest: function (test: any) {
-		videoRecorder.start(test, 'wdio');
+	beforeTest: function (test: Frameworks.Test) {
+		videoRecorder.start(test);
 	},
 
-	// Stop video recording after each test
-	afterTest: function (_test: any) {
+	afterTest: function (_test: Frameworks.Test) {
 		videoRecorder.stop();
 	},
 
