@@ -48,13 +48,13 @@
 					{#if icon}
 						<Icon name={icon} />
 					{/if}
-					<h2 class="text-base-14 text-semibold">
+					<h2 class="text-14 text-semibold">
 						{title}
 					</h2>
 				</div>
 			{/if}
 
-			<div class="modal__body custom-scrollbar text-base-body-13">
+			<div class="modal__body custom-scrollbar text-13 text-body">
 				{@render children(item)}
 			</div>
 

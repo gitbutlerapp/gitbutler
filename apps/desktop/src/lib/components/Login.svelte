@@ -24,7 +24,7 @@
 		}}>Log out</Button
 	>
 {:else if token}
-	<p class="helper-text text-base-body-12">
+	<p class="helper-text text-12 text-body">
 		Your browser should have been opened. Please log into your GitButler account there.
 		{#if token}
 			If you were not redirected automatically, open <Link

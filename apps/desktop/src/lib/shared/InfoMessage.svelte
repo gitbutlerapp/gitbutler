@@ -55,13 +55,13 @@
 	<div class="info-message__inner">
 		<div class="info-message__content">
 			{#if $$slots.title}
-				<div class="info-message__title text-base-body-13 text-semibold">
+				<div class="info-message__title text-13 text-body text-semibold">
 					<slot name="title" />
 				</div>
 			{/if}
 
 			{#if $$slots.content}
-				<div class="info-message__text text-base-body-12">
+				<div class="info-message__text text-12 text-body">
 					<slot name="content" />
 				</div>
 			{/if}

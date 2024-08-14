@@ -5,7 +5,7 @@
 
 <div class="project-name">
 	<Icon name="repo-book-small" />
-	<span class="text-base-12 text-bold">
+	<span class="text-12 text-bold">
 		{projectName}
 	</span>
 </div>

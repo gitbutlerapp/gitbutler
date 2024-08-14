@@ -12,7 +12,7 @@
 </script>
 
 <ContentWrapper title="Experimental features">
-	<p class="text-base-body-13 experimental-settings__text">
+	<p class="text-13 text-body experimental-settings__text">
 		This sections contains a list of feature flags for features that are still in development or in
 		an experimental stage.
 	</p>

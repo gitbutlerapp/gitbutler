@@ -166,10 +166,10 @@
 	{/if}
 	<div class="info">
 		<img draggable="false" class="file-icon" src={getFileIcon(file.path)} alt="" />
-		<span class="text-base-12 name">
+		<span class="text-12 name">
 			{file.filename}
 		</span>
-		<span class="text-base-12 path">
+		<span class="text-12 path">
 			{file.justpath}
 		</span>
 	</div>

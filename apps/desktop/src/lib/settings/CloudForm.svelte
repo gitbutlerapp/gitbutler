@@ -112,7 +112,7 @@
 
 		<Spacer margin={8} />
 
-		<p class="text-base-body-12">
+		<p class="text-12 text-body">
 			You can apply your own custom prompts to the project. By default, the project uses GitButler
 			prompts, but you can create your own prompts in the general settings.
 		</p>

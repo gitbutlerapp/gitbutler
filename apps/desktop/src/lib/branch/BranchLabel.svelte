@@ -20,7 +20,7 @@
 	use:resizeObserver={(e) => {
 		inputWidth = `${Math.round(e.frame.width)}px`;
 	}}
-	class="branch-name-mesure-el text-base-14 text-bold"
+	class="branch-name-mesure-el text-14 text-bold"
 	bind:this={mesureEl}>{name}</span
 >
 <input
@@ -30,7 +30,7 @@
 	bind:value={name}
 	on:change={(e) => dispatch('change', { name: e.currentTarget.value.trim() })}
 	title={name}
-	class="branch-name-input text-base-14 text-bold"
+	class="branch-name-input text-14 text-bold"
 	on:dblclick|stopPropagation
 	on:click|stopPropagation={() => {
 		inputEl.focus();

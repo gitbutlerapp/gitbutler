@@ -106,7 +106,7 @@
 	<div class="header">
 		<div class="header-info">
 			<div class="branches-title" class:hide-branch-title={searching}>
-				<span class="text-base-14 text-bold">Branches</span>
+				<span class="text-14 text-bold">Branches</span>
 
 				<Badge count={$branchListings.length} />
 			</div>
@@ -119,7 +119,7 @@
 				<input
 					bind:this={searchEl}
 					bind:value={$searchTerm}
-					class="search-input text-base-13"
+					class="search-input text-13"
 					type="text"
 					placeholder="Search branches"
 					onkeydown={handleSearchKeyDown}
@@ -166,7 +166,7 @@
 				<div class="branches__empty-state__image">
 					{@html noBranchesSvg}
 				</div>
-				<span class="branches__empty-state__caption text-base-body-14 text-semibold"
+				<span class="branches__empty-state__caption text-14 text-body text-semibold"
 					>No branches match your filter</span
 				>
 			</div>
@@ -176,7 +176,7 @@
 			<div class="branches__empty-state__image">
 				{@html noBranchesSvg}
 			</div>
-			<span class="branches__empty-state__caption text-base-body-14 text-semibold"
+			<span class="branches__empty-state__caption text-14 text-body text-semibold"
 				>You have no branches</span
 			>
 		</div>

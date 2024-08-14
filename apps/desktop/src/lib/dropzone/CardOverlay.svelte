@@ -45,7 +45,7 @@
 				<path d="M11 7L6 2M6 2L1 7M6 2L6 12" stroke="white" stroke-width="1.5" />
 			</svg>
 
-			<span class="text-base-12 text-semibold">{label}</span>
+			<span class="text-12 text-semibold">{label}</span>
 		</div>
 
 		<!-- add svg rectange -->

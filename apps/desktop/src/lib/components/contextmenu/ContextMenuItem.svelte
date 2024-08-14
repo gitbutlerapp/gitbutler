@@ -12,7 +12,7 @@
 		<Icon name={icon} />
 	{/if}
 
-	<span class="label text-base-12">
+	<span class="label text-12">
 		{label}
 	</span>
 	<slot name="control" />

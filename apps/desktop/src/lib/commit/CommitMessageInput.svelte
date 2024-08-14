@@ -127,7 +127,7 @@
 			value={title}
 			placeholder="Commit summary"
 			disabled={aiLoading}
-			class="text-base-body-13 text-semibold commit-box__textarea commit-box__textarea__title"
+			class="text-13 text-body text-semibold commit-box__textarea commit-box__textarea__title"
 			spellcheck="false"
 			rows="1"
 			bind:this={titleTextArea}
@@ -151,7 +151,7 @@
 				value={description}
 				disabled={aiLoading}
 				placeholder="Commit description (optional)"
-				class="text-base-body-13 commit-box__textarea commit-box__textarea__description"
+				class="text-13 text-body commit-box__textarea commit-box__textarea__description"
 				spellcheck="false"
 				rows="1"
 				bind:this={descriptionTextArea}

@@ -26,7 +26,7 @@
 	>
 		<ProjectAvatar name={project?.title} />
 		{#if !isNavCollapsed}
-			<span class="button__label text-base-14 text-bold">{project?.title}</span>
+			<span class="button__label text-14 text-bold">{project?.title}</span>
 			<div class="button__icon">
 				<Icon name="select-chevron" />
 			</div>

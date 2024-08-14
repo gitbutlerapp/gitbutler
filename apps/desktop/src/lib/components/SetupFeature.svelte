@@ -18,12 +18,12 @@
 		<slot name="icon" />
 	</div>
 	<div class="setup-feature__content">
-		<div class="setup-feature__title text-base-14 text-bold">
+		<div class="setup-feature__title text-14 text-bold">
 			<slot name="title" />
 		</div>
 
 		<div class="setup-feature__row">
-			<div class="setup-feature__body text-base-body-12">
+			<div class="setup-feature__body text-12 text-body">
 				<slot name="body" />
 			</div>
 			{#if $$slots.actions}

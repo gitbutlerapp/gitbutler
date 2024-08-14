@@ -220,7 +220,7 @@
 				{/if}
 
 				{#if first}
-					<div class="commit__type text-semibold text-base-12">
+					<div class="commit__type text-semibold text-12">
 						{#if type === 'remote'}
 							Remote <Icon name="remote" />
 						{:else if type === 'local'}
@@ -234,15 +234,15 @@
 				{/if}
 
 				{#if isUndoable && !commit.descriptionTitle}
-					<span class="text-base-body-13 text-semibold commit__empty-title"
+					<span class="text-13 text-body text-semibold commit__empty-title"
 						>empty commit message</span
 					>
 				{:else}
-					<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
+					<h5 class="text-13 text-body text-semibold commit__title" class:truncate={!showDetails}>
 						{commit.descriptionTitle}
 					</h5>
 
-					<div class="text-base-11 commit__subtitle">
+					<div class="text-11 commit__subtitle">
 						{#if commit.isSigned}
 							<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
 								<Icon name="success-outline-small" />
@@ -291,7 +291,7 @@
 				{#if commit.descriptionBody || isUndoable}
 					<div class="commit__details">
 						{#if commit.descriptionBody}
-							<span class="commit__description text-base-body-12">
+							<span class="commit__description text-12 text-body">
 								{commit.descriptionBody}
 							</span>
 						{/if}

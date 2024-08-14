@@ -52,12 +52,12 @@
 	{#if $$slots.title || $$slots.caption}
 		<div class="section-card__content">
 			{#if $$slots.title}
-				<h3 class="text-base-15 text-bold section-card__title">
+				<h3 class="text-15 text-bold section-card__title">
 					<slot name="title" />
 				</h3>
 			{/if}
 			{#if $$slots.caption}
-				<p class="text-base-body-12 section-card__text">
+				<p class="text-12 text-body section-card__text">
 					<slot name="caption" />
 				</p>
 			{/if}

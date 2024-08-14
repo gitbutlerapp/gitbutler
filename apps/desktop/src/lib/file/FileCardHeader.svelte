@@ -22,7 +22,7 @@
 	<div class="header__inner">
 		<img src={getFileIcon(file.path)} alt="" class="icon" />
 		<div class="header__info truncate">
-			<div class="header__filetitle text-base-13 truncate">
+			<div class="header__filetitle text-13 truncate">
 				<span class="header__filename">{fileTitle.filename}</span>
 				<span class="header__filepath">{fileTitle.path}</span>
 			</div>

@@ -108,9 +108,9 @@
 					<BranchPreviewHeader {localBranch} {remoteBranch} {pr} />
 					{#if pr}
 						<div class="card">
-							<div class="card__header text-base-body-14 text-semibold">{pr.title}</div>
+							<div class="card__header text-14 text-body text-semibold">{pr.title}</div>
 							{#if pr.body}
-								<div class="markdown card__content text-base-body-13">
+								<div class="markdown card__content text-13 text-body">
 									{@html marked.parse(pr.body, { renderer })}
 								</div>
 							{/if}

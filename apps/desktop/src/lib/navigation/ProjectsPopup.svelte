@@ -69,7 +69,7 @@
 		class:selected={props.selected}
 		onclick={props.onclick}
 	>
-		<div class="label text-base-14 text-bold">
+		<div class="label text-14 text-bold">
 			{props.label}
 		</div>
 		{#if props.icon || props.selected}

@@ -27,7 +27,7 @@
 		<img class="icon" src={iconSrc} alt="" />
 
 		{#if !isNavCollapsed}
-			<span class="text-base-14 text-semibold" class:collapsed-txt={isNavCollapsed}>{label}</span>
+			<span class="text-14 text-semibold" class:collapsed-txt={isNavCollapsed}>{label}</span>
 			{#if ($baseBranch?.behind || 0) > 0 && !isNavCollapsed}
 				<UpdateBaseButton />
 			{/if}

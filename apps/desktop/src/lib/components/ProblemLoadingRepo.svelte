@@ -38,11 +38,11 @@
 <DecorativeSplitView img={loadErrorSvg}>
 	<div class="problem" data-tauri-drag-region>
 		<p class="problem__project text-bold"><Icon name="repo-book" /> {project?.title}</p>
-		<p class="problem__title text-base-body-18 text-bold" data-tauri-drag-region>
+		<p class="problem__title text-18 text-body text-bold" data-tauri-drag-region>
 			There was a problem loading this repo
 		</p>
 
-		<div class="problem__error text-base-body-12">
+		<div class="problem__error text-12 text-body">
 			<Icon name="error" color="error" />
 			{error ? error : 'An unknown error occurred'}
 		</div>

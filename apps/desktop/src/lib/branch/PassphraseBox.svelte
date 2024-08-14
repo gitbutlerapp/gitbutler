@@ -23,7 +23,7 @@
 
 {#if prompt}
 	<div class="passbox">
-		<span class="text-base-body-11 passbox__helper-text">
+		<span class="text-body-11 text-body passbox__helper-text">
 			{prompt?.prompt}
 		</span>
 		<TextBox

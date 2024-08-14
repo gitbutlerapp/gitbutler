@@ -98,7 +98,7 @@
 			</svg>
 		</div>
 
-		<h4 class="text-base-13 label">
+		<h4 class="text-13 label">
 			{#if !$update.status}
 				New version available
 			{:else if $update.status === 'PENDING'}

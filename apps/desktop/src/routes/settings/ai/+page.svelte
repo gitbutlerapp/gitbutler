@@ -147,7 +147,7 @@
 
 <ContentWrapper title="AI options">
 	<!-- <div class="ai-settings-wrap"> -->
-	<p class="text-base-body-13 ai-settings__text">
+	<p class="text-13 text-body ai-settings__text">
 		GitButler supports multiple providers for its AI powered features. We currently support models
 		from OpenAI and Anthropic either proxied through the GitButler API, or in a bring your own key
 		configuration.

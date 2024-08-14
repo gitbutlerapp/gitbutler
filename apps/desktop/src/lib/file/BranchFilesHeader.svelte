@@ -58,7 +58,7 @@
 				}}
 			/>
 		{/if}
-		<div class="header__title text-base-13 text-semibold">
+		<div class="header__title text-13 text-semibold">
 			<span>{title}</span>
 			<Badge count={files.length} />
 		</div>

@@ -315,7 +315,7 @@
 					{/key}
 				</div>
 				<div class="base-row__content">
-					<span class="text-base-11 base-row__text"
+					<span class="text-11 base-row__text"
 						>Base commit <button
 							class="base-row__commit-link"
 							on:click={async () => await goto(`/${project.id}/base`)}

@@ -55,7 +55,7 @@
 						</div>
 					</div>
 
-					<span class="text-base-body-13 new-branch-caption"
+					<span class="text-13 text-body new-branch-caption"
 						>Drag and drop files<br />to create a new branch</span
 					>
 				</div>

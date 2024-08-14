@@ -84,7 +84,7 @@
 </script>
 
 <Modal width="small" bind:this={createRemoteModal}>
-	<p class="text-base-15 fork-notice">
+	<p class="text-15 fork-notice">
 		In order to apply a branch from a fork, GitButler must first add a remote.
 	</p>
 	<TextBox label="Choose a remote name" bind:value={remoteName}></TextBox>
@@ -96,8 +96,8 @@
 
 <div class="wrapper">
 	<div class="card">
-		<div class="card__header text-base-body-14 text-semibold">
-			<h2 class="text-base-14 text-semibold">
+		<div class="card__header text-14 text-body text-semibold">
+			<h2 class="text-14 text-semibold">
 				{pullrequest.title}
 				<span class="card__title-pr">
 					<Link target="_blank" rel="noreferrer" href={pullrequest.htmlUrl}>
@@ -115,7 +115,7 @@
 		</div>
 
 		<div class="card__content">
-			<div class="text-base-13">
+			<div class="text-13">
 				<span class="text-bold">
 					{pullrequest.author?.name}
 				</span>

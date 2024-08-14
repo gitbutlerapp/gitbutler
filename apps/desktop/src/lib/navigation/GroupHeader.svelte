@@ -28,7 +28,7 @@
 		}
 	}}
 >
-	<h3 class="text-base-12 text-semibold">{title}</h3>
+	<h3 class="text-12 text-semibold">{title}</h3>
 </div>
 
 <style>

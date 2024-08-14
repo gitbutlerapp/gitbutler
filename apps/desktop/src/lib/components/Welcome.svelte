@@ -67,7 +67,7 @@
 
 	<div class="links" data-tauri-drag-region>
 		<div class="links__section">
-			<p class="links__title text-base-14 text-bold">Quick start</p>
+			<p class="links__title text-14 text-bold">Quick start</p>
 			<div class="education-links">
 				<IconLink
 					icon="docs"
@@ -81,7 +81,7 @@
 			</div>
 		</div>
 		<div class="links__section">
-			<p class="links__title text-base-14 text-bold">Join our community</p>
+			<p class="links__title text-14 text-bold">Join our community</p>
 			<div class="community-links">
 				<IconLink icon="discord" href="https://discord.gg/MmFkmaJ42D">Discord</IconLink>
 				<IconLink icon="x" href="https://twitter.com/gitbutler">X</IconLink>

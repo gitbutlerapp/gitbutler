@@ -120,8 +120,8 @@
 	{#if children}
 		<span
 			class="label text-semibold"
-			class:text-base-12={size === 'button' || size === 'cta'}
-			class:text-base-11={size === 'tag'}
+			class:text-12={size === 'button' || size === 'cta'}
+			class:text-11={size === 'tag'}
 		>
 			{@render children()}
 		</span>

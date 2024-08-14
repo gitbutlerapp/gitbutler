@@ -114,7 +114,7 @@
 						<div class="clock-pointer clock-pointer-hour"></div>
 					</div>
 				</i>
-				<h3 class="sideview__header-title text-base-15 text-bold">Project history</h3>
+				<h3 class="sideview__header-title text-15 text-bold">Project history</h3>
 				<Button
 					style="ghost"
 					icon="cross"
@@ -156,7 +156,7 @@
 								{@const withinRestoreItems = findRestorationRanges($snapshots)}
 								{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1]?.createdAt ?? new Date())}
 									<div class="sideview__date-header">
-										<h4 class="text-base-13 text-semibold">
+										<h4 class="text-13 text-semibold">
 											{createdOnDay(entry.createdAt)}
 										</h4>
 									</div>
@@ -199,7 +199,7 @@
 						<!-- LOAD MORE -->
 						{#if $loading}
 							<div class="load-more">
-								<span class="text-base-body-13"> Loading more snapshots… </span>
+								<span class="text-13 text-body"> Loading more snapshots… </span>
 							</div>
 						{/if}
 
@@ -210,8 +210,8 @@
 									<Icon name="finish" />
 								</div>
 								<div class="welcome-point__content">
-									<p class="text-base-13 text-semibold">Welcome to history!</p>
-									<p class="welcome-point__caption text-base-body-12">
+									<p class="text-13 text-semibold">Welcome to history!</p>
+									<p class="welcome-point__caption text-12 text-body">
 										Gitbutler saves your work, including file changes, so your progress is always
 										secure. Adjust snapshot settings in project settings.
 									</p>

@@ -120,7 +120,7 @@
 		<div class="step-section">
 			<div class="step-line"></div>
 			<div class="step-section__content">
-				<p class="text-base-body-13">Copy the following verification code:</p>
+				<p class="text-13 text-body">Copy the following verification code:</p>
 
 				<div class="code-wrapper">
 					<span class="text-head-20">
@@ -146,7 +146,7 @@
 			<div class="step-section" transition:fade>
 				<div class="step-line step-line-default"></div>
 				<div class="step-section__content">
-					<p class="text-base-body-13">
+					<p class="text-13 text-body">
 						Navigate to the GitHub activation page and paste the code you copied.
 					</p>
 					<Button
