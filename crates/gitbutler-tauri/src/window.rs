@@ -30,9 +30,13 @@ pub(super) mod state {
                         payload: serde_json::json!({}),
                         project_id,
                     },
-                    Change::GitHead { project_id, head } => ChangeForFrontend {
+                    Change::GitHead {
+                        project_id,
+                        head,
+                        operating_mode,
+                    } => ChangeForFrontend {
                         name: format!("project://{}/git/head", project_id),
-                        payload: serde_json::json!({ "head": head }),
+                        payload: serde_json::json!({ "head": head, "operating_mode": operating_mode }),
                         project_id,
                     },
                     Change::GitActivity(project_id) => ChangeForFrontend {

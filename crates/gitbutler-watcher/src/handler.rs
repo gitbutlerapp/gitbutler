@@ -4,7 +4,9 @@ use anyhow::{Context, Result};
 use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
-use gitbutler_operating_modes::{in_open_workspace_mode, in_outside_workspace_mode};
+use gitbutler_operating_modes::{
+    in_open_workspace_mode, in_outside_workspace_mode, operating_mode,
+};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt,
@@ -187,6 +189,7 @@ impl Handler {
                         self.emit_app_event(Change::GitHead {
                             project_id,
                             head: head.to_string(),
+                            operating_mode: operating_mode(&ctx),
                         })?;
                     }
                 }

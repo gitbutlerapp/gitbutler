@@ -5,9 +5,9 @@ import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
 import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
-import { HeadService } from '$lib/head/headService';
 import { HistoryService } from '$lib/history/history';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
+import { ModeService } from '$lib/modes/service';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { BranchController } from '$lib/vbranches/branchController';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
@@ -45,7 +45,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	const projectMetrics = new ProjectMetrics(projectId);
 
-	const headService = new HeadService(projectId);
+	const modeService = new ModeService(projectId);
 	const fetchSignal = new FetchSignal(projectId);
 
 	const historyService = new HistoryService(projectId);
@@ -86,7 +86,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		remoteBranchService,
 		vbranchService,
 		projectMetrics,
-		headService,
+		modeService,
 		fetchSignal,
 
 		// These observables are provided for convenience
