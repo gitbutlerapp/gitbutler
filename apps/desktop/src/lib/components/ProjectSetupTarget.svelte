@@ -78,12 +78,14 @@
 	}
 
 	const projectService = getContext(ProjectService);
-	async function deleteProject() {
-		try {
-			await projectService.deleteProject(project.id);
-			await projectService.reload();
-		} catch (err: any) {
-			console.error(err);
+	async function deleteProjectAndGoBack() {
+		await projectService.deleteProject(project.id);
+		await projectService.reload();
+
+		if (history.length > 0) {
+			history.back();
+		} else {
+			goto('/');
 		}
 	}
 </script>
@@ -258,7 +260,7 @@
 		</SetupFeature>
 	</div>
 	<div class="action-buttons">
-		<BackButton preMouseDown={deleteProject}>Cancel</BackButton>
+		<Button style="ghost" outline onmousedown={deleteProjectAndGoBack}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"
