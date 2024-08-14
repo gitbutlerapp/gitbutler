@@ -26,7 +26,9 @@ function tick() {
 }
 tick
 
-mkdir "$TEMP_DIR"
+if [ ! -d "$TEMP_DIR" ]; then
+  mkdir "$TEMP_DIR"
+fi
 cd "$TEMP_DIR"
 
 git init remote
@@ -49,5 +51,3 @@ git clone remote one-vbranch-on-integration
 #   $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name "@{u}")"
 #   $CLI branch create virtual
 # )
-
-rm -r "$TEMP_DIR"
