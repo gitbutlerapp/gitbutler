@@ -1,14 +1,11 @@
 import { TestRecorder } from './e2e/record.js';
-import { spawn, ChildProcess } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import type { Options, Frameworks } from '@wdio/types';
 
-let tauriDriver: ChildProcess;
-
 const videoRecorder = new TestRecorder();
-
-videoRecorder.setPath(path.join(import.meta.dirname, '/e2e/videos'));
+let tauriDriver: ChildProcess;
 
 export const config: Options.WebdriverIO = {
 	hostname: '127.0.0.1',
@@ -43,10 +40,11 @@ export const config: Options.WebdriverIO = {
 	connectionRetryCount: 0,
 
 	beforeTest: function (test: Frameworks.Test) {
-		videoRecorder.start(test);
+		const videoPath = path.join(import.meta.dirname, '/e2e/videos');
+		videoRecorder.start(test, videoPath);
 	},
 
-	afterTest: function (_test: Frameworks.Test) {
+	afterTest: function () {
 		videoRecorder.stop();
 	},
 

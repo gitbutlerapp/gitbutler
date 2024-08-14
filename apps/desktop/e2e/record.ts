@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { spawn } from 'child_process';
+import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
 import type { Frameworks } from '@wdio/types';
 
 function filePath({
@@ -19,34 +19,26 @@ function fileName(title: string) {
 }
 
 export class TestRecorder {
-	ffmpeg: any;
-	test!: Frameworks.Test;
-	videoPath!: string;
+	ffmpeg!: ChildProcessWithoutNullStreams;
 
 	constructor() {}
-
-	setPath(path: string) {
-		this.videoPath = path;
-	}
 
 	stop() {
 		this.ffmpeg?.kill('SIGINT');
 	}
 
-	start(test: Frameworks.Test) {
-		this.test = test;
-
-		// Throw error if video path not set
-		if (!this.videoPath) {
+	start(test: Frameworks.Test, videoPath: string) {
+		if (!videoPath) {
 			throw new Error('Video path not set. Set using setPath() function.');
 		}
 
 		if (process.env.DISPLAY && process.env.DISPLAY.startsWith(':')) {
-			const videoPath = filePath({
-				test: this.test,
-				videoPath: this.videoPath,
+			const parsedPath = filePath({
+				test,
+				videoPath,
 				extension: 'mp4'
 			});
+
 			this.ffmpeg = spawn('ffmpeg', [
 				'-f',
 				'x11grab', //  Grab the X11 display
@@ -59,7 +51,7 @@ export class TestRecorder {
 				'-y', // Overwrite output files without asking
 				'-pix_fmt',
 				'yuv420p', // QuickTime Player support, "Use -pix_fmt yuv420p for compatibility with outdated media players"
-				videoPath // Output file
+				parsedPath // Output file
 			]);
 
 			const logBuffer = function (buffer: Buffer, prefix: string) {
@@ -70,19 +62,19 @@ export class TestRecorder {
 			};
 
 			this.ffmpeg.stdout.on('data', (data: Buffer) => {
-				logBuffer(data, 'ffmpeg stdout: ');
+				logBuffer(data, '[ffmpeg:stdout] ');
 			});
 
 			this.ffmpeg.stderr.on('data', (data: Buffer) => {
-				logBuffer(data, 'ffmpeg stderr: ');
+				logBuffer(data, '[ffmpeg:error] ');
 			});
 
 			this.ffmpeg.on('close', (code: number, signal: string | unknown) => {
 				if (code !== null) {
-					console.log(`\tffmpeg exited with code ${code} ${videoPath}`);
+					console.log(`[ffmpeg:stdout] exited with code ${code}: ${videoPath}`);
 				}
 				if (signal !== null) {
-					console.log(`\tffmpeg received signal ${signal} ${videoPath}`);
+					console.log(`[ffmpeg:stdout] received signal ${signal}: ${videoPath}`);
 				}
 			});
 		}
