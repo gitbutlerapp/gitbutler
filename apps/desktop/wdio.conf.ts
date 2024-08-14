@@ -6,7 +6,7 @@ import type { Options } from '@wdio/types';
 
 let tauriDriver: ChildProcess;
 
-videoRecorder.setPath(path.join(import.meta.dirname, '/video'));
+videoRecorder.setPath(path.join(import.meta.dirname, '/e2e/videos'));
 
 export const config: Options.WebdriverIO = {
 	hostname: '127.0.0.1',
