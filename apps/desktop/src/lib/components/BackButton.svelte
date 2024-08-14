@@ -1,18 +1,18 @@
 <script lang="ts">
 	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { goto } from '$app/navigation';
-	async function defaultBeforeOnMouseDown() {
+	async function defaultPreMouseDown() {
 		Promise.resolve();
 	}
 
-	export let beforeOnMouseDown: () => Promise<void> = defaultBeforeOnMouseDown;
+	export let preMouseDown: () => Promise<void> = defaultPreMouseDown;
 </script>
 
 <Button
 	style="ghost"
 	outline
 	onmousedown={() => {
-		beforeOnMouseDown().then(
+		preMouseDown().then(
 			() => {
 				if (history.length > 0) {
 					history.back();
@@ -21,7 +21,7 @@
 				}
 			},
 			(err) => {
-				console.log('The pre-back button action failed');
+				console.log('Failed to execute the pre-mouse-down action');
 				console.log(err);
 			}
 		);

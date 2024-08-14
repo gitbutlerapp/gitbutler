@@ -258,7 +258,7 @@
 		</SetupFeature>
 	</div>
 	<div class="action-buttons">
-		<BackButton beforeOnMouseDown={deleteProject}>Cancel</BackButton>
+		<BackButton preMouseDown={deleteProject}>Cancel</BackButton>
 		<Button
 			style="pop"
 			kind="solid"
