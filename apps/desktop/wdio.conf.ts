@@ -1,9 +1,12 @@
+import videoRecorder from 'test-video-recorder';
 import { spawn, ChildProcess } from 'node:child_process';
 import os from 'node:os';
 import path from 'node:path';
 import type { Options } from '@wdio/types';
 
 let tauriDriver: ChildProcess;
+
+videoRecorder.setPath(path.join(import.meta.dirname, '/video'));
 
 export const config: Options.WebdriverIO = {
 	hostname: '127.0.0.1',
@@ -36,6 +39,15 @@ export const config: Options.WebdriverIO = {
 	waitforTimeout: 10000,
 	connectionRetryTimeout: 120000,
 	connectionRetryCount: 0,
+
+	beforeTest: function (test: any) {
+		videoRecorder.start(test, 'wdio');
+	},
+
+	// Stop video recording after each test
+	afterTest: function (_test: any) {
+		videoRecorder.stop();
+	},
 
 	// ensure we are running `tauri-driver` before the session starts so that we can proxy the webdriver requests
 	beforeSession: () =>

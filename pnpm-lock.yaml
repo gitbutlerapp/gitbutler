@@ -259,6 +259,9 @@ importers:
       tauri-plugin-store-api:
         specifier: github:tauri-apps/tauri-plugin-store#v1
         version: https://codeload.github.com/tauri-apps/tauri-plugin-store/tar.gz/5f5404feea43b6cddd65e4171f52e92ca161a2aa
+      test-video-recorder:
+        specifier: ^2.0.2
+        version: 2.0.2
       tinykeys:
         specifier: ^2.1.0
         version: 2.1.0
@@ -3670,6 +3673,9 @@ packages:
   fflate@0.4.8:
     resolution: {integrity: sha512-FJqqoDBR00Mdj9ppamLa/Y7vxm+PRmNWA67N846RvsoYVMKB4q3y/de5PA7gUmRMYK/8CMz2GDZQmCRN1wBcWA==}
 
+  ffmpeg@0.0.4:
+    resolution: {integrity: sha512-3TgWUJJlZGQn+crJFyhsO/oNeRRnGTy6GhgS98oUCIfZrOW5haPPV7DUfOm3xJcHr5q3TJpjk2GudPutrNisRA==}
+
   figures@5.0.0:
     resolution: {integrity: sha512-ej8ksPF4x6e5wvK9yevct0UCXh8TTFlWGVLlgjZuoBH1HwjIfKE/IdL5mq89sFA7zELi1VhKpmtDnrs7zWyeyg==}
     engines: {node: '>=14'}
@@ -5893,6 +5899,9 @@ packages:
     resolution: {integrity: sha512-7jDLIdD2Zp0bDe5r3D2qtkd1QOCacylBuL7oa4udvN6v2pqr4+LcCr67C8DR1zkpaZ8XosF5m1yQSabKAW6f2g==}
     engines: {node: '>=14.16'}
 
+  test-video-recorder@2.0.2:
+    resolution: {integrity: sha512-c1yKcZ+wWjR3BkDR8dXDa1F0jSW98HWV0oHmtVBug20Dl0PuqtGUomTfEQOxERmlmY36ce3aEvkLRDfRIivjSQ==}
+
   text-decoder@1.1.1:
     resolution: {integrity: sha512-8zll7REEv4GDD3x4/0pW+ppIxSNs7H1J10IKFZsuOMscumCdM2a+toDGLPA3T+1+fLBql4zbt5z83GEQGGV5VA==}
 
@@ -6324,6 +6333,9 @@ packages:
 
   whatwg-url@5.0.0:
     resolution: {integrity: sha512-saE57nupxk6v3HY35+jzBwYa0rKSy0XR8JSxZPwgLr7ys0IBzhGviA1/TUGJLmSVqs8pb9AnvICXEuOHLprYTw==}
+
+  when@3.7.8:
+    resolution: {integrity: sha512-5cZ7mecD3eYcMiCH4wtRPA5iFJZ50BJYDfckI5RRpQiktMiYTcn0ccLTZOvcbBume+1304fQztxeNzNS9Gvrnw==}
 
   which-boxed-primitive@1.0.2:
     resolution: {integrity: sha512-bwZdv0AKLpplFY2KZRX6TvyuN7ojjr7lwkg6ml0roIy9YeuSr7JS372qlNW18UQYzgYK9ziGcerWqZOmEn9VNg==}
@@ -10765,6 +10777,10 @@ snapshots:
 
   fflate@0.4.8: {}
 
+  ffmpeg@0.0.4:
+    dependencies:
+      when: 3.7.8
+
   figures@5.0.0:
     dependencies:
       escape-string-regexp: 5.0.0
@@ -13150,6 +13166,10 @@ snapshots:
       type-fest: 2.19.0
       unique-string: 3.0.0
 
+  test-video-recorder@2.0.2:
+    dependencies:
+      ffmpeg: 0.0.4
+
   text-decoder@1.1.1:
     dependencies:
       b4a: 1.6.6
@@ -13604,6 +13624,8 @@ snapshots:
     dependencies:
       tr46: 0.0.3
       webidl-conversions: 3.0.1
+
+  when@3.7.8: {}
 
   which-boxed-primitive@1.0.2:
     dependencies:
