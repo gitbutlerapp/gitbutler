@@ -50,7 +50,6 @@ export default tsEslint.config(
 			'**/dist',
 			'.svelte-kit',
 			'**/package',
-			'**/e2e',
 			'**/.env',
 			'**/.env.*',
 			'!**/.env.example',
@@ -61,7 +60,6 @@ export default tsEslint.config(
 			'.vscode',
 			'src-tauri',
 			'**/eslint.config.js',
-			'**/eslint.config.mjs',
 			'**/svelte.config.js',
 			'**/.pnpm-store',
 			'**/vite.config.ts.timestamp-*',
@@ -83,7 +81,6 @@ export default tsEslint.config(
 		rules: {
 			eqeqeq: ['error', 'always'],
 			'import-x/no-cycle': 'error',
-
 			'import-x/order': [
 				'error',
 				{
@@ -107,20 +104,24 @@ export default tsEslint.config(
 					'newlines-between': 'never'
 				}
 			],
-
 			'import-x/no-unresolved': [
 				'error',
 				{
 					ignore: ['^\\$app', '^\\$env']
 				}
 			],
+			'import-x/no-relative-packages': 'error',
 
-			'import-x/no-relative-packages': 'error', // Don't allow packages to have relative imports between each other
 			'func-style': [2, 'declaration'],
+			'no-return-await': 'off',
+			'svelte/no-at-html-tags': 'off',
+
 			'@typescript-eslint/no-namespace': 'off',
 			'@typescript-eslint/no-empty-function': 'off',
 			'@typescript-eslint/no-explicit-any': 'off',
-
+			'@typescript-eslint/return-await': ['error', 'always'],
+			'@typescript-eslint/promise-function-async': 'error',
+			'@typescript-eslint/await-thenable': 'error',
 			'@typescript-eslint/no-unused-vars': [
 				'error',
 				{
@@ -128,13 +129,7 @@ export default tsEslint.config(
 					varsIgnorePattern: '^_',
 					caughtErrorsIgnorePattern: '^_'
 				}
-			],
-
-			'no-return-await': 'off',
-			'@typescript-eslint/return-await': ['error', 'always'],
-			'@typescript-eslint/promise-function-async': 'error',
-			'@typescript-eslint/await-thenable': 'error',
-			'svelte/no-at-html-tags': 'off'
+			]
 		},
 		settings: {
 			'import-x/extensions': ['.ts'],
