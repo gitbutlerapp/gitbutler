@@ -1,7 +1,6 @@
 <script async lang="ts">
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
 	import { ProjectService, Project } from '$lib/backend/projects';
-	import BackButton from '$lib/components/BackButton.svelte';
 	import Login from '$lib/components/Login.svelte';
 	import SetupFeature from '$lib/components/SetupFeature.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -14,6 +13,7 @@
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import { goto } from '$app/navigation';
 
 	export let projectName: string;
 	export let remoteBranches: { name: string }[];
