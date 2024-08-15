@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use anyhow::{bail, Context, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_error::error;
 
 use super::{storage, storage::UpdateRequest, Project, ProjectId};
@@ -120,8 +120,33 @@ impl Controller {
     }
 
     pub fn get(&self, id: ProjectId) -> Result<Project> {
+        self.get_inner(id, false)
+    }
+
+    /// Like [`Self::get()`], but will assure the project still exists and is valid by
+    /// opening a git repository. This should only be done for critical points in time.
+    pub fn get_validated(&self, id: ProjectId) -> Result<Project> {
+        self.get_inner(id, true)
+    }
+
+    fn get_inner(&self, id: ProjectId, validate: bool) -> Result<Project> {
         #[cfg_attr(not(windows), allow(unused_mut))]
         let mut project = self.projects_storage.get(id)?;
+        if validate {
+            let worktree_dir = &project.path;
+            if gix::open_opts(worktree_dir, gix::open::Options::isolated()).is_err() {
+                let suffix = if !worktree_dir.exists() {
+                    " as it does not exist"
+                } else {
+                    ""
+                };
+                return Err(anyhow!(
+                    "Could not open repository at '{}'{suffix}",
+                    worktree_dir.display()
+                )
+                .context(error::Code::ProjectMissing));
+            }
+        }
         if !project.gb_dir().exists() {
             if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
                 tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", project.gb_dir().display());
