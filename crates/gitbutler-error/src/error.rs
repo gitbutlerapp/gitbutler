@@ -133,6 +133,7 @@ pub enum Code {
     CommitSigningFailed,
     CommitHookFailed,
     CommitMergeConflictFailure,
+    AuthorMissing,
 }
 
 impl std::fmt::Display for Code {
@@ -145,6 +146,7 @@ impl std::fmt::Display for Code {
             Code::CommitSigningFailed => "errors.commit.signing_failed",
             Code::CommitHookFailed => "errors.commit.hook_failed",
             Code::CommitMergeConflictFailure => "errors.commit.merge_conflict_failure",
+            Code::AuthorMissing => "errors.git.author_missing",
         };
         f.write_str(code)
     }

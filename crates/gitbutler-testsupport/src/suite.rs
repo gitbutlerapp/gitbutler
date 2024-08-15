@@ -8,6 +8,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_repo::{credentials::Helper, RepositoryExt};
 use tempfile::{tempdir, TempDir};
 
+use crate::test_project::setup_config;
 use crate::{init_opts, init_opts_bare, VAR_NO_CLEANUP};
 
 pub struct Suite {
@@ -150,9 +151,7 @@ pub fn test_repository() -> (git2::Repository, TempDir) {
     let tmp = temp_dir();
     let repository =
         git2::Repository::init_opts(&tmp, &init_opts()).expect("failed to init repository");
-    gitbutler_repo::Config::from(&repository)
-        .set_local("commit.gpgsign", "false")
-        .unwrap();
+    setup_config(&repository.config().unwrap()).unwrap();
     let mut index = repository.index().expect("failed to get index");
     let oid = index.write_tree().expect("failed to write tree");
     let signature = git2::Signature::now("test", "test@email.com").unwrap();
