@@ -58,6 +58,9 @@ fn check_if_installed(executable_name: &str) -> bool {
 pub fn build(_package_info: &PackageInfo) -> Menu {
     let mut menu = Menu::new();
 
+    // Used in different menus depending on target os.
+    let check_for_updates = CustomMenuItem::new("global/update", "Check for updates");
+
     #[cfg(target_os = "macos")]
     {
         let app_name = &_package_info.name;
@@ -71,6 +74,7 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
                 ))
                 .add_native_item(MenuItem::Separator)
                 .add_item(CustomMenuItem::new("global/settings", "Settings").accelerator("Cmd+,"))
+                .add_item(check_for_updates)
                 .add_native_item(MenuItem::Separator)
                 .add_native_item(MenuItem::Services)
                 .add_native_item(MenuItem::Separator)
@@ -105,6 +109,7 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
     {
         file_menu = file_menu.add_native_item(MenuItem::Separator);
         file_menu = file_menu.add_native_item(MenuItem::Quit);
+        file_menu = file_menu.add_item(check_for_updates)
     }
 
     menu = menu.add_submenu(Submenu::new("File", file_menu));
@@ -252,6 +257,11 @@ pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
 
     if event.menu_item_id() == "global/settings" {
         emit(event.window(), "menu://global/settings/clicked");
+        return;
+    }
+
+    if event.menu_item_id() == "global/update" {
+        emit(event.window(), "menu://global/update/clicked");
         return;
     }
 

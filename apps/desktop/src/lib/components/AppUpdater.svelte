@@ -7,14 +7,17 @@
 
 	const updaterService = getContext(UpdaterService);
 	const update = updaterService.update;
-	const version = updaterService.version;
 	const currentVersion = updaterService.currentVersion;
+
+	const status = $derived($update?.status);
+	const version = $derived($update?.version);
+	const body = $derived($update?.body);
 
 	let dismissed = $state(false);
 	let open = $state(false);
 
 	$effect(() => {
-		if ($version !== $currentVersion && !dismissed) {
+		if (version !== $currentVersion && !dismissed) {
 			open = true;
 		}
 	});
@@ -25,7 +28,7 @@
 	}
 </script>
 
-{#if $update?.version && $update?.status !== 'UPTODATE' && !dismissed && open}
+{#if (version || status === 'UPTODATE') && !dismissed && open}
 	<div class="update-banner" class:busy={$update?.status === 'PENDING'}>
 		<div class="floating-button">
 			<Button icon="cross-small" style="ghost" onclick={handleDismiss} />
@@ -99,15 +102,17 @@
 		</div>
 
 		<h4 class="text-13 label">
-			{#if !$update.status}
+			{#if !status}
 				New version available
-			{:else if $update.status === 'PENDING'}
+			{:else if status === 'PENDING'}
 				Downloading update...
-			{:else if $update.status === 'DOWNLOADED'}
+			{:else if status === 'DOWNLOADED'}
 				Installing update...
-			{:else if $update.status === 'DONE'}
+			{:else if status === 'DONE'}
 				Install complete
-			{:else if $update.status === 'ERROR'}
+			{:else if status === 'UPTODATE'}
+				You are up-to-date
+			{:else if status === 'ERROR'}
 				Error occurred...
 			{/if}
 		</h4>
@@ -117,10 +122,10 @@
 				style="ghost"
 				outline
 				onmousedown={() => {
-					const notes = $update?.body?.trim() || 'no release notes available';
+					const notes = body?.trim() || 'no release notes available';
 					showToast({
 						id: 'release-notes',
-						title: `Release notes for ${$update?.version}`,
+						title: `Release notes for ${version}`,
 						message: `
                         ${notes}
                 `
@@ -130,7 +135,7 @@
 				Release notes
 			</Button>
 			<div class="status-section">
-				{#if !$update.status}
+				{#if !status}
 					<div class="sliding-gradient"></div>
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
 						<Button
@@ -141,10 +146,10 @@
 								await updaterService.installUpdate();
 							}}
 						>
-							Download {$update.version}
+							Download {version}
 						</Button>
 					</div>
-				{:else if $update.status === 'DONE'}
+				{:else if status === 'DONE'}
 					<div class="sliding-gradient"></div>
 					<div class="cta-btn" transition:fade={{ duration: 100 }}>
 						<Button style="pop" kind="solid" wide onclick={() => updaterService.relaunchApp()}
