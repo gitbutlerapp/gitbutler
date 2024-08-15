@@ -146,7 +146,7 @@
 			GitButler will sign commits as per your git configuration.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle id="signCommits" checked={signCommits} on:click={handleSignCommitsClick} />
+			<Toggle id="signCommits" checked={signCommits} onclick={handleSignCommitsClick} />
 		</svelte:fragment>
 	</SectionCard>
 	{#if signCommits}
@@ -232,11 +232,7 @@
 			GitButler will never force push to the target branch.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle
-				id="allowForcePush"
-				checked={allowForcePushing}
-				on:click={handleAllowForcePushClick}
-			/>
+			<Toggle id="allowForcePush" checked={allowForcePushing} onclick={handleAllowForcePushClick} />
 		</svelte:fragment>
 	</SectionCard>
 
@@ -249,7 +245,7 @@
 			<Toggle
 				id="omitCertificateCheck"
 				checked={omitCertificateCheck}
-				on:click={handleOmitCertificateCheckClick}
+				onclick={handleOmitCertificateCheckClick}
 			/>
 		</svelte:fragment>
 	</SectionCard>

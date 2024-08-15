@@ -2,6 +2,7 @@
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 
 	interface Props {
+		onclick?: (e: MouseEvent) => Promise<void>;
 		small?: boolean;
 		disabled?: boolean;
 		checked?: boolean;
@@ -11,6 +12,7 @@
 	}
 
 	let {
+		onclick,
 		small = false,
 		disabled = false,
 		checked = $bindable(false),
@@ -22,7 +24,10 @@
 
 <input
 	bind:checked
-	onclick={(e) => e.stopPropagation()}
+	onclick={(e) => {
+		e.stopPropagation();
+		onclick?.(e);
+	}}
 	type="checkbox"
 	class="toggle"
 	class:small
