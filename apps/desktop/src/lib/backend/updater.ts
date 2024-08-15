@@ -1,3 +1,4 @@
+import { listen } from './ipc';
 import { showToast } from '$lib/notifications/toasts';
 import { getVersion } from '@tauri-apps/api/app';
 import { relaunch } from '@tauri-apps/api/process';
@@ -5,6 +6,7 @@ import {
 	checkUpdate,
 	installUpdate,
 	onUpdaterEvent,
+	type UpdateResult,
 	type UpdateManifest,
 	type UpdateStatus
 } from '@tauri-apps/api/updater';
@@ -28,8 +30,7 @@ export class UpdaterService {
 	update: Readable<Update | undefined> = derived(
 		[this.status, this.result],
 		([status, update]) => {
-			if (update) return { ...update, status };
-			return undefined;
+			return { ...update, status };
 		},
 		undefined
 	);
@@ -38,7 +39,8 @@ export class UpdaterService {
 	readonly version = derived(this.update, (update) => update?.version);
 
 	prev: Update | undefined;
-	unlistenFn: any;
+	unlistenStatusFn: any;
+	unlistenManualCheckFn: any;
 	intervalId: any;
 
 	constructor() {}
@@ -46,9 +48,11 @@ export class UpdaterService {
 	private async start() {
 		const currentVersion = await getVersion();
 		this.currentVersion.set(currentVersion);
-		await this.checkForUpdate();
-		setInterval(async () => await this.checkForUpdate(), 3600000); // hourly
-		this.unlistenFn = await onUpdaterEvent((status) => {
+		this.unlistenManualCheckFn = listen<string>('menu://global/update/clicked', () => {
+			this.checkForUpdate(true);
+		});
+
+		this.unlistenStatusFn = await onUpdaterEvent((status) => {
 			const err = status.error;
 			if (err) {
 				showErrorToast(err);
@@ -56,19 +60,30 @@ export class UpdaterService {
 			}
 			this.status.set(status.status);
 		});
+
+		await this.checkForUpdate();
+		setInterval(async () => await this.checkForUpdate(), 3600000); // hourly
 	}
 
 	private async stop() {
-		this.unlistenFn?.();
+		this.unlistenStatusFn?.();
+		this.unlistenManualCheckFn?.();
 		if (this.intervalId) {
 			clearInterval(this.intervalId);
 			this.intervalId = undefined;
 		}
 	}
 
-	async checkForUpdate() {
-		const update = await checkUpdate();
-		if (update.manifest) {
+	async checkForUpdate(isManual = false) {
+		const update = await Promise.race([
+			checkUpdate(), // In DEV mode this never returns.
+			new Promise<UpdateResult>((resolve) =>
+				setTimeout(() => resolve({ shouldUpdate: false }), 30000)
+			)
+		]);
+		if (!update.shouldUpdate && isManual) {
+			this.status.set('UPTODATE');
+		} else if (update.manifest) {
 			this.result.set(update.manifest);
 		}
 	}
