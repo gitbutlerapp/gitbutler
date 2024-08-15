@@ -9,5 +9,5 @@ catalogs:
     svelte: 5.0.0-next.222
     '@sveltejs/kit': 2.5.22
     svelte-check: 3.8.5
-    '@sveltejs/vite-plugin-svelte': 4.0.0-next.6
+    '@sveltejs/vite-plugin-svelte': 3.1.1
     '@sveltejs/adapter-static': 3.0.4
