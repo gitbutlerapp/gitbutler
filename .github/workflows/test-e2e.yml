@@ -29,6 +29,7 @@ jobs:
             libayatana-appindicator3-dev \
             libwebkit2gtk-4.0-dev \
             webkit2gtk-driver \
+            ffmpeg \
             xvfb
       - name: Setup rust-toolchain stable
         id: rust-toolchain

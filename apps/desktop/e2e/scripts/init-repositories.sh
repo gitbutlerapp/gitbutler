@@ -8,6 +8,12 @@ CLI=${1:?The first argument is the GitButler CLI}
 # Convert to absolute path
 CLI=$(realpath "$CLI")
 
+function setGitDefaults() {
+  git config user.email "test@example.com"
+  git config user.name "Test User"
+  git config init.defaultBranch master
+}
+
 function tick() {
   if test -z "${tick+set}"; then
     tick=1675176957
@@ -20,7 +26,9 @@ function tick() {
 }
 tick
 
-mkdir "$TEMP_DIR"
+if [ ! -d "$TEMP_DIR" ]; then
+  mkdir "$TEMP_DIR"
+fi
 cd "$TEMP_DIR"
 
 git init remote
@@ -28,9 +36,7 @@ git init remote
 (
   cd remote
 
-  git config user.email "test@example.com"
-  git config user.name "Test User"
-  git config init.defaultBranch master
+  setGitDefaults
 
   echo first >file
   git add . && git commit -m "init"
