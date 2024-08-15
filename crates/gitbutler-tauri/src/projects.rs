@@ -34,7 +34,7 @@ pub mod commands {
         projects: State<'_, Controller>,
         id: ProjectId,
     ) -> Result<projects::Project, Error> {
-        Ok(projects.get(id)?)
+        Ok(projects.get_validated(id)?)
     }
 
     #[tauri::command(async)]
@@ -66,7 +66,7 @@ pub mod commands {
         window: Window,
         id: ProjectId,
     ) -> Result<(), Error> {
-        let project = projects.get(id).context("project not found")?;
+        let project = projects.get_validated(id).context("project not found")?;
         Ok(window_state.set_project_to_window(window.label(), &project)?)
     }
 
