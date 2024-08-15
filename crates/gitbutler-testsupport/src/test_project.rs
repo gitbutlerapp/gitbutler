@@ -1,7 +1,6 @@
-use std::{fs, path, path::PathBuf};
-
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::RepositoryExt;
+use std::{fs, path, path::PathBuf};
 use tempfile::TempDir;
 
 use crate::{init_opts, VAR_NO_CLEANUP};
@@ -403,9 +402,14 @@ impl TestProject {
     }
 }
 
-fn setup_config(config: &git2::Config) -> anyhow::Result<()> {
+pub(crate) fn setup_config(config: &git2::Config) -> anyhow::Result<()> {
     match config.open_level(git2::ConfigLevel::Local) {
-        Ok(mut local) => local.set_str("commit.gpgsign", "false").map_err(Into::into),
+        Ok(mut local) => {
+            local.set_str("commit.gpgsign", "false")?;
+            local.set_str("user.name", "gitbutler-test")?;
+            local.set_str("user.email", "gitbutler-test@example.com")?;
+            Ok(())
+        }
         Err(err) => Err(err.into()),
     }
 }

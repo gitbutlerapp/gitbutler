@@ -429,7 +429,9 @@ impl RepoActionsExt for CommandContext {
             .author()
             .transpose()?
             .map(gitbutler_branch::gix_to_git2_signature)
-            .unwrap_or_else(|| gitbutler_branch::signature(SignaturePurpose::Author))?;
+            .transpose()?
+            .context("No author is configured in Git")
+            .context(Code::AuthorMissing)?;
 
         let config: Config = self.repository().into();
         let committer = if config.user_real_comitter()? {
