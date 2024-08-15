@@ -24,6 +24,9 @@ export default tsEslint.config(
 			globals: {
 				...globals.node,
 				...globals.browser,
+				...globals.mocha,
+				...globals.chai,
+				...globals.protractor,
 				$state: 'readonly',
 				$derived: 'readonly',
 				$props: 'readonly',
