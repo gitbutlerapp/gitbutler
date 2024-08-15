@@ -1,17 +1,28 @@
 <script lang="ts">
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 
-	export let small = false;
-	export let disabled = false;
-	export let checked = false;
-	export let value = '';
-	export let help = '';
-	export let id = '';
+	interface Props {
+		small?: boolean;
+		disabled?: boolean;
+		checked?: boolean;
+		value?: string;
+		help?: string;
+		id?: string;
+	}
+
+	let {
+		small = false,
+		disabled = false,
+		checked = $bindable(false),
+		value = '',
+		help = '',
+		id = ''
+	}: Props = $props();
 </script>
 
 <input
 	bind:checked
-	on:click|stopPropagation
+	onclick={(e) => e.stopPropagation()}
 	type="checkbox"
 	class="toggle"
 	class:small
