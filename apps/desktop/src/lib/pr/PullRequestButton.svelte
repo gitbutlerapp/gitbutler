@@ -1,16 +1,3 @@
-<script lang="ts" context="module">
-	export enum Action {
-		Create = 'createPr',
-		CreateDraft = 'createDraftPr'
-	}
-
-	const actions = Object.values(Action);
-	const labels = {
-		[Action.Create]: 'Create PR',
-		[Action.CreateDraft]: 'Create Draft PR'
-	};
-</script>
-
 <script lang="ts">
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
@@ -23,6 +10,18 @@
 		help: string;
 		click: (opts: { draft: boolean }) => void;
 	};
+
+	enum Action {
+		Create = 'createPr',
+		CreateDraft = 'createDraftPr'
+	}
+
+	const actions = Object.values(Action);
+	const labels = {
+		[Action.Create]: 'Create PR',
+		[Action.CreateDraft]: 'Create Draft PR'
+	};
+
 	const { loading, disabled, help, click }: Props = $props();
 
 	const preferredAction = persisted<Action>(Action.Create, 'projectDefaultPrAction');
