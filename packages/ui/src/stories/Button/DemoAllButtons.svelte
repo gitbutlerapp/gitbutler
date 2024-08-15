@@ -1,15 +1,18 @@
 <script lang="ts">
 	import Button from '$lib/inputs/Button.svelte';
+	import type { ComponentColor } from '$lib/utils/colorTypes';
 
 	interface Props {
 		label: string;
 		reversedDirection?: boolean;
+		outline?: boolean;
+		style?: ComponentColor;
 	}
 
 	const { label, reversedDirection }: Props = $props();
 </script>
 
-{#snippet buttons({ label, outline, style, reversedDirection })}
+{#snippet buttons({ label, outline, style, reversedDirection }: Props)}
 	<div class="group">
 		<Button size="cta" {style} icon="plus" {reversedDirection}>{label}</Button>
 		<Button size="cta" {style} kind="solid" {outline} icon="plus" {reversedDirection}
