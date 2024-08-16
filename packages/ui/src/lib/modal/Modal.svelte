@@ -6,7 +6,7 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		width?: 'default' | 'small' | 'large';
+		width?: 'default' | 'large' | 'small' | 'xsmall';
 		title?: string;
 		icon?: keyof typeof iconsJson;
 		onclose?: () => void;
@@ -35,9 +35,10 @@
 	<div use:portal={'body'} role="presentation" class="modal-container" class:open>
 		<div
 			class="modal-content"
-			class:s-default={width === 'default'}
-			class:s-small={width === 'small'}
-			class:s-large={width === 'large'}
+			class:default={width === 'default'}
+			class:large={width === 'large'}
+			class:small={width === 'small'}
+			class:xsmall={width === 'xsmall'}
 			class:round-top-corners={!title}
 			use:clickOutside={{
 				handler: close
@@ -149,17 +150,21 @@
 		}
 	}
 
-	/* modifiers */
+	/* MODIFIERS */
 
-	.s-large {
-		width: 840px;
-	}
-
-	.s-default {
+	.modal-content.default {
 		width: 580px;
 	}
 
-	.s-small {
+	.modal-content.large {
+		width: 840px;
+	}
+
+	.modal-content.small {
 		width: 380px;
+	}
+
+	.modal-content.xsmall {
+		width: 310px;
 	}
 </style>
