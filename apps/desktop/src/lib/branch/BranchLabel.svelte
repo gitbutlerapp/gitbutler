@@ -7,7 +7,7 @@
 		onchange?: (value: string) => void;
 	}
 
-	let { name = $bindable(), disabled = false, onchange }: Props = $props();
+	let { name, disabled = false, onchange }: Props = $props();
 
 	let inputEl: HTMLInputElement;
 	let initialName = name;
