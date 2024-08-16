@@ -66,7 +66,7 @@
 
 	<p class="text-13 text-body modal-caption">
 		{#if status === 'UPTODATE'}
-			You're on GitButler {currentVersion}, which is the most up-to-date version.
+			You're on GitButler {$currentVersion}, which is the most up-to-date version.
 		{:else}
 			Upgrade now for the latest features.
 			<br />
@@ -85,25 +85,30 @@
 				Cancel
 			</Button>
 		{/if}
-		<Button
-			style="pop"
-			kind="solid"
-			wide
-			loading={status === 'PENDING' || status === 'DOWNLOADED'}
-			onclick={async () => {
-				await updaterService.installUpdate();
-			}}
-		>
-			{#if status === 'PENDING'}
-				Downloading update...
-			{:else if status === 'DOWNLOADED'}
-				Installing update...
-			{:else if status === 'DONE'}
-				Restart
-			{:else}
-				Download {version}
-			{/if}
-		</Button>
+
+		{#if status === 'UPTODATE'}
+			<Button style="pop" kind="solid" wide outline onclick={handleDismiss}>Got it!</Button>
+		{:else}
+			<Button
+				style="pop"
+				kind="solid"
+				wide
+				loading={status === 'PENDING' || status === 'DOWNLOADED'}
+				onclick={async () => {
+					await updaterService.installUpdate();
+				}}
+			>
+				{#if status === 'PENDING'}
+					Downloading update...
+				{:else if status === 'DOWNLOADED'}
+					Installing update...
+				{:else if status === 'DONE'}
+					Restart
+				{:else}
+					Download {version}
+				{/if}
+			</Button>
+		{/if}
 	</div>
 </Modal>
 
