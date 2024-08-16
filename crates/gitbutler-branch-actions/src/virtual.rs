@@ -662,6 +662,7 @@ pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) 
         branch.name = dedup(
             &all_virtual_branches
                 .iter()
+                .filter(|b| b.id != branch_update.id)
                 .map(|b| b.name.as_str())
                 .collect::<Vec<_>>(),
             name,
