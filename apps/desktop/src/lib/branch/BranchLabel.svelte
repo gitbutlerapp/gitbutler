@@ -51,12 +51,11 @@
 
 <style lang="postcss">
 	.branch-name-input {
-		min-width: 15ch;
+		min-width: 8ch;
 		height: 20px;
 		padding: 2px 4px;
 		border: 1px solid transparent;
-	}
-	.branch-name-input {
+
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		overflow: hidden;
