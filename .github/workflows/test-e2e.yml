@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
+      RUST_BACKTRACE: 1
     steps:
       - uses: actions/checkout@v4
         if: ${{ github.event_name != 'workflow_dispatch' }}
@@ -46,6 +47,8 @@ jobs:
           restore-keys: cargo-
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
+      - name: Build gitbutler-git
+        run: cargo build --profile dev -p gitbutler-git
       - name: Build CLI
         run: cargo build --profile dev -p gitbutler-cli
       - name: Build SvelteKit
