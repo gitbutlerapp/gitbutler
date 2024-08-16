@@ -17,6 +17,20 @@ export default tsEslint.config(
 	eslintConfigPrettier,
 	...eslintPluginSvelte.configs['flat/prettier'],
 	{
+		files: ['apps/desktop/e2e/**'],
+		languageOptions: {
+			ecmaVersion: 2021,
+			sourceType: 'module',
+			globals: {
+				...globals.node,
+				...globals.browser,
+				...globals.mocha,
+				...globals.chai,
+				$: false
+			}
+		}
+	},
+	{
 		files: ['**/*.svelte'],
 		languageOptions: {
 			ecmaVersion: 2021,
@@ -50,7 +64,6 @@ export default tsEslint.config(
 			'**/dist',
 			'.svelte-kit',
 			'**/package',
-			'**/e2e',
 			'**/.env',
 			'**/.env.*',
 			'!**/.env.example',
@@ -61,7 +74,6 @@ export default tsEslint.config(
 			'.vscode',
 			'src-tauri',
 			'**/eslint.config.js',
-			'**/eslint.config.mjs',
 			'**/svelte.config.js',
 			'**/.pnpm-store',
 			'**/vite.config.ts.timestamp-*',
