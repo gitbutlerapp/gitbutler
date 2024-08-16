@@ -130,7 +130,7 @@
 				slot="control"
 				bind:checked={allowRebasing}
 				on:click={toggleAllowRebasing}
-				help="Having this enabled permits commit amending and reordering after a branch has been pushed, which would subsequently require force pushing"
+				help="Allows changing commits after push (force push needed)"
 			/>
 		</ContextMenuItem>
 	</ContextMenuSection>
