@@ -17,7 +17,7 @@ export default tsEslint.config(
 	eslintConfigPrettier,
 	...eslintPluginSvelte.configs['flat/prettier'],
 	{
-		files: ['**/*.svelte'],
+		files: ['apps/desktop/e2e/**'],
 		languageOptions: {
 			ecmaVersion: 2021,
 			sourceType: 'module',
@@ -26,7 +26,18 @@ export default tsEslint.config(
 				...globals.browser,
 				...globals.mocha,
 				...globals.chai,
-				$: false,
+				$: false
+			}
+		}
+	},
+	{
+		files: ['**/*.svelte'],
+		languageOptions: {
+			ecmaVersion: 2021,
+			sourceType: 'module',
+			globals: {
+				...globals.node,
+				...globals.browser,
 				$state: 'readonly',
 				$derived: 'readonly',
 				$props: 'readonly',
