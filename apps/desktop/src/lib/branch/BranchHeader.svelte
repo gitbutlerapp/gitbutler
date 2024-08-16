@@ -21,9 +21,13 @@
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
-	export let uncommittedChanges = 0;
-	export let isLaneCollapsed: Persisted<boolean>;
-	export let onGenerateBranchName: () => void;
+	interface Props {
+		uncommittedChanges?: number;
+		isLaneCollapsed: Persisted<boolean>;
+		onGenerateBranchName: () => void;
+	}
+
+	const { uncommittedChanges = 0, isLaneCollapsed, onGenerateBranchName }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
@@ -33,13 +37,13 @@
 	const prMonitor = getGitHostPrMonitor();
 	const gitHost = getGitHost();
 
-	$: branch = $branchStore;
-	$: pr = $prMonitor?.pr;
+	const branch = $derived($branchStore);
+	const pr = $derived($prMonitor?.pr);
 
-	let contextMenu: ContextMenu;
-	let meatballButtonEl: HTMLDivElement;
-	let isLoading: boolean;
-	let isTargetBranchAnimated = false;
+	let contextMenu = $state<ContextMenu>();
+	let meatballButtonEl = $state<HTMLDivElement>();
+	let isLoading = $state(false);
+	let isTargetBranchAnimated = $state(false);
 
 	function handleBranchNameChange(title: string) {
 		if (title === '') return;
@@ -55,9 +59,9 @@
 		$isLaneCollapsed = true;
 	}
 
-	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
+	const hasIntegratedCommits = $derived(branch.commits?.some((b) => b.isIntegrated));
 
-	let headerInfoHeight = 0;
+	let headerInfoHeight = $state(0);
 
 	interface CreatePrOpts {
 		draft: boolean;
@@ -120,7 +124,7 @@
 	<div
 		class="card collapsed-lane"
 		class:collapsed-lane_target-branch={branch.selectedForChanges}
-		on:keydown={(e) => e.key === 'Enter' && expandLane()}
+		onkeydown={(e) => e.key === 'Enter' && expandLane()}
 		tabindex="0"
 		role="button"
 	>
@@ -251,7 +255,7 @@
 							outline
 							icon="kebab"
 							onclick={() => {
-								contextMenu.toggle();
+								contextMenu?.toggle();
 							}}
 						/>
 						<BranchLaneContextMenu
