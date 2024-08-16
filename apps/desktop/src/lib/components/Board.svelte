@@ -10,10 +10,12 @@
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { persisted } from '$lib/persisted/persisted';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { throttle } from '$lib/utils/misc';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { open } from '@tauri-apps/api/shell';
+	import { flip } from 'svelte/animate';
 
 	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
@@ -26,8 +28,6 @@
 
 	let dragged: HTMLDivElement | undefined;
 	let dropZone: HTMLDivElement;
-	let priorPosition = 0;
-	let dropPosition = 0;
 
 	let dragHandle: any;
 	let clone: any;
@@ -39,6 +39,42 @@
 	async function openInVSCode() {
 		open(`${$editor}://file${project.vscodePath}/?windowId=_blank`);
 	}
+
+	const handleDragOver = throttle((e: MouseEvent & { currentTarget: HTMLDivElement }) => {
+		e.preventDefault();
+		if (!dragged) {
+			return; // Something other than a lane is being dragged.
+		}
+
+		const children = Array.from(e.currentTarget.children);
+		const currentPosition = children.indexOf(dragged);
+
+		let dropPosition = 0;
+		let mouseLeft = e.clientX - dropZone.getBoundingClientRect().left;
+		let cumulativeWidth = dropZone.offsetLeft;
+
+		for (let i = 0; i < children.length; i++) {
+			if (i === currentPosition) {
+				continue;
+			}
+
+			const childWidth = (children[i] as HTMLElement).offsetWidth;
+			if (mouseLeft > cumulativeWidth + childWidth / 2) {
+				// New position depends on drag direction.
+				dropPosition = i < currentPosition ? i + 1 : i;
+				cumulativeWidth += childWidth;
+			} else {
+				break;
+			}
+		}
+
+		// Update sorted branch array manually.
+		if (currentPosition !== dropPosition) {
+			const el = sortedBranches.splice(currentPosition, 1);
+			sortedBranches.splice(dropPosition, 0, ...el);
+			sortedBranches = sortedBranches; // Redraws #each loop.
+		}
+	}, 200);
 </script>
 
 {#if $error}
@@ -46,50 +82,23 @@
 {:else if !$branches}
 	<FullviewLoading />
 {:else}
-	<div class="board">
+	<div
+		class="board"
+		role="group"
+		on:drop={(e) => {
+			e.preventDefault();
+			if (!dragged) {
+				return; // Something other than a lane was dropped.
+			}
+			branchController.updateBranchOrder(sortedBranches.map((b, i) => ({ id: b.id, order: i })));
+		}}
+	>
 		<div
 			role="group"
 			class="branches"
 			data-tauri-drag-region
 			bind:this={dropZone}
-			on:dragover={(e) => {
-				if (!dragged) return;
-
-				e.preventDefault();
-				const children = [...e.currentTarget.children];
-				dropPosition = 0;
-				// We account for the NewBranchDropZone by subtracting 2
-				for (let i = 0; i < children.length - 1; i++) {
-					const pos = children[i]?.getBoundingClientRect() as DOMRect;
-					if (e.clientX > pos.left + dragged.offsetWidth / 2) {
-						dropPosition = i + 1;
-					} else {
-						break;
-					}
-				}
-				const idx = children.indexOf(dragged);
-				if (idx !== dropPosition) {
-					if (idx >= dropPosition) {
-						children[dropPosition]?.before(dragged);
-					} else {
-						children[dropPosition]?.after(dragged);
-					}
-				}
-			}}
-			on:drop={(e) => {
-				if (!dragged) return;
-				if (!$branches) return;
-				dragged.style.opacity = '1';
-				e.preventDefault();
-				if (priorPosition !== dropPosition) {
-					const el = $branches.splice(priorPosition, 1);
-					$branches.splice(dropPosition, 0, ...el);
-					const updates = $branches.map((b, i) => {
-						return { id: b.id, order: i };
-					});
-					branchController.updateBranchOrder(updates);
-				}
-			}}
+			on:dragover={(e) => handleDragOver(e)}
 		>
 			{#each sortedBranches as branch (branch.id)}
 				<div
@@ -98,26 +107,29 @@
 					tabindex="-1"
 					class="branch draggable-branch"
 					draggable="true"
+					animate:flip={{ duration: 150 }}
 					on:mousedown={(e) => (dragHandle = e.target)}
 					on:dragstart={(e) => {
-					if (dragHandle.dataset.dragHandle === undefined) {
-						// We rely on elements with id `drag-handle` to initiate this drag
-						e.preventDefault();
-						e.stopPropagation();
-						return;
-					}
-					clone = cloneElement(e.target as HTMLElement);
-					document.body.appendChild(clone);
-					// Get chromium to fire dragover & drop events
-					// https://stackoverflow.com/questions/6481094/html5-drag-and-drop-ondragover-not-firing-in-chrome/6483205#6483205
-					e.dataTransfer?.setData('text/html', 'd'); // cannot be empty string
-					e.dataTransfer?.setDragImage(clone, e.offsetX, e.offsetY); // Adds the padding
-					dragged = e.currentTarget;
-					dragged.style.opacity = "0.6";
-					priorPosition = Array.from(dropZone.children).indexOf(dragged);
-				}}
+						if (dragHandle.dataset.dragHandle === undefined) {
+							// We rely on elements with id `drag-handle` to initiate this drag
+							e.preventDefault();
+							e.stopPropagation();
+							return;
+						}
+						clone = cloneElement(e.currentTarget);
+						document.body.appendChild(clone);
+						// Get chromium to fire dragover & drop events
+						// https://stackoverflow.com/questions/6481094/html5-drag-and-drop-ondragover-not-firing-in-chrome/6483205#6483205
+						e.dataTransfer?.setData('text/html', 'd'); // cannot be empty string
+						e.dataTransfer?.setDragImage(clone, e.offsetX, e.offsetY); // Adds the padding
+						dragged = e.currentTarget;
+						dragged.style.opacity = '0.6';
+					}}
 					on:dragend={() => {
-						dragged = undefined;
+						if (dragged) {
+							dragged.style.opacity = '1';
+							dragged = undefined;
+						}
 						clone?.remove();
 					}}
 				>
