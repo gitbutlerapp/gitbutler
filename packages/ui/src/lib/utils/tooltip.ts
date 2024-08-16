@@ -54,6 +54,7 @@ export function tooltip(node: HTMLElement, optsOrString: ToolTipOptions | string
 		tooltip = document.createElement('div') as HTMLDivElement;
 		// TODO: Can we co-locate tooltip.js & tooltip.postcss?
 		tooltip.classList.add('tooltip', 'text-11'); // see tooltip.postcss
+		tooltip.style.zIndex = 'calc(infinity)';
 		if (noMaxWidth) tooltip.classList.add('no-max-width');
 		tooltip.innerText = text;
 		document.body.appendChild(tooltip);
