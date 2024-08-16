@@ -59,7 +59,7 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
     let mut menu = Menu::new();
 
     // Used in different menus depending on target os.
-    let check_for_updates = CustomMenuItem::new("global/update", "Check for updates");
+    let check_for_updates = CustomMenuItem::new("global/update", "Check for updates…");
 
     #[cfg(target_os = "macos")]
     {
