@@ -76,7 +76,7 @@
 	const showHistoryView = persisted(false, 'showHistoryView');
 
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
-	const gitHostFactory = $derived(octokit ? new DefaultGitHostFactory(octokit) : undefined);
+	const gitHostFactory = $derived(new DefaultGitHostFactory(octokit));
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
 	const forkInfo = $derived(forkUrl && forkUrl !== remoteUrl ? parseRemoteUrl(forkUrl) : undefined);
 	const baseBranchName = $derived($baseBranch?.shortName);
@@ -118,8 +118,9 @@
 	$effect.pre(() => {
 		const gitHost =
 			repoInfo && baseBranchName
-				? gitHostFactory?.build(repoInfo, baseBranchName, forkInfo)
+				? gitHostFactory.build(repoInfo, baseBranchName, forkInfo)
 				: undefined;
+
 		const ghListService = gitHost?.listService();
 
 		listServiceStore.set(ghListService);
