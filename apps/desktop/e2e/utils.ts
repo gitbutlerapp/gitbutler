@@ -1,5 +1,5 @@
-import { spawnSync } from 'node:child_process';
 import { browser } from '@wdio/globals';
+import { spawnSync } from 'node:child_process';
 
 const DEFAULT_TIMEOUT = 5_000;
 
