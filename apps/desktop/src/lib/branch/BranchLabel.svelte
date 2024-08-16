@@ -1,47 +1,45 @@
 <script lang="ts">
-	import { resizeObserver } from '$lib/utils/resizeObserver';
-	import { createEventDispatcher } from 'svelte';
+	import { onMount } from 'svelte';
 
-	export let name: string;
-	export let disabled = false;
+	interface Props {
+		name: string;
+		disabled?: boolean;
+		onchange?: (value: string) => void;
+	}
+
+	let { name = $bindable(), disabled = false, onchange }: Props = $props();
 
 	let inputEl: HTMLInputElement;
 	let initialName = name;
 
-	let mesureEl: HTMLSpanElement;
-	let inputWidth: string | undefined;
-
-	const dispatch = createEventDispatcher<{
-		change: { name: string };
-	}>();
+	onMount(() => {
+		inputEl.style.width = `${name.length}ch`;
+	});
 </script>
 
-<span
-	use:resizeObserver={(e) => {
-		inputWidth = `${Math.round(e.frame.width)}px`;
-	}}
-	class="branch-name-mesure-el text-14 text-bold"
-	bind:this={mesureEl}>{name}</span
->
 <input
 	type="text"
 	{disabled}
 	bind:this={inputEl}
 	bind:value={name}
-	on:change={(e) => dispatch('change', { name: e.currentTarget.value.trim() })}
+	onchange={(e) => onchange?.(e.currentTarget.value.trim())}
+	onkeypress={(e) => {
+		inputEl.style.width = `${e.currentTarget.value.trim().length}ch`;
+	}}
 	title={name}
 	class="branch-name-input text-14 text-bold"
-	on:dblclick|stopPropagation
-	on:click|stopPropagation={() => {
+	ondblclick={(e) => e.stopPropagation()}
+	onclick={(e) => {
+		e.stopPropagation();
 		inputEl.focus();
 	}}
-	on:blur={() => {
+	onblur={() => {
 		if (name === '') name = initialName;
 	}}
-	on:focus={() => {
+	onfocus={() => {
 		initialName = name;
 	}}
-	on:keydown={(e) => {
+	onkeydown={(e) => {
 		if (e.key === 'Enter' || e.key === 'Escape') {
 			inputEl.blur();
 		}
@@ -49,26 +47,14 @@
 	autocomplete="off"
 	autocorrect="off"
 	spellcheck="false"
-	style:width={inputWidth}
 />
 
 <style lang="postcss">
-	.branch-name-mesure-el,
 	.branch-name-input {
-		min-width: 44px;
+		min-width: 15ch;
 		height: 20px;
 		padding: 2px 4px;
 		border: 1px solid transparent;
-	}
-	.branch-name-mesure-el {
-		pointer-events: none;
-		visibility: hidden;
-		border: 2px solid transparent;
-		color: black;
-		position: fixed;
-		display: inline-block;
-		visibility: hidden;
-		white-space: pre;
 	}
 	.branch-name-input {
 		text-overflow: ellipsis;
@@ -76,7 +62,6 @@
 		overflow: hidden;
 
 		max-width: 100%;
-		width: 100%;
 		border-radius: var(--radius-s);
 		color: var(--clr-scale-ntrl-0);
 		background-color: var(--clr-bg-1);
