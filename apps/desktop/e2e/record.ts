@@ -1,5 +1,5 @@
-import path from 'node:path';
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process';
+import path from 'node:path';
 import type { Frameworks } from '@wdio/types';
 
 function filePath({
@@ -54,12 +54,12 @@ export class TestRecorder {
 				parsedPath // Output file
 			]);
 
-			const logBuffer = function (buffer: Buffer, prefix: string) {
+			function logBuffer(buffer: Buffer, prefix: string) {
 				const lines = buffer.toString().trim().split('\n');
 				lines.forEach(function (line) {
 					console.log(prefix + line);
 				});
-			};
+			}
 
 			this.ffmpeg.stdout.on('data', (data: Buffer) => {
 				logBuffer(data, '[ffmpeg:stdout] ');
