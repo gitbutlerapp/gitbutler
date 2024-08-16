@@ -6,6 +6,11 @@
 		"productName": "GitButler"
 	},
 	"tauri": {
+		"allowlist": {
+			"shell": {
+				"open": "^((https://)|(http://)|(mailto:)|(vscode://)|(vscodium://)).+"
+			}
+    },
 		"bundle": {
 			"identifier": "com.gitbutler.app",
 			"icon": [
