@@ -47,7 +47,7 @@ jobs:
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
       - name: Build CLI
-        run: cargo build -p gitbutler-cli
+        run: cargo build --debug -p gitbutler-cli
       - name: Build SvelteKit
         run: pnpm build:desktop -- --mode development
       - name: Build Tauri
