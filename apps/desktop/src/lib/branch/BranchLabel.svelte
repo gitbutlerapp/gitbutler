@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { resizeObserver } from '$lib/utils/resizeObserver';
 
 	interface Props {
 		name: string;
@@ -11,21 +11,23 @@
 
 	let inputEl: HTMLInputElement;
 	let initialName = name;
-
-	onMount(() => {
-		inputEl.style.width = `${name.length}ch`;
-	});
+	let inputWidth = $state('');
 </script>
 
+<span
+	use:resizeObserver={(e) => {
+		inputWidth = `${Math.round(e.frame.width)}px`;
+	}}
+	class="branch-name-measure-el text-14 text-bold"
+>
+	{name}
+</span>
 <input
 	type="text"
 	{disabled}
 	bind:this={inputEl}
 	bind:value={name}
 	onchange={(e) => onchange?.(e.currentTarget.value.trim())}
-	onkeypress={(e) => {
-		inputEl.style.width = `${e.currentTarget.value.trim().length}ch`;
-	}}
 	title={name}
 	class="branch-name-input text-14 text-bold"
 	ondblclick={(e) => e.stopPropagation()}
@@ -47,20 +49,34 @@
 	autocomplete="off"
 	autocorrect="off"
 	spellcheck="false"
+	style:width={inputWidth}
 />
 
 <style lang="postcss">
+	.branch-name-measure-el,
 	.branch-name-input {
-		min-width: 8ch;
+		min-width: 44px;
 		height: 20px;
 		padding: 2px 4px;
 		border: 1px solid transparent;
-
+	}
+	.branch-name-measure-el {
+		pointer-events: none;
+		visibility: hidden;
+		border: 2px solid transparent;
+		color: black;
+		position: fixed;
+		display: inline-block;
+		visibility: hidden;
+		white-space: pre;
+	}
+	.branch-name-input {
 		text-overflow: ellipsis;
 		white-space: nowrap;
 		overflow: hidden;
 
 		max-width: 100%;
+		width: 100%;
 		border-radius: var(--radius-s);
 		color: var(--clr-scale-ntrl-0);
 		background-color: var(--clr-bg-1);
