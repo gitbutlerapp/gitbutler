@@ -4,10 +4,10 @@
 	interface Props {
 		name: string;
 		disabled?: boolean;
-		onchange?: (value: string) => void;
+		onChange?: (value: string) => void;
 	}
 
-	let { name, disabled = false, onchange }: Props = $props();
+	let { name, disabled = false, onChange }: Props = $props();
 
 	let inputEl: HTMLInputElement;
 	let initialName = name;
@@ -27,7 +27,7 @@
 	{disabled}
 	bind:this={inputEl}
 	bind:value={name}
-	onchange={(e) => onchange?.(e.currentTarget.value.trim())}
+	onchange={(e) => onChange?.(e.currentTarget.value.trim())}
 	title={name}
 	class="branch-name-input text-14 text-bold"
 	ondblclick={(e) => e.stopPropagation()}
