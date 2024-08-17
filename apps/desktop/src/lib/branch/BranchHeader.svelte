@@ -406,19 +406,6 @@
 		gap: 10px;
 	}
 
-	.collapsed-lane__draggable {
-		cursor: grab;
-		transform: rotate(90deg);
-		margin-bottom: 4px;
-		opacity: 0.4;
-		transition: opacity var(--transition-fast);
-		color: var(--clr-scale-ntrl-0);
-
-		&:hover {
-			opacity: 1;
-		}
-	}
-
 	/*  */
 
 	.collapsed-lane__info-wrap {

@@ -102,6 +102,8 @@
 			onGenerateBranchName={generateBranchName}
 			{isLaneCollapsed}
 		/>
+
+		<div class="collapsed-lane-divider" data-remove-from-draggable></div>
 	</div>
 {:else}
 	<div class="resizer-wrapper" bind:this={scrollViewport}>
@@ -264,10 +266,19 @@
 
 	/* COLLAPSED LANE */
 	.collapsed-lane-container {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		padding: 12px;
 		height: 100%;
-		border-right: 1px solid var(--clr-border-2);
+	}
+
+	.collapsed-lane-divider {
+		position: absolute;
+		top: 0;
+		right: 0;
+		width: 1px;
+		height: 100%;
+		background-color: var(--clr-border-2);
 	}
 </style>
