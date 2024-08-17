@@ -103,6 +103,13 @@
 	font-weight: 400;
 }
 
+.text-serif-32 {
+	font-family: var(--serif-font-family);
+	font-size: 2rem;
+	line-height: var(--base-line-height);
+	font-weight: 400;
+}
+
 /* MODIFIERS */
 
 .text-body {
