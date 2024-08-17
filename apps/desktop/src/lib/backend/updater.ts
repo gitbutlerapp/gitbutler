@@ -14,13 +14,21 @@ import posthog from 'posthog-js';
 import { derived, writable, type Readable } from 'svelte/store';
 
 // TODO: Investigate why 'DOWNLOADED' is not in the type provided by Tauri.
-export type Update =
-	| { version?: string; status?: UpdateStatus | 'DOWNLOADED'; body?: string }
-	| undefined;
+export type Update = {
+	version?: string;
+	status?: UpdateStatus | 'DOWNLOADED';
+	body?: string;
+	manual: boolean;
+};
 
 export class UpdaterService {
-	private status = writable<UpdateStatus>(undefined);
-	private result = writable<UpdateManifest | undefined>(undefined, () => {
+	// True if manually initiated check.
+	private manual = writable(false);
+
+	// An object rather than string to prevent unique deduplication.
+	private status = writable<{ status: UpdateStatus } | undefined>(undefined);
+
+	private manifest = writable<UpdateManifest | undefined>(undefined, () => {
 		this.start();
 		return () => {
 			this.stop();
@@ -28,41 +36,42 @@ export class UpdaterService {
 	});
 
 	update: Readable<Update | undefined> = derived(
-		[this.status, this.result],
-		([status, update]) => {
-			return { ...update, status };
+		[this.status, this.manifest, this.manual],
+		([status, result, manual]) => {
+			// Do not emit when up-to-date unless manually initiated.
+			if (status?.status === 'UPTODATE' && result && !manual) {
+				return;
+			}
+			return { ...result, ...status, manual };
 		},
 		undefined
 	);
 
+	// Needed to reset dismissed modal when version changes.
 	currentVersion = writable<string | undefined>(undefined);
 	readonly version = derived(this.update, (update) => update?.version);
 
-	prev: Update | undefined;
+	intervalId: any;
 	unlistenStatusFn: any;
 	unlistenManualCheckFn: any;
-	intervalId: any;
 
 	constructor() {}
 
 	private async start() {
-		const currentVersion = await getVersion();
-		this.currentVersion.set(currentVersion);
+		this.currentVersion.set(await getVersion());
 		this.unlistenManualCheckFn = listen<string>('menu://global/update/clicked', () => {
 			this.checkForUpdate(true);
 		});
-
-		this.unlistenStatusFn = await onUpdaterEvent((status) => {
-			const err = status.error;
-			if (err) {
-				showErrorToast(err);
-				posthog.capture('App Update Status Error', { error: err });
+		this.unlistenStatusFn = await onUpdaterEvent((event) => {
+			const { error, status } = event;
+			if (error) {
+				showErrorToast(error);
+				posthog.capture('App Update Status Error', { error });
 			}
-			this.status.set(status.status);
+			this.status.set({ status });
 		});
-
-		await this.checkForUpdate();
 		setInterval(async () => await this.checkForUpdate(), 3600000); // hourly
+		this.checkForUpdate();
 	}
 
 	private async stop() {
@@ -74,17 +83,18 @@ export class UpdaterService {
 		}
 	}
 
-	async checkForUpdate(isManual = false) {
+	async checkForUpdate(manual = false) {
 		const update = await Promise.race([
 			checkUpdate(), // In DEV mode this never returns.
 			new Promise<UpdateResult>((resolve) =>
 				setTimeout(() => resolve({ shouldUpdate: false }), 30000)
 			)
 		]);
-		if (!update.shouldUpdate && isManual) {
-			this.status.set('UPTODATE');
+		this.manual.set(manual);
+		if (!update.shouldUpdate && manual) {
+			this.status.set({ status: 'UPTODATE' });
 		} else if (update.manifest) {
-			this.result.set(update.manifest);
+			this.manifest.set(update.manifest);
 		}
 	}
 

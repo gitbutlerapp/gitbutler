@@ -2,50 +2,58 @@
 	import Link from '../shared/Link.svelte';
 	import newVersionSvg from '$lib/assets/empty-state/app-new-version.svg?raw';
 	import upToDateSvg from '$lib/assets/empty-state/app-up-to-date.svg?raw';
-	import { UpdaterService } from '$lib/backend/updater';
+	import { UpdaterService, type Update } from '$lib/backend/updater';
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/inputs/Button.svelte';
 	import Modal from '@gitbutler/ui/modal/Modal.svelte';
 
 	const updaterService = getContext(UpdaterService);
-	const update = updaterService.update;
 	const currentVersion = updaterService.currentVersion;
 
-	const status = $derived($update?.status);
-	const version = $derived($update?.version);
+	const update = updaterService.update;
 
-	let dismissed = $state(false);
-	let open = $state(false);
-
-	let modalRef: Modal;
+	let status = $state<Update['status']>();
+	let version = $state<Update['version']>();
+	let lastVersion: string | undefined;
+	let dismissed = false;
+	let modal: Modal;
 
 	$effect(() => {
-		if (version || (status && status !== 'ERROR' && !dismissed && !open)) {
-			open = true;
+		if ($update) {
+			console.log($update);
+			handleUpdate($update);
 		}
 	});
 
-	$effect(() => {
-		if (status === 'ERROR') {
-			open = false;
-		}
-	});
+	function handleUpdate(update: Update) {
+		version = update?.version;
 
-	$effect(() => {
-		if (open) {
-			modalRef.show();
-		} else {
-			modalRef.close();
+		if (version !== lastVersion) {
+			dismissed = false;
 		}
-	});
+
+		status = update?.status;
+		const manual = update?.manual;
+
+		if (manual) {
+			modal.show();
+		} else if (status === 'ERROR') {
+			modal.close();
+		} else if (status && status !== 'UPTODATE' && !dismissed) {
+			modal.show();
+		} else if (version && !dismissed) {
+			modal.show();
+		}
+		lastVersion = version;
+	}
 
 	function handleDismiss() {
 		dismissed = true;
-		open = false;
+		modal.close();
 	}
 </script>
 
-<Modal width="xsmall" bind:this={modalRef}>
+<Modal width="xsmall" bind:this={modal}>
 	<div class="modal-illustration">
 		{#if status === 'UPTODATE' || status === 'DONE'}
 			{@html upToDateSvg}
@@ -88,22 +96,32 @@
 
 		{#if status === 'UPTODATE'}
 			<Button style="pop" kind="solid" wide outline onclick={handleDismiss}>Got it!</Button>
+		{:else if status === 'DONE'}
+			<Button
+				style="pop"
+				kind="solid"
+				wide
+				outline
+				onclick={() => {
+					updaterService.relaunchApp();
+				}}
+			>
+				Restart
+			</Button>
 		{:else}
 			<Button
 				style="pop"
 				kind="solid"
 				wide
 				loading={status === 'PENDING' || status === 'DOWNLOADED'}
-				onclick={async () => {
-					await updaterService.installUpdate();
+				onclick={() => {
+					updaterService.installUpdate();
 				}}
 			>
 				{#if status === 'PENDING'}
 					Downloading update...
 				{:else if status === 'DOWNLOADED'}
 					Installing update...
-				{:else if status === 'DONE'}
-					Restart
 				{:else}
 					Download {version}
 				{/if}
