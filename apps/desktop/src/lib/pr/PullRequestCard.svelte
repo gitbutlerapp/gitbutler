@@ -12,8 +12,8 @@
 	import * as toasts from '$lib/utils/toasts';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import { createTimeAgoStore } from '@gitbutler/ui/timeAgo';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
+	import { createTimeAgoStore } from '@gitbutler/ui/utils/timeAgo';
 	import type { ChecksStatus } from '$lib/gitHost/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
