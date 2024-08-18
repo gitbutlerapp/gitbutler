@@ -3,7 +3,6 @@ import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
 	component: Avatar,
-
 	argTypes: {
 		size: {
 			control: 'select',

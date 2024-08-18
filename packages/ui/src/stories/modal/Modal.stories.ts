@@ -3,6 +3,7 @@ import iconsJson from '$lib/icon/icons.json';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
+	title: 'Overlays / Modal',
 	component: DemoModal,
 	argTypes: {
 		width: {

@@ -3,6 +3,7 @@ import iconsJson from '$lib/icon/icons.json';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
+	title: 'Elements / Icon',
 	component: Icon
 } satisfies Meta<Icon>;
 

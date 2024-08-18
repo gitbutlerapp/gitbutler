@@ -14,11 +14,16 @@
 	let modal = $state<Modal>();
 </script>
 
-<Button on:click={() => modal?.show()}>Show</Button>
+<Button
+	onclick={() => {
+		console.log('show');
+		modal?.show();
+	}}>Show</Button
+>
 <Modal bind:this={modal} {...args}>
 	<p>Wonderful modal content</p>
 
 	{#snippet controls(close)}
-		<Button on:click={() => close()}>Close</Button>
+		<Button onclick={() => close()}>Close</Button>
 	{/snippet}
 </Modal>
