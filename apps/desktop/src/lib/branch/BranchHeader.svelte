@@ -129,7 +129,7 @@
 		role="button"
 	>
 		<div class="collapsed-lane__actions">
-			<div class="collapsed-lane__draggable" data-drag-handle>
+			<div class="draggable" data-drag-handle>
 				<Icon name="draggable" />
 			</div>
 			<Button style="ghost" outline icon="unfold-lane" help="Expand lane" onclick={expandLane} />
@@ -403,20 +403,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 2px;
-	}
-
-	.collapsed-lane__draggable {
-		cursor: grab;
-		transform: rotate(90deg);
-		margin-bottom: 4px;
-		opacity: 0.4;
-		transition: opacity var(--transition-fast);
-		color: var(--clr-scale-ntrl-0);
-
-		&:hover {
-			opacity: 1;
-		}
+		gap: 10px;
 	}
 
 	/*  */

@@ -240,6 +240,7 @@
 
 	.branch {
 		height: 100%;
+		width: fit-content;
 	}
 
 	.draggable-branch {
