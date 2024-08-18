@@ -17,8 +17,8 @@
 	import { UserService } from '$lib/stores/user';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 

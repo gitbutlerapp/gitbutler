@@ -6,9 +6,9 @@
 	import { showInfo } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Checkbox from '@gitbutler/ui/inputs/Checkbox.svelte';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 

@@ -8,7 +8,7 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { getContext } from '$lib/utils/context';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import * as Sentry from '@sentry/sveltekit';
 	import { open } from '@tauri-apps/api/dialog';
 	import { documentDir } from '@tauri-apps/api/path';

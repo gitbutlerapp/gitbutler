@@ -1,14 +1,14 @@
-import DemoAvatarGrouping from './DemoAvatarGrouping.svelte';
+import DemoAvatarGroup from './DemoAvatarGroup.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
-	component: DemoAvatarGrouping
-} satisfies Meta<DemoAvatarGrouping>;
+	component: DemoAvatarGroup
+} satisfies Meta<DemoAvatarGroup>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const AvatarGrouping: Story = {
+export const AvatarGroup: Story = {
 	args: {
 		maxAvatars: 3,
 		avatars: [
@@ -28,7 +28,7 @@ export const AvatarGrouping: Story = {
 	}
 };
 
-export const AvatarGroupingMany: Story = {
+export const AvatarGroupMany: Story = {
 	args: {
 		maxAvatars: 3,
 		avatars: [

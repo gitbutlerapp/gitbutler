@@ -1,7 +1,7 @@
 <script lang="ts">
 	import AccountLink from '$lib/shared/AccountLink.svelte';
 	import * as events from '$lib/utils/events';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
 	export let projectId: string | undefined;

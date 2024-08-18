@@ -4,7 +4,7 @@
 	import { splitFilePath } from '$lib/utils/filePath';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { AnyFile } from '$lib/vbranches/types';
 

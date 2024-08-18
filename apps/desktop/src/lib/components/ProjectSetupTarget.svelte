@@ -12,7 +12,7 @@
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	export let projectName: string;

@@ -1,5 +1,5 @@
-import Icon from '$lib/icon/Icon.svelte';
-import iconsJson from '$lib/icon/icons.json';
+import Icon from '$lib/Icon.svelte';
+import iconsJson from '$lib/data/icons.json';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {

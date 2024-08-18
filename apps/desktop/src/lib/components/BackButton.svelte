@@ -1,5 +1,5 @@
 <script>
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 </script>
 

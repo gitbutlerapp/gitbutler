@@ -7,9 +7,9 @@
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Checkbox from '@gitbutler/ui/inputs/Checkbox.svelte';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';

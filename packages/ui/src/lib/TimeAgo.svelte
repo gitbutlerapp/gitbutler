@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createTimeAgoStore } from '$lib/timeAgo/timeAgo';
+	import { createTimeAgoStore } from '$lib/utils/timeAgo';
 
 	interface Props {
 		date?: Date;

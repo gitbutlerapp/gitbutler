@@ -20,10 +20,10 @@
 		VirtualBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
-	import { getTimeAgo } from '@gitbutler/ui/timeAgo/timeAgo';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { getTimeAgo } from '@gitbutler/ui/timeAgo';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { type Snippet } from 'svelte';
 

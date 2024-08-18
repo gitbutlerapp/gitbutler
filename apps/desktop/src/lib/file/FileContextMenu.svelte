@@ -9,8 +9,8 @@
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { LocalFile, type AnyFile } from '$lib/vbranches/types';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { join } from '@tauri-apps/api/path';
 	import { open as openFile } from '@tauri-apps/api/shell';
 

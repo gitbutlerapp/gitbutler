@@ -8,7 +8,7 @@
 	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
 	export let remoteBranches: { name: string }[];

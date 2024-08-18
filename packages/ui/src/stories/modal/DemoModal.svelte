@@ -1,7 +1,7 @@
 <script lang="ts">
-	import iconsJson from '$lib/icon/icons.json';
-	import Button from '$lib/inputs/Button.svelte';
-	import Modal from '$lib/modal/Modal.svelte';
+	import iconsJson from '$lib/data/icons.json';
+	import Button from '$lib/Button.svelte';
+	import Modal from '$lib/Modal.svelte';
 
 	interface Props {
 		width?: 'default' | 'small' | 'large';

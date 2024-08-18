@@ -2,7 +2,7 @@
 	import { showInfo, showError } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	const branchController = getContext(BranchController);
 

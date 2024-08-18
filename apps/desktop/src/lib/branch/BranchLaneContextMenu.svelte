@@ -12,8 +12,8 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 
 	interface Props {
 		contextMenuEl?: ContextMenu;

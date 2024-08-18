@@ -3,8 +3,8 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Checkbox from '@gitbutler/ui/inputs/Checkbox.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import type { Writable, Readable } from 'svelte/store';
 
 	export let filtersActive: Readable<boolean>;
