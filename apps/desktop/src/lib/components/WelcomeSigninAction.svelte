@@ -33,7 +33,7 @@
 		{/snippet}
 		{#snippet message()}
 			{prompt}
-			For manual login, use the
+			For manual login, copy the
 			<LinkButton
 				icon="copy-small"
 				onclick={async () => {
