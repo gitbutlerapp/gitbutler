@@ -5,7 +5,7 @@
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { portal } from '@gitbutler/ui/utils/portal';
-	import type iconsJson from '@gitbutler/uidata/icons.json';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 

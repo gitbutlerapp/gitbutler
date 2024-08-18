@@ -8,7 +8,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
-	import type iconsJson from '@gitbutler/uidata/icons.json';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	export let entry: Snapshot;
 	export let isWithinRestore: boolean = true;

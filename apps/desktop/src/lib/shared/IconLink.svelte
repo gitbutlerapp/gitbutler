@@ -1,7 +1,7 @@
 <script lang="ts">
 	export let href: string;
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type iconsJson from '@gitbutler/uidata/icons.json';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	export let icon: keyof typeof iconsJson;
 </script>

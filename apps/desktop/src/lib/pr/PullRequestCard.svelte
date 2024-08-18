@@ -16,7 +16,7 @@
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 	import type { ChecksStatus } from '$lib/gitHost/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
-	import type iconsJson from '@gitbutler/uidata/icons.json';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	type StatusInfo = {
 		text: string;
