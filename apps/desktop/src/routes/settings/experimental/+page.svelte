@@ -2,6 +2,7 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import {
 		featureBaseBranchSwitching,
+		featureEditMode,
 		featureInlineUnifiedDiffs
 	} from '$lib/config/uiFeatureFlags';
 	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
@@ -9,6 +10,7 @@
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
 	const inlineUnifiedDiffs = featureInlineUnifiedDiffs();
+	const editMode = featureEditMode();
 </script>
 
 <ContentWrapper title="Experimental features">
@@ -43,6 +45,20 @@
 				checked={$inlineUnifiedDiffs}
 				on:click={() => ($inlineUnifiedDiffs = !$inlineUnifiedDiffs)}
 			/>
+		</svelte:fragment>
+	</SectionCard>
+	<SectionCard labelFor="editMode" orientation="row">
+		<svelte:fragment slot="title">Edit mode</svelte:fragment>
+		<svelte:fragment slot="caption">
+			Provides an "Edit patch" button on each commit which puts you into edit mode. Edit mode checks
+			out a particular commit so you can make changes to a particular commit, and then have the
+			child commits automatically rebased on top of the new changes.
+			<br /><br />
+			Please note that creating conflicts whilst inside edit mode is currently not supported. This feature
+			is still experimental and may result in loss of work.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle id="editMode" checked={$editMode} on:click={() => ($editMode = !$editMode)} />
 		</svelte:fragment>
 	</SectionCard>
 </ContentWrapper>

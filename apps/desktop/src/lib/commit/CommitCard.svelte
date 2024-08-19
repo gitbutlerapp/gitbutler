@@ -4,6 +4,7 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
+	import { featureEditMode } from '$lib/config/uiFeatureFlags';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
@@ -38,12 +39,12 @@
 	export let type: CommitStatus;
 	export let lines: Snippet<[number]> | undefined = undefined;
 
-	$: console.log(branch);
-
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const modeService = maybeGetContext(ModeService);
+
+	const editModeEnabled = featureEditMode();
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
@@ -129,7 +130,7 @@
 		return true;
 	}
 
-	async function edit() {
+	async function editPatch() {
 		if (!canEdit()) return;
 
 		modeService!.enterEditMode(commit.id, branch!.refname);
@@ -336,8 +337,8 @@
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
 								{/if}
-								{#if canEdit()}
-									<Button size="tag" style="ghost" outline onclick={edit}>Edit patch</Button>
+								{#if canEdit() && $editModeEnabled}
+									<Button size="tag" style="ghost" outline onclick={editPatch}>Edit patch</Button>
 								{/if}
 							</div>
 						{/if}

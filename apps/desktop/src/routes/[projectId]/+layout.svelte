@@ -162,8 +162,6 @@
 	onDestroy(() => {
 		clearFetchInterval();
 	});
-
-	$inspect($mode);
 </script>
 
 <!-- forces components to be recreated when projectId changes -->
