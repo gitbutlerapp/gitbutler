@@ -8,10 +8,10 @@
 	import { type SidebarEntrySubject } from '$lib/navigation/types';
 	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
+	import Badge from '@gitbutler/ui/Badge.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Badge from '@gitbutler/ui/Badge.svelte';
 	import { writable } from 'svelte/store';
 
 	const combinedBranchListingService = getContext(CombinedBranchListingService);

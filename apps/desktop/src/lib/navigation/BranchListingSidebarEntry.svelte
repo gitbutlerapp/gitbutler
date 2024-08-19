@@ -8,9 +8,9 @@
 	} from '$lib/branches/branchListing';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getContext } from '$lib/utils/context';
+	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
-	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import type { Readable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
 	import { getContext } from '$lib/utils/context';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
+	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
