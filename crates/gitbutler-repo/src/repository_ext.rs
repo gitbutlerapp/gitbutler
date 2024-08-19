@@ -17,6 +17,16 @@ use tracing::instrument;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    fn cherry_pick_gitbutler(
+        &self,
+        head: &git2::Commit,
+        to_rebase: &git2::Commit,
+    ) -> Result<git2::Index, anyhow::Error>;
+    fn find_real_tree(
+        &self,
+        commit: &git2::Commit,
+        side: Option<String>,
+    ) -> Result<git2::Tree, anyhow::Error>;
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
     /// Open a new in-memory repository and executes the provided closure using it.
@@ -369,6 +379,58 @@ impl RepositoryExt for git2::Repository {
                 RemoteRefname::try_from(&branch).context("failed to convert branch to remote name")
             })
             .collect::<Result<Vec<_>>>()
+    }
+
+    // cherry-pick, but understands GitButler conflicted states
+    fn cherry_pick_gitbutler(
+        &self,
+        head: &git2::Commit,
+        to_rebase: &git2::Commit,
+    ) -> Result<git2::Index, anyhow::Error> {
+        // use that subtree for the merge instead
+        let tree_0 = head.tree()?;
+        let is_conflict_0 = tree_0.get_name(".conflict-side-0");
+        let tree_1 = to_rebase.tree()?;
+        let is_conflict_1 = tree_1.get_name(".conflict-side-0");
+        let base_commit = to_rebase.parent(0)?;
+        let base_tree = base_commit.tree()?;
+        let is_conflict_base = base_tree.get_name(".conflict-side-0");
+
+        // if either side is in a conflicted state, we need to do a manual 3-way merge
+        if is_conflict_0.is_some() || is_conflict_1.is_some() || is_conflict_base.is_some() {
+            // we need to do a manual 3-way patch merge
+            // find the base, which is the parent of to_rebase
+            let base_tree = self.find_real_tree(&base_commit, None)?;
+            let tree_0 = self.find_real_tree(head, None)?;
+            let tree_1 = self.find_real_tree(to_rebase, Some(".conflict-side-1".to_string()))?;
+
+            self.merge_trees(&base_tree, &tree_0, &tree_1, None)
+                .context("failed to merge trees for cherry pick")
+        } else {
+            self.cherrypick_commit(to_rebase, head, 0, None)
+                .context("failed to cherry pick")
+        }
+    }
+
+    // find the real tree of a commit, which is the tree of the commit if it's not in a conflicted state
+    // or the parent parent tree if it is in a conflicted state
+    fn find_real_tree(
+        &self,
+        commit: &git2::Commit,
+        side: Option<String>,
+    ) -> Result<git2::Tree, anyhow::Error> {
+        let tree = commit.tree()?;
+        let entry_name = match side {
+            Some(side) => side,
+            None => ".conflict-side-0".to_string(),
+        };
+        let is_conflict = tree.get_name(&entry_name);
+        if is_conflict.is_some() {
+            let subtree_id = is_conflict.unwrap().id();
+            self.find_tree(subtree_id).context("failed to find subtree")
+        } else {
+            self.find_tree(tree.id()).context("failed to find subtree")
+        }
     }
 }
 

@@ -6,6 +6,7 @@ use std::{
 use anyhow::{anyhow, Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::FileDiff;
+use gitbutler_repo::RepositoryExt;
 use serde::Serialize;
 
 use crate::{
@@ -38,8 +39,12 @@ pub(crate) fn list_remote_commit_files(
     }
 
     let parent = commit.parent(0).context("failed to get parent commit")?;
-    let commit_tree = commit.tree().context("failed to get commit tree")?;
-    let parent_tree = parent.tree().context("failed to get parent tree")?;
+    let commit_tree = repository
+        .find_real_tree(&commit, None)
+        .context("failed to get commit tree")?;
+    let parent_tree = repository
+        .find_real_tree(&parent, None)
+        .context("failed to get parent tree")?;
     let diff_files = gitbutler_diff::trees(repository, &parent_tree, &commit_tree)?;
 
     Ok(diff_files
@@ -93,8 +98,13 @@ pub(crate) fn list_virtual_commit_files(
         return Ok(vec![]);
     }
     let parent = commit.parent(0).context("failed to get parent commit")?;
-    let commit_tree = commit.tree().context("failed to get commit tree")?;
-    let parent_tree = parent.tree().context("failed to get parent tree")?;
+    let repository = ctx.repository();
+    let commit_tree = repository
+        .find_real_tree(commit, None)
+        .context("failed to get commit tree")?;
+    let parent_tree = repository
+        .find_real_tree(&parent, None)
+        .context("failed to get parent tree")?;
     let diff = gitbutler_diff::trees(ctx.repository(), &parent_tree, &commit_tree)?;
     let hunks_by_filepath = virtual_hunks_by_file_diffs(&ctx.project().path, diff);
     Ok(virtual_hunks_into_virtual_files(ctx, hunks_by_filepath))

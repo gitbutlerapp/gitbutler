@@ -180,7 +180,12 @@
 		</div>
 	{/if}
 
-	<div class="commit-card" class:is-first={first} class:is-last={last}>
+	<div
+		class="commit-card"
+		class:is-first={first}
+		class:is-last={last}
+		class:conflicted={commit instanceof DetailedCommit && commit.conflicted}
+	>
 		<CommitDragItem {commit}>
 			<!-- GENERAL INFO -->
 			<div
@@ -391,6 +396,10 @@
 		}
 		&:not(.is-first) {
 			border-top: none;
+		}
+
+		&.conflicted {
+			background-color: pink;
 		}
 	}
 
