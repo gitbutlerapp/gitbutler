@@ -13,8 +13,8 @@
 	import { getMarkdownRenderer } from '$lib/utils/markdown';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { BranchData, type Branch } from '$lib/vbranches/types';
-	import LineGroup from '@gitbutler/ui/CommitLines/LineGroup.svelte';
-	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
+	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
+	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
 	import { onMount, setContext } from 'svelte';

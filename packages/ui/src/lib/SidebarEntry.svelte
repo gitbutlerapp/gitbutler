@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Icon from '$lib/icon/Icon.svelte';
-	import TimeAgo from '$lib/timeAgo/TimeAgo.svelte';
+	import Icon from '$lib/Icon.svelte';
+	import TimeAgo from '$lib/TimeAgo.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { onMount, type Snippet } from 'svelte';
 

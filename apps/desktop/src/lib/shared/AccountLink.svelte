@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { User } from '$lib/stores/user';
 	import { getContextStore } from '$lib/utils/context';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
 
 	export let pop = false;

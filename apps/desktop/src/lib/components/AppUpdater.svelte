@@ -4,8 +4,8 @@
 	import upToDateSvg from '$lib/assets/empty-state/app-up-to-date.svg?raw';
 	import { UpdaterService, type Update } from '$lib/backend/updater';
 	import { getContext } from '$lib/utils/context';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 
 	const updaterService = getContext(UpdaterService);
 	const currentVersion = updaterService.currentVersion;

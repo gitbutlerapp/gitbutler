@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { createEventDispatcher, onMount } from 'svelte';
-	import type iconsJson from '@gitbutler/ui/icon/icons.json';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	export let element: HTMLElement | undefined = undefined;
 	export let id: string | undefined = undefined; // Required to make label clickable

@@ -9,8 +9,9 @@ export function copyToClipboard(text: string) {
 			.then(function () {
 				toasts.success('Copied to clipboard');
 			})
-			.catch(function () {
+			.catch(function (err) {
 				toasts.error('Failed to copy');
+				console.error('Failed to copy:', err);
 			});
 	}
 }

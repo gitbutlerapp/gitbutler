@@ -19,8 +19,8 @@
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import Checkbox from '@gitbutler/ui/inputs/Checkbox.svelte';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';

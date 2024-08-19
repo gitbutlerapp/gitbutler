@@ -39,10 +39,10 @@
 </script>
 
 <script lang="ts">
-	import Icon from '$lib/icon/Icon.svelte';
+	import Icon from '$lib/Icon.svelte';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { tooltip } from '$lib/utils/tooltip';
-	import type iconsJson from '$lib/icon/icons.json';
+	import type iconsJson from '$lib/data/icons.json';
 	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
 	import type { Snippet } from 'svelte';
 

@@ -2,7 +2,7 @@
 	import { PromptService } from '$lib/ai/promptService';
 	import Content from '$lib/components/AIPromptEdit/Content.svelte';
 	import { getContext } from '$lib/utils/context';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { get } from 'svelte/store';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 

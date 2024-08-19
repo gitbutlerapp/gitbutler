@@ -1,6 +1,6 @@
 <script lang="ts">
-	import AvatarGrouping from '$lib/avatar/AvatarGrouping.svelte';
-	import SidebarEntry from '$lib/sidebarEntry/SidebarEntry.svelte';
+	import AvatarGroup from '$lib/avatar/AvatarGroup.svelte';
+	import SidebarEntry from '$lib/SidebarEntry.svelte';
 
 	interface Props {
 		selected?: boolean;
@@ -25,7 +25,7 @@
 
 <SidebarEntry {...args}>
 	{#snippet authorAvatars()}
-		<AvatarGrouping
+		<AvatarGroup
 			avatars={[
 				{
 					srcUrl: 'https://avatars.githubusercontent.com/u/76307?s=80&v=4',

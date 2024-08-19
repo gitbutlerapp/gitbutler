@@ -1,5 +1,5 @@
 import DemoButton from './DemoButton.svelte';
-import iconsJson from '$lib/icon/icons.json';
+import iconsJson from '$lib/data/icons.json';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
@@ -57,7 +57,7 @@ export const ButtonDefault: Story = {
 };
 
 export const ButtonClickable: Story = {
-	name: 'Not clickable',
+	name: 'Not clickable + tooltip',
 	args: {
 		clickable: false,
 		help: 'This button is not clickable',

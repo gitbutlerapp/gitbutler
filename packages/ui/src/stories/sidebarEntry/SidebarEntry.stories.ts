@@ -2,6 +2,7 @@ import DemoSidebarEntry from './DemoSidebarEntry.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
+	title: 'Cards / Sidebar Entry',
 	component: DemoSidebarEntry,
 	argTypes: {
 		selected: { control: 'boolean' },

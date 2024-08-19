@@ -4,8 +4,8 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { getContext } from '$lib/utils/context';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import Badge from '@gitbutler/ui/shared/Badge.svelte';
+	import Badge from '@gitbutler/ui/Badge.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Snippet } from 'svelte';
 
 	const {
@@ -91,8 +91,7 @@
 	.loading {
 		pointer-events: none;
 		background-color: var(--clr-bg-2);
-		border: 1px solid transparent;
-		opacity: 0.5;
+		opacity: 0.6;
 	}
 
 	.action__content {

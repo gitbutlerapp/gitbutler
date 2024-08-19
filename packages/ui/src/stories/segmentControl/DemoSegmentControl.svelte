@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Segment from '$lib/SegmentControl/Segment.svelte';
-	import SegmentControl from '$lib/SegmentControl/SegmentControl.svelte';
+	import Segment from '$lib/segmentControl/Segment.svelte';
+	import SegmentControl from '$lib/segmentControl/SegmentControl.svelte';
 
 	interface Props {
 		defaultIndex: number;

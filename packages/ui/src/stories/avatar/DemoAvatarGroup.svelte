@@ -1,5 +1,5 @@
 <script lang="ts">
-	import AvatarGrouping from '$lib/avatar/AvatarGrouping.svelte';
+	import AvatarGroup from '$lib/avatar/AvatarGroup.svelte';
 
 	interface Props {
 		maxAvatars?: number;
@@ -12,4 +12,4 @@
 	const { avatars, maxAvatars = 3 }: Props = $props();
 </script>
 
-<AvatarGrouping {avatars} {maxAvatars} />
+<AvatarGroup {avatars} {maxAvatars} />

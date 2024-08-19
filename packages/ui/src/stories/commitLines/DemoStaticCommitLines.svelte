@@ -1,6 +1,6 @@
 <script lang="ts">
-	import LineGroup from '$lib/CommitLines/LineGroup.svelte';
-	import type { LineGroupData } from '$lib/CommitLines/types';
+	import LineGroup from '$lib/commitLines/LineGroup.svelte';
+	import type { LineGroupData } from '$lib/commitLines/types';
 
 	interface Props {
 		lineGroups: LineGroupData[];

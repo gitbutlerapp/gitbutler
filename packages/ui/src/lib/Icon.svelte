@@ -4,7 +4,7 @@
 </script>
 
 <script lang="ts">
-	import iconsJson from '$lib/icon/icons.json';
+	import iconsJson from '$lib/data/icons.json';
 	import type { ComponentColor } from '$lib/utils/colorTypes';
 
 	export let name: keyof typeof iconsJson;

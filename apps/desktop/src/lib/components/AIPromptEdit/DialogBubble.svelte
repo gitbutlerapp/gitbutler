@@ -2,8 +2,8 @@
 	import { MessageRole } from '$lib/ai/types';
 	import { autoHeight } from '$lib/utils/autoHeight';
 	import { getMarkdownRenderer } from '$lib/utils/markdown';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { marked } from 'marked';
 	import { createEventDispatcher } from 'svelte';
 
