@@ -4,7 +4,6 @@ export function copyToClipboard(text: string) {
 	if (!navigator.clipboard) {
 		toasts.error('Clipboard API not available');
 	} else {
-		console.log('Copying to clipboard:', navigator.clipboard);
 		navigator.clipboard
 			.writeText(text)
 			.then(function () {
