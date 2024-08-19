@@ -2,8 +2,8 @@ import { invoke, listen } from '$lib/backend/ipc';
 import { derived, writable } from 'svelte/store';
 
 export interface EditModeMetadata {
-	editeeCommitSha: string;
-	editeeBranch: string;
+	commitOid: string;
+	branchReference: string;
 }
 
 type Mode =
@@ -41,11 +41,11 @@ export class ModeService {
 		this.headAndMode.set({ head, operatingMode });
 	}
 
-	async enterEditMode(editeeCommitId: string, editeeBranchRef: string) {
+	async enterEditMode(commitOid: string, branchReference: string) {
 		await invoke('enter_edit_mode', {
 			projectId: this.projectId,
-			editee: editeeCommitId,
-			editeeBranch: editeeBranchRef
+			commitOid,
+			branchReference
 		});
 	}
 

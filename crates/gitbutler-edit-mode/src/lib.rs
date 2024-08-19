@@ -63,13 +63,13 @@ fn save_uncommited_files(ctx: &CommandContext) -> Result<()> {
     Ok(())
 }
 
-fn checkout_edit_branch(ctx: &CommandContext, editee: &git2::Commit) -> Result<()> {
+fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<()> {
     let repository = ctx.repository();
 
-    // Checkout editee's parent
-    let editee_parent = editee.parent(0).context("Failed to get editee's parent")?;
+    // Checkout commits's parent
+    let commit_parent = commit.parent(0).context("Failed to get commit's parent")?;
     repository
-        .reference(EDIT_BRANCH_REF, editee_parent.id(), true, "")
+        .reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")
         .context("Failed to update edit branch reference")?;
     repository
         .set_head(EDIT_BRANCH_REF)
@@ -78,14 +78,14 @@ fn checkout_edit_branch(ctx: &CommandContext, editee: &git2::Commit) -> Result<(
         .checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))
         .context("Failed to checkout head")?;
 
-    // Checkout the editee as unstaged changes
-    let editee_tree = editee.tree().context("Failed to get editee's tree")?;
+    // Checkout the commit as unstaged changes
+    let commit_tree = commit.tree().context("Failed to get commit's tree")?;
     repository
         .checkout_tree(
-            editee_tree.as_object(),
+            commit_tree.as_object(),
             Some(CheckoutBuilder::new().force().remove_untracked(true)),
         )
-        .context("Failed to checkout editee")?;
+        .context("Failed to checkout commit")?;
 
     Ok(())
 }
@@ -104,35 +104,35 @@ fn find_virtual_branch_by_reference(
             return false;
         };
 
-        let Ok(editee_refname) = Refname::from_str(reference) else {
+        let Ok(checked_out_refname) = Refname::from_str(reference) else {
             return false;
         };
 
-        editee_refname == refname.into()
+        checked_out_refname == refname.into()
     }))
 }
 
 pub(crate) fn enter_edit_mode(
     ctx: &CommandContext,
-    editee: &git2::Commit,
-    editee_branch: &git2::Reference,
+    commit: &git2::Commit,
+    branch: &git2::Reference,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<EditModeMetadata> {
-    let Some(editee_branch) = editee_branch.name() else {
-        bail!("Failed to get editee branch name");
+    let Some(branch_reference) = branch.name() else {
+        bail!("Failed to get branch reference name");
     };
 
     let edit_mode_metadata = EditModeMetadata {
-        editee_commit_sha: editee.id(),
-        editee_branch: editee_branch.to_string().into(),
+        commit_oid: commit.id(),
+        branch_reference: branch_reference.to_string().into(),
     };
 
-    if find_virtual_branch_by_reference(ctx, &edit_mode_metadata.editee_branch)?.is_none() {
+    if find_virtual_branch_by_reference(ctx, &edit_mode_metadata.branch_reference)?.is_none() {
         bail!("Can not enter edit mode for a reference which does not have a cooresponding virtual branch")
     }
 
     save_uncommited_files(ctx).context("Failed to save uncommited files")?;
-    checkout_edit_branch(ctx, editee).context("Failed to checkout edit branch")?;
+    checkout_edit_branch(ctx, commit).context("Failed to checkout edit branch")?;
     write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
 
     Ok(edit_mode_metadata)
@@ -147,10 +147,10 @@ pub(crate) fn save_and_return_to_workspace(
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
 
     // Get important references
-    let editee = repository
-        .find_commit(edit_mode_metadata.editee_commit_sha)
-        .context("Failed to find editee")?;
-    let editee_parent = editee.parent(0).context("Failed to get editee's parent")?;
+    let commit = repository
+        .find_commit(edit_mode_metadata.commit_oid)
+        .context("Failed to find commit")?;
+    let commit_parent = commit.parent(0).context("Failed to get commit's parent")?;
     let stashed_integration_changes_reference = repository
         .find_reference(EDIT_UNCOMMITED_FILES_REF)
         .context("Failed to find stashed integration changes")?;
@@ -158,13 +158,13 @@ pub(crate) fn save_and_return_to_workspace(
         .peel_to_commit()
         .context("Failed to get stashed changes commit")?;
 
-    let Some(mut editee_virtual_branch) =
-        find_virtual_branch_by_reference(ctx, &edit_mode_metadata.editee_branch)?
+    let Some(mut virtual_branch) =
+        find_virtual_branch_by_reference(ctx, &edit_mode_metadata.branch_reference)?
     else {
         bail!("Failed to find virtual branch for this reference. Entering and leaving edit mode for non-virtual branches is unsupported")
     };
 
-    // Recommit editee
+    // Recommit commit
     let mut index = repository.index().context("Failed to get index")?;
     index
         .add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)
@@ -176,32 +176,31 @@ pub(crate) fn save_and_return_to_workspace(
     let tree = repository
         .find_tree(tree_oid)
         .context("Failed to find tree")?;
-    let new_editee_oid = ctx
+    let new_commit_oid = ctx
         .repository()
         .commit_with_signature(
             None,
-            &editee.author(),
-            &editee.committer(),
-            &editee.message_bstr().to_str_lossy(),
+            &commit.author(),
+            &commit.committer(),
+            &commit.message_bstr().to_str_lossy(),
             &tree,
-            &[&editee_parent],
-            editee.gitbutler_headers(),
+            &[&commit_parent],
+            commit.gitbutler_headers(),
         )
-        .context("Failed to commit new editee")?;
+        .context("Failed to commit new commit")?;
 
-    // Rebase all all commits on top of the new editee and update reference
-    let new_editee_branch_head =
-        cherry_rebase(ctx, new_editee_oid, editee.id(), editee_virtual_branch.head)
-            .context("Failed to rebase commits onto new editee")?
-            .unwrap_or(new_editee_oid);
+    // Rebase all all commits on top of the new commit and update reference
+    let new_branch_head = cherry_rebase(ctx, new_commit_oid, commit.id(), virtual_branch.head)
+        .context("Failed to rebase commits onto new commit")?
+        .unwrap_or(new_commit_oid);
     repository
         .reference(
-            &edit_mode_metadata.editee_branch,
-            new_editee_branch_head,
+            &edit_mode_metadata.branch_reference,
+            new_branch_head,
             true,
             "",
         )
-        .context("Failed to reference new editee branch head")?;
+        .context("Failed to reference new commit branch head")?;
 
     // Move back to gitbutler/integration and restore stashed changes
     {
@@ -212,10 +211,10 @@ pub(crate) fn save_and_return_to_workspace(
             .checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))
             .context("Failed to checkout gitbutler/integration")?;
 
-        editee_virtual_branch.head = new_editee_branch_head;
-        editee_virtual_branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
+        virtual_branch.head = new_branch_head;
+        virtual_branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
         vb_state
-            .set_branch(editee_virtual_branch)
+            .set_branch(virtual_branch)
             .context("Failed to update vbstate")?;
 
         let integration_commit_oid = update_gitbutler_integration(&vb_state, ctx)

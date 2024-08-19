@@ -34,7 +34,7 @@
 		</div>
 		<p class="switchrepo__title text-18 text-body text-bold">
 			You are currently editing commit <span class="code-string">
-				{editModeMetadata.editeeCommitSha.slice(0, 7)}
+				{editModeMetadata.commitOid.slice(0, 7)}
 			</span>
 		</p>
 

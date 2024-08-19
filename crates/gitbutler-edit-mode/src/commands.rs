@@ -10,30 +10,30 @@ use gitbutler_reference::ReferenceName;
 
 pub fn enter_edit_mode(
     project: &Project,
-    editee: git2::Oid,
-    editee_branch: ReferenceName,
+    commit_oid: git2::Oid,
+    branch_reference_name: ReferenceName,
 ) -> Result<EditModeMetadata> {
     let (ctx, mut guard) = open_with_permission(project)?;
 
     assure_open_workspace_mode(&ctx)
         .context("Entering edit mode may only be done when the workspace is open")?;
 
-    let editee = ctx
+    let commit = ctx
         .repository()
-        .find_commit(editee)
-        .context("Failed to find editee commit")?;
+        .find_commit(commit_oid)
+        .context("Failed to find commit")?;
 
-    let editee_branch = ctx
+    let branch = ctx
         .repository()
-        .find_reference(&editee_branch)
-        .context("Failed to find editee branch reference")?;
+        .find_reference(&branch_reference_name)
+        .context("Failed to find branch reference")?;
 
     let snapshot = project
         .prepare_snapshot(guard.read_permission())
         .context("Failed to prepare snapshot")?;
 
     let edit_mode_metadata =
-        crate::enter_edit_mode(&ctx, &editee, &editee_branch, guard.write_permission())?;
+        crate::enter_edit_mode(&ctx, &commit, &branch, guard.write_permission())?;
 
     let _ = project.commit_snapshot(
         snapshot,

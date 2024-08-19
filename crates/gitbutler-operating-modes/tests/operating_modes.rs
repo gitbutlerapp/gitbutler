@@ -21,8 +21,8 @@ fn create_edit_mode_metadata(ctx: &CommandContext) {
     write_edit_mode_metadata(
         ctx,
         &EditModeMetadata {
-            editee_branch: "asdf".into(),
-            editee_commit_sha: git2::Oid::zero(),
+            branch_reference: "asdf".into(),
+            commit_oid: git2::Oid::zero(),
         },
     )
     .unwrap();

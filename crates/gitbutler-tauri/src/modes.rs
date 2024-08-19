@@ -23,14 +23,14 @@ pub fn operating_mode(
 pub fn enter_edit_mode(
     projects: State<'_, Controller>,
     project_id: ProjectId,
-    editee: String,
-    editee_branch: String,
+    commit_oid: String,
+    branch_reference: String,
 ) -> Result<EditModeMetadata, Error> {
     let project = projects.get(project_id)?;
 
-    let editee = git2::Oid::from_str(&editee).context("Failed to parse editee oid")?;
+    let commit = git2::Oid::from_str(&commit_oid).context("Failed to parse commit oid")?;
 
-    gitbutler_edit_mode::commands::enter_edit_mode(&project, editee, editee_branch.into())
+    gitbutler_edit_mode::commands::enter_edit_mode(&project, commit, branch_reference.into())
         .map_err(Into::into)
 }
 
