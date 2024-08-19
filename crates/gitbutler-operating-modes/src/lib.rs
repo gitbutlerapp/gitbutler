@@ -42,12 +42,13 @@ pub fn write_edit_mode_metadata(
 
 /// Holds relevant state required to switch to and from edit mode
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct EditModeMetadata {
     /// The sha of the commit getting edited.
     #[serde(with = "gitbutler_serde::oid")]
-    pub editee_commit_sha: git2::Oid,
+    pub commit_oid: git2::Oid,
     /// The ref of the vbranch which owns this commit.
-    pub editee_branch: ReferenceName,
+    pub branch_reference: ReferenceName,
 }
 
 #[derive(PartialEq, Debug, Clone, Serialize)]

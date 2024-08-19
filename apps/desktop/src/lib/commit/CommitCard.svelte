@@ -4,11 +4,13 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
+	import { featureEditMode } from '$lib/config/uiFeatureFlags';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
+	import { ModeService } from '$lib/modes/service';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { getContext, getContextStore } from '$lib/utils/context';
+	import { getContext, getContextStore, maybeGetContext } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
@@ -40,6 +42,9 @@
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
+	const modeService = maybeGetContext(ModeService);
+
+	const editModeEnabled = featureEditMode();
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
@@ -116,6 +121,20 @@
 
 	let dragDirection: 'up' | 'down' | undefined;
 	let isDragTargeted = false;
+
+	function canEdit() {
+		if (isUnapplied) return false;
+		if (!modeService) return false;
+		if (!branch) return false;
+
+		return true;
+	}
+
+	async function editPatch() {
+		if (!canEdit()) return;
+
+		modeService!.enterEditMode(commit.id, branch!.refname);
+	}
 </script>
 
 <Modal bind:this={commitMessageModal} width="small">
@@ -317,6 +336,9 @@
 										icon="edit-small"
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
+								{/if}
+								{#if canEdit() && $editModeEnabled}
+									<Button size="tag" style="ghost" outline onclick={editPatch}>Edit patch</Button>
 								{/if}
 							</div>
 						{/if}

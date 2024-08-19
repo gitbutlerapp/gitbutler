@@ -2195,6 +2195,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-edit-mode"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "git2",
+ "gitbutler-branch",
+ "gitbutler-branch-actions",
+ "gitbutler-command-context",
+ "gitbutler-commit",
+ "gitbutler-operating-modes",
+ "gitbutler-oplog",
+ "gitbutler-project",
+ "gitbutler-reference",
+ "gitbutler-repo",
+ "gitbutler-time",
+]
+
+[[package]]
 name = "gitbutler-error"
 version = "0.0.0"
 dependencies = [
@@ -2445,6 +2464,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-config",
  "gitbutler-diff",
+ "gitbutler-edit-mode",
  "gitbutler-error",
  "gitbutler-feedback",
  "gitbutler-id",
