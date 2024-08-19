@@ -144,6 +144,8 @@
 				return { text: 'Update workspace base', icon: 'rebase' };
 			case 'RestoreFromSnapshot':
 				return { text: 'Revert snapshot', icon: 'empty' };
+			case 'EnterEditMode':
+				return { text: 'Enter Edit Mode', icon: 'edit-text' };
 			default:
 				return { text: snapshotDetails.operation, icon: 'commit' };
 		}

@@ -2206,6 +2206,7 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-operating-modes",
+ "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",

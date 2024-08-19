@@ -18,3 +18,4 @@ gitbutler-project.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-time.workspace = true
+gitbutler-oplog.workspace = true
