@@ -16,7 +16,6 @@
 
 <Button
 	onclick={() => {
-		console.log('show');
 		modal?.show();
 	}}>Show</Button
 >
