@@ -9,6 +9,7 @@
 	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import { BranchService, createBranchServiceStore } from '$lib/branches/service';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
+	import EditMode from '$lib/components/EditMode.svelte';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
@@ -20,6 +21,7 @@
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
 	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
+	import { ModeService } from '$lib/modes/service';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -69,6 +71,7 @@
 		setContext(ReorderDropzoneManagerFactory, data.reorderDropzoneManagerFactory);
 		setContext(RemoteBranchService, data.remoteBranchService);
 		setContext(BranchListingService, data.branchListingService);
+		setContext(ModeService, data.modeService);
 	});
 
 	let intervalId: any;
@@ -98,7 +101,6 @@
 	// Refresh base branch if git fetch event is detected.
 	const mode = $derived(modeService.mode);
 	const head = $derived(modeService.head);
-	const openWorkspace = $derived($mode?.type === 'OpenWorkspace');
 
 	// We end up with a `state_unsafe_mutation` when switching projects if we
 	// don't use $effect.pre here.
@@ -160,6 +162,8 @@
 	onDestroy(() => {
 		clearFetchInterval();
 	});
+
+	$inspect($mode);
 </script>
 
 <!-- forces components to be recreated when projectId changes -->
@@ -180,16 +184,20 @@
 		<ProblemLoadingRepo error={$branchesError} />
 	{:else if $projectError}
 		<ProblemLoadingRepo error={$projectError} />
-	{:else if !openWorkspace && $baseBranch}
-		<NotOnGitButlerBranch baseBranch={$baseBranch} />
 	{:else if $baseBranch}
-		<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-			<Navigation />
-			{#if $showHistoryView}
-				<History on:hide={() => ($showHistoryView = false)} />
-			{/if}
-			{@render children()}
-		</div>
+		{#if $mode?.type === 'OpenWorkspace'}
+			<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
+				<Navigation />
+				{#if $showHistoryView}
+					<History on:hide={() => ($showHistoryView = false)} />
+				{/if}
+				{@render children()}
+			</div>
+		{:else if $mode?.type === 'OutsideWorkspace'}
+			<NotOnGitButlerBranch baseBranch={$baseBranch} />
+		{:else if $mode?.type === 'Edit'}
+			<EditMode editModeMetadata={$mode.subject} />
+		{/if}
 	{/if}
 	<MetricsReporter {projectMetrics} />
 {/key}

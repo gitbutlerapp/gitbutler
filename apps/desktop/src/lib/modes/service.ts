@@ -1,7 +1,18 @@
 import { invoke, listen } from '$lib/backend/ipc';
 import { derived, writable } from 'svelte/store';
 
-type Mode = { type: 'OpenWorkspace' } | { type: 'OutsideWorksapce' } | { type: 'Edit' };
+export interface EditModeMetadata {
+	editeeCommitSha: string;
+	editeeBranch: string;
+}
+
+type Mode =
+	| { type: 'OpenWorkspace' }
+	| { type: 'OutsideWorkspace' }
+	| {
+			type: 'Edit';
+			subject: EditModeMetadata;
+	  };
 interface HeadAndMode {
 	head?: string;
 	operatingMode?: Mode;
@@ -28,6 +39,20 @@ export class ModeService {
 		const operatingMode = await invoke<Mode>('operating_mode', { projectId: this.projectId });
 
 		this.headAndMode.set({ head, operatingMode });
+	}
+
+	async enterEditMode(editeeCommitId: string, editeeBranchRef: string) {
+		await invoke('enter_edit_mode', {
+			projectId: this.projectId,
+			editee: editeeCommitId,
+			editeeBranch: editeeBranchRef
+		});
+	}
+
+	async saveEditAndReturnToWorkspace() {
+		await invoke('save_edit_and_return_to_workspace', {
+			projectId: this.projectId
+		});
 	}
 }
 

@@ -29,6 +29,7 @@ members = [
     "crates/gitbutler-url",
     "crates/gitbutler-diff",
     "crates/gitbutler-operating-modes",
+    "crates/gitbutler-edit-mode",
 ]
 resolver = "2"
 
@@ -79,6 +80,7 @@ gitbutler-tagged-string = { path = "crates/gitbutler-tagged-string" }
 gitbutler-url = { path = "crates/gitbutler-url" }
 gitbutler-diff = { path = "crates/gitbutler-diff" }
 gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
+gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better

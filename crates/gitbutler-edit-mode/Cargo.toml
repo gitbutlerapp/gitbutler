@@ -1,0 +1,20 @@
+[package]
+name = "gitbutler-edit-mode"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+git2.workspace = true
+anyhow.workspace = true
+bstr.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-commit.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-operating-modes.workspace = true
+gitbutler-project.workspace = true
+gitbutler-branch-actions.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-time.workspace = true

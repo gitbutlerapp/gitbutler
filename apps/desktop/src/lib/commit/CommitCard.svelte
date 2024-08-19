@@ -7,8 +7,9 @@
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
+	import { ModeService } from '$lib/modes/service';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { getContext, getContextStore } from '$lib/utils/context';
+	import { getContext, getContextStore, maybeGetContext } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
@@ -37,9 +38,12 @@
 	export let type: CommitStatus;
 	export let lines: Snippet<[number]> | undefined = undefined;
 
+	$: console.log(branch);
+
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
+	const modeService = maybeGetContext(ModeService);
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
@@ -116,6 +120,20 @@
 
 	let dragDirection: 'up' | 'down' | undefined;
 	let isDragTargeted = false;
+
+	function canEdit() {
+		if (isUnapplied) return false;
+		if (!modeService) return false;
+		if (!branch) return false;
+
+		return true;
+	}
+
+	async function edit() {
+		if (!canEdit()) return;
+
+		modeService!.enterEditMode(commit.id, branch!.refname);
+	}
 </script>
 
 <Modal bind:this={commitMessageModal} width="small">
@@ -317,6 +335,9 @@
 										icon="edit-small"
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
+								{/if}
+								{#if canEdit()}
+									<Button size="tag" style="ghost" outline onclick={edit}>Edit patch</Button>
 								{/if}
 							</div>
 						{/if}

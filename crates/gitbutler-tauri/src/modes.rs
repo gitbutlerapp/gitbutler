@@ -1,15 +1,46 @@
+use anyhow::Context;
+use gitbutler_operating_modes::EditModeMetadata;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_project::Controller;
 use gitbutler_project::ProjectId;
 use tauri::State;
+use tracing::instrument;
 
 use crate::error::Error;
 
 #[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
 pub fn operating_mode(
     projects: State<'_, Controller>,
     project_id: ProjectId,
 ) -> Result<OperatingMode, Error> {
     let project = projects.get(project_id)?;
     gitbutler_operating_modes::commands::operating_mode(&project).map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
+pub fn enter_edit_mode(
+    projects: State<'_, Controller>,
+    project_id: ProjectId,
+    editee: String,
+    editee_branch: String,
+) -> Result<EditModeMetadata, Error> {
+    let project = projects.get(project_id)?;
+
+    let editee = git2::Oid::from_str(&editee).context("Failed to parse editee oid")?;
+
+    gitbutler_edit_mode::commands::enter_edit_mode(&project, editee, editee_branch.into())
+        .map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
+pub fn save_edit_and_return_to_workspace(
+    projects: State<'_, Controller>,
+    project_id: ProjectId,
+) -> Result<(), Error> {
+    let project = projects.get(project_id)?;
+
+    gitbutler_edit_mode::commands::save_and_return_to_workspace(&project).map_err(Into::into)
 }

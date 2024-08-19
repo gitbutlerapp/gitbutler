@@ -42,6 +42,7 @@ pub fn write_edit_mode_metadata(
 
 /// Holds relevant state required to switch to and from edit mode
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct EditModeMetadata {
     /// The sha of the commit getting edited.
     #[serde(with = "gitbutler_serde::oid")]
