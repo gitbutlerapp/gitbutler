@@ -38,29 +38,10 @@
 </DomainButton>
 
 <style lang="postcss">
-	.domain-button {
-		display: flex;
-		align-items: center;
-		gap: 10px;
-		border-radius: var(--radius-m);
-		padding: 10px;
-		color: var(--clr-text-1);
-		transition: background-color var(--transition-fast);
-	}
-
 	.icon {
 		border-radius: var(--radius-s);
 		height: 20px;
 		width: 20px;
 		flex-shrink: 0;
-	}
-
-	.domain-button:not(.selected):hover,
-	.domain-button:not(.selected):focus {
-		background-color: var(--clr-bg-1-muted);
-	}
-
-	.selected {
-		background-color: var(--clr-bg-2);
 	}
 </style>
