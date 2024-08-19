@@ -68,18 +68,6 @@
 
 			const targetDir = await join(targetDirPath, remoteUrl.name);
 
-			if (remoteUrl.protocol) {
-				if (remoteUrl.protocol === 'ssh') {
-					posthog.capture('SSH Clone Attempted');
-				}
-				if (!['https', 'http'].includes(remoteUrl.protocol)) {
-					errors.push({
-						label: 'Only HTTP(S) Remote URLs allowed'
-					});
-					return;
-				}
-			}
-
 			await invoke('git_clone_repository', {
 				repositoryUrl,
 				targetDir
