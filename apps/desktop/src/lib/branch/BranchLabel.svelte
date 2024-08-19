@@ -1,47 +1,47 @@
 <script lang="ts">
 	import { resizeObserver } from '$lib/utils/resizeObserver';
-	import { createEventDispatcher } from 'svelte';
 
-	export let name: string;
-	export let disabled = false;
+	interface Props {
+		name: string;
+		disabled?: boolean;
+		onChange?: (value: string) => void;
+	}
+
+	let { name, disabled = false, onChange }: Props = $props();
 
 	let inputEl: HTMLInputElement;
 	let initialName = name;
-
-	let mesureEl: HTMLSpanElement;
-	let inputWidth: string | undefined;
-
-	const dispatch = createEventDispatcher<{
-		change: { name: string };
-	}>();
+	let inputWidth = $state('');
 </script>
 
 <span
 	use:resizeObserver={(e) => {
 		inputWidth = `${Math.round(e.frame.width)}px`;
 	}}
-	class="branch-name-mesure-el text-14 text-bold"
-	bind:this={mesureEl}>{name}</span
+	class="branch-name-measure-el text-14 text-bold"
 >
+	{name}
+</span>
 <input
 	type="text"
 	{disabled}
 	bind:this={inputEl}
 	bind:value={name}
-	on:change={(e) => dispatch('change', { name: e.currentTarget.value.trim() })}
+	onchange={(e) => onChange?.(e.currentTarget.value.trim())}
 	title={name}
 	class="branch-name-input text-14 text-bold"
-	on:dblclick|stopPropagation
-	on:click|stopPropagation={() => {
+	ondblclick={(e) => e.stopPropagation()}
+	onclick={(e) => {
+		e.stopPropagation();
 		inputEl.focus();
 	}}
-	on:blur={() => {
+	onblur={() => {
 		if (name === '') name = initialName;
 	}}
-	on:focus={() => {
+	onfocus={() => {
 		initialName = name;
 	}}
-	on:keydown={(e) => {
+	onkeydown={(e) => {
 		if (e.key === 'Enter' || e.key === 'Escape') {
 			inputEl.blur();
 		}
@@ -53,14 +53,14 @@
 />
 
 <style lang="postcss">
-	.branch-name-mesure-el,
+	.branch-name-measure-el,
 	.branch-name-input {
 		min-width: 44px;
 		height: 20px;
 		padding: 2px 4px;
 		border: 1px solid transparent;
 	}
-	.branch-name-mesure-el {
+	.branch-name-measure-el {
 		pointer-events: none;
 		visibility: hidden;
 		border: 2px solid transparent;

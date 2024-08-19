@@ -183,10 +183,7 @@
 				</div>
 
 				<div class="header__info">
-					<BranchLabel
-						name={branch.name}
-						on:change={(e) => handleBranchNameChange(e.detail.name)}
-					/>
+					<BranchLabel name={branch.name} onChange={(name) => handleBranchNameChange(name)} />
 					<div class="header__remote-branch">
 						<ActiveBranchStatus
 							{hasIntegratedCommits}
