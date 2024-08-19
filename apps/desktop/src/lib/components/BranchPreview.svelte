@@ -2,9 +2,9 @@
 	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
 	import Resizer from '../shared/Resizer.svelte';
 	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
-	import { transformAnyCommit } from '$lib/CommitLines/transformers';
 	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
+	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -13,8 +13,8 @@
 	import { getMarkdownRenderer } from '$lib/utils/markdown';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { BranchData, type Branch } from '$lib/vbranches/types';
-	import LineGroup from '@gitbutler/ui/CommitLines/LineGroup.svelte';
-	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
+	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
+	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
 	import { onMount, setContext } from 'svelte';

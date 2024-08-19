@@ -2,7 +2,7 @@
 	import Avatar from '$lib/avatar/Avatar.svelte';
 	import { tooltip } from '$lib/utils/tooltip';
 	import { isDefined } from '$lib/utils/typeguards';
-	import type { CommitNodeData, Color } from '$lib/CommitLines/types';
+	import type { CommitNodeData, Color } from '$lib/commitLines/types';
 
 	interface Props {
 		commitNode: CommitNodeData;

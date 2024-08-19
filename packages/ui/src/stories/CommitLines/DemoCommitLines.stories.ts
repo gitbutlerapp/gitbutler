@@ -1,5 +1,5 @@
 import DemoCommitLines from './DemoCommitLines.svelte';
-import type { Author, CommitData } from '$lib/CommitLines/types';
+import type { Author, CommitData } from '$lib/commitLines/types';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {

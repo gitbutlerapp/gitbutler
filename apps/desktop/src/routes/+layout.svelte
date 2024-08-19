@@ -34,7 +34,7 @@
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { initTheme } from '$lib/utils/theme';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
-	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
+	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { onMount, setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';

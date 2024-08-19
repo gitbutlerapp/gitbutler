@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Fork from '$lib/CommitLines/Cell/Fork.svelte';
-	import Straight from '$lib/CommitLines/Cell/Straight.svelte';
-	import type { CellData } from '$lib/CommitLines/types';
+	import Fork from '$lib/commitLines/Cell/Fork.svelte';
+	import Straight from '$lib/commitLines/Cell/Straight.svelte';
+	import type { CellData } from '$lib/commitLines/types';
 
 	interface Props {
 		cell: CellData;
