@@ -13,7 +13,7 @@ type CheckSuites =
 	RestEndpointMethodTypes['checks']['listSuitesForRef']['response']['data']['check_suites'];
 
 // TODO: Rewrite this proof-of-concept into something valuable.
-describe.concurrent('GitHubChecksMonitor', () => {
+describe('GitHubChecksMonitor', () => {
 	let octokit: Octokit;
 	let gh: GitHub;
 	let monitor: GitHostChecksMonitor | undefined;
@@ -24,6 +24,7 @@ describe.concurrent('GitHubChecksMonitor', () => {
 
 	afterEach(() => {
 		vi.restoreAllMocks();
+		vi.clearAllTimers();
 	});
 
 	beforeEach(() => {
@@ -64,7 +65,6 @@ describe.concurrent('GitHubChecksMonitor', () => {
 	});
 
 	test('fetch until completed', async () => {
-		vi.useFakeTimers({});
 		const startedAt = new Date();
 		vi.setSystemTime(startedAt);
 
