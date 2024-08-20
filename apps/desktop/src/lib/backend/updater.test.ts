@@ -1,5 +1,5 @@
 import { Tauri } from './tauri';
-import { UpdaterService } from './updater';
+import { UPDATE_INTERVAL_MS, UpdaterService } from './updater';
 import { get } from 'svelte/store';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
 
@@ -22,6 +22,7 @@ describe('Updater', () => {
 
 	afterEach(() => {
 		vi.restoreAllMocks();
+		vi.clearAllTimers();
 	});
 
 	test('should not show up-to-date on interval check', async () => {
@@ -97,5 +98,23 @@ describe('Updater', () => {
 		const update2 = get(updater.update);
 		expect(update2).toHaveProperty('version', undefined);
 		expect(update2).toHaveProperty('releaseNotes', undefined);
+	});
+
+	test('should check for updates continously', async () => {
+		const mock = vi.spyOn(tauri, 'checkUpdate').mockReturnValue(
+			Promise.resolve({
+				shouldUpdate: false
+			})
+		);
+
+		const unsubscribe = updater.update.subscribe(() => {});
+		await vi.advanceTimersToNextTimerAsync();
+		expect(mock).toHaveBeenCalledOnce();
+
+		for (let i = 2; i < 24; i++) {
+			await vi.advanceTimersByTimeAsync(UPDATE_INTERVAL_MS);
+			expect(mock).toHaveBeenCalledTimes(i);
+		}
+		unsubscribe();
 	});
 });
