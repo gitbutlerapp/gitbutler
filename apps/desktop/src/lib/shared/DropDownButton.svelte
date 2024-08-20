@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import type iconsJson from '@gitbutler/ui/icon/icons.json';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ComponentColor, ComponentStyleKind } from '@gitbutler/ui/utils/colorTypes';
 	import type { Snippet } from 'svelte';
 

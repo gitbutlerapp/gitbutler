@@ -1,29 +1,28 @@
 <script lang="ts">
 	import { stringToColor } from '$lib/utils/stringToColor';
-	import { tooltip } from '$lib/utils/tooltip';
+	import { tooltip as tooltipComponent } from '$lib/utils/tooltip';
 
 	interface Props {
 		srcUrl: string;
-		tooltipText: string;
-		altText: string;
+		tooltip: string;
 		size?: 'small' | 'medium';
 	}
 
 	let isLoaded = $state(false);
 
-	const { srcUrl, tooltipText, altText, size = 'small' }: Props = $props();
+	const { srcUrl, tooltip, size = 'small' }: Props = $props();
 </script>
 
-<div class="image-wrapper {size}" style:background-color={stringToColor(altText)}>
+<div class="image-wrapper {size}" style:background-color={stringToColor(tooltip)}>
 	<img
 		class="avatar"
-		alt={altText}
+		alt={tooltip}
 		src={srcUrl}
 		loading="lazy"
 		onload={() => (isLoaded = true)}
 		class:show={isLoaded}
-		use:tooltip={{
-			text: tooltipText,
+		use:tooltipComponent={{
+			text: tooltip,
 			delay: 500
 		}}
 	/>

@@ -148,7 +148,7 @@
 
 <div class="select-wrapper" class:wide bind:this={selectWrapperEl}>
 	{#if label}
-		<label for={id} class="select__label text-base-body-13 text-semibold">{label}</label>
+		<label for={id} class="select__label text-13 text-body text-semibold">{label}</label>
 	{/if}
 	<TextBox
 		{id}
@@ -194,7 +194,7 @@
 					{/if}
 					<OptionsGroup>
 						{#if filteredOptions.length === 0}
-							<div class="text-base-13 text-semibold option nothing-found">
+							<div class="text-13 text-semibold option nothing-found">
 								<span class=""> Nothing found ¯\_(ツ)_/¯ </span>
 							</div>
 						{/if}

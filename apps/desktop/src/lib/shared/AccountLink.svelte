@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { User } from '$lib/stores/user';
 	import { getContextStore } from '$lib/utils/context';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
 
 	export let pop = false;
@@ -17,7 +17,7 @@
 	class:collapsed={isNavCollapsed}
 >
 	{#if !isNavCollapsed}
-		<span class="name text-base-13 text-semibold">
+		<span class="name text-13 text-semibold">
 			{#if $user}
 				{$user.name || $user.given_name || $user.email}
 			{:else}

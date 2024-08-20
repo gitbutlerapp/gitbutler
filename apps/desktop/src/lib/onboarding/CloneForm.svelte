@@ -8,7 +8,7 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { getContext } from '$lib/utils/context';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import * as Sentry from '@sentry/sveltekit';
 	import { open } from '@tauri-apps/api/dialog';
 	import { documentDir } from '@tauri-apps/api/path';
@@ -68,18 +68,6 @@
 
 			const targetDir = await join(targetDirPath, remoteUrl.name);
 
-			if (remoteUrl.protocol) {
-				if (remoteUrl.protocol === 'ssh') {
-					posthog.capture('SSH Clone Attempted');
-				}
-				if (!['https', 'http'].includes(remoteUrl.protocol)) {
-					errors.push({
-						label: 'Only HTTP(S) Remote URLs allowed'
-					});
-					return;
-				}
-			}
-
 			await invoke('git_clone_repository', {
 				repositoryUrl,
 				targetDir
@@ -110,11 +98,11 @@
 <h1 class="clone-title text-serif-40">Clone a repository</h1>
 <Section>
 	<div class="clone__field repositoryUrl">
-		<div class="text-base-13 text-semibold clone__field--label">Clone URL</div>
+		<div class="text-13 text-semibold clone__field--label">Clone URL</div>
 		<TextBox bind:value={repositoryUrl} placeholder={'https://'} />
 	</div>
 	<div class="clone__field repositoryTargetPath">
-		<div class="text-base-13 text-semibold clone__field--label">Where to clone</div>
+		<div class="text-13 text-semibold clone__field--label">Where to clone</div>
 		<TextBox bind:value={targetDirPath} placeholder={'/Users/tipsy/Documents'} />
 		<Button style="ghost" outline kind="solid" disabled={loading} onclick={handleCloneTargetSelect}>
 			Choose..

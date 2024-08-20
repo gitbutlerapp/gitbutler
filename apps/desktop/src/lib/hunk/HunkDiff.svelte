@@ -7,7 +7,7 @@
 	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { type Hunk } from '$lib/vbranches/types';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import diff_match_patch from 'diff-match-patch';
 	import type { Writable } from 'svelte/store';
 
@@ -95,13 +95,13 @@
 		});
 	}
 
-	function toTokens(inputLine: string): string[] {
-		function sanitize(text: string) {
-			var element = document.createElement('div');
-			element.innerText = text;
-			return element.innerHTML;
-		}
+	function sanitize(text: string) {
+		const element = document.createElement('div');
+		element.innerText = text;
+		return element.innerHTML;
+	}
 
+	function toTokens(inputLine: string): string[] {
 		let highlighter = create(inputLine, filePath);
 		let tokens: string[] = [];
 		highlighter.highlight((text, classNames) => {
@@ -152,9 +152,13 @@
 					prevSectionRow.tokens.push(...toTokens(text));
 					nextSectionRow.tokens.push(...toTokens(text));
 				} else if (type === Operation.Insert) {
-					nextSectionRow.tokens.push(`<span data-no-drag class="token-inserted">${text}</span>`);
+					nextSectionRow.tokens.push(
+						`<span data-no-drag class="token-inserted">${sanitize(text)}</span>`
+					);
 				} else if (type === Operation.Delete) {
-					prevSectionRow.tokens.push(`<span data-no-drag class="token-deleted">${text}</span>`);
+					prevSectionRow.tokens.push(
+						`<span data-no-drag class="token-deleted">${sanitize(text)}</span>`
+					);
 				}
 			}
 			returnRows.nextRows.push(nextSectionRow);
@@ -192,10 +196,12 @@
 				if (type === Operation.Equal) {
 					sectionRow.tokens.push(...toTokens(text));
 				} else if (type === Operation.Insert) {
-					sectionRow.tokens.push(`<span data-no-drag class="token-inserted">${text}</span>`);
+					sectionRow.tokens.push(
+						`<span data-no-drag class="token-inserted">${sanitize(text)}</span>`
+					);
 				} else if (type === Operation.Delete) {
 					sectionRow.tokens.push(
-						`<span data-no-drag class="token-deleted token-strikethrough">${text}</span>`
+						`<span data-no-drag class="token-deleted token-strikethrough">${sanitize(text)}</span>`
 					);
 				}
 			}

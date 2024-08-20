@@ -14,12 +14,12 @@
 	{#if $$slots.title || $$slots.description}
 		<div class="description">
 			{#if $$slots.title}
-				<h2 class="text-base-15 text-bold">
+				<h2 class="text-15 text-bold">
 					<slot name="title" />
 				</h2>
 			{/if}
 			{#if $$slots.description}
-				<p class="text-base-body-12">
+				<p class="text-12 text-body">
 					<slot name="description" />
 				</p>
 			{/if}

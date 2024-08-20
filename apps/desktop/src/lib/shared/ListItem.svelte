@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
-	import type iconsJson from '@gitbutler/ui/icon/icons.json';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let selected = false;
@@ -11,7 +11,7 @@
 </script>
 
 <button disabled={selected} class="button" class:selected on:click={() => dispatch('click')}>
-	<div class="label text-base-14 text-bold">
+	<div class="label text-14 text-bold">
 		<slot />
 	</div>
 	{#if icon || selected}

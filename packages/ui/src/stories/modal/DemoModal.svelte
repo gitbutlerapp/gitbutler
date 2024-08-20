@@ -1,7 +1,7 @@
 <script lang="ts">
-	import iconsJson from '$lib/icon/icons.json';
-	import Button from '$lib/inputs/Button.svelte';
-	import Modal from '$lib/modal/Modal.svelte';
+	import iconsJson from '$lib/data/icons.json';
+	import Button from '$lib/Button.svelte';
+	import Modal from '$lib/Modal.svelte';
 
 	interface Props {
 		width?: 'default' | 'small' | 'large';
@@ -14,11 +14,15 @@
 	let modal = $state<Modal>();
 </script>
 
-<Button on:click={() => modal?.show()}>Show</Button>
+<Button
+	onclick={() => {
+		modal?.show();
+	}}>Show</Button
+>
 <Modal bind:this={modal} {...args}>
 	<p>Wonderful modal content</p>
 
 	{#snippet controls(close)}
-		<Button on:click={() => close()}>Close</Button>
+		<Button onclick={() => close()}>Close</Button>
 	{/snippet}
 </Modal>

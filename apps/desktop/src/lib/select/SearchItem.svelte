@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { type SelectItem } from './Select.svelte';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	interface Props {
 		placeholder?: string;
@@ -48,7 +48,7 @@
 
 	<input
 		bind:this={inputEl}
-		class="text-base-13 search-input"
+		class="text-13 search-input"
 		type="text"
 		{placeholder}
 		bind:value

@@ -155,6 +155,7 @@ pub enum OperationKind {
     InsertBlankCommit,
     MoveCommitFile,
     FileChanges,
+    EnterEditMode,
     #[default]
     Unknown,
 }

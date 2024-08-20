@@ -1,5 +1,5 @@
 <script lang="ts">
-	import TimeAgo from '$lib/timeAgo/TimeAgo.svelte';
+	import TimeAgo from '$lib/TimeAgo.svelte';
 
 	interface Props {
 		date: number;

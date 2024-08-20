@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { createEventDispatcher, onMount } from 'svelte';
-	import type iconsJson from '@gitbutler/ui/icon/icons.json';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	export let element: HTMLElement | undefined = undefined;
 	export let id: string | undefined = undefined; // Required to make label clickable
@@ -58,7 +58,7 @@
 	use:clickOutside={{ excludeElement: element, handler: onClickOutside }}
 >
 	{#if label}
-		<label class="textbox__label text-base-13 text-semibold" for={id}>
+		<label class="textbox__label text-13 text-semibold" for={id}>
 			{label}
 		</label>
 	{/if}
@@ -87,7 +87,7 @@
 			max={maxVal}
 			{...type === 'password' && showPassword ? { type: 'text' } : { type }}
 			class:show-count-actions={showCountActions}
-			class="text-input textbox__input text-base-13"
+			class="text-input textbox__input text-13"
 			class:textbox__readonly={type !== 'select' && readonly}
 			class:select-none={noselect}
 			style:text-align={textAlign}
@@ -146,7 +146,7 @@
 		{/if}
 
 		{#if helperText}
-			<p class="text-base-body-11 textbox__helper-text">{helperText}</p>
+			<p class="text-11 text-body textbox__helper-text">{helperText}</p>
 		{/if}
 	</div>
 </div>

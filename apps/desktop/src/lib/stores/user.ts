@@ -3,6 +3,7 @@ import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { API_URL, type HttpClient } from '$lib/backend/httpClient';
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
+import { copyToClipboard } from '$lib/utils/clipboard';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
 import { plainToInstance } from 'class-transformer';
@@ -56,7 +57,7 @@ export class UserService {
 		resetSentry();
 	}
 
-	async login(): Promise<User | undefined> {
+	private async loginCommon(action: (url: string) => void): Promise<User | undefined> {
 		this.logout();
 		this.loading.set(true);
 		try {
@@ -64,7 +65,8 @@ export class UserService {
 			const token = await this.httpClient.post<LoginToken>('login/token.json');
 			const url = new URL(token.url);
 			url.host = API_URL.host;
-			openExternalUrl(url.toString());
+
+			action(url.toString());
 
 			// Assumed min time for login flow
 			await sleep(4000);
@@ -79,6 +81,20 @@ export class UserService {
 		} finally {
 			this.loading.set(false);
 		}
+	}
+
+	async login(): Promise<User | undefined> {
+		return await this.loginCommon((url) => {
+			openExternalUrl(url);
+		});
+	}
+
+	async loginAndCopyLink(): Promise<User | undefined> {
+		return await this.loginCommon((url) => {
+			setTimeout(() => {
+				copyToClipboard(url);
+			}, 0);
+		});
 	}
 
 	async pollForUser(token: string): Promise<User | undefined> {

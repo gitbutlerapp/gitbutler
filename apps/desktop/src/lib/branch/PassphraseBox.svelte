@@ -1,7 +1,7 @@
 <script lang="ts">
 	import TextBox from '../shared/TextBox.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import type { SystemPromptHandle } from '$lib/backend/prompt';
 
 	export let prompt: SystemPromptHandle | undefined;
@@ -23,7 +23,7 @@
 
 {#if prompt}
 	<div class="passbox">
-		<span class="text-base-body-11 passbox__helper-text">
+		<span class="text-body-11 text-body passbox__helper-text">
 			{prompt?.prompt}
 		</span>
 		<TextBox

@@ -25,9 +25,9 @@
 		getRemoteCommits
 	} from '$lib/vbranches/contexts';
 	import { VirtualBranch } from '$lib/vbranches/types';
-	import LineGroup from '@gitbutler/ui/CommitLines/LineGroup.svelte';
-	import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
+	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { goto } from '$app/navigation';
 
 	export let isUnapplied: boolean;
@@ -315,7 +315,7 @@
 					{/key}
 				</div>
 				<div class="base-row__content">
-					<span class="text-base-11 base-row__text"
+					<span class="text-11 base-row__text"
 						>Base commit <button
 							class="base-row__commit-link"
 							on:click={async () => await goto(`/${project.id}/base`)}

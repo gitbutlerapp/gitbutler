@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Snippet } from 'svelte';
 
 	const {
@@ -11,10 +11,11 @@
 		message,
 		dimMessage,
 		row,
-		rowReverse
+		rowReverse,
+		testId
 	}: {
 		title: string;
-		loading: boolean;
+		loading?: boolean;
 		onmousedown?: (e: MouseEvent) => void;
 		onclick?: (e: MouseEvent) => void;
 		icon: Snippet;
@@ -22,6 +23,7 @@
 		dimMessage?: boolean;
 		row?: boolean;
 		rowReverse?: boolean;
+		testId?: string;
 	} = $props();
 </script>
 
@@ -33,13 +35,14 @@
 	{onclick}
 	{onmousedown}
 	disabled={loading}
+	data-testid={testId}
 >
 	<div class="icon">
 		{@render icon()}
 	</div>
 	<div class="action__content">
-		<div class="action__title text-base-18 text-bold">{title}</div>
-		<div class="action__message text-base-body-12" class:dim-message={dimMessage}>
+		<div class="action__title text-18 text-bold">{title}</div>
+		<div class="action__message text-12 text-body" class:dim-message={dimMessage}>
 			{@render message()}
 		</div>
 	</div>
@@ -88,8 +91,7 @@
 	.loading {
 		pointer-events: none;
 		background-color: var(--clr-bg-2);
-		border: 1px solid transparent;
-		opacity: 0.5;
+		opacity: 0.6;
 	}
 
 	.action__content {

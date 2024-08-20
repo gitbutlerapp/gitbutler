@@ -4,7 +4,7 @@
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 
@@ -69,8 +69,8 @@
 			{@const { added, removed } = computeAddedRemovedByHunk(section)}
 			{#if 'hunk' in section}
 				<div class="hunk-wrapper">
-					<div class="indicators text-base-11 text-semibold">
-						<div class="text-base-10 semibold added-removed">
+					<div class="indicators text-11 text-semibold">
+						<div class="text-10 semibold added-removed">
 							<span class="added">+{added}</span>
 							<span class="removed">-{removed}</span>
 						</div>

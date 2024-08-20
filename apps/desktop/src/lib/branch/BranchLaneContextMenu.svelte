@@ -12,13 +12,17 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 
-	export let contextMenuEl: ContextMenu;
-	export let target: HTMLElement;
-	export let onCollapse: () => void;
-	export let onGenerateBranchName: () => void;
+	interface Props {
+		contextMenuEl?: ContextMenu;
+		target?: HTMLElement;
+		onCollapse: () => void;
+		onGenerateBranchName: () => void;
+	}
+
+	let { contextMenuEl = $bindable(), target, onCollapse, onGenerateBranchName }: Props = $props();
 
 	const user = getContextStore(User);
 	const project = getContext(Project);
@@ -29,15 +33,21 @@
 
 	const nameNormalizationService = getNameNormalizationServiceContext();
 
-	let aiConfigurationValid = false;
 	let deleteBranchModal: Modal;
 	let renameRemoteModal: Modal;
-	let newRemoteName: string;
+	let aiConfigurationValid = $state(false);
+	let newRemoteName = $state('');
+	let allowRebasing = $state<boolean>();
 
-	$: branch = $branchStore;
-	$: commits = branch.commits;
-	$: setAIConfigurationValid($user);
-	$: allowRebasing = branch.allowRebasing;
+	const branch = $derived($branchStore);
+	const commits = $derived(branch.commits);
+	$effect(() => {
+		allowRebasing = branch.allowRebasing;
+	});
+
+	$effect(() => {
+		setAIConfigurationValid($user);
+	});
 
 	async function toggleAllowRebasing() {
 		branchController.updateBranchAllowRebasing(branch.id, !allowRebasing);
@@ -53,16 +63,18 @@
 
 	let normalizedBranchName: string;
 
-	$: if (branch.name) {
-		nameNormalizationService
-			.normalize(branch.name)
-			.then((name) => {
-				normalizedBranchName = name;
-			})
-			.catch((e) => {
-				console.error('Failed to normalize branch name', e);
-			});
-	}
+	$effect(() => {
+		if (branch.name) {
+			nameNormalizationService
+				.normalize(branch.name)
+				.then((name) => {
+					normalizedBranchName = name;
+				})
+				.catch((e) => {
+					console.error('Failed to normalize branch name', e);
+				});
+		}
+	});
 </script>
 
 <ContextMenu bind:this={contextMenuEl} {target}>
@@ -71,7 +83,7 @@
 			label="Collapse lane"
 			on:click={() => {
 				onCollapse();
-				contextMenuEl.close();
+				contextMenuEl?.close();
 			}}
 		/>
 	</ContextMenuSection>
@@ -80,7 +92,7 @@
 			label="Unapply"
 			on:click={() => {
 				unapplyBranch();
-				contextMenuEl.close();
+				contextMenuEl?.close();
 			}}
 		/>
 
@@ -96,7 +108,7 @@
 				} else {
 					deleteBranchModal.show(branch);
 				}
-				contextMenuEl.close();
+				contextMenuEl?.close();
 			}}
 		/>
 
@@ -104,7 +116,7 @@
 			label="Generate branch name"
 			on:click={() => {
 				onGenerateBranchName();
-				contextMenuEl.close();
+				contextMenuEl?.close();
 			}}
 			disabled={!($aiGenEnabled && aiConfigurationValid) || branch.files?.length === 0}
 		/>
@@ -118,7 +130,7 @@
 
 				newRemoteName = branch.upstreamName || normalizedBranchName || '';
 				renameRemoteModal.show(branch);
-				contextMenuEl.close();
+				contextMenuEl?.close();
 			}}
 		/>
 	</ContextMenuSection>
@@ -130,7 +142,7 @@
 				slot="control"
 				bind:checked={allowRebasing}
 				on:click={toggleAllowRebasing}
-				help="Having this enabled permits commit amending and reordering after a branch has been pushed, which would subsequently require force pushing"
+				help="Allows changing commits after push (force push needed)"
 			/>
 		</ContextMenuItem>
 	</ContextMenuSection>
@@ -140,7 +152,7 @@
 			label="Create branch to the left"
 			on:click={() => {
 				branchController.createBranch({ order: branch.order });
-				contextMenuEl.close();
+				contextMenuEl?.close();
 			}}
 		/>
 
@@ -148,7 +160,7 @@
 			label="Create branch to the right"
 			on:click={() => {
 				branchController.createBranch({ order: branch.order + 1 });
-				contextMenuEl.close();
+				contextMenuEl?.close();
 			}}
 		/>
 	</ContextMenuSection>

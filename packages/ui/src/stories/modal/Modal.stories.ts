@@ -1,8 +1,9 @@
 import DemoModal from './DemoModal.svelte';
-import iconsJson from '$lib/icon/icons.json';
+import iconsJson from '$lib/data/icons.json';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
+	title: 'Overlays / Modal',
 	component: DemoModal,
 	argTypes: {
 		width: {

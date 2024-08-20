@@ -29,7 +29,8 @@ export type Operation =
 	| 'ReorderCommit'
 	| 'InsertBlankCommit'
 	| 'MoveCommitFile'
-	| 'FileChanges';
+	| 'FileChanges'
+	| 'EnterEditMode';
 
 export class Trailer {
 	key!: string;

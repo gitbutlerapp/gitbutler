@@ -32,6 +32,7 @@
 		"@eslint/js": "^9.5.0",
 		"@tauri-apps/cli": "^1.6.0",
 		"@types/eslint__js": "^8.42.3",
+		"@types/node": "^22.3.0",
 		"@typescript-eslint/parser": "^7.13.1",
 		"eslint": "^9.5.0",
 		"eslint-config-prettier": "^9.1.0",
@@ -43,7 +44,7 @@
 		"prettier": "^3.3.2",
 		"prettier-plugin-svelte": "^3.2.4",
 		"svelte-eslint-parser": "^0.41.0",
-		"turbo": "2.0.9",
+		"turbo": "2.0.13-canary.1",
 		"typescript": "5.4.5",
 		"typescript-eslint": "^7.13.1"
 	}

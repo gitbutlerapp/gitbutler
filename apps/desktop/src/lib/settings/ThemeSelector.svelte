@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Settings } from '$lib/settings/userSettings';
 	import type { Writable } from 'svelte/store';
 
@@ -45,7 +45,7 @@
 				<img src={theme.preview} alt={theme.name} />
 			</div>
 
-			<span class="theme-card__label text-base-12 text-semibold">{theme.name}</span>
+			<span class="theme-card__label text-12 text-semibold">{theme.name}</span>
 		</label>
 	{/each}
 </fieldset>

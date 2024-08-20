@@ -10,7 +10,7 @@
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { goto } from '$app/navigation';
 
@@ -47,11 +47,11 @@
 		<div class="project-name">
 			<ProjectNameLabel projectName={project?.title} />
 		</div>
-		<p class="switchrepo__title text-base-body-18 text-bold">
+		<p class="switchrepo__title text-18 text-body text-bold">
 			Looks like you've switched away from <span class="code-string"> gitbutler/integration </span>
 		</p>
 
-		<p class="switchrepo__message text-base-body-13">
+		<p class="switchrepo__message text-13 text-body">
 			Due to GitButler managing multiple virtual branches, you cannot switch back and forth between
 			git branches and virtual branches easily.
 			<Link href="https://docs.gitbutler.com/features/virtual-branches/integration-branch">

@@ -29,11 +29,12 @@ jobs:
             libayatana-appindicator3-dev \
             libwebkit2gtk-4.0-dev \
             webkit2gtk-driver \
+            ffmpeg \
             xvfb
       - name: Setup rust-toolchain stable
         id: rust-toolchain
         uses: dtolnay/rust-toolchain@stable
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
@@ -45,6 +46,8 @@ jobs:
           restore-keys: cargo-
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
+      - name: Build CLI
+        run: cargo build -p gitbutler-cli
       - name: Build SvelteKit
         run: pnpm build:desktop -- --mode development
       - name: Build Tauri
@@ -59,3 +62,12 @@ jobs:
       # application to run headless without any changes to the code
       - name: WebdriverIO
         run: xvfb-run pnpm test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: WebdriverIO Artifacts
+          overwrite: true
+          path: |
+            ./apps/desktop/e2e/videos
+            ~/.config/com.gitbutler.app*/logs

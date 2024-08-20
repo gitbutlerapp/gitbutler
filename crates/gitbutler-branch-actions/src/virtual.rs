@@ -76,6 +76,7 @@ pub struct VirtualBranch {
     /// The fork point between the target branch and the virtual branch
     #[serde(with = "gitbutler_serde::oid_opt", default)]
     pub fork_point: Option<git2::Oid>,
+    pub refname: Refname,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -366,6 +367,8 @@ pub fn list_virtual_branches(
             .and_then(|c| c.parent(0).ok())
             .map(|c| c.id());
 
+        let refname = branch.refname()?.into();
+
         let branch = VirtualBranch {
             id: branch.id,
             name: branch.name,
@@ -388,6 +391,7 @@ pub fn list_virtual_branches(
             head: branch.head,
             merge_base,
             fork_point,
+            refname,
         };
         branches.push(branch);
     }
@@ -662,6 +666,7 @@ pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) 
         branch.name = dedup(
             &all_virtual_branches
                 .iter()
+                .filter(|b| b.id != branch_update.id)
                 .map(|b| b.name.as_str())
                 .collect::<Vec<_>>(),
             name,

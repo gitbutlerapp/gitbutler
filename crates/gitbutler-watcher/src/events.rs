@@ -1,6 +1,7 @@
 use std::{fmt::Display, path::PathBuf};
 
 use gitbutler_branch_actions::VirtualBranches;
+use gitbutler_operating_modes::OperatingMode;
 use gitbutler_project::ProjectId;
 
 /// An event for internal use, as merge between [super::file_monitor::Event] and [Action].
@@ -93,6 +94,7 @@ pub enum Change {
     GitHead {
         project_id: ProjectId,
         head: String,
+        operating_mode: OperatingMode,
     },
     GitActivity(ProjectId),
     VirtualBranches {

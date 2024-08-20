@@ -12,7 +12,7 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { open } from '@tauri-apps/api/shell';
 
 	const vbranchService = getContext(VirtualBranchService);
@@ -136,7 +136,7 @@
 					<div class="empty-board__content">
 						<div class="empty-board__about">
 							<h3 class="text-serif-40">You are up to date</h3>
-							<p class="text-base-body-14">
+							<p class="text-14 text-body">
 								Your working directory matches the base branch.
 								<br />
 								Any edits auto-create a virtual branch for easy management.
@@ -145,7 +145,7 @@
 
 						<div class="empty-board__suggestions">
 							<div class="empty-board__suggestions__block">
-								<h3 class="text-base-14 text-bold">Start</h3>
+								<h3 class="text-14 text-bold">Start</h3>
 								<div class="empty-board__suggestions__links">
 									<div
 										class="empty-board__suggestions__link"
@@ -157,7 +157,7 @@
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="new-branch" />
 										</div>
-										<span class="text-base-12">Create a new branch</span>
+										<span class="text-12">Create a new branch</span>
 									</div>
 									<a
 										class="empty-board__suggestions__link"
@@ -169,7 +169,7 @@
 											<Icon name="docs" />
 										</div>
 
-										<span class="text-base-12">GitButler Docs</span>
+										<span class="text-12">GitButler Docs</span>
 									</a>
 									<div
 										class="empty-board__suggestions__link"
@@ -181,13 +181,13 @@
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="vscode" />
 										</div>
-										<span class="text-base-12">Open in VSCode</span>
+										<span class="text-12">Open in VSCode</span>
 									</div>
 								</div>
 							</div>
 
 							<div class="empty-board__suggestions__block">
-								<h3 class="text-base-14 text-bold">Recent commits</h3>
+								<h3 class="text-14 text-bold">Recent commits</h3>
 								<div class="empty-board__suggestions__links">
 									{#each ($baseBranch?.recentCommits || []).slice(0, 4) as commit}
 										<a
@@ -201,7 +201,7 @@
 												<Icon name="commit" />
 											</div>
 
-											<span class="text-base-12">{commit.description}</span>
+											<span class="text-12">{commit.description}</span>
 										</a>
 									{/each}
 								</div>
@@ -240,6 +240,7 @@
 
 	.branch {
 		height: 100%;
+		width: fit-content;
 	}
 
 	.draggable-branch {

@@ -2,18 +2,18 @@
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	export let error: any = undefined;
 </script>
 
 <DecorativeSplitView img={loadErrorSvg}>
 	<div class="problem" data-tauri-drag-region>
-		<p class="problem__title text-base-body-18 text-bold" data-tauri-drag-region>
+		<p class="problem__title text-18 text-body text-bold" data-tauri-drag-region>
 			There was a problem loading the app
 		</p>
 
-		<div class="problem__error text-base-body-12">
+		<div class="problem__error text-12 text-body">
 			<Icon name="error" color="error" />
 			{error ? error : 'An unknown error occurred'}
 		</div>

@@ -11,12 +11,12 @@
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import { createTimeAgoStore } from '@gitbutler/ui/timeAgo/timeAgo';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
+	import { createTimeAgoStore } from '@gitbutler/ui/utils/timeAgo';
 	import type { ChecksStatus } from '$lib/gitHost/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
-	import type iconsJson from '@gitbutler/ui/icon/icons.json';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	type StatusInfo = {
 		text: string;
@@ -176,7 +176,7 @@
 				}}
 			/>
 		</div>
-		<div class="pr-title text-base-13 text-semibold">
+		<div class="pr-title text-13 text-semibold">
 			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
 			{$pr.title}
 		</div>

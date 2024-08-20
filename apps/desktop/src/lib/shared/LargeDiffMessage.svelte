@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	interface Props {
 		showFrame?: boolean;
@@ -14,7 +14,7 @@
 </script>
 
 <div class="large-diff-message" class:frame-box={showFrame}>
-	<p class="text-base-13">Change hidden as large diffs may slow down the UI</p>
+	<p class="text-13">Change hidden as large diffs may slow down the UI</p>
 
 	<Button style="ghost" outline onclick={show}>Show anyways</Button>
 </div>

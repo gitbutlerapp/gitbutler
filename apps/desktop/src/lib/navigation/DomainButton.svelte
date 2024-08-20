@@ -24,7 +24,7 @@
 <button
 	use:tooltip={isNavCollapsed ? tooltipLabel : ''}
 	{onmousedown}
-	class="domain-button text-base-14 text-semibold"
+	class="domain-button text-14 text-semibold"
 	class:selected={isSelected}
 	class:align-center={alignItems === 'center'}
 	class:align-top={alignItems === 'top'}

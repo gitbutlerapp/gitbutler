@@ -8,7 +8,7 @@ use gitbutler_error::error::Code;
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
 
-use crate::{askpass, credentials::Helper, ssh, Config, RepositoryExt};
+use crate::{askpass, credentials::Helper, Config, RepositoryExt};
 pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, credentials: &Helper, askpass: Option<String>)
         -> Result<()>;
@@ -297,12 +297,6 @@ impl RepoActionsExt for CommandContext {
 
         let auth_flows = credentials.help(self, branch.remote())?;
         for (mut remote, callbacks) in auth_flows {
-            if let Some(url) = remote.url() {
-                if !self.project().omit_certificate_check.unwrap_or(false) {
-                    let git_url = gitbutler_url::Url::from_str(url)?;
-                    ssh::check_known_host(&git_url).context("failed to check known host")?;
-                }
-            }
             let mut update_refs_error: Option<git2::Error> = None;
             for callback in callbacks {
                 let mut cbs: git2::RemoteCallbacks = callback.into();
@@ -392,12 +386,6 @@ impl RepoActionsExt for CommandContext {
 
         let auth_flows = credentials.help(self, remote_name)?;
         for (mut remote, callbacks) in auth_flows {
-            if let Some(url) = remote.url() {
-                if !self.project().omit_certificate_check.unwrap_or(false) {
-                    let git_url = gitbutler_url::Url::from_str(url)?;
-                    ssh::check_known_host(&git_url).context("failed to check known host")?;
-                }
-            }
             for callback in callbacks {
                 let mut fetch_opts = git2::FetchOptions::new();
                 let mut cbs: git2::RemoteCallbacks = callback.into();
@@ -441,7 +429,9 @@ impl RepoActionsExt for CommandContext {
             .author()
             .transpose()?
             .map(gitbutler_branch::gix_to_git2_signature)
-            .unwrap_or_else(|| gitbutler_branch::signature(SignaturePurpose::Author))?;
+            .transpose()?
+            .context("No author is configured in Git")
+            .context(Code::AuthorMissing)?;
 
         let config: Config = self.repository().into();
         let committer = if config.user_real_comitter()? {

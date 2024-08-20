@@ -4,11 +4,11 @@
 	import { createdOnDay } from '$lib/history/history';
 	import { splitFilePath } from '$lib/utils/filePath';
 	import { toHumanReadableTime } from '$lib/utils/time';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
-	import type iconsJson from '@gitbutler/ui/icon/icons.json';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	export let entry: Snapshot;
 	export let isWithinRestore: boolean = true;
@@ -144,6 +144,8 @@
 				return { text: 'Update workspace base', icon: 'rebase' };
 			case 'RestoreFromSnapshot':
 				return { text: 'Revert snapshot', icon: 'empty' };
+			case 'EnterEditMode':
+				return { text: 'Enter Edit Mode', icon: 'edit-text' };
 			default:
 				return { text: snapshotDetails.operation, icon: 'commit' };
 		}
@@ -171,7 +173,7 @@
 				}}>Revert</Button
 			>
 		</div>
-		<span class="snapshot-time text-base-11">
+		<span class="snapshot-time text-11">
 			{toHumanReadableTime(entry.createdAt)}
 		</span>
 	</div>
@@ -186,13 +188,13 @@
 
 	<div class="snapshot-content">
 		<div class="snapshot-details">
-			<h4 class="snapshot-title text-base-body-13 text-semibold">
+			<h4 class="snapshot-title text-13 text-body text-semibold">
 				<span>{operation.text}</span>
-				<span class="snapshot-sha text-base-body-12"> • {getShortSha(entry.id)}</span>
+				<span class="snapshot-sha text-12 text-body"> • {getShortSha(entry.id)}</span>
 			</h4>
 
 			{#if operation.commitMessage}
-				<p class="text-base-12 snapshot-commit-message">
+				<p class="text-12 snapshot-commit-message">
 					<span>Message:</span>
 					{operation.commitMessage}
 				</p>
@@ -220,7 +222,7 @@
 								src={getFileIcon(filePath)}
 								alt=""
 							/>
-							<div class="text-base-12 files-attacment__file-path-and-name">
+							<div class="text-12 files-attacment__file-path-and-name">
 								<span class="files-attacment__file-name">
 									{splitFilePath(filePath).filename}
 								</span>
@@ -239,12 +241,12 @@
 				<div class="restored-attacment">
 					<Icon name="commit" />
 					<div class="restored-attacment__content">
-						<h4 class="text-base-13 text-semibold">
+						<h4 class="text-13 text-semibold">
 							{camelToTitleCase(
 								entry.details?.trailers.find((t) => t.key === 'restored_operation')?.value
 							)}
 						</h4>
-						<span class="restored-attacment__details text-base-12">
+						<span class="restored-attacment__details text-12">
 							{getShortSha(entry.details?.trailers.find((t) => t.key === 'restored_from')?.value)} •
 							{createdOnDayAndTime(
 								parseInt(
@@ -257,7 +259,7 @@
 			</SnapshotAttachment>
 		{/if}
 		{#if error}
-			<div class="error-text text-base-body-12">
+			<div class="error-text text-12 text-body">
 				{error}
 			</div>
 		{/if}

@@ -4,11 +4,12 @@
 	import ProjectSettingsMenuAction from '$lib/barmenuActions/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { BranchListingService } from '$lib/branches/branchListing';
+	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import { BranchService, createBranchServiceStore } from '$lib/branches/service';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
+	import EditMode from '$lib/components/EditMode.svelte';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
@@ -20,6 +21,7 @@
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
 	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
+	import { ModeService } from '$lib/modes/service';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -43,7 +45,7 @@
 		projectMetrics,
 		baseBranchService,
 		remoteBranchService,
-		headService,
+		modeService,
 		userService,
 		fetchSignal
 	} = $derived(data);
@@ -69,6 +71,7 @@
 		setContext(ReorderDropzoneManagerFactory, data.reorderDropzoneManagerFactory);
 		setContext(RemoteBranchService, data.remoteBranchService);
 		setContext(BranchListingService, data.branchListingService);
+		setContext(ModeService, data.modeService);
 	});
 
 	let intervalId: any;
@@ -76,7 +79,7 @@
 	const showHistoryView = persisted(false, 'showHistoryView');
 
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
-	const gitHostFactory = $derived(octokit ? new DefaultGitHostFactory(octokit) : undefined);
+	const gitHostFactory = $derived(new DefaultGitHostFactory(octokit));
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
 	const forkInfo = $derived(forkUrl && forkUrl !== remoteUrl ? parseRemoteUrl(forkUrl) : undefined);
 	const baseBranchName = $derived($baseBranch?.shortName);
@@ -85,9 +88,19 @@
 	const gitHostStore = createGitHostStore(undefined);
 	const branchServiceStore = createBranchServiceStore(undefined);
 
+	$effect.pre(() => {
+		const combinedBranchListingService = new CombinedBranchListingService(
+			data.branchListingService,
+			listServiceStore,
+			projectId
+		);
+
+		setContext(CombinedBranchListingService, combinedBranchListingService);
+	});
+
 	// Refresh base branch if git fetch event is detected.
-	const head = $derived(headService.head);
-	const gbBranchActive = $derived($head === 'gitbutler/integration');
+	const mode = $derived(modeService.mode);
+	const head = $derived(modeService.head);
 
 	// We end up with a `state_unsafe_mutation` when switching projects if we
 	// don't use $effect.pre here.
@@ -107,8 +120,9 @@
 	$effect.pre(() => {
 		const gitHost =
 			repoInfo && baseBranchName
-				? gitHostFactory?.build(repoInfo, baseBranchName, forkInfo)
+				? gitHostFactory.build(repoInfo, baseBranchName, forkInfo)
 				: undefined;
+
 		const ghListService = gitHost?.listService();
 
 		listServiceStore.set(ghListService);
@@ -145,7 +159,9 @@
 		if (intervalId) clearInterval(intervalId);
 	}
 
-	onDestroy(() => clearFetchInterval());
+	onDestroy(() => {
+		clearFetchInterval();
+	});
 </script>
 
 <!-- forces components to be recreated when projectId changes -->
@@ -166,16 +182,20 @@
 		<ProblemLoadingRepo error={$branchesError} />
 	{:else if $projectError}
 		<ProblemLoadingRepo error={$projectError} />
-	{:else if !gbBranchActive && $baseBranch}
-		<NotOnGitButlerBranch baseBranch={$baseBranch} />
 	{:else if $baseBranch}
-		<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
-			<Navigation />
-			{#if $showHistoryView}
-				<History on:hide={() => ($showHistoryView = false)} />
-			{/if}
-			{@render children()}
-		</div>
+		{#if $mode?.type === 'OpenWorkspace'}
+			<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
+				<Navigation />
+				{#if $showHistoryView}
+					<History on:hide={() => ($showHistoryView = false)} />
+				{/if}
+				{@render children()}
+			</div>
+		{:else if $mode?.type === 'OutsideWorkspace'}
+			<NotOnGitButlerBranch baseBranch={$baseBranch} />
+		{:else if $mode?.type === 'Edit'}
+			<EditMode editModeMetadata={$mode.subject} />
+		{/if}
 	{/if}
 	<MetricsReporter {projectMetrics} />
 {/key}

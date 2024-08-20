@@ -4,8 +4,8 @@
 	import { AuthService } from '$lib/backend/auth';
 	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
 	import { getContext } from '$lib/utils/context';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';
 
 	export let projectId: string;
@@ -66,7 +66,7 @@
 				<svelte:fragment slot="content">
 					<div class="checks-list" transition:slide={{ duration: 250, delay: 1000 }}>
 						{#each checks as check}
-							<div class="text-base-body-12 check-result">
+							<div class="text-12 text-body check-result">
 								<i class="check-icon">
 									{#await check.promise}
 										<Icon name="spinner" spinnerRadius={4} />
@@ -85,7 +85,7 @@
 					</div>
 
 					{#if errors > 0}
-						<div class="text-base-body-12 help-text" transition:slide>
+						<div class="text-12 text-body help-text" transition:slide>
 							<span>
 								Try another setting and test again?
 								<br />

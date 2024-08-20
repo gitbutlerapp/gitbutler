@@ -1,14 +1,14 @@
 <script lang="ts">
 	export let href: string;
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import type iconsJson from '@gitbutler/ui/icon/icons.json';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	export let icon: keyof typeof iconsJson;
 </script>
 
 <a class="link" target="_blank" {href}>
 	<Icon name={icon} />
-	<span class="text-base-12"><slot /></span>
+	<span class="text-12"><slot /></span>
 </a>
 
 <style lang="postcss">

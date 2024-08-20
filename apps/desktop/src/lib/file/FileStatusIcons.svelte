@@ -4,7 +4,7 @@
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import { type AnyFile, LocalFile } from '$lib/vbranches/types';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 
 	export let file: AnyFile;

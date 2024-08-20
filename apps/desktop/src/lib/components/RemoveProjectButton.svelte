@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 
 	export let projectTitle: string = '#';
 	export let isDeleting = false;
@@ -30,12 +30,12 @@
 
 <Modal bind:this={modal} width="small">
 	<div class="remove-project-description">
-		<p class="text-base-body-14">
+		<p class="text-14 text-body">
 			Are you sure you want to remove
 			<span class="text-bold">{projectTitle}</span> from GitButler?
 		</p>
 
-		<p class="text-base-body-12 details-text">
+		<p class="text-12 text-body details-text">
 			When you delete your project from GitButler, your repository doesn't get deleted. It just
 			removes the project from the list, keeping your repository safe and easy to access.
 		</p>

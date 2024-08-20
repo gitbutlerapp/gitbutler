@@ -3,10 +3,11 @@
 	import signinSvg from '$lib/assets/signin.svg?raw';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
+	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
 
 	const {
 		dimMessage,
-		prompt = 'Enable GitButler features like automatic branch and commit message generation.'
+		prompt = 'Enable features like auto branch and commit message generation.'
 	}: {
 		dimMessage?: boolean;
 		prompt?: string;
@@ -32,6 +33,15 @@
 		{/snippet}
 		{#snippet message()}
 			{prompt}
+			For manual login, copy the
+			<LinkButton
+				icon="copy-small"
+				onclick={async () => {
+					await userService.loginAndCopyLink();
+				}}
+			>
+				the login link
+			</LinkButton>
 		{/snippet}
 	</WelcomeAction>
 {/if}

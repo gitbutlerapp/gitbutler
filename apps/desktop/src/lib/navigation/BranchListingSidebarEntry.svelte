@@ -8,10 +8,9 @@
 	} from '$lib/branches/branchListing';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getContext } from '$lib/utils/context';
-	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
-	import AvatarGrouping from '@gitbutler/ui/avatar/AvatarGrouping.svelte';
+	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
+	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
-	import SidebarEntry from '@gitbutler/ui/sidebarEntry/SidebarEntry.svelte';
 	import type { Readable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -83,7 +82,7 @@
 		}
 	});
 
-	let avatars = $state<{ name: string; gravatarUrl: string }[]>([]);
+	let avatars = $state<{ name: string; srcUrl: string }[]>([]);
 
 	$effect(() => {
 		setAvatars(ownedByUser, $branchListingDetails);
@@ -93,15 +92,15 @@
 		if (ownedByUser) {
 			const name = (await gitConfigService.get('user.name')) || unknownName;
 			const email = (await gitConfigService.get('user.email')) || unknownEmail;
-			const gravatarUrl = await gravatarUrlFromEmail(email);
+			const srcUrl = await gravatarUrlFromEmail(email);
 
-			avatars = [{ name, gravatarUrl }];
+			avatars = [{ name, srcUrl }];
 		} else if (branchListingDetails) {
 			avatars = await Promise.all(
 				branchListingDetails.authors.map(async (author) => {
 					return {
 						name: author.name || unknownName,
-						gravatarUrl: await gravatarUrlFromEmail(author.email || unknownEmail)
+						srcUrl: await gravatarUrlFromEmail(author.email || unknownEmail)
 					};
 				})
 			);
@@ -130,15 +129,6 @@
 	{selected}
 >
 	{#snippet authorAvatars()}
-		<AvatarGrouping>
-			{#each avatars as avatar}
-				<Avatar
-					srcUrl={avatar.gravatarUrl}
-					size="medium"
-					tooltipText={avatar.name}
-					altText={avatar.name}
-				/>
-			{/each}
-		</AvatarGrouping>
+		<AvatarGroup {avatars} />
 	{/snippet}
 </SidebarEntry>

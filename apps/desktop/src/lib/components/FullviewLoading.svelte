@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 </script>
 
 <div class="loading" data-tauri-drag-region><Icon name="spinner" /></div>

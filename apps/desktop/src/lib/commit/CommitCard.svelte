@@ -4,11 +4,13 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
+	import { featureEditMode } from '$lib/config/uiFeatureFlags';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
+	import { ModeService } from '$lib/modes/service';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { getContext, getContextStore } from '$lib/utils/context';
+	import { getContext, getContextStore, maybeGetContext } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
@@ -20,10 +22,10 @@
 		VirtualBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
-	import { getTimeAgo } from '@gitbutler/ui/timeAgo/timeAgo';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { type Snippet } from 'svelte';
 
@@ -40,6 +42,9 @@
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
+	const modeService = maybeGetContext(ModeService);
+
+	const editModeEnabled = featureEditMode();
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
@@ -116,6 +121,20 @@
 
 	let dragDirection: 'up' | 'down' | undefined;
 	let isDragTargeted = false;
+
+	function canEdit() {
+		if (isUnapplied) return false;
+		if (!modeService) return false;
+		if (!branch) return false;
+
+		return true;
+	}
+
+	async function editPatch() {
+		if (!canEdit()) return;
+
+		modeService!.enterEditMode(commit.id, branch!.refname);
+	}
 </script>
 
 <Modal bind:this={commitMessageModal} width="small">
@@ -220,7 +239,7 @@
 				{/if}
 
 				{#if first}
-					<div class="commit__type text-semibold text-base-12">
+					<div class="commit__type text-semibold text-12">
 						{#if type === 'remote'}
 							Remote <Icon name="remote" />
 						{:else if type === 'local'}
@@ -234,15 +253,15 @@
 				{/if}
 
 				{#if isUndoable && !commit.descriptionTitle}
-					<span class="text-base-body-13 text-semibold commit__empty-title"
+					<span class="text-13 text-body text-semibold commit__empty-title"
 						>empty commit message</span
 					>
 				{:else}
-					<h5 class="text-base-body-13 text-semibold commit__title" class:truncate={!showDetails}>
+					<h5 class="text-13 text-body text-semibold commit__title" class:truncate={!showDetails}>
 						{commit.descriptionTitle}
 					</h5>
 
-					<div class="text-base-11 commit__subtitle">
+					<div class="text-11 commit__subtitle">
 						{#if commit.isSigned}
 							<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
 								<Icon name="success-outline-small" />
@@ -291,7 +310,7 @@
 				{#if commit.descriptionBody || isUndoable}
 					<div class="commit__details">
 						{#if commit.descriptionBody}
-							<span class="commit__description text-base-body-12">
+							<span class="commit__description text-12 text-body">
 								{commit.descriptionBody}
 							</span>
 						{/if}
@@ -317,6 +336,9 @@
 										icon="edit-small"
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
+								{/if}
+								{#if canEdit() && $editModeEnabled}
+									<Button size="tag" style="ghost" outline onclick={editPatch}>Edit patch</Button>
 								{/if}
 							</div>
 						{/if}

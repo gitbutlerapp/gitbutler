@@ -7,9 +7,9 @@
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Checkbox from '@gitbutler/ui/inputs/Checkbox.svelte';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
@@ -157,7 +157,7 @@
 
 <Modal bind:this={modal} title="Share debug data with GitButler team for review">
 	<div class="content-wrapper">
-		<p class="content-wrapper__help-text text-base-body-13">
+		<p class="content-wrapper__help-text text-13 text-body">
 			If you are having trouble, please share your project and logs with the GitButler team. We will
 			review it for you and help identify how we can help resolve the issue.
 		</p>
@@ -188,8 +188,8 @@
 		/>
 
 		<div class="content-wrapper__section">
-			<span class="text-base-16 text-semibold"> Share logs </span>
-			<span class="content-wrapper__help-text text-base-body-13">
+			<span class="text-16 text-semibold"> Share logs </span>
+			<span class="content-wrapper__help-text text-13 text-body">
 				We personally ensure all information you share with us will be reviewed internally only and
 				discarded post-resolution
 			</span>
@@ -198,18 +198,18 @@
 		<div class="content-wrapper__checkbox-group">
 			<div class="content-wrapper__checkbox">
 				<Checkbox name="logs" bind:checked={sendLogs} />
-				<label class="text-base-13" for="logs">Share logs</label>
+				<label class="text-13" for="logs">Share logs</label>
 			</div>
 
 			{#if projectId}
 				<div class="content-wrapper__checkbox">
 					<Checkbox name="project-data" bind:checked={sendProjectData} />
-					<label class="text-base-13" for="project-data">Share project data</label>
+					<label class="text-13" for="project-data">Share project data</label>
 				</div>
 
 				<div class="content-wrapper__checkbox">
 					<Checkbox name="project-repository" bind:checked={sendProjectRepository} />
-					<label class="text-base-13" for="project-repository">Share project repository</label>
+					<label class="text-13" for="project-repository">Share project repository</label>
 				</div>
 			{/if}
 		</div>

@@ -10,7 +10,7 @@ import { UpdaterService } from '$lib/backend/updater';
 import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { UserService } from '$lib/stores/user';
-import { LineManagerFactory } from '@gitbutler/ui/CommitLines/lineManager';
+import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import lscache from 'lscache';
 import type { LayoutLoad } from './$types';
 

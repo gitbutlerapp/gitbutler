@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
 	import { getContext } from '$lib/utils/context';
-	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
-	import AvatarGrouping from '@gitbutler/ui/avatar/AvatarGrouping.svelte';
-	import SidebarEntry from '@gitbutler/ui/sidebarEntry/SidebarEntry.svelte';
+	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
+	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -45,15 +44,15 @@
 	{selected}
 >
 	{#snippet authorAvatars()}
-		<AvatarGrouping>
-			{#if pullRequest.author?.gravatarUrl}
-				<Avatar
-					srcUrl={pullRequest.author.gravatarUrl}
-					size="medium"
-					tooltipText={pullRequest.author.name || 'unknown'}
-					altText={pullRequest.author.name || 'unknown'}
-				/>
-			{/if}
-		</AvatarGrouping>
+		{#if pullRequest.author?.gravatarUrl}
+			<AvatarGroup
+				avatars={[
+					{
+						srcUrl: pullRequest.author.gravatarUrl,
+						name: pullRequest.author.name || 'unknown'
+					}
+				]}
+			/>
+		{/if}
 	{/snippet}
 </SidebarEntry>

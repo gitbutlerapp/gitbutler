@@ -1,11 +1,11 @@
 <script lang="ts">
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	export let projectName: string = '';
 </script>
 
 <div class="project-name">
 	<Icon name="repo-book-small" />
-	<span class="text-base-12 text-bold">
+	<span class="text-12 text-bold">
 		{projectName}
 	</span>
 </div>

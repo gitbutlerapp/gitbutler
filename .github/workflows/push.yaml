@@ -1,4 +1,4 @@
-name: "Test"
+name: 'Test'
 on:
   push:
     branches:
@@ -25,7 +25,8 @@ jobs:
               - '.github/actions/**'
             node:
               - *workflows
-              - 'apps/desktop/**'
+              - 'apps/**'
+              - 'packages/**'
               - 'package.json'
               - 'pnpm-lock.yaml'
             common-rust: &rust
@@ -149,5 +150,5 @@ jobs:
         with:
           shared-key: windows-rust-testing
           key: ${{ inputs.features }}
-      - name: "cargo check"
+      - name: 'cargo check'
         run: cargo check --workspace --all-targets --features windows

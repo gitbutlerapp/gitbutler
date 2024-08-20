@@ -6,9 +6,9 @@
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
-	import Modal from '@gitbutler/ui/modal/Modal.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Branch } from '$lib/vbranches/types';
@@ -38,7 +38,7 @@
 			<div class="header__remote-branch">
 				{#if remoteBranch}
 					<div
-						class="status-tag text-base-11 text-semibold remote"
+						class="status-tag text-11 text-semibold remote"
 						use:tooltip={'At least some of your changes have been pushed'}
 					>
 						<Icon name="remote-branch-small" />
@@ -62,7 +62,7 @@
 						</Button>
 					{/if}
 				{:else}
-					<div class="status-tag text-base-11 text-semibold remote">
+					<div class="status-tag text-11 text-semibold remote">
 						<Icon name="remote-branch-small" /> local
 					</div>
 				{/if}

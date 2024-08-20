@@ -16,14 +16,18 @@
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
-	export let uncommittedChanges = 0;
-	export let isLaneCollapsed: Persisted<boolean>;
-	export let onGenerateBranchName: () => void;
+	interface Props {
+		uncommittedChanges?: number;
+		isLaneCollapsed: Persisted<boolean>;
+		onGenerateBranchName: () => void;
+	}
+
+	const { uncommittedChanges = 0, isLaneCollapsed, onGenerateBranchName }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
@@ -33,13 +37,13 @@
 	const prMonitor = getGitHostPrMonitor();
 	const gitHost = getGitHost();
 
-	$: branch = $branchStore;
-	$: pr = $prMonitor?.pr;
+	const branch = $derived($branchStore);
+	const pr = $derived($prMonitor?.pr);
 
-	let contextMenu: ContextMenu;
-	let meatballButtonEl: HTMLDivElement;
-	let isLoading: boolean;
-	let isTargetBranchAnimated = false;
+	let contextMenu = $state<ContextMenu>();
+	let meatballButtonEl = $state<HTMLDivElement>();
+	let isLoading = $state(false);
+	let isTargetBranchAnimated = $state(false);
 
 	function handleBranchNameChange(title: string) {
 		if (title === '') return;
@@ -55,9 +59,9 @@
 		$isLaneCollapsed = true;
 	}
 
-	$: hasIntegratedCommits = branch.commits?.some((b) => b.isIntegrated);
+	const hasIntegratedCommits = $derived(branch.commits?.some((b) => b.isIntegrated));
 
-	let headerInfoHeight = 0;
+	let headerInfoHeight = $state(0);
 
 	interface CreatePrOpts {
 		draft: boolean;
@@ -120,12 +124,12 @@
 	<div
 		class="card collapsed-lane"
 		class:collapsed-lane_target-branch={branch.selectedForChanges}
-		on:keydown={(e) => e.key === 'Enter' && expandLane()}
+		onkeydown={(e) => e.key === 'Enter' && expandLane()}
 		tabindex="0"
 		role="button"
 	>
 		<div class="collapsed-lane__actions">
-			<div class="collapsed-lane__draggable" data-drag-handle>
+			<div class="draggable" data-drag-handle>
 				<Icon name="draggable" />
 			</div>
 			<Button style="ghost" outline icon="unfold-lane" help="Expand lane" onclick={expandLane} />
@@ -134,7 +138,7 @@
 		<div class="collapsed-lane__info-wrap" bind:clientHeight={headerInfoHeight}>
 			<div class="collapsed-lane__info" style="width: {headerInfoHeight}px">
 				<div class="collapsed-lane__label-wrap">
-					<h3 class="collapsed-lane__label text-base-13 text-bold">
+					<h3 class="collapsed-lane__label text-13 text-bold">
 						{branch.name}
 					</h3>
 					{#if uncommittedChanges > 0}
@@ -179,10 +183,7 @@
 				</div>
 
 				<div class="header__info">
-					<BranchLabel
-						name={branch.name}
-						on:change={(e) => handleBranchNameChange(e.detail.name)}
-					/>
+					<BranchLabel name={branch.name} onChange={(name) => handleBranchNameChange(name)} />
 					<div class="header__remote-branch">
 						<ActiveBranchStatus
 							{hasIntegratedCommits}
@@ -251,7 +252,7 @@
 							outline
 							icon="kebab"
 							onclick={() => {
-								contextMenu.toggle();
+								contextMenu?.toggle();
 							}}
 						/>
 						<BranchLaneContextMenu
@@ -399,20 +400,7 @@
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		gap: 2px;
-	}
-
-	.collapsed-lane__draggable {
-		cursor: grab;
-		transform: rotate(90deg);
-		margin-bottom: 4px;
-		opacity: 0.4;
-		transition: opacity var(--transition-fast);
-		color: var(--clr-scale-ntrl-0);
-
-		&:hover {
-			opacity: 1;
-		}
+		gap: 10px;
 	}
 
 	/*  */

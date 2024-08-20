@@ -2,8 +2,8 @@
 	import { MessageRole, type UserPrompt } from '$lib/ai/types';
 	import DialogBubble from '$lib/components/AIPromptEdit/DialogBubble.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import Icon from '@gitbutler/ui/icon/Icon.svelte';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	export let displayMode: 'readOnly' | 'writable' = 'writable';
@@ -107,7 +107,7 @@
 	>
 		{#if !isInEditing}
 			<Icon name="doc" />
-			<h3 class="text-base-15 text-bold title">{promptName}</h3>
+			<h3 class="text-15 text-bold title">{promptName}</h3>
 			<div class="icon">
 				<Icon name={expanded ? 'chevron-up' : 'chevron-down'} />
 			</div>

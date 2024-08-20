@@ -11,7 +11,7 @@
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
-	import Button from '@gitbutler/ui/inputs/Button.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -93,7 +93,7 @@
 <div class="project-setup">
 	<div class="project-setup__info">
 		<ProjectNameLabel {projectName} />
-		<h3 class="text-base-body-14 text-bold">Target branch</h3>
+		<h3 class="text-14 text-body text-bold">Target branch</h3>
 	</div>
 
 	<div class="project-setup__fields">
@@ -114,7 +114,7 @@
 				{/snippet}
 			</Select>
 
-			<p class="project-setup__description-text text-base-body-12">
+			<p class="project-setup__description-text text-12 text-body">
 				This is the branch that you consider "production", normally something like "origin/master"
 				or "upstream/main".
 			</p>
@@ -137,7 +137,7 @@
 					{/snippet}
 				</Select>
 
-				<p class="project-setup__description-text text-base-body-12">
+				<p class="project-setup__description-text text-12 text-body">
 					You have branches from multiple remotes. If you want to specify a remote for creating
 					branches that is different from the remote that your target branch is on, change it here.
 				</p>
@@ -267,6 +267,7 @@
 			{loading}
 			onclick={onSetTargetClick}
 			icon="chevron-right-small"
+			testId="set-base-branch"
 			id="set-base-branch"
 		>
 			{#if $platformName === 'win32'}
