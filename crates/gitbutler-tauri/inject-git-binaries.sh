@@ -11,7 +11,7 @@ TRIPLE=${TRIPLE_OVERRIDE:-$(rustc -vV | sed -n 's|host: ||p')}
 TARGET_ROOT="$ROOT/target/${TRIPLE_OVERRIDE:-}/release"
 CRATE_ROOT="$ROOT/crates/gitbutler-tauri"
 
-cp -v "$TARGET_ROOT/xdg-open" "$CRATE_ROOT/xdg-open-${TRIPLE}"
+cp "$(which xdg-open)" "$TARGET_ROOT/xdg-open"
 
 if [ -f "$TARGET_ROOT/gitbutler-git-askpass" ] && [ -f "$TARGET_ROOT/gitbutler-git-setsid" ]; then
     log injecting gitbutler-git binaries into crates/gitbutler-tauri "(TRIPLE=${TRIPLE})"
