@@ -108,10 +108,8 @@ pub trait GixRepositoryExt: Sized {
 
 impl GixRepositoryExt for gix::Repository {
     fn for_tree_diffing(mut self) -> anyhow::Result<Self> {
-        let num_tracked = self.index_or_empty()?.entries().len();
-        let ten_mb_for_every_10k_files =
-            (num_tracked as f32 / 10_000.0) * (10 * 1024 * 1024) as f32;
-        self.object_cache_size_if_unset((ten_mb_for_every_10k_files as usize).max(4 * 1024));
+        let bytes = self.compute_object_cache_size_for_tree_diffs(&***self.index_or_empty()?);
+        self.object_cache_size_if_unset(bytes);
         Ok(self)
     }
 }

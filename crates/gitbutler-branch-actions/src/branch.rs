@@ -1,5 +1,5 @@
 use crate::VirtualBranchesExt;
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use bstr::{BStr, ByteSlice};
 use core::fmt;
 use gitbutler_branch::{
@@ -445,95 +445,120 @@ pub fn get_branch_listing_details(
                     local_branch.name().as_bstr()
                 )
             })??;
-        // TODO(ST): implement PartialName from `Cow<'_, FullNameRef>`
-        let local_tracking_ref = repo.find_reference(local_tracking_ref_name.as_ref())?;
+        let mut local_tracking_ref = repo.find_reference(local_tracking_ref_name.as_ref())?;
         (
-            // TODO(ST): a way to peel to a specific object type, not just the first one.
-            gix_to_git2_oid(local_tracking_ref.into_fully_peeled_id()?),
+            gix_to_git2_oid(local_tracking_ref.peel_to_commit()?.id),
             target.sha,
         )
     };
 
     let mut enriched_branches = Vec::new();
-    for branch in branches {
-        let other_branch_commit_id = if let Some(virtual_branch) = branch.virtual_branch {
-            if virtual_branch.in_workspace {
-                default_target_seen_at_last_update
+    let diffstats = {
+        let (start, start_rx) = std::sync::mpsc::channel::<(
+            std::sync::mpsc::Receiver<gix::object::tree::diff::ChangeDetached>,
+            std::sync::mpsc::Sender<(usize, usize, usize)>,
+        )>();
+        let diffstats = std::thread::Builder::new()
+            .name("gitbutler-diff-stats".into())
+            .spawn({
+                let repo = repo.clone();
+                move || -> Result<()> {
+                    let mut resource_cache = repo.diff_resource_cache_for_tree_diff()?;
+                    for (change_rx, res_tx) in start_rx {
+                        let (mut number_of_files, mut lines_added, mut lines_removed) = (0, 0, 0);
+                        for change in change_rx {
+                            if let Some(counts) = change
+                                .attach(&repo, &repo)
+                                .diff(&mut resource_cache)
+                                .ok()
+                                .and_then(|mut platform| platform.line_counts().ok())
+                                .flatten()
+                            {
+                                number_of_files += 1;
+                                lines_added += counts.insertions as usize;
+                                lines_removed += counts.removals as usize;
+                            }
+                            // Let's not attempt to reuse the cache as it's only useful if we know the diff repeats
+                            // over different objects, like when doing rename tracking.
+                            resource_cache.clear_resource_cache_keep_allocation();
+                        }
+                        if res_tx
+                            .send((number_of_files, lines_added, lines_removed))
+                            .is_err()
+                        {
+                            break;
+                        }
+                    }
+                    Ok(())
+                }
+            })?;
+        for branch in branches {
+            let other_branch_commit_id = if let Some(virtual_branch) = branch.virtual_branch {
+                if virtual_branch.in_workspace {
+                    default_target_seen_at_last_update
+                } else {
+                    default_target_current_upstream_commit_id
+                }
             } else {
                 default_target_current_upstream_commit_id
-            }
-        } else {
-            default_target_current_upstream_commit_id
-        };
-        let Ok(base) = git2_repo.merge_base(other_branch_commit_id, branch.head) else {
-            continue;
-        };
+            };
+            let Ok(base) = git2_repo.merge_base(other_branch_commit_id, branch.head) else {
+                continue;
+            };
 
-        let branch_head = git2_to_gix_object_id(branch.head);
-        let gix_base = git2_to_gix_object_id(base);
-        let base_commit = repo.find_object(gix_base)?.try_into_commit()?;
-        let base_tree = base_commit.tree()?;
-        let head_tree = repo.find_object(branch_head)?.peel_to_tree()?;
-        // TODO(ST): make it easier to get a resource cache preconfigured for different purposes,
-        //           like tree-tree. Should probably be on the platform and separate?
-        let mut resource_cache = repo.diff_resource_cache(
-            gix::diff::blob::pipeline::Mode::ToGit,
-            gix::diff::blob::pipeline::WorktreeRoots::default(),
-        )?;
-        let (mut number_of_files, mut lines_added, mut lines_removed) = (0, 0, 0);
-        base_tree
-            .changes()?
-            .track_rewrites(None)
-            // TODO(ST): definitely have `stats()` just like `git2`.
-            .for_each_to_obtain_tree(&head_tree, |change| -> anyhow::Result<Action> {
-                if let Some(counts) = change
-                    .diff(&mut resource_cache)
-                    .ok()
-                    .and_then(|mut platform| platform.line_counts().ok())
-                    .flatten()
-                {
-                    number_of_files += 1;
-                    lines_added += counts.insertions as usize;
-                    lines_removed += counts.removals as usize;
-                }
-                // Let's not attempt to reuse the cache as it's only useful if we know the diff repeats
-                // over different objects, like when doing rename tracking.
-                // TODO(ST): consider not using it unless it's for rename tracking. However, there should
-                //           be a way to re-use memory for the two objects to compare, at least.
-                resource_cache.clear_resource_cache();
-                Ok(Action::Continue)
-            })?;
-        // TODO(ST): make this API nicer, maybe have one that is not based on `ancestors()` but
-        //       similar to revwalk because it's so common?
-        let revwalk = branch_head
-            .attach(&repo)
-            .ancestors()
-            // When allowing to skip branches without a filter, make sure it automatically skips by date!
-            .sorting(
-                gix::traverse::commit::simple::Sorting::ByCommitTimeNewestFirstCutoffOlderThan {
-                    seconds: base_commit.time()?.seconds,
-                },
-            )
-            .selected(|id| id != gix_base)?;
-        let mut num_commits = 0;
-        let mut authors = HashSet::new();
-        for commit_info in revwalk {
-            let commit_info = commit_info?;
-            // TODO(ST): offer direct `find_<kind>` methods.
-            let commit = repo.find_object(commit_info.id)?.try_into_commit()?;
-            authors.insert(commit.author()?.into());
-            num_commits += 1;
+            let branch_head = git2_to_gix_object_id(branch.head);
+            let gix_base = git2_to_gix_object_id(base);
+            let base_commit = repo.find_object(gix_base)?.try_into_commit()?;
+            let base_tree = base_commit.tree()?;
+            let head_tree = repo.find_object(branch_head)?.peel_to_tree()?;
+
+            let ((change_tx, change_rx), (res_tx, rex_rx)) =
+                (std::sync::mpsc::channel(), std::sync::mpsc::channel());
+            if start.send((change_rx, res_tx)).is_err() {
+                bail!("diffing-thread crashed");
+            };
+            base_tree
+                .changes()?
+                .track_rewrites(None)
+                // NOTE: `stats(head_tree)` is also possible, but we have a separate thread for that.
+                .for_each_to_obtain_tree(&head_tree, move |change| -> anyhow::Result<Action> {
+                    change_tx.send(change.detach()).ok();
+                    Ok(Action::Continue)
+                })?;
+            let (number_of_files, lines_added, lines_removed) = rex_rx.recv()?;
+            // TODO(ST): make this API nicer, maybe have one that is not based on `ancestors()` but
+            //       similar to revwalk because it's so common?
+            let revwalk = branch_head
+                .attach(&repo)
+                .ancestors()
+                // When allowing to skip branches without a filter, make sure it automatically skips by date!
+                .sorting(
+                    gix::traverse::commit::simple::Sorting::ByCommitTimeNewestFirstCutoffOlderThan {
+                        seconds: base_commit.time()?.seconds,
+                    },
+                )
+                .selected(|id| id != gix_base)?;
+            let mut num_commits = 0;
+            let mut authors = HashSet::new();
+            for commit_info in revwalk {
+                let commit_info = commit_info?;
+                let commit = repo.find_commit(commit_info.id)?;
+                authors.insert(commit.author()?.into());
+                num_commits += 1;
+            }
+            let branch_data = BranchListingDetails {
+                name: branch.name,
+                lines_added,
+                lines_removed,
+                number_of_files,
+                authors: authors.into_iter().collect(),
+                number_of_commits: num_commits,
+            };
+            enriched_branches.push(branch_data);
         }
-        let branch_data = BranchListingDetails {
-            name: branch.name,
-            lines_added,
-            lines_removed,
-            number_of_files,
-            authors: authors.into_iter().collect(),
-            number_of_commits: num_commits,
-        };
-        enriched_branches.push(branch_data);
-    }
+        diffstats
+    };
+    diffstats.join().expect("no panic")?;
     Ok(enriched_branches)
 }
 
