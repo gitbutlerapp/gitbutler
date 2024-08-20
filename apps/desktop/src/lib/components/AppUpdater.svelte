@@ -23,7 +23,7 @@
 </script>
 
 {#if version || status === 'UPTODATE'}
-	<div class="update-banner" class:busy={$loading}>
+	<div class="update-banner" data-testid="update-banner" class:busy={$loading}>
 		<div class="floating-button">
 			<Button icon="cross-small" style="ghost" onclick={handleDismiss} />
 		</div>
@@ -137,6 +137,7 @@
 							wide
 							style="pop"
 							kind="solid"
+							testId="download-update"
 							onmousedown={async () => {
 								await updaterService.installUpdate();
 							}}
@@ -148,6 +149,7 @@
 							wide
 							style="pop"
 							kind="solid"
+							testId="got-it"
 							onmousedown={async () => {
 								updaterService.dismiss();
 							}}
@@ -159,6 +161,7 @@
 							style="pop"
 							kind="solid"
 							wide
+							testId="restart-app"
 							onclick={async () => await updaterService.relaunchApp()}
 						>
 							Restart
