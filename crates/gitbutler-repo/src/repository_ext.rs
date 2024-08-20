@@ -389,22 +389,15 @@ impl RepositoryExt for git2::Repository {
         head: &git2::Commit,
         to_rebase: &git2::Commit,
     ) -> Result<git2::Index, anyhow::Error> {
+        // we need to do a manual 3-way patch merge
+        // find the base, which is the parent of to_rebase
         let base_commit = to_rebase.parent(0)?;
+        let base = self.find_real_tree(&base_commit, None)?;
+        let ours = self.find_real_tree(head, None)?;
+        let thiers = self.find_real_tree(to_rebase, Some(".conflict-side-1".to_string()))?;
 
-        // if either side is in a conflicted state, we need to do a manual 3-way merge
-        if head.is_conflicted() || to_rebase.is_conflicted() || base_commit.is_conflicted() {
-            // we need to do a manual 3-way patch merge
-            // find the base, which is the parent of to_rebase
-            let base_tree = self.find_real_tree(&base_commit, None)?;
-            let tree_0 = self.find_real_tree(head, None)?;
-            let tree_1 = self.find_real_tree(to_rebase, Some(".conflict-side-1".to_string()))?;
-
-            self.merge_trees(&base_tree, &tree_0, &tree_1, None)
-                .context("failed to merge trees for cherry pick")
-        } else {
-            self.cherrypick_commit(to_rebase, head, 0, None)
-                .context("failed to cherry pick")
-        }
+        self.merge_trees(&base, &ours, &thiers, None)
+            .context("failed to merge trees for cherry pick")
     }
 
     // find the real tree of a commit, which is the tree of the commit if it's not in a conflicted state

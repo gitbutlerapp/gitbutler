@@ -102,8 +102,8 @@ pub fn cherry_rebase_group(
                     // create a treewriter
                     let mut tree_writer = repository.treebuilder(None)?;
 
-                    let side0 = repository.find_real_tree( &head, None)?;
-                    let side1 = repository.find_real_tree( &to_rebase, Some(".conflict-side-1".to_string()))?;
+                    let side0 = repository.find_real_tree(&head, None)?;
+                    let side1 = repository.find_real_tree(&to_rebase, Some(".conflict-side-1".to_string()))?;
 
                     // save the state of the conflict, so we can recreate it later
                     tree_writer.insert(".conflict-side-0", side0.id(), 0o040000)?;
