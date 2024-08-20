@@ -11,13 +11,16 @@ TRIPLE=${TRIPLE_OVERRIDE:-$(rustc -vV | sed -n 's|host: ||p')}
 TARGET_ROOT="$ROOT/target/${TRIPLE_OVERRIDE:-}/release"
 CRATE_ROOT="$ROOT/crates/gitbutler-tauri"
 
-cp "$(which xdg-open)" "$TARGET_ROOT/xdg-open"
-
 if [ -f "$TARGET_ROOT/gitbutler-git-askpass" ] && [ -f "$TARGET_ROOT/gitbutler-git-setsid" ]; then
     log injecting gitbutler-git binaries into crates/gitbutler-tauri "(TRIPLE=${TRIPLE})"
     cp -v "$TARGET_ROOT/gitbutler-git-askpass" "$CRATE_ROOT/gitbutler-git-askpass-${TRIPLE}"
     cp -v "$TARGET_ROOT/gitbutler-git-setsid" "$CRATE_ROOT/gitbutler-git-setsid-${TRIPLE}"
-    cp -v "$TARGET_ROOT/xdg-open" "$CRATE_ROOT/xdg-open-${TRIPLE}"
+
+    # Linux Only
+    XDG_OPEN_PATH=$(which xdg-open)
+    if [ -n "$XDG_OPEN_PATH" ]; then
+        cp -v "$XDG_OPEN_PATH" "$CRATE_ROOT/xdg-open-${TRIPLE}"
+    fi
 elif [ -f "$TARGET_ROOT/gitbutler-git-askpass.exe" ] && [ -f "$TARGET_ROOT/gitbutler-git-setsid.exe" ]; then
     log injecting gitbutler-git binaries into crates/gitbutler-tauri "(TRIPLE=${TRIPLE})"
     cp -v "$TARGET_ROOT/gitbutler-git-askpass.exe" "$CRATE_ROOT/gitbutler-git-askpass-${TRIPLE}.exe"
