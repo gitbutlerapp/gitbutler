@@ -122,7 +122,7 @@
 						type="file"
 						id="picture"
 						name="picture"
-						accept={fileTypes.join('')}
+						accept={fileTypes.join(',')}
 						class="hidden-input"
 					/>
 
