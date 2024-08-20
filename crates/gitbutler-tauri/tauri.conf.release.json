@@ -21,6 +21,7 @@
 				"icons/icon.ico"
 			],
 			"externalBin": [
+				"xdg-open",
 				"gitbutler-git-setsid",
 				"gitbutler-git-askpass"
 			],
