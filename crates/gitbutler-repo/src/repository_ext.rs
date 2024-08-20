@@ -7,7 +7,9 @@ use std::{io::Write, path::Path, process::Stdio, str};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::BString;
 use git2::{BlameOptions, Tree};
-use gitbutler_commit::{commit_buffer::CommitBuffer, commit_headers::CommitHeadersV2};
+use gitbutler_commit::{
+    commit_buffer::CommitBuffer, commit_ext::CommitExt, commit_headers::CommitHeadersV2,
+};
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -387,17 +389,10 @@ impl RepositoryExt for git2::Repository {
         head: &git2::Commit,
         to_rebase: &git2::Commit,
     ) -> Result<git2::Index, anyhow::Error> {
-        // use that subtree for the merge instead
-        let tree_0 = head.tree()?;
-        let is_conflict_0 = tree_0.get_name(".conflict-side-0");
-        let tree_1 = to_rebase.tree()?;
-        let is_conflict_1 = tree_1.get_name(".conflict-side-0");
         let base_commit = to_rebase.parent(0)?;
-        let base_tree = base_commit.tree()?;
-        let is_conflict_base = base_tree.get_name(".conflict-side-0");
 
         // if either side is in a conflicted state, we need to do a manual 3-way merge
-        if is_conflict_0.is_some() || is_conflict_1.is_some() || is_conflict_base.is_some() {
+        if head.is_conflicted() || to_rebase.is_conflicted() || base_commit.is_conflicted() {
             // we need to do a manual 3-way patch merge
             // find the base, which is the parent of to_rebase
             let base_tree = self.find_real_tree(&base_commit, None)?;
@@ -424,10 +419,12 @@ impl RepositoryExt for git2::Repository {
             Some(side) => side,
             None => ".conflict-side-0".to_string(),
         };
-        let is_conflict = tree.get_name(&entry_name);
-        if is_conflict.is_some() {
-            let subtree_id = is_conflict.unwrap().id();
-            self.find_tree(subtree_id).context("failed to find subtree")
+        if commit.is_conflicted() {
+            let conflicted_side = tree
+                .get_name(&entry_name)
+                .context("Failed to get conflicted side of commit")?;
+            self.find_tree(conflicted_side.id())
+                .context("failed to find subtree")
         } else {
             self.find_tree(tree.id()).context("failed to find subtree")
         }

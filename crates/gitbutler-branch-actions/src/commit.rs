@@ -69,9 +69,7 @@ pub(crate) fn commit_to_vbranch_commit(
         branch_id: branch.id,
         change_id: commit.change_id(),
         is_signed: commit.is_signed(),
-        conflicted: commit
-            .gitbutler_headers()
-            .map_or(false, |headers| headers.conflicted.is_some()),
+        conflicted: commit.is_conflicted(),
     };
 
     Ok(commit)
