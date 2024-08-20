@@ -196,6 +196,7 @@ if [ "$OS" = "macos" ]; then
 	info "	- $RELEASE_DIR/$(basename "$MACOS_UPDATER_SIG")"
 elif [ "$OS" = "linux" ]; then
 	APPIMAGE="$(find "$BUNDLE_DIR/appimage" -name \*.AppImage)"
+	# AppImage Updates will require the '*.AppImage.tar.gz' as well as '*.AppImage.tar.gz.sig'
 	DEB="$(find "$BUNDLE_DIR/deb" -name \*.deb)"
 	RPM="$(find "$BUNDLE_DIR/rpm" -name \*.rpm)"
 
