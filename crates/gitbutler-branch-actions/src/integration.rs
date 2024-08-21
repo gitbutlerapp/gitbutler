@@ -161,11 +161,14 @@ pub fn update_gitbutler_integration(
     let workspace_head = repo.find_commit(get_workspace_head(ctx)?)?;
 
     // message that says how to get back to where they were
-    let mut message = GITBUTLER_INTEGRATION_COMMIT_TITLE.to_string();
+    let mut message = GITBUTLER_WORKSPACE_COMMIT_TITLE.to_string();
     message.push_str("\n\n");
-    message.push_str(
-        "This is an integration commit for the virtual branches that GitButler is tracking.\n\n",
-    );
+    if !virtual_branches.is_empty() {
+        message.push_str("This is an merge commit the virtual branches in your workspace.\n\n");
+    } else {
+        message.push_str("This is placeholder commit and will be replaced by a merge of your");
+        message.push_str("virtual branches.\n\n");
+    }
     message.push_str(
         "Due to GitButler managing multiple virtual branches, you cannot switch back and\n",
     );
@@ -173,22 +176,24 @@ pub fn update_gitbutler_integration(
 
     message.push_str("If you switch to another branch, GitButler will need to be reinitialized.\n");
     message.push_str("If you commit on this branch, GitButler will throw it away.\n\n");
-    message.push_str("Here are the branches that are currently applied:\n");
-    for branch in &virtual_branches {
-        message.push_str(" - ");
-        message.push_str(branch.name.as_str());
-        message.push_str(format!(" ({})", &branch.refname()?).as_str());
-        message.push('\n');
+    if !virtual_branches.is_empty() {
+        message.push_str("Here are the branches that are currently applied:\n");
+        for branch in &virtual_branches {
+            message.push_str(" - ");
+            message.push_str(branch.name.as_str());
+            message.push_str(format!(" ({})", &branch.refname()?).as_str());
+            message.push('\n');
 
-        if branch.head != target.sha {
-            message.push_str("   branch head: ");
-            message.push_str(&branch.head.to_string());
-            message.push('\n');
-        }
-        for file in &branch.ownership.claims {
-            message.push_str("   - ");
-            message.push_str(&file.file_path.display().to_string());
-            message.push('\n');
+            if branch.head != target.sha {
+                message.push_str("   branch head: ");
+                message.push_str(&branch.head.to_string());
+                message.push('\n');
+            }
+            for file in &branch.ownership.claims {
+                message.push_str("   - ");
+                message.push_str(&file.file_path.display().to_string());
+                message.push('\n');
+            }
         }
     }
     if let Some(prev_branch) = prev_branch {
