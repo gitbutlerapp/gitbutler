@@ -1,5 +1,6 @@
 import { sentrySvelteKit } from '@sentry/sveltekit';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { svelteTesting } from '@testing-library/svelte/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
@@ -29,7 +30,8 @@ export default defineConfig({
 				}
 			}
 		}),
-		sveltekit()
+		sveltekit(),
+		svelteTesting()
 	],
 
 	// Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
@@ -62,6 +64,8 @@ export default defineConfig({
 			inline: ['sorcery']
 		},
 		includeSource: ['src/**/*.{js,ts}'],
-		exclude: ['node_modules/**/*', 'e2e/**/*']
+		exclude: ['node_modules/**/*', 'e2e/**/*'],
+		environment: 'jsdom',
+		setupFiles: ['./vitest-setup.js']
 	}
 });

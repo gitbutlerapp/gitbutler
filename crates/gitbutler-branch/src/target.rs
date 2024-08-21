@@ -3,9 +3,23 @@ use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializ
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Target {
+    /// The combination of remote name and branch name, i.e. `origin` and `main`.
+    /// The remote name is the one used to fetch from.
+    /// It's equivalent to e.g. `refs/remotes/origin/main` , and the type `RemoteRefName`
+    /// stores it as `<remote>` and `<suffix>` so that finding references named `<remote>/<suffix>`
+    /// will typically find the local tracking branch unambiguously.
     pub branch: RemoteRefname,
+    /// The URL of the remote behind the symbolic name.
     pub remote_url: String,
+    /// The merge-base between `branch` and the current worktree `HEAD` upon first creation,
+    /// but then it's the set to the new destination of e.g. `refs/remotes/origin/main` after
+    /// the remote was fetched. This value is used to determine if there was a change,
+    /// and if the *workspace* needs to be recalculated/rebased against the new commit.
+    // TODO(ST): is it safe/correct to rename this to `branch_target_id`? Should be!
+    //           It's just a bit strange it starts life as merge-base, but maybe it ends
+    //           up the same anyway? Definitely could use a test then.
     pub sha: git2::Oid,
+    /// The name of the remote to push to.
     pub push_remote_name: Option<String>,
 }
 

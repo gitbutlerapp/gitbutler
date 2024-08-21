@@ -229,4 +229,4 @@ mod util {
         Ok(branches)
     }
 }
-use util::{assert_equal, init_env, list_branches, project_ctx, ExpectedBranchListing};
+pub use util::{assert_equal, init_env, list_branches, project_ctx, ExpectedBranchListing};

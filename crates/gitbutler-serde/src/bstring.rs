@@ -65,6 +65,13 @@ impl From<&BStr> for BStringForFrontend {
     }
 }
 
+/// Primarily for tests
+impl From<&str> for BStringForFrontend {
+    fn from(value: &str) -> Self {
+        BStringForFrontend(value.into())
+    }
+}
+
 impl PartialEq<&str> for BStringForFrontend {
     fn eq(&self, other: &&str) -> bool {
         self.0.eq(other)

@@ -314,11 +314,12 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
     Ok(())
 }
 
-// try to update the target branch
-// this means that we need to:
-// determine if what the target branch is now pointing to is mergeable with our current working directory
-// merge the target branch into our current working directory
-// update the target sha
+/// try to update the target branch
+/// this means that we need to:
+/// - determine if what the target branch is now pointing to is mergeable with our current working directory,
+/// - merge the target branch into our current working directory
+/// - update the target sha
+/// - return all conflicting references that were unapplied to avoid the conflict
 pub(crate) fn update_base_branch(
     ctx: &CommandContext,
     perm: &mut WorktreeWritePermission,

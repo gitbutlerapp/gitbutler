@@ -11,7 +11,7 @@ doctest = false
 mock_instant = ["dep:mock_instant"]
 
 [dependencies]
-tracing = "0.1.40"
+tracing.workspace = true
 
 notify = { version = "6.0.1" }
 parking_lot.workspace = true

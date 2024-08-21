@@ -1,7 +1,6 @@
 <script async lang="ts">
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
-	import { Project } from '$lib/backend/projects';
-	import BackButton from '$lib/components/BackButton.svelte';
+	import { ProjectService, Project } from '$lib/backend/projects';
 	import Login from '$lib/components/Login.svelte';
 	import SetupFeature from '$lib/components/SetupFeature.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -14,6 +13,7 @@
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import { goto } from '$app/navigation';
 
 	export let projectName: string;
 	export let remoteBranches: { name: string }[];
@@ -75,6 +75,18 @@
 	async function onSetTargetClick() {
 		if (!selectedBranch) return;
 		dispatch('branchSelected', [selectedBranch.name, selectedRemote.name]);
+	}
+
+	const projectService = getContext(ProjectService);
+	async function deleteProjectAndGoBack() {
+		await projectService.deleteProject(project.id);
+		await projectService.reload();
+
+		if (history.length > 0) {
+			history.back();
+		} else {
+			goto('/');
+		}
 	}
 </script>
 
@@ -248,7 +260,7 @@
 		</SetupFeature>
 	</div>
 	<div class="action-buttons">
-		<BackButton>Cancel</BackButton>
+		<Button style="ghost" outline onmousedown={deleteProjectAndGoBack}>Cancel</Button>
 		<Button
 			style="pop"
 			kind="solid"

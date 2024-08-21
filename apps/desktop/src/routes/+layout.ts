@@ -6,6 +6,7 @@ import { GitConfigService } from '$lib/backend/gitConfigService';
 import { HttpClient } from '$lib/backend/httpClient';
 import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
+import { Tauri } from '$lib/backend/tauri';
 import { UpdaterService } from '$lib/backend/updater';
 import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
@@ -32,7 +33,7 @@ export const load: LayoutLoad = async () => {
 	const httpClient = new HttpClient();
 	const authService = new AuthService();
 	const projectService = new ProjectService(defaultPath, httpClient);
-	const updaterService = new UpdaterService();
+	const updaterService = new UpdaterService(new Tauri());
 	const promptService = new PromptService();
 	const userService = new UserService(httpClient);
 
