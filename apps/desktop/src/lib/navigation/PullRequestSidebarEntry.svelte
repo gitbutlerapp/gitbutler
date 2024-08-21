@@ -38,7 +38,8 @@
 		lastCommitAt: pullRequest.modifiedAt
 	}}
 	pullRequestDetails={pullRequest && {
-		title: pullRequest.title
+		title: pullRequest.title,
+		draft: pullRequest.draft
 	}}
 	{onMouseDown}
 	{selected}
