@@ -19,6 +19,7 @@ use crate::{branch_manager::BranchManagerExt, conflicts, VirtualBranchesExt};
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
 const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
+const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";
 
 /// Creates and returns a merge commit of all active branch heads.
 ///
@@ -330,11 +331,12 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
     let integration_index = commits
         .iter()
         .position(|commit| {
-            commit
-                .message()
-                .is_some_and(|message| message.starts_with(GITBUTLER_INTEGRATION_COMMIT_TITLE))
+            commit.message().is_some_and(|message| {
+                message.starts_with(GITBUTLER_WORKSPACE_COMMIT_TITLE)
+                    || message.starts_with(GITBUTLER_INTEGRATION_COMMIT_TITLE)
+            })
         })
-        .context("GitButler integration commit not found")?;
+        .context("GitButler workspace commit not found")?;
     let integration_commit = &commits[integration_index];
     let mut extra_commits = commits[..integration_index].to_vec();
     extra_commits.reverse();
