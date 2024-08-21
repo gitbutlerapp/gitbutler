@@ -92,13 +92,13 @@
 	});
 
 	const handleKeyDown = createKeybind({
-		'$mod+Equal': () => {
+		'$mod+=': () => {
 			zoom = Math.min(zoom + 0.0625, 3);
 		},
-		'$mod+Minus': () => {
+		'$mod+-': () => {
 			zoom = Math.max(zoom - 0.0625, 0.375);
 		},
-		'$mod+Digit0': () => {
+		'$mod+0': () => {
 			zoom = 1;
 		},
 		'$mod+T': () => {
