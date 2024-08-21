@@ -1,10 +1,13 @@
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
+use git2::{build::TreeUpdateBuilder, Repository};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
+use tempfile::tempdir;
+use uuid::Uuid;
 
 use crate::{LogUntil, RepoActionsExt, RepositoryExt};
 
@@ -21,8 +24,6 @@ pub fn cherry_rebase(
 ) -> Result<Option<git2::Oid>> {
     // get a list of the commits to rebase
     let mut ids_to_rebase = ctx.l(from_commit_oid, LogUntil::Commit(to_commit_oid))?;
-
-    dbg!(&ids_to_rebase);
 
     if ids_to_rebase.is_empty() {
         return Ok(None);
@@ -68,33 +69,66 @@ pub fn cherry_rebase_group(
                 let commit_headers = to_rebase.gitbutler_headers();
 
                 if cherrypick_index.has_conflicts() {
+                    // TODO(CTO): feature flag fancy rebasing.
                     // return Err(anyhow!("failed to rebase")).context(Marker::BranchConflict);
 
                     // there is a merge conflict, let's store the state so they can fix it later
                     // store tree as the same as the parent
-                    let merge_base_commit_oid = repository
-                        .merge_base(head.id(), to_rebase.id())
-                        .context("failed to find merge base")?;
-                    let merge_base_commit = repository
-                        .find_commit(merge_base_commit_oid)
-                        .context("failed to find merge base commit")?;
-                    let base_tree = repository.find_real_tree(&merge_base_commit, None)?;
+                    let base_tree = if to_rebase.is_conflicted() {
+                        repository.find_real_tree(&to_rebase, Some(".conflict-base-0".to_string()))?
+                    } else {
+                        let base_commit = to_rebase.parent(0)?;
+                        repository.find_real_tree(&base_commit, None)?
+                    };
 
                     // in case someone checks this out with vanilla Git, we should warn why it looks like this
                     let readme_content = b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
                     let readme_blob = repository.blob(readme_content)?;
 
-                    // get a list of conflicted files from the index
+                    // This is what can only be described as "a tad gross" but
+                    // AFAIK there is no good way of resolving conflicts in
+                    // an index without writing it *somewhere*
+                    let temporary_directory = tempdir().context("Failed to create temporary directory")?;
+                    let branch_name = Uuid::new_v4().to_string();
+                    let worktree = repository.worktree(&branch_name, &temporary_directory.path().join("repository"), None).context("Failed to create worktree")?;
+                    let worktree_repository = Repository::open_from_worktree(&worktree).context("Failed to open worktree repository")?;
+
+                    worktree_repository.set_index(&mut cherrypick_index).context("Failed to set cherrypick index as worktree index")?;
+
                     let mut conflicted_files = Vec::new();
-                    let index_conflicts = cherrypick_index.conflicts()?;
-                    index_conflicts.for_each(|conflict| {
-                        if let Ok(conflict_file) = conflict {
-                            if let Some(ours) = conflict_file.our {
-                                let path = std::str::from_utf8(&ours.path).unwrap().to_string();
-                                conflicted_files.push(path)
-                            }
+
+                    // get a list of conflicted files from the index
+                    let index_conflicts = cherrypick_index.conflicts()?.flatten().collect::<Vec<_>>();
+                    let mut theirs: Vec<git2::IndexEntry> = vec![];
+
+                    for conflict in index_conflicts {
+                        if let Some(their) = conflict.their {
+                            let path = std::str::from_utf8(&their.path).unwrap().to_string();
+                            conflicted_files.push(path);
+
+                            let data = repository.find_blob(their.id)?;
+                            let data = data.content();
+
+                            // For some reason we need to resolve the
+                            // conflicts using the "their" side and
+                            // then modify the tree afterwards.
+                            cherrypick_index.add_frombuffer(&their, data).context("Failed to add resolution")?;
+
+                            theirs.push(their)
                         }
-                    });
+                    }
+
+                    let resolved_tree = cherrypick_index.write_tree_to(repository).context("Failed to write cherry index")?;
+                    let resolved_tree = repository.find_tree(resolved_tree)?;
+                    let mut resolved_tree_updater = TreeUpdateBuilder::new();
+
+                    for their in theirs {
+                        resolved_tree_updater.upsert(their.path, their.id, git2::FileMode::Blob);
+                    }
+
+                    let resolved_tree_id = resolved_tree_updater.create_updated(repository, &resolved_tree)?;
+
+
                     // convert files into a string and save as a blob
                     let conflicted_files_string = conflicted_files.join("\n");
                     let conflicted_files_blob = repository.blob(conflicted_files_string.as_bytes())?;
@@ -102,13 +136,14 @@ pub fn cherry_rebase_group(
                     // create a treewriter
                     let mut tree_writer = repository.treebuilder(None)?;
 
-                    let side0 = repository.find_real_tree(&head, None)?;
+                    let side0 = repository.find_real_tree(&head, Some(".conflict-side-0".to_string()))?;
                     let side1 = repository.find_real_tree(&to_rebase, Some(".conflict-side-1".to_string()))?;
 
                     // save the state of the conflict, so we can recreate it later
                     tree_writer.insert(".conflict-side-0", side0.id(), 0o040000)?;
                     tree_writer.insert(".conflict-side-1", side1.id(), 0o040000)?;
                     tree_writer.insert(".conflict-base-0", base_tree.id(), 0o040000)?;
+                    tree_writer.insert(".auto-resolution", resolved_tree_id, 0o040000)?;
                     tree_writer.insert(".conflict-files", conflicted_files_blob, 0o100644)?;
                     tree_writer.insert("README.txt", readme_blob, 0o100644)?;
 
@@ -137,6 +172,13 @@ pub fn cherry_rebase_group(
                         )
                         .context("failed to create commit")?;
 
+                    // Tidy up worktree
+                    {
+                        temporary_directory.close()?;
+                        worktree.prune(None)?;
+                        repository.find_branch(&branch_name, git2::BranchType::Local)?.delete()?;
+                    }
+
                     repository
                         .find_commit(commit_oid)
                         .context("failed to find commit")
@@ -149,6 +191,10 @@ pub fn cherry_rebase_group(
                         .repository()
                         .find_tree(merge_tree_oid)
                         .context("failed to find merge tree")?;
+
+                    let commit_headers = commit_headers.map(|commit_headers| {
+                        CommitHeadersV2 { conflicted: None, ..commit_headers}
+                    });
 
                     let commit_oid = ctx
                         .repository()

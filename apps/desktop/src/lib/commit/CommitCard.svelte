@@ -135,6 +135,8 @@
 
 		modeService!.enterEditMode(commit.id, branch!.refname);
 	}
+
+	$: conflicted = commit instanceof DetailedCommit && commit.conflicted;
 </script>
 
 <Modal bind:this={commitMessageModal} width="small">
@@ -180,12 +182,7 @@
 		</div>
 	{/if}
 
-	<div
-		class="commit-card"
-		class:is-first={first}
-		class:is-last={last}
-		class:conflicted={commit instanceof DetailedCommit && commit.conflicted}
-	>
+	<div class="commit-card" class:is-first={first} class:is-last={last}>
 		<CommitDragItem {commit}>
 			<!-- GENERAL INFO -->
 			<div
@@ -275,6 +272,16 @@
 							<span class="commit__subtitle-divider">•</span>
 						{/if}
 
+						{#if conflicted}
+							<div class="commit__conflicted" use:tooltip={{ text: 'Conflicted', delay: 500 }}>
+								<Icon name="warning-small" />
+
+								Conflicted
+							</div>
+
+							<span class="commit__subtitle-divider">•</span>
+						{/if}
+
 						<button
 							class="commit__subtitle-btn commit__subtitle-btn_dashed"
 							on:click|stopPropagation={() => copyToClipboard(commit.id)}
@@ -323,17 +330,19 @@
 						{#if isUndoable}
 							<div class="commit__actions hide-native-scrollbar">
 								{#if isUndoable}
-									<Button
-										size="tag"
-										style="ghost"
-										outline
-										icon="undo-small"
-										onclick={(e) => {
-											currentCommitMessage.set(commit.description);
-											e.stopPropagation();
-											undoCommit(commit);
-										}}>Undo</Button
-									>
+									{#if !conflicted}
+										<Button
+											size="tag"
+											style="ghost"
+											outline
+											icon="undo-small"
+											onclick={(e) => {
+												currentCommitMessage.set(commit.description);
+												e.stopPropagation();
+												undoCommit(commit);
+											}}>Undo</Button
+										>
+									{/if}
 									<Button
 										size="tag"
 										style="ghost"
@@ -343,7 +352,13 @@
 									>
 								{/if}
 								{#if canEdit() && $editModeEnabled}
-									<Button size="tag" style="ghost" outline onclick={editPatch}>Edit patch</Button>
+									<Button size="tag" style="ghost" outline onclick={editPatch}>
+										{#if conflicted}
+											Resolve conflicts
+										{:else}
+											Edit patch
+										{/if}
+									</Button>
 								{/if}
 							</div>
 						{/if}
@@ -397,10 +412,14 @@
 		&:not(.is-first) {
 			border-top: none;
 		}
+	}
 
-		&.conflicted {
-			background-color: pink;
-		}
+	.commit__conflicted {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+
+		color: var(--clr-core-err-40);
 	}
 
 	.accent-border-line {

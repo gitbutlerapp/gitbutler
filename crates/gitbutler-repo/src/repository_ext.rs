@@ -391,9 +391,15 @@ impl RepositoryExt for git2::Repository {
     ) -> Result<git2::Index, anyhow::Error> {
         // we need to do a manual 3-way patch merge
         // find the base, which is the parent of to_rebase
-        let base_commit = to_rebase.parent(0)?;
-        let base = self.find_real_tree(&base_commit, None)?;
-        let ours = self.find_real_tree(head, None)?;
+        let base = if to_rebase.is_conflicted() {
+            self.find_real_tree(to_rebase, Some(".conflict-base-0".to_string()))?
+        } else {
+            let base_commit = to_rebase.parent(0)?;
+            self.find_real_tree(&base_commit, None)?
+        };
+        // Get the original ours
+        let ours = self.find_real_tree(head, Some(".conflict-side-1".to_string()))?;
+        // Get the original theirs
         let thiers = self.find_real_tree(to_rebase, Some(".conflict-side-1".to_string()))?;
 
         self.merge_trees(&base, &ours, &thiers, None)
@@ -407,12 +413,14 @@ impl RepositoryExt for git2::Repository {
         commit: &git2::Commit,
         side: Option<String>,
     ) -> Result<git2::Tree, anyhow::Error> {
+        dbg!(&commit);
         let tree = commit.tree()?;
         let entry_name = match side {
             Some(side) => side,
-            None => ".conflict-side-0".to_string(),
+            None => ".auto-resolution".to_string(),
         };
-        if commit.is_conflicted() {
+        dbg!(&entry_name);
+        if dbg!(commit.is_conflicted()) {
             let conflicted_side = tree
                 .get_name(&entry_name)
                 .context("Failed to get conflicted side of commit")?;

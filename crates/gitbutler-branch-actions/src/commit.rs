@@ -5,7 +5,7 @@ use crate::{
 use anyhow::{Context, Result};
 use gitbutler_branch::{Branch, BranchId};
 use gitbutler_command_context::CommandContext;
-use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_serde::BStringForFrontend;
 use serde::Serialize;
 

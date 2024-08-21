@@ -1600,7 +1600,6 @@ pub(crate) fn reorder_commit(
 
         let new_head =
             cherry_rebase_group(ctx, target_oid, &mut ids_to_rebase).context("rebase failed")?;
-
         branch.head = new_head;
         branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
         vb_state.set_branch(branch.clone())?;
@@ -1677,6 +1676,10 @@ pub(crate) fn undo_commit(
         .find_commit(commit_oid)
         .context("failed to find commit")?;
 
+    if commit.is_conflicted() {
+        bail!("Can not undo a conflicted commit");
+    }
+
     let new_commit_oid;
 
     if branch.head == commit_oid {
@@ -1734,6 +1737,10 @@ pub(crate) fn squash(
     let parent_commit = commit_to_squash
         .parent(0)
         .context("failed to find parent commit")?;
+
+    if commit_to_squash.is_conflicted() || parent_commit.is_conflicted() {
+        bail!("Can not squash conflicted commits");
+    }
 
     let pushed_commit_oids = branch.upstream_head.map_or_else(
         || Ok(vec![]),
@@ -1900,6 +1907,11 @@ pub(crate) fn move_commit(
         .repository()
         .find_commit(commit_id)
         .context("failed to find commit")?;
+
+    if source_branch_head.is_conflicted() {
+        bail!("Can not move conflicted commits");
+    }
+
     let source_branch_head_parent = source_branch_head
         .parent(0)
         .context("failed to get parent commit")?;

@@ -6,7 +6,10 @@ use git2::build::CheckoutBuilder;
 use gitbutler_branch::{signature, Branch, SignaturePurpose, VirtualBranchesHandle};
 use gitbutler_branch_actions::{list_virtual_branches, update_gitbutler_integration};
 use gitbutler_command_context::CommandContext;
-use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
+use gitbutler_commit::{
+    commit_ext::CommitExt,
+    commit_headers::{CommitHeadersV2, HasCommitHeaders},
+};
 use gitbutler_operating_modes::{
     read_edit_mode_metadata, write_edit_mode_metadata, EditModeMetadata, EDIT_BRANCH_REF,
     INTEGRATION_BRANCH_REF,
@@ -78,14 +81,53 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<(
         .checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))
         .context("Failed to checkout head")?;
 
-    // Checkout the commit as unstaged changes
     let commit_tree = commit.tree().context("Failed to get commit's tree")?;
-    repository
-        .checkout_tree(
-            commit_tree.as_object(),
-            Some(CheckoutBuilder::new().force().remove_untracked(true)),
-        )
-        .context("Failed to checkout commit")?;
+    // Checkout the commit as unstaged changes
+    if commit.is_conflicted() {
+        let base = commit_tree
+            .get_name(".conflict-base-0")
+            .context("Failed to get base")?;
+        let base = repository
+            .find_tree(base.id())
+            .context("Failed to find base tree")?;
+        // Ours
+        let ours = commit_tree
+            .get_name(".conflict-side-0")
+            .context("Failed to get base")?;
+        let ours = repository
+            .find_tree(ours.id())
+            .context("Failed to find base tree")?;
+        // Theirs
+        let theirs = commit_tree
+            .get_name(".conflict-side-1")
+            .context("Failed to get base")?;
+        let theirs = repository
+            .find_tree(theirs.id())
+            .context("Failed to find base tree")?;
+
+        let mut index = repository
+            .merge_trees(&base, &ours, &theirs, None)
+            .context("Failed to merge trees")?;
+
+        repository
+            .checkout_index(
+                Some(&mut index),
+                Some(
+                    CheckoutBuilder::new()
+                        .force()
+                        .remove_untracked(true)
+                        .conflict_style_diff3(true),
+                ),
+            )
+            .context("Failed to checkout conflicted commit")?;
+    } else {
+        repository
+            .checkout_tree(
+                commit_tree.as_object(),
+                Some(CheckoutBuilder::new().force().remove_untracked(true)),
+            )
+            .context("Failed to checkout commit")?;
+    };
 
     Ok(())
 }
@@ -176,6 +218,12 @@ pub(crate) fn save_and_return_to_workspace(
     let tree = repository
         .find_tree(tree_oid)
         .context("Failed to find tree")?;
+    let commit_headers = commit
+        .gitbutler_headers()
+        .map(|commit_headers| CommitHeadersV2 {
+            conflicted: None,
+            ..commit_headers
+        });
     let new_commit_oid = ctx
         .repository()
         .commit_with_signature(
@@ -185,7 +233,7 @@ pub(crate) fn save_and_return_to_workspace(
             &commit.message_bstr().to_str_lossy(),
             &tree,
             &[&commit_parent],
-            commit.gitbutler_headers(),
+            commit_headers,
         )
         .context("Failed to commit new commit")?;
 
