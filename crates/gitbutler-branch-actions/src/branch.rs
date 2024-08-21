@@ -426,7 +426,6 @@ pub fn get_branch_listing_details(
         .map(TryInto::try_into)
         .filter_map(Result::ok)
         .collect();
-    let git2_repo = ctx.repository();
     let repo = ctx.gix_repository_minimal()?.for_tree_diffing()?;
     let branches = list_branches(ctx, None, Some(branch_names))?;
 
@@ -453,7 +452,7 @@ pub fn get_branch_listing_details(
     };
 
     let mut enriched_branches = Vec::new();
-    let diffstats = {
+    let (diffstats, merge_bases) = {
         let (start, start_rx) = std::sync::mpsc::channel::<(
             std::sync::mpsc::Receiver<gix::object::tree::diff::ChangeDetached>,
             std::sync::mpsc::Sender<(usize, usize, usize)>,
@@ -492,17 +491,45 @@ pub fn get_branch_listing_details(
                     Ok(())
                 }
             })?;
-        for branch in branches {
-            let other_branch_commit_id = if let Some(virtual_branch) = branch.virtual_branch {
-                if virtual_branch.in_workspace {
-                    default_target_seen_at_last_update
-                } else {
-                    default_target_current_upstream_commit_id
+
+        let all_other_branch_commit_ids: Vec<_> = branches
+            .iter()
+            .map(|branch| {
+                (
+                    branch
+                        .virtual_branch
+                        .as_ref()
+                        .and_then(|vb| {
+                            vb.in_workspace
+                                .then_some(default_target_seen_at_last_update)
+                        })
+                        .unwrap_or(default_target_current_upstream_commit_id),
+                    branch.head,
+                )
+            })
+            .collect();
+        let (merge_tx, merge_rx) = std::sync::mpsc::channel();
+        let merge_bases = std::thread::Builder::new()
+            .name("gitbutler-mergebases".into())
+            .spawn({
+                let git_dir = ctx.repository().path().to_owned();
+                move || -> anyhow::Result<()> {
+                    let git2_repo = git2::Repository::open(git_dir)?;
+                    for (other_branch_commit_id, branch_head) in all_other_branch_commit_ids {
+                        // TODO(ST): use `gix` for two-way mergebases.
+                        let base = git2_repo
+                            .merge_base(other_branch_commit_id, branch_head)
+                            .ok();
+                        if merge_tx.send(base).is_err() {
+                            break;
+                        }
+                    }
+                    Ok(())
                 }
-            } else {
-                default_target_current_upstream_commit_id
-            };
-            let Ok(base) = git2_repo.merge_base(other_branch_commit_id, branch.head) else {
+            })?;
+
+        for branch in branches {
+            let Some(base) = merge_rx.recv()? else {
                 continue;
             };
 
@@ -556,9 +583,10 @@ pub fn get_branch_listing_details(
             };
             enriched_branches.push(branch_data);
         }
-        diffstats
+        (diffstats, merge_bases)
     };
     diffstats.join().expect("no panic")?;
+    merge_bases.join().expect("no panic")?;
     Ok(enriched_branches)
 }
 
