@@ -10,7 +10,7 @@
 		selected?: boolean;
 		title: string;
 		applied?: boolean;
-		pullRequestDetails?: { title: string };
+		pullRequestDetails?: { title: string; draft: boolean };
 		lastCommitDetails?: { authorName: string; lastCommitAt?: Date };
 		branchDetails?: { commitCount: number; linesAdded: number; linesRemoved: number };
 		remotes?: string[];
@@ -87,8 +87,12 @@
 				<div
 					use:tooltip={{ text: pullRequestDetails.title, delay: tooltipDelay }}
 					class="branch-tag tag-pr"
+					class:tag-pr={!pullRequestDetails.draft}
+					class:tag-draft-pr={pullRequestDetails.draft}
 				>
-					<span class="text-10 text-semibold">PR</span>
+					<span class="text-10 text-semibold">
+						{#if !pullRequestDetails.draft}PR{:else}Draft{/if}
+					</span>
 					<Icon name="pr-small" />
 				</div>
 			{/if}
@@ -236,6 +240,11 @@
 	.tag-pr {
 		background-color: var(--clr-theme-succ-element);
 		color: var(--clr-theme-succ-on-element);
+	}
+
+	.tag-draft-pr {
+		background-color: var(--clr-theme-ntrl-soft);
+		color: var(--clr-theme-ntrl-on-soft);
 	}
 
 	.tag-applied {

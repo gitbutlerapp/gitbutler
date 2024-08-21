@@ -117,7 +117,8 @@
 	applied={branchListing.virtualBranch?.inWorkspace}
 	{lastCommitDetails}
 	pullRequestDetails={pr && {
-		title: pr.title
+		title: pr.title,
+		draft: pr.draft
 	}}
 	branchDetails={$branchListingDetails && {
 		commitCount: $branchListingDetails.numberOfCommits,
