@@ -12,7 +12,7 @@ gitbutler-repo.workspace = true
 serde = { workspace = true, features = ["std"] }
 itertools = "0.13"
 strum = { version = "0.26", features = ["derive"] }
-tracing = "0.1.40"
+tracing.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 toml.workspace = true
 gitbutler-project.workspace = true

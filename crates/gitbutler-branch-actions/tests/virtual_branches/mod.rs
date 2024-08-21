@@ -65,6 +65,7 @@ mod delete_virtual_branch;
 mod init;
 mod insert_blank_commit;
 mod list;
+mod list_details;
 mod move_commit_file;
 mod move_commit_to_vbranch;
 mod oplog;

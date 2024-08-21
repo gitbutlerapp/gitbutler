@@ -20,6 +20,7 @@ use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
 
 fn main() {
+    gitbutler_project::configure_git2();
     let tauri_context = generate_context!();
     gitbutler_secret::secret::set_application_namespace(
         &tauri_context.config().tauri.bundle.identifier,
