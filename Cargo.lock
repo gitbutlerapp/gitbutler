@@ -2475,7 +2475,10 @@ dependencies = [
  "gitbutler-command-context",
  "gitbutler-reference",
  "gitbutler-repo",
+ "gitbutler-testsupport",
  "itertools 0.13.0",
+ "pretty_assertions",
+ "tempfile",
 ]
 
 [[package]]

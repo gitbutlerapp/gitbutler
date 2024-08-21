@@ -14,3 +14,7 @@ gitbutler-reference.workspace = true
 gitbutler-repo.workspace = true
 itertools = "0.13"
 
+[dev-dependencies]
+pretty_assertions = "1.4"
+gitbutler-testsupport.workspace = true
+tempfile = "3.10.1"
