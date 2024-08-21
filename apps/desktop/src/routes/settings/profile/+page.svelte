@@ -122,12 +122,12 @@
 						type="file"
 						id="picture"
 						name="picture"
-						accept={fileTypes.join('')}
+						accept={fileTypes.join(',')}
 						class="hidden-input"
 					/>
 
 					{#if $user.picture}
-						<img class="profile-pic" src={userPicture} alt="" />
+						<img class="profile-pic" src={userPicture} alt="" referrerpolicy="no-referrer" />
 					{/if}
 
 					<span class="profile-pic__edit-label text-11 text-semibold">Edit</span>

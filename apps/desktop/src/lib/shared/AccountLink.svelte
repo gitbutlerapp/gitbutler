@@ -26,7 +26,7 @@
 		</span>
 	{/if}
 	{#if $user?.picture}
-		<img class="profile-picture" src={$user.picture} alt="Avatar" />
+		<img class="profile-picture" src={$user.picture} alt="Avatar" referrerpolicy="no-referrer" />
 	{:else}
 		<div class="anon-icon">
 			<Icon name="profile" />
