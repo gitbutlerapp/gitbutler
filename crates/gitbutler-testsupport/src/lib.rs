@@ -60,40 +60,48 @@ pub fn init_opts_bare() -> git2::RepositoryInitOptions {
     opts
 }
 
-pub mod read_only {
-    use std::{
-        collections::BTreeSet,
-        path::{Path, PathBuf},
-    };
+pub mod writable {
+    use crate::DRIVER;
+    use gitbutler_command_context::CommandContext;
+    use gitbutler_project::{Project, ProjectId};
+    use tempfile::TempDir;
 
+    pub fn fixture(
+        script_name: &str,
+        project_directory: &str,
+    ) -> anyhow::Result<(CommandContext, TempDir)> {
+        let (project, tempdir) = fixture_project(script_name, project_directory)?;
+        let ctx = CommandContext::open(&project)?;
+        Ok((ctx, tempdir))
+    }
+    pub fn fixture_project(
+        script_name: &str,
+        project_directory: &str,
+    ) -> anyhow::Result<(Project, TempDir)> {
+        let root = gix_testtools::scripted_fixture_writable_with_args(
+            script_name,
+            Some(DRIVER.display().to_string()),
+            gix_testtools::Creation::ExecuteScript,
+        )
+        .expect("script execution always succeeds");
+
+        let project = Project {
+            id: ProjectId::generate(),
+            title: project_directory.to_owned(),
+            path: root.path().join(project_directory),
+            ..Default::default()
+        };
+        Ok((project, root))
+    }
+}
+
+pub mod read_only {
+    use crate::DRIVER;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project::{Project, ProjectId};
     use once_cell::sync::Lazy;
     use parking_lot::Mutex;
-
-    static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
-        let mut cargo = std::process::Command::new(env!("CARGO"));
-        let res = cargo
-            .args(["build", "-p=gitbutler-cli"])
-            .status()
-            .expect("cargo should run fine");
-        assert!(res.success(), "cargo invocation should be successful");
-
-        let path = Path::new("../../target")
-            .join("debug")
-            .join(if cfg!(windows) {
-                "gitbutler-cli.exe"
-            } else {
-                "gitbutler-cli"
-            });
-        assert!(
-            path.is_file(),
-            "Expecting driver to be located at {path:?} - we also assume a certain crate location"
-        );
-        path.canonicalize().expect(
-            "canonicalization works as the CWD is valid and there are no symlinks to resolve",
-        )
-    });
+    use std::collections::BTreeSet;
 
     /// Execute the script at `script_name.sh` (assumed to be located in `tests/fixtures/<script_name>`)
     /// and make the command-line application available to it. That way the script can perform GitButler
@@ -137,6 +145,31 @@ pub mod read_only {
         Ok(project)
     }
 }
+
+use once_cell::sync::Lazy;
+use std::path::{Path, PathBuf};
+pub(crate) static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
+    let mut cargo = std::process::Command::new(env!("CARGO"));
+    let res = cargo
+        .args(["build", "-p=gitbutler-cli"])
+        .status()
+        .expect("cargo should run fine");
+    assert!(res.success(), "cargo invocation should be successful");
+
+    let path = Path::new("../../target")
+        .join("debug")
+        .join(if cfg!(windows) {
+            "gitbutler-cli.exe"
+        } else {
+            "gitbutler-cli"
+        });
+    assert!(
+        path.is_file(),
+        "Expecting driver to be located at {path:?} - we also assume a certain crate location"
+    );
+    path.canonicalize()
+        .expect("canonicalization works as the CWD is valid and there are no symlinks to resolve")
+});
 
 /// A secrets store to prevent secrets to be written into the systems own store.
 ///
