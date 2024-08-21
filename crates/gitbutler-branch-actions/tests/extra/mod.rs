@@ -1309,7 +1309,7 @@ fn detect_mergeable_branch() -> Result<()> {
     std::fs::remove_file(Path::new(&project.path).join(file_path3))?;
 
     ctx.repository()
-        .set_head("refs/heads/gitbutler/integration")?;
+        .set_head("refs/heads/gitbutler/workspace")?;
     ctx.repository()
         .checkout_head(Some(&mut git2::build::CheckoutBuilder::default().force()))?;
 
@@ -1986,7 +1986,7 @@ fn verify_branch_not_integration() -> Result<()> {
     assert!(verify_result.is_err());
     assert_eq!(
         format!("{:#}", verify_result.unwrap_err()),
-        "<verification-failed>: project is on refs/heads/master. Please checkout gitbutler/integration to continue"
+        "<verification-failed>: project is on refs/heads/master. Please checkout gitbutler/workspace to continue"
     );
 
     Ok(())

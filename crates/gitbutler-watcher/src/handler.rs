@@ -201,11 +201,11 @@ impl Handler {
                     let ctx = CommandContext::open(&project)
                         .context("Failed to create a command context")?;
 
-                    // If the user has left gitbutler/integration, we want to delete the reference.
+                    // If the user has left gitbutler/workspace, we want to delete the reference.
                     // TODO: why do we want to do this?
                     if in_outside_workspace_mode(&ctx) {
                         let mut integration_reference = ctx.repository().find_reference(
-                            &Refname::from(LocalRefname::new("gitbutler/integration", None))
+                            &Refname::from(LocalRefname::new("gitbutler/workspace", None))
                                 .to_string(),
                         )?;
                         integration_reference.delete()?;
