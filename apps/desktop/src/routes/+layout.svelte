@@ -92,6 +92,10 @@
 	});
 
 	const handleKeyDown = createKeybind({
+		// Using $mod++ and $mod+= to support both US and i18n keyboards
+		'$mod++': () => {
+			zoom = Math.min(zoom + 0.0625, 3);
+		},
 		'$mod+=': () => {
 			zoom = Math.min(zoom + 0.0625, 3);
 		},
