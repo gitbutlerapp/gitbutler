@@ -4,12 +4,13 @@ use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use gitbutler_branch::{
     self, Branch, BranchCreateRequest, SignaturePurpose, VirtualBranchesHandle,
-    GITBUTLER_INTEGRATION_REFERENCE,
+    GITBUTLER_WORKSPACE_REFERENCE,
 };
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
+use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use tracing::instrument;
@@ -94,9 +95,9 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
     Ok(workspace_head_id)
 }
 
-// Before switching the user to our gitbutler integration branch we save
+// Before switching the user to our gitbutler workspace branch we save
 // the current branch into a text file. It is used in generating the commit
-// message for integration branch, as a helpful hint about how to get back
+// message for workspace branch, as a helpful hint about how to get back
 // to where you were.
 struct PreviousHead {
     head: String,
@@ -138,8 +139,8 @@ pub fn update_gitbutler_integration(
     let integration_filepath = repo.path().join("integration");
     let mut prev_branch = read_integration_file(&integration_filepath)?;
     if let Some(branch) = &prev_branch {
-        if branch.head != GITBUTLER_INTEGRATION_REFERENCE.to_string() {
-            // we are moving from a regular branch to our gitbutler integration branch, write a file to
+        if branch.head != GITBUTLER_WORKSPACE_REFERENCE.to_string() {
+            // we are moving from a regular branch to our gitbutler workspace branch, write a file to
             // .git/integration with the previous head and name
             write_integration_file(&head_ref, integration_filepath)?;
             prev_branch = Some(PreviousHead {
@@ -218,14 +219,14 @@ pub fn update_gitbutler_integration(
         parents.iter().collect::<Vec<_>>().as_slice(),
     )?;
 
-    // Create or replace the integration branch reference, then set as HEAD.
+    // Create or replace the workspace branch reference, then set as HEAD.
     repo.reference(
-        &GITBUTLER_INTEGRATION_REFERENCE.clone().to_string(),
+        &GITBUTLER_WORKSPACE_REFERENCE.clone().to_string(),
         final_commit,
         true,
         "updated integration commit",
     )?;
-    repo.set_head(&GITBUTLER_INTEGRATION_REFERENCE.clone().to_string())?;
+    repo.set_head(&GITBUTLER_WORKSPACE_REFERENCE.clone().to_string())?;
 
     let mut index = repo.index()?;
     index.read_tree(&workspace_tree)?;
@@ -285,21 +286,21 @@ fn verify_head_is_set(ctx: &CommandContext) -> Result<()> {
         .context("failed to get head")?
         .name()
     {
-        Some(refname) if *refname == GITBUTLER_INTEGRATION_REFERENCE.to_string() => Ok(()),
+        Some(refname) if OPEN_WORKSPACE_REFS.contains(&refname) => Ok(()),
         Some(head_name) => Err(invalid_head_err(head_name)),
         None => Err(anyhow!(
             "project in detached head state. Please checkout {} to continue",
-            GITBUTLER_INTEGRATION_REFERENCE.branch()
+            GITBUTLER_WORKSPACE_REFERENCE.branch()
         )),
     }
 }
 
-// Returns an error if repo head is not pointing to the integration branch.
+// Returns an error if repo head is not pointing to the workspace branch.
 fn verify_current_branch_name(ctx: &CommandContext) -> Result<&CommandContext> {
     match ctx.repository().head()?.name() {
         Some(head) => {
             let head_name = head.to_string();
-            if head_name != GITBUTLER_INTEGRATION_REFERENCE.to_string() {
+            if !OPEN_WORKSPACE_REFS.contains(&head_name.as_str()) {
                 return Err(invalid_head_err(&head_name));
             }
             Ok(ctx)
@@ -408,6 +409,6 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
 fn invalid_head_err(head_name: &str) -> anyhow::Error {
     anyhow!(
         "project is on {head_name}. Please checkout {} to continue",
-        GITBUTLER_INTEGRATION_REFERENCE.branch()
+        GITBUTLER_WORKSPACE_REFERENCE.branch()
     )
 }

@@ -31,7 +31,7 @@ fn twice() {
             .set_base_branch(&project, &"refs/remotes/origin/master".parse().unwrap())
             .unwrap();
 
-        // even though project is on gitbutler/integration, we should not import it
+        // even though project is on gitbutler/workspace, we should not import it
         assert!(controller
             .list_virtual_branches(&project)
             .unwrap()

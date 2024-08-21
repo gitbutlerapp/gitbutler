@@ -68,7 +68,7 @@ fn integration() {
         std::fs::write(repository.path().join("another.txt"), "").unwrap();
         repository.commit_all("another");
         repository.push_branch(&"refs/heads/master".parse().unwrap());
-        repository.checkout(&"refs/heads/gitbutler/integration".parse().unwrap());
+        repository.checkout(&"refs/heads/gitbutler/workspace".parse().unwrap());
     }
 
     {

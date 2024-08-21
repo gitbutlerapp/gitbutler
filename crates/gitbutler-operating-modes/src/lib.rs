@@ -8,7 +8,18 @@ use serde::{Deserialize, Serialize};
 pub mod commands;
 
 /// The reference the app will checkout when the workspace is open
+pub const WORKSPACE_BRANCH_REF: &str = "refs/heads/gitbutler/workspace";
+
+/// Previous workspace reference, delete after transition.
 pub const INTEGRATION_BRANCH_REF: &str = "refs/heads/gitbutler/integration";
+
+/// To prevent clients hitting the "looks like you've moved away from..."
+/// after upgrading to a version using the new gitbutler/workspace branch
+/// name we need some transition period during which both are accepted.
+/// The new branch will be checked out as soon as any modification is made
+/// that triggers `update_gitbutler_integration`.
+pub const OPEN_WORKSPACE_REFS: [&str; 2] = [INTEGRATION_BRANCH_REF, WORKSPACE_BRANCH_REF];
+
 /// The reference the app will checkout when in edit mode
 pub const EDIT_BRANCH_REF: &str = "refs/heads/gitbutler/edit";
 
@@ -54,11 +65,11 @@ pub struct EditModeMetadata {
 #[derive(PartialEq, Debug, Clone, Serialize)]
 #[serde(tag = "type", content = "subject")]
 pub enum OperatingMode {
-    /// The typical app state when its on the gitbutler/integration branch
+    /// The typical app state when its on the gitbutler/workspace branch
     OpenWorkspace,
-    /// When the user has chosen to leave the gitbutler/integration branch
+    /// When the user has chosen to leave the gitbutler/workspace branch
     OutsideWorkspace,
-    /// When the app is off of gitbutler/integration and in edit mode
+    /// When the app is off of gitbutler/workspace and in edit mode
     Edit(EditModeMetadata),
 }
 
@@ -71,7 +82,7 @@ pub fn operating_mode(ctx: &CommandContext) -> OperatingMode {
         return OperatingMode::OutsideWorkspace;
     };
 
-    if head_ref_name == INTEGRATION_BRANCH_REF {
+    if OPEN_WORKSPACE_REFS.contains(&head_ref_name) {
         OperatingMode::OpenWorkspace
     } else if head_ref_name == EDIT_BRANCH_REF {
         let edit_mode_metadata = read_edit_mode_metadata(ctx);

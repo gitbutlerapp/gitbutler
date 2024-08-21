@@ -40,7 +40,7 @@ mod operating_modes {
             let suite = Suite::default();
             let Case { ctx, .. } = &suite.new_case();
 
-            create_and_checkout_branch(ctx, "gitbutler/integration");
+            create_and_checkout_branch(ctx, "gitbutler/workspace");
 
             let in_open_workspace = in_open_workspace_mode(ctx);
             assert!(in_open_workspace);
@@ -73,7 +73,7 @@ mod operating_modes {
             let suite = Suite::default();
             let Case { ctx, .. } = &suite.new_case();
 
-            create_and_checkout_branch(ctx, "gitbutler/integration");
+            create_and_checkout_branch(ctx, "gitbutler/workspace");
 
             assert!(assure_open_workspace_mode(ctx).is_ok());
         }
@@ -133,7 +133,7 @@ mod operating_modes {
             let suite = Suite::default();
             let Case { ctx, .. } = &suite.new_case();
 
-            create_and_checkout_branch(ctx, "gitbutler/integration");
+            create_and_checkout_branch(ctx, "gitbutler/workspace");
 
             let in_outside_worskpace = in_outside_workspace_mode(ctx);
             assert!(!in_outside_worskpace);
@@ -165,7 +165,7 @@ mod operating_modes {
             let suite = Suite::default();
             let Case { ctx, .. } = &suite.new_case();
 
-            create_and_checkout_branch(ctx, "gitbutler/integration");
+            create_and_checkout_branch(ctx, "gitbutler/workspace");
 
             assert!(assure_outside_workspace_mode(ctx).is_err());
         }

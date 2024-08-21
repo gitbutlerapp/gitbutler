@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use git2::Index;
 use gitbutler_branch::{
     self, Branch, BranchId, BranchOwnershipClaims, Target, VirtualBranchesHandle,
-    GITBUTLER_INTEGRATION_REFERENCE,
+    GITBUTLER_WORKSPACE_REFERENCE,
 };
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
@@ -176,7 +176,7 @@ pub(crate) fn set_base_branch(
         .context("Failed to get HEAD reference name")?;
     if !head_name
         .to_string()
-        .eq(&GITBUTLER_INTEGRATION_REFERENCE.to_string())
+        .eq(&GITBUTLER_WORKSPACE_REFERENCE.to_string())
     {
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch

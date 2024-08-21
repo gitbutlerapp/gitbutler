@@ -48,7 +48,7 @@
 			<ProjectNameLabel projectName={project?.title} />
 		</div>
 		<p class="switchrepo__title text-18 text-body text-bold">
-			Looks like you've switched away from <span class="code-string"> gitbutler/integration </span>
+			Looks like you've switched away from <span class="code-string"> gitbutler/workspace </span>
 		</p>
 
 		<p class="switchrepo__message text-13 text-body">
@@ -69,7 +69,7 @@
 					if (baseBranch) branchController.setTarget(baseBranch.branchName);
 				}}
 			>
-				Go back to gitbutler/integration
+				Go back to gitbutler/workspace
 			</Button>
 
 			{#if project}
