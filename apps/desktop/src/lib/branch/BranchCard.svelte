@@ -107,11 +107,7 @@
 	</div>
 {:else}
 	<div class="resizer-wrapper" bind:this={scrollViewport}>
-		<div
-			class="branch-card hide-native-scrollbar"
-			data-tauri-drag-region
-			class:target-branch={branch.selectedForChanges}
-		>
+		<div class="branch-card hide-native-scrollbar" class:target-branch={branch.selectedForChanges}>
 			<ScrollableContainer
 				wide
 				padding={{
@@ -123,6 +119,7 @@
 					bind:this={rsViewport}
 					style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
 					class="branch-card__contents"
+					data-tauri-drag-region
 				>
 					<BranchHeader {isLaneCollapsed} onGenerateBranchName={generateBranchName} />
 					<PullRequestCard />
@@ -171,7 +168,7 @@
 							</Dropzones>
 						{:else}
 							<Dropzones>
-								<div class="no-changes" data-dnd-ignore>
+								<div class="no-changes">
 									<EmptyStatePlaceholder image={noChangesSvg} width="11rem" hasBottomMargin={false}>
 										<svelte:fragment slot="caption"
 											>No uncommitted changes on this branch</svelte:fragment
