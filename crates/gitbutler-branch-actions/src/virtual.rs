@@ -245,7 +245,7 @@ fn resolve_old_applied_state(
     for mut branch in branches {
         if branch.is_old_unapplied() {
             branch_manager.convert_to_real_branch(branch.id, perm)?;
-        } else {
+        } else if branch.applied != branch.in_workspace {
             branch.applied = branch.in_workspace;
             vb_state.set_branch(branch)?;
         }
