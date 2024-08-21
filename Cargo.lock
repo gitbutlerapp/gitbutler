@@ -2466,6 +2466,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-stack"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-branch",
+ "gitbutler-command-context",
+ "gitbutler-reference",
+ "gitbutler-repo",
+ "itertools 0.13.0",
+]
+
+[[package]]
 name = "gitbutler-storage"
 version = "0.0.0"
 dependencies = [
