@@ -1,6 +1,7 @@
 use std::{fs, path, path::PathBuf, str::FromStr};
 
 use gitbutler_branch::{BranchCreateRequest, VirtualBranchesHandle};
+use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
 use gitbutler_branch_actions::{update_gitbutler_integration, VirtualBranchActions};
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;

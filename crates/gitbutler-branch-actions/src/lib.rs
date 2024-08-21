@@ -44,3 +44,5 @@ pub use branch::{
     get_branch_listing_details, list_branches, Author, BranchListing, BranchListingDetails,
     BranchListingFilter,
 };
+
+pub use integration::GITBUTLER_WORKSPACE_COMMIT_TITLE;
