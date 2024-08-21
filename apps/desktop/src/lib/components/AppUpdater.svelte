@@ -29,7 +29,7 @@
 		</div>
 		<div class="img">
 			<div class="circle-img">
-				{#if status !== 'DONE'}
+				{#if status !== 'DONE' && status !== 'UPTODATE'}
 					<svg
 						class="arrow-img"
 						width="12"
@@ -97,7 +97,7 @@
 
 		<h4 class="text-13 label">
 			{#if status === 'UPTODATE'}
-				You are up-to-date
+				You are up-to-date!
 			{:else if status === 'PENDING'}
 				Downloading update...
 			{:else if status === 'DOWNLOADED'}
@@ -105,9 +105,9 @@
 			{:else if status === 'DONE'}
 				Install complete
 			{:else if status === 'CHECKING'}
-				Checking for update
+				Checking for update…
 			{:else if status === 'ERROR'}
-				Error occurred...
+				Error occurred
 			{:else if version}
 				New version available
 			{/if}
@@ -130,7 +130,9 @@
 				</Button>
 			{/if}
 			<div class="status-section">
-				<div class="sliding-gradient"></div>
+				{#if status !== 'ERROR' && status !== 'UPTODATE'}
+					<div class="sliding-gradient"></div>
+				{/if}
 				<div class="cta-btn" transition:fade={{ duration: 100 }}>
 					{#if !status}
 						<Button
@@ -217,6 +219,7 @@
 		align-items: center;
 
 		width: 100%;
+		background-color: var(--clr-theme-pop-element);
 		border-radius: var(--radius-m);
 
 		transition:
@@ -318,7 +321,6 @@
 		position: absolute;
 		top: -14px;
 		left: 7px;
-		/* transform: translateY(20px); */
 	}
 
 	.tick-img {
