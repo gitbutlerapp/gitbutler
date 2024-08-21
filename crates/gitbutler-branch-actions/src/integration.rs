@@ -19,7 +19,7 @@ use crate::{branch_manager::BranchManagerExt, conflicts, VirtualBranchesExt};
 
 const WORKSPACE_HEAD: &str = "Workspace Head";
 const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
-const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";
+pub const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";
 
 /// Creates and returns a merge commit of all active branch heads.
 ///

@@ -265,7 +265,7 @@ fn restores_gitbutler_integration() -> anyhow::Result<()> {
     let commit = &head.peel_to_commit()?;
     let commit1_id = commit.id();
     let message = commit.summary().unwrap();
-    assert_eq!(message, "GitButler Integration Commit");
+    assert_eq!(message, GITBUTLER_WORKSPACE_COMMIT_TITLE);
 
     // create second commit
     fs::write(repository.path().join("file.txt"), "changed content")?;
@@ -276,7 +276,7 @@ fn restores_gitbutler_integration() -> anyhow::Result<()> {
     let commit = &head.peel_to_commit()?;
     let commit2_id = commit.id();
     let message = commit.summary().unwrap();
-    assert_eq!(message, "GitButler Integration Commit");
+    assert_eq!(message, GITBUTLER_WORKSPACE_COMMIT_TITLE);
     assert_ne!(commit1_id, commit2_id);
 
     // restore the first
