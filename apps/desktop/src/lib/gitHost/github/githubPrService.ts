@@ -68,12 +68,12 @@ export class GitHubPrService implements GitHostPrService {
 		throw lastError;
 	}
 
-	async fetchPrTemplate(path?: string) {
+	async fetchPrTemplate() {
 		try {
 			const response = await this.octokit.rest.repos.getContent({
 				owner: this.repo.owner,
 				repo: this.repo.name,
-				path: path ?? DEFAULT_PULL_REQUEST_TEMPLATE_PATH
+				path: DEFAULT_PULL_REQUEST_TEMPLATE_PATH
 			});
 			const b64Content = (response.data as any)?.content;
 			if (b64Content) {
