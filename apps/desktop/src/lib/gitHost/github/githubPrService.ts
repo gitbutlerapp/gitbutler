@@ -19,16 +19,21 @@ export class GitHubPrService implements GitHostPrService {
 		private upstreamName: string
 	) {}
 
-	async createPr(title: string, body: string, draft: boolean): Promise<PullRequest> {
+	async createPr(
+		title: string,
+		body: string,
+		draft: boolean,
+		templatePath: string = '.github/PULL_REQUEST_TEMPLATE.md'
+	): Promise<PullRequest> {
 		this.loading.set(true);
-		const request = async () => {
+		const request = async (pullRequestTemplate: string) => {
 			const resp = await this.octokit.rest.pulls.create({
 				owner: this.repo.owner,
 				repo: this.repo.name,
 				head: this.upstreamName,
 				base: this.baseBranch,
 				title,
-				body,
+				body: body ? body : pullRequestTemplate,
 				draft
 			});
 			return ghResponseToInstance(resp.data);
@@ -37,11 +42,27 @@ export class GitHubPrService implements GitHostPrService {
 		let attempts = 0;
 		let lastError: any;
 		let pr: PullRequest | undefined;
+		let pullRequestTemplate = '';
+
+		if (!body) {
+			try {
+				const response = await this.octokit.rest.repos.getContent({
+					owner: this.repo.owner,
+					repo: this.repo.name,
+					path: templatePath
+				});
+				const b64Content = (response.data as any)?.content;
+				if (b64Content) {
+					pullRequestTemplate = decodeURIComponent(escape(atob(b64Content)));
+				}
+				// eslint-disable-next-line no-empty
+			} catch {}
+		}
 
 		// Use retries since request can fail right after branch push.
 		while (attempts < 4) {
 			try {
-				pr = await request();
+				pr = await request(pullRequestTemplate);
 				posthog.capture('PR Successful');
 				return pr;
 			} catch (err: any) {
