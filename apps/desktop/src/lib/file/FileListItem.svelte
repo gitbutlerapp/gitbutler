@@ -130,8 +130,8 @@
 		<Checkbox
 			small
 			{checked}
-			on:change={(e) => {
-				const isChecked = e.detail;
+			onchange={(e) => {
+				const isChecked = e.currentTarget.checked;
 				lastCheckboxDetail = isChecked;
 				selectedOwnership?.update((ownership) => {
 					if (isChecked) {

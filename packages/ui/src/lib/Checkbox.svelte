@@ -1,26 +1,49 @@
+<script lang="ts" context="module">
+	export interface CheckboxProps {
+		name?: string;
+		small?: boolean;
+		disabled?: boolean;
+		checked?: boolean;
+		value?: string;
+		indeterminate?: boolean;
+		onclick?: (e: MouseEvent) => void;
+		onchange?: (
+			e: Event & {
+				currentTarget: EventTarget & HTMLInputElement;
+			}
+		) => void;
+	}
+</script>
+
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
-
-	export let name = '';
-
-	export let small = false;
-	export let disabled = false;
-	export let checked = false;
-	export let value = '';
-	export let indeterminate = false;
-
 	let input: HTMLInputElement;
-	const dispatch = createEventDispatcher<{ change: boolean }>();
 
-	$: if (input) input.indeterminate = indeterminate;
+	let {
+		name,
+		small = false,
+		disabled = false,
+		checked = $bindable(),
+		value = '',
+		indeterminate = false,
+		onclick,
+		onchange
+	}: CheckboxProps = $props();
+
+	$effect(() => {
+		if (input) input.indeterminate = indeterminate;
+	});
 </script>
 
 <input
 	bind:this={input}
 	bind:checked
-	on:click|stopPropagation
-	on:change={() => {
-		dispatch('change', checked);
+	onclick={(e) => {
+		e.stopPropagation();
+		onclick?.(e);
+	}}
+	onchange={(e) => {
+		e.stopPropagation();
+		onchange?.(e);
 	}}
 	type="checkbox"
 	class="checkbox"

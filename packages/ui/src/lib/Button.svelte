@@ -206,33 +206,8 @@
 	}
 
 	/* STYLES */
-	.neutral {
-		--icon-opacity: 0.6;
-		/* kind */
-		&.soft {
-			--btn-text-clr: var(--clr-theme-ntrl-on-soft);
-			--btn-bg: var(--clr-theme-ntrl-soft);
-
-			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 0.8;
-				--btn-bg: var(--clr-theme-ntrl-soft-hover);
-			}
-		}
-		&.solid {
-			--btn-text-clr: var(--clr-theme-ntrl-on-element);
-			--btn-bg: var(--clr-theme-ntrl-element);
-
-			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 0.8;
-				--btn-bg: var(--clr-theme-ntrl-element-hover);
-			}
-		}
-	}
-
 	.ghost {
-		--icon-opacity: 0.6;
+		--icon-opacity: 0.5;
 		--btn-text-clr: var(--clr-theme-ntrl-on-soft);
 		--btn-bg: transparent;
 
@@ -254,10 +229,34 @@
 		}
 	}
 
-	.pop {
-		--icon-opacity: 0.8;
-
+	.neutral {
 		&.soft {
+			--icon-opacity: 0.6;
+			--btn-text-clr: var(--clr-theme-ntrl-on-soft);
+			--btn-bg: var(--clr-theme-ntrl-soft);
+
+			/* if button */
+			&:not(.not-clickable, &:disabled):hover {
+				--icon-opacity: 0.8;
+				--btn-bg: var(--clr-theme-ntrl-soft-hover);
+			}
+		}
+		&.solid {
+			--icon-opacity: 0.7;
+			--btn-text-clr: var(--clr-theme-ntrl-on-element);
+			--btn-bg: var(--clr-theme-ntrl-element);
+
+			/* if button */
+			&:not(.not-clickable, &:disabled):hover {
+				--icon-opacity: 0.8;
+				--btn-bg: var(--clr-theme-ntrl-element-hover);
+			}
+		}
+	}
+
+	.pop {
+		&.soft {
+			--icon-opacity: 0.6;
 			--btn-text-clr: var(--clr-theme-pop-on-soft);
 			--btn-bg: var(--clr-theme-pop-soft);
 			/* if button */
@@ -267,103 +266,104 @@
 			}
 		}
 		&.solid {
+			--icon-opacity: 0.7;
 			--btn-text-clr: var(--clr-theme-pop-on-element);
 			--btn-bg: var(--clr-theme-pop-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 0.9;
+				--icon-opacity: 0.8;
 				--btn-bg: var(--clr-theme-pop-element-hover);
 			}
 		}
 	}
 
 	.success {
-		--icon-opacity: 0.8;
-
 		&.soft {
+			--icon-opacity: 0.6;
 			--btn-text-clr: var(--clr-theme-succ-on-soft);
 			--btn-bg: var(--clr-theme-succ-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 0.9;
+				--icon-opacity: 0.8;
 				--btn-bg: var(--clr-theme-succ-soft-hover);
 			}
 		}
 		&.solid {
+			--icon-opacity: 0.7;
 			--btn-text-clr: var(--clr-theme-succ-on-element);
 			--btn-bg: var(--clr-theme-succ-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 0.9;
+				--icon-opacity: 0.8;
 				--btn-bg: var(--clr-theme-succ-element-hover);
 			}
 		}
 	}
 
 	.error {
-		--icon-opacity: 0.8;
-
 		&.soft {
+			--icon-opacity: 0.6;
 			--btn-text-clr: var(--clr-theme-err-on-soft);
 			--btn-bg: var(--clr-theme-err-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 0.9;
+				--icon-opacity: 0.8;
 				--btn-bg: var(--clr-theme-err-soft-hover);
 			}
 		}
 		&.solid {
+			--icon-opacity: 0.7;
 			--btn-text-clr: var(--clr-theme-err-on-element);
 			--btn-bg: var(--clr-theme-err-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 0.9;
+				--icon-opacity: 0.8;
 				--btn-bg: var(--clr-theme-err-element-hover);
 			}
 		}
 	}
 
 	.warning {
-		--icon-opacity: 0.8;
-
 		&.soft {
+			--icon-opacity: 0.6;
 			--btn-text-clr: var(--clr-theme-warn-on-soft);
 			--btn-bg: var(--clr-theme-warn-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 0.9;
+				--icon-opacity: 0.8;
 				--btn-bg: var(--clr-theme-warn-soft-hover);
 			}
 		}
 		&.solid {
+			--icon-opacity: 0.7;
 			--btn-text-clr: var(--clr-theme-warn-on-element);
 			--btn-bg: var(--clr-theme-warn-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 0.9;
+				--icon-opacity: 0.8;
 				--btn-bg: var(--clr-theme-warn-element-hover);
 			}
 		}
 	}
 
 	.purple {
-		--icon-opacity: 0.8;
-
 		&.soft {
+			--icon-opacity: 0.6;
 			--btn-text-clr: var(--clr-theme-purp-on-soft);
 			--btn-bg: var(--clr-theme-purp-soft);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 0.9;
+				--icon-opacity: 0.8;
 				--btn-bg: var(--clr-theme-purp-soft-hover);
 			}
 		}
 		&.solid {
+			--icon-opacity: 0.7;
 			--btn-text-clr: var(--clr-theme-purp-on-element);
 			--btn-bg: var(--clr-theme-purp-element);
 			/* if button */
 			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 0.9;
+				--icon-opacity: 0.8;
 				--btn-bg: var(--clr-theme-purp-element-hover);
 			}
 		}

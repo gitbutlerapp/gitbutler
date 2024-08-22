@@ -148,7 +148,7 @@
 				<div class="empty-board">
 					<div class="empty-board__content">
 						<div class="empty-board__about">
-							<h3 class="text-serif-40">You are up to date</h3>
+							<h3 class="text-serif-40 text-body">You're up to date</h3>
 							<p class="text-14 text-body">
 								Your working directory matches the base branch.
 								<br />

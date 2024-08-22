@@ -49,8 +49,9 @@
 				small
 				{checked}
 				{indeterminate}
-				on:change={(e) => {
-					if (e.detail) {
+				onchange={(e) => {
+					const isChecked = e.currentTarget.checked;
+					if (isChecked) {
 						selectAll(files);
 					} else {
 						selectedOwnership?.update((ownership) => ownership.clear());
@@ -60,7 +61,7 @@
 		{/if}
 		<div class="header__title text-13 text-semibold">
 			<span>{title}</span>
-			<Badge count={files.length} />
+			<Badge label={files.length} />
 		</div>
 	</div>
 </div>

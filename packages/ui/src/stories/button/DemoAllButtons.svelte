@@ -11,24 +11,24 @@
 
 {#snippet buttons({ label, outline, style, reversedDirection })}
 	<div class="group">
-		<Button size="cta" {style} icon="plus" {reversedDirection}>{label}</Button>
-		<Button size="cta" {style} kind="solid" {outline} icon="plus" {reversedDirection}
+		<Button size="cta" {style} icon="plus-small" {reversedDirection}>{label}</Button>
+		<Button size="cta" {style} kind="solid" {outline} icon="plus-small" {reversedDirection}
 			>{label}</Button
 		>
 		<Button size="cta" {style} {reversedDirection}>{label}</Button>
 		<Button size="cta" {style} kind="solid" {outline} {reversedDirection}>{label}</Button>
-		<Button size="cta" {style} icon="plus" />
-		<Button size="cta" {style} kind="solid" {outline} icon="plus" />
+		<Button size="cta" {style} icon="plus-small" />
+		<Button size="cta" {style} kind="solid" {outline} icon="plus-small" />
 	</div>
 	<div class="group">
-		<Button size="button" {style} icon="plus" {reversedDirection}>{label}</Button>
-		<Button size="button" {style} kind="solid" {outline} icon="plus" {reversedDirection}
+		<Button size="button" {style} icon="plus-small" {reversedDirection}>{label}</Button>
+		<Button size="button" {style} kind="solid" {outline} icon="plus-small" {reversedDirection}
 			>{label}</Button
 		>
 		<Button size="button" {style} {reversedDirection}>{label}</Button>
 		<Button size="button" {style} kind="solid" {outline} {reversedDirection}>{label}</Button>
-		<Button size="button" {style} icon="plus" />
-		<Button size="button" {style} kind="solid" {outline} icon="plus" />
+		<Button size="button" {style} icon="plus-small" />
+		<Button size="button" {style} kind="solid" {outline} icon="plus-small" />
 	</div>
 	<div class="group">
 		<Button size="tag" {style} icon="plus-small" {reversedDirection}>{label}</Button>
