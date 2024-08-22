@@ -9,6 +9,8 @@ import type { GitHostPrService } from '../interface/gitHostPrService';
 import type { DetailedPullRequest, MergeMethod, PullRequest } from '../interface/types';
 import type { Octokit } from '@octokit/rest';
 
+const DEFAULT_PULL_REQUEST_TEMPLATE_PATH = '.github/PULL_REQUEST_TEMPLATE.md';
+
 export class GitHubPrService implements GitHostPrService {
 	loading = writable(false);
 
@@ -19,12 +21,7 @@ export class GitHubPrService implements GitHostPrService {
 		private upstreamName: string
 	) {}
 
-	async createPr(
-		title: string,
-		body: string,
-		draft: boolean,
-		templatePath: string = '.github/PULL_REQUEST_TEMPLATE.md'
-	): Promise<PullRequest> {
+	async createPr(title: string, body: string, draft: boolean): Promise<PullRequest> {
 		this.loading.set(true);
 		const request = async (pullRequestTemplate: string) => {
 			const resp = await this.octokit.rest.pulls.create({
@@ -49,7 +46,7 @@ export class GitHubPrService implements GitHostPrService {
 				const response = await this.octokit.rest.repos.getContent({
 					owner: this.repo.owner,
 					repo: this.repo.name,
-					path: templatePath
+					path: DEFAULT_PULL_REQUEST_TEMPLATE_PATH
 				});
 				const b64Content = (response.data as any)?.content;
 				if (b64Content) {
