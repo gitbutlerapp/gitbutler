@@ -273,7 +273,12 @@
 						{/if}
 
 						{#if conflicted}
-							<div class="commit__conflicted" use:tooltip={{ text: 'Conflicted', delay: 500 }}>
+							<div
+								class="commit__conflicted"
+								use:tooltip={{
+									text: 'Conflicted commits must be resolved before they can be ammended or squashed.\n\nPlease resolve conflicts using the "Resolve conflicts" button'
+								}}
+							>
 								<Icon name="warning-small" />
 
 								Conflicted

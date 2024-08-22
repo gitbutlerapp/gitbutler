@@ -34,13 +34,15 @@ export class CommitDragActions {
 		if (
 			data instanceof DraggableHunk &&
 			data.branchId === this.branch.id &&
-			data.commitId !== this.commit.id
+			data.commitId !== this.commit.id &&
+			!this.commit.conflicted
 		) {
 			return true;
 		} else if (
 			data instanceof DraggableFile &&
 			data.branchId === this.branch.id &&
-			data.commit?.id !== this.commit.id
+			data.commit?.id !== this.commit.id &&
+			!this.commit.conflicted
 		) {
 			return true;
 		} else {
@@ -78,6 +80,8 @@ export class CommitDragActions {
 		}
 		if (!(data instanceof DraggableCommit)) return false;
 		if (data.branchId !== this.branch.id) return false;
+
+		if (this.commit.conflicted || data.commit.conflicted) return false;
 
 		if (data.commit.isParentOf(this.commit)) {
 			if (data.commit.isIntegrated) return false;

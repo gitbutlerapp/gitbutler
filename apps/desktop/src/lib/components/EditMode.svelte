@@ -38,7 +38,10 @@
 			</span>
 		</p>
 
-		<p class="switchrepo__message text-13 text-body">Bla bla bla</p>
+		<p class="switchrepo__message text-13 text-body">
+			Please do not make any commits whilst in edit mode. To leave edit mode, use the "save changes"
+			button.
+		</p>
 
 		<div class="switchrepo__actions">
 			<Button

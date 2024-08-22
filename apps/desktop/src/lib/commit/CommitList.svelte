@@ -116,6 +116,8 @@
 		if (isLast) return 0;
 		return 0;
 	}
+
+	$: localCommitsConflicted = $localCommits.some((commit) => commit.conflicted);
 </script>
 
 {#snippet reorderDropzone(dropzone: ReorderDropzone, yOffsetPx: number)}
@@ -225,6 +227,10 @@
 							kind="solid"
 							wide
 							loading={isPushingCommits}
+							disabled={localCommitsConflicted}
+							help={localCommitsConflicted
+								? 'In order to push, please resolve any conflicted commits.'
+								: undefined}
 							onclick={async () => {
 								isPushingCommits = true;
 								try {
