@@ -3,7 +3,8 @@ use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::CommandContext;
 use gitbutler_repo::{credentials::Helper, LogUntil, RepoActionsExt};
 use gitbutler_stack::{
-    create_branch_reference, list_branch_references, push_branch_reference, update_branch_reference,
+    create_branch_reference, list_branch_references, list_commit_references, push_branch_reference,
+    update_branch_reference,
 };
 use tempfile::TempDir;
 
@@ -242,6 +243,46 @@ fn push_success() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn list_by_commits_success() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let first = create_branch_reference(
+        &ctx,
+        test_ctx.branch.id,
+        "refs/remotes/origin/first".into(),
+        test_ctx.commits.first().unwrap().id(),
+        None,
+    )?;
+    let second = create_branch_reference(
+        &ctx,
+        test_ctx.branch.id,
+        "refs/remotes/origin/second".into(),
+        test_ctx.commits.last().unwrap().id(),
+        None,
+    )?;
+    let third = create_branch_reference(
+        &ctx,
+        test_ctx.other_branch.id,
+        "refs/remotes/origin/third".into(),
+        test_ctx.other_commits.first().unwrap().id(),
+        None,
+    )?;
+    let commits = vec![
+        test_ctx.commits.first().unwrap().id(),
+        test_ctx.commits.get(1).unwrap().id(),
+        test_ctx.commits.last().unwrap().id(),
+        test_ctx.other_commits.first().unwrap().id(),
+    ];
+    let result = list_commit_references(&ctx, commits.clone())?;
+    assert_eq!(result.len(), 4);
+    assert_eq!(result.get(&commits[0]).unwrap().clone().unwrap(), first);
+    assert_eq!(result.get(&commits[1]).unwrap().clone(), None);
+    assert_eq!(result.get(&commits[2]).unwrap().clone().unwrap(), second);
+    assert_eq!(result.get(&commits[3]).unwrap().clone().unwrap(), third);
+    Ok(())
+}
+
 fn command_ctx(name: &str) -> Result<(CommandContext, TempDir)> {
     gitbutler_testsupport::writable::fixture("stacking.sh", name)
 }
@@ -259,6 +300,7 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
         branch: branch.clone(),
         branch_base,
         commits: branch_commits,
+        other_branch: other_branch.clone(),
         other_commits,
     })
 }
@@ -266,5 +308,6 @@ struct TestContext<'a> {
     branch: gitbutler_branch::Branch,
     branch_base: git2::Oid,
     commits: Vec<git2::Commit<'a>>,
+    other_branch: gitbutler_branch::Branch,
     other_commits: Vec<git2::Commit<'a>>,
 }

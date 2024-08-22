@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use anyhow::Context;
@@ -20,6 +21,29 @@ pub fn list_branch_references(
     let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let vbranch = handle.get_branch(branch_id)?;
     Ok(vbranch.references)
+}
+
+/// Given a list of commits ids, returns a map of commit ids to the references that point to them or None
+pub fn list_commit_references(
+    ctx: &CommandContext,
+    commits: Vec<git2::Oid>,
+) -> Result<HashMap<git2::Oid, Option<BranchReference>>> {
+    let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let all_references = handle
+        .list_all_branches()?
+        .into_iter()
+        .flat_map(|branch| branch.references)
+        .collect_vec();
+    Ok(commits
+        .into_iter()
+        .map(|commit_id| {
+            let reference = all_references
+                .iter()
+                .find(|r| r.commit_id == commit_id)
+                .cloned();
+            (commit_id, reference)
+        })
+        .collect())
 }
 
 /// Creates a new virtual branch reference and associates it with the branch.
