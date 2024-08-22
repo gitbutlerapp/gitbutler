@@ -6,6 +6,7 @@
 
 use std::ops::Deref;
 
+#[derive(Default)]
 pub enum ConflictedTreeKey {
     /// The commit we're rebasing onto "head"
     Ours,
@@ -14,6 +15,7 @@ pub enum ConflictedTreeKey {
     /// The parent of "to rebase"
     Base,
     /// An automatic resolution of conflicts
+    #[default]
     AutoResolution,
     /// A list of conflicted files
     ConflictFiles,

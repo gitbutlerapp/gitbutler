@@ -240,7 +240,9 @@ fn compute_locks(
         .iter()
         .filter_map(|branch| {
             let commit = repository.find_commit(branch.head).ok()?;
-            let tree = repository.find_real_tree(&commit, None).ok()?;
+            let tree = repository
+                .find_real_tree(&commit, Default::default())
+                .ok()?;
             let diff = repository
                 .diff_tree_to_tree(Some(&base_tree), Some(&tree), Some(opts))
                 .ok()?;

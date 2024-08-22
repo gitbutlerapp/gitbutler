@@ -280,7 +280,7 @@ pub(crate) fn save_and_return_to_workspace(
             .context("Failed to find commit of rebased stashed integration changes commit oid")?;
 
         let tree_thing = repository
-            .find_real_tree(&commit_thing, None)
+            .find_real_tree(&commit_thing, Default::default())
             .context("Failed to get tree of commit of rebased stashed integration changes")?;
 
         repository

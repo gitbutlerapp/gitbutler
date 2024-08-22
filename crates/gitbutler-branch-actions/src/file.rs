@@ -40,10 +40,10 @@ pub(crate) fn list_remote_commit_files(
 
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let commit_tree = repository
-        .find_real_tree(&commit, None)
+        .find_real_tree(&commit, Default::default())
         .context("failed to get commit tree")?;
     let parent_tree = repository
-        .find_real_tree(&parent, None)
+        .find_real_tree(&parent, Default::default())
         .context("failed to get parent tree")?;
     let diff_files = gitbutler_diff::trees(repository, &parent_tree, &commit_tree)?;
 
@@ -100,10 +100,10 @@ pub(crate) fn list_virtual_commit_files(
     let parent = commit.parent(0).context("failed to get parent commit")?;
     let repository = ctx.repository();
     let commit_tree = repository
-        .find_real_tree(commit, None)
+        .find_real_tree(commit, Default::default())
         .context("failed to get commit tree")?;
     let parent_tree = repository
-        .find_real_tree(&parent, None)
+        .find_real_tree(&parent, Default::default())
         .context("failed to get parent tree")?;
     let diff = gitbutler_diff::trees(ctx.repository(), &parent_tree, &commit_tree)?;
     let hunks_by_filepath = virtual_hunks_by_file_diffs(&ctx.project().path, diff);

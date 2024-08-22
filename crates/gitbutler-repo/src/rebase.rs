@@ -139,10 +139,10 @@ fn commit_conflicted_cherry_result<'l>(
 
     // If the commit we're rebasing is conflicted, use the commits original base.
     let base_tree = if to_rebase.is_conflicted() {
-        repository.find_real_tree(&to_rebase, Some(ConflictedTreeKey::Ours))?
+        repository.find_real_tree(&to_rebase, ConflictedTreeKey::Ours)?
     } else {
         let base_commit = to_rebase.parent(0)?;
-        repository.find_real_tree(&base_commit, None)?
+        repository.find_real_tree(&base_commit, Default::default())?
     };
 
     // in case someone checks this out with vanilla Git, we should warn why it looks like this
@@ -213,8 +213,8 @@ fn commit_conflicted_cherry_result<'l>(
     // create a treewriter
     let mut tree_writer = repository.treebuilder(None)?;
 
-    let side0 = repository.find_real_tree(&head, Some(ConflictedTreeKey::Ours))?;
-    let side1 = repository.find_real_tree(&to_rebase, Some(ConflictedTreeKey::Theirs))?;
+    let side0 = repository.find_real_tree(&head, ConflictedTreeKey::Ours)?;
+    let side1 = repository.find_real_tree(&to_rebase, ConflictedTreeKey::Theirs)?;
 
     // save the state of the conflict, so we can recreate it later
     tree_writer.insert(&*ConflictedTreeKey::Ours, side0.id(), 0o040000)?;

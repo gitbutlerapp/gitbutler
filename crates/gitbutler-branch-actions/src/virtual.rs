@@ -1633,7 +1633,9 @@ pub(crate) fn reorder_commit(
         .find_commit(new_tree_commit)
         .context("Failed to find new tree commit")?;
 
-    branch.tree = repository.find_real_tree(&new_tree_commit, None)?.id();
+    branch.tree = repository
+        .find_real_tree(&new_tree_commit, Default::default())?
+        .id();
 
     // Use the conflicted tree commit as the head.
     if new_tree_commit.is_conflicted() {
@@ -1673,7 +1675,9 @@ pub(crate) fn insert_blank_commit(
 
     let repository = ctx.repository();
 
-    let commit_tree = repository.find_real_tree(&commit, None).unwrap();
+    let commit_tree = repository
+        .find_real_tree(&commit, Default::default())
+        .unwrap();
     let blank_commit_oid = ctx.commit("", &commit_tree, &[&commit], None)?;
 
     if commit.id() == branch.head && offset < 0 {
