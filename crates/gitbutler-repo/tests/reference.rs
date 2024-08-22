@@ -1,10 +1,9 @@
 use anyhow::Result;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::CommandContext;
-use gitbutler_repo::{credentials::Helper, LogUntil, RepoActionsExt};
-use gitbutler_stack::{
-    create_branch_reference, list_branch_references, list_commit_references, push_branch_reference,
-    update_branch_reference,
+use gitbutler_repo::{
+    create_branch_reference, credentials::Helper, list_branch_references, list_commit_references,
+    push_branch_reference, update_branch_reference, LogUntil, RepoActionsExt,
 };
 use tempfile::TempDir;
 

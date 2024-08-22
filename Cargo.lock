@@ -2432,6 +2432,7 @@ dependencies = [
  "gitbutler-url",
  "gitbutler-user",
  "gix",
+ "itertools 0.13.0",
  "log",
  "resolve-path",
  "serde",
@@ -2463,22 +2464,6 @@ dependencies = [
  "git2",
  "gix",
  "serde",
-]
-
-[[package]]
-name = "gitbutler-stack"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "git2",
- "gitbutler-branch",
- "gitbutler-command-context",
- "gitbutler-reference",
- "gitbutler-repo",
- "gitbutler-testsupport",
- "itertools 0.13.0",
- "pretty_assertions",
- "tempfile",
 ]
 
 [[package]]

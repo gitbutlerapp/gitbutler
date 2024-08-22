@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::str::FromStr;
 
+use crate::credentials::Helper;
+use crate::{LogUntil, RepoActionsExt};
 use anyhow::Context;
 use anyhow::{anyhow, Result};
 use gitbutler_branch::BranchReference;
@@ -8,8 +10,6 @@ use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_branch::{Branch, BranchId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_reference::ReferenceName;
-use gitbutler_repo::credentials::Helper;
-use gitbutler_repo::{LogUntil, RepoActionsExt};
 use itertools::Itertools;
 
 /// Given a branch id, returns the the GitButler references associated with the branch.
