@@ -1,17 +1,17 @@
 <script lang="ts" context="module">
 	export interface BadgeProps {
-		count: string | number;
+		label: string | number;
 		help?: string;
 	}
 </script>
 
 <script lang="ts">
 	import { tooltip } from '$lib/utils/tooltip';
-	let { count, help }: BadgeProps = $props();
+	let { label, help }: BadgeProps = $props();
 </script>
 
 <div class="badge text-10 text-bold" use:tooltip={help}>
-	{count}
+	{label}
 </div>
 
 <style lang="postcss">

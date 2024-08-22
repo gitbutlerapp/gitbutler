@@ -108,7 +108,7 @@
 			<div class="branches-title" class:hide-branch-title={searching}>
 				<span class="text-14 text-bold">Branches</span>
 
-				<Badge count={$branchListings.length} />
+				<Badge label={$branchListings.length} />
 			</div>
 
 			<div class="search-container" class:show-search={searching}>

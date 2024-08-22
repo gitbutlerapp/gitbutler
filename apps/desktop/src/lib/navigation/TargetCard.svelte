@@ -43,7 +43,7 @@
 					class="text-14 text-semibold trunk-label">Target</span
 				>
 				{#if ($base?.behind || 0) > 0}
-					<Badge count={$base?.behind || 0} help="Unmerged upstream commits" />
+					<Badge label={$base?.behind || 0} help="Unmerged upstream commits" />
 				{/if}
 				<SyncButton />
 			</div>

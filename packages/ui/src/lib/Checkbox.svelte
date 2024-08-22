@@ -1,13 +1,17 @@
 <script lang="ts" context="module">
 	export interface CheckboxProps {
-		name: string;
+		name?: string;
 		small?: boolean;
 		disabled?: boolean;
 		checked?: boolean;
 		value?: string;
 		indeterminate?: boolean;
 		onclick?: (e: MouseEvent) => void;
-		onchange?: (e: Event) => void;
+		onchange?: (
+			e: Event & {
+				currentTarget: EventTarget & HTMLInputElement;
+			}
+		) => void;
 	}
 </script>
 
@@ -18,7 +22,7 @@
 		name,
 		small = false,
 		disabled = false,
-		checked = false,
+		checked = $bindable(),
 		value = '',
 		indeterminate = false,
 		onclick,

@@ -1,28 +1,18 @@
-import Icon from '$lib/Icon.svelte';
-import iconsJson from '$lib/data/icons.json';
+import DemoBadge from './DemoBadge.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
-	title: 'Elements / Icon',
-	component: Icon
-} satisfies Meta<Icon>;
+	title: 'Elements / Badge',
+	component: DemoBadge
+} satisfies Meta<DemoBadge>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const IconStory: Story = {
+	name: 'Badge',
 	args: {
-		name: 'ai',
-		color: 'pop'
-	},
-	argTypes: {
-		color: {
-			control: 'select',
-			options: ['neutral', 'ghost', 'pop', 'success', 'error', 'warning', 'purple', undefined]
-		},
-		name: {
-			control: 'select',
-			options: Object.keys(iconsJson)
-		}
+		label: '127',
+		help: 'This is a badge'
 	}
 };
