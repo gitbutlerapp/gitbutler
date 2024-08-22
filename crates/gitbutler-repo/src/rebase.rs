@@ -1,6 +1,9 @@
+use std::collections::HashMap;
+
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use git2::{build::TreeUpdateBuilder, Repository};
+use gitbutler_branch::BranchReference;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{
     commit_ext::CommitExt,
@@ -10,7 +13,10 @@ use gitbutler_error::error::Marker;
 use tempfile::tempdir;
 use uuid::Uuid;
 
-use crate::{conflicts::ConflictedTreeKey, LogUntil, RepoActionsExt, RepositoryExt};
+use crate::{
+    conflicts::ConflictedTreeKey, list_commit_references, update_branch_reference, LogUntil,
+    RepoActionsExt, RepositoryExt,
+};
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
@@ -45,6 +51,8 @@ pub fn cherry_rebase_group(
     ids_to_rebase: &mut [git2::Oid],
 ) -> Result<git2::Oid> {
     ids_to_rebase.reverse();
+    // Attempt to list any GitButler references pointing to the commits to rebase, and default to an empty list if it fails
+    let references = list_commit_references(ctx, ids_to_rebase.to_vec()).unwrap_or_default();
     // now, rebase unchanged commits onto the new commit
     let commits_to_rebase = ids_to_rebase
         .iter()
@@ -67,19 +75,52 @@ pub fn cherry_rebase_group(
                     .cherry_pick_gitbutler(&head, &to_rebase)
                     .context("failed to cherry pick")?;
 
-                if cherrypick_index.has_conflicts() {
+                let result = if cherrypick_index.has_conflicts() {
                     if !ctx.project().succeeding_rebases {
                         return Err(anyhow!("failed to rebase")).context(Marker::BranchConflict);
                     }
-                    commit_conflicted_cherry_result(ctx, head, to_rebase, cherrypick_index)
+                    commit_conflicted_cherry_result(ctx, head.clone(), to_rebase, cherrypick_index)
                 } else {
-                    commit_unconflicted_cherry_result(ctx, head, to_rebase, cherrypick_index)
+                    commit_unconflicted_cherry_result(
+                        ctx,
+                        head.clone(),
+                        to_rebase,
+                        cherrypick_index,
+                    )
+                };
+                if let Ok(commit) = &result {
+                    // If the commit got successfully rebased and if there were any references pointiong to it,
+                    // update them to point to the new commit. Ignore any errors that might occur during this process.
+                    // TODO: some logging on error would be nice
+                    let _ = update_existing_branch_references(ctx, &references, &head, commit);
                 }
+                result
             },
         )?
         .id();
 
     Ok(new_head_id)
+}
+
+fn update_existing_branch_references(
+    ctx: &CommandContext,
+    references: &HashMap<git2::Oid, Option<BranchReference>>,
+    old_commit: &git2::Commit,
+    new_commit: &git2::Commit,
+) -> Result<Option<BranchReference>> {
+    references
+        .get(&old_commit.id())
+        .and_then(|reference| reference.as_ref())
+        .map_or(Ok(None), |reference| {
+            update_branch_reference(
+                ctx,
+                reference.branch_id,
+                reference.upstream.clone(),
+                new_commit.id(),
+                new_commit.change_id(),
+            )
+            .map(Some)
+        })
 }
 
 fn commit_unconflicted_cherry_result<'repository>(
