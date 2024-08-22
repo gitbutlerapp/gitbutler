@@ -230,8 +230,8 @@
 	}
 
 	.neutral {
-		--icon-opacity: 0.6;
 		&.soft {
+			--icon-opacity: 0.6;
 			--btn-text-clr: var(--clr-theme-ntrl-on-soft);
 			--btn-bg: var(--clr-theme-ntrl-soft);
 
@@ -242,6 +242,7 @@
 			}
 		}
 		&.solid {
+			--icon-opacity: 0.7;
 			--btn-text-clr: var(--clr-theme-ntrl-on-element);
 			--btn-bg: var(--clr-theme-ntrl-element);
 
@@ -254,8 +255,8 @@
 	}
 
 	.pop {
-		--icon-opacity: 0.6;
 		&.soft {
+			--icon-opacity: 0.6;
 			--btn-text-clr: var(--clr-theme-pop-on-soft);
 			--btn-bg: var(--clr-theme-pop-soft);
 			/* if button */
@@ -265,6 +266,7 @@
 			}
 		}
 		&.solid {
+			--icon-opacity: 0.7;
 			--btn-text-clr: var(--clr-theme-pop-on-element);
 			--btn-bg: var(--clr-theme-pop-element);
 			/* if button */
@@ -276,8 +278,8 @@
 	}
 
 	.success {
-		--icon-opacity: 0.6;
 		&.soft {
+			--icon-opacity: 0.6;
 			--btn-text-clr: var(--clr-theme-succ-on-soft);
 			--btn-bg: var(--clr-theme-succ-soft);
 			/* if button */
@@ -287,6 +289,7 @@
 			}
 		}
 		&.solid {
+			--icon-opacity: 0.7;
 			--btn-text-clr: var(--clr-theme-succ-on-element);
 			--btn-bg: var(--clr-theme-succ-element);
 			/* if button */
@@ -298,8 +301,8 @@
 	}
 
 	.error {
-		--icon-opacity: 0.6;
 		&.soft {
+			--icon-opacity: 0.6;
 			--btn-text-clr: var(--clr-theme-err-on-soft);
 			--btn-bg: var(--clr-theme-err-soft);
 			/* if button */
@@ -309,6 +312,7 @@
 			}
 		}
 		&.solid {
+			--icon-opacity: 0.7;
 			--btn-text-clr: var(--clr-theme-err-on-element);
 			--btn-bg: var(--clr-theme-err-element);
 			/* if button */
@@ -320,8 +324,8 @@
 	}
 
 	.warning {
-		--icon-opacity: 0.6;
 		&.soft {
+			--icon-opacity: 0.6;
 			--btn-text-clr: var(--clr-theme-warn-on-soft);
 			--btn-bg: var(--clr-theme-warn-soft);
 			/* if button */
@@ -331,6 +335,7 @@
 			}
 		}
 		&.solid {
+			--icon-opacity: 0.7;
 			--btn-text-clr: var(--clr-theme-warn-on-element);
 			--btn-bg: var(--clr-theme-warn-element);
 			/* if button */
@@ -342,8 +347,8 @@
 	}
 
 	.purple {
-		--icon-opacity: 0.6;
 		&.soft {
+			--icon-opacity: 0.6;
 			--btn-text-clr: var(--clr-theme-purp-on-soft);
 			--btn-bg: var(--clr-theme-purp-soft);
 			/* if button */
@@ -353,6 +358,7 @@
 			}
 		}
 		&.solid {
+			--icon-opacity: 0.7;
 			--btn-text-clr: var(--clr-theme-purp-on-element);
 			--btn-bg: var(--clr-theme-purp-element);
 			/* if button */
