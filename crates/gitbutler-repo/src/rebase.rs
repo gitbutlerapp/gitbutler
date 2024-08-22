@@ -62,6 +62,7 @@ pub fn cherry_rebase_group(
             |head, to_rebase| {
                 let head = head?;
 
+                let is_merge_commit = to_rebase.parent_count() > 0;
                 let mut cherrypick_index = repository
                     .cherry_pick_gitbutler(&head, &to_rebase)
                     .context("failed to cherry pick")?;
@@ -186,6 +187,11 @@ pub fn cherry_rebase_group(
                     let merge_tree_oid = cherrypick_index
                         .write_tree_to(ctx.repository())
                         .context("failed to write merge tree")?;
+
+                    // Remove empty merge commits
+                    if is_merge_commit && merge_tree_oid == head.tree_id() {
+                        return Ok(head)
+                    }
 
                     let merge_tree = ctx
                         .repository()
