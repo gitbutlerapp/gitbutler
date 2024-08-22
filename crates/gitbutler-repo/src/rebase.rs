@@ -82,12 +82,12 @@ pub fn cherry_rebase_group(
     Ok(new_head_id)
 }
 
-fn commit_unconflicted_cherry_result<'repo>(
-    ctx: &'repo CommandContext,
-    head: git2::Commit<'repo>,
+fn commit_unconflicted_cherry_result<'repository>(
+    ctx: &'repository CommandContext,
+    head: git2::Commit<'repository>,
     to_rebase: git2::Commit,
     mut cherrypick_index: git2::Index,
-) -> Result<git2::Commit<'repo>> {
+) -> Result<git2::Commit<'repository>> {
     let repository = ctx.repository();
     let commit_headers = to_rebase.gitbutler_headers();
 
@@ -128,12 +128,12 @@ fn commit_unconflicted_cherry_result<'repo>(
         .context("failed to find commit")
 }
 
-fn commit_conflicted_cherry_result<'l>(
-    ctx: &'l CommandContext,
+fn commit_conflicted_cherry_result<'repository>(
+    ctx: &'repository CommandContext,
     head: git2::Commit,
     to_rebase: git2::Commit,
     mut cherrypick_index: git2::Index,
-) -> Result<git2::Commit<'l>> {
+) -> Result<git2::Commit<'repository>> {
     let repository = ctx.repository();
     let commit_headers = to_rebase.gitbutler_headers();
 
