@@ -9,8 +9,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 use git2_hooks::HookResult;
 use gitbutler_branch::{
-    dedup, dedup_fmt, reconcile_claims, Branch, BranchId, BranchOwnershipClaims,
-    BranchUpdateRequest, OwnershipClaim, Target, VirtualBranchesHandle,
+    dedup, dedup_fmt, reconcile_claims, signature, Branch, BranchId, BranchOwnershipClaims,
+    BranchUpdateRequest, OwnershipClaim, SignaturePurpose, Target, VirtualBranchesHandle,
 };
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
@@ -1550,6 +1550,32 @@ pub(crate) fn reorder_commit(
     let parent = commit.parent(0).context("failed to find parent")?;
     let parent_oid = parent.id();
 
+    let repository = ctx.repository();
+
+    let tree = repository
+        .find_tree(branch.tree)
+        .context("Failed to get branch tree")?;
+
+    let author_signature =
+        signature(SignaturePurpose::Author).context("Failed to get gitbutler signature")?;
+    let committer_signature =
+        signature(SignaturePurpose::Committer).context("Failed to get gitbutler signature")?;
+
+    let head = repository
+        .find_commit(branch.head)
+        .context("Failed to find branch head commit")?;
+
+    let tree_commit = repository
+        .commit(
+            None,
+            &author_signature,
+            &committer_signature,
+            "Branch commited changes",
+            &tree,
+            &[&head],
+        )
+        .context("Failed to commit uncommited changes")?;
+
     if offset < 0 {
         // move commit up
         if branch.head == commit_oid {
@@ -1567,12 +1593,8 @@ pub(crate) fn reorder_commit(
 
         let new_head =
             cherry_rebase_group(ctx, parent_oid, &mut ids_to_rebase).context("rebase failed")?;
-        branch.head = new_head;
-        branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-        vb_state.set_branch(branch.clone())?;
 
-        crate::integration::update_gitbutler_integration(&vb_state, ctx)
-            .context("failed to update gitbutler integration")?;
+        branch.head = new_head;
     } else {
         //  move commit down
         if default_target.sha == parent_oid {
@@ -1602,12 +1624,29 @@ pub(crate) fn reorder_commit(
             cherry_rebase_group(ctx, target_oid, &mut ids_to_rebase).context("rebase failed")?;
 
         branch.head = new_head;
-        branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-        vb_state.set_branch(branch.clone())?;
-
-        crate::integration::update_gitbutler_integration(&vb_state, ctx)
-            .context("failed to update gitbutler integration")?;
     }
+
+    let new_tree_commit =
+        cherry_rebase_group(ctx, branch.head, &mut [tree_commit]).context("rebase failed")?;
+
+    let new_tree_commit = repository
+        .find_commit(new_tree_commit)
+        .context("Failed to find new tree commit")?;
+
+    branch.tree = repository
+        .find_real_tree(&new_tree_commit, Default::default())?
+        .id();
+
+    // Use the conflicted tree commit as the head.
+    if new_tree_commit.is_conflicted() {
+        branch.head = new_tree_commit.id();
+    }
+
+    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
+    vb_state.set_branch(branch.clone())?;
+
+    crate::integration::update_gitbutler_integration(&vb_state, ctx)
+        .context("failed to update gitbutler integration")?;
 
     Ok(())
 }
@@ -1634,7 +1673,11 @@ pub(crate) fn insert_blank_commit(
         commit = commit.parent(0).context("failed to find parent")?;
     }
 
-    let commit_tree = commit.tree().unwrap();
+    let repository = ctx.repository();
+
+    let commit_tree = repository
+        .find_real_tree(&commit, Default::default())
+        .unwrap();
     let blank_commit_oid = ctx.commit("", &commit_tree, &[&commit], None)?;
 
     if commit.id() == branch.head && offset < 0 {
@@ -1676,6 +1719,10 @@ pub(crate) fn undo_commit(
         .repository()
         .find_commit(commit_oid)
         .context("failed to find commit")?;
+
+    if commit.is_conflicted() {
+        bail!("Can not undo a conflicted commit");
+    }
 
     let new_commit_oid;
 
@@ -1734,6 +1781,10 @@ pub(crate) fn squash(
     let parent_commit = commit_to_squash
         .parent(0)
         .context("failed to find parent commit")?;
+
+    if commit_to_squash.is_conflicted() || parent_commit.is_conflicted() {
+        bail!("Can not squash conflicted commits");
+    }
 
     let pushed_commit_oids = branch.upstream_head.map_or_else(
         || Ok(vec![]),
@@ -1900,6 +1951,11 @@ pub(crate) fn move_commit(
         .repository()
         .find_commit(commit_id)
         .context("failed to find commit")?;
+
+    if source_branch_head.is_conflicted() {
+        bail!("Can not move conflicted commits");
+    }
+
     let source_branch_head_parent = source_branch_head
         .parent(0)
         .context("failed to get parent commit")?;

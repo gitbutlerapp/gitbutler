@@ -11,6 +11,9 @@ const V1_CHANGE_ID_HEADER: &str = "change-id";
 /// Used to represent the old commit headers layout. This should not be used in new code
 #[derive(Debug)]
 struct CommitHeadersV1 {
+    /// A property we can use to determine if two different commits are
+    /// actually the same "patch" at different points in time. We carry it
+    /// forwards when you rebase a commit in GitButler.
     change_id: String,
 }
 
@@ -18,19 +21,25 @@ struct CommitHeadersV1 {
 const V2_HEADERS_VERSION: &str = "2";
 
 const V2_CHANGE_ID_HEADER: &str = "gitbutler-change-id";
+const V2_CONFLICTED_HEADER: &str = "gitbutler-conflicted";
 #[derive(Debug, Clone)]
 pub struct CommitHeadersV2 {
+    /// A property we can use to determine if two different commits are
+    /// actually the same "patch" at different points in time. We carry it
+    /// forwards when you rebase a commit in GitButler.
     pub change_id: String,
+    /// A property used to indicate that we've written a conflicted tree to a
+    /// commit. This is only written if the property is present. Conflicted
+    /// commits should never make it into the main trunk.
+    pub conflicted: Option<u64>,
 }
 
 impl Default for CommitHeadersV2 {
     fn default() -> Self {
         CommitHeadersV2 {
             // Change ID using base16 encoding
-            // NOTE(ST): Ideally, this could be a computed hash based on the patch applied, similar
-            //           to what would happen during a rebase (if that is even the intention).
-            //           That way, they would be stable, so tests could have reproducible hashes as well.
             change_id: Uuid::new_v4().to_string(),
+            conflicted: None,
         }
     }
 }
@@ -39,6 +48,7 @@ impl From<CommitHeadersV1> for CommitHeadersV2 {
     fn from(commit_headers_v1: CommitHeadersV1) -> CommitHeadersV2 {
         CommitHeadersV2 {
             change_id: commit_headers_v1.change_id,
+            conflicted: None,
         }
     }
 }
@@ -58,7 +68,19 @@ impl HasCommitHeaders for git2::Commit<'_> {
                 // We can safely assume that the change id should be UTF8
                 let change_id = change_id.as_str()?.to_string();
 
-                Some(CommitHeadersV2 { change_id })
+                let conflicted = match self.header_field_bytes(V2_CONFLICTED_HEADER) {
+                    Ok(value) => {
+                        let value = dbg!(value.as_str())?;
+
+                        value.parse::<u64>().ok()
+                    }
+                    Err(_) => None,
+                };
+
+                Some(CommitHeadersV2 {
+                    change_id,
+                    conflicted,
+                })
             } else {
                 // Must be for a version we don't recognise
                 None
@@ -92,5 +114,9 @@ impl CommitHeadersV2 {
     pub fn inject_into(&self, commit_buffer: &mut CommitBuffer) {
         commit_buffer.set_header(HEADERS_VERSION_HEADER, V2_HEADERS_VERSION);
         commit_buffer.set_header(V2_CHANGE_ID_HEADER, &self.change_id);
+
+        if let Some(conflicted) = self.conflicted {
+            commit_buffer.set_header(V2_CONFLICTED_HEADER, &conflicted.to_string())
+        }
     }
 }

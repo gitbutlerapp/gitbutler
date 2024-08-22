@@ -360,8 +360,7 @@ pub(crate) fn update_base_branch(
     let updated_vbranches = get_applied_status(ctx, None)?
         .branches
         .into_iter()
-        .map(|(branch, _)| branch)
-        .map(|mut branch: Branch| -> Result<Option<Branch>> {
+        .map(|(mut branch, _)| -> Result<Option<Branch>> {
             let branch_tree = repo.find_tree(branch.tree)?;
 
             let branch_head_commit = repo.find_commit(branch.head).context(format!(

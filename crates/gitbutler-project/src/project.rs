@@ -96,6 +96,12 @@ pub struct Project {
     pub snapshot_lines_threshold: Option<usize>,
     #[serde(default)]
     pub ignore_project_semaphore: bool,
+    #[serde(default = "default_false")]
+    pub succeeding_rebases: bool,
+}
+
+fn default_false() -> bool {
+    false
 }
 
 impl Project {

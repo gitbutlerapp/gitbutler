@@ -29,6 +29,14 @@ export class Project {
 	use_new_locking!: boolean;
 	ignore_project_semaphore!: boolean;
 
+	private succeeding_rebases!: boolean;
+	get succeedingRebases() {
+		return this.succeeding_rebases;
+	}
+	set succeedingRebases(value) {
+		this.succeeding_rebases = value;
+	}
+
 	// Produced just for the frontend to determine if the project is open in any window.
 	is_open!: boolean;
 
