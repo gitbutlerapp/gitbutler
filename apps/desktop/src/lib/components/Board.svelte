@@ -85,6 +85,7 @@
 	<div
 		class="board"
 		role="group"
+		data-tauri-drag-region
 		on:drop={(e) => {
 			e.preventDefault();
 			if (!dragged) {
