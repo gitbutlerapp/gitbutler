@@ -1,8 +1,13 @@
+<script lang="ts" context="module">
+	export interface BadgeProps {
+		count: string | number;
+		help?: string;
+	}
+</script>
+
 <script lang="ts">
 	import { tooltip } from '$lib/utils/tooltip';
-
-	export let count: string | number;
-	export let help = '';
+	let { count, help }: BadgeProps = $props();
 </script>
 
 <div class="badge text-10 text-bold" use:tooltip={help}>
