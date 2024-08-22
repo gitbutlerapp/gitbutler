@@ -13,6 +13,13 @@ export const IconStory: Story = {
 	name: 'Badge',
 	args: {
 		label: '127',
-		help: 'This is a badge'
+		help: 'This is a badge',
+		style: 'neutral'
+	},
+	argTypes: {
+		style: {
+			options: ['neutral', 'success', 'warning', 'error'],
+			control: { type: 'select' }
+		}
 	}
 };
