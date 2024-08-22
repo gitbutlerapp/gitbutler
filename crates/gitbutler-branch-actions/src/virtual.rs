@@ -25,7 +25,6 @@ use gitbutler_repo::{
     LogUntil, RepoActionsExt, RepositoryExt,
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
-use gix::discover::repository;
 use serde::Serialize;
 
 use crate::{

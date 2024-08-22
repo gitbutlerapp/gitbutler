@@ -27,6 +27,7 @@ pub struct UpdateRequest {
     pub use_diff_context: Option<bool>,
     pub snapshot_lines_threshold: Option<usize>,
     pub ignore_project_semaphore: Option<bool>,
+    pub succeeding_rebases: Option<bool>,
 }
 
 impl Storage {
@@ -121,6 +122,10 @@ impl Storage {
 
         if let Some(ignore_project_semaphore) = update_request.ignore_project_semaphore {
             project.ignore_project_semaphore = ignore_project_semaphore;
+        }
+
+        if let Some(succeeding_rebases) = update_request.succeeding_rebases {
+            project.succeeding_rebases = succeeding_rebases;
         }
 
         self.inner

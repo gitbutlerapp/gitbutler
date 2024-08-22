@@ -15,6 +15,8 @@ use gitbutler_error::error::Code;
 use gitbutler_reference::{Refname, RemoteRefname};
 use tracing::instrument;
 
+use crate::conflicts::ConflictedTreeKey;
+
 /// Extension trait for `git2::Repository`.
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
@@ -27,7 +29,7 @@ pub trait RepositoryExt {
     fn find_real_tree(
         &self,
         commit: &git2::Commit,
-        side: Option<String>,
+        side: Option<ConflictedTreeKey>,
     ) -> Result<git2::Tree, anyhow::Error>;
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
@@ -392,15 +394,15 @@ impl RepositoryExt for git2::Repository {
         // we need to do a manual 3-way patch merge
         // find the base, which is the parent of to_rebase
         let base = if to_rebase.is_conflicted() {
-            self.find_real_tree(to_rebase, Some(".conflict-base-0".to_string()))?
+            self.find_real_tree(to_rebase, Some(ConflictedTreeKey::Ours))?
         } else {
             let base_commit = to_rebase.parent(0)?;
             self.find_real_tree(&base_commit, None)?
         };
         // Get the original ours
-        let ours = self.find_real_tree(head, Some(".conflict-side-1".to_string()))?;
+        let ours = self.find_real_tree(head, Some(ConflictedTreeKey::Theirs))?;
         // Get the original theirs
-        let thiers = self.find_real_tree(to_rebase, Some(".conflict-side-1".to_string()))?;
+        let thiers = self.find_real_tree(to_rebase, Some(ConflictedTreeKey::Theirs))?;
 
         self.merge_trees(&base, &ours, &thiers, None)
             .context("failed to merge trees for cherry pick")
@@ -411,16 +413,14 @@ impl RepositoryExt for git2::Repository {
     fn find_real_tree(
         &self,
         commit: &git2::Commit,
-        side: Option<String>,
+        side: Option<ConflictedTreeKey>,
     ) -> Result<git2::Tree, anyhow::Error> {
-        dbg!(&commit);
         let tree = commit.tree()?;
         let entry_name = match side {
             Some(side) => side,
-            None => ".auto-resolution".to_string(),
+            None => ConflictedTreeKey::AutoResolution,
         };
-        dbg!(&entry_name);
-        if dbg!(commit.is_conflicted()) {
+        if commit.is_conflicted() {
             let conflicted_side = tree
                 .get_name(&entry_name)
                 .context("Failed to get conflicted side of commit")?;

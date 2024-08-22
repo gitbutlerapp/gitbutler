@@ -4,7 +4,6 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
-	import { featureEditMode } from '$lib/config/uiFeatureFlags';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
@@ -43,8 +42,6 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const modeService = maybeGetContext(ModeService);
-
-	const editModeEnabled = featureEditMode();
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
@@ -356,7 +353,7 @@
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
 								{/if}
-								{#if canEdit() && $editModeEnabled}
+								{#if canEdit() && project.succeedingRebases}
 									<Button size="tag" style="ghost" outline onclick={editPatch}>
 										{#if conflicted}
 											Resolve conflicts
