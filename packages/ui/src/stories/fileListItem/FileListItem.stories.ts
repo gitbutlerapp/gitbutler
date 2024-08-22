@@ -2,7 +2,7 @@ import FileListItem from '$lib/FileListItem.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
-	title: 'Elements / FileListItem',
+	title: 'Misc / FileListItem',
 	component: FileListItem
 } satisfies Meta<FileListItem>;
 
