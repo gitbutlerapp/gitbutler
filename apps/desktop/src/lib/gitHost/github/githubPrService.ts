@@ -1,9 +1,11 @@
 import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
+import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+import { getContextStoreBySymbol } from '$lib/utils/context';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
-import { writable } from 'svelte/store';
+import { get, writable, type Readable } from 'svelte/store';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHostPrService } from '../interface/gitHostPrService';
 import type { DetailedPullRequest, MergeMethod, PullRequest } from '../interface/types';
@@ -13,17 +15,20 @@ const DEFAULT_PULL_REQUEST_TEMPLATE_PATH = '.github/PULL_REQUEST_TEMPLATE.md';
 
 export class GitHubPrService implements GitHostPrService {
 	loading = writable(false);
+	userSettings: Readable<Settings>;
 
 	constructor(
 		private octokit: Octokit,
 		private repo: RepoInfo,
 		private baseBranch: string,
 		private upstreamName: string
-	) {}
+	) {
+		this.userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	}
 
 	async createPr(title: string, body: string, draft: boolean): Promise<PullRequest> {
 		this.loading.set(true);
-		const request = async (pullRequestTemplate: string) => {
+		const request = async (pullRequestTemplate: string | undefined = '') => {
 			const resp = await this.octokit.rest.pulls.create({
 				owner: this.repo.owner,
 				repo: this.repo.name,
@@ -39,21 +44,11 @@ export class GitHubPrService implements GitHostPrService {
 		let attempts = 0;
 		let lastError: any;
 		let pr: PullRequest | undefined;
-		let pullRequestTemplate = '';
+		let pullRequestTemplate: string | undefined;
+		const usePrTemplate = get(this.userSettings)?.gitHost.usePullRequestTemplate;
 
-		if (!body) {
-			try {
-				const response = await this.octokit.rest.repos.getContent({
-					owner: this.repo.owner,
-					repo: this.repo.name,
-					path: DEFAULT_PULL_REQUEST_TEMPLATE_PATH
-				});
-				const b64Content = (response.data as any)?.content;
-				if (b64Content) {
-					pullRequestTemplate = decodeURIComponent(escape(atob(b64Content)));
-				}
-				// eslint-disable-next-line no-empty
-			} catch {}
+		if (!body && usePrTemplate) {
+			pullRequestTemplate = await this.fetchPrTemplate();
 		}
 
 		// Use retries since request can fail right after branch push.
@@ -71,6 +66,21 @@ export class GitHubPrService implements GitHostPrService {
 			}
 		}
 		throw lastError;
+	}
+
+	async fetchPrTemplate(path?: string) {
+		try {
+			const response = await this.octokit.rest.repos.getContent({
+				owner: this.repo.owner,
+				repo: this.repo.name,
+				path: path ?? DEFAULT_PULL_REQUEST_TEMPLATE_PATH
+			});
+			const b64Content = (response.data as any)?.content;
+			if (b64Content) {
+				return decodeURIComponent(escape(atob(b64Content)));
+			}
+			// eslint-disable-next-line no-empty
+		} catch {}
 	}
 
 	async get(prNumber: number): Promise<DetailedPullRequest> {

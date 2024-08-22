@@ -11,6 +11,7 @@ export interface GitHostPrService {
 	loading: Writable<boolean>;
 	get(prNumber: number): Promise<DetailedPullRequest>;
 	createPr(title: string, body: string, draft: boolean): Promise<PullRequest>;
+	fetchPrTemplate(path?: string): Promise<string | undefined>;
 	merge(method: MergeMethod, prNumber: number): Promise<void>;
 	prMonitor(prNumber: number): GitHostPrMonitor;
 }

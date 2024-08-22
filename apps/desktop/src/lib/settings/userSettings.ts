@@ -19,6 +19,9 @@ export interface Settings {
 	zoom: number;
 	scrollbarVisibilityState: ScrollbarVisilitySettings;
 	tabSize: number;
+	gitHost: {
+		usePullRequestTemplate: false;
+	};
 }
 
 const defaults: Settings = {
@@ -33,7 +36,10 @@ const defaults: Settings = {
 	stashedBranchesHeight: 150,
 	zoom: 1,
 	scrollbarVisibilityState: 'scroll',
-	tabSize: 4
+	tabSize: 4,
+	gitHost: {
+		usePullRequestTemplate: false
+	}
 };
 
 export function loadUserSettings(): Writable<Settings> {
