@@ -11,6 +11,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const IconStory: Story = {
+	name: 'Icon',
 	args: {
 		name: 'ai',
 		color: 'pop'
