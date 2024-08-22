@@ -121,4 +121,11 @@
 			opacity: 0.5;
 		}
 	}
+
+	.label {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		transition: color var(--transition-fast);
+	}
 </style>
