@@ -23,23 +23,23 @@ export class DefaultGitHostFactory implements GitHostFactory {
 		const forkStr = fork ? `${fork.owner}:${fork.name}` : undefined;
 
 		if (source.includes(GITHUB_DOMAIN)) {
-			return new GitHub(
+			return new GitHub({
 				repo,
 				baseBranch,
 				forkStr,
-				this.octokit,
-				new ProjectMetrics(),
+				octokit: this.octokit,
+				projectMetrics: new ProjectMetrics(),
 				userSettings
-			);
+			});
 		}
 		if (source.includes(GITLAB_DOMAIN)) {
-			return new GitLab(repo, baseBranch, forkStr);
+			return new GitLab({ repo, baseBranch, forkStr });
 		}
 		if (source.includes(BITBUCKET_DOMAIN)) {
-			return new BitBucket(repo, baseBranch, forkStr);
+			return new BitBucket({ repo, baseBranch, forkStr });
 		}
 		if (source.includes(AZURE_DOMAIN)) {
-			return new AzureDevOps(repo, baseBranch, forkStr);
+			return new AzureDevOps({ repo, baseBranch, forkStr });
 		}
 	}
 }

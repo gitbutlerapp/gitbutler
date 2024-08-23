@@ -1,7 +1,7 @@
 import { BitBucketBranch } from './bitbucketBranch';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
-import type { DetailedPullRequest } from '../interface/types';
+import type { DetailedPullRequest, GitHostArguments } from '../interface/types';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
@@ -17,17 +17,19 @@ export const BITBUCKET_DOMAIN = 'bitbucket.org';
  */
 export class BitBucket implements GitHost {
 	webUrl: string;
+	repo: RepoInfo;
+	private baseBranch: string;
+	private forkStr?: string;
 
-	constructor(
-		repo: RepoInfo,
-		private baseBranch: string,
-		private fork?: string
-	) {
+	constructor({ repo, baseBranch, forkStr }: GitHostArguments) {
 		this.webUrl = `https://${BITBUCKET_DOMAIN}/${repo.owner}/${repo.name}`;
+		this.repo = repo;
+		this.baseBranch = baseBranch;
+		this.forkStr = forkStr;
 	}
 
 	branch(name: string) {
-		return new BitBucketBranch(name, this.baseBranch, this.webUrl, this.fork);
+		return new BitBucketBranch(name, this.baseBranch, this.webUrl, this.forkStr);
 	}
 
 	commitUrl(id: string): string {

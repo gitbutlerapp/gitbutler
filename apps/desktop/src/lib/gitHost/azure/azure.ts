@@ -1,6 +1,7 @@
 import { AzureBranch } from './azureBranch';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
+import type { GitHostArguments } from '../interface/types';
 
 export const AZURE_DOMAIN = 'dev.azure.com';
 
@@ -12,17 +13,19 @@ export const AZURE_DOMAIN = 'dev.azure.com';
  */
 export class AzureDevOps implements GitHost {
 	url: string;
+	repo: RepoInfo;
+	private baseBranch: string;
+	private forkStr?: string;
 
-	constructor(
-		repo: RepoInfo,
-		private baseBranch: string,
-		private fork?: string
-	) {
+	constructor({ repo, baseBranch, forkStr }: GitHostArguments) {
 		this.url = `https://${AZURE_DOMAIN}/${repo.organization}/${repo.owner}/_git/${repo.name}`;
+		this.repo = repo;
+		this.baseBranch = baseBranch;
+		this.forkStr = forkStr;
 	}
 
 	branch(name: string) {
-		return new AzureBranch(name, this.baseBranch, this.url, this.fork);
+		return new AzureBranch(name, this.baseBranch, this.url, this.forkStr);
 	}
 
 	commitUrl(id: string): string {

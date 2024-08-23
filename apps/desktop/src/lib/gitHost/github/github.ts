@@ -7,22 +7,40 @@ import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { Settings } from '$lib/settings/userSettings';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
+import type { GitHostArguments } from '../interface/types';
 import type { Readable } from 'svelte/store';
 
 export const GITHUB_DOMAIN = 'github.com';
 
 export class GitHub implements GitHost {
 	baseUrl: string;
+	private repo: RepoInfo;
+	private baseBranch: string;
+	private forkStr?: string;
+	private octokit?: Octokit;
+	private projectMetrics?: ProjectMetrics;
+	private userSettings?: Readable<Settings>;
 
-	constructor(
-		private repo: RepoInfo,
-		private baseBranch?: string,
-		private fork?: string,
-		private octokit?: Octokit,
-		private projectMetrics?: ProjectMetrics,
-		private userSettings?: Readable<Settings>
-	) {
+	constructor({
+		repo,
+		baseBranch,
+		forkStr,
+		octokit,
+		projectMetrics,
+		userSettings
+	}: GitHostArguments & {
+		octokit?: Octokit;
+		projectMetrics?: ProjectMetrics;
+		userSettings?: Readable<Settings>;
+	}) {
 		this.baseUrl = `https://${GITHUB_DOMAIN}/${repo.owner}/${repo.name}`;
+
+		this.repo = repo;
+		this.baseBranch = baseBranch;
+		this.forkStr = forkStr;
+		this.octokit = octokit;
+		this.projectMetrics = projectMetrics;
+		this.userSettings = userSettings;
 	}
 
 	listService() {
@@ -56,7 +74,7 @@ export class GitHub implements GitHost {
 		if (!this.baseBranch) {
 			return;
 		}
-		return new GitHubBranch(name, this.baseBranch, this.baseUrl, this.fork);
+		return new GitHubBranch(name, this.baseBranch, this.baseUrl, this.forkStr);
 	}
 
 	commitUrl(id: string): string {

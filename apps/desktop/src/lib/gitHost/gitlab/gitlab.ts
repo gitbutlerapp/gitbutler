@@ -1,7 +1,7 @@
 import { GitLabBranch } from './gitlabBranch';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
-import type { DetailedPullRequest } from '../interface/types';
+import type { DetailedPullRequest, GitHostArguments } from '../interface/types';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
@@ -17,17 +17,19 @@ export const GITLAB_DOMAIN = 'gitlab.com';
  */
 export class GitLab implements GitHost {
 	webUrl: string;
+	repo: RepoInfo;
+	private baseBranch: string;
+	private forkStr?: string;
 
-	constructor(
-		repo: RepoInfo,
-		private baseBranch: string,
-		private fork?: string
-	) {
+	constructor({ repo, baseBranch, forkStr }: GitHostArguments) {
 		this.webUrl = `https://${GITLAB_DOMAIN}/${repo.owner}/${repo.name}`;
+		this.repo = repo;
+		this.baseBranch = baseBranch;
+		this.forkStr = forkStr;
 	}
 
 	branch(name: string) {
-		return new GitLabBranch(name, this.baseBranch, this.webUrl, this.fork);
+		return new GitLabBranch(name, this.baseBranch, this.webUrl, this.forkStr);
 	}
 
 	commitUrl(id: string): string {
