@@ -26,6 +26,17 @@
 			],
 			"windows": {
 				"certificateThumbprint": null
+			},
+			"rpm": {
+				"depends": [
+					"webkit2gtk4.0-devel"
+				]
+			},
+			"deb": {
+				"depends": [
+					"libwebkit2gtk-4.0-dev",
+					"libgtk-3-dev"
+				]
 			}
 		},
 		"security": {
