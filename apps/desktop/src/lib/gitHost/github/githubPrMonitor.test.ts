@@ -21,16 +21,15 @@ describe.concurrent('GitHubPrMonitor', () => {
 
 	beforeEach(() => {
 		octokit = new Octokit();
-		gh = new GitHub(
-			{
+		gh = new GitHub({
+			repo: {
 				source: 'github.com',
 				name: 'test-repo',
 				owner: 'test-owner'
 			},
-			undefined,
-			undefined,
+			baseBranch: 'test-branch',
 			octokit
-		);
+		});
 		service = gh.prService('base-branch', 'upstream-branch');
 		monitor = service?.prMonitor(123);
 	});

@@ -11,16 +11,15 @@ describe.concurrent('GitHubPrService', () => {
 
 	beforeEach(() => {
 		octokit = new Octokit();
-		gh = new GitHub(
-			{
+		gh = new GitHub({
+			repo: {
 				source: 'github.com',
 				name: 'test-repo',
 				owner: 'test-owner'
 			},
-			'main',
-			undefined,
+			baseBranch: 'main',
 			octokit
-		);
+		});
 		service = gh.prService('base-branch', 'upstream-branch');
 	});
 
