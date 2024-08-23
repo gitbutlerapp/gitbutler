@@ -89,10 +89,10 @@
 				{isUnapplied}
 				showCheckbox={showCheckboxes}
 				selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
-				on:click={(e) => {
+				onclick={(e) => {
 					selectFilesInList(e, file, fileIdSelection, displayedFiles, allowMultiple, $commit);
 				}}
-				on:keydown={(e) => {
+				onkeydown={(e) => {
 					e.preventDefault();
 					maybeMoveSelection(
 						{
