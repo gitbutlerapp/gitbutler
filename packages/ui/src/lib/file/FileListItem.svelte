@@ -12,6 +12,7 @@
 		fileName: string;
 		filePath: string;
 		fileStatus?: FileStatus;
+		fileStatusStyle?: 'dot' | 'full';
 		draggable?: boolean;
 		selected?: boolean;
 		showCheckbox?: boolean;
@@ -36,6 +37,7 @@
 		fileName,
 		filePath,
 		fileStatus,
+		fileStatusStyle = 'dot',
 		draggable = false,
 		selected = false,
 		showCheckbox = false,
@@ -108,7 +110,7 @@
 		{/if}
 
 		{#if fileStatus}
-			<FileStatusBadge status={fileStatus} />
+			<FileStatusBadge status={fileStatus} style={fileStatusStyle} />
 		{/if}
 
 		{#if draggable}

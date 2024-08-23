@@ -7,6 +7,7 @@
 		filePath: string;
 		fileStatus?: FileStatus;
 		draggable?: boolean;
+		fileStatusStyle?: 'dot' | 'full';
 		selected?: boolean;
 		showCheckbox?: boolean;
 		checked?: boolean;
@@ -24,6 +25,7 @@
 		filePath,
 		fileStatus,
 		draggable = false,
+		fileStatusStyle = 'dot',
 		selected = false,
 		showCheckbox = false,
 		checked,
@@ -50,6 +52,7 @@
 	{fileName}
 	{filePath}
 	{fileStatus}
+	{fileStatusStyle}
 	{draggable}
 	{selected}
 	{showCheckbox}

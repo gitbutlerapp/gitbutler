@@ -15,6 +15,7 @@ export const FileListItemStory: Story = {
 		fileName: 'file.txt',
 		filePath: '/path/to',
 		fileStatus: 'A',
+		fileStatusStyle: 'dot',
 		selected: false,
 		conflicted: true,
 		draggable: true,
