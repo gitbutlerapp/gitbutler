@@ -14,7 +14,7 @@
 	import { join } from '@tauri-apps/api/path';
 	import { open as openFile } from '@tauri-apps/api/shell';
 
-	export let target: HTMLElement;
+	export let target: HTMLElement | undefined;
 	export let isUnapplied;
 
 	const branchController = getContext(BranchController);

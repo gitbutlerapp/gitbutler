@@ -1,4 +1,4 @@
-import FileIcon from '$lib/FileIcon.svelte';
+import FileIcon from '$lib/file/FileIcon.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
@@ -9,7 +9,7 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const IconStory: Story = {
+export const FileIconStory: Story = {
 	name: 'File Icon',
 	args: {
 		fileName: 'file.txt'
