@@ -16,24 +16,24 @@ export const GITLAB_DOMAIN = 'gitlab.com';
  * https://github.com/gitbutlerapp/gitbutler/issues/2511
  */
 export class GitLab implements GitHost {
-	webUrl: string;
-	repo: RepoInfo;
+	private baseUrl: string;
+	private repo: RepoInfo;
 	private baseBranch: string;
 	private forkStr?: string;
 
 	constructor({ repo, baseBranch, forkStr }: GitHostArguments) {
-		this.webUrl = `https://${GITLAB_DOMAIN}/${repo.owner}/${repo.name}`;
+		this.baseUrl = `https://${GITLAB_DOMAIN}/${repo.owner}/${repo.name}`;
 		this.repo = repo;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
 	}
 
 	branch(name: string) {
-		return new GitLabBranch(name, this.baseBranch, this.webUrl, this.forkStr);
+		return new GitLabBranch(name, this.baseBranch, this.baseUrl, this.forkStr);
 	}
 
 	commitUrl(id: string): string {
-		return `${this.webUrl}/-/commit/${id}`;
+		return `${this.baseUrl}/-/commit/${id}`;
 	}
 
 	listService() {

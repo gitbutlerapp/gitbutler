@@ -16,24 +16,24 @@ export const BITBUCKET_DOMAIN = 'bitbucket.org';
  * https://github.com/gitbutlerapp/gitbutler/issues/3252
  */
 export class BitBucket implements GitHost {
-	webUrl: string;
-	repo: RepoInfo;
+	private baseUrl: string;
+	private repo: RepoInfo;
 	private baseBranch: string;
 	private forkStr?: string;
 
 	constructor({ repo, baseBranch, forkStr }: GitHostArguments) {
-		this.webUrl = `https://${BITBUCKET_DOMAIN}/${repo.owner}/${repo.name}`;
+		this.baseUrl = `https://${BITBUCKET_DOMAIN}/${repo.owner}/${repo.name}`;
 		this.repo = repo;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
 	}
 
 	branch(name: string) {
-		return new BitBucketBranch(name, this.baseBranch, this.webUrl, this.forkStr);
+		return new BitBucketBranch(name, this.baseBranch, this.baseUrl, this.forkStr);
 	}
 
 	commitUrl(id: string): string {
-		return `${this.webUrl}/commits/${id}`;
+		return `${this.baseUrl}/commits/${id}`;
 	}
 
 	listService() {

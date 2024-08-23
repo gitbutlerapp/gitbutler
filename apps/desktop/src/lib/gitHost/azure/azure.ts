@@ -12,24 +12,24 @@ export const AZURE_DOMAIN = 'dev.azure.com';
  * https://github.com/gitbutlerapp/gitbutler/issues/2651
  */
 export class AzureDevOps implements GitHost {
-	url: string;
-	repo: RepoInfo;
+	private baseUrl: string;
+	private repo: RepoInfo;
 	private baseBranch: string;
 	private forkStr?: string;
 
 	constructor({ repo, baseBranch, forkStr }: GitHostArguments) {
-		this.url = `https://${AZURE_DOMAIN}/${repo.organization}/${repo.owner}/_git/${repo.name}`;
+		this.baseUrl = `https://${AZURE_DOMAIN}/${repo.organization}/${repo.owner}/_git/${repo.name}`;
 		this.repo = repo;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
 	}
 
 	branch(name: string) {
-		return new AzureBranch(name, this.baseBranch, this.url, this.forkStr);
+		return new AzureBranch(name, this.baseBranch, this.baseUrl, this.forkStr);
 	}
 
 	commitUrl(id: string): string {
-		return `${this.url}/commit/${id}`;
+		return `${this.baseUrl}/commit/${id}`;
 	}
 
 	listService() {

@@ -13,7 +13,7 @@ import type { Readable } from 'svelte/store';
 export const GITHUB_DOMAIN = 'github.com';
 
 export class GitHub implements GitHost {
-	baseUrl: string;
+	private baseUrl: string;
 	private repo: RepoInfo;
 	private baseBranch: string;
 	private forkStr?: string;
@@ -34,7 +34,6 @@ export class GitHub implements GitHost {
 		userSettings?: Readable<Settings>;
 	}) {
 		this.baseUrl = `https://${GITHUB_DOMAIN}/${repo.owner}/${repo.name}`;
-
 		this.repo = repo;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
