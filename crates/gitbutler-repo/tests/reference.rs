@@ -1,6 +1,7 @@
 use anyhow::Result;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::CommandContext;
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::{
     create_branch_reference, credentials::Helper, list_branch_references, list_commit_references,
     push_branch_reference, update_branch_reference, LogUntil, RepoActionsExt,
@@ -16,12 +17,14 @@ fn create_success() -> Result<()> {
         test_ctx.branch.id,
         "refs/remotes/origin/success".into(),
         test_ctx.commits.first().unwrap().id(),
-        Some("change-id".into()),
     )?;
     assert_eq!(reference.branch_id, test_ctx.branch.id);
     assert_eq!(reference.upstream, "refs/remotes/origin/success".into());
     assert_eq!(reference.commit_id, test_ctx.commits.first().unwrap().id());
-    assert_eq!(reference.change_id, Some("change-id".into()));
+    assert_eq!(
+        reference.change_id,
+        test_ctx.commits.first().unwrap().change_id()
+    );
     Ok(())
 }
 
@@ -34,23 +37,24 @@ fn create_multiple() -> Result<()> {
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
         test_ctx.commits.first().unwrap().id(),
-        None,
     )?;
     assert_eq!(first.branch_id, test_ctx.branch.id);
     assert_eq!(first.upstream, "refs/remotes/origin/first".into());
     assert_eq!(first.commit_id, test_ctx.commits.first().unwrap().id());
-    assert_eq!(first.change_id, None);
+    assert_eq!(
+        first.change_id,
+        test_ctx.commits.first().unwrap().change_id()
+    );
     let last = create_branch_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/last".into(),
         test_ctx.commits.last().unwrap().id(),
-        None,
     )?;
     assert_eq!(last.branch_id, test_ctx.branch.id);
     assert_eq!(last.upstream, "refs/remotes/origin/last".into());
     assert_eq!(last.commit_id, test_ctx.commits.last().unwrap().id());
-    assert_eq!(last.change_id, None);
+    assert_eq!(last.change_id, test_ctx.commits.last().unwrap().change_id());
     Ok(())
 }
 
@@ -63,7 +67,6 @@ fn create_fails_with_non_remote_reference() -> Result<()> {
         test_ctx.branch.id,
         "foo".into(),
         test_ctx.commits.first().unwrap().id(),
-        None,
     );
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -81,14 +84,12 @@ fn create_fails_when_branch_reference_with_name_exists() -> Result<()> {
         test_ctx.branch.id,
         "refs/remotes/origin/taken".into(),
         test_ctx.commits.first().unwrap().id(),
-        None,
     )?;
     let result = create_branch_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/taken".into(),
         test_ctx.commits.last().unwrap().id(),
-        None,
     );
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -107,14 +108,12 @@ fn create_fails_when_commit_already_referenced() -> Result<()> {
         test_ctx.branch.id,
         "refs/remotes/origin/one".into(),
         test_ctx.commits.first().unwrap().id(),
-        None,
     )?;
     let result = create_branch_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/two".into(),
         test_ctx.commits.first().unwrap().id(),
-        None,
     );
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -137,7 +136,6 @@ fn create_fails_when_commit_in_anothe_branch() -> Result<()> {
         test_ctx.branch.id,
         "refs/remotes/origin/asdf".into(),
         wrong_commit,
-        None,
     );
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -158,7 +156,6 @@ fn create_fails_when_commit_is_the_base() -> Result<()> {
         test_ctx.branch.id,
         "refs/remotes/origin/baz".into(),
         test_ctx.branch_base,
-        None,
     );
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -179,14 +176,12 @@ fn list_success() -> Result<()> {
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
         test_ctx.commits.first().unwrap().id(),
-        Some("change-id".into()),
     )?;
     let second_ref = create_branch_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/second".into(),
         test_ctx.commits.last().unwrap().id(),
-        Some("change-id".into()),
     )?;
     let result = list_branch_references(&ctx, test_ctx.branch.id)?;
     assert_eq!(result.len(), 2);
@@ -204,16 +199,18 @@ fn update_success() -> Result<()> {
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
         test_ctx.commits.first().unwrap().id(),
-        Some("change-id".into()),
     )?;
     let updated = update_branch_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
         test_ctx.commits.last().unwrap().id(),
-        None,
     )?;
     assert_eq!(updated.commit_id, test_ctx.commits.last().unwrap().id());
+    assert_eq!(
+        updated.change_id,
+        test_ctx.commits.last().unwrap().change_id()
+    );
     let list = list_branch_references(&ctx, test_ctx.branch.id)?;
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].commit_id, test_ctx.commits.last().unwrap().id());
@@ -229,7 +226,6 @@ fn push_success() -> Result<()> {
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
         test_ctx.commits.first().unwrap().id(),
-        Some("change-id".into()),
     )?;
     let result = push_branch_reference(
         &ctx,
@@ -251,21 +247,18 @@ fn list_by_commits_success() -> Result<()> {
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
         test_ctx.commits.first().unwrap().id(),
-        None,
     )?;
     let second = create_branch_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/second".into(),
         test_ctx.commits.last().unwrap().id(),
-        None,
     )?;
     let third = create_branch_reference(
         &ctx,
         test_ctx.other_branch.id,
         "refs/remotes/origin/third".into(),
         test_ctx.other_commits.first().unwrap().id(),
-        None,
     )?;
     let commits = vec![
         test_ctx.commits.first().unwrap().id(),

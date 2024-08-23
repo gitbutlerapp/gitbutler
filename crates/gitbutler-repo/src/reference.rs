@@ -9,6 +9,7 @@ use gitbutler_branch::BranchReference;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_branch::{Branch, BranchId};
 use gitbutler_command_context::CommandContext;
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::ReferenceName;
 use itertools::Itertools;
 
@@ -55,7 +56,6 @@ pub fn create_branch_reference(
     branch_id: BranchId,
     upstream: ReferenceName,
     commit_id: git2::Oid,
-    change_id: Option<String>,
 ) -> Result<BranchReference> {
     // The reference must be parseable as a remote reference
     gitbutler_reference::RemoteRefname::from_str(&upstream)
@@ -64,11 +64,18 @@ pub fn create_branch_reference(
 
     // The branch must exist
     let mut vbranch = handle.get_branch(branch_id)?;
+
+    // Enusre that the commit acutally exists
+    let commit = ctx
+        .repository()
+        .find_commit(commit_id)
+        .context(anyhow!("Commit {} does not exist", commit_id))?;
+
     let branch_reference = BranchReference {
         upstream,
         branch_id,
         commit_id,
-        change_id,
+        change_id: commit.change_id(),
     };
     let all_references = handle
         .list_all_branches()?
@@ -107,13 +114,11 @@ pub fn create_branch_reference(
 /// - the reference exists, but the commit id is already associated with another reference
 ///
 /// If the commit ID is the same as the current commit ID, the function is a no-op.
-/// If the change ID is provided, it will be updated, otherwise it will be left unchanged.
 pub fn update_branch_reference(
     ctx: &CommandContext,
     branch_id: BranchId,
     upstream: ReferenceName,
     new_commit_id: git2::Oid,
-    new_change_id: Option<String>,
 ) -> Result<BranchReference> {
     // The reference must be parseable as a remote reference
     gitbutler_reference::RemoteRefname::from_str(&upstream)
@@ -121,6 +126,12 @@ pub fn update_branch_reference(
     let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
     // The branch must exist
     let mut vbranch = handle.get_branch(branch_id)?;
+
+    // Enusre that the commit acutally exists
+    let new_commit = ctx
+        .repository()
+        .find_commit(new_commit_id)
+        .context(anyhow!("Commit {} does not exist", new_commit_id))?;
 
     // Fail early if the commit is not valid
     validate_commit(&vbranch, new_commit_id, ctx, &handle)?;
@@ -135,7 +146,7 @@ pub fn update_branch_reference(
             branch_id
         ))?;
     reference.commit_id = new_commit_id;
-    reference.change_id = new_change_id.or(reference.change_id.clone());
+    reference.change_id = new_commit.change_id();
     let new_reference = reference.clone();
     handle.set_branch(vbranch)?;
     Ok(new_reference)
@@ -171,7 +182,6 @@ pub fn push_branch_reference(
 /// Validates a commit in the following ways:
 /// - The reference does not already exists for any other branch
 /// - There is no other reference already pointing to the commit
-/// - The commit actually exists
 /// - The commit is between the branch base and the branch head
 fn validate_commit(
     vbranch: &Branch,
@@ -179,11 +189,6 @@ fn validate_commit(
     ctx: &CommandContext,
     handle: &VirtualBranchesHandle,
 ) -> Result<()> {
-    // Enusre that the commit acutally exists
-    ctx.repository()
-        .find_commit(commit_id)
-        .context(anyhow!("Commit {} does not exist", commit_id))?;
-
     let target = handle.get_default_target()?;
     let branch_commits = ctx
         .log(vbranch.head, LogUntil::Commit(target.sha))?

@@ -117,7 +117,6 @@ fn update_existing_branch_references(
                 reference.branch_id,
                 reference.upstream.clone(),
                 new_commit.id(),
-                new_commit.change_id(),
             )
             .map(Some)
         })
