@@ -4,8 +4,10 @@ import { GitHubListingService } from './githubListingService';
 import { GitHubPrService } from './githubPrService';
 import { Octokit } from '@octokit/rest';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
+import type { Settings } from '$lib/settings/userSettings';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
+import type { Readable } from 'svelte/store';
 
 export const GITHUB_DOMAIN = 'github.com';
 
@@ -17,7 +19,8 @@ export class GitHub implements GitHost {
 		private baseBranch?: string,
 		private fork?: string,
 		private octokit?: Octokit,
-		private projectMetrics?: ProjectMetrics
+		private projectMetrics?: ProjectMetrics,
+		private userSettings?: Readable<Settings>
 	) {
 		this.baseUrl = `https://${GITHUB_DOMAIN}/${repo.owner}/${repo.name}`;
 	}
@@ -33,7 +36,13 @@ export class GitHub implements GitHost {
 		if (!this.octokit) {
 			return;
 		}
-		return new GitHubPrService(this.octokit, this.repo, baseBranch, upstreamName);
+		return new GitHubPrService(
+			this.octokit,
+			this.repo,
+			baseBranch,
+			upstreamName,
+			this.userSettings
+		);
 	}
 
 	checksMonitor(sourceBranch: string) {

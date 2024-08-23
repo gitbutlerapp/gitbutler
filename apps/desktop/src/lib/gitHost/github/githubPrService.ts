@@ -1,11 +1,10 @@
 import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
-import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-import { getContextStoreBySymbol } from '$lib/utils/context';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { get, writable, type Readable } from 'svelte/store';
+import type { Settings } from '$lib/settings/userSettings';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHostPrService } from '../interface/gitHostPrService';
 import type { DetailedPullRequest, MergeMethod, PullRequest } from '../interface/types';
@@ -15,16 +14,14 @@ const DEFAULT_PULL_REQUEST_TEMPLATE_PATH = '.github/PULL_REQUEST_TEMPLATE.md';
 
 export class GitHubPrService implements GitHostPrService {
 	loading = writable(false);
-	userSettings: Readable<Settings>;
 
 	constructor(
 		private octokit: Octokit,
 		private repo: RepoInfo,
 		private baseBranch: string,
-		private upstreamName: string
-	) {
-		this.userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	}
+		private upstreamName: string,
+		private userSettings?: Readable<Settings>
+	) {}
 
 	async createPr(title: string, body: string, draft: boolean): Promise<PullRequest> {
 		this.loading.set(true);
@@ -45,7 +42,9 @@ export class GitHubPrService implements GitHostPrService {
 		let lastError: any;
 		let pr: PullRequest | undefined;
 		let pullRequestTemplate: string | undefined;
-		const usePrTemplate = get(this.userSettings)?.gitHost.usePullRequestTemplate;
+		const usePrTemplate = this.userSettings
+			? get(this.userSettings)?.gitHost.usePullRequestTemplate
+			: null;
 
 		if (!body && usePrTemplate) {
 			pullRequestTemplate = await this.fetchPrTemplate();

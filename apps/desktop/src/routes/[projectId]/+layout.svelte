@@ -24,8 +24,10 @@
 	import { ModeService } from '$lib/modes/service';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
+	import { getContextStoreBySymbol } from '$lib/utils/context';
 	import { debounce } from '$lib/utils/debounce';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
@@ -78,6 +80,7 @@
 
 	const showHistoryView = persisted(false, 'showHistoryView');
 
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
 	const gitHostFactory = $derived(new DefaultGitHostFactory(octokit));
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
@@ -120,7 +123,7 @@
 	$effect.pre(() => {
 		const gitHost =
 			repoInfo && baseBranchName
-				? gitHostFactory.build(repoInfo, baseBranchName, forkInfo)
+				? gitHostFactory.build(repoInfo, baseBranchName, forkInfo, userSettings)
 				: undefined;
 
 		const ghListService = gitHost?.listService();
