@@ -4,6 +4,7 @@ import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
+import type { Hunk, LocalFile } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
 export class BranchController {
