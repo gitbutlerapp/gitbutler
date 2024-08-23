@@ -1595,6 +1595,9 @@ name = "faster-hex"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2a2b11eda1d40935b26cf18f6833c526845ae8c41e58d09af6adeb6f0269183"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "fastrand"
@@ -2280,7 +2283,7 @@ version = "0.0.0"
 dependencies = [
  "assert_cmd",
  "futures",
- "gix-path 0.10.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-path 0.10.9",
  "nix 0.29.0",
  "rand 0.8.5",
  "serde",
@@ -2609,49 +2612,49 @@ dependencies = [
 
 [[package]]
 name = "gix"
-version = "0.64.0"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.66.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
- "gix-actor 0.31.5 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-attributes 0.22.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-actor 0.32.0",
+ "gix-attributes 0.22.5",
  "gix-command",
- "gix-commitgraph 0.24.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-commitgraph 0.24.3 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "gix-config",
  "gix-credentials",
  "gix-date 0.9.0",
  "gix-diff",
  "gix-dir",
- "gix-discover 0.33.0",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-discover 0.35.0",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "gix-filter",
- "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-glob 0.16.4 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hashtable 0.5.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-ignore 0.11.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-index 0.33.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-lock 14.0.0 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-fs 0.11.3",
+ "gix-glob 0.16.5",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-hashtable 0.5.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-ignore 0.11.4",
+ "gix-index 0.35.0",
+ "gix-lock 14.0.0 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "gix-negotiate",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-object 0.44.0",
  "gix-odb",
  "gix-pack",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-path 0.10.10",
  "gix-pathspec",
  "gix-prompt",
  "gix-protocol",
- "gix-ref 0.45.0",
+ "gix-ref 0.47.0",
  "gix-refspec",
  "gix-revision",
- "gix-revwalk 0.13.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-sec 0.10.7 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-revwalk 0.15.0",
+ "gix-sec 0.10.8",
  "gix-submodule",
- "gix-tempfile 14.0.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-traverse 0.39.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-tempfile 14.0.2",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-traverse 0.41.0",
  "gix-url",
- "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-validate 0.8.5 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-worktree 0.34.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-validate 0.9.0",
+ "gix-worktree 0.36.0",
  "gix-worktree-state",
  "once_cell",
  "smallvec",
@@ -2674,12 +2677,12 @@ dependencies = [
 
 [[package]]
 name = "gix-actor"
-version = "0.31.5"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.32.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "gix-date 0.9.0",
- "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "itoa 1.0.11",
  "thiserror",
  "winnow 0.6.16",
@@ -2692,8 +2695,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e37ce99c7e81288c28b703641b6d5d119aacc45c1a6b247156e6249afa486257"
 dependencies = [
  "bstr",
- "gix-glob 0.16.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-path 0.10.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-glob 0.16.4",
+ "gix-path 0.10.9",
  "gix-quote 0.4.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "gix-trace 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "kstring",
@@ -2704,14 +2707,14 @@ dependencies = [
 
 [[package]]
 name = "gix-attributes"
-version = "0.22.3"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.22.5"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
- "gix-glob 0.16.4 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-quote 0.4.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-glob 0.16.5",
+ "gix-path 0.10.10",
+ "gix-quote 0.4.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "kstring",
  "smallvec",
  "thiserror",
@@ -2730,7 +2733,7 @@ dependencies = [
 [[package]]
 name = "gix-bitmap"
 version = "0.2.11"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "thiserror",
 ]
@@ -2747,19 +2750,19 @@ dependencies = [
 [[package]]
 name = "gix-chunk"
 version = "0.4.8"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "gix-command"
-version = "0.3.8"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.3.9"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-path 0.10.10",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "shell-words",
 ]
 
@@ -2780,28 +2783,28 @@ dependencies = [
 [[package]]
 name = "gix-commitgraph"
 version = "0.24.3"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
- "gix-chunk 0.4.8 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-chunk 0.4.8 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "memmap2",
  "thiserror",
 ]
 
 [[package]]
 name = "gix-config"
-version = "0.38.0"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.40.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "gix-config-value",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-glob 0.16.4 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-ref 0.45.0",
- "gix-sec 0.10.7 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-glob 0.16.5",
+ "gix-path 0.10.10",
+ "gix-ref 0.47.0",
+ "gix-sec 0.10.8",
  "memchr",
  "once_cell",
  "smallvec",
@@ -2812,28 +2815,28 @@ dependencies = [
 
 [[package]]
 name = "gix-config-value"
-version = "0.14.7"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.14.8"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bitflags 2.6.0",
  "bstr",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-path 0.10.10",
  "libc",
  "thiserror",
 ]
 
 [[package]]
 name = "gix-credentials"
-version = "0.24.4"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.24.5"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "gix-command",
  "gix-config-value",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-path 0.10.10",
  "gix-prompt",
- "gix-sec 0.10.7 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-sec 0.10.8",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "gix-url",
  "thiserror",
 ]
@@ -2853,7 +2856,7 @@ dependencies = [
 [[package]]
 name = "gix-date"
 version = "0.9.0"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "itoa 1.0.11",
@@ -2863,39 +2866,39 @@ dependencies = [
 
 [[package]]
 name = "gix-diff"
-version = "0.44.1"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.46.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "gix-command",
  "gix-filter",
- "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-tempfile 14.0.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-worktree 0.34.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-fs 0.11.3",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-object 0.44.0",
+ "gix-path 0.10.10",
+ "gix-tempfile 14.0.2",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-worktree 0.36.0",
  "imara-diff",
  "thiserror",
 ]
 
 [[package]]
 name = "gix-dir"
-version = "0.6.0"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.8.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
- "gix-discover 0.33.0",
- "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-ignore 0.11.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-index 0.33.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-discover 0.35.0",
+ "gix-fs 0.11.3",
+ "gix-ignore 0.11.4",
+ "gix-index 0.35.0",
+ "gix-object 0.44.0",
+ "gix-path 0.10.10",
  "gix-pathspec",
- "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-worktree 0.34.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-worktree 0.36.0",
  "thiserror",
 ]
 
@@ -2907,26 +2910,26 @@ checksum = "fc27c699b63da66b50d50c00668bc0b7e90c3a382ef302865e891559935f3dbf"
 dependencies = [
  "bstr",
  "dunce",
- "gix-fs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-fs 0.11.2",
  "gix-hash 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-path 0.10.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-path 0.10.9",
  "gix-ref 0.44.1",
- "gix-sec 0.10.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-sec 0.10.7",
  "thiserror",
 ]
 
 [[package]]
 name = "gix-discover"
-version = "0.33.0"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.35.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "dunce",
- "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-ref 0.45.0",
- "gix-sec 0.10.7 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-fs 0.11.3",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-path 0.10.10",
+ "gix-ref 0.47.0",
+ "gix-sec 0.10.8",
  "thiserror",
 ]
 
@@ -2948,14 +2951,14 @@ dependencies = [
 [[package]]
 name = "gix-features"
 version = "0.38.2"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "crc32fast",
  "crossbeam-channel",
  "flate2",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "libc",
  "once_cell",
  "parking_lot 0.12.3",
@@ -2968,20 +2971,20 @@ dependencies = [
 
 [[package]]
 name = "gix-filter"
-version = "0.11.3"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.13.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "encoding_rs",
- "gix-attributes 0.22.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-attributes 0.22.5",
  "gix-command",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-object 0.44.0",
  "gix-packetline-blocking",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-quote 0.4.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-path 0.10.10",
+ "gix-quote 0.4.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "smallvec",
  "thiserror",
 ]
@@ -2999,12 +3002,12 @@ dependencies = [
 
 [[package]]
 name = "gix-fs"
-version = "0.11.2"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.11.3"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "fastrand 2.1.0",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
 ]
 
 [[package]]
@@ -3016,18 +3019,18 @@ dependencies = [
  "bitflags 2.6.0",
  "bstr",
  "gix-features 0.38.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-path 0.10.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-path 0.10.9",
 ]
 
 [[package]]
 name = "gix-glob"
-version = "0.16.4"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.16.5"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bitflags 2.6.0",
  "bstr",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-path 0.10.10",
 ]
 
 [[package]]
@@ -3043,7 +3046,7 @@ dependencies = [
 [[package]]
 name = "gix-hash"
 version = "0.14.2"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "faster-hex",
  "thiserror",
@@ -3063,9 +3066,9 @@ dependencies = [
 [[package]]
 name = "gix-hashtable"
 version = "0.5.2"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "hashbrown 0.14.5",
  "parking_lot 0.12.3",
 ]
@@ -3077,21 +3080,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e6afb8f98e314d4e1adc822449389ada863c174b5707cedd327d67b84dba527"
 dependencies = [
  "bstr",
- "gix-glob 0.16.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-path 0.10.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-glob 0.16.4",
+ "gix-path 0.10.9",
  "gix-trace 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
  "unicode-bom",
 ]
 
 [[package]]
 name = "gix-ignore"
-version = "0.11.3"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.11.4"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
- "gix-glob 0.16.4 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-glob 0.16.5",
+ "gix-path 0.10.10",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "unicode-bom",
 ]
 
@@ -3107,13 +3110,13 @@ dependencies = [
  "fnv",
  "gix-bitmap 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "gix-features 0.38.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-fs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-fs 0.11.2",
  "gix-hash 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "gix-lock 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-object 0.42.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-traverse 0.39.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-object 0.42.3",
+ "gix-traverse 0.39.2",
  "gix-utils 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-validate 0.8.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-validate 0.8.5",
  "hashbrown 0.14.5",
  "itoa 1.0.11",
  "libc",
@@ -3125,22 +3128,22 @@ dependencies = [
 
 [[package]]
 name = "gix-index"
-version = "0.33.1"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.35.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bitflags 2.6.0",
  "bstr",
  "filetime",
  "fnv",
- "gix-bitmap 0.2.11 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-lock 14.0.0 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-traverse 0.39.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-validate 0.8.5 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-bitmap 0.2.11 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-fs 0.11.3",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-lock 14.0.0 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-object 0.44.0",
+ "gix-traverse 0.41.0",
+ "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-validate 0.9.0",
  "hashbrown 0.14.5",
  "itoa 1.0.11",
  "libc",
@@ -3156,7 +3159,7 @@ version = "14.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3bc7fe297f1f4614774989c00ec8b1add59571dc9b024b4c00acb7dedd4e19d"
 dependencies = [
- "gix-tempfile 14.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-tempfile 14.0.1",
  "gix-utils 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
 ]
@@ -3164,24 +3167,24 @@ dependencies = [
 [[package]]
 name = "gix-lock"
 version = "14.0.0"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
- "gix-tempfile 14.0.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-tempfile 14.0.2",
+ "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "thiserror",
 ]
 
 [[package]]
 name = "gix-negotiate"
-version = "0.13.2"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.15.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bitflags 2.6.0",
- "gix-commitgraph 0.24.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-commitgraph 0.24.3 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "gix-date 0.9.0",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-revwalk 0.13.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-object 0.44.0",
+ "gix-revwalk 0.15.0",
  "smallvec",
  "thiserror",
 ]
@@ -3193,12 +3196,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25da2f46b4e7c2fa7b413ce4dffb87f69eaf89c2057e386491f4c55cadbfe386"
 dependencies = [
  "bstr",
- "gix-actor 0.31.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-actor 0.31.5",
  "gix-date 0.8.7",
  "gix-features 0.38.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "gix-hash 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "gix-utils 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-validate 0.8.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-validate 0.8.5",
  "itoa 1.0.11",
  "smallvec",
  "thiserror",
@@ -3207,16 +3210,16 @@ dependencies = [
 
 [[package]]
 name = "gix-object"
-version = "0.42.3"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.44.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
- "gix-actor 0.31.5 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-actor 0.32.0",
  "gix-date 0.9.0",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-validate 0.8.5 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-validate 0.9.0",
  "itoa 1.0.11",
  "smallvec",
  "thiserror",
@@ -3225,18 +3228,18 @@ dependencies = [
 
 [[package]]
 name = "gix-odb"
-version = "0.61.1"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.63.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "arc-swap",
  "gix-date 0.9.0",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-fs 0.11.3",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-object 0.44.0",
  "gix-pack",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-quote 0.4.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-path 0.10.10",
+ "gix-quote 0.4.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "parking_lot 0.12.3",
  "tempfile",
  "thiserror",
@@ -3244,17 +3247,17 @@ dependencies = [
 
 [[package]]
 name = "gix-pack"
-version = "0.51.1"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.53.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "clru",
- "gix-chunk 0.4.8 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hashtable 0.5.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-tempfile 14.0.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-chunk 0.4.8 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-hashtable 0.5.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-object 0.44.0",
+ "gix-path 0.10.10",
+ "gix-tempfile 14.0.2",
  "memmap2",
  "parking_lot 0.12.3",
  "smallvec",
@@ -3264,23 +3267,23 @@ dependencies = [
 
 [[package]]
 name = "gix-packetline"
-version = "0.17.5"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.17.6"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "faster-hex",
- "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "thiserror",
 ]
 
 [[package]]
 name = "gix-packetline-blocking"
-version = "0.17.4"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.17.5"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "faster-hex",
- "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "thiserror",
 ]
 
@@ -3299,11 +3302,11 @@ dependencies = [
 
 [[package]]
 name = "gix-path"
-version = "0.10.9"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.10.10"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
- "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "home",
  "once_cell",
  "thiserror",
@@ -3311,22 +3314,22 @@ dependencies = [
 
 [[package]]
 name = "gix-pathspec"
-version = "0.7.6"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.7.7"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bitflags 2.6.0",
  "bstr",
- "gix-attributes 0.22.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-attributes 0.22.5",
  "gix-config-value",
- "gix-glob 0.16.4 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-glob 0.16.5",
+ "gix-path 0.10.10",
  "thiserror",
 ]
 
 [[package]]
 name = "gix-prompt"
-version = "0.8.6"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.8.7"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "gix-command",
  "gix-config-value",
@@ -3337,16 +3340,16 @@ dependencies = [
 
 [[package]]
 name = "gix-protocol"
-version = "0.45.2"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.45.3"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "gix-credentials",
  "gix-date 0.9.0",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "gix-transport",
- "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "maybe-async",
  "thiserror",
  "winnow 0.6.16",
@@ -3366,10 +3369,10 @@ dependencies = [
 [[package]]
 name = "gix-quote"
 version = "0.4.12"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
- "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "thiserror",
 ]
 
@@ -3379,17 +3382,17 @@ version = "0.44.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3394a2997e5bc6b22ebc1e1a87b41eeefbcfcff3dbfa7c4bd73cb0ac8f1f3e2e"
 dependencies = [
- "gix-actor 0.31.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-actor 0.31.5",
  "gix-date 0.8.7",
  "gix-features 0.38.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-fs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-fs 0.11.2",
  "gix-hash 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "gix-lock 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-object 0.42.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-path 0.10.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-tempfile 14.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-object 0.42.3",
+ "gix-path 0.10.9",
+ "gix-tempfile 14.0.1",
  "gix-utils 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-validate 0.8.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-validate 0.8.5",
  "memmap2",
  "thiserror",
  "winnow 0.6.16",
@@ -3397,19 +3400,19 @@ dependencies = [
 
 [[package]]
 name = "gix-ref"
-version = "0.45.0"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.47.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
- "gix-actor 0.31.5 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-lock 14.0.0 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-tempfile 14.0.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-validate 0.8.5 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-actor 0.32.0",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-fs 0.11.3",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-lock 14.0.0 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-object 0.44.0",
+ "gix-path 0.10.10",
+ "gix-tempfile 14.0.2",
+ "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-validate 0.9.0",
  "memmap2",
  "thiserror",
  "winnow 0.6.16",
@@ -3417,27 +3420,27 @@ dependencies = [
 
 [[package]]
 name = "gix-refspec"
-version = "0.23.1"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.25.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "gix-revision",
- "gix-validate 0.8.5 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-validate 0.9.0",
  "smallvec",
  "thiserror",
 ]
 
 [[package]]
 name = "gix-revision"
-version = "0.27.2"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.29.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "gix-date 0.9.0",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-revwalk 0.13.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-object 0.44.0",
+ "gix-revwalk 0.15.0",
  "thiserror",
 ]
 
@@ -3451,21 +3454,21 @@ dependencies = [
  "gix-date 0.8.7",
  "gix-hash 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "gix-hashtable 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-object 0.42.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-object 0.42.3",
  "smallvec",
  "thiserror",
 ]
 
 [[package]]
 name = "gix-revwalk"
-version = "0.13.2"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.15.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
- "gix-commitgraph 0.24.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-commitgraph 0.24.3 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "gix-date 0.9.0",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hashtable 0.5.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-hashtable 0.5.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-object 0.44.0",
  "smallvec",
  "thiserror",
 ]
@@ -3477,30 +3480,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1547d26fa5693a7f34f05b4a3b59a90890972922172653bcb891ab3f09f436df"
 dependencies = [
  "bitflags 2.6.0",
- "gix-path 0.10.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-path 0.10.9",
  "libc",
  "windows-sys 0.52.0",
 ]
 
 [[package]]
 name = "gix-sec"
-version = "0.10.7"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.10.8"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bitflags 2.6.0",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-path 0.10.10",
  "libc",
  "windows-sys 0.52.0",
 ]
 
 [[package]]
 name = "gix-submodule"
-version = "0.12.0"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.14.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "gix-config",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-path 0.10.10",
  "gix-pathspec",
  "gix-refspec",
  "gix-url",
@@ -3513,7 +3516,7 @@ version = "14.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "006acf5a613e0b5cf095d8e4b3f48c12a60d9062aa2b2dd105afaf8344a5600c"
 dependencies = [
- "gix-fs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-fs 0.11.2",
  "libc",
  "once_cell",
  "parking_lot 0.12.3",
@@ -3524,11 +3527,11 @@ dependencies = [
 
 [[package]]
 name = "gix-tempfile"
-version = "14.0.1"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "14.0.2"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "dashmap",
- "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-fs 0.11.3",
  "libc",
  "once_cell",
  "parking_lot 0.12.3",
@@ -3546,12 +3549,12 @@ dependencies = [
  "fastrand 2.1.0",
  "fs_extra",
  "gix-discover 0.32.0",
- "gix-fs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-ignore 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-index 0.33.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-fs 0.11.2",
+ "gix-ignore 0.11.3",
+ "gix-index 0.33.1",
  "gix-lock 14.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-tempfile 14.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-worktree 0.34.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-tempfile 14.0.1",
+ "gix-worktree 0.34.1",
  "io-close",
  "is_ci",
  "once_cell",
@@ -3570,22 +3573,22 @@ checksum = "f924267408915fddcd558e3f37295cc7d6a3e50f8bd8b606cee0808c3915157e"
 [[package]]
 name = "gix-trace"
 version = "0.1.9"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "tracing-core",
 ]
 
 [[package]]
 name = "gix-transport"
-version = "0.42.2"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.42.3"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "gix-command",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "gix-packetline",
- "gix-quote 0.4.12 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-sec 0.10.7 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-quote 0.4.12 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-sec 0.10.8",
  "gix-url",
  "thiserror",
 ]
@@ -3601,36 +3604,36 @@ dependencies = [
  "gix-date 0.8.7",
  "gix-hash 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "gix-hashtable 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-object 0.42.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-revwalk 0.13.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-object 0.42.3",
+ "gix-revwalk 0.13.2",
  "smallvec",
  "thiserror",
 ]
 
 [[package]]
 name = "gix-traverse"
-version = "0.39.2"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.41.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bitflags 2.6.0",
- "gix-commitgraph 0.24.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-commitgraph 0.24.3 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "gix-date 0.9.0",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hashtable 0.5.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-revwalk 0.13.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-hashtable 0.5.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-object 0.44.0",
+ "gix-revwalk 0.15.0",
  "smallvec",
  "thiserror",
 ]
 
 [[package]]
 name = "gix-url"
-version = "0.27.4"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.27.5"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-path 0.10.10",
  "home",
  "thiserror",
  "url",
@@ -3649,7 +3652,7 @@ dependencies = [
 [[package]]
 name = "gix-utils"
 version = "0.1.12"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "fastrand 2.1.0",
@@ -3668,8 +3671,8 @@ dependencies = [
 
 [[package]]
 name = "gix-validate"
-version = "0.8.5"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.9.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
  "thiserror",
@@ -3682,51 +3685,51 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26f7326ebe0b9172220694ea69d344c536009a9b98fb0f9de092c440f3efe7a6"
 dependencies = [
  "bstr",
- "gix-attributes 0.22.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-attributes 0.22.3",
  "gix-features 0.38.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-fs 0.11.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-glob 0.16.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-fs 0.11.2",
+ "gix-glob 0.16.4",
  "gix-hash 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-ignore 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-index 0.33.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-object 0.42.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-path 0.10.9 (registry+https://github.com/rust-lang/crates.io-index)",
- "gix-validate 0.8.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gix-ignore 0.11.3",
+ "gix-index 0.33.1",
+ "gix-object 0.42.3",
+ "gix-path 0.10.9",
+ "gix-validate 0.8.5",
 ]
 
 [[package]]
 name = "gix-worktree"
-version = "0.34.1"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.36.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
- "gix-attributes 0.22.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-glob 0.16.4 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-ignore 0.11.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-index 0.33.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-validate 0.8.5 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-attributes 0.22.5",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-fs 0.11.3",
+ "gix-glob 0.16.5",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-ignore 0.11.4",
+ "gix-index 0.35.0",
+ "gix-object 0.44.0",
+ "gix-path 0.10.10",
+ "gix-validate 0.9.0",
 ]
 
 [[package]]
 name = "gix-worktree-state"
-version = "0.11.1"
-source = "git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547#242fedc973c56b6c1b6f150af99dda972a67f547"
+version = "0.13.0"
+source = "git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c#e82f795a56c645088b59d2b9faa5984ea067ab5c"
 dependencies = [
  "bstr",
- "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
  "gix-filter",
- "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-glob 0.16.4 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-index 0.33.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
- "gix-worktree 0.34.1 (git+https://github.com/Byron/gitoxide?rev=242fedc973c56b6c1b6f150af99dda972a67f547)",
+ "gix-fs 0.11.3",
+ "gix-glob 0.16.5",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=e82f795a56c645088b59d2b9faa5984ea067ab5c)",
+ "gix-index 0.35.0",
+ "gix-object 0.44.0",
+ "gix-path 0.10.10",
+ "gix-worktree 0.36.0",
  "io-close",
  "thiserror",
 ]
@@ -5857,6 +5860,10 @@ name = "prodash"
 version = "29.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a266d8d6020c61a437be704c5e618037588e1985c7dbb7bf8d265db84cffe325"
+dependencies = [
+ "log",
+ "parking_lot 0.12.3",
+]
 
 [[package]]
 name = "prost"

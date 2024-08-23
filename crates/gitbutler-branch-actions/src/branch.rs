@@ -553,20 +553,13 @@ pub fn get_branch_listing_details(
                     Ok(Action::Continue)
                 })?;
             let (number_of_files, lines_added, lines_removed) = rex_rx.recv()?;
-            // TODO(ST): make this API nicer, maybe have one that is not based on `ancestors()` but
-            //       similar to revwalk because it's so common?
-            let revwalk = branch_head
-                .attach(&repo)
-                .ancestors()
-                // When allowing to skip branches without a filter, make sure it automatically skips by date!
-                .sorting(
-                    gix::traverse::commit::simple::Sorting::ByCommitTimeNewestFirstCutoffOlderThan {
-                        seconds: base_commit.time()?.seconds,
-                    },
-                )
-                .selected(|id| id != gix_base)?;
+
             let mut num_commits = 0;
             let mut authors = HashSet::new();
+            let revwalk = repo
+                .rev_walk(Some(branch_head))
+                .with_pruned(Some(gix_base))
+                .all()?;
             for commit_info in revwalk {
                 let commit_info = commit_info?;
                 let commit = repo.find_commit(commit_info.id)?;
