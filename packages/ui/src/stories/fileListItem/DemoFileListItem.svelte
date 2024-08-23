@@ -1,7 +1,5 @@
 <script lang="ts">
 	import { type FileStatus } from '$lib/file/types';
-	import { tooltip } from '$lib/utils/tooltip';
-	import { onMount } from 'svelte';
 	import FileListItem from '$lib/file/FileListItem.svelte';
 
 	interface Props {
