@@ -3,6 +3,9 @@ use std::path::PathBuf;
 #[derive(Debug, clap::Parser)]
 #[clap(name = "gitbutler-cli", about = "A CLI for GitButler", version = option_env!("GIX_VERSION"))]
 pub struct Args {
+    /// Enable tracing for debug and performance information printed to stderr.
+    #[clap(short = 'd', long)]
+    pub trace: bool,
     /// Run as if gitbutler-cli was started in PATH instead of the current working directory.
     #[clap(short = 'C', long, default_value = ".", value_name = "PATH")]
     pub current_dir: PathBuf,
@@ -25,6 +28,8 @@ pub enum Subcommands {
 }
 
 pub mod vbranch {
+    use gitbutler_branch::BranchIdentity;
+
     #[derive(Debug, clap::Parser)]
     pub struct Platform {
         #[clap(subcommand)]
@@ -59,6 +64,15 @@ pub mod vbranch {
             /// The name of the virtual branch to create
             name: String,
         },
+        /// Provide details about given branches.
+        Details {
+            /// The short-name/identity of branches to list.
+            names: Vec<BranchIdentity>,
+        },
+        /// List all branches that can be relevant.
+        ListAll,
+        /// After fetching the target (i.e. local tracking branch), recompute our workspace against it.
+        UpdateTarget,
     }
 }
 

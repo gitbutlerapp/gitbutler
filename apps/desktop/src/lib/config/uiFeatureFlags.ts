@@ -15,8 +15,3 @@ export function featureInlineUnifiedDiffs(): Persisted<boolean> {
 	const key = 'inlineUnifiedDiffs';
 	return persisted(false, key);
 }
-
-export function featureEditMode(): Persisted<boolean> {
-	const key = 'editMode';
-	return persisted(false, key);
-}

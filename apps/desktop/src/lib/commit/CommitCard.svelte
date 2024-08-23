@@ -4,7 +4,6 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
-	import { featureEditMode } from '$lib/config/uiFeatureFlags';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
@@ -43,8 +42,6 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const modeService = maybeGetContext(ModeService);
-
-	const editModeEnabled = featureEditMode();
 
 	const commitStore = createCommitStore(commit);
 	$: commitStore.set(commit);
@@ -135,6 +132,8 @@
 
 		modeService!.enterEditMode(commit.id, branch!.refname);
 	}
+
+	$: conflicted = commit instanceof DetailedCommit && commit.conflicted;
 </script>
 
 <Modal bind:this={commitMessageModal} width="small">
@@ -270,6 +269,21 @@
 							<span class="commit__subtitle-divider">•</span>
 						{/if}
 
+						{#if conflicted}
+							<div
+								class="commit__conflicted"
+								use:tooltip={{
+									text: 'Conflicted commits must be resolved before they can be ammended or squashed.\n\nPlease resolve conflicts using the "Resolve conflicts" button'
+								}}
+							>
+								<Icon name="warning-small" />
+
+								Conflicted
+							</div>
+
+							<span class="commit__subtitle-divider">•</span>
+						{/if}
+
 						<button
 							class="commit__subtitle-btn commit__subtitle-btn_dashed"
 							on:click|stopPropagation={() => copyToClipboard(commit.id)}
@@ -318,17 +332,19 @@
 						{#if isUndoable}
 							<div class="commit__actions hide-native-scrollbar">
 								{#if isUndoable}
-									<Button
-										size="tag"
-										style="ghost"
-										outline
-										icon="undo-small"
-										onclick={(e) => {
-											currentCommitMessage.set(commit.description);
-											e.stopPropagation();
-											undoCommit(commit);
-										}}>Undo</Button
-									>
+									{#if !conflicted}
+										<Button
+											size="tag"
+											style="ghost"
+											outline
+											icon="undo-small"
+											onclick={(e) => {
+												currentCommitMessage.set(commit.description);
+												e.stopPropagation();
+												undoCommit(commit);
+											}}>Undo</Button
+										>
+									{/if}
 									<Button
 										size="tag"
 										style="ghost"
@@ -337,8 +353,14 @@
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
 								{/if}
-								{#if canEdit() && $editModeEnabled}
-									<Button size="tag" style="ghost" outline onclick={editPatch}>Edit patch</Button>
+								{#if canEdit() && project.succeedingRebases}
+									<Button size="tag" style="ghost" outline onclick={editPatch}>
+										{#if conflicted}
+											Resolve conflicts
+										{:else}
+											Edit patch
+										{/if}
+									</Button>
 								{/if}
 							</div>
 						{/if}
@@ -392,6 +414,14 @@
 		&:not(.is-first) {
 			border-top: none;
 		}
+	}
+
+	.commit__conflicted {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+
+		color: var(--clr-core-err-40);
 	}
 
 	.accent-border-line {

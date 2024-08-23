@@ -10,6 +10,7 @@ pub trait CommitExt {
     fn message_bstr(&self) -> &BStr;
     fn change_id(&self) -> Option<String>;
     fn is_signed(&self) -> bool;
+    fn is_conflicted(&self) -> bool;
 }
 
 impl<'repo> CommitExt for git2::Commit<'repo> {
@@ -22,5 +23,11 @@ impl<'repo> CommitExt for git2::Commit<'repo> {
     }
     fn is_signed(&self) -> bool {
         self.header_field_bytes("gpgsig").is_ok()
+    }
+
+    fn is_conflicted(&self) -> bool {
+        self.gitbutler_headers()
+            .and_then(|headers| headers.conflicted.map(|conflicted| conflicted > 0))
+            .unwrap_or(false)
     }
 }

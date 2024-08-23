@@ -60,7 +60,8 @@ export const SidebarEntryPr: Story = {
 		local: true,
 
 		pullRequestDetails: {
-			title: 'bestest pr'
+			title: 'bestest pr',
+			draft: false
 		}
 	}
 };
@@ -86,7 +87,8 @@ export const SidebarEntryInWorkspace: Story = {
 		local: true,
 
 		pullRequestDetails: {
-			title: 'bestest pr'
+			title: 'bestest pr',
+			draft: true
 		}
 	}
 };

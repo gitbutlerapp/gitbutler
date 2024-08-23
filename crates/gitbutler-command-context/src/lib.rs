@@ -70,4 +70,46 @@ impl CommandContext {
     pub fn repository(&self) -> &git2::Repository {
         &self.git_repository
     }
+
+    /// Return a newly opened `gitoxide` repository, with all configuration available
+    /// to correctly figure out author and committer names (i.e. with most global configuration loaded).
+    ///
+    /// ### Note
+    ///
+    /// The plan is to eventually phase out the `git2` version of the repository, and open
+    /// the `gitoxide` repository right away. Meanwhile, we open `gitoxide` repositories on the fly
+    /// on top-level functions, and pass them down as needed.
+    ///
+    /// Also note that there are plenty of other places where repositories are opened ad-hoc, and
+    /// there is no need to use this type there at all - opening a repo is very cheap still.
+    pub fn gix_repository(&self) -> Result<gix::Repository> {
+        Ok(gix::open(self.repository().path())?)
+    }
+
+    /// Return a newly opened `gitoxide` repository with only the repository-local configuration
+    /// available. This is a little faster as it has to open less files upon startup.
+    ///
+    /// Such repositories are only useful for reference and object-access, but *can't be used* to create
+    /// commits, fetch or push.
+    pub fn gix_repository_minimal(&self) -> Result<gix::Repository> {
+        Ok(gix::open_opts(
+            self.repository().path(),
+            gix::open::Options::isolated(),
+        )?)
+    }
+}
+
+// TODO(ST): put this into `gix`, the logic seems good, add unit-test for number generation.
+pub trait GixRepositoryExt: Sized {
+    /// Configure the repository for diff operations between trees.
+    /// This means it needs an object cache relative to the amount of files in the repository.
+    fn for_tree_diffing(self) -> Result<Self>;
+}
+
+impl GixRepositoryExt for gix::Repository {
+    fn for_tree_diffing(mut self) -> anyhow::Result<Self> {
+        let bytes = self.compute_object_cache_size_for_tree_diffs(&***self.index_or_empty()?);
+        self.object_cache_size_if_unset(bytes);
+        Ok(self)
+    }
 }

@@ -71,6 +71,12 @@
 	let loading = true;
 	let signCheckResult = false;
 	let errorMessage = '';
+	let succeedingRebases = project.succeedingRebases;
+
+	$: {
+		project.succeedingRebases = succeedingRebases;
+		projectService.updateProject(project);
+	}
 
 	async function checkSigning() {
 		checked = true;
@@ -306,6 +312,18 @@
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle id="ignoreProjectSemaphore" bind:checked={ignoreProjectSemaphore} />
+		</svelte:fragment>
+	</SectionCard>
+
+	<SectionCard labelFor="succeedingRebases" orientation="row">
+		<svelte:fragment slot="title">Edit mode and succeeding rebases</svelte:fragment>
+		<svelte:fragment slot="caption">
+			This is an experimental setting which will ensure that rebasing will always succeed,
+			introduces a mode for editing individual commits, and adds the ability to resolve conflicted
+			commits.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle id="succeedingRebases" bind:checked={succeedingRebases} />
 		</svelte:fragment>
 	</SectionCard>
 </Section>

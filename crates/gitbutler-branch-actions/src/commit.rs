@@ -33,6 +33,7 @@ pub struct VirtualBranchCommit {
     pub branch_id: BranchId,
     pub change_id: Option<String>,
     pub is_signed: bool,
+    pub conflicted: bool,
 }
 
 pub(crate) fn commit_to_vbranch_commit(
@@ -68,6 +69,7 @@ pub(crate) fn commit_to_vbranch_commit(
         branch_id: branch.id,
         change_id: commit.change_id(),
         is_signed: commit.is_signed(),
+        conflicted: commit.is_conflicted(),
     };
 
     Ok(commit)

@@ -2,6 +2,7 @@
 	import GroupHeader from './GroupHeader.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { CombinedBranchListingService } from '$lib/branches/branchListing';
+	import EmptyStatePlaceholder from '$lib/components/EmptyStatePlaceholder.svelte';
 	import BranchListingSidebarEntry from '$lib/navigation/BranchListingSidebarEntry.svelte';
 	import ChunkyList from '$lib/navigation/ChunkyList.svelte';
 	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
@@ -108,7 +109,7 @@
 			<div class="branches-title" class:hide-branch-title={searching}>
 				<span class="text-14 text-bold">Branches</span>
 
-				<Badge count={$branchListings.length} />
+				<Badge label={$branchListings.length} />
 			</div>
 
 			<div class="search-container" class:show-search={searching}>
@@ -162,14 +163,9 @@
 				</div>
 			</ScrollableContainer>
 		{:else}
-			<div class="branches__empty-state">
-				<div class="branches__empty-state__image">
-					{@html noBranchesSvg}
-				</div>
-				<span class="branches__empty-state__caption text-14 text-body text-semibold"
-					>No branches match your filter</span
-				>
-			</div>
+			<EmptyStatePlaceholder image={noBranchesSvg} width="11rem">
+				<svelte:fragment slot="caption">No branches<br />match your filter</svelte:fragment>
+			</EmptyStatePlaceholder>
 		{/if}
 	{:else}
 		<div class="branches__empty-state">

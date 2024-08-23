@@ -16,7 +16,7 @@ thiserror.workspace = true
 anyhow = "1.0.86"
 tokio = { workspace = true, features = ["macros"] }
 tokio-util = "0.7.11"
-tracing = "0.1.40"
+tracing.workspace = true
 gix = { workspace = true, features = [
     "excludes",
     "blocking-network-client",

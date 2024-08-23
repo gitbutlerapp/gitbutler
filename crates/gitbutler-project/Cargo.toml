@@ -17,7 +17,7 @@ gitbutler-storage.workspace = true
 git2.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 uuid.workspace = true
-tracing = "0.1.40"
+tracing.workspace = true
 resolve-path = "0.1.0"
 
 # for locking

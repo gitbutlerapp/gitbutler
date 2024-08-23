@@ -314,11 +314,12 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
     Ok(())
 }
 
-// try to update the target branch
-// this means that we need to:
-// determine if what the target branch is now pointing to is mergeable with our current working directory
-// merge the target branch into our current working directory
-// update the target sha
+/// try to update the target branch
+/// this means that we need to:
+/// - determine if what the target branch is now pointing to is mergeable with our current working directory,
+/// - merge the target branch into our current working directory
+/// - update the target sha
+/// - return all conflicting references that were unapplied to avoid the conflict
 pub(crate) fn update_base_branch(
     ctx: &CommandContext,
     perm: &mut WorktreeWritePermission,
@@ -359,8 +360,7 @@ pub(crate) fn update_base_branch(
     let updated_vbranches = get_applied_status(ctx, None)?
         .branches
         .into_iter()
-        .map(|(branch, _)| branch)
-        .map(|mut branch: Branch| -> Result<Option<Branch>> {
+        .map(|(mut branch, _)| -> Result<Option<Branch>> {
             let branch_tree = repo.find_tree(branch.tree)?;
 
             let branch_head_commit = repo.find_commit(branch.head).context(format!(
@@ -388,7 +388,7 @@ pub(crate) fn update_base_branch(
                 if non_commited_files.is_empty() {
                     // if there are no commited files, then the branch is fully merged,
                     // and we can delete it.
-                    vb_state.mark_as_not_in_workspace(branch.id)?;
+                    vb_state.delete_branch_entry(&branch.id)?;
                     ctx.delete_branch_reference(&branch)?;
                     Ok(None)
                 } else {

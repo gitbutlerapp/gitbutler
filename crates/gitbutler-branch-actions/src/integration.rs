@@ -31,7 +31,7 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
     let mut virtual_branches: Vec<Branch> = vb_state.list_branches_in_workspace()?;
 
     let target_commit = repo.find_commit(target.sha)?;
-    let mut workspace_tree = target_commit.tree()?;
+    let mut workspace_tree = repo.find_real_tree(&target_commit, Default::default())?;
 
     if conflicts::is_conflicting(ctx, None)? {
         let merge_parent = conflicts::merge_parent(ctx)?.ok_or(anyhow!("No merge parent"))?;
@@ -41,8 +41,10 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
         workspace_tree = repo.find_commit(merge_base)?.tree()?;
     } else {
         for branch in virtual_branches.iter_mut() {
-            let branch_tree = repo.find_commit(branch.head)?.tree()?;
             let merge_tree = repo.find_commit(target.sha)?.tree()?;
+            let branch_tree = repo.find_commit(branch.head)?;
+            let branch_tree = repo.find_real_tree(&branch_tree, Default::default())?;
+
             let mut index = repo.merge_trees(&merge_tree, &workspace_tree, &branch_tree, None)?;
 
             if !index.has_conflicts() {

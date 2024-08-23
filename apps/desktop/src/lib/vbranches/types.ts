@@ -172,6 +172,7 @@ export class DetailedCommit {
 	changeId!: string;
 	isSigned!: boolean;
 	relatedTo?: Commit;
+	conflicted!: boolean;
 
 	prev?: DetailedCommit;
 	next?: DetailedCommit;

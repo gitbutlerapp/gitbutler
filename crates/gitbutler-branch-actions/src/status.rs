@@ -9,6 +9,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_repo::RepositoryExt;
 
 use crate::{
     conflicts::RepoConflictsExt,
@@ -33,8 +34,7 @@ pub fn get_applied_status(
     ctx: &CommandContext,
     perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<VirtualBranchesStatus> {
-    assure_open_workspace_mode(ctx)
-        .context("Getting applied status requires open workspace mode")?;
+    assure_open_workspace_mode(ctx).context("ng applied status requires open workspace mode")?;
     let integration_commit = get_workspace_head(ctx)?;
     let mut virtual_branches = ctx
         .project()
@@ -240,7 +240,9 @@ fn compute_locks(
         .iter()
         .filter_map(|branch| {
             let commit = repository.find_commit(branch.head).ok()?;
-            let tree = commit.tree().ok()?;
+            let tree = repository
+                .find_real_tree(&commit, Default::default())
+                .ok()?;
             let diff = repository
                 .diff_tree_to_tree(Some(&base_tree), Some(&tree), Some(opts))
                 .ok()?;
