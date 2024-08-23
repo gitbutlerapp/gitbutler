@@ -12,6 +12,7 @@ type Story = StoryObj<typeof meta>;
 export const FileIconStory: Story = {
 	name: 'File Icon',
 	args: {
-		fileName: 'file.txt'
+		fileName: 'file.txt',
+		size: 16
 	}
 };

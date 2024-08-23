@@ -4,7 +4,7 @@
 
 	interface Props {
 		fileName: string;
-		size: number;
+		size?: number;
 	}
 
 	const { fileName, size = 16 }: Props = $props();
