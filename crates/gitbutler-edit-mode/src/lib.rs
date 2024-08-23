@@ -180,6 +180,42 @@ pub(crate) fn enter_edit_mode(
     Ok(edit_mode_metadata)
 }
 
+pub(crate) fn abort_and_return_to_workspace(
+    ctx: &CommandContext,
+    _perm: &mut WorktreeWritePermission,
+) -> Result<()> {
+    let repository = ctx.repository();
+
+    // Checkout gitbutler workspace branch
+    {
+        repository
+            .set_head(INTEGRATION_BRANCH_REF)
+            .context("Failed to set head reference")?;
+        repository
+            .checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))
+            .context("Failed to checkout gitbutler/integration")?;
+    }
+
+    // Checkout any stashed changes.
+    {
+        let stashed_integration_changes_reference = repository
+            .find_reference(EDIT_UNCOMMITED_FILES_REF)
+            .context("Failed to find stashed integration changes")?;
+        let stashed_integration_changes_commit = stashed_integration_changes_reference
+            .peel_to_commit()
+            .context("Failed to get stashed changes commit")?;
+
+        repository
+            .checkout_tree(
+                stashed_integration_changes_commit.tree()?.as_object(),
+                Some(CheckoutBuilder::new().force().remove_untracked(true)),
+            )
+            .context("Failed to checkout stashed changes tree")?;
+    }
+
+    Ok(())
+}
+
 pub(crate) fn save_and_return_to_workspace(
     ctx: &CommandContext,
     perm: &mut WorktreeWritePermission,
