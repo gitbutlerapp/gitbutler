@@ -1,4 +1,4 @@
-import allIcons from './allIcons.svelte';
+import allIcons from './AllIcons.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {

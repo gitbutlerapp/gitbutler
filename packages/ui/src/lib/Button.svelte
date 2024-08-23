@@ -1,4 +1,6 @@
 <script lang="ts" context="module">
+	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
+
 	export interface ButtonProps {
 		el?: HTMLElement;
 		// Interaction props
@@ -43,7 +45,6 @@
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import { tooltip } from '$lib/utils/tooltip';
 	import type iconsJson from '$lib/data/icons.json';
-	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
 	import type { Snippet } from 'svelte';
 
 	let {

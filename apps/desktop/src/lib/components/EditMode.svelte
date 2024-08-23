@@ -1,7 +1,7 @@
 <script lang="ts">
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
-	import dzenPc from '$lib/assets/dzen-pc.svg?raw';
+	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import { getContext } from '$lib/utils/context';
@@ -18,6 +18,14 @@
 
 	let modeServiceSaving = $state<'inert' | 'loading' | 'completed'>('inert');
 
+	async function abort() {
+		modeServiceSaving = 'loading';
+
+		await modeService.abortEditAndReturnToWorkspace();
+
+		modeServiceSaving = 'completed';
+	}
+
 	async function save() {
 		modeServiceSaving = 'loading';
 
@@ -27,7 +35,7 @@
 	}
 </script>
 
-<DecorativeSplitView img={dzenPc}>
+<DecorativeSplitView img={newProjectSvg}>
 	<div class="switchrepo">
 		<div class="project-name">
 			<ProjectNameLabel projectName={project?.title} />
@@ -39,20 +47,22 @@
 		</p>
 
 		<p class="switchrepo__message text-13 text-body">
-			Please do not make any commits whilst in edit mode. To leave edit mode, use the "save changes"
-			button.
+			Please do not make any commits whilst in edit mode. To leave edit mode, use the provided
+			actions.
 		</p>
 
 		<div class="switchrepo__actions">
+			<Button style="ghost" outline onclick={abort} loading={modeServiceSaving === 'loading'}>
+				Cancel changes
+			</Button>
 			<Button
 				style="pop"
 				kind="solid"
 				icon="undo-small"
-				reversedDirection
 				onclick={save}
 				loading={modeServiceSaving === 'loading'}
 			>
-				Save changes
+				Save and exit
 			</Button>
 		</div>
 	</div>
@@ -77,5 +87,6 @@
 		gap: 8px;
 		padding-bottom: 24px;
 		flex-wrap: wrap;
+		justify-content: flex-end;
 	}
 </style>

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import SnapshotAttachment from './SnapshotAttachment.svelte';
-	import { getFileIcon } from '$lib/ext-icons';
 	import { createdOnDay } from '$lib/history/history';
 	import { splitFilePath } from '$lib/utils/filePath';
 	import { toHumanReadableTime } from '$lib/utils/time';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
@@ -216,12 +216,7 @@
 								dispatch('diffClick', filePath);
 							}}
 						>
-							<img
-								draggable="false"
-								class="files-attacment__file-icon"
-								src={getFileIcon(filePath)}
-								alt=""
-							/>
+							<FileIcon fileName={filePath} size={14} />
 							<div class="text-12 files-attacment__file-path-and-name">
 								<span class="files-attacment__file-name">
 									{splitFilePath(filePath).filename}
@@ -417,10 +412,6 @@
 		color: var(--clr-text-1);
 		opacity: 0.6;
 		white-space: nowrap;
-	}
-
-	.files-attacment__file-icon {
-		width: 12px;
 	}
 
 	/* ATTACHMENT RESTORE */

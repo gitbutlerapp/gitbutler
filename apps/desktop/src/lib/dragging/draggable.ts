@@ -1,6 +1,6 @@
 import { dropzoneRegistry } from './dropzone';
-import { getFileIcon } from '$lib/ext-icons';
 import { type CommitStatus } from '$lib/vbranches/types';
+import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 import type { Draggable } from './draggables';
 

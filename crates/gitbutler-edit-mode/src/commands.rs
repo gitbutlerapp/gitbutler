@@ -52,6 +52,14 @@ pub fn save_and_return_to_workspace(project: &Project) -> Result<()> {
     crate::save_and_return_to_workspace(&ctx, guard.write_permission())
 }
 
+pub fn abort_and_return_to_workspace(project: &Project) -> Result<()> {
+    let (ctx, mut guard) = open_with_permission(project)?;
+
+    assure_edit_mode(&ctx).context("Edit mode may only be left while in edit mode")?;
+
+    crate::abort_and_return_to_workspace(&ctx, guard.write_permission())
+}
+
 fn open_with_permission(project: &Project) -> Result<(CommandContext, WriteWorkspaceGuard)> {
     let ctx = CommandContext::open(project)?;
     let guard = project.exclusive_worktree_access();
