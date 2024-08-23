@@ -1,5 +1,7 @@
 use anyhow::{Context, Result};
-use gitbutler_branch::{BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest};
+use gitbutler_branch::{
+    BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchReference, BranchUpdateRequest,
+};
 use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_oplog::{
@@ -353,6 +355,18 @@ impl VirtualBranchActions {
             guard.write_permission(),
         );
         branch::insert_blank_commit(&ctx, branch_id, commit_oid, offset).map_err(Into::into)
+    }
+
+    pub fn create_branch_reference(
+        &self,
+        project: &Project,
+        branch_id: BranchId,
+        reference: ReferenceName,
+        commit_oid: git2::Oid,
+    ) -> Result<BranchReference> {
+        let ctx = open_with_verify(project)?;
+        assure_open_workspace_mode(&ctx).context("Requires an open workspace mode")?;
+        gitbutler_repo::create_branch_reference(&ctx, branch_id, reference, commit_oid)
     }
 
     pub fn reorder_commit(

@@ -96,6 +96,26 @@ export class BranchController {
 		}
 	}
 
+	/*
+	 * Creates a new GitButler reference associated with a branch.
+	 * @param branchId
+	 * @param reference in the format refs/remotes/origin/my-branch (must be remote)
+	 * @param commitOid The commit oid to point the reference
+	 */
+	async createBranchReference(branchId: string, reference: string, commitOid: string) {
+		console.log('createBranchReference', branchId, reference, commitOid);
+		try {
+			await invoke<void>('create_branch_reference', {
+				projectId: this.projectId,
+				branchId: branchId,
+				reference: reference,
+				commitOid: commitOid
+			});
+		} catch (err) {
+			showError('Failed to create branch reference', err);
+		}
+	}
+
 	async updateBranchRemoteName(branchId: string, upstream: string) {
 		try {
 			await invoke<void>('update_virtual_branch', {
