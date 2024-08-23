@@ -8,7 +8,8 @@
 	"tauri": {
 		"allowlist": {
 			"shell": {
-				"open": "^((https://)|(http://)|(mailto:)|(vscode://)|(vscodium://)).+"
+				"open": "^((https://)|(http://)|(mailto:)|(vscode://)|(vscodium://)).+",
+        "sidecar": true
 			}
     },
 		"bundle": {

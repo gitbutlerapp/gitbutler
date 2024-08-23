@@ -13,8 +13,8 @@
 
 use gitbutler_repo::credentials;
 use gitbutler_tauri::{
-    askpass, commands, config, github, logs, menu, modes, projects, remotes, repo, secret, undo,
-    users, virtual_branches, zip, App, WindowState,
+    askpass, commands, config, github, logs, menu, modes, open, projects, remotes, repo, secret,
+    undo, users, virtual_branches, zip, App, WindowState,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
@@ -197,7 +197,8 @@ fn main() {
                     remotes::add_remote,
                     modes::operating_mode,
                     modes::enter_edit_mode,
-                    modes::save_edit_and_return_to_workspace
+                    modes::save_edit_and_return_to_workspace,
+                    open::open_url
                 ])
                 .menu(menu::build(tauri_context.package_info()))
                 .on_menu_event(|event| menu::handle_event(&event))
