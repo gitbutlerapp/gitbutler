@@ -49,6 +49,12 @@ export class ModeService {
 		});
 	}
 
+	async abortEditAndReturnToWorkspace() {
+		await invoke('abort_edit_and_return_to_workspace', {
+			projectId: this.projectId
+		});
+	}
+
 	async saveEditAndReturnToWorkspace() {
 		await invoke('save_edit_and_return_to_workspace', {
 			projectId: this.projectId

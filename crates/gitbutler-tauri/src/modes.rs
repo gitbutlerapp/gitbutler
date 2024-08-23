@@ -36,6 +36,17 @@ pub fn enter_edit_mode(
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
+pub fn abort_edit_and_return_to_workspace(
+    projects: State<'_, Controller>,
+    project_id: ProjectId,
+) -> Result<(), Error> {
+    let project = projects.get(project_id)?;
+
+    gitbutler_edit_mode::commands::abort_and_return_to_workspace(&project).map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
 pub fn save_edit_and_return_to_workspace(
     projects: State<'_, Controller>,
     project_id: ProjectId,
