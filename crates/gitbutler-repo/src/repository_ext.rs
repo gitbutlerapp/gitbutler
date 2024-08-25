@@ -322,18 +322,16 @@ impl RepositoryExt for git2::Repository {
                     bail!("Failed to sign SSH: {}", std_both);
                 }
             } else {
-                // is gpg
-                let gpg_program = self.config()?.get_string("gpg.program");
-                let mut gpg_program = gpg_program.unwrap_or("gpg".to_string());
-                // if cmd is "", use gpg
-                if gpg_program.is_empty() {
-                    gpg_program = "gpg".to_string();
-                }
+                let gpg_program = self
+                    .config()?
+                    .get_path("gpg.program")
+                    .ok()
+                    .filter(|gpg| !gpg.as_os_str().is_empty())
+                    .unwrap_or_else(|| "gpg".into());
 
-                let mut cmd = std::process::Command::new(gpg_program);
+                let mut cmd = std::process::Command::new(&gpg_program);
 
                 cmd.args(["--status-fd=2", "-bsau", &signing_key])
-                    //.arg(&signed_storage)
                     .arg("-")
                     .stdout(Stdio::piped())
                     .stderr(Stdio::piped())
@@ -342,9 +340,16 @@ impl RepositoryExt for git2::Repository {
                 #[cfg(windows)]
                 cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
 
-                let mut child = cmd
-                    .spawn()
-                    .context(anyhow::format_err!("failed to spawn {:?}", cmd))?;
+                let mut child = match cmd.spawn() {
+                    Ok(child) => child,
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                        bail!("Could not find '{}'. Please make sure it is in your `PATH` or configure the full path using `gpg.program` in the Git configuration", gpg_program.display())
+                    }
+                    Err(err) => {
+                        return Err(err)
+                            .context(format!("Could not execute GPG program using {:?}", cmd))
+                    }
+                };
                 child
                     .stdin
                     .take()
