@@ -10,7 +10,7 @@ describe.concurrent('GitHub', () => {
 	};
 
 	test('commit url', async () => {
-		const gh = new GitHub(repo);
+		const gh = new GitHub({ repo, baseBranch: id });
 		const url = gh.commitUrl(id);
 		expect(url).toMatch(new RegExp(`/${id}$`));
 	});

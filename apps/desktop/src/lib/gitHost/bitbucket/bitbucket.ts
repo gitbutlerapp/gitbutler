@@ -1,7 +1,7 @@
 import { BitBucketBranch } from './bitbucketBranch';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
-import type { DetailedPullRequest } from '../interface/types';
+import type { DetailedPullRequest, GitHostArguments } from '../interface/types';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
@@ -16,22 +16,24 @@ export const BITBUCKET_DOMAIN = 'bitbucket.org';
  * https://github.com/gitbutlerapp/gitbutler/issues/3252
  */
 export class BitBucket implements GitHost {
-	webUrl: string;
+	private baseUrl: string;
+	private repo: RepoInfo;
+	private baseBranch: string;
+	private forkStr?: string;
 
-	constructor(
-		repo: RepoInfo,
-		private baseBranch: string,
-		private fork?: string
-	) {
-		this.webUrl = `https://${BITBUCKET_DOMAIN}/${repo.owner}/${repo.name}`;
+	constructor({ repo, baseBranch, forkStr }: GitHostArguments) {
+		this.baseUrl = `https://${BITBUCKET_DOMAIN}/${repo.owner}/${repo.name}`;
+		this.repo = repo;
+		this.baseBranch = baseBranch;
+		this.forkStr = forkStr;
 	}
 
 	branch(name: string) {
-		return new BitBucketBranch(name, this.baseBranch, this.webUrl, this.fork);
+		return new BitBucketBranch(name, this.baseBranch, this.baseUrl, this.forkStr);
 	}
 
 	commitUrl(id: string): string {
-		return `${this.webUrl}/commits/${id}`;
+		return `${this.baseUrl}/commits/${id}`;
 	}
 
 	listService() {

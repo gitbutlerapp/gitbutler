@@ -3,6 +3,7 @@ import { BitBucket, BITBUCKET_DOMAIN } from './bitbucket/bitbucket';
 import { GitHub, GITHUB_DOMAIN } from './github/github';
 import { GitLab, GITLAB_DOMAIN } from './gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
+import type { Persisted } from '$lib/persisted/persisted';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from './interface/gitHost';
 import type { Octokit } from '@octokit/rest';
@@ -16,20 +17,33 @@ export interface GitHostFactory {
 export class DefaultGitHostFactory implements GitHostFactory {
 	constructor(private octokit: Octokit | undefined) {}
 
-	build(repo: RepoInfo, baseBranch: string, fork?: RepoInfo) {
+	build(
+		repo: RepoInfo,
+		baseBranch: string,
+		fork?: RepoInfo,
+		usePullRequestTemplate?: Persisted<boolean>
+	) {
 		const source = repo.source;
 		const forkStr = fork ? `${fork.owner}:${fork.name}` : undefined;
+
 		if (source.includes(GITHUB_DOMAIN)) {
-			return new GitHub(repo, baseBranch, forkStr, this.octokit, new ProjectMetrics());
+			return new GitHub({
+				repo,
+				baseBranch,
+				forkStr,
+				octokit: this.octokit,
+				projectMetrics: new ProjectMetrics(),
+				usePullRequestTemplate
+			});
 		}
 		if (source.includes(GITLAB_DOMAIN)) {
-			return new GitLab(repo, baseBranch, forkStr);
+			return new GitLab({ repo, baseBranch, forkStr });
 		}
 		if (source.includes(BITBUCKET_DOMAIN)) {
-			return new BitBucket(repo, baseBranch, forkStr);
+			return new BitBucket({ repo, baseBranch, forkStr });
 		}
 		if (source.includes(AZURE_DOMAIN)) {
-			return new AzureDevOps(repo, baseBranch, forkStr);
+			return new AzureDevOps({ repo, baseBranch, forkStr });
 		}
 	}
 }
