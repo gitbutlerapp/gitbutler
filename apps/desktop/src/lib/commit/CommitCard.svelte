@@ -31,7 +31,6 @@
 	export let branch: VirtualBranch | undefined = undefined;
 	export let commit: DetailedCommit | Commit;
 	export let commitUrl: string | undefined = undefined;
-	export let isPreview: boolean = false;
 	export let isHeadCommit: boolean = false;
 	export let isUnapplied = false;
 	export let first = false;
@@ -232,7 +231,7 @@
 					class:integrated={type === 'integrated'}
 				></div>
 
-				{#if !isPreview}
+				{#if !isUnapplied}
 					{#if type === 'local' || type === 'localAndRemote'}
 						<div class="commit__drag-icon">
 							<Icon name="draggable-narrow" />
@@ -372,10 +371,10 @@
 
 				<div class="files-container">
 					<BranchFilesList
-						allowMultiple={!isPreview}
+						allowMultiple={!isUnapplied}
 						{files}
 						{isUnapplied}
-						readonly={type === 'remote' || isPreview}
+						readonly={type === 'remote' || isUnapplied}
 					/>
 				</div>
 			{/if}
