@@ -12,12 +12,15 @@
 	import { ProjectService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
+	import GlobalSettingsMenuAction from '$lib/barmenuActions/GlobalSettingsMenuAction.svelte';
+	import ReloadMenuAction from '$lib/barmenuActions/ReloadMenuAction.svelte';
+	import SwitchThemeMenuAction from '$lib/barmenuActions/SwitchThemeMenuAction.svelte';
+	import ZoomInOutMenuAction from '$lib/barmenuActions/ZoomInOutMenuAction.svelte';
 	import {
 		IpcNameNormalizationService,
 		setNameNormalizationServiceContext
 	} from '$lib/branches/nameNormalizationService';
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
-	import GlobalSettingsMenuAction from '$lib/components/GlobalSettingsMenuAction.svelte';
 	import PromptModal from '$lib/components/PromptModal.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
 	import {
@@ -31,8 +34,6 @@
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { User, UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
-	import { createKeybind } from '$lib/utils/hotkeys';
-	import { initTheme } from '$lib/utils/theme';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { onMount, setContext, type Snippet } from 'svelte';
@@ -44,7 +45,6 @@
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const userSettings = loadUserSettings();
-	initTheme(userSettings);
 	setContext(SETTINGS, userSettings);
 
 	// Setters do not need to be reactive since `data` never updates
@@ -77,51 +77,15 @@
 	});
 
 	let shareIssueModal: ShareIssueModal;
-	let zoom = $state($userSettings.zoom);
-
-	$effect(() => {
-		document.documentElement.style.fontSize = zoom + 'rem';
-		userSettings.update((s) => ({ ...s, zoom: zoom }));
-	});
-
 	onMount(() => {
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
 			events.on('openSendIssueModal', () => shareIssueModal?.show())
 		);
 	});
-
-	const handleKeyDown = createKeybind({
-		// Using $mod++ and $mod+= to support both US and i18n keyboards
-		'$mod++': () => {
-			zoom = Math.min(zoom + 0.0625, 3);
-		},
-		'$mod+=': () => {
-			zoom = Math.min(zoom + 0.0625, 3);
-		},
-		'$mod+-': () => {
-			zoom = Math.max(zoom - 0.0625, 0.375);
-		},
-		'$mod+0': () => {
-			zoom = 1;
-		},
-		'$mod+T': () => {
-			userSettings.update((s) => ({
-				...s,
-				theme: $userSettings.theme === 'light' ? 'dark' : 'light'
-			}));
-		},
-		'$mod+R': () => {
-			location.reload();
-		}
-	});
 </script>
 
-<svelte:window
-	on:keydown={handleKeyDown}
-	on:drop={(e) => e.preventDefault()}
-	on:dragover={(e) => e.preventDefault()}
-/>
+<svelte:window on:drop={(e) => e.preventDefault()} on:dragover={(e) => e.preventDefault()} />
 
 <div
 	data-tauri-drag-region
@@ -136,7 +100,10 @@
 <ToastController />
 <AppUpdater />
 <PromptModal />
+<ZoomInOutMenuAction />
 <GlobalSettingsMenuAction />
+<ReloadMenuAction />
+<SwitchThemeMenuAction />
 
 <style lang="postcss">
 	.app-root {
