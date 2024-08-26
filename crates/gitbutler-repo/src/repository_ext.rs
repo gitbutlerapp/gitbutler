@@ -397,13 +397,13 @@ impl RepositoryExt for git2::Repository {
         // we need to do a manual 3-way patch merge
         // find the base, which is the parent of to_rebase
         let base = if to_rebase.is_conflicted() {
-            self.find_real_tree(to_rebase, ConflictedTreeKey::Ours)?
+            self.find_real_tree(to_rebase, ConflictedTreeKey::Base)?
         } else {
             let base_commit = to_rebase.parent(0)?;
             self.find_real_tree(&base_commit, Default::default())?
         };
         // Get the original ours
-        let ours = self.find_real_tree(head, ConflictedTreeKey::Theirs)?;
+        let ours = self.find_real_tree(head, Default::default())?;
         // Get the original theirs
         let thiers = self.find_real_tree(to_rebase, ConflictedTreeKey::Theirs)?;
 
