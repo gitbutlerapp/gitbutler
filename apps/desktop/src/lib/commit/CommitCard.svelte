@@ -371,7 +371,7 @@
 
 				<div class="files-container">
 					<BranchFilesList
-						allowMultiple={!isUnapplied}
+						allowMultiple={!isUnapplied && type !== 'remote'}
 						{files}
 						{isUnapplied}
 						readonly={type === 'remote' || isUnapplied}
