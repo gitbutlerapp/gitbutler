@@ -4,12 +4,12 @@
 	import { onMount } from 'svelte';
 
 	onMount(() => {
-		const unsubscribeReload = listen<string>('menu://view/reload/clicked', () => {
+		const unsubscribe = listen<string>('menu://view/reload/clicked', () => {
 			location.reload();
 		});
 
 		return async () => {
-			unsubscribeReload();
+			unsubscribe();
 		};
 	});
 

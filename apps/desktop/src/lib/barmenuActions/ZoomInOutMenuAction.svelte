@@ -27,20 +27,14 @@
 	});
 
 	onMount(() => {
-		const zoomActions = {
-			'zoom-in': () => updateZoom(zoom + ZOOM_STEP),
-			'zoom-out': () => updateZoom(zoom - ZOOM_STEP),
-			'zoom-reset': () => updateZoom(DEFAULT_ZOOM)
-		};
-
-		const unsubscribeZoomIn = listen<string>('menu://view/zoom-in/clicked', zoomActions['zoom-in']);
-		const unsubscribeZoomOut = listen<string>(
-			'menu://view/zoom-out/clicked',
-			zoomActions['zoom-out']
+		const unsubscribeZoomIn = listen<string>('menu://view/zoom-in/clicked', () =>
+			updateZoom(zoom + ZOOM_STEP)
 		);
-		const unsubscribeResetZoom = listen<string>(
-			'menu://view/zoom-reset/clicked',
-			zoomActions['zoom-reset']
+		const unsubscribeZoomOut = listen<string>('menu://view/zoom-out/clicked', () =>
+			updateZoom(zoom - ZOOM_STEP)
+		);
+		const unsubscribeResetZoom = listen<string>('menu://view/zoom-reset/clicked', () =>
+			updateZoom(DEFAULT_ZOOM)
 		);
 
 		return () => {

@@ -45,7 +45,6 @@
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
 	const userSettings = loadUserSettings();
-	// initTheme(userSettings);
 	setContext(SETTINGS, userSettings);
 
 	// Setters do not need to be reactive since `data` never updates
