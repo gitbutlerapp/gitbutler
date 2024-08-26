@@ -512,14 +512,20 @@ pub fn get_branch_listing_details(
         let merge_bases = std::thread::Builder::new()
             .name("gitbutler-mergebases".into())
             .spawn({
-                let git_dir = ctx.repository().path().to_owned();
+                let repo = repo.clone().into_sync();
                 move || -> anyhow::Result<()> {
-                    let git2_repo = git2::Repository::open(git_dir)?;
+                    let mut repo = repo.to_thread_local();
+                    repo.object_cache_size_if_unset(50 * 1024 * 1024);
+                    let cache = repo.commit_graph_if_enabled()?;
                     for (other_branch_commit_id, branch_head) in all_other_branch_commit_ids {
-                        // TODO(ST): use `gix` for two-way mergebases.
-                        let base = git2_repo
-                            .merge_base(other_branch_commit_id, branch_head)
-                            .ok();
+                        let base = repo
+                            .merge_base_with_cache(
+                                git2_to_gix_object_id(other_branch_commit_id),
+                                git2_to_gix_object_id(branch_head),
+                                cache.as_ref(),
+                            )
+                            .ok()
+                            .map(gix::Id::detach);
                         if merge_tx.send(base).is_err() {
                             break;
                         }
@@ -534,8 +540,7 @@ pub fn get_branch_listing_details(
             };
 
             let branch_head = git2_to_gix_object_id(branch.head);
-            let gix_base = git2_to_gix_object_id(base);
-            let base_commit = repo.find_object(gix_base)?.try_into_commit()?;
+            let base_commit = repo.find_object(base)?.try_into_commit()?;
             let base_tree = base_commit.tree()?;
             let head_tree = repo.find_object(branch_head)?.peel_to_tree()?;
 
@@ -558,7 +563,7 @@ pub fn get_branch_listing_details(
             let mut authors = HashSet::new();
             let revwalk = repo
                 .rev_walk(Some(branch_head))
-                .with_pruned(Some(gix_base))
+                .with_pruned(Some(base))
                 .all()?;
             for commit_info in revwalk {
                 let commit_info = commit_info?;

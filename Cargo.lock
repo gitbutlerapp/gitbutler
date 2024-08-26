@@ -3452,12 +3452,15 @@ name = "gix-revision"
 version = "0.29.0"
 source = "git+https://github.com/Byron/gitoxide?rev=649f5882cbebadf1133fa5f310e09b4aab77217e#649f5882cbebadf1133fa5f310e09b4aab77217e"
 dependencies = [
+ "bitflags 2.6.0",
  "bstr",
  "gix-commitgraph 0.24.3 (git+https://github.com/Byron/gitoxide?rev=649f5882cbebadf1133fa5f310e09b4aab77217e)",
  "gix-date 0.9.0",
  "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=649f5882cbebadf1133fa5f310e09b4aab77217e)",
+ "gix-hashtable 0.5.2 (git+https://github.com/Byron/gitoxide?rev=649f5882cbebadf1133fa5f310e09b4aab77217e)",
  "gix-object 0.44.0",
  "gix-revwalk 0.15.0",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=649f5882cbebadf1133fa5f310e09b4aab77217e)",
  "thiserror",
 ]
 
