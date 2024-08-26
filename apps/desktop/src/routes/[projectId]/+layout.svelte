@@ -26,6 +26,7 @@
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
+	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { debounce } from '$lib/utils/debounce';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -73,6 +74,7 @@
 		setContext(RemoteBranchService, data.remoteBranchService);
 		setContext(BranchListingService, data.branchListingService);
 		setContext(ModeService, data.modeService);
+		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
 	});
 
 	let intervalId: any;

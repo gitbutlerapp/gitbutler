@@ -17,6 +17,7 @@ use crate::{
         get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
         BaseBranch,
     },
+    branch::get_uncommited_files,
     branch_manager::BranchManagerExt,
     file::RemoteBranchFile,
     remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
@@ -538,6 +539,14 @@ impl VirtualBranchActions {
         branch_manager
             .create_virtual_branch_from_branch(branch, remote, guard.write_permission())
             .map_err(Into::into)
+    }
+
+    pub fn get_uncommited_files(&self, project: &Project) -> Result<Vec<RemoteBranchFile>> {
+        let context = CommandContext::open(project)?;
+
+        let guard = project.exclusive_worktree_access();
+
+        get_uncommited_files(&context, guard.read_permission())
     }
 }
 

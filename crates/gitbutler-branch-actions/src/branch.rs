@@ -1,4 +1,4 @@
-use crate::VirtualBranchesExt;
+use crate::{RemoteBranchFile, VirtualBranchesExt};
 use anyhow::{bail, Context, Result};
 use bstr::{BStr, ByteSlice};
 use core::fmt;
@@ -6,6 +6,7 @@ use gitbutler_branch::{
     Branch as GitButlerBranch, BranchId, BranchIdentity, ReferenceExtGix, Target,
 };
 use gitbutler_command_context::{CommandContext, GixRepositoryExt};
+use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_serde::BStringForFrontend;
 use gix::object::tree::diff::Action;
@@ -20,6 +21,33 @@ use std::{
     fmt::Debug,
     vec,
 };
+
+pub(crate) fn get_uncommited_files(
+    context: &CommandContext,
+    _permission: &WorktreeReadPermission,
+) -> Result<Vec<RemoteBranchFile>> {
+    let repository = context.repository();
+    let head_commit = repository
+        .head()
+        .context("Failed to get head")?
+        .peel_to_commit()
+        .context("Failed to get head commit")?;
+
+    let files = gitbutler_diff::workdir(repository, &head_commit.id())
+        .context("Failed to list uncommited files")?
+        .into_iter()
+        .map(|(path, file)| {
+            let binary = file.hunks.iter().any(|h| h.binary);
+            RemoteBranchFile {
+                path,
+                hunks: file.hunks,
+                binary,
+            }
+        })
+        .collect();
+
+    Ok(files)
+}
 
 /// Returns a list of branches associated with this project.
 pub fn list_branches(
