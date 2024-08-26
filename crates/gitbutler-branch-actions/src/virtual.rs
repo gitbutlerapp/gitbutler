@@ -12,6 +12,7 @@ use gitbutler_branch::{
     dedup, dedup_fmt, reconcile_claims, signature, Branch, BranchId, BranchOwnershipClaims,
     BranchUpdateRequest, OwnershipClaim, SignaturePurpose, Target, VirtualBranchesHandle,
 };
+use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_diff::{trees, GitHunk, Hunk};

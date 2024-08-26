@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use git2::{build::TreeUpdateBuilder, Repository};
+use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{
     commit_ext::CommitExt,
@@ -10,7 +11,7 @@ use gitbutler_error::error::Marker;
 use tempfile::tempdir;
 use uuid::Uuid;
 
-use crate::{conflicts::ConflictedTreeKey, LogUntil, RepoActionsExt, RepositoryExt};
+use crate::{LogUntil, RepoActionsExt};
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
@@ -111,17 +112,17 @@ fn commit_unconflicted_cherry_result<'repository>(
         ..commit_headers
     });
 
-    let commit_oid = repository
-        .commit_with_signature(
-            None,
-            &to_rebase.author(),
-            &to_rebase.committer(),
-            &to_rebase.message_bstr().to_str_lossy(),
-            &merge_tree,
-            &[&head],
-            commit_headers,
-        )
-        .context("failed to create commit")?;
+    let commit_oid = crate::RepositoryExt::commit_with_signature(
+        repository,
+        None,
+        &to_rebase.author(),
+        &to_rebase.committer(),
+        &to_rebase.message_bstr().to_str_lossy(),
+        &merge_tree,
+        &[&head],
+        commit_headers,
+    )
+    .context("failed to create commit")?;
 
     repository
         .find_commit(commit_oid)
@@ -246,19 +247,19 @@ fn commit_conflicted_cherry_result<'repository>(
     });
 
     // write a commit
-    let commit_oid = repository
-        .commit_with_signature(
-            None,
-            &to_rebase.author(),
-            &to_rebase.committer(),
-            &to_rebase.message_bstr().to_str_lossy(),
-            &repository
-                .find_tree(tree_oid)
-                .context("failed to find tree")?,
-            &[&head],
-            commit_headers,
-        )
-        .context("failed to create commit")?;
+    let commit_oid = crate::RepositoryExt::commit_with_signature(
+        repository,
+        None,
+        &to_rebase.author(),
+        &to_rebase.committer(),
+        &to_rebase.message_bstr().to_str_lossy(),
+        &repository
+            .find_tree(tree_oid)
+            .context("failed to find tree")?,
+        &[&head],
+        commit_headers,
+    )
+    .context("failed to create commit")?;
 
     // Tidy up worktree
     {

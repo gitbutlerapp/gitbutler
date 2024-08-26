@@ -199,7 +199,8 @@ fn main() {
                     modes::operating_mode,
                     modes::enter_edit_mode,
                     modes::save_edit_and_return_to_workspace,
-                    modes::abort_edit_and_return_to_workspace
+                    modes::abort_edit_and_return_to_workspace,
+                    modes::edit_initial_index_state
                 ])
                 .menu(menu::build(tauri_context.package_info()))
                 .on_menu_event(|event| menu::handle_event(&event))
