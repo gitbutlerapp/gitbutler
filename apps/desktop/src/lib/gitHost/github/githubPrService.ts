@@ -1,6 +1,7 @@
 import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
+import { showError } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { get, writable } from 'svelte/store';
@@ -76,8 +77,10 @@ export class GitHubPrService implements GitHostPrService {
 			if (b64Content) {
 				return decodeURIComponent(escape(atob(b64Content)));
 			}
-			// eslint-disable-next-line no-empty
-		} catch {}
+		} catch (err) {
+			console.error('Error fetching pull request template: ', err);
+			showError('Failed to fetch pull request template', err);
+		}
 	}
 
 	async get(prNumber: number): Promise<DetailedPullRequest> {
