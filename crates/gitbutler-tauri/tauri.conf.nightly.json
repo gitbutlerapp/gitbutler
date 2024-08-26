@@ -8,19 +8,18 @@
 	"tauri": {
 		"allowlist": {
 			"shell": {
-        "open": false,
-        "execute": true,
-        "scope": [
-          {
-            "name": "xdg-open",
-            "cmd": "xdg-open",
-            "args": true
-          }
-        ]
+				"open": false,
+				"execute": true,
+				"scope": [
+					{
+						"name": "xdg-open",
+						"cmd": "xdg-open",
+						"args": true
+					}
+				]
 			}
-    },
+		},
 		"bundle": {
-			"targets": ["appimage"],
 			"identifier": "com.gitbutler.app.nightly",
 			"icon": [
 				"icons/32x32.png",
