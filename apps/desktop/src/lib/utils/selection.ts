@@ -8,12 +8,15 @@ import type { AnyFile } from '$lib/vbranches/types';
 
 export function getNextFile(files: AnyFile[], currentId: string): AnyFile | undefined {
 	const fileIndex = files.findIndex((f) => f.id === currentId);
-	return fileIndex !== -1 && fileIndex + 1 < files.length ? files[fileIndex + 1] : undefined;
+	const nextFile =
+		fileIndex !== -1 && fileIndex + 1 < files.length ? files[fileIndex + 1] : undefined;
+	return nextFile;
 }
 
 export function getPreviousFile(files: AnyFile[], currentId: string): AnyFile | undefined {
 	const fileIndex = files.findIndex((f) => f.id === currentId);
-	return fileIndex > 0 ? files[fileIndex - 1] : undefined;
+	const previousFile = fileIndex > 0 ? files[fileIndex - 1] : undefined;
+	return previousFile;
 }
 
 interface MoveSelectionParams {
@@ -25,6 +28,7 @@ interface MoveSelectionParams {
 	files: AnyFile[];
 	selectedFileIds: string[];
 	fileIdSelection: FileIdSelection;
+	commitId?: string;
 }
 
 export function maybeMoveSelection({
@@ -35,7 +39,8 @@ export function maybeMoveSelection({
 	file,
 	files,
 	selectedFileIds,
-	fileIdSelection
+	fileIdSelection,
+	commitId
 }: MoveSelectionParams) {
 	if (!selectedFileIds[0] || selectedFileIds.length === 0) return;
 
@@ -53,9 +58,10 @@ export function maybeMoveSelection({
 		const file = getFileFunc(files, id);
 		if (file) {
 			// if file is already selected, do nothing
-			if (selectedFileIds.includes(stringifyFileKey(file.id))) return;
 
-			fileIdSelection.add(file.id);
+			if (selectedFileIds.includes(stringifyFileKey(file.id, commitId))) return;
+
+			fileIdSelection.add(file.id, commitId);
 		}
 	}
 
@@ -64,9 +70,10 @@ export function maybeMoveSelection({
 		id: string
 	) {
 		const file = getFileFunc(files, id);
+
 		if (file) {
 			fileIdSelection.clear();
-			fileIdSelection.add(file.id);
+			fileIdSelection.add(file.id, commitId);
 		}
 	}
 
@@ -104,6 +111,7 @@ export function maybeMoveSelection({
 				} else if (selectionDirection === 'up') {
 					fileIdSelection.remove(lastFileId);
 				}
+
 				getAndAddFile(getNextFile, lastFileId);
 			} else {
 				// focus next file

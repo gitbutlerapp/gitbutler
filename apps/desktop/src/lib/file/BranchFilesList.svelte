@@ -103,7 +103,8 @@
 							file,
 							files: displayedFiles,
 							selectedFileIds: $fileIdSelection,
-							fileIdSelection
+							fileIdSelection,
+							commitId: $commit?.id
 						}
 					);
 
