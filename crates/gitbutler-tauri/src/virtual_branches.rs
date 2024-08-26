@@ -398,17 +398,16 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
-    pub fn create_branch_reference(
+    pub fn create_change_reference(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch_id: BranchId,
-        reference: ReferenceName,
-        commit_oid: String,
+        name: ReferenceName,
+        change_id: String,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        VirtualBranchActions.create_branch_reference(&project, branch_id, reference, commit_oid)?;
+        VirtualBranchActions.create_change_reference(&project, branch_id, name, change_id)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }

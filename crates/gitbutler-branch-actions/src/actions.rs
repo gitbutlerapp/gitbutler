@@ -357,16 +357,16 @@ impl VirtualBranchActions {
         branch::insert_blank_commit(&ctx, branch_id, commit_oid, offset).map_err(Into::into)
     }
 
-    pub fn create_branch_reference(
+    pub fn create_change_reference(
         &self,
         project: &Project,
         branch_id: BranchId,
-        reference: ReferenceName,
-        commit_oid: git2::Oid,
+        name: ReferenceName,
+        change_id: String,
     ) -> Result<ChangeReference> {
         let ctx = open_with_verify(project)?;
         assure_open_workspace_mode(&ctx).context("Requires an open workspace mode")?;
-        gitbutler_repo::create_change_reference(&ctx, branch_id, reference, commit_oid)
+        gitbutler_repo::create_change_reference(&ctx, branch_id, name, change_id)
     }
 
     pub fn reorder_commit(

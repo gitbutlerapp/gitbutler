@@ -16,7 +16,7 @@ fn create_success() -> Result<()> {
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/success".into(),
-        test_ctx.commits.first().unwrap().id(),
+        test_ctx.commits.first().unwrap().change_id().unwrap(),
     )?;
     assert_eq!(reference.branch_id, test_ctx.branch.id);
     assert_eq!(reference.name, "refs/remotes/origin/success".into());
@@ -35,7 +35,7 @@ fn create_multiple() -> Result<()> {
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
-        test_ctx.commits.first().unwrap().id(),
+        test_ctx.commits.first().unwrap().change_id().unwrap(),
     )?;
     assert_eq!(first.branch_id, test_ctx.branch.id);
     assert_eq!(first.name, "refs/remotes/origin/first".into());
@@ -47,7 +47,7 @@ fn create_multiple() -> Result<()> {
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/last".into(),
-        test_ctx.commits.last().unwrap().id(),
+        test_ctx.commits.last().unwrap().change_id().unwrap(),
     )?;
     assert_eq!(last.branch_id, test_ctx.branch.id);
     assert_eq!(last.name, "refs/remotes/origin/last".into());
@@ -66,7 +66,7 @@ fn create_fails_with_non_remote_reference() -> Result<()> {
         &ctx,
         test_ctx.branch.id,
         "foo".into(),
-        test_ctx.commits.first().unwrap().id(),
+        test_ctx.commits.first().unwrap().change_id().unwrap(),
     );
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -83,13 +83,13 @@ fn create_fails_when_branch_reference_with_name_exists() -> Result<()> {
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/taken".into(),
-        test_ctx.commits.first().unwrap().id(),
+        test_ctx.commits.first().unwrap().change_id().unwrap(),
     )?;
     let result = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/taken".into(),
-        test_ctx.commits.last().unwrap().id(),
+        test_ctx.commits.last().unwrap().change_id().unwrap(),
     );
     assert_eq!(
         result.unwrap_err().to_string(),
@@ -107,19 +107,19 @@ fn create_fails_when_commit_already_referenced() -> Result<()> {
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/one".into(),
-        test_ctx.commits.first().unwrap().id(),
+        test_ctx.commits.first().unwrap().change_id().unwrap(),
     )?;
     let result = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/two".into(),
-        test_ctx.commits.first().unwrap().id(),
+        test_ctx.commits.first().unwrap().change_id().unwrap(),
     );
     assert_eq!(
         result.unwrap_err().to_string(),
         format!(
-            "A reference for commit {} already exists",
-            test_ctx.commits.first().unwrap().id()
+            "A reference for change {} already exists",
+            test_ctx.commits.first().unwrap().change_id().unwrap()
         ),
     );
 
@@ -130,32 +130,26 @@ fn create_fails_when_commit_already_referenced() -> Result<()> {
 fn create_fails_when_commit_in_anothe_branch() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
-    let wrong_commit = test_ctx.other_commits.first().unwrap().id();
+    let wrong_change = test_ctx.other_commits.first().unwrap().change_id().unwrap();
     let result = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/asdf".into(),
-        wrong_commit,
+        wrong_change.clone(),
     );
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        format!(
-            "The commit {} is not between the branch base and the branch head",
-            wrong_commit
-        ),
-    );
+    assert!(result.is_err());
     Ok(())
 }
 
 #[test]
-fn create_fails_when_commit_is_the_base() -> Result<()> {
+fn create_fails_when_change_id_not_found() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let result = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/baz".into(),
-        test_ctx.branch_base,
+        "does-not-exist".into(),
     );
     assert!(result.is_err());
     Ok(())
@@ -169,13 +163,13 @@ fn list_success() -> Result<()> {
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
-        test_ctx.commits.first().unwrap().id(),
+        test_ctx.commits.first().unwrap().change_id().unwrap(),
     )?;
     let second_ref = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/second".into(),
-        test_ctx.commits.last().unwrap().id(),
+        test_ctx.commits.last().unwrap().change_id().unwrap(),
     )?;
     let result = list_branch_references(&ctx, test_ctx.branch.id)?;
     assert_eq!(result.len(), 2);
@@ -192,7 +186,7 @@ fn update_success() -> Result<()> {
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
-        test_ctx.commits.first().unwrap().id(),
+        test_ctx.commits.first().unwrap().change_id().unwrap(),
     )?;
     let updated = update_change_reference(
         &ctx,
@@ -221,7 +215,7 @@ fn push_success() -> Result<()> {
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
-        test_ctx.commits.first().unwrap().id(),
+        test_ctx.commits.first().unwrap().change_id().unwrap(),
     )?;
     let result = push_change_reference(
         &ctx,
@@ -244,12 +238,10 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let branch = branches.iter().find(|b| b.name == "virtual").unwrap();
     let other_branch = branches.iter().find(|b| b.name != "virtual").unwrap();
     let target = handle.get_default_target()?;
-    let branch_base = ctx.repository().merge_base(target.sha, branch.head)?;
     let branch_commits = ctx.log(branch.head, LogUntil::Commit(target.sha))?;
     let other_commits = ctx.log(other_branch.head, LogUntil::Commit(target.sha))?;
     Ok(TestContext {
         branch: branch.clone(),
-        branch_base,
         commits: branch_commits,
         // other_branch: other_branch.clone(),
         other_commits,
@@ -257,8 +249,6 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
 }
 struct TestContext<'a> {
     branch: gitbutler_branch::Branch,
-    branch_base: git2::Oid,
     commits: Vec<git2::Commit<'a>>,
-    // other_branch: gitbutler_branch::Branch,
     other_commits: Vec<git2::Commit<'a>>,
 }

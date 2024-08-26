@@ -102,14 +102,13 @@ export class BranchController {
 	 * @param reference in the format refs/remotes/origin/my-branch (must be remote)
 	 * @param commitOid The commit oid to point the reference
 	 */
-	async createBranchReference(branchId: string, reference: string, commitOid: string) {
-		console.log('createBranchReference', branchId, reference, commitOid);
+	async createChangeReference(branchId: string, referenceName: string, changeId: string) {
 		try {
-			await invoke<void>('create_branch_reference', {
+			await invoke<void>('create_change_reference', {
 				projectId: this.projectId,
 				branchId: branchId,
-				reference: reference,
-				commitOid: commitOid
+				name: referenceName,
+				changeId: changeId
 			});
 		} catch (err) {
 			showError('Failed to create branch reference', err);

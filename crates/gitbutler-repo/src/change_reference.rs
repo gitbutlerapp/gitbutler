@@ -30,11 +30,11 @@ pub fn list_branch_references(
 pub fn create_change_reference(
     ctx: &CommandContext,
     branch_id: BranchId,
-    upstream: ReferenceName,
-    commit_id: git2::Oid,
+    name: ReferenceName,
+    change_id: String,
 ) -> Result<ChangeReference> {
     // The reference must be parseable as a remote reference
-    gitbutler_reference::RemoteRefname::from_str(&upstream)
+    gitbutler_reference::RemoteRefname::from_str(&name)
         .context("Failed to parse the provided reference")?;
     let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
 
@@ -42,17 +42,18 @@ pub fn create_change_reference(
     let mut vbranch = handle.get_branch(branch_id)?;
 
     // Enusre that the commit acutally exists
-    let commit = ctx
-        .repository()
-        .find_commit(commit_id)
-        .context(anyhow!("Commit {} does not exist", commit_id))?;
+    // let commit = ctx
+    //     .repository()
+    //     .find_commit(commit_id)
+    //     .context(anyhow!("Commit {} does not exist", commit_id))?;
+    let commit = commit_by_branch_id_and_change_id(ctx, &vbranch, &handle, change_id)?;
 
     let change_id = commit
         .change_id()
-        .ok_or(anyhow!("Commit {} does not have a change id", commit_id))?;
+        .ok_or(anyhow!("Commit {} does not have a change id", commit.id()))?;
 
     let branch_reference = ChangeReference {
-        name: upstream,
+        name,
         branch_id,
         change_id: change_id.clone(),
     };
@@ -74,11 +75,11 @@ pub fn create_change_reference(
     // Ensure the change is not already referenced
     if all_references.iter().any(|r| r.change_id == change_id) {
         return Err(anyhow!(
-            "A reference for commit {} already exists",
-            commit_id
+            "A reference for change {} already exists",
+            change_id
         ));
     }
-    validate_commit(&vbranch, commit_id, ctx, &handle)?;
+    validate_commit(&vbranch, commit.id(), ctx, &handle)?;
     vbranch.references.push(branch_reference.clone());
     handle.set_branch(vbranch)?;
     Ok(branch_reference)
@@ -96,11 +97,11 @@ pub fn create_change_reference(
 pub fn update_change_reference(
     ctx: &CommandContext,
     branch_id: BranchId,
-    upstream: ReferenceName,
+    name: ReferenceName,
     new_change_id: String,
 ) -> Result<ChangeReference> {
     // The reference must be parseable as a remote reference
-    gitbutler_reference::RemoteRefname::from_str(&upstream)
+    gitbutler_reference::RemoteRefname::from_str(&name)
         .context("Failed to parse the provided reference")?;
     let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
     // The branch must exist
@@ -117,10 +118,10 @@ pub fn update_change_reference(
     let reference = vbranch
         .references
         .iter_mut()
-        .find(|r| r.name == upstream)
+        .find(|r| r.name == name)
         .ok_or(anyhow!(
             "Reference {} not found for branch {}",
-            upstream,
+            name,
             branch_id
         ))?;
     reference.change_id = new_change_id;
@@ -133,7 +134,7 @@ pub fn update_change_reference(
 pub fn push_change_reference(
     ctx: &CommandContext,
     branch_id: BranchId,
-    upstream: ReferenceName,
+    name: ReferenceName,
     with_force: bool,
     credentials: &Helper,
 ) -> Result<()> {
@@ -142,8 +143,8 @@ pub fn push_change_reference(
     let reference = vbranch
         .references
         .iter()
-        .find(|r| r.name == upstream)
-        .ok_or_else(|| anyhow!("Reference {} not found", upstream))?;
+        .find(|r| r.name == name)
+        .ok_or_else(|| anyhow!("Reference {} not found", name))?;
     let upstream_refname = gitbutler_reference::RemoteRefname::from_str(&reference.name)
         .context("Failed to parse the provided reference")?;
     let commit =

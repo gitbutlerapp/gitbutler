@@ -175,10 +175,10 @@
 			style="pop"
 			kind="solid"
 			onclick={() => {
-				branchController.createBranchReference(
+				branchController.createChangeReference(
 					branch?.id || '',
 					'refs/remotes/' + createRefName,
-					commit.id
+					commit.changeId
 				);
 				createRefModal.close();
 			}}
