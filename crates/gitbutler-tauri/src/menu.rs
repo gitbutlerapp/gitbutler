@@ -92,7 +92,6 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
         CustomMenuItem::new("file/add-local-repo", "Add Local Repository…")
             .accelerator("CmdOrCtrl+O"),
     );
-
     file_menu = file_menu.add_item(
         CustomMenuItem::new("file/clone-repo", "Clone Repository…")
             .accelerator("CmdOrCtrl+Shift+O"),
@@ -146,17 +145,29 @@ pub fn build(_package_info: &PackageInfo) -> Menu {
     #[cfg(target_os = "macos")]
     {
         view_menu = view_menu.add_native_item(MenuItem::EnterFullScreen);
-
-        #[cfg(any(debug_assertions, feature = "devtools"))]
-        {
-            view_menu = view_menu.add_native_item(MenuItem::Separator);
-        }
     }
+
+    view_menu = view_menu.add_item(
+        CustomMenuItem::new("view/switch-theme", "Switch Theme").accelerator("CmdOrCtrl+T"),
+    );
+
+    view_menu = view_menu.add_native_item(MenuItem::Separator);
+    view_menu = view_menu
+        .add_item(CustomMenuItem::new("view/zoom-in", "Zoom In").accelerator("CmdOrCtrl+="));
+    view_menu = view_menu
+        .add_item(CustomMenuItem::new("view/zoom-out", "Zoom Out").accelerator("CmdOrCtrl+-"));
+    view_menu = view_menu
+        .add_item(CustomMenuItem::new("view/zoom-reset", "Reset Zoom").accelerator("CmdOrCtrl+0"));
+
+    view_menu = view_menu.add_native_item(MenuItem::Separator);
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
     {
         view_menu = view_menu.add_item(CustomMenuItem::new("view/devtools", "Developer Tools"));
     }
+
+    view_menu = view_menu
+        .add_item(CustomMenuItem::new("view/reload", "Reload View").accelerator("CmdOrCtrl+R"));
 
     menu = menu.add_submenu(Submenu::new("View", view_menu));
 
@@ -233,6 +244,31 @@ pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
             event.window().open_devtools();
             return;
         }
+    }
+
+    if event.menu_item_id() == "view/switch-theme" {
+        emit(event.window(), "menu://view/switch-theme/clicked");
+        return;
+    }
+
+    if event.menu_item_id() == "view/reload" {
+        emit(event.window(), "menu://view/reload/clicked");
+        return;
+    }
+
+    if event.menu_item_id() == "view/zoom-in" {
+        emit(event.window(), "menu://view/zoom-in/clicked");
+        return;
+    }
+
+    if event.menu_item_id() == "view/zoom-out" {
+        emit(event.window(), "menu://view/zoom-out/clicked");
+        return;
+    }
+
+    if event.menu_item_id() == "view/zoom-reset" {
+        emit(event.window(), "menu://view/zoom-reset/clicked");
+        return;
     }
 
     if event.menu_item_id() == "help/share-debug-info" {

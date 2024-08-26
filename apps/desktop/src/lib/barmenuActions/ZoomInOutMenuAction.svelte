@@ -1,0 +1,54 @@
+<script lang="ts">
+	import { listen } from '$lib/backend/ipc';
+	import { loadUserSettings } from '$lib/settings/userSettings';
+	import { createKeybind } from '$lib/utils/hotkeys';
+	import { onMount } from 'svelte';
+
+	const userSettings = loadUserSettings();
+
+	let zoom = $state($userSettings.zoom);
+
+	const MIN_ZOOM = 0.375;
+	const MAX_ZOOM = 3;
+	const DEFAULT_ZOOM = 1;
+	const ZOOM_STEP = 0.0625;
+
+	function updateZoom(newZoom: number) {
+		zoom = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
+		document.documentElement.style.fontSize = zoom + 'rem';
+		userSettings.update((s) => ({ ...s, zoom }));
+	}
+
+	const handleKeyDown = createKeybind({
+		'$mod++': () => updateZoom(zoom + ZOOM_STEP),
+		'$mod+=': () => updateZoom(zoom + ZOOM_STEP),
+		'$mod+-': () => updateZoom(zoom - ZOOM_STEP),
+		'$mod+0': () => updateZoom(DEFAULT_ZOOM)
+	});
+
+	onMount(() => {
+		const zoomActions = {
+			'zoom-in': () => updateZoom(zoom + ZOOM_STEP),
+			'zoom-out': () => updateZoom(zoom - ZOOM_STEP),
+			'zoom-reset': () => updateZoom(DEFAULT_ZOOM)
+		};
+
+		const unsubscribeZoomIn = listen<string>('menu://view/zoom-in/clicked', zoomActions['zoom-in']);
+		const unsubscribeZoomOut = listen<string>(
+			'menu://view/zoom-out/clicked',
+			zoomActions['zoom-out']
+		);
+		const unsubscribeResetZoom = listen<string>(
+			'menu://view/zoom-reset/clicked',
+			zoomActions['zoom-reset']
+		);
+
+		return () => {
+			unsubscribeZoomIn();
+			unsubscribeZoomOut();
+			unsubscribeResetZoom();
+		};
+	});
+</script>
+
+<svelte:window on:keydown={handleKeyDown} />
