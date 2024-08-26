@@ -72,8 +72,7 @@ export function maybeMoveSelection({
 		const file = getFileFunc(files, id);
 
 		if (file) {
-			fileIdSelection.clear();
-			fileIdSelection.add(file.id, commitId);
+			fileIdSelection.clearExcept(file.id, commitId);
 		}
 	}
 
@@ -85,7 +84,7 @@ export function maybeMoveSelection({
 				if (selectedFileIds.length === 1) {
 					selectionDirection = 'up';
 				} else if (selectionDirection === 'down') {
-					fileIdSelection.remove(lastFileId);
+					fileIdSelection.remove(lastFileId, commitId);
 				}
 				getAndAddFile(getPreviousFile, lastFileId);
 			} else {
@@ -109,7 +108,7 @@ export function maybeMoveSelection({
 				if (selectedFileIds.length === 1) {
 					selectionDirection = 'down';
 				} else if (selectionDirection === 'up') {
-					fileIdSelection.remove(lastFileId);
+					fileIdSelection.remove(lastFileId, commitId);
 				}
 
 				getAndAddFile(getNextFile, lastFileId);

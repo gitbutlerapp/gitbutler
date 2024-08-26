@@ -83,6 +83,11 @@ export class FileIdSelection {
 		this.emit();
 	}
 
+	clearExcept(fileId: string, commitId?: string) {
+		this.value = [stringifyFileKey(fileId, commitId)];
+		this.emit();
+	}
+
 	emit() {
 		for (const callback of this.callbacks) {
 			callback(this.value);
