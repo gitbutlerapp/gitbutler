@@ -32,6 +32,11 @@ describe('Updater', () => {
 			})
 		);
 
+		vi.spyOn(tauri, 'onUpdaterEvent').mockImplementation(async (handler) => {
+			handler({ status: 'UPTODATE' });
+			return await Promise.resolve(() => {});
+		});
+
 		await updater.checkForUpdate();
 		expect(get(updater.update)).toHaveProperty('status', undefined);
 	});
