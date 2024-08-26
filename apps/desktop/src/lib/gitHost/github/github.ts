@@ -4,22 +4,41 @@ import { GitHubListingService } from './githubListingService';
 import { GitHubPrService } from './githubPrService';
 import { Octokit } from '@octokit/rest';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
+import type { Persisted } from '$lib/persisted/persisted';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
+import type { GitHostArguments } from '../interface/types';
 
 export const GITHUB_DOMAIN = 'github.com';
 
 export class GitHub implements GitHost {
-	baseUrl: string;
+	private baseUrl: string;
+	private repo: RepoInfo;
+	private baseBranch: string;
+	private forkStr?: string;
+	private octokit?: Octokit;
+	private projectMetrics?: ProjectMetrics;
+	private usePullRequestTemplate?: Persisted<boolean>;
 
-	constructor(
-		private repo: RepoInfo,
-		private baseBranch?: string,
-		private fork?: string,
-		private octokit?: Octokit,
-		private projectMetrics?: ProjectMetrics
-	) {
+	constructor({
+		repo,
+		baseBranch,
+		forkStr,
+		octokit,
+		projectMetrics,
+		usePullRequestTemplate
+	}: GitHostArguments & {
+		octokit?: Octokit;
+		projectMetrics?: ProjectMetrics;
+		usePullRequestTemplate?: Persisted<boolean>;
+	}) {
 		this.baseUrl = `https://${GITHUB_DOMAIN}/${repo.owner}/${repo.name}`;
+		this.repo = repo;
+		this.baseBranch = baseBranch;
+		this.forkStr = forkStr;
+		this.octokit = octokit;
+		this.projectMetrics = projectMetrics;
+		this.usePullRequestTemplate = usePullRequestTemplate;
 	}
 
 	listService() {
@@ -33,7 +52,13 @@ export class GitHub implements GitHost {
 		if (!this.octokit) {
 			return;
 		}
-		return new GitHubPrService(this.octokit, this.repo, baseBranch, upstreamName);
+		return new GitHubPrService(
+			this.octokit,
+			this.repo,
+			baseBranch,
+			upstreamName,
+			this.usePullRequestTemplate
+		);
 	}
 
 	checksMonitor(sourceBranch: string) {
@@ -47,7 +72,7 @@ export class GitHub implements GitHost {
 		if (!this.baseBranch) {
 			return;
 		}
-		return new GitHubBranch(name, this.baseBranch, this.baseUrl, this.fork);
+		return new GitHubBranch(name, this.baseBranch, this.baseUrl, this.forkStr);
 	}
 
 	commitUrl(id: string): string {

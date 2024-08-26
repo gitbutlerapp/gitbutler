@@ -1,3 +1,4 @@
+import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Author } from '$lib/vbranches/types';
 
 export interface Label {
@@ -68,4 +69,10 @@ export type CheckSuite = {
 	name?: string;
 	count: number;
 	status: 'queued' | 'in_progress' | 'completed' | 'waiting' | 'requested' | 'pending' | null;
+};
+
+export type GitHostArguments = {
+	repo: RepoInfo;
+	baseBranch: string;
+	forkStr?: string;
 };
