@@ -51,6 +51,7 @@ export class UpdaterService {
 
 	private intervalId: any;
 	private seenVersion: string | undefined;
+	private lastCheckWasManual = false;
 
 	unlistenStatus?: () => void;
 	unlistenMenu?: () => void;
@@ -64,7 +65,9 @@ export class UpdaterService {
 
 		this.unlistenStatus = await this.tauri.onUpdaterEvent((event) => {
 			const { error, status } = event;
-			this.status.set(status);
+			if (status !== 'UPTODATE' || this.lastCheckWasManual) {
+				this.status.set(status);
+			}
 			if (error) {
 				handleError(error, false);
 				posthog.capture('App Update Status Error', { error });
@@ -87,6 +90,7 @@ export class UpdaterService {
 
 	async checkForUpdate(manual = false) {
 		this.loading.set(true);
+		this.lastCheckWasManual = manual;
 		try {
 			const update = await Promise.race([
 				this.tauri.checkUpdate(), // In DEV mode this never returns.
