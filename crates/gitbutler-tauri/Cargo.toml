@@ -69,7 +69,8 @@ open = "5"
 
 [dependencies.tauri]
 version = "1.7.0"
-features = [
+features = [ "shell-execute",
+    "updater", 
     "http-all",
     "os-all",
     "dialog-open",
