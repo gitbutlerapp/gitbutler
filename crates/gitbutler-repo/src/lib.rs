@@ -19,8 +19,8 @@ pub mod askpass;
 
 mod conflicts;
 
-mod reference;
+mod change_reference;
 
-pub use reference::{
+pub use change_reference::{
     create_change_reference, list_branch_references, push_change_reference, update_change_reference,
 };
