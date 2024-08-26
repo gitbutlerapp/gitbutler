@@ -213,7 +213,7 @@ fn commit_conflicted_cherry_result<'repository>(
     // create a treewriter
     let mut tree_writer = repository.treebuilder(None)?;
 
-    let side0 = repository.find_real_tree(&head, ConflictedTreeKey::Ours)?;
+    let side0 = repository.find_real_tree(&head, Default::default())?;
     let side1 = repository.find_real_tree(&to_rebase, ConflictedTreeKey::Theirs)?;
 
     // save the state of the conflict, so we can recreate it later
