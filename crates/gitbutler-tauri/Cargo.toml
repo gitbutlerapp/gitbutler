@@ -66,12 +66,12 @@ gitbutler-diff.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-edit-mode.workspace = true
 open = "5"
+regex = "1.10"
 
 [dependencies.tauri]
 version = "1.7.0"
 features = [
     "shell-execute",
-    "updater",
     "http-all",
     "os-all",
     "dialog-open",
