@@ -139,7 +139,7 @@ fn commit_conflicted_cherry_result<'repository>(
 
     // If the commit we're rebasing is conflicted, use the commits original base.
     let base_tree = if to_rebase.is_conflicted() {
-        repository.find_real_tree(&to_rebase, ConflictedTreeKey::Ours)?
+        repository.find_real_tree(&to_rebase, ConflictedTreeKey::Base)?
     } else {
         let base_commit = to_rebase.parent(0)?;
         repository.find_real_tree(&base_commit, Default::default())?
