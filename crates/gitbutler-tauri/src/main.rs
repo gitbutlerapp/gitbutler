@@ -172,6 +172,7 @@ fn main() {
                     virtual_branches::commands::undo_commit,
                     virtual_branches::commands::insert_blank_commit,
                     virtual_branches::commands::create_change_reference,
+                    virtual_branches::commands::push_change_reference,
                     virtual_branches::commands::reorder_commit,
                     virtual_branches::commands::update_commit_message,
                     virtual_branches::commands::list_remote_branches,

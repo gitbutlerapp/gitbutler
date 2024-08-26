@@ -97,10 +97,10 @@ export class BranchController {
 	}
 
 	/*
-	 * Creates a new GitButler reference associated with a branch.
+	 * Creates a new GitButler change reference associated with a branch.
 	 * @param branchId
 	 * @param reference in the format refs/remotes/origin/my-branch (must be remote)
-	 * @param commitOid The commit oid to point the reference
+	 * @param changeId The change id to point the reference to
 	 */
 	async createChangeReference(branchId: string, referenceName: string, changeId: string) {
 		try {
@@ -112,6 +112,25 @@ export class BranchController {
 			});
 		} catch (err) {
 			showError('Failed to create branch reference', err);
+		}
+	}
+
+	/*
+	 * Pushes a change reference to (converted to a git reference to a commit) to the remote
+	 * @param branchId
+	 * @param reference in the format refs/remotes/origin/my-branch (must be remote)
+	 * @param changeId The change id that is being pushed
+	 */
+	async pushChangeReference(branchId: string, referenceName: string, withForce: boolean = false) {
+		try {
+			await invoke<void>('push_change_reference', {
+				projectId: this.projectId,
+				branchId: branchId,
+				name: referenceName,
+				withForce: withForce
+			});
+		} catch (err) {
+			showError('Failed to push change reference', err);
 		}
 	}
 

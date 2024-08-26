@@ -369,6 +369,18 @@ impl VirtualBranchActions {
         gitbutler_repo::create_change_reference(&ctx, branch_id, name, change_id)
     }
 
+    pub fn push_change_reference(
+        &self,
+        project: &Project,
+        branch_id: BranchId,
+        name: ReferenceName,
+        with_force: bool,
+    ) -> Result<()> {
+        let helper = Helper::default();
+        let ctx = open_with_verify(project)?;
+        gitbutler_repo::push_change_reference(&ctx, branch_id, name, with_force, &helper)
+    }
+
     pub fn reorder_commit(
         &self,
         project: &Project,

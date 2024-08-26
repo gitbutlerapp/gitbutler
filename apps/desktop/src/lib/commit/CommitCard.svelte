@@ -94,6 +94,12 @@
 		createRefModal.show(commit);
 	}
 
+	function pushCommitRef(commit: DetailedCommit) {
+		if (branch && commit.remoteRef) {
+			branchController.pushChangeReference(branch.id, commit.remoteRef);
+		}
+	}
+
 	function openCommitMessageModal(e: Event) {
 		e.stopPropagation();
 
@@ -395,13 +401,24 @@
 										icon="edit-small"
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
-									{#if $branchStacking}
+									{#if $branchStacking && commit instanceof DetailedCommit && !commit.remoteRef}
 										<Button
 											size="tag"
 											style="ghost"
 											outline
 											icon="branch"
 											onclick={(e: Event) => {openCreateRefModal(e, commit)}}>Create ref</Button
+										>
+									{/if}
+									{#if $branchStacking && commit instanceof DetailedCommit && commit.remoteRef}
+										<Button
+											size="tag"
+											style="ghost"
+											outline
+											icon="remote"
+											onclick={() => {
+												pushCommitRef(commit);
+											}}>Push ref</Button
 										>
 									{/if}
 								{/if}

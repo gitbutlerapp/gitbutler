@@ -414,6 +414,22 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
+    pub fn push_change_reference(
+        windows: State<'_, WindowState>,
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        branch_id: BranchId,
+        name: ReferenceName,
+        with_force: bool,
+    ) -> Result<(), Error> {
+        let project = projects.get(project_id)?;
+        VirtualBranchActions.push_change_reference(&project, branch_id, name, with_force)?;
+        emit_vbranches(&windows, project_id);
+        Ok(())
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects, windows), err(Debug))]
     pub fn reorder_commit(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
