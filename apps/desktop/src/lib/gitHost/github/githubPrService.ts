@@ -3,8 +3,8 @@ import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
-import { get, writable, type Readable } from 'svelte/store';
-import type { Settings } from '$lib/settings/userSettings';
+import { get, writable } from 'svelte/store';
+import type { Persisted } from '$lib/persisted/persisted';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHostPrService } from '../interface/gitHostPrService';
 import type { DetailedPullRequest, MergeMethod, PullRequest } from '../interface/types';
@@ -20,7 +20,7 @@ export class GitHubPrService implements GitHostPrService {
 		private repo: RepoInfo,
 		private baseBranch: string,
 		private upstreamName: string,
-		private userSettings?: Readable<Settings>
+		private usePullRequestTemplate?: Persisted<boolean>
 	) {}
 
 	async createPr(title: string, body: string, draft: boolean): Promise<PullRequest> {
@@ -42,9 +42,7 @@ export class GitHubPrService implements GitHostPrService {
 		let lastError: any;
 		let pr: PullRequest | undefined;
 		let pullRequestTemplate: string | undefined;
-		const usePrTemplate = this.userSettings
-			? get(this.userSettings)?.gitHost.usePullRequestTemplate
-			: null;
+		const usePrTemplate = this.usePullRequestTemplate ? get(this.usePullRequestTemplate) : null;
 
 		if (!body && usePrTemplate) {
 			pullRequestTemplate = await this.fetchPrTemplate();

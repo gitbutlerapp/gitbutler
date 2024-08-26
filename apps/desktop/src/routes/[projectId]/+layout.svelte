@@ -13,6 +13,7 @@
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
+	import { gitHostUsePullRequestTemplate } from '$lib/config/config';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostFactory';
 	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
@@ -24,10 +25,8 @@
 	import { ModeService } from '$lib/modes/service';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
-	import { getContextStoreBySymbol } from '$lib/utils/context';
 	import { debounce } from '$lib/utils/debounce';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
@@ -79,8 +78,7 @@
 	let intervalId: any;
 
 	const showHistoryView = persisted(false, 'showHistoryView');
-
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const usePullRequestTemplate = gitHostUsePullRequestTemplate();
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
 	const gitHostFactory = $derived(new DefaultGitHostFactory(octokit));
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
@@ -123,7 +121,7 @@
 	$effect.pre(() => {
 		const gitHost =
 			repoInfo && baseBranchName
-				? gitHostFactory.build(repoInfo, baseBranchName, forkInfo, userSettings)
+				? gitHostFactory.build(repoInfo, baseBranchName, forkInfo, usePullRequestTemplate)
 				: undefined;
 
 		const ghListService = gitHost?.listService();

@@ -4,11 +4,10 @@ import { GitHubListingService } from './githubListingService';
 import { GitHubPrService } from './githubPrService';
 import { Octokit } from '@octokit/rest';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
-import type { Settings } from '$lib/settings/userSettings';
+import type { Persisted } from '$lib/persisted/persisted';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
 import type { GitHostArguments } from '../interface/types';
-import type { Readable } from 'svelte/store';
 
 export const GITHUB_DOMAIN = 'github.com';
 
@@ -19,7 +18,7 @@ export class GitHub implements GitHost {
 	private forkStr?: string;
 	private octokit?: Octokit;
 	private projectMetrics?: ProjectMetrics;
-	private userSettings?: Readable<Settings>;
+	private usePullRequestTemplate?: Persisted<boolean>;
 
 	constructor({
 		repo,
@@ -27,11 +26,11 @@ export class GitHub implements GitHost {
 		forkStr,
 		octokit,
 		projectMetrics,
-		userSettings
+		usePullRequestTemplate
 	}: GitHostArguments & {
 		octokit?: Octokit;
 		projectMetrics?: ProjectMetrics;
-		userSettings?: Readable<Settings>;
+		usePullRequestTemplate?: Persisted<boolean>;
 	}) {
 		this.baseUrl = `https://${GITHUB_DOMAIN}/${repo.owner}/${repo.name}`;
 		this.repo = repo;
@@ -39,7 +38,7 @@ export class GitHub implements GitHost {
 		this.forkStr = forkStr;
 		this.octokit = octokit;
 		this.projectMetrics = projectMetrics;
-		this.userSettings = userSettings;
+		this.usePullRequestTemplate = usePullRequestTemplate;
 	}
 
 	listService() {
@@ -58,7 +57,7 @@ export class GitHub implements GitHost {
 			this.repo,
 			baseBranch,
 			upstreamName,
-			this.userSettings
+			this.usePullRequestTemplate
 		);
 	}
 

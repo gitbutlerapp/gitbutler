@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import { gitHostUsePullRequestTemplate } from '$lib/config/config';
 	import { getGitHubUserServiceStore } from '$lib/gitHost/github/githubUserService';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -17,7 +17,7 @@
 	export let minimal = false;
 	export let disabled = false;
 
-	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
+	const usePullRequestTemplate = gitHostUsePullRequestTemplate();
 	const githubUserService = getGitHubUserServiceStore();
 	const userService = getContext(UserService);
 	const user = userService.user;
@@ -116,7 +116,7 @@
 			<Checkbox
 				name="use-pull-request-template"
 				value="false"
-				bind:checked={$userSettings.gitHost.usePullRequestTemplate}
+				bind:checked={$usePullRequestTemplate}
 			/>
 		</svelte:fragment>
 	</SectionCard>
