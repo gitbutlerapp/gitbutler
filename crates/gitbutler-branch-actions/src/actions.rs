@@ -1,6 +1,6 @@
 use anyhow::{Context, Result};
 use gitbutler_branch::{
-    BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchReference, BranchUpdateRequest,
+    BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest, ChangeReference,
 };
 use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::assure_open_workspace_mode;
@@ -363,10 +363,10 @@ impl VirtualBranchActions {
         branch_id: BranchId,
         reference: ReferenceName,
         commit_oid: git2::Oid,
-    ) -> Result<BranchReference> {
+    ) -> Result<ChangeReference> {
         let ctx = open_with_verify(project)?;
         assure_open_workspace_mode(&ctx).context("Requires an open workspace mode")?;
-        gitbutler_repo::create_branch_reference(&ctx, branch_id, reference, commit_oid)
+        gitbutler_repo::create_change_reference(&ctx, branch_id, reference, commit_oid)
     }
 
     pub fn reorder_commit(

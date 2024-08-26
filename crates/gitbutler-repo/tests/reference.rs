@@ -3,8 +3,8 @@ use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::{
-    create_branch_reference, credentials::Helper, list_branch_references, list_commit_references,
-    push_branch_reference, update_branch_reference, LogUntil, RepoActionsExt,
+    create_change_reference, credentials::Helper, list_branch_references, push_change_reference,
+    update_change_reference, LogUntil, RepoActionsExt,
 };
 use tempfile::TempDir;
 
@@ -12,18 +12,17 @@ use tempfile::TempDir;
 fn create_success() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
-    let reference = create_branch_reference(
+    let reference = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/success".into(),
         test_ctx.commits.first().unwrap().id(),
     )?;
     assert_eq!(reference.branch_id, test_ctx.branch.id);
-    assert_eq!(reference.upstream, "refs/remotes/origin/success".into());
-    assert_eq!(reference.commit_id, test_ctx.commits.first().unwrap().id());
+    assert_eq!(reference.name, "refs/remotes/origin/success".into());
     assert_eq!(
         reference.change_id,
-        test_ctx.commits.first().unwrap().change_id()
+        test_ctx.commits.first().unwrap().change_id().unwrap()
     );
     Ok(())
 }
@@ -32,29 +31,30 @@ fn create_success() -> Result<()> {
 fn create_multiple() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
-    let first = create_branch_reference(
+    let first = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
         test_ctx.commits.first().unwrap().id(),
     )?;
     assert_eq!(first.branch_id, test_ctx.branch.id);
-    assert_eq!(first.upstream, "refs/remotes/origin/first".into());
-    assert_eq!(first.commit_id, test_ctx.commits.first().unwrap().id());
+    assert_eq!(first.name, "refs/remotes/origin/first".into());
     assert_eq!(
         first.change_id,
-        test_ctx.commits.first().unwrap().change_id()
+        test_ctx.commits.first().unwrap().change_id().unwrap()
     );
-    let last = create_branch_reference(
+    let last = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/last".into(),
         test_ctx.commits.last().unwrap().id(),
     )?;
     assert_eq!(last.branch_id, test_ctx.branch.id);
-    assert_eq!(last.upstream, "refs/remotes/origin/last".into());
-    assert_eq!(last.commit_id, test_ctx.commits.last().unwrap().id());
-    assert_eq!(last.change_id, test_ctx.commits.last().unwrap().change_id());
+    assert_eq!(last.name, "refs/remotes/origin/last".into());
+    assert_eq!(
+        last.change_id,
+        test_ctx.commits.last().unwrap().change_id().unwrap()
+    );
     Ok(())
 }
 
@@ -62,7 +62,7 @@ fn create_multiple() -> Result<()> {
 fn create_fails_with_non_remote_reference() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
-    let result = create_branch_reference(
+    let result = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "foo".into(),
@@ -79,13 +79,13 @@ fn create_fails_with_non_remote_reference() -> Result<()> {
 fn create_fails_when_branch_reference_with_name_exists() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
-    create_branch_reference(
+    create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/taken".into(),
         test_ctx.commits.first().unwrap().id(),
     )?;
-    let result = create_branch_reference(
+    let result = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/taken".into(),
@@ -103,13 +103,13 @@ fn create_fails_when_branch_reference_with_name_exists() -> Result<()> {
 fn create_fails_when_commit_already_referenced() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
-    create_branch_reference(
+    create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/one".into(),
         test_ctx.commits.first().unwrap().id(),
     )?;
-    let result = create_branch_reference(
+    let result = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/two".into(),
@@ -131,7 +131,7 @@ fn create_fails_when_commit_in_anothe_branch() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let wrong_commit = test_ctx.other_commits.first().unwrap().id();
-    let result = create_branch_reference(
+    let result = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/asdf".into(),
@@ -151,19 +151,13 @@ fn create_fails_when_commit_in_anothe_branch() -> Result<()> {
 fn create_fails_when_commit_is_the_base() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
-    let result = create_branch_reference(
+    let result = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/baz".into(),
         test_ctx.branch_base,
     );
-    assert_eq!(
-        result.unwrap_err().to_string(),
-        format!(
-            "The commit {} is not between the branch base and the branch head",
-            test_ctx.branch_base
-        ),
-    );
+    assert!(result.is_err());
     Ok(())
 }
 
@@ -171,13 +165,13 @@ fn create_fails_when_commit_is_the_base() -> Result<()> {
 fn list_success() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
-    let first_ref = create_branch_reference(
+    let first_ref = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
         test_ctx.commits.first().unwrap().id(),
     )?;
-    let second_ref = create_branch_reference(
+    let second_ref = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/second".into(),
@@ -194,26 +188,28 @@ fn list_success() -> Result<()> {
 fn update_success() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
-    create_branch_reference(
+    create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
         test_ctx.commits.first().unwrap().id(),
     )?;
-    let updated = update_branch_reference(
+    let updated = update_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
-        test_ctx.commits.last().unwrap().id(),
+        test_ctx.commits.last().unwrap().change_id().unwrap(),
     )?;
-    assert_eq!(updated.commit_id, test_ctx.commits.last().unwrap().id());
     assert_eq!(
         updated.change_id,
-        test_ctx.commits.last().unwrap().change_id()
+        test_ctx.commits.last().unwrap().change_id().unwrap()
     );
     let list = list_branch_references(&ctx, test_ctx.branch.id)?;
     assert_eq!(list.len(), 1);
-    assert_eq!(list[0].commit_id, test_ctx.commits.last().unwrap().id());
+    assert_eq!(
+        list[0].change_id,
+        test_ctx.commits.last().unwrap().change_id().unwrap()
+    );
     Ok(())
 }
 
@@ -221,57 +217,20 @@ fn update_success() -> Result<()> {
 fn push_success() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
-    let reference = create_branch_reference(
+    let reference = create_change_reference(
         &ctx,
         test_ctx.branch.id,
         "refs/remotes/origin/first".into(),
         test_ctx.commits.first().unwrap().id(),
     )?;
-    let result = push_branch_reference(
+    let result = push_change_reference(
         &ctx,
         reference.branch_id,
-        reference.upstream,
+        reference.name,
         false,
         &Helper::default(),
     );
     assert!(result.is_ok());
-    Ok(())
-}
-
-#[test]
-fn list_by_commits_success() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let test_ctx = test_ctx(&ctx)?;
-    let first = create_branch_reference(
-        &ctx,
-        test_ctx.branch.id,
-        "refs/remotes/origin/first".into(),
-        test_ctx.commits.first().unwrap().id(),
-    )?;
-    let second = create_branch_reference(
-        &ctx,
-        test_ctx.branch.id,
-        "refs/remotes/origin/second".into(),
-        test_ctx.commits.last().unwrap().id(),
-    )?;
-    let third = create_branch_reference(
-        &ctx,
-        test_ctx.other_branch.id,
-        "refs/remotes/origin/third".into(),
-        test_ctx.other_commits.first().unwrap().id(),
-    )?;
-    let commits = vec![
-        test_ctx.commits.first().unwrap().id(),
-        test_ctx.commits.get(1).unwrap().id(),
-        test_ctx.commits.last().unwrap().id(),
-        test_ctx.other_commits.first().unwrap().id(),
-    ];
-    let result = list_commit_references(&ctx, commits.clone())?;
-    assert_eq!(result.len(), 4);
-    assert_eq!(result.get(&commits[0]).unwrap().clone().unwrap(), first);
-    assert_eq!(result.get(&commits[1]).unwrap().clone(), None);
-    assert_eq!(result.get(&commits[2]).unwrap().clone().unwrap(), second);
-    assert_eq!(result.get(&commits[3]).unwrap().clone().unwrap(), third);
     Ok(())
 }
 
@@ -292,7 +251,7 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
         branch: branch.clone(),
         branch_base,
         commits: branch_commits,
-        other_branch: other_branch.clone(),
+        // other_branch: other_branch.clone(),
         other_commits,
     })
 }
@@ -300,6 +259,6 @@ struct TestContext<'a> {
     branch: gitbutler_branch::Branch,
     branch_base: git2::Oid,
     commits: Vec<git2::Commit<'a>>,
-    other_branch: gitbutler_branch::Branch,
+    // other_branch: gitbutler_branch::Branch,
     other_commits: Vec<git2::Commit<'a>>,
 }

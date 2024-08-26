@@ -59,10 +59,14 @@ pub(crate) fn commit_to_vbranch_commit(
         })
         .collect::<Vec<_>>();
     let remote_ref = list_branch_references(ctx, branch.id)
-        .map(|references| references.into_iter().find(|r| r.commit_id == commit.id()))
+        .map(|references| {
+            references
+                .into_iter()
+                .find(|r| Some(r.change_id.clone()) == commit.change_id())
+        })
         .ok()
         .flatten()
-        .map(|r| r.upstream);
+        .map(|r| r.name);
 
     let commit = VirtualBranchCommit {
         id: commit.id(),

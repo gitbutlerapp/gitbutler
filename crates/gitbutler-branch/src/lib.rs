@@ -17,7 +17,7 @@ pub mod serde;
 mod target;
 pub use target::Target;
 mod reference;
-pub use reference::BranchReference;
+pub use reference::ChangeReference;
 
 mod state;
 use lazy_static::lazy_static;

@@ -5,7 +5,7 @@ use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, Virtual
 use serde::{Deserialize, Serialize, Serializer};
 use std::ops::Deref;
 
-use crate::{ownership::BranchOwnershipClaims, reference::BranchReference};
+use crate::{ownership::BranchOwnershipClaims, reference::ChangeReference};
 
 pub type BranchId = Id<Branch>;
 
@@ -68,7 +68,7 @@ pub struct Branch {
     #[serde(default)]
     pub not_in_workspace_wip_change_id: Option<String>,
     #[serde(default)]
-    pub references: Vec<BranchReference>,
+    pub references: Vec<ChangeReference>,
 }
 
 fn default_true() -> bool {
