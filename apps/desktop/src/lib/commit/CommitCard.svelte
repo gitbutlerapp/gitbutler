@@ -232,10 +232,12 @@
 					class:integrated={type === 'integrated'}
 				></div>
 
-				{#if type === 'local' || type === 'localAndRemote'}
-					<div class="commit__drag-icon">
-						<Icon name="draggable-narrow" />
-					</div>
+				{#if !isPreview}
+					{#if type === 'local' || type === 'localAndRemote'}
+						<div class="commit__drag-icon">
+							<Icon name="draggable-narrow" />
+						</div>
+					{/if}
 				{/if}
 
 				{#if first}
