@@ -31,6 +31,7 @@
 	export let branch: VirtualBranch | undefined = undefined;
 	export let commit: DetailedCommit | Commit;
 	export let commitUrl: string | undefined = undefined;
+	export let isPreview: boolean = false;
 	export let isHeadCommit: boolean = false;
 	export let isUnapplied = false;
 	export let first = false;
@@ -368,7 +369,12 @@
 				{/if}
 
 				<div class="files-container">
-					<BranchFilesList {files} {isUnapplied} readonly={type === 'remote'} />
+					<BranchFilesList
+						allowMultiple={!isPreview}
+						{files}
+						{isUnapplied}
+						readonly={type === 'remote' || isPreview}
+					/>
 				</div>
 			{/if}
 		</CommitDragItem>
