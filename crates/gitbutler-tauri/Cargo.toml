@@ -70,7 +70,7 @@ regex = "1.10"
 
 [dependencies.tauri]
 version = "1.7.0"
-features = [
+features = [ "updater",
     "shell-execute",
     "http-all",
     "os-all",
