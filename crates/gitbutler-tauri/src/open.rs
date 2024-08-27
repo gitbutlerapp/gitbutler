@@ -20,13 +20,16 @@ pub fn open_that(path: &str) -> Result<(), Error> {
         return Err(anyhow!("Invalid path format").into());
     }
 
-    std::thread::spawn(|| {
-        for mut cmd in open::commands(path) {
-            fix_env_variables(&mut cmd);
-            cmd.current_dir(std::env::temp_dir());
-            if cmd.status().is_ok() {
-                break;
-            };
+    std::thread::spawn({
+        let path = path.to_string();
+        move || {
+            for mut cmd in open::commands(&path) {
+                fix_env_variables(&mut cmd);
+                cmd.current_dir(std::env::temp_dir());
+                if cmd.status().is_ok() {
+                    break;
+                };
+            }
         }
     });
     Ok(())
@@ -119,5 +122,3 @@ pub fn open_url(url: &str) -> Result<(), Error> {
     open_that(url).unwrap();
     Ok(())
 }
-
-
