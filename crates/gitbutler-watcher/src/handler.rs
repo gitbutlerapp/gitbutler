@@ -11,8 +11,8 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt,
 };
-use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
+use gitbutler_project::{self as projects, Project};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
@@ -125,14 +125,27 @@ impl Handler {
     #[instrument(skip(self, paths, project_id), fields(paths = paths.len()))]
     fn recalculate_everything(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
         let ctx = self.open_command_context(project_id)?;
-        // Skip if we're not on the open workspace mode
-        if !in_open_workspace_mode(&ctx) {
-            return Ok(());
+
+        self.emit_uncommited_files(ctx.project());
+
+        if in_open_workspace_mode(&ctx) {
+            self.maybe_create_snapshot(project_id).ok();
+            self.calculate_virtual_branches(project_id)?;
         }
 
-        self.maybe_create_snapshot(project_id).ok();
-        self.calculate_virtual_branches(project_id)?;
         Ok(())
+    }
+
+    /// Try to emit uncommited files. Swollow errors if they arrise.
+    fn emit_uncommited_files(&self, project: &Project) {
+        let Ok(files) = VirtualBranchActions.get_uncommited_files(project) else {
+            return;
+        };
+
+        let _ = self.emit_app_event(Change::UncommitedFiles {
+            project_id: project.id,
+            files,
+        });
     }
 
     fn maybe_create_snapshot(&self, project_id: ProjectId) -> anyhow::Result<()> {
