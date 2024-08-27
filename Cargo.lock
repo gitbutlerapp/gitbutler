@@ -46,6 +46,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
 dependencies = [
  "cfg-if",
+ "getrandom 0.2.15",
  "once_cell",
  "version_check",
  "zerocopy",
@@ -1271,6 +1272,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashmap"
+version = "6.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "804c8821570c3f8b70230c2ba75ffa5c0f9a4189b9a432b6656c536712acae28"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
+ "hashbrown 0.14.5",
+ "lock_api",
+ "once_cell",
+ "parking_lot_core 0.9.10",
+]
+
+[[package]]
 name = "deranged"
 version = "0.3.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2037,9 +2052,9 @@ dependencies = [
 
 [[package]]
 name = "git2"
-version = "0.18.3"
+version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "232e6a7bfe35766bf715e55a88b39a700596c0ccfd88cd3680b4cdb40d66ef70"
+checksum = "b903b73e45dc0c6c596f2d37eccece7c1c8bb6e4407b001096387c63d0d93724"
 dependencies = [
  "bitflags 2.6.0",
  "libc",
@@ -2129,6 +2144,16 @@ dependencies = [
  "tracing",
  "url",
  "urlencoding",
+]
+
+[[package]]
+name = "gitbutler-butchan"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gix",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]
@@ -2532,6 +2557,7 @@ dependencies = [
  "anyhow",
  "backoff",
  "gitbutler-branch-actions",
+ "gitbutler-butchan",
  "gitbutler-command-context",
  "gitbutler-error",
  "gitbutler-notify-debouncer",
@@ -2586,6 +2612,7 @@ dependencies = [
  "gix-revision",
  "gix-revwalk 0.13.2 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
  "gix-sec 0.10.7 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "gix-status",
  "gix-submodule",
  "gix-tempfile 14.0.1 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
  "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
@@ -2808,8 +2835,16 @@ version = "0.44.1"
 source = "git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa#29898e3010bd3332418c683f2ac96aff5c8e72fa"
 dependencies = [
  "bstr",
+ "gix-command",
+ "gix-filter",
+ "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
  "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
  "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "gix-tempfile 14.0.1 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "gix-trace 0.1.9 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "gix-worktree 0.34.1 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "imara-diff",
  "thiserror",
 ]
 
@@ -3406,6 +3441,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "gix-status"
+version = "0.11.0"
+source = "git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa#29898e3010bd3332418c683f2ac96aff5c8e72fa"
+dependencies = [
+ "bstr",
+ "filetime",
+ "gix-diff",
+ "gix-dir",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "gix-filter",
+ "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "gix-index 0.33.1 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "gix-object 0.42.3 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "gix-path 0.10.9 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "gix-pathspec",
+ "gix-worktree 0.34.1 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
+ "portable-atomic",
+ "thiserror",
+]
+
+[[package]]
 name = "gix-submodule"
 version = "0.12.0"
 source = "git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa#29898e3010bd3332418c683f2ac96aff5c8e72fa"
@@ -3439,6 +3496,7 @@ name = "gix-tempfile"
 version = "14.0.1"
 source = "git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa#29898e3010bd3332418c683f2ac96aff5c8e72fa"
 dependencies = [
+ "dashmap",
  "gix-fs 0.11.2 (git+https://github.com/Byron/gitoxide?rev=29898e3010bd3332418c683f2ac96aff5c8e72fa)",
  "libc",
  "once_cell",
@@ -4183,6 +4241,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "imara-diff"
+version = "0.1.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc9da1a252bd44cd341657203722352efc9bc0c847d06ea6d2dc1cd1135e0a01"
+dependencies = [
+ "ahash 0.8.11",
+ "hashbrown 0.14.5",
+]
+
+[[package]]
 name = "indexmap"
 version = "1.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4533,9 +4601,9 @@ checksum = "97b3888a4aecf77e811145cadf6eef5901f4782c53886191b2f693f24761847c"
 
 [[package]]
 name = "libgit2-sys"
-version = "0.16.2+1.7.2"
+version = "0.17.0+1.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee4126d8b4ee5c9d9ea891dd875cfdc1e9d0950437179104b183d7d8a74d24e8"
+checksum = "10472326a8a6477c3c20a64547b0059e4b0d086869eee31e6d7da728a8eb7224"
 dependencies = [
  "cc",
  "libc",
@@ -5575,6 +5643,12 @@ dependencies = [
  "tracing",
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "portable-atomic"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da544ee218f0d287a911e9c99a39a8c9bc8fcad3cb8db5959940044ecfc67265"
 
 [[package]]
 name = "powerfmt"

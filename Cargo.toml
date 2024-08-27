@@ -29,13 +29,14 @@ members = [
     "crates/gitbutler-url",
     "crates/gitbutler-diff",
     "crates/gitbutler-operating-modes",
+    "crates/gitbutler-butchan"
 ]
 resolver = "2"
 
 [workspace.dependencies]
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { git = "https://github.com/Byron/gitoxide", rev = "29898e3010bd3332418c683f2ac96aff5c8e72fa", default-features = false, features = [] }
-git2 = { version = "0.18.3", features = [
+gix = { git = "https://github.com/Byron/gitoxide", rev = "29898e3010bd3332418c683f2ac96aff5c8e72fa", default-features = false, features = ["status"] }
+git2 = { version = "0.19.0", features = [
     "vendored-openssl",
     "vendored-libgit2",
 ] }
@@ -76,6 +77,7 @@ gitbutler-tagged-string = { path = "crates/gitbutler-tagged-string" }
 gitbutler-url = { path = "crates/gitbutler-url" }
 gitbutler-diff = { path = "crates/gitbutler-diff" }
 gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
+gitbutler-butchan = { path = "crates/gitbutler-butchan" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better

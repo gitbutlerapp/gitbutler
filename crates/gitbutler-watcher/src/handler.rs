@@ -2,6 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
 use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
+use gitbutler_butchan::handle_project_change;
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
 use gitbutler_operating_modes::{in_open_workspace_mode, in_outside_workspace_mode};
@@ -123,6 +124,11 @@ impl Handler {
     #[instrument(skip(self, paths, project_id), fields(paths = paths.len()))]
     fn recalculate_everything(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
         let ctx = self.open_command_context(project_id)?;
+
+        let repository_path = ctx.project().path.clone();
+
+        tokio::spawn(async { handle_project_change(repository_path).await });
+
         // Skip if we're not on the open workspace mode
         if !in_open_workspace_mode(&ctx)? {
             return Ok(());

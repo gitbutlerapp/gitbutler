@@ -1,0 +1,13 @@
+[package]
+name = "gitbutler-butchan"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+rust-version = "1.74"
+
+[dependencies]
+gix.workspace = true
+anyhow.workspace = true
+tokio.workspace = true
+uuid.workspace = true
