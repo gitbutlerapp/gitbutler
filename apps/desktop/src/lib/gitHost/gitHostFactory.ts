@@ -1,7 +1,7 @@
 import { AZURE_DOMAIN, AzureDevOps } from './azure/azure';
 import { BitBucket, BITBUCKET_DOMAIN } from './bitbucket/bitbucket';
 import { GitHub, GITHUB_DOMAIN } from './github/github';
-import { GitLab, GITLAB_DOMAIN } from './gitlab/gitlab';
+import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from './gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { Persisted } from '$lib/persisted/persisted';
 import type { RepoInfo } from '$lib/url/gitUrl';
@@ -24,6 +24,7 @@ export class DefaultGitHostFactory implements GitHostFactory {
 		usePullRequestTemplate?: Persisted<boolean>
 	) {
 		const source = repo.source;
+		const resource = repo.resource;
 		const forkStr = fork ? `${fork.owner}:${fork.name}` : undefined;
 
 		if (source.includes(GITHUB_DOMAIN)) {
@@ -36,7 +37,7 @@ export class DefaultGitHostFactory implements GitHostFactory {
 				usePullRequestTemplate
 			});
 		}
-		if (source.includes(GITLAB_DOMAIN)) {
+		if (source.includes(GITLAB_DOMAIN) || resource.includes(GITLAB_SUB_DOMAIN)) {
 			return new GitLab({ repo, baseBranch, forkStr });
 		}
 		if (source.includes(BITBUCKET_DOMAIN)) {

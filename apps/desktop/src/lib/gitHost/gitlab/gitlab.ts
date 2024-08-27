@@ -1,13 +1,14 @@
-import { GitLabBranch } from './gitlabBranch';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
 import type { DetailedPullRequest, GitHostArguments } from '../interface/types';
+import { GitLabBranch } from './gitlabBranch';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
 export type PrCacheKey = { value: DetailedPullRequest | undefined; fetchedAt: Date };
 
 export const GITLAB_DOMAIN = 'gitlab.com';
+export const GITLAB_SUB_DOMAIN = 'gitlab'; // For self hosted instance of Gitlab
 
 /**
  * PR support is pending OAuth support in the rust code.
@@ -22,7 +23,7 @@ export class GitLab implements GitHost {
 	private forkStr?: string;
 
 	constructor({ repo, baseBranch, forkStr }: GitHostArguments) {
-		this.baseUrl = `https://${GITLAB_DOMAIN}/${repo.owner}/${repo.name}`;
+		this.baseUrl = `https://${repo.resource}/${repo.owner}/${repo.name}`;
 		this.repo = repo;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;
