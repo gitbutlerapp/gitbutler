@@ -144,7 +144,7 @@
 								await updaterService.installUpdate();
 							}}
 						>
-							Download & install {version}
+							Update to {version}
 						</Button>
 					{:else if status === 'UPTODATE'}
 						<Button
