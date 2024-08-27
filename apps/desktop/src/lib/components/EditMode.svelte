@@ -1,7 +1,7 @@
 <script lang="ts">
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
-	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
+	import editModeSvg from '$lib/assets/illustrations/edit-mode.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
@@ -118,7 +118,7 @@
 	}
 </script>
 
-<DecorativeSplitView img={newProjectSvg}>
+<DecorativeSplitView img={editModeSvg}>
 	<div class="switchrepo">
 		<div class="project-name">
 			<ProjectNameLabel projectName={project?.title} />
@@ -153,7 +153,7 @@
 
 		<div class="switchrepo__actions">
 			<Button style="ghost" outline onclick={abort} disabled={modeServiceAborting === 'loading'}>
-				Cancel changes
+				Cancel
 			</Button>
 			<Button
 				style="pop"
@@ -166,6 +166,15 @@
 			</Button>
 		</div>
 	</div>
+
+	{#snippet title()}
+		Edit mode
+	{/snippet}
+	{#snippet description()}
+		Edit Mode lets you modify an existing commit in isolation or resolve conflicts. Any changes
+		made, including new files, will be added to the selected commit. You can finalize the edit by
+		either saving or discarding your changes.
+	{/snippet}
 </DecorativeSplitView>
 
 <style lang="postcss">
