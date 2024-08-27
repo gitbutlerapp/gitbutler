@@ -3,11 +3,12 @@
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { Project } from '$lib/backend/projects';
-	import { InitialFile, ModeService, type EditModeMetadata } from '$lib/modes/service';
+	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import type { RemoteFile } from '$lib/vbranches/types';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
 
 	interface Props {
@@ -22,9 +23,10 @@
 
 	const uncommitedFiles = uncommitedFileWatcher.uncommitedFiles;
 
+	let modeServiceAborting = $state<'inert' | 'loading' | 'completed'>('inert');
 	let modeServiceSaving = $state<'inert' | 'loading' | 'completed'>('inert');
 
-	let initialFiles = $state<InitialFile[]>([]);
+	let initialFiles = $state<RemoteFile[]>([]);
 
 	$effect(() => {
 		modeService.getInitialIndexState().then((files) => {
@@ -40,60 +42,71 @@
 	}
 
 	const files = $derived.by(() => {
-		const files: FileEntry[] = initialFiles.map((initialFile) => ({
-			name: initialFile.filename,
-			path: initialFile.filePath,
-			conflicted: initialFile.conflicted,
-			status: $uncommitedFiles.some(
-				(uncommitedFile) => uncommitedFile[0].path === initialFile.filePath
-			)
-				? undefined
-				: 'D'
-		}));
+		const initialFileMap = new Map<string, RemoteFile>();
+		const uncommitedFileMap = new Map<string, RemoteFile>();
+		const outputMap = new Map<string, FileEntry>();
 
-		console.log(initialFiles);
+		// Build maps of files
+		{
+			initialFiles.forEach((initialFile) => {
+				initialFileMap.set(initialFile.path, initialFile);
+			});
 
-		$uncommitedFiles.forEach((uncommitedFile) => {
-			console.log(uncommitedFile);
-			const foundFile = files.find((file) => file.path === uncommitedFile[0].path);
+			$uncommitedFiles.forEach(([uncommitedFile]) => {
+				uncommitedFileMap.set(uncommitedFile.path, uncommitedFile);
+			});
+		}
 
-			if (foundFile) {
-				const initialFile = initialFiles.find(
-					(initialFile) => initialFile.filePath === foundFile.path
-				)!;
+		// Create output
+		{
+			initialFiles.forEach((initialFile) => {
+				const isDeleted = uncommitedFileMap.has(initialFile.path);
 
-				// This may incorrectly be true if the file is conflicted
-				// To compensate for this, we also check if the uncommited diff
-				// has conflict markers.
-				const fileChanged = initialFile.file.hunks.some(
-					(hunk) => !uncommitedFile[0].hunks.map((hunk) => hunk.diff).includes(hunk.diff)
-				);
-
-				if (fileChanged && !uncommitedFile[0].looksConflicted) {
-					foundFile.status = 'M';
-					foundFile.conflicted = false;
-				}
-			} else {
-				files.push({
-					name: uncommitedFile[0].filename,
-					path: uncommitedFile[0].path,
-					conflicted: false,
-					status: 'A'
+				outputMap.set(initialFile.path, {
+					name: initialFile.filename,
+					path: initialFile.path,
+					conflicted: initialFile.looksConflicted,
+					status: isDeleted ? undefined : 'D'
 				});
-			}
-		});
+			});
 
+			$uncommitedFiles.forEach(([uncommitedFile]) => {
+				const initialFile = initialFileMap.get(uncommitedFile.path);
+				if (initialFile) {
+					const fileChanged = initialFile.hunks.some(
+						(hunk) => !uncommitedFile.hunks.map((hunk) => hunk.diff).includes(hunk.diff)
+					);
+
+					if (fileChanged && !uncommitedFile.looksConflicted) {
+						// All initial entries should have been added to the map,
+						// so we can safly assert that it will be present
+						const outputFile = outputMap.get(uncommitedFile.path)!;
+						outputFile.status = 'M';
+						outputFile.conflicted = false;
+					}
+				} else {
+					outputMap.set(uncommitedFile.path, {
+						name: uncommitedFile.filename,
+						path: uncommitedFile.path,
+						conflicted: false,
+						status: 'A'
+					});
+				}
+			});
+		}
+
+		const files = Array.from(outputMap.values());
 		files.sort((a, b) => a.path.localeCompare(b.path));
 
 		return files;
 	});
 
 	async function abort() {
-		modeServiceSaving = 'loading';
+		modeServiceAborting = 'loading';
 
 		await modeService.abortEditAndReturnToWorkspace();
 
-		modeServiceSaving = 'completed';
+		modeServiceAborting = 'completed';
 	}
 
 	async function save() {
@@ -137,7 +150,7 @@
 		</div>
 
 		<div class="switchrepo__actions">
-			<Button style="ghost" outline onclick={abort} loading={modeServiceSaving === 'loading'}>
+			<Button style="ghost" outline onclick={abort} loading={modeServiceAborting === 'loading'}>
 				Cancel changes
 			</Button>
 			<Button

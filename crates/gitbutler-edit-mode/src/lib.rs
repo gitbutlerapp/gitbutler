@@ -1,4 +1,4 @@
-use std::{path::PathBuf, str::FromStr};
+use std::str::FromStr;
 
 use anyhow::{bail, Context, Result};
 use bstr::ByteSlice;
@@ -24,11 +24,11 @@ use gitbutler_repo::{
     rebase::{cherry_rebase, cherry_rebase_group},
     RepositoryExt,
 };
-use serde::Serialize;
 
 pub mod commands;
 
 pub const EDIT_UNCOMMITED_FILES_REF: &str = "refs/gitbutler/edit_uncommited_files";
+pub const EDIT_INITIAL_STATE_REF: &str = "refs/gitbutler/edit_initial_state";
 
 fn save_uncommited_files(ctx: &CommandContext) -> Result<()> {
     let repository = ctx.repository();
@@ -115,31 +115,41 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<(
     let repository = ctx.repository();
 
     // Checkout commits's parent
-    let commit_parent = commit.parent(0).context("Failed to get commit's parent")?;
-    repository
-        .reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")
-        .context("Failed to update edit branch reference")?;
-    repository
-        .set_head(EDIT_BRANCH_REF)
-        .context("Failed to set head reference")?;
-    repository
-        .checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))
-        .context("Failed to checkout head")?;
+    let commit_parent = commit.parent(0)?;
+    repository.reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")?;
+    repository.reference(EDIT_INITIAL_STATE_REF, commit_parent.id(), true, "")?;
+    repository.set_head(EDIT_BRANCH_REF)?;
+    repository.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
 
     // Checkout the commit as unstaged changes
     let mut index = get_commit_index(repository, commit)?;
 
-    repository
-        .checkout_index(
-            Some(&mut index),
-            Some(
-                CheckoutBuilder::new()
-                    .force()
-                    .remove_untracked(true)
-                    .conflict_style_diff3(true),
-            ),
-        )
-        .context("Failed to checkout conflicted commit")?;
+    repository.checkout_index(
+        Some(&mut index),
+        Some(
+            CheckoutBuilder::new()
+                .force()
+                .remove_untracked(true)
+                .conflict_style_diff3(true),
+        ),
+    )?;
+
+    let mut index = repository.index()?;
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+    let tree = index.write_tree()?;
+    let tree = repository.find_tree(tree)?;
+
+    let author_signature = signature(SignaturePurpose::Author)?;
+    let committer_signature = signature(SignaturePurpose::Committer)?;
+    // Commit initial state commit
+    repository.commit(
+        Some(EDIT_INITIAL_STATE_REF),
+        &author_signature,
+        &committer_signature,
+        "Initial state commit",
+        &tree,
+        &[&commit_parent],
+    )?;
 
     Ok(())
 }
@@ -344,18 +354,10 @@ pub(crate) fn save_and_return_to_workspace(
     Ok(())
 }
 
-#[derive(Debug, Serialize, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct InitialFile {
-    file_path: PathBuf,
-    conflicted: bool,
-    file: RemoteBranchFile,
-}
-
 pub(crate) fn starting_index_state(
     ctx: &CommandContext,
     _perm: &WorktreeReadPermission,
-) -> Result<Vec<InitialFile>> {
+) -> Result<Vec<RemoteBranchFile>> {
     let OperatingMode::Edit(metadata) = operating_mode(ctx) else {
         bail!("Starting index state can only be fetched while in edit mode")
     };
@@ -365,47 +367,25 @@ pub(crate) fn starting_index_state(
     let commit = repository.find_commit(metadata.commit_oid)?;
     let commit_parent = commit.parent(0)?;
     let commit_parent_tree = repository.find_real_tree(&commit_parent, Default::default())?;
-    let edit_mode_index = get_commit_index(repository, &commit)?;
+
+    let initial_state = repository
+        .find_reference(EDIT_INITIAL_STATE_REF)?
+        .peel_to_tree()?;
 
     let diff =
-        repository.diff_tree_to_index(Some(&commit_parent_tree), Some(&edit_mode_index), None)?;
+        repository.diff_tree_to_tree(Some(&commit_parent_tree), Some(&initial_state), None)?;
 
-    let mut index_files = vec![];
-
-    let diff_files = hunks_by_filepath(Some(repository), &diff)?;
-
-    diff.foreach(
-        &mut |delta, _| {
-            let conflicted = delta.status() == git2::Delta::Conflicted;
-
-            let Some(path) = delta.new_file().path() else {
-                // Ignore file
-                return true;
-            };
-
-            let Some(file) = diff_files.get(path) else {
-                return true;
-            };
-
+    let diff_files = hunks_by_filepath(Some(repository), &diff)?
+        .into_iter()
+        .map(|(path, file)| {
             let binary = file.hunks.iter().any(|h| h.binary);
-            let remote_file = RemoteBranchFile {
-                path: path.into(),
-                hunks: file.hunks.clone(),
+            RemoteBranchFile {
+                path,
+                hunks: file.hunks,
                 binary,
-            };
+            }
+        })
+        .collect();
 
-            index_files.push(InitialFile {
-                conflicted,
-                file_path: path.into(),
-                file: remote_file,
-            });
-
-            true
-        },
-        None,
-        None,
-        None,
-    )?;
-
-    Ok(index_files)
+    Ok(diff_files)
 }

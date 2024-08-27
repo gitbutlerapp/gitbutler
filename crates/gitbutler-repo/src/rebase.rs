@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
-use git2::{build::TreeUpdateBuilder, Repository};
+use git2::build::TreeUpdateBuilder;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{
@@ -8,10 +8,8 @@ use gitbutler_commit::{
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
 use gitbutler_error::error::Marker;
-use tempfile::tempdir;
-use uuid::Uuid;
 
-use crate::{LogUntil, RepoActionsExt};
+use crate::{temporary_workdir::TemporaryWorkdir, LogUntil, RepoActionsExt};
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
@@ -154,19 +152,10 @@ fn commit_conflicted_cherry_result<'repository>(
     // This is what can only be described as "a tad gross" but
     // AFAIK there is no good way of resolving conflicts in
     // an index without writing it *somewhere*
-    let temporary_directory = tempdir().context("Failed to create temporary directory")?;
-    let branch_name = Uuid::new_v4().to_string();
-    let worktree = repository
-        .worktree(
-            &branch_name,
-            &temporary_directory.path().join("repository"),
-            None,
-        )
-        .context("Failed to create worktree")?;
-    let worktree_repository =
-        Repository::open_from_worktree(&worktree).context("Failed to open worktree repository")?;
+    let temporary_workdir = TemporaryWorkdir::open(repository)?;
 
-    worktree_repository
+    temporary_workdir
+        .repository()
         .set_index(&mut cherrypick_index)
         .context("Failed to set cherrypick index as worktree index")?;
 
@@ -260,15 +249,6 @@ fn commit_conflicted_cherry_result<'repository>(
         commit_headers,
     )
     .context("failed to create commit")?;
-
-    // Tidy up worktree
-    {
-        temporary_directory.close()?;
-        worktree.prune(None)?;
-        repository
-            .find_branch(&branch_name, git2::BranchType::Local)?
-            .delete()?;
-    }
 
     repository
         .find_commit(commit_oid)

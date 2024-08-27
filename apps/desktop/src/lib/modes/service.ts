@@ -1,8 +1,7 @@
-import 'reflect-metadata';
 import { invoke, listen } from '$lib/backend/ipc';
-import { plainToInstance, Type } from 'class-transformer';
-import { derived, writable } from 'svelte/store';
 import { RemoteFile } from '$lib/vbranches/types';
+import { plainToInstance } from 'class-transformer';
+import { derived, writable } from 'svelte/store';
 
 export interface EditModeMetadata {
 	commitOid: string;
@@ -19,18 +18,6 @@ type Mode =
 interface HeadAndMode {
 	head?: string;
 	operatingMode?: Mode;
-}
-
-export class InitialFile {
-	filePath!: string;
-	conflicted!: boolean;
-	@Type(() => RemoteFile)
-	file!: RemoteFile;
-
-	get filename(): string {
-		const parts = this.filePath.split('/');
-		return parts.at(-1) ?? this.filePath;
-	}
 }
 
 export class ModeService {
@@ -78,7 +65,7 @@ export class ModeService {
 
 	async getInitialIndexState() {
 		return plainToInstance(
-			InitialFile,
+			RemoteFile,
 			await invoke<unknown[]>('edit_initial_index_state', { projectId: this.projectId })
 		);
 	}

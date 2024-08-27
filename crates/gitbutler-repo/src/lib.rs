@@ -16,3 +16,5 @@ mod config;
 pub use config::Config;
 
 pub mod askpass;
+
+pub mod temporary_workdir;
