@@ -325,7 +325,7 @@
 			border-radius: 100%;
 			background-color: var(--clr-illustration-outline);
 			opacity: 0.1;
-        animation: shadow-scale 5.5s infinite ease-in-out;
+			animation: shadow-scale 5.5s infinite ease-in-out;
 			animation-delay: 3s;
 		}
 	}
@@ -336,7 +336,7 @@
 		left: 50%;
 		transform: translate(-50%, -66%) translateZ(0);
 		width: 212px;
-    animation: hovering 5.5s infinite ease-in-out;
+		animation: hovering 5.5s infinite ease-in-out;
 		animation-delay: 3s;
 	}
 	@keyframes hovering {
