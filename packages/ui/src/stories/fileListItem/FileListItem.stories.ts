@@ -16,6 +16,7 @@ export const FileListItemStory: Story = {
 		filePath: '/path/to',
 		fileStatus: 'A',
 		fileStatusStyle: 'dot',
+		clickable: true,
 		selected: false,
 		conflicted: true,
 		draggable: true,

@@ -15,6 +15,7 @@
 		fileStatusStyle?: 'dot' | 'full';
 		draggable?: boolean;
 		selected?: boolean;
+		clickable?: boolean;
 		showCheckbox?: boolean;
 		checked?: boolean;
 		conflicted?: boolean;
@@ -40,6 +41,7 @@
 		fileStatusStyle = 'dot',
 		draggable = false,
 		selected = false,
+		clickable = true,
 		showCheckbox = false,
 		checked = $bindable(),
 		conflicted,
@@ -59,6 +61,7 @@
 	data-locked={locked}
 	class="file-list-item"
 	class:selected-draggable={selected}
+	class:clickable
 	class:draggable
 	aria-selected={selected}
 	role="option"
@@ -136,12 +139,16 @@
 		background: var(--clr-bg-1);
 		border-bottom: 1px solid var(--clr-border-3);
 
-		&:not(.selected-draggable):hover {
-			background-color: var(--clr-bg-1-muted);
-		}
-
 		&:last-child {
 			border-bottom: none;
+		}
+	}
+
+	.file-list-item.clickable {
+		cursor: pointer;
+
+		&:not(.selected-draggable):hover {
+			background-color: var(--clr-bg-1-muted);
 		}
 	}
 

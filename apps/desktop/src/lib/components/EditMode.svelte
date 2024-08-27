@@ -123,15 +123,16 @@
 		<div class="project-name">
 			<ProjectNameLabel projectName={project?.title} />
 		</div>
-		<p class="switchrepo__title text-18 text-body text-bold">
+		<h2 class="switchrepo__title text-18 text-body text-bold">
 			You are currently editing commit <span class="code-string">
 				{editModeMetadata.commitOid.slice(0, 7)}
 			</span>
-		</p>
+		</h2>
 
-		<p class="switchrepo__message text-13 text-body">
-			Please do not make any commits whilst in edit mode. To leave edit mode, use the provided
-			actions.
+		<p class="switchrepo__message text-12 text-body">
+			Please do not make any commits whilst in edit mode.
+			<br />
+			To leave edit mode, use the provided actions.
 		</p>
 
 		<div class="files">
@@ -143,22 +144,23 @@
 						filePath={file.path}
 						fileStatus={file.status}
 						conflicted={file.conflicted}
-						fileStatusStyle={'full'}
+						fileStatusStyle="full"
+						clickable={false}
 					/>
 				</div>
 			{/each}
 		</div>
 
 		<div class="switchrepo__actions">
-			<Button style="ghost" outline onclick={abort} loading={modeServiceAborting === 'loading'}>
+			<Button style="ghost" outline onclick={abort} disabled={modeServiceAborting === 'loading'}>
 				Cancel changes
 			</Button>
 			<Button
 				style="pop"
 				kind="solid"
-				icon="undo-small"
+				icon="tick-small"
 				onclick={save}
-				loading={modeServiceSaving === 'loading'}
+				disabled={modeServiceSaving === 'loading'}
 			>
 				Save and exit
 			</Button>
@@ -172,12 +174,12 @@
 	}
 
 	.switchrepo__title {
-		color: var(--clr-scale-ntrl-30);
+		color: var(--clr-text-1);
 		margin-bottom: 12px;
 	}
 
 	.switchrepo__message {
-		color: var(--clr-scale-ntrl-50);
+		color: var(--clr-text-2);
 		margin-bottom: 20px;
 	}
 	.switchrepo__actions {
