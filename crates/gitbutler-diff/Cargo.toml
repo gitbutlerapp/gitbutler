@@ -14,8 +14,9 @@ hex = "0.4.3"
 tracing.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-command-context.workspace = true
+gitbutler-cherry-pick.workspace = true
 diffy = "0.4.0"
-serde = { workspace = true, features = ["std"]}
+serde = { workspace = true, features = ["std"] }
 
 [[test]]
 name = "diff"

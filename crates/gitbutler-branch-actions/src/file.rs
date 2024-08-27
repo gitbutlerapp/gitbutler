@@ -4,9 +4,9 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
+use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::FileDiff;
-use gitbutler_repo::RepositoryExt;
 use serde::Serialize;
 
 use crate::{

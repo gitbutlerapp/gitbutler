@@ -1,4 +1,6 @@
 import { invoke, listen } from '$lib/backend/ipc';
+import { RemoteFile } from '$lib/vbranches/types';
+import { plainToInstance } from 'class-transformer';
 import { derived, writable } from 'svelte/store';
 
 export interface EditModeMetadata {
@@ -59,6 +61,13 @@ export class ModeService {
 		await invoke('save_edit_and_return_to_workspace', {
 			projectId: this.projectId
 		});
+	}
+
+	async getInitialIndexState() {
+		return plainToInstance(
+			RemoteFile,
+			await invoke<unknown[]>('edit_initial_index_state', { projectId: this.projectId })
+		);
 	}
 }
 

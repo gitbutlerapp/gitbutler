@@ -1,4 +1,4 @@
-use crate::VirtualBranchesExt;
+use crate::{RemoteBranchFile, VirtualBranchesExt};
 use anyhow::{bail, Context, Result};
 use bstr::{BStr, ByteSlice};
 use core::fmt;
@@ -6,6 +6,7 @@ use gitbutler_branch::{
     Branch as GitButlerBranch, BranchId, BranchIdentity, ReferenceExtGix, Target,
 };
 use gitbutler_command_context::{CommandContext, GixRepositoryExt};
+use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_serde::BStringForFrontend;
 use gix::object::tree::diff::Action;
@@ -20,6 +21,33 @@ use std::{
     fmt::Debug,
     vec,
 };
+
+pub(crate) fn get_uncommited_files(
+    context: &CommandContext,
+    _permission: &WorktreeReadPermission,
+) -> Result<Vec<RemoteBranchFile>> {
+    let repository = context.repository();
+    let head_commit = repository
+        .head()
+        .context("Failed to get head")?
+        .peel_to_commit()
+        .context("Failed to get head commit")?;
+
+    let files = gitbutler_diff::workdir(repository, &head_commit.id())
+        .context("Failed to list uncommited files")?
+        .into_iter()
+        .map(|(path, file)| {
+            let binary = file.hunks.iter().any(|h| h.binary);
+            RemoteBranchFile {
+                path,
+                hunks: file.hunks,
+                binary,
+            }
+        })
+        .collect();
+
+    Ok(files)
+}
 
 /// Returns a list of branches associated with this project.
 pub fn list_branches(
@@ -517,16 +545,36 @@ pub fn get_branch_listing_details(
                     let mut repo = repo.to_thread_local();
                     repo.object_cache_size_if_unset(50 * 1024 * 1024);
                     let cache = repo.commit_graph_if_enabled()?;
+                    let mut graph = repo.revision_graph(cache.as_ref());
                     for (other_branch_commit_id, branch_head) in all_other_branch_commit_ids {
+                        let branch_head = git2_to_gix_object_id(branch_head);
                         let base = repo
-                            .merge_base_with_cache(
+                            .merge_base_with_graph(
                                 git2_to_gix_object_id(other_branch_commit_id),
-                                git2_to_gix_object_id(branch_head),
-                                cache.as_ref(),
+                                branch_head,
+                                &mut graph,
                             )
                             .ok()
                             .map(gix::Id::detach);
-                        if merge_tx.send(base).is_err() {
+                        let res = match base {
+                            Some(base) => {
+                                let mut num_commits = 0;
+                                let mut authors = HashSet::new();
+                                let revwalk = repo
+                                    .rev_walk(Some(branch_head))
+                                    .with_pruned(Some(base))
+                                    .all()?;
+                                for commit_info in revwalk {
+                                    let commit_info = commit_info?;
+                                    let commit = repo.find_commit(commit_info.id)?;
+                                    authors.insert(commit.author()?.into());
+                                    num_commits += 1;
+                                }
+                                merge_tx.send(Some((base, authors, num_commits)))
+                            }
+                            None => merge_tx.send(None),
+                        };
+                        if res.is_err() {
                             break;
                         }
                     }
@@ -535,7 +583,7 @@ pub fn get_branch_listing_details(
             })?;
 
         for branch in branches {
-            let Some(base) = merge_rx.recv()? else {
+            let Some((base, authors, num_commits)) = merge_rx.recv()? else {
                 continue;
             };
 
@@ -559,18 +607,6 @@ pub fn get_branch_listing_details(
                 })?;
             let (number_of_files, lines_added, lines_removed) = rex_rx.recv()?;
 
-            let mut num_commits = 0;
-            let mut authors = HashSet::new();
-            let revwalk = repo
-                .rev_walk(Some(branch_head))
-                .with_pruned(Some(base))
-                .all()?;
-            for commit_info in revwalk {
-                let commit_info = commit_info?;
-                let commit = repo.find_commit(commit_info.id)?;
-                authors.insert(commit.author()?.into());
-                num_commits += 1;
-            }
             let branch_data = BranchListingDetails {
                 name: branch.name,
                 lines_added,

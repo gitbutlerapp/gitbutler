@@ -4,10 +4,12 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
+	import { featureBranchStacking } from '$lib/config/uiFeatureFlags';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
 	import { ModeService } from '$lib/modes/service';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore, maybeGetContext } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -48,6 +50,8 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
+	const branchStacking = featureBranchStacking();
+
 	let draggableCommitElement: HTMLElement | null = null;
 	let files: RemoteFile[] = [];
 	let showDetails = false;
@@ -81,6 +85,20 @@
 	let commitMessageModal: Modal;
 	let commitMessageValid = false;
 	let description = '';
+
+	let createRefModal: Modal;
+	let createRefName = $baseBranch.remoteName + '/';
+
+	function openCreateRefModal(e: Event, commit: DetailedCommit | Commit) {
+		e.stopPropagation();
+		createRefModal.show(commit);
+	}
+
+	function pushCommitRef(commit: DetailedCommit) {
+		if (branch && commit.remoteRef) {
+			branchController.pushChangeReference(branch.id, commit.remoteRef);
+		}
+	}
 
 	function openCommitMessageModal(e: Event) {
 		e.stopPropagation();
@@ -153,6 +171,29 @@
 		>
 			Submit
 		</Button>
+	{/snippet}
+</Modal>
+
+<Modal bind:this={createRefModal} width="small">
+	{#snippet children(commit)}
+		<TextBox label="Remote branch name" id="newRemoteName" bind:value={createRefName} focus />
+		<Button
+			style="pop"
+			kind="solid"
+			onclick={() => {
+				branchController.createChangeReference(
+					branch?.id || '',
+					'refs/remotes/' + createRefName,
+					commit.changeId
+				);
+				createRefModal.close();
+			}}
+		>
+			Ok
+		</Button>
+	{/snippet}
+	{#snippet controls(close)}
+		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
 	{/snippet}
 </Modal>
 
@@ -315,6 +356,14 @@
 						<span class="commit__subtitle-divider">•</span>
 
 						<span>{getTimeAndAuthor()}</span>
+
+						{#if $branchStacking && commit instanceof DetailedCommit}
+							<div
+								style="background-color:var(--clr-core-pop-80); border-radius: 3px; padding: 2px;"
+							>
+								{commit?.remoteRef}
+							</div>
+						{/if}
 					</div>
 				{/if}
 			</div>
@@ -352,6 +401,26 @@
 										icon="edit-small"
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
+									{#if $branchStacking && commit instanceof DetailedCommit && !commit.remoteRef}
+										<Button
+											size="tag"
+											style="ghost"
+											outline
+											icon="branch"
+											onclick={(e: Event) => {openCreateRefModal(e, commit)}}>Create ref</Button
+										>
+									{/if}
+									{#if $branchStacking && commit instanceof DetailedCommit && commit.remoteRef}
+										<Button
+											size="tag"
+											style="ghost"
+											outline
+											icon="remote"
+											onclick={() => {
+												pushCommitRef(commit);
+											}}>Push ref</Button
+										>
+									{/if}
 								{/if}
 								{#if canEdit() && project.succeedingRebases}
 									<Button size="tag" style="ghost" outline onclick={editPatch}>

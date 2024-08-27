@@ -34,7 +34,9 @@ gitbutler-id.workspace = true
 gitbutler-time.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-url.workspace = true
+gitbutler-cherry-pick.workspace = true
 uuid.workspace = true
+itertools = "0.13"
 
 [[test]]
 name = "repo"

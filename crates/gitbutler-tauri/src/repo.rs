@@ -1,5 +1,6 @@
 pub mod commands {
     use anyhow::{Context, Result};
+    use gitbutler_branch_actions::{RemoteBranchFile, VirtualBranchActions};
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_repo::RepoCommands;
@@ -59,5 +60,15 @@ pub mod commands {
             .main_worktree(Discard, &should_interrupt)
             .context("Failed to checkout main worktree")?;
         Ok(())
+    }
+
+    #[tauri::command(async)]
+    pub fn get_uncommited_files(
+        projects: State<'_, projects::Controller>,
+        id: ProjectId,
+    ) -> Result<Vec<RemoteBranchFile>, Error> {
+        let project = projects.get(id)?;
+
+        Ok(VirtualBranchActions.get_uncommited_files(&project)?)
     }
 }

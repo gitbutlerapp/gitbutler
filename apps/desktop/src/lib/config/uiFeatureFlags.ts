@@ -15,3 +15,8 @@ export function featureInlineUnifiedDiffs(): Persisted<boolean> {
 	const key = 'inlineUnifiedDiffs';
 	return persisted(false, key);
 }
+
+export function featureBranchStacking(): Persisted<boolean> {
+	const key = 'branchStacking';
+	return persisted(false, key);
+}

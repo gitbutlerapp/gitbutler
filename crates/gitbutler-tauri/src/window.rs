@@ -52,6 +52,11 @@ pub(super) mod state {
                         payload: serde_json::json!(virtual_branches),
                         project_id,
                     },
+                    Change::UncommitedFiles { project_id, files } => ChangeForFrontend {
+                        name: format!("project://{}/uncommited-files", project_id),
+                        payload: serde_json::json!(files),
+                        project_id,
+                    },
                 }
             }
         }

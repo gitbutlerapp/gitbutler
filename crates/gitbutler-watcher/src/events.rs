@@ -1,6 +1,6 @@
 use std::{fmt::Display, path::PathBuf};
 
-use gitbutler_branch_actions::VirtualBranches;
+use gitbutler_branch_actions::{RemoteBranchFile, VirtualBranches};
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_project::ProjectId;
 
@@ -100,5 +100,9 @@ pub enum Change {
     VirtualBranches {
         project_id: ProjectId,
         virtual_branches: VirtualBranches,
+    },
+    UncommitedFiles {
+        project_id: ProjectId,
+        files: Vec<RemoteBranchFile>,
     },
 }

@@ -80,6 +80,10 @@ export class LocalFile {
 			.filter(notNull)
 			.filter(isDefined);
 	}
+
+	get looksConflicted(): boolean {
+		return fileLooksConflicted(this);
+	}
 }
 
 export class SkippedFile {
@@ -173,6 +177,8 @@ export class DetailedCommit {
 	isSigned!: boolean;
 	relatedTo?: Commit;
 	conflicted!: boolean;
+	// Set if a GitButler branch reference pointing to this commit exists. In the format of "refs/remotes/origin/my-branch"
+	remoteRef?: string | undefined;
 
 	prev?: DetailedCommit;
 	next?: DetailedCommit;
@@ -292,6 +298,22 @@ export class RemoteFile {
 	get locked(): boolean {
 		return false;
 	}
+
+	get looksConflicted(): boolean {
+		return fileLooksConflicted(this);
+	}
+}
+
+function fileLooksConflicted(file: AnyFile) {
+	const hasStartingMarker = file.hunks.some((hunk) =>
+		hunk.diff.split('\n').some((line) => line.startsWith('>>>>>>> theirs', 1))
+	);
+
+	const hasEndingMarker = file.hunks.some((hunk) =>
+		hunk.diff.split('\n').some((line) => line.startsWith('<<<<<<< ours', 1))
+	);
+
+	return hasStartingMarker && hasEndingMarker;
 }
 
 export interface Author {

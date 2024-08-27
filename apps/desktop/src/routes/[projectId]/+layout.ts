@@ -9,6 +9,7 @@ import { HistoryService } from '$lib/history/history';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ModeService } from '$lib/modes/service';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
+import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 import { BranchController } from '$lib/vbranches/branchController';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { error } from '@sveltejs/kit';
@@ -76,6 +77,8 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const commitDragActionsFactory = new CommitDragActionsFactory(branchController, project);
 	const reorderDropzoneManagerFactory = new ReorderDropzoneManagerFactory(branchController);
 
+	const uncommitedFileWatcher = new UncommitedFilesWatcher(project);
+
 	return {
 		authService,
 		baseBranchService,
@@ -93,6 +96,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		branchDragActionsFactory,
 		commitDragActionsFactory,
 		reorderDropzoneManagerFactory,
-		branchListingService
+		branchListingService,
+		uncommitedFileWatcher
 	};
 };

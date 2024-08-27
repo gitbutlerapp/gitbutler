@@ -6,6 +6,7 @@ use gitbutler_branch::{
     self, Branch, BranchCreateRequest, SignaturePurpose, VirtualBranchesHandle,
     GITBUTLER_INTEGRATION_REFERENCE,
 };
+use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;

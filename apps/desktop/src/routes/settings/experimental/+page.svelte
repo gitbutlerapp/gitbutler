@@ -2,13 +2,15 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import {
 		featureBaseBranchSwitching,
-		featureInlineUnifiedDiffs
+		featureInlineUnifiedDiffs,
+		featureBranchStacking
 	} from '$lib/config/uiFeatureFlags';
 	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
 	const inlineUnifiedDiffs = featureInlineUnifiedDiffs();
+	const branchStacking = featureBranchStacking();
 </script>
 
 <ContentWrapper title="Experimental features">
@@ -42,6 +44,19 @@
 				id="inlineUnifiedDiffs"
 				checked={$inlineUnifiedDiffs}
 				on:click={() => ($inlineUnifiedDiffs = !$inlineUnifiedDiffs)}
+			/>
+		</svelte:fragment>
+	</SectionCard>
+	<SectionCard labelFor="branchStacking" orientation="row">
+		<svelte:fragment slot="title">Branch stacking</svelte:fragment>
+		<svelte:fragment slot="caption">
+			Allows for branch / pull request stacking. The user interface for this is still very crude.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle
+				id="branchStacking"
+				checked={$branchStacking}
+				on:click={() => ($branchStacking = !$branchStacking)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
