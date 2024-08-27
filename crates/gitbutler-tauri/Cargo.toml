@@ -74,7 +74,7 @@ nix = { version = "0.29", features = ["fs"] }
 
 [dependencies.tauri]
 version = "1.7.0"
-features = [ "updater",
+features = [
     "shell-execute",
     "http-all",
     "os-all",

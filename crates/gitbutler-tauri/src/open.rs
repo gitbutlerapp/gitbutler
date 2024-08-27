@@ -14,7 +14,7 @@ use arc_swap::ArcSwapOption;
 use nix::libc::uname;
 use tauri::Manager;
 
-pub fn open_that(path: String) -> Result<(), Error> {
+pub fn open_that(path: &str) -> Result<(), Error> {
     let re = Regex::new(r"^((https://)|(http://)|(mailto:)|(vscode://)|(vscodium://)).+").unwrap();
     if !re.is_match(&path) {
         return Err(anyhow!("Invalid path format").into());
@@ -115,7 +115,7 @@ pub(super) fn fix_env_variables(command: &mut Command) {
 
 #[tauri::command(async)]
 #[instrument(err(Debug))]
-pub fn open_url(url: String) -> Result<(), Error> {
+pub fn open_url(url: &str) -> Result<(), Error> {
     open_that(url).unwrap();
     Ok(())
 }

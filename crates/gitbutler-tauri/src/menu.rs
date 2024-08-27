@@ -304,19 +304,19 @@ pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
 
     'open_link: {
         let result = match event.menu_item_id() {
-            "help/documentation" => open::open_url("https://docs.gitbutler.com".to_string()),
+            "help/documentation" => open::open_url("https://docs.gitbutler.com"),
             "help/github" => {
-                open::open_url("https://github.com/gitbutlerapp/gitbutler".to_string())
+                open::open_url("https://github.com/gitbutlerapp/gitbutler")
             }
             "help/release-notes" => open::open_url(
-                "https://discord.com/channels/1060193121130000425/1183737922785116161".to_string(),
+                "https://discord.com/channels/1060193121130000425/1183737922785116161",
             ),
             "help/report-issue" => {
-                open::open_url("https://github.com/gitbutlerapp/gitbutler/issues/new".to_string())
+                open::open_url("https://github.com/gitbutlerapp/gitbutler/issues/new")
             }
-            "help/discord" => open::open_url("https://discord.com/invite/MmFkmaJ42D".to_string()),
-            "help/youtube" => open::open_url("https://www.youtube.com/@gitbutlerapp".to_string()),
-            "help/x" => open::open_url("https://x.com/gitbutler".to_string()),
+            "help/discord" => open::open_url("https://discord.com/invite/MmFkmaJ42D"),
+            "help/youtube" => open::open_url("https://www.youtube.com/@gitbutlerapp"),
+            "help/x" => open::open_url("https://x.com/gitbutler"),
             _ => break 'open_link,
         };
 
