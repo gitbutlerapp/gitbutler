@@ -10,6 +10,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
+use tracing::instrument;
 
 use crate::{
     conflicts::RepoConflictsExt,
@@ -30,6 +31,7 @@ pub struct VirtualBranchesStatus {
 /// Returns branches and their associated file changes, in addition to a list
 /// of skipped files.
 // TODO(kv): make this side effect free
+#[instrument(level = tracing::Level::DEBUG, skip(ctx, perm))]
 pub fn get_applied_status(
     ctx: &CommandContext,
     perm: Option<&mut WorktreeWritePermission>,

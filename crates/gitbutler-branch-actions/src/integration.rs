@@ -12,6 +12,7 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
+use tracing::instrument;
 
 use crate::{branch_manager::BranchManagerExt, conflicts, VirtualBranchesExt};
 
@@ -22,6 +23,7 @@ const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
 //
 // This is the base against which we diff the working directory to understand
 // what files have been modified.
+#[instrument(level = tracing::Level::DEBUG, skip(ctx))]
 pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
     let vb_state = ctx.project().virtual_branches();
     let target = vb_state
