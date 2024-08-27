@@ -149,9 +149,9 @@ fn commit_conflicted_cherry_result<'repository>(
         b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
     let readme_blob = repository.blob(readme_content)?;
 
-    // This is what can only be described as "a tad gross" but
-    // AFAIK there is no good way of resolving conflicts in
-    // an index without writing it *somewhere*
+    // Open a temporary workdir that gets cleaned up when it leaves scope.
+    // We need to have our cherrypick_index set to a real repository so we can
+    // manipluate it.
     let temporary_workdir = TemporaryWorkdir::open(repository)?;
 
     temporary_workdir
@@ -163,9 +163,12 @@ fn commit_conflicted_cherry_result<'repository>(
 
     // get a list of conflicted files from the index
     let index_conflicts = cherrypick_index.conflicts()?.flatten().collect::<Vec<_>>();
-    let mut theirs: Vec<git2::IndexEntry> = vec![];
+    let mut ours: Vec<git2::IndexEntry> = vec![];
 
     for conflict in index_conflicts {
+        // For some reason we have to resolve the index with the "their" side
+        // rather than the "our" side, so we then go and later overwrite the
+        // output tree with the "our" side.
         if let Some(their) = conflict.their {
             let path = std::str::from_utf8(&their.path).unwrap().to_string();
             conflicted_files.push(path);
@@ -173,14 +176,13 @@ fn commit_conflicted_cherry_result<'repository>(
             let data = repository.find_blob(their.id)?;
             let data = data.content();
 
-            // For some reason we need to resolve the
-            // conflicts using the "their" side and
-            // then modify the tree afterwards.
             cherrypick_index
                 .add_frombuffer(&their, data)
                 .context("Failed to add resolution")?;
+        }
 
-            theirs.push(their)
+        if let Some(our) = conflict.our {
+            ours.push(our)
         }
     }
 
@@ -190,8 +192,8 @@ fn commit_conflicted_cherry_result<'repository>(
     let resolved_tree = repository.find_tree(resolved_tree)?;
     let mut resolved_tree_updater = TreeUpdateBuilder::new();
 
-    for their in theirs {
-        resolved_tree_updater.upsert(their.path, their.id, git2::FileMode::Blob);
+    for our in ours {
+        resolved_tree_updater.upsert(our.path, our.id, git2::FileMode::Blob);
     }
 
     let resolved_tree_id = resolved_tree_updater.create_updated(repository, &resolved_tree)?;
