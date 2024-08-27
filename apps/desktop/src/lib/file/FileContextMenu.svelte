@@ -42,17 +42,13 @@
 			{#if item.files && item.files.length > 0}
 				{@const files = item.files}
 				{#if files[0] instanceof LocalFile && !isUnapplied}
-					{#if containsBinaryFiles(item)}
-						<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
-					{:else}
-						<ContextMenuItem
-							label="Discard changes"
-							on:click={() => {
-								confirmationModal.show(item);
-								contextMenu.close();
-							}}
-						/>
-					{/if}
+					<ContextMenuItem
+						label="Discard changes"
+						on:click={() => {
+							confirmationModal.show(item);
+							contextMenu.close();
+						}}
+					/>
 				{/if}
 				{#if files.length === 1}
 					<ContextMenuItem
@@ -78,8 +74,8 @@
 								navigator.clipboard.writeText(item.files[0].path);
 								contextMenu.close();
 							} catch (err) {
-								console.error('Failed to copy relative path', err);
-								toasts.error('Failed to copy relative path');
+								console.error('Failed to copy path relative', err);
+								toasts.error('Failed to copy path relative');
 							}
 						}}
 					/>
