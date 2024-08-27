@@ -517,13 +517,14 @@ pub fn get_branch_listing_details(
                     let mut repo = repo.to_thread_local();
                     repo.object_cache_size_if_unset(50 * 1024 * 1024);
                     let cache = repo.commit_graph_if_enabled()?;
+                    let mut graph = repo.revision_graph(cache.as_ref());
                     for (other_branch_commit_id, branch_head) in all_other_branch_commit_ids {
                         let branch_head = git2_to_gix_object_id(branch_head);
                         let base = repo
-                            .merge_base_with_cache(
+                            .merge_base_with_graph(
                                 git2_to_gix_object_id(other_branch_commit_id),
                                 branch_head,
-                                cache.as_ref(),
+                                &mut graph,
                             )
                             .ok()
                             .map(gix::Id::detach);
