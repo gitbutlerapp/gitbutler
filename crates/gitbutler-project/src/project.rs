@@ -94,8 +94,6 @@ pub struct Project {
     pub omit_certificate_check: Option<bool>,
     // The number of changed lines that will trigger a snapshot
     pub snapshot_lines_threshold: Option<usize>,
-    #[serde(default)]
-    pub ignore_project_semaphore: bool,
     #[serde(default = "default_false")]
     pub succeeding_rebases: bool,
 }
