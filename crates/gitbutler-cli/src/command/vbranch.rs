@@ -40,6 +40,10 @@ pub fn list(project: Project) -> Result<()> {
     Ok(())
 }
 
+pub fn status(project: Project) -> Result<()> {
+    debug_print(VirtualBranchActions.list_virtual_branches(&project)?)
+}
+
 pub fn unapply(project: Project, branch_name: String) -> Result<()> {
     let branch = branch_by_name(&project, &branch_name)?;
     debug_print(VirtualBranchActions.convert_to_real_branch(&project, branch.id)?)
