@@ -5,6 +5,17 @@ use std::{
     vec,
 };
 
+use crate::{
+    branch_manager::BranchManagerExt,
+    commit::{commit_to_vbranch_commit, VirtualBranchCommit},
+    conflicts::{self, RepoConflictsExt},
+    file::VirtualBranchFile,
+    hunk::VirtualBranchHunk,
+    integration::get_workspace_head,
+    remote::{branch_to_remote_branch, RemoteBranch},
+    status::get_applied_status,
+    Get, VirtualBranchesExt,
+};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 use git2_hooks::HookResult;
@@ -27,18 +38,7 @@ use gitbutler_repo::{
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
-
-use crate::{
-    branch_manager::BranchManagerExt,
-    commit::{commit_to_vbranch_commit, VirtualBranchCommit},
-    conflicts::{self, RepoConflictsExt},
-    file::VirtualBranchFile,
-    hunk::VirtualBranchHunk,
-    integration::get_workspace_head,
-    remote::{branch_to_remote_branch, RemoteBranch},
-    status::get_applied_status,
-    Get, VirtualBranchesExt,
-};
+use tracing::instrument;
 
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -255,6 +255,7 @@ fn resolve_old_applied_state(
     Ok(())
 }
 
+#[instrument(level = tracing::Level::DEBUG, skip(ctx, perm))]
 pub fn list_virtual_branches(
     ctx: &CommandContext,
     // TODO(ST): this should really only shared access, but there is some internals
