@@ -518,15 +518,34 @@ pub fn get_branch_listing_details(
                     repo.object_cache_size_if_unset(50 * 1024 * 1024);
                     let cache = repo.commit_graph_if_enabled()?;
                     for (other_branch_commit_id, branch_head) in all_other_branch_commit_ids {
+                        let branch_head = git2_to_gix_object_id(branch_head);
                         let base = repo
                             .merge_base_with_cache(
                                 git2_to_gix_object_id(other_branch_commit_id),
-                                git2_to_gix_object_id(branch_head),
+                                branch_head,
                                 cache.as_ref(),
                             )
                             .ok()
                             .map(gix::Id::detach);
-                        if merge_tx.send(base).is_err() {
+                        let res = match base {
+                            Some(base) => {
+                                let mut num_commits = 0;
+                                let mut authors = HashSet::new();
+                                let revwalk = repo
+                                    .rev_walk(Some(branch_head))
+                                    .with_pruned(Some(base))
+                                    .all()?;
+                                for commit_info in revwalk {
+                                    let commit_info = commit_info?;
+                                    let commit = repo.find_commit(commit_info.id)?;
+                                    authors.insert(commit.author()?.into());
+                                    num_commits += 1;
+                                }
+                                merge_tx.send(Some((base, authors, num_commits)))
+                            }
+                            None => merge_tx.send(None),
+                        };
+                        if res.is_err() {
                             break;
                         }
                     }
@@ -535,7 +554,7 @@ pub fn get_branch_listing_details(
             })?;
 
         for branch in branches {
-            let Some(base) = merge_rx.recv()? else {
+            let Some((base, authors, num_commits)) = merge_rx.recv()? else {
                 continue;
             };
 
@@ -559,18 +578,6 @@ pub fn get_branch_listing_details(
                 })?;
             let (number_of_files, lines_added, lines_removed) = rex_rx.recv()?;
 
-            let mut num_commits = 0;
-            let mut authors = HashSet::new();
-            let revwalk = repo
-                .rev_walk(Some(branch_head))
-                .with_pruned(Some(base))
-                .all()?;
-            for commit_info in revwalk {
-                let commit_info = commit_info?;
-                let commit = repo.find_commit(commit_info.id)?;
-                authors.insert(commit.author()?.into());
-                num_commits += 1;
-            }
             let branch_data = BranchListingDetails {
                 name: branch.name,
                 lines_added,
