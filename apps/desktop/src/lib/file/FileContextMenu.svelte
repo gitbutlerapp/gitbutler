@@ -23,10 +23,6 @@
 	let confirmationModal: Modal;
 	let contextMenu: ContextMenu;
 
-	function containsBinaryFiles(item: any) {
-		return item.files.some((f: AnyFile) => f.binary);
-	}
-
 	function isDeleted(item: any): boolean {
 		return item.files.some((f: AnyFile) => computeFileStatus(f) === 'D');
 	}
@@ -74,8 +70,8 @@
 								navigator.clipboard.writeText(item.files[0].path);
 								contextMenu.close();
 							} catch (err) {
-								console.error('Failed to copy path relative', err);
-								toasts.error('Failed to copy path relative');
+								console.error('Failed to copy relative path', err);
+								toasts.error('Failed to copy relative path');
 							}
 						}}
 					/>
