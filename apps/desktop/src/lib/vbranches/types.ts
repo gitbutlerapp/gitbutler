@@ -177,6 +177,8 @@ export class DetailedCommit {
 	isSigned!: boolean;
 	relatedTo?: Commit;
 	conflicted!: boolean;
+	// Set if a GitButler branch reference pointing to this commit exists. In the format of "refs/remotes/origin/my-branch"
+	remoteRef?: string | undefined;
 
 	prev?: DetailedCommit;
 	next?: DetailedCommit;

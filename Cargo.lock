@@ -2447,6 +2447,7 @@ dependencies = [
  "gitbutler-url",
  "gitbutler-user",
  "gix",
+ "itertools 0.13.0",
  "log",
  "resolve-path",
  "serde",

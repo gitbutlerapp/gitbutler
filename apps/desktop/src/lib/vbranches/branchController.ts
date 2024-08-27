@@ -96,6 +96,44 @@ export class BranchController {
 		}
 	}
 
+	/*
+	 * Creates a new GitButler change reference associated with a branch.
+	 * @param branchId
+	 * @param reference in the format refs/remotes/origin/my-branch (must be remote)
+	 * @param changeId The change id to point the reference to
+	 */
+	async createChangeReference(branchId: string, referenceName: string, changeId: string) {
+		try {
+			await invoke<void>('create_change_reference', {
+				projectId: this.projectId,
+				branchId: branchId,
+				name: referenceName,
+				changeId: changeId
+			});
+		} catch (err) {
+			showError('Failed to create branch reference', err);
+		}
+	}
+
+	/*
+	 * Pushes a change reference to (converted to a git reference to a commit) to the remote
+	 * @param branchId
+	 * @param reference in the format refs/remotes/origin/my-branch (must be remote)
+	 * @param changeId The change id that is being pushed
+	 */
+	async pushChangeReference(branchId: string, referenceName: string, withForce: boolean = false) {
+		try {
+			await invoke<void>('push_change_reference', {
+				projectId: this.projectId,
+				branchId: branchId,
+				name: referenceName,
+				withForce: withForce
+			});
+		} catch (err) {
+			showError('Failed to push change reference', err);
+		}
+	}
+
 	async updateBranchRemoteName(branchId: string, upstream: string) {
 		try {
 			await invoke<void>('update_virtual_branch', {

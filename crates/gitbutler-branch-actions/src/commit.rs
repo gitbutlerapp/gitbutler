@@ -6,6 +6,8 @@ use anyhow::{Context, Result};
 use gitbutler_branch::{Branch, BranchId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_reference::ReferenceName;
+use gitbutler_repo::list_branch_references;
 use gitbutler_serde::BStringForFrontend;
 use serde::Serialize;
 
@@ -34,10 +36,11 @@ pub struct VirtualBranchCommit {
     pub change_id: Option<String>,
     pub is_signed: bool,
     pub conflicted: bool,
+    pub remote_ref: Option<ReferenceName>,
 }
 
 pub(crate) fn commit_to_vbranch_commit(
-    repository: &CommandContext,
+    ctx: &CommandContext,
     branch: &Branch,
     commit: &git2::Commit,
     is_integrated: bool,
@@ -46,8 +49,7 @@ pub(crate) fn commit_to_vbranch_commit(
     let timestamp = u128::try_from(commit.time().seconds())?;
     let message = commit.message_bstr().to_owned();
 
-    let files =
-        list_virtual_commit_files(repository, commit).context("failed to list commit files")?;
+    let files = list_virtual_commit_files(ctx, commit).context("failed to list commit files")?;
 
     let parent_ids: Vec<git2::Oid> = commit
         .parents()
@@ -56,6 +58,15 @@ pub(crate) fn commit_to_vbranch_commit(
             c
         })
         .collect::<Vec<_>>();
+    let remote_ref = list_branch_references(ctx, branch.id)
+        .map(|references| {
+            references
+                .into_iter()
+                .find(|r| Some(r.change_id.clone()) == commit.change_id())
+        })
+        .ok()
+        .flatten()
+        .map(|r| r.name);
 
     let commit = VirtualBranchCommit {
         id: commit.id(),
@@ -70,6 +81,7 @@ pub(crate) fn commit_to_vbranch_commit(
         change_id: commit.change_id(),
         is_signed: commit.is_signed(),
         conflicted: commit.is_conflicted(),
+        remote_ref,
     };
 
     Ok(commit)
