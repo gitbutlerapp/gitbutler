@@ -1,4 +1,5 @@
 use anyhow::Context;
+use gitbutler_branch_actions::RemoteBranchFile;
 use gitbutler_operating_modes::EditModeMetadata;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_project::Controller;
@@ -54,4 +55,15 @@ pub fn save_edit_and_return_to_workspace(
     let project = projects.get(project_id)?;
 
     gitbutler_edit_mode::commands::save_and_return_to_workspace(&project).map_err(Into::into)
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
+pub fn edit_initial_index_state(
+    projects: State<'_, Controller>,
+    project_id: ProjectId,
+) -> Result<Vec<RemoteBranchFile>, Error> {
+    let project = projects.get(project_id)?;
+
+    gitbutler_edit_mode::commands::starting_index_state(&project).map_err(Into::into)
 }

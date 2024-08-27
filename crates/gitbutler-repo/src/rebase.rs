@@ -1,16 +1,15 @@
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
-use git2::{build::TreeUpdateBuilder, Repository};
+use git2::build::TreeUpdateBuilder;
+use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
 use gitbutler_error::error::Marker;
-use tempfile::tempdir;
-use uuid::Uuid;
 
-use crate::{conflicts::ConflictedTreeKey, LogUntil, RepoActionsExt, RepositoryExt};
+use crate::{temporary_workdir::TemporaryWorkdir, LogUntil, RepoActionsExt};
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
@@ -111,17 +110,17 @@ fn commit_unconflicted_cherry_result<'repository>(
         ..commit_headers
     });
 
-    let commit_oid = repository
-        .commit_with_signature(
-            None,
-            &to_rebase.author(),
-            &to_rebase.committer(),
-            &to_rebase.message_bstr().to_str_lossy(),
-            &merge_tree,
-            &[&head],
-            commit_headers,
-        )
-        .context("failed to create commit")?;
+    let commit_oid = crate::RepositoryExt::commit_with_signature(
+        repository,
+        None,
+        &to_rebase.author(),
+        &to_rebase.committer(),
+        &to_rebase.message_bstr().to_str_lossy(),
+        &merge_tree,
+        &[&head],
+        commit_headers,
+    )
+    .context("failed to create commit")?;
 
     repository
         .find_commit(commit_oid)
@@ -153,19 +152,10 @@ fn commit_conflicted_cherry_result<'repository>(
     // This is what can only be described as "a tad gross" but
     // AFAIK there is no good way of resolving conflicts in
     // an index without writing it *somewhere*
-    let temporary_directory = tempdir().context("Failed to create temporary directory")?;
-    let branch_name = Uuid::new_v4().to_string();
-    let worktree = repository
-        .worktree(
-            &branch_name,
-            &temporary_directory.path().join("repository"),
-            None,
-        )
-        .context("Failed to create worktree")?;
-    let worktree_repository =
-        Repository::open_from_worktree(&worktree).context("Failed to open worktree repository")?;
+    let temporary_workdir = TemporaryWorkdir::open(repository)?;
 
-    worktree_repository
+    temporary_workdir
+        .repository()
         .set_index(&mut cherrypick_index)
         .context("Failed to set cherrypick index as worktree index")?;
 
@@ -246,28 +236,19 @@ fn commit_conflicted_cherry_result<'repository>(
     });
 
     // write a commit
-    let commit_oid = repository
-        .commit_with_signature(
-            None,
-            &to_rebase.author(),
-            &to_rebase.committer(),
-            &to_rebase.message_bstr().to_str_lossy(),
-            &repository
-                .find_tree(tree_oid)
-                .context("failed to find tree")?,
-            &[&head],
-            commit_headers,
-        )
-        .context("failed to create commit")?;
-
-    // Tidy up worktree
-    {
-        temporary_directory.close()?;
-        worktree.prune(None)?;
-        repository
-            .find_branch(&branch_name, git2::BranchType::Local)?
-            .delete()?;
-    }
+    let commit_oid = crate::RepositoryExt::commit_with_signature(
+        repository,
+        None,
+        &to_rebase.author(),
+        &to_rebase.committer(),
+        &to_rebase.message_bstr().to_str_lossy(),
+        &repository
+            .find_tree(tree_oid)
+            .context("failed to find tree")?,
+        &[&head],
+        commit_headers,
+    )
+    .context("failed to create commit")?;
 
     repository
         .find_commit(commit_oid)

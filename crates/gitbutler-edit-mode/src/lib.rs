@@ -4,17 +4,21 @@ use anyhow::{bail, Context, Result};
 use bstr::ByteSlice;
 use git2::build::CheckoutBuilder;
 use gitbutler_branch::{signature, Branch, SignaturePurpose, VirtualBranchesHandle};
-use gitbutler_branch_actions::{list_virtual_branches, update_gitbutler_integration};
+use gitbutler_branch_actions::{
+    list_virtual_branches, update_gitbutler_integration, RemoteBranchFile,
+};
+use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
+use gitbutler_diff::hunks_by_filepath;
 use gitbutler_operating_modes::{
-    read_edit_mode_metadata, write_edit_mode_metadata, EditModeMetadata, EDIT_BRANCH_REF,
-    INTEGRATION_BRANCH_REF,
+    operating_mode, read_edit_mode_metadata, write_edit_mode_metadata, EditModeMetadata,
+    OperatingMode, EDIT_BRANCH_REF, INTEGRATION_BRANCH_REF,
 };
-use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::{
     rebase::{cherry_rebase, cherry_rebase_group},
@@ -24,6 +28,7 @@ use gitbutler_repo::{
 pub mod commands;
 
 pub const EDIT_UNCOMMITED_FILES_REF: &str = "refs/gitbutler/edit_uncommited_files";
+pub const EDIT_INITIAL_STATE_REF: &str = "refs/gitbutler/edit_initial_state";
 
 fn save_uncommited_files(ctx: &CommandContext) -> Result<()> {
     let repository = ctx.repository();
@@ -66,21 +71,7 @@ fn save_uncommited_files(ctx: &CommandContext) -> Result<()> {
     Ok(())
 }
 
-fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<()> {
-    let repository = ctx.repository();
-
-    // Checkout commits's parent
-    let commit_parent = commit.parent(0).context("Failed to get commit's parent")?;
-    repository
-        .reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")
-        .context("Failed to update edit branch reference")?;
-    repository
-        .set_head(EDIT_BRANCH_REF)
-        .context("Failed to set head reference")?;
-    repository
-        .checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))
-        .context("Failed to checkout head")?;
-
+fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Result<git2::Index> {
     let commit_tree = commit.tree().context("Failed to get commit's tree")?;
     // Checkout the commit as unstaged changes
     if commit.is_conflicted() {
@@ -105,29 +96,60 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<(
             .find_tree(theirs.id())
             .context("Failed to find base tree")?;
 
-        let mut index = repository
+        let index = repository
             .merge_trees(&base, &ours, &theirs, None)
             .context("Failed to merge trees")?;
 
-        repository
-            .checkout_index(
-                Some(&mut index),
-                Some(
-                    CheckoutBuilder::new()
-                        .force()
-                        .remove_untracked(true)
-                        .conflict_style_diff3(true),
-                ),
-            )
-            .context("Failed to checkout conflicted commit")?;
+        Ok(index)
     } else {
-        repository
-            .checkout_tree(
-                commit_tree.as_object(),
-                Some(CheckoutBuilder::new().force().remove_untracked(true)),
-            )
-            .context("Failed to checkout commit")?;
-    };
+        let mut index = git2::Index::new()?;
+        index
+            .read_tree(&commit_tree)
+            .context("Failed to set index tree")?;
+
+        Ok(index)
+    }
+}
+
+fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<()> {
+    let repository = ctx.repository();
+
+    // Checkout commits's parent
+    let commit_parent = commit.parent(0)?;
+    repository.reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")?;
+    repository.reference(EDIT_INITIAL_STATE_REF, commit_parent.id(), true, "")?;
+    repository.set_head(EDIT_BRANCH_REF)?;
+    repository.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
+
+    // Checkout the commit as unstaged changes
+    let mut index = get_commit_index(repository, commit)?;
+
+    repository.checkout_index(
+        Some(&mut index),
+        Some(
+            CheckoutBuilder::new()
+                .force()
+                .remove_untracked(true)
+                .conflict_style_diff3(true),
+        ),
+    )?;
+
+    let mut index = repository.index()?;
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+    let tree = index.write_tree()?;
+    let tree = repository.find_tree(tree)?;
+
+    let author_signature = signature(SignaturePurpose::Author)?;
+    let committer_signature = signature(SignaturePurpose::Committer)?;
+    // Commit initial state commit
+    repository.commit(
+        Some(EDIT_INITIAL_STATE_REF),
+        &author_signature,
+        &committer_signature,
+        "Initial state commit",
+        &tree,
+        &[&commit_parent],
+    )?;
 
     Ok(())
 }
@@ -330,4 +352,40 @@ pub(crate) fn save_and_return_to_workspace(
     }
 
     Ok(())
+}
+
+pub(crate) fn starting_index_state(
+    ctx: &CommandContext,
+    _perm: &WorktreeReadPermission,
+) -> Result<Vec<RemoteBranchFile>> {
+    let OperatingMode::Edit(metadata) = operating_mode(ctx) else {
+        bail!("Starting index state can only be fetched while in edit mode")
+    };
+
+    let repository = ctx.repository();
+
+    let commit = repository.find_commit(metadata.commit_oid)?;
+    let commit_parent = commit.parent(0)?;
+    let commit_parent_tree = repository.find_real_tree(&commit_parent, Default::default())?;
+
+    let initial_state = repository
+        .find_reference(EDIT_INITIAL_STATE_REF)?
+        .peel_to_tree()?;
+
+    let diff =
+        repository.diff_tree_to_tree(Some(&commit_parent_tree), Some(&initial_state), None)?;
+
+    let diff_files = hunks_by_filepath(Some(repository), &diff)?
+        .into_iter()
+        .map(|(path, file)| {
+            let binary = file.hunks.iter().any(|h| h.binary);
+            RemoteBranchFile {
+                path,
+                hunks: file.hunks,
+                binary,
+            }
+        })
+        .collect();
+
+    Ok(diff_files)
 }

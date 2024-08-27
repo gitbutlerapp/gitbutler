@@ -7,6 +7,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
+use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_serde::BStringForFrontend;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -130,7 +131,7 @@ pub fn workdir(repo: &git2::Repository, commit_oid: &git2::Oid) -> Result<DiffBy
     let commit = repo
         .find_commit(*commit_oid)
         .context("failed to find commit")?;
-    let old_tree = commit.tree().context("failed to find tree")?;
+    let old_tree = repo.find_real_tree(&commit, Default::default())?;
 
     let mut workdir_index = repo.index()?;
 

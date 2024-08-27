@@ -148,6 +148,7 @@ fn main() {
                     repo::commands::git_set_local_config,
                     repo::commands::check_signing_settings,
                     repo::commands::git_clone_repository,
+                    repo::commands::get_uncommited_files,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::delete_local_branch,
@@ -198,7 +199,8 @@ fn main() {
                     modes::operating_mode,
                     modes::enter_edit_mode,
                     modes::save_edit_and_return_to_workspace,
-                    modes::abort_edit_and_return_to_workspace
+                    modes::abort_edit_and_return_to_workspace,
+                    modes::edit_initial_index_state
                 ])
                 .menu(menu::build(tauri_context.package_info()))
                 .on_menu_event(|event| menu::handle_event(&event))

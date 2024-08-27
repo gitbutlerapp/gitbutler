@@ -17,4 +17,4 @@ pub use config::Config;
 
 pub mod askpass;
 
-mod conflicts;
+pub mod temporary_workdir;

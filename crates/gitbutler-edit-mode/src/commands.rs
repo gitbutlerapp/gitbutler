@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use gitbutler_branch_actions::RemoteBranchFile;
 use gitbutler_command_context::CommandContext;
 use gitbutler_operating_modes::{assure_edit_mode, assure_open_workspace_mode, EditModeMetadata};
 use gitbutler_oplog::{
@@ -58,6 +59,14 @@ pub fn abort_and_return_to_workspace(project: &Project) -> Result<()> {
     assure_edit_mode(&ctx).context("Edit mode may only be left while in edit mode")?;
 
     crate::abort_and_return_to_workspace(&ctx, guard.write_permission())
+}
+
+pub fn starting_index_state(project: &Project) -> Result<Vec<RemoteBranchFile>> {
+    let (ctx, guard) = open_with_permission(project)?;
+
+    assure_edit_mode(&ctx)?;
+
+    crate::starting_index_state(&ctx, guard.read_permission())
 }
 
 fn open_with_permission(project: &Project) -> Result<(CommandContext, WriteWorkspaceGuard)> {

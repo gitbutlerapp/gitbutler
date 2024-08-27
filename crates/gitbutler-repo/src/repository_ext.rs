@@ -7,30 +7,16 @@ use std::{io::Write, path::Path, process::Stdio, str};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::BString;
 use git2::{BlameOptions, Tree};
-use gitbutler_commit::{
-    commit_buffer::CommitBuffer, commit_ext::CommitExt, commit_headers::CommitHeadersV2,
-};
+use gitbutler_commit::{commit_buffer::CommitBuffer, commit_headers::CommitHeadersV2};
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
 use gitbutler_reference::{Refname, RemoteRefname};
 use tracing::instrument;
 
-use crate::conflicts::ConflictedTreeKey;
-
 /// Extension trait for `git2::Repository`.
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
-    fn cherry_pick_gitbutler(
-        &self,
-        head: &git2::Commit,
-        to_rebase: &git2::Commit,
-    ) -> Result<git2::Index, anyhow::Error>;
-    fn find_real_tree(
-        &self,
-        commit: &git2::Commit,
-        side: ConflictedTreeKey,
-    ) -> Result<git2::Tree, anyhow::Error>;
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
     /// Open a new in-memory repository and executes the provided closure using it.
@@ -388,56 +374,6 @@ impl RepositoryExt for git2::Repository {
                 RemoteRefname::try_from(&branch).context("failed to convert branch to remote name")
             })
             .collect::<Result<Vec<_>>>()
-    }
-
-    /// cherry-pick, but understands GitButler conflicted states
-    ///
-    /// cherry_pick_gitbutler should always be used in favour of libgit2 or gitoxide
-    /// cherry pick functions
-    fn cherry_pick_gitbutler(
-        &self,
-        head: &git2::Commit,
-        to_rebase: &git2::Commit,
-    ) -> Result<git2::Index, anyhow::Error> {
-        // we need to do a manual 3-way patch merge
-        // find the base, which is the parent of to_rebase
-        let base = if to_rebase.is_conflicted() {
-            // Use to_rebase's recorded base
-            self.find_real_tree(to_rebase, ConflictedTreeKey::Base)?
-        } else {
-            let base_commit = to_rebase.parent(0)?;
-            // Use the parent's auto-resolution
-            self.find_real_tree(&base_commit, Default::default())?
-        };
-        // Get the auto-resolution
-        let ours = self.find_real_tree(head, Default::default())?;
-        // Get the original theirs
-        let thiers = self.find_real_tree(to_rebase, ConflictedTreeKey::Theirs)?;
-
-        self.merge_trees(&base, &ours, &thiers, None)
-            .context("failed to merge trees for cherry pick")
-    }
-
-    /// Find the real tree of a commit, which is the tree of the commit if it's not in a conflicted state
-    /// or the parent parent tree if it is in a conflicted state
-    ///
-    /// Unless you want to find a particular side, you likly want to pass Default::default()
-    /// as the ConfclitedTreeKey which will give the automatically resolved resolution
-    fn find_real_tree(
-        &self,
-        commit: &git2::Commit,
-        side: ConflictedTreeKey,
-    ) -> Result<git2::Tree, anyhow::Error> {
-        let tree = commit.tree()?;
-        if commit.is_conflicted() {
-            let conflicted_side = tree
-                .get_name(&side)
-                .context("Failed to get conflicted side of commit")?;
-            self.find_tree(conflicted_side.id())
-                .context("failed to find subtree")
-        } else {
-            self.find_tree(tree.id()).context("failed to find subtree")
-        }
     }
 }
 

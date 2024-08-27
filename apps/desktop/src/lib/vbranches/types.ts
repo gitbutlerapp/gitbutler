@@ -80,6 +80,10 @@ export class LocalFile {
 			.filter(notNull)
 			.filter(isDefined);
 	}
+
+	get looksConflicted(): boolean {
+		return fileLooksConflicted(this);
+	}
 }
 
 export class SkippedFile {
@@ -292,6 +296,22 @@ export class RemoteFile {
 	get locked(): boolean {
 		return false;
 	}
+
+	get looksConflicted(): boolean {
+		return fileLooksConflicted(this);
+	}
+}
+
+function fileLooksConflicted(file: AnyFile) {
+	const hasStartingMarker = file.hunks.some((hunk) =>
+		hunk.diff.split('\n').some((line) => line.startsWith('>>>>>>> theirs', 1))
+	);
+
+	const hasEndingMarker = file.hunks.some((hunk) =>
+		hunk.diff.split('\n').some((line) => line.startsWith('<<<<<<< ours', 1))
+	);
+
+	return hasStartingMarker && hasEndingMarker;
 }
 
 export interface Author {
