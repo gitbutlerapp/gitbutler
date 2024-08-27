@@ -2050,9 +2050,6 @@ pub(crate) fn move_commit(
         vb_state.set_branch(destination_branch.clone())?;
     }
 
-    // move the
-    {}
-
     crate::integration::update_gitbutler_integration(&vb_state, ctx)
         .context("failed to update gitbutler integration")?;
 

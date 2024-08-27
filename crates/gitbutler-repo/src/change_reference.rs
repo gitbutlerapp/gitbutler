@@ -42,10 +42,6 @@ pub fn create_change_reference(
     let mut vbranch = handle.get_branch(branch_id)?;
 
     // Enusre that the commit acutally exists
-    // let commit = ctx
-    //     .repository()
-    //     .find_commit(commit_id)
-    //     .context(anyhow!("Commit {} does not exist", commit_id))?;
     let commit = commit_by_branch_id_and_change_id(ctx, &vbranch, &handle, change_id)?;
 
     let change_id = commit
@@ -168,19 +164,16 @@ fn commit_by_branch_id_and_change_id<'a>(
     change_id: String,
 ) -> Result<git2::Commit<'a>> {
     let target = handle.get_default_target()?;
-    let branch_commits = ctx
+    // Find the commit with the change id
+    let commit = ctx
         .log(vbranch.head, LogUntil::Commit(target.sha))?
         .iter()
         .map(|c| c.id())
-        .collect_vec();
-    // Find the commit with the change id
-    let commit = branch_commits
-        .iter()
         .find(|c| {
-            let commit = ctx.repository().find_commit(**c).expect("Commit not found");
-            commit.change_id() == Some(change_id.clone())
+            let commit = ctx.repository().find_commit(*c).expect("Commit not found");
+            commit.change_id().as_deref() == Some(&change_id)
         })
-        .map(|c| ctx.repository().find_commit(*c).expect("Commit not found"))
+        .and_then(|c| ctx.repository().find_commit(c).ok())
         .ok_or_else(|| anyhow!("Commit with change id {} not found", change_id))?;
     Ok(commit)
 }

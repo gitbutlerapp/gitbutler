@@ -71,14 +71,9 @@ pub fn cherry_rebase_group(
                     if !ctx.project().succeeding_rebases {
                         return Err(anyhow!("failed to rebase")).context(Marker::BranchConflict);
                     }
-                    commit_conflicted_cherry_result(ctx, head.clone(), to_rebase, cherrypick_index)
+                    commit_conflicted_cherry_result(ctx, head, to_rebase, cherrypick_index)
                 } else {
-                    commit_unconflicted_cherry_result(
-                        ctx,
-                        head.clone(),
-                        to_rebase,
-                        cherrypick_index,
-                    )
+                    commit_unconflicted_cherry_result(ctx, head, to_rebase, cherrypick_index)
                 }
             },
         )?
