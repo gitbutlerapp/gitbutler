@@ -3,7 +3,6 @@
 	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
 	import PullRequestCard from '../pr/PullRequestCard.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
-	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
@@ -24,6 +23,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';

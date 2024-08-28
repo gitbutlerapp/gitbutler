@@ -6,8 +6,8 @@
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { ModeService } from '$lib/modes/service';
 	import { showToast } from '$lib/notifications/toasts';
-	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { getContext } from '$lib/utils/context';
+	import Scrollbar from '@gitbutler/ui/scroll/Scrollbar.svelte';
 	import { goto } from '$app/navigation';
 
 	const project = getContext(Project);

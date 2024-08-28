@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { type Row, Operation, type DiffRows } from './types';
 	import { featureInlineUnifiedDiffs } from '$lib/config/uiFeatureFlags';
-	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { type Hunk } from '$lib/vbranches/types';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 	import diff_match_patch from 'diff-match-patch';
 	import type { Writable } from 'svelte/store';
 
@@ -48,9 +48,6 @@
 		handleSelected,
 		handleLineContextMenu
 	}: Props = $props();
-
-	let viewport = $state<HTMLDivElement>();
-	let contents = $state<HTMLDivElement>();
 
 	const WHITESPACE_REGEX = /\s/;
 	const NUMBER_COLUMN_WIDTH_PX = minWidth * 20;
@@ -280,42 +277,42 @@
 
 <div
 	class="table__wrapper hide-native-scrollbar"
-	bind:this={viewport}
 	style="--tab-size: {tabSize}; --cursor: {draggingDisabled ? 'default' : 'grab'}"
 >
-	{#if !draggingDisabled}
-		<div class="table__drag-handle">
-			<Icon name="draggable-narrow" />
-		</div>
-	{/if}
-	<table bind:this={contents} data-hunk-id={hunk.id} class="table__section">
-		<tbody>
-			{#each renderRows as line}
-				<tr data-no-drag>
-					{@render countColumn(line.beforeLineNumber, line.type)}
-					{@render countColumn(line.afterLineNumber, line.type)}
-					<td
-						{onclick}
-						class="table__textContent"
-						style="--tab-size: {tabSize};"
-						class:readonly
-						data-no-drag
-						class:diff-line-deletion={line.type === SectionType.RemovedLines}
-						class:diff-line-addition={line.type === SectionType.AddedLines}
-						oncontextmenu={(event) => {
+	<ScrollableContainer horz padding={{ left: NUMBER_COLUMN_WIDTH_PX * 2 + 2 }}>
+		{#if !draggingDisabled}
+			<div class="table__drag-handle">
+				<Icon name="draggable-narrow" />
+			</div>
+		{/if}
+		<table data-hunk-id={hunk.id} class="table__section">
+			<tbody>
+				{#each renderRows as line}
+					<tr data-no-drag>
+						{@render countColumn(line.beforeLineNumber, line.type)}
+						{@render countColumn(line.afterLineNumber, line.type)}
+						<td
+							{onclick}
+							class="table__textContent"
+							style="--tab-size: {tabSize};"
+							class:readonly
+							data-no-drag
+							class:diff-line-deletion={line.type === SectionType.RemovedLines}
+							class:diff-line-addition={line.type === SectionType.AddedLines}
+							oncontextmenu={(event) => {
 							const lineNumber = (line.beforeLineNumber
 								? line.beforeLineNumber
 								: line.afterLineNumber) as number;
 							handleLineContextMenu({ event, hunk, lineNumber, subsection: subsections[0] as ContentSection });
 						}}
-					>
-						{@html line.tokens.join('')}
-					</td>
-				</tr>
-			{/each}
-		</tbody>
-	</table>
-	<Scrollbar {viewport} {contents} horz padding={{ left: NUMBER_COLUMN_WIDTH_PX * 2 + 2 }} />
+						>
+							{@html line.tokens.join('')}
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
+	</ScrollableContainer>
 </div>
 
 <style>

@@ -7,10 +7,12 @@
 		height?: string;
 		fillViewport?: boolean;
 		maxHeight?: string;
+		initiallyVisible?: boolean;
 		wide?: boolean;
 		padding?: ScrollbarPaddingType;
 		shift?: string;
 		thickness?: string;
+		horz?: boolean;
 		showMode?: ShowModeType;
 		onthumbdrag?: (dragging: boolean) => void;
 		children: Snippet;
@@ -20,10 +22,12 @@
 		height,
 		fillViewport,
 		maxHeight,
+		initiallyVisible,
 		wide,
 		padding,
 		shift,
 		thickness,
+		horz,
 		showMode,
 		children,
 		onthumbdrag
@@ -32,7 +36,6 @@
 	let viewport: HTMLDivElement | undefined = $state();
 	let contents: HTMLDivElement | undefined = $state();
 	let scrollable: boolean | undefined = $state();
-	let initiallyVisible = $state(false);
 
 	let observer: ResizeObserver;
 
@@ -66,6 +69,7 @@
 			{padding}
 			{shift}
 			{thickness}
+			{horz}
 			{showMode}
 			{onthumbdrag}
 		/>
@@ -93,7 +97,6 @@
 
 	/* MODIFIERS */
 	.fill-viewport {
-		display: initial;
 		min-height: 100%;
 		min-width: 100%;
 	}

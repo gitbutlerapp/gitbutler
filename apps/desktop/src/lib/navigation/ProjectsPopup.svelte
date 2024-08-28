@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { ProjectService } from '$lib/backend/projects';
-	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 	import { portal } from '@gitbutler/ui/utils/portal';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import { goto } from '$app/navigation';

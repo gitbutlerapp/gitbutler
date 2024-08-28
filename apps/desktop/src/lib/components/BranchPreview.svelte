@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
 	import Resizer from '../shared/Resizer.svelte';
-	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
@@ -15,6 +14,7 @@
 	import { BranchData, type Branch } from '$lib/vbranches/types';
 	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
 	import { onMount, setContext } from 'svelte';
