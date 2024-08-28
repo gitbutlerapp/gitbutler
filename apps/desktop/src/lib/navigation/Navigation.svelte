@@ -6,6 +6,8 @@
 	import WorkspaceButton from './WorkspaceButton.svelte';
 	import Resizer from '../shared/Resizer.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { ModeService } from '$lib/modes/service';
+	import EditButton from '$lib/navigation/EditButton.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { platformName } from '$lib/platform/platform';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -37,6 +39,9 @@
 			toggleNavCollapse();
 		}
 	});
+
+	const modeService = getContext(ModeService);
+	const mode = modeService.mode;
 </script>
 
 <svelte:window on:keydown={handleKeyDown} />
@@ -109,13 +114,17 @@
 				<ProjectSelector isNavCollapsed={$isNavCollapsed} />
 				<div class="domains">
 					<TargetCard isNavCollapsed={$isNavCollapsed} />
-					<WorkspaceButton
-						href={`/${project.id}/board`}
-						domain="workspace"
-						label="Workspace"
-						iconSrc="/images/domain-icons/working-branches.svg"
-						isNavCollapsed={$isNavCollapsed}
-					/>
+					{#if $mode?.type === 'OpenWorkspace'}
+						<WorkspaceButton
+							href={`/${project.id}/board`}
+							domain="workspace"
+							label="Workspace"
+							iconSrc="/images/domain-icons/working-branches.svg"
+							isNavCollapsed={$isNavCollapsed}
+						/>
+					{:else if $mode?.type === 'Edit'}
+						<EditButton isNavCollapsed={$isNavCollapsed} />
+					{/if}
 				</div>
 			</div>
 

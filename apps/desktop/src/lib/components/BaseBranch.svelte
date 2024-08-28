@@ -3,6 +3,7 @@
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { ModeService } from '$lib/modes/service';
 	import { showInfo } from '$lib/notifications/toasts';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -15,7 +16,10 @@
 	export let base: BaseBranch;
 
 	const branchController = getContext(BranchController);
+	const modeService = getContext(ModeService);
 	const gitHost = getGitHost();
+
+	const mode = modeService.mode;
 
 	const mergeUpstreamWarningDismissed = projectMergeUpstreamWarningDismissed(
 		branchController.projectId
@@ -46,6 +50,7 @@
 			style="pop"
 			kind="solid"
 			help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
+			disabled={$mode?.type !== 'OpenWorkspace'}
 			onclick={() => {
 				if ($mergeUpstreamWarningDismissed) {
 					updateBaseBranch();
