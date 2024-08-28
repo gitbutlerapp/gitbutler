@@ -18,7 +18,7 @@ pub fn benchmark_list_branches(c: &mut Criterion) {
         (
             "list-branches[tiny repo]",
             3,
-            ("one-vbranch-on-integration-two-remotes", "for-listing.sh"),
+            ("one-vbranch-in-workspace-two-remotes", "for-listing.sh"),
         ),
         (
             "list-branches[many local branches [packed]]",
@@ -59,7 +59,7 @@ pub fn benchmark_branch_details(c: &mut Criterion) {
         (
             "branch-details [tiny no change]",
             (
-                "one-vbranch-on-integration-two-remotes",
+                "one-vbranch-in-workspace-two-remotes",
                 "main",
                 0,
                 "for-listing.sh",

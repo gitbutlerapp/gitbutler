@@ -2,9 +2,9 @@ use crate::virtual_branches::list;
 use gitbutler_branch_actions::BranchListingDetails;
 
 #[test]
-fn one_vbranch_on_integration_empty_details() -> anyhow::Result<()> {
+fn one_vbranch_in_workspace_empty_details() -> anyhow::Result<()> {
     let list = branch_details(
-        &list::project_ctx("one-vbranch-on-integration")?,
+        &list::project_ctx("one-vbranch-in-workspace")?,
         Some("virtual"),
     )?;
     assert_eq!(list.len(), 1);
@@ -23,9 +23,9 @@ fn one_vbranch_on_integration_empty_details() -> anyhow::Result<()> {
 }
 
 #[test]
-fn one_vbranch_on_integration_single_commit() -> anyhow::Result<()> {
+fn one_vbranch_in_workspace_single_commit() -> anyhow::Result<()> {
     let list = branch_details(
-        &list::project_ctx("one-vbranch-on-integration-one-commit")?,
+        &list::project_ctx("one-vbranch-in-workspace-one-commit")?,
         Some("virtual"),
     )?;
     assert_eq!(list.len(), 1);

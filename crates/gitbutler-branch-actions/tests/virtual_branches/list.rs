@@ -2,9 +2,9 @@ use anyhow::Result;
 use gitbutler_branch_actions::BranchListingFilter;
 
 #[test]
-fn one_vbranch_on_integration() -> Result<()> {
+fn one_vbranch_in_workspace() -> Result<()> {
     init_env();
-    let list = list_branches(&project_ctx("one-vbranch-on-integration")?, None)?;
+    let list = list_branches(&project_ctx("one-vbranch-in-workspace")?, None)?;
     assert_eq!(list.len(), 1);
 
     assert_equal(
@@ -22,9 +22,9 @@ fn one_vbranch_on_integration() -> Result<()> {
 }
 
 #[test]
-fn one_vbranch_on_integration_one_commit() -> Result<()> {
+fn one_vbranch_in_workspace_one_commit() -> Result<()> {
     init_env();
-    let ctx = project_ctx("one-vbranch-on-integration-one-commit")?;
+    let ctx = project_ctx("one-vbranch-in-workspace-one-commit")?;
     let list = list_branches(&ctx, None)?;
     assert_eq!(list.len(), 1);
 
@@ -43,9 +43,9 @@ fn one_vbranch_on_integration_one_commit() -> Result<()> {
 }
 
 #[test]
-fn two_vbranches_on_integration_one_commit() -> Result<()> {
+fn two_vbranches_in_workspace_one_commit() -> Result<()> {
     init_env();
-    let ctx = project_ctx("two-vbranches-on-integration-one-applied")?;
+    let ctx = project_ctx("two-vbranches-in-workspace-one-applied")?;
     let list = list_branches(
         &ctx,
         Some(BranchListingFilter {
@@ -89,7 +89,7 @@ fn two_vbranches_on_integration_one_commit() -> Result<()> {
 }
 
 #[test]
-fn one_feature_branch_and_one_vbranch_on_integration_one_commit() -> Result<()> {
+fn one_feature_branch_and_one_vbranch_in_workspace_one_commit() -> Result<()> {
     init_env();
     let ctx = project_ctx("a-vbranch-named-like-target-branch-short-name")?;
     let list = list_branches(&ctx, None)?;
@@ -115,9 +115,9 @@ fn one_feature_branch_and_one_vbranch_on_integration_one_commit() -> Result<()> 
 }
 
 #[test]
-fn one_branch_on_integration_multiple_remotes() -> Result<()> {
+fn one_branch_in_workspace_multiple_remotes() -> Result<()> {
     init_env();
-    let ctx = project_ctx("one-vbranch-on-integration-two-remotes")?;
+    let ctx = project_ctx("one-vbranch-in-workspace-two-remotes")?;
     let list = list_branches(&ctx, None)?;
     assert_eq!(list.len(), 1, "a single virtual branch");
 

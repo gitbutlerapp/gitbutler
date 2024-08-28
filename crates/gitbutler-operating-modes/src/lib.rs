@@ -17,7 +17,7 @@ const INTEGRATION_BRANCH_REF: &str = "refs/heads/gitbutler/integration";
 /// after upgrading to a version using the new gitbutler/workspace branch
 /// name we need some transition period during which both are accepted.
 /// The new branch will be checked out as soon as any modification is made
-/// that triggers `update_gitbutler_integration`.
+/// that triggers `update_workspace_commit`.
 pub const OPEN_WORKSPACE_REFS: [&str; 2] = [INTEGRATION_BRANCH_REF, WORKSPACE_BRANCH_REF];
 
 /// The reference the app will checkout when in edit mode

@@ -27,7 +27,7 @@ pub const GITBUTLER_WORKSPACE_COMMIT_TITLE: &str = "GitButler Workspace Commit";
 /// what files have been modified.
 ///
 /// This should be used to update the `gitbutler/workspace` ref with, which is usually
-/// done from [`update_gitbutler_integration()`], after any of its input changes.
+/// done from [`update_workspace_commit()`], after any of its input changes.
 /// This is namely the conflicting state, or any head of the virtual branches.
 #[instrument(level = tracing::Level::DEBUG, skip(ctx))]
 pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
@@ -105,7 +105,7 @@ struct PreviousHead {
     sha: String,
 }
 
-fn read_integration_file(path: &PathBuf) -> Result<Option<PreviousHead>> {
+fn read_workspace_file(path: &PathBuf) -> Result<Option<PreviousHead>> {
     if let Ok(prev_data) = std::fs::read_to_string(path) {
         let parts: Vec<&str> = prev_data.split(':').collect();
         let prev_head = parts[0].to_string();
@@ -119,13 +119,13 @@ fn read_integration_file(path: &PathBuf) -> Result<Option<PreviousHead>> {
     }
 }
 
-fn write_integration_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
+fn write_workspace_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
     let sha = head.target().unwrap().to_string();
     std::fs::write(path, format!(":{}", sha))?;
     Ok(())
 }
 #[instrument(level = tracing::Level::DEBUG, skip(vb_state, ctx), err(Debug))]
-pub fn update_gitbutler_integration(
+pub fn update_workspace_commit(
     vb_state: &VirtualBranchesHandle,
     ctx: &CommandContext,
 ) -> Result<git2::Oid> {
@@ -137,13 +137,13 @@ pub fn update_gitbutler_integration(
 
     // get current repo head for reference
     let head_ref = repo.head()?;
-    let integration_filepath = repo.path().join("integration");
-    let mut prev_branch = read_integration_file(&integration_filepath)?;
+    let workspace_filepath = repo.path().join("workspace");
+    let mut prev_branch = read_workspace_file(&workspace_filepath)?;
     if let Some(branch) = &prev_branch {
         if branch.head != GITBUTLER_WORKSPACE_REFERENCE.to_string() {
             // we are moving from a regular branch to our gitbutler workspace branch, write a file to
-            // .git/integration with the previous head and name
-            write_integration_file(&head_ref, integration_filepath)?;
+            // .git/workspace with the previous head and name
+            write_workspace_file(&head_ref, workspace_filepath)?;
             prev_branch = Some(PreviousHead {
                 head: head_ref.target().unwrap().to_string(),
                 sha: head_ref.target().unwrap().to_string(),
@@ -230,7 +230,7 @@ pub fn update_gitbutler_integration(
         &GITBUTLER_WORKSPACE_REFERENCE.clone().to_string(),
         final_commit,
         true,
-        "updated integration commit",
+        "updated workspace commit",
     )?;
     repo.set_head(&GITBUTLER_WORKSPACE_REFERENCE.clone().to_string())?;
 
@@ -333,7 +333,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
         .log(head_commit.id(), LogUntil::Commit(default_target.sha))
         .context("failed to get log")?;
 
-    let integration_index = commits
+    let workspace_index = commits
         .iter()
         .position(|commit| {
             commit.message().is_some_and(|message| {
@@ -342,8 +342,8 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
             })
         })
         .context("GitButler workspace commit not found")?;
-    let integration_commit = &commits[integration_index];
-    let mut extra_commits = commits[..integration_index].to_vec();
+    let workspace_commit = &commits[workspace_index];
+    let mut extra_commits = commits[..workspace_index].to_vec();
     extra_commits.reverse();
 
     if extra_commits.is_empty() {
@@ -352,8 +352,8 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
     }
 
     ctx.repository()
-        .reset(integration_commit.as_object(), git2::ResetType::Soft, None)
-        .context("failed to reset to integration commit")?;
+        .reset(workspace_commit.as_object(), git2::ResetType::Soft, None)
+        .context("failed to reset to workspace commit")?;
 
     let branch_manager = ctx.branch_manager();
     let mut new_branch = branch_manager

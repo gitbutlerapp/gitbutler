@@ -4,9 +4,7 @@ use anyhow::{bail, Context, Result};
 use bstr::ByteSlice;
 use git2::build::CheckoutBuilder;
 use gitbutler_branch::{signature, Branch, SignaturePurpose, VirtualBranchesHandle};
-use gitbutler_branch_actions::{
-    list_virtual_branches, update_gitbutler_integration, RemoteBranchFile,
-};
+use gitbutler_branch_actions::{list_virtual_branches, update_workspace_commit, RemoteBranchFile};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{
@@ -198,28 +196,28 @@ pub(crate) fn abort_and_return_to_workspace(
     // Checkout gitbutler workspace branch
     {
         repository
-            .set_head(INTEGRATION_BRANCH_REF)
+            .set_head(WORKSPACE_BRANCH_REF)
             .context("Failed to set head reference")?;
         repository
             .checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))
-            .context("Failed to checkout gitbutler/integration")?;
+            .context("Failed to checkout gitbutler/workspace")?;
     }
 
     // Checkout any stashed changes.
     {
-        let stashed_integration_changes_reference = repository
+        let stashed_workspace_changes_reference = repository
             .find_reference(EDIT_UNCOMMITED_FILES_REF)
-            .context("Failed to find stashed integration changes")?;
-        let stashed_integration_changes_commit = stashed_integration_changes_reference
+            .context("Failed to find stashed workspace changes")?;
+        let stashed_workspace_changes_commit = stashed_workspace_changes_reference
             .peel_to_commit()
             .context("Failed to get stashed changes commit")?;
 
         repository
             .checkout_tree(
-                stashed_integration_changes_commit.tree()?.as_object(),
+                stashed_workspace_changes_commit.tree()?.as_object(),
                 Some(CheckoutBuilder::new().force().remove_untracked(true)),
             )
-            .context("Failed to checkout stashed changes tree")?;
+            .context("Failed to checkout workspace changes tree")?;
     }
 
     Ok(())
@@ -238,10 +236,10 @@ pub(crate) fn save_and_return_to_workspace(
         .find_commit(edit_mode_metadata.commit_oid)
         .context("Failed to find commit")?;
     let commit_parent = commit.parent(0).context("Failed to get commit's parent")?;
-    let stashed_integration_changes_reference = repository
+    let stashed_workspace_changes_reference = repository
         .find_reference(EDIT_UNCOMMITED_FILES_REF)
-        .context("Failed to find stashed integration changes")?;
-    let stashed_integration_changes_commit = stashed_integration_changes_reference
+        .context("Failed to find stashed workspace changes")?;
+    let stashed_workspace_changes_commit = stashed_workspace_changes_reference
         .peel_to_commit()
         .context("Failed to get stashed changes commit")?;
 
@@ -300,23 +298,23 @@ pub(crate) fn save_and_return_to_workspace(
             .set_branch(virtual_branch)
             .context("Failed to update vbstate")?;
 
-        let integration_commit_oid = update_gitbutler_integration(&vb_state, ctx)
-            .context("Failed to update gitbutler integration")?;
+        let workspace_commit_oid = update_workspace_commit(&vb_state, ctx)
+            .context("Failed to update gitbutler workspace")?;
 
-        let rebased_stashed_integration_changes_commit = cherry_rebase_group(
+        let rebased_stashed_workspace_changes_commit = cherry_rebase_group(
             ctx,
-            integration_commit_oid,
-            &mut [stashed_integration_changes_commit.id()],
+            workspace_commit_oid,
+            &mut [stashed_workspace_changes_commit.id()],
         )
-        .context("Failed to rebase stashed integration commit changes")?;
+        .context("Failed to rebase stashed workspace commit changes")?;
 
         let commit_thing = repository
-            .find_commit(rebased_stashed_integration_changes_commit)
-            .context("Failed to find commit of rebased stashed integration changes commit oid")?;
+            .find_commit(rebased_stashed_workspace_changes_commit)
+            .context("Failed to find commit of rebased stashed workspace changes commit oid")?;
 
         let tree_thing = repository
             .find_real_tree(&commit_thing, Default::default())
-            .context("Failed to get tree of commit of rebased stashed integration changes")?;
+            .context("Failed to get tree of commit of rebased stashed workspace changes")?;
 
         repository
             .checkout_tree(

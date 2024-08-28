@@ -36,7 +36,7 @@ mod operating_modes {
         use crate::create_and_checkout_branch;
 
         #[test]
-        fn in_open_workspace_mode_true_when_in_gitbutler_integration() {
+        fn in_open_workspace_mode_true_when_in_gitbutler_workspace() {
             let suite = Suite::default();
             let Case { ctx, .. } = &suite.new_case();
 
@@ -69,7 +69,7 @@ mod operating_modes {
         }
 
         #[test]
-        fn assure_open_workspace_mode_ok_when_on_gitbutler_integration() {
+        fn assure_open_workspace_mode_ok_when_on_gitbutler_workspace() {
             let suite = Suite::default();
             let Case { ctx, .. } = &suite.new_case();
 
@@ -129,7 +129,7 @@ mod operating_modes {
         }
 
         #[test]
-        fn in_outside_workspace_mode_false_when_on_gitbutler_integration() {
+        fn in_outside_workspace_mode_false_when_on_gitbutler_workspace() {
             let suite = Suite::default();
             let Case { ctx, .. } = &suite.new_case();
 
@@ -161,7 +161,7 @@ mod operating_modes {
         }
 
         #[test]
-        fn assure_outside_workspace_mode_err_when_on_gitbutler_integration() {
+        fn assure_outside_workspace_mode_err_when_on_gitbutler_workspace() {
             let suite = Suite::default();
             let Case { ctx, .. } = &suite.new_case();
 

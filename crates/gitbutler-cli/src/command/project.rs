@@ -36,6 +36,6 @@ pub fn add(
     debug_print(project)
 }
 
-pub fn switch_to_integration(project: Project, refname: RemoteRefname) -> Result<()> {
+pub fn switch_to_workspace(project: Project, refname: RemoteRefname) -> Result<()> {
     debug_print(VirtualBranchActions.set_base_branch(&project, &refname)?)
 }

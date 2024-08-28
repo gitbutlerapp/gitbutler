@@ -17,7 +17,7 @@ use gitbutler_branch::{
 };
 use gitbutler_branch_actions::{
     commit, get_applied_status, integrate_upstream_commits, is_remote_branch_mergeable,
-    list_virtual_branches, unapply_ownership, update_branch, update_gitbutler_integration,
+    list_virtual_branches, unapply_ownership, update_branch, update_workspace_commit,
     verify_branch, BranchManagerExt, Get,
 };
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
@@ -814,8 +814,8 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     let file_path2 = Path::new("test2.txt");
     std::fs::write(Path::new(&project.path).join(file_path2), "file2\n")?;
 
-    // Update integration commit
-    update_gitbutler_integration(&vb_state, ctx)?;
+    // Update workspace commit
+    update_workspace_commit(&vb_state, ctx)?;
 
     let remote_branch: RemoteRefname = "refs/remotes/origin/master".parse().unwrap();
     let branch_manager = ctx.branch_manager();
@@ -973,7 +973,7 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     )?;
 
     // make gb see the conflict resolution
-    gitbutler_branch_actions::update_gitbutler_integration(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx)?;
     let (branches, _) = list_virtual_branches(ctx, guard.write_permission())?;
     assert!(branches[0].conflicted);
 
@@ -1409,7 +1409,7 @@ fn upstream_integrated_vbranch() -> Result<()> {
     })?;
     ctx.repository()
         .remote("origin", "http://origin.com/project")?;
-    update_gitbutler_integration(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx)?;
 
     // create vbranches, one integrated, one not
     let branch_manager = ctx.branch_manager();
@@ -1940,7 +1940,7 @@ fn tree_to_entry_list(
 }
 
 #[test]
-fn verify_branch_commits_to_integration() -> Result<()> {
+fn verify_branch_commits_to_workspace() -> Result<()> {
     let suite = Suite::default();
     let Case { ctx, project, .. } = &suite.new_case();
 
@@ -1971,7 +1971,7 @@ fn verify_branch_commits_to_integration() -> Result<()> {
 }
 
 #[test]
-fn verify_branch_not_integration() -> Result<()> {
+fn verify_branch_not_workspace() -> Result<()> {
     let suite = Suite::default();
     let Case { ctx, project, .. } = &suite.new_case();
 
