@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Icon from '$lib/Icon.svelte';
 	import { clickOutside } from '$lib/utils/clickOutside';
-	import { portal } from '$lib/utils/portal';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { Snippet } from 'svelte';
 
@@ -10,38 +9,48 @@
 		title?: string;
 		icon?: keyof typeof iconsJson;
 		onclose?: () => void;
+		onsubmit?: () => void;
 		children: Snippet<[item?: any]>;
 		controls?: Snippet<[close: () => void, item: any]>;
 	}
 
-	const { width = 'default', title, icon, onclose, children, controls }: Props = $props();
+	const { width = 'default', title, icon, onclose, children, controls, onsubmit }: Props = $props();
 
-	let item = $state<any>();
 	let open = $state(false);
+	let item = $state<any>();
+	let dialogElement = $state<HTMLDialogElement>();
 
 	export function show(newItem?: any) {
 		item = newItem;
 		open = true;
+		dialogElement.showModal();
 	}
 
 	export function close() {
 		item = undefined;
 		open = false;
 		onclose?.();
+		dialogElement.close();
 	}
 </script>
 
-{#if open}
-	<div use:portal={'body'} role="presentation" class="modal-container" class:open>
-		<div
-			class="modal-content"
-			class:default={width === 'default'}
-			class:large={width === 'large'}
-			class:small={width === 'small'}
-			class:xsmall={width === 'xsmall'}
-			class:round-top-corners={!title}
+<dialog
+	bind:this={dialogElement}
+	class="modal-content"
+	class:default={width === 'default'}
+	class:large={width === 'large'}
+	class:small={width === 'small'}
+	class:xsmall={width === 'xsmall'}
+	class:round-top-corners={!title}
+>
+	{#if open}
+		<form
 			use:clickOutside={{
-				handler: close
+				handler: () => dialogElement.close()
+			}}
+			onsubmit={(e) => {
+				e.preventDefault();
+				onsubmit?.();
 			}}
 		>
 			{#if title}
@@ -64,32 +73,28 @@
 					{@render controls(close, item)}
 				</div>
 			{/if}
-		</div>
-	</div>
-{/if}
+		</form>
+	{/if}
+</dialog>
 
 <style lang="postcss">
-	.modal-container {
-		z-index: var(--z-modal);
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-
-		display: flex;
-		justify-content: center;
-		align-items: center;
-
-		background-color: var(--clr-overlay-bg);
+	dialog {
+		outline: none;
+		view-transition-name: dialog;
+	}
+	dialog[open] {
+		animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
+	}
+	dialog.close::backdrop {
+		animation: dialog-fade 0.15s ease-out;
 	}
 
-	.modal-container.open {
-		animation: dialog-fade 0.15s ease-out;
-
-		& .modal-content {
-			animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
-		}
+	dialog::backdrop {
+		pointer-events: initial;
+		background-color: var(--clr-overlay-bg);
+	}
+	dialog[open]::backdrop {
+		animation: dialog-fade 0.15s ease-in;
 	}
 
 	.modal-content {
@@ -101,7 +106,6 @@
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		box-shadow: var(--fx-shadow-l);
-		overflow: hidden;
 	}
 
 	.modal__header {
