@@ -221,7 +221,7 @@
 	</div>
 
 	<!-- Use our own close function -->
-	{#snippet controls(_close)}
+	{#snippet controls()}
 		<Button style="ghost" outline type="reset" onclick={close}>Close</Button>
 		<Button style="pop" kind="solid" type="submit">Share with GitButler</Button>
 	{/snippet}
