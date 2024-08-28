@@ -1,5 +1,6 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
+use crate::integration::get_workspace_head;
 use crate::{
     conflicts::RepoConflictsExt,
     file::{virtual_hunks_into_virtual_files, VirtualBranchFile},
@@ -16,7 +17,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::RepositoryExt;
 use tracing::instrument;
 
 /// Represents the uncommitted status of the applied virtual branches in the workspace.
@@ -52,11 +52,10 @@ pub fn get_applied_status_cached(
         .virtual_branches()
         .list_branches_in_workspace()?;
     let base_file_diffs = worktree_changes.map(Ok).unwrap_or_else(|| {
-        // TODO(ST): this was `get_workspace_head()`, which is slow and ideally, we don't dynamically
-        //           calculate which should already be 'fixed' - why do we have the integration branch
-        //           if we can't assume it's in the right state? So ideally, we assure that the code
-        //           that affects the integration branch also updates it?
-        let integration_commit_id = ctx.repository().head_commit()?.id();
+        // TODO(ST): Ideally, we can avoid calling `get_workspace_head()` as everyone who modifies
+        //           any of its inputs will update the intragration commit right away.
+        //           It's for another day though - right now the integration commit may be slightly stale.
+        let integration_commit_id = get_workspace_head(ctx)?;
         gitbutler_diff::workdir(ctx.repository(), &integration_commit_id.to_owned())
             .context("failed to diff workdir")
     })?;
