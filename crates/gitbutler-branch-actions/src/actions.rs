@@ -1,5 +1,6 @@
 use super::r#virtual as vbranch;
-use crate::branch;
+use super::r#virtual as branch;
+use crate::base::upstream_integration::{self, BranchStatuses, UpstreamIntegrationStatusesContext};
 use crate::{
     base,
     base::BaseBranch,
@@ -526,6 +527,16 @@ pub fn get_uncommited_files_reusable(project: &Project) -> Result<DiffByPathMap>
     let context = CommandContext::open(project)?;
     let guard = project.exclusive_worktree_access();
     crate::branch::get_uncommited_files_raw(&context, guard.read_permission())
+}
+
+pub fn upstream_integration_statuses(project: &Project) -> Result<BranchStatuses> {
+    let command_context = CommandContext::open(project)?;
+    let guard = project.exclusive_worktree_access();
+
+    let context =
+        UpstreamIntegrationStatusesContext::open(&command_context, guard.read_permission())?;
+
+    upstream_integration::upstream_integration_statuses(context)
 }
 
 fn open_with_verify(project: &Project) -> Result<CommandContext> {
