@@ -973,6 +973,7 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     )?;
 
     // make gb see the conflict resolution
+    gitbutler_branch_actions::update_gitbutler_integration(&vb_state, ctx)?;
     let (branches, _) = list_virtual_branches(ctx, guard.write_permission())?;
     assert!(branches[0].conflicted);
 

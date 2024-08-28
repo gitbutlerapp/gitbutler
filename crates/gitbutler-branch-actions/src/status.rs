@@ -1,5 +1,11 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
+use crate::{
+    conflicts::RepoConflictsExt,
+    file::{virtual_hunks_into_virtual_files, VirtualBranchFile},
+    hunk::{file_hunks_from_diffs, HunkLock, VirtualBranchHunk},
+    BranchManagerExt, VirtualBranchesExt,
+};
 use anyhow::{bail, Context, Result};
 use git2::Tree;
 use gitbutler_branch::{
@@ -10,15 +16,8 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_repo::RepositoryExt;
 use tracing::instrument;
-
-use crate::{
-    conflicts::RepoConflictsExt,
-    file::{virtual_hunks_into_virtual_files, VirtualBranchFile},
-    hunk::{file_hunks_from_diffs, HunkLock, VirtualBranchHunk},
-    integration::get_workspace_head,
-    BranchManagerExt, VirtualBranchesExt,
-};
 
 /// Represents the uncommitted status of the applied virtual branches in the workspace.
 pub struct VirtualBranchesStatus {
@@ -37,13 +36,18 @@ pub fn get_applied_status(
     perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<VirtualBranchesStatus> {
     assure_open_workspace_mode(ctx).context("ng applied status requires open workspace mode")?;
-    let integration_commit = get_workspace_head(ctx)?;
+    // TODO(ST): this was `get_workspace_head()`, which is slow and ideally, we don't dynamically
+    //           calculate which should already be 'fixed' - why do we have the integration branch
+    //           if we can't assume it's in the right state? So ideally, we assure that the code
+    //           that affects the integration branch also updates it?
+    let integration_commit_id = ctx.repository().head_commit()?.id();
     let mut virtual_branches = ctx
         .project()
         .virtual_branches()
         .list_branches_in_workspace()?;
-    let base_file_diffs = gitbutler_diff::workdir(ctx.repository(), &integration_commit.to_owned())
-        .context("failed to diff workdir")?;
+    let base_file_diffs =
+        gitbutler_diff::workdir(ctx.repository(), &integration_commit_id.to_owned())
+            .context("failed to diff workdir")?;
 
     let mut skipped_files: Vec<gitbutler_diff::FileDiff> = Vec::new();
     for file_diff in base_file_diffs.values() {

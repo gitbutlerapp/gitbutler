@@ -8,6 +8,7 @@ use gitbutler_branch::{
 use gitbutler_command_context::{CommandContext, GixRepositoryExt};
 use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
+use gitbutler_repo::RepositoryExt;
 use gitbutler_serde::BStringForFrontend;
 use gix::object::tree::diff::Action;
 use gix::prelude::ObjectIdExt;
@@ -27,12 +28,7 @@ pub(crate) fn get_uncommited_files(
     _permission: &WorktreeReadPermission,
 ) -> Result<Vec<RemoteBranchFile>> {
     let repository = context.repository();
-    let head_commit = repository
-        .head()
-        .context("Failed to get head")?
-        .peel_to_commit()
-        .context("Failed to get head commit")?;
-
+    let head_commit = repository.head_commit()?;
     let files = gitbutler_diff::workdir(repository, &head_commit.id())
         .context("Failed to list uncommited files")?
         .into_iter()
