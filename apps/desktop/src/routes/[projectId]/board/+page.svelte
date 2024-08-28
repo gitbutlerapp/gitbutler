@@ -4,9 +4,11 @@
 	import Board from '$lib/components/Board.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { ModeService } from '$lib/modes/service';
 	import { showToast } from '$lib/notifications/toasts';
 	import Scrollbar from '$lib/shared/Scrollbar.svelte';
 	import { getContext } from '$lib/utils/context';
+	import { goto } from '$app/navigation';
 
 	const project = getContext(Project);
 	const gitHost = getGitHost();
@@ -31,6 +33,15 @@
 			message: 'In order to push & fetch, you may need to set up an SSH key.',
 			style: 'neutral'
 		});
+	}
+
+	const modeService = getContext(ModeService);
+	const mode = modeService.mode;
+
+	$: {
+		if ($mode?.type === 'Edit') {
+			goto(`/${project.id}/edit`);
+		}
 	}
 </script>
 

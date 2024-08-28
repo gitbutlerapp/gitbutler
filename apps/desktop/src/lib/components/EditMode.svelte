@@ -1,7 +1,5 @@
 <script lang="ts">
-	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
-	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
@@ -118,20 +116,20 @@
 	}
 </script>
 
-<DecorativeSplitView img={newProjectSvg}>
-	<div class="switchrepo">
+<div class="editmode">
+	<div class="container">
 		<div class="project-name">
 			<ProjectNameLabel projectName={project?.title} />
 		</div>
-		<p class="switchrepo__title text-18 text-body text-bold">
+		<h2 class="editmode__title text-18 text-body text-bold">
 			You are currently editing commit <span class="code-string">
 				{editModeMetadata.commitOid.slice(0, 7)}
 			</span>
-		</p>
-
-		<p class="switchrepo__message text-13 text-body">
-			Please do not make any commits whilst in edit mode. To leave edit mode, use the provided
-			actions.
+		</h2>
+		<p class="editmode__message text-13 text-body">
+			Edit Mode lets you modify an existing commit in isolation or resolve conflicts. Any changes
+			made, including new files, will be added to the selected commit. You can finalize the edit by
+			either saving or discarding your changes.
 		</p>
 
 		<div class="files">
@@ -143,44 +141,68 @@
 						filePath={file.path}
 						fileStatus={file.status}
 						conflicted={file.conflicted}
-						fileStatusStyle={'full'}
+						fileStatusStyle="full"
+						clickable={false}
 					/>
 				</div>
 			{/each}
 		</div>
 
-		<div class="switchrepo__actions">
-			<Button style="ghost" outline onclick={abort} loading={modeServiceAborting === 'loading'}>
-				Cancel changes
+		<p class="editmode__message text-13 text-body">
+			Please do not make any commits whilst in edit mode.
+			<br />
+			To leave edit mode, use the provided actions.
+		</p>
+
+		<div class="editmode__actions">
+			<Button style="ghost" outline onclick={abort} disabled={modeServiceAborting === 'loading'}>
+				Cancel
 			</Button>
 			<Button
 				style="pop"
 				kind="solid"
-				icon="undo-small"
+				icon="tick-small"
 				onclick={save}
-				loading={modeServiceSaving === 'loading'}
+				disabled={modeServiceSaving === 'loading'}
 			>
 				Save and exit
 			</Button>
 		</div>
 	</div>
-</DecorativeSplitView>
+</div>
 
 <style lang="postcss">
+	.editmode {
+		display: flex;
+		flex-direction: column;
+
+		flex-grow: 1;
+
+		align-items: center;
+		justify-content: center;
+
+		background-color: var(--clr-bg-1);
+	}
+
+	.container {
+		width: 100%;
+		max-width: 500px;
+	}
+
 	.project-name {
 		margin-bottom: 12px;
 	}
 
-	.switchrepo__title {
-		color: var(--clr-scale-ntrl-30);
+	.editmode__title {
+		color: var(--clr-text-1);
 		margin-bottom: 12px;
 	}
 
-	.switchrepo__message {
-		color: var(--clr-scale-ntrl-50);
+	.editmode__message {
+		color: var(--clr-text-2);
 		margin-bottom: 20px;
 	}
-	.switchrepo__actions {
+	.editmode__actions {
 		display: flex;
 		gap: 8px;
 		padding-bottom: 24px;

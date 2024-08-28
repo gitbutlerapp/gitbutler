@@ -23,10 +23,6 @@
 	let confirmationModal: Modal;
 	let contextMenu: ContextMenu;
 
-	function containsBinaryFiles(item: any) {
-		return item.files.some((f: AnyFile) => f.binary);
-	}
-
 	function isDeleted(item: any): boolean {
 		return item.files.some((f: AnyFile) => computeFileStatus(f) === 'D');
 	}
@@ -42,17 +38,13 @@
 			{#if item.files && item.files.length > 0}
 				{@const files = item.files}
 				{#if files[0] instanceof LocalFile && !isUnapplied}
-					{#if containsBinaryFiles(item)}
-						<ContextMenuItem label="Discard changes (Binary files not yet supported)" disabled />
-					{:else}
-						<ContextMenuItem
-							label="Discard changes"
-							on:click={() => {
-								confirmationModal.show(item);
-								contextMenu.close();
-							}}
-						/>
-					{/if}
+					<ContextMenuItem
+						label="Discard changes"
+						on:click={() => {
+							confirmationModal.show(item);
+							contextMenu.close();
+						}}
+					/>
 				{/if}
 				{#if files.length === 1}
 					<ContextMenuItem

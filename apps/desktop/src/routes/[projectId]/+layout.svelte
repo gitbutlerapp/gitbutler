@@ -9,7 +9,6 @@
 	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import { BranchService, createBranchServiceStore } from '$lib/branches/service';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
-	import EditMode from '$lib/components/EditMode.svelte';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
@@ -186,7 +185,7 @@
 	{:else if $projectError}
 		<ProblemLoadingRepo error={$projectError} />
 	{:else if $baseBranch}
-		{#if $mode?.type === 'OpenWorkspace'}
+		{#if $mode?.type === 'OpenWorkspace' || $mode?.type === 'Edit'}
 			<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
 				<Navigation />
 				{#if $showHistoryView}
@@ -196,8 +195,6 @@
 			</div>
 		{:else if $mode?.type === 'OutsideWorkspace'}
 			<NotOnGitButlerBranch baseBranch={$baseBranch} />
-		{:else if $mode?.type === 'Edit'}
-			<EditMode editModeMetadata={$mode.subject} />
 		{/if}
 	{/if}
 	<MetricsReporter {projectMetrics} />
