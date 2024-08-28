@@ -6,6 +6,7 @@ use gitbutler_branch::{
     Branch as GitButlerBranch, BranchId, BranchIdentity, ReferenceExtGix, Target,
 };
 use gitbutler_command_context::{CommandContext, GixRepositoryExt};
+use gitbutler_diff::DiffByPathMap;
 use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo::RepositoryExt;
@@ -23,14 +24,21 @@ use std::{
     vec,
 };
 
+pub(crate) fn get_uncommited_files_raw(
+    context: &CommandContext,
+    _permission: &WorktreeReadPermission,
+) -> Result<DiffByPathMap> {
+    let repository = context.repository();
+    let head_commit = repository.head_commit()?;
+    gitbutler_diff::workdir(repository, &head_commit.id())
+        .context("Failed to list uncommited files")
+}
+
 pub(crate) fn get_uncommited_files(
     context: &CommandContext,
     _permission: &WorktreeReadPermission,
 ) -> Result<Vec<RemoteBranchFile>> {
-    let repository = context.repository();
-    let head_commit = repository.head_commit()?;
-    let files = gitbutler_diff::workdir(repository, &head_commit.id())
-        .context("Failed to list uncommited files")?
+    let files = get_uncommited_files_raw(context, _permission)?
         .into_iter()
         .map(|(path, file)| {
             let binary = file.hunks.iter().any(|h| h.binary);
