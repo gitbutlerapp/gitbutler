@@ -8,13 +8,13 @@
 		width?: 'default' | 'large' | 'small' | 'xsmall';
 		title?: string;
 		icon?: keyof typeof iconsJson;
-		onclose?: () => void;
-		onsubmit?: (onclose: () => void) => void;
+		onClose?: () => void;
+		onSubmit?: (close: () => void) => void;
 		children: Snippet<[item?: any]>;
 		controls?: Snippet<[close: () => void, item: any]>;
 	}
 
-	const { width = 'default', title, icon, onclose, children, controls, onsubmit }: Props = $props();
+	const { width = 'default', title, icon, onClose, children, controls, onSubmit }: Props = $props();
 
 	let open = $state(false);
 	let item = $state<any>();
@@ -29,7 +29,7 @@
 	export function close() {
 		item = undefined;
 		open = false;
-		onclose?.();
+		onClose?.();
 		dialogElement?.close();
 	}
 </script>
@@ -49,7 +49,7 @@
 			}}
 			onsubmit={(e) => {
 				e.preventDefault();
-				onsubmit?.(close);
+				onSubmit?.(close);
 			}}
 		>
 			{#if title}

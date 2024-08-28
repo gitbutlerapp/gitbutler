@@ -158,7 +158,7 @@
 <Modal
 	bind:this={modal}
 	title="Share debug data with GitButler team for review"
-	onsubmit={async () => await submit()}
+	onSubmit={async () => await submit()}
 >
 	<div class="content-wrapper">
 		<p class="content-wrapper__help-text text-13 text-body">

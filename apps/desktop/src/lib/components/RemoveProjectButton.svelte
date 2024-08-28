@@ -31,7 +31,7 @@
 <Modal
 	bind:this={modal}
 	width="small"
-	onsubmit={(close) => {
+	onSubmit={(close) => {
 		onDeleteClicked().then(close);
 	}}
 >

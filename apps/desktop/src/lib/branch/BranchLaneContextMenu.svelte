@@ -169,7 +169,7 @@
 <Modal
 	width="small"
 	bind:this={renameRemoteModal}
-	onsubmit={(close) => {
+	onSubmit={(close) => {
 		branchController.updateBranchRemoteName(branch.id, newRemoteName);
 		close();
 	}}
@@ -186,7 +186,7 @@
 	width="small"
 	title="Delete branch"
 	bind:this={deleteBranchModal}
-	onsubmit={async (close) => {
+	onSubmit={async (close) => {
 		await branchController.deleteBranch(branch.id);
 		close();
 	}}

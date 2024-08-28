@@ -143,7 +143,7 @@
 	width="small"
 	title="Delete branch"
 	bind:this={deleteBranchModal}
-	onsubmit={async (close) => {
+	onSubmit={async (close) => {
 		try {
 			await branchController.deleteLocalBranch(branch.name, branch.givenName);
 		} catch (e) {

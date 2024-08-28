@@ -83,7 +83,7 @@
 	}
 </script>
 
-<Modal width="small" bind:this={createRemoteModal} onsubmit={createRemoteAndBranch}>
+<Modal width="small" bind:this={createRemoteModal} onSubmit={createRemoteAndBranch}>
 	<p class="text-15 fork-notice">
 		In order to apply a branch from a fork, GitButler must first add a remote.
 	</p>

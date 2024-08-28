@@ -259,7 +259,7 @@
 			bind:this={deleteConfirmationModal}
 			width="small"
 			title="Remove all projects"
-			onsubmit={onDeleteClicked}
+			onSubmit={onDeleteClicked}
 		>
 			<p>Are you sure you want to remove all GitButler projects?</p>
 

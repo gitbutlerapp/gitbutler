@@ -100,7 +100,7 @@
 	width="small"
 	bind:this={updateTargetModal}
 	title="Merge Upstream Work"
-	onsubmit={(close) => {
+	onSubmit={(close) => {
 		updateBaseBranch();
 		if (mergeUpstreamWarningDismissedCheckbox) {
 			mergeUpstreamWarningDismissed.set(true);
