@@ -27,13 +27,24 @@ pub struct VirtualBranchesStatus {
     pub skipped_files: Vec<gitbutler_diff::FileDiff>,
 }
 
-/// Returns branches and their associated file changes, in addition to a list
-/// of skipped files.
-// TODO(kv): make this side effect free
-#[instrument(level = tracing::Level::DEBUG, skip(ctx, perm))]
 pub fn get_applied_status(
     ctx: &CommandContext,
     perm: Option<&mut WorktreeWritePermission>,
+) -> Result<VirtualBranchesStatus> {
+    get_applied_status_cached(ctx, perm, None)
+}
+
+/// Returns branches and their associated file changes, in addition to a list
+/// of skipped files.
+/// `worktree_changes` are all changed files against the current `HEAD^{tree}` and index
+/// against the current working tree directory, and it's used to avoid double-computing
+/// this expensive information.
+// TODO(kv): make this side effect free
+#[instrument(level = tracing::Level::DEBUG, skip(ctx, perm, worktree_changes))]
+pub fn get_applied_status_cached(
+    ctx: &CommandContext,
+    perm: Option<&mut WorktreeWritePermission>,
+    worktree_changes: Option<gitbutler_diff::DiffByPathMap>,
 ) -> Result<VirtualBranchesStatus> {
     assure_open_workspace_mode(ctx).context("ng applied status requires open workspace mode")?;
     // TODO(ST): this was `get_workspace_head()`, which is slow and ideally, we don't dynamically
@@ -45,9 +56,10 @@ pub fn get_applied_status(
         .project()
         .virtual_branches()
         .list_branches_in_workspace()?;
-    let base_file_diffs =
+    let base_file_diffs = worktree_changes.map(Ok).unwrap_or_else(|| {
         gitbutler_diff::workdir(ctx.repository(), &integration_commit_id.to_owned())
-            .context("failed to diff workdir")?;
+            .context("failed to diff workdir")
+    })?;
 
     let mut skipped_files: Vec<gitbutler_diff::FileDiff> = Vec::new();
     for file_diff in base_file_diffs.values() {

@@ -2627,6 +2627,7 @@ dependencies = [
  "backoff",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
+ "gitbutler-diff",
  "gitbutler-error",
  "gitbutler-notify-debouncer",
  "gitbutler-operating-modes",

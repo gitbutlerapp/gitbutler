@@ -13,7 +13,7 @@ use crate::{
     hunk::VirtualBranchHunk,
     integration::get_workspace_head,
     remote::{branch_to_remote_branch, RemoteBranch},
-    status::get_applied_status,
+    status::{get_applied_status, get_applied_status_cached},
     Get, VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
@@ -254,13 +254,23 @@ fn resolve_old_applied_state(
 
     Ok(())
 }
-
-#[instrument(level = tracing::Level::DEBUG, skip(ctx, perm))]
 pub fn list_virtual_branches(
+    ctx: &CommandContext,
+    perm: &mut WorktreeWritePermission,
+) -> Result<(Vec<VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
+    list_virtual_branches_cached(ctx, perm, None)
+}
+
+/// `worktree_changes` are all changed files against the current `HEAD^{tree}` and index
+/// against the current working tree directory, and it's used to avoid double-computing
+/// this expensive information.
+#[instrument(level = tracing::Level::DEBUG, skip(ctx, perm, worktree_changes))]
+pub fn list_virtual_branches_cached(
     ctx: &CommandContext,
     // TODO(ST): this should really only shared access, but there is some internals
     //           that conditionally write things.
     perm: &mut WorktreeWritePermission,
+    worktree_changes: Option<gitbutler_diff::DiffByPathMap>,
 ) -> Result<(Vec<VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
     assure_open_workspace_mode(ctx)
         .context("Listing virtual branches requires open workspace mode")?;
@@ -274,7 +284,7 @@ pub fn list_virtual_branches(
         .get_default_target()
         .context("failed to get default target")?;
 
-    let status = get_applied_status(ctx, Some(perm))?;
+    let status = get_applied_status_cached(ctx, Some(perm), worktree_changes)?;
     let max_selected_for_changes = status
         .branches
         .iter()
