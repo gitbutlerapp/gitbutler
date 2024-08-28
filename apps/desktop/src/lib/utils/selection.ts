@@ -8,15 +8,12 @@ import type { AnyFile } from '$lib/vbranches/types';
 
 export function getNextFile(files: AnyFile[], currentId: string): AnyFile | undefined {
 	const fileIndex = files.findIndex((f) => f.id === currentId);
-	const nextFile =
-		fileIndex !== -1 && fileIndex + 1 < files.length ? files[fileIndex + 1] : undefined;
-	return nextFile;
+	return fileIndex !== -1 && fileIndex + 1 < files.length ? files[fileIndex + 1] : undefined;
 }
 
 export function getPreviousFile(files: AnyFile[], currentId: string): AnyFile | undefined {
 	const fileIndex = files.findIndex((f) => f.id === currentId);
-	const previousFile = fileIndex > 0 ? files[fileIndex - 1] : undefined;
-	return previousFile;
+	return fileIndex > 0 ? files[fileIndex - 1] : undefined;
 }
 
 interface MoveSelectionParams {
