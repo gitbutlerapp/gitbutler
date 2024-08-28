@@ -41,7 +41,6 @@
 	class:large={width === 'large'}
 	class:small={width === 'small'}
 	class:xsmall={width === 'xsmall'}
-	class:round-top-corners={!title}
 >
 	{#if open}
 		<form
@@ -114,8 +113,10 @@
 		max-height: calc(100vh - 80px);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
-		border: 1px solid var(--clr-border-2);
 		box-shadow: var(--fx-shadow-l);
+	}
+	dialog[open] {
+		border: 1px solid var(--clr-border-2);
 	}
 
 	.modal__header {
