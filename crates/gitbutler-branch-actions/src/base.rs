@@ -17,7 +17,7 @@ use crate::{
     branch_manager::BranchManagerExt,
     conflicts::RepoConflictsExt,
     hunk::VirtualBranchHunk,
-    integration::update_gitbutler_integration,
+    integration::update_workspace_commit,
     remote::{commit_to_remote_commit, RemoteCommit},
     status::get_applied_status,
     VirtualBranchesExt,
@@ -105,7 +105,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
         .context("failed to checkout tree")?;
 
     let base = target_to_base_branch(ctx, default_target)?;
-    update_gitbutler_integration(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx)?;
     Ok(base)
 }
 
@@ -260,7 +260,7 @@ pub(crate) fn set_base_branch(
 
     set_exclude_decoration(ctx)?;
 
-    update_gitbutler_integration(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx)?;
 
     let base = target_to_base_branch(ctx, &target)?;
     Ok(base)
@@ -549,7 +549,7 @@ pub(crate) fn update_base_branch(
     })?;
 
     // Rewriting the integration commit is necessary after changing target sha.
-    crate::integration::update_gitbutler_integration(&vb_state, ctx)?;
+    crate::integration::update_workspace_commit(&vb_state, ctx)?;
     Ok(unapplied_branch_names)
 }
 

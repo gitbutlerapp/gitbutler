@@ -10018,7 +10018,7 @@ EOF
 
 git clone big-repo big-repo-clone
 (cd big-repo-clone
-  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
   $CLI branch create no-change
 )
 
@@ -10032,7 +10032,7 @@ function change-all() {
 
 git clone big-repo big-repo-clone-one-commit-ahead
 (cd big-repo-clone-one-commit-ahead
-  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
   $CLI branch create virtual
 
   change-all new-content
@@ -10061,7 +10061,7 @@ git clone remote revwalk-repo
   done
 
   git checkout main
-  $CLI project add --switch-to-integration "$local_tracking_ref"
+  $CLI project add --switch-to-workspace "$local_tracking_ref"
   for round in $(seq 10); do
     echo virtual-main >> file
     $CLI branch commit --message "virt-$round" main

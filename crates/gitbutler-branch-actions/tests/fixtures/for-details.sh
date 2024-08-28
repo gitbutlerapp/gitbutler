@@ -38,7 +38,7 @@ git clone remote complex-repo
   done
 
   git checkout main
-  $CLI project add --switch-to-integration "$local_tracking_ref"
+  $CLI project add --switch-to-workspace "$local_tracking_ref"
   for round in $(seq 10); do
     echo virtual-main >> file
     $CLI branch commit --message "virt-$round" main

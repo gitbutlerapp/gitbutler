@@ -16,7 +16,7 @@ use crate::{
     conflicts::{self, RepoConflictsExt},
     ensure_selected_for_changes,
     hunk::VirtualBranchHunk,
-    integration::update_gitbutler_integration,
+    integration::update_workspace_commit,
     set_ownership, undo_commit, VirtualBranchesExt,
 };
 
@@ -514,7 +514,7 @@ impl BranchManager<'_> {
             }
         }
 
-        update_gitbutler_integration(&vb_state, self.ctx)?;
+        update_workspace_commit(&vb_state, self.ctx)?;
 
         Ok(branch.name)
     }

@@ -270,7 +270,7 @@ impl OplogExt for Project {
         }
 
         let repo = git2::Repository::open(&self.path)?;
-        if repo.integration_ref_from_head().is_err() {
+        if repo.workspace_ref_from_head().is_err() {
             return Ok(false);
         }
         Ok(lines_since_snapshot(self, &repo)? > self.snapshot_lines_threshold())
@@ -434,7 +434,7 @@ fn prepare_snapshot(ctx: &Project, _shared_access: &WorktreeReadPermission) -> R
         branch_tree_builder.insert("commits", commits_tree_id, FileMode::Tree.into())?;
         let branch_tree_id = branch_tree_builder.write()?;
 
-        branches_tree_builder.insert("integration", branch_tree_id, FileMode::Tree.into())?;
+        branches_tree_builder.insert("workspace", branch_tree_id, FileMode::Tree.into())?;
     }
 
     let branch_tree_id = branches_tree_builder.write()?;
@@ -545,23 +545,23 @@ fn restore_snapshot(
                     }
                 }
 
-                // if branch_name is 'integration', we need to create or update the gitbutler/workspace branch
-                if branch_name == Some("integration") {
+                // if branch_name is 'workspace', we need to create or update the gitbutler/workspace branch
+                if branch_name == Some("workspace") {
                     // TODO(ST): with `gitoxide`, just update the branch without this dance,
                     //           similar to `git update-ref`.
                     //           Then a missing workspace branch also doesn't have to be
                     //           fatal, but we wouldn't want to `set_head()` if we are
                     //           not already on the workspace branch.
-                    let mut integration_ref = repo.integration_ref_from_head()?;
+                    let mut workspace_ref = repo.workspace_ref_from_head()?;
 
                     // reset the branch if it's there, otherwise bail as we don't meddle with other branches
                     // need to detach the head for just a moment.
                     repo.set_head_detached(commit_oid)?;
-                    integration_ref.delete()?;
+                    workspace_ref.delete()?;
 
                     // ok, now we set the branch to what it was and update HEAD
-                    let integration_commit = repo.find_commit(commit_oid)?;
-                    repo.branch("gitbutler/workspace", &integration_commit, true)?;
+                    let workspace_commit = repo.find_commit(commit_oid)?;
+                    repo.branch("gitbutler/workspace", &workspace_commit, true)?;
                     // make sure head is gitbutler/workspace
                     repo.set_head("refs/heads/gitbutler/workspace")?;
                 }
@@ -569,7 +569,7 @@ fn restore_snapshot(
         }
     }
 
-    repo.integration_ref_from_head().context(
+    repo.workspace_ref_from_head().context(
         "We will not change a worktree which for some reason isn't on the workspace branch",
     )?;
 
@@ -749,7 +749,7 @@ fn branch_lines_since_snapshot(
     let old_active_branch = repo.find_tree(old_active_branch.id())?;
     let old_active_branch_tree = old_active_branch
         .get_name("tree")
-        .ok_or_else(|| anyhow!("failed to get integration tree entry"))?;
+        .ok_or_else(|| anyhow!("failed to get workspace tree entry"))?;
     let old_active_branch_tree = repo.find_tree(old_active_branch_tree.id())?;
 
     let mut opts = git2::DiffOptions::new();

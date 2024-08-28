@@ -108,13 +108,13 @@ pub mod project {
             /// The long name of the remote reference to track, like `refs/remotes/origin/main`,
             /// when switching to the workspace branch.
             #[clap(short = 's', long)]
-            switch_to_integration: Option<RemoteRefname>,
+            switch_to_workspace: Option<RemoteRefname>,
             /// The path at which the repository worktree is located.
             #[clap(default_value = ".", value_name = "REPOSITORY")]
             path: PathBuf,
         },
         /// Switch back to the workspace branch for use of virtual branches.
-        SwitchToIntegration {
+        SwitchToWorkspace {
             /// The long name of the remote reference to track, like `refs/remotes/origin/main`.
             remote_ref_name: RemoteRefname,
         },
