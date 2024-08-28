@@ -92,7 +92,7 @@ pub struct Case {
     pub ctx: CommandContext,
     pub credentials: Helper,
     /// The directory containing the `ctx`
-    project_tmp: Option<TempDir>,
+    pub project_tmp: Option<TempDir>,
 }
 
 impl Drop for Case {

@@ -50,9 +50,8 @@ impl Test {
     /// Consume this instance and keep the temp directory that held the local repository, returning it.
     /// Best used inside a `dbg!(test.debug_local_repo())`
     #[allow(dead_code)]
-    pub fn debug_local_repo(mut self) -> PathBuf {
-        let repo = std::mem::take(&mut self.repository);
-        repo.debug_local_repo()
+    pub fn debug_local_repo(&mut self) -> Option<PathBuf> {
+        self.repository.debug_local_repo()
     }
 }
 

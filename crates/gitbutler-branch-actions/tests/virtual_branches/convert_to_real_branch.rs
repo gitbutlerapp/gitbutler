@@ -61,15 +61,20 @@ fn conflicting() {
 
         let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
-        assert!(branches[0].base_current);
-        assert!(branches[0].active);
+        let branch = &branches[0];
         assert_eq!(
-            branches[0].files[0].hunks[0].diff,
+            branch.name, "Virtual branch",
+            "the auto-created branch gets the default name"
+        );
+        assert!(branch.base_current);
+        assert!(branch.active);
+        assert_eq!(
+            branch.files[0].hunks[0].diff,
             "@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+conflict\n\\ No newline at end of file\n"
         );
 
         let unapplied_branch = controller
-            .convert_to_real_branch(project, branches[0].id)
+            .convert_to_real_branch(project, branch.id)
             .unwrap();
 
         Refname::from_str(&unapplied_branch).unwrap()
@@ -100,7 +105,6 @@ fn conflicting() {
 
         assert_eq!(branches.len(), 1);
         let branch = &branches[0];
-        // assert!(!branch.base_current);
         assert!(branch.conflicted);
         assert_eq!(
             branch.files[0].hunks[0].diff,
