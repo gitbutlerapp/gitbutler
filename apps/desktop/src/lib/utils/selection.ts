@@ -25,6 +25,7 @@ interface MoveSelectionParams {
 	files: AnyFile[];
 	selectedFileIds: string[];
 	fileIdSelection: FileIdSelection;
+	commitId?: string;
 }
 
 export function maybeMoveSelection({
@@ -35,7 +36,8 @@ export function maybeMoveSelection({
 	file,
 	files,
 	selectedFileIds,
-	fileIdSelection
+	fileIdSelection,
+	commitId
 }: MoveSelectionParams) {
 	if (!selectedFileIds[0] || selectedFileIds.length === 0) return;
 
@@ -53,9 +55,10 @@ export function maybeMoveSelection({
 		const file = getFileFunc(files, id);
 		if (file) {
 			// if file is already selected, do nothing
-			if (selectedFileIds.includes(stringifyFileKey(file.id))) return;
 
-			fileIdSelection.add(file.id);
+			if (selectedFileIds.includes(stringifyFileKey(file.id, commitId))) return;
+
+			fileIdSelection.add(file.id, commitId);
 		}
 	}
 
@@ -64,9 +67,9 @@ export function maybeMoveSelection({
 		id: string
 	) {
 		const file = getFileFunc(files, id);
+
 		if (file) {
-			fileIdSelection.clear();
-			fileIdSelection.add(file.id);
+			fileIdSelection.clearExcept(file.id, commitId);
 		}
 	}
 
@@ -78,7 +81,7 @@ export function maybeMoveSelection({
 				if (selectedFileIds.length === 1) {
 					selectionDirection = 'up';
 				} else if (selectionDirection === 'down') {
-					fileIdSelection.remove(lastFileId);
+					fileIdSelection.remove(lastFileId, commitId);
 				}
 				getAndAddFile(getPreviousFile, lastFileId);
 			} else {
@@ -102,8 +105,9 @@ export function maybeMoveSelection({
 				if (selectedFileIds.length === 1) {
 					selectionDirection = 'down';
 				} else if (selectionDirection === 'up') {
-					fileIdSelection.remove(lastFileId);
+					fileIdSelection.remove(lastFileId, commitId);
 				}
+
 				getAndAddFile(getNextFile, lastFileId);
 			} else {
 				// focus next file

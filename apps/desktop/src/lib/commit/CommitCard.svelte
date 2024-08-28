@@ -272,10 +272,12 @@
 					class:integrated={type === 'integrated'}
 				></div>
 
-				{#if type === 'local' || type === 'localAndRemote'}
-					<div class="commit__drag-icon">
-						<Icon name="draggable-narrow" />
-					</div>
+				{#if !isUnapplied}
+					{#if type === 'local' || type === 'localAndRemote'}
+						<div class="commit__drag-icon">
+							<Icon name="draggable-narrow" />
+						</div>
+					{/if}
 				{/if}
 
 				{#if first}
@@ -437,7 +439,12 @@
 				{/if}
 
 				<div class="files-container">
-					<BranchFilesList {files} {isUnapplied} readonly={type === 'remote'} />
+					<BranchFilesList
+						allowMultiple={!isUnapplied && type !== 'remote'}
+						{files}
+						{isUnapplied}
+						readonly={type === 'remote' || isUnapplied}
+					/>
 				</div>
 			{/if}
 		</CommitDragItem>
