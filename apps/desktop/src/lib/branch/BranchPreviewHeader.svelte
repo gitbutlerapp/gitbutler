@@ -2,6 +2,7 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { ModeService } from '$lib/modes/service';
 	import { getContext } from '$lib/utils/context';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -24,6 +25,8 @@
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 	const gitHost = getGitHost();
+	const modeSerivce = getContext(ModeService);
+	const mode = modeSerivce.mode;
 	$: gitHostBranch = upstream ? $gitHost?.branch(upstream) : undefined;
 
 	let isApplying = false;
@@ -93,6 +96,7 @@
 					help="Restores these changes into your working directory"
 					icon="plus-small"
 					loading={isApplying}
+					disabled={$mode?.type !== 'OpenWorkspace'}
 					onclick={async () => {
 						isApplying = true;
 						try {

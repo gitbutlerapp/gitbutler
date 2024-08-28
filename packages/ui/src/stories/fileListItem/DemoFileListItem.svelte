@@ -8,6 +8,7 @@
 		fileStatus?: FileStatus;
 		draggable?: boolean;
 		fileStatusStyle?: 'dot' | 'full';
+		clickable?: boolean;
 		selected?: boolean;
 		showCheckbox?: boolean;
 		checked?: boolean;
@@ -26,6 +27,7 @@
 		fileStatus,
 		draggable = false,
 		fileStatusStyle = 'dot',
+		clickable = true,
 		selected = false,
 		showCheckbox = false,
 		checked,
@@ -54,6 +56,7 @@
 	{fileStatus}
 	{fileStatusStyle}
 	{draggable}
+	{clickable}
 	{selected}
 	{showCheckbox}
 	{checked}

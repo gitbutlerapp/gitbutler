@@ -23,7 +23,6 @@
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
 	let useNewLocking = project?.use_new_locking || false;
-	let ignoreProjectSemaphore = project?.ignore_project_semaphore || false;
 	let signCommits = false;
 
 	const gitConfig = getContext(GitConfigService);
@@ -108,13 +107,8 @@
 		project.use_new_locking = value;
 		await projectService.updateProject(project);
 	}
-	async function setIgnoreProjectSemaphore(value: boolean) {
-		project.ignore_project_semaphore = value;
-		await projectService.updateProject(project);
-	}
 
 	$: setUseNewLocking(useNewLocking);
-	$: setIgnoreProjectSemaphore(ignoreProjectSemaphore);
 
 	onMount(async () => {
 		let gitConfigSettings = await gitConfig.getGbConfig(project.id);
@@ -301,17 +295,6 @@
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle id="useNewLocking" bind:checked={useNewLocking} />
-		</svelte:fragment>
-	</SectionCard>
-
-	<SectionCard labelFor="ignoreProjectSemaphore" orientation="row">
-		<svelte:fragment slot="title">Disable project semaphore usage</svelte:fragment>
-		<svelte:fragment slot="caption">
-			This is an experimental setting used to test if the project semaphore used in the GitButler
-			app API is necessary, or if it can be removed.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle id="ignoreProjectSemaphore" bind:checked={ignoreProjectSemaphore} />
 		</svelte:fragment>
 	</SectionCard>
 
