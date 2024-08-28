@@ -54,8 +54,8 @@
 	bind:this={modal}
 	width="small"
 	title="Git fetch requires input"
-	onclose={async () => await cancel()}
-	onsubmit={async () => await submit()}
+	onClose={async () => await cancel()}
+	onSubmit={async () => await submit()}
 >
 	<div class="message">
 		{#if $error}

@@ -114,7 +114,6 @@
 		<Button
 			style="error"
 			kind="solid"
-			focus
 			onclick={() => {
 				branchController.unapplyFiles(item.files);
 				close();
