@@ -77,14 +77,19 @@ fn main() -> Result<()> {
 }
 
 mod trace {
+    use tracing::metadata::LevelFilter;
     use tracing_subscriber::layer::SubscriberExt;
     use tracing_subscriber::util::SubscriberInitExt;
+    use tracing_subscriber::Layer;
 
     pub fn init() -> anyhow::Result<()> {
         tracing_subscriber::registry()
-            .with(tracing_forest::ForestLayer::from(
-                tracing_forest::printer::PrettyPrinter::new().writer(std::io::stderr),
-            ))
+            .with(
+                tracing_forest::ForestLayer::from(
+                    tracing_forest::printer::PrettyPrinter::new().writer(std::io::stderr),
+                )
+                .with_filter(LevelFilter::DEBUG),
+            )
             .init();
         Ok(())
     }

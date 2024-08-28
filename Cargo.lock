@@ -2565,6 +2565,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-appender",
+ "tracing-forest",
  "tracing-subscriber",
 ]
 
