@@ -15,6 +15,7 @@ use gitbutler_project::{
     Project,
 };
 use gitbutler_repo::RepositoryExt;
+use gix::bstr::{BString, ByteSlice, ByteVec};
 use tracing::instrument;
 
 use super::{
@@ -717,22 +718,28 @@ fn worktree_files_larger_than_limit_as_git2_ignore_rule(
     repo: &git2::Repository,
     worktree_dir: &Path,
 ) -> Result<String> {
-    let statuses = repo.statuses(None)?;
-    let mut files_to_exclude = vec![];
-    for entry in statuses.iter() {
-        let Some(rela_path) = entry.path() else {
-            continue;
-        };
-        let full_path = worktree_dir.join(rela_path);
-        if let Ok(metadata) = fs::metadata(&full_path) {
-            if metadata.is_file()
-                && metadata.len() > SNAPSHOT_FILE_LIMIT_BYTES
-                && entry.status().is_wt_new()
-            {
-                files_to_exclude.push(rela_path.to_owned());
-            }
-        }
-    }
+    let repo = gix::open(repo.path())?;
+    let files_to_exclude: Vec<_> = repo
+        .dirwalk_iter(
+            repo.index_or_empty()?,
+            None::<BString>,
+            Default::default(),
+            repo.dirwalk_options()?
+                .emit_ignored(None)
+                .emit_pruned(false)
+                .emit_untracked(gix::dir::walk::EmissionMode::Matching),
+        )?
+        .filter_map(Result::ok)
+        .filter_map(|item| {
+            let path = worktree_dir.join(gix::path::from_bstr(item.entry.rela_path.as_bstr()));
+            let file_is_too_large = path.metadata().map_or(false, |md| {
+                md.is_file() && md.len() > SNAPSHOT_FILE_LIMIT_BYTES
+            });
+            file_is_too_large
+                .then(|| Vec::from(item.entry.rela_path).into_string().ok())
+                .flatten()
+        })
+        .collect();
     Ok(files_to_exclude.join(" "))
 }
 
