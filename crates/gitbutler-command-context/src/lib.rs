@@ -28,7 +28,7 @@ impl CommandContext {
                 Ok(false) => true,
                 Ok(true) => false,
                 Err(err) => {
-                    tracing::warn!(
+                    tracing::trace!(
                                 "failed to get gitbutler.didSetPrune for repository at {}; cannot disable gc: {}",
                                 project.path.display(),
                                 err

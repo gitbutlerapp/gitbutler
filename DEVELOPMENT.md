@@ -132,6 +132,12 @@ The app writes logs into:
 1. `stdout` in development mode
 2. The Tauri [logs](https://tauri.app/v1/api/js/path/#platform-specific) directory
 
+One can get performance log when launching the application locally as follows:
+
+```bash
+GITBUTLER_PERFORMANCE_LOG=1 LOG_LEVEL=debug pnpm tauri dev
+```
+
 ### Tokio
 
 We are also collecting tokio's runtime tracing information that could be viewed using [tokio-console](https://github.com/tokio-rs/console#tokio-console-prototypes):
