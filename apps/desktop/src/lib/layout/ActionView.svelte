@@ -1,17 +1,35 @@
 <script lang="ts">
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { type Snippet } from 'svelte';
 
 	interface Props {
+		paddings?: {
+			top?: number;
+			right?: number;
+			bottom?: number;
+			left?: number;
+		};
 		children: Snippet;
 	}
 
-	const { children }: Props = $props();
+	const { paddings, children }: Props = $props();
+
+	function getPaddingStyle() {
+		const { top = 48, right = 32, bottom = 48, left = 32 } = paddings || {};
+
+		return `
+			padding-top: ${pxToRem(top)};
+			padding-right: ${pxToRem(right)};
+			padding-bottom: ${pxToRem(bottom)};
+			padding-left: ${pxToRem(left)};
+		`;
+	}
 </script>
 
 <ScrollableContainer wide>
 	<div class="wrapper">
-		<div class="content">
+		<div class="content" style={getPaddingStyle()}>
 			{#if children}
 				{@render children()}
 			{/if}
@@ -35,6 +53,5 @@
 	.content {
 		width: 100%;
 		max-width: 560px;
-		padding: 48px 32px;
 	}
 </style>
