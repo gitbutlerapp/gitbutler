@@ -17,6 +17,7 @@ use tracing::instrument;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    fn head_commit(&self) -> Result<git2::Commit<'_>>;
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
     /// Open a new in-memory repository and executes the provided closure using it.
@@ -72,6 +73,13 @@ pub trait RepositoryExt {
 }
 
 impl RepositoryExt for git2::Repository {
+    fn head_commit(&self) -> Result<git2::Commit<'_>> {
+        self.head()
+            .context("Failed to get head")?
+            .peel_to_commit()
+            .context("Failed to get head commit")
+    }
+
     fn in_memory<T, F>(&self, f: F) -> Result<T>
     where
         F: FnOnce(&git2::Repository) -> Result<T>,

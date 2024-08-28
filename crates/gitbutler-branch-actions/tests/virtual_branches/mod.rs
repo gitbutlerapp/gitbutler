@@ -1,7 +1,8 @@
 use std::{fs, path, path::PathBuf, str::FromStr};
 
-use gitbutler_branch::BranchCreateRequest;
-use gitbutler_branch_actions::VirtualBranchActions;
+use gitbutler_branch::{BranchCreateRequest, VirtualBranchesHandle};
+use gitbutler_branch_actions::{update_gitbutler_integration, VirtualBranchActions};
+use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
 use gitbutler_project::{self as projects, Project, ProjectId};
 use gitbutler_reference::Refname;
@@ -137,6 +138,9 @@ fn resolve_conflict_flow() {
             .create_virtual_branch_from_branch(project, &unapplied_branch, None)
             .unwrap();
 
+        let vb_state = VirtualBranchesHandle::new(project.gb_dir());
+        let ctx = CommandContext::open(project).unwrap();
+        update_gitbutler_integration(&vb_state, &ctx).unwrap();
         let (branches, _) = controller.list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert!(branches[0].active);

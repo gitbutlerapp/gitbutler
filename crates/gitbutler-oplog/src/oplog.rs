@@ -260,6 +260,7 @@ impl OplogExt for Project {
         restore_snapshot(self, snapshot_commit_id, guard.write_permission())
     }
 
+    #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
     fn should_auto_snapshot(&self, check_if_last_snapshot_older_than: Duration) -> Result<bool> {
         let last_snapshot_time = OplogHandle::new(&self.gb_dir()).modified_at()?;
         if last_snapshot_time.elapsed()? <= check_if_last_snapshot_older_than {
@@ -711,6 +712,7 @@ fn write_conflicts_tree(
 
 /// Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
 /// TODO(ST): refactor this to be path-safe and ' ' save - the returned list is space separated (!!)
+#[instrument(level = tracing::Level::DEBUG, skip(repo), err(Debug))]
 fn worktree_files_larger_than_limit_as_git2_ignore_rule(
     repo: &git2::Repository,
     worktree_dir: &Path,
@@ -765,6 +767,7 @@ fn lines_since_snapshot(project: &Project, repo: &git2::Repository) -> Result<us
     Ok(lines_changed)
 }
 
+#[instrument(level = tracing::Level::DEBUG, skip(branch, repo), err(Debug))]
 fn branch_lines_since_snapshot(
     branch: &Branch,
     repo: &git2::Repository,

@@ -1,6 +1,3 @@
-use gitbutler_branch::BranchCreateRequest;
-use gitbutler_reference::Refname;
-
 use super::*;
 
 #[test]
@@ -101,6 +98,9 @@ fn conflicting() {
             "<<<<<<< ours\nconflict\n=======\nsecond\n>>>>>>> theirs\n"
         );
 
+        let vb_state = VirtualBranchesHandle::new(project.gb_dir());
+        let ctx = CommandContext::open(project).unwrap();
+        update_gitbutler_integration(&vb_state, &ctx).unwrap();
         let (branches, _) = controller.list_virtual_branches(project).unwrap();
 
         assert_eq!(branches.len(), 1);
