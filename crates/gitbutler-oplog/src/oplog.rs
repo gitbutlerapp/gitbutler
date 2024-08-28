@@ -1,7 +1,7 @@
 use std::{
     collections::{hash_map::Entry, HashMap},
     fs,
-    path::{Path, PathBuf},
+    path::PathBuf,
     str::{from_utf8, FromStr},
     time::Duration,
 };
@@ -9,13 +9,13 @@ use std::{
 use anyhow::{anyhow, bail, Context, Result};
 use git2::{DiffOptions, FileMode};
 use gitbutler_branch::{Branch, SignaturePurpose, VirtualBranchesHandle, VirtualBranchesState};
+use gitbutler_command_context::RepositoryExtLite;
 use gitbutler_diff::{hunks_by_filepath, FileDiff};
 use gitbutler_project::{
     access::{WorktreeReadPermission, WorktreeWritePermission},
     Project,
 };
 use gitbutler_repo::RepositoryExt;
-use gix::bstr::{BString, ByteSlice, ByteVec};
 use tracing::instrument;
 
 use super::{
@@ -286,11 +286,7 @@ impl OplogExt for Project {
         let old_wd_tree_id = tree_from_applied_vbranches(&repo, commit.parent(0)?.id())?;
         let old_wd_tree = repo.find_tree(old_wd_tree_id)?;
 
-        // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
-        let files_to_exclude =
-            worktree_files_larger_than_limit_as_git2_ignore_rule(&repo, worktree_dir)?;
-        // In-memory, libgit2 internal ignore rule
-        repo.add_ignore_rule(&files_to_exclude)?;
+        repo.ignore_large_files_in_diffs(SNAPSHOT_FILE_LIMIT_BYTES)?;
 
         let mut diff_opts = git2::DiffOptions::new();
         diff_opts
@@ -579,11 +575,7 @@ fn restore_snapshot(
     let workdir_tree_id = tree_from_applied_vbranches(&repo, snapshot_commit_id)?;
     let workdir_tree = repo.find_tree(workdir_tree_id)?;
 
-    // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
-    let files_to_exclude =
-        worktree_files_larger_than_limit_as_git2_ignore_rule(&repo, worktree_dir)?;
-    // In-memory, libgit2 internal ignore rule
-    repo.add_ignore_rule(&files_to_exclude)?;
+    repo.ignore_large_files_in_diffs(SNAPSHOT_FILE_LIMIT_BYTES)?;
 
     // Define the checkout builder
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
@@ -711,38 +703,6 @@ fn write_conflicts_tree(
     Ok(conflicts_tree)
 }
 
-/// Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
-/// TODO(ST): refactor this to be path-safe and ' ' save - the returned list is space separated (!!)
-#[instrument(level = tracing::Level::DEBUG, skip(repo), err(Debug))]
-fn worktree_files_larger_than_limit_as_git2_ignore_rule(
-    repo: &git2::Repository,
-    worktree_dir: &Path,
-) -> Result<String> {
-    let repo = gix::open(repo.path())?;
-    let files_to_exclude: Vec<_> = repo
-        .dirwalk_iter(
-            repo.index_or_empty()?,
-            None::<BString>,
-            Default::default(),
-            repo.dirwalk_options()?
-                .emit_ignored(None)
-                .emit_pruned(false)
-                .emit_untracked(gix::dir::walk::EmissionMode::Matching),
-        )?
-        .filter_map(Result::ok)
-        .filter_map(|item| {
-            let path = worktree_dir.join(gix::path::from_bstr(item.entry.rela_path.as_bstr()));
-            let file_is_too_large = path.metadata().map_or(false, |md| {
-                md.is_file() && md.len() > SNAPSHOT_FILE_LIMIT_BYTES
-            });
-            file_is_too_large
-                .then(|| Vec::from(item.entry.rela_path).into_string().ok())
-                .flatten()
-        })
-        .collect();
-    Ok(files_to_exclude.join(" "))
-}
-
 /// Returns the number of lines of code (added + removed) since the last snapshot in `project`.
 /// Includes untracked files.
 /// `repo` is an already opened project repository.
@@ -752,13 +712,7 @@ fn lines_since_snapshot(project: &Project, repo: &git2::Repository) -> Result<us
     // This looks at the diff between the tree of the currently selected as 'default' branch (where new changes go)
     // and that same tree in the last snapshot. For some reason, comparing workdir to the workdir subree from
     // the snapshot simply does not give us what we need here, so instead using tree to tree comparison.
-    let worktree_dir = project.path.as_path();
-
-    // Exclude files that are larger than the limit (eg. database.sql which may never be intended to be committed)
-    let files_to_exclude =
-        worktree_files_larger_than_limit_as_git2_ignore_rule(repo, worktree_dir)?;
-    // In-memory, libgit2 internal ignore rule
-    repo.add_ignore_rule(&files_to_exclude)?;
+    repo.ignore_large_files_in_diffs(SNAPSHOT_FILE_LIMIT_BYTES)?;
 
     let oplog_state = OplogHandle::new(&project.gb_dir());
     let Some(oplog_commit_id) = oplog_state.oplog_head()? else {

@@ -3,6 +3,7 @@ use std::{borrow::Cow, collections::HashMap, path::PathBuf, str};
 use anyhow::{Context, Result};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use gitbutler_cherry_pick::RepositoryExt;
+use gitbutler_command_context::RepositoryExtLite;
 use gitbutler_serde::BStringForFrontend;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -155,8 +156,8 @@ pub fn workdir(repo: &git2::Repository, commit_oid: &git2::Oid) -> Result<DiffBy
     for conflict_path_to_resolve in paths_to_add {
         index.add_path(conflict_path_to_resolve.as_ref())?;
     }
+    repo.ignore_large_files_in_diffs(50_000_000)?;
     let diff = repo.diff_tree_to_workdir_with_index(Some(&old_tree), Some(&mut diff_opts))?;
-    // TODO(ST): bring back support for skipped (large) files.
     hunks_by_filepath(Some(repo), &diff)
 }
 

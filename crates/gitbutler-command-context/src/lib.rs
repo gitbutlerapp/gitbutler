@@ -98,3 +98,6 @@ impl CommandContext {
         )?)
     }
 }
+
+mod repository_ext;
+pub use repository_ext::RepositoryExtLite;
