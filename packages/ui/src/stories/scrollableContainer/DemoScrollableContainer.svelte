@@ -1,15 +1,12 @@
 <script lang="ts">
-	import Scrollbar from '$lib/scroll/Scrollbar.svelte';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 
 	const { ...args } = $props();
-
-	let viewport = $state<HTMLDivElement | undefined>(undefined);
-	let contents = $state<HTMLDivElement | undefined>(undefined);
 </script>
 
-<div class="wrapper">
-	<div bind:this={viewport} class="wievport hide-native-scrollbar">
-		<div bind:this={contents} class="content">
+<div class="wievport hide-native-scrollbar">
+	<ScrollableContainer {...args}>
+		<div class="content">
 			<p class="text-14 text-body">
 				Artificial Intelligence (AI) has emerged as one of the most transformative technologies of
 				the 21st century, influencing various sectors, from healthcare and education to finance and
@@ -36,24 +33,10 @@
 				ability to handle real-world complexity.
 			</p>
 		</div>
-
-		<Scrollbar
-			{viewport}
-			{contents}
-			onthumbdrag={(e) => {
-				console.log(e);
-			}}
-			{...args}
-		/>
-	</div>
+	</ScrollableContainer>
 </div>
 
 <style lang="postcss">
-	.wrapper {
-		position: relative;
-		width: fit-content;
-	}
-
 	.wievport {
 		/* position: relative; */
 		display: flex;

@@ -1,5 +1,11 @@
 <script lang="ts" context="module">
-	export type ScrollbarPadding = { top?: number; right?: number; bottom?: number; left?: number };
+	export type ScrollbarPaddingType = {
+		top?: number;
+		right?: number;
+		bottom?: number;
+		left?: number;
+	};
+	export type ShowModeType = 'always' | 'hover' | 'onscroll';
 </script>
 
 <script lang="ts">
@@ -10,11 +16,11 @@
 		contents: Element;
 		initiallyVisible?: boolean;
 		thickness?: string;
-		padding?: ScrollbarPadding;
+		padding?: ScrollbarPaddingType;
 		shift?: string;
 		horz?: boolean;
 		zIndex?: string;
-		showMode?: 'always' | 'hover' | 'onscroll';
+		showMode?: ShowModeType;
 		onthumbdrag?: (dragging: boolean) => void;
 		onscroll?: (e: Event) => void;
 	}
@@ -49,10 +55,10 @@
 		if (contents) {
 			setupContents(contents);
 		}
+	});
 
-		if (isDragging) {
-			onthumbdrag?.(isDragging);
-		}
+	$effect(() => {
+		onthumbdrag?.(isDragging);
 	});
 
 	let thumb: Element | undefined = $state();
