@@ -138,6 +138,23 @@ One can get performance log when launching the application locally as follows:
 GITBUTLER_PERFORMANCE_LOG=1 LOG_LEVEL=debug pnpm tauri dev
 ```
 
+For more realistic performance logging, use local release builds with `--release`.
+
+```bash
+GITBUTLER_PERFORMANCE_LOG=1 LOG_LEVEL=debug pnpm tauri dev --release
+```
+
+Since release builds are configured for public releases, they are very slow to compile.
+Speed them up by sourcing the following file.
+
+```bash
+export CARGO_PROFILE_RELEASE_DEBUG=0
+export CARGO_PROFILE_RELEASE_INCREMENTAL=false
+export CARGO_PROFILE_RELEASE_LTO=false
+export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=256
+export CARGO_PROFILE_RELEASE_OPT_LEVEL=2
+```
+
 ### Tokio
 
 We are also collecting tokio's runtime tracing information that could be viewed using [tokio-console](https://github.com/tokio-rs/console#tokio-console-prototypes):
