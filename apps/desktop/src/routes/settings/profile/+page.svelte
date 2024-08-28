@@ -3,6 +3,7 @@
 	import Login from '$lib/components/Login.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
+	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
 	import {
@@ -18,7 +19,6 @@
 	import * as toasts from '$lib/utils/toasts';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import SettingsPage from '@gitbutler/ui/layout/SettingsPage.svelte';
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 

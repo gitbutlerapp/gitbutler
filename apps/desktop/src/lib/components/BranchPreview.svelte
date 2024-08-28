@@ -6,6 +6,7 @@
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
@@ -14,7 +15,6 @@
 	import { BranchData, type Branch } from '$lib/vbranches/types';
 	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
-	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 	import lscache from 'lscache';
 	import { marked } from 'marked';
 	import { onMount, setContext } from 'svelte';

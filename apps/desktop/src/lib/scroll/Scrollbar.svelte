@@ -9,7 +9,9 @@
 </script>
 
 <script lang="ts">
-	import { pxToRem } from '$lib/utils/pxToRem';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContextStoreBySymbol } from '$lib/utils/context';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	interface Props {
 		viewport: Element;
@@ -20,7 +22,6 @@
 		shift?: string;
 		horz?: boolean;
 		zIndex?: string;
-		showMode?: ShowModeType;
 		onthumbdrag?: (dragging: boolean) => void;
 		onscroll?: (e: Event) => void;
 	}
@@ -34,7 +35,6 @@
 		shift = '0',
 		horz = false,
 		zIndex = 'var(--z-lifted)',
-		showMode = 'onscroll',
 		onthumbdrag,
 		onscroll
 	}: Props = $props();
@@ -60,6 +60,8 @@
 	$effect(() => {
 		onthumbdrag?.(isDragging);
 	});
+
+	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
 	let thumb: Element | undefined = $state();
 	let track: Element | undefined = $state();
@@ -92,8 +94,12 @@
 	let scrollableX = $derived(wholeWidth > trackWidth);
 	let isScrollable = $derived(scrollableY || scrollableX);
 	let shouldShowInitially = $derived(initiallyVisible && isScrollable);
-	let shouldShowOnHover = $derived(showMode === 'hover' && isScrollable);
-	let shouldAlwaysShow = $derived(showMode === 'always' && isScrollable);
+	let shouldShowOnHover = $derived(
+		$userSettings.scrollbarVisibilityState === 'hover' && isScrollable
+	);
+	let shouldAlwaysShow = $derived(
+		$userSettings.scrollbarVisibilityState === 'always' && isScrollable
+	);
 
 	let visible = $state(false);
 

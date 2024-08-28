@@ -5,8 +5,8 @@
 		featureInlineUnifiedDiffs,
 		featureBranchStacking
 	} from '$lib/config/uiFeatureFlags';
+	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
-	import SettingsPage from '@gitbutler/ui/layout/SettingsPage.svelte';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
 	const inlineUnifiedDiffs = featureInlineUnifiedDiffs();

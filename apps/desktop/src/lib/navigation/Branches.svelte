@@ -7,10 +7,10 @@
 	import ChunkyList from '$lib/navigation/ChunkyList.svelte';
 	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
 	import { type SidebarEntrySubject } from '$lib/navigation/types';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 	import { writable } from 'svelte/store';

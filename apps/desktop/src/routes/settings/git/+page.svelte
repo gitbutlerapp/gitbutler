@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import Link from '$lib/shared/Link.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
-	import SettingsPage from '@gitbutler/ui/layout/SettingsPage.svelte';
 	import { onMount } from 'svelte';
 
 	const gitConfig = getContext(GitConfigService);

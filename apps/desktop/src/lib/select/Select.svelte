@@ -10,9 +10,9 @@
 	import OptionsGroup from './OptionsGroup.svelte';
 	import SearchItem from './SearchItem.svelte';
 	import TextBox from '../shared/TextBox.svelte';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
-	import ScrollableContainer from '@gitbutler/ui/scroll/ScrollableContainer.svelte';
 	import { portal } from '@gitbutler/ui/utils/portal';
 	import { type Snippet } from 'svelte';
 

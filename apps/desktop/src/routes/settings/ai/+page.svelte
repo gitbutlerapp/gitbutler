@@ -4,6 +4,7 @@
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import AiPromptEdit from '$lib/components/AIPromptEdit/AIPromptEdit.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { getSecretsService } from '$lib/secrets/secretsService';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
@@ -15,7 +16,6 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
-	import SettingsPage from '@gitbutler/ui/layout/SettingsPage.svelte';
 	import { onMount, tick } from 'svelte';
 
 	const gitConfigService = getContext(GitConfigService);
