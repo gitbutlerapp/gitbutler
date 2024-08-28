@@ -5,11 +5,11 @@ use core::fmt;
 use gitbutler_branch::{
     Branch as GitButlerBranch, BranchId, BranchIdentity, ReferenceExtGix, Target,
 };
-use gitbutler_command_context::{CommandContext, GixRepositoryExt};
+use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
-use gitbutler_repo::RepositoryExt;
+use gitbutler_repo::{GixRepositoryExt, RepositoryExt};
 use gitbutler_serde::BStringForFrontend;
 use gix::object::tree::diff::Action;
 use gix::prelude::ObjectIdExt;

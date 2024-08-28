@@ -578,7 +578,7 @@ pub fn integrate_upstream_commits(ctx: &CommandContext, branch_id: BranchId) -> 
     let new_head_tree = repo.find_commit(new_head)?.tree()?;
     let head_commit = repo.find_commit(new_head)?;
 
-    let wd_tree = ctx.repository().get_wd_tree()?;
+    let wd_tree = ctx.repository().create_wd_tree()?;
     let integration_tree = repo.find_commit(get_workspace_head(ctx)?)?.tree()?;
 
     let mut merge_index = repo.merge_trees(&integration_tree, &new_head_tree, &wd_tree, None)?;
@@ -616,7 +616,7 @@ pub(crate) fn integrate_with_merge(
     upstream_commit: &git2::Commit,
     merge_base: git2::Oid,
 ) -> Result<git2::Oid> {
-    let wd_tree = ctx.repository().get_wd_tree()?;
+    let wd_tree = ctx.repository().create_wd_tree()?;
     let repo = ctx.repository();
     let remote_tree = upstream_commit.tree().context("failed to get tree")?;
     let upstream_branch = branch.upstream.as_ref().context("upstream not found")?;
@@ -1171,7 +1171,7 @@ pub fn is_remote_branch_mergeable(
 
     let base_tree = find_base_tree(ctx.repository(), &branch_commit, &target_commit)?;
 
-    let wd_tree = ctx.repository().get_wd_tree()?;
+    let wd_tree = ctx.repository().create_wd_tree()?;
 
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
     let mergeable = !ctx
