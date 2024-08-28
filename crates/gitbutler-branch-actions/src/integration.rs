@@ -19,10 +19,14 @@ use crate::{branch_manager::BranchManagerExt, conflicts, VirtualBranchesExt};
 const WORKSPACE_HEAD: &str = "Workspace Head";
 const GITBUTLER_INTEGRATION_COMMIT_TITLE: &str = "GitButler Integration Commit";
 
-// Creates and returns a merge commit of all active branch heads.
-//
-// This is the base against which we diff the working directory to understand
-// what files have been modified.
+/// Creates and returns a merge commit of all active branch heads.
+///
+/// This is the base against which we diff the working directory to understand
+/// what files have been modified.
+///
+/// This should be used to update the `gitbutler/workspace` ref with, which is usually
+/// done from [`update_gitbutler_integration()`], after any of its input changes.
+/// This is namely the conflicting state, or any head of the virtual branches.
 #[instrument(level = tracing::Level::DEBUG, skip(ctx))]
 pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
     let vb_state = ctx.project().virtual_branches();
