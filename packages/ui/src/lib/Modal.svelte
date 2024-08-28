@@ -45,7 +45,7 @@
 	{#if open}
 		<form
 			use:clickOutside={{
-				handler: () => dialogElement?.close()
+				handler: close
 			}}
 			onsubmit={(e) => {
 				e.preventDefault();
@@ -77,11 +77,8 @@
 </dialog>
 
 <style lang="postcss">
-	dialog[open] {
-		transform: scale(1);
-	}
-
 	dialog {
+		display: none;
 		outline: none;
 		transform: scale(0.95);
 		transition: transform 250ms cubic-bezier(0.34, 1.35, 0.7, 1);
@@ -90,6 +87,11 @@
 	dialog::backdrop {
 		transition: opacity 150ms ease-in;
 		background-color: rgb(0 0 0 / 0%);
+	}
+
+	dialog[open] {
+		display: flex;
+		transform: scale(1);
 	}
 
 	dialog[open]::backdrop {
@@ -107,7 +109,6 @@
 	}
 
 	.modal-content {
-		display: flex;
 		flex-direction: column;
 
 		max-height: calc(100vh - 80px);
