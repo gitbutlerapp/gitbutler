@@ -23,14 +23,14 @@
 	export function show(newItem?: any) {
 		item = newItem;
 		open = true;
-		dialogElement.showModal();
+		dialogElement?.showModal();
 	}
 
 	export function close() {
 		item = undefined;
 		open = false;
 		onclose?.();
-		dialogElement.close();
+		dialogElement?.close();
 	}
 </script>
 
@@ -46,7 +46,7 @@
 	{#if open}
 		<form
 			use:clickOutside={{
-				handler: () => dialogElement.close()
+				handler: () => dialogElement?.close()
 			}}
 			onsubmit={(e) => {
 				e.preventDefault();
@@ -82,9 +82,11 @@
 		outline: none;
 		view-transition-name: dialog;
 	}
+
 	dialog[open] {
 		animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
 	}
+
 	dialog.close::backdrop {
 		animation: dialog-fade 0.15s ease-out;
 	}
