@@ -7,13 +7,13 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { platformName } from '$lib/platform/platform';
 	import CloudForm from '$lib/settings/CloudForm.svelte';
-	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import DetailsForm from '$lib/settings/DetailsForm.svelte';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import PreferencesForm from '$lib/settings/PreferencesForm.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import SettingsPage from '@gitbutler/ui/layout/SettingsPage.svelte';
 	import { goto } from '$app/navigation';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
@@ -39,7 +39,7 @@
 	}
 </script>
 
-<ContentWrapper title="Project settings">
+<SettingsPage title="Project settings">
 	{#if $baseBranchSwitching}
 		<BaseBranchSwitch />
 	{/if}
@@ -65,4 +65,4 @@
 			/>
 		</div>
 	</SectionCard>
-</ContentWrapper>
+</SettingsPage>

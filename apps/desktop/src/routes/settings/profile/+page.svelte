@@ -4,7 +4,6 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
 	import {
 		SETTINGS,
@@ -19,6 +18,7 @@
 	import * as toasts from '$lib/utils/toasts';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import SettingsPage from '@gitbutler/ui/layout/SettingsPage.svelte';
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
@@ -112,7 +112,7 @@
 	}
 </script>
 
-<ContentWrapper title="Profile">
+<SettingsPage title="Profile">
 	{#if $user}
 		<SectionCard>
 			<form on:submit={onSubmit} class="profile-form">
@@ -266,7 +266,7 @@
 			{/snippet}
 		</Modal>
 	</SectionCard>
-</ContentWrapper>
+</SettingsPage>
 
 <style lang="postcss">
 	.profile-form {
