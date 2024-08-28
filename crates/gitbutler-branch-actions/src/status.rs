@@ -47,16 +47,16 @@ pub fn get_applied_status_cached(
     worktree_changes: Option<gitbutler_diff::DiffByPathMap>,
 ) -> Result<VirtualBranchesStatus> {
     assure_open_workspace_mode(ctx).context("ng applied status requires open workspace mode")?;
-    // TODO(ST): this was `get_workspace_head()`, which is slow and ideally, we don't dynamically
-    //           calculate which should already be 'fixed' - why do we have the integration branch
-    //           if we can't assume it's in the right state? So ideally, we assure that the code
-    //           that affects the integration branch also updates it?
-    let integration_commit_id = ctx.repository().head_commit()?.id();
     let mut virtual_branches = ctx
         .project()
         .virtual_branches()
         .list_branches_in_workspace()?;
     let base_file_diffs = worktree_changes.map(Ok).unwrap_or_else(|| {
+        // TODO(ST): this was `get_workspace_head()`, which is slow and ideally, we don't dynamically
+        //           calculate which should already be 'fixed' - why do we have the integration branch
+        //           if we can't assume it's in the right state? So ideally, we assure that the code
+        //           that affects the integration branch also updates it?
+        let integration_commit_id = ctx.repository().head_commit()?.id();
         gitbutler_diff::workdir(ctx.repository(), &integration_commit_id.to_owned())
             .context("failed to diff workdir")
     })?;
