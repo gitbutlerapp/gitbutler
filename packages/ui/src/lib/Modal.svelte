@@ -9,7 +9,7 @@
 		title?: string;
 		icon?: keyof typeof iconsJson;
 		onclose?: () => void;
-		onsubmit?: () => void;
+		onsubmit?: (onclose: () => void) => void;
 		children: Snippet<[item?: any]>;
 		controls?: Snippet<[close: () => void, item: any]>;
 	}
@@ -50,7 +50,7 @@
 			}}
 			onsubmit={(e) => {
 				e.preventDefault();
-				onsubmit?.();
+				onsubmit?.(close);
 			}}
 		>
 			{#if title}
@@ -78,25 +78,33 @@
 </dialog>
 
 <style lang="postcss">
+	dialog[open] {
+		transform: scale(1);
+	}
+
 	dialog {
 		outline: none;
-		view-transition-name: dialog;
-	}
-
-	dialog[open] {
-		animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
-	}
-
-	dialog.close::backdrop {
-		animation: dialog-fade 0.15s ease-out;
+		transform: scale(0.95);
+		transition: transform 250ms cubic-bezier(0.34, 1.35, 0.7, 1);
 	}
 
 	dialog::backdrop {
-		pointer-events: initial;
-		background-color: var(--clr-overlay-bg);
+		transition: opacity 150ms ease-in;
+		background-color: rgb(0 0 0 / 0%);
 	}
+
 	dialog[open]::backdrop {
-		animation: dialog-fade 0.15s ease-in;
+		background-color: var(--clr-overlay-bg);
+		opacity: 1;
+	}
+
+	@starting-style {
+		dialog[open] {
+			transform: scale(0.95);
+		}
+		dialog[open]::backdrop {
+			opacity: 0;
+		}
 	}
 
 	.modal-content {
@@ -138,26 +146,7 @@
 		background-color: var(--clr-bg-1);
 	}
 
-	@keyframes dialog-zoom {
-		from {
-			transform: scale(0.95);
-		}
-		to {
-			transform: scale(1);
-		}
-	}
-
-	@keyframes dialog-fade {
-		from {
-			opacity: 0;
-		}
-		to {
-			opacity: 1;
-		}
-	}
-
 	/* MODIFIERS */
-
 	.modal-content.default {
 		width: 580px;
 	}
