@@ -120,6 +120,7 @@
 						{#if remoteCommits}
 							{#each remoteCommits as commit, index (commit.id)}
 								<CommitCard
+									isUnapplied
 									first={index === 0}
 									last={index === remoteCommits.length - 1}
 									{commit}
@@ -135,6 +136,7 @@
 						{#if localCommits}
 							{#each localCommits as commit, index (commit.id)}
 								<CommitCard
+									isUnapplied
 									first={index === 0}
 									last={index === localCommits.length - 1}
 									{commit}
@@ -150,6 +152,7 @@
 						{#if localAndRemoteCommits}
 							{#each localAndRemoteCommits as commit, index (commit.id)}
 								<CommitCard
+									isUnapplied
 									first={index === 0}
 									last={index === localAndRemoteCommits.length - 1}
 									{commit}
