@@ -1,11 +1,16 @@
 <script lang="ts">
+	import { ModeService } from '$lib/modes/service';
 	import AccountLink from '$lib/shared/AccountLink.svelte';
+	import { getContext } from '$lib/utils/context';
 	import * as events from '$lib/utils/events';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
 	export let projectId: string | undefined;
 	export let isNavCollapsed: boolean;
+
+	const modeService = getContext(ModeService);
+	const mode = modeService.mode;
 </script>
 
 <div class="footer" class:collapsed={isNavCollapsed}>
@@ -25,6 +30,7 @@
 			help="Project settings"
 			onclick={async () => await goto(`/${projectId}/settings`)}
 			wide={isNavCollapsed}
+			disabled={$mode?.type !== 'OpenWorkspace'}
 		/>
 		<Button
 			icon="timeline"

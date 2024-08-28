@@ -1,6 +1,8 @@
 <script lang="ts">
 	import SnapshotAttachment from './SnapshotAttachment.svelte';
 	import { createdOnDay } from '$lib/history/history';
+	import { ModeService } from '$lib/modes/service';
+	import { getContext } from '$lib/utils/context';
 	import { splitFilePath } from '$lib/utils/filePath';
 	import { toHumanReadableTime } from '$lib/utils/time';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -155,6 +157,9 @@
 	const error = entry.details?.trailers.find((t) => t.key === 'error')?.value;
 
 	const operation = mapOperation(entry.details);
+
+	const modeService = getContext(ModeService);
+	const mode = modeService.mode;
 </script>
 
 <div
@@ -170,7 +175,8 @@
 				help="Restores GitButler and your files to the state before this operation. Revert actions can also be undone."
 				onclick={() => {
 					dispatch('restoreClick');
-				}}>Revert</Button
+				}}
+				disabled={$mode?.type !== 'OpenWorkspace'}>Revert</Button
 			>
 		</div>
 		<span class="snapshot-time text-11">
