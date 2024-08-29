@@ -10,15 +10,15 @@ use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use gitbutler_serde::BStringForFrontend;
 use serde::Serialize;
 
-// this struct is a mapping to the view `RemoteBranch` type in Typescript
-// found in src-tauri/src/routes/repo/[project_id]/types.ts
-//
-// it holds data calculated for presentation purposes of one Git branch
-// with comparison data to the Target commit, determining if it is mergeable,
-// and how far ahead or behind the Target it is.
-// an array of them can be requested from the frontend to show in the sidebar
-// Tray and should only contain branches that have not been converted into
-// virtual branches yet (ie, we have no `Branch` struct persisted in our data.
+/// this struct is a mapping to the view `RemoteBranch` type in Typescript
+/// found in src-tauri/src/routes/repo/[project_id]/types.ts
+///
+/// it holds data calculated for presentation purposes of one Git branch
+/// with comparison data to the Target commit, determining if it is mergeable,
+/// and how far ahead or behind the Target it is.
+/// an array of them can be requested from the frontend to show in the sidebar
+/// Tray and should only contain branches that have not been converted into
+/// virtual branches yet (ie, we have no `Branch` struct persisted in our data.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteBranch {
@@ -57,9 +57,14 @@ pub struct RemoteCommit {
     pub parent_ids: Vec<git2::Oid>,
 }
 
-// for legacy purposes, this is still named "remote" branches, but it's actually
-// a list of all the normal (non-gitbutler) git branches.
-pub fn list_remote_branches(ctx: &CommandContext) -> Result<Vec<RemoteBranch>> {
+/// Return information on all local branches, while skipping gitbutler-specific branches in `refs/heads`.
+///
+/// Note to be confused with `list_branches()`, which is used for the new branch listing.
+///
+/// # Previous notes
+/// For legacy purposes, this is still named "remote" branches, but it's actually
+/// a list of all the normal (non-gitbutler) git branches.
+pub fn list_local_branches(ctx: &CommandContext) -> Result<Vec<RemoteBranch>> {
     let default_target = default_target(&ctx.project().gb_dir())?;
 
     let mut remote_branches = vec![];

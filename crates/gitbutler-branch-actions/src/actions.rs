@@ -8,7 +8,7 @@ use crate::{
     branch::get_uncommited_files,
     branch_manager::BranchManagerExt,
     file::RemoteBranchFile,
-    remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
+    remote::{get_branch_data, list_local_branches, RemoteBranch, RemoteBranchData},
     VirtualBranchesExt,
 };
 use anyhow::{Context, Result};
@@ -474,9 +474,9 @@ impl VirtualBranchActions {
         branch::push(&ctx, branch_id, with_force, &helper, askpass)
     }
 
-    pub fn list_remote_branches(project: Project) -> Result<Vec<RemoteBranch>> {
+    pub fn list_local_branches(project: Project) -> Result<Vec<RemoteBranch>> {
         let ctx = CommandContext::open(&project)?;
-        list_remote_branches(&ctx)
+        list_local_branches(&ctx)
     }
 
     pub fn get_remote_branch_data(

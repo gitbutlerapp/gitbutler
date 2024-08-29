@@ -38,6 +38,8 @@ pub mod vbranch {
 
     #[derive(Debug, clap::Subcommand)]
     pub enum SubCommands {
+        /// List all local branches that aren't GitButler specific.
+        ListLocal,
         /// Provide the current state of all applied virtual branches.
         Status,
         /// Make the named branch the default so all worktree or index changes are associated with it automatically.
