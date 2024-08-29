@@ -4,14 +4,16 @@
   "defaultOpen": false,
   "pages": [
     "index",
-    "---Getting Started---",
-    "overview",
+    "getting-started",
+    "---Using the Client---",
     "features",
     "troubleshooting",
+    "---Development---",
     "development",
     "api-reference",
-    "---Others---",
+    "---Other---",
     "community",
+    "reasoning",
     "[Releases](https://github.com/gitbutlerapp/gitbutler/releases)"
   ]
 }
