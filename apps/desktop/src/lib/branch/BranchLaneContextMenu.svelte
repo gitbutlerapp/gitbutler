@@ -166,39 +166,36 @@
 	</ContextMenuSection>
 </ContextMenu>
 
-<Modal width="small" bind:this={renameRemoteModal}>
+<Modal
+	width="small"
+	bind:this={renameRemoteModal}
+	onSubmit={(close) => {
+		branchController.updateBranchRemoteName(branch.id, newRemoteName);
+		close();
+	}}
+>
 	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
 
 	{#snippet controls(close)}
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
-		<Button
-			style="pop"
-			kind="solid"
-			onclick={() => {
-				branchController.updateBranchRemoteName(branch.id, newRemoteName);
-				close();
-			}}
-		>
-			Rename
-		</Button>
+		<Button style="pop" kind="solid" type="submit">Rename</Button>
 	{/snippet}
 </Modal>
 
-<Modal width="small" title="Delete branch" bind:this={deleteBranchModal}>
+<Modal
+	width="small"
+	title="Delete branch"
+	bind:this={deleteBranchModal}
+	onSubmit={async (close) => {
+		await branchController.deleteBranch(branch.id);
+		close();
+	}}
+>
 	{#snippet children(branch)}
 		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button
-			style="error"
-			kind="solid"
-			onclick={async () => {
-				await branchController.deleteBranch(branch.id);
-				close();
-			}}
-		>
-			Delete
-		</Button>
+		<Button style="error" kind="solid" type="submit">Delete</Button>
 	{/snippet}
 </Modal>

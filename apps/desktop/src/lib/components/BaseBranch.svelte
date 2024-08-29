@@ -96,7 +96,18 @@
 	</div>
 </div>
 
-<Modal width="small" bind:this={updateTargetModal} title="Merge Upstream Work">
+<Modal
+	width="small"
+	bind:this={updateTargetModal}
+	title="Merge Upstream Work"
+	onSubmit={(close) => {
+		updateBaseBranch();
+		if (mergeUpstreamWarningDismissedCheckbox) {
+			mergeUpstreamWarningDismissed.set(true);
+		}
+		close();
+	}}
+>
 	<div class="modal-content">
 		<p class="text-14 text-body">You are about to merge upstream work from your base branch.</p>
 	</div>
@@ -122,19 +133,7 @@
 
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button
-			style="pop"
-			kind="solid"
-			onclick={() => {
-				updateBaseBranch();
-				if (mergeUpstreamWarningDismissedCheckbox) {
-					mergeUpstreamWarningDismissed.set(true);
-				}
-				close();
-			}}
-		>
-			Merge Upstream
-		</Button>
+		<Button style="pop" kind="solid" type="submit">Merge Upstream</Button>
 	{/snippet}
 </Modal>
 
