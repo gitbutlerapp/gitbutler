@@ -158,7 +158,7 @@ pub fn unapply_ownership(
                 .map(|file| (file.path, file.hunks))
                 .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
             let tree_oid =
-                gitbutler_diff::write::hunks_onto_oid(ctx, &integration_commit_id, files)?;
+                gitbutler_diff::write::hunks_onto_oid(ctx, integration_commit_id, files)?;
             let branch_tree = repo.find_tree(tree_oid)?;
             let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
             let final_tree_oid = result.write_tree_to(ctx.repository())?;
@@ -1043,7 +1043,7 @@ pub(crate) fn push(
     };
 
     ctx.push(
-        &vbranch.head,
+        vbranch.head,
         &remote_branch,
         with_force,
         credentials,

@@ -102,7 +102,7 @@ impl BranchManager<'_> {
                         .map(|file| (file.path, file.hunks))
                         .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
                     let tree_oid =
-                        gitbutler_diff::write::hunks_onto_oid(self.ctx, &branch.head, files)?;
+                        gitbutler_diff::write::hunks_onto_oid(self.ctx, branch.head, files)?;
                     let branch_tree = repo.find_tree(tree_oid)?;
                     let mut result =
                         repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
