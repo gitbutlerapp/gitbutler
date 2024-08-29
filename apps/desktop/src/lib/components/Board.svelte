@@ -9,7 +9,6 @@
 	import { editor } from '$lib/editorLink/editorLink';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { persisted } from '$lib/persisted/persisted';
-	import Link from '$lib/shared/Link.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { throttle } from '$lib/utils/misc';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -173,23 +172,21 @@
 										</div>
 										<span class="text-12">Create a new branch</span>
 									</div>
-									<Link
+									<button
 										class="empty-board__suggestions__link"
-										target="_blank"
-										noUnderline
-										rel="noreferrer"
-										href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
+										on:click={async () =>
+											await openExternalUrl(
+												'https://docs.gitbutler.com/features/virtual-branches/branch-lanes'
+											)}
 									>
 										<div class="empty-board__suggestions__link__icon">
 											<Icon name="docs" />
 										</div>
 
 										<span class="text-12">GitButler Docs</span>
-									</Link>
-									<div
+									</button>
+									<button
 										class="empty-board__suggestions__link"
-										role="button"
-										tabindex="0"
 										on:keypress={async () => await openInVSCode()}
 										on:click={async () => await openInVSCode()}
 									>
@@ -197,7 +194,7 @@
 											<Icon name="vscode" />
 										</div>
 										<span class="text-12">Open in VSCode</span>
-									</div>
+									</button>
 								</div>
 							</div>
 
