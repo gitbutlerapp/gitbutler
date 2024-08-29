@@ -1,8 +1,5 @@
 <script lang="ts">
 	import DomainButton from '$lib/navigation/DomainButton.svelte';
-	import { getContext } from '$lib/utils/context';
-	import Badge from '@gitbutler/ui/Badge.svelte';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
@@ -25,8 +22,6 @@
 	{#if !isNavCollapsed}
 		<span class="text-14 text-semibold" class:collapsed-txt={isNavCollapsed}>{label}</span>
 	{/if}
-	<!-- <Badge label="edit mode" style="warning" /> -->
-	<!-- <Button style="warning" kind="solid" size="tag">Edit Mode</Button> -->
 </DomainButton>
 
 <style lang="postcss">
