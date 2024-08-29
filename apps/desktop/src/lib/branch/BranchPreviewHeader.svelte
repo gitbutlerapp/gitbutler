@@ -139,31 +139,30 @@
 	<div class="header__top-overlay" data-tauri-drag-region></div>
 </div>
 
-<Modal width="small" title="Delete branch" bind:this={deleteBranchModal}>
+<Modal
+	width="small"
+	title="Delete branch"
+	bind:this={deleteBranchModal}
+	onSubmit={async (close) => {
+		try {
+			await branchController.deleteLocalBranch(branch.name, branch.givenName);
+		} catch (e) {
+			const err = 'Failed to delete local branch';
+			error(err);
+			console.error(err, e);
+		} finally {
+			isDeleting = false;
+			close();
+		}
+		goto(`/${project.id}/board`);
+	}}
+>
 	{#snippet children(branch)}
 		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button
-			style="error"
-			kind="solid"
-			onclick={async () => {
-				try {
-					await branchController.deleteLocalBranch(branch.name, branch.givenName);
-				} catch (e) {
-					const err = 'Failed to delete local branch';
-					error(err);
-					console.error(err, e);
-				} finally {
-					isDeleting = false;
-					close();
-				}
-				goto(`/${project.id}/board`);
-			}}
-		>
-			Delete
-		</Button>
+		<Button style="error" type="submit" kind="solid">Delete</Button>
 	{/snippet}
 </Modal>
 

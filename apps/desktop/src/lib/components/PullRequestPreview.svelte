@@ -83,14 +83,14 @@
 	}
 </script>
 
-<Modal width="small" bind:this={createRemoteModal}>
+<Modal width="small" bind:this={createRemoteModal} onSubmit={createRemoteAndBranch}>
 	<p class="text-15 fork-notice">
 		In order to apply a branch from a fork, GitButler must first add a remote.
 	</p>
 	<TextBox label="Choose a remote name" bind:value={remoteName}></TextBox>
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={() => closeModal(close)}>Cancel</Button>
-		<Button style="pop" kind="solid" grow onclick={createRemoteAndBranch} {loading}>Confirm</Button>
+		<Button style="pop" kind="solid" type="submit" grow {loading}>Confirm</Button>
 	{/snippet}
 </Modal>
 
