@@ -154,7 +154,7 @@
 	$: conflicted = commit instanceof DetailedCommit && commit.conflicted;
 </script>
 
-<Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
+<Modal bind:this={commitMessageModal} width="small">
 	<CommitMessageInput
 		bind:commitMessage={description}
 		bind:valid={commitMessageValid}
@@ -162,7 +162,13 @@
 	/>
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="neutral" type="submit" kind="solid" grow disabled={!commitMessageValid}>
+		<Button
+			style="neutral"
+			kind="solid"
+			grow
+			disabled={!commitMessageValid}
+			onclick={submitCommitMessageModal}
+		>
 			Submit
 		</Button>
 	{/snippet}

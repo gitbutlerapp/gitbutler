@@ -155,11 +155,7 @@
 	});
 </script>
 
-<Modal
-	bind:this={modal}
-	title="Share debug data with GitButler team for review"
-	onSubmit={async () => await submit()}
->
+<Modal bind:this={modal} title="Share debug data with GitButler team for review">
 	<div class="content-wrapper">
 		<p class="content-wrapper__help-text text-13 text-body">
 			If you are having trouble, please share your project and logs with the GitButler team. We will
@@ -176,7 +172,6 @@
 				autocomplete={false}
 				autocorrect={false}
 				spellcheck
-				focus
 			/>
 		{/if}
 
@@ -221,9 +216,11 @@
 	</div>
 
 	<!-- Use our own close function -->
-	{#snippet controls()}
+	{#snippet controls(_close)}
 		<Button style="ghost" outline type="reset" onclick={close}>Close</Button>
-		<Button style="pop" kind="solid" type="submit">Share with GitButler</Button>
+		<Button style="pop" kind="solid" type="submit" onclick={async () => await submit()}>
+			Share with GitButler
+		</Button>
 	{/snippet}
 </Modal>
 
