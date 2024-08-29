@@ -162,7 +162,9 @@
 	/>
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="neutral" kind="solid" grow disabled={!commitMessageValid}>Submit</Button>
+		<Button style="neutral" type="submit" kind="solid" grow disabled={!commitMessageValid}>
+			Submit
+		</Button>
 	{/snippet}
 </Modal>
 
