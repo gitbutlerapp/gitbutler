@@ -354,8 +354,10 @@ pub fn list_virtual_branches_cached(
             .context("failed to find merge base")?;
         let base_current = true;
 
-        let upstream = upstream_branch
-            .and_then(|upstream_branch| branch_to_remote_branch(ctx, &upstream_branch));
+        let upstream = upstream_branch.and_then(|upstream_branch| {
+            let remotes = repo.remotes().ok()?;
+            branch_to_remote_branch(&upstream_branch, &remotes).ok()?
+        });
 
         let path_claim_positions: HashMap<&PathBuf, usize> = branch
             .ownership

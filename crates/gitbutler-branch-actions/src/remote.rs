@@ -68,24 +68,30 @@ pub fn list_local_branches(ctx: &CommandContext) -> Result<Vec<RemoteBranch>> {
     let default_target = default_target(&ctx.project().gb_dir())?;
 
     let mut remote_branches = vec![];
+    let remotes = ctx.repository().remotes()?;
     for (branch, _) in ctx
         .repository()
         .branches(None)
         .context("failed to list remote branches")?
         .flatten()
     {
-        let branch = branch_to_remote_branch(ctx, &branch);
-
-        if let Some(branch) = branch {
-            let branch_is_trunk = branch.name.branch() == Some(default_target.branch.branch())
-                && branch.name.remote() == Some(default_target.branch.remote());
-
-            if !branch_is_trunk
-                && branch.name.branch() != Some("gitbutler/integration")
-                && branch.name.branch() != Some("gitbutler/target")
-            {
-                remote_branches.push(branch);
+        let branch = match branch_to_remote_branch(&branch, &remotes) {
+            Ok(Some(b)) => b,
+            Ok(None) => continue,
+            Err(err) => {
+                tracing::warn!(?err, "Ignoring branch");
+                continue;
             }
+        };
+
+        let branch_is_trunk = branch.name.branch() == Some(default_target.branch.branch())
+            && branch.name.remote() == Some(default_target.branch.remote());
+
+        if !branch_is_trunk
+            && branch.name.branch() != Some("gitbutler/integration")
+            && branch.name.branch() != Some("gitbutler/target")
+        {
+            remote_branches.push(branch);
         }
     }
     Ok(remote_branches)
@@ -104,30 +110,15 @@ pub(crate) fn get_branch_data(ctx: &CommandContext, refname: &Refname) -> Result
 }
 
 pub(crate) fn branch_to_remote_branch(
-    ctx: &CommandContext,
-    branch: &git2::Branch,
-) -> Option<RemoteBranch> {
-    let commit = match branch.get().peel_to_commit() {
-        Ok(c) => c,
-        Err(err) => {
-            tracing::warn!(
-                ?err,
-                "ignoring branch {:?} as peeling failed",
-                branch.name()
-            );
-            return None;
-        }
-    };
-    let name = Refname::try_from(branch)
-        .context("could not get branch name")
-        .ok()?;
+    branch: &git2::Branch<'_>,
+    remotes: &git2::string_array::StringArray,
+) -> Result<Option<RemoteBranch>> {
+    let commit = branch.get().peel_to_commit()?;
+    let name = Refname::try_from(branch).context("could not get branch name")?;
 
-    let given_name = branch
-        .get()
-        .given_name(&ctx.repository().remotes().ok()?)
-        .ok()?;
+    let given_name = branch.get().given_name(remotes)?;
 
-    branch.get().target().map(|sha| RemoteBranch {
+    Ok(branch.get().target().map(|sha| RemoteBranch {
         sha,
         upstream: if let Refname::Local(local_name) = &name {
             local_name.remote().cloned()
@@ -144,7 +135,7 @@ pub(crate) fn branch_to_remote_branch(
             .ok(),
         last_commit_author: commit.author().name().map(std::string::ToString::to_string),
         is_remote: branch.get().is_remote(),
-    })
+    }))
 }
 
 pub(crate) fn branch_to_remote_branch_data(
