@@ -1,7 +1,7 @@
+import { GitLabBranch } from './gitlabBranch';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
 import type { DetailedPullRequest, GitHostArguments } from '../interface/types';
-import { GitLabBranch } from './gitlabBranch';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
@@ -23,7 +23,7 @@ export class GitLab implements GitHost {
 	private forkStr?: string;
 
 	constructor({ repo, baseBranch, forkStr }: GitHostArguments) {
-		this.baseUrl = `https://${repo.resource}/${repo.owner}/${repo.name}`;
+		this.baseUrl = `https://${repo.domain}/${repo.owner}/${repo.name}`;
 		this.repo = repo;
 		this.baseBranch = baseBranch;
 		this.forkStr = forkStr;

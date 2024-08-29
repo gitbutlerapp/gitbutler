@@ -9,10 +9,9 @@ type PrListResponse = RestEndpointMethodTypes['pulls']['list']['response'];
 
 describe.concurrent('GitHubListingService', () => {
 	const repoInfo = {
-		source: 'github.com',
+		domain: 'github.com',
 		name: 'test-repo',
-		owner: 'test-owner',
-		resource: 'test-resource'
+		owner: 'test-owner'
 	};
 
 	let octokit: Octokit;
