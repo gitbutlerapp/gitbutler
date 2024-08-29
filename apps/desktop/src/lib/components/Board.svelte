@@ -1,6 +1,6 @@
 <script lang="ts" async="true">
 	import FullviewLoading from './FullviewLoading.svelte';
-	import dzenSvg from '$lib/assets/dzen-pc.svg?raw';
+	import zenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
@@ -9,12 +9,13 @@
 	import { editor } from '$lib/editorLink/editorLink';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { persisted } from '$lib/persisted/persisted';
+	import Link from '$lib/shared/Link.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { throttle } from '$lib/utils/misc';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { open } from '@tauri-apps/api/shell';
 	import { flip } from 'svelte/animate';
 
 	const vbranchService = getContext(VirtualBranchService);
@@ -37,7 +38,7 @@
 	$: sortedBranches = $branches?.sort((a, b) => a.order - b.order) || [];
 
 	async function openInVSCode() {
-		open(`${$editor}://file${project.vscodePath}/?windowId=_blank`);
+		openExternalUrl(`${$editor}://file${project.vscodePath}/?windowId=_blank`);
 	}
 
 	const handleDragOver = throttle((e: MouseEvent & { currentTarget: HTMLDivElement }) => {
@@ -172,9 +173,10 @@
 										</div>
 										<span class="text-12">Create a new branch</span>
 									</div>
-									<a
+									<Link
 										class="empty-board__suggestions__link"
 										target="_blank"
+										noUnderline
 										rel="noreferrer"
 										href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
 									>
@@ -183,7 +185,7 @@
 										</div>
 
 										<span class="text-12">GitButler Docs</span>
-									</a>
+									</Link>
 									<div
 										class="empty-board__suggestions__link"
 										role="button"
@@ -224,7 +226,7 @@
 
 					<div data-tauri-drag-region class="empty-board__image-frame">
 						<div class="empty-board__image">
-							{@html dzenSvg}
+							{@html zenSvg}
 						</div>
 					</div>
 				</div>

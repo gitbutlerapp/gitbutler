@@ -6,7 +6,7 @@
 	import * as events from '$lib/utils/events';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
-	import { open } from '@tauri-apps/api/shell';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -29,7 +29,7 @@
 			'menu://project/open-in-vscode/clicked',
 			async () => {
 				const path = `${$editor}://file${project.vscodePath}?windowId=_blank`;
-				open(path);
+				openExternalUrl(path);
 			}
 		);
 
