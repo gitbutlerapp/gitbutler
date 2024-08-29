@@ -38,6 +38,8 @@ pub mod vbranch {
 
     #[derive(Debug, clap::Subcommand)]
     pub enum SubCommands {
+        /// Provide the current state of all applied virtual branches.
+        Status,
         /// Make the named branch the default so all worktree or index changes are associated with it automatically.
         SetDefault {
             /// The name of the new default virtual branch.

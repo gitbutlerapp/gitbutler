@@ -20,6 +20,7 @@ use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
 
 fn main() {
+    let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
     gitbutler_project::configure_git2();
     let tauri_context = generate_context!();
     gitbutler_secret::secret::set_application_namespace(
@@ -60,7 +61,7 @@ fn main() {
 
                     let app_handle = tauri_app.handle();
 
-                    logs::init(&app_handle);
+                    logs::init(&app_handle, performance_logging);
 
                     // On MacOS, in dev mode with debug assertions, we encounter popups each time
                     // the binary is rebuilt. To counter that, use a git-credential based implementation.

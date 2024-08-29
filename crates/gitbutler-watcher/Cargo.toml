@@ -24,6 +24,7 @@ gix = { workspace = true, features = [
 ] }
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
+gitbutler-diff.workspace = true
 gitbutler-user.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-error.workspace = true
