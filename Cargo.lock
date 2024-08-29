@@ -2551,7 +2551,6 @@ name = "gitbutler-tauri"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "arc-swap",
  "backtrace",
  "console-subscriber",
  "dirs 5.0.1",
@@ -2579,7 +2578,6 @@ dependencies = [
  "gitbutler-watcher",
  "gix",
  "log",
- "nix 0.29.0",
  "once_cell",
  "open",
  "parking_lot 0.12.3",
