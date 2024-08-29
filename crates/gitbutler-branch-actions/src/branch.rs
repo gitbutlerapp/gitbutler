@@ -5,11 +5,9 @@ use core::fmt;
 use gitbutler_branch::{
     Branch as GitButlerBranch, BranchId, BranchIdentity, ReferenceExtGix, Target,
 };
-use gitbutler_command_context::CommandContext;
-use gitbutler_diff::DiffByPathMap;
+use gitbutler_command_context::{CommandContext, GixRepositoryExt};
 use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
-use gitbutler_repo::{GixRepositoryExt, RepositoryExt};
 use gitbutler_serde::BStringForFrontend;
 use gix::object::tree::diff::Action;
 use gix::prelude::ObjectIdExt;
@@ -24,21 +22,19 @@ use std::{
     vec,
 };
 
-pub(crate) fn get_uncommited_files_raw(
-    context: &CommandContext,
-    _permission: &WorktreeReadPermission,
-) -> Result<DiffByPathMap> {
-    let repository = context.repository();
-    let head_commit = repository.head_commit()?;
-    gitbutler_diff::workdir(repository, &head_commit.id())
-        .context("Failed to list uncommited files")
-}
-
 pub(crate) fn get_uncommited_files(
     context: &CommandContext,
     _permission: &WorktreeReadPermission,
 ) -> Result<Vec<RemoteBranchFile>> {
-    let files = get_uncommited_files_raw(context, _permission)?
+    let repository = context.repository();
+    let head_commit = repository
+        .head()
+        .context("Failed to get head")?
+        .peel_to_commit()
+        .context("Failed to get head commit")?;
+
+    let files = gitbutler_diff::workdir(repository, &head_commit.id())
+        .context("Failed to list uncommited files")?
         .into_iter()
         .map(|(path, file)| {
             let binary = file.hunks.iter().any(|h| h.binary);
