@@ -174,6 +174,14 @@
 		</div>
 	</div>
 
+	<!-- <div class="editmode__helpbox"> -->
+	<p class="text-12 text-body editmode__helptext">
+		Please don't make any commits while in edit mode.
+		<br />
+		To exit edit mode, use the provided actions.
+	</p>
+	<!-- </div> -->
+
 	<div class="editmode__actions">
 		<Button style="ghost" outline onclick={abort} disabled={modeServiceAborting === 'loading'}>
 			Cancel
@@ -205,10 +213,8 @@
 	}
 
 	.files {
-		margin-bottom: 16px;
-
+		margin-bottom: 12px;
 		overflow: hidden;
-
 		padding-bottom: 8px;
 
 		& .header {
@@ -280,7 +286,7 @@
 
 	.commit-line__avatar {
 		position: absolute;
-		top: 14px;
+		top: 15px;
 		left: 50%;
 		transform: translateX(-50%);
 		border: 2px solid var(--clr-commit-local);
@@ -298,5 +304,18 @@
 		width: 2px;
 		height: 100%;
 		background: linear-gradient(180deg, var(--clr-commit-local) 0%, transparent 100%);
+	}
+
+	/* .editmode__helpbox {
+		color: var(--clr-text-2);
+		margin-bottom: 16px;
+		padding: 12px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1-muted);
+	} */
+
+	.editmode__helptext {
+		color: var(--clr-text-3);
+		margin-bottom: 16px;
 	}
 </style>
