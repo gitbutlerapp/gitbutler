@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Scrollbar, { type ScrollbarPaddingType, type ShowModeType } from './Scrollbar.svelte';
+	import Scrollbar, { type ScrollbarPaddingType } from './Scrollbar.svelte';
 	import { type Snippet } from 'svelte';
 	import { onDestroy, onMount } from 'svelte';
 
@@ -13,7 +13,6 @@
 		shift?: string;
 		thickness?: string;
 		horz?: boolean;
-		showMode?: ShowModeType;
 		onthumbdrag?: (dragging: boolean) => void;
 		children: Snippet;
 	}
@@ -28,7 +27,6 @@
 		shift,
 		thickness,
 		horz,
-		showMode,
 		children,
 		onthumbdrag
 	}: Props = $props();
@@ -70,7 +68,6 @@
 			{shift}
 			{thickness}
 			{horz}
-			{showMode}
 			{onthumbdrag}
 		/>
 	</div>

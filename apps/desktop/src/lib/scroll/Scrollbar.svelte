@@ -5,7 +5,6 @@
 		bottom?: number;
 		left?: number;
 	};
-	export type ShowModeType = 'always' | 'hover' | 'onscroll';
 </script>
 
 <script lang="ts">
