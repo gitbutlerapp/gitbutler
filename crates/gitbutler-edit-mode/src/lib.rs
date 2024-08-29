@@ -34,7 +34,17 @@ fn save_uncommited_files(ctx: &CommandContext) -> Result<()> {
     let repository = ctx.repository();
 
     // Create a tree of all uncommited files
-    let tree = repository.create_wd_tree()?;
+    let mut index = repository.index().context("Failed to get index")?;
+    index
+        .add_all(["*"], git2::IndexAddOption::DEFAULT, None)
+        .context("Failed to add all to index")?;
+    index.write().context("Failed to write index")?;
+    let tree_oid = index
+        .write_tree()
+        .context("Failed to create tree from index")?;
+    let tree = repository
+        .find_tree(tree_oid)
+        .context("Failed to find tree")?;
 
     // Commit tree and reference it
     let author_signature =
@@ -124,7 +134,10 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<(
         ),
     )?;
 
-    let tree = repository.create_wd_tree()?;
+    let mut index = repository.index()?;
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+    let tree = index.write_tree()?;
+    let tree = repository.find_tree(tree)?;
 
     let author_signature = signature(SignaturePurpose::Author)?;
     let committer_signature = signature(SignaturePurpose::Committer)?;
@@ -252,7 +265,17 @@ pub(crate) fn save_and_return_to_workspace(
     };
 
     // Recommit commit
-    let tree = repository.create_wd_tree()?;
+    let mut index = repository.index().context("Failed to get index")?;
+    index
+        .add_all(["*"].iter(), git2::IndexAddOption::DEFAULT, None)
+        .context("Failed to add all to index")?;
+    index.write().context("Failed to write index")?;
+    let tree_oid = index
+        .write_tree()
+        .context("Failed to create tree from index")?;
+    let tree = repository
+        .find_tree(tree_oid)
+        .context("Failed to find tree")?;
     let commit_headers = commit
         .gitbutler_headers()
         .map(|commit_headers| CommitHeadersV2 {
