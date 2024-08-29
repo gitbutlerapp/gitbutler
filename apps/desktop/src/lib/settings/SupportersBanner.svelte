@@ -1,4 +1,11 @@
-<a class="banner" href="https://docs.gitbutler.com/community/supporters" target="_blank">
+<script lang="ts">
+	import { openExternalUrl } from '$lib/utils/url';
+</script>
+
+<button
+	class="banner"
+	on:click={async () => await openExternalUrl('https://docs.gitbutler.com/community/supporters')}
+>
 	<div class="benner-content">
 		<h4 class="benner-label text-14 text-bold">Thank you to all GitButler early supporters</h4>
 		<i class="benner-arrow-wrap">
@@ -18,7 +25,7 @@
 		</i>
 	</div>
 	<img class="banner-img" src="/images/banners/support.svg" alt="" />
-</a>
+</button>
 
 <style>
 	.banner {
