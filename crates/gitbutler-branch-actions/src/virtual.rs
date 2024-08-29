@@ -1215,7 +1215,7 @@ pub(crate) fn move_commit_file(
     let mut upstream_commits = ctx.l(target_branch.head, LogUntil::Commit(amend_commit.id()))?;
 
     // get a list of all the diffs across all the virtual branches
-    let base_file_diffs = gitbutler_diff::workdir(ctx.repository(), &default_target.sha)
+    let base_file_diffs = gitbutler_diff::workdir(ctx.repository(), default_target.sha)
         .context("failed to diff workdir")?;
 
     // filter base_file_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks in target_ownership

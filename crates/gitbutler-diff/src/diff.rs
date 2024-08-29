@@ -123,9 +123,9 @@ pub struct FileDiff {
 }
 
 #[instrument(level = tracing::Level::DEBUG, skip(repo))]
-pub fn workdir(repo: &git2::Repository, commit_oid: &git2::Oid) -> Result<DiffByPathMap> {
+pub fn workdir(repo: &git2::Repository, commit_oid: git2::Oid) -> Result<DiffByPathMap> {
     let commit = repo
-        .find_commit(*commit_oid)
+        .find_commit(commit_oid)
         .context("failed to find commit")?;
     let old_tree = repo.find_real_tree(&commit, Default::default())?;
 
