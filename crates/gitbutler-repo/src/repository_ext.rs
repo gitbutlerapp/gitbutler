@@ -17,6 +17,7 @@ use tracing::instrument;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    fn head_commit(&self) -> Result<git2::Commit<'_>>;
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
     /// Open a new in-memory repository and executes the provided closure using it.
@@ -40,7 +41,7 @@ pub trait RepositoryExt {
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler;
     fn find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
     /// Based on the index, add all data similar to `git add .` and create a tree from it, which is returned.
-    fn get_wd_tree(&self) -> Result<Tree>;
+    fn create_wd_tree(&self) -> Result<Tree>;
 
     /// Returns the `gitbutler/integration` branch if the head currently points to it, or fail otherwise.
     /// Use it before any modification to the repository, or extra defensively each time the
@@ -72,6 +73,13 @@ pub trait RepositoryExt {
 }
 
 impl RepositoryExt for git2::Repository {
+    fn head_commit(&self) -> Result<git2::Commit<'_>> {
+        self.head()
+            .context("Failed to get head")?
+            .peel_to_commit()
+            .context("Failed to get head commit")
+    }
+
     fn in_memory<T, F>(&self, f: F) -> Result<T>
     where
         F: FnOnce(&git2::Repository) -> Result<T>,
@@ -128,10 +136,13 @@ impl RepositoryExt for git2::Repository {
         }
     }
 
+    /// Note that this will add all untracked files in the worktree to the index,
+    /// and write a tree from it.
+    /// The index won't be stored though.
     #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
-    fn get_wd_tree(&self) -> Result<Tree> {
+    fn create_wd_tree(&self) -> Result<Tree> {
         let mut index = self.index()?;
-        index.add_all(["*"], git2::IndexAddOption::CHECK_PATHSPEC, None)?;
+        index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
         let oid = index.write_tree()?;
         self.find_tree(oid).map(Into::into).map_err(Into::into)
     }
@@ -438,5 +449,20 @@ impl CheckoutIndexBuilder<'_> {
         self.repo
             .checkout_index(Some(&mut self.index), Some(&mut self.checkout_builder))
             .map_err(Into::into)
+    }
+}
+
+// TODO(ST): put this into `gix`, the logic seems good, add unit-test for number generation.
+pub trait GixRepositoryExt: Sized {
+    /// Configure the repository for diff operations between trees.
+    /// This means it needs an object cache relative to the amount of files in the repository.
+    fn for_tree_diffing(self) -> Result<Self>;
+}
+
+impl GixRepositoryExt for gix::Repository {
+    fn for_tree_diffing(mut self) -> anyhow::Result<Self> {
+        let bytes = self.compute_object_cache_size_for_tree_diffs(&***self.index_or_empty()?);
+        self.object_cache_size_if_unset(bytes);
+        Ok(self)
     }
 }

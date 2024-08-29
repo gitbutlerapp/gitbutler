@@ -28,7 +28,7 @@ impl CommandContext {
                 Ok(false) => true,
                 Ok(true) => false,
                 Err(err) => {
-                    tracing::warn!(
+                    tracing::trace!(
                                 "failed to get gitbutler.didSetPrune for repository at {}; cannot disable gc: {}",
                                 project.path.display(),
                                 err
@@ -99,17 +99,5 @@ impl CommandContext {
     }
 }
 
-// TODO(ST): put this into `gix`, the logic seems good, add unit-test for number generation.
-pub trait GixRepositoryExt: Sized {
-    /// Configure the repository for diff operations between trees.
-    /// This means it needs an object cache relative to the amount of files in the repository.
-    fn for_tree_diffing(self) -> Result<Self>;
-}
-
-impl GixRepositoryExt for gix::Repository {
-    fn for_tree_diffing(mut self) -> anyhow::Result<Self> {
-        let bytes = self.compute_object_cache_size_for_tree_diffs(&***self.index_or_empty()?);
-        self.object_cache_size_if_unset(bytes);
-        Ok(self)
-    }
-}
+mod repository_ext;
+pub use repository_ext::RepositoryExtLite;
