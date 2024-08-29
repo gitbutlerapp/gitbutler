@@ -1,7 +1,6 @@
 use crate::error::Error;
 use anyhow::anyhow;
 use regex::Regex;
-use std::collections::HashMap;
 use std::env;
 use tracing::instrument;
 
@@ -48,14 +47,7 @@ pub fn open_that(path: &str) -> Result<(), Error> {
             ]);
 
             for mut cmd in open::commands(&path) {
-                // println!("{:#?}", env::vars());
-                // cmd.env_clear();
-                // println!("{:#?}", filtered_out_env);
-                // cmd.envs(&filtered_out_env);
-
-                println!("{:#?}", env::vars());
                 cmd.envs(env::vars());
-
                 cmd.current_dir(env::temp_dir());
                 if cmd.status().is_ok() {
                     break;
