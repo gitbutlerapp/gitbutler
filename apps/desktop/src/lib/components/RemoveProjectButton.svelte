@@ -28,7 +28,13 @@
 	Remove project…
 </Button>
 
-<Modal bind:this={modal} width="small">
+<Modal
+	bind:this={modal}
+	width="small"
+	onSubmit={(close) => {
+		onDeleteClicked().then(close);
+	}}
+>
 	<div class="remove-project-description">
 		<p class="text-14 text-body">
 			Are you sure you want to remove
@@ -41,16 +47,14 @@
 		</p>
 	</div>
 
-	{#snippet controls(close)}
+	{#snippet controls()}
 		<Button
 			style="error"
 			kind="solid"
 			reversedDirection
 			loading={isDeleting}
 			icon="bin-small"
-			onclick={() => {
-				onDeleteClicked().then(close);
-			}}
+			type="submit"
 		>
 			Remove
 		</Button>

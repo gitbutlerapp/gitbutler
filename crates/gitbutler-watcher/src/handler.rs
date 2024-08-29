@@ -1,8 +1,10 @@
 use std::{path::PathBuf, sync::Arc};
 
+use super::{events, Change};
 use anyhow::{Context, Result};
-use gitbutler_branch_actions::{VirtualBranchActions, VirtualBranches};
+use gitbutler_branch_actions::{RemoteBranchFile, VirtualBranchActions, VirtualBranches};
 use gitbutler_command_context::CommandContext;
+use gitbutler_diff::DiffByPathMap;
 use gitbutler_error::error::Marker;
 use gitbutler_operating_modes::{
     in_open_workspace_mode, in_outside_workspace_mode, operating_mode,
@@ -17,8 +19,6 @@ use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
 use tracing::instrument;
-
-use super::{events, Change};
 
 /// A type that contains enough state to make decisions based on changes in the filesystem, which themselves
 /// may trigger [Changes](Change)
@@ -71,7 +71,7 @@ impl Handler {
 
             // This is only produced at the end of mutating Tauri commands to trigger a fresh state being served to the UI.
             events::InternalEvent::CalculateVirtualBranches(project_id) => self
-                .calculate_virtual_branches(project_id)
+                .calculate_virtual_branches(project_id, None)
                 .context("failed to handle virtual branch event"),
         }
     }
@@ -90,8 +90,12 @@ impl Handler {
         CommandContext::open(&project).context("Failed to create a command context")
     }
 
-    #[instrument(skip(self, project_id))]
-    fn calculate_virtual_branches(&self, project_id: ProjectId) -> Result<()> {
+    #[instrument(skip(self, project_id, worktree_changes))]
+    fn calculate_virtual_branches(
+        &self,
+        project_id: ProjectId,
+        worktree_changes: Option<DiffByPathMap>,
+    ) -> Result<()> {
         let ctx = self.open_command_context(project_id)?;
         // Skip if we're not on the open workspace mode
         if !in_open_workspace_mode(&ctx) {
@@ -102,7 +106,7 @@ impl Handler {
             .projects
             .get(project_id)
             .context("failed to get project")?;
-        match VirtualBranchActions.list_virtual_branches(&project) {
+        match VirtualBranchActions.list_virtual_branches_cached(&project, worktree_changes) {
             Ok((branches, skipped_files)) => self.emit_app_event(Change::VirtualBranches {
                 project_id: project.id,
                 virtual_branches: VirtualBranches {
@@ -126,26 +130,36 @@ impl Handler {
     fn recalculate_everything(&self, paths: Vec<PathBuf>, project_id: ProjectId) -> Result<()> {
         let ctx = self.open_command_context(project_id)?;
 
-        self.emit_uncommited_files(ctx.project());
+        let worktree_changes = self.emit_uncommited_files(ctx.project()).ok();
 
         if in_open_workspace_mode(&ctx) {
             self.maybe_create_snapshot(project_id).ok();
-            self.calculate_virtual_branches(project_id)?;
+            self.calculate_virtual_branches(project_id, worktree_changes)?;
         }
 
         Ok(())
     }
 
     /// Try to emit uncommited files. Swollow errors if they arrise.
-    fn emit_uncommited_files(&self, project: &Project) {
-        let Ok(files) = VirtualBranchActions.get_uncommited_files(project) else {
-            return;
-        };
+    fn emit_uncommited_files(&self, project: &Project) -> Result<DiffByPathMap> {
+        let files = VirtualBranchActions.get_uncommited_files_reusable(project)?;
 
         let _ = self.emit_app_event(Change::UncommitedFiles {
             project_id: project.id,
-            files,
+            files: files
+                .clone()
+                .into_iter()
+                .map(|(path, file)| {
+                    let binary = file.hunks.iter().any(|h| h.binary);
+                    RemoteBranchFile {
+                        path,
+                        hunks: file.hunks,
+                        binary,
+                    }
+                })
+                .collect(),
         });
+        Ok(files)
     }
 
     fn maybe_create_snapshot(&self, project_id: ProjectId) -> anyhow::Result<()> {

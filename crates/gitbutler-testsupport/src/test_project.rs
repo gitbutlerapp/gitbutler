@@ -19,8 +19,8 @@ pub struct TestProject {
 impl Drop for TestProject {
     fn drop(&mut self) {
         if std::env::var_os(VAR_NO_CLEANUP).is_some() {
-            let _ = self.local_tmp.take().unwrap().into_path();
-            let _ = self.remote_tmp.take().unwrap().into_path();
+            let _ = self.local_tmp.take().map(|tmp| tmp.into_path());
+            let _ = self.remote_tmp.take().map(|tmp| tmp.into_path());
         }
     }
 }
@@ -83,10 +83,11 @@ impl Default for TestProject {
 }
 
 impl TestProject {
-    /// Consume this instance and keep the temp directory that held the local repository, returning it.
+    /// Take the tmp directory holding the local repository and make sure it won't be deleted,
+    /// returning a path to it.
     /// Best used inside a `dbg!(test_project.debug_local_repo())`
-    pub fn debug_local_repo(mut self) -> PathBuf {
-        self.local_tmp.take().unwrap().into_path()
+    pub fn debug_local_repo(&mut self) -> Option<PathBuf> {
+        self.local_tmp.take().map(|tmp| tmp.into_path())
     }
     pub fn path(&self) -> &std::path::Path {
         self.local_repository.workdir().unwrap()

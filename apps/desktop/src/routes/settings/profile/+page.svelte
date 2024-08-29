@@ -255,13 +255,16 @@
 			Remove projects…
 		</Button>
 
-		<Modal bind:this={deleteConfirmationModal} width="small" title="Remove all projects">
+		<Modal
+			bind:this={deleteConfirmationModal}
+			width="small"
+			title="Remove all projects"
+			onSubmit={onDeleteClicked}
+		>
 			<p>Are you sure you want to remove all GitButler projects?</p>
 
 			{#snippet controls(close)}
-				<Button style="error" kind="solid" loading={isDeleting} onclick={onDeleteClicked}>
-					Remove
-				</Button>
+				<Button style="error" kind="solid" loading={isDeleting} type="submit">Remove</Button>
 				<Button style="pop" kind="solid" onclick={close}>Cancel</Button>
 			{/snippet}
 		</Modal>

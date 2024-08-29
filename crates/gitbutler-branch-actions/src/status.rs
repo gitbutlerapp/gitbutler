@@ -1,5 +1,12 @@
 use std::{collections::HashMap, path::PathBuf, vec};
 
+use crate::integration::get_workspace_head;
+use crate::{
+    conflicts::RepoConflictsExt,
+    file::{virtual_hunks_into_virtual_files, VirtualBranchFile},
+    hunk::{file_hunks_from_diffs, HunkLock, VirtualBranchHunk},
+    BranchManagerExt, VirtualBranchesExt,
+};
 use anyhow::{bail, Context, Result};
 use git2::Tree;
 use gitbutler_branch::{
@@ -10,14 +17,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
-
-use crate::{
-    conflicts::RepoConflictsExt,
-    file::{virtual_hunks_into_virtual_files, VirtualBranchFile},
-    hunk::{file_hunks_from_diffs, HunkLock, VirtualBranchHunk},
-    integration::get_workspace_head,
-    BranchManagerExt, VirtualBranchesExt,
-};
+use tracing::instrument;
 
 /// Represents the uncommitted status of the applied virtual branches in the workspace.
 pub struct VirtualBranchesStatus {
@@ -27,21 +27,38 @@ pub struct VirtualBranchesStatus {
     pub skipped_files: Vec<gitbutler_diff::FileDiff>,
 }
 
-/// Returns branches and their associated file changes, in addition to a list
-/// of skipped files.
-// TODO(kv): make this side effect free
 pub fn get_applied_status(
     ctx: &CommandContext,
     perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<VirtualBranchesStatus> {
+    get_applied_status_cached(ctx, perm, None)
+}
+
+/// Returns branches and their associated file changes, in addition to a list
+/// of skipped files.
+/// `worktree_changes` are all changed files against the current `HEAD^{tree}` and index
+/// against the current working tree directory, and it's used to avoid double-computing
+/// this expensive information.
+// TODO(kv): make this side effect free
+#[instrument(level = tracing::Level::DEBUG, skip(ctx, perm, worktree_changes))]
+pub fn get_applied_status_cached(
+    ctx: &CommandContext,
+    perm: Option<&mut WorktreeWritePermission>,
+    worktree_changes: Option<gitbutler_diff::DiffByPathMap>,
+) -> Result<VirtualBranchesStatus> {
     assure_open_workspace_mode(ctx).context("ng applied status requires open workspace mode")?;
-    let integration_commit = get_workspace_head(ctx)?;
     let mut virtual_branches = ctx
         .project()
         .virtual_branches()
         .list_branches_in_workspace()?;
-    let base_file_diffs = gitbutler_diff::workdir(ctx.repository(), &integration_commit.to_owned())
-        .context("failed to diff workdir")?;
+    let base_file_diffs = worktree_changes.map(Ok).unwrap_or_else(|| {
+        // TODO(ST): Ideally, we can avoid calling `get_workspace_head()` as everyone who modifies
+        //           any of its inputs will update the intragration commit right away.
+        //           It's for another day though - right now the integration commit may be slightly stale.
+        let integration_commit_id = get_workspace_head(ctx)?;
+        gitbutler_diff::workdir(ctx.repository(), &integration_commit_id.to_owned())
+            .context("failed to diff workdir")
+    })?;
 
     let mut skipped_files: Vec<gitbutler_diff::FileDiff> = Vec::new();
     for file_diff in base_file_diffs.values() {
