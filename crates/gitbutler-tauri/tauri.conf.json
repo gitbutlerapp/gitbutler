@@ -16,15 +16,7 @@
 				"scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*"]
 			},
 			"shell": {
-				"open": false,
-				"execute": true,
-				"scope": [
-					{
-						"name": "xdg-open",
-						"cmd": "xdg-open",
-						"args": true
-					}
-				]
+				"open": "^((https://)|(http://)|(mailto:)|(vscode://)|(vscodium://)).+"
 			},
 			"dialog": {
 				"open": true

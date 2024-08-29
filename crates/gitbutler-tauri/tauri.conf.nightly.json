@@ -8,17 +8,9 @@
 	"tauri": {
 		"allowlist": {
 			"shell": {
-				"open": false,
-				"execute": true,
-				"scope": [
-					{
-						"name": "xdg-open",
-						"cmd": "xdg-open",
-						"args": true
-					}
-				]
+				"open": "^((https://)|(http://)|(mailto:)|(vscode://)|(vscodium://)).+"
 			}
-		},
+    },
 		"bundle": {
 			"identifier": "com.gitbutler.app.nightly",
 			"icon": [

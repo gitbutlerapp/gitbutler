@@ -67,16 +67,10 @@ gitbutler-diff.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-edit-mode.workspace = true
 open = "5"
-regex = "1.10"
-arc-swap = "1"
-
-[target.'cfg(unix)'.dependencies]
-nix = { version = "0.29", features = ["fs"] }
 
 [dependencies.tauri]
 version = "1.7.0"
 features = [
-    "shell-execute",
     "http-all",
     "os-all",
     "dialog-open",
@@ -84,6 +78,7 @@ features = [
     "path-all",
     "process-relaunch",
     "protocol-asset",
+    "shell-open",
     "window-maximize",
     "window-start-dragging",
     "window-unmaximize",
