@@ -11,7 +11,8 @@ describe.concurrent('GitHubListingService', () => {
 	const repoInfo = {
 		source: 'github.com',
 		name: 'test-repo',
-		owner: 'test-owner'
+		owner: 'test-owner',
+		resource: 'test-resource'
 	};
 
 	let octokit: Octokit;
