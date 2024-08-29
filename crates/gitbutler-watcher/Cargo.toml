@@ -17,11 +17,7 @@ anyhow = "1.0.86"
 tokio = { workspace = true, features = ["macros"] }
 tokio-util = "0.7.11"
 tracing.workspace = true
-gix = { workspace = true, features = [
-    "excludes",
-    "blocking-network-client",
-    "worktree-mutation",
-] }
+gix = { workspace = true, features = ["excludes"] }
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 gitbutler-diff.workspace = true
