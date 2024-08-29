@@ -37,7 +37,7 @@ export class DefaultGitHostFactory implements GitHostFactory {
 				usePullRequestTemplate
 			});
 		}
-		if (source === GITLAB_DOMAIN || resource.startsWith(GITLAB_SUB_DOMAIN + ".")) {
+		if (source === GITLAB_DOMAIN || resource.startsWith(GITLAB_SUB_DOMAIN + '.')) {
 			return new GitLab({ repo, baseBranch, forkStr });
 		}
 		if (source.includes(BITBUCKET_DOMAIN)) {
