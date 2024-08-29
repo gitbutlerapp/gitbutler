@@ -7,7 +7,7 @@ mod commands;
 pub use commands::RepoCommands;
 
 mod repository_ext;
-pub use repository_ext::RepositoryExt;
+pub use repository_ext::{GixRepositoryExt, RepositoryExt};
 
 pub mod credentials;
 

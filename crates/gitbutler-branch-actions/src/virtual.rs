@@ -5,6 +5,17 @@ use std::{
     vec,
 };
 
+use crate::{
+    branch_manager::BranchManagerExt,
+    commit::{commit_to_vbranch_commit, VirtualBranchCommit},
+    conflicts::{self, RepoConflictsExt},
+    file::VirtualBranchFile,
+    hunk::VirtualBranchHunk,
+    integration::get_workspace_head,
+    remote::{branch_to_remote_branch, RemoteBranch},
+    status::{get_applied_status, get_applied_status_cached},
+    Get, VirtualBranchesExt,
+};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::ByteSlice;
 use git2_hooks::HookResult;
@@ -27,18 +38,7 @@ use gitbutler_repo::{
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
-
-use crate::{
-    branch_manager::BranchManagerExt,
-    commit::{commit_to_vbranch_commit, VirtualBranchCommit},
-    conflicts::{self, RepoConflictsExt},
-    file::VirtualBranchFile,
-    hunk::VirtualBranchHunk,
-    integration::get_workspace_head,
-    remote::{branch_to_remote_branch, RemoteBranch},
-    status::get_applied_status,
-    Get, VirtualBranchesExt,
-};
+use tracing::instrument;
 
 // this struct is a mapping to the view `Branch` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -254,12 +254,23 @@ fn resolve_old_applied_state(
 
     Ok(())
 }
-
 pub fn list_virtual_branches(
+    ctx: &CommandContext,
+    perm: &mut WorktreeWritePermission,
+) -> Result<(Vec<VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
+    list_virtual_branches_cached(ctx, perm, None)
+}
+
+/// `worktree_changes` are all changed files against the current `HEAD^{tree}` and index
+/// against the current working tree directory, and it's used to avoid double-computing
+/// this expensive information.
+#[instrument(level = tracing::Level::DEBUG, skip(ctx, perm, worktree_changes))]
+pub fn list_virtual_branches_cached(
     ctx: &CommandContext,
     // TODO(ST): this should really only shared access, but there is some internals
     //           that conditionally write things.
     perm: &mut WorktreeWritePermission,
+    worktree_changes: Option<gitbutler_diff::DiffByPathMap>,
 ) -> Result<(Vec<VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
     assure_open_workspace_mode(ctx)
         .context("Listing virtual branches requires open workspace mode")?;
@@ -273,7 +284,7 @@ pub fn list_virtual_branches(
         .get_default_target()
         .context("failed to get default target")?;
 
-    let status = get_applied_status(ctx, Some(perm))?;
+    let status = get_applied_status_cached(ctx, Some(perm), worktree_changes)?;
     let max_selected_for_changes = status
         .branches
         .iter()
@@ -567,7 +578,7 @@ pub fn integrate_upstream_commits(ctx: &CommandContext, branch_id: BranchId) -> 
     let new_head_tree = repo.find_commit(new_head)?.tree()?;
     let head_commit = repo.find_commit(new_head)?;
 
-    let wd_tree = ctx.repository().get_wd_tree()?;
+    let wd_tree = ctx.repository().create_wd_tree()?;
     let integration_tree = repo.find_commit(get_workspace_head(ctx)?)?.tree()?;
 
     let mut merge_index = repo.merge_trees(&integration_tree, &new_head_tree, &wd_tree, None)?;
@@ -605,7 +616,7 @@ pub(crate) fn integrate_with_merge(
     upstream_commit: &git2::Commit,
     merge_base: git2::Oid,
 ) -> Result<git2::Oid> {
-    let wd_tree = ctx.repository().get_wd_tree()?;
+    let wd_tree = ctx.repository().create_wd_tree()?;
     let repo = ctx.repository();
     let remote_tree = upstream_commit.tree().context("failed to get tree")?;
     let upstream_branch = branch.upstream.as_ref().context("upstream not found")?;
@@ -1160,7 +1171,7 @@ pub fn is_remote_branch_mergeable(
 
     let base_tree = find_base_tree(ctx.repository(), &branch_commit, &target_commit)?;
 
-    let wd_tree = ctx.repository().get_wd_tree()?;
+    let wd_tree = ctx.repository().create_wd_tree()?;
 
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
     let mergeable = !ctx
