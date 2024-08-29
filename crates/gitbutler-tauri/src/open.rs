@@ -6,7 +6,7 @@ use tracing::instrument;
 
 pub fn open_that(path: &str) -> Result<(), Error> {
     let re = Regex::new(r"^((https://)|(http://)|(mailto:)|(vscode://)|(vscodium://)).+").unwrap();
-    if !re.is_match(&path) {
+    if !re.is_match(path) {
         return Err(anyhow!("Invalid path format").into());
     }
 
