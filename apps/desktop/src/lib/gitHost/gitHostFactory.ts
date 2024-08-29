@@ -23,11 +23,10 @@ export class DefaultGitHostFactory implements GitHostFactory {
 		fork?: RepoInfo,
 		usePullRequestTemplate?: Persisted<boolean>
 	) {
-		const source = repo.source;
-		const resource = repo.resource;
+		const domain = repo.domain;
 		const forkStr = fork ? `${fork.owner}:${fork.name}` : undefined;
 
-		if (source.includes(GITHUB_DOMAIN)) {
+		if (domain.includes(GITHUB_DOMAIN)) {
 			return new GitHub({
 				repo,
 				baseBranch,
@@ -37,13 +36,13 @@ export class DefaultGitHostFactory implements GitHostFactory {
 				usePullRequestTemplate
 			});
 		}
-		if (source === GITLAB_DOMAIN || resource.startsWith(GITLAB_SUB_DOMAIN + '.')) {
+		if (domain === GITLAB_DOMAIN || domain.startsWith(GITLAB_SUB_DOMAIN + '.')) {
 			return new GitLab({ repo, baseBranch, forkStr });
 		}
-		if (source.includes(BITBUCKET_DOMAIN)) {
+		if (domain.includes(BITBUCKET_DOMAIN)) {
 			return new BitBucket({ repo, baseBranch, forkStr });
 		}
-		if (source.includes(AZURE_DOMAIN)) {
+		if (domain.includes(AZURE_DOMAIN)) {
 			return new AzureDevOps({ repo, baseBranch, forkStr });
 		}
 	}

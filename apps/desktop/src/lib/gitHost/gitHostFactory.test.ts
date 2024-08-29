@@ -10,10 +10,9 @@ describe.concurrent('DefaultgitHostFactory', () => {
 		expect(
 			monitorFactory.build(
 				{
-					source: 'github.com',
+					domain: 'github.com',
 					name: 'test-repo',
-					owner: 'test-owner',
-					resource: 'test-resource'
+					owner: 'test-owner'
 				},
 				'some-base'
 			)
@@ -25,10 +24,9 @@ describe.concurrent('DefaultgitHostFactory', () => {
 		expect(
 			monitorFactory.build(
 				{
-					source: 'domain.com',
+					domain: 'gitlab.domain.com',
 					name: 'test-repo',
-					owner: 'test-owner',
-					resource: 'gitlab.domain.com'
+					owner: 'test-owner'
 				},
 				'some-base'
 			)
@@ -40,10 +38,9 @@ describe.concurrent('DefaultgitHostFactory', () => {
 		expect(
 			monitorFactory.build(
 				{
-					source: 'gitlab.com',
+					domain: 'gitlab.com',
 					name: 'test-repo',
-					owner: 'test-owner',
-					resource: 'test-resource'
+					owner: 'test-owner'
 				},
 				'some-base'
 			)

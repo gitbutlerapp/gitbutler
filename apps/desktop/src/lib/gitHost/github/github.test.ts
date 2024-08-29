@@ -4,10 +4,9 @@ import { expect, test, describe } from 'vitest';
 describe.concurrent('GitHub', () => {
 	const id = 'some-branch';
 	const repo = {
-		source: 'github.com',
+		domain: 'github.com',
 		name: 'test-repo',
-		owner: 'test-owner',
-		resource: 'test-resource'
+		owner: 'test-owner'
 	};
 
 	test('commit url', async () => {

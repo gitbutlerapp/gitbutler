@@ -31,10 +31,9 @@ describe('GitHubChecksMonitor', () => {
 		octokit = new Octokit();
 		gh = new GitHub({
 			repo: {
-				source: 'github.com',
+				domain: 'github.com',
 				name: 'test-repo',
-				owner: 'test-owner',
-				resource: 'test-resource'
+				owner: 'test-owner'
 			},
 			baseBranch: 'test-branch',
 			octokit
