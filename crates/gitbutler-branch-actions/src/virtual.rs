@@ -1,10 +1,3 @@
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    path::{Path, PathBuf},
-    vec,
-};
-
 use crate::{
     branch_manager::BranchManagerExt,
     commit::{commit_to_vbranch_commit, VirtualBranchCommit},
@@ -17,7 +10,7 @@ use crate::{
     Get, VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
 use git2_hooks::HookResult;
 use gitbutler_branch::{
     dedup, dedup_fmt, reconcile_claims, signature, Branch, BranchId, BranchOwnershipClaims,
@@ -38,6 +31,13 @@ use gitbutler_repo::{
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
+use std::collections::HashSet;
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    path::{Path, PathBuf},
+    vec,
+};
 use tracing::instrument;
 
 // this struct is a mapping to the view `Branch` type in Typescript
@@ -313,19 +313,34 @@ pub fn list_virtual_branches_cached(
             ))?;
 
         // find upstream commits if we found an upstream reference
-        let mut pushed_commits = HashMap::new();
-        if let Some(upstream) = &upstram_branch_commit {
-            let merge_base =
-                repo.merge_base(upstream.id(), default_target.sha)
-                    .context(format!(
-                        "failed to find merge base between {} and {}",
-                        upstream.id(),
-                        default_target.sha
-                    ))?;
-            for oid in ctx.l(upstream.id(), LogUntil::Commit(merge_base))? {
-                pushed_commits.insert(oid, true);
-            }
-        }
+        let (remote_commit_ids, remote_commit_data) = upstram_branch_commit
+            .as_ref()
+            .map(
+                |upstream| -> Result<(HashSet<git2::Oid>, HashMap<CommitData, git2::Oid>)> {
+                    let merge_base =
+                        repo.merge_base(upstream.id(), default_target.sha)
+                            .context(format!(
+                                "failed to find merge base between {} and {}",
+                                upstream.id(),
+                                default_target.sha
+                            ))?;
+                    let remote_commit_ids =
+                        HashSet::from_iter(ctx.l(upstream.id(), LogUntil::Commit(merge_base))?);
+                    let remote_commit_data: HashMap<_, _> = remote_commit_ids
+                        .iter()
+                        .copied()
+                        .filter_map(|id| repo.find_commit(id).ok())
+                        .filter_map(|commit| {
+                            CommitData::try_from(&commit)
+                                .ok()
+                                .map(|key| (key, commit.id()))
+                        })
+                        .collect();
+                    Ok((remote_commit_ids, remote_commit_data))
+                },
+            )
+            .transpose()?
+            .unwrap_or_default();
 
         let mut is_integrated = false;
         let mut is_remote = false;
@@ -346,7 +361,9 @@ pub fn list_virtual_branches_cached(
                     is_remote = if is_remote {
                         is_remote
                     } else {
-                        pushed_commits.contains_key(&commit.id())
+                        // This can only work once we have pushed our commits to the remote.
+                        // Otherwise, even local commits created from a remote commit will look different.
+                        remote_commit_ids.contains(&commit.id())
                     };
 
                     // only check for integration if we haven't already found an integration
@@ -354,7 +371,18 @@ pub fn list_virtual_branches_cached(
                         is_integrated = check_commit.is_integrated(commit)?
                     };
 
-                    commit_to_vbranch_commit(ctx, &branch, commit, is_integrated, is_remote)
+                    let copied_from_remote_id = CommitData::try_from(commit)
+                        .ok()
+                        .and_then(|data| remote_commit_data.get(&data).copied());
+
+                    commit_to_vbranch_commit(
+                        ctx,
+                        &branch,
+                        commit,
+                        is_integrated,
+                        is_remote,
+                        copied_from_remote_id,
+                    )
                 })
                 .collect::<Result<Vec<_>>>()?
         };
@@ -425,6 +453,40 @@ pub fn list_virtual_branches_cached(
     branches.sort_by(|a, b| a.order.cmp(&b.order));
 
     Ok((branches, status.skipped_files))
+}
+
+/// The commit-data we can use for comparison to see which remote-commit was used to craete
+/// a local commit from.
+/// Note that trees can't be used for comparison as these are typically rebased.
+#[derive(Hash, Eq, PartialEq)]
+struct CommitData {
+    message: BString,
+    author: gix::actor::Signature,
+    committer: gix::actor::Signature,
+}
+
+impl TryFrom<&git2::Commit<'_>> for CommitData {
+    type Error = anyhow::Error;
+
+    fn try_from(commit: &git2::Commit<'_>) -> std::result::Result<Self, Self::Error> {
+        Ok(CommitData {
+            message: commit.message_raw_bytes().into(),
+            author: git2_signature_to_gix_signature(commit.author()),
+            committer: git2_signature_to_gix_signature(commit.committer()),
+        })
+    }
+}
+
+fn git2_signature_to_gix_signature(input: git2::Signature<'_>) -> gix::actor::Signature {
+    gix::actor::Signature {
+        name: input.name_bytes().into(),
+        email: input.email_bytes().into(),
+        time: gix::date::Time {
+            seconds: input.when().seconds(),
+            offset: input.when().offset_minutes() * 60,
+            sign: input.when().offset_minutes().into(),
+        },
+    }
 }
 
 fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<VirtualBranch> {
