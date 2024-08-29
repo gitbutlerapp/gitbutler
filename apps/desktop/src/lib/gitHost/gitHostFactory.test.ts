@@ -12,7 +12,8 @@ describe.concurrent('DefaultgitHostFactory', () => {
 				{
 					source: 'github.com',
 					name: 'test-repo',
-					owner: 'test-owner'
+					owner: 'test-owner',
+					resource: 'test-resource'
 				},
 				'some-base'
 			)
@@ -41,7 +42,8 @@ describe.concurrent('DefaultgitHostFactory', () => {
 				{
 					source: 'gitlab.com',
 					name: 'test-repo',
-					owner: 'test-owner'
+					owner: 'test-owner',
+					resource: 'test-resource'
 				},
 				'some-base'
 			)

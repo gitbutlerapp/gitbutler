@@ -25,7 +25,8 @@ describe.concurrent('GitHubPrMonitor', () => {
 			repo: {
 				source: 'github.com',
 				name: 'test-repo',
-				owner: 'test-owner'
+				owner: 'test-owner',
+				resource: 'test-resource'
 			},
 			baseBranch: 'test-branch',
 			octokit

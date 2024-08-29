@@ -15,7 +15,8 @@ describe.concurrent('GitHubPrService', () => {
 			repo: {
 				source: 'github.com',
 				name: 'test-repo',
-				owner: 'test-owner'
+				owner: 'test-owner',
+				resource: 'test-resource'
 			},
 			baseBranch: 'main',
 			octokit
