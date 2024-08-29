@@ -1,19 +1,5 @@
-use anyhow::{Context, Result};
-use gitbutler_branch::{
-    BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest, ChangeReference,
-};
-use gitbutler_command_context::CommandContext;
-use gitbutler_operating_modes::assure_open_workspace_mode;
-use gitbutler_oplog::{
-    entry::{OperationKind, SnapshotDetails},
-    OplogExt, SnapshotExt,
-};
-use gitbutler_project::{FetchResult, Project};
-use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
-use gitbutler_repo::{credentials::Helper, RepoActionsExt, RepositoryExt};
-use tracing::instrument;
-
 use super::r#virtual as branch;
+use crate::branch::get_uncommited_files_raw;
 use crate::{
     base::{
         get_base_branch_data, set_base_branch, set_target_push_remote, update_base_branch,
@@ -25,6 +11,21 @@ use crate::{
     remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
     VirtualBranchesExt,
 };
+use anyhow::{Context, Result};
+use gitbutler_branch::{
+    BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest, ChangeReference,
+};
+use gitbutler_command_context::CommandContext;
+use gitbutler_diff::DiffByPathMap;
+use gitbutler_operating_modes::assure_open_workspace_mode;
+use gitbutler_oplog::{
+    entry::{OperationKind, SnapshotDetails},
+    OplogExt, SnapshotExt,
+};
+use gitbutler_project::{FetchResult, Project};
+use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
+use gitbutler_repo::{credentials::Helper, RepoActionsExt, RepositoryExt};
+use tracing::instrument;
 
 #[derive(Clone, Copy, Default)]
 pub struct VirtualBranchActions;
@@ -79,6 +80,24 @@ impl VirtualBranchActions {
 
         branch::list_virtual_branches(&ctx, project.exclusive_worktree_access().write_permission())
             .map_err(Into::into)
+    }
+
+    pub fn list_virtual_branches_cached(
+        &self,
+        project: &Project,
+        worktree_changes: Option<DiffByPathMap>,
+    ) -> Result<(Vec<branch::VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
+        let ctx = open_with_verify(project)?;
+
+        assure_open_workspace_mode(&ctx)
+            .context("Listing virtual branches requires open workspace mode")?;
+
+        branch::list_virtual_branches_cached(
+            &ctx,
+            project.exclusive_worktree_access().write_permission(),
+            worktree_changes,
+        )
+        .map_err(Into::into)
     }
 
     pub fn create_virtual_branch(
@@ -569,10 +588,16 @@ impl VirtualBranchActions {
 
     pub fn get_uncommited_files(&self, project: &Project) -> Result<Vec<RemoteBranchFile>> {
         let context = CommandContext::open(project)?;
-
         let guard = project.exclusive_worktree_access();
-
         get_uncommited_files(&context, guard.read_permission())
+    }
+
+    /// Like [`get_uncommited_files()`], but returns a type that can be re-used with
+    /// [`crate::list_virtual_branches()`].
+    pub fn get_uncommited_files_reusable(&self, project: &Project) -> Result<DiffByPathMap> {
+        let context = CommandContext::open(project)?;
+        let guard = project.exclusive_worktree_access();
+        get_uncommited_files_raw(&context, guard.read_permission())
     }
 }
 

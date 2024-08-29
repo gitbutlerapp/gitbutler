@@ -1,13 +1,9 @@
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    path::{Path, PathBuf},
-    str,
-};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf, str};
 
 use anyhow::{Context, Result};
 use bstr::{BStr, BString, ByteSlice, ByteVec};
 use gitbutler_cherry_pick::RepositoryExt;
+use gitbutler_command_context::RepositoryExtLite;
 use gitbutler_serde::BStringForFrontend;
 use serde::{Deserialize, Serialize};
 use tracing::instrument;
@@ -126,40 +122,12 @@ pub struct FileDiff {
     pub new_size_bytes: u64,
 }
 
-#[instrument(skip(repo))]
+#[instrument(level = tracing::Level::DEBUG, skip(repo))]
 pub fn workdir(repo: &git2::Repository, commit_oid: &git2::Oid) -> Result<DiffByPathMap> {
     let commit = repo
         .find_commit(*commit_oid)
         .context("failed to find commit")?;
     let old_tree = repo.find_real_tree(&commit, Default::default())?;
-
-    let mut workdir_index = repo.index()?;
-
-    let mut skipped_files = HashMap::new();
-    let cb = &mut |path: &Path, _matched_spec: &[u8]| -> i32 {
-        let file_size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
-        if file_size > 50_000_000 {
-            skipped_files.insert(
-                path.to_path_buf(),
-                FileDiff {
-                    old_path: None,
-                    new_path: None,
-                    hunks: Vec::new(),
-                    skipped: true,
-                    binary: true,
-                    old_size_bytes: 0,
-                    new_size_bytes: 0,
-                },
-            );
-            1 //skips the entry
-        } else {
-            0
-        }
-    };
-    workdir_index.add_all(["."], git2::IndexAddOption::DEFAULT, Some(cb))?;
-    let workdir_tree_id = workdir_index.write_tree()?;
-
-    let new_tree = repo.find_tree(workdir_tree_id)?;
 
     let mut diff_opts = git2::DiffOptions::new();
     diff_opts
@@ -170,14 +138,27 @@ pub fn workdir(repo: &git2::Repository, commit_oid: &git2::Oid) -> Result<DiffBy
         .ignore_submodules(true)
         .context_lines(3);
 
-    let diff = repo.diff_tree_to_tree(Some(&old_tree), Some(&new_tree), Some(&mut diff_opts))?;
-    let diff_files = hunks_by_filepath(Some(repo), &diff);
-    diff_files.map(|mut df| {
-        for (key, value) in skipped_files {
-            df.insert(key, value);
-        }
-        df
-    })
+    let mut index = repo.index()?;
+    // Just a hack to resolve conflicts, which don't get diffed.
+    // Diffed conflicts are something we need though.
+    // For now, it seems easiest to resolve by adding the path forcefully,
+    // which will create objects for the diffs at least.
+    let paths_to_add: Vec<_> = index
+        .conflicts()?
+        .filter_map(Result::ok)
+        .filter_map(|c| {
+            c.our
+                .or(c.their)
+                .or(c.ancestor)
+                .and_then(|c| c.path.into_string().ok())
+        })
+        .collect();
+    for conflict_path_to_resolve in paths_to_add {
+        index.add_path(conflict_path_to_resolve.as_ref())?;
+    }
+    repo.ignore_large_files_in_diffs(50_000_000)?;
+    let diff = repo.diff_tree_to_workdir_with_index(Some(&old_tree), Some(&mut diff_opts))?;
+    hunks_by_filepath(Some(repo), &diff)
 }
 
 pub fn trees(
@@ -194,9 +175,10 @@ pub fn trees(
         .context_lines(3)
         .show_untracked_content(true);
 
+    // This is not a content-based diff, but also considers modification times apparently,
+    // maybe related to racy-git. This is why empty diffs have ot be filtered.
     let diff =
         repository.diff_tree_to_tree(Some(old_tree), Some(new_tree), Some(&mut diff_opts))?;
-
     hunks_by_filepath(None, &diff)
 }
 

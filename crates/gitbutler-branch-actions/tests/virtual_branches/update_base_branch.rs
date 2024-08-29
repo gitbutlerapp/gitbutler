@@ -731,6 +731,9 @@ mod applied_branch {
                 )
                 .unwrap();
 
+            let vb_state = VirtualBranchesHandle::new(project.gb_dir());
+            let ctx = CommandContext::open(project).unwrap();
+            update_gitbutler_integration(&vb_state, &ctx).unwrap();
             let (branches, _) = controller.list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 1);
             assert!(branches[0].active);

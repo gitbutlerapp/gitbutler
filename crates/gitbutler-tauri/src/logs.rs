@@ -5,7 +5,7 @@ use tracing::{instrument, metadata::LevelFilter, subscriber::set_global_default}
 use tracing_appender::rolling::{RollingFileAppender, Rotation};
 use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, Layer};
 
-pub fn init(app_handle: &AppHandle) {
+pub fn init(app_handle: &AppHandle, performance_logging: bool) {
     let logs_dir = app_handle
         .path_resolver()
         .app_log_dir()
@@ -54,24 +54,36 @@ pub fn init(app_handle: &AppHandle) {
                 .spawn(),
         )
         .with(
-            // subscriber that writes spans to stdout
-            tracing_subscriber::fmt::layer()
-                .event_format(format_for_humans.clone())
-                .with_ansi(use_colors_in_logs)
-                .with_span_events(FmtSpan::CLOSE)
-                .with_filter(log_level_filter),
-        )
-        .with(
             // subscriber that writes spans to a file
             tracing_subscriber::fmt::layer()
-                .event_format(format_for_humans)
+                .event_format(format_for_humans.clone())
                 .with_ansi(false)
                 .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
                 .with_writer(file_writer)
                 .with_filter(log_level_filter),
         );
-
-    set_global_default(subscriber).expect("failed to set subscriber");
+    if performance_logging {
+        set_global_default(
+            subscriber.with(
+                tracing_forest::ForestLayer::from(
+                    tracing_forest::printer::PrettyPrinter::new().writer(std::io::stdout),
+                )
+                .with_filter(log_level_filter),
+            ),
+        )
+    } else {
+        set_global_default(
+            subscriber.with(
+                // subscriber that writes spans to stdout
+                tracing_subscriber::fmt::layer()
+                    .event_format(format_for_humans)
+                    .with_ansi(use_colors_in_logs)
+                    .with_span_events(FmtSpan::CLOSE)
+                    .with_filter(log_level_filter),
+            ),
+        )
+    }
+    .expect("failed to set subscriber");
 }
 
 fn get_server_addr(app_handle: &AppHandle) -> (Ipv4Addr, u16) {

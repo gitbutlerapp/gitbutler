@@ -454,7 +454,7 @@ impl BranchManager<'_> {
             vb_state.set_branch(branch.clone())?;
         }
 
-        let wd_tree = self.ctx.repository().get_wd_tree()?;
+        let wd_tree = self.ctx.repository().create_wd_tree()?;
 
         let branch_tree = repo
             .find_tree(branch.tree)

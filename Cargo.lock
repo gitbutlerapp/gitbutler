@@ -2241,6 +2241,7 @@ name = "gitbutler-command-context"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "bstr",
  "git2",
  "gitbutler-project",
  "gix",
@@ -2404,6 +2405,7 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-branch",
+ "gitbutler-command-context",
  "gitbutler-diff",
  "gitbutler-fs",
  "gitbutler-project",
@@ -2595,6 +2597,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-appender",
+ "tracing-forest",
  "tracing-subscriber",
 ]
 
@@ -2656,6 +2659,7 @@ dependencies = [
  "backoff",
  "gitbutler-branch-actions",
  "gitbutler-command-context",
+ "gitbutler-diff",
  "gitbutler-error",
  "gitbutler-notify-debouncer",
  "gitbutler-operating-modes",

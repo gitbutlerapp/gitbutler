@@ -759,7 +759,7 @@ fn commit_id_can_be_generated_or_specified() -> Result<()> {
 #[test]
 fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     let suite = Suite::default();
-    let Case { ctx, project, .. } = &suite.new_case();
+    let Case { ctx, project, .. } = &mut suite.new_case();
 
     // create a commit and set the target
     let file_path = Path::new("test.txt");
@@ -829,8 +829,14 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
 
     // create the branch
     let (branches, _) = list_virtual_branches(ctx, guard.write_permission())?;
+    assert_eq!(branches.len(), 1);
     let branch1 = &branches[0];
-    assert_eq!(branch1.files.len(), 1);
+    assert_eq!(
+        branch1.files.len(),
+        1 + 1,
+        "'test' (modified compared to index) and 'test2' (untracked).\
+        This is actually correct when looking at the git repository"
+    );
     assert_eq!(branch1.commits.len(), 1);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
@@ -967,6 +973,7 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     )?;
 
     // make gb see the conflict resolution
+    gitbutler_branch_actions::update_gitbutler_integration(&vb_state, ctx)?;
     let (branches, _) = list_virtual_branches(ctx, guard.write_permission())?;
     assert!(branches[0].conflicted);
 
