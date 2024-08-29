@@ -271,7 +271,7 @@
 	.commit-line__container {
 		position: absolute;
 		top: 0;
-		left: -30px;
+		left: -26px;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
@@ -279,13 +279,17 @@
 	}
 
 	.commit-line__avatar {
+		position: absolute;
+		top: 14px;
+		left: 50%;
+		transform: translateX(-50%);
 		border: 2px solid var(--clr-commit-local);
 		border-radius: 50%;
 	}
 
 	.commit-line__top-line {
 		width: 2px;
-		height: 46px;
+		height: 48px;
 		margin-top: -26px;
 		background: linear-gradient(180deg, transparent 0%, var(--clr-commit-local) 100%);
 	}

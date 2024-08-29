@@ -6,34 +6,30 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	export let href: string;
-	export let domain: string;
-	export let label: string;
-	export let iconSrc: string;
-	export let isNavCollapsed: boolean;
+	interface Props {
+		href: string;
+		isNavCollapsed: boolean;
+	}
+
+	const { href, isNavCollapsed }: Props = $props();
 
 	const baseBranch = getContextStore(BaseBranch);
-
-	$: selected = $page.url.href.includes(href);
+	const label = 'Workspace';
 </script>
 
 <DomainButton
-	isSelected={selected}
+	isSelected={$page.url.pathname === href}
 	{isNavCollapsed}
 	tooltipLabel={label}
 	onmousedown={async () => await goto(href)}
 >
-	{#if domain === 'workspace'}
-		<img class="icon" src={iconSrc} alt="" />
+	<img class="icon" src={'/images/domain-icons/working-branches.svg'} alt="" />
 
-		{#if !isNavCollapsed}
-			<span class="text-14 text-semibold" class:collapsed-txt={isNavCollapsed}>{label}</span>
-			{#if ($baseBranch?.behind || 0) > 0 && !isNavCollapsed}
-				<UpdateBaseButton />
-			{/if}
+	{#if !isNavCollapsed}
+		<span class="text-14 text-semibold" class:collapsed-txt={isNavCollapsed}>{label}</span>
+		{#if ($baseBranch?.behind || 0) > 0 && !isNavCollapsed}
+			<UpdateBaseButton />
 		{/if}
-	{:else}
-		<slot />
 	{/if}
 </DomainButton>
 

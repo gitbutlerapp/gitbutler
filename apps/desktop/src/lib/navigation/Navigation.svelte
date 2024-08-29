@@ -115,15 +115,9 @@
 				<div class="domains">
 					<TargetCard isNavCollapsed={$isNavCollapsed} />
 					{#if $mode?.type === 'OpenWorkspace'}
-						<WorkspaceButton
-							href={`/${project.id}/board`}
-							domain="workspace"
-							label="Workspace"
-							iconSrc="/images/domain-icons/working-branches.svg"
-							isNavCollapsed={$isNavCollapsed}
-						/>
+						<WorkspaceButton href={`/${project.id}/board`} isNavCollapsed={$isNavCollapsed} />
 					{:else if $mode?.type === 'Edit'}
-						<EditButton isNavCollapsed={$isNavCollapsed} />
+						<EditButton href={`/${project.id}/edit`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 				</div>
 			</div>

@@ -1,27 +1,32 @@
 <script lang="ts">
-	import { Project } from '$lib/backend/projects';
 	import DomainButton from '$lib/navigation/DomainButton.svelte';
 	import { getContext } from '$lib/utils/context';
+	import Badge from '@gitbutler/ui/Badge.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
 	interface Props {
+		href: string;
 		isNavCollapsed: boolean;
 	}
 
-	const { isNavCollapsed }: Props = $props();
-
-	const project = getContext(Project);
+	const { href, isNavCollapsed }: Props = $props();
+	const label = 'Edit Mode';
 </script>
 
 <DomainButton
-	isSelected={$page.url.pathname === `/${project.id}/edit`}
+	isSelected={$page.url.pathname === href}
 	{isNavCollapsed}
-	tooltipLabel="Edit"
-	onmousedown={async () => await goto(`/${project.id}/edit`)}
+	tooltipLabel={label}
+	onmousedown={async () => await goto(href)}
 >
 	<img class="icon" src="/images/domain-icons/working-branches.svg" alt="" />
-	<span class="text-14 text-semibold" class:collapsed-txt={isNavCollapsed}>Edit</span>
+	{#if !isNavCollapsed}
+		<span class="text-14 text-semibold" class:collapsed-txt={isNavCollapsed}>{label}</span>
+	{/if}
+	<!-- <Badge label="edit mode" style="warning" /> -->
+	<!-- <Button style="warning" kind="solid" size="tag">Edit Mode</Button> -->
 </DomainButton>
 
 <style lang="postcss">
