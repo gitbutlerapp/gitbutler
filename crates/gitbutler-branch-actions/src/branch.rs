@@ -24,7 +24,9 @@ use std::{
     fmt::Debug,
     vec,
 };
+use tracing::instrument;
 
+#[instrument(level = tracing::Level::DEBUG, skip(ctx, _permission))]
 pub(crate) fn get_uncommited_files_raw(
     ctx: &CommandContext,
     _permission: &WorktreeReadPermission,

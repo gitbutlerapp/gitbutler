@@ -8,6 +8,7 @@ use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, ReferenceName, Refname};
 use gitbutler_repo::{RepoActionsExt, RepositoryExt};
+use tracing::instrument;
 
 use super::BranchManager;
 use crate::{
@@ -19,6 +20,7 @@ use crate::{
 
 impl BranchManager<'_> {
     // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
+    #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
     pub fn convert_to_real_branch(
         &self,
         branch_id: BranchId,
@@ -52,6 +54,7 @@ impl BranchManager<'_> {
         real_branch.reference_name()
     }
 
+    #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
     pub(crate) fn delete_branch(
         &self,
         branch_id: BranchId,
@@ -88,30 +91,38 @@ impl BranchManager<'_> {
 
         // go through the other applied branches and merge them into the final tree
         // then check that out into the working directory
-        let final_tree = applied_statuses
-            .into_iter()
-            .filter(|(branch, _)| branch.id != branch_id)
-            .fold(
-                target_commit.tree().context("failed to get target tree"),
-                |final_tree, status| {
-                    let final_tree = final_tree?;
-                    let branch = status.0;
-                    let files = status
-                        .1
-                        .into_iter()
-                        .map(|file| (file.path, file.hunks))
-                        .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
-                    let tree_oid =
-                        gitbutler_diff::write::hunks_onto_oid(self.ctx, branch.head, files)?;
-                    let branch_tree = repo.find_tree(tree_oid)?;
-                    let mut result =
-                        repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
-                    let final_tree_oid = result.write_tree_to(repo)?;
-                    repo.find_tree(final_tree_oid)
-                        .context("failed to find tree")
-                },
-            )?;
+        let final_tree = {
+            let _span = tracing::debug_span!(
+                "new tree without deleted branch",
+                num_branches = applied_statuses.len() - 1
+            )
+            .entered();
+            applied_statuses
+                .into_iter()
+                .filter(|(branch, _)| branch.id != branch_id)
+                .fold(
+                    target_commit.tree().context("failed to get target tree"),
+                    |final_tree, status| {
+                        let final_tree = final_tree?;
+                        let branch = status.0;
+                        let files = status
+                            .1
+                            .into_iter()
+                            .map(|file| (file.path, file.hunks))
+                            .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
+                        let tree_oid =
+                            gitbutler_diff::write::hunks_onto_oid(self.ctx, branch.head, files)?;
+                        let branch_tree = repo.find_tree(tree_oid)?;
+                        let mut result =
+                            repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
+                        let final_tree_oid = result.write_tree_to(repo)?;
+                        repo.find_tree(final_tree_oid)
+                            .context("failed to find tree")
+                    },
+                )?
+        };
 
+        let _span = tracing::debug_span!("checkout final tree").entered();
         // checkout final_tree into the working directory
         repo.checkout_tree_builder(&final_tree)
             .force()
@@ -128,6 +139,7 @@ impl BranchManager<'_> {
 }
 
 impl BranchManager<'_> {
+    #[instrument(level = tracing::Level::DEBUG, skip(self, vbranch), err(Debug))]
     fn build_real_branch(&self, vbranch: &mut Branch) -> Result<git2::Branch<'_>> {
         let repo = self.ctx.repository();
         let target_commit = repo.find_commit(vbranch.head)?;

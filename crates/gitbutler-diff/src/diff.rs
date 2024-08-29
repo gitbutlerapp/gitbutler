@@ -162,7 +162,7 @@ pub fn workdir(repo: &git2::Repository, commit_oid: git2::Oid) -> Result<DiffByP
 }
 
 pub fn trees(
-    repository: &git2::Repository,
+    repo: &git2::Repository,
     old_tree: &git2::Tree,
     new_tree: &git2::Tree,
 ) -> Result<DiffByPathMap> {
@@ -175,10 +175,7 @@ pub fn trees(
         .context_lines(3)
         .show_untracked_content(true);
 
-    // This is not a content-based diff, but also considers modification times apparently,
-    // maybe related to racy-git. This is why empty diffs have ot be filtered.
-    let diff =
-        repository.diff_tree_to_tree(Some(old_tree), Some(new_tree), Some(&mut diff_opts))?;
+    let diff = repo.diff_tree_to_tree(Some(old_tree), Some(new_tree), Some(&mut diff_opts))?;
     hunks_by_filepath(None, &diff)
 }
 

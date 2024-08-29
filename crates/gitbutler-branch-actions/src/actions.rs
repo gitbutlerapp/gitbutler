@@ -570,6 +570,7 @@ impl VirtualBranchActions {
         branch::move_commit(&ctx, target_branch_id, commit_oid).map_err(Into::into)
     }
 
+    #[instrument(level = tracing::Level::DEBUG, skip(self, project), err(Debug))]
     pub fn create_virtual_branch_from_branch(
         &self,
         project: &Project,

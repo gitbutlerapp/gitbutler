@@ -9,6 +9,7 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{rebase::cherry_rebase, RepoActionsExt, RepositoryExt};
 use gitbutler_time::time::now_since_unix_epoch_ms;
+use tracing::instrument;
 
 use super::BranchManager;
 use crate::{
@@ -20,6 +21,7 @@ use crate::{
 };
 
 impl BranchManager<'_> {
+    #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
     pub fn create_virtual_branch(
         &self,
         create: &BranchCreateRequest,
@@ -281,6 +283,7 @@ impl BranchManager<'_> {
 
 /// Holding private methods associated to branch creation
 impl BranchManager<'_> {
+    #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
     fn apply_branch(
         &self,
         branch_id: BranchId,
@@ -310,6 +313,7 @@ impl BranchManager<'_> {
                 default_target.sha, branch.head
             ))?;
         if merge_base != default_target.sha {
+            let _span = tracing::debug_span!("merge-base isn't default-target").entered();
             // Branch is out of date, merge or rebase it
             let merge_base_tree = repo
                 .find_commit(merge_base)
@@ -453,6 +457,8 @@ impl BranchManager<'_> {
                 .id();
             vb_state.set_branch(branch.clone())?;
         }
+
+        let _span = tracing::debug_span!("finalize").entered();
 
         let wd_tree = self.ctx.repository().create_wd_tree()?;
 

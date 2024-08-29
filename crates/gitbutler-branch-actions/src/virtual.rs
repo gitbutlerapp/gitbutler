@@ -232,9 +232,9 @@ fn find_base_tree<'a>(
 /// This should only ever be called by `list_virtual_branches
 ///
 /// This checks for the case where !branch.old_applied && branch.in_workspace
-/// If this is the case, we ought to unapply the branch as its been carried
+/// If this is the case, we ought to unapply the branch as it has been carried
 /// over from the old style of unapplying
-fn resolve_old_applied_state(
+fn fixup_old_applied_state(
     ctx: &CommandContext,
     vb_state: &VirtualBranchesHandle,
     perm: &mut WorktreeWritePermission,
@@ -278,7 +278,7 @@ pub fn list_virtual_branches_cached(
 
     let vb_state = ctx.project().virtual_branches();
 
-    resolve_old_applied_state(ctx, &vb_state, perm)?;
+    fixup_old_applied_state(ctx, &vb_state, perm)?;
 
     let default_target = vb_state
         .get_default_target()
@@ -292,6 +292,8 @@ pub fn list_virtual_branches_cached(
         .max()
         .unwrap_or(-1);
 
+    let branches_span =
+        tracing::debug_span!("handle branches", num_branches = status.branches.len()).entered();
     for (branch, mut files) in status.branches {
         let repo = ctx.repository();
         update_conflict_markers(ctx, files.clone())?;
@@ -331,23 +333,31 @@ pub fn list_virtual_branches_cached(
         // find all commits on head that are not on target.sha
         let commits = ctx.log(branch.head, LogUntil::Commit(default_target.sha))?;
         let check_commit = IsCommitIntegrated::new(ctx, &default_target)?;
-        let vbranch_commits = commits
-            .iter()
-            .map(|commit| {
-                is_remote = if is_remote {
-                    is_remote
-                } else {
-                    pushed_commits.contains_key(&commit.id())
-                };
+        let vbranch_commits = {
+            let _span = tracing::debug_span!(
+                "is-commit-integrated",
+                given_name = branch.name,
+                commits_to_check = commits.len()
+            )
+            .entered();
+            commits
+                .iter()
+                .map(|commit| {
+                    is_remote = if is_remote {
+                        is_remote
+                    } else {
+                        pushed_commits.contains_key(&commit.id())
+                    };
 
-                // only check for integration if we haven't already found an integration
-                if !is_integrated {
-                    is_integrated = check_commit.is_integrated(commit)?
-                };
+                    // only check for integration if we haven't already found an integration
+                    if !is_integrated {
+                        is_integrated = check_commit.is_integrated(commit)?
+                    };
 
-                commit_to_vbranch_commit(ctx, &branch, commit, is_integrated, is_remote)
-            })
-            .collect::<Result<Vec<_>>>()?;
+                    commit_to_vbranch_commit(ctx, &branch, commit, is_integrated, is_remote)
+                })
+                .collect::<Result<Vec<_>>>()?
+        };
 
         let merge_base = repo
             .merge_base(default_target.sha, branch.head)
@@ -409,6 +419,7 @@ pub fn list_virtual_branches_cached(
         };
         branches.push(branch);
     }
+    drop(branches_span);
 
     let mut branches = branches_with_large_files_abridged(branches);
     branches.sort_by(|a, b| a.order.cmp(&b.order));
