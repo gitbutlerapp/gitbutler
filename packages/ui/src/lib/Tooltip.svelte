@@ -16,7 +16,7 @@
 		children: Snippet;
 	}
 
-	const { text, delay = 500, align = 'center', position = 'bottom', children }: Props = $props();
+	const { text, delay = 700, align = 'center', position = 'bottom', children }: Props = $props();
 
 	let targetEl: HTMLElement | undefined = $state();
 	let tooltipEl: HTMLElement | undefined = $state();

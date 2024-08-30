@@ -3,7 +3,7 @@
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import FileIcon from '$lib/file/FileIcon.svelte';
-	import { tooltip } from '$lib/utils/tooltip';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { FileStatus } from './types';
 
 	interface Props {
@@ -95,9 +95,11 @@
 
 	<div class="details">
 		{#if locked}
-			<div class="locked" use:tooltip={{ text: lockText ?? '', delay: 500 }}>
-				<Icon name="locked-small" color="warning" />
-			</div>
+			<Tooltip text={lockText}>
+				<div class="locked">
+					<Icon name="locked-small" color="warning" />
+				</div>
+			</Tooltip>
 		{/if}
 
 		{#if conflicted}

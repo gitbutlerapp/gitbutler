@@ -1,26 +1,21 @@
 <script lang="ts">
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-
 	export let small = false;
 	export let disabled = false;
 	export let checked = false;
 	export let value = '';
-	export let tooltip = '';
 	export let id = '';
 </script>
 
-<Tooltip text={tooltip}>
-	<input
-		bind:checked
-		on:click|stopPropagation
-		type="checkbox"
-		class="toggle"
-		class:small
-		{value}
-		{id}
-		{disabled}
-	/>
-</Tooltip>
+<input
+	bind:checked
+	on:click|stopPropagation
+	type="checkbox"
+	class="toggle"
+	class:small
+	{value}
+	{id}
+	{disabled}
+/>
 
 <style lang="postcss">
 	.toggle {

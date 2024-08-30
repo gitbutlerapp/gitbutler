@@ -179,7 +179,7 @@
 		{/if}
 
 		{#if title.length > 50}
-			<Tooltip text="50 characters or less is best. Use description for more details">
+			<Tooltip text={'50 characters or less is best.\nUse description for more details'}>
 				<div transition:fly={{ y: 2, duration: 150 }} class="commit-box__textarea-tooltip">
 					<Icon name="idea" />
 				</div>
