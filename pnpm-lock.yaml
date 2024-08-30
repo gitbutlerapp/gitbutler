@@ -76,8 +76,8 @@ importers:
         specifier: ^0.41.0
         version: 0.41.0(svelte@5.0.0-next.196)
       turbo:
-        specifier: 2.1.0
-        version: 2.1.0
+        specifier: 2.1.1-canary.0
+        version: 2.1.1-canary.0
       typescript:
         specifier: 5.4.5
         version: 5.4.5
