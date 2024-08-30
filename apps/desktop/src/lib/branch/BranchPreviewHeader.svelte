@@ -126,7 +126,6 @@
 					disabled={!localBranch}
 					onclick={async () => {
 						if (localBranch) {
-							console.log(JSON.stringify(localBranch));
 							deleteBranchModal.show(branch);
 						}
 					}}
