@@ -4,10 +4,12 @@
 	import { DraggableFile } from '$lib/dragging/draggables';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
+	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { Ownership } from '$lib/vbranches/ownership';
-	import { VirtualBranch, type AnyFile } from '$lib/vbranches/types';
+	import { getLockText } from '$lib/vbranches/tooltip';
+	import { VirtualBranch, type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { Writable } from 'svelte/store';
 
@@ -28,6 +30,16 @@
 	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
 	const fileIdSelection = getContext(FileIdSelection);
 	const commit = getCommitStore();
+
+	// TODO: Refactor this into something more meaningful.
+	const localCommits = file instanceof LocalFile ? getLocalCommits() : undefined;
+	const remoteCommits = file instanceof LocalFile ? getLocalAndRemoteCommits() : undefined;
+	let lockedIds = file.lockedIds;
+	let lockText = $state(
+		lockedIds.length > 0 && $localCommits
+			? getLockText(lockedIds, ($localCommits || []).concat($remoteCommits || []))
+			: ''
+	);
 
 	const selectedFiles = fileIdSelection.files;
 
@@ -85,6 +97,8 @@
 	{draggable}
 	{onclick}
 	{onkeydown}
+	locked={file.locked}
+	{lockText}
 	oncheck={(e) => {
 		const isChecked = e.currentTarget.checked;
 		lastCheckboxDetail = isChecked;

@@ -100,8 +100,8 @@
 	</div>
 
 	<div class="details">
-		{#if lockText}
-			<div class="locked" use:tooltip={{ text: lockText, delay: 500 }}>
+		{#if locked}
+			<div class="locked" use:tooltip={{ text: lockText ?? '', delay: 500 }}>
 				<Icon name="locked-small" color="warning" />
 			</div>
 		{/if}
