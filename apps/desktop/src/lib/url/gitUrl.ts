@@ -1,7 +1,7 @@
 import gitUrlParse from 'git-url-parse';
 
 export type RepoInfo = {
-	source: string;
+	domain: string;
 	name: string;
 	owner: string;
 	organization?: string;
@@ -10,11 +10,11 @@ export type RepoInfo = {
 
 export function parseRemoteUrl(url: string): RepoInfo | undefined {
 	try {
-		const { protocol, source, name, owner, organization } = gitUrlParse(url);
+		const { protocol, name, owner, organization, resource } = gitUrlParse(url);
 
 		return {
 			protocol,
-			source,
+			domain: resource,
 			name,
 			owner,
 			organization

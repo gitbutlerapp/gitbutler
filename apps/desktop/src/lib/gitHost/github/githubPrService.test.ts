@@ -13,7 +13,7 @@ describe.concurrent('GitHubPrService', () => {
 		octokit = new Octokit();
 		gh = new GitHub({
 			repo: {
-				source: 'github.com',
+				domain: 'github.com',
 				name: 'test-repo',
 				owner: 'test-owner'
 			},

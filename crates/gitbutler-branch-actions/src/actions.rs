@@ -8,7 +8,7 @@ use crate::{
     branch::get_uncommited_files,
     branch_manager::BranchManagerExt,
     file::RemoteBranchFile,
-    remote::{get_branch_data, list_remote_branches, RemoteBranch, RemoteBranchData},
+    remote::{get_branch_data, list_local_branches, RemoteBranch, RemoteBranchData},
     VirtualBranchesExt,
 };
 use anyhow::{Context, Result};
@@ -401,6 +401,17 @@ impl VirtualBranchActions {
         gitbutler_repo::push_change_reference(&ctx, branch_id, name, with_force, &helper)
     }
 
+    pub fn update_change_reference(
+        &self,
+        project: &Project,
+        branch_id: BranchId,
+        name: ReferenceName,
+        new_change_id: String,
+    ) -> Result<ChangeReference> {
+        let ctx = open_with_verify(project)?;
+        gitbutler_repo::update_change_reference(&ctx, branch_id, name, new_change_id)
+    }
+
     pub fn reorder_commit(
         &self,
         project: &Project,
@@ -474,9 +485,9 @@ impl VirtualBranchActions {
         branch::push(&ctx, branch_id, with_force, &helper, askpass)
     }
 
-    pub fn list_remote_branches(project: Project) -> Result<Vec<RemoteBranch>> {
+    pub fn list_local_branches(project: Project) -> Result<Vec<RemoteBranch>> {
         let ctx = CommandContext::open(&project)?;
-        list_remote_branches(&ctx)
+        list_local_branches(&ctx)
     }
 
     pub fn get_remote_branch_data(
@@ -570,6 +581,7 @@ impl VirtualBranchActions {
         branch::move_commit(&ctx, target_branch_id, commit_oid).map_err(Into::into)
     }
 
+    #[instrument(level = tracing::Level::DEBUG, skip(self, project), err(Debug))]
     pub fn create_virtual_branch_from_branch(
         &self,
         project: &Project,

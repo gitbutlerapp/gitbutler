@@ -1345,7 +1345,7 @@ fn detect_mergeable_branch() -> Result<()> {
     vb_state.set_branch(branch4.clone())?;
 
     let remotes =
-        gitbutler_branch_actions::list_remote_branches(ctx).expect("failed to list remotes");
+        gitbutler_branch_actions::list_local_branches(ctx).expect("failed to list remotes");
     let _remote1 = &remotes
         .iter()
         .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch")

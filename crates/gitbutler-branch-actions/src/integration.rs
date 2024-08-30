@@ -122,6 +122,7 @@ fn write_integration_file(head: &git2::Reference, path: PathBuf) -> Result<()> {
     std::fs::write(path, format!(":{}", sha))?;
     Ok(())
 }
+#[instrument(level = tracing::Level::DEBUG, skip(vb_state, ctx), err(Debug))]
 pub fn update_gitbutler_integration(
     vb_state: &VirtualBranchesHandle,
     ctx: &CommandContext,

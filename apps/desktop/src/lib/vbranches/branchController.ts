@@ -118,7 +118,7 @@ export class BranchController {
 	/*
 	 * Pushes a change reference to (converted to a git reference to a commit) to the remote
 	 * @param branchId
-	 * @param reference in the format refs/remotes/origin/my-branch (must be remote)
+	 * @param reference in the format refs/remotes/origin/my-branch (must be remote, must already exist)
 	 * @param changeId The change id that is being pushed
 	 */
 	async pushChangeReference(branchId: string, referenceName: string, withForce: boolean = false) {
@@ -131,6 +131,25 @@ export class BranchController {
 			});
 		} catch (err) {
 			showError('Failed to push change reference', err);
+		}
+	}
+
+	/*
+	 * Updates a change reference to point to a new change
+	 * @param branchId
+	 * @param reference in the format refs/remotes/origin/my-branch (must be remote, must already exist)
+	 * @param newChangeId The change id to point the reference to
+	 */
+	async updateChangeReference(branchId: string, referenceName: string, newChangeId: string) {
+		try {
+			await invoke<void>('update_change_reference', {
+				projectId: this.projectId,
+				branchId: branchId,
+				name: referenceName,
+				newChangeId: newChangeId
+			});
+		} catch (err) {
+			showError('Failed to update change reference', err);
 		}
 	}
 

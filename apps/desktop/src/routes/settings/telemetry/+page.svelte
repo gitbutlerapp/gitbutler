@@ -1,8 +1,8 @@
 <script lang="ts">
+	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import AnalyticsSettings from '$lib/settings/AnalyticsSettings.svelte';
-	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 </script>
 
-<ContentWrapper title="Telemetry">
+<SettingsPage title="Telemetry">
 	<AnalyticsSettings />
-</ContentWrapper>
+</SettingsPage>

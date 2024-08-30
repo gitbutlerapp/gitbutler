@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ProjectService } from '$lib/backend/projects';
-	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import Icon from '@gitbutler/ui/Icon.svelte';

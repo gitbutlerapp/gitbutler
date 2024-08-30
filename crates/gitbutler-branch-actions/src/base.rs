@@ -181,7 +181,7 @@ pub(crate) fn set_base_branch(
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch
 
-        let wd_diff = gitbutler_diff::workdir(repo, &current_head_commit.id())?;
+        let wd_diff = gitbutler_diff::workdir(repo, current_head_commit.id())?;
         if !wd_diff.is_empty() || current_head_commit.id() != target.sha {
             // assign ownership to the branch
             let ownership = wd_diff.iter().fold(

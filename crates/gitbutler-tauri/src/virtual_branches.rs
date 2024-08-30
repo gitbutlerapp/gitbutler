@@ -430,6 +430,22 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
+    pub fn update_change_reference(
+        windows: State<'_, WindowState>,
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        branch_id: BranchId,
+        name: ReferenceName,
+        new_change_id: String,
+    ) -> Result<(), Error> {
+        let project = projects.get(project_id)?;
+        VirtualBranchActions.update_change_reference(&project, branch_id, name, new_change_id)?;
+        emit_vbranches(&windows, project_id);
+        Ok(())
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects, windows), err(Debug))]
     pub fn reorder_commit(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
@@ -447,12 +463,12 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub fn list_remote_branches(
+    pub fn list_local_branches(
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
     ) -> Result<Vec<RemoteBranch>, Error> {
         let project = projects.get(project_id)?;
-        let branches = VirtualBranchActions::list_remote_branches(project)?;
+        let branches = VirtualBranchActions::list_local_branches(project)?;
         Ok(branches)
     }
 

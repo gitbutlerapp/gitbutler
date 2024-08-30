@@ -146,7 +146,7 @@ pub fn push_change_reference(
     let commit =
         commit_by_branch_id_and_change_id(ctx, &vbranch, &handle, reference.change_id.clone())?;
     ctx.push(
-        &commit.id(),
+        commit.id(),
         &upstream_refname,
         with_force,
         credentials,

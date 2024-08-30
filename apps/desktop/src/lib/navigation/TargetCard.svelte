@@ -73,24 +73,6 @@
 </DomainButton>
 
 <style lang="postcss">
-	.base-branch-card {
-		position: relative;
-		display: flex;
-		gap: 10px;
-		padding: 10px;
-		border-radius: var(--radius-m);
-		transition: background-color var(--transition-fast);
-	}
-
-	.base-branch-card:not(.selected):hover,
-	.base-branch-card:not(.selected):focus {
-		background-color: var(--clr-bg-1-muted);
-	}
-
-	.selected {
-		background-color: var(--clr-bg-2);
-	}
-
 	.icon {
 		border-radius: var(--radius-s);
 		height: 20px;
