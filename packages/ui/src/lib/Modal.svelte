@@ -80,7 +80,6 @@
 	dialog {
 		display: none;
 		outline: none;
-		--overlay-bg: var(--clr-overlay-bg);
 	}
 
 	dialog[open] {
@@ -88,7 +87,11 @@
 	}
 
 	dialog[open]::backdrop {
-		background-color: var(--overlay-bg);
+		background-color: color(srgb 0 0 0 / 0.34901960784313724);
+	}
+
+	html.dark dialog[open]::backdrop {
+		background-color: color(srgb 0.8392156862745098 0.8392156862745098 0.8392156862745098 / 0.4);
 	}
 
 	.modal-container[open]::backdrop {
