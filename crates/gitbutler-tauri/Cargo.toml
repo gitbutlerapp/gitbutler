@@ -72,7 +72,6 @@ regex = "1.10"
 [dependencies.tauri]
 version = "1.7.0"
 features = [
-    "shell-execute",
     "http-all",
     "os-all",
     "dialog-open",

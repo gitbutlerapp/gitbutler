@@ -12,17 +12,6 @@
 				"readFile": true,
 				"scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*"]
 			},
-			"shell": {
-				"open": false,
-				"execute": true,
-				"scope": [
-					{
-						"name": "xdg-open",
-						"cmd": "xdg-open",
-						"args": true
-					}
-				]
-			},
 			"dialog": {
 				"open": true
 			},
