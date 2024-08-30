@@ -87,10 +87,12 @@
 	}
 
 	dialog[open]::backdrop {
+		/* NOTE: temporarily hardcoded var(--clr-overlay-bg); */
 		background-color: color(srgb 0 0 0 / 0.34901960784313724);
 	}
 
 	html.dark dialog[open]::backdrop {
+		/* NOTE: temporarily hardcoded dark var(--clr-overlay-bg); */
 		background-color: color(srgb 0.8392156862745098 0.8392156862745098 0.8392156862745098 / 0.4);
 	}
 
