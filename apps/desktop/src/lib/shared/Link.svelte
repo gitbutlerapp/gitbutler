@@ -43,10 +43,6 @@
 	class:disabled
 	onclick={(e) => {
 		if (href && isExternal) {
-			// TODO: We also need `vscode://` and the like to go through here
-			// Need to see if we can share the regex for external links between
-			// the rust `gitbutler-tauri/src/open.rs` and this js code here. Or somehow
-			// else share the whitelist of protocols.
 			e.preventDefault();
 			e.stopPropagation();
 			openExternalUrl(href);
