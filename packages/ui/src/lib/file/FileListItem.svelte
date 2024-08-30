@@ -76,12 +76,6 @@
 	}}
 	ondragstart={(e) => {
 		if (draggable) {
-			if (locked) {
-				e.preventDefault();
-				console.log('Cannot drag locked file');
-				return;
-			}
-
 			ondragstart?.(e);
 		}
 	}}

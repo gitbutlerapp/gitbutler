@@ -11,6 +11,7 @@
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import { VirtualBranch, type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import { onDestroy } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
@@ -87,6 +88,7 @@
 <FileContextMenu bind:this={contextMenu} target={draggableEl} {isUnapplied} />
 
 <FileListItem
+	id={`file-${file.id}`}
 	bind:ref={draggableEl}
 	fileName={file.filename}
 	filePath={file.path}
@@ -139,21 +141,43 @@
 		}
 
 		const files = await $selectedFiles;
+		let animationEndHandler: () => void;
+
+		function addAnimationEndListener(element: HTMLElement) {
+			animationEndHandler = () => {
+				element.classList.remove('locked-file-animation');
+				element.removeEventListener('animationend', animationEndHandler);
+			};
+			element.addEventListener('animationend', animationEndHandler);
+		};
 
 		if (files.length > 0) {
 			files.forEach((f) => {
 				if (f.locked) {
 					const lockedElement = document.getElementById(`file-${f.id}`);
-
 					if (lockedElement) {
-						// add a class to the locked file
 						lockedElement.classList.add('locked-file-animation');
+						addAnimationEndListener(lockedElement);
 					}
 				}
 			});
 		} else if (file.locked) {
 			draggableEl?.classList.add('locked-file-animation');
+			draggableEl && addAnimationEndListener(draggableEl);
 		}
+
+		onDestroy(() => {
+			// Ensure any listeners are removed if the component is destroyed before animation ends
+			if (draggableEl && animationEndHandler) {
+				draggableEl.removeEventListener('animationend', animationEndHandler);
+			}
+			files.forEach((f) => {
+				const lockedElement = document.getElementById(`file-${f.id}`);
+				if (lockedElement && animationEndHandler) {
+					lockedElement.removeEventListener('animationend', animationEndHandler);
+				}
+			});
+		});
 	}}
 	oncontextmenu={async (e) => {
 		if (fileIdSelection.has(file.id, $commit?.id)) {
