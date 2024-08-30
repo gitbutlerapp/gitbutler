@@ -306,9 +306,9 @@ pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
         let result = match event.menu_item_id() {
             "help/documentation" => open::open_url("https://docs.gitbutler.com"),
             "help/github" => open::open_url("https://github.com/gitbutlerapp/gitbutler"),
-            "help/release-notes" => open::open_url(
-                "https://discord.com/channels/1060193121130000425/1183737922785116161",
-            ),
+            "help/release-notes" => {
+                open::open_url("https://github.com/gitbutlerapp/gitbutler/releases")
+            }
             "help/report-issue" => {
                 open::open_url("https://github.com/gitbutlerapp/gitbutler/issues/new")
             }
