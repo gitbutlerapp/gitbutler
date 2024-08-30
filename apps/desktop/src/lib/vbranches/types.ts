@@ -179,13 +179,19 @@ export class DetailedCommit {
 	conflicted!: boolean;
 	// Set if a GitButler branch reference pointing to this commit exists. In the format of "refs/remotes/origin/my-branch"
 	remoteRef?: string | undefined;
+	// Identifies the remote commit id from which this local commit was copied. The backend figured this out by comparing
+	// author, commit and message.
+	copiedFromRemoteId?: string;
 
 	prev?: DetailedCommit;
 	next?: DetailedCommit;
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
-		if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id))
+		if (
+			(this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id)) ||
+			(this.copiedFromRemoteId && this.relatedTo && this.copiedFromRemoteId === this.relatedTo.id)
+		)
 			return 'localAndRemote';
 		return 'local';
 	}
@@ -240,9 +246,10 @@ export class Commit {
 
 export type AnyCommit = DetailedCommit | Commit;
 
-export function commitCompare(left: AnyCommit, right: AnyCommit): boolean {
+export function commitCompare(left: AnyCommit, right: DetailedCommit): boolean {
 	if (left.id === right.id) return true;
 	if (left.changeId && right.changeId && left.changeId === right.changeId) return true;
+	if (right.copiedFromRemoteId && right.copiedFromRemoteId === left.id) return true;
 	return false;
 }
 

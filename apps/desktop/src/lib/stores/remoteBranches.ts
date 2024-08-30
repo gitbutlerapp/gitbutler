@@ -21,7 +21,7 @@ export class RemoteBranchService {
 		try {
 			const remoteBranches = plainToInstance(
 				Branch,
-				await invoke<any[]>('list_remote_branches', { projectId: this.projectId })
+				await invoke<any[]>('list_local_branches', { projectId: this.projectId })
 			);
 			this.projectMetrics?.setMetric('normal_branch_count', remoteBranches.length);
 			this.branches.set(remoteBranches);

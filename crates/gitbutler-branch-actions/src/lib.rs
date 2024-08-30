@@ -18,7 +18,7 @@ mod file;
 pub use file::{Get, RemoteBranchFile};
 
 mod remote;
-pub use remote::{list_remote_branches, RemoteBranch, RemoteBranchData, RemoteCommit};
+pub use remote::{list_local_branches, RemoteBranch, RemoteBranchData, RemoteCommit};
 
 pub mod conflicts;
 

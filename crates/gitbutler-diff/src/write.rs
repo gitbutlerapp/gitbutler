@@ -15,13 +15,13 @@ use crate::GitHunk;
 // and writes it as a new tree for storage
 pub fn hunks_onto_oid<T>(
     ctx: &CommandContext,
-    target: &git2::Oid,
+    target: git2::Oid,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
 ) -> Result<git2::Oid>
 where
     T: Into<GitHunk> + Clone,
 {
-    hunks_onto_commit(ctx, *target, files)
+    hunks_onto_commit(ctx, target, files)
 }
 
 pub fn hunks_onto_commit<T>(

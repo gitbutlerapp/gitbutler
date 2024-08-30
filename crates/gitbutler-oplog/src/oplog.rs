@@ -148,7 +148,7 @@ impl OplogExt for Project {
         commit_snapshot(self, snapshot_tree_id, details, perm)
     }
 
-    #[instrument(skip(details, perm), err(Debug))]
+    #[instrument(skip(self, details, perm), err(Debug))]
     fn create_snapshot(
         &self,
         details: SnapshotDetails,
@@ -158,6 +158,7 @@ impl OplogExt for Project {
         commit_snapshot(self, tree_id, details, perm)
     }
 
+    #[instrument(skip(self), err(Debug))]
     fn list_snapshots(
         &self,
         limit: usize,
