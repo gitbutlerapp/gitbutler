@@ -10,7 +10,6 @@
 		target?: '_blank' | '_self' | '_parent' | '_top' | undefined;
 		rel?: string | undefined;
 		role?: 'basic' | 'primary' | 'error';
-		noUnderline?: boolean;
 		disabled?: boolean;
 	}
 
@@ -21,7 +20,6 @@
 		rel = undefined,
 		role = 'basic',
 		disabled = false,
-		noUnderline = false,
 		children
 	}: Props = $props();
 
@@ -43,7 +41,6 @@
 	class="link {role} {classes}"
 	bind:this={element}
 	class:disabled
-	class:noUnderline
 	onclick={(e) => {
 		if (href && isExternal) {
 			// TODO: We also need `vscode://` and the like to go through here
@@ -75,14 +72,11 @@
 		text-decoration: underline;
 		user-select: text;
 
-		&.noUnderline {
-			text-decoration: none;
-		}
-
 		&:hover {
 			text-decoration: none;
 		}
 	}
+
 	.link-icon {
 		flex-shrink: 0;
 	}
