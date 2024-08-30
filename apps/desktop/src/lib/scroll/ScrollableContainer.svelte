@@ -1,24 +1,41 @@
 <script lang="ts">
-	import Scrollbar, { type ScrollbarPadding } from '$lib/shared/Scrollbar.svelte';
-	import { onDestroy, onMount, createEventDispatcher } from 'svelte';
+	import Scrollbar, { type ScrollbarPaddingType } from './Scrollbar.svelte';
+	import { type Snippet } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 
-	export const height: string | undefined = undefined;
-	export let viewport: HTMLDivElement | undefined = undefined;
-	export let contents: HTMLDivElement | undefined = undefined;
-	export let fillViewport: boolean = false;
-	export let maxHeight: string | undefined = undefined;
-	export let scrollable: boolean | undefined = undefined;
+	interface Props {
+		height?: string;
+		fillViewport?: boolean;
+		maxHeight?: string;
+		initiallyVisible?: boolean;
+		wide?: boolean;
+		padding?: ScrollbarPaddingType;
+		shift?: string;
+		thickness?: string;
+		horz?: boolean;
+		onthumbdrag?: (dragging: boolean) => void;
+		children: Snippet;
+	}
 
-	export let wide = false;
-	export let initiallyVisible = false;
+	const {
+		height,
+		fillViewport,
+		maxHeight,
+		initiallyVisible,
+		wide,
+		padding,
+		shift,
+		thickness,
+		horz,
+		children,
+		onthumbdrag
+	}: Props = $props();
 
-	export let padding: ScrollbarPadding = {};
-	export let shift = '0';
-	export let thickness = '0.563rem';
+	let viewport: HTMLDivElement | undefined = $state();
+	let contents: HTMLDivElement | undefined = $state();
+	let scrollable: boolean | undefined = $state();
 
 	let observer: ResizeObserver;
-
-	const dispatch = createEventDispatcher<{ dragging: boolean }>();
 
 	onMount(() => {
 		observer = new ResizeObserver(() => {
@@ -41,7 +58,7 @@
 		style:overflow-y={scrollable ? 'auto' : 'hidden'}
 	>
 		<div bind:this={contents} class="contents" class:fill-viewport={fillViewport}>
-			<slot />
+			{@render children()}
 		</div>
 		<Scrollbar
 			{viewport}
@@ -50,7 +67,8 @@
 			{padding}
 			{shift}
 			{thickness}
-			on:dragging={(data) => dispatch('dragging', data.detail)}
+			{horz}
+			{onthumbdrag}
 		/>
 	</div>
 </div>
@@ -76,7 +94,6 @@
 
 	/* MODIFIERS */
 	.fill-viewport {
-		display: initial;
 		min-height: 100%;
 		min-width: 100%;
 	}

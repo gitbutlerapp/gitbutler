@@ -2,13 +2,13 @@
 	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
 	import FullviewLoading from '../components/FullviewLoading.svelte';
 	import LazyloadContainer from '../shared/LazyloadContainer.svelte';
-	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import { clickOutside } from '$lib/clickOutside';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import SnapshotCard from '$lib/history/SnapshotCard.svelte';
 	import { HistoryService, createdOnDay } from '$lib/history/history';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { RemoteFile } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';

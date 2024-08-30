@@ -1,10 +1,11 @@
 <script lang="ts">
-	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
-	import { Project } from '$lib/backend/projects';
+	// import { Project } from '$lib/backend/projects';
+	import ActionView from '$lib/layout/ActionView.svelte';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { RemoteFile } from '$lib/vbranches/types';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
@@ -15,7 +16,7 @@
 
 	const { editModeMetadata }: Props = $props();
 
-	const project = getContext(Project);
+	// const project = getContext(Project);
 	const uncommitedFileWatcher = getContext(UncommitedFilesWatcher);
 	const modeService = getContext(ModeService);
 
@@ -116,92 +117,93 @@
 	}
 </script>
 
-<div class="editmode">
-	<div class="container">
-		<div class="project-name">
-			<ProjectNameLabel projectName={project?.title} />
-		</div>
-		<h2 class="editmode__title text-18 text-body text-bold">
-			You are currently editing commit <span class="code-string">
-				{editModeMetadata.commitOid.slice(0, 7)}
-			</span>
-		</h2>
-		<p class="editmode__message text-13 text-body">
-			Edit Mode lets you modify an existing commit in isolation or resolve conflicts. Any changes
-			made, including new files, will be added to the selected commit. You can finalize the edit by
-			either saving or discarding your changes.
-		</p>
+<ActionView
+	paddings={{
+		left: 48
+	}}
+>
+	<h2 class="editmode__title text-18 text-body text-bold">
+		You are currently editing commit <span class="code-string">
+			{editModeMetadata.commitOid.slice(0, 7)}
+		</span>
+	</h2>
+	<!-- <p class="editmode__message text-12 text-body">
+		Edit Mode lets you modify an existing commit in isolation or resolve conflicts.
+		<br />
+		Any changes made, including new files, will be added to the selected commit.
+		<br />
+		Finalize the edit by either saving or discarding your changes.
+	</p> -->
 
-		<div class="files">
-			<p class="text-13 text-semibold header">Commit files</p>
-			{#each files as file}
-				<div class="file">
-					<FileListItem
-						fileName={file.name}
-						filePath={file.path}
-						fileStatus={file.status}
-						conflicted={file.conflicted}
-						fileStatusStyle="full"
-						clickable={false}
-					/>
+	<div class="commit-group">
+		<div class="commit-line__container">
+			<div class="commit-line__top-line"></div>
+			<div class="commit-line__avatar">
+				<Avatar srcUrl="oops" tooltip="author" />
+			</div>
+			<div class="commit-line__bottom-line"></div>
+		</div>
+
+		<div class="commit-data">
+			<div class="card commit-card">
+				<h3 class="text-13 text-semibold commit-card__title">Awesome title</h3>
+				<div class="text-11 commit-card__details">
+					<span class="">234234</span>
+					<span class="commit-card__divider">•</span>
+					<span class="">Author</span>
 				</div>
-			{/each}
-		</div>
 
-		<p class="editmode__message text-13 text-body">
-			Please do not make any commits whilst in edit mode.
-			<br />
-			To leave edit mode, use the provided actions.
-		</p>
+				<div class="commit-card__type-indicator"></div>
+			</div>
 
-		<div class="editmode__actions">
-			<Button style="ghost" outline onclick={abort} disabled={modeServiceAborting === 'loading'}>
-				Cancel
-			</Button>
-			<Button
-				style="pop"
-				kind="solid"
-				icon="tick-small"
-				onclick={save}
-				disabled={modeServiceSaving === 'loading'}
-			>
-				Save and exit
-			</Button>
+			<div class="card files">
+				<h3 class="text-13 text-semibold header">Commit files</h3>
+				{#each files as file}
+					<div class="file">
+						<FileListItem
+							fileName={file.name}
+							filePath={file.path}
+							fileStatus={file.status}
+							conflicted={file.conflicted}
+							fileStatusStyle="full"
+							clickable={false}
+						/>
+					</div>
+				{/each}
+			</div>
 		</div>
 	</div>
-</div>
+
+	<!-- <div class="editmode__helpbox"> -->
+	<p class="text-12 text-body editmode__helptext">
+		Please don't make any commits while in edit mode.
+		<br />
+		To exit edit mode, use the provided actions.
+	</p>
+	<!-- </div> -->
+
+	<div class="editmode__actions">
+		<Button style="ghost" outline onclick={abort} disabled={modeServiceAborting === 'loading'}>
+			Cancel
+		</Button>
+		<Button
+			style="pop"
+			kind="solid"
+			icon="tick-small"
+			onclick={save}
+			disabled={modeServiceSaving === 'loading'}
+		>
+			Save and exit
+		</Button>
+	</div>
+</ActionView>
 
 <style lang="postcss">
-	.editmode {
-		display: flex;
-		flex-direction: column;
-
-		flex-grow: 1;
-
-		align-items: center;
-		justify-content: center;
-
-		background-color: var(--clr-bg-1);
-	}
-
-	.container {
-		width: 100%;
-		max-width: 500px;
-	}
-
-	.project-name {
-		margin-bottom: 12px;
-	}
-
 	.editmode__title {
 		color: var(--clr-text-1);
 		margin-bottom: 12px;
 	}
 
-	.editmode__message {
-		color: var(--clr-text-2);
-		margin-bottom: 20px;
-	}
 	.editmode__actions {
 		display: flex;
 		gap: 8px;
@@ -211,13 +213,8 @@
 	}
 
 	.files {
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-
-		margin-bottom: 16px;
-
+		margin-bottom: 12px;
 		overflow: hidden;
-
 		padding-bottom: 8px;
 
 		& .header {
@@ -232,5 +229,93 @@
 				border-bottom: none;
 			}
 		}
+	}
+
+	/* COMMIT */
+	.commit-group {
+		position: relative;
+		display: flex;
+		gap: 14px;
+	}
+
+	.commit-data {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		width: 100%;
+	}
+
+	/* COMMIT CARD */
+	.commit-card {
+		position: relative;
+		padding: 14px 14px 14px 16px;
+		gap: 6px;
+		overflow: hidden;
+	}
+
+	.commit-card__title {
+		color: var(--clr-text-1);
+	}
+
+	.commit-card__details {
+		display: flex;
+		gap: 4px;
+		color: var(--clr-text-2);
+	}
+
+	.commit-card__type-indicator {
+		position: absolute;
+		top: 0;
+		left: 0;
+		width: 4px;
+		height: 100%;
+		background-color: var(--clr-commit-local);
+	}
+
+	/* COMMIT LINE */
+	.commit-line__container {
+		position: absolute;
+		top: 0;
+		left: -26px;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		height: 100%;
+	}
+
+	.commit-line__avatar {
+		position: absolute;
+		top: 15px;
+		left: 50%;
+		transform: translateX(-50%);
+		border: 2px solid var(--clr-commit-local);
+		border-radius: 50%;
+	}
+
+	.commit-line__top-line {
+		width: 2px;
+		height: 48px;
+		margin-top: -26px;
+		background: linear-gradient(180deg, transparent 0%, var(--clr-commit-local) 100%);
+	}
+
+	.commit-line__bottom-line {
+		width: 2px;
+		height: 100%;
+		background: linear-gradient(180deg, var(--clr-commit-local) 0%, transparent 100%);
+	}
+
+	/* .editmode__helpbox {
+		color: var(--clr-text-2);
+		margin-bottom: 16px;
+		padding: 12px;
+		border-radius: var(--radius-m);
+		background-color: var(--clr-bg-1-muted);
+	} */
+
+	.editmode__helptext {
+		color: var(--clr-text-3);
+		margin-bottom: 16px;
 	}
 </style>

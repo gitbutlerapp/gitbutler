@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
+	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import Link from '$lib/shared/Link.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -21,7 +21,7 @@
 	});
 </script>
 
-<ContentWrapper title="Git stuff">
+<SettingsPage title="Git stuff">
 	<SectionCard labelFor="committerSigning" orientation="row">
 		<svelte:fragment slot="title">Credit GitButler as the committer</svelte:fragment>
 		<svelte:fragment slot="caption">
@@ -39,4 +39,4 @@
 			<Toggle id="committerSigning" checked={annotateCommits} on:click={toggleCommitterSigning} />
 		</svelte:fragment>
 	</SectionCard>
-</ContentWrapper>
+</SettingsPage>

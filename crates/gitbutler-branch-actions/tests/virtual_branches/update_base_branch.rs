@@ -415,6 +415,11 @@ mod applied_branch {
                 assert_eq!(branches[0].files.len(), 1);
                 assert_eq!(branches[0].commits.len(), 1);
                 assert!(!branches[0].commits[0].is_remote);
+                assert!(
+                    branches[0].commits[0].copied_from_remote_id.is_some(),
+                    "it's copied, which displays things differently in the \
+                     UI which knows what remote commit it relates to"
+                );
                 assert!(!branches[0].commits[0].is_integrated);
             }
         }

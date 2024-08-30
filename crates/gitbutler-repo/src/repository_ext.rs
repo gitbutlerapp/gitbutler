@@ -17,6 +17,10 @@ use tracing::instrument;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    /// Return `HEAD^{commit}` - ideal for obtaining the integration branch commit in open-workspace mode
+    /// when it's clear that it's representing the current state.
+    ///
+    /// Ideally, this is used in places of `get_workspace_head()`.
     fn head_commit(&self) -> Result<git2::Commit<'_>>;
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;

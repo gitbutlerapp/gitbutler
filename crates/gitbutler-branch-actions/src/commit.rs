@@ -36,6 +36,11 @@ pub struct VirtualBranchCommit {
     pub change_id: Option<String>,
     pub is_signed: bool,
     pub conflicted: bool,
+    /// The id of the remote commit from which this one was copied, as identified by
+    /// having equal author, committer, and commit message.
+    /// This is used by the frontend similar to the `change_id` to group matching commits.
+    #[serde(with = "gitbutler_serde::oid_opt")]
+    pub copied_from_remote_id: Option<git2::Oid>,
     pub remote_ref: Option<ReferenceName>,
 }
 
@@ -45,6 +50,7 @@ pub(crate) fn commit_to_vbranch_commit(
     commit: &git2::Commit,
     is_integrated: bool,
     is_remote: bool,
+    copied_from_remote_id: Option<git2::Oid>,
 ) -> Result<VirtualBranchCommit> {
     let timestamp = u128::try_from(commit.time().seconds())?;
     let message = commit.message_bstr().to_owned();
@@ -81,6 +87,7 @@ pub(crate) fn commit_to_vbranch_commit(
         change_id: commit.change_id(),
         is_signed: commit.is_signed(),
         conflicted: commit.is_conflicted(),
+        copied_from_remote_id,
         remote_ref,
     };
 

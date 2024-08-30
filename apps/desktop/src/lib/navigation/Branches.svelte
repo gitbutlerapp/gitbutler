@@ -7,7 +7,7 @@
 	import ChunkyList from '$lib/navigation/ChunkyList.svelte';
 	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
 	import { type SidebarEntrySubject } from '$lib/navigation/types';
-	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -16,9 +16,6 @@
 	import { writable } from 'svelte/store';
 
 	const combinedBranchListingService = getContext(CombinedBranchListingService);
-
-	let viewport = $state<HTMLDivElement>();
-	let contents = $state<HTMLDivElement>();
 
 	let searchEl: HTMLInputElement;
 	let searching = $state(false);
@@ -137,30 +134,24 @@
 
 	{#if $branchListings.length > 0}
 		{#if $searchedBranches.length > 0 || $searchTerm === undefined}
-			<ScrollableContainer
-				bind:viewport
-				bind:contents
-				fillViewport={$searchedBranches.length === 0}
-			>
-				<div bind:this={contents} class="scroll-container">
-					{#if $searchTerm}
-						<div class="group">
-							{#each $searchedBranches as sidebarEntrySubject}
-								{#if sidebarEntrySubject.type === 'branchListing'}
-									<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
-								{:else}
-									<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
-								{/if}
-							{/each}
-						</div>
-					{:else}
-						{@render branchGroup({ title: 'Applied', children: $groupedBranches.applied })}
-						{@render branchGroup({ title: 'Today', children: $groupedBranches.today })}
-						{@render branchGroup({ title: 'Yesterday', children: $groupedBranches.yesterday })}
-						{@render branchGroup({ title: 'Last week', children: $groupedBranches.lastWeek })}
-						{@render branchGroup({ title: 'Older', children: $groupedBranches.older })}
-					{/if}
-				</div>
+			<ScrollableContainer fillViewport={$searchedBranches.length === 0}>
+				{#if $searchTerm}
+					<div class="group">
+						{#each $searchedBranches as sidebarEntrySubject}
+							{#if sidebarEntrySubject.type === 'branchListing'}
+								<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
+							{:else}
+								<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
+							{/if}
+						{/each}
+					</div>
+				{:else}
+					{@render branchGroup({ title: 'Applied', children: $groupedBranches.applied })}
+					{@render branchGroup({ title: 'Today', children: $groupedBranches.today })}
+					{@render branchGroup({ title: 'Yesterday', children: $groupedBranches.yesterday })}
+					{@render branchGroup({ title: 'Last week', children: $groupedBranches.lastWeek })}
+					{@render branchGroup({ title: 'Older', children: $groupedBranches.older })}
+				{/if}
 			</ScrollableContainer>
 		{:else}
 			<EmptyStatePlaceholder image={noBranchesSvg} width="11rem">

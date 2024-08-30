@@ -1,10 +1,3 @@
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    path::{Path, PathBuf},
-    vec,
-};
-
 use crate::{
     branch_manager::BranchManagerExt,
     commit::{commit_to_vbranch_commit, VirtualBranchCommit},
@@ -17,7 +10,7 @@ use crate::{
     Get, VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::ByteSlice;
+use bstr::{BString, ByteSlice};
 use git2_hooks::HookResult;
 use gitbutler_branch::{
     dedup, dedup_fmt, reconcile_claims, signature, Branch, BranchId, BranchOwnershipClaims,
@@ -38,6 +31,13 @@ use gitbutler_repo::{
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
+use std::collections::HashSet;
+use std::{
+    borrow::Cow,
+    collections::HashMap,
+    path::{Path, PathBuf},
+    vec,
+};
 use tracing::instrument;
 
 // this struct is a mapping to the view `Branch` type in Typescript
@@ -158,7 +158,7 @@ pub fn unapply_ownership(
                 .map(|file| (file.path, file.hunks))
                 .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
             let tree_oid =
-                gitbutler_diff::write::hunks_onto_oid(ctx, &integration_commit_id, files)?;
+                gitbutler_diff::write::hunks_onto_oid(ctx, integration_commit_id, files)?;
             let branch_tree = repo.find_tree(tree_oid)?;
             let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
             let final_tree_oid = result.write_tree_to(ctx.repository())?;
@@ -232,9 +232,9 @@ fn find_base_tree<'a>(
 /// This should only ever be called by `list_virtual_branches
 ///
 /// This checks for the case where !branch.old_applied && branch.in_workspace
-/// If this is the case, we ought to unapply the branch as its been carried
+/// If this is the case, we ought to unapply the branch as it has been carried
 /// over from the old style of unapplying
-fn resolve_old_applied_state(
+fn fixup_old_applied_state(
     ctx: &CommandContext,
     vb_state: &VirtualBranchesHandle,
     perm: &mut WorktreeWritePermission,
@@ -278,7 +278,7 @@ pub fn list_virtual_branches_cached(
 
     let vb_state = ctx.project().virtual_branches();
 
-    resolve_old_applied_state(ctx, &vb_state, perm)?;
+    fixup_old_applied_state(ctx, &vb_state, perm)?;
 
     let default_target = vb_state
         .get_default_target()
@@ -292,6 +292,8 @@ pub fn list_virtual_branches_cached(
         .max()
         .unwrap_or(-1);
 
+    let branches_span =
+        tracing::debug_span!("handle branches", num_branches = status.branches.len()).entered();
     for (branch, mut files) in status.branches {
         let repo = ctx.repository();
         update_conflict_markers(ctx, files.clone())?;
@@ -311,19 +313,34 @@ pub fn list_virtual_branches_cached(
             ))?;
 
         // find upstream commits if we found an upstream reference
-        let mut pushed_commits = HashMap::new();
-        if let Some(upstream) = &upstram_branch_commit {
-            let merge_base =
-                repo.merge_base(upstream.id(), default_target.sha)
-                    .context(format!(
-                        "failed to find merge base between {} and {}",
-                        upstream.id(),
-                        default_target.sha
-                    ))?;
-            for oid in ctx.l(upstream.id(), LogUntil::Commit(merge_base))? {
-                pushed_commits.insert(oid, true);
-            }
-        }
+        let (remote_commit_ids, remote_commit_data) = upstram_branch_commit
+            .as_ref()
+            .map(
+                |upstream| -> Result<(HashSet<git2::Oid>, HashMap<CommitData, git2::Oid>)> {
+                    let merge_base =
+                        repo.merge_base(upstream.id(), default_target.sha)
+                            .context(format!(
+                                "failed to find merge base between {} and {}",
+                                upstream.id(),
+                                default_target.sha
+                            ))?;
+                    let remote_commit_ids =
+                        HashSet::from_iter(ctx.l(upstream.id(), LogUntil::Commit(merge_base))?);
+                    let remote_commit_data: HashMap<_, _> = remote_commit_ids
+                        .iter()
+                        .copied()
+                        .filter_map(|id| repo.find_commit(id).ok())
+                        .filter_map(|commit| {
+                            CommitData::try_from(&commit)
+                                .ok()
+                                .map(|key| (key, commit.id()))
+                        })
+                        .collect();
+                    Ok((remote_commit_ids, remote_commit_data))
+                },
+            )
+            .transpose()?
+            .unwrap_or_default();
 
         let mut is_integrated = false;
         let mut is_remote = false;
@@ -331,31 +348,54 @@ pub fn list_virtual_branches_cached(
         // find all commits on head that are not on target.sha
         let commits = ctx.log(branch.head, LogUntil::Commit(default_target.sha))?;
         let check_commit = IsCommitIntegrated::new(ctx, &default_target)?;
-        let vbranch_commits = commits
-            .iter()
-            .map(|commit| {
-                is_remote = if is_remote {
-                    is_remote
-                } else {
-                    pushed_commits.contains_key(&commit.id())
-                };
+        let vbranch_commits = {
+            let _span = tracing::debug_span!(
+                "is-commit-integrated",
+                given_name = branch.name,
+                commits_to_check = commits.len()
+            )
+            .entered();
+            commits
+                .iter()
+                .map(|commit| {
+                    is_remote = if is_remote {
+                        is_remote
+                    } else {
+                        // This can only work once we have pushed our commits to the remote.
+                        // Otherwise, even local commits created from a remote commit will look different.
+                        remote_commit_ids.contains(&commit.id())
+                    };
 
-                // only check for integration if we haven't already found an integration
-                if !is_integrated {
-                    is_integrated = check_commit.is_integrated(commit)?
-                };
+                    // only check for integration if we haven't already found an integration
+                    if !is_integrated {
+                        is_integrated = check_commit.is_integrated(commit)?
+                    };
 
-                commit_to_vbranch_commit(ctx, &branch, commit, is_integrated, is_remote)
-            })
-            .collect::<Result<Vec<_>>>()?;
+                    let copied_from_remote_id = CommitData::try_from(commit)
+                        .ok()
+                        .and_then(|data| remote_commit_data.get(&data).copied());
+
+                    commit_to_vbranch_commit(
+                        ctx,
+                        &branch,
+                        commit,
+                        is_integrated,
+                        is_remote,
+                        copied_from_remote_id,
+                    )
+                })
+                .collect::<Result<Vec<_>>>()?
+        };
 
         let merge_base = repo
             .merge_base(default_target.sha, branch.head)
             .context("failed to find merge base")?;
         let base_current = true;
 
-        let upstream = upstream_branch
-            .and_then(|upstream_branch| branch_to_remote_branch(ctx, &upstream_branch));
+        let upstream = upstream_branch.and_then(|upstream_branch| {
+            let remotes = repo.remotes().ok()?;
+            branch_to_remote_branch(&upstream_branch, &remotes).ok()?
+        });
 
         let path_claim_positions: HashMap<&PathBuf, usize> = branch
             .ownership
@@ -407,11 +447,46 @@ pub fn list_virtual_branches_cached(
         };
         branches.push(branch);
     }
+    drop(branches_span);
 
     let mut branches = branches_with_large_files_abridged(branches);
     branches.sort_by(|a, b| a.order.cmp(&b.order));
 
     Ok((branches, status.skipped_files))
+}
+
+/// The commit-data we can use for comparison to see which remote-commit was used to craete
+/// a local commit from.
+/// Note that trees can't be used for comparison as these are typically rebased.
+#[derive(Hash, Eq, PartialEq)]
+struct CommitData {
+    message: BString,
+    author: gix::actor::Signature,
+    committer: gix::actor::Signature,
+}
+
+impl TryFrom<&git2::Commit<'_>> for CommitData {
+    type Error = anyhow::Error;
+
+    fn try_from(commit: &git2::Commit<'_>) -> std::result::Result<Self, Self::Error> {
+        Ok(CommitData {
+            message: commit.message_raw_bytes().into(),
+            author: git2_signature_to_gix_signature(commit.author()),
+            committer: git2_signature_to_gix_signature(commit.committer()),
+        })
+    }
+}
+
+fn git2_signature_to_gix_signature(input: git2::Signature<'_>) -> gix::actor::Signature {
+    gix::actor::Signature {
+        name: input.name_bytes().into(),
+        email: input.email_bytes().into(),
+        time: gix::date::Time {
+            seconds: input.when().seconds(),
+            offset: input.when().offset_minutes() * 60,
+            sign: input.when().offset_minutes().into(),
+        },
+    }
 }
 
 fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<VirtualBranch> {
@@ -1043,7 +1118,7 @@ pub(crate) fn push(
     };
 
     ctx.push(
-        &vbranch.head,
+        vbranch.head,
         &remote_branch,
         with_force,
         credentials,
@@ -1215,7 +1290,7 @@ pub(crate) fn move_commit_file(
     let mut upstream_commits = ctx.l(target_branch.head, LogUntil::Commit(amend_commit.id()))?;
 
     // get a list of all the diffs across all the virtual branches
-    let base_file_diffs = gitbutler_diff::workdir(ctx.repository(), &default_target.sha)
+    let base_file_diffs = gitbutler_diff::workdir(ctx.repository(), default_target.sha)
         .context("failed to diff workdir")?;
 
     // filter base_file_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks in target_ownership
