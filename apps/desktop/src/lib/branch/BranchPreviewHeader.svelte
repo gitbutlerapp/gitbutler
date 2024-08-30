@@ -144,6 +144,7 @@
 	bind:this={deleteBranchModal}
 	onSubmit={async (close) => {
 		try {
+			isDeleting = true;
 			await branchController.deleteLocalBranch(branch.name, branch.givenName);
 		} catch (e) {
 			const err = 'Failed to delete local branch';
@@ -161,7 +162,7 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" kind="solid">Delete</Button>
+		<Button style="error" type="submit" kind="solid" loading={isDeleting}>Delete</Button>
 	{/snippet}
 </Modal>
 
