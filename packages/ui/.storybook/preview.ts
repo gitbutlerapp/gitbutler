@@ -8,7 +8,8 @@ const preview: Preview = {
 		backgrounds: { disable: true },
 		controls: {
 			matchers: {
-				color: /(background|color)$/i,
+				// matches "background" and "color" but not "solidBackground" as that is a boolean arg
+				color: /(?<!solid)(background|color)$/i,
 				date: /Date$/i
 			}
 		},
