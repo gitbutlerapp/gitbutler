@@ -30,24 +30,24 @@ pub fn open_that(path: &str) -> Result<(), Error> {
         move || {
             for mut cmd in open::commands(&path) {
                 let cleaned_vars = clean_env_vars(&[
-                    "XDG_DATA_DIRS",
-                    "GTK_PATH",
-                    "GTK_EXE_PREFIX",
                     "APPDIR",
-                    "LD_LIBRARY_PATH",
+                    "GDK_PIXBUF_MODULE_FILE",
                     "GIO_EXTRA_MODULES",
                     "GIO_EXTRA_MODULES",
-                    "PATH",
-                    "PYTHONHOME",
-                    "PYTHONPATH",
-                    "PERLLIB",
-                    "QT_PLUGIN_PATH",
                     "GSETTINGS_SCHEMA_DIR",
                     "GST_PLUGIN_SYSTEM_PATH",
                     "GST_PLUGIN_SYSTEM_PATH_1_0",
                     "GTK_DATA_PREFIX",
-                    "GDK_PIXBUF_MODULE_FILE",
+                    "GTK_EXE_PREFIX",
                     "GTK_IM_MODULE_FILE",
+                    "GTK_PATH",
+                    "LD_LIBRARY_PATH",
+                    "PATH",
+                    "PERLLIB",
+                    "PYTHONHOME",
+                    "PYTHONPATH",
+                    "QT_PLUGIN_PATH",
+                    "XDG_DATA_DIRS",
                 ]);
 
                 cmd.envs(cleaned_vars);
