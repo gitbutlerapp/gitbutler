@@ -3,8 +3,8 @@
 	import Login from '$lib/components/Login.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
+	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
 	import {
 		SETTINGS,
@@ -112,7 +112,7 @@
 	}
 </script>
 
-<ContentWrapper title="Profile">
+<SettingsPage title="Profile">
 	{#if $user}
 		<SectionCard>
 			<form on:submit={onSubmit} class="profile-form">
@@ -269,7 +269,7 @@
 			{/snippet}
 		</Modal>
 	</SectionCard>
-</ContentWrapper>
+</SettingsPage>
 
 <style lang="postcss">
 	.profile-form {

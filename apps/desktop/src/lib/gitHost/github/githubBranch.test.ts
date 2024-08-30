@@ -6,7 +6,7 @@ describe.concurrent('GitHubBranch', () => {
 	const name = 'some-branch';
 	const baseBranch = 'some-base';
 	const repo = {
-		source: 'github.com',
+		domain: 'github.com',
 		name: 'test-repo',
 		owner: 'test-owner'
 	};

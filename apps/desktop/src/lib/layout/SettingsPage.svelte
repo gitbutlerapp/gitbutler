@@ -1,7 +1,13 @@
 <script lang="ts">
-	import ScrollableContainer from '$lib/shared/ScrollableContainer.svelte';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
+	import { type Snippet } from 'svelte';
 
-	export let title: string | undefined = undefined;
+	interface Props {
+		title: string | undefined;
+		children: Snippet;
+	}
+
+	const { title, children }: Props = $props();
 </script>
 
 <section class="content-wrapper">
@@ -13,7 +19,9 @@
 						{title}
 					</h1>
 				{/if}
-				<slot />
+				{#if children}
+					{@render children()}
+				{/if}
 			</div>
 		</div>
 	</ScrollableContainer>
