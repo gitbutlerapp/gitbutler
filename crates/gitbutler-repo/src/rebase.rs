@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
-use git2::build::TreeUpdateBuilder;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{
@@ -9,7 +8,7 @@ use gitbutler_commit::{
 };
 use gitbutler_error::error::Marker;
 
-use crate::{temporary_workdir::TemporaryWorkdir, LogUntil, RepoActionsExt};
+use crate::{LogUntil, RepoActionsExt};
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
@@ -63,7 +62,7 @@ pub fn cherry_rebase_group(
                 let head = head?;
 
                 let cherrypick_index = repository
-                    .cherry_pick_gitbutler(&head, &to_rebase)
+                    .cherry_pick_gitbutler(&head, &to_rebase, None)
                     .context("failed to cherry pick")?;
 
                 if cherrypick_index.has_conflicts() {
@@ -131,7 +130,7 @@ fn commit_conflicted_cherry_result<'repository>(
     ctx: &'repository CommandContext,
     head: git2::Commit,
     to_rebase: git2::Commit,
-    mut cherrypick_index: git2::Index,
+    cherrypick_index: git2::Index,
 ) -> Result<git2::Commit<'repository>> {
     let repository = ctx.repository();
     let commit_headers = to_rebase.gitbutler_headers();
@@ -149,22 +148,10 @@ fn commit_conflicted_cherry_result<'repository>(
         b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
     let readme_blob = repository.blob(readme_content)?;
 
-    // Open a temporary workdir that gets cleaned up when it leaves scope.
-    // We need to have our cherrypick_index set to a real repository so we can
-    // manipluate it.
-    let temporary_workdir = TemporaryWorkdir::open(repository)?;
-
-    temporary_workdir
-        .repository()
-        .set_index(&mut cherrypick_index)
-        .context("Failed to set cherrypick index as worktree index")?;
-
     let mut conflicted_files = Vec::new();
 
     // get a list of conflicted files from the index
     let index_conflicts = cherrypick_index.conflicts()?.flatten().collect::<Vec<_>>();
-    let mut ours: Vec<git2::IndexEntry> = vec![];
-
     for conflict in index_conflicts {
         // For some reason we have to resolve the index with the "their" side
         // rather than the "our" side, so we then go and later overwrite the
@@ -172,31 +159,15 @@ fn commit_conflicted_cherry_result<'repository>(
         if let Some(their) = conflict.their {
             let path = std::str::from_utf8(&their.path).unwrap().to_string();
             conflicted_files.push(path);
-
-            let data = repository.find_blob(their.id)?;
-            let data = data.content();
-
-            cherrypick_index
-                .add_frombuffer(&their, data)
-                .context("Failed to add resolution")?;
-        }
-
-        if let Some(our) = conflict.our {
-            ours.push(our)
         }
     }
 
-    let resolved_tree = cherrypick_index
-        .write_tree_to(repository)
-        .context("Failed to write cherry index")?;
-    let resolved_tree = repository.find_tree(resolved_tree)?;
-    let mut resolved_tree_updater = TreeUpdateBuilder::new();
-
-    for our in ours {
-        resolved_tree_updater.upsert(our.path, our.id, git2::FileMode::Blob);
-    }
-
-    let resolved_tree_id = resolved_tree_updater.create_updated(repository, &resolved_tree)?;
+    let mut resolved_index = repository.cherry_pick_gitbutler(
+        &head,
+        &to_rebase,
+        Some(git2::MergeOptions::default().file_favor(git2::FileFavor::Ours)),
+    )?;
+    let resolved_tree_id = resolved_index.write_tree_to(repository)?;
 
     // convert files into a string and save as a blob
     let conflicted_files_string = conflicted_files.join("\n");

@@ -4,10 +4,10 @@
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
+	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { platformName } from '$lib/platform/platform';
 	import CloudForm from '$lib/settings/CloudForm.svelte';
-	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import DetailsForm from '$lib/settings/DetailsForm.svelte';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import PreferencesForm from '$lib/settings/PreferencesForm.svelte';
@@ -39,7 +39,7 @@
 	}
 </script>
 
-<ContentWrapper title="Project settings">
+<SettingsPage title="Project settings">
 	{#if $baseBranchSwitching}
 		<BaseBranchSwitch />
 	{/if}
@@ -65,4 +65,4 @@
 			/>
 		</div>
 	</SectionCard>
-</ContentWrapper>
+</SettingsPage>

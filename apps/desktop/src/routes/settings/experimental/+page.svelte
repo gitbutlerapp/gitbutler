@@ -5,7 +5,7 @@
 		featureInlineUnifiedDiffs,
 		featureBranchStacking
 	} from '$lib/config/uiFeatureFlags';
-	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
+	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
@@ -13,7 +13,7 @@
 	const branchStacking = featureBranchStacking();
 </script>
 
-<ContentWrapper title="Experimental features">
+<SettingsPage title="Experimental features">
 	<p class="text-13 text-body experimental-settings__text">
 		This sections contains a list of feature flags for features that are still in development or in
 		an experimental stage.
@@ -60,7 +60,7 @@
 			/>
 		</svelte:fragment>
 	</SectionCard>
-</ContentWrapper>
+</SettingsPage>
 
 <style>
 	.experimental-settings__text {

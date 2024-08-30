@@ -65,15 +65,16 @@
 		height: 8px;
 		border-radius: 100%;
 		flex-shrink: 0;
-		opacity: 0.6;
 	}
 	.status-dot.added {
-		background: var(--clr-scale-succ-50);
+		background: var(--clr-scale-succ-60);
 	}
 	.status-dot.modified {
-		background: var(--clr-scale-warn-50);
+		background: var(--clr-scale-warn-60);
+		opacity: 0.6;
 	}
 	.status-dot.deleted {
 		background: var(--clr-scale-err-50);
+		opacity: 0.8;
 	}
 </style>

@@ -1,12 +1,12 @@
 <script lang="ts">
 	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
 	import Resizer from '../shared/Resizer.svelte';
-	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';

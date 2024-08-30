@@ -6,7 +6,7 @@
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { ModeService } from '$lib/modes/service';
 	import { showToast } from '$lib/notifications/toasts';
-	import Scrollbar from '$lib/shared/Scrollbar.svelte';
+	import Scrollbar from '$lib/scroll/Scrollbar.svelte';
 	import { getContext } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 
