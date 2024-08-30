@@ -38,7 +38,7 @@
 	let aiConfigurationValid = $state(false);
 	let newRemoteName = $state('');
 	let allowRebasing = $state<boolean>();
-	let loadingDelete = $state(false);
+	let isDeleting = $state(false);
 
 	const branch = $derived($branchStore);
 	const commits = $derived(branch.commits);
@@ -189,11 +189,11 @@
 	bind:this={deleteBranchModal}
 	onSubmit={async (close) => {
 		try {
-			loadingDelete = true;
+			isDeleting = true;
 			await branchController.deleteBranch(branch.id);
 			close();
 		} finally {
-			loadingDelete = false;
+			isDeleting = false;
 		}
 	}}
 >
@@ -202,6 +202,6 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="error" kind="solid" type="submit" loading={loadingDelete}>Delete</Button>
+		<Button style="error" kind="solid" type="submit" loading={isDeleting}>Delete</Button>
 	{/snippet}
 </Modal>
