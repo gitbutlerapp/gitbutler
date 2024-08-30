@@ -81,6 +81,7 @@ impl FromStr for SnapshotDetails {
             .collect();
         let body = split.iter().map(|v| v.join("\n")).join("\n\n");
         let body = if body.is_empty() { None } else { Some(body) };
+        println("{:#?}", body);
 
         let version = trailers
             .iter()
