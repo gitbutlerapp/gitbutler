@@ -7,6 +7,7 @@
 use std::ops::Deref;
 
 use anyhow::Context;
+use git2::MergeOptions;
 use gitbutler_commit::commit_ext::CommitExt;
 
 #[derive(Default)]
@@ -43,6 +44,7 @@ pub trait RepositoryExt {
         &self,
         head: &git2::Commit,
         to_rebase: &git2::Commit,
+        merge_options: Option<&MergeOptions>,
     ) -> Result<git2::Index, anyhow::Error>;
     fn find_real_tree(
         &self,
@@ -60,6 +62,7 @@ impl RepositoryExt for git2::Repository {
         &self,
         head: &git2::Commit,
         to_rebase: &git2::Commit,
+        merge_options: Option<&MergeOptions>,
     ) -> Result<git2::Index, anyhow::Error> {
         // we need to do a manual 3-way patch merge
         // find the base, which is the parent of to_rebase
@@ -76,7 +79,7 @@ impl RepositoryExt for git2::Repository {
         // Get the original theirs
         let thiers = self.find_real_tree(to_rebase, ConflictedTreeKey::Theirs)?;
 
-        self.merge_trees(&base, &ours, &thiers, None)
+        self.merge_trees(&base, &ours, &thiers, merge_options)
             .context("failed to merge trees for cherry pick")
     }
 
