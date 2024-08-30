@@ -92,8 +92,9 @@ impl GitHunk {
 
 /// Comparison
 impl GitHunk {
-    /// workspace_intersects_unapplied is used to determine if a hunk from a diff between workspace and the trunk intersects with an unapplied hunk.
-    /// We want to use the new start/end for the integraiton hunk and the old start/end for the unapplied hunk.
+    /// workspace_intersects_unapplied is used to determine if a hunk from a diff between workspace
+    /// and the trunk intersects with an unapplied hunk. We want to use the new start/end for the
+    /// integration hunk and the old start/end for the unapplied hunk.
     pub fn workspace_intersects_unapplied(
         workspace_hunk: &GitHunk,
         unapplied_hunk: &GitHunk,
