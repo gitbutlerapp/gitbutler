@@ -1,6 +1,8 @@
 use gitbutler_branch::VirtualBranchesHandle;
-use gitbutler_branch_actions::{update_workspace_commit, verify_branch};
-use gitbutler_operating_modes::{INTEGRATION_BRANCH_REF, WORKSPACE_BRANCH_REF};
+use gitbutler_branch_actions::update_workspace_commit;
+use gitbutler_operating_modes::{
+    assure_open_workspace_mode, INTEGRATION_BRANCH_REF, WORKSPACE_BRANCH_REF,
+};
 
 /// Tests that "verify branch" won't complain if we are on the old integration
 /// branch, and that `update_workspace_commit` will put us back on the a branch
@@ -11,8 +13,6 @@ fn works_on_integration_branch() -> anyhow::Result<()> {
         "for-workspace-migration.sh",
         "workspace-migration",
     )?;
-    let mut guard = ctx.project().exclusive_worktree_access();
-    let perm = guard.write_permission();
 
     // Check that we are on the old `gitbutler/integration` branch.
     assert_eq!(
@@ -21,7 +21,7 @@ fn works_on_integration_branch() -> anyhow::Result<()> {
     );
 
     // Should not throw verification error until migration is complete.
-    let result = verify_branch(&ctx, perm);
+    let result = assure_open_workspace_mode(&ctx);
     assert!(result.is_ok());
 
     // Updating workspace commit should put us on the workspace branch.
