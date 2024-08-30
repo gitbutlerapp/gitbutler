@@ -1,6 +1,6 @@
 use std::{env, fs};
 
-use crate::open;
+use crate::open::open_url;
 use anyhow::Context;
 use gitbutler_error::{error, error::Code};
 use serde_json::json;
@@ -304,17 +304,13 @@ pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
 
     'open_link: {
         let result = match event.menu_item_id() {
-            "help/documentation" => open::open_url("https://docs.gitbutler.com"),
-            "help/github" => open::open_url("https://github.com/gitbutlerapp/gitbutler"),
-            "help/release-notes" => {
-                open::open_url("https://github.com/gitbutlerapp/gitbutler/releases")
-            }
-            "help/report-issue" => {
-                open::open_url("https://github.com/gitbutlerapp/gitbutler/issues/new")
-            }
-            "help/discord" => open::open_url("https://discord.com/invite/MmFkmaJ42D"),
-            "help/youtube" => open::open_url("https://www.youtube.com/@gitbutlerapp"),
-            "help/x" => open::open_url("https://x.com/gitbutler"),
+            "help/documentation" => open_url("https://docs.gitbutler.com"),
+            "help/github" => open_url("https://github.com/gitbutlerapp/gitbutler"),
+            "help/release-notes" => open_url("https://github.com/gitbutlerapp/gitbutler/releases"),
+            "help/report-issue" => open_url("https://github.com/gitbutlerapp/gitbutler/issues/new"),
+            "help/discord" => open_url("https://discord.com/invite/MmFkmaJ42D"),
+            "help/youtube" => open_url("https://www.youtube.com/@gitbutlerapp"),
+            "help/x" => open_url("https://x.com/gitbutler"),
             _ => break 'open_link,
         };
 

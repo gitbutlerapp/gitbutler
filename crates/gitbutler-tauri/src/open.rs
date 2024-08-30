@@ -55,11 +55,6 @@ pub fn open_that(path: &str) -> Result<(), Error> {
                 if cmd.status().is_ok() {
                     break;
                 };
-
-                // for mut cmd in open::commands(&path) {
-                //     cmd.envs(env::vars());
-                //     cmd.current_dir(env::temp_dir());
-                // }
             }
         }
     });
