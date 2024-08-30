@@ -11,7 +11,7 @@ pub mod commands;
 pub const WORKSPACE_BRANCH_REF: &str = "refs/heads/gitbutler/workspace";
 
 /// Previous workspace reference, delete after transition.
-const INTEGRATION_BRANCH_REF: &str = "refs/heads/gitbutler/integration";
+pub const INTEGRATION_BRANCH_REF: &str = "refs/heads/gitbutler/integration";
 
 /// To prevent clients hitting the "looks like you've moved away from..."
 /// after upgrading to a version using the new gitbutler/workspace branch
