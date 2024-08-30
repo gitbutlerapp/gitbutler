@@ -43,8 +43,8 @@
 			{/if}
 			{#if item.lineNumber}
 				<ContextMenuItem
-					label="Open in VS Code"
-					on:mousedown={() => {
+					label="Open in VSCode"
+					on:click={() => {
 						projectPath &&
 							openExternalUrl(`${$editor}://file${projectPath}/${filePath}:${item.lineNumber}`);
 						contextMenu.close();
