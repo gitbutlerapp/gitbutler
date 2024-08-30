@@ -235,6 +235,8 @@
 		srgb 0.5294117647058824 0.6588235294117647 0.6039215686274509
 	);
 	--clr-diff-addition-line-bg: color(srgb 0.8784313725490196 0.984313725490196 0.9411764705882353);
+	--clr-tooltip-border: var(--clr-core-ntrl-10);
+	--clr-tooltip-bg: var(--clr-core-ntrl-10);
 	--size-icon: 1rem;
 	--size-tag: 1.375rem;
 	--size-button: 1.75rem;
@@ -419,6 +421,8 @@
 	--clr-diff-addition-line-bg: color(
 		srgb 0.054901960784313725 0.1843137254901961 0.1450980392156863
 	);
+	--clr-tooltip-border: var(--clr-core-ntrl-30);
+	--clr-tooltip-bg: var(--clr-core-ntrl-10);
 }
 
 .bg-clr1 {

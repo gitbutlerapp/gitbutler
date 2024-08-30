@@ -3921,6 +3921,46 @@
 					}
 				}
 			}
+		},
+		"tooltip": {
+			"border": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.10}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.10}",
+						"dark": "{clr-core.ntrl.30}"
+					},
+					"figma": {
+						"variableId": "VariableID:4330:3683",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"bg": {
+				"$type": "color",
+				"$value": "{clr-core.ntrl.10}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.ntrl.10}",
+						"dark": "{clr-core.ntrl.10}"
+					},
+					"figma": {
+						"variableId": "VariableID:4330:3697",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			}
 		}
 	},
 	"size": {
@@ -4097,7 +4137,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius"],
-			"createdAt": "2024-08-10T21:58:58.533Z"
+			"createdAt": "2024-08-29T23:03:10.585Z"
 		}
 	}
 }

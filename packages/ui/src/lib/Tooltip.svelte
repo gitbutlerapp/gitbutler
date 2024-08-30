@@ -19,7 +19,7 @@
 	let show = $state(false);
 	let timeoutId: undefined | ReturnType<typeof setTimeout> = $state();
 
-	const isTextEmpty = !text || text.length === 0;
+	const isTextEmpty = $derived(!text || text === '');
 
 	function handleMouseEnter() {
 		if (isTextEmpty) return;
@@ -113,19 +113,22 @@
 	}
 
 	.tooltip-container {
+		white-space: pre-line;
 		display: flex;
 		justify-content: center;
 		flex-direction: column;
 		position: fixed;
 		pointer-events: none;
-		background-color: var(--clr-core-ntrl-10);
+		background-color: var(--clr-tooltip-bg);
+		border: 1px solid var(--clr-tooltip-border);
 		border-radius: var(--radius-m);
 		color: var(--clr-core-ntrl-80);
 		display: inline-block;
 		width: fit-content;
 		max-width: 240px;
-		padding: 6px 10px;
+		padding: 4px 8px;
 		z-index: var(--z-blocker);
 		text-align: center;
+		box-shadow: var(--fx-shadow-s);
 	}
 </style>
