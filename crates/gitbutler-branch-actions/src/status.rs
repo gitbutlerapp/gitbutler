@@ -56,7 +56,7 @@ pub fn get_applied_status_cached(
         //           any of its inputs will update the intragration commit right away.
         //           It's for another day though - right now the integration commit may be slightly stale.
         let integration_commit_id = get_workspace_head(ctx)?;
-        gitbutler_diff::workdir(ctx.repository(), &integration_commit_id.to_owned())
+        gitbutler_diff::workdir(ctx.repository(), integration_commit_id.to_owned())
             .context("failed to diff workdir")
     })?;
 
@@ -213,7 +213,7 @@ pub fn get_applied_status_cached(
     // write updated state if not resolving
     if !ctx.is_resolving() {
         for (vbranch, files) in &mut hunks_by_branch {
-            vbranch.tree = gitbutler_diff::write::hunks_onto_oid(ctx, &vbranch.head, files)?;
+            vbranch.tree = gitbutler_diff::write::hunks_onto_oid(ctx, vbranch.head, files)?;
             vb_state
                 .set_branch(vbranch.clone())
                 .context(format!("failed to write virtual branch {}", vbranch.name))?;

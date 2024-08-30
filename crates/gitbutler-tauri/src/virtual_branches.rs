@@ -463,12 +463,12 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub fn list_remote_branches(
+    pub fn list_local_branches(
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
     ) -> Result<Vec<RemoteBranch>, Error> {
         let project = projects.get(project_id)?;
-        let branches = VirtualBranchActions::list_remote_branches(project)?;
+        let branches = VirtualBranchActions::list_local_branches(project)?;
         Ok(branches)
     }
 

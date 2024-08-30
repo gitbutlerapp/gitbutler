@@ -1,3 +1,4 @@
+use crate::integration::get_workspace_head;
 use crate::{RemoteBranchFile, VirtualBranchesExt};
 use anyhow::{bail, Context, Result};
 use bstr::{BStr, ByteSlice};
@@ -9,7 +10,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
-use gitbutler_repo::{GixRepositoryExt, RepositoryExt};
+use gitbutler_repo::GixRepositoryExt;
 use gitbutler_serde::BStringForFrontend;
 use gix::object::tree::diff::Action;
 use gix::prelude::ObjectIdExt;
@@ -23,14 +24,14 @@ use std::{
     fmt::Debug,
     vec,
 };
+use tracing::instrument;
 
+#[instrument(level = tracing::Level::DEBUG, skip(ctx, _permission))]
 pub(crate) fn get_uncommited_files_raw(
-    context: &CommandContext,
+    ctx: &CommandContext,
     _permission: &WorktreeReadPermission,
 ) -> Result<DiffByPathMap> {
-    let repository = context.repository();
-    let head_commit = repository.head_commit()?;
-    gitbutler_diff::workdir(repository, &head_commit.id())
+    gitbutler_diff::workdir(ctx.repository(), get_workspace_head(ctx)?)
         .context("Failed to list uncommited files")
 }
 

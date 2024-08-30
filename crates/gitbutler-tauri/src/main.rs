@@ -178,7 +178,7 @@ fn main() {
                     virtual_branches::commands::update_change_reference,
                     virtual_branches::commands::reorder_commit,
                     virtual_branches::commands::update_commit_message,
-                    virtual_branches::commands::list_remote_branches,
+                    virtual_branches::commands::list_local_branches,
                     virtual_branches::commands::list_branches,
                     virtual_branches::commands::get_branch_listing_details,
                     virtual_branches::commands::get_remote_branch_data,

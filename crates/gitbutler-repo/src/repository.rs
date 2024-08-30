@@ -14,7 +14,7 @@ pub trait RepoActionsExt {
         -> Result<()>;
     fn push(
         &self,
-        head: &git2::Oid,
+        head: git2::Oid,
         branch: &RemoteRefname,
         with_force: bool,
         credentials: &Helper,
@@ -67,14 +67,14 @@ impl RepoActionsExt for CommandContext {
         let refname =
             RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
 
-        match self.push(&commit_id, &refname, false, credentials, None, askpass) {
+        match self.push(commit_id, &refname, false, credentials, None, askpass) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
 
         let empty_refspec = Some(format!(":refs/heads/{}", branch_name));
         match self.push(
-            &commit_id,
+            commit_id,
             &refname,
             false,
             credentials,
@@ -254,7 +254,7 @@ impl RepoActionsExt for CommandContext {
 
     fn push(
         &self,
-        head: &git2::Oid,
+        head: git2::Oid,
         branch: &RemoteRefname,
         with_force: bool,
         credentials: &Helper,
