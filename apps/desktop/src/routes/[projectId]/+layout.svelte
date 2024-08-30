@@ -32,6 +32,7 @@
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { debounce } from '$lib/utils/debounce';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
@@ -77,6 +78,7 @@
 		setContext(BranchListingService, data.branchListingService);
 		setContext(ModeService, data.modeService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
+		setContext(UpstreamIntegrationService, data.upstreamIntegrationService);
 	});
 
 	let intervalId: any;
