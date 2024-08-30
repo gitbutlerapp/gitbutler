@@ -82,6 +82,7 @@ mod update_base_branch;
 mod update_commit_message;
 mod upstream;
 mod verify_branch;
+mod workspace_migration;
 
 #[test]
 fn resolve_conflict_flow() {
