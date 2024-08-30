@@ -49,7 +49,7 @@
 		<Button
 			style="pop"
 			kind="solid"
-			help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
+			tooltip={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
 			disabled={$mode?.type !== 'OpenWorkspace'}
 			onclick={() => {
 				if ($mergeUpstreamWarningDismissed) {

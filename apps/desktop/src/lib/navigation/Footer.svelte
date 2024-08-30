@@ -19,7 +19,9 @@
 			icon="mail"
 			style="ghost"
 			size="cta"
-			help="Share feedback"
+			tooltip="Share feedback"
+			tooltipAlign="start"
+			tooltipPosition={isNavCollapsed ? 'bottom' : 'top'}
 			onclick={() => events.emit('openSendIssueModal')}
 			wide={isNavCollapsed}
 		/>
@@ -27,7 +29,9 @@
 			icon="settings"
 			style="ghost"
 			size="cta"
-			help="Project settings"
+			tooltip="Project settings"
+			tooltipAlign={isNavCollapsed ? 'start' : 'center'}
+			tooltipPosition={isNavCollapsed ? 'bottom' : 'top'}
 			onclick={async () => await goto(`/${projectId}/settings`)}
 			wide={isNavCollapsed}
 			disabled={$mode?.type !== 'OpenWorkspace'}
@@ -36,7 +40,9 @@
 			icon="timeline"
 			style="ghost"
 			size="cta"
-			help="Project history"
+			tooltip="Project history"
+			tooltipAlign={isNavCollapsed ? 'start' : 'center'}
+			tooltipPosition={isNavCollapsed ? 'bottom' : 'top'}
 			onclick={() => events.emit('openHistory')}
 			wide={isNavCollapsed}
 		/>

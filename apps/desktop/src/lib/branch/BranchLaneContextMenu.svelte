@@ -142,7 +142,7 @@
 				slot="control"
 				bind:checked={allowRebasing}
 				on:click={toggleAllowRebasing}
-				help="Allows changing commits after push (force push needed)"
+				tooltip="Allows changing commits after push (force push needed)"
 			/>
 		</ContextMenuItem>
 	</ContextMenuSection>

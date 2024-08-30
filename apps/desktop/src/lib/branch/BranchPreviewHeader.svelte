@@ -98,7 +98,7 @@
 				<Button
 					style="ghost"
 					outline
-					help="Restores these changes into your working directory"
+					tooltip="Restores these changes into your working directory"
 					icon="plus-small"
 					loading={isApplying}
 					disabled={$mode?.type !== 'OpenWorkspace'}
@@ -125,7 +125,7 @@
 				<Button
 					style="ghost"
 					outline
-					help="Deletes the local branch. If this branch is also present on a remote, it will not be deleted there."
+					tooltip="Deletes the local branch. If this branch is also present on a remote, it will not be deleted there."
 					icon="bin-small"
 					loading={isDeleting}
 					disabled={!localBranch}

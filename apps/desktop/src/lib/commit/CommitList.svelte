@@ -228,7 +228,7 @@
 							wide
 							loading={isPushingCommits}
 							disabled={localCommitsConflicted}
-							help={localCommitsConflicted
+							tooltip={localCommitsConflicted
 								? 'In order to push, please resolve any conflicted commits.'
 								: undefined}
 							onclick={async () => {

@@ -5,11 +5,11 @@
 	export let disabled = false;
 	export let checked = false;
 	export let value = '';
-	export let help = '';
+	export let tooltip = '';
 	export let id = '';
 </script>
 
-<Tooltip text={help}>
+<Tooltip text={tooltip}>
 	<input
 		bind:checked
 		on:click|stopPropagation

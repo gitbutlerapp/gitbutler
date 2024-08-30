@@ -1,3 +1,8 @@
+<script lang="ts" context="module">
+	export type TooltipPosition = 'top' | 'bottom';
+	export type TooltipAlign = 'start' | 'center' | 'end';
+</script>
+
 <script lang="ts">
 	import { portal } from '$lib/utils/portal';
 	import { flyScale } from '$lib/utils/transitions';
@@ -6,8 +11,8 @@
 	interface Props {
 		text?: string;
 		delay?: number;
-		align?: 'start' | 'center' | 'end';
-		position?: 'bottom' | 'top';
+		align?: TooltipAlign;
+		position?: TooltipPosition;
 		children: Snippet;
 	}
 
@@ -22,8 +27,6 @@
 	const isTextEmpty = $derived(!text || text === '');
 
 	function handleMouseEnter() {
-		if (isTextEmpty) return;
-
 		timeoutId = setTimeout(() => {
 			show = true;
 			// console.log('showing tooltip');
@@ -31,8 +34,6 @@
 	}
 
 	function handleMouseLeave() {
-		if (isTextEmpty) return;
-
 		clearTimeout(timeoutId);
 		show = false;
 	}
@@ -63,10 +64,13 @@
 
 		if (align === 'start') {
 			left = targetRect.left + window.scrollX;
+			transformOriginLeft = 'left';
 		} else if (align === 'end') {
 			left = targetRect.right - tooltipRect.width + window.scrollX;
+			transformOriginLeft = 'right';
 		} else if (align === 'center') {
 			left = targetRect.left + targetRect.width / 2 - tooltipRect.width / 2 + window.scrollX;
+			transformOriginLeft = 'center';
 		}
 
 		tooltipEl.style.top = `${top}px`;
@@ -81,30 +85,34 @@
 	});
 </script>
 
-<span
-	bind:this={targetEl}
-	class="tooltip-wrap"
-	role="tooltip"
-	onmouseenter={handleMouseEnter}
-	onmouseleave={handleMouseLeave}
->
-	{#if children}
-		{@render children()}
-	{/if}
+{#if isTextEmpty}
+	{@render children()}
+{:else}
+	<span
+		bind:this={targetEl}
+		class="tooltip-wrap"
+		role="tooltip"
+		onmouseenter={handleMouseEnter}
+		onmouseleave={handleMouseLeave}
+	>
+		{#if children}
+			{@render children()}
+		{/if}
 
-	{#if show && !isTextEmpty}
-		<div
-			bind:this={tooltipEl}
-			use:portal={'body'}
-			class="tooltip-container text-11 text-body"
-			transition:flyScale={{
-				position: position
-			}}
-		>
-			<span>{text}</span>
-		</div>
-	{/if}
-</span>
+		{#if show}
+			<div
+				bind:this={tooltipEl}
+				use:portal={'body'}
+				class="tooltip-container text-11 text-body"
+				transition:flyScale={{
+					position: position
+				}}
+			>
+				<span>{text}</span>
+			</div>
+		{/if}
+	</span>
+{/if}
 
 <style lang="postcss">
 	.tooltip-wrap {
@@ -128,7 +136,7 @@
 		max-width: 240px;
 		padding: 4px 8px;
 		z-index: var(--z-blocker);
-		text-align: center;
+		text-align: left;
 		box-shadow: var(--fx-shadow-s);
 	}
 </style>
