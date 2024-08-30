@@ -4,11 +4,11 @@
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import AiPromptEdit from '$lib/components/AIPromptEdit/AIPromptEdit.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { getSecretsService } from '$lib/secrets/secretsService';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import AuthorizationBanner from '$lib/settings/AuthorizationBanner.svelte';
-	import ContentWrapper from '$lib/settings/ContentWrapper.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
@@ -145,7 +145,7 @@
 	}
 </script>
 
-<ContentWrapper title="AI options">
+<SettingsPage title="AI options">
 	<!-- <div class="ai-settings-wrap"> -->
 	<p class="text-13 text-body ai-settings__text">
 		GitButler supports multiple providers for its AI powered features. We currently support models
@@ -353,7 +353,7 @@
 			<AiPromptEdit promptUse="branches" />
 		</div>
 	</Section>
-</ContentWrapper>
+</SettingsPage>
 
 <style>
 	.ai-settings__text {

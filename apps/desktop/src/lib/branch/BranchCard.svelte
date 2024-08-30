@@ -3,7 +3,6 @@
 	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
 	import PullRequestCard from '../pr/PullRequestCard.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
-	import ScrollableContainer from '../shared/ScrollableContainer.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
@@ -17,6 +16,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { persisted } from '$lib/persisted/persisted';
 	import { isFailure } from '$lib/result';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import { User } from '$lib/stores/user';

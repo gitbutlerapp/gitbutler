@@ -1,68 +1,110 @@
 <script lang="ts" context="module">
-	export type ScrollbarPadding = { top?: number; right?: number; bottom?: number; left?: number };
+	export type ScrollbarPaddingType = {
+		top?: number;
+		right?: number;
+		bottom?: number;
+		left?: number;
+	};
 </script>
 
 <script lang="ts">
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getContextStoreBySymbol } from '$lib/utils/context';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { onDestroy, createEventDispatcher } from 'svelte';
+
+	interface Props {
+		viewport: Element;
+		contents: Element;
+		initiallyVisible?: boolean;
+		thickness?: string;
+		padding?: ScrollbarPaddingType;
+		shift?: string;
+		horz?: boolean;
+		zIndex?: string;
+		onthumbdrag?: (dragging: boolean) => void;
+		onscroll?: (e: Event) => void;
+	}
+
+	const {
+		viewport,
+		contents,
+		initiallyVisible = false,
+		thickness = '0.563rem',
+		padding = {},
+		shift = '0',
+		horz = false,
+		zIndex = 'var(--z-lifted)',
+		onthumbdrag,
+		onscroll
+	}: Props = $props();
+
+	$effect(() => {
+		if (viewport) {
+			setupViewport(viewport);
+		}
+
+		if (thumb) {
+			setupThumb(thumb);
+		}
+
+		if (track) {
+			setupTrack(track);
+		}
+
+		if (contents) {
+			setupContents(contents);
+		}
+	});
+
+	$effect(() => {
+		onthumbdrag?.(isDragging);
+	});
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
-	export let viewport: Element;
-	export let contents: Element;
-	export let initiallyVisible = false;
-	export let thickness = '0.563rem';
-	export let padding: ScrollbarPadding = {};
-	export let shift = '0';
-	export let horz = false;
-	export let zIndex = 'var(--z-lifted)';
+	let thumb: Element | undefined = $state();
+	let track: Element | undefined = $state();
+	let startTop = $state(0);
+	let startLeft = $state(0);
+	let startY = $state(0);
+	let startX = $state(0);
+	let isDragging = $state(false);
 
-	let thumb: Element;
-	let track: Element;
-	let startTop = 0;
-	let startLeft = 0;
-	let startY = 0;
-	let startX = 0;
-	let isDragging = false;
+	let vert = $derived(!horz);
 
-	$: teardownViewport = setupViewport(viewport);
-	$: teardownThumb = setupThumb(thumb);
-	$: teardownTrack = setupTrack(track);
-	$: teardownContents = setupContents(contents);
+	let paddingTop = $state(pxToRem(padding.top ?? 0));
+	let paddingBottom = $state(pxToRem(padding.bottom ?? 0));
+	let paddingRight = $state(pxToRem(padding.right ?? 0));
+	let paddingLeft = $state(pxToRem(padding.left ?? 0));
 
-	$: vert = !horz;
+	let wholeHeight = $state(viewport?.scrollHeight ?? 0);
+	let wholeWidth = $state(viewport?.scrollWidth ?? 0);
+	let scrollTop = $state(viewport?.scrollTop ?? 0);
+	let scrollLeft = $state(viewport?.scrollLeft ?? 0);
+	let trackHeight = $state(viewport?.clientHeight ?? 0);
+	let trackWidth = $state(viewport?.clientHeight ?? 0);
 
-	$: paddingTop = pxToRem(padding.top ?? 0);
-	$: paddingBottom = pxToRem(padding.bottom ?? 0);
-	$: paddingRight = pxToRem(padding.right ?? 0);
-	$: paddingLeft = pxToRem(padding.left ?? 0);
+	let thumbHeight = $derived(wholeHeight > 0 ? (trackHeight / wholeHeight) * trackHeight : 0);
+	let thumbWidth = $derived(wholeWidth > 0 ? (trackWidth / wholeWidth) * trackWidth : 0);
+	let thumbTop = $derived(wholeHeight > 0 ? (scrollTop / wholeHeight) * trackHeight : 0);
+	let thumbLeft = $derived(wholeHeight > 0 ? (scrollLeft / wholeWidth) * trackWidth : 0);
 
-	$: wholeHeight = viewport?.scrollHeight ?? 0;
-	$: wholeWidth = viewport?.scrollWidth ?? 0;
-	$: scrollTop = viewport?.scrollTop ?? 0;
-	$: scrollLeft = viewport?.scrollLeft ?? 0;
-	$: trackHeight = viewport?.clientHeight ?? 0;
-	$: trackWidth = viewport?.clientHeight ?? 0;
-	$: thumbHeight = wholeHeight > 0 ? (trackHeight / wholeHeight) * trackHeight : 0;
-	$: thumbWidth = wholeWidth > 0 ? (trackWidth / wholeWidth) * trackWidth : 0;
-	$: thumbTop = wholeHeight > 0 ? (scrollTop / wholeHeight) * trackHeight : 0;
-	$: thumbLeft = wholeHeight > 0 ? (scrollLeft / wholeWidth) * trackWidth : 0;
+	let scrollableY = $derived(wholeHeight > trackHeight);
+	let scrollableX = $derived(wholeWidth > trackWidth);
+	let isScrollable = $derived(scrollableY || scrollableX);
+	let shouldShowInitially = $derived(initiallyVisible && isScrollable);
+	let shouldShowOnHover = $derived(
+		$userSettings.scrollbarVisibilityState === 'hover' && isScrollable
+	);
+	let shouldAlwaysShow = $derived(
+		$userSettings.scrollbarVisibilityState === 'always' && isScrollable
+	);
 
-	$: scrollableY = wholeHeight > trackHeight;
-	$: scrollableX = wholeWidth > trackWidth;
-	$: isScrollable = scrollableY || scrollableX;
-	$: shouldShowInitially = initiallyVisible && isScrollable;
-	$: shouldShowOnHover = $userSettings.scrollbarVisibilityState === 'hover' && isScrollable;
-	$: shouldAlwaysShow = $userSettings.scrollbarVisibilityState === 'always' && isScrollable;
+	let visible = $state(false);
 
-	$: visible = shouldShowInitially || (shouldShowOnHover && initiallyVisible) || shouldAlwaysShow;
-
-	const dispatch = createEventDispatcher<{
-		dragging: boolean;
-		scroll: Event;
-	}>();
+	$effect(() => {
+		visible = shouldShowInitially || (shouldShowOnHover && initiallyVisible) || shouldAlwaysShow;
+	});
 
 	/////////////////////
 	// TIMER FUNCTIONS //
@@ -100,7 +142,6 @@
 
 	function setupViewport(viewport: Element) {
 		if (!viewport) return;
-		teardownViewport?.();
 
 		if (typeof window.ResizeObserver === 'undefined') {
 			throw new Error('window.ResizeObserver is missing.');
@@ -145,7 +186,6 @@
 
 	function setupTrack(track: Element) {
 		if (!track) return;
-		teardownTrack?.();
 
 		track.addEventListener('mousedown', onThumbClick, { passive: true });
 		track.addEventListener('mouseenter', onTrackEnter);
@@ -163,7 +203,6 @@
 	//////////////////
 	function setupThumb(thumb: Element) {
 		if (!thumb) return;
-		teardownThumb?.();
 
 		thumb.addEventListener('mousedown', onThumbClick, { passive: true });
 		return () => {
@@ -173,7 +212,6 @@
 
 	function setupContents(contents: Element) {
 		if (!contents) return;
-		teardownContents?.();
 
 		if (typeof window.ResizeObserver === 'undefined') {
 			throw new Error('window.ResizeObserver is missing.');
@@ -194,7 +232,7 @@
 	function onScroll(e: Event) {
 		if (!isScrollable) return;
 
-		dispatch('scroll', e);
+		onscroll?.(e);
 
 		clearTimer();
 		setupTimer();
@@ -264,16 +302,6 @@
 
 		document.addEventListener('mousemove', onMouseMove);
 		document.addEventListener('mouseup', onMouseUp);
-	}
-
-	onDestroy(() => {
-		teardownViewport?.();
-		teardownContents?.();
-		teardownThumb?.();
-	});
-
-	$: {
-		dispatch('dragging', isDragging);
 	}
 </script>
 
