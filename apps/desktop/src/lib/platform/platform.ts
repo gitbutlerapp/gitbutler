@@ -1,6 +1,3 @@
-import { platform } from '@tauri-apps/api/os';
-import { readable } from 'svelte/store';
+import { platform } from '@tauri-apps/plugin-os';
 
-export const platformName = readable<string | undefined>(undefined, (set) => {
-	platform().then((platform) => set(platform));
-});
+export const platformName = platform();

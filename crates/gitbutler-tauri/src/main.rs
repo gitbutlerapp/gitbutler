@@ -16,16 +16,15 @@ use gitbutler_tauri::{
     askpass, commands, config, github, logs, menu, modes, projects, remotes, repo, secret, undo,
     users, virtual_branches, zip, App, WindowState,
 };
+use tauri::Emitter;
 use tauri::{generate_context, Manager};
-use tauri_plugin_log::LogTarget;
+use tauri_plugin_log::{Target, TargetKind};
 
 fn main() {
     let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
     gitbutler_project::configure_git2();
     let tauri_context = generate_context!();
-    gitbutler_secret::secret::set_application_namespace(
-        &tauri_context.config().tauri.bundle.identifier,
-    );
+    gitbutler_secret::secret::set_application_namespace(&tauri_context.config().identifier);
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -35,14 +34,15 @@ fn main() {
             tauri::async_runtime::set(tokio::runtime::Handle::current());
 
             let log = tauri_plugin_log::Builder::default()
-                .log_name("ui-logs")
-                .target(LogTarget::LogDir)
+                .target(Target::new(TargetKind::LogDir {
+                    file_name: Some("ui-logs".to_string()),
+                }))
                 .level(log::LevelFilter::Error);
 
             tauri::Builder::default()
                 .setup(move |tauri_app| {
                     let window = gitbutler_tauri::window::create(
-                        &tauri_app.handle(),
+                        tauri_app.handle(),
                         "main",
                         "index.html".into(),
                     )
@@ -50,18 +50,10 @@ fn main() {
                     #[cfg(debug_assertions)]
                     window.open_devtools();
 
-                    tokio::task::spawn(async move {
-                        let mut six_hours =
-                            tokio::time::interval(tokio::time::Duration::new(6 * 60 * 60, 0));
-                        loop {
-                            six_hours.tick().await;
-                            _ = window.emit_and_trigger("tauri://update", ());
-                        }
-                    });
-
                     let app_handle = tauri_app.handle();
 
-                    logs::init(&app_handle, performance_logging);
+                    logs::init(app_handle, performance_logging);
+
                     tracing::info!(
                         "system git executable for fetch/push: {git:?}",
                         git = gix::path::env::exe_invocation(),
@@ -82,14 +74,14 @@ fn main() {
                             let handle = app_handle.clone();
                             move |event| {
                                 handle
-                                    .emit_all("git_prompt", event)
+                                    .emit("git_prompt", event)
                                     .expect("tauri event emission doesn't fail in practice")
                             }
                         });
                     }
 
                     let (app_data_dir, app_cache_dir, app_log_dir) = {
-                        let paths = app_handle.path_resolver();
+                        let paths = app_handle.path();
                         (
                             paths.app_data_dir().expect("missing app data dir"),
                             paths.app_cache_dir().expect("missing app cache dir"),
@@ -118,11 +110,21 @@ fn main() {
                     app_handle.manage(credentials::Helper::default());
                     app_handle.manage(app);
 
+                    tauri_app.on_menu_event(move |_handle, event| {
+                        menu::handle_event(&window.clone(), &event)
+                    });
                     Ok(())
                 })
                 .plugin(tauri_plugin_window_state::Builder::default().build())
+                .plugin(tauri_plugin_http::init())
+                .plugin(tauri_plugin_shell::init())
+                .plugin(tauri_plugin_os::init())
+                .plugin(tauri_plugin_process::init())
                 .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
-                .plugin(tauri_plugin_context_menu::init())
+                .plugin(tauri_plugin_updater::Builder::new().build())
+                .plugin(tauri_plugin_dialog::init())
+                .plugin(tauri_plugin_fs::init())
+                // .plugin(tauri_plugin_context_menu::init())
                 .plugin(tauri_plugin_store::Builder::default().build())
                 .plugin(log.build())
                 .invoke_handler(tauri::generate_handler![
@@ -210,11 +212,9 @@ fn main() {
                     modes::abort_edit_and_return_to_workspace,
                     modes::edit_initial_index_state
                 ])
-                .menu(menu::build(tauri_context.package_info()))
-                .on_menu_event(|event| menu::handle_event(&event))
-                .on_window_event(|event| {
-                    let window = event.window();
-                    match event.event() {
+                .menu(menu::build)
+                .on_window_event(|window, event| {
+                    match event {
                         #[cfg(target_os = "macos")]
                         tauri::WindowEvent::CloseRequested { api, .. } => {
                             if window.app_handle().windows().len() == 1 {
@@ -239,7 +239,7 @@ fn main() {
                                 .ok();
                         }
                         _ => {}
-                    }
+                    };
                 })
                 .build(tauri_context)
                 .expect("Failed to build tauri app")
