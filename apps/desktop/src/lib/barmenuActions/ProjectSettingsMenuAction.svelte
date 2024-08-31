@@ -6,7 +6,7 @@
 	import * as events from '$lib/utils/events';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
-	import { open } from '@tauri-apps/api/shell';
+	import { open } from '@tauri-apps/plugin-shell';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 

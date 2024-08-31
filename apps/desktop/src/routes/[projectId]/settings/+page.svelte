@@ -52,7 +52,7 @@
 	{#if $user?.github_access_token}
 		<GitHostForm />
 	{/if}
-	{#if $platformName !== 'win32'}
+	{#if platformName !== 'windows'}
 		<KeysForm showProjectName={false} />
 		<Spacer />
 	{/if}

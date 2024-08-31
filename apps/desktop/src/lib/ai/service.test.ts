@@ -1,15 +1,15 @@
-import { AnthropicAIClient } from '$lib/ai/anthropicClient';
-import { ButlerAIClient } from '$lib/ai/butlerClient';
-import { OpenAIClient } from '$lib/ai/openAIClient';
-import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
-import { AISecretHandle, AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/ai/service';
+import { AnthropicAIClient } from './anthropicClient';
+import { ButlerAIClient } from './butlerClient';
+import { OpenAIClient } from './openAIClient';
+import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from './prompts';
+import { AISecretHandle, AIService, GitAIConfigKey, KeyOption, buildDiff } from './service';
 import {
 	AnthropicModelName,
 	ModelKind,
 	OpenAIModelName,
 	type AIClient,
 	type Prompt
-} from '$lib/ai/types';
+} from './types';
 import { HttpClient } from '$lib/backend/httpClient';
 import { buildFailureFromAny, ok, unwrap, type Result } from '$lib/result';
 import { Hunk } from '$lib/vbranches/types';

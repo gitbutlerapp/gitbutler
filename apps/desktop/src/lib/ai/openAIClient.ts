@@ -1,6 +1,6 @@
-import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
+import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from './prompts';
 import { andThen, buildFailureFromAny, ok, wrapAsync, type Result } from '$lib/result';
-import type { OpenAIModelName, Prompt, AIClient } from '$lib/ai/types';
+import type { OpenAIModelName, Prompt, AIClient } from './types';
 import type OpenAI from 'openai';
 import type { ChatCompletion } from 'openai/resources/index.mjs';
 

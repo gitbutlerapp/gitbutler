@@ -163,7 +163,7 @@ trap 'rm -rf "$TMP_DIR"' exit
 CONFIG_PATH=$(readlink -f "$PWD/../crates/gitbutler-tauri/tauri.conf.$CHANNEL.json")
 
 # update the version in the tauri release config
-jq '.package.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
+jq '.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
 
 if [ "$OS" = "windows" ]; then
 	FEATURES="windows"
