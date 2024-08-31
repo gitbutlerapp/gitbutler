@@ -5,8 +5,8 @@
  * @module appSettings
  */
 
+import { Store } from '@tauri-apps/plugin-store';
 import { writable, type Writable } from 'svelte/store';
-import { Store } from 'tauri-plugin-store-api';
 
 const store = new Store('settings.json');
 

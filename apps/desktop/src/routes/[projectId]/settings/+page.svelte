@@ -45,7 +45,7 @@
 	{/if}
 	<CloudForm />
 	<DetailsForm />
-	{#if $platformName !== 'win32'}
+	{#if platformName !== 'windows'}
 		<KeysForm showProjectName={false} />
 		<Spacer />
 	{/if}

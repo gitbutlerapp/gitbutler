@@ -1,11 +1,7 @@
-import { AnthropicAIClient } from '$lib/ai/anthropicClient';
-import { ButlerAIClient } from '$lib/ai/butlerClient';
-import {
-	DEFAULT_OLLAMA_ENDPOINT,
-	DEFAULT_OLLAMA_MODEL_NAME,
-	OllamaClient
-} from '$lib/ai/ollamaClient';
-import { OpenAIClient } from '$lib/ai/openAIClient';
+import { AnthropicAIClient } from './anthropicClient';
+import { ButlerAIClient } from './butlerClient';
+import { DEFAULT_OLLAMA_ENDPOINT, DEFAULT_OLLAMA_MODEL_NAME, OllamaClient } from './ollamaClient';
+import { OpenAIClient } from './openAIClient';
 import {
 	OpenAIModelName,
 	type AIClient,
@@ -13,7 +9,7 @@ import {
 	ModelKind,
 	MessageRole,
 	type Prompt
-} from '$lib/ai/types';
+} from './types';
 import { buildFailureFromAny, isFailure, ok, type Result } from '$lib/result';
 import { splitMessage } from '$lib/utils/commitMessage';
 import OpenAI from 'openai';

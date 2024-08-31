@@ -1,5 +1,5 @@
+import { invoke as invokeTauri } from '@tauri-apps/api/core';
 import { listen as listenTauri } from '@tauri-apps/api/event';
-import { invoke as invokeTauri } from '@tauri-apps/api/tauri';
 import type { EventCallback, EventName } from '@tauri-apps/api/event';
 
 export enum Code {
