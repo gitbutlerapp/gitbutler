@@ -17,7 +17,6 @@ describe('Updater', () => {
 		tauri = new Tauri();
 		updater = new UpdaterService(tauri);
 		vi.spyOn(tauri, 'listen').mockReturnValue(async () => {});
-		vi.spyOn(tauri, 'currentVersion').mockReturnValue(Promise.resolve('0.1'));
 	});
 
 	afterEach(() => {
@@ -27,9 +26,9 @@ describe('Updater', () => {
 
 	test('should not show up-to-date on interval check', async () => {
 		vi.spyOn(tauri, 'checkUpdate').mockReturnValue(
-			Promise.resolve({
+			mockUpdate({
 				available: false
-			} as Update)
+			})
 		);
 		await updater.checkForUpdate();
 		expect(get(updater.update)).toMatchObject({});
@@ -37,10 +36,10 @@ describe('Updater', () => {
 
 	test('should show up-to-date on manual check', async () => {
 		vi.spyOn(tauri, 'checkUpdate').mockReturnValue(
-			Promise.resolve({
+			mockUpdate({
 				available: false,
 				version: '1'
-			} as Update)
+			})
 		);
 		await updater.checkForUpdate(true); // manual = true;
 		expect(get(updater.update)).toHaveProperty('status', 'Up-to-date');
@@ -50,11 +49,11 @@ describe('Updater', () => {
 		const body = 'release notes';
 
 		vi.spyOn(tauri, 'checkUpdate').mockReturnValue(
-			Promise.resolve({
+			mockUpdate({
 				available: true,
 				version: '1',
 				body
-			} as Update)
+			})
 		);
 
 		await updater.checkForUpdate();
@@ -64,11 +63,11 @@ describe('Updater', () => {
 		updater.dismiss();
 
 		vi.spyOn(tauri, 'checkUpdate').mockReturnValue(
-			Promise.resolve({
+			mockUpdate({
 				available: true,
 				version: '2',
 				body
-			} as Update)
+			})
 		);
 		await updater.checkForUpdate();
 		const update2 = get(updater.update);
@@ -81,11 +80,11 @@ describe('Updater', () => {
 		const body = 'release notes';
 
 		vi.spyOn(tauri, 'checkUpdate').mockReturnValue(
-			Promise.resolve({
+			mockUpdate({
 				available: true,
 				version,
 				body
-			} as Update)
+			})
 		);
 		const updater = new UpdaterService(tauri);
 		await updater.checkForUpdate();
@@ -102,9 +101,9 @@ describe('Updater', () => {
 
 	test('should check for updates continously', async () => {
 		const mock = vi.spyOn(tauri, 'checkUpdate').mockReturnValue(
-			Promise.resolve({
+			mockUpdate({
 				available: false
-			} as Update)
+			})
 		);
 
 		const unsubscribe = updater.update.subscribe(() => {});
@@ -117,3 +116,11 @@ describe('Updater', () => {
 		unsubscribe();
 	});
 });
+
+async function mockUpdate(update: Partial<Update>): Promise<Update> {
+	return await Promise.resolve({
+		download: () => {},
+		install: () => {},
+		...update
+	} as Update);
+}
