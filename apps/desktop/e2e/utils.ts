@@ -1,7 +1,4 @@
-import { browser } from '@wdio/globals';
 import { spawnSync } from 'node:child_process';
-
-const DEFAULT_TIMEOUT = 5_000;
 
 export async function spawnAndLog(command: string, args: string[]) {
 	const result = spawnSync(command, args);
@@ -12,12 +9,10 @@ export async function spawnAndLog(command: string, args: string[]) {
 	return result.status;
 }
 
-export async function findAndClick(selector: string, timeout?: number) {
+export async function findAndClick(selector: string) {
 	const button = await $(selector);
-	await button.waitForClickable({
-		timeout: timeout ?? DEFAULT_TIMEOUT
-	});
-	await browser.execute('arguments[0].click();', button);
+	await button.isClickable();
+	await button.click();
 }
 
 export async function setElementValue(targetElement: WebdriverIO.Element, value: string) {
