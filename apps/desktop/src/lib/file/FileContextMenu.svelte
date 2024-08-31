@@ -12,7 +12,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { join } from '@tauri-apps/api/path';
-	import { open as openFile } from '@tauri-apps/api/shell';
+	import { open as openFile } from '@tauri-apps/plugin-shell';
 
 	export let branchId: string | undefined;
 	export let target: HTMLElement | undefined;

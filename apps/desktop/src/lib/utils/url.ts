@@ -1,5 +1,5 @@
 import { showToast } from '$lib/notifications/toasts';
-import { open } from '@tauri-apps/api/shell';
+import { open } from '@tauri-apps/plugin-shell';
 import GitUrlParse from 'git-url-parse';
 import { posthog } from 'posthog-js';
 

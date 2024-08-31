@@ -5,7 +5,7 @@
 	import { editor } from '$lib/editorLink/editorLink';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { open as openFile } from '@tauri-apps/api/shell';
+	import { open as openFile } from '@tauri-apps/plugin-shell';
 
 	interface Props {
 		target: HTMLElement | undefined;

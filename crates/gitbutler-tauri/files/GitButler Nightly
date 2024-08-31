@@ -1,0 +1,7 @@
+#!/bin/bash
+# This file gets copied into the MacOS bundle, specified in the tauri.conf.json
+# configuration under `bundle.macos.files`. It solves the Tauri v1 -> v2 upgrade
+# as relaunching the app after an update assumes the binary name to be the same.
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+$SCRIPT_DIR/gitbutler-tauri

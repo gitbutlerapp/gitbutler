@@ -1,7 +1,7 @@
 import { SHORT_DEFAULT_COMMIT_TEMPLATE, SHORT_DEFAULT_BRANCH_TEMPLATE } from '$lib/ai/prompts';
 import { type AIClient, type AnthropicModelName, type Prompt } from '$lib/ai/types';
 import { buildFailureFromAny, ok, type Result } from '$lib/result';
-import { fetch, Body } from '@tauri-apps/api/http';
+import { fetch } from '@tauri-apps/plugin-http';
 
 type AnthropicAPIResponse = {
 	content: { text: string }[];
@@ -18,13 +18,13 @@ export class AnthropicAIClient implements AIClient {
 	) {}
 
 	async evaluate(prompt: Prompt): Promise<Result<string, Error>> {
-		const body = Body.json({
+		const body = JSON.stringify({
 			messages: prompt,
 			max_tokens: 1024,
 			model: this.modelName
 		});
 
-		const response = await fetch<AnthropicAPIResponse>('https://api.anthropic.com/v1/messages', {
+		const response = await fetch('https://api.anthropic.com/v1/messages', {
 			method: 'POST',
 			headers: {
 				'x-api-key': this.apiKey,
@@ -34,11 +34,12 @@ export class AnthropicAIClient implements AIClient {
 			body
 		});
 
-		if (response.ok && response.data?.content?.[0]?.text) {
-			return ok(response.data.content[0].text);
+		const data = (await response.json()) as AnthropicAPIResponse;
+		if (response.ok) {
+			return ok(data.content[0]?.text || '');
 		} else {
 			return buildFailureFromAny(
-				`Anthropic returned error code ${response.status} ${response.data?.error?.message}`
+				`Anthropic returned error code ${response.status} ${data?.error?.message}`
 			);
 		}
 	}
