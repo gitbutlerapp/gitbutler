@@ -1,4 +1,4 @@
-import { setElementValue, spawnAndLog, findAndClick } from '../utils.js';
+import { spawnAndLog, findAndClick, setElementValue } from '../utils.js';
 
 describe('Project', () => {
 	before(() => {
@@ -11,9 +11,8 @@ describe('Project', () => {
 	it('should add a local project', async () => {
 		await findAndClick('button[data-testid="analytics-continue"]');
 
-		// Workaround selecting path via fileDialog by setting a hidden input value
 		const dirInput = await $('input[data-testid="test-directory-path"]');
-		setElementValue(dirInput, `/tmp/gb-e2e-repos/one-vbranch-on-integration`);
+		setElementValue(dirInput, '/tmp/gb-e2e-repos/one-vbranch-on-integration');
 
 		await findAndClick('button[data-testid="add-local-project"]');
 		await findAndClick('button[data-testid="set-base-branch"]');
