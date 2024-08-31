@@ -171,6 +171,7 @@ function isOffline(err: any): boolean {
 
 function handleError(err: any, manual: boolean) {
 	if (!manual && isOffline(err)) return;
+	console.error(err);
 	showToast({
 		title: 'App update failed',
 		message: `
