@@ -10,19 +10,22 @@ pub fn open_that(path: &str) -> Result<(), Error> {
         return Err(anyhow!("Invalid path format").into());
     }
 
-    fn clean_env_vars(var_names: &[&str]) -> Vec<(String, String)> {
-        let mut cleaned_vars = Vec::new();
-        for var_name in var_names {
-            if let Ok(var_value) = env::var(var_name) {
-                let cleaned_value = var_value
-                    .split(':')
-                    .filter(|path| !path.contains("appimage-run"))
-                    .collect::<Vec<_>>()
-                    .join(":");
-                cleaned_vars.push((var_name.to_string(), cleaned_value));
-            }
-        }
-        cleaned_vars
+    fn clean_env_vars<'a, 'b>(
+        var_names: &'a [&'b str],
+    ) -> impl Iterator<Item = (&'b str, String)> + 'a {
+        var_names
+            .iter()
+            .filter_map(|name| env::var(name).map(|value| (*name, value)).ok())
+            .map(|(name, value)| {
+                (
+                    name,
+                    value
+                        .split(':')
+                        .filter(|path| !path.contains("appimage-run"))
+                        .collect::<Vec<_>>()
+                        .join(":"),
+                )
+            })
     }
 
     std::thread::spawn({
