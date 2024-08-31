@@ -4,7 +4,7 @@ use regex::Regex;
 use std::env;
 use tracing::instrument;
 
-pub fn open_that(path: &str) -> Result<(), Error> {
+pub(crate) fn open_that(path: &str) -> Result<(), Error> {
     let re = Regex::new(r"^((https://)|(http://)|(mailto:)|(vscode://)|(vscodium://)).+").unwrap();
     if !re.is_match(path) {
         return Err(anyhow!("Invalid path format").into());
@@ -67,6 +67,5 @@ pub fn open_that(path: &str) -> Result<(), Error> {
 #[tauri::command()]
 #[instrument(err(Debug))]
 pub fn open_url(url: &str) -> Result<(), Error> {
-    open_that(url).unwrap();
-    Ok(())
+    open_that(url)
 }

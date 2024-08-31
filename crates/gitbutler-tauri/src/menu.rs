@@ -1,6 +1,6 @@
 use std::{env, fs};
 
-use crate::open::open_url;
+use crate::open::open_that as open_url;
 use anyhow::Context;
 use gitbutler_error::{error, error::Code};
 use serde_json::json;
