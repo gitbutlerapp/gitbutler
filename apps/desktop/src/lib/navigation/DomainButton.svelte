@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { type Snippet } from 'svelte';
 
 	interface Props {
@@ -21,16 +21,17 @@
 	}: Props = $props();
 </script>
 
-<button
-	use:tooltip={isNavCollapsed ? tooltipLabel : ''}
-	{onmousedown}
-	class="domain-button text-14 text-semibold"
-	class:selected={isSelected}
-	class:align-center={alignItems === 'center'}
-	class:align-top={alignItems === 'top'}
->
-	{@render children()}
-</button>
+<Tooltip text={isNavCollapsed ? tooltipLabel : ''} align="start">
+	<button
+		{onmousedown}
+		class="domain-button text-14 text-semibold"
+		class:selected={isSelected}
+		class:align-center={alignItems === 'center'}
+		class:align-top={alignItems === 'top'}
+	>
+		{@render children()}
+	</button>
+</Tooltip>
 
 <style lang="postcss">
 	.domain-button {

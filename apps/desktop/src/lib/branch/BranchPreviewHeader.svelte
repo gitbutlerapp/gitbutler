@@ -10,7 +10,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
@@ -40,13 +40,18 @@
 			<BranchLabel disabled name={branch.name} />
 			<div class="header__remote-branch">
 				{#if remoteBranch}
-					<div
-						class="status-tag text-11 text-semibold remote"
-						use:tooltip={'At least some of your changes have been pushed'}
-					>
-						<Icon name="remote-branch-small" />
-						{localBranch ? 'local and remote' : 'remote'}
-					</div>
+					<Tooltip text="At least some of your changes have been pushed'">
+						<Button
+							size="tag"
+							icon="remote-branch-small"
+							style="neutral"
+							kind="solid"
+							clickable={false}
+						>
+							{localBranch ? 'local and remote' : 'remote'}
+						</Button>
+					</Tooltip>
+
 					{#if gitHostBranch}
 						<Button
 							size="tag"
@@ -93,7 +98,7 @@
 				<Button
 					style="ghost"
 					outline
-					help="Restores these changes into your working directory"
+					tooltip="Restores these changes into your working directory"
 					icon="plus-small"
 					loading={isApplying}
 					disabled={$mode?.type !== 'OpenWorkspace'}
@@ -120,7 +125,7 @@
 				<Button
 					style="ghost"
 					outline
-					help="Deletes the local branch. If this branch is also present on a remote, it will not be deleted there."
+					tooltip="Deletes the local branch. If this branch is also present on a remote, it will not be deleted there."
 					icon="bin-small"
 					loading={isDeleting}
 					disabled={!localBranch}

@@ -24,7 +24,7 @@
 	style="ghost"
 	outline
 	icon="update-small"
-	help="Last fetch from upstream"
+	tooltip="Last fetch from upstream"
 	{loading}
 	onmousedown={async (e) => {
 		e.preventDefault();

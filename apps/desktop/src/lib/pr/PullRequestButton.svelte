@@ -20,10 +20,10 @@
 	type Props = {
 		loading: boolean;
 		disabled: boolean;
-		help: string;
+		tooltip: string;
 		click: (opts: { draft: boolean }) => void;
 	};
-	const { loading, disabled, help, click }: Props = $props();
+	const { loading, disabled, tooltip, click }: Props = $props();
 
 	const preferredAction = persisted<Action>(Action.Create, 'projectDefaultPrAction');
 	let dropDown: DropDownButton;
@@ -38,7 +38,7 @@
 <DropDownButton
 	style="ghost"
 	outline
-	{help}
+	{tooltip}
 	{disabled}
 	{loading}
 	bind:this={dropDown}

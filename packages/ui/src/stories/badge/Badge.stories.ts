@@ -13,7 +13,6 @@ export const BadgeStory: Story = {
 	name: 'Badge',
 	args: {
 		label: '127',
-		help: 'This is a badge',
 		style: 'neutral',
 		kind: 'solid'
 	},

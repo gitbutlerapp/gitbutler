@@ -14,7 +14,7 @@ function clearFxPrefix(id) {
 }
 
 export default defineConfig({
-	tokens: './src/lib/design-tokens.json',
+	tokens: './src/lib/data/design-tokens.json',
 	outDir: './src/styles/core',
 	plugins: [
 		css({

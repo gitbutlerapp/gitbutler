@@ -1,6 +1,6 @@
 <script lang="ts">
+	import Tooltip from '$lib/Tooltip.svelte';
 	import { stringToColor } from '$lib/utils/stringToColor';
-	import { tooltip as tooltipComponent } from '$lib/utils/tooltip';
 
 	interface Props {
 		srcUrl: string;
@@ -13,20 +13,18 @@
 	const { srcUrl, tooltip, size = 'small' }: Props = $props();
 </script>
 
-<div class="image-wrapper {size}" style:background-color={stringToColor(tooltip)}>
-	<img
-		class="avatar"
-		alt={tooltip}
-		src={srcUrl}
-		loading="lazy"
-		onload={() => (isLoaded = true)}
-		class:show={isLoaded}
-		use:tooltipComponent={{
-			text: tooltip,
-			delay: 500
-		}}
-	/>
-</div>
+<Tooltip text={tooltip}>
+	<div class="image-wrapper {size}" style:background-color={stringToColor(tooltip)}>
+		<img
+			class="avatar"
+			alt={tooltip}
+			src={srcUrl}
+			loading="lazy"
+			onload={() => (isLoaded = true)}
+			class:show={isLoaded}
+		/>
+	</div>
+</Tooltip>
 
 <style lang="postcss">
 	.image-wrapper {

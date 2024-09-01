@@ -138,7 +138,7 @@
 			<Button
 				style="pop"
 				kind="solid"
-				help="Does not create a commit. Can be toggled."
+				tooltip="Does not create a commit. Can be toggled."
 				onclick={async () => createRemoteModal?.show()}>Apply from fork</Button
 			>
 		</div>

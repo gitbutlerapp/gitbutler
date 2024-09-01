@@ -26,8 +26,8 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
 	import { type Snippet } from 'svelte';
 
 	export let branch: VirtualBranch | undefined = undefined;
@@ -299,24 +299,25 @@
 
 					<div class="text-11 commit__subtitle">
 						{#if commit.isSigned}
-							<div class="commit__signed" use:tooltip={{ text: 'Signed', delay: 500 }}>
-								<Icon name="success-outline-small" />
-							</div>
+							<Tooltip text="Signed">
+								<div class="commit__signed">
+									<Icon name="success-outline-small" />
+								</div>
+							</Tooltip>
 
 							<span class="commit__subtitle-divider">•</span>
 						{/if}
 
 						{#if conflicted}
-							<div
-								class="commit__conflicted"
-								use:tooltip={{
-									text: 'Conflicted commits must be resolved before they can be ammended or squashed.\n\nPlease resolve conflicts using the "Resolve conflicts" button'
-								}}
+							<Tooltip
+								text={"Conflicted commits must be resolved before they can be ammended or squashed.\nPlease resolve conflicts using the 'Resolve conflicts' button"}
 							>
-								<Icon name="warning-small" />
+								<div class="commit__conflicted">
+									<Icon name="warning-small" />
 
-								Conflicted
-							</div>
+									Conflicted
+								</div>
+							</Tooltip>
 
 							<span class="commit__subtitle-divider">•</span>
 						{/if}
@@ -593,6 +594,7 @@
 
 		text-decoration: underline;
 		text-underline-offset: 2px;
+		transition: color var(--transition-fast);
 
 		&:hover {
 			color: var(--clr-text-1);

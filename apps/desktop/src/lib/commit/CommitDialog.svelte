@@ -3,11 +3,11 @@
 	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
-	import { slideFade } from '$lib/utils/svelteTransitions';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import { slideFade } from '@gitbutler/ui/utils/transitions';
 	import type { Writable } from 'svelte/store';
 
 	export let projectId: string;

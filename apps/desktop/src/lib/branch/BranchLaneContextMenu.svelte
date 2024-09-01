@@ -14,6 +14,7 @@
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
 	interface Props {
 		contextMenuEl?: ContextMenu;
@@ -138,13 +139,9 @@
 
 	<ContextMenuSection>
 		<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
-			<Toggle
-				small
-				slot="control"
-				bind:checked={allowRebasing}
-				on:click={toggleAllowRebasing}
-				help="Allows changing commits after push (force push needed)"
-			/>
+			<Tooltip slot="control" text={'Allows changing commits after push\n(force push needed)'}>
+				<Toggle small bind:checked={allowRebasing} on:click={toggleAllowRebasing} />
+			</Tooltip>
 		</ContextMenuItem>
 	</ContextMenuSection>
 
