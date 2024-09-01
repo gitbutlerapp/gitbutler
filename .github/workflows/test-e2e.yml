@@ -48,8 +48,10 @@ jobs:
           restore-keys: cargo-
       - name: Setup node environment
         uses: ./.github/actions/init-env-node
-      - name: Build CLI
-        run: cargo build -p gitbutler-cli
+      - name: Build gitbutler-cli & gitbutler-git
+        run: |
+          cargo build -p gitbutler-git
+          cargo build -p gitbutler-cli
       - name: Build SvelteKit
         run: pnpm build:desktop -- --mode development
       - name: Build Tauri
