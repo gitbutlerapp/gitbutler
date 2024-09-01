@@ -1,10 +1,10 @@
 {
+	"productName": "GitButler Test",
 	"build": {
 		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode development",
 		"frontendDist": "../../apps/desktop/build"
 	},
 	"bundle": {
 		"active": false
-	},
-	"productName": "GitButler Dev"
+	}
 }
