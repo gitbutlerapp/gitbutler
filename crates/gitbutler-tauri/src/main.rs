@@ -47,8 +47,12 @@ fn main() {
                         "index.html".into(),
                     )
                     .expect("Failed to create window");
+
+                    // TODO(mtsgrd): Is there a better way to disable devtools in E2E tests?
                     #[cfg(debug_assertions)]
-                    window.open_devtools();
+                    if tauri_app.config().product_name != Some("GitButler Test".to_string()) {
+                        window.open_devtools();
+                    }
 
                     let app_handle = tauri_app.handle();
 
