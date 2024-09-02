@@ -120,16 +120,22 @@ impl Controller {
     }
 
     pub fn get(&self, id: ProjectId) -> Result<Project> {
-        self.get_inner(id, false)
+        self.get_inner(id, false, false)
+    }
+
+    /// Like [`Self::get()`], but will skip the git repository validation and directory creation.
+    /// This is intended to be used only when updating the path of a missing project.
+    pub fn get_raw(&self, id: ProjectId) -> Result<Project> {
+        self.get_inner(id, false, true)
     }
 
     /// Like [`Self::get()`], but will assure the project still exists and is valid by
     /// opening a git repository. This should only be done for critical points in time.
     pub fn get_validated(&self, id: ProjectId) -> Result<Project> {
-        self.get_inner(id, true)
+        self.get_inner(id, true, false)
     }
 
-    fn get_inner(&self, id: ProjectId, validate: bool) -> Result<Project> {
+    fn get_inner(&self, id: ProjectId, validate: bool, skip_dir_creation: bool) -> Result<Project> {
         #[cfg_attr(not(windows), allow(unused_mut))]
         let mut project = self.projects_storage.get(id)?;
         if validate {
@@ -147,7 +153,8 @@ impl Controller {
                 .context(error::Code::ProjectMissing));
             }
         }
-        if !project.gb_dir().exists() {
+
+        if !skip_dir_creation && !project.gb_dir().exists() {
             if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
                 tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", project.gb_dir().display());
             }

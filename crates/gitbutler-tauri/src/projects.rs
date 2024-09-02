@@ -36,7 +36,7 @@ pub mod commands {
         no_validation: Option<bool>,
     ) -> Result<projects::Project, Error> {
         if no_validation.unwrap_or(false) {
-            Ok(projects.get(id)?)
+            Ok(projects.get_raw(id)?)
         } else {
             Ok(projects.get_validated(id)?)
         }
