@@ -33,8 +33,13 @@ pub mod commands {
     pub fn get_project(
         projects: State<'_, Controller>,
         id: ProjectId,
+        no_validation: Option<bool>,
     ) -> Result<projects::Project, Error> {
-        Ok(projects.get_validated(id)?)
+        if no_validation.unwrap_or(false) {
+            Ok(projects.get(id)?)
+        } else {
+            Ok(projects.get_validated(id)?)
+        }
     }
 
     #[tauri::command(async)]
