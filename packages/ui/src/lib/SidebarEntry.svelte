@@ -63,7 +63,7 @@
 	</h4>
 
 	<div class="row">
-		<div class="row-group authors-and-tags">
+		<div class="authors-and-tags">
 			{@render authorAvatars()}
 			<div class="branch-remotes">
 				<!-- NEED API -->
@@ -187,12 +187,6 @@
 		}
 	}
 
-	.authors-and-tags {
-		:global(& > *:first-child:empty) {
-			display: none;
-		}
-	}
-
 	/* ROW */
 
 	.row {
@@ -209,6 +203,12 @@
 		gap: 4px;
 	}
 
+	.authors-and-tags {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
 	/* TAG */
 
 	.branch-tag {
@@ -216,15 +216,21 @@
 		align-items: center;
 		justify-content: center;
 		gap: 2px;
-		padding: 0 4px;
+		padding: 4px;
 		height: 16px;
 		border-radius: var(--radius-s);
 	}
 
 	.tag-local,
 	.tag-remote {
-		background-color: var(--clr-theme-ntrl-soft-hover);
-		color: var(--clr-text-1);
+		border: 1px solid var(--clr-border-2);
+		/* background-color: color-mix(in srgb, var(--clr-scale-ntrl-60), transparent 70%);
+		color: var(--clr-text-1); */
+	}
+
+	.tag-pr,
+	.tag-draft-pr {
+		padding: 0 2px 0 4px;
 	}
 
 	.tag-pr {
@@ -234,7 +240,8 @@
 
 	.tag-draft-pr {
 		background-color: var(--clr-theme-ntrl-soft);
-		color: var(--clr-theme-ntrl-on-soft);
+		color: var(--clr-text-2);
+		border: 1px solid var(--clr-border-2);
 	}
 
 	.tag-applied {
@@ -280,7 +287,7 @@
 
 	.branch-remotes {
 		display: flex;
-		gap: 6px;
+		gap: 4px;
 	}
 
 	.branch-name {

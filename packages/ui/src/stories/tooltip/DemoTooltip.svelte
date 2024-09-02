@@ -6,7 +6,7 @@
 
 <div class="wrapper">
 	<p class="text-13 text">
-		hello world! Here is a <Tooltip text={props.text}>
+		hello world! Here is a <Tooltip text={props.text} align={props.align} position={props.position}>
 			<span class="tooltip-text">tooltip</span>
 		</Tooltip> for you.
 	</p>
