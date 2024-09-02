@@ -21,7 +21,9 @@ pub(crate) fn open_that(path: &str) -> Result<(), Error> {
                     name,
                     value
                         .split(':')
-                        .filter(|path| !path.contains("appimage-run") && !path.contains("/tmp/.mount"))
+                        .filter(|path| {
+                            !path.contains("appimage-run") && !path.contains("/tmp/.mount")
+                        })
                         .collect::<Vec<_>>()
                         .join(":"),
                 )
