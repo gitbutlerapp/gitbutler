@@ -2,6 +2,7 @@
 	import RemoveProjectButton from '../RemoveProjectButton.svelte';
 	import { ProjectService } from '$lib/backend/projects';
 	import { getContext } from '$lib/utils/context';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	const projectService = getContext(ProjectService);
 
@@ -16,9 +17,26 @@
 				deleteSucceeded = false;
 				break deleteProject;
 			}
-			await projectService.deleteProject(id);
+
+			try {
+				await projectService.deleteProject(id);
+			} catch (e) {
+				deleteSucceeded = false;
+				break deleteProject;
+			}
+
+			deleteSucceeded = true;
 		}
 		isDeleting = false;
+	}
+
+	async function locate() {
+		const id = projectService.getLastOpenedProject();
+		if (id === undefined) {
+			return;
+		}
+
+		await projectService.relocateProject(id);
 	}
 </script>
 
@@ -26,6 +44,7 @@
 	{#if deleteSucceeded === undefined}
 		<p class="text-12 text-body text-bold">Do you want to:</p>
 		<div class="button-container">
+			<Button type="button" onclick={locate}>Locate</Button>
 			<RemoveProjectButton noModal {isDeleting} onDeleteClicked={stopTracking} />
 		</div>
 	{/if}
@@ -49,5 +68,6 @@
 	.button-container {
 		display: flex;
 		justify-content: center;
+		gap: 12px;
 	}
 </style>
