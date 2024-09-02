@@ -2,4 +2,174 @@
 title: Getting Started Guide
 ---
 
-Here is a quick overview of how to get started with GitButler.
+Here is a quick overview of how to get started with GitButler. In this guide, we will:
+
+- Get setup and start working with a local repository
+- Do work and commit on several branches simultaneously
+- Push your work to a remote repository and get it integrated
+- Reorder and edit your commits
+- Undo anything
+
+## Importing a Local Repository
+
+After [downloading](https://app.gitbutler.com/downloads) and installing GitButler, you will be greeted with the welcome screen. From here you can import or clone a repository.
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="Import screen"
+  src="/img/started/welcome-screen.png"
+  subtitle="First thing you see when you launch GitButler"
+/>
+
+Let's start by importing an existing Git project on your disk. If you click "Add local project" and then choose the directory of the existing Git initialized project, then we will start the import process.
+
+## Choosing a Target Branch
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="Import screen"
+  src="/img/started/import.png"
+  subtitle="First step: choose your target branch"
+/>
+
+The first step is to choose your "target" branch. GitButler focuses on a trunk based development model, so first you need to tell us what branch means "production" to you. Normally this is something like `origin/master` or `origin/main`.
+
+If you would like to use our AI features like commit message generation, you can also sign up for a GitButler account and log in. This is optional, but we'll do it here so we can show off these features.
+
+You can also connect GitButler to your GitHub account so we can automatically open Pull Requests for you, but this is also optional.
+
+## Set Up Git Authentication
+
+In order to push to a remote repository, you will need to set up your Git authentication. We provide three ways to do this, but generally it's easiest to use the existing Git executable. You can hit the "Test credentials" button to make sure everything is working properly.
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="Git configuration screen"
+  src="/img/started/setup-git.png"
+  subtitle="Second step: configure your git pushes"
+/>
+
+## Ready to Go
+
+Ok, now we're all setup and you should see our main working screen. If you had a branch with some work in progress, you should see it imported already. In this case, I had a branch called `group-pr-summaries-by-tag` so we see that already applied with some changes already in it.
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="Initial workspace"
+  src="/img/started/initial-workspace.png"
+  subtitle="Second step: configure your git pushes"
+/>
+
+## Do Some Work
+
+Now we can start working. GitButler will watch your working directory and immediately show any changes that you make.
+
+I'll start by continuing the work I had in progress on the `group-pr-summaries-by-tag` branch. I'll make some more changes and then commit them. You can simply hit the "Start Commit" button, then either write your commit message, or hit "Generate Message" to let AI look at the diffs and write a message for you. Once you've done that, you should see something like this:
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="One commit on our branch"
+  src="/img/started/single-commit.png"
+  subtitle="One commit on our one branch"
+/>
+
+## Split secondary work into a new branch
+
+Now let's say that I decide to update my README (or fix a bug), something that is unrelated to the feature I was working on. Instead of stashing my changes and doing that, or committing unrelated work into the branch I'm on, I can simply create a new parallel branch, drag my work over there and commit there.
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="Two branches at the same time"
+  src="/img/started/two-branches.png"
+  subtitle="Now we have two branches, both applied"
+/>
+
+Now both branches are applied, but I can commit to them independently and push them to a remote repository at different times.
+
+## Integrate Your Work
+
+Since the README updating branch is ready to be merged, I can push that branch up, open a Pull Request on it and wait for it to be integrated, while I continue to work on and commit to my other feature branch.
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="One branch has been pushed"
+  src="/img/started/push-and-pr.png"
+  subtitle="Our second branch has been pushed and is awaiting integration"
+/>
+
+Now we have a series of commits on our feature branch, which we've continued to work on while we're waiting for our README update to be integrated.
+
+GitButler sees that our target branch has new work and shows us the "Update" button, which we can click to rebase our feature branch on top of the new work and also remove the README branch automatically, since we can see that it has been integrated upstream.
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="More work on our feature branch"
+  src="/img/started/more-work.png"
+  subtitle="Continuing to work on our feature branch"
+/>
+
+## Reorder and Edit Your Commits
+
+GitButler makes it very easy to edit, reorder, squash and split commits. If you hover over any commit, you will see a drag handle on the top right. You can drag the commit to reorder it, or drag it on top of another commit to squash them together.
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="Squashing two commits together"
+  src="/img/started/reorder-squash.png"
+  subtitle="Drag one commit on top of another to squash"
+/>
+
+To split a commit, you can insert an "empty" commit in between the two commits you want to split, then drag the changes from the commit you want to split into the empty commit.
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="Insert an empty commit"
+  src="/img/started/insert-empty.png"
+  subtitle="Insert an empty commit with the plus icon"
+/>
+
+You can also edit a commit. If you click on a commit, it will expand it and focus on it. There are then some options for editing the commit message easily, or undoing it which will remove the commit and put the changes back in your uncommitted list.
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="Edit a commit"
+  src="/img/started/commit-editing.png"
+  subtitle="Easily edit or undo a commit"
+/>
+
+All of this makes it very easy to build up and maintain a nice, clean history that is easy to understand and work with.
+
+## Unapply a branch
+
+If you decide that you don't want to work on a branch anymore, you can simply unapply it. This will remove all the changes from that branch from your working directory, but keep the branch around in case you want to reapply it later.
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="Unapply a branch to stash it"
+  src="/img/started/unapply.png"
+  subtitle="Unapply a branch to remove those changes from your working directory and save the work"
+/>
+
+## Undo Anything
+
+If at any time, you do something that you didn't mean to do, you can always undo it. You can undo a commit, a commit edit, a squash, an upstream update, a branch application, anything. Just click the "Timeline" button in the bottom left corner, find the action you want to rewind to and hit the "Revert" button.
+
+<ImageSection
+  width={700}
+  height={600}
+  alt="Undo with the Timeline"
+  src="/img/started/undo.png"
+  subtitle="Revert back to a previous point in time with the Timeline"
+/>
