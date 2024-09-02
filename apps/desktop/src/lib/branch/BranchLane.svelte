@@ -117,7 +117,7 @@
 	});
 </script>
 
-<div class="wrapper" data-tauri-drag-region>
+<div class="wrapper" data-testid="branch-{branch.name}" data-tauri-drag-region>
 	<BranchCard {commitBoxOpen} {isLaneCollapsed} />
 
 	{#await $selectedFile then [commitId, selected]}

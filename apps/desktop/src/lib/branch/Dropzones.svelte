@@ -11,9 +11,10 @@
 
 	interface Props {
 		children: Snippet;
+		id?: string;
 	}
 
-	const { children }: Props = $props();
+	const { children, id }: Props = $props();
 
 	const actions = $derived(branchDragActionsFactory.build($branch));
 </script>
@@ -42,6 +43,7 @@
 		accepts={actions.acceptBranchDrop.bind(actions)}
 		ondrop={actions.onBranchDrop.bind(actions)}
 		fillHeight
+		id={id ? id + '-files-dz' : undefined}
 	>
 		{@render children()}
 
