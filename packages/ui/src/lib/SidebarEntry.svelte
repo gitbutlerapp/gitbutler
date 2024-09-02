@@ -1,7 +1,7 @@
 <script lang="ts">
+	import Tooltip from './Tooltip.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import TimeAgo from '$lib/TimeAgo.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { onMount, type Snippet } from 'svelte';
 
 	interface Props {
