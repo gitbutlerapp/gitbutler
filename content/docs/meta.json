@@ -4,7 +4,8 @@
   "defaultOpen": false,
   "pages": [
     "index",
-    "getting-started",
+    "guide",
+    "why-gitbutler",
     "---Using the Client---",
     "features",
     "troubleshooting",
