@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Icon from '$lib/Icon.svelte';
 	import TimeAgo from '$lib/TimeAgo.svelte';
-	import { tooltip } from '$lib/utils/tooltip';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { onMount, type Snippet } from 'svelte';
 
 	interface Props {
@@ -55,8 +55,6 @@
 			observer.disconnect();
 		};
 	});
-
-	const tooltipDelay = 500;
 </script>
 
 <button class="branch" class:selected onmousedown={onMouseDown} bind:this={intersectionTarget}>
@@ -84,17 +82,18 @@
 
 		<div class="row-group">
 			{#if pullRequestDetails}
-				<div
-					use:tooltip={{ text: pullRequestDetails.title, delay: tooltipDelay }}
-					class="branch-tag tag-pr"
-					class:tag-pr={!pullRequestDetails.draft}
-					class:tag-draft-pr={pullRequestDetails.draft}
-				>
-					<span class="text-10 text-semibold">
-						{#if !pullRequestDetails.draft}PR{:else}Draft{/if}
-					</span>
-					<Icon name="pr-small" />
-				</div>
+				<Tooltip text={pullRequestDetails.title}>
+					<div
+						class="branch-tag tag-pr"
+						class:tag-pr={!pullRequestDetails.draft}
+						class:tag-draft-pr={pullRequestDetails.draft}
+					>
+						<span class="text-10 text-semibold">
+							{#if !pullRequestDetails.draft}PR{:else}Draft{/if}
+						</span>
+						<Icon name="pr-small" />
+					</div>
+				</Tooltip>
 			{/if}
 			{#if applied}
 				<div class="branch-tag tag-applied">
@@ -106,15 +105,14 @@
 
 	<div class="row">
 		{#if lastCommitDetails?.lastCommitAt}
-			<span
-				class="branch-time text-11 details truncate"
-				use:tooltip={lastCommitDetails.lastCommitAt.toLocaleString('en-GB')}
-			>
-				{#if lastCommitDetails}
-					<TimeAgo date={lastCommitDetails.lastCommitAt} addSuffix />
-					by {lastCommitDetails.authorName}
-				{/if}
-			</span>
+			<Tooltip text={lastCommitDetails.lastCommitAt.toLocaleString('en-GB')}>
+				<span class="branch-time text-11 details truncate">
+					{#if lastCommitDetails}
+						<TimeAgo date={lastCommitDetails.lastCommitAt} addSuffix />
+						by {lastCommitDetails.authorName}
+					{/if}
+				</span>
+			</Tooltip>
 		{:else}
 			<span class="branch-time text-11 details truncate">
 				{#if lastCommitDetails}
@@ -125,38 +123,30 @@
 
 		<div class="stats">
 			{#if branchDetails}
-				<div
-					use:tooltip={{
-						text: 'Code changes',
-						delay: tooltipDelay
-					}}
-					class="code-changes"
-				>
-					<span class="text-10 text-semibold">+{branchDetails.linesAdded}</span>
-					<span class="text-10 text-semibold">-{branchDetails.linesRemoved}</span>
-				</div>
+				<Tooltip text="Code changes">
+					<div class="code-changes">
+						<span class="text-10 text-semibold">+{branchDetails.linesAdded}</span>
+						<span class="text-10 text-semibold">-{branchDetails.linesRemoved}</span>
+					</div>
+				</Tooltip>
 
-				<div
-					use:tooltip={{
-						text: 'Number of commits',
-						delay: tooltipDelay
-					}}
-					class="branch-tag tag-commits"
-				>
-					<svg
-						width="12"
-						height="8"
-						viewBox="0 0 12 8"
-						fill="none"
-						xmlns="http://www.w3.org/2000/svg"
-					>
-						<circle cx="6.16675" cy="4" r="2.5" stroke="currentColor" stroke-width="1.5" />
-						<path d="M8.66675 4H12.0001" stroke="currentColor" stroke-width="1.5" />
-						<path d="M0.333374 4H3.66671" stroke="currentColor" stroke-width="1.5" />
-					</svg>
+				<Tooltip text="Number of commits">
+					<div class="branch-tag tag-commits">
+						<svg
+							width="12"
+							height="8"
+							viewBox="0 0 12 8"
+							fill="none"
+							xmlns="http://www.w3.org/2000/svg"
+						>
+							<circle cx="6.16675" cy="4" r="2.5" stroke="currentColor" stroke-width="1.5" />
+							<path d="M8.66675 4H12.0001" stroke="currentColor" stroke-width="1.5" />
+							<path d="M0.333374 4H3.66671" stroke="currentColor" stroke-width="1.5" />
+						</svg>
 
-					<span class="text-10 text-semibold">{branchDetails.commitCount}</span>
-				</div>
+						<span class="text-10 text-semibold">{branchDetails.commitCount}</span>
+					</div>
+				</Tooltip>
 			{/if}
 		</div>
 	</div>

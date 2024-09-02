@@ -13,7 +13,7 @@
 	size="tag"
 	style="error"
 	kind="solid"
-	help="Merge upstream commits into common base"
+	tooltip="Merge upstream into common base"
 	onclick={async () => {
 		loading = true;
 		try {

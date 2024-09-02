@@ -169,7 +169,7 @@
 				style="ghost"
 				outline
 				loading={$mrLoading || $checksLoading}
-				help={$timeAgo ? 'Updated ' + $timeAgo : ''}
+				tooltip={$timeAgo ? 'Updated ' + $timeAgo : ''}
 				onclick={async () => {
 					$checksMonitor?.update();
 					$prMonitor?.refresh();
@@ -231,7 +231,7 @@
 						!$pr.mergeable ||
 						['dirty', 'unknown', 'blocked', 'behind'].includes($pr.mergeableState)}
 					loading={isMerging}
-					help="Merge pull request and refresh"
+					tooltip="Merge pull request and refresh"
 					on:click={async (e) => {
 						if (!$pr) return;
 						isMerging = true;

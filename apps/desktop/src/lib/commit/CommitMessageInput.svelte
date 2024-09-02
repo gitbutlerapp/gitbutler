@@ -21,7 +21,7 @@
 	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { createEventDispatcher, onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -179,57 +179,52 @@
 		{/if}
 
 		{#if title.length > 50}
-			<div
-				transition:fly={{ y: 2, duration: 150 }}
-				class="commit-box__textarea-tooltip"
-				use:tooltip={{
-					text: '50 characters or less is best. Extra info can be added in the description.',
-					delay: 200
-				}}
-			>
-				<Icon name="idea" />
-			</div>
+			<Tooltip text={'50 characters or less is best.\nUse description for more details'}>
+				<div transition:fly={{ y: 2, duration: 150 }} class="commit-box__textarea-tooltip">
+					<Icon name="idea" />
+				</div>
+			</Tooltip>
 		{/if}
 
-		<div
-			class="commit-box__texarea-actions"
-			class:commit-box-actions_expanded={isExpanded}
-			use:tooltip={!aiConfigurationValid
-				? 'You must be logged in or have provided your own API key to use this feature'
+		<Tooltip
+			text={!aiConfigurationValid
+				? 'You must be logged in or have provided your own API key'
 				: !$aiGenEnabled
-					? 'You must have summary generation enabled to use this feature'
-					: ''}
+					? 'You must have summary generation enabled'
+					: undefined}
 		>
-			<DropDownButton
-				style="ghost"
-				outline
-				icon="ai-small"
-				disabled={!($aiGenEnabled && aiConfigurationValid)}
-				loading={aiLoading}
-				menuPosition="top"
-				onclick={async () => await generateCommitMessage($branch.files)}
-			>
-				Generate message
+			<div class="commit-box__texarea-actions" class:commit-box-actions_expanded={isExpanded}>
+				<DropDownButton
+					style="ghost"
+					outline
+					icon="ai-small"
+					disabled={!($aiGenEnabled && aiConfigurationValid)}
+					loading={aiLoading}
+					menuPosition="top"
+					onclick={async () => await generateCommitMessage($branch.files)}
+				>
+					Generate message
 
-				{#snippet contextMenuSlot()}
-					<ContextMenuSection>
-						<ContextMenuItem
-							label="Extra concise"
-							on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
-						>
-							<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
-						</ContextMenuItem>
+					{#snippet contextMenuSlot()}
+						<ContextMenuSection>
+							<ContextMenuItem
+								label="Extra concise"
+								on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+							>
+								<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+							</ContextMenuItem>
 
-						<ContextMenuItem
-							label="Use emojis 😎"
-							on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
-						>
-							<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
-						</ContextMenuItem>
-					</ContextMenuSection>
-				{/snippet}
-			</DropDownButton>
-		</div>
+							<ContextMenuItem
+								label="Use emojis 😎"
+								on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+							>
+								<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+							</ContextMenuItem>
+						</ContextMenuSection>
+					{/snippet}
+				</DropDownButton>
+			</div>
+		</Tooltip>
 	</div>
 {/if}
 

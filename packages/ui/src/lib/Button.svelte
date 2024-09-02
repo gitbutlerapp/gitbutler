@@ -1,6 +1,4 @@
 <script lang="ts" context="module">
-	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
-
 	export interface ButtonProps {
 		el?: HTMLElement;
 		// Interaction props
@@ -18,7 +16,7 @@
 		wide?: boolean;
 		grow?: boolean;
 		align?: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto';
-		isDropdownChild?: boolean;
+		dropdownChild?: boolean;
 		// Style props
 		style?: ComponentColor;
 		kind?: ComponentStyleKind;
@@ -27,7 +25,9 @@
 		solidBackground?: boolean;
 		// Additional elements
 		icon?: keyof typeof iconsJson | undefined;
-		help?: string;
+		tooltip?: string;
+		tooltipPosition?: TooltipPosition;
+		tooltipAlign?: TooltipAlign;
 		helpShowDelay?: number;
 		testId?: string;
 		// Events
@@ -41,10 +41,11 @@
 </script>
 
 <script lang="ts">
+	import Tooltip, { type TooltipAlign, type TooltipPosition } from './Tooltip.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import { pxToRem } from '$lib/utils/pxToRem';
-	import { tooltip } from '$lib/utils/tooltip';
 	import type iconsJson from '$lib/data/icons.json';
+	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
 	import type { Snippet } from 'svelte';
 
 	let {
@@ -62,7 +63,7 @@
 		wide = false,
 		grow = false,
 		align = 'auto',
-		isDropdownChild = false,
+		dropdownChild = false,
 		style = 'neutral',
 		kind = 'soft',
 		outline = false,
@@ -70,8 +71,9 @@
 		solidBackground = false,
 		testId,
 		icon,
-		help = '',
-		helpShowDelay = 1200,
+		tooltip,
+		tooltipPosition,
+		tooltipAlign,
 		onclick,
 		onmousedown,
 		oncontextmenu,
@@ -89,55 +91,53 @@
 	}
 </script>
 
-<button
-	bind:this={el}
-	class="btn focus-state {style} {kind} {size}-size"
-	class:outline
-	class:dashed
-	class:solidBackground
-	class:reversed-direction={reversedDirection}
-	class:shrinkable
-	class:wide
-	class:grow
-	class:not-clickable={!clickable}
-	class:fixed-width={!children && !wide}
-	class:is-dropdown={isDropdownChild}
-	style:align-self={align}
-	style:width={width ? pxToRem(width) : undefined}
-	use:tooltip={{
-		text: help,
-		delay: helpShowDelay
-	}}
-	disabled={disabled || loading}
-	onclick={handleAction}
-	{onmousedown}
-	{oncontextmenu}
-	{onkeydown}
-	{type}
-	{id}
-	{...testId ? { 'data-testid': testId } : null}
-	tabindex={clickable ? tabindex : -1}
->
-	{#if children}
-		<span
-			class="label text-semibold"
-			class:text-12={size === 'button' || size === 'cta'}
-			class:text-11={size === 'tag'}
-		>
-			{@render children()}
-		</span>
-	{/if}
+<Tooltip text={tooltip} align={tooltipAlign} position={tooltipPosition}>
+	<button
+		bind:this={el}
+		class="btn focus-state {style} {kind} {size}-size"
+		class:outline
+		class:dashed
+		class:solidBackground
+		class:reversed-direction={reversedDirection}
+		class:shrinkable
+		class:wide
+		class:grow
+		class:is-dropdown={dropdownChild}
+		class:not-clickable={!clickable}
+		class:fixed-width={!children && !wide}
+		style:align-self={align}
+		style:width={width ? pxToRem(width) : undefined}
+		disabled={disabled || loading}
+		onclick={handleAction}
+		{onmousedown}
+		{oncontextmenu}
+		{onkeydown}
+		{type}
+		{id}
+		{...testId ? { 'data-testid': testId } : null}
+		tabindex={clickable ? tabindex : -1}
+	>
+		{#if children}
+			<span
+				class="label text-semibold"
+				class:text-12={size === 'button' || size === 'cta'}
+				class:text-11={size === 'tag'}
+			>
+				{@render children()}
+			</span>
+		{/if}
 
-	{#if icon || loading}
-		<div class="btn-icon">
-			{#if loading}
-				<Icon name="spinner" spinnerRadius={4.5} />
-			{:else if icon}
-				<Icon name={icon} />
-			{/if}
-		</div>
-	{/if}
-</button>
+		{#if icon || loading}
+			<div class="btn-icon">
+				{#if loading}
+					<Icon name="spinner" spinnerRadius={4.5} />
+				{:else if icon}
+					<Icon name={icon} />
+				{/if}
+			</div>
+		{/if}
+	</button>
+</Tooltip>
 
 <style lang="postcss">
 	.btn {

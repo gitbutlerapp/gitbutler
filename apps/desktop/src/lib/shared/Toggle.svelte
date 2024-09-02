@@ -1,11 +1,8 @@
 <script lang="ts">
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
-
 	export let small = false;
 	export let disabled = false;
 	export let checked = false;
 	export let value = '';
-	export let help = '';
 	export let id = '';
 </script>
 
@@ -18,7 +15,6 @@
 	{value}
 	{id}
 	{disabled}
-	use:tooltip={help}
 />
 
 <style lang="postcss">

@@ -23,7 +23,6 @@ export const ButtonDefault: Story = {
 		outline: false,
 		dashed: false,
 		solidBackground: false,
-		help: '',
 		helpShowDelay: 1200,
 		id: 'button',
 		tabindex: 0,
@@ -34,7 +33,7 @@ export const ButtonDefault: Story = {
 		wide: false,
 		grow: false,
 		align: 'center',
-		isDropdownChild: false,
+		dropdownChild: false,
 		onclick: () => {
 			console.log('Button clicked');
 		}
@@ -60,9 +59,16 @@ export const ButtonClickable: Story = {
 	name: 'Not clickable + tooltip',
 	args: {
 		clickable: false,
-		help: 'This button is not clickable',
+		tooltip: 'This button is not clickable',
+		tooltipAlign: 'start',
 		onclick: () => {
 			console.log('Button clicked');
+		}
+	},
+	argTypes: {
+		tooltipAlign: {
+			control: 'select',
+			options: ['start', 'center', 'end']
 		}
 	}
 };

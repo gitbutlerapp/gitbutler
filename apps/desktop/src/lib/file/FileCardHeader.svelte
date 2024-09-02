@@ -35,7 +35,7 @@
 								clickable={false}
 								icon="locked-small"
 								style="warning"
-								help="File changes cannot be moved because part of this file was already committed into this branch"
+								tooltip="File changes cannot be moved because part of this file was already committed into this branch"
 								>Locked</Button
 							>
 						{/if}

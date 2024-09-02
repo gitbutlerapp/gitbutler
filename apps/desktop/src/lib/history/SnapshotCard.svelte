@@ -172,7 +172,7 @@
 				size="tag"
 				style="ghost"
 				outline
-				help="Restores GitButler and your files to the state before this operation. Revert actions can also be undone."
+				tooltip="Restores GitButler and your files to the state before this operation. Revert actions can also be undone."
 				onclick={() => {
 					dispatch('restoreClick');
 				}}
