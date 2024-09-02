@@ -2,7 +2,7 @@
   "description": "GitButler is built off a vast array of amazing open source projects, such as SvelteKit, Tauri, Rails and more. We believe that it's important to do what we can to support maintainers and help make the Open Source community sustainable.",
   "name": "GitButler",
   "urlSquareLogoWithBackground": "https://avatars.githubusercontent.com/u/123460877?s=200&v=4",
-  "urlLearnMore": "https://blog.gitbutler.com/open-source-pledge-2024/",
+  "urlLearnMore": "https://docs.gitbutler.com/community/open-source/",
   "annualReports": [
     {
       "url": "https://blog.gitbutler.com/open-source-pledge-2024/",
