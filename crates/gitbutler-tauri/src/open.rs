@@ -21,7 +21,7 @@ pub(crate) fn open_that(path: &str) -> Result<(), Error> {
                     name,
                     value
                         .split(':')
-                        .filter(|path| !path.contains("appimage-run"))
+                        .filter(|path| !path.contains("appimage-run") && !path.contains("/tmp/.mount"))
                         .collect::<Vec<_>>()
                         .join(":"),
                 )
@@ -30,6 +30,7 @@ pub(crate) fn open_that(path: &str) -> Result<(), Error> {
 
     std::thread::spawn({
         let path = path.to_string();
+
         move || {
             for mut cmd in open::commands(&path) {
                 let cleaned_vars = clean_env_vars(&[
