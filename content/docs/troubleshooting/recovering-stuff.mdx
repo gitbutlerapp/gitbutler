@@ -189,56 +189,9 @@ Let's look at the tree of one of these commits:
 040000 tree b283f22f5abf4ed9c612c1b5b3b9a98ec25474b0    target_tree
 100644 blob d839dca7e14f5833ad737b4adbf337bd20489927    virtual_branches.toml
 040000 tree a0821552c0e7d5defe369d577af5e3a87b442469    virtual_branches
-040000 tree b283f22f5abf4ed9c612c1b5b3b9a98ec25474b0    workdir
 ```
 
-So, it's not a snapshot of your working directory alone, but it includes a bunch of other meta information.
-
-The state of your working directory is indeed stored in the workdir tree:
-
-```bash title="Terminal"
-❯ git cat-file -p 16e47cb1d091ca9dd44327fef2f5305b09403a95^{tree}:workdir
-040000 tree 6676978c86f95a96a59d712c2a4432a7df39f4c9    .cargo
-100644 blob 2cb803c6460cd42bce8611d101e1e546b3f57ada    .editorconfig
-100644 blob 50ca329f24bb341a39f5c9cbc3fd4a083c162f9e    .gitattributes
-040000 tree 717cae25b7e27bc7ddbb3e5e99b0c2889ffb6f9b    .github
-100644 blob 3863377de3e79a055dbe5778cfa3c64f34db1501    .gitignore
-100644 blob 0f391aedf3b8621560f1f4c950b68710e0cff825    CODE_OF_CONDUCT.md
-100644 blob be2128195a883e39bb59931d30a8ce63c4fd9b0f    CONTRIBUTING.md
-100644 blob 73cea1430a8f83a1580684fc97975dabc7b4293e    Cargo.lock
-100644 blob eccda7ef5fc62b6e862eee89c3dfb22216735620    Cargo.toml
-100644 blob 5fc97481cac5ccbf9f6b6f7b646820553f6d865c    DEVELOPMENT.md
-100644 blob 11d87d8a56a7482062c1fa377a1f7f006c3e721b    LICENSE.md
-100644 blob 66db4fe325336f213ac34008de7cff129a654f53    README.md
-100644 blob 994f624c90283bb1df2b9b8a3924e9b8aa8a13e1    SECURITY.md
-040000 tree f88da8e9695e023c330a3fd2def9da0d4561fe22    app
-040000 tree 8238a9217ea4884c20c599eb5007d1928ce9b13e    crates
-100644 blob 147e034ca02262f01bc07a1bf8cc8c70d64edd10    flake.lock
-100644 blob d3add173b05930b82363b043eac2370b661d1c7f    flake.nix
-100644 blob 672fcfcf3486ae15e5ee3470f4981130d6c700d8    package.json
-100644 blob c3cf5173d6baa349a67032ef0083b71d0d95606e    pnpm-lock.yaml
-100644 blob 5dddf2919f467ba1bdf22376235f1c8a55173c06    pnpm-workspace.yaml
-100644 blob 0de364ea8e94ce1fdf711be2993e9cff47e0e746    rust-toolchain.toml
-100644 blob 830b80e861ab3b8d8948268a1a58a5209fda1cfa    rustfmt-nightly.toml
-040000 tree 61bceaa29b69e258fb61b723d8b32cbf9f011201    scripts
-```
-
-So you can easily recover file contents from any of these snapshots if needed:
-
-```bash title="Terminal"
-❯ git cat-file -p 16e47cb1^{tree}:workdir/.github/dependabot.yml
-version: 2
-
-updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-```
-
-Beyond that, we also store the state of your index in index as a tree, the state of what your target (trunk) tree looked like in target_tree, conflicts if you were in a conflicted state in conflicts and the state of your virtual branches.
-
-The virtual branches toml file has the metadata:
+The virtual branches toml file has the interesting metadata:
 
 ```bash title="Terminal"
 ❯ git cat-file -p 16e47cb1d091ca9dd44^{tree}:virtual_branches.toml
@@ -272,12 +225,21 @@ The virtual_branches tree has the actual contents of those computed branches in 
 <Files>
   <Folder name="virtual_branches" defaultOpen>
     <Folder name="[branch-id]" defaultOpen>
-      <File name="commit-message.txt" />
-      <File name="tree (subtree)" />
+      <Folder name="commits" defaultOpen>
+        <Folder name="[commit-id1]" defaultOpen>
+            <File name="commit" />
+            <File name="tree" />
+        </Folder>
+        <File name="[commit-id2]" />
+      </Folder>
+      <File name="tree" />
     </Folder>
     <Folder name="[branch-id]" defaultOpen>
-      <File name="commit-message.txt" />
-      <File name="tree (subtree)" />
+      <Folder name="commits">
+        <File name="[commit-id3]" />
+        <File name="[commit-id4]" />
+      </Folder>
+      <File name="tree" />
     </Folder>
   </Folder>
 </Files>
