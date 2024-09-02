@@ -43,9 +43,9 @@ export class Dropzone {
 		this.registerListeners();
 
 		// Mark the dropzone as active
+		this.activated = true;
 		setTimeout(() => {
 			this.configuration.onActivationStart();
-			this.activated = true;
 		}, 10);
 	}
 

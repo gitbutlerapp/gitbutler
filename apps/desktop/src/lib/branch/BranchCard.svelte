@@ -156,7 +156,7 @@
 								/>
 							</div>
 						{:else if branch.commits.length === 0}
-							<Dropzones>
+							<Dropzones id={branch.name}>
 								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width="11rem">
 										<svelte:fragment slot="title">This is a new branch</svelte:fragment>

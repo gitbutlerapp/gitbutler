@@ -68,6 +68,7 @@
 	tabindex="-1"
 	{onclick}
 	{onkeydown}
+	data-testid={'file-' + filePath}
 	oncontextmenu={(e) => {
 		if (oncontextmenu) {
 			e.preventDefault();

@@ -166,18 +166,18 @@
 			draggableEl && addAnimationEndListener(draggableEl);
 		}
 
-		onDestroy(() => {
-			// Ensure any listeners are removed if the component is destroyed before animation ends
-			if (draggableEl && animationEndHandler) {
-				draggableEl.removeEventListener('animationend', animationEndHandler);
-			}
-			files.forEach((f) => {
-				const lockedElement = document.getElementById(`file-${f.id}`);
-				if (lockedElement && animationEndHandler) {
-					lockedElement.removeEventListener('animationend', animationEndHandler);
-				}
-			});
-		});
+		// onDestroy(() => {
+		// 	// Ensure any listeners are removed if the component is destroyed before animation ends
+		// 	if (draggableEl && animationEndHandler) {
+		// 		draggableEl.removeEventListener('animationend', animationEndHandler);
+		// 	}
+		// 	files.forEach((f) => {
+		// 		const lockedElement = document.getElementById(`file-${f.id}`);
+		// 		if (lockedElement && animationEndHandler) {
+		// 			lockedElement.removeEventListener('animationend', animationEndHandler);
+		// 		}
+		// 	});
+		// });
 	}}
 	oncontextmenu={async (e) => {
 		if (fileIdSelection.has(file.id, $commit?.id)) {
