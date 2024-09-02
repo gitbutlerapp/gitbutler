@@ -16,7 +16,6 @@ export interface FailedToOpenRepoInexistentError extends BaseKnownError {
 
 export type KnownError = FailedToOpenRepoInexistentError;
 
-
 export function getErrorMessage(something: unknown): string | null {
 	if (something instanceof Error) return something.message;
 	if (typeof something === 'string') return something;

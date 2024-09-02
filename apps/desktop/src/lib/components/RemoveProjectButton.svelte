@@ -14,24 +14,18 @@
 		modal.close();
 	}
 
-function handleClick() {
-	if (noModal) {
-		onDeleteClicked();
-	} else {
-		modal.show();
+	function handleClick() {
+		if (noModal) {
+			onDeleteClicked();
+		} else {
+			modal.show();
+		}
 	}
-}
 
 	let modal: Modal;
 </script>
 
-<Button
-	style="error"
-	kind="solid"
-	icon="bin-small"
-	reversedDirection
-	onclick={handleClick}
->
+<Button style="error" kind="solid" icon="bin-small" reversedDirection onclick={handleClick}>
 	Remove project…
 </Button>
 

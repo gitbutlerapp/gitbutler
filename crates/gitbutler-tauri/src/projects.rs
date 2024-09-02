@@ -98,7 +98,7 @@ pub mod commands {
         projects: State<'_, Controller>,
         path: &path::Path,
     ) -> Result<(), Error> {
-       let project = projects
+        let project = projects
             .list()
             .context("failed to list projects")?
             .into_iter()
