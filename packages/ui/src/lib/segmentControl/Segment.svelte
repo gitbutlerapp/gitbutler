@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { tooltip } from '$lib/utils/tooltip';
 	import { getContext, onMount } from 'svelte';
 	import type { SegmentContext } from './segmentTypes';
 	import type { Snippet } from 'svelte';
@@ -8,11 +7,10 @@
 		id: string;
 		onselect?: (id: string) => void;
 		disabled?: boolean;
-		tooltipText?: string;
 		children: Snippet;
 	}
 
-	const { id, onselect, children, tooltipText, disabled = false }: SegmentProps = $props();
+	const { id, onselect, children, disabled = false }: SegmentProps = $props();
 
 	const context = getContext<SegmentContext>('SegmentControl');
 	const index = context.setIndex();
@@ -62,10 +60,6 @@
 				onselect && onselect(id);
 			}
 		}
-	}}
-	use:tooltip={{
-		text: tooltipText ? tooltipText : '',
-		delay: 1000
 	}}
 >
 	<span class="text-12 label">

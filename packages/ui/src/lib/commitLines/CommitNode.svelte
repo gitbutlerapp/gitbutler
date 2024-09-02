@@ -1,6 +1,6 @@
 <script lang="ts">
+	import Tooltip from '$lib/Tooltip.svelte';
 	import Avatar from '$lib/avatar/Avatar.svelte';
-	import { tooltip } from '$lib/utils/tooltip';
 	import { isDefined } from '$lib/utils/typeguards';
 	import type { CommitNodeData, Color } from '$lib/commitLines/types';
 
@@ -37,7 +37,9 @@
 				<Avatar srcUrl={commitNode.commit?.author.gravatarUrl ?? ''} tooltip={hoverText} />
 			</div>
 		{:else}
-			<div class="small-node" use:tooltip={hoverText}></div>
+			<Tooltip text={hoverText}>
+				<div class="small-node"></div>
+			</Tooltip>
 		{/if}
 	</div>
 {/if}

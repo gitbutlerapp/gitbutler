@@ -10,7 +10,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 
 	export let base: BaseBranch;
@@ -49,7 +49,7 @@
 		<Button
 			style="pop"
 			kind="solid"
-			help={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
+			tooltip={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
 			disabled={$mode?.type !== 'OpenWorkspace'}
 			onclick={() => {
 				if ($mergeUpstreamWarningDismissed) {
@@ -77,12 +77,9 @@
 	{/if}
 
 	<div>
-		<h1
-			class="text-13 info-text text-bold"
-			use:tooltip={'This is the current base for your virtual branches.'}
-		>
-			Local
-		</h1>
+		<Tooltip text="Current base for virtual branches.">
+			<h1 class="text-13 info-text text-bold">Local</h1>
+		</Tooltip>
 		{#each base.recentCommits as commit, index}
 			<CommitCard
 				{commit}

@@ -62,6 +62,10 @@ fn main() {
                     let app_handle = tauri_app.handle();
 
                     logs::init(&app_handle, performance_logging);
+                    tracing::info!(
+                        "system git executable for fetch/push: {git:?}",
+                        git = gix::path::env::exe_invocation(),
+                    );
 
                     // On MacOS, in dev mode with debug assertions, we encounter popups each time
                     // the binary is rebuilt. To counter that, use a git-credential based implementation.

@@ -10,7 +10,7 @@
 
 <script lang="ts">
 	import Avatar from './Avatar.svelte';
-	import { tooltip } from '$lib/utils/tooltip';
+	import Tooltip from '$lib/Tooltip.svelte';
 
 	const { avatars, maxAvatars = 5 }: Props = $props();
 
@@ -43,15 +43,11 @@
 		{/if}
 	{/each}
 	{#if avatars.length > maxAvatars}
-		<div
-			class="avatars-counter"
-			use:tooltip={{
-				text: getTooltipText() || 'mr. unknown',
-				delay: 500
-			}}
-		>
-			<span class="text-11 text-semibold">+{avatars.length - maxAvatars}</span>
-		</div>
+		<Tooltip text={getTooltipText() || 'mr. unknown'}>
+			<div class="avatars-counter">
+				<span class="text-11 text-semibold">+{avatars.length - maxAvatars}</span>
+			</div>
+		</Tooltip>
 	{/if}
 </div>
 

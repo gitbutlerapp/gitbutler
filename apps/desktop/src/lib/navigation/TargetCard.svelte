@@ -6,7 +6,7 @@
 	import { getContext } from '$lib/utils/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
@@ -38,12 +38,13 @@
 	{#if !isNavCollapsed}
 		<div class="content">
 			<div class="button-head">
-				<span
-					use:tooltip={'The branch that your Workspace virtual branches are based on and will be merged into.'}
-					class="text-14 text-semibold trunk-label">Target</span
-				>
+				<Tooltip text="The branch your Workspace branches are based on and merge into.">
+					<span class="text-14 text-semibold trunk-label">Target</span>
+				</Tooltip>
 				{#if ($base?.behind || 0) > 0}
-					<Badge label={$base?.behind || 0} help="Unmerged upstream commits" />
+					<Tooltip text="Unmerged upstream commits">
+						<Badge label={$base?.behind || 0} />
+					</Tooltip>
 				{/if}
 				<SyncButton />
 			</div>

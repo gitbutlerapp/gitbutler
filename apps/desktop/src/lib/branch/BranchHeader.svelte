@@ -132,7 +132,7 @@
 			<div class="draggable" data-drag-handle>
 				<Icon name="draggable" />
 			</div>
-			<Button style="ghost" outline icon="unfold-lane" help="Expand lane" onclick={expandLane} />
+			<Button style="ghost" outline icon="unfold-lane" tooltip="Expand lane" onclick={expandLane} />
 		</div>
 
 		<div class="collapsed-lane__info-wrap" bind:clientHeight={headerInfoHeight}>
@@ -147,7 +147,7 @@
 							clickable={false}
 							style="warning"
 							kind="soft"
-							help="Uncommitted changes"
+							tooltip="Uncommitted changes"
 						>
 							{uncommittedChanges}
 							{uncommittedChanges === 1 ? 'change' : 'changes'}
@@ -198,7 +198,7 @@
 									clickable={false}
 									icon="locked-small"
 									style="warning"
-									help="Applying this branch will add merge conflict markers that you will have to resolve"
+									tooltip="Applying this branch will add merge conflict markers that you will have to resolve"
 								>
 									Conflict
 								</Button>
@@ -214,7 +214,7 @@
 						<Button
 							style="pop"
 							kind="soft"
-							help="New changes will land here"
+							tooltip="New changes will land here"
 							icon="target"
 							clickable={false}
 						>
@@ -224,7 +224,7 @@
 						<Button
 							style="ghost"
 							outline
-							help="When selected, new changes will land here"
+							tooltip="When selected, new changes land here"
 							icon="target"
 							onclick={async () => {
 								isTargetBranchAnimated = true;
@@ -242,7 +242,7 @@
 							<PullRequestButton
 								click={async ({ draft }) => await createPr({ draft })}
 								disabled={branch.commits.length === 0 || !$gitHost}
-								help={!$gitHost ? 'You can enable git host integration in the settings' : ''}
+								tooltip={!$gitHost ? 'You can enable git host integration in the settings' : ''}
 								loading={isLoading}
 							/>
 						{/if}

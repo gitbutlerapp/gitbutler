@@ -47,7 +47,7 @@
 			icon="pr-small"
 			style="success"
 			kind="solid"
-			help="These changes have been integrated upstream, update your workspace to make this lane disappear."
+			tooltip="Changes have been integrated upstream, update your workspace to make this lane disappear."
 			reversedDirection>Integrated</Button
 		>
 	{:else}
@@ -56,7 +56,7 @@
 			size="tag"
 			icon="virtual-branch-small"
 			style="neutral"
-			help="These changes are in your working directory."
+			tooltip="Changes are in your working directory"
 			reversedDirection>Virtual</Button
 		>
 	{/if}
@@ -68,7 +68,7 @@
 				style="neutral"
 				shrinkable
 				disabled
-				help="Branch name that will be used when pushing. You can change it from the lane menu."
+				tooltip={'Branch name that will be used when pushing.\nChange it from the lane menu'}
 			>
 				{name}
 			</Button>
@@ -81,7 +81,7 @@
 		style="neutral"
 		kind="solid"
 		icon="remote-branch-small"
-		help="At least some of your changes have been pushed"
+		tooltip="Some changes have been pushed"
 		reversedDirection>Remote</Button
 	>
 	<Button

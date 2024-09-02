@@ -23,7 +23,7 @@
 			icon="plus-small"
 			size="tag"
 			width={26}
-			help="Insert empty commit"
+			tooltip="Insert empty commit"
 			helpShowDelay={500}
 			onclick={() => dispatch('click')}
 		/>
