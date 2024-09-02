@@ -1,7 +1,7 @@
 <script lang="ts">
+	import RemoveProjectButton from '../RemoveProjectButton.svelte';
 	import { ProjectService } from '$lib/backend/projects';
 	import { getContext } from '$lib/utils/context';
-	import Button from '@gitbutler/ui/Button.svelte';
 	import type { FailedToOpenRepoInexistentError } from '$lib/utils/errors';
 
 	const projectService = getContext(ProjectService);
@@ -11,10 +11,13 @@
 	}
 	const { error }: Props = $props();
 
+	let isDeleting = $state(false);
 	let deleteSucceeded: boolean | undefined = $state(undefined);
 
 	async function stopTracking() {
+		isDeleting = true;
 		deleteSucceeded = await projectService.deleteProjectByPath(error.path);
+		isDeleting = false;
 	}
 </script>
 
@@ -25,21 +28,22 @@
 		</p>
 		<p class="text-12 text-body repo-path">{error.path}</p>
 		<div class="button-container">
-			<Button style="error" onclick={stopTracking}>Remove</Button>
+			<RemoveProjectButton
+				noModal
+				projectTitle={error.path}
+				{isDeleting}
+				onDeleteClicked={stopTracking}
+			/>
 		</div>
 	{/if}
 
-  {#if deleteSucceeded === true}
-    <p class="text-12 text-body text-bold">
-      Repo removed successfully
-    </p>
-  {/if}
+	{#if deleteSucceeded === true}
+		<p class="text-12 text-body text-bold">Repo removed successfully</p>
+	{/if}
 
-  {#if deleteSucceeded === false}
-    <p class="text-12 text-body text-bold">
-      Failed to remove repo
-    </p>
-  {/if}
+	{#if deleteSucceeded === false}
+		<p class="text-12 text-body text-bold">Failed to remove repo</p>
+	{/if}
 </div>
 
 <style lang="postcss">

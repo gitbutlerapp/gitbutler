@@ -4,6 +4,7 @@
 
 	export let projectTitle: string = '#';
 	export let isDeleting = false;
+	export let noModal = false;
 	export let onDeleteClicked: () => Promise<void>;
 
 	export function show() {
@@ -13,6 +14,14 @@
 		modal.close();
 	}
 
+function handleClick() {
+	if (noModal) {
+		onDeleteClicked();
+	} else {
+		modal.show();
+	}
+}
+
 	let modal: Modal;
 </script>
 
@@ -21,9 +30,7 @@
 	kind="solid"
 	icon="bin-small"
 	reversedDirection
-	onclick={() => {
-		modal.show();
-	}}
+	onclick={handleClick}
 >
 	Remove project…
 </Button>
