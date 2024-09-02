@@ -216,7 +216,7 @@
 		align-items: center;
 		justify-content: center;
 		gap: 2px;
-		padding: 0 4px;
+		padding: 4px;
 		height: 16px;
 		border-radius: var(--radius-s);
 	}
@@ -227,6 +227,11 @@
 		color: var(--clr-text-1);
 	}
 
+	.tag-pr,
+	.tag-draft-pr {
+		padding: 0 2px 0 4px;
+	}
+
 	.tag-pr {
 		background-color: var(--clr-theme-succ-element);
 		color: var(--clr-theme-succ-on-element);
@@ -234,7 +239,8 @@
 
 	.tag-draft-pr {
 		background-color: var(--clr-theme-ntrl-soft);
-		color: var(--clr-theme-ntrl-on-soft);
+		color: var(--clr-text-2);
+		border: 1px solid var(--clr-border-2);
 	}
 
 	.tag-applied {
