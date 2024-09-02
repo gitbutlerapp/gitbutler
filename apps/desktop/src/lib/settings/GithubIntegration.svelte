@@ -1,8 +1,12 @@
 <script lang="ts">
 	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import { gitHostUsePullRequestTemplate } from '$lib/config/config';
+	import {
+		gitHostPullRequestTemplatePath,
+		gitHostUsePullRequestTemplate
+	} from '$lib/config/config';
 	import { getGitHubUserServiceStore } from '$lib/gitHost/github/githubUserService';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
@@ -18,6 +22,7 @@
 	export let disabled = false;
 
 	const usePullRequestTemplate = gitHostUsePullRequestTemplate();
+	const pullRequestTemplatePath = gitHostPullRequestTemplatePath();
 	const githubUserService = getGitHubUserServiceStore();
 	const userService = getContext(UserService);
 	const user = userService.user;
@@ -98,22 +103,39 @@
 		<svelte:fragment slot="title">GitHub</svelte:fragment>
 		<svelte:fragment slot="caption">Allows you to view and create Pull Requests.</svelte:fragment>
 		{#if $user?.github_access_token}
-			<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}
-				>Forget</Button
-			>
+			<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}>
+				Forget
+			</Button>
 		{:else}
 			<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 		{/if}
 	</SectionCard>
-	<SectionCard roundedBottom={false} orientation="row" labelFor="use-pull-request-template">
-		<svelte:fragment slot="title">Pull Request Template</svelte:fragment>
-		<svelte:fragment slot="caption"
-			>Use Pull Request template when creating a Pull Requests.</svelte:fragment
-		>
-		<svelte:fragment slot="actions">
-			<Toggle id="use-pull-request-template" value="false" bind:checked={$usePullRequestTemplate} />
-		</svelte:fragment>
-	</SectionCard>
+	<div>
+		<SectionCard roundedBottom={false} orientation="row" labelFor="use-pull-request-template">
+			<svelte:fragment slot="title">Pull Request Template</svelte:fragment>
+			<svelte:fragment slot="caption">
+				Use Pull Request template when creating a Pull Requests.
+			</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<Toggle
+					id="use-pull-request-template"
+					value="false"
+					bind:checked={$usePullRequestTemplate}
+				/>
+			</svelte:fragment>
+		</SectionCard>
+		<SectionCard roundedTop={false} orientation="row" labelFor="pull-request-template-path">
+			<svelte:fragment slot="title">Pull Request Template Path</svelte:fragment>
+			<svelte:fragment slot="caption">
+				<div class="pr-path--label">Path to your Pull Request template in your repository.</div>
+				<TextBox
+					id="pull-request-template-path"
+					bind:value={$pullRequestTemplatePath}
+					placeholder=".github/pull_request_template.md"
+				/>
+			</svelte:fragment>
+		</SectionCard>
+	</div>
 {/if}
 
 <Modal
@@ -286,7 +308,9 @@
 		}
 	}
 
-	/*  */
+	.pr-path--label {
+		margin-bottom: 0.75rem;
+	}
 
 	.icon-wrapper {
 		align-self: flex-start;

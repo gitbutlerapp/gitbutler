@@ -21,7 +21,8 @@ export class DefaultGitHostFactory implements GitHostFactory {
 		repo: RepoInfo,
 		baseBranch: string,
 		fork?: RepoInfo,
-		usePullRequestTemplate?: Persisted<boolean>
+		usePullRequestTemplate?: Persisted<boolean>,
+		pullRequestTemplatePath?: Persisted<string>
 	) {
 		const domain = repo.domain;
 		const forkStr = fork ? `${fork.owner}:${fork.name}` : undefined;
@@ -33,7 +34,8 @@ export class DefaultGitHostFactory implements GitHostFactory {
 				forkStr,
 				octokit: this.octokit,
 				projectMetrics: new ProjectMetrics(),
-				usePullRequestTemplate
+				usePullRequestTemplate,
+				pullRequestTemplatePath
 			});
 		}
 		if (domain === GITLAB_DOMAIN || domain.startsWith(GITLAB_SUB_DOMAIN + '.')) {
