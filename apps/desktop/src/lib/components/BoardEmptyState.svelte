@@ -154,7 +154,7 @@
 			transform: translateX(-50%) scale(1.15);
 			border-radius: 100%;
 			background-color: var(--clr-illustration-outline);
-			opacity: 0.1;
+			opacity: 0.09;
 			animation: shadow-scale 5.5s infinite ease-in-out;
 			animation-delay: 3s;
 		}
@@ -164,7 +164,7 @@
 		position: absolute;
 		top: 50%;
 		left: 50%;
-		transform: translate(-50%, -66%) translateZ(0);
+		transform: translate(-50%, -70%) translateZ(0);
 		width: 212px;
 		animation: hovering 5.5s infinite ease-in-out;
 		animation-delay: 3s;
@@ -182,7 +182,7 @@
 	}
 	@keyframes shadow-scale {
 		0% {
-			opacity: 0.08;
+			opacity: 0.09;
 			transform: translateX(-50%) scale(1.15);
 		}
 		50% {
@@ -190,7 +190,7 @@
 			transform: translateX(-50%) scale(1);
 		}
 		100% {
-			opacity: 0.08;
+			opacity: 0.09;
 			transform: translateX(-50%) scale(1.15);
 		}
 	}
