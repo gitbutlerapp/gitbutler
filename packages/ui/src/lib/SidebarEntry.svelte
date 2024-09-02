@@ -63,7 +63,7 @@
 	</h4>
 
 	<div class="row">
-		<div class="row-group authors-and-tags">
+		<div class="authors-and-tags">
 			{@render authorAvatars()}
 			<div class="branch-remotes">
 				<!-- NEED API -->
@@ -187,12 +187,6 @@
 		}
 	}
 
-	.authors-and-tags {
-		:global(& > *:first-child:empty) {
-			display: none;
-		}
-	}
-
 	/* ROW */
 
 	.row {
@@ -209,6 +203,12 @@
 		gap: 4px;
 	}
 
+	.authors-and-tags {
+		display: flex;
+		align-items: center;
+		gap: 6px;
+	}
+
 	/* TAG */
 
 	.branch-tag {
@@ -223,8 +223,9 @@
 
 	.tag-local,
 	.tag-remote {
-		background-color: var(--clr-theme-ntrl-soft-hover);
-		color: var(--clr-text-1);
+		border: 1px solid var(--clr-border-2);
+		/* background-color: color-mix(in srgb, var(--clr-scale-ntrl-60), transparent 70%);
+		color: var(--clr-text-1); */
 	}
 
 	.tag-pr,
@@ -286,7 +287,7 @@
 
 	.branch-remotes {
 		display: flex;
-		gap: 6px;
+		gap: 4px;
 	}
 
 	.branch-name {

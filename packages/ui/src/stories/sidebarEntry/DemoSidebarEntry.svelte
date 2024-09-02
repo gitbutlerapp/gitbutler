@@ -29,7 +29,7 @@
 			avatars={[
 				{
 					srcUrl: 'https://avatars.githubusercontent.com/u/76307?s=80&v=4',
-					name: 'Davo'
+					name: 'Sebastian Markbåge'
 				},
 				{
 					srcUrl: 'https://gravatar.com/avatar/f43ef760d895a84ca7bb35ff6f4c6b7c',
