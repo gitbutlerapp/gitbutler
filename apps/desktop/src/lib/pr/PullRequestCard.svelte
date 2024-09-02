@@ -231,7 +231,6 @@
 						!$pr.mergeable ||
 						['dirty', 'unknown', 'blocked', 'behind'].includes($pr.mergeableState)}
 					loading={isMerging}
-					tooltip="Merge pull request and refresh"
 					on:click={async (e) => {
 						if (!$pr) return;
 						isMerging = true;
