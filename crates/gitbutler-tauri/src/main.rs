@@ -146,6 +146,7 @@ fn main() {
                     projects::commands::get_project,
                     projects::commands::update_project,
                     projects::commands::delete_project,
+                    projects::commands::delete_project_by_path,
                     projects::commands::list_projects,
                     projects::commands::set_project_active,
                     projects::commands::open_project_in_window,

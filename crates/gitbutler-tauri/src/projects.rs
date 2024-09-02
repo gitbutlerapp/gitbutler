@@ -91,6 +91,22 @@ pub mod commands {
     pub fn delete_project(projects: State<'_, Controller>, id: ProjectId) -> Result<(), Error> {
         projects.delete(id).map_err(Into::into)
     }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects), err(Debug))]
+    pub fn delete_project_by_path(
+        projects: State<'_, Controller>,
+        path: &path::Path,
+    ) -> Result<(), Error> {
+       let project = projects
+            .list()
+            .context("failed to list projects")?
+            .into_iter()
+            .find(|project| project.path == path)
+            .ok_or_else(|| anyhow::anyhow!("project not found"))?;
+
+        projects.delete(project.id).map_err(Into::into)
+    }
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]

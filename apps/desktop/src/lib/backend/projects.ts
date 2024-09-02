@@ -100,6 +100,16 @@ export class ProjectService {
 		return await invoke('delete_project', { id });
 	}
 
+	async deleteProjectByPath(path: string): Promise<boolean> {
+		try {
+			await invoke('delete_project_by_path', { path });
+			return true;
+		} catch (error) {
+			// Will only fail if no project matches the path given
+			return false;
+		}
+	}
+
 	async promptForDirectory(): Promise<string | undefined> {
 		const selectedPath = open({ directory: true, recursive: true, defaultPath: this.homeDir });
 		if (selectedPath) {

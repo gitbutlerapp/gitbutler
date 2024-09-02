@@ -1,5 +1,6 @@
 <script lang="ts">
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
+	import ErrorBoundaryActions from './ErrorBoundaryActions.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -17,6 +18,8 @@
 			<Icon name="error" color="error" />
 			{error ? error : 'An unknown error occurred'}
 		</div>
+
+		<ErrorBoundaryActions {error} />
 
 		<div class="problem__switcher">
 			<ProjectSwitcher />
