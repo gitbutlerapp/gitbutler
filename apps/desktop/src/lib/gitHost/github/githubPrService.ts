@@ -1,7 +1,7 @@
 import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
-import { showError, showToast } from '$lib/notifications/toasts';
+import { showError } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { get, writable } from 'svelte/store';
@@ -84,15 +84,10 @@ export class GitHubPrService implements GitHostPrService {
 		} catch (err) {
 			console.error(`Error fetching pull request template at path: ${prPath}`, err);
 
-			showToast({
-				title: 'Failed to fetch pull request template',
-				error: `Couldn't find template at path: \n\n${prPath}\n\nPull Request created without template.`,
-				style: 'error'
-			});
-			// showError(
-			// 	`Failed to fetch pull request template at path \n\n${prPath}\n\nPull Request created without template.`,
-			// 	err
-			// );
+			showError(
+				`Failed to fetch pull request template at path \n\n${prPath}\n\nPull Request created without template.`,
+				err
+			);
 		}
 	}
 
