@@ -9,6 +9,10 @@
   ],
   "redirects": [
     {
+      "source": "/getting-started/why-gitbutler",
+      "destination": "/why-gitbutler"
+    },
+    {
       "source": "/features/virtual-branches",
       "destination": "/features/virtual-branches/overview"
     },
