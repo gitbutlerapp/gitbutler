@@ -6,6 +6,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	export let error: any = undefined;
+	export let code: string | undefined = undefined;
 </script>
 
 <DecorativeSplitView img={loadErrorSvg}>
@@ -19,7 +20,7 @@
 			{error ? error : 'An unknown error occurred'}
 		</div>
 
-		<ErrorBoundaryActions {error} />
+		<ErrorBoundaryActions errorCode={code} />
 
 		<div class="problem__switcher">
 			<ProjectSwitcher />

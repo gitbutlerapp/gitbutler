@@ -1,19 +1,18 @@
 <script lang="ts">
 	import InexistentRepo from './errorBoundaryActions/InexistentRepo.svelte';
-	import { getKnownError, KnownErrorType } from '$lib/utils/errors';
+	import { Code, isUserErrorCode } from '$lib/backend/ipc';
 
 	interface Props {
-		error: unknown;
+		errorCode: string | undefined;
 	}
 
-	const { error }: Props = $props();
-	let knownError = $derived(getKnownError(error));
+	const { errorCode }: Props = $props();
 </script>
 
-{#if knownError}
+{#if isUserErrorCode(errorCode)}
 	<div>
-		{#if knownError.type === KnownErrorType.FailedToOpenRepoInexistent}
-			<InexistentRepo error={knownError} />
+		{#if errorCode === Code.ProjectMissing}
+			<InexistentRepo />
 		{/if}
 	</div>
 {/if}

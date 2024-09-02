@@ -2,38 +2,31 @@
 	import RemoveProjectButton from '../RemoveProjectButton.svelte';
 	import { ProjectService } from '$lib/backend/projects';
 	import { getContext } from '$lib/utils/context';
-	import type { FailedToOpenRepoInexistentError } from '$lib/utils/errors';
 
 	const projectService = getContext(ProjectService);
-
-	interface Props {
-		error: FailedToOpenRepoInexistentError;
-	}
-	const { error }: Props = $props();
 
 	let isDeleting = $state(false);
 	let deleteSucceeded: boolean | undefined = $state(undefined);
 
 	async function stopTracking() {
 		isDeleting = true;
-		deleteSucceeded = await projectService.deleteProjectByPath(error.path);
+		deleteProject: {
+			const id = projectService.getLastOpenedProject();
+			if (id === undefined) {
+				deleteSucceeded = false;
+				break deleteProject;
+			}
+			await projectService.deleteProject(id);
+		}
 		isDeleting = false;
 	}
 </script>
 
 <div class="container">
 	{#if deleteSucceeded === undefined}
-		<p class="text-12 text-body text-bold">
-			Do you want to stop tracking the repo under this path?:
-		</p>
-		<p class="text-12 text-body repo-path">{error.path}</p>
+		<p class="text-12 text-body text-bold">Do you want to:</p>
 		<div class="button-container">
-			<RemoveProjectButton
-				noModal
-				projectTitle={error.path}
-				{isDeleting}
-				onDeleteClicked={stopTracking}
-			/>
+			<RemoveProjectButton noModal {isDeleting} onDeleteClicked={stopTracking} />
 		</div>
 	{/if}
 
@@ -51,10 +44,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-	}
-
-	.repo-path {
-		text-align: center;
 	}
 
 	.button-container {

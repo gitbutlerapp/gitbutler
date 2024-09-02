@@ -9,4 +9,4 @@
 			: 'Unknown error';
 </script>
 
-<SomethingWentWrong error={message} />
+<SomethingWentWrong error={message} code={$page.error?.errorCode} />
