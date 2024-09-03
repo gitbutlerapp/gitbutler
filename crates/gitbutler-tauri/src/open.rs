@@ -33,7 +33,7 @@ pub(crate) fn open_that(path: &str) -> Result<(), Error> {
             })
     }
 
-    for mut cmd in open::commands(&path) {
+    for mut cmd in open::commands(path) {
         let cleaned_vars = clean_env_vars(&[
             "APPDIR",
             "GDK_PIXBUF_MODULE_FILE",
