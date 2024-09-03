@@ -14,7 +14,7 @@ If you get stuck or need help with anything, hit us up over on Discord, here's [
 
 Often the most helpful thing is to look at the logs. GitButler is a Tauri app, so the logs are in your OS's [app log directory](https://docs.rs/tauri/latest/tauri/api/path/fn.app_log_dir.html). This should be:
 
-<Tabs items={['macOS', 'Windows', 'Linux']}>
+<Tabs groupId="platform" items={['macOS', 'Windows', 'Linux']} persist>
   <Tab value="macOS">
   ```bash
   ~/Library/Logs/com.gitbutler.app/
@@ -68,7 +68,7 @@ In this directory, there should be rolling daily logs:
 
 GitButler also keeps it's own data about each of your projects. The virtual branch metadata, your user config stuff, a log of changes in each file, etc. If you want to inspect what GitButler is doing or debug or reset everything, you can go to our data directory.
 
-<Tabs items={['macOS', 'Windows', 'Linux']}>
+<Tabs groupId="platform" items={['macOS', 'Windows', 'Linux']} persist>
   <Tab value="macOS">
   ```bash
   ~/Library/Application Support/com.gitbutler.app/

@@ -78,7 +78,7 @@ There are lots of other ways to set up GPG or SSH commit signing:
 <Callout title="Using GitButler's Generated SSH Key">
 Earlier versions of GitButler would only sign with it's generated SSH key. Although we've removed that functionality, you can easily set it back up by pointing the signingKey at the generated SSH Key. The key is located in the following locations:
 
-<Tabs items={['macOS', 'Windows', 'Linux']}>
+<Tabs groupId="platform" items={['macOS', 'Windows', 'Linux']} persist>
   <Tab value="macOS">
   ```bash
   /Users/[username]/Library/Application Support/com.gitbutler.app/keys/ed25519.pub

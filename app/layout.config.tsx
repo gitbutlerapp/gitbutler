@@ -1,11 +1,13 @@
-import { type BaseLayoutProps, type DocsLayoutProps } from "fumadocs-ui/layout"
-import { pageTree } from "./source"
+import { utils } from "@/app/source"
+import type { DocsLayoutProps } from "fumadocs-ui/layout"
+import type { HomeLayoutProps } from "fumadocs-ui/home-layout"
+
 import Logo from "@/components/Logo"
 import Discord from "@/components/logos/discord"
 import GitButler from "@/components/logos/gitbutler-wordmark"
 
 // shared configuration
-export const baseOptions: BaseLayoutProps = {
+export const baseOptions: HomeLayoutProps = {
   nav: {
     title: <Logo />,
     transparentMode: "top"
@@ -31,5 +33,5 @@ export const docsOptions: DocsLayoutProps = {
   sidebar: {
     defaultOpenLevel: 0
   },
-  tree: pageTree
+  tree: utils.pageTree
 }

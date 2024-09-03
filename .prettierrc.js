@@ -5,10 +5,10 @@
 const config = {
   semi: false,
   singleQuote: false,
-  trailingComma: 'none',
+  trailingComma: "none",
   printWidth: 100,
-  endOfLine: 'auto',
-  // plugins: ['prettier-plugin-tailwindcss']
+  endOfLine: "auto",
+  plugins: ["prettier-plugin-tailwindcss"]
 }
 
-module.exports = config
+export default config

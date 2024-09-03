@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next"
-import { getPages } from "./source"
+import { utils } from "./source"
 
 const baseUrl =
   process.env.NODE_ENV === "development"
@@ -15,11 +15,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.8
     },
-    ...getPages().map<MetadataRoute.Sitemap[number]>((page) => ({
+    ...utils.getPages().map<MetadataRoute.Sitemap[number]>((page) => ({
       url: url(page.url),
-      lastModified: page.data.exports.lastModified
-        ? new Date(page.data.exports.lastModified)
-        : undefined,
+      lastModified: page.data.lastModified ? new Date(page.data.lastModified) : undefined,
       changeFrequency: "weekly",
       priority: 0.5
     }))

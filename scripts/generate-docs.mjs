@@ -30,5 +30,5 @@ void generateFiles({
       description
     }
   },
-  output: "./content/docs/"
+  output: "./content/docs/api-reference/"
 })

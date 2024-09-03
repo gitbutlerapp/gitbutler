@@ -1,4 +1,5 @@
 import prettier from "eslint-plugin-prettier"
+import next from "@next/eslint-plugin-next"
 import typescriptEslint from "@typescript-eslint/eslint-plugin"
 import globals from "globals"
 import tsParser from "@typescript-eslint/parser"
@@ -18,13 +19,13 @@ const compat = new FlatCompat({
 const config = [
   ...compat.extends(
     "eslint:recommended",
-    "next",
     "plugin:@typescript-eslint/eslint-recommended",
     "plugin:@typescript-eslint/recommended"
   ),
   {
     plugins: {
       prettier,
+      next,
       "@typescript-eslint": typescriptEslint
     },
 

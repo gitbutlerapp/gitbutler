@@ -3,6 +3,7 @@ node_modules
 
 # generated content
 .map.ts
+.source
 .contentlayer
 api-reference.json
 content/docs/api-reference/*.mdx

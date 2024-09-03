@@ -1,13 +1,21 @@
-import { getPage, getPages } from "@/app/source"
-import { DocsPage, DocsBody } from "fumadocs-ui/page"
+import { openapi, utils } from "@/app/source"
+import { DocsPage, DocsBody, DocsTitle, DocsDescription } from "fumadocs-ui/page"
 import { notFound } from "next/navigation"
-import { RollButton } from "fumadocs-ui/components/roll-button"
-import type { Metadata } from "next"
-import { join } from "path"
-import { getGithubLastEdit } from "fumadocs-core/server"
+import defaultComponents from "fumadocs-ui/mdx"
+import { Popup, PopupContent, PopupTrigger } from "fumadocs-ui/twoslash/popup"
+import { Tab, Tabs } from "fumadocs-ui/components/tabs"
+import { Callout } from "fumadocs-ui/components/callout"
+import { TypeTable } from "fumadocs-ui/components/type-table"
+import { Accordion, Accordions } from "fumadocs-ui/components/accordion"
+import ImageSection from "@/app/components/ImageSection"
+import type { ComponentProps, FC } from "react"
 
-export default async function Page({ params }: { params: { slug?: string[] } }) {
-  const page = getPage(params.slug)
+interface Param {
+  slug: string[]
+}
+
+export default function Page({ params }: { params: Param }): React.ReactElement {
+  const page = utils.getPage(params.slug)
 
   if (!page) notFound()
 
@@ -17,7 +25,7 @@ export default async function Page({ params }: { params: { slug?: string[] } }) 
         href={`https://github.com/gitbutlerapp/gitbutler-docs/blob/main/content/docs/${page.file.path}`}
         target="_blank"
         rel="noreferrer noopener"
-        className="group rounded-md text-neutral-500 dark:text-neutral-400 dark:bg-neutral-900 border border-neutral-300/50 text-sm py-1 dark:border-neutral-700 flex justify-center items-center gap-2 hover:bg-neutral-100 transition duration-300 dark:hover:bg-neutral-950"
+        className="group flex items-center justify-center gap-2 rounded-md border border-neutral-300/50 py-1 text-sm text-neutral-500 transition duration-300 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-950"
       >
         <svg
           className="size-4 group-hover:animate-[var(--animation-shake-x)]"
@@ -35,10 +43,10 @@ export default async function Page({ params }: { params: { slug?: string[] } }) 
         href={`https://github.com/gitbutlerapp/gitbutler-docs/issues/new?label=docs&title=Feedback+for+page+"${page.file.flattenedPath}"`}
         target="_blank"
         rel="noreferrer noopener"
-        className="rounded-md text-neutral-500 dark:text-neutral-400 dark:bg-neutral-900 border border-neutral-300/50 text-sm py-1 dark:border-neutral-700 flex justify-center items-center gap-2 hover:bg-neutral-100 transition duration-300 dark:hover:bg-neutral-950 group"
+        className="group flex items-center justify-center gap-2 rounded-md border border-neutral-300/50 py-1 text-sm text-neutral-500 transition duration-300 hover:bg-neutral-100 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-400 dark:hover:bg-neutral-950"
       >
         <svg
-          className="size-4 transition ease-[var(--ease-spring-3)] duration-500 group-hover:animate-[var(--animation-bounce)]"
+          className="size-4 transition duration-500 ease-[var(--ease-spring-3)] group-hover:animate-[var(--animation-bounce)]"
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 256 256"
         >
@@ -65,46 +73,59 @@ export default async function Page({ params }: { params: { slug?: string[] } }) 
     </>
   )
 
-  const time = await getGithubLastEdit({
-    owner: "gitbutlerapp",
-    repo: "gitbutler-docs",
-    path: join("content/docs/", page.file.path)
-  })
-
-  const MDX = page.data.exports.default
-
   return (
     <DocsPage
-      toc={page.data.exports.toc}
-      full={page.data.full ?? false}
-      lastUpdate={time ?? undefined}
+      toc={page.data.toc}
+      full={page.data.full}
       tableOfContent={{
+        style: "clerk",
+        single: false,
         footer
       }}
-      tableOfContentPopover={{ footer }}
+      lastUpdate={page.data.lastModified}
+      tableOfContentPopover={{
+        footer
+      }}
     >
-      <RollButton percentage={0.3} />
+      <DocsTitle>{page.data.title}</DocsTitle>
+      <DocsDescription>{page.data.description}</DocsDescription>
       <DocsBody>
-        <h1>{page.data.title}</h1>
-        <MDX />
+        <page.data.body
+          components={{
+            ...defaultComponents,
+            Popup,
+            PopupContent,
+            PopupTrigger,
+            Tabs,
+            Tab,
+            TypeTable,
+            Accordion,
+            Accordions,
+            ImageSection,
+            blockquote: Callout as unknown as FC<ComponentProps<"blockquote">>,
+            APIPage: openapi.APIPage
+          }}
+        />
       </DocsBody>
     </DocsPage>
   )
 }
 
-export async function generateStaticParams() {
-  return getPages().map((page) => ({
-    slug: page.slugs
-  }))
+export function generateStaticParams(): Param[] {
+  return utils.getPages().map((page) => {
+    return {
+      slug: page.slugs
+    }
+  })
 }
 
 export function generateMetadata({ params }: { params: { slug?: string[] } }) {
-  const page = getPage(params.slug)
+  const page = utils.getPage(params.slug)
 
-  if (page == null) notFound()
+  if (!page) notFound()
 
   return {
     title: page.data.title,
     description: page.data.description
-  } satisfies Metadata
+  }
 }
