@@ -292,7 +292,7 @@ pub fn list_virtual_branches_cached(
                                 default_target.sha
                             ))?;
                     let remote_commit_ids =
-                        HashSet::from_iter(ctx.l(upstream.id(), LogUntil::Commit(merge_base))?);
+                        HashSet::from_iter(repo.l(upstream.id(), LogUntil::Commit(merge_base))?);
                     let remote_commit_data: HashMap<_, _> = remote_commit_ids
                         .iter()
                         .copied()
@@ -313,7 +313,7 @@ pub fn list_virtual_branches_cached(
         let mut is_remote = false;
 
         // find all commits on head that are not on target.sha
-        let commits = ctx.log(branch.head, LogUntil::Commit(default_target.sha))?;
+        let commits = repo.log(branch.head, LogUntil::Commit(default_target.sha))?;
         let check_commit = IsCommitIntegrated::new(ctx, &default_target)?;
         let vbranch_commits = {
             let _span = tracing::debug_span!(
@@ -544,8 +544,8 @@ pub fn integrate_upstream_commits(ctx: &CommandContext, branch_id: BranchId) -> 
         return Ok(());
     }
 
-    let upstream_commits = ctx.list_commits(upstream_commit.id(), default_target.sha)?;
-    let branch_commits = ctx.list_commits(branch.head, default_target.sha)?;
+    let upstream_commits = repo.list_commits(upstream_commit.id(), default_target.sha)?;
+    let branch_commits = repo.list_commits(branch.head, default_target.sha)?;
 
     let branch_commit_ids = branch_commits.iter().map(|c| c.id()).collect::<Vec<_>>();
 
@@ -855,6 +855,7 @@ pub(crate) fn reset_branch(
 
     if default_target.sha != target_commit_id
         && !ctx
+            .repository()
             .l(branch.head, LogUntil::Commit(default_target.sha))?
             .contains(&target_commit_id)
     {
@@ -1112,7 +1113,9 @@ impl<'repo> IsCommitIntegrated<'repo> {
             .find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("failed to get branch"))?;
         let remote_head = remote_branch.get().peel_to_commit()?;
-        let upstream_commits = ctx.l(remote_head.id(), LogUntil::Commit(target.sha))?;
+        let upstream_commits = ctx
+            .repository()
+            .l(remote_head.id(), LogUntil::Commit(target.sha))?;
         let inmemory_repo = ctx.repository().in_memory_repo()?;
         Ok(Self {
             repo: ctx.repository(),
@@ -1242,7 +1245,9 @@ pub(crate) fn move_commit_file(
         .context("failed to find commit")?;
 
     // find all the commits upstream from the target "to" commit
-    let mut upstream_commits = ctx.l(target_branch.head, LogUntil::Commit(amend_commit.id()))?;
+    let mut upstream_commits = ctx
+        .repository()
+        .l(target_branch.head, LogUntil::Commit(amend_commit.id()))?;
 
     // get a list of all the diffs across all the virtual branches
     let base_file_diffs = gitbutler_diff::workdir(ctx.repository(), default_target.sha)
@@ -1366,10 +1371,13 @@ pub(crate) fn move_commit_file(
         // ok, now we need to identify which the new "to" commit is in the rebased history
         // so we'll take a list of the upstream oids and find it simply based on location
         // (since the order should not have changed in our simple rebase)
-        let old_upstream_commit_oids =
-            ctx.l(target_branch.head, LogUntil::Commit(default_target.sha))?;
+        let old_upstream_commit_oids = ctx
+            .repository()
+            .l(target_branch.head, LogUntil::Commit(default_target.sha))?;
 
-        let new_upstream_commit_oids = ctx.l(new_head, LogUntil::Commit(default_target.sha))?;
+        let new_upstream_commit_oids = ctx
+            .repository()
+            .l(new_head, LogUntil::Commit(default_target.sha))?;
 
         // find to_commit_oid offset in upstream_commits vector
         let to_commit_offset = old_upstream_commit_oids
@@ -1389,7 +1397,9 @@ pub(crate) fn move_commit_file(
             .context("failed to find commit")?;
 
         // reset the concept of what the upstream commits are to be the rebased ones
-        upstream_commits = ctx.l(new_head, LogUntil::Commit(amend_commit.id()))?;
+        upstream_commits = ctx
+            .repository()
+            .l(new_head, LogUntil::Commit(amend_commit.id()))?;
     }
 
     // ok, now we will apply the moved changes to the "to" commit.
@@ -1479,6 +1489,7 @@ pub(crate) fn amend(
     }
 
     if ctx
+        .repository()
         .l(target_branch.head, LogUntil::Commit(default_target.sha))?
         .is_empty()
     {
@@ -1545,7 +1556,9 @@ pub(crate) fn amend(
         .context("failed to create commit")?;
 
     // now rebase upstream commits, if needed
-    let upstream_commits = ctx.l(target_branch.head, LogUntil::Commit(amend_commit.id()))?;
+    let upstream_commits = ctx
+        .repository()
+        .l(target_branch.head, LogUntil::Commit(amend_commit.id()))?;
     // if there are no upstream commits, we're done
     if upstream_commits.is_empty() {
         target_branch.head = commit_oid;
@@ -1626,7 +1639,9 @@ pub(crate) fn reorder_commit(
         }
 
         // get a list of the commits to rebase
-        let mut ids_to_rebase = ctx.l(branch.head, LogUntil::Commit(commit.id()))?;
+        let mut ids_to_rebase = ctx
+            .repository()
+            .l(branch.head, LogUntil::Commit(commit.id()))?;
 
         ids_to_rebase.insert(
             ids_to_rebase.len() - offset.unsigned_abs() as usize,
@@ -1654,6 +1669,7 @@ pub(crate) fn reorder_commit(
 
         // get a list of the commits to rebase
         let mut ids_to_rebase: Vec<git2::Oid> = ctx
+            .repository()
             .l(branch.head, LogUntil::Commit(target_oid))?
             .iter()
             .filter(|id| **id != commit_oid)
@@ -1809,7 +1825,9 @@ pub(crate) fn squash(
     let vb_state = ctx.project().virtual_branches();
     let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
     let default_target = vb_state.get_default_target()?;
-    let branch_commit_oids = ctx.l(branch.head, LogUntil::Commit(default_target.sha))?;
+    let branch_commit_oids = ctx
+        .repository()
+        .l(branch.head, LogUntil::Commit(default_target.sha))?;
 
     if !branch_commit_oids.contains(&commit_id) {
         bail!("commit {commit_id} not in the branch")
@@ -1830,7 +1848,10 @@ pub(crate) fn squash(
 
     let pushed_commit_oids = branch.upstream_head.map_or_else(
         || Ok(vec![]),
-        |upstream_head| ctx.l(upstream_head, LogUntil::Commit(default_target.sha)),
+        |upstream_head| {
+            ctx.repository()
+                .l(upstream_head, LogUntil::Commit(default_target.sha))
+        },
     )?;
 
     if pushed_commit_oids.contains(&parent_commit.id()) && !branch.allow_rebasing {
@@ -1906,7 +1927,9 @@ pub(crate) fn update_commit_message(
     let default_target = vb_state.get_default_target()?;
 
     let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
-    let branch_commit_oids = ctx.l(branch.head, LogUntil::Commit(default_target.sha))?;
+    let branch_commit_oids = ctx
+        .repository()
+        .l(branch.head, LogUntil::Commit(default_target.sha))?;
 
     if !branch_commit_oids.contains(&commit_id) {
         bail!("commit {commit_id} not in the branch");
@@ -1914,7 +1937,10 @@ pub(crate) fn update_commit_message(
 
     let pushed_commit_oids = branch.upstream_head.map_or_else(
         || Ok(vec![]),
-        |upstream_head| ctx.l(upstream_head, LogUntil::Commit(default_target.sha)),
+        |upstream_head| {
+            ctx.repository()
+                .l(upstream_head, LogUntil::Commit(default_target.sha))
+        },
     )?;
 
     if pushed_commit_oids.contains(&commit_id) && !branch.allow_rebasing {

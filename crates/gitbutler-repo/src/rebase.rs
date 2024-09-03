@@ -8,7 +8,7 @@ use gitbutler_commit::{
 };
 use gitbutler_error::error::Marker;
 
-use crate::{LogUntil, RepoActionsExt};
+use crate::{LogUntil, RepositoryExt as _};
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
@@ -22,7 +22,9 @@ pub fn cherry_rebase(
     from_commit_oid: git2::Oid,
 ) -> Result<Option<git2::Oid>> {
     // get a list of the commits to rebase
-    let mut ids_to_rebase = ctx.l(from_commit_oid, LogUntil::Commit(to_commit_oid))?;
+    let mut ids_to_rebase = ctx
+        .repository()
+        .l(from_commit_oid, LogUntil::Commit(to_commit_oid))?;
 
     if ids_to_rebase.is_empty() {
         return Ok(None);

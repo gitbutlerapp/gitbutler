@@ -561,7 +561,7 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
     let oid = commit.id();
 
     // gather a list of commits between oid and target.sha
-    let upstream_commits = ctx
+    let upstream_commits = repo
         .log(oid, LogUntil::Commit(target.sha))
         .context("failed to get upstream commits")?
         .iter()
@@ -569,7 +569,7 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
         .collect::<Vec<_>>();
 
     // get some recent commits
-    let recent_commits = ctx
+    let recent_commits = repo
         .log(target.sha, LogUntil::Take(20))
         .context("failed to get recent commits")?
         .iter()
