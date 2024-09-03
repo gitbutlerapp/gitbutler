@@ -85,7 +85,12 @@
 	});
 </script>
 
-<FileContextMenu bind:this={contextMenu} target={draggableEl} {isUnapplied} />
+<FileContextMenu
+	bind:this={contextMenu}
+	target={draggableEl}
+	{isUnapplied}
+	branchId={$branch?.id}
+/>
 
 <FileListItem
 	id={`file-${file.id}`}

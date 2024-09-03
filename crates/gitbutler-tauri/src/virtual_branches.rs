@@ -250,6 +250,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
+        branch_id: BranchId,
         files: &str,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
@@ -258,7 +259,7 @@ pub mod commands {
             .split('\n')
             .map(std::string::ToString::to_string)
             .collect::<Vec<String>>();
-        VirtualBranchActions.reset_files(&project, &files)?;
+        VirtualBranchActions.reset_files(&project, branch_id, &files)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }

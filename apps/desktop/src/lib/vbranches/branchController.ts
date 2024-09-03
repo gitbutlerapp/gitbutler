@@ -226,11 +226,12 @@ export class BranchController {
 		}
 	}
 
-	async unapplyFiles(files: LocalFile[]) {
+	async unapplyFiles(branchId: string, files: LocalFile[]) {
 		try {
 			await invoke<void>('reset_files', {
 				projectId: this.projectId,
-				files: files.flatMap((f) => f.path).join('\n')
+				branchId,
+				files: files.flatMap((f) => f.path)
 			});
 		} catch (err) {
 			showError('Failed to unapply file changes', err);
