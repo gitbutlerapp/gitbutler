@@ -4,28 +4,33 @@
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
+	interface Props {
+		ondeletesuccess: (deleted: boolean) => void;
+	}
+
+	const { ondeletesuccess }: Props = $props();
+
 	const projectService = getContext(ProjectService);
 
 	let isDeleting = $state(false);
-	let deleteSucceeded: boolean | undefined = $state(undefined);
 
 	async function stopTracking() {
 		isDeleting = true;
 		deleteProject: {
 			const id = projectService.getLastOpenedProject();
 			if (id === undefined) {
-				deleteSucceeded = false;
+				ondeletesuccess(false);
 				break deleteProject;
 			}
 
 			try {
 				await projectService.deleteProject(id);
 			} catch (e) {
-				deleteSucceeded = false;
+				ondeletesuccess(false);
 				break deleteProject;
 			}
 
-			deleteSucceeded = true;
+			ondeletesuccess(true);
 		}
 		isDeleting = false;
 	}
@@ -40,34 +45,14 @@
 	}
 </script>
 
-<div class="container">
-	{#if deleteSucceeded === undefined}
-		<p class="text-12 text-body text-bold">Do you want to:</p>
-		<div class="button-container">
-			<Button type="button" onclick={locate}>Locate</Button>
-			<RemoveProjectButton noModal {isDeleting} onDeleteClicked={stopTracking} />
-		</div>
-	{/if}
-
-	{#if deleteSucceeded === true}
-		<p class="text-12 text-body text-bold">Repo removed successfully</p>
-	{/if}
-
-	{#if deleteSucceeded === false}
-		<p class="text-12 text-body text-bold">Failed to remove repo</p>
-	{/if}
+<div class="button-container">
+	<Button type="button" style="pop" kind="solid" onclick={locate}>Locate project…</Button>
+	<RemoveProjectButton noModal {isDeleting} onDeleteClicked={stopTracking} />
 </div>
 
 <style lang="postcss">
-	.container {
-		display: flex;
-		flex-direction: column;
-		gap: 12px;
-	}
-
 	.button-container {
 		display: flex;
-		justify-content: center;
-		gap: 12px;
+		gap: 8px;
 	}
 </style>

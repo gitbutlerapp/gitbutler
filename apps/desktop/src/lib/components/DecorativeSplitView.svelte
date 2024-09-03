@@ -160,7 +160,7 @@
 	.img-wrapper {
 		flex: 1;
 		width: 100%;
-		max-width: 400px;
+		max-width: 440px;
 		overflow: hidden;
 		padding: 0 24px;
 	}
