@@ -26,8 +26,10 @@ pub mod internal {
 mod branch_manager;
 pub use branch_manager::{BranchManager, BranchManagerExt};
 
-pub mod base;
+mod base;
 pub use base::BaseBranch;
+
+pub mod upstream_integration;
 
 mod integration;
 pub use integration::{update_workspace_commit, verify_branch};

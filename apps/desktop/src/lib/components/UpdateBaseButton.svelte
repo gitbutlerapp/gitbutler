@@ -97,13 +97,13 @@
 
 				<div class="action" class:action--centered={status.type === 'FullyIntegrated'}>
 					{#if status.type === 'FullyIntegrated'}
-						<p>Will be unapplied</p>
+						<p>Will be liberated</p>
 					{:else}
 						<Select
 							value="rebase"
 							options={[
 								{ label: 'Rebase', value: 'rebase' },
-								{ label: 'Merege', value: 'merge' },
+								{ label: 'Merge', value: 'merge' },
 								{ label: 'Stash', value: 'stash' }
 							]}
 						>

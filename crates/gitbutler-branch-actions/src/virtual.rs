@@ -649,7 +649,12 @@ pub(crate) fn integrate_with_rebase(
     branch: &mut Branch,
     unknown_commits: &mut Vec<git2::Oid>,
 ) -> Result<git2::Oid> {
-    cherry_rebase_group(ctx, branch.head, unknown_commits.as_mut_slice())
+    cherry_rebase_group(
+        ctx.repository(),
+        branch.head,
+        unknown_commits.as_mut_slice(),
+        ctx.project().succeeding_rebases,
+    )
 }
 
 pub(crate) fn integrate_with_merge(
@@ -1631,6 +1636,8 @@ pub(crate) fn reorder_commit(
         )
         .context("Failed to commit uncommited changes")?;
 
+    let succeeding_rebases = ctx.project().succeeding_rebases;
+
     if offset < 0 {
         // move commit up
         if branch.head == commit_oid {
@@ -1649,7 +1656,8 @@ pub(crate) fn reorder_commit(
         );
 
         let new_head =
-            cherry_rebase_group(ctx, parent_oid, &mut ids_to_rebase).context("rebase failed")?;
+            cherry_rebase_group(repository, parent_oid, &ids_to_rebase, succeeding_rebases)
+                .context("rebase failed")?;
 
         branch.head = new_head;
     } else {
@@ -1679,13 +1687,15 @@ pub(crate) fn reorder_commit(
         ids_to_rebase.push(commit_oid);
 
         let new_head =
-            cherry_rebase_group(ctx, target_oid, &mut ids_to_rebase).context("rebase failed")?;
+            cherry_rebase_group(repository, target_oid, &ids_to_rebase, succeeding_rebases)
+                .context("rebase failed")?;
 
         branch.head = new_head;
     }
 
     let new_tree_commit =
-        cherry_rebase_group(ctx, branch.head, &mut [tree_commit]).context("rebase failed")?;
+        cherry_rebase_group(repository, branch.head, &[tree_commit], succeeding_rebases)
+            .context("rebase failed")?;
 
     let new_tree_commit = repository
         .find_commit(new_tree_commit)
@@ -1894,9 +1904,14 @@ pub(crate) fn squash(
         ids.first().copied()
     }
     .with_context(|| format!("commit {commit_id} not in the branch"))?;
-    let mut ids_to_rebase = ids_to_rebase.to_vec();
+    let ids_to_rebase = ids_to_rebase.to_vec();
 
-    match cherry_rebase_group(ctx, new_commit_oid, &mut ids_to_rebase) {
+    match cherry_rebase_group(
+        ctx.repository(),
+        new_commit_oid,
+        &ids_to_rebase,
+        ctx.project().succeeding_rebases,
+    ) {
         Ok(new_head_id) => {
             // save new branch head
             branch.head = new_head_id;
@@ -1975,10 +1990,15 @@ pub(crate) fn update_commit_message(
         ids.first().copied()
     }
     .with_context(|| format!("commit {commit_id} not in the branch"))?;
-    let mut ids_to_rebase = ids_to_rebase.to_vec();
+    let ids_to_rebase = ids_to_rebase.to_vec();
 
-    let new_head_id = cherry_rebase_group(ctx, new_commit_oid, &mut ids_to_rebase)
-        .map_err(|err| err.context("rebase error"))?;
+    let new_head_id = cherry_rebase_group(
+        ctx.repository(),
+        new_commit_oid,
+        &ids_to_rebase,
+        ctx.project().succeeding_rebases,
+    )
+    .map_err(|err| err.context("rebase error"))?;
     // save new branch head
     branch.head = new_head_id;
     branch.updated_timestamp_ms = gitbutler_time::time::now_ms();

@@ -3,7 +3,7 @@ pub mod commands {
     use gitbutler_branch::{
         BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest,
     };
-    use gitbutler_branch_actions::base::upstream_integration::BranchStatuses;
+    use gitbutler_branch_actions::upstream_integration::BranchStatuses;
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranch,
         RemoteBranchData, RemoteBranchFile, VirtualBranches,
