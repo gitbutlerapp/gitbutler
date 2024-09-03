@@ -2582,7 +2582,6 @@ dependencies = [
  "open",
  "parking_lot 0.12.3",
  "pretty_assertions",
- "regex",
  "reqwest 0.12.7",
  "serde",
  "serde_json",
@@ -2600,6 +2599,7 @@ dependencies = [
  "tracing-appender",
  "tracing-forest",
  "tracing-subscriber",
+ "url",
 ]
 
 [[package]]

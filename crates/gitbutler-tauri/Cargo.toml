@@ -67,7 +67,7 @@ gitbutler-diff.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-edit-mode.workspace = true
 open = "5"
-regex = "1.10"
+url = "2.5.2"
 
 [dependencies.tauri]
 version = "1.7.0"
