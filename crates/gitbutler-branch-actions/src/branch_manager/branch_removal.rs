@@ -49,7 +49,7 @@ impl BranchManager<'_> {
         // Ensure we still have a default target
         ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
 
-        crate::integration::update_gitbutler_integration(&vb_state, self.ctx)?;
+        crate::integration::update_workspace_commit(&vb_state, self.ctx)?;
 
         real_branch.reference_name()
     }

@@ -230,7 +230,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 }
 
 #[test]
-fn restores_gitbutler_integration() -> anyhow::Result<()> {
+fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     let Test {
         repository,
         controller,
@@ -260,23 +260,23 @@ fn restores_gitbutler_integration() -> anyhow::Result<()> {
 
     let repo = git2::Repository::open(&project.path)?;
 
-    // check the integration commit
+    // check the workspace commit
     let head = repo.head().expect("never unborn");
     let commit = &head.peel_to_commit()?;
     let commit1_id = commit.id();
     let message = commit.summary().unwrap();
-    assert_eq!(message, "GitButler Integration Commit");
+    assert_eq!(message, GITBUTLER_WORKSPACE_COMMIT_TITLE);
 
     // create second commit
     fs::write(repository.path().join("file.txt"), "changed content")?;
     let _commit2_id = controller.create_commit(project, branch_id, "commit two", None, false)?;
 
-    // check the integration commit changed
+    // check the workspace commit changed
     let head = repo.head().expect("never unborn");
     let commit = &head.peel_to_commit()?;
     let commit2_id = commit.id();
     let message = commit.summary().unwrap();
-    assert_eq!(message, "GitButler Integration Commit");
+    assert_eq!(message, GITBUTLER_WORKSPACE_COMMIT_TITLE);
     assert_ne!(commit1_id, commit2_id);
 
     // restore the first

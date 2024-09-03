@@ -22,15 +22,15 @@ git init remote
 )
 
 export GITBUTLER_CLI_DATA_DIR=../user/gitbutler/app-data
-git clone remote one-vbranch-on-integration
-(cd one-vbranch-on-integration
-  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+git clone remote one-vbranch-in-workspace
+(cd one-vbranch-in-workspace
+  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
   $CLI branch create virtual
 )
 
-git clone remote one-vbranch-on-integration-one-commit
-(cd one-vbranch-on-integration-one-commit
-  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+git clone remote one-vbranch-in-workspace-one-commit
+(cd one-vbranch-in-workspace-one-commit
+  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
   $CLI branch create virtual
   echo change >> file
   echo in-index > new && git add new
@@ -38,9 +38,9 @@ git clone remote one-vbranch-on-integration-one-commit
   $CLI branch commit virtual -m "virtual branch change in index and worktree"
 )
 
-git clone remote two-vbranches-on-integration-one-applied
-(cd two-vbranches-on-integration-one-applied
-  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+git clone remote two-vbranches-in-workspace-one-applied
+(cd two-vbranches-in-workspace-one-applied
+  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
   $CLI branch create virtual
   echo change >> file
   echo in-index > new && git add new
@@ -54,7 +54,7 @@ git clone remote two-vbranches-on-integration-one-applied
 
 git clone remote a-vbranch-named-like-target-branch-short-name
 (cd a-vbranch-named-like-target-branch-short-name
-  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
   $CLI branch create --set-default main
   echo change >> file
   echo in-index > new && git add new
@@ -62,9 +62,9 @@ git clone remote a-vbranch-named-like-target-branch-short-name
   $CLI branch commit main -m "virtual branch change in index and worktree"
 )
 
-git clone remote one-vbranch-on-integration-two-remotes
-(cd one-vbranch-on-integration-two-remotes
-  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+git clone remote one-vbranch-in-workspace-two-remotes
+(cd one-vbranch-in-workspace-two-remotes
+  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
   $CLI branch create main
 
   git remote add other-remote ../remote
@@ -80,5 +80,5 @@ git clone remote one-branch-one-commit-other-branch-without-commit
   git add . && git commit -m "change standard git feature branch"
 
   git checkout -b other-feature main
-  $CLI project add --switch-to-integration "$local_tracking_ref"
+  $CLI project add --switch-to-workspace "$local_tracking_ref"
 )

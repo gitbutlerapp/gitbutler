@@ -39,7 +39,7 @@ mod error {
     }
 }
 
-mod go_back_to_integration {
+mod go_back_to_workspace {
     use gitbutler_branch::BranchCreateRequest;
     use pretty_assertions::assert_eq;
 

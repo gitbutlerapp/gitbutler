@@ -55,8 +55,8 @@ pub fn get_applied_status_cached(
         // TODO(ST): Ideally, we can avoid calling `get_workspace_head()` as everyone who modifies
         //           any of its inputs will update the intragration commit right away.
         //           It's for another day though - right now the integration commit may be slightly stale.
-        let integration_commit_id = get_workspace_head(ctx)?;
-        gitbutler_diff::workdir(ctx.repository(), integration_commit_id.to_owned())
+        let workspace_head = get_workspace_head(ctx)?;
+        gitbutler_diff::workdir(ctx.repository(), workspace_head.to_owned())
             .context("failed to diff workdir")
     })?;
 
@@ -270,12 +270,12 @@ fn compute_locks(
         })
         .collect::<Vec<_>>();
 
-    let mut integration_hunks_by_path =
+    let mut workspace_hunks_by_path =
         HashMap::<PathBuf, Vec<(gitbutler_diff::GitHunk, &Branch)>>::new();
 
     for (branch, hunks_by_filepath) in branch_path_diffs {
         for (path, hunks) in hunks_by_filepath {
-            integration_hunks_by_path.entry(path).or_default().extend(
+            workspace_hunks_by_path.entry(path).or_default().extend(
                 hunks
                     .hunks
                     .iter()
@@ -288,17 +288,14 @@ fn compute_locks(
     let locked_hunks = unstaged_hunks_by_path
         .iter()
         .filter_map(|(path, hunks)| {
-            let integration_hunks = integration_hunks_by_path.get(path)?;
+            let workspace_hunks = workspace_hunks_by_path.get(path)?;
 
             let (unapplied_hunk, branches) = hunks.iter().find_map(|unapplied_hunk| {
                 // Find all branches that have a hunk that intersects with the unapplied hunk
-                let locked_to = integration_hunks
+                let locked_to = workspace_hunks
                     .iter()
-                    .filter_map(|(integration_hunk, branch)| {
-                        if GitHunk::integration_intersects_unapplied(
-                            integration_hunk,
-                            unapplied_hunk,
-                        ) {
+                    .filter_map(|(workspace_hunk, branch)| {
+                        if GitHunk::workspace_intersects_unapplied(workspace_hunk, unapplied_hunk) {
                             Some(*branch)
                         } else {
                             None

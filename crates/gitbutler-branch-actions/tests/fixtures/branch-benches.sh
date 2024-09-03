@@ -9,7 +9,7 @@ git init remote
 )
 
 function init-virtual() {
-  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
   $CLI branch create virtual
 }
 

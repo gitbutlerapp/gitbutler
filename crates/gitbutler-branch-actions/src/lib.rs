@@ -12,7 +12,7 @@ mod base;
 pub use base::BaseBranch;
 
 mod integration;
-pub use integration::{update_gitbutler_integration, verify_branch};
+pub use integration::{update_workspace_commit, verify_branch};
 
 mod file;
 pub use file::{Get, RemoteBranchFile};
@@ -44,3 +44,5 @@ pub use branch::{
     get_branch_listing_details, list_branches, Author, BranchListing, BranchListingDetails,
     BranchListingFilter,
 };
+
+pub use integration::GITBUTLER_WORKSPACE_COMMIT_TITLE;

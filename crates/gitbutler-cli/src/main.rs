@@ -49,16 +49,16 @@ fn main() -> Result<()> {
             app_suffix,
             cmd,
         }) => match cmd {
-            Some(project::SubCommands::SwitchToIntegration { remote_ref_name }) => {
+            Some(project::SubCommands::SwitchToWorkspace { remote_ref_name }) => {
                 let project = command::prepare::project_from_path(args.current_dir)?;
-                command::project::switch_to_integration(project, remote_ref_name)
+                command::project::switch_to_workspace(project, remote_ref_name)
             }
             Some(project::SubCommands::Add {
-                switch_to_integration,
+                switch_to_workspace,
                 path,
             }) => {
                 let ctrl = command::prepare::project_controller(app_suffix, app_data_dir)?;
-                command::project::add(ctrl, path, switch_to_integration)
+                command::project::add(ctrl, path, switch_to_workspace)
             }
             None => {
                 let ctrl = command::prepare::project_controller(app_suffix, app_data_dir)?;
