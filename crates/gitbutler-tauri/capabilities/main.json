@@ -1,14 +1,16 @@
 {
 	"$schema": "../gen/schemas/desktop-schema.json",
-	"identifier": "main-capability",
-	"description": "Figuring things out",
+	"identifier": "main",
+	"description": "permissions for gitbutler tauri",
 	"windows": ["main"],
 	"local": true,
 	"permissions": [
+		"core:default",
 		"core:window:allow-start-dragging",
 		"core:window:default",
 		"log:default",
 		"shell:allow-open",
+		"dialog:allow-open",
 		"store:default",
 		"updater:default"
 	]
