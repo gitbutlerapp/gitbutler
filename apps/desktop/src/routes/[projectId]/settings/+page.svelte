@@ -9,6 +9,7 @@
 	import { platformName } from '$lib/platform/platform';
 	import CloudForm from '$lib/settings/CloudForm.svelte';
 	import DetailsForm from '$lib/settings/DetailsForm.svelte';
+	import GitHostForm from '$lib/settings/GitHostForm.svelte';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import PreferencesForm from '$lib/settings/PreferencesForm.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
@@ -45,6 +46,7 @@
 	{/if}
 	<CloudForm />
 	<DetailsForm />
+	<GitHostForm />
 	{#if $platformName !== 'win32'}
 		<KeysForm showProjectName={false} />
 		<Spacer />
