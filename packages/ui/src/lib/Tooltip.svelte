@@ -8,15 +8,19 @@
 	import { flyScale } from '$lib/utils/transitions';
 	import { type Snippet } from 'svelte';
 
+	const DEFAULT_GAP = 4;
+
 	interface Props {
 		text?: string;
 		delay?: number;
 		align?: TooltipAlign;
 		position?: TooltipPosition;
 		children: Snippet;
+		customTooltip?: Snippet;
+		gap?: number;
 	}
 
-	const { text, delay = 700, align, position, children }: Props = $props();
+	const { text, delay = 700, align, position, children, customTooltip, gap = DEFAULT_GAP }: Props = $props();
 
 	let targetEl: HTMLElement | undefined = $state();
 	let tooltipEl: HTMLElement | undefined = $state();
@@ -70,7 +74,6 @@
 		let left = 0;
 		let transformOriginTop = 'center';
 		let transformOriginLeft = 'center';
-		const gap = 4;
 
 		function alignLeft() {
 			left = targetRect.left + window.scrollX;
@@ -139,7 +142,7 @@
 	});
 </script>
 
-{#if isTextEmpty}
+{#if isTextEmpty && !customTooltip}
 	{@render children()}
 {:else}
 	<span
@@ -162,7 +165,13 @@
 					position: position
 				}}
 			>
-				<span>{text}</span>
+				{#if customTooltip}
+					{@render customTooltip()}
+				{:else}
+					<div class="tooltip-container-default">
+						<span>{text}</span>
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</span>
@@ -175,11 +184,14 @@
 	}
 
 	.tooltip-container {
+		z-index: var(--z-blocker);
+		position: fixed;
+	}
+	.tooltip-container-default {
 		white-space: pre-line;
 		display: flex;
 		justify-content: center;
 		flex-direction: column;
-		position: fixed;
 		pointer-events: none;
 		background-color: var(--clr-tooltip-bg);
 		border: 1px solid var(--clr-tooltip-border);
@@ -189,7 +201,6 @@
 		width: fit-content;
 		max-width: 240px;
 		padding: 4px 8px;
-		z-index: var(--z-blocker);
 		text-align: left;
 		box-shadow: var(--fx-shadow-s);
 	}
