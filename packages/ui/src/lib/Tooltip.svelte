@@ -20,6 +20,7 @@
 		customTooltip?: Snippet;
 		gap?: number;
 		showOnClick?: boolean;
+		ignoreElementOnClick?: Element;
 	}
 
 	const {
@@ -30,7 +31,8 @@
 		children,
 		customTooltip,
 		gap = DEFAULT_GAP,
-		showOnClick
+		showOnClick,
+		ignoreElementOnClick
 	}: Props = $props();
 
 	let targetEl: HTMLElement | undefined = $state();
@@ -186,7 +188,8 @@
 						position: position
 					}}
 					use:clickOutside={{
-						handler: () => handleClick()
+						handler: () => handleClick(),
+						excludeElement: ignoreElementOnClick
 					}}
 				>
 					{#if customTooltip}
