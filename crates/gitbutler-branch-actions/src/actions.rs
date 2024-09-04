@@ -25,6 +25,7 @@ use gitbutler_oplog::{
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActionsExt, RepositoryExt};
+use std::path::PathBuf;
 use tracing::instrument;
 
 #[derive(Clone, Copy, Default)]
@@ -289,7 +290,7 @@ impl VirtualBranchActions {
         &self,
         project: &Project,
         branch_id: BranchId,
-        files: &[String],
+        files: &[PathBuf],
     ) -> Result<()> {
         let ctx = open_with_verify(project)?;
         assure_open_workspace_mode(&ctx)

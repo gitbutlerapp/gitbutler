@@ -14,6 +14,7 @@ pub mod commands {
     use gitbutler_reference::{
         normalize_branch_name as normalize_name, ReferenceName, Refname, RemoteRefname,
     };
+    use std::path::PathBuf;
     use tauri::State;
     use tracing::instrument;
 
@@ -251,14 +252,9 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch_id: BranchId,
-        files: &str,
+        files: Vec<PathBuf>,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        // convert files to Vec<String>
-        let files = files
-            .split('\n')
-            .map(std::string::ToString::to_string)
-            .collect::<Vec<String>>();
         VirtualBranchActions.reset_files(&project, branch_id, &files)?;
         emit_vbranches(&windows, project_id);
         Ok(())

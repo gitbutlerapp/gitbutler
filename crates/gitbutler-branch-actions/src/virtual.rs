@@ -181,41 +181,29 @@ pub fn unapply_ownership(
 pub(crate) fn reset_files(
     ctx: &CommandContext,
     branch_id: BranchId,
-    files: &[String],
-    _perm: &mut WorktreeWritePermission,
+    files: &[PathBuf],
+    perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     ctx.assure_resolved()?;
 
-    let vb_state = ctx.project().virtual_branches();
-
-    let virtual_branches = vb_state
+    let branch = ctx
+        .project()
+        .virtual_branches()
         .list_branches_in_workspace()
-        .context("failed to read virtual branches")?;
-
-    if !virtual_branches.iter().any(|b| b.id == branch_id) {
-        bail!("could not find applied branch with id {branch_id} to reset files from");
-    }
-
-    let ownership_to_unapply = virtual_branches
-        .iter()
+        .context("failed to read virtual branches")?
+        .into_iter()
         .find(|b| b.id == branch_id)
-        .map(|b| {
-            let filtered_ownership_claims = b
-                .ownership
-                .claims
-                .iter()
-                .filter(|o| files.contains(&o.file_path.to_string_lossy().to_string()))
-                .cloned()
-                .collect::<Vec<gitbutler_branch::OwnershipClaim>>();
+        .with_context(|| {
+            format!("could not find applied branch with id {branch_id} to reset files from")
+        })?;
+    let claims: Vec<_> = branch
+        .ownership
+        .claims
+        .into_iter()
+        .filter(|claim| files.contains(&claim.file_path))
+        .collect();
 
-            BranchOwnershipClaims {
-                claims: filtered_ownership_claims,
-            }
-        })
-        .context("failed to determine ownership to unapply")?;
-
-    unapply_ownership(ctx, &ownership_to_unapply, _perm)?;
-
+    unapply_ownership(ctx, &BranchOwnershipClaims { claims }, perm)?;
     Ok(())
 }
 fn find_base_tree<'a>(
