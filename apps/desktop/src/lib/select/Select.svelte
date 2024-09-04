@@ -55,6 +55,10 @@
 	let listOpen = $state(false);
 	let inputBoundingRect = $state<DOMRect>();
 
+	$effect(() => {
+		filteredOptions = options;
+	});
+
 	const maxBottomPadding = 20;
 
 	function setMaxHeight() {
