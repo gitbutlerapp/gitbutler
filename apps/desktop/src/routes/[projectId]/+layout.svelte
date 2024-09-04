@@ -94,7 +94,7 @@
 	const gitHostStore = createGitHostStore(undefined);
 	const branchServiceStore = createBranchServiceStore(undefined);
 
-	$effect(() => {
+	$effect.pre(() => {
 		const combinedBranchListingService = new CombinedBranchListingService(
 			data.branchListingService,
 			listServiceStore,
