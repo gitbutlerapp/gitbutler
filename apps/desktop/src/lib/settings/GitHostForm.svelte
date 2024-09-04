@@ -34,8 +34,8 @@
 				/>
 			</svelte:fragment>
 			<svelte:fragment slot="caption">
-				If enabled, we will use the path below to set the body of any pull requested created through
-				GitButler.
+				If enabled, we will use the path below to set the initial body of any pull requested created
+				on this project through GitButler.
 			</svelte:fragment>
 		</SectionCard>
 		<SectionCard roundedTop={false} orientation="row" labelFor="use-pull-request-template-path">
