@@ -113,17 +113,17 @@
 	// TODO: can we eliminate the need to debounce?
 	const fetch = $derived(fetchSignal.event);
 	const debouncedBaseBranchResfresh = debounce(() => baseBranchService.refresh(), 500);
-	$effect.pre(() => {
+	$effect(() => {
 		if ($fetch || $head) debouncedBaseBranchResfresh();
 	});
 
 	// TODO: can we eliminate the need to debounce?
 	const debouncedRemoteBranchRefresh = debounce(() => remoteBranchService.refresh(), 500);
-	$effect.pre(() => {
+	$effect(() => {
 		if ($baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
 	});
 
-	$effect.pre(() => {
+	$effect(() => {
 		const gitHost =
 			repoInfo && baseBranchName
 				? gitHostFactory.build(
