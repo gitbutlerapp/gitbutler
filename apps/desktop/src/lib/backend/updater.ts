@@ -9,6 +9,7 @@ import {
 } from '@tauri-apps/api/updater';
 import posthog from 'posthog-js';
 import { derived, readable, writable } from 'svelte/store';
+import { dev } from '$app/environment';
 
 type Status = UpdateStatus | 'DOWNLOADED';
 const TIMEOUT_SECONDS = 30;
@@ -89,6 +90,8 @@ export class UpdaterService {
 	}
 
 	async checkForUpdate(manual = false) {
+		if (dev) return;
+
 		this.loading.set(true);
 		this.lastCheckWasManual = manual;
 		try {
