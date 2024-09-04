@@ -6,8 +6,8 @@ catalog:
   vite: 5.2.13
 catalogs:
   svelte:
-    svelte: 5.0.0-next.196
-    '@sveltejs/kit': 2.5.18
-    svelte-check: 3.8.4
-    '@sveltejs/vite-plugin-svelte': 3.1.1
-    '@sveltejs/adapter-static': 3.0.2
+    svelte: 5.0.0-next.243
+    '@sveltejs/kit': 2.5.25
+    svelte-check: 4.0.1
+    '@sveltejs/vite-plugin-svelte': 4.0.0-next.6
+    '@sveltejs/adapter-static': 3.0.4
