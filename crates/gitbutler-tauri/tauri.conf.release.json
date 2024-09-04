@@ -1,10 +1,15 @@
 {
 	"productName": "GitButler",
+	"identifier": "com.gitbutler.app",
 	"build": {
 		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode production && cargo build --release -p gitbutler-git && bash ./gitbutler-tauri/inject-git-binaries.sh"
 	},
 	"bundle": {
-		"identifier": "com.gitbutler.app",
+		"active": true,
+		"targets": ["app", "dmg", "appimage", "deb", "rpm", "msi"],
+		"category": "DeveloperTool",
+		"copyright": "Copyright © 2023-2024 GitButler. All rights reserved.",
+		"createUpdaterArtifacts": true,
 		"icon": [
 			"icons/32x32.png",
 			"icons/128x128.png",
@@ -39,6 +44,7 @@
 		}
 	},
 	"app": {
+		"enableGTKAppId": true,
 		"security": {
 			"csp": {
 				"default-src": "'self'",

@@ -1,9 +1,14 @@
 {
 	"productName": "GitButler Nightly",
+	"identifier": "com.gitbutler.app.nightly",
 	"build": {
 		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode nightly && cargo build --release -p gitbutler-git && bash ./crates/gitbutler-tauri/inject-git-binaries.sh"
 	},
 	"bundle": {
+		"active": true,
+		"targets": ["app", "dmg", "appimage", "deb", "rpm", "msi"],
+		"category": "DeveloperTool",
+		"copyright": "Copyright © 2023-2024 GitButler. All rights reserved.",
 		"createUpdaterArtifacts": true,
 		"icon": [
 			"icons/32x32.png",
@@ -39,6 +44,7 @@
 		}
 	},
 	"app": {
+		"enableGTKAppId": true,
 		"security": {
 			"csp": {
 				"default-src": "'self'",
