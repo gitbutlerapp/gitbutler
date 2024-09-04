@@ -1,4 +1,4 @@
-export type ClickOpts = { excludeElement?: HTMLElement; handler: () => void };
+export type ClickOpts = { excludeElement?: Element; handler: () => void };
 
 export function clickOutside(node: HTMLElement, params: ClickOpts) {
 	function onClick(event: MouseEvent) {
