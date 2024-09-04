@@ -4,6 +4,7 @@
 </script>
 
 <script lang="ts">
+	import { clickOutside } from './utils/clickOutside';
 	import { portal } from '$lib/utils/portal';
 	import { flyScale } from '$lib/utils/transitions';
 	import { type Snippet } from 'svelte';
@@ -18,9 +19,19 @@
 		children: Snippet;
 		customTooltip?: Snippet;
 		gap?: number;
+		showOnClick?: boolean;
 	}
 
-	const { text, delay = 700, align, position, children, customTooltip, gap = DEFAULT_GAP }: Props = $props();
+	const {
+		text,
+		delay = 700,
+		align,
+		position,
+		children,
+		customTooltip,
+		gap = DEFAULT_GAP,
+		showOnClick
+	}: Props = $props();
 
 	let targetEl: HTMLElement | undefined = $state();
 	let tooltipEl: HTMLElement | undefined = $state();
@@ -31,6 +42,7 @@
 	const isTextEmpty = $derived(!text || text === '');
 
 	function handleMouseEnter() {
+		if (showOnClick) return;
 		timeoutId = setTimeout(() => {
 			show = true;
 			// console.log('showing tooltip');
@@ -38,8 +50,16 @@
 	}
 
 	function handleMouseLeave() {
+		if (showOnClick) return;
 		clearTimeout(timeoutId);
 		show = false;
+	}
+
+	function handleClick(e?: MouseEvent) {
+		if (showOnClick) {
+			show = !show;
+			e?.stopPropagation();
+		}
 	}
 
 	function isNoSpaceOnRight() {
@@ -145,36 +165,41 @@
 {#if isTextEmpty && !customTooltip}
 	{@render children()}
 {:else}
-	<span
-		bind:this={targetEl}
-		class="tooltip-wrap"
-		role="tooltip"
-		onmouseenter={handleMouseEnter}
-		onmouseleave={handleMouseLeave}
-	>
-		{#if children}
-			{@render children()}
-		{/if}
+	<button onclick={handleClick}>
+		<span
+			bind:this={targetEl}
+			class="tooltip-wrap"
+			role="tooltip"
+			onmouseenter={handleMouseEnter}
+			onmouseleave={handleMouseLeave}
+		>
+			{#if children}
+				{@render children()}
+			{/if}
 
-		{#if show}
-			<div
-				bind:this={tooltipEl}
-				use:portal={'body'}
-				class="tooltip-container text-11 text-body"
-				transition:flyScale={{
-					position: position
-				}}
-			>
-				{#if customTooltip}
-					{@render customTooltip()}
-				{:else}
-					<div class="tooltip-container-default">
-						<span>{text}</span>
-					</div>
-				{/if}
-			</div>
-		{/if}
-	</span>
+			{#if show}
+				<div
+					bind:this={tooltipEl}
+					use:portal={'body'}
+					class="tooltip-container text-11 text-body"
+					transition:flyScale={{
+						position: position
+					}}
+					use:clickOutside={{
+						handler: () => handleClick()
+					}}
+				>
+					{#if customTooltip}
+						{@render customTooltip()}
+					{:else}
+						<div class="tooltip-container-default">
+							<span>{text}</span>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</span>
+	</button>
 {/if}
 
 <style lang="postcss">
