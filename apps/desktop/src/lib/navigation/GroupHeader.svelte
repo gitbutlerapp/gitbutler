@@ -23,7 +23,7 @@
 		},
 		options: {
 			root: null,
-			rootMargin: '-1px 0 90% 0',
+			rootMargin: '-1px 0px 90% 0px',
 			threshold: 1
 		}
 	}}
