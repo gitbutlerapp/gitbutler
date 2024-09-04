@@ -16,13 +16,15 @@
 	import { autoHeight } from '$lib/utils/autoHeight';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { KeyName } from '$lib/utils/hotkeys';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import { isWhiteSpaceString } from '$lib/utils/string';
 	import { Ownership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { createEventDispatcher, onMount, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	export let isExpanded: boolean;
@@ -119,6 +121,56 @@
 	onMount(async () => {
 		aiConfigurationValid = await aiService.validateConfiguration($user?.access_token);
 	});
+
+	function handleDescriptionKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
+		const value = e.currentTarget.value;
+
+		if (e.key === KeyName.Delete && value.length === 0) {
+			e.preventDefault();
+			if (titleTextArea) {
+				titleTextArea?.focus();
+				titleTextArea.selectionStart = titleTextArea.textLength;
+			}
+			autoHeight(e.currentTarget);
+			return;
+		}
+
+		if (e.key === 'a' && (e.metaKey || e.ctrlKey) && value.length === 0) {
+			// select previous textarea on cmd+a if this textarea is empty
+			e.preventDefault();
+			titleTextArea?.select();
+			return;
+		}
+	}
+
+	function handleSummaryKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
+		if (commit && (e.ctrlKey || e.metaKey) && e.key === KeyName.Enter) commit();
+		if (e.key === KeyName.Enter) {
+			e.preventDefault();
+
+			const caretStart = e.currentTarget.selectionStart;
+			const caretEnd = e.currentTarget.selectionEnd;
+			const value = e.currentTarget.value;
+
+			// if the caret is not at the end of the text, move the rest of the text to the description
+			// get rid of the selected text
+			if (caretStart < value.length || caretEnd < value.length) {
+				const toKeep = value.slice(0, caretStart);
+				const toMove = value.slice(caretEnd);
+				const newDescription = isWhiteSpaceString(description)
+					? toMove
+					: `${toMove}\n${description}`;
+				commitMessage = concatMessage(toKeep, newDescription);
+				tick().then(() => {
+					descriptionTextArea?.focus();
+					descriptionTextArea.setSelectionRange(0, 0);
+					autoHeight(descriptionTextArea);
+				});
+			}
+
+			descriptionTextArea?.focus();
+		}
+	}
 </script>
 
 {#if isExpanded}
@@ -137,13 +189,7 @@
 				commitMessage = concatMessage(e.currentTarget.value, description);
 				autoHeight(e.currentTarget);
 			}}
-			on:keydown={(e) => {
-				if (commit && (e.ctrlKey || e.metaKey) && e.key === 'Enter') commit();
-				if (e.key === 'Enter') {
-					e.preventDefault();
-					descriptionTextArea?.focus();
-				}
-			}}
+			on:keydown={handleSummaryKeyDown}
 		></textarea>
 
 		{#if title.length > 0 || description}
@@ -160,21 +206,7 @@
 					commitMessage = concatMessage(title, e.currentTarget.value);
 					autoHeight(e.currentTarget);
 				}}
-				on:keydown={(e) => {
-					const value = e.currentTarget.value;
-					if (e.key === 'Backspace' && value.length === 0) {
-						e.preventDefault();
-						if (titleTextArea) {
-							titleTextArea?.focus();
-							titleTextArea.selectionStart = titleTextArea.textLength;
-						}
-						autoHeight(e.currentTarget);
-					} else if (e.key === 'a' && (e.metaKey || e.ctrlKey) && value.length === 0) {
-						// select previous textarea on cmd+a if this textarea is empty
-						e.preventDefault();
-						titleTextArea?.select();
-					}
-				}}
+				on:keydown={handleDescriptionKeyDown}
 			></textarea>
 		{/if}
 
