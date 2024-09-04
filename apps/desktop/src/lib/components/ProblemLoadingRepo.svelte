@@ -5,6 +5,8 @@
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import { ProjectService, Project } from '$lib/backend/projects';
 	import { showError } from '$lib/notifications/toasts';
+	import ProjectNameLabel from '$lib/shared/ProjectNameLabel.svelte';
+	import Spacer from '$lib/shared/Spacer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -37,10 +39,12 @@
 
 <DecorativeSplitView img={loadErrorSvg}>
 	<div class="problem" data-tauri-drag-region>
-		<p class="problem__project text-bold"><Icon name="repo-book" /> {project?.title}</p>
-		<p class="problem__title text-18 text-body text-bold" data-tauri-drag-region>
+		<div class="project-name">
+			<ProjectNameLabel projectName={project?.title} />
+		</div>
+		<h2 class="problem__title text-18 text-body text-bold" data-tauri-drag-region>
 			There was a problem loading this repo
-		</p>
+		</h2>
 
 		<div class="problem__error text-12 text-body">
 			<Icon name="error" color="error" />
@@ -56,6 +60,8 @@
 			/>
 		</div>
 
+		<Spacer dotted margin={0} />
+
 		<div class="problem__switcher">
 			<ProjectSwitcher />
 		</div>
@@ -63,13 +69,8 @@
 </DecorativeSplitView>
 
 <style lang="postcss">
-	.problem__project {
-		display: flex;
-		gap: 8px;
-		align-items: center;
-		line-height: 120%;
-		color: var(--clr-scale-ntrl-30);
-		margin-bottom: 20px;
+	.project-name {
+		margin-bottom: 12px;
 	}
 
 	.problem__title {
@@ -96,6 +97,5 @@
 		display: flex;
 		justify-content: flex-end;
 		padding-bottom: 24px;
-		border-bottom: 1px dashed var(--clr-scale-ntrl-60);
 	}
 </style>

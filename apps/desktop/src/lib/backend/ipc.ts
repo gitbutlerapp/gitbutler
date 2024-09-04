@@ -7,7 +7,12 @@ export enum Code {
 	Validation = 'errors.validation',
 	ProjectsGitAuth = 'errors.projects.git.auth',
 	DefaultTargetNotFound = 'errors.projects.default_target.not_found',
-	CommitSigningFailed = 'errors.commit.signing_failed'
+	CommitSigningFailed = 'errors.commit.signing_failed',
+	ProjectMissing = 'errors.projects.missing'
+}
+
+export function isUserErrorCode(something: unknown): something is Code {
+	return Object.values(Code).includes(something as Code);
 }
 
 export class UserError extends Error {
@@ -33,6 +38,13 @@ function capitalize(str: string): string {
 		return str;
 	}
 	return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+export function getUserErrorCode(error: unknown): Code | undefined {
+	if (error instanceof UserError) {
+		return error.code;
+	}
+	return undefined;
 }
 
 export async function invoke<T>(command: string, params: Record<string, unknown> = {}): Promise<T> {

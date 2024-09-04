@@ -29,7 +29,7 @@
 	.divider {
 		height: 1px;
 		width: 100%;
-		opacity: 0.15;
+		opacity: 0.2;
 	}
 
 	.divider.line {

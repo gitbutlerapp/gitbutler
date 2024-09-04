@@ -7,6 +7,7 @@
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { ProjectService, Project } from '$lib/backend/projects';
 	import { showError } from '$lib/notifications/toasts';
+	import Spacer from '$lib/shared/Spacer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -82,6 +83,8 @@
 			{/if}
 		</div>
 
+		<Spacer dotted margin={0} />
+
 		<div class="switchrepo__project">
 			<ProjectSwitcher />
 		</div>
@@ -111,6 +114,5 @@
 
 	.switchrepo__project {
 		padding-top: 24px;
-		border-top: 1px dashed var(--clr-scale-ntrl-60);
 	}
 </style>
