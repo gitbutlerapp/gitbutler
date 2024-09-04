@@ -7,6 +7,7 @@ use gitbutler_commit::{
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
 use gitbutler_error::error::Marker;
+use itertools::Itertools;
 
 use crate::{LogUntil, RepoActionsExt};
 
@@ -60,6 +61,10 @@ pub fn cherry_rebase_group(
                 .context("failed to find new commit"),
             |head, to_rebase| {
                 let head = head?;
+
+                if to_rebase.parent_ids().len() == 1 && head.id() == to_rebase.parent_id(0)? {
+                    return Ok(to_rebase);
+                };
 
                 let cherrypick_index = repository
                     .cherry_pick_gitbutler(&head, &to_rebase, None)
