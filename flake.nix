@@ -38,6 +38,7 @@
             libsoup
             libsoup_3
             webkitgtk
+            webkitgtk_4_1
             nodejs_20
             corepack_20
             pkgs.playwright-browsers_v1_47_0
