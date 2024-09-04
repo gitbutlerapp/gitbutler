@@ -68,25 +68,26 @@ export class GitHubPrService implements GitHostPrService {
 	}
 
 	async fetchPrTemplate() {
-		const prPath = this.pullRequestTemplatePath
+		const path = this.pullRequestTemplatePath
 			? get(this.pullRequestTemplatePath)
 			: DEFAULT_PULL_REQUEST_TEMPLATE_PATH;
+
 		try {
 			const response = await this.octokit.rest.repos.getContent({
 				owner: this.repo.owner,
 				repo: this.repo.name,
-				path: prPath
+				path
 			});
 			const b64Content = (response.data as any)?.content;
 			if (b64Content) {
 				return decodeURIComponent(escape(atob(b64Content)));
 			}
 		} catch (err) {
-			console.error(`Error fetching pull request template at path: ${prPath}`, err);
+			console.error(`Error fetching pull request template at path: ${path}`, err);
 
 			showToast({
 				title: 'Failed to fetch pull request template',
-				message: `Template not found at path: <code>${prPath}</code>.`,
+				message: `Template not found at path: <code>${path}</code>.`,
 				style: 'neutral'
 			});
 		}
