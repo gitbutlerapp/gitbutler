@@ -1,16 +1,13 @@
 use crate::error::Error;
-use anyhow::anyhow;
+use anyhow::{bail, Context};
 use std::env;
 use tracing::instrument;
 use url::Url;
 
-pub(crate) fn open_that(path: &str) -> Result<(), Error> {
-    let target_url = match Url::parse(path) {
-        Ok(url) => url,
-        Err(_) => return Err(anyhow!("Invalid path format").into()),
-    };
+pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
+    let target_url = Url::parse(path).with_context(|| format!("Invalid path format: '{path}'"))?;
     if !["http", "https", "mailto", "vscode", "vscodium"].contains(&target_url.scheme()) {
-        return Err(anyhow!("Invalid path scheme").into());
+        bail!("Invalid path scheme: {}", target_url.scheme());
     }
 
     fn clean_env_vars<'a, 'b>(
@@ -67,5 +64,5 @@ pub(crate) fn open_that(path: &str) -> Result<(), Error> {
 #[tauri::command(async)]
 #[instrument(err(Debug))]
 pub fn open_url(url: &str) -> Result<(), Error> {
-    open_that(url)
+    Ok(open_that(url)?)
 }
