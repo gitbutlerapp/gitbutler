@@ -53,3 +53,7 @@ export function persistedCommitMessage(projectId: string, branchId: string): Per
 export function gitHostUsePullRequestTemplate(): Persisted<boolean> {
 	return persisted(false, 'gitHostUsePullRequestTemplate');
 }
+
+export function gitHostPullRequestTemplatePath(): Persisted<string> {
+	return persisted('', 'gitHostPullRequestTemplatePath');
+}
