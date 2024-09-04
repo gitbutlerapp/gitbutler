@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	import type { ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 	export type MessageStyle = Exclude<ComponentColor, 'ghost' | 'purple'>;
 </script>

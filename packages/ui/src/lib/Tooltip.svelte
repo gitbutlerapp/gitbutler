@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	export type TooltipPosition = 'top' | 'bottom';
 	export type TooltipAlign = 'start' | 'center' | 'end';
 </script>

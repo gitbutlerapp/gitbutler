@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	export type SelectItem = {
 		label: string;
 		value: string;
