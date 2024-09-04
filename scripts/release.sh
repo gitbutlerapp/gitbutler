@@ -111,15 +111,15 @@ done
 
 [ -z "${VERSION-}" ] && error "--version is not set"
 
-[ -z "${TAURI_PRIVATE_KEY-}" ] && error "$TAURI_PRIVATE_KEY is not set"
-[ -z "${TAURI_KEY_PASSWORD-}" ] && error "$TAURI_KEY_PASSWORD is not set"
+[ -z "${TAURI_SIGNING_PRIVATE_KEY-}" ] && error "$TAURI_SIGNING_PRIVATE_KEY is not set"
+[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD-}" ] && error "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not set"
 
 if [ "$CHANNEL" != "release" ] && [ "$CHANNEL" != "nightly" ]; then
 	error "--channel must be either 'release' or 'nightly'"
 fi
 
-export TAURI_PRIVATE_KEY="$TAURI_PRIVATE_KEY"
-export TAURI_KEY_PASSWORD="$TAURI_KEY_PASSWORD"
+export TAURI_SIGNING_PRIVATE_KEY="$TAURI_SIGNING_PRIVATE_KEY"
+export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
 
 if [ "$DO_SIGN" = "true" ]; then
 	if [ "$OS" = "macos" ]; then
