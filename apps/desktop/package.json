@@ -42,14 +42,15 @@
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"@tauri-apps/api": "2.0.0-rc.3",
-		"@tauri-apps/plugin-dialog": "2.0.0-rc.0",
-		"@tauri-apps/plugin-http": "2.0.0-rc.1",
-		"@tauri-apps/plugin-log": "2.0.0-rc.0",
-		"@tauri-apps/plugin-os": "2.0.0-rc.0",
-		"@tauri-apps/plugin-process": "2.0.0-rc.0",
-		"@tauri-apps/plugin-shell": "2.0.0-rc.0",
-		"@tauri-apps/plugin-store": "2.0.0-rc.0",
-		"@tauri-apps/plugin-updater": "2.0.0-rc.0",
+		"@tauri-apps/plugin-dialog": "2.0.0-rc.1",
+		"@tauri-apps/plugin-http": "2.0.0-rc.2",
+		"@tauri-apps/plugin-fs": "2.0.0-rc.1",
+		"@tauri-apps/plugin-log": "2.0.0-rc.1",
+		"@tauri-apps/plugin-os": "2.0.0-rc.1",
+		"@tauri-apps/plugin-process": "2.0.0-rc.1",
+		"@tauri-apps/plugin-shell": "2.0.0-rc.1",
+		"@tauri-apps/plugin-store": "2.0.0-rc.1",
+		"@tauri-apps/plugin-updater": "2.0.0-rc.2",
 		"@testing-library/jest-dom": "^6.4.8",
 		"@testing-library/svelte": "^5.2.1",
 		"@types/diff-match-patch": "^1.0.36",
@@ -91,7 +92,6 @@
 		"vitest": "^2.0.5"
 	},
 	"dependencies": {
-		"@tauri-apps/plugin-fs": "2.0.0-rc.1",
 		"openai": "^4.47.3"
 	}
 }
