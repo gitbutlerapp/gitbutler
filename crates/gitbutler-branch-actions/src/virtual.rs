@@ -32,12 +32,7 @@ use gitbutler_repo::{
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
 use std::collections::HashSet;
-use std::{
-    borrow::Cow,
-    collections::HashMap,
-    path::{Path, PathBuf},
-    vec,
-};
+use std::{borrow::Cow, collections::HashMap, path::PathBuf, vec};
 use tracing::instrument;
 
 // this struct is a mapping to the view `Branch` type in Typescript
@@ -183,28 +178,32 @@ pub fn unapply_ownership(
 }
 
 // reset a file in the project to the index state
-pub(crate) fn reset_files(ctx: &CommandContext, files: &Vec<String>) -> Result<()> {
+pub(crate) fn reset_files(
+    ctx: &CommandContext,
+    branch_id: BranchId,
+    files: &[PathBuf],
+    perm: &mut WorktreeWritePermission,
+) -> Result<()> {
     ctx.assure_resolved()?;
 
-    // for each tree, we need to checkout the entry from the index at that path
-    // or if it doesn't exist, remove the file from the working directory
-    let repo = ctx.repository();
-    let index = repo.index().context("failed to get index")?;
-    for file in files {
-        let entry = index.get_path(Path::new(file), 0);
-        if entry.is_some() {
-            repo.checkout_index_path_builder(Path::new(file))
-                .context("failed to checkout index")?;
-        } else {
-            // find the project root
-            let project_root = &ctx.project().path;
-            let path = Path::new(file);
-            //combine the project root with the file path
-            let path = &project_root.join(path);
-            std::fs::remove_file(path).context("failed to remove file")?;
-        }
-    }
+    let branch = ctx
+        .project()
+        .virtual_branches()
+        .list_branches_in_workspace()
+        .context("failed to read virtual branches")?
+        .into_iter()
+        .find(|b| b.id == branch_id)
+        .with_context(|| {
+            format!("could not find applied branch with id {branch_id} to reset files from")
+        })?;
+    let claims: Vec<_> = branch
+        .ownership
+        .claims
+        .into_iter()
+        .filter(|claim| files.contains(&claim.file_path))
+        .collect();
 
+    unapply_ownership(ctx, &BranchOwnershipClaims { claims }, perm)?;
     Ok(())
 }
 fn find_base_tree<'a>(

@@ -14,6 +14,7 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { join } from '@tauri-apps/api/path';
 
+	export let branchId: string | undefined;
 	export let target: HTMLElement | undefined;
 	export let isUnapplied;
 
@@ -115,7 +116,12 @@
 			style="error"
 			kind="solid"
 			onclick={() => {
-				branchController.unapplyFiles(item.files);
+				if (!branchId) {
+					console.error('Branch ID is not set');
+					toasts.error('Failed to discard changes');
+					return;
+				}
+				branchController.unapplyFiles(branchId, item.files);
 				close();
 			}}
 		>

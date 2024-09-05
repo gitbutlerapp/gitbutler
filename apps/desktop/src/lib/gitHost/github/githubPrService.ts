@@ -1,7 +1,7 @@
 import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
-import { showError } from '$lib/notifications/toasts';
+import { showToast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { get, writable } from 'svelte/store';
@@ -21,7 +21,8 @@ export class GitHubPrService implements GitHostPrService {
 		private repo: RepoInfo,
 		private baseBranch: string,
 		private upstreamName: string,
-		private usePullRequestTemplate?: Persisted<boolean>
+		private usePullRequestTemplate?: Persisted<boolean>,
+		private pullRequestTemplatePath?: Persisted<string>
 	) {}
 
 	async createPr(title: string, body: string, draft: boolean): Promise<PullRequest> {
@@ -67,19 +68,28 @@ export class GitHubPrService implements GitHostPrService {
 	}
 
 	async fetchPrTemplate() {
+		const path = this.pullRequestTemplatePath
+			? get(this.pullRequestTemplatePath)
+			: DEFAULT_PULL_REQUEST_TEMPLATE_PATH;
+
 		try {
 			const response = await this.octokit.rest.repos.getContent({
 				owner: this.repo.owner,
 				repo: this.repo.name,
-				path: DEFAULT_PULL_REQUEST_TEMPLATE_PATH
+				path
 			});
 			const b64Content = (response.data as any)?.content;
 			if (b64Content) {
 				return decodeURIComponent(escape(atob(b64Content)));
 			}
 		} catch (err) {
-			console.error('Error fetching pull request template: ', err);
-			showError('Failed to fetch pull request template', err);
+			console.error(`Error fetching pull request template at path: ${path}`, err);
+
+			showToast({
+				title: 'Failed to fetch pull request template',
+				message: `Template not found at path: <code>${path}</code>.`,
+				style: 'neutral'
+			});
 		}
 	}
 

@@ -81,8 +81,8 @@ export class ProjectService {
 		this.projects.set(await this.loadAll());
 	}
 
-	async getProject(projectId: string) {
-		return plainToInstance(Project, await invoke('get_project', { id: projectId }));
+	async getProject(projectId: string, noValidation?: boolean) {
+		return plainToInstance(Project, await invoke('get_project', { id: projectId, noValidation }));
 	}
 
 	async updateProject(project: Project) {
@@ -113,13 +113,27 @@ export class ProjectService {
 		await invoke('open_project_in_window', { id: projectId });
 	}
 
+	async relocateProject(projectId: string): Promise<void> {
+		const path = await this.getValidPath();
+		if (!path) return;
+
+		try {
+			const project = await this.getProject(projectId, true);
+			project.path = path;
+			await this.updateProject(project);
+			toasts.success(`Project ${project.title} relocated`);
+
+			goto(`/${project.id}/board`);
+		} catch (error: any) {
+			showError('Failed to relocate project:', error.message);
+		}
+	}
+
 	async addProject(path?: string) {
 		if (!path) {
-			path = await this.promptForDirectory();
+			path = await this.getValidPath();
 			if (!path) return;
 		}
-
-		if (!this.validateProjectPath(path)) return;
 
 		try {
 			const project = await this.add(path);
@@ -130,6 +144,13 @@ export class ProjectService {
 		} catch (e: any) {
 			showError('There was a problem', e.message);
 		}
+	}
+
+	async getValidPath(): Promise<string | undefined> {
+		const path = await this.promptForDirectory();
+		if (!path) return undefined;
+		if (!this.validateProjectPath(path)) return undefined;
+		return path;
 	}
 
 	validateProjectPath(path: string, showErrors = true) {

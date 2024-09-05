@@ -2,46 +2,35 @@
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
-	import Icon from '@gitbutler/ui/Icon.svelte';
+	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 
 	export let error: any = undefined;
 </script>
 
 <DecorativeSplitView img={loadErrorSvg}>
-	<div class="problem" data-tauri-drag-region>
-		<p class="problem__title text-18 text-body text-bold" data-tauri-drag-region>
+	<div class="problem__container" data-tauri-drag-region>
+		<h2 class="problem__title text-18 text-body text-bold" data-tauri-drag-region>
 			There was a problem loading the app
-		</p>
+		</h2>
 
-		<div class="problem__error text-12 text-body">
-			<Icon name="error" color="error" />
-			{error ? error : 'An unknown error occurred'}
-		</div>
+		<InfoMessage filled outlined={false} style="error" icon="info">
+			<svelte:fragment slot="content">
+				{error ? error : 'An unknown error occurred'}
+			</svelte:fragment>
+		</InfoMessage>
 
-		<div class="problem__switcher">
-			<ProjectSwitcher />
-		</div>
+		<ProjectSwitcher />
 	</div>
 </DecorativeSplitView>
 
 <style lang="postcss">
+	.problem__container {
+		display: flex;
+		flex-direction: column;
+		gap: 20px;
+	}
+
 	.problem__title {
 		color: var(--clr-scale-ntrl-30);
-		margin-bottom: 12px;
-	}
-
-	.problem__switcher {
-		text-align: right;
-		margin-top: 24px;
-	}
-
-	.problem__error {
-		display: flex;
-		color: var(--clr-scale-ntrl-0);
-		gap: 12px;
-		padding: 20px;
-		background-color: var(--clr-theme-err-bg);
-		border-radius: var(--radius-m);
-		margin-bottom: 12px;
 	}
 </style>

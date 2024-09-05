@@ -61,6 +61,10 @@ pub fn cherry_rebase_group(
             |head, to_rebase| {
                 let head = head?;
 
+                if to_rebase.parent_ids().len() == 1 && head.id() == to_rebase.parent_id(0)? {
+                    return Ok(to_rebase);
+                };
+
                 let cherrypick_index = repository
                     .cherry_pick_gitbutler(&head, &to_rebase, None)
                     .context("failed to cherry pick")?;
