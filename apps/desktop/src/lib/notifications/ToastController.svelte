@@ -1,11 +1,8 @@
 <script lang="ts">
+	import Markdown from '$lib/components/Markdown.svelte';
 	import { dismissToast, toastStore } from '$lib/notifications/toasts';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
-	import { getMarkdownRenderer } from '$lib/utils/markdown';
-	import { marked } from 'marked';
 	import { slide } from 'svelte/transition';
-
-	var renderer = getMarkdownRenderer();
 </script>
 
 <div class="toast-controller hide-native-scrollbar">
@@ -24,7 +21,7 @@
 				</svelte:fragment>
 
 				<svelte:fragment slot="content">
-					{@html marked.parse(toast.message ?? '', { renderer })}
+					<Markdown content={toast.message} />
 				</svelte:fragment>
 			</InfoMessage>
 		</div>

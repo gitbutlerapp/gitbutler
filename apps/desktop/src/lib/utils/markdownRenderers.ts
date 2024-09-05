@@ -3,6 +3,7 @@ import Link from '$lib/shared/Link.svelte';
 export const defaultRenderers = {
 	link: Link
 };
+
 export const defaultOptions = {
 	baseUrl: null,
 	breaks: false,

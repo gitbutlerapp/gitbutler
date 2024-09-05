@@ -11,7 +11,6 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
-	import { getMarkdownRenderer } from '$lib/utils/markdown';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { BranchData, type Branch } from '$lib/vbranches/types';
 	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
@@ -92,8 +91,6 @@
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
 	});
-
-	const renderer = getMarkdownRenderer();
 </script>
 
 {#if remoteBranch || localBranch}
@@ -111,7 +108,6 @@
 							<div class="card__header text-14 text-body text-semibold">{pr.title}</div>
 							{#if pr.body}
 								<div class="markdown card__content text-13 text-body">
-									<!-- {@html marked.parse(pr.body, { renderer })} -->
 									<Markdown content={pr.body} />
 								</div>
 							{/if}
