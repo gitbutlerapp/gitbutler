@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { defaultRenderers, defaultOptions } from '$lib/utils/markdownRenderers';
-	import { Lexer, type Token } from 'marked';
+	import { Lexer, marked, type Token } from 'marked';
 
 	interface Props {
 		content?: string;
@@ -18,26 +18,18 @@
 	$inspect('TOKENS', tokens);
 </script>
 
-<div class="markdown-wrapper">
-	{#if !type && tokens}
-		{#each tokens as token}
-			<svelte:self {...token} />
-		{/each}
-	{:else if type && defaultRenderers[type]}
-		<svelte:component this={defaultRenderers[type]} {...rest}>
-			{#if tokens}
-				<svelte:self {tokens} />
-			{/if}
-		</svelte:component>
-	{:else if tokens}
-		<svelte:self {tokens} />
-	{:else}
-		{rest.text}
-	{/if}
-</div>
-
-<style>
-	.markdown-wrapper {
-		display: inline;
-	}
-</style>
+{#if !type && tokens}
+	{#each tokens as token}
+		<svelte:self {...token} />
+	{/each}
+{:else if type && defaultRenderers[type]}
+	<svelte:component this={defaultRenderers[type]} {...rest} options={defaultOptions}>
+		{#if tokens}
+			<svelte:self {tokens} />
+		{/if}
+	</svelte:component>
+{:else if tokens}
+	<svelte:self {tokens} />
+{:else}
+	{@html marked.parse(rest.raw)}
+{/if}

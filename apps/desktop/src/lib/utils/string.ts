@@ -19,3 +19,14 @@ export function isChar(char: string) {
 export function isStr(s: unknown): s is string {
 	return typeof s === 'string';
 }
+
+export function slugify(input: string) {
+	return String(input)
+		.normalize('NFKD')
+		.replace(/[\u0300-\u036f]/g, '')
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9 -]/g, '')
+		.replace(/\s+/g, '-')
+		.replace(/-+/g, '-');
+}
