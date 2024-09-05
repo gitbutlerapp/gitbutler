@@ -108,9 +108,9 @@
 			{#if pullrequest.draft}
 				<Button size="tag" clickable={false} style="neutral" icon="draft-pr-small">Draft</Button>
 			{:else}
-				<Button size="tag" clickable={false} style="success" kind="solid" icon="pr-small"
-					>Open</Button
-				>
+				<Button size="tag" clickable={false} style="success" kind="solid" icon="pr-small">
+					Open
+				</Button>
 			{/if}
 		</div>
 

@@ -4,6 +4,7 @@
 	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
+	import Markdown from '$lib/components/Markdown.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
@@ -16,7 +17,6 @@
 	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import lscache from 'lscache';
-	import { marked } from 'marked';
 	import { onMount, setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
@@ -111,7 +111,8 @@
 							<div class="card__header text-14 text-body text-semibold">{pr.title}</div>
 							{#if pr.body}
 								<div class="markdown card__content text-13 text-body">
-									{@html marked.parse(pr.body, { renderer })}
+									<!-- {@html marked.parse(pr.body, { renderer })} -->
+									<Markdown content={pr.body} />
 								</div>
 							{/if}
 						</div>
