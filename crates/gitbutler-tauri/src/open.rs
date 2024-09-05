@@ -30,6 +30,8 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
             })
     }
 
+    let mut cmd_errors = Vec::new();
+
     for mut cmd in open::commands(path) {
         let cleaned_vars = clean_env_vars(&[
             "APPDIR",
@@ -55,8 +57,13 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
         cmd.envs(cleaned_vars);
         cmd.current_dir(env::temp_dir());
         if cmd.status().is_ok() {
-            break;
-        };
+            return Ok(());
+        } else {
+            cmd_errors.push(anyhow::anyhow!("Failed to execute command {:?}", cmd));
+        }
+    }
+    if !cmd_errors.is_empty() {
+        return Err(anyhow::anyhow!("Errors occurred: {:?}", cmd_errors).into());
     }
     Ok(())
 }
