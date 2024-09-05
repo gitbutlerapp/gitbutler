@@ -89,6 +89,7 @@
 		margin-block: 0.5rem;
 		overflow: hidden;
 		display: -webkit-box;
+		line-clamp: 5;
 		-webkit-box-orient: vertical;
 		-webkit-line-clamp: 5;
 	}
