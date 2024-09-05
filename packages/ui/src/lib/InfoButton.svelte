@@ -11,12 +11,17 @@
 </script>
 
 {#snippet infoTooltip()}
-	<div class="info-tooltip">{@render children()}</div>
+	<div class="info-tooltip-container">
+		<div class="arrow-container">
+			<div class="arrow"></div>
+		</div>
+		<div class="info-tooltip">{@render children()}</div>
+	</div>
 {/snippet}
 
 <Tooltip
 	customTooltip={infoTooltip}
-	gap={12}
+	gap={2}
 	showOnClick
 	position="bottom"
 	ignoreElementOnClick={svgContainer}
@@ -37,37 +42,39 @@
 	.svg-container {
 		cursor: pointer;
 	}
+
+	.info-tooltip-container {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+	}
+
+	.arrow-container {
+		position: relative;
+		top: 1px;
+		width: 100%;
+		height: 10px;
+		display: flex;
+		justify-content: center;
+		overflow: hidden;
+		z-index: var(--z-lifted);
+	}
+
+	.arrow {
+		position: relative;
+		top: 4px;
+		width: 20px;
+		height: 20px;
+		transform: rotate(45deg);
+		border-radius: 2px;
+		background-color: var(--clr-bg-1);
+		border: 1px solid var(--clr-border-2);
+	}
 	.info-tooltip {
 		background-color: var(--clr-bg-1);
 		border-radius: var(--radius-m);
 		padding: 4px 8px;
 		border: 1px solid var(--clr-border-2);
 		box-shadow: 0px 6px 30px 0px var(--fx-shadow-m);
-	}
-
-	.info-tooltip::before {
-		content: '';
-		position: absolute;
-		display: block;
-		width: 20px;
-		left: 50%;
-		top: 5px;
-		border-top: 0;
-		border: 10px solid transparent;
-		border-bottom: 10px solid var(--clr-border-2);
-		transform: translate(-50%, calc(-100% - 5px));
-	}
-
-	.info-tooltip::after {
-		content: '';
-		position: absolute;
-		display: block;
-		width: 17px;
-		left: 50%;
-		top: 6px;
-		border-top: 0;
-		border: 9.5px solid transparent;
-		border-bottom: 9.5px solid var(--clr-bg-1);
-		transform: translate(-50%, calc(-100% - 5px));
 	}
 </style>
