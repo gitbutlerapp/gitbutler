@@ -241,8 +241,10 @@
 						{#if !$pr}
 							<PullRequestButton
 								click={async ({ draft }) => await createPr({ draft })}
-								disabled={branch.commits.length === 0 || !$gitHost}
-								tooltip={!$gitHost ? 'You can enable git host integration in the settings' : ''}
+								disabled={branch.commits.length === 0 || !$gitHost || !$prService}
+								tooltip={!$gitHost || !$prService
+									? 'You can enable git host integration in the settings'
+									: ''}
 								loading={isLoading}
 							/>
 						{/if}
