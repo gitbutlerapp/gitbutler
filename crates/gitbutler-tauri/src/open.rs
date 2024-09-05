@@ -63,7 +63,7 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
         }
     }
     if !cmd_errors.is_empty() {
-        return Err(anyhow::anyhow!("Errors occurred: {:?}", cmd_errors).into());
+        bail!("Errors occurred: {:?}", cmd_errors);
     }
     Ok(())
 }
