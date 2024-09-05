@@ -14,14 +14,16 @@
 	if (!tokens && content) {
 		tokens = lexer.lex(content);
 	}
+
+	$inspect('TOKENS', tokens);
 </script>
 
 <div class="markdown-wrapper">
-	{#if !type}
+	{#if !type && tokens}
 		{#each tokens as token}
 			<svelte:self {...token} />
 		{/each}
-	{:else if defaultRenderers[type]}
+	{:else if type && defaultRenderers[type]}
 		<svelte:component this={defaultRenderers[type]} {...rest}>
 			{#if tokens}
 				<svelte:self {tokens} />

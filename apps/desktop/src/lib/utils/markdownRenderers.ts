@@ -1,7 +1,11 @@
 import Link from '$lib/shared/Link.svelte';
+import Image from '$lib/utils/markdownRenderers/Image.svelte';
+import Space from '$lib/utils/markdownRenderers/Space.svelte';
 
 export const defaultRenderers = {
-	link: Link
+	link: Link,
+	image: Image,
+	space: Space
 };
 
 export const defaultOptions = {
