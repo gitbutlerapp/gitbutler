@@ -1,32 +1,48 @@
 <script lang="ts">
-	import Tooltip from './Tooltip.svelte';
+	import TooltipWrapper from './shared/TooltipWrapper.svelte';
+	import { pxToRem } from './utils/pxToRem';
 	import type { Snippet } from 'svelte';
+
+	const GAP = 2;
+	const EXTENDED_HOVER_HEIGHT = 4;
 
 	interface Props {
 		children: Snippet;
 	}
 
 	const { children }: Props = $props();
-	let svgContainer: HTMLDivElement | undefined = $state(undefined);
+	const gap = GAP - EXTENDED_HOVER_HEIGHT;
+
+	let forceShow: boolean = $state(false);
+
+	function handleMouseEnter() {
+		forceShow = true;
+	}
+
+	function handleMouseLeave() {
+		forceShow = false;
+	}
 </script>
 
-{#snippet infoTooltip()}
-	<div class="info-tooltip-container">
+{#snippet tooltip()}
+	<div
+		class="info-tooltip-container"
+		onmouseenter={handleMouseEnter}
+		onmouseleave={handleMouseLeave}
+		style:padding-top={pxToRem(EXTENDED_HOVER_HEIGHT)}
+		role="tooltip"
+	>
 		<div class="arrow-container">
 			<div class="arrow"></div>
 		</div>
-		<div class="info-tooltip">{@render children()}</div>
+		<div class="info-tooltip">
+			{@render children()}
+		</div>
 	</div>
 {/snippet}
 
-<Tooltip
-	customTooltip={infoTooltip}
-	gap={2}
-	showOnClick
-	position="bottom"
-	ignoreElementOnClick={svgContainer}
->
-	<div class="svg-container" bind:this={svgContainer}>
+<TooltipWrapper {tooltip} {gap} position="bottom" align="center" {forceShow}>
+	<div>
 		<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
 			<path
 				fill-rule="evenodd"
@@ -36,13 +52,9 @@
 			/>
 		</svg>
 	</div>
-</Tooltip>
+</TooltipWrapper>
 
 <style lang="postcss">
-	.svg-container {
-		cursor: pointer;
-	}
-
 	.info-tooltip-container {
 		display: flex;
 		flex-direction: column;
