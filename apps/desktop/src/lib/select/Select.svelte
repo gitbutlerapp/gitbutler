@@ -50,14 +50,13 @@
 	let selectWrapperEl: HTMLElement;
 
 	let highlightedIndex: number | undefined = $state(undefined);
-	let filteredOptions = $state(options);
+	let searchValue = $state('');
+	let filteredOptions = $derived(
+		options.filter((item) => item.label.toLowerCase().includes(searchValue.toLowerCase()))
+	);
 	let maxHeightState = $state(maxHeight);
 	let listOpen = $state(false);
 	let inputBoundingRect = $state<DOMRect>();
-
-	$effect(() => {
-		filteredOptions = options;
-	});
 
 	const maxBottomPadding = 20;
 
@@ -187,12 +186,7 @@
 			>
 				<ScrollableContainer initiallyVisible>
 					{#if searchable && options.length > 5}
-						<SearchItem
-							items={options}
-							onSort={(filtered) => {
-								filteredOptions = filtered;
-							}}
-						/>
+						<SearchItem bind:searchValue />
 					{/if}
 					<OptionsGroup>
 						{#if filteredOptions.length === 0}
