@@ -1,35 +1,39 @@
 <script lang="ts">
-	import { defaultRenderers, defaultOptions } from '$lib/utils/markdownRenderers';
-	import { Lexer, marked, type Token } from 'marked';
+	import { renderers, options } from '$lib/utils/markdownRenderers';
+	import { Lexer, type Tokens } from 'marked';
 
 	interface Props {
 		content?: string;
-		type?: string;
-		tokens?: Token[];
 	}
 
-	let { content, type, tokens, ...rest }: Props = $props();
+	let { content, type, tokens, ...rest }: Props & Tokens.Generic = $props();
 
-	const lexer = new Lexer(defaultOptions);
+	const lexer = new Lexer(options);
 	if (!tokens && content) {
 		tokens = lexer.lex(content);
 	}
 
-	$inspect('TOKENS', tokens);
+	$inspect('TOKENS', { tokens, rest });
 </script>
 
 {#if !type && tokens}
 	{#each tokens as token}
 		<svelte:self {...token} />
 	{/each}
-{:else if type && defaultRenderers[type]}
-	<svelte:component this={defaultRenderers[type]} {...rest} options={defaultOptions}>
+{:else if type && renderers[type]}
+	<svelte:component this={renderers[type]} {...rest} {options}>
 		{#if tokens}
 			<svelte:self {tokens} />
+		{:else}
+			{rest.raw}
 		{/if}
 	</svelte:component>
 {:else if tokens}
 	<svelte:self {tokens} />
+{:else if rest.items}
+	{#each rest.items as item}
+		{@html item.raw}<br />
+	{/each}
 {:else}
-	{@html marked.parse(rest.raw)}
+	{rest.raw}
 {/if}
