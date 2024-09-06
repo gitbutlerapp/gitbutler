@@ -5,12 +5,11 @@
 		depth: number;
 		raw: string;
 		text: string;
-		options: Record<string, string>;
 	}
 
-	const { depth, raw, text, options }: Props = $props();
+	const { depth, raw, text }: Props = $props();
 
-	const id = $derived(options.headerIds ? options.headerPrefix + slugify(text) : undefined);
+	const id = $derived(slugify(text) ?? text);
 </script>
 
 {#if depth === 1}

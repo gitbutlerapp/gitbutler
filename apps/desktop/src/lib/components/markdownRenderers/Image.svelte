@@ -6,8 +6,6 @@
 	}
 
 	const { href = '', title = undefined, text = '' }: Props = $props();
-
-	$inspect('IMAGE PROPS', { href, title, text });
 </script>
 
 <img src={href} {title} alt={text} />
