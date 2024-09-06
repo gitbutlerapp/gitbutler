@@ -6,23 +6,24 @@
 
 <div class="wrapper">
 	<div class="message-1">
-		<p class="text-13 text">hello world! Here is some more info for you</p>
-		<InfoButton>
-			<div class="info-tooltip">
-				<h2 class="text-18 text">
-					{props.headerContent}
-				</h2>
-				<p class="text-13 text">
-					{props.bodyContent + ' '}<a class="link" href={props.linkAddress}>{props.linkText}</a>.
-				</p>
-			</div>
-		</InfoButton>
+		<p class="text-13 text">
+			This is an example with the title property <InfoButton title={props.title} size={props.size}>
+				This is an example of text with a link inside an InfoButton. Here is a <a
+					href="gitbutler.com"
+					target="_blank"
+					class="link">link to gitbutler</a
+				>
+			</InfoButton>
+		</p>
 	</div>
+
 	<div class="message-2">
 		<p class="text-13 text">
-			This is an example of only text <InfoButton
-				><a class="link" href={props.linkAddress}>{props.linkText}</a></InfoButton
-			>
+			This is an example of only text <InfoButton size={props.size}
+				>Text only example. Link to <a href="gitbutler.com" target="_blank" class="link"
+					>gitbutler</a
+				>
+			</InfoButton>
 		</p>
 	</div>
 </div>
@@ -32,7 +33,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 4px;
-		padding: 20px;
 	}
 
 	.message-1 {
@@ -46,19 +46,11 @@
 		gap: 4px;
 	}
 
-	.info-tooltip {
-		padding: 4px 8px;
-		display: flex;
-		flex-direction: column;
-		gap: 4px;
-	}
-
 	.text {
 		color: var(--clr-text-1);
 	}
 
 	.link {
-		color: var(--clr-text-1);
 		text-decoration: underline;
 	}
 </style>

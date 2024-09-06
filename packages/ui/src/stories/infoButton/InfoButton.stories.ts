@@ -7,33 +7,25 @@ const meta = {
 } as Meta<DemoInfoButton>;
 
 export default meta;
+
 type Story = StoryObj<typeof meta> & {
 	args: {
-		headerContent: string;
-		bodyContent: string;
-		linkAddress: string;
-		linkText: string;
+		title: string | undefined;
+		size: 'small' | 'medium';
 	};
-	argTypes: {
-		headerContent: { control: 'text' };
-		bodyContent: { control: 'text' };
-		linkAddress: { control: 'text' };
-		linkText: { control: 'text' };
-	};
+	argTypes: any;
 };
 
 export const DefaultStory: Story = {
 	name: 'InfoButton',
 	args: {
-		headerContent: 'My Info Button',
-		bodyContent: 'This is a fantastic info button :D',
-		linkAddress: 'https://google.com',
-		linkText: 'Google'
+		title: '127',
+		size: 'medium'
 	},
 	argTypes: {
-		headerContent: { control: 'text' },
-		bodyContent: { control: 'text' },
-		linkAddress: { control: 'text' },
-		linkText: { control: 'text' }
+		size: {
+			options: ['small', 'medium'],
+			control: { type: 'select' }
+		}
 	}
 };
