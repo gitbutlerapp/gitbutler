@@ -12,6 +12,7 @@
 		"shell:allow-open",
 		"dialog:allow-open",
 		"store:default",
-		"updater:default"
+		"updater:default",
+		"process:default"
 	]
 }
