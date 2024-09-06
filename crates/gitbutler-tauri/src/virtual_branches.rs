@@ -5,7 +5,7 @@ pub mod commands {
     };
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranch,
-        RemoteBranchData, RemoteBranchFile, VirtualBranchActions, VirtualBranches,
+        RemoteBranchData, RemoteBranchFile, VirtualBranches,
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_error::error::Code;
@@ -38,7 +38,7 @@ pub mod commands {
         run_hooks: bool,
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
-        let oid = VirtualBranchActions.create_commit(
+        let oid = gitbutler_branch_actions::create_commit(
             &project,
             branch,
             message,
@@ -56,8 +56,7 @@ pub mod commands {
         project_id: ProjectId,
     ) -> Result<VirtualBranches, Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions
-            .list_virtual_branches(&project)
+        gitbutler_branch_actions::list_virtual_branches(&project)
             .map_err(Into::into)
             .map(|(branches, skipped_files)| VirtualBranches {
                 branches,
@@ -74,7 +73,7 @@ pub mod commands {
         branch: BranchCreateRequest,
     ) -> Result<BranchId, Error> {
         let project = projects.get(project_id)?;
-        let branch_id = VirtualBranchActions.create_virtual_branch(&project, &branch)?;
+        let branch_id = gitbutler_branch_actions::create_virtual_branch(&project, &branch)?;
         emit_vbranches(&windows, project_id);
         Ok(branch_id)
     }
@@ -89,7 +88,7 @@ pub mod commands {
         given_name: String,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions.delete_local_branch(&project, &refname, given_name)?;
+        gitbutler_branch_actions::delete_local_branch(&project, &refname, given_name)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -105,7 +104,7 @@ pub mod commands {
     ) -> Result<BranchId, Error> {
         let project = projects.get(project_id)?;
         let branch_id =
-            VirtualBranchActions.create_virtual_branch_from_branch(&project, &branch, remote)?;
+            gitbutler_branch_actions::create_virtual_branch_from_branch(&project, &branch, remote)?;
         emit_vbranches(&windows, project_id);
         Ok(branch_id)
     }
@@ -119,7 +118,7 @@ pub mod commands {
         branch: BranchId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions.integrate_upstream_commits(&project, branch)?;
+        gitbutler_branch_actions::integrate_upstream_commits(&project, branch)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -131,7 +130,7 @@ pub mod commands {
         project_id: ProjectId,
     ) -> Result<Option<BaseBranch>, Error> {
         let project = projects.get(project_id)?;
-        if let Ok(base_branch) = VirtualBranchActions::get_base_branch_data(&project) {
+        if let Ok(base_branch) = gitbutler_branch_actions::get_base_branch_data(&project) {
             Ok(Some(base_branch))
         } else {
             Ok(None)
@@ -151,11 +150,11 @@ pub mod commands {
         let branch_name = format!("refs/remotes/{}", branch)
             .parse()
             .context("Invalid branch name")?;
-        let base_branch = VirtualBranchActions.set_base_branch(&project, &branch_name)?;
+        let base_branch = gitbutler_branch_actions::set_base_branch(&project, &branch_name)?;
 
         // if they also sent a different push remote, set that too
         if let Some(push_remote) = push_remote {
-            VirtualBranchActions.set_target_push_remote(&project, push_remote)?;
+            gitbutler_branch_actions::set_target_push_remote(&project, push_remote)?;
         }
         emit_vbranches(&windows, project_id);
         Ok(base_branch)
@@ -169,7 +168,7 @@ pub mod commands {
         project_id: ProjectId,
     ) -> Result<Vec<ReferenceName>, Error> {
         let project = projects.get(project_id)?;
-        let unapplied_branches = VirtualBranchActions.update_base_branch(&project)?;
+        let unapplied_branches = gitbutler_branch_actions::update_base_branch(&project)?;
         emit_vbranches(&windows, project_id);
         Ok(unapplied_branches)
     }
@@ -183,7 +182,7 @@ pub mod commands {
         branch: BranchUpdateRequest,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions.update_virtual_branch(&project, branch)?;
+        gitbutler_branch_actions::update_virtual_branch(&project, branch)?;
 
         emit_vbranches(&windows, project_id);
         Ok(())
@@ -198,7 +197,7 @@ pub mod commands {
         branches: Vec<BranchUpdateRequest>,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions.update_branch_order(&project, branches)?;
+        gitbutler_branch_actions::update_branch_order(&project, branches)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -212,7 +211,7 @@ pub mod commands {
         branch_id: BranchId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions.delete_virtual_branch(&project, branch_id)?;
+        gitbutler_branch_actions::delete_virtual_branch(&project, branch_id)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -226,7 +225,7 @@ pub mod commands {
         branch: BranchId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions.convert_to_real_branch(&project, branch)?;
+        gitbutler_branch_actions::convert_to_real_branch(&project, branch)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -240,7 +239,7 @@ pub mod commands {
         ownership: BranchOwnershipClaims,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions.unapply_ownership(&project, &ownership)?;
+        gitbutler_branch_actions::unapply_ownership(&project, &ownership)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -255,7 +254,7 @@ pub mod commands {
         files: Vec<PathBuf>,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions.reset_files(&project, branch_id, &files)?;
+        gitbutler_branch_actions::reset_files(&project, branch_id, &files)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -270,9 +269,13 @@ pub mod commands {
         with_force: bool,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions
-            .push_virtual_branch(&project, branch_id, with_force, Some(Some(branch_id)))
-            .map_err(|err| err.context(Code::Unknown))?;
+        gitbutler_branch_actions::push_virtual_branch(
+            &project,
+            branch_id,
+            with_force,
+            Some(Some(branch_id)),
+        )
+        .map_err(|err| err.context(Code::Unknown))?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -285,7 +288,9 @@ pub mod commands {
         branch: RemoteRefname,
     ) -> Result<bool, Error> {
         let project = projects.get(project_id)?;
-        Ok(VirtualBranchActions.can_apply_remote_branch(&project, &branch)?)
+        Ok(gitbutler_branch_actions::can_apply_remote_branch(
+            &project, &branch,
+        )?)
     }
 
     #[tauri::command(async)]
@@ -297,9 +302,7 @@ pub mod commands {
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = projects.get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        VirtualBranchActions
-            .list_remote_commit_files(&project, commit_oid)
-            .map_err(Into::into)
+        gitbutler_branch_actions::list_remote_commit_files(&project, commit_oid).map_err(Into::into)
     }
 
     #[tauri::command(async)]
@@ -313,7 +316,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
-        VirtualBranchActions.reset_virtual_branch(&project, branch_id, target_commit_oid)?;
+        gitbutler_branch_actions::reset_virtual_branch(&project, branch_id, target_commit_oid)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -330,7 +333,7 @@ pub mod commands {
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        let oid = VirtualBranchActions.amend(&project, branch_id, commit_oid, &ownership)?;
+        let oid = gitbutler_branch_actions::amend(&project, branch_id, commit_oid, &ownership)?;
         emit_vbranches(&windows, project_id);
         Ok(oid.to_string())
     }
@@ -349,7 +352,7 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let from_commit_oid = git2::Oid::from_str(&from_commit_oid).map_err(|e| anyhow!(e))?;
         let to_commit_oid = git2::Oid::from_str(&to_commit_oid).map_err(|e| anyhow!(e))?;
-        let oid = VirtualBranchActions.move_commit_file(
+        let oid = gitbutler_branch_actions::move_commit_file(
             &project,
             branch_id,
             from_commit_oid,
@@ -371,7 +374,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        VirtualBranchActions.undo_commit(&project, branch_id, commit_oid)?;
+        gitbutler_branch_actions::undo_commit(&project, branch_id, commit_oid)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -388,7 +391,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        VirtualBranchActions.insert_blank_commit(&project, branch_id, commit_oid, offset)?;
+        gitbutler_branch_actions::insert_blank_commit(&project, branch_id, commit_oid, offset)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -404,7 +407,7 @@ pub mod commands {
         change_id: String,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions.create_change_reference(&project, branch_id, name, change_id)?;
+        gitbutler_branch_actions::create_change_reference(&project, branch_id, name, change_id)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -420,7 +423,7 @@ pub mod commands {
         with_force: bool,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions.push_change_reference(&project, branch_id, name, with_force)?;
+        gitbutler_branch_actions::push_change_reference(&project, branch_id, name, with_force)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -436,7 +439,12 @@ pub mod commands {
         new_change_id: String,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        VirtualBranchActions.update_change_reference(&project, branch_id, name, new_change_id)?;
+        gitbutler_branch_actions::update_change_reference(
+            &project,
+            branch_id,
+            name,
+            new_change_id,
+        )?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -453,7 +461,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        VirtualBranchActions.reorder_commit(&project, branch_id, commit_oid, offset)?;
+        gitbutler_branch_actions::reorder_commit(&project, branch_id, commit_oid, offset)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -465,7 +473,7 @@ pub mod commands {
         project_id: ProjectId,
     ) -> Result<Vec<RemoteBranch>, Error> {
         let project = projects.get(project_id)?;
-        let branches = VirtualBranchActions::list_local_branches(project)?;
+        let branches = gitbutler_branch_actions::list_local_branches(project)?;
         Ok(branches)
     }
 
@@ -501,7 +509,7 @@ pub mod commands {
         refname: Refname,
     ) -> Result<RemoteBranchData, Error> {
         let project = projects.get(project_id)?;
-        let branch_data = VirtualBranchActions.get_remote_branch_data(&project, &refname)?;
+        let branch_data = gitbutler_branch_actions::get_remote_branch_data(&project, &refname)?;
         Ok(branch_data)
     }
 
@@ -516,7 +524,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
-        VirtualBranchActions.squash(&project, branch_id, target_commit_oid)?;
+        gitbutler_branch_actions::squash(&project, branch_id, target_commit_oid)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -530,7 +538,7 @@ pub mod commands {
     ) -> Result<BaseBranch, Error> {
         let project = projects.get(project_id)?;
 
-        let project_data_last_fetched = VirtualBranchActions.fetch_from_remotes(
+        let project_data_last_fetched = gitbutler_branch_actions::fetch_from_remotes(
             &project,
             Some(action.unwrap_or_else(|| "unknown".to_string())),
         )?;
@@ -550,7 +558,7 @@ pub mod commands {
             return Err(anyhow!(error).into());
         }
 
-        let base_branch = VirtualBranchActions::get_base_branch_data(&project)?;
+        let base_branch = gitbutler_branch_actions::get_base_branch_data(&project)?;
         Ok(base_branch)
     }
 
@@ -565,7 +573,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        VirtualBranchActions.move_commit(&project, target_branch_id, commit_oid)?;
+        gitbutler_branch_actions::move_commit(&project, target_branch_id, commit_oid)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -582,7 +590,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        VirtualBranchActions.update_commit_message(&project, branch_id, commit_oid, message)?;
+        gitbutler_branch_actions::update_commit_message(&project, branch_id, commit_oid, message)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }

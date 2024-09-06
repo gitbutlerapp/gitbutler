@@ -2,14 +2,14 @@ use anyhow::{bail, Result};
 use gitbutler_branch::{
     Branch, BranchCreateRequest, BranchIdentity, BranchUpdateRequest, VirtualBranchesHandle,
 };
-use gitbutler_branch_actions::{get_branch_listing_details, list_branches, VirtualBranchActions};
+use gitbutler_branch_actions::{get_branch_listing_details, list_branches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 
 use crate::command::debug_print;
 
 pub fn update_target(project: Project) -> Result<()> {
-    let unapplied = VirtualBranchActions.update_base_branch(&project)?;
+    let unapplied = gitbutler_branch_actions::update_base_branch(&project)?;
     debug_print(unapplied)
 }
 
@@ -19,7 +19,7 @@ pub fn list_all(project: Project) -> Result<()> {
 }
 
 pub fn list_local(project: Project) -> Result<()> {
-    debug_print(VirtualBranchActions::list_local_branches(project)?)
+    debug_print(gitbutler_branch_actions::list_local_branches(project)?)
 }
 
 pub fn details(project: Project, branch_names: Vec<BranchIdentity>) -> Result<()> {
@@ -45,16 +45,18 @@ pub fn list(project: Project) -> Result<()> {
 }
 
 pub fn status(project: Project) -> Result<()> {
-    debug_print(VirtualBranchActions.list_virtual_branches(&project)?)
+    debug_print(gitbutler_branch_actions::list_virtual_branches(&project)?)
 }
 
 pub fn unapply(project: Project, branch_name: String) -> Result<()> {
     let branch = branch_by_name(&project, &branch_name)?;
-    debug_print(VirtualBranchActions.convert_to_real_branch(&project, branch.id)?)
+    debug_print(gitbutler_branch_actions::convert_to_real_branch(
+        &project, branch.id,
+    )?)
 }
 
 pub fn create(project: Project, branch_name: String, set_default: bool) -> Result<()> {
-    let new = VirtualBranchActions.create_virtual_branch(
+    let new = gitbutler_branch_actions::create_virtual_branch(
         &project,
         &BranchCreateRequest {
             name: Some(branch_name),
@@ -74,7 +76,7 @@ pub fn set_default(project: Project, branch_name: String) -> Result<()> {
 }
 
 fn set_default_branch(project: &Project, branch: &Branch) -> Result<()> {
-    VirtualBranchActions.update_virtual_branch(
+    gitbutler_branch_actions::update_virtual_branch(
         project,
         BranchUpdateRequest {
             id: branch.id,
@@ -91,7 +93,7 @@ fn set_default_branch(project: &Project, branch: &Branch) -> Result<()> {
 
 pub fn commit(project: Project, branch_name: String, message: String) -> Result<()> {
     let branch = branch_by_name(&project, &branch_name)?;
-    let (info, skipped) = VirtualBranchActions.list_virtual_branches(&project)?;
+    let (info, skipped) = gitbutler_branch_actions::list_virtual_branches(&project)?;
 
     if !skipped.is_empty() {
         eprintln!(
@@ -129,7 +131,7 @@ pub fn commit(project: Project, branch_name: String, message: String) -> Result<
     }
 
     let run_hooks = false;
-    debug_print(VirtualBranchActions.create_commit(
+    debug_print(gitbutler_branch_actions::create_commit(
         &project,
         branch.id,
         &message,

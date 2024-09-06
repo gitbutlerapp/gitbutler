@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 
+use crate::r#virtual as vbranch;
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::{self, dedup, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims};
 use gitbutler_commit::commit_headers::HasCommitHeaders;
@@ -14,10 +15,9 @@ use tracing::instrument;
 use super::BranchManager;
 use crate::{
     conflicts::{self, RepoConflictsExt},
-    ensure_selected_for_changes,
     hunk::VirtualBranchHunk,
     integration::update_workspace_commit,
-    set_ownership, undo_commit, VirtualBranchesExt,
+    VirtualBranchesExt,
 };
 
 impl BranchManager<'_> {
@@ -118,7 +118,8 @@ impl BranchManager<'_> {
         };
 
         if let Some(ownership) = &create.ownership {
-            set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;
+            vbranch::set_ownership(&vb_state, &mut branch, ownership)
+                .context("failed to set ownership")?;
         }
 
         vb_state.set_branch(branch.clone())?;
@@ -489,7 +490,8 @@ impl BranchManager<'_> {
         // apply the branch
         vb_state.set_branch(branch.clone())?;
 
-        ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
+        vbranch::ensure_selected_for_changes(&vb_state)
+            .context("failed to ensure selected for changes")?;
         // checkout the merge index
         repo.checkout_index_builder(&mut merge_index)
             .force()
@@ -505,7 +507,7 @@ impl BranchManager<'_> {
 
                 if let Some(headers) = potential_wip_commit.gitbutler_headers() {
                     if headers.change_id == wip_commit_to_unapply {
-                        undo_commit(self.ctx, branch.id, branch.head)?;
+                        vbranch::undo_commit(self.ctx, branch.id, branch.head)?;
                     }
                 }
 

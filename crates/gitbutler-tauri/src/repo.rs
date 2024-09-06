@@ -1,6 +1,6 @@
 pub mod commands {
     use anyhow::{Context, Result};
-    use gitbutler_branch_actions::{RemoteBranchFile, VirtualBranchActions};
+    use gitbutler_branch_actions::RemoteBranchFile;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_repo::RepoCommands;
@@ -69,6 +69,6 @@ pub mod commands {
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = projects.get(id)?;
 
-        Ok(VirtualBranchActions.get_uncommited_files(&project)?)
+        Ok(gitbutler_branch_actions::get_uncommited_files(&project)?)
     }
 }

@@ -8,27 +8,26 @@ use super::Test;
 fn should_unapply_with_commits() {
     let Test {
         project,
-        controller,
         repository,
         ..
     } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
-    let branch_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
+    let branch_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
 
     fs::write(
         repository.path().join("file.txt"),
         "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n",
     )
     .unwrap();
-    controller
-        .create_commit(project, branch_id, "test", None, false)
-        .unwrap();
+    gitbutler_branch_actions::create_commit(project, branch_id, "test", None, false).unwrap();
 
     // change in the committed hunks leads to hunk locking
     fs::write(
@@ -37,17 +36,15 @@ fn should_unapply_with_commits() {
     )
     .unwrap();
 
-    controller
-        .unapply_ownership(
-            project,
-            &"file.txt:1-5,7-11"
-                .parse::<BranchOwnershipClaims>()
-                .unwrap(),
-        )
-        .unwrap_or_else(|err| panic!("{err:?}"));
+    gitbutler_branch_actions::unapply_ownership(
+        project,
+        &"file.txt:1-5,7-11"
+            .parse::<BranchOwnershipClaims>()
+            .unwrap(),
+    )
+    .unwrap_or_else(|err| panic!("{err:?}"));
 
-    let branch = controller
-        .list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
