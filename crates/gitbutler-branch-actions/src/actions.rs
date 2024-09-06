@@ -133,6 +133,7 @@ pub fn delete_local_branch(project: &Project, refname: &Refname, given_name: Str
 #[instrument(skip(project), err(Debug))]
 pub fn get_base_branch_data(project: &Project) -> Result<BaseBranch> {
     let ctx = CommandContext::open(project)?;
+    update_base_branch(project)?;
     base::get_base_branch_data(&ctx)
 }
 
