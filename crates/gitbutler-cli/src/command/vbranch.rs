@@ -32,7 +32,11 @@ pub fn list(project: Project) -> Result<()> {
     for vbranch in branches {
         println!(
             "{active} {id} {name} {upstream} {default}",
-            active = if vbranch.applied { "✔️" } else { "⛌" },
+            active = if vbranch.in_workspace {
+                "✔️"
+            } else {
+                "⛌"
+            },
             id = vbranch.id,
             name = vbranch.name,
             upstream = vbranch

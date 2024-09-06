@@ -110,7 +110,6 @@ impl BranchManager<'_> {
             order,
             selected_for_changes,
             allow_rebasing: self.ctx.project().ok_with_force_push.into(),
-            applied: true,
             in_workspace: true,
             not_in_workspace_wip_change_id: None,
             source_refname: None,
@@ -237,7 +236,6 @@ impl BranchManager<'_> {
             branch.order = order;
             branch.selected_for_changes = selected_for_changes;
             branch.allow_rebasing = self.ctx.project().ok_with_force_push.into();
-            branch.applied = true;
             branch.in_workspace = true;
 
             branch
@@ -257,7 +255,6 @@ impl BranchManager<'_> {
                 order,
                 selected_for_changes,
                 allow_rebasing: self.ctx.project().ok_with_force_push.into(),
-                applied: true,
                 in_workspace: true,
                 not_in_workspace_wip_change_id: None,
                 references: vec![],
