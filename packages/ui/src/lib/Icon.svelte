@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	import { pxToRem } from '$lib/utils/pxToRem';
 	export type IconColor = ComponentColor | undefined;
 </script>

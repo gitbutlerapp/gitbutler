@@ -49,7 +49,7 @@
 				small
 				{checked}
 				{indeterminate}
-				onchange={(e) => {
+				onchange={(e: Event & { currentTarget: EventTarget & HTMLInputElement; }) => {
 					const isChecked = e.currentTarget.checked;
 					if (isChecked) {
 						selectAll(files);

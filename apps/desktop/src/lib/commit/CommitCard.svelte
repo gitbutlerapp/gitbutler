@@ -384,11 +384,12 @@
 											style="ghost"
 											outline
 											icon="undo-small"
-											onclick={(e) => {
+											onclick={(e: MouseEvent) => {
 												currentCommitMessage.set(commit.description);
 												e.stopPropagation();
 												undoCommit(commit);
-											}}>Undo</Button
+											}}
+											>Undo</Button
 										>
 									{/if}
 									<Button

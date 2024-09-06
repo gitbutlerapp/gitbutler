@@ -32,6 +32,7 @@
 	const fileIdSelection = new FileIdSelection(project.id, writable([]));
 	setContext(FileIdSelection, fileIdSelection);
 
+	// eslint-disable-next-line svelte/valid-compile
 	$: selectedFile = fileIdSelection.selectedFile;
 
 	const defaultBranchWidthRem = 30;
