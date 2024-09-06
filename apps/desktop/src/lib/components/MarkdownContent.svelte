@@ -12,8 +12,6 @@
 	if (!tokens && content) {
 		tokens = lexer.lex(content);
 	}
-
-	$inspect('TOKENS', { tokens, rest });
 </script>
 
 {#if !type && tokens}

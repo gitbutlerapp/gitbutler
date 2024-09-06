@@ -7,4 +7,4 @@
 	const { text, lang }: Props = $props();
 </script>
 
-<pre class={lang}><code>{text}</code></pre>
+<pre class={`language-${lang}`}>{text}</pre>
