@@ -6,10 +6,8 @@ import Image from '$lib/components/markdownRenderers/Image.svelte';
 import Space from '$lib/components/markdownRenderers/Space.svelte';
 import Text from '$lib/components/markdownRenderers/Text.svelte';
 import Link from '$lib/shared/Link.svelte';
-import type { MarkedOptions } from 'marked';
-import type { Component } from 'svelte';
 
-export const renderers: Record<string, Component> = {
+export const renderers = {
 	link: Link,
 	image: Image,
 	space: Space,
@@ -20,7 +18,7 @@ export const renderers: Record<string, Component> = {
 	heading: Heading
 };
 
-export const options: MarkedOptions = {
+export const options = {
 	async: false,
 	breaks: true,
 	gfm: true,

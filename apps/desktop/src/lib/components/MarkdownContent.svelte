@@ -1,15 +1,21 @@
 <script lang="ts">
 	/* eslint svelte/valid-compile: "off" */
 	import { renderers, options } from '$lib/utils/markdownRenderers';
-	import { Lexer, type Token } from 'marked';
+	import { Lexer, type Token, type Tokens } from 'marked';
 
 	type Props = {
 		content?: string;
-		options?: Record<string, string>;
 		tokens?: Token[];
-		[key: string]: any;
-		href: string;
-	};
+	} & (
+		| Tokens.Link
+		| Tokens.Heading
+		| Tokens.Image
+		| Tokens.Space
+		| Tokens.Blockquote
+		| Tokens.Code
+		| Tokens.Codespan
+		| Tokens.Text
+	);
 
 	let { content, type, tokens, ...rest }: Props = $props();
 
