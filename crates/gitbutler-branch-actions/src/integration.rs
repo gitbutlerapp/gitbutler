@@ -61,7 +61,6 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
             } else {
                 // This branch should have already been unapplied during the "update" command but for some reason that failed
                 tracing::warn!("Merge conflict between base and {:?}", branch.name);
-                branch.applied = false;
                 branch.in_workspace = false;
                 vb_state.set_branch(branch.clone())?;
             }

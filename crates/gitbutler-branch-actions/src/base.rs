@@ -248,7 +248,6 @@ pub(crate) fn set_base_branch(
                 order: 0,
                 selected_for_changes: None,
                 allow_rebasing: ctx.project().ok_with_force_push.into(),
-                applied: true,
                 in_workspace: true,
                 not_in_workspace_wip_change_id: None,
                 references: vec![],
