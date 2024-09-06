@@ -1,4 +1,4 @@
-import { invoke } from '$lib/backend/ipc';
+import { getUserErrorCode, invoke } from '$lib/backend/ipc';
 import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
@@ -39,7 +39,9 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		project = await projectService.getProject(projectId);
 		await invoke('set_project_active', { id: projectId });
 	} catch (err: any) {
+		const errorCode = getUserErrorCode(err);
 		throw error(400, {
+			errorCode,
 			message: err.message
 		});
 	}

@@ -17,6 +17,7 @@ pub struct UpdateRequest {
     pub id: ProjectId,
     pub title: Option<String>,
     pub description: Option<String>,
+    pub path: Option<PathBuf>,
     pub api: Option<ApiProject>,
     pub gitbutler_data_last_fetched: Option<FetchResult>,
     pub preferred_key: Option<AuthKey>,
@@ -83,6 +84,10 @@ impl Storage {
 
         if let Some(description) = &update_request.description {
             project.description = Some(description.clone());
+        }
+
+        if let Some(path) = &update_request.path {
+            project.path = path.clone();
         }
 
         if let Some(api) = &update_request.api {

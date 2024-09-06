@@ -2,8 +2,8 @@
 	import FileStatusBadge from './FileStatusBadge.svelte';
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import Tooltip from '$lib/Tooltip.svelte';
 	import FileIcon from '$lib/file/FileIcon.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { FileStatus } from './types';
 
 	interface Props {

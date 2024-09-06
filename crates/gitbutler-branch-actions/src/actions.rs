@@ -25,6 +25,7 @@ use gitbutler_oplog::{
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::{credentials::Helper, RepoActionsExt, RepositoryExt};
+use std::path::PathBuf;
 use tracing::instrument;
 
 #[derive(Clone, Copy, Default)]
@@ -285,7 +286,12 @@ impl VirtualBranchActions {
         branch::unapply_ownership(&ctx, ownership, guard.write_permission()).map_err(Into::into)
     }
 
-    pub fn reset_files(&self, project: &Project, files: &Vec<String>) -> Result<()> {
+    pub fn reset_files(
+        &self,
+        project: &Project,
+        branch_id: BranchId,
+        files: &[PathBuf],
+    ) -> Result<()> {
         let ctx = open_with_verify(project)?;
         assure_open_workspace_mode(&ctx)
             .context("Resetting a file requires open workspace mode")?;
@@ -294,7 +300,7 @@ impl VirtualBranchActions {
             SnapshotDetails::new(OperationKind::DiscardFile),
             guard.write_permission(),
         );
-        branch::reset_files(&ctx, files).map_err(Into::into)
+        branch::reset_files(&ctx, branch_id, files, guard.write_permission()).map_err(Into::into)
     }
 
     pub fn amend(

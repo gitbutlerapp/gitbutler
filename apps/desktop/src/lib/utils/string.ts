@@ -20,6 +20,10 @@ export function isStr(s: unknown): s is string {
 	return typeof s === 'string';
 }
 
+export function isWhiteSpaceString(s: string) {
+	return s.trim() === '';
+}
+
 export function slugify(input: string) {
 	return String(input)
 		.normalize('NFKD')
