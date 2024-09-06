@@ -128,8 +128,6 @@
 		<ContextMenuItem
 			label="Set remote branch name"
 			on:click={() => {
-				console.log('Set remote branch name');
-
 				newRemoteName = branch.upstreamName || normalizedBranchName || '';
 				renameRemoteModal.show(branch);
 				contextMenuEl?.close();
