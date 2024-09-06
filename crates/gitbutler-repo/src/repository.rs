@@ -8,16 +8,14 @@ use gitbutler_error::error::Code;
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
 
-use crate::{askpass, credentials::Helper, Config, RepositoryExt};
+use crate::{askpass, credentials, Config, RepositoryExt};
 pub trait RepoActionsExt {
-    fn fetch(&self, remote_name: &str, credentials: &Helper, askpass: Option<String>)
-        -> Result<()>;
+    fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()>;
     fn push(
         &self,
         head: git2::Oid,
         branch: &RemoteRefname,
         with_force: bool,
-        credentials: &Helper,
         refspec: Option<String>,
         askpass_broker: Option<Option<BranchId>>,
     ) -> Result<()>;
@@ -36,7 +34,6 @@ pub trait RepoActionsExt {
     fn add_branch_reference(&self, branch: &Branch) -> Result<()>;
     fn git_test_push(
         &self,
-        credentials: &Helper,
         remote_name: &str,
         branch_name: &str,
         askpass: Option<Option<BranchId>>,
@@ -47,7 +44,6 @@ pub trait RepoActionsExt {
 impl RepoActionsExt for CommandContext {
     fn git_test_push(
         &self,
-        credentials: &Helper,
         remote_name: &str,
         branch_name: &str,
         askpass: Option<Option<BranchId>>,
@@ -67,20 +63,13 @@ impl RepoActionsExt for CommandContext {
         let refname =
             RemoteRefname::from_str(&format!("refs/remotes/{remote_name}/{branch_name}",))?;
 
-        match self.push(commit_id, &refname, false, credentials, None, askpass) {
+        match self.push(commit_id, &refname, false, None, askpass) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
 
         let empty_refspec = Some(format!(":refs/heads/{}", branch_name));
-        match self.push(
-            commit_id,
-            &refname,
-            false,
-            credentials,
-            empty_refspec,
-            askpass,
-        ) {
+        match self.push(commit_id, &refname, false, empty_refspec, askpass) {
             Ok(()) => Ok(()),
             Err(e) => Err(anyhow::anyhow!(e.to_string())),
         }?;
@@ -257,7 +246,6 @@ impl RepoActionsExt for CommandContext {
         head: git2::Oid,
         branch: &RemoteRefname,
         with_force: bool,
-        credentials: &Helper,
         refspec: Option<String>,
         askpass_broker: Option<Option<BranchId>>,
     ) -> Result<()> {
@@ -295,7 +283,7 @@ impl RepoActionsExt for CommandContext {
             .map_err(Into::into);
         }
 
-        let auth_flows = credentials.help(self, branch.remote())?;
+        let auth_flows = credentials::help(self, branch.remote())?;
         for (mut remote, callbacks) in auth_flows {
             let mut update_refs_error: Option<git2::Error> = None;
             for callback in callbacks {
@@ -351,12 +339,7 @@ impl RepoActionsExt for CommandContext {
         Err(anyhow!("authentication failed").context(Code::ProjectGitAuth))
     }
 
-    fn fetch(
-        &self,
-        remote_name: &str,
-        credentials: &Helper,
-        askpass: Option<String>,
-    ) -> Result<()> {
+    fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()> {
         let refspec = format!("+refs/heads/*:refs/remotes/{}/*", remote_name);
 
         // NOTE(qix-): This is a nasty hack, however the codebase isn't structured
@@ -384,7 +367,7 @@ impl RepoActionsExt for CommandContext {
             .map_err(Into::into);
         }
 
-        let auth_flows = credentials.help(self, remote_name)?;
+        let auth_flows = credentials::help(self, remote_name)?;
         for (mut remote, callbacks) in auth_flows {
             for callback in callbacks {
                 let mut fetch_opts = git2::FetchOptions::new();

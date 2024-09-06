@@ -11,7 +11,6 @@
     clippy::too_many_lines
 )]
 
-use gitbutler_repo::credentials;
 use gitbutler_tauri::{
     askpass, commands, config, github, logs, menu, modes, projects, remotes, repo, secret, undo,
     users, virtual_branches, zip, App, WindowState,
@@ -115,7 +114,6 @@ fn main() {
                         logs_dir: app_log_dir,
                         projects_controller: app.projects(),
                     });
-                    app_handle.manage(credentials::Helper::default());
                     app_handle.manage(app);
 
                     Ok(())

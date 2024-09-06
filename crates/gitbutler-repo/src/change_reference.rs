@@ -1,6 +1,5 @@
 use std::str::FromStr;
 
-use crate::credentials::Helper;
 use crate::{LogUntil, RepoActionsExt};
 use anyhow::Context;
 use anyhow::{anyhow, Result};
@@ -132,7 +131,6 @@ pub fn push_change_reference(
     branch_id: BranchId,
     name: ReferenceName,
     with_force: bool,
-    credentials: &Helper,
 ) -> Result<()> {
     let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let vbranch = handle.get_branch(branch_id)?;
@@ -149,7 +147,6 @@ pub fn push_change_reference(
         commit.id(),
         &upstream_refname,
         with_force,
-        credentials,
         None,
         Some(Some(branch_id)),
     )

@@ -63,9 +63,6 @@ impl From<Credential> for git2::RemoteCallbacks<'_> {
     }
 }
 
-#[derive(Clone, Default)]
-pub struct Helper {}
-
 #[derive(Debug, thiserror::Error)]
 pub enum HelpError {
     #[error("no url set for remote")]
@@ -78,71 +75,67 @@ pub enum HelpError {
     Other(#[from] anyhow::Error),
 }
 
-impl Helper {
-    pub fn help<'a>(
-        &'a self,
-        ctx: &'a CommandContext,
-        remote_name: &str,
-    ) -> Result<Vec<(git2::Remote, Vec<Credential>)>, HelpError> {
-        let remote = ctx.repository().find_remote(remote_name)?;
-        let remote_url = Url::from_str(remote.url().ok_or(HelpError::NoUrlSet)?)
-            .context("failed to parse remote url")?;
+pub fn help<'a>(
+    ctx: &'a CommandContext,
+    remote_name: &str,
+) -> Result<Vec<(git2::Remote<'a>, Vec<Credential>)>, HelpError> {
+    let remote = ctx.repository().find_remote(remote_name)?;
+    let remote_url = Url::from_str(remote.url().ok_or(HelpError::NoUrlSet)?)
+        .context("failed to parse remote url")?;
 
-        // if file, no auth needed.
-        if remote_url.scheme == Scheme::File {
-            return Ok(vec![(remote, vec![Credential::Noop])]);
-        }
-
-        match &ctx.project().preferred_key {
-            AuthKey::Local { private_key_path } => {
-                let ssh_remote = if remote_url.scheme == Scheme::Ssh {
-                    Ok(remote)
-                } else {
-                    let ssh_url = remote_url.as_ssh()?;
-                    ctx.repository().remote_anonymous(&ssh_url.to_string())
-                }?;
-
-                Ok(vec![(
-                    ssh_remote,
-                    vec![Credential::Ssh(SshCredential::Keyfile {
-                        key_path: private_key_path.clone(),
-                        passphrase: None,
-                    })],
-                )])
-            }
-            AuthKey::GitCredentialsHelper => {
-                let https_remote = if remote_url.scheme == Scheme::Https {
-                    Ok(remote)
-                } else {
-                    let url = remote_url.as_https()?;
-                    ctx.repository().remote_anonymous(&url.to_string())
-                }?;
-                let flow = Self::https_flow(ctx, &remote_url)?
-                    .into_iter()
-                    .map(Credential::Https)
-                    .collect::<Vec<_>>();
-                Ok(vec![(https_remote, flow)])
-            }
-            AuthKey::SystemExecutable => {
-                tracing::error!("WARNING: FIXME: this codepath should NEVER be hit. Something is seriously wrong.");
-                Ok(vec![])
-            }
-        }
+    // if file, no auth needed.
+    if remote_url.scheme == Scheme::File {
+        return Ok(vec![(remote, vec![Credential::Noop])]);
     }
 
-    fn https_flow(
-        ctx: &CommandContext,
-        remote_url: &Url,
-    ) -> Result<Vec<HttpsCredential>, HelpError> {
-        let mut flow = vec![];
+    match &ctx.project().preferred_key {
+        AuthKey::Local { private_key_path } => {
+            let ssh_remote = if remote_url.scheme == Scheme::Ssh {
+                Ok(remote)
+            } else {
+                let ssh_url = remote_url.as_ssh()?;
+                ctx.repository().remote_anonymous(&ssh_url.to_string())
+            }?;
 
-        let mut helper = git2::CredentialHelper::new(&remote_url.to_string());
-        let config = ctx.repository().config()?;
-        helper.config(&config);
-        if let Some((username, password)) = helper.execute() {
-            flow.push(HttpsCredential::CredentialHelper { username, password });
+            Ok(vec![(
+                ssh_remote,
+                vec![Credential::Ssh(SshCredential::Keyfile {
+                    key_path: private_key_path.clone(),
+                    passphrase: None,
+                })],
+            )])
         }
-
-        Ok(flow)
+        AuthKey::GitCredentialsHelper => {
+            let https_remote = if remote_url.scheme == Scheme::Https {
+                Ok(remote)
+            } else {
+                let url = remote_url.as_https()?;
+                ctx.repository().remote_anonymous(&url.to_string())
+            }?;
+            let flow = https_flow(ctx, &remote_url)?
+                .into_iter()
+                .map(Credential::Https)
+                .collect::<Vec<_>>();
+            Ok(vec![(https_remote, flow)])
+        }
+        AuthKey::SystemExecutable => {
+            tracing::error!(
+                "WARNING: FIXME: this codepath should NEVER be hit. Something is seriously wrong."
+            );
+            Ok(vec![])
+        }
     }
+}
+
+fn https_flow(ctx: &CommandContext, remote_url: &Url) -> Result<Vec<HttpsCredential>, HelpError> {
+    let mut flow = vec![];
+
+    let mut helper = git2::CredentialHelper::new(&remote_url.to_string());
+    let config = ctx.repository().config()?;
+    helper.config(&config);
+    if let Some((username, password)) = helper.execute() {
+        flow.push(HttpsCredential::CredentialHelper { username, password });
+    }
+
+    Ok(flow)
 }
