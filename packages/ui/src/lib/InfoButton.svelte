@@ -17,7 +17,7 @@
 	function handleMouseEnter() {
 		timeoutId = setTimeout(() => {
 			show = true;
-		}, 700);
+		}, 500);
 	}
 
 	function handleMouseLeave() {
@@ -27,7 +27,7 @@
 </script>
 
 <div class="wrapper" role="tooltip" onmouseenter={handleMouseEnter} onmouseleave={handleMouseLeave}>
-	<div class="info-button {size}"></div>
+	<div class="info-button {size}" class:button-hovered={show}></div>
 
 	{#if show}
 		<div class="tooltip-container" transition:flyScale>
@@ -57,6 +57,7 @@
 		color: var(--clr-text-2);
 		border-radius: 16px;
 		box-shadow: inset 0 0 0 1.5px var(--clr-text-2);
+		transition: box-shadow var(--transition-fast);
 
 		&::before,
 		&::after {
@@ -66,6 +67,16 @@
 			transform: translateX(-50%);
 			background-color: var(--clr-text-2);
 			border-radius: 2px;
+			transition: background-color var(--transition-fast);
+		}
+	}
+
+	.button-hovered {
+		box-shadow: inset 0 0 0 10px var(--clr-text-2);
+
+		&::before,
+		&::after {
+			background-color: var(--clr-scale-ntrl-100);
 		}
 	}
 
