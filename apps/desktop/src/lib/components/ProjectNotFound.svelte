@@ -4,7 +4,7 @@
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import notFoundSvg from '$lib/assets/illustrations/not-found.svg?raw';
 	import { ProjectService } from '$lib/backend/projects';
-	import InfoMessage from '$lib/shared/InfoMessage.svelte';
+	import InfoMessage, { type MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -36,17 +36,22 @@
 		await projectService.relocateProject(id);
 	}
 
-	function getDeletionStatusMessage(repoName: string) {
-		if (deleteSucceeded === undefined) return null;
-		if (deleteSucceeded) return `Project "${repoName}" successfully deleted`;
-		return `Failed to delete "${repoName}" project`;
+	interface DeletionStatus {
+		message: string;
+		style: MessageStyle;
+	}
+
+	function getDeletionStatus(repoName: string, deleteSucceeded: boolean): DeletionStatus {
+		return deleteSucceeded
+			? { message: `Project "${repoName}" successfully deleted`, style: 'success' }
+			: { message: `Failed to delete "${repoName}" project`, style: 'error' };
 	}
 </script>
 
 <DecorativeSplitView img={notFoundSvg}>
 	<div class="container" data-tauri-drag-region>
-		{#if deleteSucceeded === undefined}
-			{#await projectPromise then project}
+		{#await projectPromise then project}
+			{#if deleteSucceeded === undefined}
 				<div class="text-content">
 					<h2 class="title-text text-18 text-body text-bold" data-tauri-drag-region>
 						Can’t find "{project.title}"
@@ -76,20 +81,21 @@
 						onDeleteClicked={async () => await stopTracking(project.id)}
 					/>
 				</div>
+			{/if}
 
-				{#if deleteSucceeded !== undefined}
-					<InfoMessage filled outlined={false} style="success" icon="info">
-						<svelte:fragment slot="content"
-							>{getDeletionStatusMessage(project.title)}</svelte:fragment
-						>
-					</InfoMessage>
-				{/if}
-			{:catch}
-				<div class="text-content">
-					<h2 class="title-text text-18 text-body text-bold">Can’t find project</h2>
-				</div>
-			{/await}
-		{/if}
+			{#if deleteSucceeded !== undefined}
+				{@const deletionStatus = getDeletionStatus(project.title, deleteSucceeded)}
+				<InfoMessage filled outlined={false} style={deletionStatus.style} icon="info">
+					<svelte:fragment slot="content">
+						{deletionStatus.message}
+					</svelte:fragment>
+				</InfoMessage>
+			{/if}
+		{:catch}
+			<div class="text-content">
+				<h2 class="title-text text-18 text-body text-bold">Can’t find project</h2>
+			</div>
+		{/await}
 
 		<Spacer dotted margin={0} />
 		<ProjectSwitcher />

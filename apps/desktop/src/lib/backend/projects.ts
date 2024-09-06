@@ -97,7 +97,8 @@ export class ProjectService {
 	}
 
 	async deleteProject(id: string) {
-		return await invoke('delete_project', { id });
+		await invoke('delete_project', { id });
+		await this.reload();
 	}
 
 	async promptForDirectory(): Promise<string | undefined> {
