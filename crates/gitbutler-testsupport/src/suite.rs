@@ -5,7 +5,7 @@ use std::{
 };
 
 use gitbutler_command_context::CommandContext;
-use gitbutler_repo::{credentials::Helper, RepositoryExt};
+use gitbutler_repo::RepositoryExt;
 use tempfile::{tempdir, TempDir};
 
 use crate::test_project::setup_config;
@@ -90,7 +90,6 @@ impl Suite {
 pub struct Case {
     pub project: gitbutler_project::Project,
     pub ctx: CommandContext,
-    pub credentials: Helper,
     /// The directory containing the `ctx`
     pub project_tmp: Option<TempDir>,
 }
@@ -110,12 +109,10 @@ impl Drop for Case {
 impl Case {
     fn new(project: gitbutler_project::Project, project_tmp: TempDir) -> Case {
         let ctx = CommandContext::open(&project).expect("failed to create project repository");
-        let credentials = Helper::default();
         Case {
             project,
             ctx,
             project_tmp: Some(project_tmp),
-            credentials,
         }
     }
 
@@ -125,9 +122,7 @@ impl Case {
             .get(self.project.id)
             .expect("failed to get project");
         let ctx = CommandContext::open(&project).expect("failed to create project repository");
-        let credentials = Helper::default();
         Self {
-            credentials,
             ctx,
             project,
             project_tmp: self.project_tmp.take(),

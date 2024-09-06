@@ -3,7 +3,7 @@ use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::{
-    create_change_reference, credentials::Helper, list_branch_references, push_change_reference,
+    create_change_reference, list_branch_references, push_change_reference,
     update_change_reference, LogUntil, RepoActionsExt,
 };
 use tempfile::TempDir;
@@ -217,13 +217,7 @@ fn push_success() -> Result<()> {
         "refs/remotes/origin/first".into(),
         test_ctx.commits.first().unwrap().change_id().unwrap(),
     )?;
-    let result = push_change_reference(
-        &ctx,
-        reference.branch_id,
-        reference.name,
-        false,
-        &Helper::default(),
-    );
+    let result = push_change_reference(&ctx, reference.branch_id, reference.name, false);
     assert!(result.is_ok());
     Ok(())
 }
