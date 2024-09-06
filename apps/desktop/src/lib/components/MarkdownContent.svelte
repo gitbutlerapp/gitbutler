@@ -7,7 +7,9 @@
 		content?: string;
 		options?: Record<string, string>;
 		tokens?: Token[];
-	} & Partial<Token>;
+		[key: string]: any;
+		href: string;
+	};
 
 	let { content, type, tokens, ...rest }: Props = $props();
 
@@ -15,8 +17,6 @@
 	if (!tokens && content) {
 		tokens = lexer.lex(content);
 	}
-
-	const Component = renderers[type as keyof typeof renderers];
 </script>
 
 {#if !type && tokens}
@@ -24,14 +24,13 @@
 		<svelte:self {...token} />
 	{/each}
 {:else if type && renderers[type as keyof typeof renderers]}
-	<!-- @ts-expect-error AHHH -->
-	<Component {...rest}>
+	<svelte:component this={renderers[type as keyof typeof renderers]} {...rest}>
 		{#if tokens}
 			<svelte:self {tokens} />
 		{:else}
 			{rest.raw}
 		{/if}
-	</Component>
+	</svelte:component>
 {:else if tokens}
 	<svelte:self {tokens} />
 {:else}
