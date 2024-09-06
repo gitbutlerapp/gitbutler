@@ -7,27 +7,28 @@ fn unapplying_selected_branch_selects_anther() {
     let Test {
         repository,
         project,
-        controller,
         ..
     } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     std::fs::write(repository.path().join("file one.txt"), "").unwrap();
 
     // first branch should be created as default
-    let b_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
+    let b_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
 
     // if default branch exists, new branch should not be created as default
-    let b2_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
+    let b2_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
 
     let b = branches.iter().find(|b| b.id == b_id).unwrap();
 
@@ -36,9 +37,9 @@ fn unapplying_selected_branch_selects_anther() {
     assert!(b.selected_for_changes);
     assert!(!b2.selected_for_changes);
 
-    controller.convert_to_real_branch(project, b_id).unwrap();
+    gitbutler_branch_actions::convert_to_real_branch(project, b_id).unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
 
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, b2.id);
@@ -48,27 +49,25 @@ fn unapplying_selected_branch_selects_anther() {
 
 #[test]
 fn deleting_selected_branch_selects_anther() {
-    let Test {
-        project,
-        controller,
-        ..
-    } = &Test::default();
+    let Test { project, .. } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     // first branch should be created as default
-    let b_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
+    let b_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
 
     // if default branch exists, new branch should not be created as default
-    let b2_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
+    let b2_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
 
     let b = branches.iter().find(|b| b.id == b_id).unwrap();
 
@@ -77,9 +76,9 @@ fn deleting_selected_branch_selects_anther() {
     assert!(b.selected_for_changes);
     assert!(!b2.selected_for_changes);
 
-    controller.delete_virtual_branch(project, b_id).unwrap();
+    gitbutler_branch_actions::delete_virtual_branch(project, b_id).unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
 
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, b2.id);
@@ -88,22 +87,19 @@ fn deleting_selected_branch_selects_anther() {
 
 #[test]
 fn create_virtual_branch_should_set_selected_for_changes() {
-    let Test {
-        project,
-        controller,
-        ..
-    } = &Test::default();
+    let Test { project, .. } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     // first branch should be created as default
-    let b_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
-    let branch = controller
-        .list_virtual_branches(project)
+    let b_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
+    let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
@@ -112,11 +108,10 @@ fn create_virtual_branch_should_set_selected_for_changes() {
     assert!(branch.selected_for_changes);
 
     // if default branch exists, new branch should not be created as default
-    let b_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
-    let branch = controller
-        .list_virtual_branches(project)
+    let b_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
+    let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
@@ -125,17 +120,15 @@ fn create_virtual_branch_should_set_selected_for_changes() {
     assert!(!branch.selected_for_changes);
 
     // explicitly don't make this one default
-    let b_id = controller
-        .create_virtual_branch(
-            project,
-            &BranchCreateRequest {
-                selected_for_changes: Some(false),
-                ..Default::default()
-            },
-        )
-        .unwrap();
-    let branch = controller
-        .list_virtual_branches(project)
+    let b_id = gitbutler_branch_actions::create_virtual_branch(
+        project,
+        &BranchCreateRequest {
+            selected_for_changes: Some(false),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
@@ -144,17 +137,15 @@ fn create_virtual_branch_should_set_selected_for_changes() {
     assert!(!branch.selected_for_changes);
 
     // explicitly make this one default
-    let b_id = controller
-        .create_virtual_branch(
-            project,
-            &BranchCreateRequest {
-                selected_for_changes: Some(true),
-                ..Default::default()
-            },
-        )
-        .unwrap();
-    let branch = controller
-        .list_virtual_branches(project)
+    let b_id = gitbutler_branch_actions::create_virtual_branch(
+        project,
+        &BranchCreateRequest {
+            selected_for_changes: Some(true),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
@@ -165,21 +156,18 @@ fn create_virtual_branch_should_set_selected_for_changes() {
 
 #[test]
 fn update_virtual_branch_should_reset_selected_for_changes() {
-    let Test {
+    let Test { project, .. } = &Test::default();
+
+    gitbutler_branch_actions::set_base_branch(
         project,
-        controller,
-        ..
-    } = &Test::default();
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
-
-    let b1_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
-    let b1 = controller
-        .list_virtual_branches(project)
+    let b1_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
+    let b1 = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
@@ -187,11 +175,10 @@ fn update_virtual_branch_should_reset_selected_for_changes() {
         .unwrap();
     assert!(b1.selected_for_changes);
 
-    let b2_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
-    let b2 = controller
-        .list_virtual_branches(project)
+    let b2_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
+    let b2 = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
@@ -199,19 +186,17 @@ fn update_virtual_branch_should_reset_selected_for_changes() {
         .unwrap();
     assert!(!b2.selected_for_changes);
 
-    controller
-        .update_virtual_branch(
-            project,
-            BranchUpdateRequest {
-                id: b2_id,
-                selected_for_changes: Some(true),
-                ..Default::default()
-            },
-        )
-        .unwrap();
+    gitbutler_branch_actions::update_virtual_branch(
+        project,
+        BranchUpdateRequest {
+            id: b2_id,
+            selected_for_changes: Some(true),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
-    let b1 = controller
-        .list_virtual_branches(project)
+    let b1 = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
@@ -219,8 +204,7 @@ fn update_virtual_branch_should_reset_selected_for_changes() {
         .unwrap();
     assert!(!b1.selected_for_changes);
 
-    let b2 = controller
-        .list_virtual_branches(project)
+    let b2 = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
@@ -234,21 +218,21 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
     let Test {
         repository,
         project,
-        controller,
         ..
     } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
-    let b1_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
+    let b1_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let b1 = controller
-        .list_virtual_branches(project)
+    let b1 = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
@@ -256,12 +240,11 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
         .unwrap();
     assert!(b1.selected_for_changes);
 
-    let b2_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
+    let b2_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
 
-    let b2 = controller
-        .list_virtual_branches(project)
+    let b2 = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
@@ -269,10 +252,9 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
         .unwrap();
     assert!(!b2.selected_for_changes);
 
-    controller.convert_to_real_branch(project, b1_id).unwrap();
+    gitbutler_branch_actions::convert_to_real_branch(project, b1_id).unwrap();
 
-    assert!(controller
-        .list_virtual_branches(project)
+    assert!(gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
@@ -284,30 +266,30 @@ fn hunks_distribution() {
     let Test {
         repository,
         project,
-        controller,
         ..
     } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches[0].files.len(), 1);
 
-    controller
-        .create_virtual_branch(
-            project,
-            &BranchCreateRequest {
-                selected_for_changes: Some(true),
-                ..Default::default()
-            },
-        )
-        .unwrap();
+    gitbutler_branch_actions::create_virtual_branch(
+        project,
+        &BranchCreateRequest {
+            selected_for_changes: Some(true),
+            ..Default::default()
+        },
+    )
+    .unwrap();
     std::fs::write(repository.path().join("another_file.txt"), "content").unwrap();
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[1].files.len(), 1);
 }
@@ -317,28 +299,27 @@ fn applying_first_branch() {
     let Test {
         repository,
         project,
-        controller,
         ..
     } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
 
-    let unapplied_branch = controller
-        .convert_to_real_branch(project, branches[0].id)
-        .unwrap();
+    let unapplied_branch =
+        gitbutler_branch_actions::convert_to_real_branch(project, branches[0].id).unwrap();
     let unapplied_branch = Refname::from_str(&unapplied_branch).unwrap();
-    controller
-        .create_virtual_branch_from_branch(project, &unapplied_branch, None)
+    gitbutler_branch_actions::create_virtual_branch_from_branch(project, &unapplied_branch, None)
         .unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].active);
     assert!(branches[0].selected_for_changes);
@@ -351,7 +332,6 @@ fn new_locked_hunk_without_modifying_existing() {
     let Test {
         repository,
         project,
-        controller,
         ..
     } = &Test::default();
 
@@ -359,44 +339,44 @@ fn new_locked_hunk_without_modifying_existing() {
     repository.commit_all("first commit");
     repository.push();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     lines[0] = "modification 1".to_string();
     repository.write_file("file.txt", &lines);
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches[0].files.len(), 1);
 
-    controller
-        .create_commit(project, branches[0].id, "second commit", None, false)
+    gitbutler_branch_actions::create_commit(project, branches[0].id, "second commit", None, false)
         .expect("failed to create commit");
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[0].commits.len(), 1);
 
-    controller
-        .create_virtual_branch(
-            project,
-            &BranchCreateRequest {
-                selected_for_changes: Some(true),
-                ..Default::default()
-            },
-        )
-        .unwrap();
+    gitbutler_branch_actions::create_virtual_branch(
+        project,
+        &BranchCreateRequest {
+            selected_for_changes: Some(true),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     lines[8] = "modification 2".to_string();
     repository.write_file("file.txt", &lines);
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[1].files.len(), 1);
 
     lines[0] = "modification 3".to_string();
     repository.write_file("file.txt", &lines);
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[1].files.len(), 1);
 }

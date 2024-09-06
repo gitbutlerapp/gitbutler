@@ -11,9 +11,10 @@ use gitbutler_repo::{RepoActionsExt, RepositoryExt};
 use tracing::instrument;
 
 use super::BranchManager;
+use crate::r#virtual as vbranch;
 use crate::{
     conflicts::{self},
-    ensure_selected_for_changes, get_applied_status,
+    get_applied_status,
     hunk::VirtualBranchHunk,
     VirtualBranchesExt,
 };
@@ -47,7 +48,8 @@ impl BranchManager<'_> {
         vb_state.update_ordering()?;
 
         // Ensure we still have a default target
-        ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
+        vbranch::ensure_selected_for_changes(&vb_state)
+            .context("failed to ensure selected for changes")?;
 
         crate::integration::update_workspace_commit(&vb_state, self.ctx)?;
 
@@ -132,7 +134,8 @@ impl BranchManager<'_> {
 
         self.ctx.delete_branch_reference(&branch)?;
 
-        ensure_selected_for_changes(&vb_state).context("failed to ensure selected for changes")?;
+        vbranch::ensure_selected_for_changes(&vb_state)
+            .context("failed to ensure selected for changes")?;
 
         Ok(())
     }

@@ -11,14 +11,16 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
     let test = Test::default();
     let Test {
         repository,
-        controller,
+
         project,
         ..
     } = &test;
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     let worktree_dir = repository.path();
     for round in 0..3 {
@@ -27,14 +29,14 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             worktree_dir.join(format!("file{round}.txt")),
             make_lines(line_count),
         )?;
-        let branch_id = controller.create_virtual_branch(
+        let branch_id = gitbutler_branch_actions::create_virtual_branch(
             project,
             &BranchCreateRequest {
                 name: Some(round.to_string()),
                 ..Default::default()
             },
         )?;
-        controller.create_commit(
+        gitbutler_branch_actions::create_commit(
             project,
             branch_id,
             &format!("commit {round}"),
@@ -51,7 +53,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             line_count > 20
         );
     }
-    let _empty = controller.create_virtual_branch(project, &Default::default())?;
+    let _empty = gitbutler_branch_actions::create_virtual_branch(project, &Default::default())?;
 
     let snapshots = project.list_snapshots(10, None)?;
     assert_eq!(
@@ -96,18 +98,20 @@ fn make_lines(count: usize) -> Vec<u8> {
 fn basic_oplog() -> anyhow::Result<()> {
     let Test {
         repository,
-        controller,
+
         project,
         ..
     } = &Test::default();
 
-    controller.set_base_branch(project, &"refs/remotes/origin/master".parse()?)?;
+    gitbutler_branch_actions::set_base_branch(project, &"refs/remotes/origin/master".parse()?)?;
 
-    let branch_id = controller.create_virtual_branch(project, &BranchCreateRequest::default())?;
+    let branch_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())?;
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
-    let _commit1_id = controller.create_commit(project, branch_id, "commit one", None, false)?;
+    let _commit1_id =
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)?;
 
     // dont store large files
     let file_path = repository.path().join("large.txt");
@@ -121,7 +125,8 @@ fn basic_oplog() -> anyhow::Result<()> {
     // create commit with large file
     fs::write(repository.path().join("file2.txt"), "content2")?;
     fs::write(repository.path().join("file3.txt"), "content3")?;
-    let commit2_id = controller.create_commit(project, branch_id, "commit two", None, false)?;
+    let commit2_id =
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)?;
 
     // Create conflict state
     let conflicts_path = repository.path().join(".git").join("conflicts");
@@ -131,22 +136,22 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     // create state with conflict state
     let _empty_branch_id =
-        controller.create_virtual_branch(project, &BranchCreateRequest::default())?;
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())?;
 
     std::fs::remove_file(&base_merge_parent_path)?;
     std::fs::remove_file(&conflicts_path)?;
 
     fs::write(repository.path().join("file4.txt"), "content4")?;
-    let _commit3_id = controller.create_commit(project, branch_id, "commit three", None, false)?;
+    let _commit3_id =
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None, false)?;
 
-    let branch = controller
-        .list_virtual_branches(project)?
+    let branch = gitbutler_branch_actions::list_virtual_branches(project)?
         .0
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let branches = controller.list_virtual_branches(project)?;
+    let branches = gitbutler_branch_actions::list_virtual_branches(project)?;
     assert_eq!(branches.0.len(), 2);
 
     assert_eq!(branch.commits.len(), 3);
@@ -185,7 +190,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     project.restore_snapshot(snapshots[2].clone().commit_id)?;
 
     // the restore removed our new branch
-    let branches = controller.list_virtual_branches(project)?;
+    let branches = gitbutler_branch_actions::list_virtual_branches(project)?;
     assert_eq!(branches.0.len(), 1);
 
     // assert that the conflicts file was removed
@@ -233,12 +238,12 @@ fn basic_oplog() -> anyhow::Result<()> {
 fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     let Test {
         repository,
-        controller,
+
         project,
         ..
     } = &Test::default();
 
-    controller.set_base_branch(project, &"refs/remotes/origin/master".parse()?)?;
+    gitbutler_branch_actions::set_base_branch(project, &"refs/remotes/origin/master".parse()?)?;
 
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
@@ -246,7 +251,8 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
             .len(),
         0
     );
-    let branch_id = controller.create_virtual_branch(project, &BranchCreateRequest::default())?;
+    let branch_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())?;
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
             .list_branches_in_workspace()?
@@ -256,7 +262,8 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
-    let _commit1_id = controller.create_commit(project, branch_id, "commit one", None, false)?;
+    let _commit1_id =
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)?;
 
     let repo = git2::Repository::open(&project.path)?;
 
@@ -269,7 +276,8 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 
     // create second commit
     fs::write(repository.path().join("file.txt"), "changed content")?;
-    let _commit2_id = controller.create_commit(project, branch_id, "commit two", None, false)?;
+    let _commit2_id =
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)?;
 
     // check the workspace commit changed
     let head = repo.head().expect("never unborn");
@@ -347,17 +355,21 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 fn head_corrupt_is_recreated_automatically() {
     let Test {
         repository,
-        controller,
+
         project,
         ..
     } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     let snapshots = project.list_snapshots(10, None).unwrap();
     assert_eq!(
@@ -374,9 +386,11 @@ fn head_corrupt_is_recreated_automatically() {
     )
     .unwrap();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .expect("the snapshot doesn't fail despite the corrupt head");
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .expect("the snapshot doesn't fail despite the corrupt head");
 
     let snapshots = project.list_snapshots(10, None).unwrap();
     assert_eq!(

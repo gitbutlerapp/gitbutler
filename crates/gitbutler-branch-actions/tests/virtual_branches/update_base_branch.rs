@@ -10,7 +10,6 @@ mod applied_branch {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -24,27 +23,31 @@ mod applied_branch {
             repository.reset_hard(Some(first_commit_oid));
         }
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
         {
             // make a branch that conflicts with the remote branch, but doesn't know about it yet
-            controller
-                .create_virtual_branch(project, &BranchCreateRequest::default())
-                .unwrap();
+            gitbutler_branch_actions::create_virtual_branch(
+                project,
+                &BranchCreateRequest::default(),
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
         }
 
         let unapplied_branch = {
             // fetch remote
-            let unapplied_branches = controller.update_base_branch(project).unwrap();
+            let unapplied_branches = gitbutler_branch_actions::update_base_branch(project).unwrap();
             assert_eq!(unapplied_branches.len(), 1);
 
             // should stash conflicting branch
 
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 0);
 
             Refname::from_str(unapplied_branches[0].as_str()).unwrap()
@@ -52,10 +55,13 @@ mod applied_branch {
 
         {
             // applying the branch should produce conflict markers
-            controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
-                .unwrap();
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            gitbutler_branch_actions::create_virtual_branch_from_branch(
+                project,
+                &unapplied_branch,
+                None,
+            )
+            .unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 1);
             assert!(branches[0].conflicted);
             assert!(branches[0].base_current);
@@ -72,7 +78,6 @@ mod applied_branch {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -86,31 +91,40 @@ mod applied_branch {
             repository.reset_hard(Some(first_commit_oid));
         }
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
         {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
-            let branch_id = controller
-                .create_virtual_branch(project, &BranchCreateRequest::default())
-                .unwrap();
+            let branch_id = gitbutler_branch_actions::create_virtual_branch(
+                project,
+                &BranchCreateRequest::default(),
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
-            controller
-                .create_commit(project, branch_id, "conflicting commit", None, false)
-                .unwrap();
+            gitbutler_branch_actions::create_commit(
+                project,
+                branch_id,
+                "conflicting commit",
+                None,
+                false,
+            )
+            .unwrap();
         }
 
         let unapplied_branch = {
             // when fetching remote
-            let unapplied_branches = controller.update_base_branch(project).unwrap();
+            let unapplied_branches = gitbutler_branch_actions::update_base_branch(project).unwrap();
             assert_eq!(unapplied_branches.len(), 1);
 
             // should stash the branch.
 
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 0);
 
             Refname::from_str(unapplied_branches[0].as_str()).unwrap()
@@ -118,10 +132,13 @@ mod applied_branch {
 
         {
             // applying the branch should produce conflict markers
-            controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
-                .unwrap();
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            gitbutler_branch_actions::create_virtual_branch_from_branch(
+                project,
+                &unapplied_branch,
+                None,
+            )
+            .unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 1);
             assert!(branches[0].conflicted);
             assert!(branches[0].base_current);
@@ -139,7 +156,6 @@ mod applied_branch {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -153,35 +169,42 @@ mod applied_branch {
             repository.reset_hard(Some(first_commit_oid));
         }
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
         {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
-            let branch_id = controller
-                .create_virtual_branch(project, &BranchCreateRequest::default())
-                .unwrap();
+            let branch_id = gitbutler_branch_actions::create_virtual_branch(
+                project,
+                &BranchCreateRequest::default(),
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
-            controller
-                .create_commit(project, branch_id, "conflicting commit", None, false)
-                .unwrap();
+            gitbutler_branch_actions::create_commit(
+                project,
+                branch_id,
+                "conflicting commit",
+                None,
+                false,
+            )
+            .unwrap();
 
-            controller
-                .push_virtual_branch(project, branch_id, false, None)
-                .unwrap();
+            gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
         }
 
         let unapplied_branch = {
             // when fetching remote
-            let unapplied_branches = controller.update_base_branch(project).unwrap();
+            let unapplied_branches = gitbutler_branch_actions::update_base_branch(project).unwrap();
             assert_eq!(unapplied_branches.len(), 1);
 
             // should stash the branch.
 
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 0);
 
             Refname::from_str(unapplied_branches[0].as_str()).unwrap()
@@ -189,10 +212,13 @@ mod applied_branch {
 
         {
             // applying the branch should produce conflict markers
-            controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
-                .unwrap();
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            gitbutler_branch_actions::create_virtual_branch_from_branch(
+                project,
+                &unapplied_branch,
+                None,
+            )
+            .unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 1);
             assert!(branches[0].conflicted);
             assert!(branches[0].base_current);
@@ -210,7 +236,6 @@ mod applied_branch {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -224,33 +249,42 @@ mod applied_branch {
             repository.reset_hard(Some(first_commit_oid));
         }
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
         {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
-            let branch_id = controller
-                .create_virtual_branch(project, &BranchCreateRequest::default())
-                .unwrap();
+            let branch_id = gitbutler_branch_actions::create_virtual_branch(
+                project,
+                &BranchCreateRequest::default(),
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
-            controller
-                .create_commit(project, branch_id, "conflicting commit", None, false)
-                .unwrap();
+            gitbutler_branch_actions::create_commit(
+                project,
+                branch_id,
+                "conflicting commit",
+                None,
+                false,
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file.txt"), "fix conflict").unwrap();
         }
 
         let unapplied_branch = {
             // when fetching remote
-            let unapplied_branches = controller.update_base_branch(project).unwrap();
+            let unapplied_branches = gitbutler_branch_actions::update_base_branch(project).unwrap();
             assert_eq!(unapplied_branches.len(), 1);
 
             // should rebase upstream, and leave uncommited file as is
 
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 0);
 
             Refname::from_str(unapplied_branches[0].as_str()).unwrap()
@@ -258,10 +292,13 @@ mod applied_branch {
 
         {
             // applying the branch should produce conflict markers
-            controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
-                .unwrap();
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            gitbutler_branch_actions::create_virtual_branch_from_branch(
+                project,
+                &unapplied_branch,
+                None,
+            )
+            .unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 1);
             assert!(branches[0].conflicted);
             assert!(branches[0].base_current);
@@ -279,7 +316,6 @@ mod applied_branch {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -293,33 +329,42 @@ mod applied_branch {
             repository.reset_hard(Some(first_commit_oid));
         }
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
         {
             // make a branch with a commit that conflicts with upstream, and work that fixes
             // that conflict
-            let branch_id = controller
-                .create_virtual_branch(project, &BranchCreateRequest::default())
-                .unwrap();
+            let branch_id = gitbutler_branch_actions::create_virtual_branch(
+                project,
+                &BranchCreateRequest::default(),
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file.txt"), "conflict").unwrap();
-            controller
-                .create_commit(project, branch_id, "conflicting commit", None, false)
-                .unwrap();
+            gitbutler_branch_actions::create_commit(
+                project,
+                branch_id,
+                "conflicting commit",
+                None,
+                false,
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file.txt"), "fix conflict").unwrap();
         }
 
         let unapplied_branch = {
             // when fetching remote
-            let unapplied_branches = controller.update_base_branch(project).unwrap();
+            let unapplied_branches = gitbutler_branch_actions::update_base_branch(project).unwrap();
             assert_eq!(unapplied_branches.len(), 1);
 
             // should merge upstream, and leave uncommited file as is.
 
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 0);
 
             Refname::from_str(unapplied_branches[0].as_str()).unwrap()
@@ -327,10 +372,13 @@ mod applied_branch {
 
         {
             // applying the branch should produce conflict markers
-            controller
-                .create_virtual_branch_from_branch(project, &unapplied_branch, None)
-                .unwrap();
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            gitbutler_branch_actions::create_virtual_branch_from_branch(
+                project,
+                &unapplied_branch,
+                None,
+            )
+            .unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 1);
             assert!(branches[0].conflicted);
             assert!(branches[0].base_current);
@@ -354,7 +402,6 @@ mod applied_branch {
                 repository,
                 project,
                 project_id,
-                controller,
                 projects,
                 ..
             } = &Test::default();
@@ -376,22 +423,30 @@ mod applied_branch {
                 })
                 .unwrap();
 
-            controller
-                .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-                .unwrap();
+            gitbutler_branch_actions::set_base_branch(
+                project,
+                &"refs/remotes/origin/master".parse().unwrap(),
+            )
+            .unwrap();
 
             let branch_id = {
-                let branch_id = controller
-                    .create_virtual_branch(project, &BranchCreateRequest::default())
-                    .unwrap();
+                let branch_id = gitbutler_branch_actions::create_virtual_branch(
+                    project,
+                    &BranchCreateRequest::default(),
+                )
+                .unwrap();
 
                 fs::write(repository.path().join("file2.txt"), "no conflict").unwrap();
 
-                controller
-                    .create_commit(project, branch_id, "no conflicts", None, false)
-                    .unwrap();
-                controller
-                    .push_virtual_branch(project, branch_id, false, None)
+                gitbutler_branch_actions::create_commit(
+                    project,
+                    branch_id,
+                    "no conflicts",
+                    None,
+                    false,
+                )
+                .unwrap();
+                gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None)
                     .unwrap();
 
                 fs::write(repository.path().join("file2.txt"), "still no conflict").unwrap();
@@ -401,12 +456,13 @@ mod applied_branch {
 
             {
                 // fetch remote
-                controller.update_base_branch(project).unwrap();
+                gitbutler_branch_actions::update_base_branch(project).unwrap();
 
                 // rebases branch, since the branch is pushed and force pushing is
                 // allowed
 
-                let (branches, _) = controller.list_virtual_branches(project).unwrap();
+                let (branches, _) =
+                    gitbutler_branch_actions::list_virtual_branches(project).unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -429,7 +485,6 @@ mod applied_branch {
             let Test {
                 repository,
                 project,
-                controller,
                 ..
             } = &Test::default();
 
@@ -443,22 +498,30 @@ mod applied_branch {
                 repository.reset_hard(Some(first_commit_oid));
             }
 
-            controller
-                .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-                .unwrap();
+            gitbutler_branch_actions::set_base_branch(
+                project,
+                &"refs/remotes/origin/master".parse().unwrap(),
+            )
+            .unwrap();
 
             let branch_id = {
-                let branch_id = controller
-                    .create_virtual_branch(project, &BranchCreateRequest::default())
-                    .unwrap();
+                let branch_id = gitbutler_branch_actions::create_virtual_branch(
+                    project,
+                    &BranchCreateRequest::default(),
+                )
+                .unwrap();
 
                 fs::write(repository.path().join("file2.txt"), "no conflict").unwrap();
 
-                controller
-                    .create_commit(project, branch_id, "no conflicts", None, false)
-                    .unwrap();
-                controller
-                    .push_virtual_branch(project, branch_id, false, None)
+                gitbutler_branch_actions::create_commit(
+                    project,
+                    branch_id,
+                    "no conflicts",
+                    None,
+                    false,
+                )
+                .unwrap();
+                gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None)
                     .unwrap();
 
                 fs::write(repository.path().join("file2.txt"), "still no conflict").unwrap();
@@ -466,24 +529,24 @@ mod applied_branch {
                 branch_id
             };
 
-            controller
-                .update_virtual_branch(
-                    project,
-                    BranchUpdateRequest {
-                        id: branch_id,
-                        allow_rebasing: Some(false),
-                        ..Default::default()
-                    },
-                )
-                .unwrap();
+            gitbutler_branch_actions::update_virtual_branch(
+                project,
+                BranchUpdateRequest {
+                    id: branch_id,
+                    allow_rebasing: Some(false),
+                    ..Default::default()
+                },
+            )
+            .unwrap();
 
             {
                 // fetch remote
-                controller.update_base_branch(project).unwrap();
+                gitbutler_branch_actions::update_base_branch(project).unwrap();
 
                 // creates a merge commit, since the branch is pushed
 
-                let (branches, _) = controller.list_virtual_branches(project).unwrap();
+                let (branches, _) =
+                    gitbutler_branch_actions::list_virtual_branches(project).unwrap();
                 assert_eq!(branches.len(), 1);
                 assert_eq!(branches[0].id, branch_id);
                 assert!(branches[0].active);
@@ -504,7 +567,6 @@ mod applied_branch {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -518,20 +580,29 @@ mod applied_branch {
             repository.reset_hard(Some(first_commit_oid));
         }
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
         let branch_id = {
-            let branch_id = controller
-                .create_virtual_branch(project, &BranchCreateRequest::default())
-                .unwrap();
+            let branch_id = gitbutler_branch_actions::create_virtual_branch(
+                project,
+                &BranchCreateRequest::default(),
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file2.txt"), "no conflict").unwrap();
 
-            controller
-                .create_commit(project, branch_id, "no conflicts", None, false)
-                .unwrap();
+            gitbutler_branch_actions::create_commit(
+                project,
+                branch_id,
+                "no conflicts",
+                None,
+                false,
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file2.txt"), "still no conflict").unwrap();
 
@@ -540,11 +611,11 @@ mod applied_branch {
 
         {
             // fetch remote
-            controller.update_base_branch(project).unwrap();
+            gitbutler_branch_actions::update_base_branch(project).unwrap();
 
             // just rebases branch
 
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -568,7 +639,6 @@ mod applied_branch {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -578,29 +648,29 @@ mod applied_branch {
             repository.push();
         }
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
         let branch_id = {
             // make a branch that conflicts with the remote branch, but doesn't know about it yet
-            let branch_id = controller
-                .create_virtual_branch(project, &BranchCreateRequest::default())
-                .unwrap();
+            let branch_id = gitbutler_branch_actions::create_virtual_branch(
+                project,
+                &BranchCreateRequest::default(),
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file.txt"), "second").unwrap();
 
-            controller
-                .create_commit(project, branch_id, "second", None, false)
+            gitbutler_branch_actions::create_commit(project, branch_id, "second", None, false)
                 .unwrap();
-            controller
-                .push_virtual_branch(project, branch_id, false, None)
-                .unwrap();
+            gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
             {
                 // merge branch upstream
-                let branch = controller
-                    .list_virtual_branches(project)
+                let branch = gitbutler_branch_actions::list_virtual_branches(project)
                     .unwrap()
                     .0
                     .into_iter()
@@ -618,11 +688,11 @@ mod applied_branch {
 
         {
             // fetch remote
-            controller.update_base_branch(project).unwrap();
+            gitbutler_branch_actions::update_base_branch(project).unwrap();
 
             // should remove integrated commit, but leave non integrated work as is
 
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -646,7 +716,6 @@ mod applied_branch {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -668,15 +737,19 @@ mod applied_branch {
             repository.reset_hard(Some(first_commit_oid));
         }
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
         // branch has no conflict
         let branch_id = {
-            let branch_id = controller
-                .create_virtual_branch(project, &BranchCreateRequest::default())
-                .unwrap();
+            let branch_id = gitbutler_branch_actions::create_virtual_branch(
+                project,
+                &BranchCreateRequest::default(),
+            )
+            .unwrap();
 
             fs::write(
                 repository.path().join("file.txt"),
@@ -684,17 +757,14 @@ mod applied_branch {
             )
             .unwrap();
 
-            controller
-                .create_commit(project, branch_id, "fourth", None, false)
+            gitbutler_branch_actions::create_commit(project, branch_id, "fourth", None, false)
                 .unwrap();
 
             branch_id
         };
 
         // push the branch
-        controller
-            .push_virtual_branch(project, branch_id, false, None)
-            .unwrap();
+        gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
         // another locked conflicting hunk
         fs::write(
@@ -705,19 +775,22 @@ mod applied_branch {
 
         {
             // merge branch remotely
-            let branch = controller.list_virtual_branches(project).unwrap().0[0].clone();
+            let branch = gitbutler_branch_actions::list_virtual_branches(project)
+                .unwrap()
+                .0[0]
+                .clone();
             repository.merge(&branch.upstream.as_ref().unwrap().name);
         }
 
         repository.fetch();
 
         let unapplied_refname = {
-            let unapplied_refnames = controller.update_base_branch(project).unwrap();
+            let unapplied_refnames = gitbutler_branch_actions::update_base_branch(project).unwrap();
             assert_eq!(unapplied_refnames.len(), 1);
 
             // removes integrated commit, leaves non commited work as is
 
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 0);
             assert_eq!(
                 fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -728,18 +801,17 @@ mod applied_branch {
         };
 
         {
-            controller
-                .create_virtual_branch_from_branch(
-                    project,
-                    &Refname::from_str(unapplied_refname.as_str()).unwrap(),
-                    None,
-                )
-                .unwrap();
+            gitbutler_branch_actions::create_virtual_branch_from_branch(
+                project,
+                &Refname::from_str(unapplied_refname.as_str()).unwrap(),
+                None,
+            )
+            .unwrap();
 
             let vb_state = VirtualBranchesHandle::new(project.gb_dir());
             let ctx = CommandContext::open(project).unwrap();
             update_workspace_commit(&vb_state, &ctx).unwrap();
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 1);
             assert!(branches[0].active);
             assert!(branches[0].conflicted);
@@ -759,7 +831,6 @@ mod applied_branch {
             repository,
             project,
             project_id,
-            controller,
             projects,
             ..
         } = &Test::default();
@@ -771,45 +842,49 @@ mod applied_branch {
             })
             .unwrap();
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
         let branch_id = {
-            let branch_id = controller
-                .create_virtual_branch(project, &BranchCreateRequest::default())
-                .unwrap();
+            let branch_id = gitbutler_branch_actions::create_virtual_branch(
+                project,
+                &BranchCreateRequest::default(),
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file.txt"), "first").unwrap();
 
-            controller
-                .create_commit(project, branch_id, "first", None, false)
+            gitbutler_branch_actions::create_commit(project, branch_id, "first", None, false)
                 .unwrap();
 
             branch_id
         };
 
-        controller
-            .push_virtual_branch(project, branch_id, false, None)
-            .unwrap();
+        gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
         // another non-locked hunk
         fs::write(repository.path().join("file.txt"), "first\nsecond").unwrap();
 
         {
             // push and merge branch remotely
-            let branch = controller.list_virtual_branches(project).unwrap().0[0].clone();
+            let branch = gitbutler_branch_actions::list_virtual_branches(project)
+                .unwrap()
+                .0[0]
+                .clone();
             repository.merge(&branch.upstream.as_ref().unwrap().name);
         }
 
         repository.fetch();
 
         {
-            controller.update_base_branch(project).unwrap();
+            gitbutler_branch_actions::update_base_branch(project).unwrap();
 
             // removes integrated commit, leaves non commited work as is
 
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -824,50 +899,53 @@ mod applied_branch {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
         let branch_id = {
             // make a branch that conflicts with the remote branch, but doesn't know about it yet
-            let branch_id = controller
-                .create_virtual_branch(project, &BranchCreateRequest::default())
-                .unwrap();
+            let branch_id = gitbutler_branch_actions::create_virtual_branch(
+                project,
+                &BranchCreateRequest::default(),
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file.txt"), "first").unwrap();
 
-            controller
-                .create_commit(project, branch_id, "first", None, false)
+            gitbutler_branch_actions::create_commit(project, branch_id, "first", None, false)
                 .unwrap();
 
             branch_id
         };
 
-        controller
-            .push_virtual_branch(project, branch_id, false, None)
-            .unwrap();
+        gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
         // another non-locked hunk
         fs::write(repository.path().join("another_file.txt"), "first").unwrap();
 
         {
             // push and merge branch remotely
-            let branch = controller.list_virtual_branches(project).unwrap().0[0].clone();
+            let branch = gitbutler_branch_actions::list_virtual_branches(project)
+                .unwrap()
+                .0[0]
+                .clone();
             repository.merge(&branch.upstream.as_ref().unwrap().name);
         }
 
         repository.fetch();
 
         {
-            controller.update_base_branch(project).unwrap();
+            gitbutler_branch_actions::update_base_branch(project).unwrap();
 
             // removes integrated commit, leaves non commited work as is
 
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 1);
             assert_eq!(branches[0].id, branch_id);
             assert!(branches[0].active);
@@ -882,7 +960,6 @@ mod applied_branch {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -896,30 +973,33 @@ mod applied_branch {
             repository.reset_hard(Some(first_commit_oid));
         }
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
         {
             // make a branch that conflicts with the remote branch, but doesn't know about it yet
-            let branch_id = controller
-                .create_virtual_branch(project, &BranchCreateRequest::default())
-                .unwrap();
+            let branch_id = gitbutler_branch_actions::create_virtual_branch(
+                project,
+                &BranchCreateRequest::default(),
+            )
+            .unwrap();
 
             fs::write(repository.path().join("file.txt"), "second").unwrap();
 
-            controller
-                .create_commit(project, branch_id, "second", None, false)
+            gitbutler_branch_actions::create_commit(project, branch_id, "second", None, false)
                 .unwrap();
         };
 
         {
             // fetch remote
-            controller.update_base_branch(project).unwrap();
+            gitbutler_branch_actions::update_base_branch(project).unwrap();
 
             // just removes integrated branch
 
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 0);
         }
     }
@@ -929,7 +1009,6 @@ mod applied_branch {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -943,38 +1022,42 @@ mod applied_branch {
             repository.reset_hard(Some(first_commit_oid));
         }
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
-        let branch_id = controller
-            .create_virtual_branch(project, &BranchCreateRequest::default())
-            .unwrap();
+        let branch_id = gitbutler_branch_actions::create_virtual_branch(
+            project,
+            &BranchCreateRequest::default(),
+        )
+        .unwrap();
 
         {
             // open pr
             fs::write(repository.path().join("file2.txt"), "new file").unwrap();
-            controller
-                .create_commit(project, branch_id, "second", None, false)
+            gitbutler_branch_actions::create_commit(project, branch_id, "second", None, false)
                 .unwrap();
-            controller
-                .push_virtual_branch(project, branch_id, false, None)
-                .unwrap();
+            gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
         }
 
         {
             // merge pr
-            let branch = controller.list_virtual_branches(project).unwrap().0[0].clone();
+            let branch = gitbutler_branch_actions::list_virtual_branches(project)
+                .unwrap()
+                .0[0]
+                .clone();
             repository.merge(&branch.upstream.as_ref().unwrap().name);
             repository.fetch();
         }
 
         {
             // fetch remote
-            controller.update_base_branch(project).unwrap();
+            gitbutler_branch_actions::update_base_branch(project).unwrap();
 
             // just removes integrated branch
-            let (branches, _) = controller.list_virtual_branches(project).unwrap();
+            let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
             assert_eq!(branches.len(), 0);
         }
     }
@@ -986,7 +1069,6 @@ mod applied_branch {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -997,51 +1079,53 @@ mod applied_branch {
         repository.push();
         repository.reset_hard(Some(first_commit_oid));
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
-        let branch_1_id = controller
-            .create_virtual_branch(project, &BranchCreateRequest::default())
-            .unwrap();
+        let branch_1_id = gitbutler_branch_actions::create_virtual_branch(
+            project,
+            &BranchCreateRequest::default(),
+        )
+        .unwrap();
 
         fs::write(repository.path().join("file-3.txt"), "three").unwrap();
-        controller
-            .create_commit(project, branch_1_id, "third", None, false)
+        gitbutler_branch_actions::create_commit(project, branch_1_id, "third", None, false)
             .unwrap();
 
-        let branch_2_id = controller
-            .create_virtual_branch(
-                project,
-                &BranchCreateRequest {
-                    selected_for_changes: Some(true),
-                    ..Default::default()
-                },
-            )
-            .unwrap();
+        let branch_2_id = gitbutler_branch_actions::create_virtual_branch(
+            project,
+            &BranchCreateRequest {
+                selected_for_changes: Some(true),
+                ..Default::default()
+            },
+        )
+        .unwrap();
 
         fs::write(repository.path().join("file-4.txt"), "four").unwrap();
 
-        controller
-            .create_commit(project, branch_2_id, "fourth", None, false)
+        gitbutler_branch_actions::create_commit(project, branch_2_id, "fourth", None, false)
             .unwrap();
 
-        controller
-            .push_virtual_branch(project, branch_2_id, false, None)
-            .unwrap();
+        gitbutler_branch_actions::push_virtual_branch(project, branch_2_id, false, None).unwrap();
 
-        let branch = controller.list_virtual_branches(project).unwrap().0[1].clone();
+        let branch = gitbutler_branch_actions::list_virtual_branches(project)
+            .unwrap()
+            .0[1]
+            .clone();
 
         repository.merge(&branch.upstream.as_ref().unwrap().name);
         repository.fetch();
 
         // TODO(mg): Figure out why test fails without listing first.
-        controller.list_virtual_branches(project).unwrap();
-        controller.update_base_branch(project).unwrap();
+        gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        gitbutler_branch_actions::update_base_branch(project).unwrap();
 
         // Verify we have only the first branch left, and that no files
         // are present.
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].files.len(), 0);
     }
