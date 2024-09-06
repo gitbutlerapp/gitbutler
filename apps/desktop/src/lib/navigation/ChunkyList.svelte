@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	// If this is not present, eslint complains that T is not defined below
 	type T = unknown;
 </script>

@@ -151,7 +151,7 @@
 				{:else}
 					<Button
 						style="error"
-						onclick={(e) => {
+						onclick={(e: MouseEvent) => {
 							e.stopPropagation();
 							deletePrompt();
 						}}

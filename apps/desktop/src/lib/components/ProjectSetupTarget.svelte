@@ -1,4 +1,4 @@
-<script async lang="ts">
+<script lang="ts">
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
 	import { ProjectService, Project } from '$lib/backend/projects';
 	import Login from '$lib/components/Login.svelte';

@@ -24,11 +24,13 @@
 	const fileIdSelection = new FileIdSelection(project.id, writable([]));
 	setContext(FileIdSelection, fileIdSelection);
 
+	// eslint-disable-next-line svelte/valid-compile
 	$: selectedFile = fileIdSelection.selectedFile;
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
 
+	// eslint-disable-next-line svelte/valid-compile
 	$: error = baseBranchService.error;
 
 	onMount(() => {

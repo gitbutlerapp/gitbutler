@@ -24,7 +24,7 @@ use gitbutler_oplog::{
 };
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
-use gitbutler_repo::{credentials::Helper, RepoActionsExt, RepositoryExt};
+use gitbutler_repo::{RepoActionsExt, RepositoryExt};
 use std::path::PathBuf;
 use tracing::instrument;
 
@@ -402,9 +402,8 @@ impl VirtualBranchActions {
         name: ReferenceName,
         with_force: bool,
     ) -> Result<()> {
-        let helper = Helper::default();
         let ctx = open_with_verify(project)?;
-        gitbutler_repo::push_change_reference(&ctx, branch_id, name, with_force, &helper)
+        gitbutler_repo::push_change_reference(&ctx, branch_id, name, with_force)
     }
 
     pub fn update_change_reference(
@@ -484,11 +483,10 @@ impl VirtualBranchActions {
         with_force: bool,
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
-        let helper = Helper::default();
         let ctx = open_with_verify(project)?;
         assure_open_workspace_mode(&ctx)
             .context("Pushing a branch requires open workspace mode")?;
-        branch::push(&ctx, branch_id, with_force, &helper, askpass)
+        branch::push(&ctx, branch_id, with_force, askpass)
     }
 
     pub fn list_local_branches(project: Project) -> Result<Vec<RemoteBranch>> {
@@ -547,12 +545,11 @@ impl VirtualBranchActions {
     ) -> Result<FetchResult> {
         let ctx = CommandContext::open(project)?;
 
-        let helper = Helper::default();
         let remotes = ctx.repository().remotes_as_string()?;
         let fetch_errors: Vec<_> = remotes
             .iter()
             .filter_map(|remote| {
-                ctx.fetch(remote, &helper, askpass.clone())
+                ctx.fetch(remote, askpass.clone())
                     .err()
                     .map(|err| err.to_string())
             })
