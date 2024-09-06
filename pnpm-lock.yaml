@@ -298,12 +298,6 @@ importers:
       svelte-french-toast:
         specifier: ^1.2.0
         version: 1.2.0(svelte@5.0.0-next.243)
-      tauri-plugin-log-api:
-        specifier: github:tauri-apps/tauri-plugin-log#v1
-        version: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/2bb26e22f7f7b4f164bad02f0ae4085796f77fff
-      tauri-plugin-store-api:
-        specifier: github:tauri-apps/tauri-plugin-store#v1
-        version: https://codeload.github.com/tauri-apps/tauri-plugin-store/tar.gz/5f5404feea43b6cddd65e4171f52e92ca161a2aa
       tinykeys:
         specifier: ^2.1.0
         version: 2.1.0
@@ -6739,28 +6733,6 @@ packages:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
     engines: {node: '>= 14'}
 
-catalogs:
-  default:
-    vite:
-      specifier: 5.2.13
-      version: 5.2.13
-  svelte:
-    '@sveltejs/adapter-static':
-      specifier: 3.0.2
-      version: 3.0.2
-    '@sveltejs/kit':
-      specifier: 2.5.18
-      version: 2.5.18
-    '@sveltejs/vite-plugin-svelte':
-      specifier: 3.1.1
-      version: 3.1.1
-    svelte:
-      specifier: 5.0.0-next.196
-      version: 5.0.0-next.196
-    svelte-check:
-      specifier: 3.8.4
-      version: 3.8.4
-
 snapshots:
 
   '@aashutoshrathi/word-wrap@1.2.6': {}
@@ -8934,7 +8906,7 @@ snapshots:
       esm-env: 1.0.0
       import-meta-resolve: 4.1.0
       kleur: 4.1.5
-      magic-string: 0.30.10
+      magic-string: 0.30.11
       mrmime: 2.0.0
       sade: 1.8.1
       set-cookie-parser: 2.6.0
@@ -9507,7 +9479,7 @@ snapshots:
 
   '@vitest/snapshot@1.6.0':
     dependencies:
-      magic-string: 0.30.10
+      magic-string: 0.30.11
       pathe: 1.1.2
       pretty-format: 29.7.0
 
@@ -13792,7 +13764,7 @@ snapshots:
     dependencies:
       browserslist: 4.23.0
       escalade: 3.1.2
-      picocolors: 1.0.1
+      picocolors: 1.0.0
 
   update-browserslist-db@1.1.0(browserslist@4.23.1):
     dependencies:
