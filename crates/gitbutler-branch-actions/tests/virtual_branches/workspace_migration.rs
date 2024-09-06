@@ -9,7 +9,7 @@ use gitbutler_operating_modes::{
 /// with the new name.
 #[test]
 fn works_on_integration_branch() -> anyhow::Result<()> {
-    let ctx = gitbutler_testsupport::read_only::fixture(
+    let (ctx, _temp_dir) = gitbutler_testsupport::writable::fixture(
         "for-workspace-migration.sh",
         "workspace-migration",
     )?;
