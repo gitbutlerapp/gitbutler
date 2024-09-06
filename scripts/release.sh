@@ -118,9 +118,6 @@ if [ "$CHANNEL" != "release" ] && [ "$CHANNEL" != "nightly" ]; then
 	error "--channel must be either 'release' or 'nightly'"
 fi
 
-export TAURI_SIGNING_PRIVATE_KEY="$TAURI_SIGNING_PRIVATE_KEY"
-export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
-
 if [ "$DO_SIGN" = "true" ]; then
 	if [ "$OS" = "macos" ]; then
 		[ -z "${APPLE_CERTIFICATE-}" ] && error "$APPLE_CERTIFICATE is not set"
