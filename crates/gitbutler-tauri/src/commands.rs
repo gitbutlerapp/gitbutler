@@ -1,6 +1,5 @@
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
-use gitbutler_repo::credentials;
 use tauri::State;
 use tracing::instrument;
 
@@ -16,10 +15,9 @@ pub fn git_remote_branches(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app, helper), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn git_test_push(
     app: State<'_, App>,
-    helper: State<'_, credentials::Helper>,
     project_id: ProjectId,
     remote_name: &str,
     branch_name: &str,
@@ -28,17 +26,15 @@ pub fn git_test_push(
         project_id,
         remote_name,
         branch_name,
-        &helper,
         // Run askpass, but don't pass any action
         Some(None),
     )?)
 }
 
 #[tauri::command(async)]
-#[instrument(skip(app, helper), err(Debug))]
+#[instrument(skip(app), err(Debug))]
 pub fn git_test_fetch(
     app: State<'_, App>,
-    helper: State<'_, credentials::Helper>,
     project_id: ProjectId,
     remote_name: &str,
     action: Option<String>,
@@ -46,7 +42,6 @@ pub fn git_test_fetch(
     Ok(app.git_test_fetch(
         project_id,
         remote_name,
-        &helper,
         Some(action.unwrap_or_else(|| "test".to_string())),
     )?)
 }

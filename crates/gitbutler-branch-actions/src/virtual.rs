@@ -25,7 +25,6 @@ use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
-    credentials::Helper,
     rebase::{cherry_rebase, cherry_rebase_group},
     LogUntil, RepoActionsExt, RepositoryExt,
 };
@@ -1075,7 +1074,6 @@ pub(crate) fn push(
     ctx: &CommandContext,
     branch_id: BranchId,
     with_force: bool,
-    credentials: &Helper,
     askpass: Option<Option<BranchId>>,
 ) -> Result<()> {
     let vb_state = ctx.project().virtual_branches();
@@ -1115,25 +1113,14 @@ pub(crate) fn push(
         ))
     };
 
-    ctx.push(
-        vbranch.head,
-        &remote_branch,
-        with_force,
-        credentials,
-        None,
-        askpass,
-    )?;
+    ctx.push(vbranch.head, &remote_branch, with_force, None, askpass)?;
 
     vbranch.upstream = Some(remote_branch.clone());
     vbranch.upstream_head = Some(vbranch.head);
     vb_state
         .set_branch(vbranch.clone())
         .context("failed to write target branch after push")?;
-    ctx.fetch(
-        remote_branch.remote(),
-        credentials,
-        askpass.map(|_| "modal".to_string()),
-    )?;
+    ctx.fetch(remote_branch.remote(), askpass.map(|_| "modal".to_string()))?;
 
     Ok(())
 }

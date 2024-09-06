@@ -7,7 +7,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
-use gitbutler_repo::{credentials, RepoActionsExt, RepositoryExt};
+use gitbutler_repo::{RepoActionsExt, RepositoryExt};
 
 #[derive(Clone)]
 pub struct App {
@@ -45,24 +45,22 @@ impl App {
         project_id: ProjectId,
         remote_name: &str,
         branch_name: &str,
-        credentials: &credentials::Helper,
         askpass: Option<Option<BranchId>>,
     ) -> Result<()> {
         let project = self.projects().get(project_id)?;
         let ctx = CommandContext::open(&project)?;
-        ctx.git_test_push(credentials, remote_name, branch_name, askpass)
+        ctx.git_test_push(remote_name, branch_name, askpass)
     }
 
     pub fn git_test_fetch(
         &self,
         project_id: ProjectId,
         remote_name: &str,
-        credentials: &credentials::Helper,
         askpass: Option<String>,
     ) -> Result<()> {
         let project = self.projects().get(project_id)?;
         let ctx = CommandContext::open(&project)?;
-        ctx.fetch(remote_name, credentials, askpass)
+        ctx.fetch(remote_name, askpass)
     }
 
     pub fn git_index_size(&self, project_id: ProjectId) -> Result<usize> {

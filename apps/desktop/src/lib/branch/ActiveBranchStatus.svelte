@@ -61,18 +61,16 @@
 		>
 	{/if}
 	{#if !isUnapplied && !isLaneCollapsed}
-		{#await normalizedBranchName then name}
-			<Button
-				clickable={false}
-				size="tag"
-				style="neutral"
-				shrinkable
-				disabled
-				tooltip={'Branch name that will be used when pushing.\nChange it from the lane menu'}
-			>
-				{name}
-			</Button>
-		{/await}
+		<Button
+			clickable={false}
+			size="tag"
+			style="neutral"
+			shrinkable
+			disabled
+			tooltip={'Branch name that will be used when pushing.\nChange it from the lane menu'}
+		>
+			{normalizedBranchName}
+		</Button>
 	{/if}
 {:else}
 	<Button
@@ -90,7 +88,7 @@
 		style="ghost"
 		outline
 		shrinkable
-		onclick={(e) => {
+		onclick={(e: MouseEvent) => {
 			const url = gitHostBranch?.url;
 			if (url) openExternalUrl(url);
 			e.preventDefault();

@@ -59,7 +59,7 @@
 							style="ghost"
 							outline
 							shrinkable
-							onclick={(e) => {
+							onclick={(e: MouseEvent) => {
 								const url = gitHostBranch.url;
 								if (url) openExternalUrl(url);
 								e.preventDefault();
@@ -81,7 +81,7 @@
 						icon="pr-small"
 						style="ghost"
 						outline
-						onclick={(e) => {
+						onclick={(e: MouseEvent) => {
 							const url = pr?.htmlUrl;
 							if (url) openExternalUrl(url);
 							e.preventDefault();

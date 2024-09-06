@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
 
 	export interface BadgeProps {

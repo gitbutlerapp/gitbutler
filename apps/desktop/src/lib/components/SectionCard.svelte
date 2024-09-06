@@ -1,4 +1,4 @@
-<script lang="ts" context="module">
+<script module lang="ts">
 	export type SectionCardBackground = 'loading' | 'success' | 'error' | undefined;
 </script>
 

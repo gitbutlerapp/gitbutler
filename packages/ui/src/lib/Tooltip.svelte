@@ -1,10 +1,11 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	import TooltipWrapper, {
-		type TooltipAlign,
-		type TooltipPosition
+		type TooltipWrapperAlign,
+		type TooltipWrapperPosition
 	} from './shared/TooltipWrapper.svelte';
 
-	export { type TooltipAlign, type TooltipPosition };
+	export type TooltipAlign = TooltipWrapperAlign;
+	export type TooltipPosition = TooltipWrapperPosition;
 </script>
 
 <script lang="ts">
@@ -13,8 +14,8 @@
 	interface Props {
 		text?: string;
 		delay?: number;
-		align?: TooltipAlign;
-		position?: TooltipPosition;
+		align?: TooltipWrapperAlign;
+		position?: TooltipWrapperPosition;
 		children: Snippet;
 	}
 

@@ -1,13 +1,15 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	import type { ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 	export type MessageStyle = Exclude<ComponentColor, 'ghost' | 'purple'>;
 </script>
 
 <script lang="ts">
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon, { type IconColor } from '@gitbutler/ui/Icon.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
+
+	type IconColor = ComponentColor | undefined;
 
 	export let icon: keyof typeof iconsJson | undefined = undefined;
 	export let style: MessageStyle = 'neutral';

@@ -1,42 +1,27 @@
 <script lang="ts">
-	import { type SelectItem } from './Select.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	interface Props {
+		searchValue: string;
 		placeholder?: string;
-		items: SelectItem[];
-		onSort?: (items: SelectItem[]) => void;
 	}
 
-	const { placeholder = 'Search…', items, onSort }: Props = $props();
-
-	let value = $state('');
-	let filteredItems = $state(items);
+	let { placeholder = 'Search…', searchValue = $bindable() }: Props = $props();
 
 	let inputEl: HTMLInputElement;
 
-	function handleFilter() {
-		filteredItems = items.filter((item) => item.label.toLowerCase().includes(value.toLowerCase()));
-	}
-
 	function resetFilter() {
-		value = '';
-		handleFilter();
+		searchValue = '';
 		inputEl.focus();
 	}
 
 	function handleInput(event: Event) {
-		value = (event.target as HTMLInputElement).value;
-		handleFilter();
+		searchValue = (event.target as HTMLInputElement).value;
 	}
-
-	$effect(() => {
-		onSort?.(filteredItems);
-	});
 </script>
 
 <div class="container">
-	{#if !value}
+	{#if !searchValue}
 		<i class="icon search-icon">
 			<Icon name="search" />
 		</i>
@@ -51,7 +36,7 @@
 		class="text-13 search-input"
 		type="text"
 		{placeholder}
-		bind:value
+		bind:value={searchValue}
 		oninput={handleInput}
 		autocorrect="off"
 		autocomplete="off"

@@ -1,6 +1,6 @@
-<script lang="ts" context="module">
-	export type TooltipPosition = 'top' | 'bottom';
-	export type TooltipAlign = 'start' | 'center' | 'end';
+<script lang="ts" module>
+	export type TooltipWrapperPosition = 'top' | 'bottom';
+	export type TooltipWrapperAlign = 'start' | 'center' | 'end';
 </script>
 
 <script lang="ts">
@@ -14,8 +14,8 @@
 	interface Props {
 		delay?: number;
 		animationDuration?: number;
-		align?: TooltipAlign;
-		position?: TooltipPosition;
+		align?: TooltipWrapperAlign;
+		position?: TooltipWrapperPosition;
 		gap?: number;
 		disable?: boolean;
 		forceShow?: boolean;
