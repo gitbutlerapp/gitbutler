@@ -94,16 +94,6 @@ impl VirtualBranchesHandle {
             .ok_or(anyhow!("there is no default target").context(Code::DefaultTargetNotFound))
     }
 
-    /// Sets the target for the given virtual branch.
-    ///
-    /// Errors if the file cannot be read or written.
-    pub fn set_branch_target(&self, id: BranchId, target: Target) -> Result<()> {
-        let mut virtual_branches = self.read_file()?;
-        virtual_branches.branch_targets.insert(id, target);
-        self.write_file(&virtual_branches)?;
-        Ok(())
-    }
-
     /// Sets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
