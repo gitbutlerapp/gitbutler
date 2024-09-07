@@ -4,27 +4,26 @@ use super::*;
 fn unapply_with_data() {
     let Test {
         project,
-        controller,
         repository,
         ..
     } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
 
-    controller
-        .convert_to_real_branch(project, branches[0].id)
-        .unwrap();
+    gitbutler_branch_actions::convert_to_real_branch(project, branches[0].id).unwrap();
 
     assert!(!repository.path().join("file.txt").exists());
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 0);
 }
 
@@ -32,7 +31,6 @@ fn unapply_with_data() {
 fn conflicting() {
     let Test {
         project,
-        controller,
         repository,
         ..
     } = &Test::default();
@@ -47,16 +45,18 @@ fn conflicting() {
         repository.reset_hard(Some(first_commit_oid));
     }
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     let unapplied_branch = {
         // make a conflicting branch, and stash it
 
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         let branch = &branches[0];
         assert_eq!(
@@ -70,16 +70,15 @@ fn conflicting() {
             "@@ -1 +1 @@\n-first\n\\ No newline at end of file\n+conflict\n\\ No newline at end of file\n"
         );
 
-        let unapplied_branch = controller
-            .convert_to_real_branch(project, branch.id)
-            .unwrap();
+        let unapplied_branch =
+            gitbutler_branch_actions::convert_to_real_branch(project, branch.id).unwrap();
 
         Refname::from_str(&unapplied_branch).unwrap()
     };
 
     {
         // update base branch, causing conflict
-        controller.update_base_branch(project).unwrap();
+        gitbutler_branch_actions::update_base_branch(project).unwrap();
 
         assert_eq!(
             std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -89,9 +88,12 @@ fn conflicting() {
 
     let branch_id = {
         // apply branch, it should conflict
-        let branch_id = controller
-            .create_virtual_branch_from_branch(project, &unapplied_branch, None)
-            .unwrap();
+        let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
+            project,
+            &unapplied_branch,
+            None,
+        )
+        .unwrap();
 
         assert_eq!(
             std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -101,7 +103,7 @@ fn conflicting() {
         let vb_state = VirtualBranchesHandle::new(project.gb_dir());
         let ctx = CommandContext::open(project).unwrap();
         update_workspace_commit(&vb_state, &ctx).unwrap();
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
 
         assert_eq!(branches.len(), 1);
         let branch = &branches[0];
@@ -116,9 +118,7 @@ fn conflicting() {
 
     {
         // Converting the branch to a real branch should put us back in an unconflicted state
-        controller
-            .convert_to_real_branch(project, branch_id)
-            .unwrap();
+        gitbutler_branch_actions::convert_to_real_branch(project, branch_id).unwrap();
 
         assert_eq!(
             std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -129,27 +129,22 @@ fn conflicting() {
 
 #[test]
 fn delete_if_empty() {
-    let Test {
+    let Test { project, .. } = &Test::default();
+
+    gitbutler_branch_actions::set_base_branch(
         project,
-        controller,
-        ..
-    } = &Test::default();
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
+    gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
         .unwrap();
 
-    controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
-
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
 
-    controller
-        .convert_to_real_branch(project, branches[0].id)
-        .unwrap();
+    gitbutler_branch_actions::convert_to_real_branch(project, branches[0].id).unwrap();
 
-    let (branches, _) = controller.list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 0);
 }

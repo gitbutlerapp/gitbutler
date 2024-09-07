@@ -1,5 +1,4 @@
 use crate::{
-    branch_manager::BranchManagerExt,
     commit::{commit_to_vbranch_commit, VirtualBranchCommit},
     conflicts::{self, RepoConflictsExt},
     file::VirtualBranchFile,
@@ -224,33 +223,6 @@ fn find_base_tree<'a>(
     Ok(base_tree)
 }
 
-/// Resolves the "old_applied" state of branches
-///
-/// This should only ever be called by `list_virtual_branches
-///
-/// This checks for the case where !branch.old_applied && branch.in_workspace
-/// If this is the case, we ought to unapply the branch as it has been carried
-/// over from the old style of unapplying
-fn fixup_old_applied_state(
-    ctx: &CommandContext,
-    vb_state: &VirtualBranchesHandle,
-    perm: &mut WorktreeWritePermission,
-) -> Result<()> {
-    let branches = vb_state.list_all_branches()?;
-
-    let branch_manager = ctx.branch_manager();
-
-    for mut branch in branches {
-        if branch.is_old_unapplied() {
-            branch_manager.convert_to_real_branch(branch.id, perm)?;
-        } else if branch.applied != branch.in_workspace {
-            branch.applied = branch.in_workspace;
-            vb_state.set_branch(branch)?;
-        }
-    }
-
-    Ok(())
-}
 pub fn list_virtual_branches(
     ctx: &CommandContext,
     perm: &mut WorktreeWritePermission,
@@ -274,8 +246,6 @@ pub fn list_virtual_branches_cached(
     let mut branches: Vec<VirtualBranch> = Vec::new();
 
     let vb_state = ctx.project().virtual_branches();
-
-    fixup_old_applied_state(ctx, &vb_state, perm)?;
 
     let default_target = vb_state
         .get_default_target()

@@ -2,15 +2,13 @@ use super::*;
 
 #[test]
 fn success() {
-    let Test {
-        project,
-        controller,
-        ..
-    } = &Test::default();
+    let Test { project, .. } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 }
 
 mod error {
@@ -20,20 +18,15 @@ mod error {
 
     #[test]
     fn missing() {
-        let Test {
-            project,
-            controller,
-            ..
-        } = &Test::default();
+        let Test { project, .. } = &Test::default();
 
         assert_eq!(
-            controller
-                .set_base_branch(
-                    project,
-                    &RemoteRefname::from_str("refs/remotes/origin/missing").unwrap(),
-                )
-                .unwrap_err()
-                .to_string(),
+            gitbutler_branch_actions::set_base_branch(
+                project,
+                &RemoteRefname::from_str("refs/remotes/origin/missing").unwrap(),
+            )
+            .unwrap_err()
+            .to_string(),
             "remote branch 'refs/remotes/origin/missing' not found"
         );
     }
@@ -50,7 +43,6 @@ mod go_back_to_workspace {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -60,29 +52,33 @@ mod go_back_to_workspace {
         repository.commit_all("two");
         repository.push();
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
-        let vbranch_id = controller
-            .create_virtual_branch(project, &BranchCreateRequest::default())
-            .unwrap();
+        let vbranch_id = gitbutler_branch_actions::create_virtual_branch(
+            project,
+            &BranchCreateRequest::default(),
+        )
+        .unwrap();
 
         std::fs::write(repository.path().join("another file.txt"), "content").unwrap();
-        controller
-            .create_commit(project, vbranch_id, "one", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, vbranch_id, "one", None, false).unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
 
         repository.checkout_commit(oid_one);
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, vbranch_id);
         assert!(branches[0].active);
@@ -93,7 +89,6 @@ mod go_back_to_workspace {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -103,21 +98,25 @@ mod go_back_to_workspace {
         repository.commit_all("two");
         repository.push();
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
         std::fs::write(repository.path().join("file.txt"), "tree").unwrap();
 
         assert!(matches!(
-            controller
-                .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-                .unwrap_err()
-                .downcast_ref(),
+            gitbutler_branch_actions::set_base_branch(
+                project,
+                &"refs/remotes/origin/master".parse().unwrap()
+            )
+            .unwrap_err()
+            .downcast_ref(),
             Some(Marker::ProjectConflict)
         ));
     }
@@ -127,7 +126,6 @@ mod go_back_to_workspace {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -137,21 +135,25 @@ mod go_back_to_workspace {
         repository.commit_all("two");
         repository.push();
 
-        controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
         std::fs::write(repository.path().join("another file.txt"), "tree").unwrap();
 
         assert!(matches!(
-            controller
-                .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-                .unwrap_err()
-                .downcast_ref(),
+            gitbutler_branch_actions::set_base_branch(
+                project,
+                &"refs/remotes/origin/master".parse().unwrap()
+            )
+            .unwrap_err()
+            .downcast_ref(),
             Some(Marker::ProjectConflict)
         ));
     }
@@ -161,7 +163,6 @@ mod go_back_to_workspace {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -171,22 +172,26 @@ mod go_back_to_workspace {
         repository.commit_all("two");
         repository.push();
 
-        let base = controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        let base = gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
         std::fs::write(repository.path().join("another file.txt"), "tree").unwrap();
         repository.commit_all("three");
 
-        let base_two = controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        let base_two = gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);
         assert_eq!(base_two, base);
     }
@@ -196,7 +201,6 @@ mod go_back_to_workspace {
         let Test {
             repository,
             project,
-            controller,
             ..
         } = &Test::default();
 
@@ -206,20 +210,24 @@ mod go_back_to_workspace {
         repository.commit_all("two");
         repository.push();
 
-        let base = controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        let base = gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
 
-        let base_two = controller
-            .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-            .unwrap();
+        let base_two = gitbutler_branch_actions::set_base_branch(
+            project,
+            &"refs/remotes/origin/master".parse().unwrap(),
+        )
+        .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);
         assert_eq!(base_two, base);
     }

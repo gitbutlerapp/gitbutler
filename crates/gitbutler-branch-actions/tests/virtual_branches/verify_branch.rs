@@ -8,13 +8,12 @@ fn should_fail_on_incorrect_branch() {
     let Test {
         repository,
         project,
-        controller,
         ..
     } = &Test::default();
 
     let branch_name: LocalRefname = "refs/heads/somebranch".parse().unwrap();
     repository.checkout(&branch_name);
-    let result = controller.list_virtual_branches(project);
+    let result = gitbutler_branch_actions::list_virtual_branches(project);
 
     let err = result.unwrap_err();
     assert_eq!(

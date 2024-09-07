@@ -1,7 +1,6 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use gitbutler_branch_actions::VirtualBranchActions;
 use gitbutler_project::Project;
 use gitbutler_reference::RemoteRefname;
 
@@ -31,11 +30,13 @@ pub fn add(
         .canonicalize()?;
     let project = ctrl.add(path)?;
     if let Some(refname) = refname {
-        VirtualBranchActions.set_base_branch(&project, &refname)?;
+        gitbutler_branch_actions::set_base_branch(&project, &refname)?;
     };
     debug_print(project)
 }
 
 pub fn switch_to_workspace(project: Project, refname: RemoteRefname) -> Result<()> {
-    debug_print(VirtualBranchActions.set_base_branch(&project, &refname)?)
+    debug_print(gitbutler_branch_actions::set_base_branch(
+        &project, &refname,
+    )?)
 }

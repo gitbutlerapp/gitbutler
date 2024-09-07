@@ -7,37 +7,35 @@ fn reorder_commit_down() {
     let Test {
         repository,
         project,
-        controller,
         ..
     } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
-    let branch_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
+    let branch_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
-    let _commit1_id = controller
-        .create_commit(project, branch_id, "commit one", None, false)
-        .unwrap();
+    let _commit1_id =
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
+            .unwrap();
 
     // create commit
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
-    let commit2_id = controller
-        .create_commit(project, branch_id, "commit two", None, false)
-        .unwrap();
+    let commit2_id =
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)
+            .unwrap();
 
-    controller
-        .reorder_commit(project, branch_id, commit2_id, 1)
-        .unwrap();
+    gitbutler_branch_actions::reorder_commit(project, branch_id, commit2_id, 1).unwrap();
 
-    let branch = controller
-        .list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()
@@ -62,37 +60,35 @@ fn reorder_commit_up() {
     let Test {
         repository,
         project,
-        controller,
         ..
     } = &Test::default();
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
-    let branch_id = controller
-        .create_virtual_branch(project, &BranchCreateRequest::default())
-        .unwrap();
+    let branch_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
-    let commit1_id = controller
-        .create_commit(project, branch_id, "commit one", None, false)
-        .unwrap();
+    let commit1_id =
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
+            .unwrap();
 
     // create commit
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
-    let _commit2_id = controller
-        .create_commit(project, branch_id, "commit two", None, false)
-        .unwrap();
+    let _commit2_id =
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)
+            .unwrap();
 
-    controller
-        .reorder_commit(project, branch_id, commit1_id, -1)
-        .unwrap();
+    gitbutler_branch_actions::reorder_commit(project, branch_id, commit1_id, -1).unwrap();
 
-    let branch = controller
-        .list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0
         .into_iter()

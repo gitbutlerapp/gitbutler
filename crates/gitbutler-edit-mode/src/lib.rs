@@ -4,7 +4,8 @@ use anyhow::{bail, Context, Result};
 use bstr::ByteSlice;
 use git2::build::CheckoutBuilder;
 use gitbutler_branch::{signature, Branch, SignaturePurpose, VirtualBranchesHandle};
-use gitbutler_branch_actions::{list_virtual_branches, update_workspace_commit, RemoteBranchFile};
+use gitbutler_branch_actions::internal::list_virtual_branches;
+use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{

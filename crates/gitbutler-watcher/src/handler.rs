@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use super::{events, Change};
 use anyhow::{Context, Result};
-use gitbutler_branch_actions::{RemoteBranchFile, VirtualBranchActions, VirtualBranches};
+use gitbutler_branch_actions::{RemoteBranchFile, VirtualBranches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_error::error::Marker;
@@ -106,7 +106,7 @@ impl Handler {
             .projects
             .get(project_id)
             .context("failed to get project")?;
-        match VirtualBranchActions.list_virtual_branches_cached(&project, worktree_changes) {
+        match gitbutler_branch_actions::list_virtual_branches_cached(&project, worktree_changes) {
             Ok((branches, skipped_files)) => self.emit_app_event(Change::VirtualBranches {
                 project_id: project.id,
                 virtual_branches: VirtualBranches {
@@ -142,7 +142,7 @@ impl Handler {
 
     /// Try to emit uncommited files. Swollow errors if they arrise.
     fn emit_uncommited_files(&self, project: &Project) -> Result<DiffByPathMap> {
-        let files = VirtualBranchActions.get_uncommited_files_reusable(project)?;
+        let files = gitbutler_branch_actions::get_uncommited_files_reusable(project)?;
 
         let _ = self.emit_app_event(Change::UncommitedFiles {
             project_id: project.id,

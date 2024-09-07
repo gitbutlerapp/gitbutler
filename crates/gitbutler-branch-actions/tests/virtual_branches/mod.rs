@@ -1,8 +1,8 @@
 use std::{fs, path, path::PathBuf, str::FromStr};
 
 use gitbutler_branch::{BranchCreateRequest, VirtualBranchesHandle};
+use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_branch_actions::GITBUTLER_WORKSPACE_COMMIT_TITLE;
-use gitbutler_branch_actions::{update_workspace_commit, VirtualBranchActions};
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
 use gitbutler_project::{self as projects, Project, ProjectId};
@@ -15,7 +15,6 @@ struct Test {
     project_id: ProjectId,
     project: Project,
     projects: projects::Controller,
-    controller: VirtualBranchActions,
     data_dir: Option<TempDir>,
 }
 
@@ -40,7 +39,6 @@ impl Default for Test {
         Self {
             repository: test_project,
             project_id: project.id,
-            controller: VirtualBranchActions {},
             projects,
             project,
             data_dir: Some(data_dir),
@@ -89,7 +87,6 @@ fn resolve_conflict_flow() {
     let Test {
         repository,
         project,
-        controller,
         ..
     } = &Test::default();
 
@@ -105,18 +102,22 @@ fn resolve_conflict_flow() {
         repository.reset_hard(Some(first_commit_oid));
     }
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     {
         // make a branch that conflicts with the remote branch, but doesn't know about it yet
-        let branch1_id = controller
-            .create_virtual_branch(project, &BranchCreateRequest::default())
-            .unwrap();
+        let branch1_id = gitbutler_branch_actions::create_virtual_branch(
+            project,
+            &BranchCreateRequest::default(),
+        )
+        .unwrap();
         fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -124,11 +125,11 @@ fn resolve_conflict_flow() {
 
     let unapplied_branch = {
         // fetch remote. There is now a conflict, so the branch will be unapplied
-        let unapplied_branches = controller.update_base_branch(project).unwrap();
+        let unapplied_branches = gitbutler_branch_actions::update_base_branch(project).unwrap();
         assert_eq!(unapplied_branches.len(), 1);
 
         // there is a conflict now, so the branch should be inactive
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);
 
         Refname::from_str(&unapplied_branches[0]).unwrap()
@@ -136,14 +137,17 @@ fn resolve_conflict_flow() {
 
     let branch1_id = {
         // when we apply conflicted branch, it has conflict
-        let branch1_id = controller
-            .create_virtual_branch_from_branch(project, &unapplied_branch, None)
-            .unwrap();
+        let branch1_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
+            project,
+            &unapplied_branch,
+            None,
+        )
+        .unwrap();
 
         let vb_state = VirtualBranchesHandle::new(project.gb_dir());
         let ctx = CommandContext::open(project).unwrap();
         update_workspace_commit(&vb_state, &ctx).unwrap();
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert!(branches[0].active);
         assert!(branches[0].conflicted);
@@ -161,10 +165,15 @@ fn resolve_conflict_flow() {
     {
         // can't commit conflicts
         assert!(matches!(
-            controller
-                .create_commit(project, branch1_id, "commit conflicts", None, false)
-                .unwrap_err()
-                .downcast_ref(),
+            gitbutler_branch_actions::create_commit(
+                project,
+                branch1_id,
+                "commit conflicts",
+                None,
+                false
+            )
+            .unwrap_err()
+            .downcast_ref(),
             Some(Marker::ProjectConflict)
         ));
     }
@@ -172,15 +181,15 @@ fn resolve_conflict_flow() {
     {
         // fixing the conflict removes conflicted mark
         fs::write(repository.path().join("file.txt"), "resolved").unwrap();
-        controller.list_virtual_branches(project).unwrap();
-        let commit_oid = controller
-            .create_commit(project, branch1_id, "resolution", None, false)
-            .unwrap();
+        gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let commit_oid =
+            gitbutler_branch_actions::create_commit(project, branch1_id, "resolution", None, false)
+                .unwrap();
 
         let commit = repository.find_commit(commit_oid).unwrap();
         assert_eq!(commit.parent_count(), 2);
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
