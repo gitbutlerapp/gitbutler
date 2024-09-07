@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Injects the relauncher into the right place with the correct platform
+# information. It is only needed for macos, but there is no way to restrict
+# "externalBin" in the turi configuration to a specific platform.
 set -euo pipefail
 
 THIS="$0"
@@ -14,7 +17,7 @@ CRATE_ROOT="$ROOT/crates/gitbutler-tauri"
 
 log injecting relauncher into crates/gitbutler-tauri "(TRIPLE=${TRIPLE})"
 if ! [[ $TRIPLE =~ "windows" ]]; then
-    cp -v "$CRATE_ROOT/files/relauncher" "$CRATE_ROOT/$RELAUNCHER-${TRIPLE}"
+    cp -v "$CRATE_ROOT/relauncher.sh" "$CRATE_ROOT/$RELAUNCHER-${TRIPLE}"
 else
-    cp -v "$CRATE_ROOT/files/relauncher" "$CRATE_ROOT/$RELAUNCHER-${TRIPLE}.exe"
+    cp -v "$CRATE_ROOT/relauncher.sh" "$CRATE_ROOT/$RELAUNCHER-${TRIPLE}.exe"
 fi

@@ -3,3 +3,6 @@ gen/
 
 # Extra binaries, figure out why they end up in this directory on build.
 gitbutler-git-*
+
+# Injected for Tauri v1 -> v2 upgrade, remove when no longer needed.
+./GitButler*
