@@ -13,6 +13,7 @@
 		"dialog:allow-open",
 		"store:default",
 		"updater:default",
-		"process:default"
+		"process:default",
+		"clipboard-manager:allow-write-text"
 	]
 }
