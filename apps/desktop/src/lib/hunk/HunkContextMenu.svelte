@@ -4,8 +4,8 @@
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { editor } from '$lib/editorLink/editorLink';
 	import { getContext } from '$lib/utils/context';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { open as openFile } from '@tauri-apps/api/shell';
 
 	interface Props {
 		target: HTMLElement | undefined;
@@ -43,10 +43,10 @@
 			{/if}
 			{#if item.lineNumber}
 				<ContextMenuItem
-					label="Open in VS Code"
-					on:mousedown={() => {
+					label="Open in VSCode"
+					on:click={() => {
 						projectPath &&
-							openFile(`${$editor}://file${projectPath}/${filePath}:${item.lineNumber}`);
+							openExternalUrl(`${$editor}://file${projectPath}/${filePath}:${item.lineNumber}`);
 						contextMenu.close();
 					}}
 				/>

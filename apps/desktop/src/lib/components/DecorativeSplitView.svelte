@@ -3,6 +3,7 @@
 	import gbLogoSvg from '$lib/assets/gb-logo.svg?raw';
 	import { User } from '$lib/stores/user';
 	import { getContextStore } from '$lib/utils/context';
+	import { openExternalUrl } from '$lib/utils/url';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { type Snippet } from 'svelte';
 
@@ -68,22 +69,20 @@
 
 					<div class="right-side__meta">
 						<div class="right-side__links">
-							<a
+							<button
 								class="right-side__link"
-								target="_blank"
-								href="https://docs.gitbutler.com/features/virtual-branches/branch-lanes"
+								onclick={async () => await openExternalUrl('https://docs.gitbutler.com/')}
 							>
 								<Icon name="docs" opacity={0.6} />
 								<span class="text-14 text-semibold">GitButler docs</span>
-							</a>
-							<a
+							</button>
+							<button
 								class="right-side__link"
-								target="_blank"
-								href="https://discord.com/invite/MmFkmaJ42D"
+								onclick={async () => await openExternalUrl('https://discord.com/invite/MmFkmaJ42D')}
 							>
 								<Icon name="discord" opacity={0.6} />
 								<span class="text-14 text-semibold">Join community</span>
-							</a>
+							</button>
 						</div>
 
 						<div class="wordmark">

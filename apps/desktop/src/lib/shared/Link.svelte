@@ -1,17 +1,29 @@
 <script lang="ts">
 	import { openExternalUrl } from '$lib/utils/url';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { onMount } from 'svelte';
+	import { onMount, type Snippet } from 'svelte';
 
-	let classes = '';
-	export { classes as class };
-	export let target: '_blank' | '_self' | '_parent' | '_top' | undefined = undefined;
-	export let rel: string | undefined = undefined;
-	export let role: 'basic' | 'primary' | 'error' = 'basic';
-	export let disabled = false;
-	export let href: string | undefined = undefined;
+	interface Props {
+		href: string;
+		children: Snippet;
+		class?: string;
+		target?: '_blank' | '_self' | '_parent' | '_top' | undefined;
+		rel?: string | undefined;
+		role?: 'basic' | 'primary' | 'error';
+		disabled?: boolean;
+	}
 
-	let element: HTMLAnchorElement | HTMLButtonElement | undefined;
+	const {
+		href,
+		target = undefined,
+		class: classes,
+		rel = undefined,
+		role = 'basic',
+		disabled = false,
+		children
+	}: Props = $props();
+
+	let element = $state<HTMLAnchorElement | HTMLButtonElement>();
 
 	onMount(() => {
 		if (element) {
@@ -19,33 +31,31 @@
 		}
 	});
 
-	$: isExternal = href?.startsWith('http');
+	const isExternal = $derived(href?.startsWith('http'));
 </script>
 
-{#if href}
-	<a
-		{href}
-		{target}
-		{rel}
-		class="link {role} {classes}"
-		bind:this={element}
-		class:disabled
-		on:click={(e) => {
-			if (href && isExternal) {
-				e.preventDefault();
-				e.stopPropagation();
-				openExternalUrl(href);
-			}
-		}}
-	>
-		<slot />
-		{#if isExternal}
-			<div class="link-icon">
-				<Icon name="open-link" />
-			</div>
-		{/if}
-	</a>
-{/if}
+<a
+	{href}
+	{target}
+	{rel}
+	class="link {role} {classes}"
+	bind:this={element}
+	class:disabled
+	onclick={(e) => {
+		if (href && isExternal) {
+			e.preventDefault();
+			e.stopPropagation();
+			openExternalUrl(href);
+		}
+	}}
+>
+	{@render children()}
+	{#if isExternal}
+		<div class="link-icon">
+			<Icon name="open-link" />
+		</div>
+	{/if}
+</a>
 
 <style lang="postcss">
 	.link {
@@ -62,6 +72,7 @@
 			text-decoration: none;
 		}
 	}
+
 	.link-icon {
 		flex-shrink: 0;
 	}

@@ -1,10 +1,9 @@
 <script lang="ts">
 	import { MessageRole } from '$lib/ai/types';
+	import Markdown from '$lib/components/Markdown.svelte';
 	import { autoHeight } from '$lib/utils/autoHeight';
-	import { getMarkdownRenderer } from '$lib/utils/markdown';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { marked } from 'marked';
 	import { createEventDispatcher } from 'svelte';
 
 	export let disableRemove = false;
@@ -19,7 +18,6 @@
 		addExample: void;
 		input: string;
 	}>();
-	const markedRenderer = getMarkdownRenderer();
 	let textareaElement: HTMLTextAreaElement | undefined;
 
 	function focusTextareaOnMount(
@@ -73,7 +71,7 @@
 			></textarea>
 		{:else}
 			<div class="markdown bubble-message scrollbar text-13 text-body">
-				{@html marked.parse(promptMessage.content, { renderer: markedRenderer })}
+				<Markdown content={promptMessage.content} />
 			</div>
 		{/if}
 	</div>

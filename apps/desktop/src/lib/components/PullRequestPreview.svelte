@@ -2,18 +2,17 @@
 	// This is always displayed in the context of not having a cooresponding vbranch or remote
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import Markdown from '$lib/components/Markdown.svelte';
 	import { RemotesService } from '$lib/remotes/service';
 	import Link from '$lib/shared/Link.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { getMarkdownRenderer } from '$lib/utils/markdown';
 	import * as toasts from '$lib/utils/toasts';
 	import { remoteUrlIsHttp } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import { marked } from 'marked';
 	import { get } from 'svelte/store';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import { goto } from '$app/navigation';
@@ -25,7 +24,6 @@
 	const remotesService = getContext(RemotesService);
 	const baseBranchService = getContext(BaseBranchService);
 	const virtualBranchService = getContext(VirtualBranchService);
-	const renderer = getMarkdownRenderer();
 
 	let remoteName = structuredClone(pullrequest.repoName) || '';
 	let createRemoteModal: Modal | undefined;
@@ -108,9 +106,9 @@
 			{#if pullrequest.draft}
 				<Button size="tag" clickable={false} style="neutral" icon="draft-pr-small">Draft</Button>
 			{:else}
-				<Button size="tag" clickable={false} style="success" kind="solid" icon="pr-small"
-					>Open</Button
-				>
+				<Button size="tag" clickable={false} style="success" kind="solid" icon="pr-small">
+					Open
+				</Button>
 			{/if}
 		</div>
 
@@ -130,7 +128,7 @@
 			</div>
 			{#if pullrequest.body}
 				<div class="markdown">
-					{@html marked.parse(pullrequest.body, { renderer })}
+					<Markdown content={pullrequest.body} />
 				</div>
 			{/if}
 		</div>

@@ -12,8 +12,8 @@
 )]
 
 use gitbutler_tauri::{
-    askpass, commands, config, github, logs, menu, modes, projects, remotes, repo, secret, undo,
-    users, virtual_branches, zip, App, WindowState,
+    askpass, commands, config, github, logs, menu, modes, open, projects, remotes, repo, secret,
+    undo, users, virtual_branches, zip, App, WindowState,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
@@ -206,7 +206,8 @@ fn main() {
                     modes::enter_edit_mode,
                     modes::save_edit_and_return_to_workspace,
                     modes::abort_edit_and_return_to_workspace,
-                    modes::edit_initial_index_state
+                    modes::edit_initial_index_state,
+                    open::open_url
                 ])
                 .menu(menu::build(tauri_context.package_info()))
                 .on_menu_event(|event| menu::handle_event(&event))

@@ -50,10 +50,7 @@
 						</div>
 						<button
 							class="empty-board__suggestions__link"
-							on:click={async () =>
-								await openExternalUrl(
-									'https://docs.gitbutler.com/features/virtual-branches/branch-lanes'
-								)}
+							on:click={async () => await openExternalUrl('https://docs.gitbutler.com')}
 						>
 							<div class="empty-board__suggestions__link__icon">
 								<Icon name="docs" />

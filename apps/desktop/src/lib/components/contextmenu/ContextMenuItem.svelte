@@ -7,7 +7,7 @@
 	export let disabled = false;
 </script>
 
-<button class="menu-item" class:disabled {disabled} on:mousedown on:click>
+<button class="menu-item" class:disabled {disabled} on:click>
 	{#if icon}
 		<Icon name={icon} />
 	{/if}

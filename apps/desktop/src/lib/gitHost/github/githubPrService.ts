@@ -87,7 +87,7 @@ export class GitHubPrService implements GitHostPrService {
 
 			showToast({
 				title: 'Failed to fetch pull request template',
-				message: `Template not found at path: <code>${path}</code>.`,
+				message: `Template not found at path: \`${path}\`.`,
 				style: 'neutral'
 			});
 		}

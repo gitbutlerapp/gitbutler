@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SupportersBanner from './SupportersBanner.svelte';
+	import { openExternalUrl } from '$lib/utils/url';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
@@ -109,23 +110,21 @@
 
 	<section class="profile-sidebar__bottom">
 		<div class="social-banners">
-			<a
+			<button
 				class="social-banner"
-				href="mailto:hello@gitbutler.com?subject=Feedback or question!"
-				target="_blank"
+				on:click={async () =>
+					await openExternalUrl('mailto:hello@gitbutler.com?subject=Feedback or question!')}
 			>
 				<span class="text-14 text-bold">Contact us</span>
 				<Icon name="mail" />
-			</a>
-			<a
+			</button>
+			<button
 				class="social-banner"
-				href="https://discord.gg/MmFkmaJ42D"
-				target="_blank"
-				rel="noreferrer"
+				on:click={async () => await openExternalUrl('https://discord.gg/MmFkmaJ42D')}
 			>
 				<span class="text-14 text-bold">Join our Discord</span>
 				<Icon name="discord" />
-			</a>
+			</button>
 		</div>
 
 		<SupportersBanner />
