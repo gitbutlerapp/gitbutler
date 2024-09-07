@@ -3,6 +3,7 @@ import Code from '$lib/components/markdownRenderers/Code.svelte';
 import Codespan from '$lib/components/markdownRenderers/Codespan.svelte';
 import Heading from '$lib/components/markdownRenderers/Heading.svelte';
 import Image from '$lib/components/markdownRenderers/Image.svelte';
+import Paragraph from '$lib/components/markdownRenderers/Paragraph.svelte';
 import Space from '$lib/components/markdownRenderers/Space.svelte';
 import Text from '$lib/components/markdownRenderers/Text.svelte';
 import Link from '$lib/shared/Link.svelte';
@@ -15,7 +16,8 @@ export const renderers = {
 	code: Code,
 	codespan: Codespan,
 	text: Text,
-	heading: Heading
+	heading: Heading,
+	paragraph: Paragraph
 };
 
 export const options = {

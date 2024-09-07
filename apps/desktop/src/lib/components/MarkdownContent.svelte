@@ -17,18 +17,16 @@
 	let { type, ...rest }: Props = $props();
 </script>
 
-{#if !type && rest.tokens}
-	{#each rest.tokens as token}
-		<svelte:self {...token} />
-	{/each}
-{:else if type && renderers[type as keyof typeof renderers]}
+{#if type && renderers[type as keyof typeof renderers]}
 	<svelte:component this={renderers[type as keyof typeof renderers]} {...rest}>
 		{#if rest.tokens}
 			<svelte:self tokens={rest.tokens} />
-		{:else}
-			{rest.raw}
 		{/if}
 	</svelte:component>
+{:else if rest.tokens}
+	{#each rest.tokens as token}
+		<svelte:self {...token} />
+	{/each}
 {:else}
 	{@html rest.raw?.replaceAll('\n', '<br />') ?? ''}
 {/if}
