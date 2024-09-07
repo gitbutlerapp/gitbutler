@@ -21,7 +21,9 @@
 				</svelte:fragment>
 
 				<svelte:fragment slot="content">
-					<Markdown content={toast.message} />
+					{#if toast.message}
+						<Markdown content={toast.message} />
+					{/if}
 				</svelte:fragment>
 			</InfoMessage>
 		</div>
