@@ -1,10 +1,10 @@
 <script lang="ts">
 	/* eslint svelte/valid-compile: "off" */
 	import { renderers } from '$lib/utils/markdownRenderers';
-	import type { TokensList, Tokens } from 'marked';
+	import type { Tokens, Token } from 'marked';
 
 	type Props =
-		| { type: 'init'; tokens: TokensList }
+		| { type: 'init'; tokens: Token[] }
 		| Tokens.Link
 		| Tokens.Heading
 		| Tokens.Image
@@ -18,15 +18,15 @@
 </script>
 
 {#if type && renderers[type as keyof typeof renderers]}
-	<svelte:component this={renderers[type as keyof typeof renderers]} {...rest}>
-		{#if rest.tokens}
+	<svelte:component this={renderers[type as keyof typeof renderers] as any} {...rest}>
+		{#if 'tokens' in rest}
 			<svelte:self tokens={rest.tokens} />
 		{/if}
 	</svelte:component>
-{:else if rest.tokens}
+{:else if 'tokens' in rest && rest.tokens}
 	{#each rest.tokens as token}
 		<svelte:self {...token} />
 	{/each}
-{:else}
+{:else if 'raw' in rest}
 	{@html rest.raw?.replaceAll('\n', '<br />') ?? ''}
 {/if}
