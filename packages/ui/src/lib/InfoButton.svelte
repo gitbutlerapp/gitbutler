@@ -1,5 +1,6 @@
 <script lang="ts">
-	// import { fly } from 'svelte/transition';
+	import { portal } from '$lib/utils/portal';
+	import { setPosition } from '$lib/utils/tooltipPosition';
 	import { flyScale } from '$lib/utils/transitions';
 	import type { Snippet } from 'svelte';
 
@@ -11,10 +12,14 @@
 
 	const { title, size = 'medium', children }: Props = $props();
 
+	let targetEl: HTMLElement | undefined = $state();
 	let show = $state(false);
 	let timeoutId: undefined | ReturnType<typeof setTimeout> = $state();
+	let isHoveringCard = false; // Track if the tooltip card is hovered
+	const gapDelay = 150; // Delay to allow transitioning between button and card
 
 	function handleMouseEnter() {
+		clearTimeout(timeoutId);
 		timeoutId = setTimeout(() => {
 			show = true;
 		}, 500);
@@ -22,15 +27,47 @@
 
 	function handleMouseLeave() {
 		clearTimeout(timeoutId);
-		show = false;
+		timeoutId = setTimeout(() => {
+			if (!isHoveringCard) {
+				show = false;
+			}
+		}, gapDelay);
+	}
+
+	function handleCardMouseEnter() {
+		clearTimeout(timeoutId);
+		isHoveringCard = true;
+	}
+
+	function handleCardMouseLeave() {
+		isHoveringCard = false;
+		timeoutId = setTimeout(() => {
+			if (!isHoveringCard) {
+				show = false;
+			}
+		}, gapDelay);
 	}
 </script>
 
-<div class="wrapper" role="tooltip" onmouseenter={handleMouseEnter} onmouseleave={handleMouseLeave}>
-	<div class="info-button {size}" class:button-hovered={show}></div>
+<div
+	bind:this={targetEl}
+	class="wrapper {size}"
+	role="tooltip"
+	onmouseenter={handleMouseEnter}
+	onmouseleave={handleMouseLeave}
+>
+	<div class="info-button" class:button-hovered={show}></div>
 
 	{#if show}
-		<div class="tooltip-container" transition:flyScale>
+		<div
+			use:portal={'body'}
+			use:setPosition={{ targetEl, position: 'bottom', align: 'center' }}
+			class="tooltip-container"
+			role="presentation"
+			transition:flyScale
+			onmouseenter={handleCardMouseEnter}
+			onmouseleave={handleCardMouseLeave}
+		>
 			<div class="tooltip-arrow"></div>
 
 			<div class="tooltip-card">
@@ -80,48 +117,54 @@
 		}
 	}
 
-	.info-button.medium {
-		width: 16px;
-		height: 16px;
+	.wrapper.medium {
+		transform: translateY(20%);
 
-		&::before {
-			top: 4px;
-			width: 2px;
-			height: 2px;
-		}
+		& .info-button {
+			width: 16px;
+			height: 16px;
 
-		&::after {
-			top: 7px;
-			width: 2px;
-			height: 5px;
+			&::before {
+				top: 4px;
+				width: 2px;
+				height: 2px;
+			}
+
+			&::after {
+				top: 7px;
+				width: 2px;
+				height: 5px;
+			}
 		}
 	}
 
-	.info-button.small {
-		width: 12px;
-		height: 12px;
+	.wrapper.small {
+		transform: translateY(10%);
 
-		&::before {
-			top: 3px;
-			width: 2px;
-			height: 2px;
-		}
+		& .info-button {
+			width: 12px;
+			height: 12px;
 
-		&::after {
-			top: 6px;
-			width: 2px;
-			height: 3px;
+			&::before {
+				top: 3px;
+				width: 2px;
+				height: 2px;
+			}
+
+			&::after {
+				top: 6px;
+				width: 2px;
+				height: 3px;
+			}
 		}
 	}
 
 	.tooltip-container {
 		z-index: var(--z-blocker);
 		position: absolute;
-		top: 100%;
-		left: 50%;
-		transform: translateX(-50%);
 		display: flex;
 		flex-direction: column;
+		width: fit-content;
 	}
 
 	.tooltip-card {

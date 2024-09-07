@@ -19,7 +19,7 @@ type Story = StoryObj<typeof meta> & {
 export const DefaultStory: Story = {
 	name: 'InfoButton',
 	args: {
-		title: '127',
+		title: 'Tooltip title',
 		size: 'medium'
 	},
 	argTypes: {
