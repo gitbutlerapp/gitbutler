@@ -31,8 +31,5 @@
 		"e2e/tests/**/*.js",
 		"e2e/tests/**/*.ts",
 		"e2e/tests/**/*.svelte"
-	],
-	"exclude": [
-		"node_modules/**"
 	]
 }
