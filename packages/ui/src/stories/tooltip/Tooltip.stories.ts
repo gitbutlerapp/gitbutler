@@ -20,11 +20,11 @@ export const DefaultStory: Story = {
 	argTypes: {
 		position: {
 			control: 'select',
-			options: ['top', 'bottom']
+			options: [undefined, 'top', 'bottom']
 		},
 		align: {
 			control: 'select',
-			options: ['start', 'center', 'end']
+			options: [undefined, 'start', 'center', 'end']
 		}
 	}
 };
