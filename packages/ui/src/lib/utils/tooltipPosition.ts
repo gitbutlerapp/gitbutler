@@ -26,8 +26,6 @@ function calculateHorizontalAlignment(
 ) {
 	const scrollX = window.scrollX;
 
-	console.log('scrollX', scrollX);
-
 	switch (align) {
 		case 'start':
 			return { left: targetRect.left + scrollX, transformOriginLeft: 'left' };
@@ -35,10 +33,6 @@ function calculateHorizontalAlignment(
 			return { left: targetRect.right - tooltipRect.width + scrollX, transformOriginLeft: 'right' };
 		case 'center':
 		default:
-			console.log(
-				'center',
-				targetRect.left + targetRect.width / 2 - tooltipRect.width / 2 + scrollX
-			);
 			return {
 				left: targetRect.left + targetRect.width / 2 - tooltipRect.width / 2 + scrollX,
 				transformOriginLeft: 'center'
