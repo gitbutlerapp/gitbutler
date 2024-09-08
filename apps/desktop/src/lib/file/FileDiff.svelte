@@ -1,11 +1,16 @@
 <script lang="ts">
+	import { Project } from '$lib/backend/projects';
 	import HunkViewer from '$lib/hunk/HunkViewer.svelte';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
+	import { getContext } from '$lib/utils/context';
+	import { getFileExtension } from '$lib/utils/filePath';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import { convertFileSrc } from '@tauri-apps/api/tauri';
+	import { onMount } from 'svelte';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 
 	interface Props {
@@ -32,6 +37,21 @@
 		readonly = false
 	}: Props = $props();
 
+	let imageSrc = $state('');
+	const project = getContext(Project);
+
+	onMount(async () => {
+		if (isImage) {
+			const fullPath = `${project.path}/${filePath}`;
+			try {
+				imageSrc = convertFileSrc(fullPath);
+			} catch (error) {
+				console.error('Failed to convert image path:', error);
+				console.error('Attempted image source:', fullPath);
+			}
+		}
+	});
+
 	let alwaysShow = $state(false);
 	const localCommits = isFileLocked ? getLocalCommits() : undefined;
 	const remoteCommits = isFileLocked ? getLocalAndRemoteCommits() : undefined;
@@ -50,11 +70,18 @@
 	}
 	const maxLineNumber = $derived(sections.at(-1)?.maxLineNumber);
 	const minWidth = $derived(getGutterMinWidth(maxLineNumber));
+	const isImage = $derived(
+		['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(getFileExtension(filePath))
+	);
 </script>
 
 <div class="hunks">
 	{#if isBinary}
-		Binary content not shown
+		{#if isImage}
+			<img src={imageSrc} alt="Binary file" class="binary-image" />
+		{:else}
+			Binary content not shown
+		{/if}
 	{:else if isLarge}
 		Diff too large to be shown
 	{:else if sections.length > 50 && !alwaysShow}
@@ -120,6 +147,11 @@
 		display: flex;
 		align-items: center;
 		gap: 2px;
+	}
+
+	.binary-image {
+		max-width: 100%;
+		height: auto;
 	}
 
 	.added-removed {
