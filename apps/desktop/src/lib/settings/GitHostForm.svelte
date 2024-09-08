@@ -1,4 +1,8 @@
 <script lang="ts">
+	import {
+		getAvailablePullRequestTemplates,
+		type PullRequestTemplatePaths
+	} from '$lib/backend/github';
 	import { ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import {
@@ -9,27 +13,29 @@
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
-	import { onMount } from 'svelte';
 
 	const usePullRequestTemplate = gitHostUsePullRequestTemplate();
 	const pullRequestTemplatePath = gitHostPullRequestTemplatePath();
 
 	let selectedTemplate = $state('');
-	let allAvailableTemplates = $state<string[]>([]);
+	let allAvailableTemplates = $state<PullRequestTemplatePaths[]>([]);
 
 	const projectService = getContext(ProjectService);
+	const id = projectService.getLastOpenedProject();
 
-	onMount(async () => {
-		const availableTemplates = await projectService.getAvailablePullRequestTemplates();
-		if (availableTemplates) {
-			allAvailableTemplates = availableTemplates;
-		}
+	$effect(() => {
+		if (!id) return;
+		getAvailablePullRequestTemplates(id).then((availableTemplates) => {
+			if (availableTemplates) {
+				allAvailableTemplates = availableTemplates;
+			}
+		});
 	});
 
 	// TODO: Save to project-based settings
+	$inspect('SELECTED_TEAMPLTE', selectedTemplate);
 </script>
 
 <Section>
@@ -61,7 +67,7 @@
 			<svelte:fragment slot="caption">
 				<Select
 					value={selectedTemplate}
-					options={allAvailableTemplates.map((p) => ({ label: p, value: p }))}
+					options={allAvailableTemplates.map(({ label, value }) => ({ label, value }))}
 					label="Available Templates"
 					wide={true}
 					searchable
