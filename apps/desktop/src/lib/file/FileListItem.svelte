@@ -2,6 +2,7 @@
 	import FileContextMenu from './FileContextMenu.svelte';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
+	import { itemsSatisfy } from '$lib/utils/array';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
@@ -49,6 +50,7 @@
 
 	let draggableEl: HTMLDivElement | undefined = $state();
 	let checked = $state(false);
+	let indeterminate = $state(false);
 
 	const draggable = !readonly && !isUnapplied;
 
@@ -63,9 +65,11 @@
 
 	$effect(() => {
 		if (file && $selectedOwnership) {
-			checked =
-				file.hunks.every((hunk) => $selectedOwnership?.contains(file.id, hunk.id)) &&
-				lastCheckboxDetail;
+			const hunksContained = itemsSatisfy(file.hunks, (h) =>
+				$selectedOwnership?.contains(file.id, h.id)
+			);
+			checked = hunksContained === 'all';
+			indeterminate = hunksContained === 'some';
 		}
 	});
 
@@ -101,6 +105,7 @@
 	{selected}
 	{showCheckbox}
 	{checked}
+	{indeterminate}
 	{draggable}
 	{onclick}
 	{onkeydown}
