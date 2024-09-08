@@ -91,7 +91,6 @@ pub mod commands {
     // NOTE: Do I need this instrument macro?
     pub fn get_available_pull_request_templates(path: &path::Path) -> Result<Vec<Path>, Error> {
         let walked_paths = list_files(path, &[&path])?;
-        println!("WalkedPaths: {:#?}", walked_paths);
 
         let mut available_paths = Vec::new();
         for entry in walked_paths {

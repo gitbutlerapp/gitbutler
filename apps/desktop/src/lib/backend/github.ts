@@ -32,7 +32,6 @@ export async function getAvailablePullRequestTemplates(
 			path: targetPath
 		}
 	);
-	console.log('getAvailablePullRequestTemplates.templates', availableTemplates);
 
 	return availableTemplates;
 }

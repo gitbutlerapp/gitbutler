@@ -15,8 +15,8 @@
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
 
-	let useTemplate = $state(project.git_host.use_pull_request_template ?? false);
-	let selectedTemplate = $state(project.git_host.pull_request_template_path ?? '');
+	let useTemplate = $state(project.git_host?.use_pull_request_template ?? false);
+	let selectedTemplate = $state(project.git_host?.pull_request_template_path ?? '');
 	let allAvailableTemplates = $state<PullRequestTemplatePaths[]>([]);
 
 	$effect(() => {
