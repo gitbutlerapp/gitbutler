@@ -12,35 +12,21 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
-	// import { join } from '@tauri-apps/api/path';
-	// import { readDir, type DirEntry } from '@tauri-apps/plugin-fs';
-	import { type DirEntry } from '@tauri-apps/plugin-fs';
 	import { onMount } from 'svelte';
-	// import { get } from 'svelte/store';
 
 	const usePullRequestTemplate = gitHostUsePullRequestTemplate();
 	const pullRequestTemplatePath = gitHostPullRequestTemplatePath();
 
 	let selectedTemplate = $state('');
-	let allAvailableTemplates = $state<DirEntry[]>([]);
+	let allAvailableTemplates = $state<string[]>([]);
 
 	const projectService = getContext(ProjectService);
-	// const currentProjectId = get(projectService.persistedId);
 
 	onMount(async () => {
 		const availableTemplates = await projectService.getAvailablePullRequestTemplates();
-		allAvailableTemplates = availableTemplates;
-
-		// console.log('project1', currentProjectId);
-		// const currentProject = await projectService.getProject(currentProjectId);
-		// console.log('currentProject', currentProject);
-		// const targetPath = await join(currentProject.path, '.github');
-		// readDir(targetPath).then((files) => {
-		// 	console.log('GITHUB FILES', files);
-		// 	files.forEach((file) => {
-		// 		allAvailableTemplates.push(file);
-		// 	});
-		// });
+		if (availableTemplates) {
+			allAvailableTemplates = availableTemplates;
+		}
 	});
 </script>
 
@@ -84,7 +70,7 @@
 
 				<Select
 					value={selectedTemplate}
-					options={allAvailableTemplates.map((p) => ({ label: p.name, value: p.name }))}
+					options={allAvailableTemplates.map((p) => ({ label: p, value: p }))}
 					label="Available Templates"
 					wide={true}
 					searchable

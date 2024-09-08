@@ -61,6 +61,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
+    // NOTE: Do I need this instrument macro?
     pub fn get_available_pull_request_templates(
         path: &path::Path,
     ) -> Result<Vec<path::PathBuf>, Error> {
@@ -68,9 +69,18 @@ pub mod commands {
 
         let mut available_paths = Vec::new();
         for entry in paths {
+            // let path = entry.map_err(anyhow::Error::from)?.path();
+            // println!("Name: {}", path.display());
+            // available_paths.push(path);
             let path = entry.map_err(anyhow::Error::from)?.path();
-            println!("Name: {}", path.display());
-            available_paths.push(path);
+            let path_str = path.to_string_lossy();
+            if path_str.contains(".github/PULL_REQUEST_TEMPLATE.md")
+                || path_str.contains(".github/pull_request_template.md")
+                || path_str.contains(".github/PULL_REQUEST_TEMPLATE/")
+            {
+                println!("Name: {}", path.display());
+                available_paths.push(path);
+            }
         }
 
         Ok(available_paths)
