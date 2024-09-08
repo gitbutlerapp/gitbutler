@@ -123,7 +123,9 @@
 						baseBranchName,
 						forkInfo,
 						project.git_host?.use_pull_request_template ?? false,
-						project.git_host?.pull_request_template_path ?? ''
+						project.git_host?.pull_request_template_path
+							? project.git_host?.pull_request_template_path.replace(project.path, '')
+							: ''
 					)
 				: undefined;
 
