@@ -101,11 +101,6 @@ pub mod commands {
                 || path_str == "pull_request_template.md"
                 || path_str.contains("PULL_REQUEST_TEMPLATE/")
             {
-                // available_paths.push({
-                //     value = path.join(path_entry).to_path_buf();
-                //     label = path_entry;
-                // });
-
                 available_paths.push(Path {
                     value: path.join(path_entry).to_string_lossy().to_string(),
                     label: path_entry.to_string_lossy().to_string(),

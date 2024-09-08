@@ -4,8 +4,7 @@ import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
 import { showToast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
-import { get, writable } from 'svelte/store';
-import type { Persisted } from '$lib/persisted/persisted';
+import { writable } from 'svelte/store';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHostPrService } from '../interface/gitHostPrService';
 import type { DetailedPullRequest, MergeMethod, PullRequest } from '../interface/types';
@@ -21,8 +20,8 @@ export class GitHubPrService implements GitHostPrService {
 		private repo: RepoInfo,
 		private baseBranch: string,
 		private upstreamName: string,
-		private usePullRequestTemplate?: Persisted<boolean>,
-		private pullRequestTemplatePath?: Persisted<string>
+		private usePullRequestTemplate?: boolean,
+		private pullRequestTemplatePath?: string
 	) {}
 
 	async createPr(title: string, body: string, draft: boolean): Promise<PullRequest> {
@@ -44,9 +43,8 @@ export class GitHubPrService implements GitHostPrService {
 		let lastError: any;
 		let pr: PullRequest | undefined;
 		let pullRequestTemplate: string | undefined;
-		const usePrTemplate = this.usePullRequestTemplate ? get(this.usePullRequestTemplate) : null;
 
-		if (!body && usePrTemplate) {
+		if (!body && this.usePullRequestTemplate) {
 			pullRequestTemplate = await this.fetchPrTemplate();
 		}
 
@@ -68,9 +66,7 @@ export class GitHubPrService implements GitHostPrService {
 	}
 
 	async fetchPrTemplate() {
-		const path = this.pullRequestTemplatePath
-			? get(this.pullRequestTemplatePath)
-			: DEFAULT_PULL_REQUEST_TEMPLATE_PATH;
+		const path = this.pullRequestTemplatePath ?? DEFAULT_PULL_REQUEST_TEMPLATE_PATH;
 
 		try {
 			const response = await this.octokit.rest.repos.getContent({

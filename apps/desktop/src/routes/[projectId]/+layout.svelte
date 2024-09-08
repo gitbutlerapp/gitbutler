@@ -12,10 +12,6 @@
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
-	import {
-		gitHostPullRequestTemplatePath,
-		gitHostUsePullRequestTemplate
-	} from '$lib/config/config';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostFactory';
 	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
@@ -82,8 +78,6 @@
 	let intervalId: any;
 
 	const showHistoryView = persisted(false, 'showHistoryView');
-	const usePullRequestTemplate = gitHostUsePullRequestTemplate();
-	const pullRequestTemplatePath = gitHostPullRequestTemplatePath();
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
 	const gitHostFactory = $derived(new DefaultGitHostFactory(octokit));
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
@@ -128,8 +122,8 @@
 						repoInfo,
 						baseBranchName,
 						forkInfo,
-						usePullRequestTemplate,
-						pullRequestTemplatePath
+						project.git_host.use_pull_request_template ?? false,
+						project.git_host.pull_request_template_path ?? ''
 					)
 				: undefined;
 

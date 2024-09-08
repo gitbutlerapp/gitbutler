@@ -4,7 +4,6 @@ import { GitHubListingService } from './githubListingService';
 import { GitHubPrService } from './githubPrService';
 import { Octokit } from '@octokit/rest';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
-import type { Persisted } from '$lib/persisted/persisted';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
 import type { GitHostArguments } from '../interface/types';
@@ -18,8 +17,8 @@ export class GitHub implements GitHost {
 	private forkStr?: string;
 	private octokit?: Octokit;
 	private projectMetrics?: ProjectMetrics;
-	private usePullRequestTemplate?: Persisted<boolean>;
-	private pullRequestTemplatePath?: Persisted<string>;
+	private usePullRequestTemplate?: boolean;
+	private pullRequestTemplatePath?: string;
 
 	constructor({
 		repo,
@@ -32,8 +31,8 @@ export class GitHub implements GitHost {
 	}: GitHostArguments & {
 		octokit?: Octokit;
 		projectMetrics?: ProjectMetrics;
-		usePullRequestTemplate?: Persisted<boolean>;
-		pullRequestTemplatePath?: Persisted<string>;
+		usePullRequestTemplate?: boolean;
+		pullRequestTemplatePath?: string;
 	}) {
 		this.baseUrl = `https://${GITHUB_DOMAIN}/${repo.owner}/${repo.name}`;
 		this.repo = repo;
