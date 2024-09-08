@@ -2565,6 +2565,7 @@ dependencies = [
  "gitbutler-edit-mode",
  "gitbutler-error",
  "gitbutler-feedback",
+ "gitbutler-fs",
  "gitbutler-id",
  "gitbutler-operating-modes",
  "gitbutler-oplog",

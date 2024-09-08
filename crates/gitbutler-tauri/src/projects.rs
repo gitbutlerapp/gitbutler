@@ -1,9 +1,10 @@
 use gitbutler_project::Project;
 
 pub mod commands {
-    use std::{fs, path};
+    use std::path;
 
     use anyhow::Context;
+    use gitbutler_fs::list_files;
     use gitbutler_project::{self as projects, Controller, ProjectId};
     use tauri::{State, Window};
     use tracing::instrument;
@@ -65,21 +66,18 @@ pub mod commands {
     pub fn get_available_pull_request_templates(
         path: &path::Path,
     ) -> Result<Vec<path::PathBuf>, Error> {
-        let paths = fs::read_dir(path).context("Failed to read directory")?;
+        let walked_paths = list_files(path, &[&path])?;
+        println!("WalkedPaths: {:#?}", walked_paths);
 
         let mut available_paths = Vec::new();
-        for entry in paths {
-            // let path = entry.map_err(anyhow::Error::from)?.path();
-            // println!("Name: {}", path.display());
-            // available_paths.push(path);
-            let path = entry.map_err(anyhow::Error::from)?.path();
+        for entry in walked_paths {
+            let path = entry.as_path();
             let path_str = path.to_string_lossy();
-            if path_str.contains(".github/PULL_REQUEST_TEMPLATE.md")
-                || path_str.contains(".github/pull_request_template.md")
-                || path_str.contains(".github/PULL_REQUEST_TEMPLATE/")
+            if path_str == "PULL_REQUEST_TEMPLATE.md"
+                || path_str == "pull_request_template.md"
+                || path_str.contains("PULL_REQUEST_TEMPLATE/")
             {
-                println!("Name: {}", path.display());
-                available_paths.push(path);
+                available_paths.push(path.to_path_buf());
             }
         }
 
