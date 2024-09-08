@@ -12,12 +12,12 @@
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
 
-	let selectedTemplate = $state('');
-	let allAvailableTemplates = $state<PullRequestTemplatePaths[]>([]);
-
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
-	console.log('PROJECT', project);
+
+	let useTemplate = $state(project.git_host.use_pull_request_template ?? false);
+	let selectedTemplate = $state(project.git_host.pull_request_template_path ?? '');
+	let allAvailableTemplates = $state<PullRequestTemplatePaths[]>([]);
 
 	$effect(() => {
 		if (!project.path) return;
@@ -74,7 +74,7 @@
 			<svelte:fragment slot="actions">
 				<Toggle
 					id="use-pull-request-template-boolean"
-					value="false"
+					bind:checked={useTemplate}
 					on:click={(e) => {
 						setUsePullRequestTemplate((e.target as MouseEvent['target'] & { checked: boolean }).checked);
 					}}
