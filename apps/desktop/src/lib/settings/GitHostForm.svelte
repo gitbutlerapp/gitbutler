@@ -33,7 +33,7 @@
 	async function updateExistingProjects() {
 		if (!project.git_host) {
 			project.git_host = {
-				type: 'github',
+				host_type: 'github',
 				use_pull_request_template: false,
 				pull_request_template_path: ''
 			};
