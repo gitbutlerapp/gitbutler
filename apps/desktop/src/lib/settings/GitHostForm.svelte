@@ -3,12 +3,8 @@
 		getAvailablePullRequestTemplates,
 		type PullRequestTemplatePaths
 	} from '$lib/backend/github';
-	import { ProjectService } from '$lib/backend/projects';
+	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import {
-		gitHostPullRequestTemplatePath,
-		gitHostUsePullRequestTemplate
-	} from '$lib/config/config';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
@@ -16,26 +12,50 @@
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
 
-	const usePullRequestTemplate = gitHostUsePullRequestTemplate();
-	const pullRequestTemplatePath = gitHostPullRequestTemplatePath();
-
 	let selectedTemplate = $state('');
 	let allAvailableTemplates = $state<PullRequestTemplatePaths[]>([]);
 
 	const projectService = getContext(ProjectService);
-	const id = projectService.getLastOpenedProject();
+	const project = getContext(Project);
+	console.log('PROJECT', project);
 
 	$effect(() => {
-		if (!id) return;
-		getAvailablePullRequestTemplates(id).then((availableTemplates) => {
+		if (!project.path) return;
+		getAvailablePullRequestTemplates(project.path).then((availableTemplates) => {
 			if (availableTemplates) {
 				allAvailableTemplates = availableTemplates;
 			}
 		});
 	});
 
-	// TODO: Save to project-based settings
-	$inspect('SELECTED_TEAMPLTE', selectedTemplate);
+	// TODO: investigate if theres a better wayt o get old clients up to speed with
+	// new preferences keys
+	async function updateExistingProjects() {
+		if (!project.git_host) {
+			project.git_host = {
+				type: 'github',
+				use_pull_request_template: false,
+				pull_request_template_path: ''
+			};
+			await projectService.updateProject(project);
+		}
+	}
+
+	async function setUsePullRequestTemplate(value: boolean) {
+		await updateExistingProjects();
+		// project[gitHost.type].use_pull_request_template = value;
+		project.git_host.use_pull_request_template = value;
+		await projectService.updateProject(project);
+	}
+
+	async function setPullRequestTemplatePath(value: string) {
+		selectedTemplate = value;
+		await updateExistingProjects();
+
+		// project[gitHost.type].pull_request_template_path = value;
+		project.git_host.pull_request_template_path = value;
+		await projectService.updateProject(project);
+	}
 </script>
 
 <Section>
@@ -55,7 +75,9 @@
 				<Toggle
 					id="use-pull-request-template-boolean"
 					value="false"
-					bind:checked={$usePullRequestTemplate}
+					on:click={(e) => {
+						setUsePullRequestTemplate((e.target as MouseEvent['target'] & { checked: boolean }).checked);
+					}}
 				/>
 			</svelte:fragment>
 			<svelte:fragment slot="caption">
@@ -73,7 +95,7 @@
 					searchable
 					disabled={false}
 					onselect={(value) => {
-						selectedTemplate = value;
+						setPullRequestTemplatePath(value);
 					}}
 				>
 					{#snippet itemSnippet({ item, highlighted })}

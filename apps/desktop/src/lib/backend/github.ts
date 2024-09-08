@@ -1,6 +1,4 @@
 import { invoke } from '$lib/backend/ipc';
-import { Project } from '$lib/backend/projects';
-import { plainToInstance } from 'class-transformer';
 
 export type Verification = {
 	user_code: string;
@@ -21,13 +19,12 @@ export async function checkAuthStatus(params: { deviceCode: string }) {
 }
 
 export async function getAvailablePullRequestTemplates(
-	projectId: string
+	projectPath: string
 ): Promise<PullRequestTemplatePaths[] | undefined> {
 	// TODO: Find a workaround to avoid this dynamic import
 	// https://github.com/sveltejs/kit/issues/905
 	const path = await import('@tauri-apps/api/path');
-	const currentProject = plainToInstance(Project, await invoke('get_project', { id: projectId }));
-	const targetPath = await path.join(currentProject.path, '.github');
+	const targetPath = await path.join(projectPath, '.github');
 
 	const availableTemplates: PullRequestTemplatePaths[] | undefined = await invoke(
 		'get_available_pull_request_templates',
