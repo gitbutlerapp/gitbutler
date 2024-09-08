@@ -49,6 +49,7 @@
 				small
 				{checked}
 				{indeterminate}
+				style={indeterminate ? 'neutral' : 'default'}
 				onchange={(e: Event & { currentTarget: EventTarget & HTMLInputElement; }) => {
 					const isChecked = e.currentTarget.checked;
 					if (isChecked) {
