@@ -3,11 +3,11 @@ import { showError } from '$lib/notifications/toasts';
 import { persisted } from '$lib/persisted/persisted';
 import * as toasts from '$lib/utils/toasts';
 import { open } from '@tauri-apps/api/dialog';
+import { join } from '@tauri-apps/api/path';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
 import type { HttpClient } from './httpClient';
 import { goto } from '$app/navigation';
-import { join } from '@tauri-apps/api/path';
 
 export type KeyType = 'gitCredentialsHelper' | 'local' | 'systemExecutable';
 export type LocalKey = {
