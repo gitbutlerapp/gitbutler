@@ -28,6 +28,8 @@
 			allAvailableTemplates = availableTemplates;
 		}
 	});
+
+	// TODO: Save to project-based settings
 </script>
 
 <Section>
@@ -57,17 +59,6 @@
 		</SectionCard>
 		<SectionCard roundedTop={false} orientation="row" labelFor="use-pull-request-template-path">
 			<svelte:fragment slot="caption">
-				<form>
-					<fieldset class="fields-wrapper">
-						<TextBox
-							label="Pull request template path"
-							id="use-pull-request-template-path"
-							bind:value={$pullRequestTemplatePath}
-							placeholder=".github/pull_request_template.md"
-						/>
-					</fieldset>
-				</form>
-
 				<Select
 					value={selectedTemplate}
 					options={allAvailableTemplates.map((p) => ({ label: p, value: p }))}
