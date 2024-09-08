@@ -4,7 +4,6 @@ pub mod commands {
     use std::path;
 
     use anyhow::Context;
-    use gitbutler_fs::list_files;
     use gitbutler_project::{self as projects, Controller, ProjectId};
     use tauri::{State, Window};
     use tracing::instrument;
@@ -59,29 +58,6 @@ pub mod commands {
                 })
                 .collect()
         })
-    }
-
-    #[tauri::command(async)]
-    // NOTE: Do I need this instrument macro?
-    pub fn get_available_pull_request_templates(
-        path: &path::Path,
-    ) -> Result<Vec<path::PathBuf>, Error> {
-        let walked_paths = list_files(path, &[&path])?;
-        println!("WalkedPaths: {:#?}", walked_paths);
-
-        let mut available_paths = Vec::new();
-        for entry in walked_paths {
-            let path = entry.as_path();
-            let path_str = path.to_string_lossy();
-            if path_str == "PULL_REQUEST_TEMPLATE.md"
-                || path_str == "pull_request_template.md"
-                || path_str.contains("PULL_REQUEST_TEMPLATE/")
-            {
-                available_paths.push(path.to_path_buf());
-            }
-        }
-
-        Ok(available_paths)
     }
 
     /// This trigger is the GUI telling us that the project with `id` is now displayed.

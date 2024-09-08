@@ -1,7 +1,8 @@
 pub mod commands {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, path};
 
     use anyhow::{Context, Result};
+    use gitbutler_fs::list_files;
     use serde::{Deserialize, Serialize};
     use tracing::instrument;
 
@@ -13,6 +14,12 @@ pub mod commands {
     pub struct Verification {
         pub user_code: String,
         pub device_code: String,
+    }
+
+    #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+    pub struct Path {
+        pub value: String,
+        pub label: String,
     }
 
     #[tauri::command(async)]
@@ -78,5 +85,34 @@ pub mod commands {
             .map(|rsp_body| rsp_body.access_token)
             .context("Failed to parse response body")
             .map_err(Into::into)
+    }
+
+    #[tauri::command(async)]
+    // NOTE: Do I need this instrument macro?
+    pub fn get_available_pull_request_templates(path: &path::Path) -> Result<Vec<Path>, Error> {
+        let walked_paths = list_files(path, &[&path])?;
+        println!("WalkedPaths: {:#?}", walked_paths);
+
+        let mut available_paths = Vec::new();
+        for entry in walked_paths {
+            let path_entry = entry.as_path();
+            let path_str = path_entry.to_string_lossy();
+            if path_str == "PULL_REQUEST_TEMPLATE.md"
+                || path_str == "pull_request_template.md"
+                || path_str.contains("PULL_REQUEST_TEMPLATE/")
+            {
+                // available_paths.push({
+                //     value = path.join(path_entry).to_path_buf();
+                //     label = path_entry;
+                // });
+
+                available_paths.push(Path {
+                    value: path.join(path_entry).to_string_lossy().to_string(),
+                    label: path_entry.to_string_lossy().to_string(),
+                });
+            }
+        }
+
+        Ok(available_paths)
     }
 }

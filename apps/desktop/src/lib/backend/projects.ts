@@ -3,7 +3,6 @@ import { showError } from '$lib/notifications/toasts';
 import { persisted } from '$lib/persisted/persisted';
 import * as toasts from '$lib/utils/toasts';
 import { open } from '@tauri-apps/api/dialog';
-import { join } from '@tauri-apps/api/path';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
 import type { HttpClient } from './httpClient';
@@ -100,27 +99,6 @@ export class ProjectService {
 	async deleteProject(id: string) {
 		await invoke('delete_project', { id });
 		await this.reload();
-	}
-
-	async getAvailablePullRequestTemplates(): Promise<string[] | undefined> {
-		const currentProject = plainToInstance(
-			Project,
-			await invoke('get_project', { id: get(this.persistedId) })
-		);
-		const targetPath = await join(currentProject.path, '.github');
-
-		const availableTemplates = await invoke('get_available_pull_request_templates', {
-			path: targetPath
-		});
-		console.log('getAvailablePullRequestTemplates.templates', availableTemplates);
-
-		return availableTemplates;
-		// readDir(targetPath).then((files) => {
-		// 	console.log('GITHUB FILES', files);
-		// 	files.forEach((file) => {
-		// 		allAvailableTemplates.push(file);
-		// 	});
-		// });
 	}
 
 	async promptForDirectory(): Promise<string | undefined> {
