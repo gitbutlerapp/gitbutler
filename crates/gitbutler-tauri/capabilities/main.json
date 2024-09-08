@@ -1,0 +1,21 @@
+{
+	"$schema": "../gen/schemas/desktop-schema.json",
+	"identifier": "main",
+	"description": "permissions for gitbutler tauri",
+	"windows": ["main"],
+	"local": true,
+	"permissions": [
+		"clipboard-manager:allow-write-text",
+		"core:default",
+		"core:window:allow-start-dragging",
+		"core:window:default",
+		"dialog:allow-open",
+		"fs:allow-read-dir",
+		"fs:allow-read-file",
+		"log:default",
+		"process:default",
+		"shell:allow-open",
+		"store:default",
+		"updater:default"
+	]
+}

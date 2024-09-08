@@ -1,7 +1,7 @@
 use gitbutler_project::Project;
 
 pub mod commands {
-    use std::path;
+    use std::{fs, path};
 
     use anyhow::Context;
     use gitbutler_project::{self as projects, Controller, ProjectId};
@@ -58,6 +58,22 @@ pub mod commands {
                 })
                 .collect()
         })
+    }
+
+    #[tauri::command(async)]
+    pub fn get_available_pull_request_templates(
+        path: &path::Path,
+    ) -> Result<Vec<path::PathBuf>, Error> {
+        let paths = fs::read_dir(path).context("Failed to read directory")?;
+
+        let mut available_paths = Vec::new();
+        for entry in paths {
+            let path = entry.map_err(anyhow::Error::from)?.path();
+            println!("Name: {}", path.display());
+            available_paths.push(path);
+        }
+
+        Ok(available_paths)
     }
 
     /// This trigger is the GUI telling us that the project with `id` is now displayed.
