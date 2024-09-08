@@ -13,7 +13,7 @@
 		"allowlist": {
 			"fs": {
 				"readFile": true,
-				"scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*"]
+				"scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*", "$HOME/**"]
 			},
 			"dialog": {
 				"open": true
@@ -23,7 +23,7 @@
 			},
 			"protocol": {
 				"asset": true,
-				"assetScope": ["$APPCACHE/images/*", "**"]
+				"assetScope": ["$APPCACHE/images/*", "$HOME/**"]
 			},
 			"process": {
 				"relaunch": true
