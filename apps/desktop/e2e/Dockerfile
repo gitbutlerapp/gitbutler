@@ -83,5 +83,3 @@ RUN pnpm add --global turbo && \
   cargo install tauri-driver && \
   # vi bindings on by default.
   echo "set -o vi" >> /root/.bashrc
-
-WORKDIR /root
