@@ -84,5 +84,4 @@ RUN pnpm add --global turbo && \
   # vi bindings on by default.
   echo "set -o vi" >> /root/.bashrc
 
-# Run SSH server in foreground.
-CMD ["service", "ssh", "start", "-D"]
+WORKDIR /root

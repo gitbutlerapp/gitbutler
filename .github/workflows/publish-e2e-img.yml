@@ -24,4 +24,4 @@ jobs:
         with:
           context: "apps/desktop/e2e"
           push: true
-          tags: ghcr.io/gitbutler/e2e-runner:latest
+          tags: ghcr.io/gitbutlerapp/e2e-runner:latest
