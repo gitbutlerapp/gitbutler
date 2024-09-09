@@ -1,16 +1,15 @@
 pub mod commands {
-    use anyhow::{Context, Result};
+    use anyhow::Result;
     use gitbutler_branch_actions::RemoteBranchFile;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_repo::RepoCommands;
-    use gix::progress::Discard;
     use std::path::Path;
     use std::sync::atomic::AtomicBool;
     use tauri::State;
     use tracing::instrument;
 
-    use crate::error::Error;
+    use crate::error::{Error, UnmarkedError};
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
@@ -46,19 +45,16 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    pub fn git_clone_repository(repository_url: &str, target_dir: &Path) -> Result<(), Error> {
-        let url =
-            gix::url::parse(repository_url.into()).context("Failed to parse repository URL")?;
+    pub fn git_clone_repository(
+        repository_url: &str,
+        target_dir: &Path,
+    ) -> Result<(), UnmarkedError> {
         let should_interrupt = AtomicBool::new(false);
-        let mut prepared_clone =
-            gix::prepare_clone(url, target_dir).context("Failed to prepare clone")?;
-        let (mut prepared_checkout, _) = prepared_clone
-            .fetch_then_checkout(Discard, &should_interrupt)
-            .context("Failed to fetch")?;
-        let should_interrupt = AtomicBool::new(false);
-        prepared_checkout
-            .main_worktree(Discard, &should_interrupt)
-            .context("Failed to checkout main worktree")?;
+
+        gix::prepare_clone(repository_url, target_dir)?
+            .fetch_then_checkout(gix::progress::Discard, &should_interrupt)
+            .map(|(checkout, _outcome)| checkout)?
+            .main_worktree(gix::progress::Discard, &should_interrupt)?;
         Ok(())
     }
 
