@@ -19,7 +19,7 @@
 		createRemoteCommitsContextStore
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { RemoteFile, VirtualBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { setContext } from 'svelte';
@@ -55,12 +55,15 @@
 
 	// BRANCH
 	const branchStore = createContextStore(VirtualBranch, branch);
-	const ownershipStore = createContextStore(Ownership, Ownership.fromBranch(branch));
+	const selectedOwnershipStore = createContextStore(
+		SelectedOwnership,
+		SelectedOwnership.fromBranch(branch)
+	);
 	const branchFiles = writable(branch.files);
 
 	$effect(() => {
 		branchStore.set(branch);
-		ownershipStore.set(Ownership.fromBranch(branch));
+		selectedOwnershipStore.update((o) => o?.update(branch));
 		branchFiles.set(branch.files);
 	});
 

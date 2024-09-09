@@ -5,7 +5,7 @@
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { type Hunk } from '$lib/vbranches/types';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import diff_match_patch from 'diff-match-patch';
@@ -52,9 +52,10 @@
 	const WHITESPACE_REGEX = /\s/;
 	const NUMBER_COLUMN_WIDTH_PX = minWidth * 20;
 
-	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
+	const selectedOwnership: Writable<SelectedOwnership> | undefined =
+		maybeGetContextStore(SelectedOwnership);
 
-	const selected = $derived($selectedOwnership?.contains(hunk.filePath, hunk.id) ?? false);
+	const selected = $derived($selectedOwnership?.isSelected(hunk.filePath, hunk.id) ?? false);
 	let isSelected = $derived(selectable && selected);
 
 	const inlineUnifiedDiffs = featureInlineUnifiedDiffs();

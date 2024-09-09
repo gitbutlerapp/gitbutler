@@ -8,7 +8,7 @@
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import { VirtualBranch, type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
@@ -29,7 +29,8 @@
 		$props();
 
 	const branch = maybeGetContextStore(VirtualBranch);
-	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
+	const selectedOwnership: Writable<SelectedOwnership> | undefined =
+		maybeGetContextStore(SelectedOwnership);
 	const fileIdSelection = getContext(FileIdSelection);
 	const commit = getCommitStore();
 
@@ -46,7 +47,6 @@
 	const selectedFiles = fileIdSelection.files;
 
 	let contextMenu: FileContextMenu;
-	let lastCheckboxDetail = true;
 
 	let draggableEl: HTMLDivElement | undefined = $state();
 	let checked = $state(false);
@@ -55,18 +55,9 @@
 	const draggable = !readonly && !isUnapplied;
 
 	$effect(() => {
-		if (!lastCheckboxDetail) {
-			selectedOwnership?.update((ownership) => {
-				file.hunks.forEach((h) => ownership.remove(file.id, h.id));
-				return ownership;
-			});
-		}
-	});
-
-	$effect(() => {
 		if (file && $selectedOwnership) {
 			const hunksContained = itemsSatisfy(file.hunks, (h) =>
-				$selectedOwnership?.contains(file.id, h.id)
+				$selectedOwnership?.isSelected(file.id, h.id)
 			);
 			checked = hunksContained === 'all';
 			indeterminate = hunksContained === 'some';
@@ -113,12 +104,11 @@
 	{lockText}
 	oncheck={(e) => {
 		const isChecked = e.currentTarget.checked;
-		lastCheckboxDetail = isChecked;
 		selectedOwnership?.update((ownership) => {
 			if (isChecked) {
-				file.hunks.forEach((h) => ownership.add(file.id, h));
+				file.hunks.forEach((h) => ownership.select(file.id, h));
 			} else {
-				file.hunks.forEach((h) => ownership.remove(file.id, h.id));
+				file.hunks.forEach((h) => ownership.ignore(file.id, h.id));
 			}
 			return ownership;
 		});
@@ -128,14 +118,14 @@
 				if (isChecked) {
 					files.forEach((f) => {
 						selectedOwnership?.update((ownership) => {
-							f.hunks.forEach((h) => ownership.add(f.id, h));
+							f.hunks.forEach((h) => ownership.select(f.id, h));
 							return ownership;
 						});
 					});
 				} else {
 					files.forEach((f) => {
 						selectedOwnership?.update((ownership) => {
-							f.hunks.forEach((h) => ownership.remove(f.id, h.id));
+							f.hunks.forEach((h) => ownership.ignore(f.id, h.id));
 							return ownership;
 						});
 					});
