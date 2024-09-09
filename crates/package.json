@@ -1,3 +1,4 @@
 {
-	"name": "crates"
+	"name": "crates",
+	"description": "Required for Vercel / pnpm-workspace CI"
 }
