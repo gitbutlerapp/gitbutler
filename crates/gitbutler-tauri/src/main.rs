@@ -199,7 +199,7 @@ fn main() {
                     menu::get_editor_link_scheme,
                     github::commands::init_device_oauth,
                     github::commands::check_auth_status,
-                    github::commands::get_available_pull_request_templates,
+                    github::commands::get_available_github_pr_templates,
                     askpass::commands::submit_prompt_response,
                     remotes::list_remotes,
                     remotes::add_remote,

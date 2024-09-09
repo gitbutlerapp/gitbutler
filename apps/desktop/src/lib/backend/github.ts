@@ -27,7 +27,7 @@ export async function getAvailablePullRequestTemplates(
 	const targetPath = await path.join(projectPath, '.github');
 
 	const availableTemplates: PullRequestTemplatePaths[] | undefined = await invoke(
-		'get_available_pull_request_templates',
+		'get_available_github_pr_templates',
 		{
 			path: targetPath
 		}
