@@ -29,53 +29,40 @@ pub enum BranchStatuses {
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(tag = "type", content = "subject")]
-enum UpdatableResolutionApproach {
+enum ResolutionApproach {
     Rebase,
     Merge,
     Unapply,
+    Delete,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
-#[serde(tag = "type", content = "subject")]
-enum StatusResolution {
-    Empty(UpdatableResolutionApproach),
-    Conflicted {
-        resolution_approach: UpdatableResolutionApproach,
-        potentially_conflicted_uncommited_changes: bool,
-    },
-    SaflyUpdatable(UpdatableResolutionApproach),
-    FullyIntegrated,
+impl BranchStatus {
+    fn resolution_acceptable(&self, approach: &ResolutionApproach) -> bool {
+        match self {
+            Self::Empty | Self::SaflyUpdatable | Self::Conflicted { .. } => matches!(
+                approach,
+                ResolutionApproach::Rebase
+                    | ResolutionApproach::Merge
+                    | ResolutionApproach::Unapply
+            ),
+            Self::FullyIntegrated => matches!(approach, ResolutionApproach::Delete),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 struct Resolution {
     branch_id: BranchId,
-    resolution: StatusResolution,
+    /// Used to ensure a given branch hasn't changed since the UI issued the command.
+    #[serde(with = "gitbutler_serde::oid")]
+    branch_tree: git2::Oid,
+    approach: ResolutionApproach,
 }
 
 enum IntegrationResult {
     UpdatedObjects { head: git2::Oid, tree: git2::Oid },
     UnapplyBranch,
     DeleteBranch,
-}
-
-impl StatusResolution {
-    fn resolution_matches_status(&self, other: &BranchStatus) -> bool {
-        match other {
-            BranchStatus::Empty => matches!(self, Self::Empty(_)),
-            BranchStatus::FullyIntegrated => matches!(self, Self::FullyIntegrated),
-            BranchStatus::SaflyUpdatable => matches!(self, Self::SaflyUpdatable(_)),
-            BranchStatus::Conflicted {
-                potentially_conflicted_uncommited_changes: a,
-            } => match self {
-                Self::Conflicted {
-                    potentially_conflicted_uncommited_changes: b,
-                    ..
-                } => a == b,
-                _ => false,
-            },
-        }
-    }
 }
 
 pub struct UpstreamIntegrationContext<'a> {
@@ -217,11 +204,24 @@ pub(crate) fn integrate_upstream(
             bail!("Branches are all up to date")
         };
 
-        if resolutions.len() != statuses.len() {
-            bail!("Chosen resolutions do not match current integration statuses")
+        if resolutions.len() != context.virtual_branches_in_workspace.len() {
+            bail!("Chosen resolutions do not match quantity of applied virtual branches")
         }
 
-        let all_resolutions_match_statuses = resolutions.iter().all(|resolution| {
+        let all_resolutions_are_up_to_date = resolutions.iter().all(|resolution| {
+            // This is O(n^2), in reality, n is unlikly to be more than 3 or 4
+            let Some(branch) = context
+                .virtual_branches_in_workspace
+                .iter()
+                .find(|branch| branch.id == resolution.branch_id)
+            else {
+                return false;
+            };
+
+            if resolution.branch_tree != branch.tree {
+                return false;
+            };
+
             let Some(status) = statuses
                 .iter()
                 .find(|status| status.0 == resolution.branch_id)
@@ -229,10 +229,10 @@ pub(crate) fn integrate_upstream(
                 return false;
             };
 
-            resolution.resolution.resolution_matches_status(&status.1)
+            status.1.resolution_acceptable(&resolution.approach)
         });
 
-        if !all_resolutions_match_statuses {
+        if !all_resolutions_are_up_to_date {
             bail!("Chosen resolutions do not match current integration statuses")
         }
     }
@@ -252,7 +252,7 @@ fn compute_resolutions(
         ..
     } = context;
 
-    resolutions
+    let results = resolutions
         .iter()
         .map(|resolution| {
             let Some(virtual_branch) = context
@@ -263,83 +263,76 @@ fn compute_resolutions(
                 bail!("Failed to find virtual branch");
             };
 
-            match &resolution.resolution {
-                StatusResolution::SaflyUpdatable(resolution_approach)
-                | StatusResolution::Empty(resolution_approach)
-                | StatusResolution::Conflicted {
-                    resolution_approach,
-                    ..
-                } => match resolution_approach {
-                    UpdatableResolutionApproach::Unapply => Ok(IntegrationResult::UnapplyBranch),
-                    UpdatableResolutionApproach::Merge => {
-                        // Make a merge commit on top of the branch commits,
-                        // then rebase the tree ontop of that. If the tree ends
-                        // up conflicted, commit the tree.
-                        todo!();
+            match resolution.approach {
+                ResolutionApproach::Unapply => Ok(IntegrationResult::UnapplyBranch),
+                ResolutionApproach::Delete => Ok(IntegrationResult::DeleteBranch),
+                ResolutionApproach::Merge => {
+                    // Make a merge commit on top of the branch commits,
+                    // then rebase the tree ontop of that. If the tree ends
+                    // up conflicted, commit the tree.
+                    todo!();
 
+                    Ok(IntegrationResult::UpdatedObjects {
+                        head: todo!(),
+                        tree: todo!(),
+                    })
+                }
+                ResolutionApproach::Rebase => {
+                    // Rebase the commits, then try rebasing the tree. If
+                    // the tree ends up conflicted, commit the tree.
+
+                    // Rebase virtual branches' commits
+                    let virtual_branch_commits =
+                        repository.l(virtual_branch.head, LogUntil::Commit(new_target.id()))?;
+
+                    let new_head = cherry_rebase_group(
+                        repository,
+                        new_target.id(),
+                        &virtual_branch_commits,
+                        true,
+                    )?;
+
+                    let head = repository.find_commit(virtual_branch.head)?;
+                    let tree = repository.find_tree(virtual_branch.tree)?;
+
+                    // Rebase tree
+                    let author_signature = signature(SignaturePurpose::Author)
+                        .context("Failed to get gitbutler signature")?;
+                    let committer_signature = signature(SignaturePurpose::Committer)
+                        .context("Failed to get gitbutler signature")?;
+                    let committed_tree = repository.commit(
+                        None,
+                        &author_signature,
+                        &committer_signature,
+                        "Uncommited changes",
+                        &tree,
+                        &[&head],
+                    )?;
+
+                    // Rebase commited tree
+                    let new_commited_tree =
+                        cherry_rebase_group(repository, new_head, &[committed_tree], true)?;
+                    let new_commited_tree = repository.find_commit(new_commited_tree)?;
+
+                    if new_commited_tree.is_conflicted() {
                         Ok(IntegrationResult::UpdatedObjects {
-                            head: todo!(),
-                            tree: todo!(),
+                            head: new_commited_tree.id(),
+                            tree: repository
+                                .find_real_tree(&new_commited_tree, Default::default())?
+                                .id(),
+                        })
+                    } else {
+                        Ok(IntegrationResult::UpdatedObjects {
+                            head: new_head,
+                            tree: new_commited_tree.tree_id(),
                         })
                     }
-                    UpdatableResolutionApproach::Rebase => {
-                        // Rebase the commits, then try rebasing the tree. If
-                        // the tree ends up conflicted, commit the tree.
-
-                        // Rebase virtual branches' commits
-                        let virtual_branch_commits =
-                            repository.l(virtual_branch.head, LogUntil::Commit(new_target.id()))?;
-
-                        let new_head = cherry_rebase_group(
-                            repository,
-                            new_target.id(),
-                            &virtual_branch_commits,
-                            true,
-                        )?;
-
-                        let head = repository.find_commit(virtual_branch.head)?;
-                        let tree = repository.find_tree(virtual_branch.tree)?;
-
-                        // Rebase tree
-                        let author_signature = signature(SignaturePurpose::Author)
-                            .context("Failed to get gitbutler signature")?;
-                        let committer_signature = signature(SignaturePurpose::Committer)
-                            .context("Failed to get gitbutler signature")?;
-                        let committed_tree = repository.commit(
-                            None,
-                            &author_signature,
-                            &committer_signature,
-                            "Uncommited changes",
-                            &tree,
-                            &[&head],
-                        )?;
-
-                        // Rebase commited tree
-                        let new_commited_tree =
-                            cherry_rebase_group(repository, new_head, &[committed_tree], true)?;
-                        let new_commited_tree = repository.find_commit(new_commited_tree)?;
-
-                        if new_commited_tree.is_conflicted() {
-                            Ok(IntegrationResult::UpdatedObjects {
-                                head: new_commited_tree.id(),
-                                tree: repository
-                                    .find_real_tree(&new_commited_tree, Default::default())?
-                                    .id(),
-                            })
-                        } else {
-                            Ok(IntegrationResult::UpdatedObjects {
-                                head: new_head,
-                                tree: new_commited_tree.tree_id(),
-                            })
-                        }
-                    }
-                },
-                StatusResolution::FullyIntegrated => Ok(IntegrationResult::DeleteBranch),
+                }
             }
         })
         .collect::<Result<Vec<_>>>()?;
 
-    Ok(vec![])
+    Ok(results)
 }
 
 #[cfg(test)]
@@ -349,7 +342,10 @@ mod test {
         time::{SystemTime, UNIX_EPOCH},
     };
 
+    use git2::Rebase;
     use gitbutler_branch::BranchOwnershipClaims;
+    use gitbutler_commit::commit_headers::HasCommitHeaders;
+    use gix::remote::fetch::refs::update;
     use tempfile::tempdir;
     use uuid::Uuid;
 
@@ -415,7 +411,6 @@ mod test {
             order: 0,
             selected_for_changes: None,
             allow_rebasing: true,
-            applied: true,
             in_workspace: true,
             not_in_workspace_wip_change_id: None,
             references: vec![],
@@ -494,16 +489,28 @@ mod test {
         let tempdir = tempdir().unwrap();
         let repository = git2::Repository::init(tempdir.path()).unwrap();
         let initial_commit = commit_file(&repository, None, &[("foo.txt", "bar")]);
-        let old_target = commit_file(&repository, Some(&initial_commit), &[("foo.txt", "baz")]);
-        let branch_head = commit_file(&repository, Some(&old_target), &[("foo.txt", "fux")]);
-        let new_target = commit_file(&repository, Some(&old_target), &[("foo.txt", "qux")]);
+        let old_target = dbg!(commit_file(
+            &repository,
+            Some(&initial_commit),
+            &[("foo.txt", "baz")]
+        ));
+        let branch_head = dbg!(commit_file(
+            &repository,
+            Some(&old_target),
+            &[("foo.txt", "fux")]
+        ));
+        let new_target = dbg!(commit_file(
+            &repository,
+            Some(&old_target),
+            &[("foo.txt", "qux")]
+        ));
 
         let branch = make_branch(branch_head.id(), branch_head.tree_id());
 
         let context = UpstreamIntegrationContext {
             _perm: None,
             old_target,
-            new_target,
+            new_target: new_target.clone(),
             repository: &repository,
             virtual_branches_in_workspace: vec![branch.clone()],
         };
@@ -516,7 +523,39 @@ mod test {
                     potentially_conflicted_uncommited_changes: false
                 }
             )]),
+        );
+
+        let updates = compute_resolutions(
+            &context,
+            &[Resolution {
+                branch_id: branch.id,
+                branch_tree: branch.tree,
+                approach: ResolutionApproach::Rebase,
+            }],
         )
+        .unwrap();
+
+        assert_eq!(updates.len(), 1);
+        let IntegrationResult::UpdatedObjects { head, tree } = updates[0] else {
+            panic!("Should be variant UpdatedObjects")
+        };
+
+        let head_commit = repository.find_commit(head).unwrap();
+        assert_eq!(head_commit.parent(0).unwrap().id(), new_target.id());
+        dbg!(&head_commit);
+        dbg!(head_commit.gitbutler_headers());
+        dbg!(head_commit
+            .tree()
+            .unwrap()
+            .into_iter()
+            .map(|entry| entry.clone().name().unwrap().to_owned())
+            .collect::<Vec<_>>());
+        assert!(head_commit.is_conflicted());
+
+        let head_tree = repository
+            .find_real_tree(&head_commit, Default::default())
+            .unwrap();
+        assert_eq!(head_tree.id(), tree)
     }
 
     #[test]

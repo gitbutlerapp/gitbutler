@@ -7,6 +7,7 @@ use gitbutler_commit::{
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
 use gitbutler_error::error::Marker;
+use itertools::Itertools;
 
 use crate::{LogUntil, RepositoryExt as _};
 
@@ -206,7 +207,7 @@ fn commit_conflicted_cherry_result<'repository>(
     let tree_oid = tree_writer.write().context("failed to write tree")?;
 
     let commit_headers = commit_headers.map(|commit_headers| {
-        let conflicted_file_count = conflicted_files
+        let conflicted_file_count = dbg!(conflicted_files)
             .len()
             .try_into()
             .expect("If you have more than 2^64 conflicting files, we've got bigger problems");

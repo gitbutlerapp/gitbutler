@@ -97,7 +97,7 @@
 
 				<div class="action" class:action--centered={status.type === 'FullyIntegrated'}>
 					{#if status.type === 'FullyIntegrated'}
-						<p>Will be liberated</p>
+						<p>Changes included in base branch</p>
 					{:else}
 						<Select
 							value="rebase"
