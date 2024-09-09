@@ -1,7 +1,7 @@
 {
 	"build": {
-		"beforeDevCommand": "pnpm dev:internal-tauri",
-		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode development",
+		"beforeDevCommand": "cd ../ && pnpm dev:internal-tauri",
+		"beforeBuildCommand": "[ $CI = true ] || cd ../ && pnpm build:desktop -- --mode development",
 		"devPath": "http://localhost:1420",
 		"distDir": "../../apps/desktop/build",
 		"withGlobalTauri": false
