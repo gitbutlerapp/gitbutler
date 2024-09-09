@@ -96,6 +96,10 @@ pub mod commands {
         for entry in walked_paths {
             let path_entry = entry.as_path();
             let path_str = path_entry.to_string_lossy();
+            // TODO: Refactor these paths out in the future to a common
+            // gitHosts.pullRequestTemplatePaths tuple, one for each gitHost type
+            // So that this 'get_available_templates' can be more generic and we can
+            // add / modify paths more easily for all supported githost types
             if path_str == "PULL_REQUEST_TEMPLATE.md"
                 || path_str == "pull_request_template.md"
                 || path_str.contains("PULL_REQUEST_TEMPLATE/")
