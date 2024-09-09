@@ -3,6 +3,7 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
+	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
@@ -20,7 +21,6 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
-	import { Project } from '$lib/backend/projects';
 
 	interface Props {
 		uncommittedChanges?: number;
