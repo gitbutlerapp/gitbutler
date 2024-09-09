@@ -517,7 +517,7 @@ pub fn create_virtual_branch_from_branch(
 pub fn get_uncommited_files(project: &Project) -> Result<Vec<RemoteBranchFile>> {
     let context = CommandContext::open(project)?;
     let guard = project.exclusive_worktree_access();
-    branch::get_uncommited_files(&context, guard.read_permission())
+    crate::branch::get_uncommited_files(&context, guard.read_permission())
 }
 
 /// Like [`get_uncommited_files()`], but returns a type that can be re-used with
@@ -525,7 +525,7 @@ pub fn get_uncommited_files(project: &Project) -> Result<Vec<RemoteBranchFile>> 
 pub fn get_uncommited_files_reusable(project: &Project) -> Result<DiffByPathMap> {
     let context = CommandContext::open(project)?;
     let guard = project.exclusive_worktree_access();
-    branch::get_uncommited_files_raw(&context, guard.read_permission())
+    crate::branch::get_uncommited_files_raw(&context, guard.read_permission())
 }
 
 fn open_with_verify(project: &Project) -> Result<CommandContext> {
