@@ -12,7 +12,7 @@
 	 */
 
 	import LazyloadContainer from '$lib/shared/LazyloadContainer.svelte';
-	import { chunk } from '$lib/utils/chunk';
+	import { chunk } from '$lib/utils/array';
 	import { type Snippet } from 'svelte';
 
 	interface Props {

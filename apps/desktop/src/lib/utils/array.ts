@@ -22,3 +22,9 @@ export function itemsSatisfy<T>(arr: T[], predicate: (item: T) => boolean): Item
 
 	return 'some';
 }
+
+export function chunk<T>(arr: T[], size: number) {
+	return Array.from({ length: Math.ceil(arr.length / size) }, (_v, i) =>
+		arr.slice(i * size, i * size + size)
+	);
+}
