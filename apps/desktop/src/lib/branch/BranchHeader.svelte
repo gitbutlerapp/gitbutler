@@ -108,13 +108,13 @@
 				error('Pull request service not available');
 				return;
 			}
-			await $prService.createPr(
+			await $prService.createPr({
 				title,
 				body,
-				opts.draft,
-				project.git_host?.use_pull_request_template,
-				project.git_host?.pull_request_template_path.replace(project.path, '')
-			);
+				draft: opts.draft,
+				useTemplate: project.git_host?.use_pull_request_template,
+				templatePath: project.git_host?.pull_request_template_path.replace(project.path, '')
+			});
 		} catch (err: any) {
 			console.error(err);
 			const toast = mapErrorToToast(err);

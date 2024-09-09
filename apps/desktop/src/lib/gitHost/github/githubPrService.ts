@@ -5,9 +5,14 @@ import { showToast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
+import type { GitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
+import type {
+	CreatePullRequestArguments,
+	DetailedPullRequest,
+	MergeMethod,
+	PullRequest
+} from '$lib/gitHost/interface/types';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHostPrService } from '../interface/gitHostPrService';
-import type { DetailedPullRequest, MergeMethod, PullRequest } from '../interface/types';
 import type { Octokit } from '@octokit/rest';
 
 const DEFAULT_PULL_REQUEST_TEMPLATE_PATH = '.github/PULL_REQUEST_TEMPLATE.md';
@@ -22,13 +27,13 @@ export class GitHubPrService implements GitHostPrService {
 		private upstreamName: string
 	) {}
 
-	async createPr(
-		title: string,
-		body: string,
-		draft: boolean,
-		useTemplate: boolean,
-		templatePath?: string
-	): Promise<PullRequest> {
+	async createPr({
+		title,
+		body,
+		draft,
+		useTemplate,
+		templatePath
+	}: CreatePullRequestArguments): Promise<PullRequest> {
 		this.loading.set(true);
 		const request = async (prBody: string | undefined = '') => {
 			const resp = await this.octokit.rest.pulls.create({
