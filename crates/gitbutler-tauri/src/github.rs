@@ -88,9 +88,9 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    // NOTE: Do I need this instrument macro?
+    #[instrument]
     pub fn get_available_pull_request_templates(path: &path::Path) -> Result<Vec<Path>, Error> {
-        let walked_paths = list_files(path, &[&path])?;
+        let walked_paths = list_files(path, &[path])?;
 
         let mut available_paths = Vec::new();
         for entry in walked_paths {
