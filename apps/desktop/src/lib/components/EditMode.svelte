@@ -165,7 +165,7 @@
 							filePath={file.path}
 							fileStatus={file.status}
 							conflicted={file.conflicted}
-							fileStatusStyle="full"
+							fileStatusStyle={file.status === 'M' ? 'full' : 'dot'}
 							clickable={false}
 						/>
 					</div>
