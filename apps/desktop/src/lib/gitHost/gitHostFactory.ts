@@ -16,13 +16,7 @@ export interface GitHostFactory {
 export class DefaultGitHostFactory implements GitHostFactory {
 	constructor(private octokit: Octokit | undefined) {}
 
-	build(
-		repo: RepoInfo,
-		baseBranch: string,
-		fork?: RepoInfo,
-		usePullRequestTemplate?: boolean,
-		pullRequestTemplatePath?: string
-	) {
+	build(repo: RepoInfo, baseBranch: string, fork?: RepoInfo) {
 		const domain = repo.domain;
 		const forkStr = fork ? `${fork.owner}:${fork.name}` : undefined;
 
@@ -32,9 +26,7 @@ export class DefaultGitHostFactory implements GitHostFactory {
 				baseBranch,
 				forkStr,
 				octokit: this.octokit,
-				projectMetrics: new ProjectMetrics(),
-				usePullRequestTemplate,
-				pullRequestTemplatePath
+				projectMetrics: new ProjectMetrics()
 			});
 		}
 		if (domain === GITLAB_DOMAIN || domain.startsWith(GITLAB_SUB_DOMAIN + '.')) {

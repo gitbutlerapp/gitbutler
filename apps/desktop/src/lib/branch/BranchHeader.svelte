@@ -20,6 +20,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
+	import { Project } from '$lib/backend/projects';
 
 	interface Props {
 		uncommittedChanges?: number;
@@ -36,6 +37,7 @@
 	const branchStore = getContextStore(VirtualBranch);
 	const prMonitor = getGitHostPrMonitor();
 	const gitHost = getGitHost();
+	const project = getContext(Project);
 
 	const branch = $derived($branchStore);
 	const pr = $derived($prMonitor?.pr);
@@ -106,7 +108,13 @@
 				error('Pull request service not available');
 				return;
 			}
-			await $prService.createPr(title, body, opts.draft);
+			await $prService.createPr(
+				title,
+				body,
+				opts.draft,
+				project.git_host?.use_pull_request_template,
+				project.git_host?.pull_request_template_path.replace(project.path, '')
+			);
 		} catch (err: any) {
 			console.error(err);
 			const toast = mapErrorToToast(err);

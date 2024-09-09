@@ -17,22 +17,16 @@ export class GitHub implements GitHost {
 	private forkStr?: string;
 	private octokit?: Octokit;
 	private projectMetrics?: ProjectMetrics;
-	private usePullRequestTemplate?: boolean;
-	private pullRequestTemplatePath?: string;
 
 	constructor({
 		repo,
 		baseBranch,
 		forkStr,
 		octokit,
-		projectMetrics,
-		usePullRequestTemplate,
-		pullRequestTemplatePath
+		projectMetrics
 	}: GitHostArguments & {
 		octokit?: Octokit;
 		projectMetrics?: ProjectMetrics;
-		usePullRequestTemplate?: boolean;
-		pullRequestTemplatePath?: string;
 	}) {
 		this.baseUrl = `https://${GITHUB_DOMAIN}/${repo.owner}/${repo.name}`;
 		this.repo = repo;
@@ -40,8 +34,6 @@ export class GitHub implements GitHost {
 		this.forkStr = forkStr;
 		this.octokit = octokit;
 		this.projectMetrics = projectMetrics;
-		this.usePullRequestTemplate = usePullRequestTemplate;
-		this.pullRequestTemplatePath = pullRequestTemplatePath;
 	}
 
 	listService() {
@@ -55,14 +47,7 @@ export class GitHub implements GitHost {
 		if (!this.octokit) {
 			return;
 		}
-		return new GitHubPrService(
-			this.octokit,
-			this.repo,
-			baseBranch,
-			upstreamName,
-			this.usePullRequestTemplate,
-			this.pullRequestTemplatePath
-		);
+		return new GitHubPrService(this.octokit, this.repo, baseBranch, upstreamName);
 	}
 
 	checksMonitor(sourceBranch: string) {

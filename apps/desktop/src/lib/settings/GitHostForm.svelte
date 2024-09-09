@@ -43,7 +43,7 @@
 
 	async function setUsePullRequestTemplate(value: boolean) {
 		await updateExistingProjects();
-		// project[gitHost.type].use_pull_request_template = value;
+
 		project.git_host.use_pull_request_template = value;
 		await projectService.updateProject(project);
 	}
@@ -52,7 +52,6 @@
 		selectedTemplate = value;
 		await updateExistingProjects();
 
-		// project[gitHost.type].pull_request_template_path = value;
 		project.git_host.pull_request_template_path = value;
 		await projectService.updateProject(project);
 	}

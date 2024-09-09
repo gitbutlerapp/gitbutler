@@ -19,21 +19,25 @@ export class GitHubPrService implements GitHostPrService {
 		private octokit: Octokit,
 		private repo: RepoInfo,
 		private baseBranch: string,
-		private upstreamName: string,
-		private usePullRequestTemplate?: boolean,
-		private pullRequestTemplatePath?: string
+		private upstreamName: string
 	) {}
 
-	async createPr(title: string, body: string, draft: boolean): Promise<PullRequest> {
+	async createPr(
+		title: string,
+		body: string,
+		draft: boolean,
+		useTemplate: boolean,
+		templatePath?: string
+	): Promise<PullRequest> {
 		this.loading.set(true);
-		const request = async (pullRequestTemplate: string | undefined = '') => {
+		const request = async (prBody: string | undefined = '') => {
 			const resp = await this.octokit.rest.pulls.create({
 				owner: this.repo.owner,
 				repo: this.repo.name,
 				head: this.upstreamName,
 				base: this.baseBranch,
 				title,
-				body: body ? body : pullRequestTemplate,
+				body: body ? body : prBody,
 				draft
 			});
 			return ghResponseToInstance(resp.data);
@@ -42,16 +46,16 @@ export class GitHubPrService implements GitHostPrService {
 		let attempts = 0;
 		let lastError: any;
 		let pr: PullRequest | undefined;
-		let pullRequestTemplate: string | undefined;
+		let pullRequestTemplateBody: string | undefined;
 
-		if (!body && this.usePullRequestTemplate) {
-			pullRequestTemplate = await this.fetchPrTemplate();
+		if (!body && useTemplate) {
+			pullRequestTemplateBody = await this.fetchPrTemplate(templatePath);
 		}
 
 		// Use retries since request can fail right after branch push.
 		while (attempts < 4) {
 			try {
-				pr = await request(pullRequestTemplate);
+				pr = await request(pullRequestTemplateBody);
 				posthog.capture('PR Successful');
 				return pr;
 			} catch (err: any) {
@@ -65,9 +69,7 @@ export class GitHubPrService implements GitHostPrService {
 		throw lastError;
 	}
 
-	async fetchPrTemplate() {
-		const path = this.pullRequestTemplatePath ?? DEFAULT_PULL_REQUEST_TEMPLATE_PATH;
-
+	async fetchPrTemplate(path = DEFAULT_PULL_REQUEST_TEMPLATE_PATH) {
 		try {
 			const response = await this.octokit.rest.repos.getContent({
 				owner: this.repo.owner,
