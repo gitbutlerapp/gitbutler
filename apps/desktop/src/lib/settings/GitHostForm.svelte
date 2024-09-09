@@ -28,30 +28,13 @@
 		});
 	});
 
-	// TODO: investigate if theres a better wayt o get old clients up to speed with
-	// new preferences keys
-	async function updateExistingProjects() {
-		if (!project.git_host) {
-			project.git_host = {
-				host_type: 'github',
-				use_pull_request_template: false,
-				pull_request_template_path: ''
-			};
-			await projectService.updateProject(project);
-		}
-	}
-
 	async function setUsePullRequestTemplate(value: boolean) {
-		await updateExistingProjects();
-
 		project.git_host.use_pull_request_template = value;
 		await projectService.updateProject(project);
 	}
 
 	async function setPullRequestTemplatePath(value: string) {
 		selectedTemplate = value;
-		await updateExistingProjects();
-
 		project.git_host.pull_request_template_path = value;
 		await projectService.updateProject(project);
 	}
@@ -92,7 +75,7 @@
 					label="Available Templates"
 					wide={true}
 					searchable
-					disabled={false}
+					disabled={allAvailableTemplates.length === 0}
 					onselect={(value) => {
 						setPullRequestTemplatePath(value);
 					}}

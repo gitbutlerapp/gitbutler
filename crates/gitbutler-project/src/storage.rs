@@ -130,7 +130,7 @@ impl Storage {
         }
 
         if let Some(git_host) = &update_request.git_host {
-            project.git_host = Some(git_host.clone());
+            project.git_host = git_host.clone();
         }
 
         self.inner

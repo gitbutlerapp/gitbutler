@@ -96,11 +96,11 @@ pub struct Project {
     pub snapshot_lines_threshold: Option<usize>,
     #[serde(default = "default_false")]
     pub succeeding_rebases: bool,
-
-    pub git_host: Option<GitHostSettings>,
+    #[serde(default)]
+    pub git_host: GitHostSettings,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
 pub struct GitHostSettings {
     #[serde(default)]
     pub host_type: Option<String>,
