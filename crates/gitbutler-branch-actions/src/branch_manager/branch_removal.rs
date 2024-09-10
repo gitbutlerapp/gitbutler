@@ -40,11 +40,6 @@ impl BranchManager<'_> {
 
         self.delete_branch(branch_id, perm, &target_commit)?;
 
-        // If we were conflicting, it means that it was the only branch applied. Since we've now unapplied it we can clear all conflicts
-        if conflicts::is_conflicting(self.ctx, None)? {
-            conflicts::clear(self.ctx)?;
-        }
-
         vb_state.update_ordering()?;
 
         // Ensure we still have a default target
@@ -136,6 +131,13 @@ impl BranchManager<'_> {
 
         vbranch::ensure_selected_for_changes(&vb_state)
             .context("failed to ensure selected for changes")?;
+
+        // If we were conflicting, it means that it was the only branch applied. Since we've now unapplied it we can clear all conflicts
+        if conflicts::is_conflicting(self.ctx, None)? {
+            conflicts::clear(self.ctx)?;
+        }
+        crate::integration::update_workspace_commit(&vb_state, self.ctx)
+            .context("failed to update gitbutler workspace")?;
 
         Ok(())
     }
