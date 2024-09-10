@@ -272,11 +272,11 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0(svelte@5.0.0-next.243)
       tauri-plugin-log-api:
-        specifier: github:tauri-apps/tauri-plugin-log#v1
-        version: git+https://git@github.com:tauri-apps/tauri-plugin-log.git#cc86b2d9878d6ec02c9f25bd48292621a4bc2a6f
+        specifier: github+https:tauri-apps/tauri-plugin-log#v1
+        version: link:github+https:tauri-apps/tauri-plugin-log#v1
       tauri-plugin-store-api:
-        specifier: github:tauri-apps/tauri-plugin-store#v1
-        version: git+https://git@github.com:tauri-apps/tauri-plugin-store.git#2352f0bda53b4725ef1d2f51cd5774e4396a20d1
+        specifier: github+https:tauri-apps/tauri-plugin-store#v1
+        version: link:github+https:tauri-apps/tauri-plugin-store#v1
       tinykeys:
         specifier: ^2.1.0
         version: 2.1.0
@@ -6023,14 +6023,6 @@ packages:
   tar@6.2.1:
     resolution: {integrity: sha512-DZ4yORTwrbTj/7MZYq2w+/ZFdI6OZ/f9SFHR+71gIVUZhOQPHzVCLpvRnPgyaMpfWxxk/4ONva3GQSyNIKRv6A==}
     engines: {node: '>=10'}
-
-  tauri-plugin-log-api@git+https://git@github.com:tauri-apps/tauri-plugin-log.git#cc86b2d9878d6ec02c9f25bd48292621a4bc2a6f:
-    resolution: {commit: cc86b2d9878d6ec02c9f25bd48292621a4bc2a6f, repo: git@github.com:tauri-apps/tauri-plugin-log.git, type: git}
-    version: 0.0.0
-
-  tauri-plugin-store-api@git+https://git@github.com:tauri-apps/tauri-plugin-store.git#2352f0bda53b4725ef1d2f51cd5774e4396a20d1:
-    resolution: {commit: 2352f0bda53b4725ef1d2f51cd5774e4396a20d1, repo: git@github.com:tauri-apps/tauri-plugin-store.git, type: git}
-    version: 0.0.0
 
   telejson@7.2.0:
     resolution: {integrity: sha512-1QTEcJkJEhc8OnStBx/ILRu5J2p0GjvWsBx56bmZRqnrkdBMUe+nX92jxV+p3dB4CP6PZCdJMQJwCggkNBMzkQ==}
@@ -13392,14 +13384,6 @@ snapshots:
       minizlib: 2.1.2
       mkdirp: 1.0.4
       yallist: 4.0.0
-
-  tauri-plugin-log-api@git+https://git@github.com:tauri-apps/tauri-plugin-log.git#cc86b2d9878d6ec02c9f25bd48292621a4bc2a6f:
-    dependencies:
-      '@tauri-apps/api': 1.6.0
-
-  tauri-plugin-store-api@git+https://git@github.com:tauri-apps/tauri-plugin-store.git#2352f0bda53b4725ef1d2f51cd5774e4396a20d1:
-    dependencies:
-      '@tauri-apps/api': 1.6.0
 
   telejson@7.2.0:
     dependencies:
