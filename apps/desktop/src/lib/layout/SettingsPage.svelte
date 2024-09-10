@@ -19,9 +19,7 @@
 						{title}
 					</h1>
 				{/if}
-				{#if children}
-					{@render children()}
-				{/if}
+				{@render children()}
 			</div>
 		</div>
 	</ScrollableContainer>

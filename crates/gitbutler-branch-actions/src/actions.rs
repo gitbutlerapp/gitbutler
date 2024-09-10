@@ -1,5 +1,6 @@
 use super::r#virtual as vbranch;
-use crate::branch;
+use super::r#virtual as branch;
+use crate::upstream_integration::{self, BranchStatuses, Resolution, UpstreamIntegrationContext};
 use crate::{
     base,
     base::BaseBranch,
@@ -517,7 +518,7 @@ pub fn create_virtual_branch_from_branch(
 pub fn get_uncommited_files(project: &Project) -> Result<Vec<RemoteBranchFile>> {
     let context = CommandContext::open(project)?;
     let guard = project.exclusive_worktree_access();
-    branch::get_uncommited_files(&context, guard.read_permission())
+    crate::branch::get_uncommited_files(&context, guard.read_permission())
 }
 
 /// Like [`get_uncommited_files()`], but returns a type that can be re-used with
@@ -525,12 +526,38 @@ pub fn get_uncommited_files(project: &Project) -> Result<Vec<RemoteBranchFile>> 
 pub fn get_uncommited_files_reusable(project: &Project) -> Result<DiffByPathMap> {
     let context = CommandContext::open(project)?;
     let guard = project.exclusive_worktree_access();
-    branch::get_uncommited_files_raw(&context, guard.read_permission())
+    crate::branch::get_uncommited_files_raw(&context, guard.read_permission())
+}
+
+pub fn upstream_integration_statuses(project: &Project) -> Result<BranchStatuses> {
+    let command_context = CommandContext::open(project)?;
+    let mut guard = project.exclusive_worktree_access();
+
+    let context = UpstreamIntegrationContext::open(&command_context, guard.write_permission())?;
+
+    upstream_integration::upstream_integration_statuses(&context)
+}
+
+pub fn integrate_upstream(project: &Project, resolutions: &[Resolution]) -> Result<()> {
+    let command_context = CommandContext::open(project)?;
+    let mut guard = project.exclusive_worktree_access();
+
+    let _ = command_context.project().create_snapshot(
+        SnapshotDetails::new(OperationKind::UpdateWorkspaceBase),
+        guard.write_permission(),
+    );
+
+    upstream_integration::integrate_upstream(
+        &command_context,
+        resolutions,
+        guard.write_permission(),
+    )
 }
 
 fn open_with_verify(project: &Project) -> Result<CommandContext> {
     let ctx = CommandContext::open(project)?;
     let mut guard = project.exclusive_worktree_access();
+
     crate::integration::verify_branch(&ctx, guard.write_permission())?;
     Ok(ctx)
 }

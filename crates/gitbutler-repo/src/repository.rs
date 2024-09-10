@@ -27,9 +27,6 @@ pub trait RepoActionsExt {
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid>;
     fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32>;
-    fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>>;
-    fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>>;
-    fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>>;
     fn delete_branch_reference(&self, branch: &Branch) -> Result<()>;
     fn add_branch_reference(&self, branch: &Branch) -> Result<()>;
     fn git_test_push(
@@ -126,97 +123,9 @@ impl RepoActionsExt for CommandContext {
         .context("failed to lookup reference")
     }
 
-    // returns a list of commit oids from the first oid to the second oid
-    fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>> {
-        match to {
-            LogUntil::Commit(oid) => {
-                let mut revwalk = self
-                    .repository()
-                    .revwalk()
-                    .context("failed to create revwalk")?;
-                revwalk
-                    .push(from)
-                    .context(format!("failed to push {}", from))?;
-                revwalk
-                    .hide(oid)
-                    .context(format!("failed to hide {}", oid))?;
-                revwalk
-                    .map(|oid| oid.map(Into::into))
-                    .collect::<Result<Vec<_>, _>>()
-            }
-            LogUntil::Take(n) => {
-                let mut revwalk = self
-                    .repository()
-                    .revwalk()
-                    .context("failed to create revwalk")?;
-                revwalk
-                    .push(from)
-                    .context(format!("failed to push {}", from))?;
-                revwalk
-                    .take(n)
-                    .map(|oid| oid.map(Into::into))
-                    .collect::<Result<Vec<_>, _>>()
-            }
-            LogUntil::When(cond) => {
-                let mut revwalk = self
-                    .repository()
-                    .revwalk()
-                    .context("failed to create revwalk")?;
-                revwalk
-                    .push(from)
-                    .context(format!("failed to push {}", from))?;
-                let mut oids: Vec<git2::Oid> = vec![];
-                for oid in revwalk {
-                    let oid = oid.context("failed to get oid")?;
-                    oids.push(oid);
-
-                    let commit = self
-                        .repository()
-                        .find_commit(oid)
-                        .context("failed to find commit")?;
-
-                    if cond(&commit).context("failed to check condition")? {
-                        break;
-                    }
-                }
-                Ok(oids)
-            }
-            LogUntil::End => {
-                let mut revwalk = self
-                    .repository()
-                    .revwalk()
-                    .context("failed to create revwalk")?;
-                revwalk
-                    .push(from)
-                    .context(format!("failed to push {}", from))?;
-                revwalk
-                    .map(|oid| oid.map(Into::into))
-                    .collect::<Result<Vec<_>, _>>()
-            }
-        }
-        .context("failed to collect oids")
-    }
-
-    fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>> {
-        Ok(self
-            .l(from, LogUntil::Commit(to))?
-            .into_iter()
-            .map(|oid| self.repository().find_commit(oid))
-            .collect::<Result<Vec<_>, _>>()?)
-    }
-
-    // returns a list of commits from the first oid to the second oid
-    fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>> {
-        self.l(from, to)?
-            .into_iter()
-            .map(|oid| self.repository().find_commit(oid))
-            .collect::<Result<Vec<_>, _>>()
-            .context("failed to collect commits")
-    }
-
     // returns the number of commits between the first oid to the second oid
     fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32> {
-        let oids = self.l(from, LogUntil::Commit(to))?;
+        let oids = self.repository().l(from, LogUntil::Commit(to))?;
         Ok(oids.len().try_into()?)
     }
 

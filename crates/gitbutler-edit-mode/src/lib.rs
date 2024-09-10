@@ -303,9 +303,10 @@ pub(crate) fn save_and_return_to_workspace(
             .context("Failed to update gitbutler workspace")?;
 
         let rebased_stashed_workspace_changes_commit = cherry_rebase_group(
-            ctx,
+            repository,
             workspace_commit_oid,
-            &mut [stashed_workspace_changes_commit.id()],
+            &[stashed_workspace_changes_commit.id()],
+            true,
         )
         .context("Failed to rebase stashed workspace commit changes")?;
 
