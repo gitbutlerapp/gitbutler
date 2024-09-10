@@ -27,7 +27,9 @@ jobs:
       - name: Build CLI
         run: cargo build -p gitbutler-cli
       - name: Build SvelteKit
-        run: pnpm build:desktop -- --mode development
+        run: |
+          pnpm install
+          pnpm build:desktop -- --mode development
       - name: Build Tauri
         run: pnpm build:test
       - name: WebdriverIO
