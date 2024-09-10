@@ -38,7 +38,7 @@ fn main() {
                 .target(LogTarget::LogDir)
                 .level(log::LevelFilter::Error);
 
-            tauri::Builder::default()
+            let builder = tauri::Builder::default()
                 .setup(move |tauri_app| {
                     let window = gitbutler_tauri::window::create(
                         &tauri_app.handle(),
@@ -118,7 +118,6 @@ fn main() {
 
                     Ok(())
                 })
-                .plugin(tauri_plugin_window_state::Builder::default().build())
                 .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
                 .plugin(tauri_plugin_context_menu::init())
                 .plugin(tauri_plugin_store::Builder::default().build())
@@ -239,7 +238,12 @@ fn main() {
                         }
                         _ => {}
                     }
-                })
+                });
+
+            #[cfg(not(target_os = "linux"))]
+            let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
+
+            builder
                 .build(tauri_context)
                 .expect("Failed to build tauri app")
                 .run(|app_handle, event| {
