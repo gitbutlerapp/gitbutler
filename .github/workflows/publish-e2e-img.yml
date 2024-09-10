@@ -1,10 +1,13 @@
 name: Build and Publish E2E Container
 on:
+  pull_request:
+    branches:
+      - master
   push:
     branches:
       - master
-    paths:
-      - 'apps/desktop/e2e/Dockerfile'
+    # paths:
+    #   - 'apps/desktop/e2e/Dockerfile'
 
 jobs:
   docker_publish:
