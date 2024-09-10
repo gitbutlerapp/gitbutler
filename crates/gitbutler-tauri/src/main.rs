@@ -118,7 +118,7 @@ fn main() {
 
                     Ok(())
                 })
-                .plugin(tauri_plugin_window_state::Builder::default().build())
+                //.plugin(tauri_plugin_window_state::Builder::default().build())
                 .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
                 .plugin(tauri_plugin_context_menu::init())
                 .plugin(tauri_plugin_store::Builder::default().build())
