@@ -23,8 +23,8 @@
 			if (availableTemplates) {
 				allAvailableTemplates = availableTemplates.map((availableTemplate) => {
 					return {
-						label: availableTemplate,
-						value: `${project.path}/${availableTemplate}`
+						label: availableTemplate.replace(`${project.path}/`, ''),
+						value: availableTemplate
 					};
 				});
 			}

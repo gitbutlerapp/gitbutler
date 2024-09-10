@@ -88,9 +88,8 @@
 		const prTemplatePath = project.git_host.pullRequestTemplatePath;
 
 		if (usePrTemplate && prTemplatePath) {
-			pullRequestTemplateBody = await $gitHost.getPrTemplateContent(
-				prTemplatePath.replace(project.path, '')
-			);
+			const relativeTemplatePath = prTemplatePath.replace(project.path, '');
+			pullRequestTemplateBody = await $gitHost.getPrTemplateContent(relativeTemplatePath);
 		}
 
 		if (pullRequestTemplateBody) {
@@ -127,8 +126,6 @@
 				title,
 				body,
 				draft: opts.draft
-				// useTemplate: project.git_host.usePullRequestTemplate,
-				// templatePath: project.git_host.pullRequestTemplatePath.replace(project.path, '')
 			});
 		} catch (err: any) {
 			console.error(err);

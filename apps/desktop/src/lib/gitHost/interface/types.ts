@@ -81,6 +81,4 @@ export type CreatePullRequestArguments = {
 	title: string;
 	body: string;
 	draft: boolean;
-	useTemplate?: boolean;
-	templatePath?: string;
 };

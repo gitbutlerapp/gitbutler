@@ -98,7 +98,7 @@ pub mod commands {
                 || path_str == "pull_request_template.md"
                 || path_str.contains("PULL_REQUEST_TEMPLATE/")
             {
-                available_paths.push(path_entry.to_string_lossy().to_string());
+                available_paths.push(path.join(path_entry).to_string_lossy().to_string());
             }
         }
 

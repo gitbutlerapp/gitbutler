@@ -14,11 +14,6 @@ import type {
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Octokit } from '@octokit/rest';
 
-export type PullRequestTemplatePaths = {
-	value: string;
-	label: string;
-};
-
 export class GitHubPrService implements GitHostPrService {
 	loading = writable(false);
 

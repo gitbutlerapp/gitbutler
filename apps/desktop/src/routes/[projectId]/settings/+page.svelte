@@ -14,7 +14,6 @@
 	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import PreferencesForm from '$lib/settings/PreferencesForm.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
-	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { goto } from '$app/navigation';
@@ -22,12 +21,10 @@
 	const baseBranchSwitching = featureBaseBranchSwitching();
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
-	const userService = getContext(UserService);
 	const gitHost = getGitHost();
-	const user = userService.user;
 
 	let deleteConfirmationModal: RemoveProjectButton;
-	let isDeleting = false;
+	let isDeleting = $state(false);
 
 	async function onDeleteClicked() {
 		isDeleting = true;
@@ -43,7 +40,6 @@
 			isDeleting = false;
 		}
 	}
-	$inspect('$user.github_username', $user?.github_username);
 </script>
 
 <SettingsPage title="Project settings">
