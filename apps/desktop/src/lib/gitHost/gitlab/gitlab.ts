@@ -41,6 +41,10 @@ export class GitLab implements GitHost {
 		return undefined;
 	}
 
+	issueService() {
+		return undefined;
+	}
+
 	prService() {
 		return undefined;
 	}

@@ -20,3 +20,8 @@ export function featureBranchStacking(): Persisted<boolean> {
 	const key = 'branchStacking';
 	return persisted(false, key);
 }
+
+export function featureTopics(): Persisted<boolean> {
+	const key = 'feature--topics';
+	return persisted(false, key);
+}
