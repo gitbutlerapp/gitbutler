@@ -45,11 +45,18 @@ export class GitHub implements GitHost {
 		return new GitHubListingService(this.octokit, this.repo, this.projectMetrics);
 	}
 
-	prService(baseBranch: string, upstreamName: string) {
+	prService() {
 		if (!this.octokit) {
 			return;
 		}
-		return new GitHubPrService(this.octokit, this.repo, baseBranch, upstreamName);
+		return new GitHubPrService(
+			this.octokit,
+			this.repo,
+			baseBranch,
+			upstreamName,
+			this.usePullRequestTemplate,
+			this.pullRequestTemplatePath
+		);
 	}
 
 	checksMonitor(sourceBranch: string) {

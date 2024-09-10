@@ -19,19 +19,23 @@ export class GitHubPrService implements GitHostPrService {
 
 	constructor(
 		private octokit: Octokit,
-		private repo: RepoInfo,
-		private baseBranch: string,
-		private upstreamName: string
+		private repo: RepoInfo
 	) {}
 
-	async createPr({ title, body, draft }: CreatePullRequestArguments): Promise<PullRequest> {
+	async createPr(
+		title: string,
+		body: string,
+		draft: boolean,
+		baseBranchName: string,
+		upstreamName: string
+	): Promise<PullRequest> {
 		this.loading.set(true);
 		const request = async () => {
 			const resp = await this.octokit.rest.pulls.create({
 				owner: this.repo.owner,
 				repo: this.repo.name,
-				head: this.upstreamName,
-				base: this.baseBranch,
+				head: upstreamName,
+				base: baseBranchName,
 				title,
 				body,
 				draft

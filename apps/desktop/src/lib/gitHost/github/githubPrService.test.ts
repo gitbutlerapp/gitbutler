@@ -20,7 +20,7 @@ describe.concurrent('GitHubPrService', () => {
 			baseBranch: 'main',
 			octokit
 		});
-		service = gh.prService('base-branch', 'upstream-branch');
+		service = gh.prService();
 	});
 
 	test('test parsing response', async () => {

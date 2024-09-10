@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchCard from './BranchCard.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { projectLaneCollapsed } from '$lib/config/config';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
@@ -12,12 +11,7 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
-	import {
-		getContext,
-		getContextStoreBySymbol,
-		createContextStore,
-		getContextStore
-	} from '$lib/utils/context';
+	import { getContext, getContextStoreBySymbol, createContextStore } from '$lib/utils/context';
 	import {
 		createIntegratedCommitsContextStore,
 		createLocalCommitsContextStore,
@@ -35,19 +29,11 @@
 
 	const { branch }: { branch: VirtualBranch } = $props();
 
-	const baseBranch = getContextStore(BaseBranch);
-
 	const gitHost = getGitHost();
-	const baseBranchName = $derived($baseBranch.shortName);
-	const upstreamName = $derived(branch.upstreamName);
 
 	// BRANCH SERVICE
 	const prService = createGitHostPrServiceStore(undefined);
-	$effect(() =>
-		prService.set(
-			upstreamName && baseBranchName ? $gitHost?.prService(baseBranchName, upstreamName) : undefined
-		)
-	);
+	$effect(() => prService.set($gitHost?.prService()));
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
