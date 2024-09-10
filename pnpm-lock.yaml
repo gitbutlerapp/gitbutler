@@ -272,10 +272,10 @@ importers:
         specifier: ^1.2.0
         version: 1.2.0(svelte@5.0.0-next.243)
       tauri-plugin-log-api:
-        specifier: tauri-apps/tauri-plugin-log#v1
+        specifier: github:tauri-apps/tauri-plugin-log#v1
         version: https://codeload.github.com/tauri-apps/tauri-plugin-log/tar.gz/cc86b2d9878d6ec02c9f25bd48292621a4bc2a6f
       tauri-plugin-store-api:
-        specifier: tauri-apps/tauri-plugin-store#v1
+        specifier: github:tauri-apps/tauri-plugin-store#v1
         version: https://codeload.github.com/tauri-apps/tauri-plugin-store/tar.gz/2352f0bda53b4725ef1d2f51cd5774e4396a20d1
       tinykeys:
         specifier: ^2.1.0
