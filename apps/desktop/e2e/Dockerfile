@@ -82,7 +82,7 @@ RUN pnpm add --global turbo && \
   # Used as a proxy for communicating with WebKitWebDriver.
   cargo install tauri-driver && \
   # Make `tauri-driver` more widely available
-  ln -s /root/.cargo/bin/tauri-driver /usr/local/bin/tauri-driver \
+  ln -s /root/.cargo/bin/tauri-driver /usr/local/bin/tauri-driver && \
   # vi bindings on by default.
   echo "set -o vi" >> /root/.bashrc
 
