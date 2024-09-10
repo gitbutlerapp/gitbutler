@@ -117,10 +117,13 @@ pub fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> 
 pub fn read_file_from_workspace(path: &Path) -> Result<String> {
     let mut file = match File::open(path) {
         Ok(f) => f,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            return Err(anyhow::anyhow!("Unable to read file: {}", path.display()))
+        Err(err) => {
+            return Err(anyhow::anyhow!(
+                "Error {}\n\nUnable to read file: {}",
+                err,
+                path.display()
+            ))
         }
-        Err(err) => return Err(err.into()),
     };
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
