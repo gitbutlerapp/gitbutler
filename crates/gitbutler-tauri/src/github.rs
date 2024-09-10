@@ -83,7 +83,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument]
-    pub fn get_available_github_pr_templates(root_path: &path::Path) -> Result<Vec<String>, Error> {
+    pub fn available_pull_request_templates(root_path: &path::Path) -> Result<Vec<String>, Error> {
         let walked_paths = list_files(root_path, &[root_path])?;
 
         let mut available_paths = Vec::new();
