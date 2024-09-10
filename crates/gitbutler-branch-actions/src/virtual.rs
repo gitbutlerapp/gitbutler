@@ -1045,7 +1045,7 @@ pub(crate) fn push(
     branch_id: BranchId,
     with_force: bool,
     askpass: Option<Option<BranchId>>,
-) -> Result<()> {
+) -> Result<Refname> {
     let vb_state = ctx.project().virtual_branches();
 
     let mut vbranch = vb_state.get_branch_in_workspace(branch_id)?;
@@ -1092,7 +1092,7 @@ pub(crate) fn push(
         .context("failed to write target branch after push")?;
     ctx.fetch(remote_branch.remote(), askpass.map(|_| "modal".to_string()))?;
 
-    Ok(())
+    Ok(gitbutler_reference::Refname::Remote(remote_branch))
 }
 
 struct IsCommitIntegrated<'repo> {

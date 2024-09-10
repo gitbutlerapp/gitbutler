@@ -267,9 +267,9 @@ pub mod commands {
         project_id: ProjectId,
         branch_id: BranchId,
         with_force: bool,
-    ) -> Result<(), Error> {
+    ) -> Result<Refname, Error> {
         let project = projects.get(project_id)?;
-        gitbutler_branch_actions::push_virtual_branch(
+        let upstream_refname = gitbutler_branch_actions::push_virtual_branch(
             &project,
             branch_id,
             with_force,
@@ -277,7 +277,7 @@ pub mod commands {
         )
         .map_err(|err| err.context(Code::Unknown))?;
         emit_vbranches(&windows, project_id);
-        Ok(())
+        Ok(upstream_refname)
     }
 
     #[tauri::command(async)]

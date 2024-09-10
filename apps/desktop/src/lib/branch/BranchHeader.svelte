@@ -3,6 +3,7 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
@@ -11,6 +12,7 @@
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { showError, showToast } from '$lib/notifications/toasts';
+	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
@@ -31,12 +33,14 @@
 
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
+	const baseBranch = getContextStore(BaseBranch);
 	const prService = getGitHostPrService();
 	const gitListService = getGitHostListingService();
 	const branchStore = getContextStore(VirtualBranch);
 	const prMonitor = getGitHostPrMonitor();
 	const gitHost = getGitHost();
 
+	const baseBranchName = $derived($baseBranch.shortName);
 	const branch = $derived($branchStore);
 	const pr = $derived($prMonitor?.pr);
 
@@ -94,19 +98,35 @@
 
 		isLoading = true;
 		try {
+			let upstreamBranchName = branch.upstreamName;
+
 			if (branch.commits.some((c) => !c.isRemote)) {
 				const firstPush = !branch.upstream;
-				await branchController.pushBranch(branch.id, branch.requiresForce);
+				const remoteBranchRef = await branchController.pushBranch(branch.id, branch.requiresForce);
+				upstreamBranchName = getBranchNameFromRef(remoteBranchRef);
+
 				if (firstPush) {
 					// TODO: fix this hack for reactively available prService.
 					await sleep(500);
 				}
 			}
+
+			if (!baseBranchName) {
+				error('No base branch name determined');
+				return;
+			}
+
+			if (!upstreamBranchName) {
+				error('No upstream branch name determined');
+				return;
+			}
+
 			if (!$prService) {
 				error('Pull request service not available');
 				return;
 			}
-			await $prService.createPr(title, body, opts.draft);
+
+			await $prService.createPr(title, body, opts.draft, upstreamBranchName, baseBranchName);
 		} catch (err: any) {
 			console.error(err);
 			const toast = mapErrorToToast(err);
