@@ -11,10 +11,9 @@
     clippy::too_many_lines
 )]
 
-use gitbutler_repo::credentials;
 use gitbutler_tauri::{
-    askpass, commands, config, github, logs, menu, modes, projects, remotes, repo, secret, undo,
-    users, virtual_branches, zip, App, WindowState,
+    askpass, commands, config, github, logs, menu, modes, open, projects, remotes, repo, secret,
+    undo, users, virtual_branches, zip, App, WindowState,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
@@ -62,6 +61,10 @@ fn main() {
                     let app_handle = tauri_app.handle();
 
                     logs::init(&app_handle, performance_logging);
+                    tracing::info!(
+                        "system git executable for fetch/push: {git:?}",
+                        git = gix::path::env::exe_invocation(),
+                    );
 
                     // On MacOS, in dev mode with debug assertions, we encounter popups each time
                     // the binary is rebuilt. To counter that, use a git-credential based implementation.
@@ -111,7 +114,6 @@ fn main() {
                         logs_dir: app_log_dir,
                         projects_controller: app.projects(),
                     });
-                    app_handle.manage(credentials::Helper::default());
                     app_handle.manage(app);
 
                     Ok(())
@@ -204,7 +206,8 @@ fn main() {
                     modes::enter_edit_mode,
                     modes::save_edit_and_return_to_workspace,
                     modes::abort_edit_and_return_to_workspace,
-                    modes::edit_initial_index_state
+                    modes::edit_initial_index_state,
+                    open::open_url
                 ])
                 .menu(menu::build(tauri_context.package_info()))
                 .on_menu_event(|event| menu::handle_event(&event))

@@ -1,11 +1,11 @@
+import { invoke } from '$lib/backend/ipc';
 import { showToast } from '$lib/notifications/toasts';
-import { open } from '@tauri-apps/api/shell';
 import GitUrlParse from 'git-url-parse';
 import { posthog } from 'posthog-js';
 
 export async function openExternalUrl(href: string) {
 	try {
-		await open(href);
+		await invoke<void>('open_url', { url: href });
 	} catch (e) {
 		if (typeof e === 'string' || e instanceof String) {
 			// TODO: Remove if/when we've resolved all external URL problems.

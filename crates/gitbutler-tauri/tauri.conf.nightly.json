@@ -6,11 +6,6 @@
 		"productName": "GitButler Nightly"
 	},
 	"tauri": {
-		"allowlist": {
-			"shell": {
-				"open": "^((https://)|(http://)|(mailto:)|(vscode://)|(vscodium://)).+"
-			}
-    },
 		"bundle": {
 			"identifier": "com.gitbutler.app.nightly",
 			"icon": [

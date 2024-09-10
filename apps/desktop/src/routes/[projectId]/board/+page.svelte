@@ -40,6 +40,7 @@
 
 	$: {
 		if ($mode?.type === 'Edit') {
+			// eslint-disable-next-line svelte/valid-compile
 			goto(`/${project.id}/edit`);
 		}
 	}

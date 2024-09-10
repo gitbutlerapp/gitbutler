@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import { gitHostUsePullRequestTemplate } from '$lib/config/config';
 	import { getGitHubUserServiceStore } from '$lib/gitHost/github/githubUserService';
 	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
@@ -9,7 +8,6 @@
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { fade } from 'svelte/transition';
@@ -17,7 +15,6 @@
 	export let minimal = false;
 	export let disabled = false;
 
-	const usePullRequestTemplate = gitHostUsePullRequestTemplate();
 	const githubUserService = getGitHubUserServiceStore();
 	const userService = getContext(UserService);
 	const user = userService.user;
@@ -96,29 +93,14 @@
 			</div>
 		</svelte:fragment>
 		<svelte:fragment slot="title">GitHub</svelte:fragment>
-		<svelte:fragment slot="caption">
-			Allows you to view and create Pull Requests from GitButler.
-		</svelte:fragment>
+		<svelte:fragment slot="caption">Allows you to view and create Pull Requests.</svelte:fragment>
 		{#if $user?.github_access_token}
-			<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}
-				>Forget</Button
-			>
+			<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}>
+				Forget
+			</Button>
 		{:else}
 			<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 		{/if}
-	</SectionCard>
-	<SectionCard roundedBottom={false} orientation="row" labelFor="use-pull-request-template">
-		<svelte:fragment slot="title">Pull Request Template</svelte:fragment>
-		<svelte:fragment slot="caption">
-			Use Pull Request template when creating a PR through GitButler.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Checkbox
-				name="use-pull-request-template"
-				value="false"
-				bind:checked={$usePullRequestTemplate}
-			/>
-		</svelte:fragment>
 	</SectionCard>
 {/if}
 
@@ -291,8 +273,6 @@
 			top: 30px;
 		}
 	}
-
-	/*  */
 
 	.icon-wrapper {
 		align-self: flex-start;

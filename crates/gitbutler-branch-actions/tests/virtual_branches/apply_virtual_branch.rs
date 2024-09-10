@@ -8,7 +8,6 @@ fn rebase_commit() {
     let Test {
         repository,
         project,
-        controller,
         ..
     } = &Test::default();
 
@@ -23,22 +22,25 @@ fn rebase_commit() {
         repository.reset_hard(Some(first_commit_oid));
     }
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     let mut branch1_id = {
         // create a branch with some commited work
-        let branch1_id = controller
-            .create_virtual_branch(project, &BranchCreateRequest::default())
-            .unwrap();
+        let branch1_id = gitbutler_branch_actions::create_virtual_branch(
+            project,
+            &BranchCreateRequest::default(),
+        )
+        .unwrap();
         fs::write(repository.path().join("another_file.txt"), "virtual").unwrap();
 
-        controller
-            .create_commit(project, branch1_id, "virtual commit", None, false)
+        gitbutler_branch_actions::create_commit(project, branch1_id, "virtual commit", None, false)
             .unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -50,9 +52,8 @@ fn rebase_commit() {
 
     let unapplied_branch = {
         // unapply first vbranch
-        let unapplied_branch = controller
-            .convert_to_real_branch(project, branch1_id)
-            .unwrap();
+        let unapplied_branch =
+            gitbutler_branch_actions::convert_to_real_branch(project, branch1_id).unwrap();
 
         assert_eq!(
             fs::read_to_string(repository.path().join("another_file.txt")).unwrap(),
@@ -63,7 +64,7 @@ fn rebase_commit() {
             "one"
         );
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);
 
         Refname::from_str(&unapplied_branch).unwrap()
@@ -71,10 +72,10 @@ fn rebase_commit() {
 
     {
         // fetch remote
-        controller.update_base_branch(project).unwrap();
+        gitbutler_branch_actions::update_base_branch(project).unwrap();
 
         // branch is stil unapplied
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);
 
         assert_eq!(
@@ -89,12 +90,15 @@ fn rebase_commit() {
 
     {
         // apply first vbranch again
-        branch1_id = controller
-            .create_virtual_branch_from_branch(project, &unapplied_branch, None)
-            .unwrap();
+        branch1_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
+            project,
+            &unapplied_branch,
+            None,
+        )
+        .unwrap();
 
         // it should be rebased
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 0);
@@ -119,7 +123,6 @@ fn rebase_work() {
     let Test {
         repository,
         project,
-        controller,
         ..
     } = &Test::default();
 
@@ -132,18 +135,22 @@ fn rebase_work() {
         repository.reset_hard(Some(first_commit_oid));
     }
 
-    controller
-        .set_base_branch(project, &"refs/remotes/origin/master".parse().unwrap())
-        .unwrap();
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
 
     let mut branch1_id = {
         // make a branch with some work
-        let branch1_id = controller
-            .create_virtual_branch(project, &BranchCreateRequest::default())
-            .unwrap();
+        let branch1_id = gitbutler_branch_actions::create_virtual_branch(
+            project,
+            &BranchCreateRequest::default(),
+        )
+        .unwrap();
         fs::write(repository.path().join("another_file.txt"), "").unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
@@ -155,11 +162,10 @@ fn rebase_work() {
 
     let unapplied_branch = {
         // unapply first vbranch
-        let unapplied_branch = controller
-            .convert_to_real_branch(project, branch1_id)
-            .unwrap();
+        let unapplied_branch =
+            gitbutler_branch_actions::convert_to_real_branch(project, branch1_id).unwrap();
 
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);
 
         assert!(!repository.path().join("another_file.txt").exists());
@@ -170,10 +176,10 @@ fn rebase_work() {
 
     {
         // fetch remote
-        controller.update_base_branch(project).unwrap();
+        gitbutler_branch_actions::update_base_branch(project).unwrap();
 
         // first branch is stil unapplied
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);
 
         assert!(!repository.path().join("another_file.txt").exists());
@@ -182,12 +188,15 @@ fn rebase_work() {
 
     {
         // apply first vbranch again
-        branch1_id = controller
-            .create_virtual_branch_from_branch(project, &unapplied_branch, None)
-            .unwrap();
+        branch1_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
+            project,
+            &unapplied_branch,
+            None,
+        )
+        .unwrap();
 
         // workdir should be rebased, and work should be restored
-        let (branches, _) = controller.list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         // TODO: Should be 1

@@ -5,6 +5,7 @@
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import InfoButton from '@gitbutler/ui/InfoButton.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { RemoteFile } from '$lib/vbranches/types';
@@ -123,17 +124,14 @@
 	}}
 >
 	<h2 class="editmode__title text-18 text-body text-bold">
-		You are currently editing commit <span class="code-string">
+		You are editing commit <span class="code-string">
 			{editModeMetadata.commitOid.slice(0, 7)}
 		</span>
+		<InfoButton title="Edit Mode">
+			Edit Mode lets you modify an existing commit in isolation or resolve conflicts. Any changes
+			made, including new files, will be added to the selected commit.
+		</InfoButton>
 	</h2>
-	<!-- <p class="editmode__message text-12 text-body">
-		Edit Mode lets you modify an existing commit in isolation or resolve conflicts.
-		<br />
-		Any changes made, including new files, will be added to the selected commit.
-		<br />
-		Finalize the edit by either saving or discarding your changes.
-	</p> -->
 
 	<div class="commit-group">
 		<div class="commit-line__container">
@@ -148,7 +146,7 @@
 			<div class="card commit-card">
 				<h3 class="text-13 text-semibold commit-card__title">Awesome title</h3>
 				<div class="text-11 commit-card__details">
-					<span class="">234234</span>
+					<span class="">{editModeMetadata.commitOid.slice(0, 7)}</span>
 					<span class="commit-card__divider">•</span>
 					<span class="">Author</span>
 				</div>
@@ -165,7 +163,7 @@
 							filePath={file.path}
 							fileStatus={file.status}
 							conflicted={file.conflicted}
-							fileStatusStyle="full"
+							fileStatusStyle={file.status === 'M' ? 'full' : 'dot'}
 							clickable={false}
 						/>
 					</div>
@@ -229,6 +227,10 @@
 				border-bottom: none;
 			}
 		}
+	}
+
+	.code-string {
+		margin-right: 2px;
 	}
 
 	/* COMMIT */

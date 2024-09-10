@@ -14,6 +14,7 @@
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
 	interface Props {
 		contextMenuEl?: ContextMenu;
@@ -38,6 +39,7 @@
 	let aiConfigurationValid = $state(false);
 	let newRemoteName = $state('');
 	let allowRebasing = $state<boolean>();
+	let isDeleting = $state(false);
 
 	const branch = $derived($branchStore);
 	const commits = $derived(branch.commits);
@@ -126,8 +128,6 @@
 		<ContextMenuItem
 			label="Set remote branch name"
 			on:click={() => {
-				console.log('Set remote branch name');
-
 				newRemoteName = branch.upstreamName || normalizedBranchName || '';
 				renameRemoteModal.show(branch);
 				contextMenuEl?.close();
@@ -137,13 +137,9 @@
 
 	<ContextMenuSection>
 		<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
-			<Toggle
-				small
-				slot="control"
-				bind:checked={allowRebasing}
-				on:click={toggleAllowRebasing}
-				help="Allows changing commits after push (force push needed)"
-			/>
+			<Tooltip slot="control" text={'Allows changing commits after push\n(force push needed)'}>
+				<Toggle small bind:checked={allowRebasing} on:click={toggleAllowRebasing} />
+			</Tooltip>
 		</ContextMenuItem>
 	</ContextMenuSection>
 
@@ -187,8 +183,13 @@
 	title="Delete branch"
 	bind:this={deleteBranchModal}
 	onSubmit={async (close) => {
-		await branchController.deleteBranch(branch.id);
-		close();
+		try {
+			isDeleting = true;
+			await branchController.deleteBranch(branch.id);
+			close();
+		} finally {
+			isDeleting = false;
+		}
 	}}
 >
 	{#snippet children(branch)}
@@ -196,6 +197,6 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="error" kind="solid" type="submit">Delete</Button>
+		<Button style="error" kind="solid" type="submit" loading={isDeleting}>Delete</Button>
 	{/snippet}
 </Modal>

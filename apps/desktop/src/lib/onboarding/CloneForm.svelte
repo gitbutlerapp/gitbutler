@@ -99,7 +99,7 @@
 <Section>
 	<div class="clone__field repositoryUrl">
 		<div class="text-13 text-semibold clone__field--label">Clone URL</div>
-		<TextBox bind:value={repositoryUrl} placeholder={'https://'} />
+		<TextBox bind:value={repositoryUrl} />
 	</div>
 	<div class="clone__field repositoryTargetPath">
 		<div class="text-13 text-semibold clone__field--label">Where to clone</div>

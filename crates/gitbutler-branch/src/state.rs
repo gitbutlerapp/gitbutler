@@ -43,7 +43,7 @@ impl VirtualBranches {
         self.list_all_branches().map(|branches| {
             branches
                 .into_iter()
-                .filter(|branch| branch.in_workspace && !branch.is_old_unapplied())
+                .filter(|branch| branch.in_workspace)
                 .collect()
         })
     }
@@ -94,16 +94,6 @@ impl VirtualBranchesHandle {
             .ok_or(anyhow!("there is no default target").context(Code::DefaultTargetNotFound))
     }
 
-    /// Sets the target for the given virtual branch.
-    ///
-    /// Errors if the file cannot be read or written.
-    pub fn set_branch_target(&self, id: BranchId, target: Target) -> Result<()> {
-        let mut virtual_branches = self.read_file()?;
-        virtual_branches.branch_targets.insert(id, target);
-        self.write_file(&virtual_branches)?;
-        Ok(())
-    }
-
     /// Sets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
@@ -120,7 +110,6 @@ impl VirtualBranchesHandle {
     pub fn mark_as_not_in_workspace(&self, id: BranchId) -> Result<()> {
         let mut branch = self.get_branch(id)?;
         branch.in_workspace = false;
-        branch.applied = false;
         self.set_branch(branch)?;
         Ok(())
     }
@@ -162,9 +151,7 @@ impl VirtualBranchesHandle {
     /// Gets the state of the given virtual branch returning `Some(branch)` or `None`
     /// if that branch doesn't exist.
     pub fn try_branch_in_workspace(&self, id: BranchId) -> Result<Option<Branch>> {
-        Ok(self
-            .try_branch(id)?
-            .filter(|branch| branch.in_workspace && !branch.is_old_unapplied()))
+        Ok(self.try_branch(id)?.filter(|branch| branch.in_workspace))
     }
 
     /// Gets the state of the given virtual branch returning `Some(branch)` or `None`
@@ -190,7 +177,7 @@ impl VirtualBranchesHandle {
         self.list_all_branches().map(|branches| {
             branches
                 .into_iter()
-                .filter(|branch| branch.in_workspace && !branch.is_old_unapplied())
+                .filter(|branch| branch.in_workspace)
                 .collect()
         })
     }

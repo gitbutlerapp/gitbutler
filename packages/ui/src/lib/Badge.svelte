@@ -1,20 +1,18 @@
-<script lang="ts" context="module">
+<script lang="ts" module>
 	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
 
 	export interface BadgeProps {
 		label: string | number;
-		help?: string;
 		style?: ComponentColor;
 		kind?: ComponentStyleKind;
 	}
 </script>
 
 <script lang="ts">
-	import { tooltip } from '$lib/utils/tooltip';
-	let { label, help, style = 'neutral', kind = 'solid' }: BadgeProps = $props();
+	const { label, style = 'neutral', kind = 'solid' }: BadgeProps = $props();
 </script>
 
-<div class="badge {style} {kind} text-10 text-semibold" use:tooltip={help}>
+<div class="badge {style} {kind} text-10 text-semibold">
 	{label}
 </div>
 

@@ -23,7 +23,7 @@ git init remote
 export GITBUTLER_CLI_DATA_DIR=../user/gitbutler/app-data
 git clone remote multiple-commits 
 (cd multiple-commits
-  $CLI project add --switch-to-integration "$(git rev-parse --symbolic-full-name @{u})"
+  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
 
   $CLI branch create --set-default first_branch
   echo asdf >> foo

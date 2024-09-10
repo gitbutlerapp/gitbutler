@@ -5,7 +5,7 @@
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 
 	interface Props {
@@ -76,14 +76,9 @@
 						</div>
 
 						{#if section.hunk.lockedTo && section.hunk.lockedTo.length > 0 && commits}
-							<div
-								use:tooltip={{
-									text: getLockText(section.hunk.lockedTo, commits),
-									delay: 500
-								}}
-							>
+							<Tooltip text={getLockText(section.hunk.lockedTo, commits)}>
 								<Icon name="locked-small" color="warning" />
-							</div>
+							</Tooltip>
 						{/if}
 						{#if section.hunk.poisoned}
 							Can not manage this hunk because it depends on changes from multiple branches

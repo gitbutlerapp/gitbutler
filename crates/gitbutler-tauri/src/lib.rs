@@ -26,6 +26,7 @@ pub mod config;
 pub mod error;
 pub mod github;
 pub mod modes;
+pub mod open;
 pub mod projects;
 pub mod remotes;
 pub mod repo;

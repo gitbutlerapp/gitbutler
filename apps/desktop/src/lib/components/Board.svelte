@@ -1,4 +1,4 @@
-<script lang="ts" async="true">
+<script lang="ts">
 	import BoardEmptyState from './BoardEmptyState.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';

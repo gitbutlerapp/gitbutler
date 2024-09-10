@@ -4,7 +4,7 @@
 	import ProjectAvatar from '$lib/navigation/ProjectAvatar.svelte';
 	import { getContext } from '$lib/utils/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { tooltip } from '@gitbutler/ui/utils/tooltip';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
 	export let isNavCollapsed: boolean;
 
@@ -15,23 +15,24 @@
 </script>
 
 <div class="wrapper">
-	<button
-		bind:this={buttonTrigger}
-		class="text-input button"
-		use:tooltip={isNavCollapsed ? project?.title : ''}
-		on:mousedown={(e) => {
-			e.preventDefault();
-			popup.toggle();
-		}}
-	>
-		<ProjectAvatar name={project?.title} />
-		{#if !isNavCollapsed}
-			<span class="button__label text-14 text-bold">{project?.title}</span>
-			<div class="button__icon">
-				<Icon name="select-chevron" />
-			</div>
-		{/if}
-	</button>
+	<Tooltip text={isNavCollapsed ? project?.title : ''} align="start">
+		<button
+			bind:this={buttonTrigger}
+			class="text-input button"
+			on:mousedown={(e) => {
+				e.preventDefault();
+				popup.toggle();
+			}}
+		>
+			<ProjectAvatar name={project?.title} />
+			{#if !isNavCollapsed}
+				<span class="button__label text-14 text-bold">{project?.title}</span>
+				<div class="button__icon">
+					<Icon name="select-chevron" />
+				</div>
+			{/if}
+		</button>
+	</Tooltip>
 	<ProjectsPopup bind:this={popup} target={buttonTrigger} {isNavCollapsed} />
 </div>
 

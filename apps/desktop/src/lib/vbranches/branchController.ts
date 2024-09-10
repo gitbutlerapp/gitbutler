@@ -226,11 +226,12 @@ export class BranchController {
 		}
 	}
 
-	async unapplyFiles(files: LocalFile[]) {
+	async unapplyFiles(branchId: string, files: LocalFile[]) {
 		try {
 			await invoke<void>('reset_files', {
 				projectId: this.projectId,
-				files: files.flatMap((f) => f.path).join('\n')
+				branchId,
+				files: files.flatMap((f) => f.path)
 			});
 		} catch (err) {
 			showError('Failed to unapply file changes', err);
@@ -271,6 +272,7 @@ export class BranchController {
 			await this.vbranchService.refresh();
 		} catch (err: any) {
 			posthog.capture('Push Failed', { error: err });
+			console.error(err);
 			if (err.code === 'errors.git.authentication') {
 				showToast({
 					title: 'Git push failed',

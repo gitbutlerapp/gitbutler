@@ -1,29 +1,26 @@
-<script lang="ts" context="module">
-	export enum Action {
-		Create = 'createPr',
-		CreateDraft = 'createDraftPr'
-	}
-
-	const actions = Object.values(Action);
-	const labels = {
-		[Action.Create]: 'Create PR',
-		[Action.CreateDraft]: 'Create Draft PR'
-	};
-</script>
-
 <script lang="ts">
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 
+	enum Action {
+		Create = 'createPr',
+		CreateDraft = 'createDraftPr'
+	}
+	const actions = Object.values(Action);
+	const labels = {
+		[Action.Create]: 'Create PR',
+		[Action.CreateDraft]: 'Create Draft PR'
+	};
+
 	type Props = {
 		loading: boolean;
 		disabled: boolean;
-		help: string;
+		tooltip: string;
 		click: (opts: { draft: boolean }) => void;
 	};
-	const { loading, disabled, help, click }: Props = $props();
+	const { loading, disabled, tooltip, click }: Props = $props();
 
 	const preferredAction = persisted<Action>(Action.Create, 'projectDefaultPrAction');
 	let dropDown: DropDownButton;
@@ -38,7 +35,7 @@
 <DropDownButton
 	style="ghost"
 	outline
-	{help}
+	{tooltip}
 	{disabled}
 	{loading}
 	bind:this={dropDown}

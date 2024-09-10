@@ -1,15 +1,24 @@
 <script lang="ts">
-	export let href: string;
+	import { openExternalUrl } from '$lib/utils/url';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
+	import type { Snippet } from 'svelte';
 
-	export let icon: keyof typeof iconsJson;
+	interface Props {
+		href: string;
+		icon: keyof typeof iconsJson;
+		children: Snippet;
+	}
+
+	const { href, icon, children }: Props = $props();
 </script>
 
-<a class="link" target="_blank" {href}>
+<button class="link" onclick={async () => await openExternalUrl(href)}>
 	<Icon name={icon} />
-	<span class="text-12"><slot /></span>
-</a>
+	<span class="text-12">
+		{@render children()}
+	</span>
+</button>
 
 <style lang="postcss">
 	.link {

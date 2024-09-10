@@ -52,15 +52,6 @@ pub struct Branch {
     pub selected_for_changes: Option<i64>,
     #[serde(default = "default_true")]
     pub allow_rebasing: bool,
-    /// This is the old metric for determining whether the branch is in the workspace
-    /// This is kept in sync with in_workspace
-    /// There should only be one condition where `applied` is false and `in_workspace`
-    /// true.
-    ///
-    /// This is after updating, the `in_workspace` property will have defaulted to true
-    /// but the old `applied` property will have remained false.
-    #[serde(default = "default_true")]
-    pub applied: bool,
     /// This is the new metric for determining whether the branch is in the workspace, which means it's applied
     /// and its effects are available to the user.
     #[serde(default = "default_true")]
@@ -94,19 +85,6 @@ where
 impl Branch {
     pub fn refname(&self) -> anyhow::Result<VirtualRefname> {
         self.try_into()
-    }
-
-    /// self.applied and self.in_workspace are kept in sync by the application
-    ///
-    /// There is only once case where this might not be the case which is when
-    /// the user has upgraded to the new version for the fisrt time.
-    ///
-    /// In this state, the `in_workspace` property will have defaulted to true
-    /// but the old `applied` property will have remained false.
-    ///
-    /// This function indicates this state
-    pub fn is_old_unapplied(&self) -> bool {
-        !self.applied && self.in_workspace
     }
 }
 

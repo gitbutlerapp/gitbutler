@@ -4,7 +4,7 @@ use anyhow::{anyhow, Context, Result};
 use git2::Index;
 use gitbutler_branch::{
     self, Branch, BranchId, BranchOwnershipClaims, Target, VirtualBranchesHandle,
-    GITBUTLER_INTEGRATION_REFERENCE,
+    GITBUTLER_WORKSPACE_REFERENCE,
 };
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
@@ -17,7 +17,7 @@ use crate::{
     branch_manager::BranchManagerExt,
     conflicts::RepoConflictsExt,
     hunk::VirtualBranchHunk,
-    integration::update_gitbutler_integration,
+    integration::update_workspace_commit,
     remote::{commit_to_remote_commit, RemoteCommit},
     status::get_applied_status,
     VirtualBranchesExt,
@@ -105,7 +105,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
         .context("failed to checkout tree")?;
 
     let base = target_to_base_branch(ctx, default_target)?;
-    update_gitbutler_integration(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx)?;
     Ok(base)
 }
 
@@ -176,7 +176,7 @@ pub(crate) fn set_base_branch(
         .context("Failed to get HEAD reference name")?;
     if !head_name
         .to_string()
-        .eq(&GITBUTLER_INTEGRATION_REFERENCE.to_string())
+        .eq(&GITBUTLER_WORKSPACE_REFERENCE.to_string())
     {
         // if there are any commits on the head branch or uncommitted changes in the working directory, we need to
         // put them into a virtual branch
@@ -248,7 +248,6 @@ pub(crate) fn set_base_branch(
                 order: 0,
                 selected_for_changes: None,
                 allow_rebasing: ctx.project().ok_with_force_push.into(),
-                applied: true,
                 in_workspace: true,
                 not_in_workspace_wip_change_id: None,
                 references: vec![],
@@ -260,7 +259,7 @@ pub(crate) fn set_base_branch(
 
     set_exclude_decoration(ctx)?;
 
-    update_gitbutler_integration(&vb_state, ctx)?;
+    update_workspace_commit(&vb_state, ctx)?;
 
     let base = target_to_base_branch(ctx, &target)?;
     Ok(base)
@@ -549,7 +548,7 @@ pub(crate) fn update_base_branch(
     })?;
 
     // Rewriting the integration commit is necessary after changing target sha.
-    crate::integration::update_gitbutler_integration(&vb_state, ctx)?;
+    crate::integration::update_workspace_commit(&vb_state, ctx)?;
     Ok(unapplied_branch_names)
 }
 

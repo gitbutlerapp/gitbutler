@@ -10,7 +10,7 @@
 	export let loading = false;
 	export let disabled = false;
 	export let wide = false;
-	export let help = '';
+	export let tooltip = '';
 
 	function persistedAction(projectId: string): Persisted<MergeMethod> {
 		const key = 'projectMergeMethod';
@@ -35,7 +35,7 @@
 	{loading}
 	bind:this={dropDown}
 	{wide}
-	{help}
+	{tooltip}
 	{disabled}
 	onclick={() => {
 		dispatch('click', { method: $action });

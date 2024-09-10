@@ -16,12 +16,12 @@
 	outline
 	shrinkable
 	bind:el={viewPrButton}
-	onclick={(e) => {
+	onclick={(e: MouseEvent) => {
 		openExternalUrl(url);
 		e.preventDefault();
 		e.stopPropagation();
 	}}
-	oncontextmenu={(e) => {
+	oncontextmenu={(e: MouseEvent) => {
 		e.preventDefault();
 		copyLinkContextMenu?.openByMouse(e);
 	}}

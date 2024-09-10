@@ -12,7 +12,10 @@
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
-	import { gitHostUsePullRequestTemplate } from '$lib/config/config';
+	import {
+		gitHostPullRequestTemplatePath,
+		gitHostUsePullRequestTemplate
+	} from '$lib/config/config';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostFactory';
 	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
@@ -80,6 +83,7 @@
 
 	const showHistoryView = persisted(false, 'showHistoryView');
 	const usePullRequestTemplate = gitHostUsePullRequestTemplate();
+	const pullRequestTemplatePath = gitHostPullRequestTemplatePath();
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
 	const gitHostFactory = $derived(new DefaultGitHostFactory(octokit));
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
@@ -104,25 +108,29 @@
 	const mode = $derived(modeService.mode);
 	const head = $derived(modeService.head);
 
-	// We end up with a `state_unsafe_mutation` when switching projects if we
-	// don't use $effect.pre here.
 	// TODO: can we eliminate the need to debounce?
 	const fetch = $derived(fetchSignal.event);
 	const debouncedBaseBranchResfresh = debounce(() => baseBranchService.refresh(), 500);
-	$effect.pre(() => {
+	$effect(() => {
 		if ($fetch || $head) debouncedBaseBranchResfresh();
 	});
 
 	// TODO: can we eliminate the need to debounce?
 	const debouncedRemoteBranchRefresh = debounce(() => remoteBranchService.refresh(), 500);
-	$effect.pre(() => {
+	$effect(() => {
 		if ($baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
 	});
 
-	$effect.pre(() => {
+	$effect(() => {
 		const gitHost =
 			repoInfo && baseBranchName
-				? gitHostFactory.build(repoInfo, baseBranchName, forkInfo, usePullRequestTemplate)
+				? gitHostFactory.build(
+						repoInfo,
+						baseBranchName,
+						forkInfo,
+						usePullRequestTemplate,
+						pullRequestTemplatePath
+					)
 				: undefined;
 
 		const ghListService = gitHost?.listService();

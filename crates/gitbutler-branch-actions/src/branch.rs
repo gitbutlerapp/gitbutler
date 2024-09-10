@@ -167,7 +167,7 @@ fn combine_branches(
         let Some(identity) = branch.identity(&remotes) else {
             continue;
         };
-        // Skip branches that should not be listed, e.g. the target 'main' or the gitbutler technical branches like 'gitbutler/integration'
+        // Skip branches that should not be listed, e.g. the target 'main' or the gitbutler technical branches like 'gitbutler/workspace'
         if !should_list_git_branch(&identity) {
             continue;
         }
@@ -358,7 +358,8 @@ impl GroupBranch<'_> {
 fn should_list_git_branch(identity: &BranchIdentity) -> bool {
     // Exclude gitbutler technical branches (not useful for the user)
     const TECHNICAL_IDENTITIES: &[&[u8]] = &[
-        b"gitbutler/integration",
+        b"gitbutler/workspace",
+        b"gitbutler/integration", // Remove me after transition.
         b"gitbutler/target",
         b"gitbutler/oplog",
         b"HEAD",

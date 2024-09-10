@@ -67,6 +67,7 @@ gitbutler-diff.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-edit-mode.workspace = true
 open = "5"
+url = "2.5.2"
 
 [dependencies.tauri]
 version = "1.7.0"
@@ -78,7 +79,6 @@ features = [
     "path-all",
     "process-relaunch",
     "protocol-asset",
-    "shell-open",
     "window-maximize",
     "window-start-dragging",
     "window-unmaximize",

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ComponentColor, ComponentStyleKind } from '@gitbutler/ui/utils/colorTypes';
 	import type { Snippet } from 'svelte';
@@ -13,7 +14,7 @@
 		disabled?: boolean;
 		loading?: boolean;
 		wide?: boolean;
-		help?: string;
+		tooltip?: string;
 		menuPosition?: 'top' | 'bottom';
 		children: Snippet;
 		contextMenuSlot: Snippet;
@@ -28,7 +29,7 @@
 		disabled = false,
 		loading = false,
 		wide = false,
-		help = '',
+		tooltip,
 		menuPosition = 'bottom',
 		children,
 		contextMenuSlot,
@@ -50,48 +51,48 @@
 	}
 </script>
 
-<div class="dropdown-wrapper" class:wide>
-	<div class="dropdown">
-		<Button
-			{style}
-			{icon}
-			{kind}
-			{help}
-			{outline}
-			reversedDirection
-			disabled={disabled || loading}
-			isDropdownChild
-			{onclick}
-		>
-			{@render children()}
-		</Button>
-		<Button
-			bind:el={iconEl}
-			{style}
-			{kind}
-			{help}
-			{outline}
-			icon={visible ? 'chevron-up' : 'chevron-down'}
-			{loading}
-			disabled={disabled || loading}
-			isDropdownChild
-			onclick={() => {
-				visible = !visible;
-				contextMenu?.toggle();
+<Tooltip text={tooltip}>
+	<div class="dropdown-wrapper" class:wide>
+		<div class="dropdown">
+			<Button
+				{style}
+				{icon}
+				{kind}
+				{outline}
+				reversedDirection
+				disabled={disabled || loading}
+				dropdownChild
+				{onclick}
+			>
+				{@render children()}
+			</Button>
+			<Button
+				bind:el={iconEl}
+				{style}
+				{kind}
+				{outline}
+				icon={visible ? 'chevron-up' : 'chevron-down'}
+				{loading}
+				disabled={disabled || loading}
+				dropdownChild
+				onclick={() => {
+					visible = !visible;
+					contextMenu?.toggle();
+				}}
+			/>
+		</div>
+		<ContextMenu
+			bind:this={contextMenu}
+			target={iconEl}
+			verticalAlign={menuPosition}
+			onclose={() => {
+				visible = false;
 			}}
-		/>
+		>
+			{@render contextMenuSlot()}
+		</ContextMenu>
 	</div>
-	<ContextMenu
-		bind:this={contextMenu}
-		target={iconEl}
-		verticalAlign={menuPosition}
-		onclose={() => {
-			visible = false;
-		}}
-	>
-		{@render contextMenuSlot()}
-	</ContextMenu>
-</div>
+</Tooltip>
 
 <style lang="postcss">
 	.dropdown-wrapper {

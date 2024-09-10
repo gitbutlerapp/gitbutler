@@ -13,13 +13,46 @@
 //!
 //! The values in these fields are controlled by attaching context, please [see the `error` docs](gitbutler_error::error))
 //! on how to do this.
-pub(crate) use frontend::Error;
+pub(crate) use frontend::{Error, UnmarkedError};
 
 mod frontend {
     use std::borrow::Cow;
 
     use gitbutler_error::error::AnyhowContextExt;
     use serde::{ser::SerializeMap, Serialize};
+
+    /// An error type for serialization which isn't expected to carry a code.
+    #[derive(Debug)]
+    pub struct UnmarkedError(anyhow::Error);
+
+    impl<T> From<T> for UnmarkedError
+    where
+        T: std::error::Error + Send + Sync + 'static,
+    {
+        fn from(err: T) -> Self {
+            Self(err.into())
+        }
+    }
+
+    impl Serialize for UnmarkedError {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            let ctx = self.0.custom_context_or_root_cause();
+
+            let mut map = serializer.serialize_map(Some(2))?;
+            map.serialize_entry("code", &ctx.code.to_string())?;
+            let message = ctx.message.unwrap_or_else(|| {
+                self.0
+                    .source()
+                    .map(|err| Cow::Owned(err.to_string()))
+                    .unwrap_or_else(|| Cow::Borrowed("Something went wrong"))
+            });
+            map.serialize_entry("message", &message)?;
+            map.end()
+        }
+    }
 
     /// An error type for serialization, dynamically extracting context information during serialization,
     /// meant for consumption by the frontend.

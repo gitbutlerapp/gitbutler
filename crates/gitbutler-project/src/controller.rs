@@ -123,6 +123,14 @@ impl Controller {
         self.get_inner(id, false)
     }
 
+    /// Only get the project information. No state validation is done.
+    /// This is intended to be used only when updating the path of a missing project.
+    pub fn get_raw(&self, id: ProjectId) -> Result<Project> {
+        #[cfg_attr(not(windows), allow(unused_mut))]
+        let mut project = self.projects_storage.get(id)?;
+        Ok(project)
+    }
+
     /// Like [`Self::get()`], but will assure the project still exists and is valid by
     /// opening a git repository. This should only be done for critical points in time.
     pub fn get_validated(&self, id: ProjectId) -> Result<Project> {
@@ -147,6 +155,7 @@ impl Controller {
                 .context(error::Code::ProjectMissing));
             }
         }
+
         if !project.gb_dir().exists() {
             if let Err(error) = std::fs::create_dir_all(project.gb_dir()) {
                 tracing::error!(project_id = %project.id, ?error, "failed to create \"{}\" on project get", project.gb_dir().display());

@@ -23,8 +23,8 @@ mod state;
 use lazy_static::lazy_static;
 pub use state::{VirtualBranches as VirtualBranchesState, VirtualBranchesHandle};
 lazy_static! {
-    pub static ref GITBUTLER_INTEGRATION_REFERENCE: gitbutler_reference::LocalRefname =
-        gitbutler_reference::LocalRefname::new("gitbutler/integration", None);
+    pub static ref GITBUTLER_WORKSPACE_REFERENCE: gitbutler_reference::LocalRefname =
+        gitbutler_reference::LocalRefname::new("gitbutler/workspace", None);
 }
 
 pub const GITBUTLER_COMMIT_AUTHOR_NAME: &str = "GitButler";

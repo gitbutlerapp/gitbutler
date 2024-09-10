@@ -36,7 +36,7 @@
 
 <dialog
 	bind:this={dialogElement}
-	class="modal-content"
+	class="modal-container"
 	class:default={width === 'default'}
 	class:large={width === 'large'}
 	class:small={width === 'small'}
@@ -80,35 +80,31 @@
 	dialog {
 		display: none;
 		outline: none;
-		transform: scale(0.95);
-		transition: transform 250ms cubic-bezier(0.34, 1.35, 0.7, 1);
-	}
-
-	dialog::backdrop {
-		transition: opacity 150ms ease-in;
-		background-color: rgb(0 0 0 / 0%);
 	}
 
 	dialog[open] {
 		display: flex;
-		transform: scale(1);
 	}
 
 	dialog[open]::backdrop {
-		background-color: var(--clr-overlay-bg);
-		opacity: 1;
+		/* NOTE: temporarily hardcoded var(--clr-overlay-bg); */
+		background-color: color(srgb 0 0 0 / 0.34901960784313724);
 	}
 
-	@starting-style {
-		dialog[open] {
-			transform: scale(0.95);
-		}
-		dialog[open]::backdrop {
-			opacity: 0;
-		}
+	html.dark dialog[open]::backdrop {
+		/* NOTE: temporarily hardcoded dark var(--clr-overlay-bg); */
+		background-color: color(srgb 0.8392156862745098 0.8392156862745098 0.8392156862745098 / 0.4);
 	}
 
-	.modal-content {
+	.modal-container[open]::backdrop {
+		animation: dialog-fade 0.15s ease-in;
+	}
+
+	.modal-container[open] {
+		animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
+	}
+
+	.modal-container {
 		flex-direction: column;
 
 		max-height: calc(100vh - 80px);
@@ -116,6 +112,7 @@
 		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-l);
 	}
+
 	dialog[open] {
 		border: 1px solid var(--clr-border-2);
 	}
@@ -148,20 +145,38 @@
 		background-color: var(--clr-bg-1);
 	}
 
+	@keyframes dialog-zoom {
+		from {
+			transform: scale(0.95);
+		}
+		to {
+			transform: scale(1);
+		}
+	}
+
+	@keyframes dialog-fade {
+		from {
+			opacity: 0;
+		}
+		to {
+			opacity: 1;
+		}
+	}
+
 	/* MODIFIERS */
-	.modal-content.default {
+	.modal-container.default {
 		width: 580px;
 	}
 
-	.modal-content.large {
+	.modal-container.large {
 		width: 840px;
 	}
 
-	.modal-content.small {
+	.modal-container.small {
 		width: 380px;
 	}
 
-	.modal-content.xsmall {
+	.modal-container.xsmall {
 		width: 310px;
 	}
 </style>

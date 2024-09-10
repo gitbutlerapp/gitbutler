@@ -1,32 +1,32 @@
 <script lang="ts">
+	import Tooltip, { type TooltipAlign, type TooltipPosition } from '$lib/Tooltip.svelte';
 	import { stringToColor } from '$lib/utils/stringToColor';
-	import { tooltip as tooltipComponent } from '$lib/utils/tooltip';
 
 	interface Props {
 		srcUrl: string;
 		tooltip: string;
+		tooltipAlign?: TooltipAlign;
+		tooltipPosition?: TooltipPosition;
 		size?: 'small' | 'medium';
 	}
 
 	let isLoaded = $state(false);
 
-	const { srcUrl, tooltip, size = 'small' }: Props = $props();
+	const { srcUrl, tooltip, tooltipAlign, tooltipPosition, size = 'small' }: Props = $props();
 </script>
 
-<div class="image-wrapper {size}" style:background-color={stringToColor(tooltip)}>
-	<img
-		class="avatar"
-		alt={tooltip}
-		src={srcUrl}
-		loading="lazy"
-		onload={() => (isLoaded = true)}
-		class:show={isLoaded}
-		use:tooltipComponent={{
-			text: tooltip,
-			delay: 500
-		}}
-	/>
-</div>
+<Tooltip text={tooltip} align={tooltipAlign} position={tooltipPosition}>
+	<div class="image-wrapper {size}" style:background-color={stringToColor(tooltip)}>
+		<img
+			class="avatar"
+			alt={tooltip}
+			src={srcUrl}
+			loading="lazy"
+			onload={() => (isLoaded = true)}
+			class:show={isLoaded}
+		/>
+	</div>
+</Tooltip>
 
 <style lang="postcss">
 	.image-wrapper {

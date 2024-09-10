@@ -1,4 +1,4 @@
-<script async lang="ts">
+<script lang="ts">
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { Project, ProjectService } from '$lib/backend/projects';

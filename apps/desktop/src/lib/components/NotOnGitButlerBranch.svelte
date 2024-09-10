@@ -7,6 +7,7 @@
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { ProjectService, Project } from '$lib/backend/projects';
 	import { showError } from '$lib/notifications/toasts';
+	import Spacer from '$lib/shared/Spacer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -48,7 +49,7 @@
 			<ProjectNameLabel projectName={project?.title} />
 		</div>
 		<p class="switchrepo__title text-18 text-body text-bold">
-			Looks like you've switched away from <span class="code-string"> gitbutler/integration </span>
+			Looks like you've switched away from <span class="code-string"> gitbutler/workspace </span>
 		</p>
 
 		<p class="switchrepo__message text-13 text-body">
@@ -69,7 +70,7 @@
 					if (baseBranch) branchController.setTarget(baseBranch.branchName);
 				}}
 			>
-				Go back to gitbutler/integration
+				Go back to gitbutler/workspace
 			</Button>
 
 			{#if project}
@@ -81,6 +82,8 @@
 				/>
 			{/if}
 		</div>
+
+		<Spacer dotted margin={0} />
 
 		<div class="switchrepo__project">
 			<ProjectSwitcher />
@@ -111,6 +114,5 @@
 
 	.switchrepo__project {
 		padding-top: 24px;
-		border-top: 1px dashed var(--clr-scale-ntrl-60);
 	}
 </style>

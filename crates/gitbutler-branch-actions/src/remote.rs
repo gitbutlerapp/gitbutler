@@ -83,12 +83,12 @@ pub fn list_local_branches(ctx: &CommandContext) -> Result<Vec<RemoteBranch>> {
                 continue;
             }
         };
-
         let branch_is_trunk = branch.name.branch() == Some(default_target.branch.branch())
             && branch.name.remote() == Some(default_target.branch.remote());
 
         if !branch_is_trunk
-            && branch.name.branch() != Some("gitbutler/integration")
+            && branch.name.branch() != Some("gitbutler/integration") // Remove after rename migration complete.
+            && branch.name.branch() != Some("gitbutler/workspace")
             && branch.name.branch() != Some("gitbutler/target")
         {
             remote_branches.push(branch);

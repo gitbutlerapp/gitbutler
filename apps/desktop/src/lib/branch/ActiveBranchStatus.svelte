@@ -47,7 +47,7 @@
 			icon="pr-small"
 			style="success"
 			kind="solid"
-			help="These changes have been integrated upstream, update your workspace to make this lane disappear."
+			tooltip="Changes have been integrated upstream, update your workspace to make this lane disappear."
 			reversedDirection>Integrated</Button
 		>
 	{:else}
@@ -56,23 +56,21 @@
 			size="tag"
 			icon="virtual-branch-small"
 			style="neutral"
-			help="These changes are in your working directory."
+			tooltip="Changes are in your working directory"
 			reversedDirection>Virtual</Button
 		>
 	{/if}
 	{#if !isUnapplied && !isLaneCollapsed}
-		{#await normalizedBranchName then name}
-			<Button
-				clickable={false}
-				size="tag"
-				style="neutral"
-				shrinkable
-				disabled
-				help="Branch name that will be used when pushing. You can change it from the lane menu."
-			>
-				{name}
-			</Button>
-		{/await}
+		<Button
+			clickable={false}
+			size="tag"
+			style="neutral"
+			shrinkable
+			disabled
+			tooltip={'Branch name that will be used when pushing.\nChange it from the lane menu'}
+		>
+			{normalizedBranchName}
+		</Button>
 	{/if}
 {:else}
 	<Button
@@ -81,7 +79,7 @@
 		style="neutral"
 		kind="solid"
 		icon="remote-branch-small"
-		help="At least some of your changes have been pushed"
+		tooltip="Some changes have been pushed"
 		reversedDirection>Remote</Button
 	>
 	<Button
@@ -90,7 +88,7 @@
 		style="ghost"
 		outline
 		shrinkable
-		onclick={(e) => {
+		onclick={(e: MouseEvent) => {
 			const url = gitHostBranch?.url;
 			if (url) openExternalUrl(url);
 			e.preventDefault();

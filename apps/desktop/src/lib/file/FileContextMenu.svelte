@@ -7,13 +7,14 @@
 	import { getContext } from '$lib/utils/context';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import * as toasts from '$lib/utils/toasts';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { LocalFile, type AnyFile } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { join } from '@tauri-apps/api/path';
-	import { open as openFile } from '@tauri-apps/api/shell';
 
+	export let branchId: string | undefined;
 	export let target: HTMLElement | undefined;
 	export let isUnapplied;
 
@@ -84,7 +85,7 @@
 							if (!project) return;
 							for (let file of item.files) {
 								const absPath = await join(project.vscodePath, file.path);
-								openFile(`${$editor}://file${absPath}`);
+								openExternalUrl(`${$editor}://file${absPath}`);
 							}
 							contextMenu.close();
 						} catch {
@@ -115,7 +116,12 @@
 			style="error"
 			kind="solid"
 			onclick={() => {
-				branchController.unapplyFiles(item.files);
+				if (!branchId) {
+					console.error('Branch ID is not set');
+					toasts.error('Failed to discard changes');
+					return;
+				}
+				branchController.unapplyFiles(branchId, item.files);
 				close();
 			}}
 		>
