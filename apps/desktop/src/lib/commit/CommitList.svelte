@@ -49,20 +49,30 @@
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 	const gitHost = getGitHost();
 
+	enum LineSpacer {
+		Remote = 'remote-spacer',
+		Local = 'local-spacer',
+		LocalAndRemote = 'local-and-remote-spacer'
+	}
+
 	$: mappedRemoteCommits =
 		$remoteCommits.length > 0
-			? [...$remoteCommits.map(transformAnyCommit), { id: 'remote-spacer' }]
+			? [...$remoteCommits.map(transformAnyCommit), { id: LineSpacer.Remote }]
 			: [];
 	$: mappedLocalCommits =
 		$localCommits.length > 0
-			? [...$localCommits.map(transformAnyCommit), { id: 'local-spacer' }]
+			? [...$localCommits.map(transformAnyCommit), { id: LineSpacer.Local }]
+			: [];
+	$: mappedLocalAndRemoteCommits =
+		$localAndRemoteCommits.length > 0
+			? [...$localAndRemoteCommits.map(transformAnyCommit), { id: LineSpacer.LocalAndRemote }]
 			: [];
 
 	$: lineManager = lineManagerFactory.build(
 		{
 			remoteCommits: mappedRemoteCommits,
 			localCommits: mappedLocalCommits,
-			localAndRemoteCommits: $localAndRemoteCommits.map(transformAnyCommit),
+			localAndRemoteCommits: mappedLocalAndRemoteCommits,
 			integratedCommits: $integratedCommits.map(transformAnyCommit)
 		},
 		!isRebased
@@ -118,6 +128,19 @@
 	}
 
 	$: localCommitsConflicted = $localCommits.some((commit) => commit.conflicted);
+	$: localAndRemoteCommitsConflicted = $localAndRemoteCommits.some((commit) => commit.conflicted);
+
+	async function push() {
+		isPushingCommits = true;
+		try {
+			await branchController.pushBranch($branch.id, $branch.requiresForce);
+			$listingService?.refresh();
+			$prMonitor?.refresh();
+			$checksMonitor?.update();
+		} finally {
+			isPushingCommits = false;
+		}
+	}
 </script>
 
 {#snippet reorderDropzone(dropzone: ReorderDropzone, yOffsetPx: number)}
@@ -154,7 +177,7 @@
 
 				<CommitAction>
 					{#snippet lines()}
-						<LineGroup lineGroup={lineManager.get('remote-spacer')} topHeightPx={0} />
+						<LineGroup lineGroup={lineManager.get(LineSpacer.Remote)} topHeightPx={0} />
 					{/snippet}
 					{#snippet action()}
 						<Button
@@ -217,10 +240,11 @@
 					/>
 				{/each}
 
-				<CommitAction bottomBorder={hasRemoteCommits}>
-					{#snippet lines()}
-						<LineGroup lineGroup={lineManager.get('local-spacer')} topHeightPx={0} />
-					{/snippet}
+				{#snippet lines()}
+					<LineGroup lineGroup={lineManager.get(LineSpacer.Local)} topHeightPx={0} />
+				{/snippet}
+
+				<CommitAction bottomBorder={hasRemoteCommits} {lines}>
 					{#snippet action()}
 						<Button
 							style="pop"
@@ -231,19 +255,7 @@
 							tooltip={localCommitsConflicted
 								? 'In order to push, please resolve any conflicted commits.'
 								: undefined}
-							onclick={async () => {
-								isPushingCommits = true;
-								try {
-									await branchController.pushBranch($branch.id, $branch.requiresForce);
-									$listingService?.refresh();
-									$prMonitor?.refresh();
-									$checksMonitor?.update();
-								} catch (e) {
-									console.error(e);
-								} finally {
-									isPushingCommits = false;
-								}
-							}}
+							onclick={push}
 						>
 							{$branch.requiresForce ? 'Force push' : 'Push'}
 						</Button>
@@ -281,6 +293,29 @@
 						on:click={() => insertBlankCommit(commit.id, 'below')}
 					/>
 				{/each}
+
+				{#if $remoteCommits.length > 0 && $localCommits.length === 0}
+					<CommitAction>
+						{#snippet lines()}
+							<LineGroup lineGroup={lineManager.get(LineSpacer.LocalAndRemote)} topHeightPx={0} />
+						{/snippet}
+						{#snippet action()}
+							<Button
+								style="pop"
+								kind="solid"
+								wide
+								loading={isPushingCommits}
+								disabled={localAndRemoteCommitsConflicted}
+								tooltip={localAndRemoteCommitsConflicted
+									? 'In order to push, please resolve any conflicted commits.'
+									: undefined}
+								onclick={push}
+							>
+								{$branch.requiresForce ? 'Force push' : 'Push'}
+							</Button>
+						{/snippet}
+					</CommitAction>
+				{/if}
 			</div>
 		{/if}
 

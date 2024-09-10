@@ -272,6 +272,7 @@ export class BranchController {
 			await this.vbranchService.refresh();
 		} catch (err: any) {
 			posthog.capture('Push Failed', { error: err });
+			console.error(err);
 			if (err.code === 'errors.git.authentication') {
 				showToast({
 					title: 'Git push failed',
