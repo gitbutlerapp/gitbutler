@@ -29,7 +29,6 @@ export class Project {
 	use_new_locking!: boolean;
 	git_host!: {
 		hostType: 'github' | 'gitlab' | 'bitbucket' | 'azure';
-		usePullRequestTemplate: boolean;
 		pullRequestTemplatePath: string;
 	};
 

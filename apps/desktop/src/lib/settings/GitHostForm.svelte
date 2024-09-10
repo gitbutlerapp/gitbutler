@@ -13,7 +13,7 @@
 	const project = getContext(Project);
 	const gitHost = getGitHost();
 
-	let useTemplate = $state(project.git_host?.usePullRequestTemplate ?? false);
+	let useTemplate = $state(!!project.git_host?.pullRequestTemplatePath);
 	let selectedTemplate = $state(project.git_host?.pullRequestTemplatePath ?? '');
 	let allAvailableTemplates = $state<{ label: string; value: string }[]>([]);
 
@@ -32,7 +32,9 @@
 	});
 
 	async function setUsePullRequestTemplate(value: boolean) {
-		project.git_host.usePullRequestTemplate = value;
+		if (!value) {
+			project.git_host.pullRequestTemplatePath = '';
+		}
 		await projectService.updateProject(project);
 	}
 

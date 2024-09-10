@@ -84,7 +84,7 @@
 		let body: string;
 
 		let pullRequestTemplateBody: string | undefined;
-		const usePrTemplate = project.git_host.usePullRequestTemplate;
+		const usePrTemplate = !!project.git_host.pullRequestTemplatePath;
 		const prTemplatePath = project.git_host.pullRequestTemplatePath;
 
 		if (usePrTemplate && prTemplatePath) {

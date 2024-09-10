@@ -101,8 +101,7 @@ pub mod commands {
     #[tauri::command(async)]
     #[instrument]
     pub fn get_pr_template_contents(path: &path::Path) -> Result<String, Error> {
-        let template_contents = read_file_from_workspace(&path)?;
-        Ok(template_contents)
+        Ok(read_file_from_workspace(&path)?)
     }
 }
 

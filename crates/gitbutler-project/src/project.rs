@@ -106,8 +106,6 @@ pub struct GitHostSettings {
     #[serde(default)]
     pub host_type: Option<String>,
     #[serde(default)]
-    pub use_pull_request_template: Option<bool>,
-    #[serde(default)]
     pub pull_request_template_path: Option<String>,
 }
 
