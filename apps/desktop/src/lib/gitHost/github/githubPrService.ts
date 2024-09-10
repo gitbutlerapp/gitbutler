@@ -107,7 +107,7 @@ export class GitHubPrService implements GitHostPrService {
 
 		const availableTemplates: string[] | undefined = await invoke(
 			'available_pull_request_templates',
-			{ path: targetPath }
+			{ rootPath: targetPath }
 		);
 
 		return availableTemplates;

@@ -2,6 +2,7 @@
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { createGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
@@ -12,6 +13,8 @@
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
 	const gitHost = getGitHost();
+	const prService = createGitHostPrServiceStore(undefined);
+	$effect(() => prService.set($gitHost?.prService()));
 
 	let useTemplate = $state(!!project.git_host?.pullRequestTemplatePath);
 	let selectedTemplate = $state(project.git_host?.pullRequestTemplatePath ?? '');
@@ -19,7 +22,7 @@
 
 	$effect(() => {
 		if (!project.path) return;
-		$gitHost?.getAvailablePrTemplates(project.path).then((availableTemplates) => {
+		$prService?.getAvailablePrTemplates(project.path).then((availableTemplates) => {
 			if (availableTemplates) {
 				allAvailableTemplates = availableTemplates.map((availableTemplate) => {
 					return {
