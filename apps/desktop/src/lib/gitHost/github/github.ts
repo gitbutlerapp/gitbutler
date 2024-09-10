@@ -2,8 +2,6 @@ import { GitHubBranch } from './githubBranch';
 import { GitHubChecksMonitor } from './githubChecksMonitor';
 import { GitHubListingService } from './githubListingService';
 import { GitHubPrService } from './githubPrService';
-import { invoke } from '$lib/backend/ipc';
-import { showToast } from '$lib/notifications/toasts';
 import { Octokit } from '@octokit/rest';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
@@ -49,14 +47,7 @@ export class GitHub implements GitHost {
 		if (!this.octokit) {
 			return;
 		}
-		return new GitHubPrService(
-			this.octokit,
-			this.repo,
-			baseBranch,
-			upstreamName,
-			this.usePullRequestTemplate,
-			this.pullRequestTemplatePath
-		);
+		return new GitHubPrService(this.octokit, this.repo);
 	}
 
 	checksMonitor(sourceBranch: string) {
@@ -75,34 +66,5 @@ export class GitHub implements GitHost {
 
 	commitUrl(id: string): string {
 		return `${this.baseUrl}/commit/${id}`;
-	}
-
-	async getPrTemplateContent(path: string) {
-		try {
-			const fileContents: string | undefined = await invoke('get_pr_template_contents', { path });
-			return fileContents;
-		} catch (err) {
-			console.error(`Error reading pull request template at path: ${path}`, err);
-
-			showToast({
-				title: 'Failed to read pull request template',
-				message: `Could not read: \`${path}\`.`,
-				style: 'neutral'
-			});
-		}
-	}
-
-	async getAvailablePrTemplates(path: string): Promise<string[] | undefined> {
-		// TODO: Find a workaround to avoid this dynamic import
-		// https://github.com/sveltejs/kit/issues/905
-		const { join } = await import('@tauri-apps/api/path');
-		const targetPath = await join(path, '.github');
-
-		const availableTemplates: string[] | undefined = await invoke(
-			'get_available_github_pr_templates',
-			{ path: targetPath }
-		);
-
-		return availableTemplates;
 	}
 }

@@ -19,12 +19,6 @@ export interface GitHost {
 
 	// Web URL for a commit.
 	commitUrl(id: string): string;
-
-	// Get Available Templates from Git Host
-	getAvailablePrTemplates(path?: string): Promise<string[] | undefined>;
-
-	// Get PR Template Content
-	getPrTemplateContent(path?: string): Promise<string | undefined>;
 }
 
 export const [getGitHost, createGitHostStore] = buildContextStore<GitHost | undefined>(
