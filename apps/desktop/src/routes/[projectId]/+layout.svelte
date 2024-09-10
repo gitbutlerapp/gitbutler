@@ -23,6 +23,7 @@
 	import { createGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
+	import CreateIssueModal from '$lib/issues/CreateIssueModal.svelte';
 	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import { ModeService } from '$lib/modes/service';
 	import Navigation from '$lib/navigation/Navigation.svelte';
@@ -31,9 +32,11 @@
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { debounce } from '$lib/utils/debounce';
+	import * as events from '$lib/utils/events';
+	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import { onDestroy, setContext, type Snippet } from 'svelte';
+	import { onDestroy, onMount, setContext, type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
 
@@ -172,7 +175,17 @@
 	onDestroy(() => {
 		clearFetchInterval();
 	});
+
+	let createIssueModal = $state<CreateIssueModal>();
+
+	onMount(() => {
+		return unsubscribe(events.on('goto', async (path: string) => await goto(path)));
+	});
 </script>
+
+{#if $gitHostStore?.issueService()}
+	<CreateIssueModal bind:this={createIssueModal} />
+{/if}
 
 <!-- forces components to be recreated when projectId changes -->
 {#key projectId}

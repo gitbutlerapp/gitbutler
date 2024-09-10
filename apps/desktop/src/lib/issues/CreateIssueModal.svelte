@@ -1,0 +1,127 @@
+<script lang="ts">
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import TextArea from '$lib/shared/TextArea.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
+	import { createKeybind } from '$lib/utils/hotkeys';
+	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
+
+	const gitHost = getGitHost();
+	const issueService = $derived($gitHost?.issueService());
+
+	let modal = $state<Modal>();
+	let chooseLabelModal = $state<Modal>();
+
+	let availables = $state<string[]>([]);
+	let labels = $state<string[]>([]);
+
+	let title = $state('');
+	let body = $state('');
+
+	$effect(() => {
+		issueService?.listLabels().then((labels) => {
+			availables = labels;
+
+			console.log(availables);
+		});
+	});
+
+	let submitProgress = $state<'inert' | 'loading' | 'complete'>('inert');
+
+	async function submit() {
+		submitProgress = 'loading';
+		issueService?.create(title, body, labels);
+		submitProgress = 'complete';
+
+		modal?.close();
+	}
+
+	function open() {
+		title = '';
+		body = '';
+		labels = [];
+		submitProgress = 'inert';
+
+		modal?.show();
+	}
+
+	const handleKeyDown = createKeybind({
+		'$mod+i': open
+	});
+</script>
+
+<svelte:window on:keydown={handleKeyDown} />
+
+{#if issueService}
+	<Modal bind:this={modal}>
+		<h2 class="text-18 text-bold">Create an issue</h2>
+
+		<div class="input">
+			<p class="text-14 label">Title</p>
+			<TextBox bind:value={title} />
+		</div>
+
+		<div class="input">
+			<p class="text-14 label">Body</p>
+			<TextArea bind:value={body} />
+		</div>
+
+		<div class="labels">
+			{#each labels as label}
+				<Button onclick={() => (labels = labels.filter((l) => l !== label))} size="tag"
+					>{label}</Button
+				>
+			{/each}
+
+			<Modal bind:this={chooseLabelModal} width="small">
+				<div class="availables">
+					{#each availables.filter((label) => !labels.includes(label)) as label}
+						<Button
+							onclick={() => {
+								labels.push(label);
+								chooseLabelModal?.close();
+							}}
+							size="tag">{label}</Button
+						>
+					{/each}
+				</div>
+			</Modal>
+			<Button icon="plus-small" size="tag" onclick={() => chooseLabelModal?.show()}
+				>Add Label</Button
+			>
+		</div>
+
+		{#snippet controls()}
+			<Button onclick={() => modal?.close()}>Cancel</Button>
+			<Button kind="solid" style="pop" onclick={submit} loading={submitProgress === 'loading'}
+				>Submit</Button
+			>
+		{/snippet}
+	</Modal>
+{/if}
+
+<style lang="postcss">
+	.input {
+		margin-top: 8px;
+	}
+
+	.label {
+		margin-bottom: 4px;
+	}
+
+	.labels {
+		margin-top: 8px;
+
+		display: flex;
+		flex-wrap: wrap;
+
+		gap: 8px;
+	}
+
+	.availables {
+		display: flex;
+		flex-wrap: wrap;
+
+		gap: 8px;
+	}
+</style>
