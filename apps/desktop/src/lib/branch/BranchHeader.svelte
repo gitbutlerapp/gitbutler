@@ -83,15 +83,30 @@
 		let title: string;
 		let body: string;
 
-		// In case of a single commit, use the commit summary and description for the title and
-		// description of the PR.
-		if (branch.commits.length === 1) {
-			const commit = branch.commits[0];
-			title = commit?.descriptionTitle ?? '';
-			body = commit?.descriptionBody ?? '';
-		} else {
+		let pullRequestTemplateBody: string | undefined;
+		const usePrTemplate = project.git_host.usePullRequestTemplate;
+		const prTemplatePath = project.git_host.pullRequestTemplatePath;
+
+		if (usePrTemplate && prTemplatePath) {
+			pullRequestTemplateBody = await $gitHost.getPrTemplateContent(
+				prTemplatePath.replace(project.path, '')
+			);
+		}
+
+		if (pullRequestTemplateBody) {
 			title = branch.name;
-			body = '';
+			body = pullRequestTemplateBody;
+		} else {
+			// In case of a single commit, use the commit summary and description for the title and
+			// description of the PR.
+			if (branch.commits.length === 1) {
+				const commit = branch.commits[0];
+				title = commit?.descriptionTitle ?? '';
+				body = commit?.descriptionBody ?? '';
+			} else {
+				title = branch.name;
+				body = '';
+			}
 		}
 
 		isLoading = true;
@@ -111,9 +126,9 @@
 			await $prService.createPr({
 				title,
 				body,
-				draft: opts.draft,
-				useTemplate: project.git_host.use_pull_request_template,
-				templatePath: project.git_host.pull_request_template_path.replace(project.path, '')
+				draft: opts.draft
+				// useTemplate: project.git_host.usePullRequestTemplate,
+				// templatePath: project.git_host.pullRequestTemplatePath.replace(project.path, '')
 			});
 		} catch (err: any) {
 			console.error(err);

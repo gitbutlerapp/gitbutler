@@ -4,6 +4,7 @@
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { platformName } from '$lib/platform/platform';
@@ -22,6 +23,7 @@
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
 	const userService = getContext(UserService);
+	const gitHost = getGitHost();
 	const user = userService.user;
 
 	let deleteConfirmationModal: RemoveProjectButton;
@@ -41,6 +43,7 @@
 			isDeleting = false;
 		}
 	}
+	$inspect('$user.github_username', $user?.github_username);
 </script>
 
 <SettingsPage title="Project settings">
@@ -49,7 +52,7 @@
 	{/if}
 	<CloudForm />
 	<DetailsForm />
-	{#if $user?.github_access_token}
+	{#if $gitHost}
 		<GitHostForm />
 	{/if}
 	{#if $platformName !== 'win32'}

@@ -47,4 +47,12 @@ export class BitBucket implements GitHost {
 	checksMonitor(_sourceBranch: string) {
 		return undefined;
 	}
+
+	async getAvailablePrTemplates(_path?: string) {
+		return undefined;
+	}
+
+	async getPrTemplateContent(_path?: string) {
+		return undefined;
+	}
 }

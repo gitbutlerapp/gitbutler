@@ -22,7 +22,6 @@ export interface GitHostPrService {
 		useTemplate,
 		templatePath
 	}: CreatePullRequestArguments): Promise<PullRequest>;
-	fetchPrTemplate(path?: string): Promise<string | undefined>;
 	merge(method: MergeMethod, prNumber: number): Promise<void>;
 	prMonitor(prNumber: number): GitHostPrMonitor;
 }

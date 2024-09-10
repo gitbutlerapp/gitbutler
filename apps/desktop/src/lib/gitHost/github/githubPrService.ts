@@ -1,7 +1,6 @@
 import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
-import { showToast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
@@ -15,6 +14,11 @@ import type {
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Octokit } from '@octokit/rest';
 
+export type PullRequestTemplatePaths = {
+	value: string;
+	label: string;
+};
+
 export class GitHubPrService implements GitHostPrService {
 	loading = writable(false);
 
@@ -25,22 +29,16 @@ export class GitHubPrService implements GitHostPrService {
 		private upstreamName: string
 	) {}
 
-	async createPr({
-		title,
-		body,
-		draft,
-		useTemplate,
-		templatePath
-	}: CreatePullRequestArguments): Promise<PullRequest> {
+	async createPr({ title, body, draft }: CreatePullRequestArguments): Promise<PullRequest> {
 		this.loading.set(true);
-		const request = async (prBody: string | undefined) => {
+		const request = async () => {
 			const resp = await this.octokit.rest.pulls.create({
 				owner: this.repo.owner,
 				repo: this.repo.name,
 				head: this.upstreamName,
 				base: this.baseBranch,
 				title,
-				body: body ? body : prBody,
+				body,
 				draft
 			});
 			return ghResponseToInstance(resp.data);
@@ -49,16 +47,11 @@ export class GitHubPrService implements GitHostPrService {
 		let attempts = 0;
 		let lastError: any;
 		let pr: PullRequest | undefined;
-		let pullRequestTemplateBody: string | undefined;
-
-		if (!body && useTemplate && templatePath) {
-			pullRequestTemplateBody = await this.fetchPrTemplate(templatePath);
-		}
 
 		// Use retries since request can fail right after branch push.
 		while (attempts < 4) {
 			try {
-				pr = await request(pullRequestTemplateBody);
+				pr = await request();
 				posthog.capture('PR Successful');
 				return pr;
 			} catch (err: any) {
@@ -70,28 +63,6 @@ export class GitHubPrService implements GitHostPrService {
 			}
 		}
 		throw lastError;
-	}
-
-	async fetchPrTemplate(path: string) {
-		try {
-			const response = await this.octokit.rest.repos.getContent({
-				owner: this.repo.owner,
-				repo: this.repo.name,
-				path
-			});
-			const b64Content = (response.data as any)?.content;
-			if (b64Content) {
-				return decodeURIComponent(escape(atob(b64Content)));
-			}
-		} catch (err) {
-			console.error(`Error fetching pull request template at path: ${path}`, err);
-
-			showToast({
-				title: 'Failed to fetch pull request template',
-				message: `Template not found at path: \`${path}\`.`,
-				style: 'neutral'
-			});
-		}
 	}
 
 	async get(prNumber: number): Promise<DetailedPullRequest> {

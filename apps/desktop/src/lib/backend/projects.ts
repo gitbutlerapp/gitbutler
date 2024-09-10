@@ -28,9 +28,9 @@ export class Project {
 	snapshot_lines_threshold!: number | undefined;
 	use_new_locking!: boolean;
 	git_host!: {
-		host_type: 'github' | 'gitlab' | 'bitbucket' | 'azure';
-		use_pull_request_template: boolean;
-		pull_request_template_path: string;
+		hostType: 'github' | 'gitlab' | 'bitbucket' | 'azure';
+		usePullRequestTemplate: boolean;
+		pullRequestTemplatePath: string;
 	};
 
 	private succeeding_rebases!: boolean;

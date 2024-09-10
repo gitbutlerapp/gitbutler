@@ -2,6 +2,8 @@ import { GitHubBranch } from './githubBranch';
 import { GitHubChecksMonitor } from './githubChecksMonitor';
 import { GitHubListingService } from './githubListingService';
 import { GitHubPrService } from './githubPrService';
+import { invoke } from '$lib/backend/ipc';
+import { showToast } from '$lib/notifications/toasts';
 import { Octokit } from '@octokit/rest';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
@@ -66,5 +68,45 @@ export class GitHub implements GitHost {
 
 	commitUrl(id: string): string {
 		return `${this.baseUrl}/commit/${id}`;
+	}
+
+	async getPrTemplateContent(path: string) {
+		if (!this.octokit) {
+			return;
+		}
+
+		try {
+			const response = await this.octokit.rest.repos.getContent({
+				owner: this.repo.owner,
+				repo: this.repo.name,
+				path
+			});
+			const b64Content = (response.data as any)?.content;
+			if (b64Content) {
+				return decodeURIComponent(escape(atob(b64Content)));
+			}
+		} catch (err) {
+			console.error(`Error fetching pull request template at path: ${path}`, err);
+
+			showToast({
+				title: 'Failed to fetch pull request template',
+				message: `Template not found at path: \`${path}\`.`,
+				style: 'neutral'
+			});
+		}
+	}
+
+	async getAvailablePrTemplates(path: string): Promise<string[] | undefined> {
+		// TODO: Find a workaround to avoid this dynamic import
+		// https://github.com/sveltejs/kit/issues/905
+		const { join } = await import('@tauri-apps/api/path');
+		const targetPath = await join(path, '.github');
+
+		const availableTemplates: string[] | undefined = await invoke(
+			'get_available_github_pr_templates',
+			{ path: targetPath }
+		);
+
+		return availableTemplates;
 	}
 }

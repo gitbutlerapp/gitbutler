@@ -16,12 +16,6 @@ pub mod commands {
         pub device_code: String,
     }
 
-    #[derive(Debug, Clone, Default, Serialize, Deserialize)]
-    pub struct Path {
-        pub value: String,
-        pub label: String,
-    }
-
     #[tauri::command(async)]
     #[instrument]
     pub async fn init_device_oauth() -> Result<Verification, Error> {
@@ -89,7 +83,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument]
-    pub fn get_available_github_pr_templates(path: &path::Path) -> Result<Vec<Path>, Error> {
+    pub fn get_available_github_pr_templates(path: &path::Path) -> Result<Vec<String>, Error> {
         let walked_paths = list_files(path, &[path])?;
 
         let mut available_paths = Vec::new();
@@ -104,10 +98,7 @@ pub mod commands {
                 || path_str == "pull_request_template.md"
                 || path_str.contains("PULL_REQUEST_TEMPLATE/")
             {
-                available_paths.push(Path {
-                    value: path.join(path_entry).to_string_lossy().to_string(),
-                    label: path_entry.to_string_lossy().to_string(),
-                });
+                available_paths.push(path_entry.to_string_lossy().to_string());
             }
         }
 

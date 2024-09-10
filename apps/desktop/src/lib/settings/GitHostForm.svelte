@@ -1,10 +1,7 @@
 <script lang="ts">
-	import {
-		getAvailablePullRequestTemplates,
-		type PullRequestTemplatePaths
-	} from '$lib/backend/github';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
@@ -14,28 +11,34 @@
 
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
+	const gitHost = getGitHost();
 
-	let useTemplate = $state(project.git_host?.use_pull_request_template ?? false);
-	let selectedTemplate = $state(project.git_host?.pull_request_template_path ?? '');
-	let allAvailableTemplates = $state<PullRequestTemplatePaths[]>([]);
+	let useTemplate = $state(project.git_host?.usePullRequestTemplate ?? false);
+	let selectedTemplate = $state(project.git_host?.pullRequestTemplatePath ?? '');
+	let allAvailableTemplates = $state<{ label: string; value: string }[]>([]);
 
 	$effect(() => {
 		if (!project.path) return;
-		getAvailablePullRequestTemplates(project.path).then((availableTemplates) => {
+		$gitHost?.getAvailablePrTemplates(project.path).then((availableTemplates) => {
 			if (availableTemplates) {
-				allAvailableTemplates = availableTemplates;
+				allAvailableTemplates = availableTemplates.map((availableTemplate) => {
+					return {
+						label: availableTemplate,
+						value: `${project.path}/${availableTemplate}`
+					};
+				});
 			}
 		});
 	});
 
 	async function setUsePullRequestTemplate(value: boolean) {
-		project.git_host.use_pull_request_template = value;
+		project.git_host.usePullRequestTemplate = value;
 		await projectService.updateProject(project);
 	}
 
 	async function setPullRequestTemplatePath(value: string) {
 		selectedTemplate = value;
-		project.git_host.pull_request_template_path = value;
+		project.git_host.pullRequestTemplatePath = value;
 		await projectService.updateProject(project);
 	}
 </script>
