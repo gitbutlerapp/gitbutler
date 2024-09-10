@@ -36,7 +36,7 @@ export class AzureDevOps implements GitHost {
 		return undefined;
 	}
 
-	prService(_baseBranch: string, _upstreamName: string) {
+	prService() {
 		return undefined;
 	}
 

@@ -9,7 +9,7 @@ export interface GitHost {
 	listService(): GitHostListingService | undefined;
 
 	// Detailed information about a specific PR.
-	prService(baseBranch: string, upstreamName: string): GitHostPrService | undefined;
+	prService(): GitHostPrService | undefined;
 
 	// Results from CI check-runs.
 	checksMonitor(branchName: string): GitHostChecksMonitor | undefined;

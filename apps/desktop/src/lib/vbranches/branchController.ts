@@ -261,15 +261,16 @@ export class BranchController {
 		}
 	}
 
-	async pushBranch(branchId: string, withForce: boolean): Promise<void> {
+	async pushBranch(branchId: string, withForce: boolean): Promise<string> {
 		try {
-			await invoke<void>('push_virtual_branch', {
+			const upstreamRef = await invoke<string>('push_virtual_branch', {
 				projectId: this.projectId,
 				branchId,
 				withForce
 			});
 			posthog.capture('Push Successful');
 			await this.vbranchService.refresh();
+			return upstreamRef;
 		} catch (err: any) {
 			posthog.capture('Push Failed', { error: err });
 			console.error(err);
