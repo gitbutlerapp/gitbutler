@@ -137,8 +137,6 @@
 			$listingService?.refresh();
 			$prMonitor?.refresh();
 			$checksMonitor?.update();
-		} catch (e) {
-			console.error(e);
 		} finally {
 			isPushingCommits = false;
 		}
