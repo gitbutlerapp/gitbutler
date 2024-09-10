@@ -16,37 +16,37 @@ FROM ubuntu:22.04
 
 RUN apt update && \
   apt install -y \
-    build-essential \
-    curl \
-    git \
-    pkg-config \
-    psmisc \
-    vim && \
-    # Clean up
-    apt -y autoremove && apt -y clean
+  build-essential \
+  curl \
+  git \
+  pkg-config \
+  psmisc \
+  vim && \
+  # Clean up
+  apt -y autoremove && apt -y clean
 
 # Install Tauri dependencies
 # v1: https://v1.tauri.app/v1/guides/getting-started/prerequisites#setting-up-linux
 # v2: https://v2.tauri.app/start/prerequisites/#linux
 RUN apt install -y \
-    libwebkit2gtk-4.0-dev \
-    build-essential \
-    curl \
-    wget \
-    libssl-dev \
-    libgtk-3-dev \
-    libayatana-appindicator3-dev \
-    librsvg2-dev && \
-    # Clean up
-    apt -y autoremove && apt -y clean
+  libwebkit2gtk-4.0-dev \
+  build-essential \
+  curl \
+  wget \
+  libssl-dev \
+  libgtk-3-dev \
+  libayatana-appindicator3-dev \
+  librsvg2-dev && \
+  # Clean up
+  apt -y autoremove && apt -y clean
 
 # Install tauri-driver dependencies
 RUN apt install -y \
-    dbus-x11 \
-    webkit2gtk-driver \
-    xvfb && \
-    # Clean up
-    apt -y autoremove && apt -y clean
+  dbus-x11 \
+  webkit2gtk-driver \
+  xvfb && \
+  # Clean up
+  apt -y autoremove && apt -y clean
 
 # Install ssh server for X11 forwarding
 RUN apt install -y openssh-server && \
@@ -81,5 +81,9 @@ RUN pnpm setup
 RUN pnpm add --global turbo && \
   # Used as a proxy for communicating with WebKitWebDriver.
   cargo install tauri-driver && \
+  # Make `tauri-driver` more widely available
+  ln -s /root/.cargo/bin/tauri-driver /usr/local/bin/tauri-driver \
   # vi bindings on by default.
   echo "set -o vi" >> /root/.bashrc
+
+CMD ["/bin/bash"]
