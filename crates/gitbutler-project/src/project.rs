@@ -101,6 +101,7 @@ pub struct Project {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
+#[serde(rename_all = "camelCase")]
 pub struct GitHostSettings {
     #[serde(default)]
     pub host_type: Option<String>,

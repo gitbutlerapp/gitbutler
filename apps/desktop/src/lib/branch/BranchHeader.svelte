@@ -112,8 +112,8 @@
 				title,
 				body,
 				draft: opts.draft,
-				useTemplate: project.git_host?.use_pull_request_template,
-				templatePath: project.git_host?.pull_request_template_path.replace(project.path, '')
+				useTemplate: project.git_host.use_pull_request_template,
+				templatePath: project.git_host.pull_request_template_path.replace(project.path, '')
 			});
 		} catch (err: any) {
 			console.error(err);

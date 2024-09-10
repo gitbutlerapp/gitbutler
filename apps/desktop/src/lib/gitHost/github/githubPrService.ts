@@ -15,8 +15,6 @@ import type {
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Octokit } from '@octokit/rest';
 
-const DEFAULT_PULL_REQUEST_TEMPLATE_PATH = '.github/PULL_REQUEST_TEMPLATE.md';
-
 export class GitHubPrService implements GitHostPrService {
 	loading = writable(false);
 
@@ -35,7 +33,7 @@ export class GitHubPrService implements GitHostPrService {
 		templatePath
 	}: CreatePullRequestArguments): Promise<PullRequest> {
 		this.loading.set(true);
-		const request = async (prBody: string | undefined = '') => {
+		const request = async (prBody: string | undefined) => {
 			const resp = await this.octokit.rest.pulls.create({
 				owner: this.repo.owner,
 				repo: this.repo.name,
@@ -53,7 +51,7 @@ export class GitHubPrService implements GitHostPrService {
 		let pr: PullRequest | undefined;
 		let pullRequestTemplateBody: string | undefined;
 
-		if (!body && useTemplate) {
+		if (!body && useTemplate && templatePath) {
 			pullRequestTemplateBody = await this.fetchPrTemplate(templatePath);
 		}
 
@@ -74,7 +72,7 @@ export class GitHubPrService implements GitHostPrService {
 		throw lastError;
 	}
 
-	async fetchPrTemplate(path = DEFAULT_PULL_REQUEST_TEMPLATE_PATH) {
+	async fetchPrTemplate(path: string) {
 		try {
 			const response = await this.octokit.rest.repos.getContent({
 				owner: this.repo.owner,

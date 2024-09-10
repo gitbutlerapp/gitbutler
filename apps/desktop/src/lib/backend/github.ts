@@ -28,9 +28,7 @@ export async function getAvailablePullRequestTemplates(
 
 	const availableTemplates: PullRequestTemplatePaths[] | undefined = await invoke(
 		'get_available_github_pr_templates',
-		{
-			path: targetPath
-		}
+		{ path: targetPath }
 	);
 
 	return availableTemplates;
