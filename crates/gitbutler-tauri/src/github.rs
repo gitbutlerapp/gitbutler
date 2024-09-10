@@ -83,22 +83,22 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument]
-    pub fn get_available_github_pr_templates(path: &path::Path) -> Result<Vec<String>, Error> {
-        let walked_paths = list_files(path, &[path])?;
+    pub fn get_available_github_pr_templates(root_path: &path::Path) -> Result<Vec<String>, Error> {
+        let walked_paths = list_files(root_path, &[root_path])?;
 
         let mut available_paths = Vec::new();
         for entry in walked_paths {
             let path_entry = entry.as_path();
             let path_str = path_entry.to_string_lossy();
-            // TODO: Refactor these paths out in the future to a common
-            // gitHosts.pullRequestTemplatePaths tuple, one for each gitHost type
-            // So that this 'get_available_templates' can be more generic and we can
-            // add / modify paths more easily for all supported githost types
+            // TODO: Refactor these paths out in the future to something like a common
+            // gitHosts.pullRequestTemplatePaths map, an entry for each gitHost type and
+            // their valid files / directories. So that this 'get_available_templates'
+            // can be more generic and we can add / modify paths more easily for all supported githost types
             if path_str == "PULL_REQUEST_TEMPLATE.md"
                 || path_str == "pull_request_template.md"
                 || path_str.contains("PULL_REQUEST_TEMPLATE/")
             {
-                available_paths.push(path.join(path_entry).to_string_lossy().to_string());
+                available_paths.push(root_path.join(path_entry).to_string_lossy().to_string());
             }
         }
 
