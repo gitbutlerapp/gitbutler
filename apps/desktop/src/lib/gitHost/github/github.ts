@@ -71,26 +71,15 @@ export class GitHub implements GitHost {
 	}
 
 	async getPrTemplateContent(path: string) {
-		if (!this.octokit) {
-			return;
-		}
-
 		try {
-			const response = await this.octokit.rest.repos.getContent({
-				owner: this.repo.owner,
-				repo: this.repo.name,
-				path
-			});
-			const b64Content = (response.data as any)?.content;
-			if (b64Content) {
-				return decodeURIComponent(escape(atob(b64Content)));
-			}
+			const fileContents: string | undefined = await invoke('get_pr_template_contents', { path });
+			return fileContents;
 		} catch (err) {
-			console.error(`Error fetching pull request template at path: ${path}`, err);
+			console.error(`Error reading pull request template at path: ${path}`, err);
 
 			showToast({
-				title: 'Failed to fetch pull request template',
-				message: `Template not found at path: \`${path}\`.`,
+				title: 'Failed to read pull request template',
+				message: `Could not read: \`${path}\`.`,
 				style: 'neutral'
 			});
 		}

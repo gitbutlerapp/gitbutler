@@ -88,8 +88,7 @@
 		const prTemplatePath = project.git_host.pullRequestTemplatePath;
 
 		if (usePrTemplate && prTemplatePath) {
-			const relativeTemplatePath = prTemplatePath.replace(project.path, '');
-			pullRequestTemplateBody = await $gitHost.getPrTemplateContent(relativeTemplatePath);
+			pullRequestTemplateBody = await $gitHost.getPrTemplateContent(prTemplatePath);
 		}
 
 		if (pullRequestTemplateBody) {

@@ -112,3 +112,17 @@ pub fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> 
         toml::from_str(&contents).with_context(|| format!("Failed to parse {}", path.display()))?;
     Ok(value)
 }
+
+/// Reads file from disk at workspace
+pub fn read_file_from_workspace(path: &Path) -> Result<String> {
+    let mut file = match File::open(path) {
+        Ok(f) => f,
+        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+            return Err(anyhow::anyhow!("Unable to read file: {}", path.display()))
+        }
+        Err(err) => return Err(err.into()),
+    };
+    let mut contents = String::new();
+    file.read_to_string(&mut contents)?;
+    Ok(contents)
+}
