@@ -335,20 +335,16 @@
 	<ScrollableContainer horz padding={{ left: NUMBER_COLUMN_WIDTH_PX * 2 + 2 }}>
 		<table data-hunk-id={hunk.id} class="table__section">
 			<thead class="table__title">
-				<tr>
-					<th
-						class="table__checkbox-container"
-						class:selected={isSelected}
-						colspan={2}
-						onclick={() => {
-							selectable && handleSelected(hunk, !isSelected);
-						}}
-					>
+				<tr
+					onclick={() => {
+						selectable && handleSelected(hunk, !isSelected);
+					}}
+				>
+					<th class="table__checkbox-container" class:selected={isSelected} colspan={2}>
 						<div class="table__checkbox">
 							{#if selectable}
 								<Checkbox
 									checked={isSelected}
-									style="blue"
 									small
 									onclick={() => {
 										selectable && handleSelected(hunk, !isSelected);
@@ -466,6 +462,7 @@
 
 	.table__title {
 		cursor: grab;
+		user-select: none;
 	}
 
 	.table__drag-handle {

@@ -43,12 +43,12 @@
 	--clr-core-warn-20: color(srgb 0.3764705882352941 0.2549019607843137 0.08627450980392157);
 	--clr-core-warn-30: color(srgb 0.5411764705882353 0.34901960784313724 0.0784313725490196);
 	--clr-core-warn-40: color(srgb 0.7803921568627451 0.4980392156862745 0.10196078431372549);
-	--clr-core-warn-50: color(srgb 0.8627450980392157 0.6078431372549019 0.0784313725490196);
-	--clr-core-warn-60: color(srgb 0.9568627450980393 0.7333333333333333 0.4235294117647059);
-	--clr-core-warn-70: color(srgb 0.996078431372549 0.8666666666666667 0.6823529411764706);
-	--clr-core-warn-80: color(srgb 1 0.9098039215686274 0.7803921568627451);
-	--clr-core-warn-90: color(srgb 1 0.9490196078431372 0.8784313725490196);
-	--clr-core-warn-95: color(srgb 0.9921568627450981 0.9686274509803922 0.9294117647058824);
+	--clr-core-warn-50: color(srgb 0.8627450980392157 0.6 0.0784313725490196);
+	--clr-core-warn-60: color(srgb 0.9568627450980393 0.7529411764705882 0.4235294117647059);
+	--clr-core-warn-70: color(srgb 0.996078431372549 0.8823529411764706 0.6823529411764706);
+	--clr-core-warn-80: color(srgb 1 0.9254901960784314 0.7803921568627451);
+	--clr-core-warn-90: color(srgb 1 0.9686274509803922 0.8784313725490196);
+	--clr-core-warn-95: color(srgb 0.9921568627450981 0.9764705882352941 0.9294117647058824);
 	--clr-core-succ-5: color(srgb 0.050980392156862744 0.14901960784313725 0.10196078431372549);
 	--clr-core-succ-10: color(srgb 0.10980392156862745 0.25098039215686274 0.1843137254901961);
 	--clr-core-succ-20: color(srgb 0.13333333333333333 0.3254901960784314 0.23529411764705882);
@@ -203,19 +203,9 @@
 	--clr-diff-line-bg: var(--clr-bg-1);
 	--clr-diff-count-bg: color(srgb 0.9686274509803922 0.9686274509803922 0.9647058823529412);
 	--clr-diff-count-border: var(--clr-border-2);
-	--clr-diff-selected-count-bg: color(srgb 0.8823529411764706 0.9333333333333333 1);
-	--clr-diff-selected-count-border: color(
-		srgb 0.615686274509804 0.7647058823529411 0.9607843137254902
-	);
-	--clr-diff-selected-count-text: color(
-		srgb 0.3803921568627451 0.5294117647058824 0.8627450980392157
-	);
-	--clr-diff-selected-checkbox: color(
-		srgb 0.21568627450980393 0.5450980392156862 0.9490196078431372
-	);
-	--clr-diff-selected-checkbox-hover: color(
-		srgb 0.09803921568627451 0.42745098039215684 0.8313725490196079
-	);
+	--clr-diff-selected-count-bg: var(--clr-core-pop-70);
+	--clr-diff-selected-count-border: var(--clr-core-pop-60);
+	--clr-diff-selected-count-text: var(--clr-core-pop-40);
 	--clr-diff-count-text: var(--clr-text-3);
 	--clr-diff-deletion-line-bg: color(srgb 1 0.9411764705882353 0.9490196078431372);
 	--clr-diff-deletion-line-highlight: color(
@@ -391,17 +381,9 @@
 	--clr-diff-line-bg: var(--clr-bg-1);
 	--clr-diff-count-bg: color(srgb 0.18823529411764706 0.17254901960784313 0.16862745098039217);
 	--clr-diff-count-border: var(--clr-border-2);
-	--clr-diff-selected-count-bg: color(
-		srgb 0.07450980392156863 0.19215686274509805 0.3803921568627451
-	);
-	--clr-diff-selected-count-border: color(
-		srgb 0.1411764705882353 0.39215686274509803 0.6823529411764706
-	);
-	--clr-diff-selected-count-text: color(srgb 0.41568627450980394 0.6823529411764706 1);
-	--clr-diff-selected-checkbox: color(
-		srgb 0.1450980392156863 0.5058823529411764 0.9529411764705882
-	);
-	--clr-diff-selected-checkbox-hover: color(srgb 0.06666666666666667 0.396078431372549 0.8);
+	--clr-diff-selected-count-bg: var(--clr-core-pop-10);
+	--clr-diff-selected-count-border: var(--clr-core-pop-30);
+	--clr-diff-selected-count-text: var(--clr-core-pop-50);
 	--clr-diff-count-text: var(--clr-text-3);
 	--clr-diff-deletion-line-bg: color(
 		srgb 0.23529411764705882 0.07450980392156863 0.10588235294117647
