@@ -4,6 +4,8 @@ import Codespan from '$lib/components/markdownRenderers/Codespan.svelte';
 import Heading from '$lib/components/markdownRenderers/Heading.svelte';
 import Image from '$lib/components/markdownRenderers/Image.svelte';
 import Paragraph from '$lib/components/markdownRenderers/Paragraph.svelte';
+import List from '$lib/components/markdownRenderers/List.svelte';
+import ListItem from '$lib/components/markdownRenderers/ListItem.svelte';
 import Text from '$lib/components/markdownRenderers/Text.svelte';
 import Link from '$lib/shared/Link.svelte';
 
@@ -14,6 +16,10 @@ export const renderers = {
 	code: Code,
 	codespan: Codespan,
 	text: Text,
+	orderedlistitem: null,
+	unorderedlistitem: null,
+	list: List,
+	listitem: ListItem,
 	heading: Heading,
 	paragraph: Paragraph
 };
