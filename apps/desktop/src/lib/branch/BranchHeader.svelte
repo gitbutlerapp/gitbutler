@@ -126,7 +126,13 @@
 				return;
 			}
 
-			await $prService.createPr(title, body, opts.draft, upstreamBranchName, baseBranchName);
+			await $prService.createPr({
+				title,
+				body,
+				draft: opts.draft,
+				baseBranchName,
+				upstreamName: upstreamBranchName
+			});
 		} catch (err: any) {
 			console.error(err);
 			const toast = mapErrorToToast(err);
