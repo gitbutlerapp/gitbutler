@@ -1,5 +1,6 @@
 <script lang="ts">
 	/* eslint svelte/valid-compile: "off" */
+	/* - Required because spreading in prop destructuring still throws eslint errors */
 	import { renderers } from '$lib/utils/markdownRenderers';
 	import type { Tokens, Token } from 'marked';
 
@@ -18,7 +19,6 @@
 
 	let { type, ...rest }: Props = $props();
 
-	// @ts-expect-error todo: map cannot be indexed on a union of string literals apparently
 	const CurrentComponent = renderers[type];
 </script>
 
@@ -26,9 +26,9 @@
 	{#each rest.tokens as token}
 		<svelte:self {...token} />
 	{/each}
-{:else if renderers[type as Extract<Props, 'type'>]}
+{:else if renderers[type]}
 	{#if type === 'list'}
-		{@const listItems = (rest as Extract<Props, { type: typeof type }>).items}
+		{@const listItems = (rest as Extract<Props, { type: 'list' }>).items}
 		<CurrentComponent {...rest}>
 			{#each listItems as item}
 				{@const ChildComponent = renderers[item.type]}
@@ -38,7 +38,7 @@
 			{/each}
 		</CurrentComponent>
 	{:else}
-		<CurrentComponent this={renderers[type as Extract<Props, 'type'>]} {...rest}>
+		<CurrentComponent this={renderers[type]} {...rest}>
 			{#if 'tokens' in rest && rest.tokens}
 				<svelte:self tokens={rest.tokens} />
 			{:else if 'raw' in rest}
