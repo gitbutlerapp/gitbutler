@@ -7,7 +7,7 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import { featureBranchStacking } from '$lib/config/uiFeatureFlags';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
@@ -45,8 +45,6 @@
 	const baseBranchName = $derived($baseBranch.shortName);
 	const branch = $derived($branchStore);
 	const pr = $derived($prMonitor?.pr);
-
-	const branchStacking = featureBranchStacking();
 
 	let contextMenu = $state<ContextMenu>();
 	let meatballButtonEl = $state<HTMLDivElement>();
@@ -212,9 +210,9 @@
 					<Icon name="draggable" />
 				</div>
 
-				<div class:header__info={!branchStacking} class:stacking-header__info={branchStacking}>
+				<div class:header__info={!$stackingFeature} class:stacking-header__info={$stackingFeature}>
 					<BranchLabel name={branch.name} onChange={(name) => handleBranchNameChange(name)} />
-					{#if branchStacking}
+					{#if stackingFeature}
 						<span class="button-group">
 							<DefaultTargetButton
 								selectedForChanges={branch.selectedForChanges}
@@ -264,7 +262,7 @@
 				</div>
 			</div>
 
-			{#if !branchStacking}
+			{#if !$stackingFeature}
 				<div class="header__actions">
 					<div class="header__buttons">
 						<DefaultTargetButton
