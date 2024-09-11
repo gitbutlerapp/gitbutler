@@ -30,7 +30,10 @@
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { goto } from '$app/navigation';
 
-	export let isUnapplied: boolean;
+	interface Props {
+		isUnapplied: boolean;
+	}
+	const { isUnapplied }: Props = $props();
 
 	const branch = getContextStore(VirtualBranch);
 	const localCommits = getLocalCommits();
@@ -49,60 +52,65 @@
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 	const gitHost = getGitHost();
 
+	// TODO: Why does eslint-svelte-plugin complain about enum?
+	// eslint-disable-next-line svelte/valid-compile
 	enum LineSpacer {
 		Remote = 'remote-spacer',
 		Local = 'local-spacer',
 		LocalAndRemote = 'local-and-remote-spacer'
 	}
 
-	$: mappedRemoteCommits =
+	const mappedRemoteCommits = $derived(
 		$remoteCommits.length > 0
 			? [...$remoteCommits.map(transformAnyCommit), { id: LineSpacer.Remote }]
-			: [];
-	$: mappedLocalCommits =
+			: []
+	);
+	const mappedLocalCommits = $derived(
 		$localCommits.length > 0
 			? [...$localCommits.map(transformAnyCommit), { id: LineSpacer.Local }]
-			: [];
-	$: mappedLocalAndRemoteCommits =
+			: []
+	);
+	const mappedLocalAndRemoteCommits = $derived(
 		$localAndRemoteCommits.length > 0
 			? [...$localAndRemoteCommits.map(transformAnyCommit), { id: LineSpacer.LocalAndRemote }]
-			: [];
+			: []
+	);
 
-	$: lineManager = lineManagerFactory.build(
-		{
-			remoteCommits: mappedRemoteCommits,
-			localCommits: mappedLocalCommits,
-			localAndRemoteCommits: mappedLocalAndRemoteCommits,
-			integratedCommits: $integratedCommits.map(transformAnyCommit)
-		},
-		!isRebased
+	const forkPoint = $derived($branch.forkPoint);
+	const upstreamForkPoint = $derived($branch.upstreamData?.forkPoint);
+	const isRebased = $derived(!!forkPoint && !!upstreamForkPoint && forkPoint !== upstreamForkPoint);
+
+	const lineManager = $derived(
+		lineManagerFactory.build(
+			{
+				remoteCommits: mappedRemoteCommits,
+				localCommits: mappedLocalCommits,
+				localAndRemoteCommits: mappedLocalAndRemoteCommits,
+				integratedCommits: $integratedCommits.map(transformAnyCommit)
+			},
+			!isRebased
+		)
 	);
 
 	// Force the "base" commit lines to update when $branch updates.
-	let tsKey: number | undefined;
-	$: {
+	let tsKey = $state<number | undefined>(undefined);
+	$effect(() => {
 		$branch;
 		tsKey = Date.now();
-	}
+	});
 
-	$: hasCommits = $branch.commits && $branch.commits.length > 0;
-	$: headCommit = $branch.commits.at(0);
+	const hasCommits = $derived($branch.commits && $branch.commits.length > 0);
+	const headCommit = $derived($branch.commits.at(0));
 
-	$: hasRemoteCommits = $remoteCommits.length > 0;
+	const hasRemoteCommits = $derived($remoteCommits.length > 0);
 
-	$: reorderDropzoneManager = reorderDropzoneManagerFactory.build($branch, [
-		...$localCommits,
-		...$localAndRemoteCommits
-	]);
+	const reorderDropzoneManager = $derived(
+		reorderDropzoneManagerFactory.build($branch, [...$localCommits, ...$localAndRemoteCommits])
+	);
 
-	$: forkPoint = $branch.forkPoint;
-	$: upstreamForkPoint = $branch.upstreamData?.forkPoint;
-	$: isRebased = !!forkPoint && !!upstreamForkPoint && forkPoint !== upstreamForkPoint;
-
-	$: isPushingCommits = false;
-	$: isIntegratingCommits = false;
-
-	let baseIsUnfolded = false;
+	let isPushingCommits = $state(false);
+	let isIntegratingCommits = $state(false);
+	let baseIsUnfolded = $state(false);
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!$branch || !$baseBranch) {
@@ -127,8 +135,10 @@
 		return 0;
 	}
 
-	$: localCommitsConflicted = $localCommits.some((commit) => commit.conflicted);
-	$: localAndRemoteCommitsConflicted = $localAndRemoteCommits.some((commit) => commit.conflicted);
+	const localCommitsConflicted = $derived($localCommits.some((commit) => commit.conflicted));
+	const localAndRemoteCommitsConflicted = $derived(
+		$localAndRemoteCommits.some((commit) => commit.conflicted)
+	);
 
 	async function push() {
 		isPushingCommits = true;
@@ -347,8 +357,11 @@
 				class="base-row"
 				tabindex="0"
 				role="button"
-				on:click|stopPropagation={() => (baseIsUnfolded = !baseIsUnfolded)}
-				on:keydown={(e) => e.key === 'Enter' && (baseIsUnfolded = !baseIsUnfolded)}
+				onclick={(e) => {
+					e.stopPropagation();
+					baseIsUnfolded = !baseIsUnfolded;
+				}}
+				onkeydown={(e) => e.key === 'Enter' && (baseIsUnfolded = !baseIsUnfolded)}
 			>
 				<div class="base-row__lines">
 					{#key tsKey}
@@ -359,7 +372,7 @@
 					<span class="text-11 base-row__text"
 						>Base commit <button
 							class="base-row__commit-link"
-							on:click={async () => await goto(`/${project.id}/base`)}
+							onclick={async () => await goto(`/${project.id}/base`)}
 						>
 							{$branch.forkPoint ? $branch.forkPoint.slice(0, 7) : ''}
 						</button>
