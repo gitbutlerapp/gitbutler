@@ -8,32 +8,37 @@
 		| Tokens.Link
 		| Tokens.Heading
 		| Tokens.Image
-		| Tokens.Space
 		| Tokens.Blockquote
 		| Tokens.Code
 		| Tokens.Text
 		| Tokens.Codespan
+		| Tokens.Paragraph
 		| Tokens.ListItem
 		| Tokens.List;
 
 	let { type, ...rest }: Props = $props();
+
+	// @ts-expect-error indexing on string union is having trouble
+	const CurrentComponent = renderers[type as Props['type']];
 </script>
 
-{#if type && renderers[type as keyof typeof renderers]}
+{#if type && CurrentComponent}
 	{#if type === 'list'}
-		<svelte:component this={renderers.list} {...rest as Tokens.List}>
-			{#each rest.items as item}
-				<svelte:component this={renderers.listitem} {...item}>
+		{@const listItems = (rest as Extract<Props, { type: typeof type }>).items}
+		<CurrentComponent {...rest}>
+			{#each listItems as item}
+				{@const ChildComponent = renderers[item.type]}
+				<ChildComponent {...item}>
 					<svelte:self tokens={item.tokens} {renderers} />
-				</svelte:component>
+				</ChildComponent>
 			{/each}
-		</svelte:component>
+		</CurrentComponent>
 	{:else}
-		<svelte:component this={renderers[type as keyof typeof renderers] as any} {...rest}>
+		<CurrentComponent {...rest}>
 			{#if 'tokens' in rest}
 				<svelte:self tokens={rest.tokens} />
 			{/if}
-		</svelte:component>
+		</CurrentComponent>
 	{/if}
 {:else if 'tokens' in rest && rest.tokens}
 	{#each rest.tokens as token}
