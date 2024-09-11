@@ -9,11 +9,8 @@ import ListItem from '$lib/components/markdownRenderers/ListItem.svelte';
 import Paragraph from '$lib/components/markdownRenderers/Paragraph.svelte';
 import Text from '$lib/components/markdownRenderers/Text.svelte';
 import Link from '$lib/shared/Link.svelte';
-import type { Component } from 'svelte';
 
-type Renderers = Record<string, Component>;
-
-export const renderers: Renderers = {
+export const renderers = {
 	link: Link,
 	image: Image,
 	blockquote: Blockquote,
@@ -24,7 +21,8 @@ export const renderers: Renderers = {
 	list: List,
 	list_item: ListItem,
 	heading: Heading,
-	paragraph: Paragraph
+	paragraph: Paragraph,
+	init: null
 };
 
 export const options = {

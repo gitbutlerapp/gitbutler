@@ -3,6 +3,7 @@
 	/* - Required because spreading in prop destructuring still throws eslint errors */
 	import { renderers } from '$lib/utils/markdownRenderers';
 	import type { Tokens, Token } from 'marked';
+	import type { Component } from 'svelte';
 
 	type Props =
 		| { type: 'init'; tokens: Token[] }
@@ -17,9 +18,9 @@
 		| Tokens.ListItem
 		| Tokens.List;
 
-	let { type, ...rest }: Props = $props();
+	const { type, ...rest }: Props = $props();
 
-	const CurrentComponent = renderers[type];
+	const CurrentComponent = renderers[type] as Component<Props>;
 </script>
 
 {#if (!type || type === 'init') && 'tokens' in rest && rest.tokens}
