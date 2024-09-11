@@ -21,7 +21,7 @@
 		showCheckbox: boolean;
 		readonly: boolean;
 		onclick: (e: MouseEvent) => void;
-		onkeydown: (e: KeyboardEvent) => void;
+		onkeydown?: (e: KeyboardEvent) => void;
 	}
 
 	const { file, isUnapplied, selected, showCheckbox, readonly, onclick, onkeydown }: Props =
