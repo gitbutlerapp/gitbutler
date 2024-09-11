@@ -555,6 +555,7 @@
 		display: block;
 		color: var(--clr-text-1);
 		width: 100%;
+		user-select: text;
 	}
 
 	.commit__description {
