@@ -63,8 +63,10 @@ where
             && hunks[0].diff_lines.contains_str(b"Subproject commit");
 
         // if file exists
-        if full_path.exists() || allow_new_file {
-            if hunks.len() == 1 && hunks[0].change_type == crate::ChangeType::Deleted {
+        let full_path_exists = full_path.exists();
+        let discard_hunk = (hunks.len() == 1).then(|| &hunks[0]);
+        if full_path_exists || allow_new_file {
+            if discard_hunk.map_or(false, |hunk| hunk.change_type == crate::ChangeType::Deleted) {
                 // File was created but now that hunk is being discarded with an inversed hunk
                 builder.remove(rel_path);
                 fs::remove_file(full_path.clone())?;
@@ -122,7 +124,7 @@ where
                 )?;
                 builder.upsert(rel_path, blob_oid, filemode);
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
-                if hunks.len() == 1 && hunks[0].binary {
+                if discard_hunk.map_or(false, |hunk| hunk.binary) {
                     let new_blob_oid = &hunks[0].diff_lines;
                     // convert string to Oid
                     let new_blob_oid = new_blob_oid
@@ -185,19 +187,17 @@ where
                 let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
                 // upsert into the builder
                 builder.upsert(rel_path, new_blob_oid, filemode);
-            } else if !full_path.exists()
-                && hunks.len() == 1
-                && hunks[0].change_type == crate::ChangeType::Added
+            } else if !full_path_exists
+                && discard_hunk.map_or(false, |hunk| hunk.change_type == crate::ChangeType::Added)
             {
                 // File was deleted but now that hunk is being discarded with an inversed hunk
-                let mut blob_contents = BString::default();
                 let mut all_diffs = BString::default();
                 for hunk in hunks {
                     all_diffs.push_str(&hunk.diff_lines);
                 }
                 let patch = Patch::from_bytes(&all_diffs)?;
-                blob_contents = apply(&blob_contents, &patch)
-                    .context(format!("failed to apply {}", all_diffs))?;
+                let blob_contents =
+                    apply([], &patch).context(format!("failed to apply {}", all_diffs))?;
 
                 let new_blob_oid = git_repository.blob(&blob_contents)?;
                 builder.upsert(rel_path, new_blob_oid, filemode);
