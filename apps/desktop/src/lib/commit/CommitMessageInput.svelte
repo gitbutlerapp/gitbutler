@@ -31,6 +31,7 @@
 	export let commitMessage: string;
 	export let valid: boolean = false;
 	export let commit: (() => void) | undefined = undefined;
+	export let cancel: () => void;
 
 	const user = getContextStore(User);
 	const selectedOwnership = getContextStore(Ownership);
@@ -125,6 +126,12 @@
 	function handleDescriptionKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
 		const value = e.currentTarget.value;
 
+		if (e.key === KeyName.Escape) {
+			e.preventDefault();
+			cancel();
+			return;
+		}
+
 		if (e.key === KeyName.Delete && value.length === 0) {
 			e.preventDefault();
 			if (titleTextArea) {
@@ -144,6 +151,12 @@
 	}
 
 	function handleSummaryKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
+		if (e.key === KeyName.Escape) {
+			e.preventDefault();
+			cancel();
+			return;
+		}
+
 		if (commit && (e.ctrlKey || e.metaKey) && e.key === KeyName.Enter) commit();
 		if (e.key === KeyName.Enter) {
 			e.preventDefault();

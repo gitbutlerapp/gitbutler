@@ -40,6 +40,10 @@
 			isCommitting = false;
 		}
 	}
+
+	function close() {
+		$expanded = false;
+	}
 </script>
 
 <div
@@ -65,6 +69,7 @@
 		bind:commitMessage={$commitMessage}
 		bind:valid={commitMessageValid}
 		isExpanded={$expanded}
+		cancel={close}
 		{commit}
 	/>
 	<div class="actions" class:commit-box__actions-expanded={$expanded}>
@@ -74,9 +79,7 @@
 					style="ghost"
 					outline
 					id="commit-to-branch"
-					onclick={() => {
-						$expanded = false;
-					}}
+					onclick={close}
 				>
 					Cancel
 				</Button>

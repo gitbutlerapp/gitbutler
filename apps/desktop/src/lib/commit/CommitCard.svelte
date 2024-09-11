@@ -155,11 +155,14 @@
 </script>
 
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
-	<CommitMessageInput
-		bind:commitMessage={description}
-		bind:valid={commitMessageValid}
-		isExpanded={true}
-	/>
+	{#snippet children(_, close)}
+		<CommitMessageInput
+			bind:commitMessage={description}
+			bind:valid={commitMessageValid}
+			isExpanded={true}
+			cancel={close}
+		/>
+	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
 		<Button style="neutral" type="submit" kind="solid" grow disabled={!commitMessageValid}>
@@ -240,7 +243,7 @@
 					const mouseY = e.clientY;
 
 					const isTop = mouseY < targetTop + targetHeight / 2;
-					
+
 					dragDirection = isTop ? 'up' : 'down';
 				}}
 				use:draggableCommit={commit instanceof DetailedCommit &&

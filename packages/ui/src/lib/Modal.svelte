@@ -10,7 +10,7 @@
 		icon?: keyof typeof iconsJson;
 		onClose?: () => void;
 		onSubmit?: (close: () => void) => void;
-		children: Snippet<[item?: any]>;
+		children: Snippet<[item: any, close: () => void]>;
 		controls?: Snippet<[close: () => void, item: any]>;
 	}
 
@@ -64,7 +64,7 @@
 			{/if}
 
 			<div class="modal__body custom-scrollbar text-13 text-body">
-				{@render children(item)}
+				{@render children(item, close)}
 			</div>
 
 			{#if controls}
