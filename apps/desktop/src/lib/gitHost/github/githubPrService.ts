@@ -8,7 +8,12 @@ import { get, writable } from 'svelte/store';
 import type { Persisted } from '$lib/persisted/persisted';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHostPrService } from '../interface/gitHostPrService';
-import type { DetailedPullRequest, MergeMethod, PullRequest } from '../interface/types';
+import type {
+	CreatePullRequestArgs,
+	DetailedPullRequest,
+	MergeMethod,
+	PullRequest
+} from '../interface/types';
 import type { Octokit } from '@octokit/rest';
 
 const DEFAULT_PULL_REQUEST_TEMPLATE_PATH = '.github/PULL_REQUEST_TEMPLATE.md';
@@ -23,13 +28,13 @@ export class GitHubPrService implements GitHostPrService {
 		private pullRequestTemplatePath?: Persisted<string>
 	) {}
 
-	async createPr(
-		title: string,
-		body: string,
-		draft: boolean,
-		baseBranchName: string,
-		upstreamName: string
-	): Promise<PullRequest> {
+	async createPr({
+		title,
+		body,
+		draft,
+		baseBranchName,
+		upstreamName
+	}: CreatePullRequestArgs): Promise<PullRequest> {
 		this.loading.set(true);
 		const request = async (pullRequestTemplate: string | undefined = '') => {
 			const resp = await this.octokit.rest.pulls.create({
