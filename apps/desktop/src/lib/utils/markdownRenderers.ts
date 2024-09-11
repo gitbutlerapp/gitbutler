@@ -9,9 +9,9 @@ import ListItem from '$lib/components/markdownRenderers/ListItem.svelte';
 import Paragraph from '$lib/components/markdownRenderers/Paragraph.svelte';
 import Text from '$lib/components/markdownRenderers/Text.svelte';
 import Link from '$lib/shared/Link.svelte';
-import type { ComponentType } from 'svelte';
+import type { Component } from 'svelte';
 
-type Renderers = Record<string, ComponentType>;
+type Renderers = Record<string, Component>;
 
 export const renderers: Renderers = {
 	link: Link,
