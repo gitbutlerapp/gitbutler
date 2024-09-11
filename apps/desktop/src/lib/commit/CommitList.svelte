@@ -5,6 +5,7 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import {
 		ReorderDropzoneManagerFactory,
 		type ReorderDropzone
@@ -12,42 +13,41 @@
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getContext } from '$lib/utils/context';
 	import { getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import {
-		getIntegratedCommits,
-		getLocalCommits,
-		getLocalAndRemoteCommits,
-		getRemoteCommits
-	} from '$lib/vbranches/contexts';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { Commit, DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { goto } from '$app/navigation';
 
 	interface Props {
+		localCommits: DetailedCommit[];
+		localAndRemoteCommits: DetailedCommit[];
+		integratedCommits: DetailedCommit[];
+		remoteCommits: Commit[];
 		isUnapplied: boolean;
+		isPushingCommits: boolean;
+		localCommitsConflicted: boolean;
+		push: () => Promise<void>;
 	}
-	const { isUnapplied }: Props = $props();
+	const {
+		localCommits,
+		localAndRemoteCommits,
+		integratedCommits,
+		remoteCommits,
+		isUnapplied,
+		isPushingCommits,
+		localCommitsConflicted,
+		push
+	}: Props = $props();
 
 	const branch = getContextStore(VirtualBranch);
-	const localCommits = getLocalCommits();
-	const localAndRemoteCommits = getLocalAndRemoteCommits();
-	const remoteCommits = getRemoteCommits();
-	const integratedCommits = getIntegratedCommits();
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
-	//
-	const listingService = getGitHostListingService();
-	const prMonitor = getGitHostPrMonitor();
-	const checksMonitor = getGitHostChecksMonitor();
 
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 	const gitHost = getGitHost();
@@ -61,18 +61,21 @@
 	}
 
 	const mappedRemoteCommits = $derived(
-		$remoteCommits.length > 0
-			? [...$remoteCommits.map(transformAnyCommit), { id: LineSpacer.Remote }]
+		remoteCommits.length > 0
+			? [...remoteCommits.map(transformAnyCommit), { id: LineSpacer.Remote }]
 			: []
 	);
+
 	const mappedLocalCommits = $derived(
-		$localCommits.length > 0
-			? [...$localCommits.map(transformAnyCommit), { id: LineSpacer.Local }]
+		localCommits.length > 0
+			? !$stackingFeature
+				? [...localCommits.map(transformAnyCommit), { id: LineSpacer.Local }]
+				: localCommits.map(transformAnyCommit)
 			: []
 	);
 	const mappedLocalAndRemoteCommits = $derived(
-		$localAndRemoteCommits.length > 0
-			? [...$localAndRemoteCommits.map(transformAnyCommit), { id: LineSpacer.LocalAndRemote }]
+		localAndRemoteCommits.length > 0
+			? [...localAndRemoteCommits.map(transformAnyCommit), { id: LineSpacer.LocalAndRemote }]
 			: []
 	);
 
@@ -86,7 +89,7 @@
 				remoteCommits: mappedRemoteCommits,
 				localCommits: mappedLocalCommits,
 				localAndRemoteCommits: mappedLocalAndRemoteCommits,
-				integratedCommits: $integratedCommits.map(transformAnyCommit)
+				integratedCommits: integratedCommits.map(transformAnyCommit)
 			},
 			!isRebased
 		)
@@ -102,13 +105,12 @@
 	const hasCommits = $derived($branch.commits && $branch.commits.length > 0);
 	const headCommit = $derived($branch.commits.at(0));
 
-	const hasRemoteCommits = $derived($remoteCommits.length > 0);
+	const hasRemoteCommits = $derived(remoteCommits.length > 0);
 
 	const reorderDropzoneManager = $derived(
-		reorderDropzoneManagerFactory.build($branch, [...$localCommits, ...$localAndRemoteCommits])
+		reorderDropzoneManagerFactory.build($branch, [...localCommits, ...localAndRemoteCommits])
 	);
 
-	let isPushingCommits = $state(false);
 	let isIntegratingCommits = $state(false);
 	let baseIsUnfolded = $state(false);
 
@@ -135,22 +137,9 @@
 		return 0;
 	}
 
-	const localCommitsConflicted = $derived($localCommits.some((commit) => commit.conflicted));
 	const localAndRemoteCommitsConflicted = $derived(
-		$localAndRemoteCommits.some((commit) => commit.conflicted)
+		localAndRemoteCommits.some((commit) => commit.conflicted)
 	);
-
-	async function push() {
-		isPushingCommits = true;
-		try {
-			await branchController.pushBranch($branch.id, $branch.requiresForce);
-			$listingService?.refresh();
-			$prMonitor?.refresh();
-			$checksMonitor?.update();
-		} finally {
-			isPushingCommits = false;
-		}
-	}
 </script>
 
 {#snippet reorderDropzone(dropzone: ReorderDropzone, yOffsetPx: number)}
@@ -165,17 +154,17 @@
 	<div class="commits">
 		<!-- UPSTREAM COMMITS -->
 
-		{#if $remoteCommits.length > 0}
+		{#if remoteCommits.length > 0}
 			<!-- To make the sticky position work, commits should be wrapped in a div -->
 			<div class="commits-group">
-				{#each $remoteCommits as commit, idx (commit.id)}
+				{#each remoteCommits as commit, idx (commit.id)}
 					<CommitCard
 						type="remote"
 						branch={$branch}
 						{commit}
 						{isUnapplied}
 						first={idx === 0}
-						last={idx === $remoteCommits.length - 1}
+						last={idx === remoteCommits.length - 1}
 						commitUrl={$gitHost?.commitUrl(commit.id)}
 						isHeadCommit={commit.id === headCommit?.id}
 					>
@@ -211,7 +200,7 @@
 		{/if}
 
 		<!-- LOCAL COMMITS -->
-		{#if $localCommits.length > 0}
+		{#if localCommits.length > 0}
 			<div class="commits-group">
 				<InsertEmptyCommitAction
 					isFirst
@@ -221,14 +210,14 @@
 					reorderDropzoneManager.topDropzone,
 					getReorderDropzoneOffset({ isFirst: true })
 				)}
-				{#each $localCommits as commit, idx (commit.id)}
+				{#each localCommits as commit, idx (commit.id)}
 					<CommitCard
 						{commit}
 						{isUnapplied}
 						type="local"
 						first={idx === 0}
 						branch={$branch}
-						last={idx === $localCommits.length - 1}
+						last={idx === localCommits.length - 1}
 						isHeadCommit={commit.id === headCommit?.id}
 					>
 						{#snippet lines(topHeightPx)}
@@ -239,52 +228,53 @@
 					{@render reorderDropzone(
 						reorderDropzoneManager.dropzoneBelowCommit(commit.id),
 						getReorderDropzoneOffset({
-							isLast: idx + 1 === $localCommits.length,
-							isMiddle: idx + 1 === $localCommits.length
+							isLast: idx + 1 === localCommits.length,
+							isMiddle: idx + 1 === localCommits.length
 						})
 					)}
 
 					<InsertEmptyCommitAction
-						isLast={idx + 1 === $localCommits.length}
+						isLast={idx + 1 === localCommits.length}
 						on:click={() => insertBlankCommit(commit.id, 'below')}
 					/>
 				{/each}
 
-				{#snippet lines()}
-					<LineGroup lineGroup={lineManager.get(LineSpacer.Local)} topHeightPx={0} />
-				{/snippet}
-
-				<CommitAction bottomBorder={hasRemoteCommits} {lines}>
-					{#snippet action()}
-						<Button
-							style="pop"
-							kind="solid"
-							wide
-							loading={isPushingCommits}
-							disabled={localCommitsConflicted}
-							tooltip={localCommitsConflicted
-								? 'In order to push, please resolve any conflicted commits.'
-								: undefined}
-							onclick={push}
-						>
-							{$branch.requiresForce ? 'Force push' : 'Push'}
-						</Button>
-					{/snippet}
-				</CommitAction>
+				{#if !$stackingFeature}
+					<CommitAction bottomBorder={hasRemoteCommits}>
+						{#snippet lines()}
+							<LineGroup lineGroup={lineManager.get(LineSpacer.Local)} topHeightPx={0} />
+						{/snippet}
+						{#snippet action()}
+							<Button
+								style="pop"
+								kind="solid"
+								wide
+								loading={isPushingCommits}
+								disabled={localCommitsConflicted}
+								tooltip={localCommitsConflicted
+									? 'In order to push, please resolve any conflicted commits.'
+									: undefined}
+								onclick={push}
+							>
+								{$branch.requiresForce ? 'Force push' : 'Push'}
+							</Button>
+						{/snippet}
+					</CommitAction>
+				{/if}
 			</div>
 		{/if}
 
 		<!-- LOCAL AND REMOTE COMMITS -->
-		{#if $localAndRemoteCommits.length > 0}
+		{#if localAndRemoteCommits.length > 0}
 			<div class="commits-group">
-				{#each $localAndRemoteCommits as commit, idx (commit.id)}
+				{#each localAndRemoteCommits as commit, idx (commit.id)}
 					<CommitCard
 						{commit}
 						{isUnapplied}
 						type="localAndRemote"
 						first={idx === 0}
 						branch={$branch}
-						last={idx === $localAndRemoteCommits.length - 1}
+						last={idx === localAndRemoteCommits.length - 1}
 						isHeadCommit={commit.id === headCommit?.id}
 						commitUrl={$gitHost?.commitUrl(commit.id)}
 					>
@@ -295,16 +285,16 @@
 					{@render reorderDropzone(
 						reorderDropzoneManager.dropzoneBelowCommit(commit.id),
 						getReorderDropzoneOffset({
-							isMiddle: idx + 1 === $localAndRemoteCommits.length
+							isMiddle: idx + 1 === localAndRemoteCommits.length
 						})
 					)}
 					<InsertEmptyCommitAction
-						isLast={idx + 1 === $localAndRemoteCommits.length}
+						isLast={idx + 1 === localAndRemoteCommits.length}
 						on:click={() => insertBlankCommit(commit.id, 'below')}
 					/>
 				{/each}
 
-				{#if $remoteCommits.length > 0 && $localCommits.length === 0}
+				{#if remoteCommits.length > 0 && localCommits.length === 0}
 					<CommitAction>
 						{#snippet lines()}
 							<LineGroup lineGroup={lineManager.get(LineSpacer.LocalAndRemote)} topHeightPx={0} />
@@ -330,9 +320,9 @@
 		{/if}
 
 		<!-- INTEGRATED COMMITS -->
-		{#if $integratedCommits.length > 0}
+		{#if integratedCommits.length > 0}
 			<div class="commits-group">
-				{#each $integratedCommits as commit, idx (commit.id)}
+				{#each integratedCommits as commit, idx (commit.id)}
 					<CommitCard
 						{commit}
 						{isUnapplied}
@@ -340,7 +330,7 @@
 						first={idx === 0}
 						branch={$branch}
 						isHeadCommit={commit.id === headCommit?.id}
-						last={idx === $integratedCommits.length - 1}
+						last={idx === integratedCommits.length - 1}
 						commitUrl={$gitHost?.commitUrl(commit.id)}
 					>
 						{#snippet lines(topHeightPx)}
