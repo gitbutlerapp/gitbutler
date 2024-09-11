@@ -78,7 +78,7 @@ impl GitHunk {
             new_lines: 0,
             diff_lines: Default::default(),
             binary: false,
-            change_type: ChangeType::Modified,
+            change_type: ChangeType::Added,
         }
     }
 }
