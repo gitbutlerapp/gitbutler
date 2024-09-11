@@ -20,6 +20,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
 
 	interface Props {
@@ -28,9 +29,9 @@
 		integratedCommits: DetailedCommit[];
 		remoteCommits: Commit[];
 		isUnapplied: boolean;
-		isPushingCommits: boolean;
+		pushButton?: Snippet<[{ disabled: boolean }]>;
 		localCommitsConflicted: boolean;
-		push: () => Promise<void>;
+		localAndRemoteCommitsConflicted: boolean;
 	}
 	const {
 		localCommits,
@@ -38,9 +39,9 @@
 		integratedCommits,
 		remoteCommits,
 		isUnapplied,
-		isPushingCommits,
 		localCommitsConflicted,
-		push
+		pushButton,
+		localAndRemoteCommitsConflicted
 	}: Props = $props();
 
 	const branch = getContextStore(VirtualBranch);
@@ -136,10 +137,6 @@
 		if (isLast) return 0;
 		return 0;
 	}
-
-	const localAndRemoteCommitsConflicted = $derived(
-		localAndRemoteCommits.some((commit) => commit.conflicted)
-	);
 </script>
 
 {#snippet reorderDropzone(dropzone: ReorderDropzone, yOffsetPx: number)}
@@ -238,26 +235,13 @@
 						on:click={() => insertBlankCommit(commit.id, 'below')}
 					/>
 				{/each}
-
-				{#if !$stackingFeature}
+				{#if !$stackingFeature && pushButton}
 					<CommitAction bottomBorder={hasRemoteCommits}>
 						{#snippet lines()}
 							<LineGroup lineGroup={lineManager.get(LineSpacer.Local)} topHeightPx={0} />
 						{/snippet}
 						{#snippet action()}
-							<Button
-								style="pop"
-								kind="solid"
-								wide
-								loading={isPushingCommits}
-								disabled={localCommitsConflicted}
-								tooltip={localCommitsConflicted
-									? 'In order to push, please resolve any conflicted commits.'
-									: undefined}
-								onclick={push}
-							>
-								{$branch.requiresForce ? 'Force push' : 'Push'}
-							</Button>
+							{@render pushButton({ disabled: localCommitsConflicted })}
 						{/snippet}
 					</CommitAction>
 				{/if}
@@ -294,25 +278,13 @@
 					/>
 				{/each}
 
-				{#if remoteCommits.length > 0 && localCommits.length === 0}
+				{#if remoteCommits.length > 0 && localCommits.length === 0 && pushButton}
 					<CommitAction>
 						{#snippet lines()}
 							<LineGroup lineGroup={lineManager.get(LineSpacer.LocalAndRemote)} topHeightPx={0} />
 						{/snippet}
 						{#snippet action()}
-							<Button
-								style="pop"
-								kind="solid"
-								wide
-								loading={isPushingCommits}
-								disabled={localAndRemoteCommitsConflicted}
-								tooltip={localAndRemoteCommitsConflicted
-									? 'In order to push, please resolve any conflicted commits.'
-									: undefined}
-								onclick={push}
-							>
-								{$branch.requiresForce ? 'Force push' : 'Push'}
-							</Button>
+							{@render pushButton({ disabled: localAndRemoteCommitsConflicted })}
 						{/snippet}
 					</CommitAction>
 				{/if}
