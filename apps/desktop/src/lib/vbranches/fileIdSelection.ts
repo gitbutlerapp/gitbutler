@@ -56,8 +56,11 @@ export class FileIdSelection {
 	}
 
 	add(fileId: string, commitId?: string) {
-		this.value.push(stringifyFileKey(fileId, commitId));
-		this.emit();
+		const fileKey = stringifyFileKey(fileId, commitId);
+		if (!this.value.includes(fileKey)) {
+			this.value.push(fileKey);
+			this.emit();
+		}
 	}
 
 	has(fileId: string, commitId?: string) {

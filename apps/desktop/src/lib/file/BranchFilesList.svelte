@@ -76,6 +76,7 @@
 		e.preventDefault();
 		updateSelection({
 			allowMultiple,
+			metaKey: e.metaKey,
 			shiftKey: e.shiftKey,
 			key: e.key,
 			targetElement: e.currentTarget as HTMLElement,
