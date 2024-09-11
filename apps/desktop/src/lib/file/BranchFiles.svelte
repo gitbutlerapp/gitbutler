@@ -10,6 +10,7 @@
 	export let isUnapplied: boolean;
 	export let showCheckboxes = false;
 	export let commitDialogExpanded: Writable<boolean>;
+	export let focusCommitDialog: () => void;
 
 	export let allowMultiple = false;
 	export let readonly = false;
@@ -27,6 +28,7 @@
 			{showCheckboxes}
 			{isUnapplied}
 			{commitDialogExpanded}
+			{focusCommitDialog}
 		/>
 	{/if}
 </div>

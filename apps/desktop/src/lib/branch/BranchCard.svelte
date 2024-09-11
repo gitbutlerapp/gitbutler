@@ -52,6 +52,7 @@
 
 	let laneWidth: number | undefined = $state();
 
+	let commitDialog = $state<CommitDialog>();
 	let scrollViewport: HTMLElement | undefined = $state();
 	let rsViewport: HTMLElement | undefined = $state();
 
@@ -131,6 +132,7 @@
 										showCheckboxes={$commitBoxOpen}
 										allowMultiple
 										commitDialogExpanded={commitBoxOpen}
+										focusCommitDialog={() => commitDialog?.focus()}
 									/>
 									{#if branch.conflicted}
 										<div class="card-notifications">
@@ -149,6 +151,7 @@
 								</Dropzones>
 
 								<CommitDialog
+									bind:this={commitDialog}
 									projectId={project.id}
 									expanded={commitBoxOpen}
 									hasSectionsAfter={branch.commits.length > 0}

@@ -45,6 +45,10 @@
 	function close() {
 		$expanded = false;
 	}
+
+	export function focus() {
+		commitMessageInput.focus();
+	}
 </script>
 
 <div
@@ -77,14 +81,7 @@
 	<div class="actions" class:commit-box__actions-expanded={$expanded}>
 		{#if $expanded && !isCommitting}
 			<div class="cancel-btn-wrapper" transition:slideFade={{ duration: 200, axis: 'x' }}>
-				<Button
-					style="ghost"
-					outline
-					id="commit-to-branch"
-					onclick={close}
-				>
-					Cancel
-				</Button>
+				<Button style="ghost" outline id="commit-to-branch" onclick={close}>Cancel</Button>
 			</div>
 		{/if}
 		<Button

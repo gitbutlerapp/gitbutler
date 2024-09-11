@@ -5,13 +5,14 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { chunk } from '$lib/utils/array';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { getContext } from '$lib/utils/context';
+	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { updateSelection } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
+	import { SelectedOwnership, updateOwnership } from '$lib/vbranches/ownership';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -24,7 +25,8 @@
 		showCheckboxes?: boolean;
 		allowMultiple?: boolean;
 		readonly?: boolean;
-		commitDialogExpanded: Writable<boolean> | undefined;
+		commitDialogExpanded?: Writable<boolean>;
+		focusCommitDialog?: () => void;
 	}
 
 	const {
@@ -33,20 +35,65 @@
 		showCheckboxes = false,
 		allowMultiple = false,
 		readonly = false,
-		commitDialogExpanded = undefined
+		commitDialogExpanded,
+		focusCommitDialog
 	}: Props = $props();
 
 	const fileIdSelection = getContext(FileIdSelection);
+	const selectedOwnership: Writable<SelectedOwnership> | undefined =
+		maybeGetContextStore(SelectedOwnership);
 	const commit = getCommitStore();
 
 	let chunkedFiles: AnyFile[][] = $derived(chunk(sortLikeFileTree(files), 100));
 	let currentDisplayIndex = $state(0);
 	let displayedFiles: AnyFile[] = $derived(chunkedFiles.slice(0, currentDisplayIndex + 1).flat());
 
-  function startCommit() {
+	function handleSpace() {
 		if (commitDialogExpanded === undefined) return;
+
+		// Start commit
 		if (!$commitDialogExpanded) {
 			$commitDialogExpanded = true;
+			return;
+		}
+
+		// Stage/unstage files
+		updateOwnership({
+			selectedFileIds: $fileIdSelection,
+			files: displayedFiles,
+			selectedOwnership
+		});
+	}
+
+	function handleEnter() {
+		if (commitDialogExpanded === undefined || focusCommitDialog === undefined) return;
+		if ($commitDialogExpanded) {
+			focusCommitDialog();
+		}
+	}
+
+	function handleKeyDown(e: KeyboardEvent) {
+		e.preventDefault();
+		updateSelection({
+			allowMultiple,
+			shiftKey: e.shiftKey,
+			key: e.key,
+			targetElement: e.currentTarget as HTMLElement,
+			files: displayedFiles,
+			selectedFileIds: $fileIdSelection,
+			fileIdSelection,
+			commitId: $commit?.id
+		});
+
+		switch (e.key) {
+			case KeyName.Space: {
+				handleSpace();
+				break;
+			}
+			case KeyName.Enter: {
+				handleEnter();
+				break;
+			}
 		}
 	}
 
@@ -86,28 +133,7 @@
 			loadMore();
 		}}
 		role="listbox"
-		onkeydown={(e) => {
-			e.preventDefault();
-			updateSelection(
-				{
-					allowMultiple,
-					shiftKey: e.shiftKey,
-					key: e.key,
-					targetElement: e.currentTarget as HTMLElement,
-					files: displayedFiles,
-					selectedFileIds: $fileIdSelection,
-					fileIdSelection,
-					commitId: $commit?.id
-				}
-			);
-			switch (e.key) {
-				case KeyName.Space: {
-					e.preventDefault();
-					startCommit();
-					break;
-				}
-			}
-		}}
+		onkeydown={handleKeyDown}
 	>
 		{#each displayedFiles as file (file.id)}
 			<FileListItem
