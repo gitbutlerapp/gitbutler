@@ -12,7 +12,11 @@
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import CommitList from '$lib/commit/CommitList.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
+	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { showError } from '$lib/notifications/toasts';
 	import { persisted } from '$lib/persisted/persisted';
 	import { isFailure } from '$lib/result';
@@ -22,8 +26,16 @@
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { groupCommitsByRef } from '$lib/vbranches/commitGroups';
+	import {
+		getIntegratedCommits,
+		getLocalAndRemoteCommits,
+		getLocalCommits,
+		getRemoteCommits
+	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
@@ -93,6 +105,30 @@
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey + branch.id);
 	});
+
+	const localCommits = getLocalCommits();
+	const localAndRemoteCommits = getLocalAndRemoteCommits();
+	const integratedCommits = getIntegratedCommits();
+	const remoteCommits = getRemoteCommits();
+
+	let isPushingCommits = $state(false);
+	const localCommitsConflicted = $derived($localCommits.some((commit) => commit.conflicted));
+
+	const listingService = getGitHostListingService();
+	const prMonitor = getGitHostPrMonitor();
+	const checksMonitor = getGitHostChecksMonitor();
+
+	async function push() {
+		isPushingCommits = true;
+		try {
+			await branchController.pushBranch(branch.id, branch.requiresForce);
+			$listingService?.refresh();
+			$prMonitor?.refresh();
+			$checksMonitor?.update();
+		} finally {
+			isPushingCommits = false;
+		}
+	}
 </script>
 
 {#if $isLaneCollapsed}
@@ -178,7 +214,45 @@
 							</Dropzones>
 						{/if}
 
-						<CommitList isUnapplied={false} />
+						{#if $stackingFeature}
+							{@const groups = groupCommitsByRef(branch.commits)}
+							{#each groups as group (group.ref)}
+								<CommitList
+									localCommits={group.localCommits}
+									localAndRemoteCommits={group.remoteCommits}
+									integratedCommits={group.integratedCommits}
+									remoteCommits={[]}
+									isUnapplied={false}
+									{isPushingCommits}
+									{localCommitsConflicted}
+									{push}
+								/>
+							{/each}
+						{:else}
+							<CommitList
+								localCommits={$localCommits}
+								localAndRemoteCommits={$localAndRemoteCommits}
+								integratedCommits={$integratedCommits}
+								remoteCommits={$remoteCommits}
+								isUnapplied={false}
+								{isPushingCommits}
+								{localCommitsConflicted}
+								{push}
+							/>
+						{/if}
+						<Button
+							style="pop"
+							kind="solid"
+							wide
+							loading={isPushingCommits}
+							disabled={localCommitsConflicted}
+							tooltip={localCommitsConflicted
+								? 'In order to push, please resolve any conflicted commits.'
+								: undefined}
+							onclick={push}
+						>
+							{branch.requiresForce ? 'Force push' : 'Push'}
+						</Button>
 					</div>
 				</div>
 			</ScrollableContainer>

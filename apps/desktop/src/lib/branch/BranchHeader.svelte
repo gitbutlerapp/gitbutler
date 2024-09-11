@@ -212,7 +212,7 @@
 
 				<div class:header__info={!$stackingFeature} class:stacking-header__info={$stackingFeature}>
 					<BranchLabel name={branch.name} onChange={(name) => handleBranchNameChange(name)} />
-					{#if stackingFeature}
+					{#if $stackingFeature}
 						<span class="button-group">
 							<DefaultTargetButton
 								selectedForChanges={branch.selectedForChanges}
