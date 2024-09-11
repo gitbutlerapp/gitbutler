@@ -63,7 +63,13 @@ where
             && hunks[0].diff_lines.contains_str(b"Subproject commit");
 
         // if file exists
-        if full_path.exists() {
+        if full_path.exists() || allow_new_file {
+            if hunks.len() == 1 && hunks[0].change_type == crate::ChangeType::Deleted {
+                // File was created but now that hunk is being discarded with an inversed hunk
+                builder.remove(rel_path);
+                fs::remove_file(full_path.clone())?;
+                continue;
+            }
             // if file is executable, use 755, otherwise 644
             let mut filemode = git2::FileMode::Blob;
             // check if full_path file is executable
