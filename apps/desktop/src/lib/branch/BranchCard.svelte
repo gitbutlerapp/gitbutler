@@ -113,6 +113,9 @@
 
 	let isPushingCommits = $state(false);
 	const localCommitsConflicted = $derived($localCommits.some((commit) => commit.conflicted));
+	const localAndRemoteCommitsConflicted = $derived(
+		$localAndRemoteCommits.some((commit) => commit.conflicted)
+	);
 
 	const listingService = getGitHostListingService();
 	const prMonitor = getGitHostPrMonitor();
@@ -214,6 +217,21 @@
 							</Dropzones>
 						{/if}
 
+						{#snippet pushButton({disabled}: {disabled: boolean})}
+							<Button
+								style="pop"
+								kind="solid"
+								wide
+								loading={isPushingCommits}
+								{disabled}
+								tooltip={localCommitsConflicted
+									? 'In order to push, please resolve any conflicted commits.'
+									: undefined}
+								onclick={push}
+							>
+								{branch.requiresForce ? 'Force push' : 'Push'}
+							</Button>
+						{/snippet}
 						{#if $stackingFeature}
 							{@const groups = groupCommitsByRef(branch.commits)}
 							{#each groups as group (group.ref)}
@@ -223,9 +241,8 @@
 									integratedCommits={group.integratedCommits}
 									remoteCommits={[]}
 									isUnapplied={false}
-									{isPushingCommits}
 									{localCommitsConflicted}
-									{push}
+									{localAndRemoteCommitsConflicted}
 								/>
 							{/each}
 						{:else}
@@ -235,24 +252,16 @@
 								integratedCommits={$integratedCommits}
 								remoteCommits={$remoteCommits}
 								isUnapplied={false}
-								{isPushingCommits}
 								{localCommitsConflicted}
-								{push}
+								{localAndRemoteCommitsConflicted}
+								{pushButton}
 							/>
 						{/if}
-						<Button
-							style="pop"
-							kind="solid"
-							wide
-							loading={isPushingCommits}
-							disabled={localCommitsConflicted}
-							tooltip={localCommitsConflicted
-								? 'In order to push, please resolve any conflicted commits.'
-								: undefined}
-							onclick={push}
-						>
-							{branch.requiresForce ? 'Force push' : 'Push'}
-						</Button>
+						{#if $stackingFeature}
+							{@render pushButton({
+								disabled: localCommitsConflicted || localAndRemoteCommitsConflicted
+							})}
+						{/if}
 					</div>
 				</div>
 			</ScrollableContainer>
