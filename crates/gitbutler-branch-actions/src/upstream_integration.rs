@@ -484,7 +484,6 @@ mod test {
     };
 
     use gitbutler_branch::BranchOwnershipClaims;
-    use gitbutler_commit::commit_headers::HasCommitHeaders;
     use tempfile::tempdir;
     use uuid::Uuid;
 
@@ -620,21 +619,9 @@ mod test {
         let tempdir = tempdir().unwrap();
         let repository = git2::Repository::init(tempdir.path()).unwrap();
         let initial_commit = commit_file(&repository, None, &[("foo.txt", "bar")]);
-        let old_target = dbg!(commit_file(
-            &repository,
-            Some(&initial_commit),
-            &[("foo.txt", "baz")]
-        ));
-        let branch_head = dbg!(commit_file(
-            &repository,
-            Some(&old_target),
-            &[("foo.txt", "fux")]
-        ));
-        let new_target = dbg!(commit_file(
-            &repository,
-            Some(&old_target),
-            &[("foo.txt", "qux")]
-        ));
+        let old_target = commit_file(&repository, Some(&initial_commit), &[("foo.txt", "baz")]);
+        let branch_head = commit_file(&repository, Some(&old_target), &[("foo.txt", "fux")]);
+        let new_target = commit_file(&repository, Some(&old_target), &[("foo.txt", "qux")]);
 
         let branch = make_branch(branch_head.id(), branch_head.tree_id());
 
@@ -674,14 +661,6 @@ mod test {
 
         let head_commit = repository.find_commit(head).unwrap();
         assert_eq!(head_commit.parent(0).unwrap().id(), new_target.id());
-        dbg!(&head_commit);
-        dbg!(head_commit.gitbutler_headers());
-        dbg!(head_commit
-            .tree()
-            .unwrap()
-            .into_iter()
-            .map(|entry| entry.clone().name().unwrap().to_owned())
-            .collect::<Vec<_>>());
         assert!(head_commit.is_conflicted());
 
         let head_tree = repository

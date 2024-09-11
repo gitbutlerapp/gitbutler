@@ -1,6 +1,8 @@
 <script lang="ts">
 	import Spacer from '../shared/Spacer.svelte';
+	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
+	import UpdateBaseButton from '$lib/components/UpdateBaseButton.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { ModeService } from '$lib/modes/service';
@@ -18,6 +20,7 @@
 	const branchController = getContext(BranchController);
 	const modeService = getContext(ModeService);
 	const gitHost = getGitHost();
+	const project = getContext(Project);
 
 	const mode = modeService.mode;
 
@@ -36,6 +39,8 @@
 			showInfo('Stashed conflicting branches', infoText);
 		}
 	}
+
+	let updateBaseButton: UpdateBaseButton | undefined;
 </script>
 
 <div class="wrapper">
@@ -46,16 +51,21 @@
 	</div>
 
 	{#if base.upstreamCommits?.length > 0}
+		<UpdateBaseButton bind:this={updateBaseButton} showButton={false} />
 		<Button
 			style="pop"
 			kind="solid"
 			tooltip={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
 			disabled={$mode?.type !== 'OpenWorkspace'}
 			onclick={() => {
-				if ($mergeUpstreamWarningDismissed) {
-					updateBaseBranch();
+				if (project.succeedingRebases) {
+					updateBaseButton?.openModal();
 				} else {
-					updateTargetModal.show();
+					if ($mergeUpstreamWarningDismissed) {
+						updateBaseBranch();
+					} else {
+						updateTargetModal.show();
+					}
 				}
 			}}
 		>

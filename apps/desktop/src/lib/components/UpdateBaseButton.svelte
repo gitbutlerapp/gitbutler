@@ -1,10 +1,13 @@
 <script lang="ts">
+	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { showInfo } from '$lib/notifications/toasts';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { getContext } from '$lib/utils/context';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import {
 		UpstreamIntegrationService,
@@ -18,9 +21,17 @@
 	import { SvelteMap } from 'svelte/reactivity';
 	import type { Readable } from 'svelte/store';
 
+	interface Props {
+		showButton?: boolean;
+	}
+
+	const { showButton = true }: Props = $props();
+
 	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
 	const baseBranchService = getContext(BaseBranchService);
 	const gitHost = getGitHost();
+	const branchController = getContext(BranchController);
+	const project = getContext(Project);
 
 	const base = baseBranchService.base;
 
@@ -94,7 +105,7 @@
 
 	let integratingUpstream = $state<'inert' | 'loading' | 'complete'>('inert');
 
-	function openModal() {
+	export function openModal() {
 		modalOpeningState = 'loading';
 		integratingUpstream = 'inert';
 		branchStatuses = upstreamIntegrationService.upstreamStatuses();
@@ -107,9 +118,17 @@
 	async function integrate() {
 		integratingUpstream = 'loading';
 		await upstreamIntegrationService.integrateUpstream([...results.values()]);
+		await baseBranchService.refresh();
 		integratingUpstream = 'complete';
 
 		modal?.close();
+	}
+
+	async function updateBaseBranch() {
+		let infoText = await branchController.updateBaseBranch();
+		if (infoText) {
+			showInfo('Stashed conflicting branches', infoText);
+		}
 	}
 </script>
 
@@ -179,16 +198,24 @@
 	{/snippet}
 </Modal>
 
-<Button
-	size="tag"
-	style="error"
-	kind="solid"
-	tooltip="Merge upstream into common base"
-	onclick={openModal}
-	loading={modalOpeningState === 'loading'}
->
-	Update
-</Button>
+{#if showButton && ($base?.upstreamCommits.length || 0) > 0}
+	<Button
+		size="tag"
+		style="error"
+		kind="solid"
+		tooltip="Merge upstream into common base"
+		onclick={() => {
+			if (project.succeedingRebases) {
+				openModal();
+			} else {
+				updateBaseBranch();
+			}
+		}}
+		loading={modalOpeningState === 'loading'}
+	>
+		Update
+	</Button>
+{/if}
 
 <style>
 	.upstream-commits {
