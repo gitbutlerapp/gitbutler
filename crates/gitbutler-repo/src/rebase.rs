@@ -7,7 +7,6 @@ use gitbutler_commit::{
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
 use gitbutler_error::error::Marker;
-use itertools::Itertools;
 
 use crate::{LogUntil, RepositoryExt as _};
 
@@ -80,9 +79,21 @@ pub fn cherry_rebase_group(
                     if !succeeding_rebases {
                         return Err(anyhow!("failed to rebase")).context(Marker::BranchConflict);
                     }
-                    commit_conflicted_cherry_result(repository, head, to_rebase, cherrypick_index)
+                    commit_conflicted_cherry_result(
+                        repository,
+                        head,
+                        to_rebase,
+                        cherrypick_index,
+                        None,
+                    )
                 } else {
-                    commit_unconflicted_cherry_result(repository, head, to_rebase, cherrypick_index)
+                    commit_unconflicted_cherry_result(
+                        repository,
+                        head,
+                        to_rebase,
+                        cherrypick_index,
+                        None,
+                    )
                 }
             },
         )?
@@ -91,11 +102,19 @@ pub fn cherry_rebase_group(
     Ok(new_head_id)
 }
 
+pub struct OverrideCommitDetails<'a, 'repository> {
+    message: &'a str,
+    parents: &'a [&'a git2::Commit<'repository>],
+    author: &'a git2::Signature<'repository>,
+    commiter: &'a git2::Signature<'repository>,
+}
+
 fn commit_unconflicted_cherry_result<'repository>(
     repository: &'repository git2::Repository,
     head: git2::Commit<'repository>,
     to_rebase: git2::Commit,
     mut cherrypick_index: git2::Index,
+    override_commit_details: Option<OverrideCommitDetails>,
 ) -> Result<git2::Commit<'repository>> {
     let commit_headers = to_rebase.gitbutler_headers();
 
@@ -119,17 +138,31 @@ fn commit_unconflicted_cherry_result<'repository>(
         ..commit_headers
     });
 
-    let commit_oid = crate::RepositoryExt::commit_with_signature(
-        repository,
-        None,
-        &to_rebase.author(),
-        &to_rebase.committer(),
-        &to_rebase.message_bstr().to_str_lossy(),
-        &merge_tree,
-        &[&head],
-        commit_headers,
-    )
-    .context("failed to create commit")?;
+    let commit_oid = if let Some(override_commit_details) = override_commit_details {
+        crate::RepositoryExt::commit_with_signature(
+            repository,
+            None,
+            override_commit_details.author,
+            override_commit_details.commiter,
+            override_commit_details.message,
+            &merge_tree,
+            override_commit_details.parents,
+            commit_headers,
+        )
+        .context("failed to create commit")?
+    } else {
+        crate::RepositoryExt::commit_with_signature(
+            repository,
+            None,
+            &to_rebase.author(),
+            &to_rebase.committer(),
+            &to_rebase.message_bstr().to_str_lossy(),
+            &merge_tree,
+            &[&head],
+            commit_headers,
+        )
+        .context("failed to create commit")?
+    };
 
     repository
         .find_commit(commit_oid)
@@ -141,6 +174,7 @@ fn commit_conflicted_cherry_result<'repository>(
     head: git2::Commit,
     to_rebase: git2::Commit,
     cherrypick_index: git2::Index,
+    override_commit_details: Option<OverrideCommitDetails>,
 ) -> Result<git2::Commit<'repository>> {
     let commit_headers = to_rebase.gitbutler_headers();
 
@@ -206,33 +240,91 @@ fn commit_conflicted_cherry_result<'repository>(
 
     let tree_oid = tree_writer.write().context("failed to write tree")?;
 
-    let commit_headers = commit_headers.map(|commit_headers| {
-        let conflicted_file_count = dbg!(conflicted_files)
-            .len()
-            .try_into()
-            .expect("If you have more than 2^64 conflicting files, we've got bigger problems");
-        CommitHeadersV2 {
-            conflicted: Some(conflicted_file_count),
-            ..commit_headers
-        }
-    });
+    let commit_headers =
+        commit_headers
+            .or_else(|| Some(Default::default()))
+            .map(|commit_headers| {
+                let conflicted_file_count = conflicted_files.len().try_into().expect(
+                    "If you have more than 2^64 conflicting files, we've got bigger problems",
+                );
+                CommitHeadersV2 {
+                    conflicted: Some(conflicted_file_count),
+                    ..commit_headers
+                }
+            });
 
-    // write a commit
-    let commit_oid = crate::RepositoryExt::commit_with_signature(
-        repository,
-        None,
-        &to_rebase.author(),
-        &to_rebase.committer(),
-        &to_rebase.message_bstr().to_str_lossy(),
-        &repository
-            .find_tree(tree_oid)
-            .context("failed to find tree")?,
-        &[&head],
-        commit_headers,
-    )
-    .context("failed to create commit")?;
+    let commit_oid = if let Some(override_commit_details) = override_commit_details {
+        crate::RepositoryExt::commit_with_signature(
+            repository,
+            None,
+            override_commit_details.author,
+            override_commit_details.commiter,
+            override_commit_details.message,
+            &repository
+                .find_tree(tree_oid)
+                .context("failed to find tree")?,
+            override_commit_details.parents,
+            commit_headers,
+        )
+        .context("failed to create commit")?
+    } else {
+        crate::RepositoryExt::commit_with_signature(
+            repository,
+            None,
+            &to_rebase.author(),
+            &to_rebase.committer(),
+            &to_rebase.message_bstr().to_str_lossy(),
+            &repository
+                .find_tree(tree_oid)
+                .context("failed to find tree")?,
+            &[&head],
+            commit_headers,
+        )
+        .context("failed to create commit")?
+    };
 
     repository
         .find_commit(commit_oid)
         .context("failed to find commit")
+}
+
+pub fn gitbutler_merge_commits<'repository>(
+    repository: &'repository git2::Repository,
+    target_commit: git2::Commit<'repository>,
+    incoming_commit: git2::Commit<'repository>,
+    target_branch_name: &str,
+    incoming_branch_name: &str,
+) -> Result<git2::Commit<'repository>> {
+    let cherrypick_index =
+        repository.cherry_pick_gitbutler(&target_commit, &incoming_commit, None)?;
+
+    let (author, committer) = repository.signatures()?;
+
+    let override_commit_details = OverrideCommitDetails {
+        message: &format!(
+            "Merge branch `{}` into `{}`",
+            incoming_branch_name, target_branch_name
+        ),
+        parents: &[&target_commit.clone(), &incoming_commit.clone()],
+        author: &author,
+        commiter: &committer,
+    };
+
+    if cherrypick_index.has_conflicts() {
+        commit_conflicted_cherry_result(
+            repository,
+            target_commit,
+            incoming_commit,
+            cherrypick_index,
+            Some(override_commit_details),
+        )
+    } else {
+        commit_unconflicted_cherry_result(
+            repository,
+            target_commit,
+            incoming_commit,
+            cherrypick_index,
+            Some(override_commit_details),
+        )
+    }
 }

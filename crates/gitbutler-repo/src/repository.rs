@@ -1,14 +1,14 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
-use gitbutler_branch::{gix_to_git2_signature, Branch, BranchId, SignaturePurpose};
+use gitbutler_branch::{Branch, BranchId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
 
-use crate::{askpass, credentials, Config, RepositoryExt};
+use crate::{askpass, credentials, RepositoryExt};
 pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()>;
     fn push(
@@ -35,7 +35,6 @@ pub trait RepoActionsExt {
         branch_name: &str,
         askpass: Option<Option<BranchId>>,
     ) -> Result<()>;
-    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
 }
 
 impl RepoActionsExt for CommandContext {
@@ -136,7 +135,10 @@ impl RepoActionsExt for CommandContext {
         parents: &[&git2::Commit],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
-        let (author, committer) = self.signatures().context("failed to get signatures")?;
+        let (author, committer) = self
+            .repository()
+            .signatures()
+            .context("failed to get signatures")?;
         self.repository()
             .commit_with_signature(
                 None,
@@ -312,30 +314,6 @@ impl RepoActionsExt for CommandContext {
         }
 
         Err(anyhow!("authentication failed")).context(Code::ProjectGitAuth)
-    }
-
-    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
-        let repo = gix::open(self.repository().path())?;
-
-        let author = repo
-            .author()
-            .transpose()?
-            .map(gitbutler_branch::gix_to_git2_signature)
-            .transpose()?
-            .context("No author is configured in Git")
-            .context(Code::AuthorMissing)?;
-
-        let config: Config = self.repository().into();
-        let committer = if config.user_real_comitter()? {
-            repo.committer()
-                .transpose()?
-                .map(gix_to_git2_signature)
-                .unwrap_or_else(|| gitbutler_branch::signature(SignaturePurpose::Committer))
-        } else {
-            gitbutler_branch::signature(SignaturePurpose::Committer)
-        }?;
-
-        Ok((author, committer))
     }
 }
 

@@ -1,5 +1,4 @@
 use super::r#virtual as vbranch;
-use super::r#virtual as branch;
 use crate::upstream_integration::{self, BranchStatuses, Resolution, UpstreamIntegrationContext};
 use crate::{
     base,

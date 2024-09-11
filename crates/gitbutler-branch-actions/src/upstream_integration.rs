@@ -7,12 +7,12 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
-    rebase::cherry_rebase_group, LogUntil, RepoActionsExt as _, RepositoryExt as _,
+    rebase::{cherry_rebase_group, gitbutler_merge_commits},
+    LogUntil, RepoActionsExt as _, RepositoryExt as _,
 };
-use gix::discover::repository;
 use serde::{Deserialize, Serialize};
 
-use crate::{convert_to_real_branch, integration, BranchManagerExt, VirtualBranchesExt as _};
+use crate::{BranchManagerExt, VirtualBranchesExt as _};
 
 #[derive(Serialize, PartialEq, Debug)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
@@ -77,6 +77,7 @@ pub struct UpstreamIntegrationContext<'a> {
     virtual_branches_in_workspace: Vec<Branch>,
     new_target: git2::Commit<'a>,
     old_target: git2::Commit<'a>,
+    target_branch_name: String,
 }
 
 impl<'a> UpstreamIntegrationContext<'a> {
@@ -100,6 +101,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
             new_target,
             old_target,
             virtual_branches_in_workspace,
+            target_branch_name: target.branch.branch().to_string(),
         })
     }
 }
@@ -332,8 +334,8 @@ fn compute_resolutions(
     let UpstreamIntegrationContext {
         repository,
         new_target,
-        old_target,
         virtual_branches_in_workspace,
+        target_branch_name,
         ..
     } = context;
 
@@ -358,15 +360,57 @@ fn compute_resolutions(
                     // Make a merge commit on top of the branch commits,
                     // then rebase the tree ontop of that. If the tree ends
                     // up conflicted, commit the tree.
-                    todo!();
+                    let target_commit = repository.find_commit(virtual_branch.head)?;
 
-                    Ok((
-                        virtual_branch.id,
-                        IntegrationResult::UpdatedObjects {
-                            head: todo!(),
-                            tree: todo!(),
-                        },
-                    ))
+                    let new_head = gitbutler_merge_commits(
+                        repository,
+                        target_commit,
+                        new_target.clone(),
+                        &virtual_branch.name,
+                        target_branch_name,
+                    )?;
+
+                    let head = repository.find_commit(virtual_branch.head)?;
+                    let tree = repository.find_tree(virtual_branch.tree)?;
+
+                    // Rebase tree
+                    let author_signature = signature(SignaturePurpose::Author)
+                        .context("Failed to get gitbutler signature")?;
+                    let committer_signature = signature(SignaturePurpose::Committer)
+                        .context("Failed to get gitbutler signature")?;
+                    let committed_tree = repository.commit(
+                        None,
+                        &author_signature,
+                        &committer_signature,
+                        "Uncommited changes",
+                        &tree,
+                        &[&head],
+                    )?;
+
+                    // Rebase commited tree
+                    let new_commited_tree =
+                        cherry_rebase_group(repository, new_head.id(), &[committed_tree], true)?;
+                    let new_commited_tree = repository.find_commit(new_commited_tree)?;
+
+                    if new_commited_tree.is_conflicted() {
+                        Ok((
+                            virtual_branch.id,
+                            IntegrationResult::UpdatedObjects {
+                                head: new_commited_tree.id(),
+                                tree: repository
+                                    .find_real_tree(&new_commited_tree, Default::default())?
+                                    .id(),
+                            },
+                        ))
+                    } else {
+                        Ok((
+                            virtual_branch.id,
+                            IntegrationResult::UpdatedObjects {
+                                head: new_head.id(),
+                                tree: new_commited_tree.tree_id(),
+                            },
+                        ))
+                    }
                 }
                 ResolutionApproach::Rebase => {
                     // Rebase the commits, then try rebasing the tree. If
@@ -514,6 +558,7 @@ mod test {
             new_target: head_commit,
             repository: &repository,
             virtual_branches_in_workspace: vec![],
+            target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
@@ -536,6 +581,7 @@ mod test {
             new_target,
             repository: &repository,
             virtual_branches_in_workspace: vec![],
+            target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
@@ -560,6 +606,7 @@ mod test {
             new_target,
             repository: &repository,
             virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
@@ -597,6 +644,7 @@ mod test {
             new_target: new_target.clone(),
             repository: &repository,
             virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
@@ -659,6 +707,7 @@ mod test {
             new_target,
             repository: &repository,
             virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
@@ -690,6 +739,7 @@ mod test {
             new_target,
             repository: &repository,
             virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
@@ -719,6 +769,7 @@ mod test {
             new_target,
             repository: &repository,
             virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
@@ -757,6 +808,7 @@ mod test {
             new_target,
             repository: &repository,
             virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
@@ -804,6 +856,7 @@ mod test {
             new_target,
             repository: &repository,
             virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
         };
 
         assert_eq!(

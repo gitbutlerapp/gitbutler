@@ -7,18 +7,20 @@ use std::{io::Write, path::Path, process::Stdio, str};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::BString;
 use git2::{BlameOptions, Tree};
+use gitbutler_branch::{gix_to_git2_signature, SignaturePurpose};
 use gitbutler_commit::{commit_buffer::CommitBuffer, commit_headers::CommitHeadersV2};
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
 use gitbutler_reference::{Refname, RemoteRefname};
 use tracing::instrument;
 
-use crate::LogUntil;
+use crate::{Config, LogUntil};
 
 /// Extension trait for `git2::Repository`.
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
     fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>>;
     fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>>;
     fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>>;
@@ -467,6 +469,30 @@ impl RepositoryExt for git2::Repository {
             .map(|oid| self.find_commit(oid))
             .collect::<Result<Vec<_>, _>>()
             .context("failed to collect commits")
+    }
+
+    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
+        let repo = gix::open(self.path())?;
+
+        let author = repo
+            .author()
+            .transpose()?
+            .map(gitbutler_branch::gix_to_git2_signature)
+            .transpose()?
+            .context("No author is configured in Git")
+            .context(Code::AuthorMissing)?;
+
+        let config: Config = self.into();
+        let committer = if config.user_real_comitter()? {
+            repo.committer()
+                .transpose()?
+                .map(gix_to_git2_signature)
+                .unwrap_or_else(|| gitbutler_branch::signature(SignaturePurpose::Committer))
+        } else {
+            gitbutler_branch::signature(SignaturePurpose::Committer)
+        }?;
+
+        Ok((author, committer))
     }
 }
 

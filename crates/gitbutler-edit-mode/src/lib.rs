@@ -236,7 +236,6 @@ pub(crate) fn save_and_return_to_workspace(
     let commit = repository
         .find_commit(edit_mode_metadata.commit_oid)
         .context("Failed to find commit")?;
-    let commit_parent = commit.parent(0).context("Failed to get commit's parent")?;
     let stashed_workspace_changes_reference = repository
         .find_reference(EDIT_UNCOMMITED_FILES_REF)
         .context("Failed to find stashed workspace changes")?;
@@ -249,6 +248,8 @@ pub(crate) fn save_and_return_to_workspace(
     else {
         bail!("Failed to find virtual branch for this reference. Entering and leaving edit mode for non-virtual branches is unsupported")
     };
+
+    let parents = commit.parents().collect::<Vec<_>>();
 
     // Recommit commit
     let tree = repository.create_wd_tree()?;
@@ -266,7 +267,7 @@ pub(crate) fn save_and_return_to_workspace(
             &commit.committer(),
             &commit.message_bstr().to_str_lossy(),
             &tree,
-            &[&commit_parent],
+            &parents.iter().collect::<Vec<_>>(),
             commit_headers,
         )
         .context("Failed to commit new commit")?;
