@@ -2,8 +2,8 @@
 	import { type Snippet } from 'svelte';
 
 	interface Props {
-		ordered: string;
-		start: number;
+		ordered: boolean;
+		start: number | '';
 		children: Snippet;
 	}
 
@@ -11,7 +11,7 @@
 </script>
 
 {#if ordered}
-	<ol {start}>
+	<ol start={Number(start)}>
 		{@render children()}
 	</ol>
 {:else}

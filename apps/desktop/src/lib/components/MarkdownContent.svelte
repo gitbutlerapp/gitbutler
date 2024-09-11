@@ -6,24 +6,24 @@
 	type Props =
 		| { type: 'init'; tokens: Token[] }
 		| Tokens.Link
-		| Tokens.List
-		| Tokens.ListItem
 		| Tokens.Heading
 		| Tokens.Image
 		| Tokens.Space
 		| Tokens.Blockquote
 		| Tokens.Code
+		| Tokens.Text
 		| Tokens.Codespan
-		| Tokens.Text;
+		| Tokens.ListItem
+		| Tokens.List;
 
 	let { type, ...rest }: Props = $props();
 </script>
 
 {#if type && renderers[type as keyof typeof renderers]}
 	{#if type === 'list'}
-		<svelte:component this={renderers.list} {...rest}>
+		<svelte:component this={renderers.list} {...rest as Tokens.List}>
 			{#each rest.items as item}
-				<svelte:component this={renderers.orderedlistitem || renderers.listitem} {...item}>
+				<svelte:component this={renderers.listitem} {...item}>
 					<svelte:self tokens={item.tokens} {renderers} />
 				</svelte:component>
 			{/each}
