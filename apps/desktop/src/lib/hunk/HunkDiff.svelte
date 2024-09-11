@@ -4,9 +4,15 @@
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';
-	import { type ContentSection, SectionType, type Line } from '$lib/utils/fileSections';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import {
+		type ContentSection,
+		SectionType,
+		type Line,
+		CountColumnSide
+	} from '$lib/utils/fileSections';
+	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { type Hunk } from '$lib/vbranches/types';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import diff_match_patch from 'diff-match-patch';
 	import type { Writable } from 'svelte/store';
@@ -52,9 +58,12 @@
 	const WHITESPACE_REGEX = /\s/;
 	const NUMBER_COLUMN_WIDTH_PX = minWidth * 20;
 
-	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
+	const selectedOwnership: Writable<SelectedOwnership> | undefined =
+		maybeGetContextStore(SelectedOwnership);
 
-	const selected = $derived($selectedOwnership?.contains(hunk.filePath, hunk.id) ?? false);
+	let tableWidth = $state<number>(0);
+
+	const selected = $derived($selectedOwnership?.isSelected(hunk.filePath, hunk.id) ?? false);
 	let isSelected = $derived(selectable && selected);
 
 	const inlineUnifiedDiffs = featureInlineUnifiedDiffs();
@@ -87,7 +96,8 @@
 				afterLineNumber: line.afterLineNumber,
 				tokens: toTokens(line.content),
 				type: section.sectionType,
-				size: line.content.length
+				size: line.content.length,
+				isLast: false
 			};
 		});
 	}
@@ -129,14 +139,16 @@
 				afterLineNumber: oldLine.afterLineNumber,
 				tokens: [] as string[],
 				type: prevSection.sectionType,
-				size: oldLine.content.length
+				size: oldLine.content.length,
+				isLast: false
 			};
 			const nextSectionRow = {
 				beforeLineNumber: newLine.beforeLineNumber,
 				afterLineNumber: newLine.afterLineNumber,
 				tokens: [] as string[],
 				type: nextSection.sectionType,
-				size: newLine.content.length
+				size: newLine.content.length,
+				isLast: false
 			};
 
 			const diff = charDiff(oldLine.content, newLine.content);
@@ -181,7 +193,8 @@
 				afterLineNumber: newLine.afterLineNumber,
 				tokens: [] as string[],
 				type: nextSection.sectionType,
-				size: newLine.content.length
+				size: newLine.content.length,
+				isLast: false
 			};
 
 			const diff = charDiff(oldLine.content, newLine.content);
@@ -209,7 +222,7 @@
 	}
 
 	function generateRows(subsections: ContentSection[]) {
-		return subsections.reduce((acc, nextSection, i) => {
+		const rows = subsections.reduce((acc, nextSection, i) => {
 			const prevSection = subsections[i - 1];
 
 			// Filter out section for which we don't need to compute word diffs
@@ -254,59 +267,130 @@
 				return acc;
 			}
 		}, [] as Row[]);
+
+		const last = rows.at(-1);
+		if (last) {
+			last.isLast = true;
+		}
+
+		return rows;
 	}
 
 	const renderRows = $derived(generateRows(subsections));
+
+	interface DiffHunkLineInfo {
+		beforLineStart: number;
+		beforeLineCount: number;
+		afterLineStart: number;
+		afterLineCount: number;
+	}
+
+	function getHunkLineInfo(subsections: ContentSection[]): DiffHunkLineInfo {
+		const firstSection = subsections[0];
+		const lastSection = subsections.at(-1);
+
+		const beforLineStart = firstSection?.lines[0]?.beforeLineNumber ?? 0;
+		const beforeLineEnd = lastSection?.lines?.at(-1)?.beforeLineNumber ?? 0;
+		const beforeLineCount = beforeLineEnd - beforLineStart + 1;
+
+		const afterLineStart = firstSection?.lines[0]?.afterLineNumber ?? 0;
+		const afterLineEnd = lastSection?.lines?.at(-1)?.afterLineNumber ?? 0;
+		const afterLineCount = afterLineEnd - afterLineStart + 1;
+
+		return {
+			beforLineStart,
+			beforeLineCount,
+			afterLineStart,
+			afterLineCount
+		};
+	}
+
+	const hunkLineInfo = $derived(getHunkLineInfo(subsections));
 </script>
 
-{#snippet countColumn(count: number | undefined, lineType: SectionType)}
+{#snippet countColumn(row: Row, side: CountColumnSide)}
 	<td
 		class="table__numberColumn"
-		class:diff-line-deletion={lineType === SectionType.RemovedLines}
-		class:diff-line-addition={lineType === SectionType.AddedLines}
+		class:diff-line-deletion={row.type === SectionType.RemovedLines}
+		class:diff-line-addition={row.type === SectionType.AddedLines}
 		style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX}px;"
 		align="center"
+		class:is-last={row.isLast}
+		class:is-before={side === CountColumnSide.Before}
 		class:selected={isSelected}
 		onclick={() => {
 			selectable && handleSelected(hunk, !isSelected);
 		}}
 	>
-		{count}
+		{side === CountColumnSide.Before ? row.beforeLineNumber : row.afterLineNumber}
 	</td>
 {/snippet}
 
 <div
+	bind:clientWidth={tableWidth}
 	class="table__wrapper hide-native-scrollbar"
 	style="--tab-size: {tabSize}; --cursor: {draggingDisabled ? 'default' : 'grab'}"
 >
 	<ScrollableContainer horz padding={{ left: NUMBER_COLUMN_WIDTH_PX * 2 + 2 }}>
-		{#if !draggingDisabled}
-			<div class="table__drag-handle">
-				<Icon name="draggable-narrow" />
-			</div>
-		{/if}
 		<table data-hunk-id={hunk.id} class="table__section">
+			<thead>
+				<tr>
+					<th
+						class="table__checkbox-container"
+						class:selected={isSelected}
+						colspan={2}
+						onclick={() => {
+							selectable && handleSelected(hunk, !isSelected);
+						}}
+					>
+						<div class="table__checkbox">
+							<Checkbox
+								checked={isSelected}
+								style="blue"
+								onclick={() => {
+									selectable && handleSelected(hunk, !isSelected);
+								}}
+							/>
+						</div>
+						<div
+							class="table__title"
+							style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX}px; --table-width: {tableWidth}px"
+						>
+							<p class="table__title-content text-12">
+								{`@@ -${hunkLineInfo.beforLineStart},${hunkLineInfo.beforeLineCount} +${hunkLineInfo.afterLineStart},${hunkLineInfo.afterLineCount} @@`}
+							</p>
+							{#if !draggingDisabled}
+								<div class="table__drag-handle">
+									<Icon name="draggable-narrow" />
+								</div>
+							{/if}
+						</div>
+					</th>
+					<th class="table__title-container"> </th>
+				</tr>
+			</thead>
 			<tbody>
-				{#each renderRows as line}
+				{#each renderRows as row}
 					<tr data-no-drag>
-						{@render countColumn(line.beforeLineNumber, line.type)}
-						{@render countColumn(line.afterLineNumber, line.type)}
+						{@render countColumn(row, CountColumnSide.Before)}
+						{@render countColumn(row, CountColumnSide.After)}
 						<td
 							{onclick}
 							class="table__textContent"
 							style="--tab-size: {tabSize};"
 							class:readonly
 							data-no-drag
-							class:diff-line-deletion={line.type === SectionType.RemovedLines}
-							class:diff-line-addition={line.type === SectionType.AddedLines}
+							class:diff-line-deletion={row.type === SectionType.RemovedLines}
+							class:diff-line-addition={row.type === SectionType.AddedLines}
+							class:is-last={row.isLast}
 							oncontextmenu={(event) => {
-							const lineNumber = (line.beforeLineNumber
-								? line.beforeLineNumber
-								: line.afterLineNumber) as number;
+							const lineNumber = (row.beforeLineNumber
+								? row.beforeLineNumber
+								: row.afterLineNumber) as number;
 							handleLineContextMenu({ event, hunk, lineNumber, subsection: subsections[0] as ContentSection });
 						}}
 						>
-							{@html line.tokens.join('')}
+							{@html row.tokens.join('')}
 						</td>
 					</tr>
 				{/each}
@@ -317,7 +401,6 @@
 
 <style>
 	.table__wrapper {
-		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-s);
 		background-color: var(--clr-diff-line-bg);
 		overflow-x: auto;
@@ -330,16 +413,12 @@
 	}
 
 	.table__drag-handle {
-		position: absolute;
+		box-sizing: border-box;
 		cursor: grab;
-		top: 6px;
-		right: 6px;
 		background-color: var(--clr-bg-1);
-		border: 1px solid var(--clr-border-2);
 		display: flex;
 		justify-content: center;
 		align-items: center;
-		padding: 4px 2px;
 		border-radius: var(--radius-s);
 		opacity: 0;
 		transform: translateY(10%) translateX(-10%) scale(0.9);
@@ -350,10 +429,72 @@
 			transform 0.2s;
 	}
 
+	table,
 	.table__section {
-		border-spacing: 0;
 		width: 100%;
 		font-family: monospace;
+		border-collapse: separate;
+		border-spacing: 0;
+	}
+
+	thead {
+		width: 100%;
+		padding: 0;
+	}
+
+	th,
+	td,
+	tr {
+		padding: 0;
+		margin: 0;
+	}
+
+	table thead th {
+		top: 0;
+		left: 0;
+		position: sticky;
+	}
+
+	.table__checkbox-container {
+		/* border: 1px solid var(--clr-border-2); */
+		z-index: var(--z-lifted);
+		box-shadow: inset 0 0 0 1px var(--clr-border-2);
+		background-color: var(--clr-diff-count-bg);
+		border-top-left-radius: var(--radius-s);
+		box-sizing: border-box;
+
+		&.selected {
+			background-color: var(--clr-diff-selected-count-bg);
+			border-color: var(--clr-diff-selected-count-border);
+			box-shadow: inset 0 0 0 1px var(--clr-diff-selected-count-border);
+		}
+	}
+
+	.table__checkbox {
+		padding: 4px 6px;
+		display: flex;
+		align-items: center;
+	}
+
+	.table__title {
+		position: absolute;
+		top: 0;
+		left: calc(var(--number-col-width) * 2);
+		width: calc(var(--table-width) - var(--number-col-width) * 2);
+
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		border-top: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-2);
+		border-top-right-radius: var(--radius-s);
+	}
+
+	.table__title-content {
+		padding: 4px 6px;
+		text-wrap: nowrap;
+		color: var(--clr-text-2);
 	}
 
 	.table__numberColumn {
@@ -390,6 +531,19 @@
 			background-color: var(--clr-diff-selected-count-bg);
 			box-shadow: inset -1px 0 0 0 var(--clr-diff-selected-count-border);
 			color: var(--clr-diff-selected-count-text);
+			border-color: var(--clr-diff-selected-count-border);
+		}
+
+		&.is-last {
+			border-bottom-width: 1px;
+		}
+
+		&.is-before {
+			border-left-width: 1px;
+		}
+
+		&.is-before.is-last {
+			border-bottom-left-radius: var(--radius-s);
 		}
 	}
 
@@ -397,9 +551,22 @@
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
 		left: 0px;
+
+		&.diff-line-addition {
+			box-shadow: inset -1px 0 0 0 var(--clr-diff-addition-count-border);
+		}
+
+		&.diff-line-deletion {
+			box-shadow: inset -1px 0 0 0 var(--clr-diff-deletion-count-border);
+		}
+
+		&.selected {
+			box-shadow: inset -1px 0 0 0 var(--clr-diff-selected-count-border);
+		}
 	}
 
 	.table__textContent {
+		z-index: var(--z-lifted);
 		width: 100%;
 		font-size: 12px;
 		padding-left: 4px;
@@ -408,5 +575,12 @@
 		white-space: pre;
 		user-select: text;
 		cursor: text;
+
+		border-right: 1px solid var(--clr-border-2);
+
+		&.is-last {
+			box-shadow: inset 0 -1px 0 0 var(--clr-border-2);
+			border-bottom-right-radius: var(--radius-s);
+		}
 	}
 </style>

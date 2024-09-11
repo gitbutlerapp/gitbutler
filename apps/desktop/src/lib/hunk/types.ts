@@ -6,6 +6,7 @@ export interface Row {
 	tokens: string[];
 	type: SectionType;
 	size: number;
+	isLast: boolean;
 }
 
 export enum Operation {

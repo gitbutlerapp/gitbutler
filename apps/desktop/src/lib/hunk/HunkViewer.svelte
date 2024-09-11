@@ -8,7 +8,7 @@
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
 	import { getContext, getContextStoreBySymbol, maybeGetContextStore } from '$lib/utils/context';
 	import { type HunkSection } from '$lib/utils/fileSections';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, type Hunk } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
@@ -36,7 +36,8 @@
 		readonly = false
 	}: Props = $props();
 
-	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
+	const selectedOwnership: Writable<SelectedOwnership> | undefined =
+		maybeGetContextStore(SelectedOwnership);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const branch = maybeGetContextStore(VirtualBranch);
 	const project = getContext(Project);
@@ -49,9 +50,9 @@
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {
 		if (!selectedOwnership) return;
 		if (isSelected) {
-			selectedOwnership.update((ownership) => ownership.add(hunk.filePath, hunk));
+			selectedOwnership.update((ownership) => ownership.select(hunk.filePath, hunk));
 		} else {
-			selectedOwnership.update((ownership) => ownership.remove(hunk.filePath, hunk.id));
+			selectedOwnership.update((ownership) => ownership.ignore(hunk.filePath, hunk.id));
 		}
 	}
 </script>
