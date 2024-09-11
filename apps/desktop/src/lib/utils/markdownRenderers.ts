@@ -2,6 +2,7 @@ import Blockquote from '$lib/components/markdownRenderers/Blockquote.svelte';
 import Code from '$lib/components/markdownRenderers/Code.svelte';
 import Codespan from '$lib/components/markdownRenderers/Codespan.svelte';
 import Heading from '$lib/components/markdownRenderers/Heading.svelte';
+import Html from '$lib/components/markdownRenderers/Html.svelte';
 import Image from '$lib/components/markdownRenderers/Image.svelte';
 import List from '$lib/components/markdownRenderers/List.svelte';
 import ListItem from '$lib/components/markdownRenderers/ListItem.svelte';
@@ -16,6 +17,7 @@ export const renderers = {
 	code: Code,
 	codespan: Codespan,
 	text: Text,
+	html: Html,
 	list: List,
 	list_item: ListItem,
 	heading: Heading,

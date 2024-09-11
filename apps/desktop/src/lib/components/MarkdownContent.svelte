@@ -18,32 +18,32 @@
 
 	let { type, ...rest }: Props = $props();
 
-	// @ts-expect-error indexing on string union is having trouble
-	const CurrentComponent = renderers[type as Props['type']];
+	// @ts-expect-error todo: map cannot be indexed on a union of string literals apparently
+	const CurrentComponent = renderers[type];
 </script>
 
-{#if type && CurrentComponent}
+{#if (!type || type === 'init') && 'tokens' in rest && rest.tokens}
+	{#each rest.tokens as token}
+		<svelte:self {...token} />
+	{/each}
+{:else if renderers[type as Extract<Props, 'type'>]}
 	{#if type === 'list'}
 		{@const listItems = (rest as Extract<Props, { type: typeof type }>).items}
 		<CurrentComponent {...rest}>
 			{#each listItems as item}
 				{@const ChildComponent = renderers[item.type]}
 				<ChildComponent {...item}>
-					<svelte:self tokens={item.tokens} {renderers} />
+					<svelte:self tokens={item.tokens} />
 				</ChildComponent>
 			{/each}
 		</CurrentComponent>
 	{:else}
-		<CurrentComponent {...rest}>
-			{#if 'tokens' in rest}
+		<CurrentComponent this={renderers[type as Extract<Props, 'type'>]} {...rest}>
+			{#if 'tokens' in rest && rest.tokens}
 				<svelte:self tokens={rest.tokens} />
+			{:else if 'raw' in rest}
+				{rest.raw}
 			{/if}
 		</CurrentComponent>
 	{/if}
-{:else if 'tokens' in rest && rest.tokens}
-	{#each rest.tokens as token}
-		<svelte:self {...token} />
-	{/each}
-{:else if 'raw' in rest}
-	{@html rest.raw?.replaceAll('\n', '') ?? ''}
 {/if}

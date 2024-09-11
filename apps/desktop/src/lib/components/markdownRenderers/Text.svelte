@@ -1,11 +1,13 @@
 <script lang="ts">
+	import { type Snippet } from 'svelte';
+
 	interface Props {
-		text: string;
+		children: Snippet;
 	}
 
-	const { text }: Props = $props();
+	const { children }: Props = $props();
 </script>
 
 <span>
-	{text}
+	{@render children()}
 </span>
