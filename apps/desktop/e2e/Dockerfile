@@ -83,6 +83,9 @@ RUN pnpm add --global turbo && \
   cargo install tauri-driver && \
   # Make `tauri-driver` more widely available
   ln -s /root/.cargo/bin/tauri-driver /usr/local/bin/tauri-driver && \
+  # Copy tauri-driver to where GHA expects it
+  mkdir -p /github/home/.cargo/bin && \
+  ln -s /root/.cargo/bin/tauri-driver /github/home/.cargo/bin/tauri-driver && \
   # vi bindings on by default.
   echo "set -o vi" >> /root/.bashrc
 
