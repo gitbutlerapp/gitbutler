@@ -62,9 +62,7 @@
 	});
 
 	async function generateBranchName() {
-		console.log('before');
 		if (!aiGenEnabled) return;
-		console.log('after');
 
 		const hunks = branch.files.flatMap((f) => f.hunks);
 
