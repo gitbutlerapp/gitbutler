@@ -35,8 +35,8 @@ export class GitHubPrService implements GitHostPrService {
 			const resp = await this.octokit.rest.pulls.create({
 				owner: this.repo.owner,
 				repo: this.repo.name,
-				head: upstreamName,
-				base: baseBranchName,
+				head: baseBranchName,
+				base: upstreamName,
 				title,
 				body: body ? body : pullRequestTemplate,
 				draft
