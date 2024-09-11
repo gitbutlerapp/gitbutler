@@ -609,17 +609,20 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
+    #[instrument(skip(projects, windows), err(Debug))]
     pub fn integrate_upstream(
+        windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         resolutions: Vec<Resolution>,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        Ok(gitbutler_branch_actions::integrate_upstream(
-            &project,
-            &resolutions,
-        )?)
+
+        gitbutler_branch_actions::integrate_upstream(&project, &resolutions)?;
+
+        emit_vbranches(&windows, project_id);
+
+        Ok(())
     }
 
     fn emit_vbranches(windows: &WindowState, project_id: projects::ProjectId) {

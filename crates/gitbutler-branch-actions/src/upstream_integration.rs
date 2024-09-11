@@ -1,5 +1,7 @@
 use anyhow::{anyhow, bail, Context, Result};
-use gitbutler_branch::{signature, Branch, BranchId, SignaturePurpose, VirtualBranchesHandle};
+use gitbutler_branch::{
+    signature, Branch, BranchId, SignaturePurpose, Target, VirtualBranchesHandle,
+};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -7,6 +9,7 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     rebase::cherry_rebase_group, LogUntil, RepoActionsExt as _, RepositoryExt as _,
 };
+use gix::discover::repository;
 use serde::{Deserialize, Serialize};
 
 use crate::{convert_to_real_branch, integration, BranchManagerExt, VirtualBranchesExt as _};
@@ -69,7 +72,7 @@ enum IntegrationResult {
 }
 
 pub struct UpstreamIntegrationContext<'a> {
-    _perm: Option<&'a mut WorktreeWritePermission>,
+    _permission: Option<&'a mut WorktreeWritePermission>,
     repository: &'a git2::Repository,
     virtual_branches_in_workspace: Vec<Branch>,
     new_target: git2::Commit<'a>,
@@ -79,7 +82,7 @@ pub struct UpstreamIntegrationContext<'a> {
 impl<'a> UpstreamIntegrationContext<'a> {
     pub(crate) fn open(
         command_context: &'a CommandContext,
-        perm: &'a mut WorktreeWritePermission,
+        permission: &'a mut WorktreeWritePermission,
     ) -> Result<Self> {
         let virtual_branches_handle = command_context.project().virtual_branches();
         let target = virtual_branches_handle.get_default_target()?;
@@ -92,7 +95,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
         let virtual_branches_in_workspace = virtual_branches_handle.list_branches_in_workspace()?;
 
         Ok(Self {
-            _perm: Some(perm),
+            _permission: Some(permission),
             repository,
             new_target,
             old_target,
@@ -200,56 +203,54 @@ pub(crate) fn integrate_upstream(
     resolutions: &[Resolution],
     permission: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    let integration_results = {
-        let context = UpstreamIntegrationContext::open(command_context, permission)?;
+    let context = UpstreamIntegrationContext::open(command_context, permission)?;
+    let virtual_branches_state = VirtualBranchesHandle::new(command_context.project().gb_dir());
+    let default_target = virtual_branches_state.get_default_target()?;
 
-        // Ensure resolutions match current statuses
-        {
-            let statuses = upstream_integration_statuses(&context)?;
+    // Ensure resolutions match current statuses
+    {
+        let statuses = upstream_integration_statuses(&context)?;
 
-            let BranchStatuses::UpdatesRequired(statuses) = statuses else {
-                bail!("Branches are all up to date")
-            };
+        let BranchStatuses::UpdatesRequired(statuses) = statuses else {
+            bail!("Branches are all up to date")
+        };
 
-            if resolutions.len() != context.virtual_branches_in_workspace.len() {
-                bail!("Chosen resolutions do not match quantity of applied virtual branches")
-            }
-
-            let all_resolutions_are_up_to_date = resolutions.iter().all(|resolution| {
-                // This is O(n^2), in reality, n is unlikly to be more than 3 or 4
-                let Some(branch) = context
-                    .virtual_branches_in_workspace
-                    .iter()
-                    .find(|branch| branch.id == resolution.branch_id)
-                else {
-                    return false;
-                };
-
-                if resolution.branch_tree != branch.tree {
-                    return false;
-                };
-
-                let Some(status) = statuses
-                    .iter()
-                    .find(|status| status.0 == resolution.branch_id)
-                else {
-                    return false;
-                };
-
-                status.1.resolution_acceptable(&resolution.approach)
-            });
-
-            if !all_resolutions_are_up_to_date {
-                bail!("Chosen resolutions do not match current integration statuses")
-            }
+        if resolutions.len() != context.virtual_branches_in_workspace.len() {
+            bail!("Chosen resolutions do not match quantity of applied virtual branches")
         }
 
-        compute_resolutions(&context, resolutions)?
-    };
+        let all_resolutions_are_up_to_date = resolutions.iter().all(|resolution| {
+            // This is O(n^2), in reality, n is unlikly to be more than 3 or 4
+            let Some(branch) = context
+                .virtual_branches_in_workspace
+                .iter()
+                .find(|branch| branch.id == resolution.branch_id)
+            else {
+                return false;
+            };
+
+            if resolution.branch_tree != branch.tree {
+                return false;
+            };
+
+            let Some(status) = statuses
+                .iter()
+                .find(|status| status.0 == resolution.branch_id)
+            else {
+                return false;
+            };
+
+            status.1.resolution_acceptable(&resolution.approach)
+        });
+
+        if !all_resolutions_are_up_to_date {
+            bail!("Chosen resolutions do not match current integration statuses")
+        }
+    }
+
+    let integration_results = compute_resolutions(&context, resolutions)?;
 
     {
-        let virtual_branches_state = VirtualBranchesHandle::new(command_context.project().gb_dir());
-
         // We preform the updates in stages. If deleting or unapplying fails, we
         // could enter a much worse state if we're simultaniously updating trees
 
@@ -264,6 +265,8 @@ pub(crate) fn integrate_upstream(
             command_context.delete_branch_reference(&branch)?;
         }
 
+        let permission = context._permission.expect("Permission provided above");
+
         // Unapply branches
         for (branch_id, integration_result) in &integration_results {
             if !matches!(integration_result, IntegrationResult::UnapplyBranch) {
@@ -276,6 +279,10 @@ pub(crate) fn integrate_upstream(
         }
 
         let mut branches = virtual_branches_state.list_branches_in_workspace()?;
+
+        let new_target_tree = context.new_target.tree()?;
+        let mut final_tree = context.new_target.tree()?;
+        let repository = context.repository;
 
         // Update branch trees
         for (branch_id, integration_result) in &integration_results {
@@ -291,7 +298,28 @@ pub(crate) fn integrate_upstream(
             branch.tree = *tree;
 
             virtual_branches_state.set_branch(branch.clone())?;
+
+            // Combine tree into new working tree
+            {
+                let branch_tree = repository.find_tree(branch.tree)?;
+                let mut merge_result: git2::Index =
+                    repository.merge_trees(&new_target_tree, &final_tree, &branch_tree, None)?;
+                let final_tree_oid = merge_result.write_tree_to(repository)?;
+                final_tree = repository.find_tree(final_tree_oid)?;
+            }
         }
+
+        repository.checkout_tree_builder(&final_tree)
+            .force()
+            .checkout()
+            .context("failed to checkout index, this should not have happened, we should have already detected this")?;
+
+        virtual_branches_state.set_default_target(Target {
+            sha: context.new_target.id(),
+            ..default_target
+        })?;
+
+        crate::integration::update_workspace_commit(&virtual_branches_state, command_context)?;
     }
 
     Ok(())
@@ -481,7 +509,7 @@ mod test {
         let head_commit = commit_file(&repository, Some(&initial_commit), &[("foo.txt", "baz")]);
 
         let context = UpstreamIntegrationContext {
-            _perm: None,
+            _permission: None,
             old_target: head_commit.clone(),
             new_target: head_commit,
             repository: &repository,
@@ -503,7 +531,7 @@ mod test {
         let new_target = commit_file(&repository, Some(&old_target), &[("foo.txt", "qux")]);
 
         let context = UpstreamIntegrationContext {
-            _perm: None,
+            _permission: None,
             old_target,
             new_target,
             repository: &repository,
@@ -527,7 +555,7 @@ mod test {
         let branch = make_branch(old_target.id(), old_target.tree_id());
 
         let context = UpstreamIntegrationContext {
-            _perm: None,
+            _permission: None,
             old_target,
             new_target,
             repository: &repository,
@@ -564,7 +592,7 @@ mod test {
         let branch = make_branch(branch_head.id(), branch_head.tree_id());
 
         let context = UpstreamIntegrationContext {
-            _perm: None,
+            _permission: None,
             old_target,
             new_target: new_target.clone(),
             repository: &repository,
@@ -626,7 +654,7 @@ mod test {
         let branch = make_branch(old_target.id(), branch_head.tree_id());
 
         let context = UpstreamIntegrationContext {
-            _perm: None,
+            _permission: None,
             old_target,
             new_target,
             repository: &repository,
@@ -657,7 +685,7 @@ mod test {
         let branch = make_branch(branch_head.id(), branch_tree.tree_id());
 
         let context = UpstreamIntegrationContext {
-            _perm: None,
+            _permission: None,
             old_target,
             new_target,
             repository: &repository,
@@ -686,7 +714,7 @@ mod test {
         let branch = make_branch(new_target.id(), new_target.tree_id());
 
         let context = UpstreamIntegrationContext {
-            _perm: None,
+            _permission: None,
             old_target,
             new_target,
             repository: &repository,
@@ -724,7 +752,7 @@ mod test {
         let branch = make_branch(new_target.id(), tree.tree_id());
 
         let context = UpstreamIntegrationContext {
-            _perm: None,
+            _permission: None,
             old_target,
             new_target,
             repository: &repository,
@@ -771,7 +799,7 @@ mod test {
         let branch = make_branch(branch_head.id(), branch_tree.tree_id());
 
         let context = UpstreamIntegrationContext {
-            _perm: None,
+            _permission: None,
             old_target,
             new_target,
             repository: &repository,
