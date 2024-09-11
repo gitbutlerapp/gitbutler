@@ -130,6 +130,7 @@
 										files={branch.files}
 										showCheckboxes={$commitBoxOpen}
 										allowMultiple
+										commitDialogExpanded={commitBoxOpen}
 									/>
 									{#if branch.conflicted}
 										<div class="card-notifications">

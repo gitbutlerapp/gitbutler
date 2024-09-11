@@ -21,6 +21,7 @@
 	const runCommitHooks = projectRunCommitHooks(projectId);
 	const commitMessage = persistedCommitMessage(projectId, $branch.id);
 
+	let commitMessageInput: CommitMessageInput;
 	let isCommitting = false;
 	let commitMessageValid = false;
 	let isInViewport = false;
@@ -66,6 +67,7 @@
 	}}
 >
 	<CommitMessageInput
+		bind:this={commitMessageInput}
 		bind:commitMessage={$commitMessage}
 		bind:valid={commitMessageValid}
 		isExpanded={$expanded}
@@ -98,6 +100,7 @@
 					commit();
 				} else {
 					$expanded = true;
+					commitMessageInput.focus();
 				}
 			}}
 		>

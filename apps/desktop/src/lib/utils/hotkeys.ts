@@ -1,3 +1,4 @@
+import { entries } from './object';
 import { createKeybindingsHandler } from 'tinykeys';
 
 interface KeybindDefinitions {
@@ -25,7 +26,7 @@ export function createKeybind(keybinds: KeybindDefinitions) {
 		Backspace: () => {}
 	};
 
-	for (const [combo, callback] of Object.entries(keybinds)) {
+	for (const [combo, callback] of entries(keybinds)) {
 		keys[combo] = (event: KeyboardEvent) => {
 			if (
 				event.repeat ||

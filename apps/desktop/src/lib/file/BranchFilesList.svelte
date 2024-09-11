@@ -5,6 +5,7 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
+	import { KeyName } from '$lib/utils/hotkeys';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { updateSelection } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
@@ -12,12 +13,14 @@
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { AnyFile } from '$lib/vbranches/types';
+	import type { Writable } from 'svelte/store';
 
 	export let files: AnyFile[];
 	export let isUnapplied = false;
 	export let showCheckboxes = false;
 	export let allowMultiple = false;
 	export let readonly = false;
+	export let commitDialogExpanded: Writable<boolean> | undefined = undefined;
 
 	const fileIdSelection = getContext(FileIdSelection);
 	const commit = getCommitStore();
@@ -40,6 +43,13 @@
 
 	// Make sure we display when the file list is reset
 	$: setFiles(files);
+
+	function startCommit() {
+		if (commitDialogExpanded === undefined) return;
+		if (!$commitDialogExpanded) {
+			$commitDialogExpanded = true;
+		}
+	}
 
 	export function loadMore() {
 		if (currentDisplayIndex + 1 >= chunkedFiles.length) return;
@@ -95,6 +105,13 @@
 					commitId: $commit?.id
 				}
 			);
+			switch (e.key) {
+				case KeyName.Space: {
+					e.preventDefault();
+					startCommit();
+					break;
+				}
+			}
 		}}
 	>
 		{#each displayedFiles as file (file.id)}

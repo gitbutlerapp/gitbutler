@@ -29,6 +29,7 @@
 
 	export let isExpanded: boolean;
 	export let commitMessage: string;
+	export let focusOnMount: boolean = false;
 	export let valid: boolean = false;
 	export let commit: (() => void) | undefined = undefined;
 	export let cancel: () => void;
@@ -62,7 +63,7 @@
 	}
 
 	function focusTextAreaOnMount(el: HTMLTextAreaElement) {
-		el.focus();
+		if (focusOnMount) el.focus();
 	}
 
 	function updateFieldsHeight() {
@@ -183,6 +184,10 @@
 
 			descriptionTextArea?.focus();
 		}
+	}
+
+	export function focus() {
+		titleTextArea?.focus();
 	}
 </script>
 
