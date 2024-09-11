@@ -6,7 +6,7 @@
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
-	import { maybeMoveSelection } from '$lib/utils/selection';
+	import { updateSelection } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
@@ -81,6 +81,21 @@
 			loadMore();
 		}}
 		role="listbox"
+		onkeydown={(e) => {
+			e.preventDefault();
+			updateSelection(
+				{
+					allowMultiple,
+					shiftKey: e.shiftKey,
+					key: e.key,
+					targetElement: e.currentTarget as HTMLElement,
+					files: displayedFiles,
+					selectedFileIds: $fileIdSelection,
+					fileIdSelection,
+					commitId: $commit?.id
+				}
+			);
+		}}
 	>
 		{#each displayedFiles as file (file.id)}
 			<FileListItem
@@ -91,29 +106,6 @@
 				selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
 				onclick={(e) => {
 					selectFilesInList(e, file, fileIdSelection, displayedFiles, allowMultiple, $commit);
-				}}
-				onkeydown={(e) => {
-					e.preventDefault();
-					maybeMoveSelection(
-						{
-							allowMultiple,
-							shiftKey: e.shiftKey,
-							key: e.key,
-							targetElement: e.currentTarget as HTMLElement,
-							file,
-							files: displayedFiles,
-							selectedFileIds: $fileIdSelection,
-							fileIdSelection,
-							commitId: $commit?.id
-						}
-					);
-
-					if (e.key === 'Escape') {
-						fileIdSelection.clear();
-						
-						const targetEl = e.target as HTMLElement;
-						targetEl.blur();
-					}
 				}}
 			/>
 		{/each}
