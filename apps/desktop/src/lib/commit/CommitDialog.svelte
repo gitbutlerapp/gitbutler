@@ -4,7 +4,7 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { slideFade } from '@gitbutler/ui/utils/transitions';
@@ -15,7 +15,7 @@
 	export let hasSectionsAfter: boolean;
 
 	const branchController = getContext(BranchController);
-	const selectedOwnership = getContextStore(Ownership);
+	const selectedOwnership = getContextStore(SelectedOwnership);
 	const branch = getContextStore(VirtualBranch);
 
 	const runCommitHooks = projectRunCommitHooks(projectId);
@@ -88,7 +88,8 @@
 			outline={!$expanded}
 			grow
 			loading={isCommitting}
-			disabled={(isCommitting || !commitMessageValid || $selectedOwnership.isEmpty()) && $expanded}
+			disabled={(isCommitting || !commitMessageValid || $selectedOwnership.nothingSelected()) &&
+				$expanded}
 			id="commit-to-branch"
 			onclick={() => {
 				if ($expanded) {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { maybeGetContextStore } from '$lib/utils/context';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import type { AnyFile } from '$lib/vbranches/types';
@@ -10,27 +10,30 @@
 	export let files: AnyFile[];
 	export let showCheckboxes = false;
 
-	const selectedOwnership: Writable<Ownership> | undefined = maybeGetContextStore(Ownership);
+	const selectedOwnership: Writable<SelectedOwnership> | undefined =
+		maybeGetContextStore(SelectedOwnership);
 
 	function selectAll(files: AnyFile[]) {
 		if (!selectedOwnership) return;
-		files.forEach((f) => selectedOwnership.update((ownership) => ownership.add(f.id, ...f.hunks)));
+		files.forEach((f) =>
+			selectedOwnership.update((ownership) => ownership.select(f.id, ...f.hunks))
+		);
 	}
 
-	function isAllChecked(selectedOwnership: Ownership | undefined): boolean {
+	function isAllChecked(selectedOwnership: SelectedOwnership | undefined): boolean {
 		if (!selectedOwnership) return false;
-		return files.every((f) => f.hunks.every((h) => selectedOwnership.contains(f.id, h.id)));
+		return files.every((f) => f.hunks.every((h) => selectedOwnership.isSelected(f.id, h.id)));
 	}
 
-	function isIndeterminate(selectedOwnership: Ownership | undefined): boolean {
+	function isIndeterminate(selectedOwnership: SelectedOwnership | undefined): boolean {
 		if (!selectedOwnership) return false;
 		if (files.length <= 1) return false;
 
 		let file = files[0] as AnyFile;
-		let prev = selectedOwnership.contains(file.id, ...file.hunkIds);
+		let prev = selectedOwnership.isSelected(file.id, ...file.hunkIds);
 		for (let i = 1; i < files.length; i++) {
 			file = files[i] as AnyFile;
-			const contained = selectedOwnership.contains(file.id, ...file.hunkIds);
+			const contained = selectedOwnership.isSelected(file.id, ...file.hunkIds);
 			if (contained !== prev) {
 				return true;
 			}
@@ -49,12 +52,13 @@
 				small
 				{checked}
 				{indeterminate}
+				style={indeterminate ? 'neutral' : 'default'}
 				onchange={(e: Event & { currentTarget: EventTarget & HTMLInputElement; }) => {
 					const isChecked = e.currentTarget.checked;
 					if (isChecked) {
 						selectAll(files);
 					} else {
-						selectedOwnership?.update((ownership) => ownership.clear());
+						selectedOwnership?.update((ownership) => ownership.clearSelection());
 					}
 				}}
 			/>

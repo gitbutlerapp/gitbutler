@@ -293,7 +293,7 @@
 			},
 			"50": {
 				"$type": "color",
-				"$value": "#48a8a3",
+				"$value": "#3cb4ae",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -309,7 +309,7 @@
 			},
 			"60": {
 				"$type": "color",
-				"$value": "#97cecb",
+				"$value": "#8fd6d2",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -325,7 +325,7 @@
 			},
 			"70": {
 				"$type": "color",
-				"$value": "#c6e7e5",
+				"$value": "#c1ebe9",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -341,7 +341,7 @@
 			},
 			"80": {
 				"$type": "color",
-				"$value": "#daf1f0",
+				"$value": "#d7f4f2",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -357,7 +357,7 @@
 			},
 			"90": {
 				"$type": "color",
-				"$value": "#e9f7f6",
+				"$value": "#e7f8f7",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -373,7 +373,7 @@
 			},
 			"95": {
 				"$type": "color",
-				"$value": "#f4fbfa",
+				"$value": "#f3fcfb",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -859,7 +859,7 @@
 			},
 			"70": {
 				"$type": "color",
-				"$value": "#bef4da",
+				"$value": "#c2f0da",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -875,7 +875,7 @@
 			},
 			"80": {
 				"$type": "color",
-				"$value": "#d0f7e5",
+				"$value": "#d2f4e4",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -891,7 +891,7 @@
 			},
 			"90": {
 				"$type": "color",
-				"$value": "#e5faf0",
+				"$value": "#e7f9f0",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -3652,12 +3652,12 @@
 			"selected": {
 				"count-bg": {
 					"$type": "color",
-					"$value": "#378bf2",
+					"$value": "#e1eeff",
 					"$description": "",
 					"$extensions": {
 						"mode": {
-							"light": "#378bf2",
-							"dark": "#044289"
+							"light": "#e1eeff",
+							"dark": "#133161"
 						},
 						"figma": {
 							"variableId": "VariableID:3935:251",
@@ -3671,12 +3671,12 @@
 				},
 				"count-border": {
 					"$type": "color",
-					"$value": "#265dd4",
+					"$value": "#9dc3f5",
 					"$description": "",
 					"$extensions": {
 						"mode": {
-							"light": "#265dd4",
-							"dark": "#005cc5"
+							"light": "#9dc3f5",
+							"dark": "#2464ae"
 						},
 						"figma": {
 							"variableId": "VariableID:3935:253",
@@ -3690,15 +3690,53 @@
 				},
 				"count-text": {
 					"$type": "color",
-					"$value": "#ffffff",
+					"$value": "#6187dc",
 					"$description": "",
 					"$extensions": {
 						"mode": {
-							"light": "#ffffff",
-							"dark": "#d6e8ff"
+							"light": "#6187dc",
+							"dark": "#6aaeff"
 						},
 						"figma": {
 							"variableId": "VariableID:3935:254",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"checkbox": {
+					"$type": "color",
+					"$value": "#378bf2",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#378bf2",
+							"dark": "#2581f3"
+						},
+						"figma": {
+							"variableId": "VariableID:4469:4018",
+							"collection": {
+								"id": "VariableCollectionId:8:1868",
+								"name": "clr",
+								"defaultModeId": "8:5"
+							}
+						}
+					}
+				},
+				"checkbox-hover": {
+					"$type": "color",
+					"$value": "#196dd4",
+					"$description": "",
+					"$extensions": {
+						"mode": {
+							"light": "#196dd4",
+							"dark": "#1165cc"
+						},
+						"figma": {
+							"variableId": "VariableID:4499:8368",
 							"collection": {
 								"id": "VariableCollectionId:8:1868",
 								"name": "clr",
@@ -4137,7 +4175,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius"],
-			"createdAt": "2024-08-31T23:16:13.487Z"
+			"createdAt": "2024-09-10T12:38:43.089Z"
 		}
 	}
 }
