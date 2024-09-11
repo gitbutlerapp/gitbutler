@@ -1,6 +1,6 @@
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
-use std::{borrow::Borrow, path::PathBuf};
+use std::{borrow::Borrow, fs, path::PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use bstr::{BString, ByteSlice, ByteVec};
@@ -38,13 +38,14 @@ where
     let head_commit = git_repository.find_commit(commit_oid)?;
     let base_tree = head_commit.tree()?;
 
-    hunks_onto_tree(ctx, &base_tree, files)
+    hunks_onto_tree(ctx, &base_tree, files, false)
 }
 
 pub fn hunks_onto_tree<T>(
     ctx: &CommandContext,
     base_tree: &git2::Tree,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
+    allow_new_file: bool,
 ) -> Result<git2::Oid>
 where
     T: Into<GitHunk> + Clone,
@@ -177,6 +178,22 @@ where
                 // create a blob
                 let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
                 // upsert into the builder
+                builder.upsert(rel_path, new_blob_oid, filemode);
+            } else if !full_path.exists()
+                && hunks.len() == 1
+                && hunks[0].change_type == crate::ChangeType::Added
+            {
+                // File was deleted but now that hunk is being discarded with an inversed hunk
+                let mut blob_contents = BString::default();
+                let mut all_diffs = BString::default();
+                for hunk in hunks {
+                    all_diffs.push_str(&hunk.diff_lines);
+                }
+                let patch = Patch::from_bytes(&all_diffs)?;
+                blob_contents = apply(&blob_contents, &patch)
+                    .context(format!("failed to apply {}", all_diffs))?;
+
+                let new_blob_oid = git_repository.blob(&blob_contents)?;
                 builder.upsert(rel_path, new_blob_oid, filemode);
             } else {
                 // create a git blob from a file on disk

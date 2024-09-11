@@ -159,7 +159,7 @@ pub fn unapply_ownership(
         },
     )?;
 
-    let final_tree_oid = gitbutler_diff::write::hunks_onto_tree(ctx, &final_tree, diff)?;
+    let final_tree_oid = gitbutler_diff::write::hunks_onto_tree(ctx, &final_tree, diff, true)?;
     let final_tree = repo
         .find_tree(final_tree_oid)
         .context("failed to find tree")?;
