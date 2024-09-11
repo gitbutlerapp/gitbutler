@@ -241,7 +241,7 @@
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);
 		background: var(--clr-bg-1);
-		box-shadow: var(--shadow-s);
+		box-shadow: var(--fx-shadow-s);
 		overflow: hidden;
 		transform-origin: top;
 
