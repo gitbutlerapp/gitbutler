@@ -347,18 +347,8 @@
 								</div>
 							</button>
 						{/if}
-
 						<span class="commit__subtitle-divider">•</span>
-
 						<span>{getTimeAndAuthor()}</span>
-
-						{#if $stackingFeature && commit instanceof DetailedCommit}
-							<div
-								style="background-color:var(--clr-core-pop-80); border-radius: 3px; padding: 2px;"
-							>
-								{commit?.remoteRef}
-							</div>
-						{/if}
 					</div>
 				{/if}
 			</div>
