@@ -16,8 +16,8 @@
 
 	type Props = {
 		loading: boolean;
-		disabled: boolean;
-		tooltip: string;
+		disabled?: boolean;
+		tooltip?: string;
 		click: (opts: { draft: boolean }) => void;
 	};
 	const { loading, disabled, tooltip, click }: Props = $props();

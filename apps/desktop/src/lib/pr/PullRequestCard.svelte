@@ -4,9 +4,9 @@
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -17,6 +17,12 @@
 	import type { ChecksStatus } from '$lib/gitHost/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
+
+	interface Props {
+		upstreamName: string;
+	}
+
+	const { upstreamName }: Props = $props();
 
 	type StatusInfo = {
 		text: string;
@@ -29,31 +35,38 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 
+	const gitHostListingService = getGitHostListingService();
+	const prStore = $derived($gitHostListingService?.prs);
+	const prs = $derived(prStore ? $prStore : undefined);
+
+	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
+	const prNumber = $derived(listedPr?.number);
+
 	const prService = getGitHostPrService();
-	const prMonitor = getGitHostPrMonitor();
+	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
+
 	const checksMonitor = getGitHostChecksMonitor();
-	const listingService = getGitHostListingService();
 	// This PR has been loaded on demand, and contains more details than the version
 	// obtained when listing them.
-	const pr = $derived($prMonitor?.pr);
+	const pr = $derived(prMonitor?.pr);
 	const checks = $derived($checksMonitor?.status);
 
 	// While the pr monitor is set to fetch updates by interval, we want
 	// frequent updates while checks are running.
 	$effect(() => {
-		if ($checks) $prMonitor?.refresh();
+		if ($checks) prMonitor?.refresh();
 	});
 
 	let isMerging = $state(false);
 
-	const lastFetch = $derived($prMonitor?.lastFetch);
+	const lastFetch = $derived(prMonitor?.lastFetch);
 	const timeAgo = $derived($lastFetch ? createTimeAgoStore($lastFetch) : undefined);
 
-	const mrLoading = $derived($prMonitor?.loading);
+	const mrLoading = $derived(prMonitor?.loading);
 	const checksLoading = $derived($checksMonitor?.loading);
 
 	const checksError = $derived($checksMonitor?.error);
-	const detailsError = $derived($prMonitor?.error);
+	const detailsError = $derived(prMonitor?.error);
 
 	function getChecksCount(status: ChecksStatus): string {
 		if (!status) return 'Running checks';
@@ -161,7 +174,11 @@
 </script>
 
 {#if $pr}
-	<div class="card pr-card">
+	<div
+		class:card={!$stackingFeature}
+		class:pr-card={!$stackingFeature}
+		class:stacked-pr={$stackingFeature}
+	>
 		<div class="floating-button">
 			<Button
 				icon="update-small"
@@ -172,15 +189,19 @@
 				tooltip={$timeAgo ? 'Updated ' + $timeAgo : ''}
 				onclick={async () => {
 					$checksMonitor?.update();
-					$prMonitor?.refresh();
+					prMonitor?.refresh();
 				}}
 			/>
 		</div>
-		<div class="pr-title text-13 text-semibold">
+		<div
+			class:pr-title={!$stackingFeature}
+			class:stacked-pr-title={$stackingFeature}
+			class="text-13 text-semibold"
+		>
 			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
 			{$pr.title}
 		</div>
-		<div class="pr-tags">
+		<div class:pr-tags={!$stackingFeature} class:stacked-pr-tags={$stackingFeature}>
 			<Button
 				size="tag"
 				clickable={false}
@@ -213,7 +234,7 @@
         immediately.
         -->
 		{#if $pr}
-			<div class="pr-actions">
+			<div class:pr-actions={!$stackingFeature} class:stacked-pr-actions={$stackingFeature}>
 				{#if infoProps}
 					<InfoMessage icon={infoProps.icon} filled outlined={false} style={infoProps.messageStyle}>
 						<svelte:fragment slot="content">
@@ -239,8 +260,8 @@
 							await $prService?.merge(method, $pr.number);
 							await baseBranchService.fetchFromRemotes();
 							await Promise.all([
-								$prMonitor?.refresh(),
-								$listingService?.refresh(),
+								prMonitor?.refresh(),
+								$gitHostListingService?.refresh(),
 								vbranchService.refresh(),
 								baseBranchService.refresh()
 							]);
@@ -258,6 +279,12 @@
 {/if}
 
 <style lang="postcss">
+	.stacked-pr {
+		position: relative;
+		display: flex;
+		flex-direction: column;
+	}
+
 	.pr-card {
 		position: relative;
 		padding: 14px;
@@ -272,9 +299,22 @@
 		cursor: text;
 	}
 
+	.stacked-pr-title {
+		color: var(--clr-scale-ntrl-0);
+		padding: 14px 14px 12px 14px;
+		user-select: text;
+		cursor: text;
+	}
+
 	.pr-tags {
 		display: flex;
 		gap: 4px;
+	}
+
+	.stacked-pr-tags {
+		display: flex;
+		gap: 4px;
+		padding: 0 14px 12px 14px;
 	}
 
 	.pr-actions {
@@ -282,6 +322,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
+	}
+
+	.stacked-pr-actions {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+		padding: 0 14px 12px 14px;
 	}
 
 	.floating-button {
