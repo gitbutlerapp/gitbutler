@@ -495,6 +495,8 @@ mod test {
             fs::write(repository.path().join("..").join(file_name), contents).unwrap();
         }
         let mut index = repository.index().unwrap();
+        // Make sure we're not having weird cached state
+        index.read(true).unwrap();
         index
             .add_all(["*"], git2::IndexAddOption::DEFAULT, None)
             .unwrap();
