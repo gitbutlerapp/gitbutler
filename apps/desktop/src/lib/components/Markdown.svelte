@@ -1,20 +1,28 @@
 <script lang="ts">
 	import MarkdownContent from '$lib/components/MarkdownContent.svelte';
 	import { options } from '$lib/utils/markdownRenderers';
-	import { Lexer } from 'marked';
+	import { Lexer, type TokensList } from 'marked';
 
 	interface Props {
-		content: string;
+		content: string | undefined;
 	}
 
 	let { content }: Props = $props();
 
-	const lexer = new Lexer(options);
-	const tokens = lexer.lex(content);
+	let tokens = $state<TokensList>();
+
+	$effect(() => {
+		if (content) {
+			const lexer = new Lexer(options);
+			tokens = lexer.lex(content);
+		}
+	});
 </script>
 
 <div class="markdown-content">
-	<MarkdownContent type="init" {tokens} />
+	{#if tokens}
+		<MarkdownContent type="init" {tokens} />
+	{/if}
 </div>
 
 <style>
