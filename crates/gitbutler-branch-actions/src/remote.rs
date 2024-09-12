@@ -148,6 +148,7 @@ pub(crate) fn branch_to_remote_branch_data(
         .target()
         .map(|sha| {
             let ahead = ctx
+                .repository()
                 .log(sha, LogUntil::Commit(base))
                 .context("failed to get ahead commits")?;
 

@@ -12,10 +12,7 @@
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
-	import {
-		gitHostPullRequestTemplatePath,
-		gitHostUsePullRequestTemplate
-	} from '$lib/config/config';
+	import { gitHostUsePullRequestTemplate } from '$lib/config/config';
 	import { featureTopics } from '$lib/config/uiFeatureFlags';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostFactory';
@@ -36,6 +33,7 @@
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { debounce } from '$lib/utils/debounce';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import { derived as storeDerived } from 'svelte/store';
@@ -82,13 +80,13 @@
 		setContext(BranchListingService, data.branchListingService);
 		setContext(ModeService, data.modeService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
+		setContext(UpstreamIntegrationService, data.upstreamIntegrationService);
 	});
 
 	let intervalId: any;
 
 	const showHistoryView = persisted(false, 'showHistoryView');
 	const usePullRequestTemplate = gitHostUsePullRequestTemplate();
-	const pullRequestTemplatePath = gitHostPullRequestTemplatePath();
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
 	const gitHostFactory = $derived(new DefaultGitHostFactory(octokit));
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
@@ -121,29 +119,25 @@
 	const mode = $derived(modeService.mode);
 	const head = $derived(modeService.head);
 
+	// We end up with a `state_unsafe_mutation` when switching projects if we
+	// don't use $effect.pre here.
 	// TODO: can we eliminate the need to debounce?
 	const fetch = $derived(fetchSignal.event);
 	const debouncedBaseBranchResfresh = debounce(() => baseBranchService.refresh(), 500);
-	$effect(() => {
+	$effect.pre(() => {
 		if ($fetch || $head) debouncedBaseBranchResfresh();
 	});
 
 	// TODO: can we eliminate the need to debounce?
 	const debouncedRemoteBranchRefresh = debounce(() => remoteBranchService.refresh(), 500);
-	$effect(() => {
+	$effect.pre(() => {
 		if ($baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
 	});
 
-	$effect(() => {
+	$effect.pre(() => {
 		const gitHost =
 			repoInfo && baseBranchName
-				? gitHostFactory.build(
-						repoInfo,
-						baseBranchName,
-						forkInfo,
-						usePullRequestTemplate,
-						pullRequestTemplatePath
-					)
+				? gitHostFactory.build(repoInfo, baseBranchName, forkInfo, usePullRequestTemplate)
 				: undefined;
 
 		const ghListService = gitHost?.listService();

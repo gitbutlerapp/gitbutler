@@ -1,6 +1,6 @@
 use std::str::FromStr;
 
-use crate::{LogUntil, RepoActionsExt};
+use crate::{LogUntil, RepoActionsExt, RepositoryExt as _};
 use anyhow::Context;
 use anyhow::{anyhow, Result};
 use gitbutler_branch::ChangeReference;
@@ -163,6 +163,7 @@ fn commit_by_branch_id_and_change_id<'a>(
     let target = handle.get_default_target()?;
     // Find the commit with the change id
     let commit = ctx
+        .repository()
         .log(vbranch.head, LogUntil::Commit(target.sha))?
         .iter()
         .map(|c| c.id())
@@ -187,6 +188,7 @@ fn validate_commit(
 ) -> Result<()> {
     let target = handle.get_default_target()?;
     let branch_commits = ctx
+        .repository()
         .log(vbranch.head, LogUntil::Commit(target.sha))?
         .iter()
         .map(|c| c.id())

@@ -8,7 +8,7 @@ use gitbutler_commit::{
 };
 use gitbutler_error::error::Marker;
 
-use crate::{LogUntil, RepoActionsExt};
+use crate::{LogUntil, RepositoryExt as _};
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
@@ -22,13 +22,20 @@ pub fn cherry_rebase(
     from_commit_oid: git2::Oid,
 ) -> Result<Option<git2::Oid>> {
     // get a list of the commits to rebase
-    let mut ids_to_rebase = ctx.l(from_commit_oid, LogUntil::Commit(to_commit_oid))?;
+    let ids_to_rebase = ctx
+        .repository()
+        .l(from_commit_oid, LogUntil::Commit(to_commit_oid))?;
 
     if ids_to_rebase.is_empty() {
         return Ok(None);
     }
 
-    let new_head_id = cherry_rebase_group(ctx, target_commit_oid, &mut ids_to_rebase)?;
+    let new_head_id = cherry_rebase_group(
+        ctx.repository(),
+        target_commit_oid,
+        &ids_to_rebase,
+        ctx.project().succeeding_rebases,
+    )?;
 
     Ok(Some(new_head_id))
 }
@@ -38,19 +45,18 @@ pub fn cherry_rebase(
 /// the difference between this and a libgit2 based rebase is that this will successfully
 /// rebase empty commits (two commits with identical trees)
 pub fn cherry_rebase_group(
-    ctx: &CommandContext,
+    repository: &git2::Repository,
     target_commit_oid: git2::Oid,
-    ids_to_rebase: &mut [git2::Oid],
+    ids_to_rebase: &[git2::Oid],
+    succeeding_rebases: bool,
 ) -> Result<git2::Oid> {
-    ids_to_rebase.reverse();
     // now, rebase unchanged commits onto the new commit
     let commits_to_rebase = ids_to_rebase
         .iter()
-        .map(|oid| ctx.repository().find_commit(oid.to_owned()))
+        .map(|oid| repository.find_commit(oid.to_owned()))
+        .rev()
         .collect::<Result<Vec<_>, _>>()
         .context("failed to read commits to rebase")?;
-
-    let repository = ctx.repository();
 
     let new_head_id = commits_to_rebase
         .into_iter()
@@ -70,12 +76,24 @@ pub fn cherry_rebase_group(
                     .context("failed to cherry pick")?;
 
                 if cherrypick_index.has_conflicts() {
-                    if !ctx.project().succeeding_rebases {
+                    if !succeeding_rebases {
                         return Err(anyhow!("failed to rebase")).context(Marker::BranchConflict);
                     }
-                    commit_conflicted_cherry_result(ctx, head, to_rebase, cherrypick_index)
+                    commit_conflicted_cherry_result(
+                        repository,
+                        head,
+                        to_rebase,
+                        cherrypick_index,
+                        None,
+                    )
                 } else {
-                    commit_unconflicted_cherry_result(ctx, head, to_rebase, cherrypick_index)
+                    commit_unconflicted_cherry_result(
+                        repository,
+                        head,
+                        to_rebase,
+                        cherrypick_index,
+                        None,
+                    )
                 }
             },
         )?
@@ -84,13 +102,20 @@ pub fn cherry_rebase_group(
     Ok(new_head_id)
 }
 
+pub struct OverrideCommitDetails<'a, 'repository> {
+    message: &'a str,
+    parents: &'a [&'a git2::Commit<'repository>],
+    author: &'a git2::Signature<'repository>,
+    commiter: &'a git2::Signature<'repository>,
+}
+
 fn commit_unconflicted_cherry_result<'repository>(
-    ctx: &'repository CommandContext,
+    repository: &'repository git2::Repository,
     head: git2::Commit<'repository>,
     to_rebase: git2::Commit,
     mut cherrypick_index: git2::Index,
+    override_commit_details: Option<OverrideCommitDetails>,
 ) -> Result<git2::Commit<'repository>> {
-    let repository = ctx.repository();
     let commit_headers = to_rebase.gitbutler_headers();
 
     let is_merge_commit = to_rebase.parent_count() > 0;
@@ -113,17 +138,31 @@ fn commit_unconflicted_cherry_result<'repository>(
         ..commit_headers
     });
 
-    let commit_oid = crate::RepositoryExt::commit_with_signature(
-        repository,
-        None,
-        &to_rebase.author(),
-        &to_rebase.committer(),
-        &to_rebase.message_bstr().to_str_lossy(),
-        &merge_tree,
-        &[&head],
-        commit_headers,
-    )
-    .context("failed to create commit")?;
+    let commit_oid = if let Some(override_commit_details) = override_commit_details {
+        crate::RepositoryExt::commit_with_signature(
+            repository,
+            None,
+            override_commit_details.author,
+            override_commit_details.commiter,
+            override_commit_details.message,
+            &merge_tree,
+            override_commit_details.parents,
+            commit_headers,
+        )
+        .context("failed to create commit")?
+    } else {
+        crate::RepositoryExt::commit_with_signature(
+            repository,
+            None,
+            &to_rebase.author(),
+            &to_rebase.committer(),
+            &to_rebase.message_bstr().to_str_lossy(),
+            &merge_tree,
+            &[&head],
+            commit_headers,
+        )
+        .context("failed to create commit")?
+    };
 
     repository
         .find_commit(commit_oid)
@@ -131,12 +170,12 @@ fn commit_unconflicted_cherry_result<'repository>(
 }
 
 fn commit_conflicted_cherry_result<'repository>(
-    ctx: &'repository CommandContext,
+    repository: &'repository git2::Repository,
     head: git2::Commit,
     to_rebase: git2::Commit,
     cherrypick_index: git2::Index,
+    override_commit_details: Option<OverrideCommitDetails>,
 ) -> Result<git2::Commit<'repository>> {
-    let repository = ctx.repository();
     let commit_headers = to_rebase.gitbutler_headers();
 
     // If the commit we're rebasing is conflicted, use the commits original base.
@@ -201,33 +240,91 @@ fn commit_conflicted_cherry_result<'repository>(
 
     let tree_oid = tree_writer.write().context("failed to write tree")?;
 
-    let commit_headers = commit_headers.map(|commit_headers| {
-        let conflicted_file_count = conflicted_files
-            .len()
-            .try_into()
-            .expect("If you have more than 2^64 conflicting files, we've got bigger problems");
-        CommitHeadersV2 {
-            conflicted: Some(conflicted_file_count),
-            ..commit_headers
-        }
-    });
+    let commit_headers =
+        commit_headers
+            .or_else(|| Some(Default::default()))
+            .map(|commit_headers| {
+                let conflicted_file_count = conflicted_files.len().try_into().expect(
+                    "If you have more than 2^64 conflicting files, we've got bigger problems",
+                );
+                CommitHeadersV2 {
+                    conflicted: Some(conflicted_file_count),
+                    ..commit_headers
+                }
+            });
 
-    // write a commit
-    let commit_oid = crate::RepositoryExt::commit_with_signature(
-        repository,
-        None,
-        &to_rebase.author(),
-        &to_rebase.committer(),
-        &to_rebase.message_bstr().to_str_lossy(),
-        &repository
-            .find_tree(tree_oid)
-            .context("failed to find tree")?,
-        &[&head],
-        commit_headers,
-    )
-    .context("failed to create commit")?;
+    let commit_oid = if let Some(override_commit_details) = override_commit_details {
+        crate::RepositoryExt::commit_with_signature(
+            repository,
+            None,
+            override_commit_details.author,
+            override_commit_details.commiter,
+            override_commit_details.message,
+            &repository
+                .find_tree(tree_oid)
+                .context("failed to find tree")?,
+            override_commit_details.parents,
+            commit_headers,
+        )
+        .context("failed to create commit")?
+    } else {
+        crate::RepositoryExt::commit_with_signature(
+            repository,
+            None,
+            &to_rebase.author(),
+            &to_rebase.committer(),
+            &to_rebase.message_bstr().to_str_lossy(),
+            &repository
+                .find_tree(tree_oid)
+                .context("failed to find tree")?,
+            &[&head],
+            commit_headers,
+        )
+        .context("failed to create commit")?
+    };
 
     repository
         .find_commit(commit_oid)
         .context("failed to find commit")
+}
+
+pub fn gitbutler_merge_commits<'repository>(
+    repository: &'repository git2::Repository,
+    target_commit: git2::Commit<'repository>,
+    incoming_commit: git2::Commit<'repository>,
+    target_branch_name: &str,
+    incoming_branch_name: &str,
+) -> Result<git2::Commit<'repository>> {
+    let cherrypick_index =
+        repository.cherry_pick_gitbutler(&target_commit, &incoming_commit, None)?;
+
+    let (author, committer) = repository.signatures()?;
+
+    let override_commit_details = OverrideCommitDetails {
+        message: &format!(
+            "Merge branch `{}` into `{}`",
+            incoming_branch_name, target_branch_name
+        ),
+        parents: &[&target_commit.clone(), &incoming_commit.clone()],
+        author: &author,
+        commiter: &committer,
+    };
+
+    if cherrypick_index.has_conflicts() {
+        commit_conflicted_cherry_result(
+            repository,
+            target_commit,
+            incoming_commit,
+            cherrypick_index,
+            Some(override_commit_details),
+        )
+    } else {
+        commit_unconflicted_cherry_result(
+            repository,
+            target_commit,
+            incoming_commit,
+            cherrypick_index,
+            Some(override_commit_details),
+        )
+    }
 }
