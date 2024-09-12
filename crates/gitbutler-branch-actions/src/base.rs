@@ -39,6 +39,11 @@ pub struct BaseBranch {
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
     pub last_fetched_ms: Option<u128>,
+    pub diverged: bool,
+    #[serde(with = "gitbutler_serde::oid_vec")]
+    pub diverged_ahead: Vec<git2::Oid>,
+    #[serde(with = "gitbutler_serde::oid_vec")]
+    pub diverged_behind: Vec<git2::Oid>,
 }
 
 pub(crate) fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
@@ -558,6 +563,34 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
     let commit = branch.get().peel_to_commit()?;
     let oid = commit.id();
 
+    // determined if the base branch is behind it's upstream
+    let fork_point = repo.merge_base(target.sha, oid).context(format!(
+        "failed to find merge base between {} and {}",
+        target.sha, oid
+    ))?;
+
+    let diverged = fork_point != target.sha;
+
+    let diverged_ahead = if diverged {
+        repo.log(target.sha, LogUntil::Commit(fork_point))
+            .context("failed to get diverged ahead commits")?
+            .iter()
+            .map(|commit| commit.id())
+            .collect::<Vec<git2::Oid>>()
+    } else {
+        Vec::new()
+    };
+
+    let diverged_behind = if diverged {
+        repo.log(oid, LogUntil::Commit(fork_point))
+            .context("failed to get diverged behind commits")?
+            .iter()
+            .map(|commit| commit.id())
+            .collect::<Vec<git2::Oid>>()
+    } else {
+        Vec::new()
+    };
+
     // gather a list of commits between oid and target.sha
     let upstream_commits = repo
         .log(oid, LogUntil::Commit(target.sha))
@@ -604,6 +637,9 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
             .map(FetchResult::timestamp)
             .copied()
             .map(|t| t.duration_since(time::UNIX_EPOCH).unwrap().as_millis()),
+        diverged,
+        diverged_ahead,
+        diverged_behind,
     };
     Ok(base)
 }
