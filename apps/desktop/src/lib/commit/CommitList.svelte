@@ -148,7 +148,7 @@
 {/snippet}
 
 {#if hasCommits || hasRemoteCommits}
-	<div class="commits">
+	<div class="commits" class:stacked={$stackingFeature}>
 		<!-- UPSTREAM COMMITS -->
 
 		{#if remoteCommits.length > 0}
@@ -363,6 +363,10 @@
 
 		--avatar-first-top: 50px;
 		--avatar-top: 16px;
+	}
+
+	.commits.stacked {
+		border-top: none;
 	}
 
 	/* BASE ROW */
