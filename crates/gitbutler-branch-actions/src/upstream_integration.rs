@@ -478,10 +478,7 @@ fn compute_resolutions(
 
 #[cfg(test)]
 mod test {
-    use std::{
-        fs,
-        time::{SystemTime, UNIX_EPOCH},
-    };
+    use std::fs;
 
     use gitbutler_branch::BranchOwnershipClaims;
     use tempfile::tempdir;
@@ -518,11 +515,6 @@ mod test {
     }
 
     fn make_branch(head: git2::Oid, tree: git2::Oid) -> Branch {
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-
         Branch {
             id: Uuid::new_v4().into(),
             name: "branchy branch".into(),
@@ -530,8 +522,8 @@ mod test {
             source_refname: None,
             upstream: None,
             upstream_head: None,
-            created_timestamp_ms: now,
-            updated_timestamp_ms: now,
+            created_timestamp_ms: 69420,
+            updated_timestamp_ms: 69420,
             tree,
             head,
             ownership: BranchOwnershipClaims::default(),
