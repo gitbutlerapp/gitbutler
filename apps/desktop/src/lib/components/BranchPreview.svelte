@@ -108,7 +108,7 @@
 						<div class="card">
 							<div class="card__header text-14 text-body text-semibold">{pr.title}</div>
 							{#if pr.body}
-								<div class="markdown card__content text-13 text-body">
+								<div class="card__content text-13 text-body">
 									<Markdown content={pr.body} />
 								</div>
 							{/if}

@@ -15,14 +15,8 @@
 	});
 </script>
 
-<div class="markdown-content">
+<div class="markdown">
 	{#if tokens}
 		<MarkdownContent type="init" {tokens} />
 	{/if}
 </div>
-
-<style>
-	.markdown-content {
-		display: inline;
-	}
-</style>

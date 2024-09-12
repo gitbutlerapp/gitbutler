@@ -70,7 +70,7 @@
 				}}
 			></textarea>
 		{:else}
-			<div class="markdown bubble-message scrollbar text-13 text-body">
+			<div class="bubble-message scrollbar text-13 text-body">
 				<Markdown content={promptMessage.content} />
 			</div>
 		{/if}
