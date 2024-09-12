@@ -125,25 +125,4 @@
 		align-items: center;
 		gap: 2px;
 	}
-
-	.added-removed {
-		display: flex;
-		border-radius: var(--radius-s);
-		overflow: hidden;
-	}
-
-	.removed,
-	.added {
-		padding: 2px 4px;
-	}
-
-	.added {
-		color: var(--clr-scale-succ-30);
-		background-color: var(--clr-theme-succ-bg);
-	}
-
-	.removed {
-		color: var(--clr-scale-err-30);
-		background-color: var(--clr-theme-err-bg);
-	}
 </style>
