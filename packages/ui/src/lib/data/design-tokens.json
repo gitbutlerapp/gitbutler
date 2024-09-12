@@ -649,7 +649,7 @@
 			},
 			"50": {
 				"$type": "color",
-				"$value": "#dc9b14",
+				"$value": "#dc9914",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -665,7 +665,7 @@
 			},
 			"60": {
 				"$type": "color",
-				"$value": "#f4bb6c",
+				"$value": "#f4c06c",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -681,7 +681,7 @@
 			},
 			"70": {
 				"$type": "color",
-				"$value": "#feddae",
+				"$value": "#fee1ae",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -697,7 +697,7 @@
 			},
 			"80": {
 				"$type": "color",
-				"$value": "#ffe8c7",
+				"$value": "#ffecc7",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -713,7 +713,7 @@
 			},
 			"90": {
 				"$type": "color",
-				"$value": "#fff2e0",
+				"$value": "#fff7e0",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -729,7 +729,7 @@
 			},
 			"95": {
 				"$type": "color",
-				"$value": "#fdf7ed",
+				"$value": "#fdf9ed",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -3652,12 +3652,12 @@
 			"selected": {
 				"count-bg": {
 					"$type": "color",
-					"$value": "#e1eeff",
+					"$value": "{clr-core.pop.70}",
 					"$description": "",
 					"$extensions": {
 						"mode": {
-							"light": "#e1eeff",
-							"dark": "#133161"
+							"light": "{clr-core.pop.70}",
+							"dark": "{clr-core.pop.10}"
 						},
 						"figma": {
 							"variableId": "VariableID:3935:251",
@@ -3671,12 +3671,12 @@
 				},
 				"count-border": {
 					"$type": "color",
-					"$value": "#9dc3f5",
+					"$value": "{clr-core.pop.60}",
 					"$description": "",
 					"$extensions": {
 						"mode": {
-							"light": "#9dc3f5",
-							"dark": "#2464ae"
+							"light": "{clr-core.pop.60}",
+							"dark": "{clr-core.pop.30}"
 						},
 						"figma": {
 							"variableId": "VariableID:3935:253",
@@ -3690,53 +3690,15 @@
 				},
 				"count-text": {
 					"$type": "color",
-					"$value": "#6187dc",
+					"$value": "{clr-core.pop.40}",
 					"$description": "",
 					"$extensions": {
 						"mode": {
-							"light": "#6187dc",
-							"dark": "#6aaeff"
+							"light": "{clr-core.pop.40}",
+							"dark": "{clr-core.pop.50}"
 						},
 						"figma": {
 							"variableId": "VariableID:3935:254",
-							"collection": {
-								"id": "VariableCollectionId:8:1868",
-								"name": "clr",
-								"defaultModeId": "8:5"
-							}
-						}
-					}
-				},
-				"checkbox": {
-					"$type": "color",
-					"$value": "#378bf2",
-					"$description": "",
-					"$extensions": {
-						"mode": {
-							"light": "#378bf2",
-							"dark": "#2581f3"
-						},
-						"figma": {
-							"variableId": "VariableID:4469:4018",
-							"collection": {
-								"id": "VariableCollectionId:8:1868",
-								"name": "clr",
-								"defaultModeId": "8:5"
-							}
-						}
-					}
-				},
-				"checkbox-hover": {
-					"$type": "color",
-					"$value": "#196dd4",
-					"$description": "",
-					"$extensions": {
-						"mode": {
-							"light": "#196dd4",
-							"dark": "#1165cc"
-						},
-						"figma": {
-							"variableId": "VariableID:4499:8368",
 							"collection": {
 								"id": "VariableCollectionId:8:1868",
 								"name": "clr",
@@ -4175,7 +4137,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius"],
-			"createdAt": "2024-09-10T12:38:43.089Z"
+			"createdAt": "2024-09-11T23:46:21.639Z"
 		}
 	}
 }
