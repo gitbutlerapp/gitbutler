@@ -19,11 +19,11 @@ export class GitHubIssueService implements GitHostIssueService {
 	}
 
 	async listLabels(): Promise<string[]> {
-		return (
-			await this.octokit.rest.issues.listLabelsForRepo({
-				repo: this.repository.name,
-				owner: this.repository.owner
-			})
-		).data.map((label) => label.name);
+		const result = await this.octokit.paginate(this.octokit.rest.issues.listLabelsForRepo, {
+			repo: this.repository.name,
+			owner: this.repository.owner
+		});
+
+		return result.map((label) => label.name);
 	}
 }

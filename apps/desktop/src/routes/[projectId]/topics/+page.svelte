@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import CreateIssueModal from '$lib/topics/CreateIssueModal.svelte';
 	import CreateTopicModal from '$lib/topics/CreateTopicModal.svelte';
@@ -9,6 +10,7 @@
 
 	const topicService = getContext(TopicService);
 	const topics = topicService.topics;
+	const gitHost = getGitHost();
 
 	const sortedTopics = $derived.by(() => {
 		const clonedTopics = structuredClone($topics);
@@ -29,13 +31,17 @@
 		<div class="topic__actions">
 			<Button kind="solid" style="pop" onclick={() => createTopicModal?.open()}>Create Topic</Button
 			>
-			<Button style="pop" onclick={() => createIssueModal?.open()}>Create Issue</Button>
+			{#if $gitHost?.issueService()}
+				<Button style="pop" onclick={() => createIssueModal?.open()}>Create Issue</Button>
+			{/if}
 		</div>
-		<div class="container">
-			{#each sortedTopics as topic}
-				<Topic {topic} />
-			{/each}
-		</div>
+		{#if sortedTopics.length > 0}
+			<div class="container">
+				{#each sortedTopics as topic}
+					<Topic {topic} />
+				{/each}
+			</div>
+		{/if}
 	</div>
 </SettingsPage>
 

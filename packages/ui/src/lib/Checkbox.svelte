@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export type CheckboxStyle = 'default' | 'blue' | 'neutral';
+	export type CheckboxStyle = 'default' | 'neutral';
 	export interface CheckboxProps {
 		name?: string;
 		small?: boolean;
@@ -130,19 +130,6 @@
 			}
 		}
 
-		&.blue:indeterminate {
-			background-color: var(--clr-diff-selected-checkbox);
-			box-shadow: inset 0 0 0 1px var(--clr-diff-selected-checkbox);
-
-			&:hover {
-				background-color: var(--clr-diff-selected-checkbox-hover);
-			}
-
-			&::before {
-				background-color: white;
-			}
-		}
-
 		/* checked */
 		&:checked {
 			&:disabled {
@@ -173,15 +160,6 @@
 
 			&:hover {
 				background-color: var(--clr-bg-3);
-			}
-		}
-
-		&.blue:checked {
-			background-color: var(--clr-diff-selected-checkbox);
-			box-shadow: inset 0 0 0 1px var(--clr-diff-selected-checkbox);
-
-			&:hover {
-				background-color: var(--clr-diff-selected-checkbox-hover);
 			}
 		}
 

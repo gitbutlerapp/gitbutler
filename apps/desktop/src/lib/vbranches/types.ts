@@ -137,6 +137,7 @@ export class VirtualBranch {
 	allowRebasing!: boolean;
 	pr?: PullRequest;
 	refname!: string;
+	tree!: string;
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status === 'local');

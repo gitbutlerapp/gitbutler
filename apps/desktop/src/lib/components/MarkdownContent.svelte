@@ -19,8 +19,6 @@
 		| Tokens.List;
 
 	const { type, ...rest }: Props = $props();
-
-	const CurrentComponent = renderers[type] as Component<Props>;
 </script>
 
 {#if (!type || type === 'init') && 'tokens' in rest && rest.tokens}
@@ -28,6 +26,7 @@
 		<svelte:self {...token} />
 	{/each}
 {:else if renderers[type]}
+	{@const CurrentComponent = renderers[type] as Component<Props>}
 	{#if type === 'list'}
 		{@const listItems = (rest as Extract<Props, { type: 'list' }>).items}
 		<CurrentComponent {...rest}>
@@ -39,7 +38,7 @@
 			{/each}
 		</CurrentComponent>
 	{:else}
-		<CurrentComponent this={renderers[type]} {...rest}>
+		<CurrentComponent {...rest}>
 			{#if 'tokens' in rest && rest.tokens}
 				<svelte:self tokens={rest.tokens} />
 			{:else if 'raw' in rest}

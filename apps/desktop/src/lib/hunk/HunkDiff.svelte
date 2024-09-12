@@ -311,9 +311,10 @@
 {#snippet countColumn(row: Row, side: CountColumnSide)}
 	<td
 		class="table__numberColumn"
+		data-no-drag
 		class:diff-line-deletion={row.type === SectionType.RemovedLines}
 		class:diff-line-addition={row.type === SectionType.AddedLines}
-		style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX}px;"
+		style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX + 2}px;"
 		align="center"
 		class:is-last={row.isLast}
 		class:is-before={side === CountColumnSide.Before}
@@ -329,46 +330,43 @@
 <div
 	bind:clientWidth={tableWidth}
 	class="table__wrapper hide-native-scrollbar"
-	style="--tab-size: {tabSize}; --cursor: {draggingDisabled ? 'default' : 'grab'}"
+	style="--tab-size: {tabSize}"
 >
 	<ScrollableContainer horz padding={{ left: NUMBER_COLUMN_WIDTH_PX * 2 + 2 }}>
 		<table data-hunk-id={hunk.id} class="table__section">
-			<thead>
-				<tr>
-					<th
-						class="table__checkbox-container"
-						class:selected={isSelected}
-						colspan={2}
-						onclick={() => {
-							selectable && handleSelected(hunk, !isSelected);
-						}}
-					>
+			<thead class="table__title">
+				<tr
+					onclick={() => {
+						selectable && handleSelected(hunk, !isSelected);
+					}}
+				>
+					<th class="table__checkbox-container" class:selected={isSelected} colspan={2}>
 						<div class="table__checkbox">
-							<Checkbox
-								checked={isSelected}
-								style="blue"
-								onclick={() => {
-									selectable && handleSelected(hunk, !isSelected);
-								}}
-							/>
-						</div>
-						<div
-							class="table__title"
-							style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX}px; --table-width: {tableWidth}px"
-						>
-							<p class="table__title-content text-12">
-								{`@@ -${hunkLineInfo.beforLineStart},${hunkLineInfo.beforeLineCount} +${hunkLineInfo.afterLineStart},${hunkLineInfo.afterLineCount} @@`}
-							</p>
-							{#if !draggingDisabled}
-								<div class="table__drag-handle">
-									<Icon name="draggable-narrow" />
-								</div>
+							{#if selectable}
+								<Checkbox
+									checked={isSelected}
+									small
+									onclick={() => {
+										selectable && handleSelected(hunk, !isSelected);
+									}}
+								/>
 							{/if}
 						</div>
 					</th>
-					<th class="table__title-container"> </th>
+
+					<td class="table__title-content">
+						<span style="left: {NUMBER_COLUMN_WIDTH_PX * 2}px">
+							{`@@ -${hunkLineInfo.beforLineStart},${hunkLineInfo.beforeLineCount} +${hunkLineInfo.afterLineStart},${hunkLineInfo.afterLineCount} @@`}
+						</span>
+						{#if !draggingDisabled}
+							<div class="table__drag-handle">
+								<Icon name="draggable" />
+							</div>
+						{/if}
+					</td>
 				</tr>
 			</thead>
+
 			<tbody>
 				{#each renderRows as row}
 					<tr data-no-drag>
@@ -399,40 +397,23 @@
 	</ScrollableContainer>
 </div>
 
-<style>
+<style lang="postcss">
 	.table__wrapper {
-		border-radius: var(--radius-s);
+		border-radius: var(--radius-m);
 		background-color: var(--clr-diff-line-bg);
 		overflow-x: auto;
+		border: 1px solid var(--clr-border-2);
 
 		&:hover .table__drag-handle {
-			transform: translateY(0) translateX(0) scale(1);
+			transform: scale(1);
 			opacity: 1;
-			pointer-events: auto;
 		}
-	}
-
-	.table__drag-handle {
-		box-sizing: border-box;
-		cursor: grab;
-		background-color: var(--clr-bg-1);
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		border-radius: var(--radius-s);
-		opacity: 0;
-		transform: translateY(10%) translateX(-10%) scale(0.9);
-		transform-origin: top right;
-		pointer-events: none;
-		transition:
-			opacity 0.2s,
-			transform 0.2s;
 	}
 
 	table,
 	.table__section {
 		width: 100%;
-		font-family: monospace;
+		font-family: var(--mono-font-family);
 		border-collapse: separate;
 		border-spacing: 0;
 	}
@@ -453,12 +434,14 @@
 		top: 0;
 		left: 0;
 		position: sticky;
+		height: 28px;
 	}
 
 	.table__checkbox-container {
-		/* border: 1px solid var(--clr-border-2); */
 		z-index: var(--z-lifted);
-		box-shadow: inset 0 0 0 1px var(--clr-border-2);
+
+		border-right: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
 		border-top-left-radius: var(--radius-s);
 		box-sizing: border-box;
@@ -466,7 +449,8 @@
 		&.selected {
 			background-color: var(--clr-diff-selected-count-bg);
 			border-color: var(--clr-diff-selected-count-border);
-			box-shadow: inset 0 0 0 1px var(--clr-diff-selected-count-border);
+			border-right: 1px solid var(--clr-diff-selected-count-border);
+			border-bottom: 1px solid var(--clr-diff-selected-count-border);
 		}
 	}
 
@@ -477,24 +461,38 @@
 	}
 
 	.table__title {
-		position: absolute;
-		top: 0;
-		left: calc(var(--number-col-width) * 2);
-		width: calc(var(--table-width) - var(--number-col-width) * 2);
+		cursor: grab;
+		user-select: none;
+	}
 
+	.table__drag-handle {
+		position: fixed;
+		right: 6px;
+		top: 6px;
+		box-sizing: border-box;
+		background-color: var(--clr-bg-1);
 		display: flex;
+		justify-content: center;
 		align-items: center;
-		justify-content: space-between;
-		border-top: 1px solid var(--clr-border-2);
-		border-right: 1px solid var(--clr-border-2);
-		border-bottom: 1px solid var(--clr-border-2);
-		border-top-right-radius: var(--radius-s);
+		border-radius: var(--radius-s);
+		opacity: 0;
+		transform: scale(0.9);
+		transform-origin: top right;
+		pointer-events: none;
+		color: var(--clr-text-2);
+		transition:
+			opacity 0.2s,
+			transform 0.2s;
 	}
 
 	.table__title-content {
+		position: relative;
+		font-family: var(--mono-font-family);
+		font-size: 12px;
 		padding: 4px 6px;
 		text-wrap: nowrap;
 		color: var(--clr-text-2);
+		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.table__numberColumn {
@@ -505,7 +503,6 @@
 		text-align: center;
 		padding: 0 4px;
 		text-align: right;
-		cursor: var(--cursor);
 		user-select: none;
 
 		position: sticky;
@@ -513,33 +510,28 @@
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
 
-		box-shadow: inset -1px 0 0 0 var(--clr-diff-count-border);
+		border-right: 1px solid var(--clr-border-2);
 
 		&.diff-line-addition {
 			background-color: var(--clr-diff-addition-count-bg);
 			color: var(--clr-diff-addition-count-text);
-			box-shadow: inset -1px 0 0 0 var(--clr-diff-addition-count-border);
+			border-color: var(--clr-diff-addition-count-border);
 		}
 
 		&.diff-line-deletion {
 			background-color: var(--clr-diff-deletion-count-bg);
 			color: var(--clr-diff-deletion-count-text);
-			box-shadow: inset -1px 0 0 0 var(--clr-diff-deletion-count-border);
+			border-color: var(--clr-diff-deletion-count-border);
 		}
 
 		&.selected {
 			background-color: var(--clr-diff-selected-count-bg);
-			box-shadow: inset -1px 0 0 0 var(--clr-diff-selected-count-border);
 			color: var(--clr-diff-selected-count-text);
 			border-color: var(--clr-diff-selected-count-border);
 		}
 
 		&.is-last {
 			border-bottom-width: 1px;
-		}
-
-		&.is-before {
-			border-left-width: 1px;
 		}
 
 		&.is-before.is-last {
@@ -551,18 +543,6 @@
 		width: var(--number-col-width);
 		min-width: var(--number-col-width);
 		left: 0px;
-
-		&.diff-line-addition {
-			box-shadow: inset -1px 0 0 0 var(--clr-diff-addition-count-border);
-		}
-
-		&.diff-line-deletion {
-			box-shadow: inset -1px 0 0 0 var(--clr-diff-deletion-count-border);
-		}
-
-		&.selected {
-			box-shadow: inset -1px 0 0 0 var(--clr-diff-selected-count-border);
-		}
 	}
 
 	.table__textContent {
@@ -575,12 +555,5 @@
 		white-space: pre;
 		user-select: text;
 		cursor: text;
-
-		border-right: 1px solid var(--clr-border-2);
-
-		&.is-last {
-			box-shadow: inset 0 -1px 0 0 var(--clr-border-2);
-			border-bottom-right-radius: var(--radius-s);
-		}
 	}
 </style>

@@ -4,7 +4,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::{
     create_change_reference, list_branch_references, push_change_reference,
-    update_change_reference, LogUntil, RepoActionsExt,
+    update_change_reference, LogUntil, RepositoryExt as _,
 };
 use tempfile::TempDir;
 
@@ -232,8 +232,12 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let branch = branches.iter().find(|b| b.name == "virtual").unwrap();
     let other_branch = branches.iter().find(|b| b.name != "virtual").unwrap();
     let target = handle.get_default_target()?;
-    let branch_commits = ctx.log(branch.head, LogUntil::Commit(target.sha))?;
-    let other_commits = ctx.log(other_branch.head, LogUntil::Commit(target.sha))?;
+    let branch_commits = ctx
+        .repository()
+        .log(branch.head, LogUntil::Commit(target.sha))?;
+    let other_commits = ctx
+        .repository()
+        .log(other_branch.head, LogUntil::Commit(target.sha))?;
     Ok(TestContext {
         branch: branch.clone(),
         commits: branch_commits,
