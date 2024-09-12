@@ -40,7 +40,7 @@
 		submitProgress = 'loading';
 		issueService?.create(title, body, labels);
 		if (topic) {
-			const updatedTopic = { ...topic, hasIssue: true };
+			const updatedTopic = { ...topic, title, body, hasIssue: true };
 			topicService.update(updatedTopic);
 		} else {
 			topicService.create(title, body, true);
@@ -62,7 +62,7 @@
 	let handleKeyDown = $state(() => {});
 
 	$effect(() => {
-		if (registerKeypress) {
+		if (registerKeypress && issueService) {
 			handleKeyDown = createKeybind({
 				'$mod+i': open
 			});
