@@ -9,7 +9,6 @@
 
 /* SHARABLE */
 @import './sharable/card.css';
-@import './sharable/markdown.css';
 @import './sharable/syntax-highlighting.css';
 
 /* COMPONENTS */
