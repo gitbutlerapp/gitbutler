@@ -1,5 +1,8 @@
 <script lang="ts">
+	import Markdown from '$lib/components/Markdown.svelte';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import CreateIssueModal from '$lib/topics/CreateIssueModal.svelte';
+	import CreateTopicModal from '$lib/topics/CreateTopicModal.svelte';
 	import { TopicService, type Topic } from '$lib/topics/service';
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -13,15 +16,18 @@
 	const { topic }: Props = $props();
 
 	const topicService = getContext(TopicService);
+	const gitHost = getGitHost();
 
 	let deleteModal = $state<Modal>();
 
 	let expanded = $state(false);
 
 	let createIssueModal = $state<CreateIssueModal>();
+	let createTopicModal = $state<CreateIssueModal>();
 </script>
 
 <CreateIssueModal bind:this={createIssueModal} {topic} />
+<CreateTopicModal bind:this={createTopicModal} {topic} />
 
 <Modal bind:this={deleteModal} width="small">
 	<p>Are you sure you want to delete this topic?</p>
@@ -59,9 +65,12 @@
 
 	{#if expanded}
 		<div class="footer">
-			<p class="text-14">{topic.body}</p>
+			<div class="markdown text-13 text-body">
+				<Markdown content={topic.body} />
+			</div>
 			<div class="footer__actions">
-				{#if !topic.hasIssue}
+				<Button onclick={() => createTopicModal?.open()}>Edit</Button>
+				{#if !topic.hasIssue && $gitHost?.issueService()}
 					<Button onclick={() => createIssueModal?.open()}>Convert to issue</Button>
 				{/if}
 				<Button icon="bin" style="error" onclick={() => deleteModal?.show()} />
