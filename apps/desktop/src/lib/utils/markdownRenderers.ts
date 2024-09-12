@@ -22,7 +22,8 @@ export const renderers = {
 	list_item: ListItem,
 	heading: Heading,
 	paragraph: Paragraph,
-	init: null
+	init: null,
+	space: null
 };
 
 export const options = {
