@@ -12,7 +12,6 @@
 
 	const tabStore = getContext<TabContext>('tab');
 	const selectedIndex = $derived(tabStore.selectedIndex);
-
 	const isActive = $derived($selectedIndex === value);
 </script>
 

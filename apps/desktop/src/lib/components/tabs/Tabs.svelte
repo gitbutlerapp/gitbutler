@@ -1,38 +1,31 @@
 <script lang="ts">
-	import { onMount, setContext } from 'svelte';
+	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import type { TabContext } from './types';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		children: Snippet<[{ tabName: string }]>;
-		name: string;
+		children: Snippet;
 		defaultSelected: string;
 	}
 
-	const { children, name, defaultSelected }: Props = $props();
-	console.log('Tabs.name', name);
+	const { children, defaultSelected }: Props = $props();
 
-	let selectedIndex = writable('');
+	let selectedIndex = writable(defaultSelected);
 
 	const context: TabContext = {
 		selectedIndex,
 		setSelected: (i) => {
-			console.log('SELECTING ', i);
 			selectedIndex.set(i);
 			return selectedIndex;
 		}
 	};
 
-	const tabs = setContext<TabContext>('tab', context);
-
-	onMount(() => {
-		tabs?.setSelected(defaultSelected);
-	});
+	setContext<TabContext>('tab', context);
 </script>
 
 <section class="tab-wrapper">
-	{@render children({ tabName: name })}
+	{@render children()}
 </section>
 
 <style>

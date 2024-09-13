@@ -3,8 +3,11 @@
 	import BaseBranchSwitch from '$lib/components/BaseBranchSwitch.svelte';
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import TabContent from '$lib/components/tabs/TabContent.svelte';
+	import TabList from '$lib/components/tabs/TabList.svelte';
+	import TabTrigger from '$lib/components/tabs/TabTrigger.svelte';
+	import Tabs from '$lib/components/tabs/Tabs.svelte';
 	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { platformName } from '$lib/platform/platform';
@@ -12,18 +15,15 @@
 	import DetailsForm from '$lib/settings/DetailsForm.svelte';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import PreferencesForm from '$lib/settings/PreferencesForm.svelte';
-	import PullRequestTemplateForm from '$lib/settings/PullRequestTemplateForm.svelte';
-	import Spacer from '$lib/shared/Spacer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { goto } from '$app/navigation';
+	import CommitSigningForm from '$lib/settings/userPreferences/CommitSigningForm.svelte';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
-	const gitHost = getGitHost();
 
-	let deleteConfirmationModal: RemoveProjectButton;
 	let isDeleting = $state(false);
 
 	async function onDeleteClicked() {
@@ -43,32 +43,40 @@
 </script>
 
 <SettingsPage title="Project settings">
-	{#if $baseBranchSwitching}
-		<BaseBranchSwitch />
-	{/if}
-	<CloudForm />
-	<DetailsForm />
-	{#if $gitHost}
-		<PullRequestTemplateForm />
-	{/if}
-	{#if $platformName !== 'win32'}
-		<KeysForm showProjectName={false} />
-		<Spacer />
-	{/if}
-	<PreferencesForm />
-	<SectionCard>
-		<svelte:fragment slot="title">Remove project</svelte:fragment>
-		<svelte:fragment slot="caption">
-			You can remove projects from GitButler, your code remains safe as this only clears
-			configuration.
-		</svelte:fragment>
-		<div>
-			<RemoveProjectButton
-				bind:this={deleteConfirmationModal}
-				projectTitle={project.title}
-				{isDeleting}
-				{onDeleteClicked}
-			/>
-		</div>
-	</SectionCard>
+	<Tabs defaultSelected="project">
+		<TabList>
+			<TabTrigger value="project">Project</TabTrigger>
+			<TabTrigger value="git">Git</TabTrigger>
+			<TabTrigger value="ai">AI</TabTrigger>
+			<TabTrigger value="feature-flags">Experimental</TabTrigger>
+		</TabList>
+		<TabContent value="git">
+			<CommitSigningForm />
+			{#if $platformName !== 'win32'}
+				<KeysForm showProjectName={false} />
+			{/if}
+		</TabContent>
+		<TabContent value="ai">
+			<CloudForm />
+		</TabContent>
+		<TabContent value="project">
+			{#if $baseBranchSwitching}
+				<BaseBranchSwitch />
+			{/if}
+			<DetailsForm />
+			<SectionCard>
+				<svelte:fragment slot="title">Remove project</svelte:fragment>
+				<svelte:fragment slot="caption">
+					You can remove projects from GitButler, your code remains safe as this only clears
+					configuration.
+				</svelte:fragment>
+				<div>
+					<RemoveProjectButton projectTitle={project.title} {isDeleting} {onDeleteClicked} />
+				</div>
+			</SectionCard>
+		</TabContent>
+		<TabContent value="feature-flags">
+			<PreferencesForm />
+		</TabContent>
+	</Tabs>
 </SettingsPage>
