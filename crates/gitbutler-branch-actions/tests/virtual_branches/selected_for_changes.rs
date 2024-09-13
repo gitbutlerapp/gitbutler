@@ -37,7 +37,7 @@ fn unapplying_selected_branch_selects_anther() {
     assert!(b.selected_for_changes);
     assert!(!b2.selected_for_changes);
 
-    gitbutler_branch_actions::convert_to_real_branch(project, b_id).unwrap();
+    gitbutler_branch_actions::save_and_unapply_virutal_branch(project, b_id).unwrap();
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
 
@@ -76,7 +76,7 @@ fn deleting_selected_branch_selects_anther() {
     assert!(b.selected_for_changes);
     assert!(!b2.selected_for_changes);
 
-    gitbutler_branch_actions::delete_virtual_branch(project, b_id).unwrap();
+    gitbutler_branch_actions::unapply_without_saving_virtual_branch(project, b_id).unwrap();
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
 
@@ -252,7 +252,7 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
         .unwrap();
     assert!(!b2.selected_for_changes);
 
-    gitbutler_branch_actions::convert_to_real_branch(project, b1_id).unwrap();
+    gitbutler_branch_actions::save_and_unapply_virutal_branch(project, b1_id).unwrap();
 
     assert!(gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
@@ -314,7 +314,7 @@ fn applying_first_branch() {
     assert_eq!(branches.len(), 1);
 
     let unapplied_branch =
-        gitbutler_branch_actions::convert_to_real_branch(project, branches[0].id).unwrap();
+        gitbutler_branch_actions::save_and_unapply_virutal_branch(project, branches[0].id).unwrap();
     let unapplied_branch = Refname::from_str(&unapplied_branch).unwrap();
     gitbutler_branch_actions::create_virtual_branch_from_branch(project, &unapplied_branch, None)
         .unwrap();
