@@ -2,11 +2,13 @@
 	import ActiveBranchStatus from './ActiveBranchStatus.svelte';
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
+	import DefaultTargetButton from './DefaultTargetButton.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
@@ -140,7 +142,13 @@
 				return;
 			}
 
-			await $prService.createPr(title, body, opts.draft, upstreamBranchName, baseBranchName);
+			await $prService.createPr({
+				title,
+				body,
+				draft: opts.draft,
+				baseBranchName,
+				upstreamName: upstreamBranchName
+			});
 		} catch (err: any) {
 			console.error(err);
 			const toast = mapErrorToToast(err);
@@ -216,90 +224,101 @@
 					<Icon name="draggable" />
 				</div>
 
-				<div class="header__info">
+				<div class:header__info={!$stackingFeature} class:stacking-header__info={$stackingFeature}>
 					<BranchLabel name={branch.name} onChange={(name) => handleBranchNameChange(name)} />
-					<div class="header__remote-branch">
-						<ActiveBranchStatus
-							{hasIntegratedCommits}
-							remoteExists={!!branch.upstream}
-							isLaneCollapsed={$isLaneCollapsed}
-						/>
+					{#if $stackingFeature}
+						<span class="button-group">
+							<DefaultTargetButton
+								selectedForChanges={branch.selectedForChanges}
+								onclick={async () => {
+									isTargetBranchAnimated = true;
+									await branchController.setSelectedForChanges(branch.id);
+								}}
+							/>
+							<Button
+								bind:el={meatballButtonEl}
+								style="ghost"
+								icon="kebab"
+								onclick={() => {
+									contextMenu?.toggle();
+								}}
+							/>
+							<BranchLaneContextMenu
+								bind:contextMenuEl={contextMenu}
+								target={meatballButtonEl}
+								onCollapse={collapseLane}
+								{onGenerateBranchName}
+							/>
+						</span>
+					{:else}
+						<div class="header__remote-branch">
+							<ActiveBranchStatus
+								{hasIntegratedCommits}
+								remoteExists={!!branch.upstream}
+								isLaneCollapsed={$isLaneCollapsed}
+							/>
 
-						{#await branch.isMergeable then isMergeable}
-							{#if !isMergeable}
-								<Button
-									size="tag"
-									clickable={false}
-									icon="locked-small"
-									style="warning"
-									tooltip="Applying this branch will add merge conflict markers that you will have to resolve"
-								>
-									Conflict
-								</Button>
-							{/if}
-						{/await}
-					</div>
+							{#await branch.isMergeable then isMergeable}
+								{#if !isMergeable}
+									<Button
+										size="tag"
+										clickable={false}
+										icon="locked-small"
+										style="warning"
+										tooltip="Applying this branch will add merge conflict markers that you will have to resolve"
+									>
+										Conflict
+									</Button>
+								{/if}
+							{/await}
+						</div>
+					{/if}
 				</div>
 			</div>
 
-			<div class="header__actions">
-				<div class="header__buttons">
-					{#if branch.selectedForChanges}
-						<Button
-							style="pop"
-							kind="soft"
-							tooltip="New changes will land here"
-							icon="target"
-							clickable={false}
-						>
-							Default branch
-						</Button>
-					{:else}
-						<Button
-							style="ghost"
-							outline
-							tooltip="When selected, new changes land here"
-							icon="target"
+			{#if !$stackingFeature}
+				<div class="header__actions">
+					<div class="header__buttons">
+						<DefaultTargetButton
+							selectedForChanges={branch.selectedForChanges}
 							onclick={async () => {
 								isTargetBranchAnimated = true;
 								await branchController.setSelectedForChanges(branch.id);
 							}}
-						>
-							Set as default
-						</Button>
-					{/if}
-				</div>
-
-				<div class="relative">
-					<div class="header__buttons">
-						{#if !$pr}
-							<PullRequestButton
-								click={async ({ draft }) => await createPr({ draft })}
-								disabled={branch.commits.length === 0 || !$gitHost || !$prService}
-								tooltip={!$gitHost || !$prService
-									? 'You can enable git host integration in the settings'
-									: ''}
-								loading={isLoading}
-							/>
-						{/if}
-						<Button
-							bind:el={meatballButtonEl}
-							style="ghost"
-							outline
-							icon="kebab"
-							onclick={() => {
-								contextMenu?.toggle();
-							}}
-						/>
-						<BranchLaneContextMenu
-							bind:contextMenuEl={contextMenu}
-							target={meatballButtonEl}
-							onCollapse={collapseLane}
-							{onGenerateBranchName}
 						/>
 					</div>
+
+					<div class="relative">
+						<div class="header__buttons">
+							{#if !$pr}
+								<PullRequestButton
+									click={async ({ draft }) => await createPr({ draft })}
+									disabled={branch.commits.length === 0 || !$gitHost || !$prService}
+									tooltip={!$gitHost || !$prService
+										? 'You can enable git host integration in the settings'
+										: ''}
+									loading={isLoading}
+								/>
+							{/if}
+							<Button
+								bind:el={meatballButtonEl}
+								style="ghost"
+								outline
+								icon="kebab"
+								onclick={() => {
+									contextMenu?.toggle();
+								}}
+							/>
+							<BranchLaneContextMenu
+								bind:contextMenuEl={contextMenu}
+								target={meatballButtonEl}
+								onCollapse={collapseLane}
+								{onGenerateBranchName}
+							/>
+						</div>
+					</div>
 				</div>
-			</div>
+			{/if}
 		</div>
 		<div class="header__top-overlay" data-remove-from-draggable data-tauri-drag-region></div>
 	</div>
@@ -368,6 +387,20 @@
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+		gap: 10px;
+	}
+	/* TODO: Remove me after stacking feature toggle has been removed. */
+	.stacking-header__info {
+		flex: 1;
+		display: flex;
+		overflow: hidden;
+		justify-content: space-between;
+		align-items: center;
+		gap: 10px;
+	}
+	.button-group {
+		display: flex;
+		align-items: center;
 		gap: 10px;
 	}
 	.header__actions {

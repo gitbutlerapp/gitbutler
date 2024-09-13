@@ -12,6 +12,7 @@
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
+	import { featureTopics } from '$lib/config/uiFeatureFlags';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostFactory';
 	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
@@ -24,12 +25,17 @@
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
+	import CreateIssueModal from '$lib/topics/CreateIssueModal.svelte';
+	import CreateTopicModal from '$lib/topics/CreateTopicModal.svelte';
+	import { TopicService } from '$lib/topics/service';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { debounce } from '$lib/utils/debounce';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
+	import { derived as storeDerived } from 'svelte/store';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
 
@@ -87,6 +93,14 @@
 	const listServiceStore = createGitHostListingServiceStore(undefined);
 	const gitHostStore = createGitHostStore(undefined);
 	const branchServiceStore = createBranchServiceStore(undefined);
+	const gitHostIssueSerice = storeDerived(gitHostStore, (gitHostStore) =>
+		gitHostStore?.issueService()
+	);
+
+	$effect.pre(() => {
+		const topicService = new TopicService(project, gitHostIssueSerice);
+		setContext(TopicService, topicService);
+	});
 
 	$effect.pre(() => {
 		const combinedBranchListingService = new CombinedBranchListingService(
@@ -160,7 +174,16 @@
 	onDestroy(() => {
 		clearFetchInterval();
 	});
+
+	const topicsEnabled = featureTopics();
 </script>
+
+{#if $topicsEnabled}
+	{#if $gitHostStore?.issueService()}
+		<CreateIssueModal registerKeypress />
+	{/if}
+	<CreateTopicModal registerKeypress />
+{/if}
 
 <!-- forces components to be recreated when projectId changes -->
 {#key projectId}

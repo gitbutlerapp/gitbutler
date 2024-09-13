@@ -1,6 +1,6 @@
 import { buildContextStore } from '$lib/utils/context';
 import type { GitHostPrMonitor } from './gitHostPrMonitor';
-import type { DetailedPullRequest, MergeMethod, PullRequest } from './types';
+import type { CreatePullRequestArgs, DetailedPullRequest, MergeMethod, PullRequest } from './types';
 import type { Writable } from 'svelte/store';
 
 export const [getGitHostPrService, createGitHostPrServiceStore] = buildContextStore<

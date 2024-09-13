@@ -1,8 +1,3 @@
-<script lang="ts" module>
-	// If this is not present, eslint complains that T is not defined below
-	type T = unknown;
-</script>
-
 <script lang="ts" generics="T">
 	/**
 	 * Lazily renders a list of many many items. This is intended to be used
@@ -12,7 +7,7 @@
 	 */
 
 	import LazyloadContainer from '$lib/shared/LazyloadContainer.svelte';
-	import { chunk } from '$lib/utils/chunk';
+	import { chunk } from '$lib/utils/array';
 	import { type Snippet } from 'svelte';
 
 	interface Props {

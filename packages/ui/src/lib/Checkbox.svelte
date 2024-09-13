@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	export type CheckboxStyle = 'default' | 'neutral';
 	export interface CheckboxProps {
 		name?: string;
 		small?: boolean;
@@ -6,6 +7,7 @@
 		checked?: boolean;
 		value?: string;
 		indeterminate?: boolean;
+		style?: CheckboxStyle;
 		onclick?: (e: MouseEvent) => void;
 		onchange?: (
 			e: Event & {
@@ -25,6 +27,7 @@
 		checked = $bindable(),
 		value = '',
 		indeterminate = false,
+		style = 'default',
 		onclick,
 		onchange
 	}: CheckboxProps = $props();
@@ -46,7 +49,7 @@
 		onchange?.(e);
 	}}
 	type="checkbox"
-	class="checkbox"
+	class={`checkbox ${style}`}
 	class:small
 	{value}
 	id={name}
@@ -90,23 +93,19 @@
 			border-color: none;
 		}
 
-		&:indeterminate {
-			background-color: var(--clr-bg-2);
+		/* indeterminate */
 
-			&::before {
-				content: '';
-				position: absolute;
-				width: 50%;
-				height: 2px;
-				background-color: var(--clr-scale-ntrl-30);
-				top: 50%;
-				left: 50%;
-				transform: translate(-50%, -50%);
-			}
+		&:indeterminate::before {
+			content: '';
+			position: absolute;
+			width: 50%;
+			height: 2px;
+			top: 50%;
+			left: 50%;
+			transform: translate(-50%, -50%);
 		}
 
-		/* checked */
-		&:checked {
+		&.default:indeterminate {
 			background-color: var(--clr-theme-pop-element);
 			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
 
@@ -114,6 +113,25 @@
 				background-color: var(--clr-theme-pop-element-hover);
 			}
 
+			&::before {
+				background-color: white;
+			}
+		}
+
+		&.neutral:indeterminate {
+			background-color: var(--clr-bg-2);
+
+			&:hover {
+				background-color: var(--clr-bg-3);
+			}
+
+			&::before {
+				background-color: var(--clr-scale-ntrl-30);
+			}
+		}
+
+		/* checked */
+		&:checked {
 			&:disabled {
 				pointer-events: none;
 				opacity: 0.4;
@@ -124,6 +142,24 @@
 				opacity: 1;
 				filter: brightness(2);
 				transform: scale(1);
+			}
+		}
+
+		&.default:checked {
+			background-color: var(--clr-theme-pop-element);
+			box-shadow: inset 0 0 0 1px var(--clr-theme-pop-element);
+
+			&:hover {
+				background-color: var(--clr-theme-pop-element-hover);
+			}
+		}
+
+		&.neutral:checked {
+			background-color: var(--clr-bg-2);
+			box-shadow: inset 0 0 0 1px var(--clr-scale-ntrl-30);
+
+			&:hover {
+				background-color: var(--clr-bg-3);
 			}
 		}
 

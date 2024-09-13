@@ -40,6 +40,10 @@ export class BitBucket implements GitHost {
 		return undefined;
 	}
 
+	issueService() {
+		return undefined;
+	}
+
 	prService() {
 		return undefined;
 	}

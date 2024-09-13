@@ -7,16 +7,23 @@ use std::{io::Write, path::Path, process::Stdio, str};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::BString;
 use git2::{BlameOptions, Tree};
+use gitbutler_branch::{gix_to_git2_signature, SignaturePurpose};
 use gitbutler_commit::{commit_buffer::CommitBuffer, commit_headers::CommitHeadersV2};
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
 use gitbutler_reference::{Refname, RemoteRefname};
 use tracing::instrument;
 
+use crate::{Config, LogUntil};
+
 /// Extension trait for `git2::Repository`.
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
+    fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>>;
+    fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>>;
+    fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>>;
     /// Return `HEAD^{commit}` - ideal for obtaining the integration branch commit in open-workspace mode
     /// when it's clear that it's representing the current state.
     ///
@@ -389,6 +396,103 @@ impl RepositoryExt for git2::Repository {
                 RemoteRefname::try_from(&branch).context("failed to convert branch to remote name")
             })
             .collect::<Result<Vec<_>>>()
+    }
+
+    // returns a list of commit oids from the first oid to the second oid
+    fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>> {
+        match to {
+            LogUntil::Commit(oid) => {
+                let mut revwalk = self.revwalk().context("failed to create revwalk")?;
+                revwalk
+                    .push(from)
+                    .context(format!("failed to push {}", from))?;
+                revwalk
+                    .hide(oid)
+                    .context(format!("failed to hide {}", oid))?;
+                revwalk
+                    .map(|oid| oid.map(Into::into))
+                    .collect::<Result<Vec<_>, _>>()
+            }
+            LogUntil::Take(n) => {
+                let mut revwalk = self.revwalk().context("failed to create revwalk")?;
+                revwalk
+                    .push(from)
+                    .context(format!("failed to push {}", from))?;
+                revwalk
+                    .take(n)
+                    .map(|oid| oid.map(Into::into))
+                    .collect::<Result<Vec<_>, _>>()
+            }
+            LogUntil::When(cond) => {
+                let mut revwalk = self.revwalk().context("failed to create revwalk")?;
+                revwalk
+                    .push(from)
+                    .context(format!("failed to push {}", from))?;
+                let mut oids: Vec<git2::Oid> = vec![];
+                for oid in revwalk {
+                    let oid = oid.context("failed to get oid")?;
+                    oids.push(oid);
+
+                    let commit = self.find_commit(oid).context("failed to find commit")?;
+
+                    if cond(&commit).context("failed to check condition")? {
+                        break;
+                    }
+                }
+                Ok(oids)
+            }
+            LogUntil::End => {
+                let mut revwalk = self.revwalk().context("failed to create revwalk")?;
+                revwalk
+                    .push(from)
+                    .context(format!("failed to push {}", from))?;
+                revwalk
+                    .map(|oid| oid.map(Into::into))
+                    .collect::<Result<Vec<_>, _>>()
+            }
+        }
+        .context("failed to collect oids")
+    }
+
+    fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>> {
+        Ok(self
+            .l(from, LogUntil::Commit(to))?
+            .into_iter()
+            .map(|oid| self.find_commit(oid))
+            .collect::<Result<Vec<_>, _>>()?)
+    }
+
+    // returns a list of commits from the first oid to the second oid
+    fn log(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Commit>> {
+        self.l(from, to)?
+            .into_iter()
+            .map(|oid| self.find_commit(oid))
+            .collect::<Result<Vec<_>, _>>()
+            .context("failed to collect commits")
+    }
+
+    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
+        let repo = gix::open(self.path())?;
+
+        let author = repo
+            .author()
+            .transpose()?
+            .map(gitbutler_branch::gix_to_git2_signature)
+            .transpose()?
+            .context("No author is configured in Git")
+            .context(Code::AuthorMissing)?;
+
+        let config: Config = self.into();
+        let committer = if config.user_real_comitter()? {
+            repo.committer()
+                .transpose()?
+                .map(gix_to_git2_signature)
+                .unwrap_or_else(|| gitbutler_branch::signature(SignaturePurpose::Committer))
+        } else {
+            gitbutler_branch::signature(SignaturePurpose::Committer)
+        }?;
+
+        Ok((author, committer))
     }
 }
 

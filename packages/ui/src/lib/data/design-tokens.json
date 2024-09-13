@@ -293,7 +293,7 @@
 			},
 			"50": {
 				"$type": "color",
-				"$value": "#48a8a3",
+				"$value": "#3cb4ae",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -309,7 +309,7 @@
 			},
 			"60": {
 				"$type": "color",
-				"$value": "#97cecb",
+				"$value": "#8fd6d2",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -325,7 +325,7 @@
 			},
 			"70": {
 				"$type": "color",
-				"$value": "#c6e7e5",
+				"$value": "#c1ebe9",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -341,7 +341,7 @@
 			},
 			"80": {
 				"$type": "color",
-				"$value": "#daf1f0",
+				"$value": "#d7f4f2",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -357,7 +357,7 @@
 			},
 			"90": {
 				"$type": "color",
-				"$value": "#e9f7f6",
+				"$value": "#e7f8f7",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -373,7 +373,7 @@
 			},
 			"95": {
 				"$type": "color",
-				"$value": "#f4fbfa",
+				"$value": "#f3fcfb",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -649,7 +649,7 @@
 			},
 			"50": {
 				"$type": "color",
-				"$value": "#dc9b14",
+				"$value": "#dc9914",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -665,7 +665,7 @@
 			},
 			"60": {
 				"$type": "color",
-				"$value": "#f4bb6c",
+				"$value": "#f4c06c",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -681,7 +681,7 @@
 			},
 			"70": {
 				"$type": "color",
-				"$value": "#feddae",
+				"$value": "#fee1ae",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -697,7 +697,7 @@
 			},
 			"80": {
 				"$type": "color",
-				"$value": "#ffe8c7",
+				"$value": "#ffecc7",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -713,7 +713,7 @@
 			},
 			"90": {
 				"$type": "color",
-				"$value": "#fff2e0",
+				"$value": "#fff7e0",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -729,7 +729,7 @@
 			},
 			"95": {
 				"$type": "color",
-				"$value": "#fdf7ed",
+				"$value": "#fdf9ed",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -859,7 +859,7 @@
 			},
 			"70": {
 				"$type": "color",
-				"$value": "#bef4da",
+				"$value": "#c2f0da",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -875,7 +875,7 @@
 			},
 			"80": {
 				"$type": "color",
-				"$value": "#d0f7e5",
+				"$value": "#d2f4e4",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -891,7 +891,7 @@
 			},
 			"90": {
 				"$type": "color",
-				"$value": "#e5faf0",
+				"$value": "#e7f9f0",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -3652,12 +3652,12 @@
 			"selected": {
 				"count-bg": {
 					"$type": "color",
-					"$value": "#378bf2",
+					"$value": "{clr-core.pop.70}",
 					"$description": "",
 					"$extensions": {
 						"mode": {
-							"light": "#378bf2",
-							"dark": "#044289"
+							"light": "{clr-core.pop.70}",
+							"dark": "{clr-core.pop.10}"
 						},
 						"figma": {
 							"variableId": "VariableID:3935:251",
@@ -3671,12 +3671,12 @@
 				},
 				"count-border": {
 					"$type": "color",
-					"$value": "#265dd4",
+					"$value": "{clr-core.pop.60}",
 					"$description": "",
 					"$extensions": {
 						"mode": {
-							"light": "#265dd4",
-							"dark": "#005cc5"
+							"light": "{clr-core.pop.60}",
+							"dark": "{clr-core.pop.30}"
 						},
 						"figma": {
 							"variableId": "VariableID:3935:253",
@@ -3690,12 +3690,12 @@
 				},
 				"count-text": {
 					"$type": "color",
-					"$value": "#ffffff",
+					"$value": "{clr-core.pop.40}",
 					"$description": "",
 					"$extensions": {
 						"mode": {
-							"light": "#ffffff",
-							"dark": "#d6e8ff"
+							"light": "{clr-core.pop.40}",
+							"dark": "{clr-core.pop.50}"
 						},
 						"figma": {
 							"variableId": "VariableID:3935:254",
@@ -4137,7 +4137,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius"],
-			"createdAt": "2024-08-31T23:16:13.487Z"
+			"createdAt": "2024-09-11T23:46:21.639Z"
 		}
 	}
 }

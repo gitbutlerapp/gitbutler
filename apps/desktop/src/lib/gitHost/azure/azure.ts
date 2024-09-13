@@ -36,6 +36,10 @@ export class AzureDevOps implements GitHost {
 		return undefined;
 	}
 
+	issueService() {
+		return undefined;
+	}
+
 	prService() {
 		return undefined;
 	}

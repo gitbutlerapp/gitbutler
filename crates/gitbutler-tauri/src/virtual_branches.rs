@@ -3,6 +3,7 @@ pub mod commands {
     use gitbutler_branch::{
         BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest,
     };
+    use gitbutler_branch_actions::upstream_integration::{BranchStatuses, Resolution};
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranch,
         RemoteBranchData, RemoteBranchFile, VirtualBranches,
@@ -592,6 +593,35 @@ pub mod commands {
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
         gitbutler_branch_actions::update_commit_message(&project, branch_id, commit_oid, message)?;
         emit_vbranches(&windows, project_id);
+        Ok(())
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects), err(Debug))]
+    pub fn upstream_integration_statuses(
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+    ) -> Result<BranchStatuses, Error> {
+        let project = projects.get(project_id)?;
+        Ok(gitbutler_branch_actions::upstream_integration_statuses(
+            &project,
+        )?)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects, windows), err(Debug))]
+    pub fn integrate_upstream(
+        windows: State<'_, WindowState>,
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        resolutions: Vec<Resolution>,
+    ) -> Result<(), Error> {
+        let project = projects.get(project_id)?;
+
+        gitbutler_branch_actions::integrate_upstream(&project, &resolutions)?;
+
+        emit_vbranches(&windows, project_id);
+
         Ok(())
     }
 

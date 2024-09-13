@@ -3,14 +3,15 @@
 	import {
 		featureBaseBranchSwitching,
 		featureInlineUnifiedDiffs,
-		featureBranchStacking
+		stackingFeature,
+		featureTopics
 	} from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
 	const inlineUnifiedDiffs = featureInlineUnifiedDiffs();
-	const branchStacking = featureBranchStacking();
+	const topicsEnabled = featureTopics();
 </script>
 
 <SettingsPage title="Experimental features">
@@ -47,16 +48,30 @@
 			/>
 		</svelte:fragment>
 	</SectionCard>
-	<SectionCard labelFor="branchStacking" orientation="row">
+	<SectionCard labelFor="stackingFeature" orientation="row">
 		<svelte:fragment slot="title">Branch stacking</svelte:fragment>
 		<svelte:fragment slot="caption">
 			Allows for branch / pull request stacking. The user interface for this is still very crude.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle
-				id="branchStacking"
-				checked={$branchStacking}
-				on:click={() => ($branchStacking = !$branchStacking)}
+				id="stackingFeature"
+				checked={$stackingFeature}
+				on:click={() => ($stackingFeature = !$stackingFeature)}
+			/>
+		</svelte:fragment>
+	</SectionCard>
+	<SectionCard labelFor="topics" orientation="row">
+		<svelte:fragment slot="title">Topics</svelte:fragment>
+		<svelte:fragment slot="caption">
+			A highly experimental form of note taking / conversation. The form & function may change
+			drastically, and may result in lost notes.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle
+				id="topics"
+				checked={$topicsEnabled}
+				on:click={() => ($topicsEnabled = !$topicsEnabled)}
 			/>
 		</svelte:fragment>
 	</SectionCard>

@@ -21,6 +21,11 @@ export enum SectionType {
 	Context
 }
 
+export enum CountColumnSide {
+	Before,
+	After
+}
+
 export class HunkSection {
 	hunk!: Hunk;
 	header!: HunkHeader;
