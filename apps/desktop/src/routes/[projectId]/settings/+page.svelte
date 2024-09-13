@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { Project, ProjectService } from '$lib/backend/projects';
-	import BaseBranchSwitch from '$lib/components/BaseBranchSwitch.svelte';
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import TabContent from '$lib/components/tabs/TabContent.svelte';
@@ -11,14 +10,15 @@
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { platformName } from '$lib/platform/platform';
-	import CloudForm from '$lib/settings/CloudForm.svelte';
-	import DetailsForm from '$lib/settings/DetailsForm.svelte';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
-	import PreferencesForm from '$lib/settings/PreferencesForm.svelte';
+	import BaseBranchSwitch from '$lib/settings/userPreferences/BaseBranchSwitch.svelte';
+	import CloudForm from '$lib/settings/userPreferences/CloudForm.svelte';
+	import CommitSigningForm from '$lib/settings/userPreferences/CommitSigningForm.svelte';
+	import DetailsForm from '$lib/settings/userPreferences/DetailsForm.svelte';
+	import PreferencesForm from '$lib/settings/userPreferences/PreferencesForm.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { goto } from '$app/navigation';
-	import CommitSigningForm from '$lib/settings/userPreferences/CommitSigningForm.svelte';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
 	const projectService = getContext(ProjectService);
