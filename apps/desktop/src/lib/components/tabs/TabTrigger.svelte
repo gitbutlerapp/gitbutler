@@ -12,13 +12,15 @@
 	const { value, label, children, disabled }: Props = $props();
 
 	const tabStore = getContext<TabContext>('tab');
+	const selectedIndex = $derived(tabStore.selectedIndex);
+	const isActive = $derived($selectedIndex === value);
 
 	function setActive() {
 		tabStore?.setSelected(value);
 	}
 </script>
 
-<button {value} class="tab-trigger" onclick={setActive} class:disabled>
+<button {value} class="tab-trigger" onclick={setActive} class:disabled class:active={isActive}>
 	{#if label}
 		<span class="label">{label}</span>
 	{:else}
@@ -48,6 +50,11 @@
 		&:disabled {
 			cursor: default;
 			opacity: 0.5;
+		}
+
+		&.active {
+			border-color: var(--clr-theme-pop-element);
+			background-color: var(--clr-bg-1);
 		}
 
 		.label {

@@ -16,7 +16,7 @@
 </script>
 
 {#if isActive}
-	<div data-value={value} class="tab-content" in:fade={{ duration: 180 }}>
+	<div data-value={value} class="tab-content" in:fade={{ duration: 200 }}>
 		{@render children()}
 	</div>
 {/if}
