@@ -17,8 +17,8 @@ export interface GitHostPrService {
 		baseBranchName,
 		upstreamName
 	}: CreatePullRequestArgs): Promise<PullRequest>;
-	getAvailablePrTemplates(path: string): Promise<string[] | undefined>;
-	getPrTemplateContent(path: string, projectId: string): Promise<string | undefined>;
+	availablePullRequestTemplates(path: string): Promise<string[] | undefined>;
+	pullRequestTemplateContent(path: string, projectId: string): Promise<string | undefined>;
 	merge(method: MergeMethod, prNumber: number): Promise<void>;
 	prMonitor(prNumber: number): GitHostPrMonitor;
 }

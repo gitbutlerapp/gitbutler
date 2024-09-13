@@ -90,7 +90,7 @@ export class GitHubPrService implements GitHostPrService {
 		return new GitHubPrMonitor(this, prNumber);
 	}
 
-	async getPrTemplateContent(path: string, projectId: string) {
+	async pullRequestTemplateContent(path: string, projectId: string) {
 		try {
 			const fileContents: string | undefined = await invoke('get_pr_template_contents', {
 				relativePath: path,
@@ -108,7 +108,7 @@ export class GitHubPrService implements GitHostPrService {
 		}
 	}
 
-	async getAvailablePrTemplates(path: string): Promise<string[] | undefined> {
+	async availablePullRequestTemplates(path: string): Promise<string[] | undefined> {
 		// TODO: Find a workaround to avoid this dynamic import
 		// https://github.com/sveltejs/kit/issues/905
 		const { join } = await import('@tauri-apps/api/path');

@@ -22,7 +22,7 @@
 
 	$effect(() => {
 		if (!project.path) return;
-		$prService?.getAvailablePrTemplates(project.path).then((availableTemplates) => {
+		$prService?.availablePullRequestTemplates(project.path).then((availableTemplates) => {
 			if (availableTemplates) {
 				allAvailableTemplates = availableTemplates.map((availableTemplate) => {
 					const relativePath = availableTemplate.replace(`${project.path}/`, '');
