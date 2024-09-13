@@ -176,6 +176,20 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
+    pub fn push_base_branch(
+        windows: State<'_, WindowState>,
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        with_force: bool,
+    ) -> Result<(), Error> {
+        let project = projects.get(project_id)?;
+        gitbutler_branch_actions::push_base_branch(&project, with_force)?;
+        emit_vbranches(&windows, project_id);
+        Ok(())
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects, windows), err(Debug))]
     pub fn update_virtual_branch(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,

@@ -67,6 +67,27 @@ export class BaseBranchService {
 		});
 		await this.fetchFromRemotes();
 	}
+
+	async push(withForce?: boolean) {
+		this.loading.set(true);
+		try {
+			await invoke<void>('push_base_branch', {
+				projectId: this.projectId,
+				withForce
+			});
+		} catch (err: any) {
+			if (err.code === Code.DefaultTargetNotFound) {
+				// Swallow this error since user should be taken to project setup page
+				return;
+			} else if (err.code === Code.ProjectsGitAuth) {
+				showError('Failed to authenticate', err);
+			} else {
+				showError('Failed to push', err);
+			}
+			console.error(err);
+		}
+		await this.fetchFromRemotes();
+	}
 }
 
 export async function getRemoteBranches(

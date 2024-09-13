@@ -647,3 +647,10 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
 fn default_target(base_path: &Path) -> Result<Target> {
     VirtualBranchesHandle::new(base_path).get_default_target()
 }
+
+pub(crate) fn push(ctx: &CommandContext, with_force: bool) -> Result<()> {
+    ctx.assure_resolved()?;
+    let target = default_target(&ctx.project().gb_dir())?;
+    let _ = ctx.push(target.sha, &target.branch, with_force, None, None);
+    Ok(())
+}

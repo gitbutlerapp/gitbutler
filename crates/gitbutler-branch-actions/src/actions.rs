@@ -158,6 +158,11 @@ pub fn set_target_push_remote(project: &Project, push_remote: &str) -> Result<()
     base::set_target_push_remote(&ctx, push_remote)
 }
 
+pub fn push_base_branch(project: &Project, with_force: bool) -> Result<()> {
+    let ctx = CommandContext::open(project)?;
+    base::push(&ctx, with_force)
+}
+
 pub fn integrate_upstream_commits(project: &Project, branch_id: BranchId) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx)
