@@ -11,11 +11,6 @@ const colors = [
 	'#5FD2B0'
 ];
 
-// We use a random seed to avoid colors being static with respect to a
-// particular input string. Refreshing the page should "shuffle" colors
-// assigned to e.g. avatar backgrounds.
-const randomSeed = Math.ceil(Math.random() * 10);
-
 export function stringToColor(name: string | undefined) {
 	const trimmed = name?.replace(/\s/g, '');
 	if (!trimmed) {
@@ -23,5 +18,6 @@ export function stringToColor(name: string | undefined) {
 	}
 
 	const startHash = trimmed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-	return colors[(startHash * randomSeed) % colors.length];
+
+	return colors[startHash % colors.length];
 }
