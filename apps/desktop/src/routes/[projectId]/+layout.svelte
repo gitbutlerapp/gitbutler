@@ -79,6 +79,7 @@
 		setContext(BranchListingService, data.branchListingService);
 		setContext(ModeService, data.modeService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
+		setContext(UpstreamIntegrationService, data.upstreamIntegrationService);
 	});
 
 	let intervalId: any;

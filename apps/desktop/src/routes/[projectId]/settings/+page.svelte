@@ -10,9 +10,9 @@
 	import { platformName } from '$lib/platform/platform';
 	import CloudForm from '$lib/settings/CloudForm.svelte';
 	import DetailsForm from '$lib/settings/DetailsForm.svelte';
-	import GitHostForm from '$lib/settings/GitHostForm.svelte';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import PreferencesForm from '$lib/settings/PreferencesForm.svelte';
+	import PullRequestTemplateForm from '$lib/settings/PullRequestTemplateForm.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -49,7 +49,7 @@
 	<CloudForm />
 	<DetailsForm />
 	{#if $gitHost}
-		<GitHostForm />
+		<PullRequestTemplateForm />
 	{/if}
 	{#if $platformName !== 'win32'}
 		<KeysForm showProjectName={false} />
