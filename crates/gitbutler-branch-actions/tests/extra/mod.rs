@@ -1099,8 +1099,7 @@ fn unapply_branch() -> Result<()> {
     assert!(branch.active);
 
     let branch_manager = ctx.branch_manager();
-    let real_branch =
-        branch_manager.convert_to_real_branch(branch1_id, guard.write_permission())?;
+    let real_branch = branch_manager.save_and_unapply(branch1_id, guard.write_permission())?;
 
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
@@ -1183,15 +1182,13 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     internal::list_virtual_branches(ctx, guard.write_permission()).unwrap();
 
     let branch_manager = ctx.branch_manager();
-    let real_branch_2 =
-        branch_manager.convert_to_real_branch(branch2_id, guard.write_permission())?;
+    let real_branch_2 = branch_manager.save_and_unapply(branch2_id, guard.write_permission())?;
 
     // check that file2 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("file2\n", String::from_utf8(contents)?);
 
-    let real_branch_3 =
-        branch_manager.convert_to_real_branch(branch3_id, guard.write_permission())?;
+    let real_branch_3 = branch_manager.save_and_unapply(branch3_id, guard.write_permission())?;
     // check that file3 is gone
     assert!(!Path::new(&project.path).join(file_path3).exists());
 
@@ -1267,8 +1264,8 @@ fn detect_mergeable_branch() -> Result<()> {
 
     // unapply both branches and create some conflicting ones
     let branch_manager = ctx.branch_manager();
-    branch_manager.convert_to_real_branch(branch1_id, guard.write_permission())?;
-    branch_manager.convert_to_real_branch(branch2_id, guard.write_permission())?;
+    branch_manager.save_and_unapply(branch1_id, guard.write_permission())?;
+    branch_manager.save_and_unapply(branch2_id, guard.write_permission())?;
 
     ctx.repository().set_head("refs/heads/master")?;
     ctx.repository()

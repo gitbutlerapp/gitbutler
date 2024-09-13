@@ -57,10 +57,8 @@ impl Test {
 
 mod amend;
 mod apply_virtual_branch;
-mod convert_to_real_branch;
 mod create_commit;
 mod create_virtual_branch_from_branch;
-mod delete_virtual_branch;
 mod init;
 mod insert_blank_commit;
 mod list;
@@ -71,10 +69,12 @@ mod oplog;
 mod references;
 mod reorder_commit;
 mod reset_virtual_branch;
+mod save_and_unapply_virtual_branch;
 mod selected_for_changes;
 mod set_base_branch;
 mod squash;
 mod unapply_ownership;
+mod unapply_without_saving_virtual_branch;
 mod undo_commit;
 mod update_base_branch;
 mod update_commit_message;

@@ -238,9 +238,9 @@ export class BranchController {
 		}
 	}
 
-	async convertToRealBranch(branchId: string) {
+	async saveAndUnapply(branchId: string) {
 		try {
-			await invoke<void>('convert_to_real_branch', {
+			await invoke<void>('save_and_unapply_virtual_branch', {
 				projectId: this.projectId,
 				branch: branchId
 			});
@@ -303,13 +303,16 @@ export class BranchController {
 		}
 	}
 
-	async deleteBranch(branchId: string) {
+	async unapplyWithoutSaving(branchId: string) {
 		try {
 			// TODO: make this optimistic again.
-			await invoke<void>('delete_virtual_branch', { projectId: this.projectId, branchId });
-			toasts.success('Branch deleted successfully');
+			await invoke<void>('unapply_without_saving_virtual_branch', {
+				projectId: this.projectId,
+				branchId
+			});
+			toasts.success('Branch unapplied successfully');
 		} catch (err) {
-			showError('Failed to delete branch', err);
+			showError('Failed to unapply branch', err);
 		} finally {
 			this.remoteBranchService.refresh();
 		}

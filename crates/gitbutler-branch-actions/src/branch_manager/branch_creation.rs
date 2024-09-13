@@ -334,7 +334,7 @@ impl BranchManager<'_> {
                     .iter()
                     .filter(|branch| branch.id != branch_id)
                 {
-                    self.convert_to_real_branch(branch.id, perm)?;
+                    self.save_and_unapply(branch.id, perm)?;
                 }
 
                 // apply the branch

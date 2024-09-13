@@ -225,7 +225,7 @@ pub fn update_branch_order(
     Ok(())
 }
 
-pub fn delete_virtual_branch(project: &Project, branch_id: BranchId) -> Result<()> {
+pub fn unapply_without_saving_virtual_branch(project: &Project, branch_id: BranchId) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx)
         .context("Deleting a branch order requires open workspace mode")?;
@@ -233,7 +233,7 @@ pub fn delete_virtual_branch(project: &Project, branch_id: BranchId) -> Result<(
     let mut guard = project.exclusive_worktree_access();
     let default_target = ctx.project().virtual_branches().get_default_target()?;
     let target_commit = ctx.repository().find_commit(default_target.sha)?;
-    branch_manager.delete_branch(branch_id, guard.write_permission(), &target_commit)
+    branch_manager.unapply_without_saving(branch_id, guard.write_permission(), &target_commit)
 }
 
 pub fn unapply_ownership(project: &Project, ownership: &BranchOwnershipClaims) -> Result<()> {
@@ -388,14 +388,17 @@ pub fn reset_virtual_branch(
     vbranch::reset_branch(&ctx, branch_id, target_commit_oid).map_err(Into::into)
 }
 
-pub fn convert_to_real_branch(project: &Project, branch_id: BranchId) -> Result<ReferenceName> {
+pub fn save_and_unapply_virutal_branch(
+    project: &Project,
+    branch_id: BranchId,
+) -> Result<ReferenceName> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx)
         .context("Converting branch to a real branch requires open workspace mode")?;
     let mut guard = project.exclusive_worktree_access();
     let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
     let branch_manager = ctx.branch_manager();
-    let result = branch_manager.convert_to_real_branch(branch_id, guard.write_permission());
+    let result = branch_manager.save_and_unapply(branch_id, guard.write_permission());
 
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         ctx.project().snapshot_branch_unapplied(

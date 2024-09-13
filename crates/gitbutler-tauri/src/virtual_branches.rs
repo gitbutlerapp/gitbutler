@@ -205,28 +205,28 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
-    pub fn delete_virtual_branch(
+    pub fn unapply_without_saving_virtual_branch(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch_id: BranchId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        gitbutler_branch_actions::delete_virtual_branch(&project, branch_id)?;
+        gitbutler_branch_actions::unapply_without_saving_virtual_branch(&project, branch_id)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
-    pub fn convert_to_real_branch(
+    pub fn save_and_unapply_virtual_branch(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch: BranchId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        gitbutler_branch_actions::convert_to_real_branch(&project, branch)?;
+        gitbutler_branch_actions::save_and_unapply_virutal_branch(&project, branch)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
