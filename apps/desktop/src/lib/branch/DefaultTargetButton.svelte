@@ -6,7 +6,7 @@
 		onclick: () => void;
 	}
 
-	const { selectedForChanges }: Props = $props();
+	const { selectedForChanges, onclick }: Props = $props();
 </script>
 
 {#if selectedForChanges}
