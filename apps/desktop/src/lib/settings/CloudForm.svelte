@@ -77,7 +77,7 @@
 	<Spacer />
 {/if}
 
-<Section spacer>
+<Section>
 	<svelte:fragment slot="title">AI options</svelte:fragment>
 	<svelte:fragment slot="description">
 		GitButler supports the use of OpenAI and Anthropic to provide commit message and branch name
@@ -123,7 +123,7 @@
 </Section>
 
 {#if $user?.role === 'admin'}
-	<Section spacer>
+	<Section>
 		<svelte:fragment slot="title">Full data synchronization</svelte:fragment>
 
 		<SectionCard labelFor="historySync" orientation="row">

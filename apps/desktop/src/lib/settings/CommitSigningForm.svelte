@@ -135,94 +135,86 @@
 	}
 </script>
 
-<Section>
-	<svelte:fragment slot="title">Preferences</svelte:fragment>
+<Section spacer>
+	<svelte:fragment slot="title">Commit signing</svelte:fragment>
 	<svelte:fragment slot="description">
-		Other settings to customize your GitButler experience.
+		Use GPG or SSH to sign your commits so they can be verified as authentic.
 	</svelte:fragment>
-
-	<SectionCard orientation="row" labelFor="allowForcePush">
-		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
+	<SectionCard orientation="row" labelFor="signCommits">
+		<svelte:fragment slot="title">Sign commits</svelte:fragment>
 		<svelte:fragment slot="caption">
-			Force pushing allows GitButler to override branches even if they were pushed to remote.
-			GitButler will never force push to the target branch.
+			GitButler will sign commits as per your git configuration.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle
-				id="allowForcePush"
-				checked={allowForcePushing}
-				on:click={handleAllowForcePushClick}
-			/>
+			<Toggle id="signCommits" checked={signCommits} on:click={handleSignCommitsClick} />
 		</svelte:fragment>
 	</SectionCard>
-
-	<SectionCard orientation="row" labelFor="omitCertificateCheck">
-		<svelte:fragment slot="title">Ignore host certificate checks</svelte:fragment>
-		<svelte:fragment slot="caption">
-			Enabling this will ignore host certificate checks when authenticating with ssh.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle
-				id="omitCertificateCheck"
-				checked={omitCertificateCheck}
-				on:click={handleOmitCertificateCheckClick}
-			/>
-		</svelte:fragment>
-	</SectionCard>
-
-	<SectionCard labelFor="runHooks" orientation="row">
-		<svelte:fragment slot="title">Run commit hooks</svelte:fragment>
-		<svelte:fragment slot="caption">
-			Enabling this will run any git pre and post commit hooks you have configured in your
-			repository.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle id="runHooks" bind:checked={$runCommitHooks} />
-		</svelte:fragment>
-	</SectionCard>
-
-	<SectionCard orientation="row" centerAlign>
-		<svelte:fragment slot="title">Snapshot lines threshold</svelte:fragment>
-		<svelte:fragment slot="caption">
-			The number of lines that trigger a snapshot when saving.
-		</svelte:fragment>
-
-		<svelte:fragment slot="actions">
-			<TextBox
-				type="number"
-				width={100}
-				textAlign="center"
-				value={snaphotLinesThreshold?.toString()}
-				minVal={5}
-				maxVal={1000}
-				showCountActions
-				on:change={(e) => {
-					setSnapshotLinesThreshold(parseInt(e.detail));
+	{#if signCommits}
+		<SectionCard orientation="column">
+			<Select
+				value={signingFormat}
+				options={signingFormatOptions}
+				label="Signing format"
+				onselect={(value) => {
+					signingFormat = value;
+					updateSigningInfo();
 				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === signingFormat} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+
+			<TextBox
+				label="Signing key"
+				bind:value={signingKey}
+				required
+				on:change={updateSigningInfo}
+				placeholder="ex: /Users/bob/.ssh/id_rsa.pub"
 			/>
-		</svelte:fragment>
-	</SectionCard>
 
-	<SectionCard labelFor="useNewLocking" orientation="row">
-		<svelte:fragment slot="title">Use new experimental hunk locking algorithm</svelte:fragment>
-		<svelte:fragment slot="caption">
-			This new hunk locking algorithm is still in the testing phase but should more accurately catch
-			locks and subsequently cause fewer errors.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle id="useNewLocking" bind:checked={useNewLocking} />
-		</svelte:fragment>
-	</SectionCard>
+			<TextBox
+				label="Signing program (optional)"
+				bind:value={signingProgram}
+				on:change={updateSigningInfo}
+				placeholder="ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+			/>
 
-	<SectionCard labelFor="succeedingRebases" orientation="row">
-		<svelte:fragment slot="title">Edit mode and succeeding rebases</svelte:fragment>
-		<svelte:fragment slot="caption">
-			This is an experimental setting which will ensure that rebasing will always succeed,
-			introduces a mode for editing individual commits, and adds the ability to resolve conflicted
-			commits.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle id="succeedingRebases" bind:checked={succeedingRebases} />
-		</svelte:fragment>
-	</SectionCard>
+			{#if checked}
+				<InfoMessage
+					style={loading ? 'neutral' : signCheckResult ? 'success' : 'error'}
+					filled
+					outlined={false}
+				>
+					<svelte:fragment slot="title">
+						{#if loading}
+							<p>Checking signing</p>
+						{:else if signCheckResult}
+							<p>Signing is working correctly</p>
+						{:else}
+							<p>Signing is not working correctly</p>
+							<pre>{errorMessage}</pre>
+						{/if}
+					</svelte:fragment>
+				</InfoMessage>
+			{/if}
+
+			<Button style="pop" kind="solid" wide icon="item-tick" onclick={checkSigning}>
+				{#if !checked}
+					Test signing
+				{:else}
+					Re-test signing
+				{/if}
+			</Button>
+			<SectionCardDisclaimer>
+				Signing commits can allow other people to verify your commits if you publish the public
+				version of your signing key.
+				<Link href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
+					>Read more</Link
+				> about commit signing and verification.
+			</SectionCardDisclaimer>
+		</SectionCard>
+	{/if}
 </Section>
