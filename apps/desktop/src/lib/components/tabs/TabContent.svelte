@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { type Snippet, getContext } from 'svelte';
-	import { fade, slide } from 'svelte/transition';
+	import { fade } from 'svelte/transition';
 	import type { TabContext } from './types';
 
 	interface Props {
@@ -28,11 +28,6 @@
 		flex-direction: column;
 		align-items: stretch;
 		justify-content: flex-start;
-
 		margin-top: 1rem;
-
-		&.hidden {
-			display: none;
-		}
 	}
 </style>
