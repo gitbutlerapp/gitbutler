@@ -52,7 +52,7 @@
 <Section>
 	<svelte:fragment slot="title">Pull Request Template</svelte:fragment>
 	<svelte:fragment slot="description">
-		Use Pull Request template when creating a Pull Requests.
+		Use your pull request template of choice when creating pull requests from GitButler.
 	</svelte:fragment>
 
 	<div>
