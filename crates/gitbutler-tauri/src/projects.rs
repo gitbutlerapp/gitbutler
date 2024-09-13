@@ -108,7 +108,7 @@ pub mod commands {
         let project = projects.get(project_id)?;
         let template_path = project.path.join(relative_path);
 
-        Ok(read_file_from_workspace(&template_path.as_path())?)
+        Ok(read_file_from_workspace(template_path.as_path())?)
     }
 }
 
