@@ -1,20 +1,11 @@
 <script lang="ts">
-	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
-	import Select from '$lib/select/Select.svelte';
-	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
-	import InfoMessage from '$lib/shared/InfoMessage.svelte';
-	import Link from '$lib/shared/Link.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import { invoke } from '@tauri-apps/api/tauri';
-	import { onMount } from 'svelte';
 
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
@@ -23,9 +14,7 @@
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
 	let useNewLocking = project?.use_new_locking || false;
-	let signCommits = false;
 
-	const gitConfig = getContext(GitConfigService);
 	const runCommitHooks = projectRunCommitHooks(project.id);
 
 	async function setWithForcePush(value: boolean) {
@@ -43,64 +32,11 @@
 		await projectService.updateProject(project);
 	}
 
-	async function setSignCommits(targetState: boolean) {
-		signCommits = targetState;
-		await gitConfig.setGbConfig(project.id, { signCommits: targetState });
-	}
-
-	// gpg.format
-	let signingFormat = 'openpgp';
-	// user.signingkey
-	let signingKey = '';
-	// gpg.ssh.program / gpg.program
-	let signingProgram = '';
-
-	const signingFormatOptions = [
-		{
-			label: 'GPG',
-			value: 'openpgp'
-		},
-		{
-			label: 'SSH',
-			value: 'ssh'
-		}
-	];
-
-	let checked = false;
-	let loading = true;
-	let signCheckResult = false;
-	let errorMessage = '';
 	let succeedingRebases = project.succeedingRebases;
 
 	$: {
 		project.succeedingRebases = succeedingRebases;
 		projectService.updateProject(project);
-	}
-
-	async function checkSigning() {
-		checked = true;
-		loading = true;
-		await invoke('check_signing_settings', { id: project.id })
-			.then((_) => {
-				signCheckResult = true;
-			})
-			.catch((err) => {
-				console.error('Error checking signing:', err);
-				console.log(err.message);
-				errorMessage = err.message;
-				signCheckResult = false;
-			});
-		loading = false;
-	}
-
-	async function updateSigningInfo() {
-		let signUpdate = {
-			signingFormat: signingFormat,
-			signingKey: signingKey,
-			gpgProgram: signingFormat === 'openpgp' ? signingProgram : '',
-			gpgSshProgram: signingFormat === 'ssh' ? signingProgram : ''
-		};
-		await gitConfig.setGbConfig(project.id, signUpdate);
 	}
 
 	async function setUseNewLocking(value: boolean) {
@@ -109,22 +45,6 @@
 	}
 
 	$: setUseNewLocking(useNewLocking);
-
-	onMount(async () => {
-		let gitConfigSettings = await gitConfig.getGbConfig(project.id);
-		signCommits = gitConfigSettings.signCommits || false;
-		signingFormat = gitConfigSettings.signingFormat || 'openpgp';
-		signingKey = gitConfigSettings.signingKey || '';
-		if (signingFormat === 'openpgp') {
-			signingProgram = gitConfigSettings.gpgProgram || '';
-		} else {
-			signingProgram = gitConfigSettings.gpgSshProgram || '';
-		}
-	});
-
-	async function handleSignCommitsClick(event: MouseEvent) {
-		await setSignCommits((event.target as HTMLInputElement)?.checked);
-	}
 
 	async function handleAllowForcePushClick(event: MouseEvent) {
 		await setWithForcePush((event.target as HTMLInputElement)?.checked);

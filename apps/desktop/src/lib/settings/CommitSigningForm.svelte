@@ -3,7 +3,6 @@
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
-	import { projectRunCommitHooks } from '$lib/config/config';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
@@ -19,29 +18,10 @@
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
 
-	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
-	let allowForcePushing = project?.ok_with_force_push;
-	let omitCertificateCheck = project?.omit_certificate_check;
 	let useNewLocking = project?.use_new_locking || false;
 	let signCommits = false;
 
 	const gitConfig = getContext(GitConfigService);
-	const runCommitHooks = projectRunCommitHooks(project.id);
-
-	async function setWithForcePush(value: boolean) {
-		project.ok_with_force_push = value;
-		await projectService.updateProject(project);
-	}
-
-	async function setOmitCertificateCheck(value: boolean | undefined) {
-		project.omit_certificate_check = !!value;
-		await projectService.updateProject(project);
-	}
-
-	async function setSnapshotLinesThreshold(value: number) {
-		project.snapshot_lines_threshold = value;
-		await projectService.updateProject(project);
-	}
 
 	async function setSignCommits(targetState: boolean) {
 		signCommits = targetState;
@@ -125,14 +105,6 @@
 	async function handleSignCommitsClick(event: MouseEvent) {
 		await setSignCommits((event.target as HTMLInputElement)?.checked);
 	}
-
-	async function handleAllowForcePushClick(event: MouseEvent) {
-		await setWithForcePush((event.target as HTMLInputElement)?.checked);
-	}
-
-	async function handleOmitCertificateCheckClick(event: MouseEvent) {
-		await setOmitCertificateCheck((event.target as HTMLInputElement)?.checked);
-	}
 </script>
 
 <Section spacer>
@@ -155,7 +127,7 @@
 				value={signingFormat}
 				options={signingFormatOptions}
 				label="Signing format"
-				onselect={(value) => {
+				onselect={(value: string) => {
 					signingFormat = value;
 					updateSigningInfo();
 				}}
