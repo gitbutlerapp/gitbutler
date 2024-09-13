@@ -15,7 +15,8 @@
 
 	const displayButton = $derived.by(() => {
 		const hasUpstreamCommits = ($base?.upstreamCommits?.length ?? 0) > 0;
-		return hasUpstreamCommits;
+		const diverged = $base?.diverged ?? true;
+		return hasUpstreamCommits && !diverged;
 	});
 
 	let modal = $state<IntegrateUpstreamModal>();

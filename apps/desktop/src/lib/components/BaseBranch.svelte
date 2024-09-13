@@ -1,41 +1,111 @@
 <script lang="ts">
 	import IntegrateUpstreamModal from './IntegrateUpstreamModal.svelte';
-	import Spacer from '../shared/Spacer.svelte';
 	import { Project } from '$lib/backend/projects';
+	import CommitAction from '$lib/commit/CommitAction.svelte';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
+	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { ModeService } from '$lib/modes/service';
 	import { showInfo } from '$lib/notifications/toasts';
+	import InfoMessage from '$lib/shared/InfoMessage.svelte';
+	import { groupByCondition } from '$lib/utils/array';
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
+	import { LineManagerFactory, LineSpacer } from '@gitbutler/ui/commitLines/lineManager';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 
-	export let base: BaseBranch;
+	const resetBranchTo = {
+		remote: {
+			title: 'Reset to remote',
+			header:
+				'You are about to reset the target branch to the remote branch. This will lose all the changes ahead of the remote branch.',
+			tooltip:
+				'Resets the target branch to the upstream branch. Will lose all the changes ahead of the upstream branch.',
+			color: 'warning',
+			action: updateBaseBranch
+		},
+		local: {
+			title: 'Reset to local',
+			header:
+				'You are about to reset the target branch to the local branch. This will lose all the remote changes not in the local branch.',
+			tooltip:
+				'Resets the upstream branch to the local target branch. Will lose all the remote changes not in the local branch.',
+			color: 'pop',
+			action: updateBaseBranch
+		}
+	} as const;
+
+	type ResetActionType = keyof typeof resetBranchTo;
+
+	interface Props {
+		base: BaseBranch;
+	}
+
+	const { base }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const modeService = getContext(ModeService);
 	const gitHost = getGitHost();
 	const project = getContext(Project);
+	const lineManagerFactory = getContext(LineManagerFactory);
 
-	const mode = modeService.mode;
-
-	const mergeUpstreamWarningDismissed = projectMergeUpstreamWarningDismissed(
-		branchController.projectId
+	const mode = $derived(modeService.mode);
+	const mergeUpstreamWarningDismissed = $derived(
+		projectMergeUpstreamWarningDismissed(branchController.projectId)
 	);
 
-	let updateTargetModal: Modal;
-	let integrateUpstreamModal: IntegrateUpstreamModal | undefined;
-	let mergeUpstreamWarningDismissedCheckbox = false;
+	let updateTargetModal = $state<Modal>();
+	let confirmResetModal = $state<Modal>();
+	let resetActionType = $state<ResetActionType | undefined>(undefined);
+	let mergeUpstreamWarningDismissedCheckbox = $state<boolean>(false);
+	let integrateUpstreamModal = $state<IntegrateUpstreamModal | undefined>();
 
-	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false;
+	const { satisfied: commitsAhead, rest: localAndRemoteCommits } = $derived(
+		groupByCondition(base.recentCommits, (c) => base.divergedAhead.includes(c.id))
+	);
+
+	const multiple = $derived(
+		base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false
+	);
+
+	const mappedRemoteCommits = $derived(
+		base.upstreamCommits.length > 0
+			? [...base.upstreamCommits.map(transformAnyCommit), { id: LineSpacer.Remote }]
+			: []
+	);
+
+	const mappedLocalCommits = $derived.by(() => {
+		if (!base.diverged) return [];
+		return commitsAhead.length > 0
+			? [...commitsAhead.map(transformAnyCommit), { id: LineSpacer.Local }]
+			: [];
+	});
+
+	const mappedLocalAndRemoteCommits = $derived.by(() => {
+		return localAndRemoteCommits.length > 0
+			? [...localAndRemoteCommits.map(transformAnyCommit), { id: LineSpacer.LocalAndRemote }]
+			: [];
+	});
+
+	const lineManager = $derived(
+		lineManagerFactory.build(
+			{
+				remoteCommits: mappedRemoteCommits,
+				localCommits: mappedLocalCommits,
+				localAndRemoteCommits: mappedLocalAndRemoteCommits,
+				integratedCommits: []
+			},
+			true
+		)
+	);
 
 	async function updateBaseBranch() {
-		let infoText = await branchController.updateBaseBranch();
+		const infoText = await branchController.updateBaseBranch();
 		if (infoText) {
 			showInfo('Stashed conflicting branches', infoText);
 		}
@@ -48,20 +118,45 @@
 			if (mergeUpstreamWarningDismissedCheckbox) {
 				updateBaseBranch();
 			} else {
-				updateTargetModal.show();
+				updateTargetModal?.show();
 			}
 		}
 	}
+
+	function confirmResetBranch(type: ResetActionType) {
+		resetActionType = type;
+		confirmResetModal?.show();
+	}
 </script>
 
-<div class="wrapper">
-	<div class="info-text text-13">
-		There {multiple ? 'are' : 'is'}
-		{base.upstreamCommits.length} unmerged upstream
-		{multiple ? 'commits' : 'commit'}
+{#if base.diverged}
+	<div class="message-wrapper">
+		<InfoMessage style="warning" filled outlined={false}>
+			<svelte:fragment slot="content">
+				Your target branch has diverged from upstream.
+				<br />
+				Target branch is
+				<b>
+					{`ahead by ${base.divergedAhead.length}`}
+				</b>
+				commits and
+				<b>
+					{`behind by ${base.divergedBehind.length}`}
+				</b>
+				commits
+			</svelte:fragment>
+		</InfoMessage>
 	</div>
+{/if}
 
-	{#if base.upstreamCommits?.length > 0}
+{#if !base.diverged && base.upstreamCommits.length > 0}
+	<div class="header-wrapper">
+		<div class="info-text text-13">
+			There {multiple ? 'are' : 'is'}
+			{base.upstreamCommits.length} unmerged upstream
+			{multiple ? 'commits' : 'commit'}
+		</div>
+
 		<IntegrateUpstreamModal bind:this={integrateUpstreamModal} />
 		<Button
 			style="pop"
@@ -73,6 +168,12 @@
 		>
 			Merge into common base
 		</Button>
+	</div>
+{/if}
+
+<div class="wrapper">
+	<!-- UPSTREAM COMMITS -->
+	{#if base.upstreamCommits?.length > 0}
 		<div>
 			{#each base.upstreamCommits as commit, index}
 				<CommitCard
@@ -82,25 +183,88 @@
 					isUnapplied={true}
 					commitUrl={$gitHost?.commitUrl(commit.id)}
 					type="remote"
-				/>
+				>
+					{#snippet lines(topHeightPx)}
+						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+					{/snippet}
+				</CommitCard>
 			{/each}
 		</div>
-		<Spacer margin={2} />
+
+		{#if base.diverged}
+			<CommitAction backgroundColor={false}>
+				{#snippet lines()}
+					<LineGroup lineGroup={lineManager.get(LineSpacer.Remote)} topHeightPx={0} />
+				{/snippet}
+				{#snippet action()}
+					<Button
+						style={resetBranchTo.remote.color}
+						icon="warning"
+						kind="solid"
+						tooltip={resetBranchTo.remote.tooltip}
+						disabled={$mode?.type !== 'OpenWorkspace'}
+						onclick={() => confirmResetBranch('remote')}
+					>
+						{resetBranchTo.remote.title}
+					</Button>
+				{/snippet}
+			</CommitAction>
+		{/if}
 	{/if}
 
+	<!-- DIVERGED (LOCAL) COMMITS -->
+	{#if commitsAhead.length > 0}
+		<div>
+			{#each commitsAhead as commit, index}
+				<CommitCard
+					{commit}
+					first={index === 0}
+					last={index === commitsAhead.length - 1}
+					isUnapplied={true}
+					commitUrl={$gitHost?.commitUrl(commit.id)}
+					type="local"
+				>
+					{#snippet lines(topHeightPx)}
+						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+					{/snippet}
+				</CommitCard>
+			{/each}
+		</div>
+
+		<CommitAction backgroundColor={false}>
+			{#snippet lines()}
+				<LineGroup lineGroup={lineManager.get(LineSpacer.Local)} topHeightPx={0} />
+			{/snippet}
+			{#snippet action()}
+				<Button
+					style={resetBranchTo.local.color}
+					icon="warning"
+					kind="solid"
+					tooltip={resetBranchTo.local.tooltip}
+					disabled={$mode?.type !== 'OpenWorkspace'}
+					onclick={() => confirmResetBranch('local')}
+				>
+					{resetBranchTo.local.title}
+				</Button>
+			{/snippet}
+		</CommitAction>
+	{/if}
+
+	<!-- LOCAL AND REMOTE COMMITS -->
 	<div>
-		<Tooltip text="Current base for virtual branches.">
-			<h1 class="text-13 info-text text-bold">Local</h1>
-		</Tooltip>
-		{#each base.recentCommits as commit, index}
+		{#each localAndRemoteCommits as commit, index}
 			<CommitCard
 				{commit}
 				first={index === 0}
-				last={index === base.recentCommits.length - 1}
+				last={index === localAndRemoteCommits.length - 1}
 				isUnapplied={true}
 				commitUrl={$gitHost?.commitUrl(commit.id)}
 				type="localAndRemote"
-			/>
+			>
+				{#snippet lines(topHeightPx)}
+					<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+				{/snippet}
+			</CommitCard>
 		{/each}
 	</div>
 </div>
@@ -146,11 +310,60 @@
 	{/snippet}
 </Modal>
 
+{#if resetActionType}
+	<Modal
+		width="small"
+		title={resetBranchTo[resetActionType].title}
+		bind:this={confirmResetModal}
+		onSubmit={(close) => {
+			if (resetActionType) {
+				resetBranchTo[resetActionType].action();
+			}
+			close();
+		}}
+	>
+		<div class="modal-content">
+			<p class="text-12">
+				{#if resetActionType === 'remote'}
+					{base.divergedAhead.length > 1
+						? `You will lose the ${base.divergedAhead.length} local commits ahead of the remote branch.`
+						: 'You will lose the local commit ahead of the remote branch.'}
+				{:else}
+					You will force-push the local branch to the remote branch.
+					<br />
+					{base.divergedBehind.length > 1
+						? `The ${base.divergedBehind.length} changes in the remote branch will be lost.`
+						: 'The change in the remote branch will be lost.'}
+				{/if}
+			</p>
+		</div>
+
+		{#snippet controls(close)}
+			{#if resetActionType}
+				<Button style="ghost" outline onclick={close}>Cancel</Button>
+				<Button style="error" kind="solid" type="submit" icon="warning"
+					>{resetBranchTo[resetActionType].title}</Button
+				>
+			{/if}
+		{/snippet}
+	</Modal>
+{/if}
+
 <style>
-	.wrapper {
+	.header-wrapper {
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
+	}
+	.message-wrapper {
+		display: flex;
+		flex-direction: column;
+		margin-bottom: 20px;
+		gap: 16px;
+	}
+	.wrapper {
+		display: flex;
+		flex-direction: column;
 	}
 
 	.info-text {

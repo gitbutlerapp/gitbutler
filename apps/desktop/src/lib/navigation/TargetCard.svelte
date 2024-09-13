@@ -17,6 +17,7 @@
 
 	const base = baseBranchService.base;
 	$: selected = $page.url.href.endsWith('/base');
+	$: baseBranchDiverged = !!$base?.diverged;
 </script>
 
 <DomainButton
@@ -41,9 +42,16 @@
 				<Tooltip text="The branch your Workspace branches are based on and merge into.">
 					<span class="text-14 text-semibold trunk-label">Target</span>
 				</Tooltip>
-				{#if ($base?.behind || 0) > 0}
+				{#if ($base?.behind || 0) > 0 && !baseBranchDiverged}
 					<Tooltip text="Unmerged upstream commits">
 						<Badge label={$base?.behind || 0} />
+					</Tooltip>
+				{/if}
+				{#if baseBranchDiverged}
+					<Tooltip text="Your branch has diverged from the target branch">
+						<div>
+							<Icon name="warning" color="warning" />
+						</div>
 					</Tooltip>
 				{/if}
 				<SyncButton />
