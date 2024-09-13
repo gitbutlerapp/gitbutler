@@ -1,4 +1,4 @@
-use std::{ffi::CString, path::Path};
+use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
@@ -81,21 +81,9 @@ pub fn cherry_rebase_group(
                     if !succeeding_rebases {
                         return Err(anyhow!("failed to rebase")).context(Marker::BranchConflict);
                     }
-                    commit_conflicted_cherry_result(
-                        repository,
-                        head,
-                        to_rebase,
-                        cherrypick_index,
-                        None,
-                    )
+                    commit_conflicted_cherry_result(repository, head, to_rebase, cherrypick_index)
                 } else {
-                    commit_unconflicted_cherry_result(
-                        repository,
-                        head,
-                        to_rebase,
-                        cherrypick_index,
-                        None,
-                    )
+                    commit_unconflicted_cherry_result(repository, head, to_rebase, cherrypick_index)
                 }
             },
         )?
@@ -104,19 +92,11 @@ pub fn cherry_rebase_group(
     Ok(new_head_id)
 }
 
-pub struct OverrideCommitDetails<'a, 'repository> {
-    message: &'a str,
-    parents: &'a [&'a git2::Commit<'repository>],
-    author: &'a git2::Signature<'repository>,
-    commiter: &'a git2::Signature<'repository>,
-}
-
 fn commit_unconflicted_cherry_result<'repository>(
     repository: &'repository git2::Repository,
     head: git2::Commit<'repository>,
     to_rebase: git2::Commit,
     mut cherrypick_index: git2::Index,
-    override_commit_details: Option<OverrideCommitDetails>,
 ) -> Result<git2::Commit<'repository>> {
     let commit_headers = to_rebase.gitbutler_headers();
 
@@ -140,31 +120,17 @@ fn commit_unconflicted_cherry_result<'repository>(
         ..commit_headers
     });
 
-    let commit_oid = if let Some(override_commit_details) = override_commit_details {
-        crate::RepositoryExt::commit_with_signature(
-            repository,
-            None,
-            override_commit_details.author,
-            override_commit_details.commiter,
-            override_commit_details.message,
-            &merge_tree,
-            override_commit_details.parents,
-            commit_headers,
-        )
-        .context("failed to create commit")?
-    } else {
-        crate::RepositoryExt::commit_with_signature(
-            repository,
-            None,
-            &to_rebase.author(),
-            &to_rebase.committer(),
-            &to_rebase.message_bstr().to_str_lossy(),
-            &merge_tree,
-            &[&head],
-            commit_headers,
-        )
-        .context("failed to create commit")?
-    };
+    let commit_oid = crate::RepositoryExt::commit_with_signature(
+        repository,
+        None,
+        &to_rebase.author(),
+        &to_rebase.committer(),
+        &to_rebase.message_bstr().to_str_lossy(),
+        &merge_tree,
+        &[&head],
+        commit_headers,
+    )
+    .context("failed to create commit")?;
 
     repository
         .find_commit(commit_oid)
@@ -176,7 +142,6 @@ fn commit_conflicted_cherry_result<'repository>(
     head: git2::Commit,
     to_rebase: git2::Commit,
     cherrypick_index: git2::Index,
-    override_commit_details: Option<OverrideCommitDetails>,
 ) -> Result<git2::Commit<'repository>> {
     let commit_headers = to_rebase.gitbutler_headers();
 
@@ -201,9 +166,10 @@ fn commit_conflicted_cherry_result<'repository>(
         // For some reason we have to resolve the index with the "their" side
         // rather than the "our" side, so we then go and later overwrite the
         // output tree with the "our" side.
-        if let Some(their) = conflict.their {
-            let path = std::str::from_utf8(&their.path).unwrap().to_string();
-            conflicted_files.push(path);
+        let index_entry = conflict.their.or(conflict.our);
+        if let Some(entry) = index_entry {
+            let path = std::str::from_utf8(&entry.path).unwrap().to_string();
+            conflicted_files.push(path)
         }
     }
 
@@ -223,7 +189,7 @@ fn commit_conflicted_cherry_result<'repository>(
         if let (None, Some(our)) = (conflict.their, conflict.our) {
             let path = std::str::from_utf8(&our.path).unwrap();
             let path = Path::new(path);
-            resolved_index.add_path(path)?;
+            resolved_index.remove_path(path)?;
         }
     }
 
@@ -270,35 +236,19 @@ fn commit_conflicted_cherry_result<'repository>(
                 }
             });
 
-    let commit_oid = if let Some(override_commit_details) = override_commit_details {
-        crate::RepositoryExt::commit_with_signature(
-            repository,
-            None,
-            override_commit_details.author,
-            override_commit_details.commiter,
-            override_commit_details.message,
-            &repository
-                .find_tree(tree_oid)
-                .context("failed to find tree")?,
-            override_commit_details.parents,
-            commit_headers,
-        )
-        .context("failed to create commit")?
-    } else {
-        crate::RepositoryExt::commit_with_signature(
-            repository,
-            None,
-            &to_rebase.author(),
-            &to_rebase.committer(),
-            &to_rebase.message_bstr().to_str_lossy(),
-            &repository
-                .find_tree(tree_oid)
-                .context("failed to find tree")?,
-            &[&head],
-            commit_headers,
-        )
-        .context("failed to create commit")?
-    };
+    let commit_oid = crate::RepositoryExt::commit_with_signature(
+        repository,
+        None,
+        &to_rebase.author(),
+        &to_rebase.committer(),
+        &to_rebase.message_bstr().to_str_lossy(),
+        &repository
+            .find_tree(tree_oid)
+            .context("failed to find tree")?,
+        &[&head],
+        commit_headers,
+    )
+    .context("failed to create commit")?;
 
     repository
         .find_commit(commit_oid)
@@ -312,36 +262,123 @@ pub fn gitbutler_merge_commits<'repository>(
     target_branch_name: &str,
     incoming_branch_name: &str,
 ) -> Result<git2::Commit<'repository>> {
-    let cherrypick_index =
-        repository.cherry_pick_gitbutler(&target_commit, &incoming_commit, None)?;
+    let merge_base = repository.merge_base(target_commit.id(), incoming_commit.id())?;
+    let merge_base = repository.find_commit(merge_base)?;
+
+    let base_tree = repository.find_real_tree(&merge_base, Default::default())?;
+    let target_tree = repository.find_real_tree(&target_commit, Default::default())?;
+    let incoming_tree = repository.find_real_tree(&incoming_commit, ConflictedTreeKey::Theirs)?;
+
+    let merged_index = repository.merge_trees(&base_tree, &target_tree, &incoming_tree, None)?;
+
+    let mut conflicted_files = vec![];
+
+    // get a list of conflicted files from the index
+    let index_conflicts = merged_index.conflicts()?.flatten().collect::<Vec<_>>();
+    for conflict in index_conflicts {
+        // For some reason we have to resolve the index with the "their" side
+        // rather than the "our" side, so we then go and later overwrite the
+        // output tree with the "our" side.
+        let index_entry = conflict.their.or(conflict.our);
+        if let Some(entry) = index_entry {
+            let path = std::str::from_utf8(&entry.path).unwrap().to_string();
+            conflicted_files.push(path)
+        }
+    }
+
+    let mut resolved_index = repository.merge_trees(
+        &base_tree,
+        &target_tree,
+        &incoming_tree,
+        Some(git2::MergeOptions::default().file_favor(git2::FileFavor::Ours)),
+    )?;
+
+    let resolved_index_conflicts = resolved_index.conflicts()?.flatten().collect::<Vec<_>>();
+    for conflict in resolved_index_conflicts {
+        if let (Some(their), None) = (&conflict.their, &conflict.our) {
+            let path = std::str::from_utf8(&their.path).unwrap();
+            let path = Path::new(path);
+            resolved_index.remove_path(path)?;
+        }
+        if let (None, Some(our)) = (conflict.their, conflict.our) {
+            let path = std::str::from_utf8(&our.path).unwrap();
+            let path = Path::new(path);
+            resolved_index.remove_path(path)?;
+        }
+    }
+
+    let resolved_tree_id = resolved_index.write_tree_to(repository)?;
 
     let (author, committer) = repository.signatures()?;
 
-    let override_commit_details = OverrideCommitDetails {
-        message: &format!(
-            "Merge branch `{}` into `{}`",
+    // convert files into a string and save as a blob
+    let conflicted_files_string = conflicted_files.join("\n");
+    let conflicted_files_blob = repository.blob(conflicted_files_string.as_bytes())?;
+
+    // create a treewriter
+    let mut tree_writer = repository.treebuilder(None)?;
+
+    // save the state of the conflict, so we can recreate it later
+    tree_writer.insert(&*ConflictedTreeKey::Ours, target_tree.id(), 0o040000)?;
+    tree_writer.insert(&*ConflictedTreeKey::Theirs, incoming_tree.id(), 0o040000)?;
+    tree_writer.insert(&*ConflictedTreeKey::Base, base_tree.id(), 0o040000)?;
+    tree_writer.insert(
+        &*ConflictedTreeKey::AutoResolution,
+        resolved_tree_id,
+        0o040000,
+    )?;
+    tree_writer.insert(
+        &*ConflictedTreeKey::ConflictFiles,
+        conflicted_files_blob,
+        0o100644,
+    )?;
+
+    // in case someone checks this out with vanilla Git, we should warn why it looks like this
+    let readme_content =
+        b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
+    let readme_blob = repository.blob(readme_content)?;
+    tree_writer.insert("README.txt", readme_blob, 0o100644)?;
+
+    let tree_oid = tree_writer.write().context("failed to write tree")?;
+
+    let commit_headers = incoming_commit
+        .gitbutler_headers()
+        .or_else(|| Some(Default::default()))
+        .map(|commit_headers| {
+            let conflicted_file_count = conflicted_files
+                .len()
+                .try_into()
+                .expect("If you have more than 2^64 conflicting files, we've got bigger problems");
+
+            if conflicted_file_count > 0 {
+                CommitHeadersV2 {
+                    conflicted: Some(conflicted_file_count),
+                    ..commit_headers
+                }
+            } else {
+                CommitHeadersV2 {
+                    conflicted: None,
+                    ..commit_headers
+                }
+            }
+        });
+
+    let commit_oid = crate::RepositoryExt::commit_with_signature(
+        repository,
+        None,
+        &author,
+        &committer,
+        &format!(
+            "Merge `{}` into `{}`",
             incoming_branch_name, target_branch_name
         ),
-        parents: &[&target_commit.clone(), &incoming_commit.clone()],
-        author: &author,
-        commiter: &committer,
-    };
+        &repository
+            .find_tree(tree_oid)
+            .context("failed to find tree")?,
+        &[&target_commit, &incoming_commit],
+        commit_headers,
+    )
+    .context("failed to create commit")?;
 
-    if cherrypick_index.has_conflicts() {
-        commit_conflicted_cherry_result(
-            repository,
-            target_commit,
-            incoming_commit,
-            cherrypick_index,
-            Some(override_commit_details),
-        )
-    } else {
-        commit_unconflicted_cherry_result(
-            repository,
-            target_commit,
-            incoming_commit,
-            cherrypick_index,
-            Some(override_commit_details),
-        )
-    }
+    Ok(repository.find_commit(commit_oid)?)
 }
