@@ -26,7 +26,6 @@ anyhow = "1.0.86"
 backtrace = { version = "0.3.72", optional = true }
 console-subscriber = "0.4.0"
 dirs = "5.0.1"
-fslock.workspace = true
 futures.workspace = true
 git2.workspace = true
 gix = { workspace = true, features = ["max-performance", "blocking-http-transport-curl", "worktree-mutation"] }

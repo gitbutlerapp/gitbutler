@@ -2555,7 +2555,6 @@ dependencies = [
  "backtrace",
  "console-subscriber",
  "dirs 5.0.1",
- "fslock",
  "futures",
  "git2",
  "gitbutler-branch",
