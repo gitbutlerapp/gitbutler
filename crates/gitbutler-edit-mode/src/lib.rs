@@ -6,7 +6,7 @@ use git2::build::CheckoutBuilder;
 use gitbutler_branch::{signature, Branch, SignaturePurpose, VirtualBranchesHandle};
 use gitbutler_branch_actions::internal::list_virtual_branches;
 use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
-use gitbutler_cherry_pick::RepositoryExt as _;
+use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{
     commit_ext::CommitExt,
@@ -103,8 +103,25 @@ fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Res
 fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<()> {
     let repository = ctx.repository();
 
+    let author_signature = signature(SignaturePurpose::Author)?;
+    let committer_signature = signature(SignaturePurpose::Committer)?;
+
     // Checkout commits's parent
-    let commit_parent = commit.parent(0)?;
+    let commit_parent = if commit.is_conflicted() {
+        let base_tree = repository.find_real_tree(commit, ConflictedTreeKey::Base)?;
+
+        let base = repository.commit(
+            None,
+            &author_signature,
+            &committer_signature,
+            "Conflict base",
+            &base_tree,
+            &[],
+        )?;
+        repository.find_commit(base)?
+    } else {
+        commit.parent(0)?
+    };
     repository.reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")?;
     repository.reference(EDIT_INITIAL_STATE_REF, commit_parent.id(), true, "")?;
     repository.set_head(EDIT_BRANCH_REF)?;
@@ -125,8 +142,6 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<(
 
     let tree = repository.create_wd_tree()?;
 
-    let author_signature = signature(SignaturePurpose::Author)?;
-    let committer_signature = signature(SignaturePurpose::Committer)?;
     // Commit initial state commit
     repository.commit(
         Some(EDIT_INITIAL_STATE_REF),
