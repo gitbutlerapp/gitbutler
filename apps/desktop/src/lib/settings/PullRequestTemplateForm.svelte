@@ -25,9 +25,10 @@
 		$prService?.getAvailablePrTemplates(project.path).then((availableTemplates) => {
 			if (availableTemplates) {
 				allAvailableTemplates = availableTemplates.map((availableTemplate) => {
+					const relativePath = availableTemplate.replace(`${project.path}/`, '');
 					return {
-						label: availableTemplate.replace(`${project.path}/`, ''),
-						value: availableTemplate
+						label: relativePath,
+						value: relativePath
 					};
 				});
 			}

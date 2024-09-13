@@ -93,7 +93,7 @@
 		const prTemplatePath = project.git_host.pullRequestTemplatePath;
 
 		if (prTemplatePath) {
-			pullRequestTemplateBody = await $prService?.getPrTemplateContent(prTemplatePath);
+			pullRequestTemplateBody = await $prService?.getPrTemplateContent(prTemplatePath, project.id);
 		}
 
 		if (pullRequestTemplateBody) {

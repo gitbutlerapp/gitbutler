@@ -90,9 +90,12 @@ export class GitHubPrService implements GitHostPrService {
 		return new GitHubPrMonitor(this, prNumber);
 	}
 
-	async getPrTemplateContent(path: string) {
+	async getPrTemplateContent(path: string, projectId: string) {
 		try {
-			const fileContents: string | undefined = await invoke('get_pr_template_contents', { path });
+			const fileContents: string | undefined = await invoke('get_pr_template_contents', {
+				relativePath: path,
+				projectId
+			});
 			return fileContents;
 		} catch (err) {
 			console.error(`Error reading pull request template at path: ${path}`, err);

@@ -99,9 +99,16 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument]
-    pub fn get_pr_template_contents(path: &path::Path) -> Result<String, Error> {
-        Ok(read_file_from_workspace(&path)?)
+    #[instrument(skip(projects))]
+    pub fn get_pr_template_contents(
+        projects: State<'_, Controller>,
+        relative_path: &path::Path,
+        project_id: ProjectId,
+    ) -> Result<String, Error> {
+        let project = projects.get(project_id)?;
+        let template_path = project.path.join(relative_path);
+
+        Ok(read_file_from_workspace(&template_path.as_path())?)
     }
 }
 
