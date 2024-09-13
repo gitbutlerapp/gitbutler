@@ -27,6 +27,10 @@ export class Project {
 	use_diff_context: boolean | undefined;
 	snapshot_lines_threshold!: number | undefined;
 	use_new_locking!: boolean;
+	git_host!: {
+		hostType: 'github' | 'gitlab' | 'bitbucket' | 'azure';
+		pullRequestTemplatePath: string;
+	};
 
 	private succeeding_rebases!: boolean;
 	get succeedingRebases() {

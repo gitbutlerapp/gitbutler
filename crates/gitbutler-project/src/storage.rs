@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
+use crate::{ApiProject, AuthKey, CodePushState, FetchResult, GitHostSettings, Project, ProjectId};
 
 const PROJECTS_FILE: &str = "projects.json";
 
@@ -28,6 +28,7 @@ pub struct UpdateRequest {
     pub use_diff_context: Option<bool>,
     pub snapshot_lines_threshold: Option<usize>,
     pub succeeding_rebases: Option<bool>,
+    pub git_host: Option<GitHostSettings>,
 }
 
 impl Storage {
@@ -126,6 +127,10 @@ impl Storage {
 
         if let Some(succeeding_rebases) = update_request.succeeding_rebases {
             project.succeeding_rebases = succeeding_rebases;
+        }
+
+        if let Some(git_host) = &update_request.git_host {
+            project.git_host = git_host.clone();
         }
 
         self.inner

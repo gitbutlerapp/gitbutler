@@ -4,6 +4,7 @@
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import DefaultTargetButton from './DefaultTargetButton.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
+	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
@@ -41,6 +42,7 @@
 	const branchStore = getContextStore(VirtualBranch);
 	const prMonitor = getGitHostPrMonitor();
 	const gitHost = getGitHost();
+	const project = getContext(Project);
 
 	const baseBranchName = $derived($baseBranch.shortName);
 	const branch = $derived($branchStore);
@@ -87,15 +89,30 @@
 		let title: string;
 		let body: string;
 
-		// In case of a single commit, use the commit summary and description for the title and
-		// description of the PR.
-		if (branch.commits.length === 1) {
-			const commit = branch.commits[0];
-			title = commit?.descriptionTitle ?? '';
-			body = commit?.descriptionBody ?? '';
-		} else {
+		let pullRequestTemplateBody: string | undefined;
+		const prTemplatePath = project.git_host.pullRequestTemplatePath;
+
+		if (prTemplatePath) {
+			pullRequestTemplateBody = await $prService?.pullRequestTemplateContent(
+				prTemplatePath,
+				project.id
+			);
+		}
+
+		if (pullRequestTemplateBody) {
 			title = branch.name;
-			body = '';
+			body = pullRequestTemplateBody;
+		} else {
+			// In case of a single commit, use the commit summary and description for the title and
+			// description of the PR.
+			if (branch.commits.length === 1) {
+				const commit = branch.commits[0];
+				title = commit?.descriptionTitle ?? '';
+				body = commit?.descriptionBody ?? '';
+			} else {
+				title = branch.name;
+				body = '';
+			}
 		}
 
 		isLoading = true;
