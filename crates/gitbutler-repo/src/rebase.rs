@@ -1,3 +1,5 @@
+use std::{ffi::CString, path::Path};
+
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
@@ -210,6 +212,21 @@ fn commit_conflicted_cherry_result<'repository>(
         &to_rebase,
         Some(git2::MergeOptions::default().file_favor(git2::FileFavor::Ours)),
     )?;
+
+    let resolved_index_conflicts = resolved_index.conflicts()?.flatten().collect::<Vec<_>>();
+    for conflict in resolved_index_conflicts {
+        if let (Some(their), None) = (&conflict.their, &conflict.our) {
+            let path = std::str::from_utf8(&their.path).unwrap();
+            let path = Path::new(path);
+            resolved_index.remove_path(path)?;
+        }
+        if let (None, Some(our)) = (conflict.their, conflict.our) {
+            let path = std::str::from_utf8(&our.path).unwrap();
+            let path = Path::new(path);
+            resolved_index.add_path(path)?;
+        }
+    }
+
     let resolved_tree_id = resolved_index.write_tree_to(repository)?;
 
     // convert files into a string and save as a blob
