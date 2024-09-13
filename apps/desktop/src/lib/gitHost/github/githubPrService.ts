@@ -7,8 +7,13 @@ import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
 import type { GitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
-import type { DetailedPullRequest, MergeMethod, PullRequest } from '$lib/gitHost/interface/types';
 import type { RepoInfo } from '$lib/url/gitUrl';
+import type {
+	CreatePullRequestArgs,
+	DetailedPullRequest,
+	MergeMethod,
+	PullRequest
+} from '../interface/types';
 import type { Octokit } from '@octokit/rest';
 
 export class GitHubPrService implements GitHostPrService {
@@ -19,13 +24,13 @@ export class GitHubPrService implements GitHostPrService {
 		private repo: RepoInfo
 	) {}
 
-	async createPr(
-		title: string,
-		body: string,
-		draft: boolean,
-		baseBranchName: string,
-		upstreamName: string
-	): Promise<PullRequest> {
+	async createPr({
+		title,
+		body,
+		draft,
+		baseBranchName,
+		upstreamName
+	}: CreatePullRequestArgs): Promise<PullRequest> {
 		this.loading.set(true);
 		const request = async () => {
 			const resp = await this.octokit.rest.pulls.create({
@@ -37,6 +42,7 @@ export class GitHubPrService implements GitHostPrService {
 				body,
 				draft
 			});
+
 			return ghResponseToInstance(resp.data);
 		};
 

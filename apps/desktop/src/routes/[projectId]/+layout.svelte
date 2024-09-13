@@ -115,21 +115,22 @@
 	// Refresh base branch if git fetch event is detected.
 	const mode = $derived(modeService.mode);
 	const head = $derived(modeService.head);
-
+	// We end up with a `state_unsafe_mutation` when switching projects if we
+	// don't use $effect.pre here.
 	// TODO: can we eliminate the need to debounce?
 	const fetch = $derived(fetchSignal.event);
 	const debouncedBaseBranchResfresh = debounce(() => baseBranchService.refresh(), 500);
-	$effect(() => {
+	$effect.pre(() => {
 		if ($fetch || $head) debouncedBaseBranchResfresh();
 	});
 
 	// TODO: can we eliminate the need to debounce?
 	const debouncedRemoteBranchRefresh = debounce(() => remoteBranchService.refresh(), 500);
-	$effect(() => {
+	$effect.pre(() => {
 		if ($baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
 	});
 
-	$effect(() => {
+	$effect.pre(() => {
 		const gitHost =
 			repoInfo && baseBranchName
 				? gitHostFactory.build(repoInfo, baseBranchName, forkInfo)

@@ -48,12 +48,12 @@ export class AzureDevOps implements GitHost {
 		return undefined;
 	}
 
-	async getAvailablePrTemplates(_path?: string) {
+	async availablePullRequestTemplates(_path?: string) {
 		// See: https://learn.microsoft.com/en-us/azure/devops/repos/git/pull-request-templates?view=azure-devops#default-pull-request-templates
 		return undefined;
 	}
 
-	async getPrTemplateContent(_path?: string) {
+	async pullRequestTemplateContent(_path?: string) {
 		return undefined;
 	}
 }

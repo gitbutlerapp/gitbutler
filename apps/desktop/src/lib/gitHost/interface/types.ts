@@ -77,8 +77,10 @@ export type GitHostArguments = {
 	forkStr?: string;
 };
 
-export type CreatePullRequestArguments = {
+export type CreatePullRequestArgs = {
 	title: string;
 	body: string;
 	draft: boolean;
+	baseBranchName: string;
+	upstreamName: string;
 };

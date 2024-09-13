@@ -53,12 +53,12 @@ export class GitLab implements GitHost {
 		return undefined;
 	}
 
-	async getAvailablePrTemplates(_path?: string) {
+	async availablePullRequestTemplates(_path?: string) {
 		// See: https://docs.gitlab.com/ee/user/project/description_templates.html
 		return undefined;
 	}
 
-	async getPrTemplateContent(_path?: string) {
+	async pullRequestTemplateContent(_path?: string) {
 		return undefined;
 	}
 }

@@ -2,6 +2,7 @@ import { GitHubBranch } from './githubBranch';
 import { GitHubChecksMonitor } from './githubChecksMonitor';
 import { GitHubListingService } from './githubListingService';
 import { GitHubPrService } from './githubPrService';
+import { GitHubIssueService } from '$lib/gitHost/github/issueService';
 import { Octokit } from '@octokit/rest';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
@@ -48,6 +49,13 @@ export class GitHub implements GitHost {
 			return;
 		}
 		return new GitHubPrService(this.octokit, this.repo);
+	}
+
+	issueService() {
+		if (!this.octokit) {
+			return;
+		}
+		return new GitHubIssueService(this.octokit, this.repo);
 	}
 
 	checksMonitor(sourceBranch: string) {
