@@ -102,38 +102,40 @@ function setupDragHandlers(
 
 	const viewport = opts.viewportId ? document.getElementById(opts.viewportId) : null;
 	const triggerRange = 150;
-	const timerShutter = 500;
+	const timerShutter = 700;
 	let timeoutId: undefined | ReturnType<typeof setTimeout> = undefined;
 
-	function loopScroll(direction: 'left' | 'right', scrollSpeed: number) {
-		if (viewport) {
-			viewport.scrollBy({
-				left: direction === 'left' ? -scrollSpeed : scrollSpeed,
-				behavior: 'smooth'
-			});
-		}
+	function loopScroll(viewport: HTMLElement, direction: 'left' | 'right', scrollSpeed: number) {
+		viewport.scrollBy({
+			left: direction === 'left' ? -scrollSpeed : scrollSpeed,
+			// left: direction === 'left' ? -40 : 40,
+			behavior: 'smooth'
+		});
 
-		timeoutId = setTimeout(() => loopScroll(direction, scrollSpeed), timerShutter); // Store the timeout ID
+		timeoutId = setTimeout(() => loopScroll(viewport, direction, scrollSpeed), timerShutter); // Store the timeout ID
 	}
 
 	function handleDrag(e: DragEvent) {
 		e.preventDefault();
-		const viewport = opts.viewportId ? document.getElementById(opts.viewportId) : null;
+
 		if (!viewport) return;
 
-		const scrollSpeed = (viewport.clientWidth || 500) / 3; // Adjust this value as needed
+		const scrollSpeed = (viewport.clientWidth || 500) / 3; // Fine-tune the scroll speed
 		const viewportWidth = viewport.clientWidth;
 		const relativeX = e.clientX - viewport.getBoundingClientRect().left;
 
 		if (relativeX < triggerRange && viewport.scrollLeft > 0) {
+			// Start scrolling to the left
 			if (!timeoutId) {
-				loopScroll('left', scrollSpeed);
+				loopScroll(viewport, 'left', scrollSpeed);
 			}
 		} else if (relativeX > viewportWidth - triggerRange) {
+			// Start scrolling to the right
 			if (!timeoutId) {
-				loopScroll('right', scrollSpeed);
+				loopScroll(viewport, 'right', scrollSpeed);
 			}
 		} else {
+			// Stop scrolling if not in the scrollable range
 			if (timeoutId) {
 				clearTimeout(timeoutId);
 				timeoutId = undefined;

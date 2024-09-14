@@ -12,7 +12,7 @@
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import { VirtualBranch, type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
@@ -74,7 +74,7 @@
 		}
 	});
 
-	$effect(() => {
+	onMount(() => {
 		if (draggableEl) {
 			draggableChips(draggableEl, {
 				label: `${file.filename}`,
