@@ -12,7 +12,7 @@
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import { VirtualBranch, type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
-	import { onDestroy } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
@@ -54,6 +54,16 @@
 
 	const draggable = !readonly && !isUnapplied;
 
+	let animationEndHandler: () => void;
+
+	function addAnimationEndListener(element: HTMLElement) {
+		animationEndHandler = () => {
+			element.classList.remove('locked-file-animation');
+			element.removeEventListener('animationend', animationEndHandler);
+		};
+		element.addEventListener('animationend', animationEndHandler);
+	}
+
 	$effect(() => {
 		if (file && $selectedOwnership) {
 			const hunksContained = itemsSatisfy(file.hunks, (h) =>
@@ -64,7 +74,7 @@
 		}
 	});
 
-	$effect(() => {
+	onMount(() => {
 		if (draggableEl) {
 			draggableChips(draggableEl, {
 				label: `${file.filename}`,
@@ -77,6 +87,45 @@
 				selector: '.selected-draggable'
 			});
 		}
+	});
+
+	async function handleDragStart() {
+		// Reset selection if the file being dragged is not in the selected list
+		if ($fileIdSelection.length > 0 && !fileIdSelection.has(file.id, $commit?.id)) {
+			fileIdSelection.clear();
+			fileIdSelection.add(file.id, $commit?.id);
+		}
+
+		const files = await $selectedFiles;
+
+		// Add animation end listener to files
+		if (files.length > 0) {
+			files.forEach((f) => {
+				if (f.locked) {
+					const lockedElement = document.getElementById(`file-${f.id}`);
+					if (lockedElement) {
+						lockedElement.classList.add('locked-file-animation');
+						addAnimationEndListener(lockedElement);
+					}
+				}
+			});
+		} else if (file.locked) {
+			draggableEl?.classList.add('locked-file-animation');
+			draggableEl && addAnimationEndListener(draggableEl);
+		}
+	}
+
+	onDestroy(async () => {
+		if (draggableEl && animationEndHandler) {
+			draggableEl.removeEventListener('animationend', animationEndHandler);
+		}
+		const files = (await $selectedFiles) || [];
+		files.forEach((f) => {
+			const lockedElement = document.getElementById(`file-${f.id}`);
+			if (lockedElement && animationEndHandler) {
+				lockedElement.removeEventListener('animationend', animationEndHandler);
+			}
+		});
 	});
 </script>
 
@@ -133,52 +182,7 @@
 			}
 		});
 	}}
-	ondragstart={async () => {
-		// Reset selection if the file being dragged is not in the selected list
-		if ($fileIdSelection.length > 0 && !fileIdSelection.has(file.id, $commit?.id)) {
-			fileIdSelection.clear();
-			fileIdSelection.add(file.id, $commit?.id);
-		}
-
-		const files = await $selectedFiles;
-		let animationEndHandler: () => void;
-
-		function addAnimationEndListener(element: HTMLElement) {
-			animationEndHandler = () => {
-				element.classList.remove('locked-file-animation');
-				element.removeEventListener('animationend', animationEndHandler);
-			};
-			element.addEventListener('animationend', animationEndHandler);
-		};
-
-		if (files.length > 0) {
-			files.forEach((f) => {
-				if (f.locked) {
-					const lockedElement = document.getElementById(`file-${f.id}`);
-					if (lockedElement) {
-						lockedElement.classList.add('locked-file-animation');
-						addAnimationEndListener(lockedElement);
-					}
-				}
-			});
-		} else if (file.locked) {
-			draggableEl?.classList.add('locked-file-animation');
-			draggableEl && addAnimationEndListener(draggableEl);
-		}
-
-		onDestroy(() => {
-			// Ensure any listeners are removed if the component is destroyed before animation ends
-			if (draggableEl && animationEndHandler) {
-				draggableEl.removeEventListener('animationend', animationEndHandler);
-			}
-			files.forEach((f) => {
-				const lockedElement = document.getElementById(`file-${f.id}`);
-				if (lockedElement && animationEndHandler) {
-					lockedElement.removeEventListener('animationend', animationEndHandler);
-				}
-			});
-		});
-	}}
+	ondragstart={handleDragStart}
 	oncontextmenu={async (e) => {
 		if (fileIdSelection.has(file.id, $commit?.id)) {
 			contextMenu.open(e, { files: await $selectedFiles });
