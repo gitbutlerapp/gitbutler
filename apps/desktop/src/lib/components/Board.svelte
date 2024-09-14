@@ -74,7 +74,7 @@
 
 <svelte:window on:keydown={handleKeyDown} />
 {#if $error}
-	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
+	<div data-tauri-drag-region>Something went wrong...</div>
 {:else if !$branches}
 	<FullviewLoading />
 {:else}
