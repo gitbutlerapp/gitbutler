@@ -9,7 +9,6 @@ pub mod commands {
         RemoteBranchData, RemoteBranchFile, VirtualBranches,
     };
     use gitbutler_command_context::CommandContext;
-    use gitbutler_error::error::Code;
     use gitbutler_project as projects;
     use gitbutler_project::{FetchResult, ProjectId};
     use gitbutler_reference::{
@@ -275,8 +274,7 @@ pub mod commands {
             branch_id,
             with_force,
             Some(Some(branch_id)),
-        )
-        .map_err(|err| err.context(Code::Unknown))?;
+        )?;
         emit_vbranches(&windows, project_id);
         Ok(upstream_refname)
     }
