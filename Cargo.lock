@@ -2716,6 +2716,7 @@ dependencies = [
  "gix-revision",
  "gix-revwalk 0.15.0",
  "gix-sec 0.10.8 (git+https://github.com/Byron/gitoxide?rev=72daa46bad9d397ef2cc48a3cffda23f414ccd8a)",
+ "gix-status",
  "gix-submodule",
  "gix-tempfile 14.0.2 (git+https://github.com/Byron/gitoxide?rev=72daa46bad9d397ef2cc48a3cffda23f414ccd8a)",
  "gix-trace 0.1.10 (git+https://github.com/Byron/gitoxide?rev=72daa46bad9d397ef2cc48a3cffda23f414ccd8a)",
@@ -3571,6 +3572,28 @@ dependencies = [
  "gix-path 0.10.11 (git+https://github.com/Byron/gitoxide?rev=72daa46bad9d397ef2cc48a3cffda23f414ccd8a)",
  "libc",
  "windows-sys 0.52.0",
+]
+
+[[package]]
+name = "gix-status"
+version = "0.13.0"
+source = "git+https://github.com/Byron/gitoxide?rev=72daa46bad9d397ef2cc48a3cffda23f414ccd8a#72daa46bad9d397ef2cc48a3cffda23f414ccd8a"
+dependencies = [
+ "bstr",
+ "filetime",
+ "gix-diff",
+ "gix-dir",
+ "gix-features 0.38.2 (git+https://github.com/Byron/gitoxide?rev=72daa46bad9d397ef2cc48a3cffda23f414ccd8a)",
+ "gix-filter",
+ "gix-fs 0.11.3 (git+https://github.com/Byron/gitoxide?rev=72daa46bad9d397ef2cc48a3cffda23f414ccd8a)",
+ "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=72daa46bad9d397ef2cc48a3cffda23f414ccd8a)",
+ "gix-index 0.35.0",
+ "gix-object 0.44.0",
+ "gix-path 0.10.11 (git+https://github.com/Byron/gitoxide?rev=72daa46bad9d397ef2cc48a3cffda23f414ccd8a)",
+ "gix-pathspec",
+ "gix-worktree 0.36.0",
+ "portable-atomic",
+ "thiserror",
 ]
 
 [[package]]
@@ -5826,6 +5849,12 @@ dependencies = [
  "tracing",
  "windows-sys 0.59.0",
 ]
+
+[[package]]
+name = "portable-atomic"
+version = "1.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da544ee218f0d287a911e9c99a39a8c9bc8fcad3cb8db5959940044ecfc67265"
 
 [[package]]
 name = "powerfmt"
