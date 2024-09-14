@@ -272,9 +272,11 @@ export class BranchController {
 			await this.vbranchService.refresh();
 			return upstreamRef;
 		} catch (err: any) {
-			posthog.capture('Push Failed', { error: err });
 			console.error(err);
-			if (err.code === 'errors.git.authentication') {
+			const { code, message } = err;
+			posthog.capture('Push Failed', { code, message });
+
+			if (code === 'errors.git.authentication') {
 				showToast({
 					title: 'Git push failed',
 					message: `
@@ -283,7 +285,7 @@ export class BranchController {
                         Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
                         on fetching and pushing for ways to resolve the problem.
                     `,
-					error: err.message,
+					error: message,
 					style: 'error'
 				});
 			} else {
@@ -295,7 +297,7 @@ export class BranchController {
                         Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
                         on fetching and pushing for ways to resolve the problem.
                     `,
-					error: err.message,
+					error: message,
 					style: 'error'
 				});
 			}
