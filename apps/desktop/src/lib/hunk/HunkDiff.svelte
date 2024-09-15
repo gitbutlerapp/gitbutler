@@ -534,11 +534,11 @@
 		text-wrap: nowrap;
 		color: var(--clr-text-2);
 		display: flex;
-		justify-content: start;
+		align-items: center;
 		border-bottom: 1px solid var(--clr-border-2);
 		border-right: 1px solid var(--clr-border-2);
 		border-top: 1px solid var(--clr-border-2);
-		border-top-right-radius: var(--radius-s);
+		border-top-right-radius: var(--radius-m);
 	}
 
 	.table__numberColumn {
