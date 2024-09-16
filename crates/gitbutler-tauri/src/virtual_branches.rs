@@ -3,6 +3,7 @@ pub mod commands {
     use gitbutler_branch::{
         BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest,
     };
+    use gitbutler_branch_actions::internal::PushResult;
     use gitbutler_branch_actions::upstream_integration::{BranchStatuses, Resolution};
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranch,
@@ -267,7 +268,7 @@ pub mod commands {
         project_id: ProjectId,
         branch_id: BranchId,
         with_force: bool,
-    ) -> Result<Refname, Error> {
+    ) -> Result<PushResult, Error> {
         let project = projects.get(project_id)?;
         let upstream_refname = gitbutler_branch_actions::push_virtual_branch(
             &project,

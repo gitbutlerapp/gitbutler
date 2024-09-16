@@ -2,13 +2,25 @@ const PREFERRED_REMOTE = 'origin';
 const BRANCH_SEPARATOR = '/';
 const REF_REMOTES_PREFIX = 'refs/remotes/';
 
-export function getBranchNameFromRef(ref: string): string | undefined {
+/**
+ * Get the branch name from a refname.
+ *
+ * If a remote is provided, the remote prefix will be removed.
+ */
+export function getBranchNameFromRef(ref: string, remote?: string): string | undefined {
 	if (ref.startsWith(REF_REMOTES_PREFIX)) {
-		ref = ref.slice(REF_REMOTES_PREFIX.length);
+		ref = ref.replace(REF_REMOTES_PREFIX, '');
 	}
 
-	const parts = ref.split(BRANCH_SEPARATOR);
-	return parts.length > 1 ? parts.slice(1).join(BRANCH_SEPARATOR) : ref;
+	if (remote !== undefined) {
+		const originPrefix = `${remote}${BRANCH_SEPARATOR}`;
+		if (!ref.startsWith(originPrefix)) {
+			throw new Error('Failed to parse branch name as reference');
+		}
+		ref = ref.replace(originPrefix, '');
+	}
+
+	return ref;
 }
 
 export function getBranchRemoteFromRef(ref: string): string | undefined {

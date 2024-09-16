@@ -121,8 +121,11 @@
 
 			if (branch.commits.some((c) => !c.isRemote)) {
 				const firstPush = !branch.upstream;
-				const remoteBranchRef = await branchController.pushBranch(branch.id, branch.requiresForce);
-				upstreamBranchName = getBranchNameFromRef(remoteBranchRef);
+				const { refname, remote } = await branchController.pushBranch(
+					branch.id,
+					branch.requiresForce
+				);
+				upstreamBranchName = getBranchNameFromRef(refname, remote);
 
 				if (firstPush) {
 					// TODO: fix this hack for reactively available prService.

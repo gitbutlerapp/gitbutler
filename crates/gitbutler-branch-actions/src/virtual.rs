@@ -82,6 +82,13 @@ pub struct VirtualBranches {
     pub skipped_files: Vec<gitbutler_diff::FileDiff>,
 }
 
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PushResult {
+    pub remote: String,
+    pub refname: Refname,
+}
+
 pub fn unapply_ownership(
     ctx: &CommandContext,
     ownership: &BranchOwnershipClaims,
@@ -1054,19 +1061,19 @@ pub(crate) fn push(
     branch_id: BranchId,
     with_force: bool,
     askpass: Option<Option<BranchId>>,
-) -> Result<Refname> {
+) -> Result<PushResult> {
     let vb_state = ctx.project().virtual_branches();
+
+    let default_target = vb_state.get_default_target()?;
+    let upstream_remote = match default_target.push_remote_name {
+        Some(remote) => remote.clone(),
+        None => default_target.branch.remote().to_owned(),
+    };
 
     let mut vbranch = vb_state.get_branch_in_workspace(branch_id)?;
     let remote_branch = if let Some(upstream_branch) = &vbranch.upstream {
         upstream_branch.clone()
     } else {
-        let default_target = vb_state.get_default_target()?;
-        let upstream_remote = match default_target.push_remote_name {
-            Some(remote) => remote.clone(),
-            None => default_target.branch.remote().to_owned(),
-        };
-
         let remote_branch = format!(
             "refs/remotes/{}/{}",
             upstream_remote,
@@ -1101,7 +1108,10 @@ pub(crate) fn push(
         .context("failed to write target branch after push")?;
     ctx.fetch(remote_branch.remote(), askpass.map(|_| "modal".to_string()))?;
 
-    Ok(gitbutler_reference::Refname::Remote(remote_branch))
+    Ok(PushResult {
+        remote: upstream_remote,
+        refname: gitbutler_reference::Refname::Remote(remote_branch),
+    })
 }
 
 struct IsCommitIntegrated<'repo> {
