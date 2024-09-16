@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { autoHighlightBranchLaneInput } from '$lib/config/uiFeatureFlags';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 
 	interface Props {
@@ -12,6 +13,8 @@
 	let inputEl: HTMLInputElement;
 	let initialName = name;
 	let inputWidth = $state('');
+
+	const highlightBranchLaneContents = autoHighlightBranchLaneInput();
 </script>
 
 <span
@@ -34,7 +37,9 @@
 	onclick={(e) => {
 		e.stopPropagation();
 		inputEl.focus();
-		inputEl.select();
+		if ($highlightBranchLaneContents) {
+			inputEl.select();
+		}
 	}}
 	onblur={() => {
 		if (name === '') name = initialName;

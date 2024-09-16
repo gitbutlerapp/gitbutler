@@ -4,7 +4,8 @@
 		featureBaseBranchSwitching,
 		featureInlineUnifiedDiffs,
 		stackingFeature,
-		featureTopics
+		featureTopics,
+		autoHighlightBranchLaneInput
 	} from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
@@ -12,6 +13,7 @@
 	const baseBranchSwitching = featureBaseBranchSwitching();
 	const inlineUnifiedDiffs = featureInlineUnifiedDiffs();
 	const topicsEnabled = featureTopics();
+	const highlightBranchLaneContents = autoHighlightBranchLaneInput();
 </script>
 
 <SettingsPage title="Experimental features">
@@ -72,6 +74,20 @@
 				id="topics"
 				checked={$topicsEnabled}
 				on:click={() => ($topicsEnabled = !$topicsEnabled)}
+			/>
+		</svelte:fragment>
+	</SectionCard>
+	<SectionCard labelFor="branchLaneContents" orientation="row">
+		<svelte:fragment slot="title">Auto-highlight Branch Lane Contents</svelte:fragment>
+		<svelte:fragment slot="caption">
+			An experimental UI toggle to highlight the contents of the branch lane input fields when
+			clicking into them.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle
+				id="branchLaneContents"
+				checked={$highlightBranchLaneContents}
+				on:click={() => ($highlightBranchLaneContents = !$highlightBranchLaneContents)}
 			/>
 		</svelte:fragment>
 	</SectionCard>

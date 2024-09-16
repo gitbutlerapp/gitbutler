@@ -22,3 +22,8 @@ export function featureTopics(): Persisted<boolean> {
 	const key = 'feature--topics';
 	return persisted(false, key);
 }
+
+export function autoHighlightBranchLaneInput(): Persisted<boolean> {
+	const key = 'projectCurrentCommitMessage';
+	return persisted(false, key);
+}
