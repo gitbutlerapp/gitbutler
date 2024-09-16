@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 
 	interface Props {
@@ -34,6 +35,9 @@
 	onclick={(e) => {
 		e.stopPropagation();
 		inputEl.focus();
+		if ($autoSelectBranchNameFeature) {
+			inputEl.select();
+		}
 	}}
 	onblur={() => {
 		if (name === '') name = initialName;

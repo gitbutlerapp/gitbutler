@@ -49,6 +49,7 @@
 	.banner-content {
 		display: inline;
 		color: #000;
+		text-align: left;
 	}
 
 	.banner-label {
