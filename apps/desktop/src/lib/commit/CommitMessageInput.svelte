@@ -29,8 +29,10 @@
 
 	export let isExpanded: boolean;
 	export let commitMessage: string;
+	export let focusOnMount: boolean = false;
 	export let valid: boolean = false;
 	export let commit: (() => void) | undefined = undefined;
+	export let cancel: () => void;
 
 	const user = getContextStore(User);
 	const selectedOwnership = getContextStore(SelectedOwnership);
@@ -61,7 +63,7 @@
 	}
 
 	function focusTextAreaOnMount(el: HTMLTextAreaElement) {
-		el.focus();
+		if (focusOnMount) el.focus();
 	}
 
 	function updateFieldsHeight() {
@@ -125,6 +127,12 @@
 	function handleDescriptionKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
 		const value = e.currentTarget.value;
 
+		if (e.key === KeyName.Escape) {
+			e.preventDefault();
+			cancel();
+			return;
+		}
+
 		if (e.key === KeyName.Delete && value.length === 0) {
 			e.preventDefault();
 			if (titleTextArea) {
@@ -144,6 +152,12 @@
 	}
 
 	function handleSummaryKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
+		if (e.key === KeyName.Escape) {
+			e.preventDefault();
+			cancel();
+			return;
+		}
+
 		if (commit && (e.ctrlKey || e.metaKey) && e.key === KeyName.Enter) commit();
 		if (e.key === KeyName.Enter) {
 			e.preventDefault();
@@ -170,6 +184,10 @@
 
 			descriptionTextArea?.focus();
 		}
+	}
+
+	export function focus() {
+		titleTextArea?.focus();
 	}
 </script>
 

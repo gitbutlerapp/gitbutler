@@ -42,6 +42,7 @@ function getBottomFile(files: AnyFile[], selectedFileIds: string[]): AnyFile | u
 
 interface UpdateSelectionParams {
 	allowMultiple: boolean;
+	metaKey: boolean;
 	shiftKey: boolean;
 	key: string;
 	targetElement: HTMLElement;
@@ -53,6 +54,7 @@ interface UpdateSelectionParams {
 
 export function updateSelection({
 	allowMultiple,
+	metaKey,
 	shiftKey,
 	key,
 	targetElement,
@@ -99,6 +101,13 @@ export function updateSelection({
 	}
 
 	switch (key) {
+		case 'a':
+			if (allowMultiple && metaKey) {
+				for (const file of files) {
+					fileIdSelection.add(file.id, commitId);
+				}
+			}
+			break;
 		case KeyName.Up:
 			if (shiftKey && allowMultiple) {
 				// Handle case if only one file is selected

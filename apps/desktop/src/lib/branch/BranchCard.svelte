@@ -65,6 +65,7 @@
 
 	let laneWidth: number | undefined = $state();
 
+	let commitDialog = $state<CommitDialog>();
 	let scrollViewport: HTMLElement | undefined = $state();
 	let rsViewport: HTMLElement | undefined = $state();
 
@@ -75,9 +76,7 @@
 	});
 
 	async function generateBranchName() {
-		console.log('before');
 		if (!aiGenEnabled) return;
-		console.log('after');
 
 		const hunks = branch.files.flatMap((f) => f.hunks);
 
@@ -174,6 +173,8 @@
 										files={branch.files}
 										showCheckboxes={$commitBoxOpen}
 										allowMultiple
+										commitDialogExpanded={commitBoxOpen}
+										focusCommitDialog={() => commitDialog?.focus()}
 									/>
 									{#if branch.conflicted}
 										<div class="card-notifications">
@@ -192,6 +193,7 @@
 								</Dropzones>
 
 								<CommitDialog
+									bind:this={commitDialog}
 									projectId={project.id}
 									expanded={commitBoxOpen}
 									hasSectionsAfter={branch.commits.length > 0}

@@ -21,6 +21,7 @@
 	const runCommitHooks = projectRunCommitHooks(projectId);
 	const commitMessage = persistedCommitMessage(projectId, $branch.id);
 
+	let commitMessageInput: CommitMessageInput;
 	let isCommitting = false;
 	let commitMessageValid = false;
 	let isInViewport = false;
@@ -39,6 +40,14 @@
 		} finally {
 			isCommitting = false;
 		}
+	}
+
+	function close() {
+		$expanded = false;
+	}
+
+	export function focus() {
+		commitMessageInput.focus();
 	}
 </script>
 
@@ -62,24 +71,17 @@
 	}}
 >
 	<CommitMessageInput
+		bind:this={commitMessageInput}
 		bind:commitMessage={$commitMessage}
 		bind:valid={commitMessageValid}
 		isExpanded={$expanded}
+		cancel={close}
 		{commit}
 	/>
 	<div class="actions" class:commit-box__actions-expanded={$expanded}>
 		{#if $expanded && !isCommitting}
 			<div class="cancel-btn-wrapper" transition:slideFade={{ duration: 200, axis: 'x' }}>
-				<Button
-					style="ghost"
-					outline
-					id="commit-to-branch"
-					onclick={() => {
-						$expanded = false;
-					}}
-				>
-					Cancel
-				</Button>
+				<Button style="ghost" outline id="commit-to-branch" onclick={close}>Cancel</Button>
 			</div>
 		{/if}
 		<Button
@@ -96,6 +98,7 @@
 					commit();
 				} else {
 					$expanded = true;
+					commitMessageInput.focus();
 				}
 			}}
 		>
