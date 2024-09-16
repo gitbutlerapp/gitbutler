@@ -409,8 +409,7 @@ pub(crate) fn update_base_branch(
             if branch_tree_merge_index.has_conflicts() {
                 // branch tree conflicts with new target, unapply branch for now. we'll handle it later, when user applies it back.
                 let branch_manager = ctx.branch_manager();
-                let unapplied_real_branch =
-                    branch_manager.convert_to_real_branch(branch.id, perm)?;
+                let unapplied_real_branch = branch_manager.save_and_unapply(branch.id, perm)?;
 
                 unapplied_branch_names.push(unapplied_real_branch);
 
@@ -443,8 +442,7 @@ pub(crate) fn update_base_branch(
                 // branch commits conflict with new target, make sure the branch is
                 // unapplied. conflicts witll be dealt with when applying it back.
                 let branch_manager = ctx.branch_manager();
-                let unapplied_real_branch =
-                    branch_manager.convert_to_real_branch(branch.id, perm)?;
+                let unapplied_real_branch = branch_manager.save_and_unapply(branch.id, perm)?;
                 unapplied_branch_names.push(unapplied_real_branch);
 
                 return Ok(None);

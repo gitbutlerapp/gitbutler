@@ -52,4 +52,13 @@ export class GitLab implements GitHost {
 	checksMonitor(_sourceBranch: string) {
 		return undefined;
 	}
+
+	async availablePullRequestTemplates(_path?: string) {
+		// See: https://docs.gitlab.com/ee/user/project/description_templates.html
+		return undefined;
+	}
+
+	async pullRequestTemplateContent(_path?: string) {
+		return undefined;
+	}
 }

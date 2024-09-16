@@ -53,7 +53,7 @@ fn rebase_commit() {
     let unapplied_branch = {
         // unapply first vbranch
         let unapplied_branch =
-            gitbutler_branch_actions::convert_to_real_branch(project, branch1_id).unwrap();
+            gitbutler_branch_actions::save_and_unapply_virutal_branch(project, branch1_id).unwrap();
 
         assert_eq!(
             fs::read_to_string(repository.path().join("another_file.txt")).unwrap(),
@@ -163,7 +163,7 @@ fn rebase_work() {
     let unapplied_branch = {
         // unapply first vbranch
         let unapplied_branch =
-            gitbutler_branch_actions::convert_to_real_branch(project, branch1_id).unwrap();
+            gitbutler_branch_actions::save_and_unapply_virutal_branch(project, branch1_id).unwrap();
 
         let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);

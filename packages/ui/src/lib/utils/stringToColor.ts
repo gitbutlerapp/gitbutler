@@ -18,5 +18,6 @@ export function stringToColor(name: string | undefined) {
 	}
 
 	const startHash = trimmed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+
 	return colors[startHash % colors.length];
 }

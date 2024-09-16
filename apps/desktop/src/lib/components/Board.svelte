@@ -3,9 +3,11 @@
 	import FullviewLoading from './FullviewLoading.svelte';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
 	import BranchLane from '$lib/branch/BranchLane.svelte';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { cloneElement } from '$lib/dragging/draggable';
 	import { persisted } from '$lib/persisted/persisted';
 	import { getContext } from '$lib/utils/context';
+	import { createKeybind } from '$lib/utils/hotkeys';
 	import { throttle } from '$lib/utils/misc';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
@@ -62,10 +64,17 @@
 			sortedBranches = sortedBranches; // Redraws #each loop.
 		}
 	}, 200);
+
+	const handleKeyDown = createKeybind({
+		's t a c k': async () => {
+			$stackingFeature = !$stackingFeature;
+		}
+	});
 </script>
 
+<svelte:window on:keydown={handleKeyDown} />
 {#if $error}
-	<div class="p-4" data-tauri-drag-region>Something went wrong...</div>
+	<div data-tauri-drag-region>Something went wrong...</div>
 {:else if !$branches}
 	<FullviewLoading />
 {:else}

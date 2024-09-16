@@ -12,12 +12,10 @@
 	import { page } from '$app/stores';
 
 	const gitHostListing = getGitHostListingService();
-	let prs = $state<Readable<PullRequest[]> | undefined>();
-	let pr = $state<PullRequest>();
-	$effect.pre(() => {
-		prs = $gitHostListing?.prs;
-		pr = $prs?.find((b) => b.number.toString() === $page.params.number);
-	});
+	let prs = $derived<Readable<PullRequest[]> | undefined>($gitHostListing?.prs);
+	let pr = $derived<PullRequest | undefined>(
+		$prs?.find((b) => b.number.toString() === $page.params.number)
+	);
 </script>
 
 <div class="wrapper">

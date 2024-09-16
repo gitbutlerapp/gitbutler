@@ -277,7 +277,7 @@ pub(crate) fn integrate_upstream(
 
             command_context
                 .branch_manager()
-                .convert_to_real_branch(*branch_id, permission)?;
+                .save_and_unapply(*branch_id, permission)?;
         }
 
         let mut branches = virtual_branches_state.list_branches_in_workspace()?;

@@ -4,7 +4,7 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
-	import { featureBranchStacking } from '$lib/config/uiFeatureFlags';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
@@ -49,8 +49,6 @@
 	$: commitStore.set(commit);
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
-
-	const branchStacking = featureBranchStacking();
 
 	let draggableCommitElement: HTMLElement | null = null;
 	let files: RemoteFile[] = [];
@@ -353,18 +351,8 @@
 								</div>
 							</button>
 						{/if}
-
 						<span class="commit__subtitle-divider">•</span>
-
 						<span>{getTimeAndAuthor()}</span>
-
-						{#if $branchStacking && commit instanceof DetailedCommit}
-							<div
-								style="background-color:var(--clr-core-pop-80); border-radius: 3px; padding: 2px;"
-							>
-								{commit?.remoteRef}
-							</div>
-						{/if}
 					</div>
 				{/if}
 			</div>
@@ -403,7 +391,7 @@
 										icon="edit-small"
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
-									{#if $branchStacking && commit instanceof DetailedCommit && !commit.remoteRef}
+									{#if $stackingFeature && commit instanceof DetailedCommit && !commit.remoteRef}
 										<Button
 											size="tag"
 											style="ghost"
@@ -412,7 +400,7 @@
 											onclick={(e: Event) => {openCreateRefModal(e, commit)}}>Create ref</Button
 										>
 									{/if}
-									{#if $branchStacking && commit instanceof DetailedCommit && commit.remoteRef}
+									{#if $stackingFeature && commit instanceof DetailedCommit && commit.remoteRef}
 										<Button
 											size="tag"
 											style="ghost"

@@ -5,7 +5,6 @@ import { GitHubPrService } from './githubPrService';
 import { GitHubIssueService } from '$lib/gitHost/github/issueService';
 import { Octokit } from '@octokit/rest';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
-import type { Persisted } from '$lib/persisted/persisted';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
 import type { GitHostArguments } from '../interface/types';
@@ -19,22 +18,16 @@ export class GitHub implements GitHost {
 	private forkStr?: string;
 	private octokit?: Octokit;
 	private projectMetrics?: ProjectMetrics;
-	private usePullRequestTemplate?: Persisted<boolean>;
-	private pullRequestTemplatePath?: Persisted<string>;
 
 	constructor({
 		repo,
 		baseBranch,
 		forkStr,
 		octokit,
-		projectMetrics,
-		usePullRequestTemplate,
-		pullRequestTemplatePath
+		projectMetrics
 	}: GitHostArguments & {
 		octokit?: Octokit;
 		projectMetrics?: ProjectMetrics;
-		usePullRequestTemplate?: Persisted<boolean>;
-		pullRequestTemplatePath?: Persisted<string>;
 	}) {
 		this.baseUrl = `https://${GITHUB_DOMAIN}/${repo.owner}/${repo.name}`;
 		this.repo = repo;
@@ -42,8 +35,6 @@ export class GitHub implements GitHost {
 		this.forkStr = forkStr;
 		this.octokit = octokit;
 		this.projectMetrics = projectMetrics;
-		this.usePullRequestTemplate = usePullRequestTemplate;
-		this.pullRequestTemplatePath = pullRequestTemplatePath;
 	}
 
 	listService() {
@@ -57,12 +48,7 @@ export class GitHub implements GitHost {
 		if (!this.octokit) {
 			return;
 		}
-		return new GitHubPrService(
-			this.octokit,
-			this.repo,
-			this.usePullRequestTemplate,
-			this.pullRequestTemplatePath
-		);
+		return new GitHubPrService(this.octokit, this.repo);
 	}
 
 	issueService() {

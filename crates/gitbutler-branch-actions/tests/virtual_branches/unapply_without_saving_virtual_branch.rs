@@ -29,7 +29,8 @@ fn should_unapply_diff() {
     );
     assert!(c.is_ok());
 
-    gitbutler_branch_actions::delete_virtual_branch(project, branches[0].id).unwrap();
+    gitbutler_branch_actions::unapply_without_saving_virtual_branch(project, branches[0].id)
+        .unwrap();
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 0);
@@ -74,7 +75,7 @@ fn should_remove_reference() {
     )
     .unwrap();
 
-    gitbutler_branch_actions::delete_virtual_branch(project, id).unwrap();
+    gitbutler_branch_actions::unapply_without_saving_virtual_branch(project, id).unwrap();
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 0);

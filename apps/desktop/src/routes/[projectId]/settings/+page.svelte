@@ -4,16 +4,16 @@
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { platformName } from '$lib/platform/platform';
 	import CloudForm from '$lib/settings/CloudForm.svelte';
 	import DetailsForm from '$lib/settings/DetailsForm.svelte';
-	import GitHostForm from '$lib/settings/GitHostForm.svelte';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import PreferencesForm from '$lib/settings/PreferencesForm.svelte';
+	import PullRequestTemplateForm from '$lib/settings/PullRequestTemplateForm.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
-	import { UserService } from '$lib/stores/user';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { goto } from '$app/navigation';
@@ -21,11 +21,10 @@
 	const baseBranchSwitching = featureBaseBranchSwitching();
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
-	const userService = getContext(UserService);
-	const user = userService.user;
+	const gitHost = getGitHost();
 
 	let deleteConfirmationModal: RemoveProjectButton;
-	let isDeleting = false;
+	let isDeleting = $state(false);
 
 	async function onDeleteClicked() {
 		isDeleting = true;
@@ -49,8 +48,8 @@
 	{/if}
 	<CloudForm />
 	<DetailsForm />
-	{#if $user?.github_access_token}
-		<GitHostForm />
+	{#if $gitHost}
+		<PullRequestTemplateForm />
 	{/if}
 	{#if $platformName !== 'win32'}
 		<KeysForm showProjectName={false} />
