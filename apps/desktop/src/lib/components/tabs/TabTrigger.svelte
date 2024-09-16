@@ -1,6 +1,6 @@
 <script lang="ts">
+	import { type TabContext } from './types';
 	import { getContext, type Snippet } from 'svelte';
-	import { TabStyle, type TabContext } from './types';
 
 	interface Props {
 		children: Snippet;
@@ -23,8 +23,7 @@
 	{value}
 	{disabled}
 	onclick={setActive}
-	class="tab-trigger"
-	class:segment-control={tabStore.style === TabStyle.SegmentControl}
+	class="tab-trigger text-12"
 	class:disabled
 	class:active={isActive}
 >
@@ -33,8 +32,11 @@
 
 <style>
 	.tab-trigger {
-		width: auto;
-		flex-grow: 1;
+		width: 100%;
+		height: 28px;
+		color: var(--btn-text-clr);
+		background: var(--btn-bg);
+		border: 1px solid var(--clr-border-2);
 		user-select: none;
 		display: inline-flex;
 		align-items: center;
@@ -49,36 +51,25 @@
 			opacity: 0.5;
 		}
 
-		&.segment-control {
-			height: 28px;
-			color: var(--btn-text-clr);
-			background: var(--btn-bg);
-			border: 1px solid transparent;
+		&:not(:last-child) {
+			border-right: 1px solid var(--clr-border-2);
+		}
 
-			/* text-12 */
-			font-family: var(--base-font-family);
-			font-size: 0.75rem;
-			font-weight: var(--base-font-weight);
-			line-height: var(--base-line-height);
+		&.active {
+			--btn-text-clr: var(--clr-theme-ntrl-on-element);
+			--btn-bg: var(--clr-theme-ntrl-element);
+			border-color: var(--clr-theme-ntrl-element);
+			border-right-width: 0px;
+		}
 
-			&.active {
-				--btn-text-clr: var(--clr-theme-ntrl-on-element);
-				--btn-bg: var(--clr-theme-ntrl-element);
-			}
+		&:first-child {
+			border-top-left-radius: var(--radius-m);
+			border-bottom-left-radius: var(--radius-m);
+		}
 
-			&:not(:last-child) {
-				border-right: 1px solid var(--clr-border-2);
-			}
-
-			&:first-child {
-				border-top-left-radius: var(--radius-m);
-				border-bottom-left-radius: var(--radius-m);
-			}
-
-			&:last-child {
-				border-top-right-radius: var(--radius-m);
-				border-bottom-right-radius: var(--radius-m);
-			}
+		&:last-child {
+			border-top-right-radius: var(--radius-m);
+			border-bottom-right-radius: var(--radius-m);
 		}
 	}
 </style>

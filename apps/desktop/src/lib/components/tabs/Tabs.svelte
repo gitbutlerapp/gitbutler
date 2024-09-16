@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { TabStyle, type TabContext } from './types';
+	import { type TabContext } from './types';
 	import { setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import type { Snippet } from 'svelte';
@@ -7,15 +7,13 @@
 	interface Props {
 		children: Snippet;
 		defaultSelected: string;
-		tabStyle?: TabStyle;
 	}
 
-	const { children, defaultSelected, tabStyle = TabStyle.Custom }: Props = $props();
+	const { children, defaultSelected }: Props = $props();
 
 	let selectedIndex = writable(defaultSelected);
 
 	const context: TabContext = {
-		style: tabStyle,
 		selectedIndex,
 		setSelected: (i) => {
 			selectedIndex.set(i);
