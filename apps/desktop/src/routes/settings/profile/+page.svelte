@@ -123,8 +123,8 @@
 		</SectionCard>
 	{:else}
 		<WelcomeSigninAction />
-		<Spacer />
 	{/if}
+	<Spacer />
 
 	{#if $user}
 		<SectionCard orientation="row">
