@@ -3,7 +3,7 @@
 	import Login from '$lib/components/Login.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
-	import { highlightBranchLaneContentsFeature } from '$lib/config/uiFeatureFlags';
+	import { autoSelectBranchLaneContentsFeature } from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import Section from '$lib/settings/Section.svelte';
@@ -25,7 +25,6 @@
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
-	const highlightBranchLaneContents = highlightBranchLaneContentsFeature();
 	const userService = getContext(UserService);
 	const user = userService.user;
 
@@ -248,8 +247,8 @@
 			<svelte:fragment slot="actions">
 				<Toggle
 					id="branchLaneContents"
-					checked={$highlightBranchLaneContents}
-					on:click={() => ($highlightBranchLaneContents = !$highlightBranchLaneContents)}
+					checked={$autoSelectBranchLaneContentsFeature}
+					on:click={() => ($autoSelectBranchLaneContentsFeature = !$autoSelectBranchLaneContentsFeature)}
 				/>
 			</svelte:fragment>
 		</SectionCard>

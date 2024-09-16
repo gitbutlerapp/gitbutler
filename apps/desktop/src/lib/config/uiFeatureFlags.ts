@@ -23,7 +23,7 @@ export function featureTopics(): Persisted<boolean> {
 	return persisted(false, key);
 }
 
-export function highlightBranchLaneContentsFeature(): Persisted<boolean> {
-	const key = 'projectCurrentCommitMessage';
-	return persisted(false, key);
-}
+export const autoSelectBranchLaneContentsFeature = persisted(
+	false,
+	'autoSelectBranchLaneContentsFeature'
+);
