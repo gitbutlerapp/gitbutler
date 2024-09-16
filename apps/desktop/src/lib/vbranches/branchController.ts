@@ -274,7 +274,7 @@ export class BranchController {
 		} catch (err: any) {
 			console.error(err);
 			const { code, message } = err;
-			posthog.capture('Push Failed', { code, message });
+			posthog.capture('Push Failed', { error: { code, message } });
 
 			if (code === 'errors.git.authentication') {
 				showToast({
