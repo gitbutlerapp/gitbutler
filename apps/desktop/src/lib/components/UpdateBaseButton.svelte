@@ -4,6 +4,7 @@
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { showInfo } from '$lib/notifications/toasts';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -108,6 +109,7 @@
 	export function openModal() {
 		modalOpeningState = 'loading';
 		integratingUpstream = 'inert';
+		expanded = false;
 		branchStatuses = upstreamIntegrationService.upstreamStatuses();
 	}
 
@@ -130,65 +132,103 @@
 			showInfo('Stashed conflicting branches', infoText);
 		}
 	}
+
+	let expanded = $state(false);
 </script>
 
-<Modal bind:this={modal} title="Integrate upstream changes" {onClose} width="small">
-	{#if $base}
-		<div class="upstream-commits">
-			{#each $base.upstreamCommits as commit, index}
-				<CommitCard
-					{commit}
-					first={index === 0}
-					last={index === $base.upstreamCommits.length - 1}
-					isUnapplied={true}
-					commitUrl={$gitHost?.commitUrl(commit.id)}
-					type="remote"
-				/>
-			{/each}
-		</div>
-	{/if}
-	<div class="statuses">
-		{#each statuses as { branch, status }}
-			<div class="branch-status" class:integrated={status.type === 'fullyIntegrated'}>
-				<div class="description">
-					<h5 class="text-16">{branch?.name || 'Unknown'}</h5>
-					{#if status.type === 'conflicted'}
-						<p>Conflicted</p>
-					{:else if status.type === 'saflyUpdatable' || status.type === 'empty'}
-						<p>No Conflicts</p>
-					{:else if status.type === 'fullyIntegrated'}
-						<p>Integrated</p>
+<Modal bind:this={modal} title="Integrate upstream changes" {onClose} width="small" noPadding>
+	<ScrollableContainer maxHeight="50vh">
+		{#if $base}
+			<div class="upstream-commits">
+				{#each $base.upstreamCommits.slice(0, 2) as commit, index}
+					<CommitCard
+						{commit}
+						first={index === 0}
+						last={(() => {
+							if (expanded) {
+								return $base.upstreamCommits.length - 1 === index;
+							} else {
+								if ($base.upstreamCommits.length > 2) {
+									return index === 1;
+								} else {
+									return $base.upstreamCommits.length - 1 === index;
+								}
+							}
+						})()}
+						isUnapplied={true}
+						commitUrl={$gitHost?.commitUrl(commit.id)}
+						type="remote"
+						filesToggleable={false}
+					/>
+				{/each}
+				{#if $base.upstreamCommits.length > 2}
+					{#if expanded}
+						{#each $base.upstreamCommits.slice(2) as commit, index}
+							<CommitCard
+								{commit}
+								last={index === $base.upstreamCommits.length - 3}
+								isUnapplied={true}
+								commitUrl={$gitHost?.commitUrl(commit.id)}
+								type="remote"
+								filesToggleable={false}
+							/>
+						{/each}
+						<div class="commit-expand-button">
+							<Button wide onclick={() => (expanded = false)}>Hide</Button>
+						</div>
+					{:else}
+						<div class="commit-expand-button">
+							<Button wide onclick={() => (expanded = true)}
+								>Show more ({$base.upstreamCommits.length - 2})</Button
+							>
+						</div>
 					{/if}
-				</div>
+				{/if}
+			</div>
+		{/if}
+		<div class="statuses">
+			{#each statuses as { branch, status }}
+				<div class="branch-status" class:integrated={status.type === 'fullyIntegrated'}>
+					<div class="description">
+						<h5 class="text-16">{branch?.name || 'Unknown'}</h5>
+						{#if status.type === 'conflicted'}
+							<p>Conflicted</p>
+						{:else if status.type === 'saflyUpdatable' || status.type === 'empty'}
+							<p>No Conflicts</p>
+						{:else if status.type === 'fullyIntegrated'}
+							<p>Integrated</p>
+						{/if}
+					</div>
 
-				<div class="action" class:action--centered={status.type === 'fullyIntegrated'}>
-					{#if status.type === 'fullyIntegrated'}
-						<p>Changes included in base branch</p>
-					{:else if results.get(branch.id)}
-						<Select
-							value={results.get(branch.id)!.approach.type}
-							onselect={(value) => {
+					<div class="action" class:action--centered={status.type === 'fullyIntegrated'}>
+						{#if status.type === 'fullyIntegrated'}
+							<p>Changes included in base branch</p>
+						{:else if results.get(branch.id)}
+							<Select
+								value={results.get(branch.id)!.approach.type}
+								onselect={(value) => {
 								const result = results.get(branch.id)!
 
 								results.set(branch.id, {...result, approach: { type: value as "rebase" | "merge" | "unapply" }})
 							}}
-							options={[
-								{ label: 'Rebase', value: 'rebase' },
-								{ label: 'Merge', value: 'merge' },
-								{ label: 'Stash', value: 'unapply' }
-							]}
-						>
-							{#snippet itemSnippet({ item, highlighted })}
-								<SelectItem selected={highlighted} {highlighted}>
-									{item.label}
-								</SelectItem>
-							{/snippet}
-						</Select>
-					{/if}
+								options={[
+									{ label: 'Rebase', value: 'rebase' },
+									{ label: 'Merge', value: 'merge' },
+									{ label: 'Stash', value: 'unapply' }
+								]}
+							>
+								{#snippet itemSnippet({ item, highlighted })}
+									<SelectItem selected={highlighted} {highlighted}>
+										{item.label}
+									</SelectItem>
+								{/snippet}
+							</Select>
+						{/if}
+					</div>
 				</div>
-			</div>
-		{/each}
-	</div>
+			{/each}
+		</div>
+	</ScrollableContainer>
 
 	{#snippet controls()}
 		<Button onclick={() => modal?.close()}>Cancel</Button>
@@ -221,8 +261,7 @@
 	.upstream-commits {
 		text-align: left;
 
-		margin-top: -10px;
-		margin-bottom: 8px;
+		padding: 0 16px;
 	}
 
 	.branch-status {
@@ -252,5 +291,13 @@
 				justify-content: center;
 			}
 		}
+	}
+
+	.commit-expand-button {
+		margin: 8px -16px;
+		padding: 0 16px;
+		padding-bottom: 8px;
+
+		border-bottom: 1px solid var(--clr-border-2);
 	}
 </style>

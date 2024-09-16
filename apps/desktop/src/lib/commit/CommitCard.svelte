@@ -60,7 +60,10 @@
 		files = await listRemoteCommitFiles(project.id, commit.id);
 	}
 
+	export let filesToggleable = true;
+
 	function toggleFiles() {
+		if (!filesToggleable) return;
 		showDetails = !showDetails;
 
 		if (showDetails) loadFiles();
