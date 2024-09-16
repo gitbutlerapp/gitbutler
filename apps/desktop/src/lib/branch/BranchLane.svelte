@@ -122,7 +122,7 @@
 					conflicted={selected.conflicted}
 					file={selected}
 					readonly={selected instanceof RemoteFile}
-					selectable={$commitBoxOpen}
+					selectable={$commitBoxOpen && commitId === undefined}
 					{commitId}
 					on:close={() => {
 						fileIdSelection.clear();
