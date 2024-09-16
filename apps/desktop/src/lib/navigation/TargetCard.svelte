@@ -18,6 +18,10 @@
 	const base = baseBranchService.base;
 	$: selected = $page.url.href.endsWith('/base');
 	$: baseBranchDiverged = !!$base?.diverged;
+	$: baseBranchAheadOnly = baseBranchDiverged && !!$base?.divergedBehind?.length === false;
+	$: divergenceTooltip = baseBranchAheadOnly
+		? 'Your local target branch is ahead of its upstream'
+		: 'Your local target branch has diverged from its upstream';
 </script>
 
 <DomainButton
@@ -48,9 +52,12 @@
 					</Tooltip>
 				{/if}
 				{#if baseBranchDiverged}
-					<Tooltip text="Your branch has diverged from the target branch">
+					<Tooltip text={divergenceTooltip}>
 						<div>
-							<Icon name="warning" color="warning" />
+							<Icon
+								name={baseBranchAheadOnly ? 'info' : 'warning'}
+								color={baseBranchAheadOnly ? undefined : 'warning'}
+							/>
 						</div>
 					</Tooltip>
 				{/if}

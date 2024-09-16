@@ -1,6 +1,7 @@
 <script lang="ts">
 	import IntegrateUpstreamModal from './IntegrateUpstreamModal.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import CommitAction from '$lib/commit/CommitAction.svelte';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
@@ -17,6 +18,7 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
 	import { LineManagerFactory, LineSpacer } from '@gitbutler/ui/commitLines/lineManager';
+	import { tick } from 'svelte';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 
 	const resetBranchTo = {
@@ -36,7 +38,7 @@
 			tooltip:
 				'Resets the upstream branch to the local target branch. Will lose all the remote changes not in the local branch.',
 			color: 'pop',
-			action: updateBaseBranch
+			action: async () => await pushBaseBranch()
 		}
 	} as const;
 
@@ -48,6 +50,7 @@
 
 	const { base }: Props = $props();
 
+	const baseBranchService = getContext(BaseBranchService);
 	const branchController = getContext(BranchController);
 	const modeService = getContext(ModeService);
 	const gitHost = getGitHost();
@@ -59,18 +62,23 @@
 		projectMergeUpstreamWarningDismissed(branchController.projectId)
 	);
 
+	let baseBranchIsUpdating = $state<boolean>(false);
 	let updateTargetModal = $state<Modal>();
 	let confirmResetModal = $state<Modal>();
 	let resetActionType = $state<ResetActionType | undefined>(undefined);
 	let mergeUpstreamWarningDismissedCheckbox = $state<boolean>(false);
 	let integrateUpstreamModal = $state<IntegrateUpstreamModal | undefined>();
 
-	const { satisfied: commitsAhead, rest: localAndRemoteCommits } = $derived(
-		groupByCondition(base.recentCommits, (c) => base.divergedAhead.includes(c.id))
-	);
-
 	const multiple = $derived(
 		base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false
+	);
+
+	const onlyLocalAhead = $derived(
+		base.diverged && base.divergedBehind.length === 0 && base.divergedAhead.length > 0
+	);
+
+	const { satisfied: commitsAhead, rest: localAndRemoteCommits } = $derived(
+		groupByCondition(base.recentCommits, (c) => base.divergedAhead.includes(c.id))
 	);
 
 	const mappedRemoteCommits = $derived(
@@ -105,10 +113,13 @@
 	);
 
 	async function updateBaseBranch() {
+		baseBranchIsUpdating = true;
 		const infoText = await branchController.updateBaseBranch();
 		if (infoText) {
 			showInfo('Stashed conflicting branches', infoText);
 		}
+		await tick();
+		baseBranchIsUpdating = false;
 	}
 
 	function mergeUpstream() {
@@ -123,29 +134,49 @@
 		}
 	}
 
-	function confirmResetBranch(type: ResetActionType) {
+	async function pushBaseBranch() {
+		baseBranchIsUpdating = true;
+		await baseBranchService.push(!onlyLocalAhead);
+		await tick();
+		baseBranchIsUpdating = false;
+	}
+
+	async function confirmResetBranch(type: ResetActionType) {
 		resetActionType = type;
+		await tick();
 		confirmResetModal?.show();
 	}
 </script>
 
 {#if base.diverged}
 	<div class="message-wrapper">
-		<InfoMessage style="warning" filled outlined={false}>
-			<svelte:fragment slot="content">
-				Your target branch has diverged from upstream.
-				<br />
-				Target branch is
-				<b>
-					{`ahead by ${base.divergedAhead.length}`}
-				</b>
-				commits and
-				<b>
-					{`behind by ${base.divergedBehind.length}`}
-				</b>
-				commits
-			</svelte:fragment>
-		</InfoMessage>
+		{#if !onlyLocalAhead}
+			<InfoMessage style="warning" filled outlined={false}>
+				<svelte:fragment slot="content">
+					Your local target branch has diverged from upstream.
+					<br />
+					Target branch is
+					<b>
+						{`ahead by ${base.divergedAhead.length}`}
+					</b>
+					commits and
+					<b>
+						{`behind by ${base.divergedBehind.length}`}
+					</b>
+					commits
+				</svelte:fragment>
+			</InfoMessage>
+		{:else}
+			<InfoMessage style="neutral" filled outlined={false}>
+				<svelte:fragment slot="content">
+					Your local target branch is
+					<b>
+						{`ahead by ${base.divergedAhead.length}`}
+					</b>
+					commits
+				</svelte:fragment>
+			</InfoMessage>
+		{/if}
 	</div>
 {/if}
 
@@ -202,8 +233,9 @@
 						icon="warning"
 						kind="solid"
 						tooltip={resetBranchTo.remote.tooltip}
-						disabled={$mode?.type !== 'OpenWorkspace'}
-						onclick={() => confirmResetBranch('remote')}
+						loading={baseBranchIsUpdating}
+						disabled={$mode?.type !== 'OpenWorkspace' || baseBranchIsUpdating}
+						onclick={async () => await confirmResetBranch('remote')}
 					>
 						{resetBranchTo.remote.title}
 					</Button>
@@ -236,16 +268,43 @@
 				<LineGroup lineGroup={lineManager.get(LineSpacer.Local)} topHeightPx={0} />
 			{/snippet}
 			{#snippet action()}
-				<Button
-					style={resetBranchTo.local.color}
-					icon="warning"
-					kind="solid"
-					tooltip={resetBranchTo.local.tooltip}
-					disabled={$mode?.type !== 'OpenWorkspace'}
-					onclick={() => confirmResetBranch('local')}
-				>
-					{resetBranchTo.local.title}
-				</Button>
+				<div class="local-actions-wrapper">
+					<Button
+						wide
+						style={resetBranchTo.local.color}
+						icon={onlyLocalAhead ? undefined : 'warning'}
+						kind="solid"
+						tooltip={onlyLocalAhead
+							? 'Push your local changes to upstream'
+							: resetBranchTo.local.tooltip}
+						loading={baseBranchIsUpdating}
+						disabled={$mode?.type !== 'OpenWorkspace' || baseBranchIsUpdating}
+						onclick={async () => {
+							if (onlyLocalAhead) {
+								await pushBaseBranch();
+								return;
+							}
+							await confirmResetBranch('local');
+						}}
+					>
+						{onlyLocalAhead ? 'Push' : resetBranchTo.local.title}
+					</Button>
+
+					{#if onlyLocalAhead}
+						<Button
+							wide
+							style={resetBranchTo.remote.color}
+							icon="warning"
+							kind="solid"
+							tooltip={resetBranchTo.remote.tooltip}
+							loading={baseBranchIsUpdating}
+							disabled={$mode?.type !== 'OpenWorkspace' || baseBranchIsUpdating}
+							onclick={async () => await confirmResetBranch('remote')}
+						>
+							{resetBranchTo.remote.title}
+						</Button>
+					{/if}
+				</div>
 			{/snippet}
 		</CommitAction>
 	{/if}
@@ -331,9 +390,10 @@
 				{:else}
 					You will force-push the local branch to the remote branch.
 					<br />
+					<br />
 					{base.divergedBehind.length > 1
-						? `The ${base.divergedBehind.length} changes in the remote branch will be lost.`
-						: 'The change in the remote branch will be lost.'}
+						? `The ${base.divergedBehind.length} commits in the remote branch will be lost.`
+						: 'The commit in the remote branch will be lost.'}
 				{/if}
 			</p>
 		</div>
@@ -370,6 +430,11 @@
 		opacity: 0.5;
 	}
 
+	.local-actions-wrapper {
+		display: flex;
+		width: 100%;
+		gap: 8px;
+	}
 	.modal-content {
 		display: flex;
 		flex-direction: column;

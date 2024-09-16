@@ -51,3 +51,7 @@ export function groupByCondition<T>(arr: T[], predicate: Predicate<T>): GroupByR
 
 	return { satisfied, rest };
 }
+
+export function unique<T>(arr: T[]): T[] {
+	return Array.from(new Set(arr));
+}
