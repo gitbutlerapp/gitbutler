@@ -13,17 +13,39 @@
 	import DetailsForm from '$lib/settings/userPreferences/DetailsForm.svelte';
 	import PreferencesForm from '$lib/settings/userPreferences/PreferencesForm.svelte';
 	import RemoveProjectForm from '$lib/settings/userPreferences/RemoveProjectForm.svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
 </script>
 
+<!-- prettier-ignore -->
+{#snippet TabButton({ label, isActive, setActive }: { label: string, isActive: boolean, setActive: () => void })}
+	<Button style={isActive ? 'neutral' : 'ghost'}  outline={isActive ? false : true} wide={true} onclick={setActive}>{label}</Button>
+{/snippet}
+
 <SettingsPage title="Project settings">
 	<Tabs defaultSelected="project">
 		<TabList>
-			<TabTrigger value="project">Project</TabTrigger>
-			<TabTrigger value="git">Git</TabTrigger>
-			<TabTrigger value="ai">AI</TabTrigger>
-			<TabTrigger value="feature-flags">Experimental</TabTrigger>
+			<TabTrigger value="project">
+				{#snippet children({ isActive, setActive })}
+					{@render TabButton({ label: 'Project', isActive, setActive })}
+				{/snippet}
+			</TabTrigger>
+			<TabTrigger value="git">
+				{#snippet children({ isActive, setActive })}
+					{@render TabButton({ label: 'Git', isActive, setActive })}
+				{/snippet}
+			</TabTrigger>
+			<TabTrigger value="ai">
+				{#snippet children({ isActive, setActive })}
+					{@render TabButton({ label: 'AI', isActive, setActive })}
+				{/snippet}
+			</TabTrigger>
+			<TabTrigger value="feature-flags">
+				{#snippet children({ isActive, setActive })}
+					{@render TabButton({ label: 'Experimental', isActive, setActive })}
+				{/snippet}
+			</TabTrigger>
 		</TabList>
 		<TabContent value="git">
 			<CommitSigningForm />
