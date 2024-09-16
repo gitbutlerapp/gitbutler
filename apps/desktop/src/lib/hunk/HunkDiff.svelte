@@ -14,6 +14,7 @@
 	import { type Hunk } from '$lib/vbranches/types';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import diff_match_patch from 'diff-match-patch';
 	import type { Writable } from 'svelte/store';
 
@@ -57,11 +58,13 @@
 
 	const WHITESPACE_REGEX = /\s/;
 	const NUMBER_COLUMN_WIDTH_PX = minWidth * 20;
+	const BORDER_WIDTH = 1;
 
 	const selectedOwnership: Writable<SelectedOwnership> | undefined =
 		maybeGetContextStore(SelectedOwnership);
 
 	let tableWidth = $state<number>(0);
+	let tableHeight = $state<number>(0);
 
 	const selected = $derived($selectedOwnership?.isSelected(hunk.filePath, hunk.id) ?? false);
 	let isSelected = $derived(selectable && selected);
@@ -314,7 +317,7 @@
 		data-no-drag
 		class:diff-line-deletion={row.type === SectionType.RemovedLines}
 		class:diff-line-addition={row.type === SectionType.AddedLines}
-		style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX + 2}px;"
+		style="--number-col-width: {pxToRem(NUMBER_COLUMN_WIDTH_PX + 2)};"
 		align="center"
 		class:is-last={row.isLast}
 		class:is-before={side === CountColumnSide.Before}
@@ -329,6 +332,7 @@
 
 <div
 	bind:clientWidth={tableWidth}
+	bind:clientHeight={tableHeight}
 	class="table__wrapper hide-native-scrollbar"
 	style="--tab-size: {tabSize}"
 >
@@ -340,7 +344,12 @@
 						selectable && handleSelected(hunk, !isSelected);
 					}}
 				>
-					<th class="table__checkbox-container" class:selected={isSelected} colspan={2}>
+					<th
+						class="table__checkbox-container"
+						style="--border-width: {BORDER_WIDTH}px;"
+						class:selected={isSelected}
+						colspan={2}
+					>
 						<div class="table__checkbox">
 							{#if selectable}
 								<Checkbox
@@ -352,22 +361,35 @@
 								/>
 							{/if}
 						</div>
+						<div
+							class="table__title-content"
+							style="--number-col-width: {pxToRem(
+								NUMBER_COLUMN_WIDTH_PX + 1
+							)}; --table-width: {tableWidth}px; --border-width: {BORDER_WIDTH}px; --top: -{BORDER_WIDTH}px"
+						>
+							<span>
+								{`@@ -${hunkLineInfo.beforLineStart},${hunkLineInfo.beforeLineCount} +${hunkLineInfo.afterLineStart},${hunkLineInfo.afterLineCount} @@`}
+							</span>
+							{#if !draggingDisabled}
+								<div class="table__drag-handle">
+									<Icon name="draggable" />
+								</div>
+							{/if}
+						</div>
 					</th>
-
-					<td class="table__title-content">
-						<span style="left: {NUMBER_COLUMN_WIDTH_PX * 2}px">
-							{`@@ -${hunkLineInfo.beforLineStart},${hunkLineInfo.beforeLineCount} +${hunkLineInfo.afterLineStart},${hunkLineInfo.afterLineCount} @@`}
-						</span>
-						{#if !draggingDisabled}
-							<div class="table__drag-handle">
-								<Icon name="draggable" />
-							</div>
-						{/if}
-					</td>
 				</tr>
 			</thead>
 
 			<tbody>
+				<tr>
+					<td>
+						<div
+							class="table__right-box"
+							style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX +
+								2}px; --table-width: {tableWidth}px; --table-height: {tableHeight}px;"
+						></div>
+					</td>
+				</tr>
 				{#each renderRows as row}
 					<tr data-no-drag>
 						{@render countColumn(row, CountColumnSide.Before)}
@@ -399,10 +421,9 @@
 
 <style lang="postcss">
 	.table__wrapper {
-		border-radius: var(--radius-m);
+		border-radius: var(--radius-s);
 		background-color: var(--clr-diff-line-bg);
 		overflow-x: auto;
-		border: 1px solid var(--clr-border-2);
 
 		&:hover .table__drag-handle {
 			transform: scale(1);
@@ -423,6 +444,10 @@
 		padding: 0;
 	}
 
+	tbody {
+		z-index: var(--z-lifted);
+	}
+
 	th,
 	td,
 	tr {
@@ -440,8 +465,9 @@
 	.table__checkbox-container {
 		z-index: var(--z-lifted);
 
-		border-right: 1px solid var(--clr-border-2);
-		border-bottom: 1px solid var(--clr-border-2);
+		border-width: var(--border-width);
+		border-style: solid;
+		border-color: var(--clr-border-2);
 		background-color: var(--clr-diff-count-bg);
 		border-top-left-radius: var(--radius-s);
 		box-sizing: border-box;
@@ -449,8 +475,6 @@
 		&.selected {
 			background-color: var(--clr-diff-selected-count-bg);
 			border-color: var(--clr-diff-selected-count-border);
-			border-right: 1px solid var(--clr-diff-selected-count-border);
-			border-bottom: 1px solid var(--clr-diff-selected-count-border);
 		}
 	}
 
@@ -485,14 +509,36 @@
 			transform 0.2s;
 	}
 
+	.table__right-box {
+		pointer-events: none;
+		position: absolute;
+		top: 0;
+		left: calc(var(--number-col-width) * 2);
+		width: calc(var(--table-width) - var(--number-col-width) * 2);
+		height: var(--table-height);
+		border-bottom: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-border-2);
+		border-bottom-right-radius: var(--radius-s);
+	}
+
 	.table__title-content {
-		position: relative;
+		position: absolute;
+		top: var(--top);
+		left: calc(var(--number-col-width) * 2);
+		width: calc(var(--table-width) - var(--number-col-width) * 2);
+		height: calc(100% + var(--border-width) * 2);
+		box-sizing: border-box;
 		font-family: var(--mono-font-family);
 		font-size: 12px;
 		padding: 4px 6px;
 		text-wrap: nowrap;
 		color: var(--clr-text-2);
+		display: flex;
+		align-items: center;
 		border-bottom: 1px solid var(--clr-border-2);
+		border-right: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--clr-border-2);
+		border-top-right-radius: var(--radius-m);
 	}
 
 	.table__numberColumn {
@@ -532,6 +578,10 @@
 
 		&.is-last {
 			border-bottom-width: 1px;
+		}
+
+		&.is-before {
+			border-left-width: 1px;
 		}
 
 		&.is-before.is-last {
