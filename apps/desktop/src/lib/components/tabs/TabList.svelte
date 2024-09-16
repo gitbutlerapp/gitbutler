@@ -14,7 +14,10 @@
 
 <style>
 	.tab-list {
+		width: 100%;
 		display: flex;
-		gap: 0.5rem;
+
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 	}
 </style>
