@@ -70,7 +70,7 @@ impl HasCommitHeaders for git2::Commit<'_> {
 
                 let conflicted = match self.header_field_bytes(V2_CONFLICTED_HEADER) {
                     Ok(value) => {
-                        let value = dbg!(value.as_str())?;
+                        let value = value.as_str()?;
 
                         value.parse::<u64>().ok()
                     }

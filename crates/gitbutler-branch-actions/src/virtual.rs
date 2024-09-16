@@ -1782,7 +1782,7 @@ pub(crate) fn undo_commit(
     ctx: &CommandContext,
     branch_id: BranchId,
     commit_oid: git2::Oid,
-) -> Result<()> {
+) -> Result<Branch> {
     let vb_state = ctx.project().virtual_branches();
 
     let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
@@ -1824,7 +1824,7 @@ pub(crate) fn undo_commit(
             .context("failed to update gitbutler workspace")?;
     }
 
-    Ok(())
+    Ok(branch)
 }
 
 /// squashes a commit from a virtual branch into its parent.

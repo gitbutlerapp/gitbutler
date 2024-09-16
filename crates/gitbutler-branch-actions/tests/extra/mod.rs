@@ -1125,8 +1125,7 @@ fn unapply_branch() -> Result<()> {
 
     let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-    // TODO: expect there to be 0 branches
-    assert_eq!(branch.files.len(), 0);
+    assert_eq!(branch.files.len(), 1);
     assert!(branch.active);
 
     Ok(())
