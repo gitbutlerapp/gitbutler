@@ -56,6 +56,16 @@
 				<li>
 					<button
 						class="profile-sidebar__menu-item"
+						class:item_selected={currentSection === 'appearance'}
+						on:mousedown={() => onMenuClick('appearance')}
+					>
+						<Icon name="appearance" />
+						<span class="text-14 text-semibold">Appearance</span>
+					</button>
+				</li>
+				<li>
+					<button
+						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'git'}
 						on:mousedown={() => onMenuClick('git')}
 					>

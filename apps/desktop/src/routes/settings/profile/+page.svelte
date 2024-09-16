@@ -3,32 +3,19 @@
 	import Login from '$lib/components/Login.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
-	import { autoSelectBranchLaneContentsFeature } from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import Section from '$lib/settings/Section.svelte';
-	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
-	import {
-		SETTINGS,
-		type Settings,
-		type ScrollbarVisilitySettings
-	} from '$lib/settings/userSettings';
-	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
-	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
+	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
 	const userService = getContext(UserService);
 	const user = userService.user;
-
-	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
 	const fileTypes = ['image/jpeg', 'image/png'];
 
@@ -101,18 +88,6 @@
 			isDeleting = false;
 		}
 	}
-
-	function onScrollbarFormChange(form: HTMLFormElement) {
-		const formData = new FormData(form);
-		const selectedScrollbarVisibility = formData.get(
-			'scrollBarVisibilityType'
-		) as ScrollbarVisilitySettings;
-
-		userSettings.update((s) => ({
-			...s,
-			scrollbarVisibilityState: selectedScrollbarVisibility
-		}));
-	}
 </script>
 
 <SettingsPage title="Profile">
@@ -150,109 +125,6 @@
 		<WelcomeSigninAction />
 		<Spacer />
 	{/if}
-
-	<Section spacer>
-		<svelte:fragment slot="title">UI Settings</svelte:fragment>
-		<svelte:fragment slot="description">
-			GitButler's interface can be customized in a number of ways. Global options are available
-			here.
-		</svelte:fragment>
-
-		<SectionCard>
-			<svelte:fragment slot="title">Theme</svelte:fragment>
-			<ThemeSelector {userSettings} />
-		</SectionCard>
-
-		<SectionCard orientation="row" centerAlign>
-			<svelte:fragment slot="title">Tab size</svelte:fragment>
-			<svelte:fragment slot="caption">
-				The number of spaces a tab is equal to when previewing code changes.
-			</svelte:fragment>
-
-			<svelte:fragment slot="actions">
-				<TextBox
-					type="number"
-					width={100}
-					textAlign="center"
-					value={$userSettings.tabSize.toString()}
-					minVal={1}
-					maxVal={8}
-					showCountActions
-					on:change={(e) => {
-						userSettings.update((s) => ({
-							...s,
-							tabSize: parseInt(e.detail) || $userSettings.tabSize
-						}));
-					}}
-					placeholder={$userSettings.tabSize.toString()}
-				/>
-			</svelte:fragment>
-		</SectionCard>
-
-		<form on:change={(e) => onScrollbarFormChange(e.currentTarget)}>
-			<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll">
-				<svelte:fragment slot="title">Scrollbar-On-Scroll</svelte:fragment>
-				<svelte:fragment slot="caption">
-					Only show the scrollbar when you are scrolling.
-				</svelte:fragment>
-				<svelte:fragment slot="actions">
-					<RadioButton
-						name="scrollBarVisibilityType"
-						value="scroll"
-						id="scrollbar-on-scroll"
-						checked={$userSettings.scrollbarVisibilityState === 'scroll'}
-					/>
-				</svelte:fragment>
-			</SectionCard>
-
-			<SectionCard
-				roundedTop={false}
-				roundedBottom={false}
-				orientation="row"
-				labelFor="scrollbar-on-hover"
-			>
-				<svelte:fragment slot="title">Scrollbar-On-Hover</svelte:fragment>
-				<svelte:fragment slot="caption">
-					Show the scrollbar only when you hover over the scrollable area.
-				</svelte:fragment>
-				<svelte:fragment slot="actions">
-					<RadioButton
-						name="scrollBarVisibilityType"
-						value="hover"
-						id="scrollbar-on-hover"
-						checked={$userSettings.scrollbarVisibilityState === 'hover'}
-					/>
-				</svelte:fragment>
-			</SectionCard>
-
-			<SectionCard roundedTop={false} orientation="row" labelFor="scrollbar-always">
-				<svelte:fragment slot="title">Always show scrollbar</svelte:fragment>
-				<svelte:fragment slot="actions">
-					<RadioButton
-						name="scrollBarVisibilityType"
-						value="always"
-						id="scrollbar-always"
-						checked={$userSettings.scrollbarVisibilityState === 'always'}
-					/>
-				</svelte:fragment>
-			</SectionCard>
-		</form>
-
-		<SectionCard labelFor="branchLaneContents" orientation="row">
-			<svelte:fragment slot="title">Auto-highlight Branch Lane Contents</svelte:fragment>
-			<svelte:fragment slot="caption">
-				An experimental UI toggle to highlight the contents of the branch lane input fields when
-				clicking into them.
-			</svelte:fragment>
-			<svelte:fragment slot="actions">
-				<Toggle
-					id="branchLaneContents"
-					checked={$autoSelectBranchLaneContentsFeature}
-					on:click={() => ($autoSelectBranchLaneContentsFeature = !$autoSelectBranchLaneContentsFeature)}
-				/>
-			</svelte:fragment>
-		</SectionCard>
-	</Section>
 
 	{#if $user}
 		<SectionCard orientation="row">
