@@ -3,6 +3,7 @@
 	import Login from '$lib/components/Login.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
+	import { highlightBranchLaneContentsFeature } from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
@@ -14,6 +15,7 @@
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
+	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -22,6 +24,7 @@
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
+	const highlightBranchLaneContents = highlightBranchLaneContentsFeature();
 	const userService = getContext(UserService);
 	const user = userService.user;
 
@@ -230,6 +233,20 @@
 		</SectionCard>
 	</form>
 
+	<SectionCard labelFor="branchLaneContents" orientation="row">
+		<svelte:fragment slot="title">Auto-highlight Branch Lane Contents</svelte:fragment>
+		<svelte:fragment slot="caption">
+			An experimental UI toggle to highlight the contents of the branch lane input fields when
+			clicking into them.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle
+				id="branchLaneContents"
+				checked={$highlightBranchLaneContents}
+				on:click={() => ($highlightBranchLaneContents = !$highlightBranchLaneContents)}
+			/>
+		</svelte:fragment>
+	</SectionCard>
 	<Spacer />
 
 	{#if $user}
