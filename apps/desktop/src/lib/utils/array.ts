@@ -28,3 +28,7 @@ export function chunk<T>(arr: T[], size: number) {
 		arr.slice(i * size, i * size + size)
 	);
 }
+
+export function unique<T>(arr: T[]): T[] {
+	return Array.from(new Set(arr));
+}
