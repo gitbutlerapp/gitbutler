@@ -308,30 +308,53 @@ impl BranchManager<'_> {
         // if not, we need to merge or rebase the branch to get it up to date
 
         let merge_base = repo
-            .merge_base(default_target.sha, branch.head)
+            .merge_base(default_target.sha, dbg!(branch.head))
             .context(format!(
                 "failed to find merge base between {} and {}",
                 default_target.sha, branch.head
             ))?;
-        if merge_base != default_target.sha {
-            let _span = tracing::debug_span!("merge-base isn't default-target").entered();
-            // Branch is out of date, merge or rebase it
-            let merge_base_tree = repo
-                .find_commit(merge_base)
-                .context(format!("failed to find merge base commit {}", merge_base))?
-                .tree()
-                .context("failed to find merge base tree")?;
 
-            let branch_tree = repo
-                .find_tree(branch.tree)
-                .context("failed to find branch tree")?;
+        // Branch is out of date, merge or rebase it
+        let merge_base_tree = repo
+            .find_commit(merge_base)
+            .context(format!("failed to find merge base commit {}", merge_base))?
+            .tree()
+            .context("failed to find merge base tree")?;
 
-            let mut merge_index = repo
-                .merge_trees(&merge_base_tree, &branch_tree, &target_tree, None)
+        let branch_tree = repo
+            .find_tree(branch.tree)
+            .context("failed to find branch tree")?;
+
+        // We don't support having two branches applied that conflict with each other
+        {
+            let mut index = repo.index()?;
+            index.add_all(["*"], git2::IndexAddOption::default(), None)?;
+            let index_tree = index.write_tree()?;
+            let index_tree = repo.find_tree(index_tree)?;
+            let branch_merged_with_other_applied_branches = repo
+                .merge_trees(&merge_base_tree, &branch_tree, &index_tree, None)
                 .context("failed to merge trees")?;
 
+            if branch_merged_with_other_applied_branches.has_conflicts() {
+                for branch in vb_state
+                    .list_branches_in_workspace()?
+                    .iter()
+                    .filter(|branch| branch.id != branch_id)
+                {
+                    self.save_and_unapply(branch.id, perm)?;
+                }
+            }
+        }
+
+        // Do we need to rebase the branch on top of the default target?
+        if merge_base != default_target.sha {
+            let mut branch_merged_with_default_target =
+                repo.merge_trees(&merge_base_tree, &branch_tree, &target_tree, None)?;
+
             // If there are conflicts and edit mode is disabled
-            if merge_index.has_conflicts() && !self.ctx.project().succeeding_rebases {
+            if branch_merged_with_default_target.has_conflicts()
+                && !self.ctx.project().succeeding_rebases
+            {
                 // currently we can only deal with the merge problem branch
                 for branch in vb_state
                     .list_branches_in_workspace()?
@@ -345,7 +368,7 @@ impl BranchManager<'_> {
                 vb_state.set_branch(branch.clone())?;
 
                 // checkout the conflicts
-                repo.checkout_index_builder(&mut merge_index)
+                repo.checkout_index_builder(&mut branch_merged_with_default_target)
                     .allow_conflicts()
                     .conflict_style_merge()
                     .force()
@@ -353,7 +376,8 @@ impl BranchManager<'_> {
                     .context("failed to checkout index")?;
 
                 // mark conflicts
-                let conflicts = merge_index
+
+                let conflicts = branch_merged_with_default_target
                     .conflicts()
                     .context("failed to get merge index conflicts")?;
                 let mut merge_conflicts = Vec::new();
@@ -391,13 +415,31 @@ impl BranchManager<'_> {
             vb_state.set_branch(branch.clone())?;
         }
 
-        let _span = tracing::debug_span!("finalize").entered();
-
         // apply the branch
         vb_state.set_branch(branch.clone())?;
 
         vbranch::ensure_selected_for_changes(&vb_state)
             .context("failed to ensure selected for changes")?;
+
+        let final_tree = vb_state
+            .list_branches_in_workspace()?
+            .into_iter()
+            .try_fold(target_tree.clone(), |final_tree, branch| {
+                let branch_tree = repo.find_tree(branch.tree)?;
+                let mut result = repo.merge_trees(&target_tree, &final_tree, &branch_tree, None)?;
+                let final_tree_oid = result.write_tree_to(repo)?;
+                repo.find_tree(final_tree_oid)
+                    .context("Failed to find tree")
+            })?;
+
+        // checkout final_tree into the working directory
+        repo.checkout_tree_builder(&final_tree)
+            .force()
+            .remove_untracked()
+            .checkout()
+            .context("failed to checkout tree")?;
+
+        update_workspace_commit(&vb_state, self.ctx)?;
 
         // Look for and handle the vbranch indicator commit
         // TODO: This is not unapplying the WIP commit for some unholy reason.
@@ -408,16 +450,15 @@ impl BranchManager<'_> {
 
                 if let Some(headers) = potential_wip_commit.gitbutler_headers() {
                     if headers.change_id == wip_commit_to_unapply {
-                        vbranch::undo_commit(self.ctx, branch.id, branch.head)?;
+                        branch = vbranch::undo_commit(self.ctx, branch.id, branch.head)?;
                     }
                 }
 
                 branch.not_in_workspace_wip_change_id = None;
+
                 vb_state.set_branch(branch.clone())?;
             }
         }
-
-        update_workspace_commit(&vb_state, self.ctx)?;
 
         Ok(branch.name)
     }
