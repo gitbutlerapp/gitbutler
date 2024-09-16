@@ -34,6 +34,7 @@
 	onclick={(e) => {
 		e.stopPropagation();
 		inputEl.focus();
+		inputEl.select();
 	}}
 	onblur={() => {
 		if (name === '') name = initialName;
