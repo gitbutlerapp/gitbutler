@@ -220,10 +220,6 @@ export function updateOwnership(params: OwnershipUpdateParams) {
 
 	if (selectedFiles.length === 0) return;
 
-	// Only one file selected
-	//
-	// Select all hunks if none are selected,
-	// otherwise ignore all hunks
 	if (selectedFiles.length === 1) {
 		const file = selectedFiles[0]!;
 
@@ -242,10 +238,6 @@ export function updateOwnership(params: OwnershipUpdateParams) {
 		return;
 	}
 
-	// Multiple files selected
-	//
-	// Select all files if none are selected,
-	// otherwise ignore all files
 	params.selectedOwnership?.update((ownership) => {
 		const someFilesSelected = selectedFiles.some((f) =>
 			f.hunks.some((h) => ownership.isSelected(f.id, h.id))

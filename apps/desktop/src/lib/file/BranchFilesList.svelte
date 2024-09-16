@@ -51,13 +51,11 @@
 	function handleSpace() {
 		if (commitDialogExpanded === undefined) return;
 
-		// Start commit
 		if (!$commitDialogExpanded) {
 			$commitDialogExpanded = true;
 			return;
 		}
 
-		// Stage/unstage files
 		updateOwnership({
 			selectedFileIds: $fileIdSelection,
 			files: displayedFiles,
