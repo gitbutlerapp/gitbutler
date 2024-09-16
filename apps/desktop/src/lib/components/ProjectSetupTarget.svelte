@@ -10,13 +10,20 @@
 	import GithubIntegration from '$lib/settings/GithubIntegration.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
+	import { unique } from '$lib/utils/array';
+	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';
 	import { goto } from '$app/navigation';
 
-	export let projectName: string;
-	export let remoteBranches: { name: string }[];
+	interface Props {
+		projectName: string;
+		remoteBranches: RemoteBranchInfo[];
+	}
+
+	const { projectName, remoteBranches }: Props = $props();
 
 	const project = getContext(Project);
 	const userService = getContext(UserService);
@@ -28,53 +35,30 @@
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 
-	let aiGenCheckbox: Toggle;
-	let loading = false;
-	let selectedBranch = getBestBranch(remoteBranches);
-
-	function getBestBranch(branches: { name: string }[]): { name: string } {
-		// Function to calculate the rank of a branch
-		// eslint-disable-next-line func-style
-		const calculateRank = (branch: string): number => {
-			if (branch === 'upstream/main' || branch === 'upstream/master') {
-				return 100; // Highest preference
-			}
-			if (branch === 'origin/main' || branch === 'origin/master') {
-				return 90;
-			}
-			if (branch.startsWith('origin')) {
-				return 80;
-			}
-			if (branch.endsWith('master') || branch.endsWith('main')) {
-				return 70;
-			}
-			return 10; // Least preference
-		};
-
-		// Sort the branches based on their rank
-		branches.sort((a, b) => calculateRank(b.name) - calculateRank(a.name));
-
-		// Return the branch with the highest rank
-		return branches[0]!;
-	}
+	let aiGenCheckbox = $state<Toggle>();
+	let loading = $state<boolean>(false);
 
 	// split all the branches by the first '/' and gather the unique remote names
 	// then turn remotes into an array of objects with a 'name' and 'value' key
-	let remotes = Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({
-		name: r!,
-		value: r!
-	}));
-	let selectedRemote = remotes[0]!;
+	const remotes = $derived(
+		unique(remoteBranches.map((b) => getBranchRemoteFromRef(b.name))).filter(
+			(r): r is string => !!r
+		)
+	);
 
-	// if there's an 'origin', select it by default
-	let originRemote = remotes.find((r) => r.name === 'origin');
-	if (originRemote) {
-		selectedRemote = originRemote;
-	}
+	let selectedBranch = $state<RemoteBranchInfo | undefined>(undefined);
+	const defaultBranch = $derived(getBestBranch(remoteBranches));
+	const branch = $derived(selectedBranch ?? defaultBranch);
+
+	let selectedRemote = $state<string | undefined>(undefined);
+	const defaultRemote = $derived(
+		(branch && getBranchRemoteFromRef(branch.name)) ?? getBestRemote(remotes)
+	);
+	const remote = $derived(selectedRemote ?? defaultRemote);
 
 	async function onSetTargetClick() {
-		if (!selectedBranch) return;
-		dispatch('branchSelected', [selectedBranch.name, selectedRemote.name]);
+		if (!branch || !remote) return;
+		dispatch('branchSelected', [branch.name, remote]);
 	}
 
 	const projectService = getContext(ProjectService);
@@ -99,7 +83,7 @@
 	<div class="project-setup__fields">
 		<div class="project-setup__field-wrap">
 			<Select
-				value={selectedBranch.name}
+				value={branch?.name}
 				options={remoteBranches.map((b) => ({ label: b.name, value: b.name }))}
 				onselect={(value) => {
 					selectedBranch = { name: value };
@@ -108,7 +92,7 @@
 				searchable
 			>
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === selectedBranch.name} {highlighted}>
+					<SelectItem selected={item.value === branch?.name} {highlighted}>
 						{item.label}
 					</SelectItem>
 				{/snippet}
@@ -123,15 +107,15 @@
 		{#if remotes.length > 1}
 			<div class="project-setup__field-wrap">
 				<Select
-					value={selectedRemote.value}
-					options={remotes.map((r) => ({ label: r.name, value: r.value }))}
+					value={remote}
+					options={remotes.map((r) => ({ label: r, value: r }))}
 					onselect={(value) => {
-						const newSelectedRemote = remotes.find((r) => r.value === value);
-						selectedRemote = newSelectedRemote || selectedRemote;
+						const newSelectedRemote = remotes.find((r) => r === value);
+						selectedRemote = newSelectedRemote ?? remote;
 					}}
 				>
 					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === selectedRemote.name} {highlighted}>
+						<SelectItem selected={item.value === remote} {highlighted}>
 							{item.label}
 						</SelectItem>
 					{/snippet}

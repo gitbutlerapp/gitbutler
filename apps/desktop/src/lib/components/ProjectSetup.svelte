@@ -2,7 +2,7 @@
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { Project, ProjectService } from '$lib/backend/projects';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BaseBranchService, type RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
@@ -11,7 +11,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
-	export let remoteBranches: { name: string }[];
+	export let remoteBranches: RemoteBranchInfo[];
 
 	const project = getContext(Project);
 	const projectService = getContext(ProjectService);

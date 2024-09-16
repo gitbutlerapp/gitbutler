@@ -4,6 +4,10 @@ import { showError } from '$lib/notifications/toasts';
 import { plainToInstance } from 'class-transformer';
 import { writable } from 'svelte/store';
 
+export interface RemoteBranchInfo {
+	name: string;
+}
+
 export class BaseBranchService {
 	readonly base = writable<BaseBranch | null | undefined>(undefined, () => {
 		this.refresh();
@@ -65,7 +69,9 @@ export class BaseBranchService {
 	}
 }
 
-export async function getRemoteBranches(projectId: string | undefined) {
+export async function getRemoteBranches(
+	projectId: string | undefined
+): Promise<RemoteBranchInfo[]> {
 	if (!projectId) return [];
 	return await invoke<Array<string>>('git_remote_branches', { projectId }).then((branches) =>
 		branches
