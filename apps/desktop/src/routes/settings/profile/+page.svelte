@@ -23,6 +23,7 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
+	import Section from '$lib/settings/Section.svelte';
 
 	const highlightBranchLaneContents = highlightBranchLaneContentsFeature();
 	const userService = getContext(UserService);
@@ -151,103 +152,108 @@
 		<Spacer />
 	{/if}
 
-	<SectionCard>
-		<svelte:fragment slot="title">Theme</svelte:fragment>
-		<ThemeSelector {userSettings} />
-	</SectionCard>
-
-	<SectionCard orientation="row" centerAlign>
-		<svelte:fragment slot="title">Tab size</svelte:fragment>
-		<svelte:fragment slot="caption">
-			The number of spaces a tab is equal to when previewing code changes.
+	<Section spacer>
+		<svelte:fragment slot="title">UI Settings</svelte:fragment>
+		<svelte:fragment slot="description">
+			GitButler's interface can be customized in a number of ways. Global options are available
+			here.
 		</svelte:fragment>
 
-		<svelte:fragment slot="actions">
-			<TextBox
-				type="number"
-				width={100}
-				textAlign="center"
-				value={$userSettings.tabSize.toString()}
-				minVal={1}
-				maxVal={8}
-				showCountActions
-				on:change={(e) => {
-					userSettings.update((s) => ({
-						...s,
-						tabSize: parseInt(e.detail) || $userSettings.tabSize
-					}));
-				}}
-				placeholder={$userSettings.tabSize.toString()}
-			/>
-		</svelte:fragment>
-	</SectionCard>
+		<SectionCard>
+			<svelte:fragment slot="title">Theme</svelte:fragment>
+			<ThemeSelector {userSettings} />
+		</SectionCard>
 
-	<Spacer />
-
-	<form on:change={(e) => onScrollbarFormChange(e.currentTarget)}>
-		<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll">
-			<svelte:fragment slot="title">Scrollbar-On-Scroll</svelte:fragment>
+		<SectionCard orientation="row" centerAlign>
+			<svelte:fragment slot="title">Tab size</svelte:fragment>
 			<svelte:fragment slot="caption">
-				Only show the scrollbar when you are scrolling.
+				The number of spaces a tab is equal to when previewing code changes.
 			</svelte:fragment>
+
 			<svelte:fragment slot="actions">
-				<RadioButton
-					name="scrollBarVisibilityType"
-					value="scroll"
-					id="scrollbar-on-scroll"
-					checked={$userSettings.scrollbarVisibilityState === 'scroll'}
+				<TextBox
+					type="number"
+					width={100}
+					textAlign="center"
+					value={$userSettings.tabSize.toString()}
+					minVal={1}
+					maxVal={8}
+					showCountActions
+					on:change={(e) => {
+						userSettings.update((s) => ({
+							...s,
+							tabSize: parseInt(e.detail) || $userSettings.tabSize
+						}));
+					}}
+					placeholder={$userSettings.tabSize.toString()}
 				/>
 			</svelte:fragment>
 		</SectionCard>
 
-		<SectionCard
-			roundedTop={false}
-			roundedBottom={false}
-			orientation="row"
-			labelFor="scrollbar-on-hover"
-		>
-			<svelte:fragment slot="title">Scrollbar-On-Hover</svelte:fragment>
+		<form on:change={(e) => onScrollbarFormChange(e.currentTarget)}>
+			<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll">
+				<svelte:fragment slot="title">Scrollbar-On-Scroll</svelte:fragment>
+				<svelte:fragment slot="caption">
+					Only show the scrollbar when you are scrolling.
+				</svelte:fragment>
+				<svelte:fragment slot="actions">
+					<RadioButton
+						name="scrollBarVisibilityType"
+						value="scroll"
+						id="scrollbar-on-scroll"
+						checked={$userSettings.scrollbarVisibilityState === 'scroll'}
+					/>
+				</svelte:fragment>
+			</SectionCard>
+
+			<SectionCard
+				roundedTop={false}
+				roundedBottom={false}
+				orientation="row"
+				labelFor="scrollbar-on-hover"
+			>
+				<svelte:fragment slot="title">Scrollbar-On-Hover</svelte:fragment>
+				<svelte:fragment slot="caption">
+					Show the scrollbar only when you hover over the scrollable area.
+				</svelte:fragment>
+				<svelte:fragment slot="actions">
+					<RadioButton
+						name="scrollBarVisibilityType"
+						value="hover"
+						id="scrollbar-on-hover"
+						checked={$userSettings.scrollbarVisibilityState === 'hover'}
+					/>
+				</svelte:fragment>
+			</SectionCard>
+
+			<SectionCard roundedTop={false} orientation="row" labelFor="scrollbar-always">
+				<svelte:fragment slot="title">Always show scrollbar</svelte:fragment>
+				<svelte:fragment slot="actions">
+					<RadioButton
+						name="scrollBarVisibilityType"
+						value="always"
+						id="scrollbar-always"
+						checked={$userSettings.scrollbarVisibilityState === 'always'}
+					/>
+				</svelte:fragment>
+			</SectionCard>
+		</form>
+
+		<SectionCard labelFor="branchLaneContents" orientation="row">
+			<svelte:fragment slot="title">Auto-highlight Branch Lane Contents</svelte:fragment>
 			<svelte:fragment slot="caption">
-				Show the scrollbar only when you hover over the scrollable area.
+				An experimental UI toggle to highlight the contents of the branch lane input fields when
+				clicking into them.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<RadioButton
-					name="scrollBarVisibilityType"
-					value="hover"
-					id="scrollbar-on-hover"
-					checked={$userSettings.scrollbarVisibilityState === 'hover'}
+				<Toggle
+					id="branchLaneContents"
+					checked={$highlightBranchLaneContents}
+					on:click={() => ($highlightBranchLaneContents = !$highlightBranchLaneContents)}
 				/>
 			</svelte:fragment>
 		</SectionCard>
-
-		<SectionCard roundedTop={false} orientation="row" labelFor="scrollbar-always">
-			<svelte:fragment slot="title">Always show scrollbar</svelte:fragment>
-			<svelte:fragment slot="actions">
-				<RadioButton
-					name="scrollBarVisibilityType"
-					value="always"
-					id="scrollbar-always"
-					checked={$userSettings.scrollbarVisibilityState === 'always'}
-				/>
-			</svelte:fragment>
-		</SectionCard>
-	</form>
-
-	<SectionCard labelFor="branchLaneContents" orientation="row">
-		<svelte:fragment slot="title">Auto-highlight Branch Lane Contents</svelte:fragment>
-		<svelte:fragment slot="caption">
-			An experimental UI toggle to highlight the contents of the branch lane input fields when
-			clicking into them.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle
-				id="branchLaneContents"
-				checked={$highlightBranchLaneContents}
-				on:click={() => ($highlightBranchLaneContents = !$highlightBranchLaneContents)}
-			/>
-		</svelte:fragment>
-	</SectionCard>
-	<Spacer />
+	</Section>
 
 	{#if $user}
 		<SectionCard orientation="row">
