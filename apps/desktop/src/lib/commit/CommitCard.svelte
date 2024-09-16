@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CommitContextMenu from './CommitContextMenu.svelte';
 	import CommitDragItem from './CommitDragItem.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
@@ -51,6 +52,7 @@
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
 	let draggableCommitElement: HTMLElement | null = null;
+	let contextMenu: CommitContextMenu;
 	let files: RemoteFile[] = [];
 	let showDetails = false;
 
@@ -193,6 +195,13 @@
 	{/snippet}
 </Modal>
 
+<CommitContextMenu
+	bind:this={contextMenu}
+	targetElement={draggableCommitElement}
+	{commit}
+	{commitUrl}
+/>
+
 <div
 	class="commit-row"
 	class:is-commit-open={showDetails}
@@ -226,6 +235,9 @@
 				on:keyup={onKeyup}
 				role="button"
 				tabindex="0"
+				on:contextmenu={(e) => {
+					contextMenu.open(e);
+				}}
 				on:dragenter={() => {
 					isDragTargeted = true;
 				}}
