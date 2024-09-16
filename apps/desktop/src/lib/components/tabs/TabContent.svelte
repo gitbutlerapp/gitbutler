@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { type Snippet, getContext } from 'svelte';
-	import { fade } from 'svelte/transition';
 	import type { TabContext } from './types';
 
 	interface Props {
@@ -16,7 +15,7 @@
 </script>
 
 {#if isActive}
-	<div data-value={value} class="tab-content" in:fade={{ duration: 200 }}>
+	<div data-value={value} class="tab-content">
 		{@render children()}
 	</div>
 {/if}
