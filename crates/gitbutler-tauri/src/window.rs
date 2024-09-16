@@ -79,7 +79,7 @@ pub(super) mod state {
         /// The watcher of the currently active project.
         watcher: gitbutler_watcher::WatcherHandle,
         /// An active lock to signal that the entire project is locked for the Window this state belongs to.
-        exclusive_access: fslock::LockFile,
+        exclusive_access: gitbutler_project::access::LockFile,
     }
 
     impl Drop for State {
