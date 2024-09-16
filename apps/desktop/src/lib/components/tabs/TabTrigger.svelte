@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext, type Snippet } from 'svelte';
-	import type { TabContext } from './types';
+	import { TabStyle, type TabContext } from './types';
 
 	interface Props {
 		children: Snippet;
@@ -21,9 +21,10 @@
 
 <button
 	{value}
-	class="tab-trigger text-12"
 	{disabled}
 	onclick={setActive}
+	class="tab-trigger"
+	class:segment-control={tabStore.style === TabStyle.SegmentControl}
 	class:disabled
 	class:active={isActive}
 >
@@ -33,16 +34,12 @@
 <style>
 	.tab-trigger {
 		width: auto;
-		height: 28px;
 		flex-grow: 1;
 		user-select: none;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		cursor: pointer;
-		color: var(--btn-text-clr);
-		background: var(--btn-bg);
-		border: 1px solid transparent;
 		transition:
 			background var(--transition-fast),
 			color var(--transition-fast);
@@ -52,23 +49,36 @@
 			opacity: 0.5;
 		}
 
-		&.active {
-			--btn-text-clr: var(--clr-theme-ntrl-on-element);
-			--btn-bg: var(--clr-theme-ntrl-element);
-		}
+		&.segment-control {
+			height: 28px;
+			color: var(--btn-text-clr);
+			background: var(--btn-bg);
+			border: 1px solid transparent;
 
-		&:not(:last-child) {
-			border-right: 1px solid var(--clr-border-2);
-		}
+			/* text-12 */
+			font-family: var(--base-font-family);
+			font-size: 0.75rem;
+			font-weight: var(--base-font-weight);
+			line-height: var(--base-line-height);
 
-		&:first-child {
-			border-top-left-radius: var(--radius-m);
-			border-bottom-left-radius: var(--radius-m);
-		}
+			&.active {
+				--btn-text-clr: var(--clr-theme-ntrl-on-element);
+				--btn-bg: var(--clr-theme-ntrl-element);
+			}
 
-		&:last-child {
-			border-top-right-radius: var(--radius-m);
-			border-bottom-right-radius: var(--radius-m);
+			&:not(:last-child) {
+				border-right: 1px solid var(--clr-border-2);
+			}
+
+			&:first-child {
+				border-top-left-radius: var(--radius-m);
+				border-bottom-left-radius: var(--radius-m);
+			}
+
+			&:last-child {
+				border-top-right-radius: var(--radius-m);
+				border-bottom-right-radius: var(--radius-m);
+			}
 		}
 	}
 </style>

@@ -3,6 +3,7 @@
 	import TabList from '$lib/components/tabs/TabList.svelte';
 	import TabTrigger from '$lib/components/tabs/TabTrigger.svelte';
 	import Tabs from '$lib/components/tabs/Tabs.svelte';
+	import { TabStyle } from '$lib/components/tabs/types';
 	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { platformName } from '$lib/platform/platform';
@@ -18,7 +19,7 @@
 </script>
 
 <SettingsPage title="Project settings">
-	<Tabs defaultSelected="project">
+	<Tabs defaultSelected="project" tabStyle={TabStyle.SegmentControl}>
 		<TabList>
 			<TabTrigger value="project">Project</TabTrigger>
 			<TabTrigger value="git">Git</TabTrigger>
