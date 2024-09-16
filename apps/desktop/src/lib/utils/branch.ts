@@ -2,13 +2,24 @@ import { entries, type UnknowObject } from './object';
 
 const PREFERRED_REMOTE = 'origin';
 const BRANCH_SEPARATOR = '/';
+const REF_REMOTES_PREFIX = 'refs/remotes/';
 
 export function getBranchNameFromRef(ref: string): string | undefined {
-	return ref.split(BRANCH_SEPARATOR).pop();
+	if (ref.startsWith(REF_REMOTES_PREFIX)) {
+		ref = ref.slice(REF_REMOTES_PREFIX.length);
+	}
+
+	const parts = ref.split(BRANCH_SEPARATOR);
+	return parts.length > 1 ? parts.slice(1).join(BRANCH_SEPARATOR) : ref;
 }
 
 export function getBranchRemoteFromRef(ref: string): string | undefined {
-	return ref.split(BRANCH_SEPARATOR)[0];
+	if (ref.startsWith(REF_REMOTES_PREFIX)) {
+		ref = ref.slice(REF_REMOTES_PREFIX.length);
+	}
+
+	const parts = ref.split(BRANCH_SEPARATOR);
+	return parts.length > 1 ? parts[0] : undefined;
 }
 
 const BRANCH_RANKING_EXACT: UnknowObject<number> = {
