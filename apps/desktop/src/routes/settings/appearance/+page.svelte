@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import { autoSelectBranchLaneContentsFeature } from '$lib/config/uiFeatureFlags';
+	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
 	import {
@@ -119,9 +119,8 @@
 		<svelte:fragment slot="actions">
 			<Toggle
 				id="branchLaneContents"
-				checked={$autoSelectBranchLaneContentsFeature}
-				on:click={() =>
-					($autoSelectBranchLaneContentsFeature = !$autoSelectBranchLaneContentsFeature)}
+				checked={$autoSelectBranchNameFeature}
+				on:click={() => ($autoSelectBranchNameFeature = !$autoSelectBranchNameFeature)}
 			/>
 		</svelte:fragment>
 	</SectionCard>

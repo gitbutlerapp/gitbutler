@@ -23,7 +23,4 @@ export function featureTopics(): Persisted<boolean> {
 	return persisted(false, key);
 }
 
-export const autoSelectBranchLaneContentsFeature = persisted(
-	false,
-	'autoSelectBranchLaneContentsFeature'
-);
+export const autoSelectBranchNameFeature = persisted(false, 'autoSelectBranchLaneContentsFeature');

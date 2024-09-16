@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { autoSelectBranchLaneContentsFeature } from '$lib/config/uiFeatureFlags';
+	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 
 	interface Props {
@@ -35,7 +35,7 @@
 	onclick={(e) => {
 		e.stopPropagation();
 		inputEl.focus();
-		if ($autoSelectBranchLaneContentsFeature) {
+		if ($autoSelectBranchNameFeature) {
 			inputEl.select();
 		}
 	}}
