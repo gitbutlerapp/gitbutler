@@ -6,6 +6,7 @@
 	import { highlightBranchLaneContentsFeature } from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
+	import Section from '$lib/settings/Section.svelte';
 	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
 	import {
 		SETTINGS,
@@ -23,7 +24,6 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import type { Writable } from 'svelte/store';
 	import { goto } from '$app/navigation';
-	import Section from '$lib/settings/Section.svelte';
 
 	const highlightBranchLaneContents = highlightBranchLaneContentsFeature();
 	const userService = getContext(UserService);

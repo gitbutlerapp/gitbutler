@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { autoHighlightBranchLaneInput } from '$lib/config/uiFeatureFlags';
+	import { highlightBranchLaneContentsFeature } from '$lib/config/uiFeatureFlags';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 
 	interface Props {
@@ -14,7 +14,7 @@
 	let initialName = name;
 	let inputWidth = $state('');
 
-	const highlightBranchLaneContents = autoHighlightBranchLaneInput();
+	const highlightBranchLaneContents = highlightBranchLaneContentsFeature();
 </script>
 
 <span
