@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
-	import { loadUserSettings } from '$lib/settings/userSettings';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContextStoreBySymbol } from '$lib/utils/context';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { onMount } from 'svelte';
+	import type { Writable } from 'svelte/store';
 
-	const userSettings = loadUserSettings();
+	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
 	let zoom = $state($userSettings.zoom);
 
