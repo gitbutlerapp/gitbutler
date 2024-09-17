@@ -72,18 +72,19 @@
 	}
 </script>
 
-{#if !$user}
-	<WelcomeSigninAction />
-	<Spacer />
-{/if}
-
-<Section spacer>
-	<svelte:fragment slot="title">AI options</svelte:fragment>
+<Section>
 	<svelte:fragment slot="description">
 		GitButler supports the use of OpenAI and Anthropic to provide commit message and branch name
 		generation. This works either through GitButler's API or in a bring your own key configuration
 		and can be configured in the main preferences screen.
 	</svelte:fragment>
+
+	<Spacer />
+
+	{#if !$user}
+		<WelcomeSigninAction />
+		<Spacer />
+	{/if}
 
 	<div class="options">
 		<SectionCard labelFor="aiGenEnabled" orientation="row">
@@ -123,7 +124,7 @@
 </Section>
 
 {#if $user?.role === 'admin'}
-	<Section spacer>
+	<Section>
 		<svelte:fragment slot="title">Full data synchronization</svelte:fragment>
 
 		<SectionCard labelFor="historySync" orientation="row">

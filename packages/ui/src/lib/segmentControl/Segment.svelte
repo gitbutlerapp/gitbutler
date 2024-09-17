@@ -36,7 +36,7 @@
 <button
 	bind:this={elRef}
 	{id}
-	class="segment"
+	class="segment-control-item"
 	role="tab"
 	{disabled}
 	tabindex={isSelected ? -1 : 0}
@@ -62,12 +62,12 @@
 		}
 	}}
 >
-	<span class="text-12 label">
+	<span class="text-12 segment-control-item__label">
 		{@render children()}
 	</span>
 </button>
 
-<style lang="postcss">
+<!-- <style lang="postcss">
 	.segment {
 		cursor: pointer;
 		display: inline-flex;
@@ -122,4 +122,4 @@
 		white-space: nowrap;
 		transition: color var(--transition-fast);
 	}
-</style>
+</style> -->
