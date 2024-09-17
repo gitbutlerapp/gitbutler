@@ -25,6 +25,7 @@
 			<TabTrigger value="ai">AI</TabTrigger>
 			<TabTrigger value="feature-flags">Experimental</TabTrigger>
 		</TabList>
+
 		<TabContent value="git">
 			<CommitSigningForm />
 			{#if $platformName !== 'win32'}

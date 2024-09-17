@@ -20,56 +20,18 @@
 </script>
 
 <button
+	role="tab"
+	tabindex={isActive ? -1 : 0}
+	aria-selected={isActive}
+	id={value}
 	{value}
 	{disabled}
 	onclick={setActive}
-	class="tab-trigger text-12"
+	class="segment-control-item"
 	class:disabled
 	class:active={isActive}
 >
-	{@render children()}
+	<span class="text-12 segment-control-item__label">
+		{@render children()}
+	</span>
 </button>
-
-<style>
-	.tab-trigger {
-		width: 100%;
-		height: 28px;
-		color: var(--btn-text-clr);
-		background: var(--btn-bg);
-		border: 1px solid var(--clr-border-2);
-		user-select: none;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		cursor: pointer;
-		transition:
-			background var(--transition-fast),
-			color var(--transition-fast);
-
-		&:disabled {
-			cursor: default;
-			opacity: 0.5;
-		}
-
-		&:not(:last-child) {
-			border-right: 1px solid var(--clr-border-2);
-		}
-
-		&.active {
-			--btn-text-clr: var(--clr-theme-ntrl-on-element);
-			--btn-bg: var(--clr-theme-ntrl-element);
-			border-color: var(--clr-theme-ntrl-element);
-			border-right-width: 0px;
-		}
-
-		&:first-child {
-			border-top-left-radius: var(--radius-m);
-			border-bottom-left-radius: var(--radius-m);
-		}
-
-		&:last-child {
-			border-top-right-radius: var(--radius-m);
-			border-bottom-right-radius: var(--radius-m);
-		}
-	}
-</style>
