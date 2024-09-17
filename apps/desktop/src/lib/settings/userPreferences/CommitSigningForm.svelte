@@ -107,14 +107,12 @@
 	}
 </script>
 
-<Section spacer>
-	<svelte:fragment slot="title">Commit signing</svelte:fragment>
-	<svelte:fragment slot="description">
-		Use GPG or SSH to sign your commits so they can be verified as authentic.
-	</svelte:fragment>
+<Section>
 	<SectionCard orientation="row" labelFor="signCommits">
 		<svelte:fragment slot="title">Sign commits</svelte:fragment>
 		<svelte:fragment slot="caption">
+			Use GPG or SSH to sign your commits so they can be verified as authentic.
+			<br />
 			GitButler will sign commits as per your git configuration.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">

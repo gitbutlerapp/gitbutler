@@ -7,7 +7,7 @@
 		dotted?: boolean;
 	}
 
-	const { margin = 16, noLine = false, dotted = false }: SpacerProps = $props();
+	const { margin = 12, noLine = false, dotted = false }: SpacerProps = $props();
 
 	function getMargins() {
 		if (margin === undefined) {

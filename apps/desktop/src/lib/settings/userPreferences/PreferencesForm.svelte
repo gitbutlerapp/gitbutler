@@ -55,12 +55,7 @@
 	}
 </script>
 
-<Section>
-	<svelte:fragment slot="title">Preferences</svelte:fragment>
-	<svelte:fragment slot="description">
-		Other settings to customize your GitButler experience.
-	</svelte:fragment>
-
+<Section gap={8}>
 	<SectionCard orientation="row" labelFor="allowForcePush">
 		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
 		<svelte:fragment slot="caption">

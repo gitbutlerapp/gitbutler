@@ -78,7 +78,6 @@
 {/if}
 
 <Section>
-	<svelte:fragment slot="title">AI options</svelte:fragment>
 	<svelte:fragment slot="description">
 		GitButler supports the use of OpenAI and Anthropic to provide commit message and branch name
 		generation. This works either through GitButler's API or in a bring your own key configuration
