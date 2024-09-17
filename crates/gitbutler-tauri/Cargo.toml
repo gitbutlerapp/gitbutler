@@ -70,7 +70,7 @@ open = "5"
 url = "2.5.2"
 
 [dependencies.tauri]
-version = "1.7.0"
+version = "1.8.0"
 features = [
     "http-all",
     "os-all",
