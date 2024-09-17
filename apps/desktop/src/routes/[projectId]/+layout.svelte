@@ -6,8 +6,6 @@
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
-	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
-	import { BranchService, createBranchServiceStore } from '$lib/branches/service';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
@@ -40,8 +38,6 @@
 	import { goto } from '$app/navigation';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
-
-	const nameNormalizationService = getNameNormalizationServiceContext();
 
 	const {
 		vbranchService,
@@ -93,7 +89,6 @@
 
 	const listServiceStore = createGitHostListingServiceStore(undefined);
 	const gitHostStore = createGitHostStore(undefined);
-	const branchServiceStore = createBranchServiceStore(undefined);
 	const gitHostIssueSerice = storeDerived(gitHostStore, (gitHostStore) =>
 		gitHostStore?.issueService()
 	);
@@ -140,14 +135,6 @@
 
 		listServiceStore.set(ghListService);
 		gitHostStore.set(gitHost);
-		branchServiceStore.set(
-			new BranchService(
-				vbranchService,
-				remoteBranchService,
-				ghListService,
-				nameNormalizationService
-			)
-		);
 	});
 
 	// Once on load and every time the project id changes
