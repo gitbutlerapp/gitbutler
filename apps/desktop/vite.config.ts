@@ -3,7 +3,10 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { defineConfig } from 'vitest/config';
 
-export default defineConfig({
+export default defineConfig(({ command }) => ({
+	optimizeDeps: {
+		exclude: command === 'serve' ? ['svelte-routing'] : undefined
+	},
 	plugins: [
 		sentrySvelteKit({
 			adapter: 'other',
@@ -68,4 +71,4 @@ export default defineConfig({
 		environment: 'jsdom',
 		setupFiles: ['./vitest-setup.js']
 	}
-});
+}));
