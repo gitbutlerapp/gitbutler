@@ -29,7 +29,7 @@
 	.divider {
 		height: 1px;
 		width: 100%;
-		opacity: 0.2;
+		opacity: 0.13;
 	}
 
 	.divider.line {
@@ -37,6 +37,7 @@
 	}
 
 	.divider.dotted {
+		opacity: 0.2;
 		background: repeating-linear-gradient(
 			90deg,
 			transparent,
