@@ -12,3 +12,4 @@ anyhow = "1.0.86"
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 walkdir = "2.5.0"
 toml.workspace = true
+git2 = { version = "0.18.3" }

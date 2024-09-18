@@ -6,6 +6,7 @@ use std::{
 
 use anyhow::{Context, Result};
 use bstr::BString;
+use git2::Repository;
 use gix::{
     dir::walk::EmissionMode,
     tempfile::{create_dir::Retries, AutoRemove, ContainingDirectory},
@@ -114,18 +115,30 @@ pub fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> 
 }
 
 /// Reads file from disk at workspace
-pub fn read_file_from_workspace(path: &Path) -> Result<String> {
-    let mut file = match File::open(path) {
-        Ok(f) => f,
-        Err(err) => {
-            return Err(anyhow::anyhow!(
-                "Error {}\n\nUnable to read file: {}",
-                err,
-                path.display()
-            ))
-        }
-    };
-    let mut contents = String::new();
-    file.read_to_string(&mut contents)?;
-    Ok(contents)
+pub fn read_file_from_workspace(base_path: PathBuf, file_path: &Path) -> Result<String> {
+    let repo = Repository::open(&base_path).context("Failed to open the Git repository")?;
+    let tree = repo
+        .head()?
+        .peel_to_tree()
+        .context("Failed to get the tree from HEAD")?;
+
+    let canonicalized_file_path = base_path
+        .join(file_path)
+        .canonicalize()
+        .context("Failed to canonicalize file path")?;
+
+    if canonicalized_file_path.as_path().starts_with(base_path) {
+        let entry = tree
+            .get_path(file_path)
+            .context("Failed to find the file in the repository")?;
+        let blob = repo
+            .find_blob(entry.id())
+            .context("Failed to find the blob for the file")?;
+        let content = std::str::from_utf8(blob.content())
+            .context("Failed to convert blob content to string")?;
+
+        Ok(content.to_string())
+    } else {
+        anyhow::bail!("Invalid file path");
+    }
 }

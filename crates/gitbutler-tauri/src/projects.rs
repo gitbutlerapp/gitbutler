@@ -106,20 +106,8 @@ pub mod commands {
         project_id: ProjectId,
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
-        let template_path = project
-            .path
-            .join(relative_path)
-            .as_path()
-            .canonicalize()
-            .context("invalid template path")?;
 
-        // Ensure that the merged path is a child of the project's root path
-        // in order to avoid path traversal issues, for example.
-        if template_path.starts_with(&project.path) {
-            Ok(read_file_from_workspace(template_path.as_path())?)
-        } else {
-            Err(anyhow::anyhow!("Path is outside of project: {}", template_path.display()).into())
-        }
+        Ok(read_file_from_workspace(project.path, relative_path)?)
     }
 }
 

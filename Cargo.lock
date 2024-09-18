@@ -2333,6 +2333,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "bstr",
+ "git2",
  "gix",
  "serde",
  "toml 0.8.19",
