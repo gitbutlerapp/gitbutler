@@ -89,6 +89,7 @@ pub fn list_local_branches(ctx: &CommandContext) -> Result<Vec<RemoteBranch>> {
         if !branch_is_trunk
             && branch.name.branch() != Some("gitbutler/integration") // Remove after rename migration complete.
             && branch.name.branch() != Some("gitbutler/workspace")
+            && branch.name.branch() != Some("gitbutler/edit")
             && branch.name.branch() != Some("gitbutler/target")
         {
             remote_branches.push(branch);
