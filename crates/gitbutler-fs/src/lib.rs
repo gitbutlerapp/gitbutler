@@ -117,25 +117,13 @@ pub fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> 
 /// Reads file from disk at workspace
 pub fn read_file_from_workspace(base_path: PathBuf, file_path: &Path) -> Result<String> {
     let repo = Repository::open(&base_path).context("Failed to open the Git repository")?;
-    let tree = repo
-        .head()?
-        .peel_to_tree()
-        .context("Failed to get the tree from HEAD")?;
-
-    let canonicalized_file_path = base_path
-        .join(file_path)
-        .canonicalize()
-        .context("Failed to canonicalize file path")?;
+    let tree = repo.head()?.peel_to_tree()?;
+    let canonicalized_file_path = base_path.join(file_path).canonicalize()?;
 
     if canonicalized_file_path.as_path().starts_with(base_path) {
-        let entry = tree
-            .get_path(file_path)
-            .context("Failed to find the file in the repository")?;
-        let blob = repo
-            .find_blob(entry.id())
-            .context("Failed to find the blob for the file")?;
-        let content = std::str::from_utf8(blob.content())
-            .context("Failed to convert blob content to string")?;
+        let entry = tree.get_path(file_path)?;
+        let blob = repo.find_blob(entry.id())?;
+        let content = std::str::from_utf8(blob.content())?;
 
         Ok(content.to_string())
     } else {
