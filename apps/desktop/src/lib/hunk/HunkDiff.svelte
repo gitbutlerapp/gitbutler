@@ -360,6 +360,9 @@
 									}}
 								/>
 							{/if}
+							{#if hunk.locked}
+								<Icon name="locked-small" color="warning" />
+							{/if}
 						</div>
 						<div
 							class="table__title-content"
@@ -481,6 +484,7 @@
 	.table__checkbox {
 		padding: 4px 6px;
 		display: flex;
+		justify-content: space-between;
 		align-items: center;
 	}
 
