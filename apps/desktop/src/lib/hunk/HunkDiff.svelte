@@ -362,9 +362,6 @@
 									}}
 								/>
 							{/if}
-							{#if hunk.locked}
-								<Icon name="locked-small" color="warning" />
-							{/if}
 						</div>
 						<div
 							class="table__title-content"
@@ -373,6 +370,11 @@
 							<span>
 								{`@@ -${hunkLineInfo.beforLineStart},${hunkLineInfo.beforeLineCount} +${hunkLineInfo.afterLineStart},${hunkLineInfo.afterLineCount} @@`}
 							</span>
+							{#if hunk.locked}
+								<div class="table__lock">
+									<Icon name="locked-small" color="warning" />
+								</div>
+							{/if}
 							{#if !draggingDisabled}
 								<div class="table__drag-handle">
 									<Icon name="draggable" />
@@ -430,6 +432,10 @@
 		&:hover .table__drag-handle {
 			transform: scale(1);
 			opacity: 1;
+		}
+
+		&:hover .table__lock {
+			transform: translateX(-20px);
 		}
 	}
 
@@ -510,6 +516,21 @@
 		transition:
 			opacity 0.2s,
 			transform 0.2s;
+	}
+
+	.table__lock {
+		position: fixed;
+		right: 6px;
+		top: 6px;
+		box-sizing: border-box;
+		background-color: var(--clr-theme-warn-soft);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		border-radius: var(--radius-s);
+		pointer-events: none;
+		color: var(--clr-text-2);
+		transition: transform var(--transition-medium);
 	}
 
 	.table__right-box {
