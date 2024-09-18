@@ -56,7 +56,7 @@ impl RepoCommands for Project {
             .repository()
             .path()
             .parent()
-            .ok_or(anyhow::anyhow!("Base path is invalid"))?;
+            .ok_or(anyhow::anyhow!("Could not find repository base path"))?;
 
         let canonicalized_file_path = base_path.join(relative_path).canonicalize()?;
 
@@ -68,7 +68,7 @@ impl RepoCommands for Project {
 
             Ok(content.to_string())
         } else {
-            anyhow::bail!("Invalid file path");
+            anyhow::bail!("Invalid workspace file");
         }
     }
 }
