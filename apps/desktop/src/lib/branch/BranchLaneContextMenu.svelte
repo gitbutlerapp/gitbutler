@@ -99,7 +99,7 @@
 		/>
 
 		<ContextMenuItem
-			label="Drop changes and unapply"
+			label="Unapply and drop changes"
 			on:click={async () => {
 				if (
 					branch.name.toLowerCase().includes('virtual branch') &&
