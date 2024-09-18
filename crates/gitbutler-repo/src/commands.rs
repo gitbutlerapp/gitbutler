@@ -29,8 +29,8 @@ impl RepoCommands for Project {
     }
 
     fn check_signing_settings(&self) -> Result<bool> {
-        let repo = CommandContext::open(self)?;
-        let signed = repo
+        let ctx = CommandContext::open(self)?;
+        let signed = ctx
             .repository()
             .sign_buffer(&BString::new("test".into()).into());
         match signed {
