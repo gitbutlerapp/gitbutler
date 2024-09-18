@@ -3,7 +3,7 @@ mod actions;
 // This is our API
 pub use actions::{
     amend, can_apply_remote_branch, create_change_reference, create_commit, create_virtual_branch,
-    create_virtual_branch_from_branch, delete_local_branch, fetch_from_remotes,
+    create_virtual_branch_from_branch, delete_local_branch, fetch_from_remotes, find_commit,
     get_base_branch_data, get_remote_branch_data, get_uncommited_files,
     get_uncommited_files_reusable, insert_blank_commit, integrate_upstream,
     integrate_upstream_commits, list_local_branches, list_remote_commit_files,

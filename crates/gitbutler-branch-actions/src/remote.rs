@@ -110,6 +110,23 @@ pub(crate) fn get_branch_data(ctx: &CommandContext, refname: &Refname) -> Result
         .context("failed to get branch data")
 }
 
+pub(crate) fn get_commit_data(
+    ctx: &CommandContext,
+    sha: git2::Oid,
+) -> Result<Option<RemoteCommit>> {
+    let commit = match ctx.repository().find_commit(sha) {
+        Ok(commit) => commit,
+        Err(error) => {
+            if error.code() == git2::ErrorCode::NotFound {
+                return Ok(None);
+            } else {
+                anyhow::bail!(error);
+            }
+        }
+    };
+    Ok(Some(commit_to_remote_commit(&commit)))
+}
+
 pub(crate) fn branch_to_remote_branch(
     branch: &git2::Branch<'_>,
     remotes: &git2::string_array::StringArray,
