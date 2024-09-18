@@ -33,19 +33,13 @@ export class HunkSection {
 	hasConflictMarkers!: boolean;
 
 	get maxLineNumber(): number {
-		// if (section instanceof ContentSection) {
-		// 	return Math.max(
-		// 		section.lines[section.lines.length - 1].afterLineNumber || 0,
-		// 		section.lines[section.lines.length - 1].afterLineNumber || 0
-		// 	);
-		// }
 		const lastSection = this.subSections[this.subSections.length - 1];
 		if (!lastSection) {
 			return 0;
 		}
 		return Math.max(
-			lastSection.lines[lastSection.lines.length - 1]?.afterLineNumber || 0,
-			lastSection.lines[lastSection.lines.length - 1]?.afterLineNumber || 0
+			lastSection.lines[lastSection.lines.length - 1]?.afterLineNumber ?? 0,
+			lastSection.lines[lastSection.lines.length - 1]?.beforeLineNumber ?? 0
 		);
 	}
 }
@@ -57,8 +51,8 @@ export class ContentSection {
 
 	get maxLineNumber(): number {
 		return Math.max(
-			this.lines[this.lines.length - 1]?.afterLineNumber || 0,
-			this.lines[this.lines.length - 1]?.afterLineNumber || 0
+			this.lines[this.lines.length - 1]?.afterLineNumber ?? 0,
+			this.lines[this.lines.length - 1]?.beforeLineNumber ?? 0
 		);
 	}
 }

@@ -65,6 +65,7 @@
 
 	let tableWidth = $state<number>(0);
 	let tableHeight = $state<number>(0);
+	let numberHeaderWidth = $state<number>(0);
 
 	const selected = $derived($selectedOwnership?.isSelected(hunk.filePath, hunk.id) ?? false);
 	let isSelected = $derived(selectable && selected);
@@ -345,6 +346,7 @@
 					}}
 				>
 					<th
+						bind:clientWidth={numberHeaderWidth}
 						class="table__checkbox-container"
 						style="--border-width: {BORDER_WIDTH}px;"
 						class:selected={isSelected}
@@ -366,9 +368,7 @@
 						</div>
 						<div
 							class="table__title-content"
-							style="--number-col-width: {pxToRem(
-								NUMBER_COLUMN_WIDTH_PX + 1
-							)}; --table-width: {tableWidth}px; --border-width: {BORDER_WIDTH}px; --top: -{BORDER_WIDTH}px"
+							style="--number-col-width: {numberHeaderWidth}px; --table-width: {tableWidth}px; --border-width: {BORDER_WIDTH}px; --top: -{BORDER_WIDTH}px"
 						>
 							<span>
 								{`@@ -${hunkLineInfo.beforLineStart},${hunkLineInfo.beforeLineCount} +${hunkLineInfo.afterLineStart},${hunkLineInfo.afterLineCount} @@`}
@@ -388,8 +388,7 @@
 					<td>
 						<div
 							class="table__right-box"
-							style="--number-col-width: {NUMBER_COLUMN_WIDTH_PX +
-								2}px; --table-width: {tableWidth}px; --table-height: {tableHeight}px;"
+							style="--number-col-width: {numberHeaderWidth}px; --table-width: {tableWidth}px; --table-height: {tableHeight}px;"
 						></div>
 					</td>
 				</tr>
@@ -517,8 +516,8 @@
 		pointer-events: none;
 		position: absolute;
 		top: 0;
-		left: calc(var(--number-col-width) * 2);
-		width: calc(var(--table-width) - var(--number-col-width) * 2);
+		left: var(--number-col-width);
+		width: calc(var(--table-width) - var(--number-col-width));
 		height: var(--table-height);
 		border-bottom: 1px solid var(--clr-border-2);
 		border-right: 1px solid var(--clr-border-2);
@@ -528,8 +527,8 @@
 	.table__title-content {
 		position: absolute;
 		top: var(--top);
-		left: calc(var(--number-col-width) * 2);
-		width: calc(var(--table-width) - var(--number-col-width) * 2);
+		left: var(--number-col-width);
+		width: calc(var(--table-width) - var(--number-col-width));
 		height: calc(100% + var(--border-width) * 2);
 		box-sizing: border-box;
 		font-family: var(--mono-font-family);
