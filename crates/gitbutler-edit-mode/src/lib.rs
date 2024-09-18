@@ -27,7 +27,6 @@ use gitbutler_repo::{
 pub mod commands;
 
 pub const EDIT_UNCOMMITED_FILES_REF: &str = "refs/gitbutler/edit_uncommited_files";
-pub const EDIT_INITIAL_STATE_REF: &str = "refs/gitbutler/edit_initial_state";
 
 fn save_uncommited_files(ctx: &CommandContext) -> Result<()> {
     let repository = ctx.repository();
@@ -123,7 +122,6 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<(
         commit.parent(0)?
     };
     repository.reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")?;
-    repository.reference(EDIT_INITIAL_STATE_REF, commit_parent.id(), true, "")?;
     repository.set_head(EDIT_BRANCH_REF)?;
     repository.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
 
@@ -138,18 +136,6 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<(
                 .remove_untracked(true)
                 .conflict_style_diff3(true),
         ),
-    )?;
-
-    let tree = repository.create_wd_tree()?;
-
-    // Commit initial state commit
-    repository.commit(
-        Some(EDIT_INITIAL_STATE_REF),
-        &author_signature,
-        &committer_signature,
-        "Initial state commit",
-        &tree,
-        &[&commit_parent],
     )?;
 
     Ok(())
@@ -365,12 +351,9 @@ pub(crate) fn starting_index_state(
     let commit_parent = commit.parent(0)?;
     let commit_parent_tree = repository.find_real_tree(&commit_parent, Default::default())?;
 
-    let initial_state = repository
-        .find_reference(EDIT_INITIAL_STATE_REF)?
-        .peel_to_tree()?;
+    let index = get_commit_index(repository, &commit)?;
 
-    let diff =
-        repository.diff_tree_to_tree(Some(&commit_parent_tree), Some(&initial_state), None)?;
+    let diff = repository.diff_tree_to_index(Some(&commit_parent_tree), Some(&index), None)?;
 
     let diff_files = hunks_by_filepath(Some(repository), &diff)?
         .into_iter()

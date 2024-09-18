@@ -613,6 +613,8 @@ mod test {
         let tempdir = tempdir().unwrap();
         let repository = git2::Repository::init(tempdir.path()).unwrap();
         let initial_commit = commit_file(&repository, None, &[("foo.txt", "bar")]);
+        // Create refs/heads/master
+        repository.branch("master", &initial_commit, false).unwrap();
         let old_target = commit_file(&repository, Some(&initial_commit), &[("foo.txt", "baz")]);
         let branch_head = commit_file(&repository, Some(&old_target), &[("foo.txt", "fux")]);
         let new_target = commit_file(&repository, Some(&old_target), &[("foo.txt", "qux")]);
