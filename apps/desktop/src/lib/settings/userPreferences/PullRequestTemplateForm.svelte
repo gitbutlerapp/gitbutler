@@ -50,11 +50,6 @@
 </script>
 
 <Section>
-	<svelte:fragment slot="title">Pull Request Template</svelte:fragment>
-	<svelte:fragment slot="description">
-		Use your pull request template of choice when creating pull requests from GitButler.
-	</svelte:fragment>
-
 	<div>
 		<SectionCard
 			roundedBottom={false}
