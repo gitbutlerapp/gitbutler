@@ -30,7 +30,7 @@
 <SectionCard>
 	<form>
 		<fieldset class="fields-wrapper">
-			<TextBox label="Path" readonly id="path" value={project?.path} />
+			<TextBox label="Project path" readonly id="path" value={project?.path} />
 			<section class="description-wrapper">
 				<TextBox
 					label="Project name"
