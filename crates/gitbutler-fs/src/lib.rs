@@ -6,7 +6,6 @@ use std::{
 
 use anyhow::{Context, Result};
 use bstr::BString;
-use git2::Repository;
 use gix::{
     dir::walk::EmissionMode,
     tempfile::{create_dir::Retries, AutoRemove, ContainingDirectory},
@@ -112,21 +111,4 @@ pub fn read_toml_file_or_default<T: DeserializeOwned + Default>(path: &Path) -> 
     let value: T =
         toml::from_str(&contents).with_context(|| format!("Failed to parse {}", path.display()))?;
     Ok(value)
-}
-
-/// Reads file from disk at workspace
-pub fn read_file_from_workspace(base_path: PathBuf, file_path: &Path) -> Result<String> {
-    let repo = Repository::open(&base_path).context("Failed to open the Git repository")?;
-    let tree = repo.head()?.peel_to_tree()?;
-    let canonicalized_file_path = base_path.join(file_path).canonicalize()?;
-
-    if canonicalized_file_path.as_path().starts_with(base_path) {
-        let entry = tree.get_path(file_path)?;
-        let blob = repo.find_blob(entry.id())?;
-        let content = std::str::from_utf8(blob.content())?;
-
-        Ok(content.to_string())
-    } else {
-        anyhow::bail!("Invalid file path");
-    }
 }
