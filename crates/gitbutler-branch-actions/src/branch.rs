@@ -357,6 +357,7 @@ impl GroupBranch<'_> {
 fn should_list_git_branch(identity: &BranchIdentity) -> bool {
     // Exclude gitbutler technical branches (not useful for the user)
     const TECHNICAL_IDENTITIES: &[&[u8]] = &[
+        b"gitbutler/edit",
         b"gitbutler/workspace",
         b"gitbutler/integration", // Remove me after transition.
         b"gitbutler/target",
