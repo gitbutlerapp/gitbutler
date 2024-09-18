@@ -56,7 +56,7 @@
 			orientation="row"
 			labelFor="use-pull-request-template-boolean"
 		>
-			<svelte:fragment slot="title">Enable Pull Request Templates</svelte:fragment>
+			<svelte:fragment slot="title">Enable pull request templates</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle
 					id="use-pull-request-template-boolean"
