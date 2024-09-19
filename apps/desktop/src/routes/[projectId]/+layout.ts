@@ -3,6 +3,7 @@ import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
+import { CommitService } from '$lib/commits/service';
 import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { HistoryService } from '$lib/history/history';
@@ -54,6 +55,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	const historyService = new HistoryService(projectId);
 	const baseBranchService = new BaseBranchService(projectId);
+	const commitService = new CommitService(projectId);
 
 	const branchListingService = new BranchListingService(projectId);
 	const remoteBranchService = new RemoteBranchService(
@@ -86,6 +88,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	return {
 		authService,
 		baseBranchService,
+		commitService,
 		branchController,
 		historyService,
 		projectId,
