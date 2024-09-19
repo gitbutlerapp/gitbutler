@@ -1,14 +1,14 @@
 <script lang="ts">
-	// import { Project } from '$lib/backend/projects';
+	import { CommitService } from '$lib/commits/service';
 	import ActionView from '$lib/layout/ActionView.svelte';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { getContext } from '$lib/utils/context';
+	import { Commit, type RemoteFile } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import InfoButton from '@gitbutler/ui/InfoButton.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
-	import type { RemoteFile } from '$lib/vbranches/types';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
 
 	interface Props {
@@ -17,7 +17,7 @@
 
 	const { editModeMetadata }: Props = $props();
 
-	// const project = getContext(Project);
+	const remoteCommitService = getContext(CommitService);
 	const uncommitedFileWatcher = getContext(UncommitedFilesWatcher);
 	const modeService = getContext(ModeService);
 
@@ -27,10 +27,17 @@
 	let modeServiceSaving = $state<'inert' | 'loading' | 'completed'>('inert');
 
 	let initialFiles = $state<RemoteFile[]>([]);
+	let commit = $state<Commit | undefined>(undefined);
 
 	$effect(() => {
 		modeService.getInitialIndexState().then((files) => {
 			initialFiles = files;
+		});
+	});
+
+	$effect(() => {
+		remoteCommitService.find(editModeMetadata.commitOid).then((maybeCommit) => {
+			commit = maybeCommit;
 		});
 	});
 
@@ -144,13 +151,14 @@
 
 		<div class="commit-data">
 			<div class="card commit-card">
-				<h3 class="text-13 text-semibold commit-card__title">Awesome title</h3>
+				<h3 class="text-13 text-semibold commit-card__title">
+					{commit?.descriptionTitle ?? 'unknown'}
+				</h3>
 				<div class="text-11 commit-card__details">
 					<span class="">{editModeMetadata.commitOid.slice(0, 7)}</span>
 					<span class="commit-card__divider">•</span>
-					<span class="">Author</span>
+					<span class="">{commit?.author.name ?? 'unknown'}</span>
 				</div>
-
 				<div class="commit-card__type-indicator"></div>
 			</div>
 
