@@ -43,10 +43,11 @@
 		</TabContent>
 		<TabContent value="project">
 			<Section>
+				<DetailsForm />
 				{#if $baseBranchSwitching}
 					<BaseBranchSwitch />
 				{/if}
-				<DetailsForm />
+
 				<PullRequestTemplateForm />
 				<RemoveProjectForm />
 			</Section>

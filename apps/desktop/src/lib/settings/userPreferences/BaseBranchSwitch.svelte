@@ -6,7 +6,6 @@
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
-	import Spacer from '$lib/shared/Spacer.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
@@ -125,7 +124,6 @@
 				</Button>
 			{/if}
 		</SectionCard>
-		<Spacer />
 	{/if}
 {:catch}
 	<InfoMessage filled outlined={true} style="error" icon="error">

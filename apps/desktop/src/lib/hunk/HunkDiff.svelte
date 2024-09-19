@@ -553,6 +553,7 @@
 		height: calc(100% + var(--border-width) * 2);
 		box-sizing: border-box;
 		font-family: var(--mono-font-family);
+		font-weight: 400;
 		font-size: 12px;
 		padding: 4px 6px;
 		text-wrap: nowrap;

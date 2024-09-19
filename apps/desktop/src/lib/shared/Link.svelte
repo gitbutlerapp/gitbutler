@@ -75,5 +75,6 @@
 
 	.link-icon {
 		flex-shrink: 0;
+		opacity: 0.7;
 	}
 </style>
