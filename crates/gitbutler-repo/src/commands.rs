@@ -52,21 +52,23 @@ impl RepoCommands for Project {
 
     fn read_file_from_workspace(&self, relative_path: &Path) -> Result<String> {
         let ctx = CommandContext::open(self)?;
-        let base_path = ctx
-            .repository()
-            .path()
-            .parent()
-            .ok_or(anyhow::anyhow!("Could not find repository base path"))?;
-
-        let canonicalized_file_path = base_path.join(relative_path).canonicalize()?;
-
-        if canonicalized_file_path.as_path().starts_with(base_path) {
+        if self
+            .path
+            .join(relative_path)
+            .canonicalize()?
+            .as_path()
+            .starts_with(self.path.clone())
+        {
             let tree = ctx.repository().head()?.peel_to_tree()?;
             let entry = tree.get_path(relative_path)?;
             let blob = ctx.repository().find_blob(entry.id())?;
-            let content = std::str::from_utf8(blob.content())?;
 
-            Ok(content.to_string())
+            if !blob.is_binary() {
+                let content = std::str::from_utf8(blob.content())?;
+                Ok(content.to_string())
+            } else {
+                anyhow::bail!("File is binary");
+            }
         } else {
             anyhow::bail!("Invalid workspace file");
         }
