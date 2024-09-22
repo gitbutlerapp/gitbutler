@@ -67,4 +67,16 @@ pub mod commands {
 
         Ok(gitbutler_branch_actions::get_uncommited_files(&project)?)
     }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects))]
+    pub fn get_pr_template_contents(
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        relative_path: &Path,
+    ) -> Result<String, Error> {
+        let project = projects.get(project_id)?;
+
+        Ok(project.read_file_from_workspace(relative_path)?)
+    }
 }

@@ -4,7 +4,6 @@ pub mod commands {
     use std::path;
 
     use anyhow::Context;
-    use gitbutler_fs::read_file_from_workspace;
     use gitbutler_project::{self as projects, Controller, ProjectId};
     use tauri::{State, Window};
     use tracing::instrument;
@@ -96,19 +95,6 @@ pub mod commands {
     #[instrument(skip(projects), err(Debug))]
     pub fn delete_project(projects: State<'_, Controller>, id: ProjectId) -> Result<(), Error> {
         projects.delete(id).map_err(Into::into)
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(projects))]
-    pub fn get_pr_template_contents(
-        projects: State<'_, Controller>,
-        relative_path: &path::Path,
-        project_id: ProjectId,
-    ) -> Result<String, Error> {
-        let project = projects.get(project_id)?;
-        let template_path = project.path.join(relative_path);
-
-        Ok(read_file_from_workspace(template_path.as_path())?)
     }
 }
 
