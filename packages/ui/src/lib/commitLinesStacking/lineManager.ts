@@ -1,5 +1,4 @@
-import { LineManager as StackingLineManager } from '$lib/commitLinesStacking/lineManager';
-import type { CommitData, LineGroupData, LineData, Color } from '$lib/commitLines/types';
+import type { CommitData, LineGroupData, LineData, Color } from '$lib/commitLinesStacking/types';
 
 interface Commits {
 	remoteCommits: CommitData[];
@@ -31,7 +30,7 @@ function generateSameForkpoint({
 		}
 
 		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'remote';
-		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'large', commit };
+		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'Remote', commit };
 
 		// If there are local commits we want to fill in a local dashed line
 		if (localBranchGroups.length > 0) {
@@ -51,7 +50,7 @@ function generateSameForkpoint({
 
 		lineGroup.lines[RIGHT_COLUMN_INDEX].top.color = 'local';
 		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.color = 'local';
-		lineGroup.lines[RIGHT_COLUMN_INDEX].commitNode = { type: 'large', commit };
+		lineGroup.lines[RIGHT_COLUMN_INDEX].commitNode = { type: 'Local', commit };
 
 		// We need to use either remote or localAndRemote depending on what is above
 		let leftStyle: Color | undefined;
@@ -69,7 +68,7 @@ function generateSameForkpoint({
 
 			if (commit.relatedRemoteCommit) {
 				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
-					type: 'small',
+					type: 'Remote',
 					commit: commit.relatedRemoteCommit
 				};
 			}
@@ -81,7 +80,7 @@ function generateSameForkpoint({
 				}
 
 				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
-					type: 'small',
+					type: 'Remote',
 					commit: commit.relatedRemoteCommit
 				};
 				lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = leftStyle;
@@ -112,7 +111,7 @@ function generateSameForkpoint({
 		}
 		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'localAndRemote';
 
-		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'large', commit };
+		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'LocalShadow', commit };
 	});
 
 	integratedBranchGroups.forEach(({ commit, lineGroup }, index) => {
@@ -133,18 +132,14 @@ function generateSameForkpoint({
 		}
 		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'integrated';
 
-		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'large', commit };
+		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'LocalShadow', commit };
 	});
 
 	// Set forkpoints
 	if (localBranchGroups.length > 0) {
-		if (integratedBranchGroups.length === 0 && localAndRemoteBranchGroups.length === 0) {
-			localBranchGroups.at(-1)!.lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.type = 'fork';
-		} else if (localAndRemoteBranchGroups.length > 0) {
-			localAndRemoteBranchGroups[0].lineGroup.lines[RIGHT_COLUMN_INDEX].top.type = 'fork';
+		if (localAndRemoteBranchGroups.length > 0) {
 			localAndRemoteBranchGroups[0].lineGroup.lines[RIGHT_COLUMN_INDEX].top.color = 'local';
 		} else if (integratedBranchGroups.length > 0) {
-			integratedBranchGroups[0].lineGroup.lines[RIGHT_COLUMN_INDEX].top.type = 'fork';
 			integratedBranchGroups[0].lineGroup.lines[RIGHT_COLUMN_INDEX].top.color = 'local';
 		}
 	}
@@ -160,7 +155,6 @@ function generateSameForkpoint({
 	}
 
 	// Set base
-	base.lines[LEFT_COLUMN_INDEX].baseNode = {};
 	base.lines[LEFT_COLUMN_INDEX].top.style = 'dashed';
 	if (integratedBranchGroups.length > 0) {
 		base.lines[LEFT_COLUMN_INDEX].top.color = 'integrated';
@@ -170,8 +164,6 @@ function generateSameForkpoint({
 		base.lines[LEFT_COLUMN_INDEX].top.color = 'local';
 	} else if (remoteBranchGroups.length > 0) {
 		base.lines[LEFT_COLUMN_INDEX].top.color = 'remote';
-	} else {
-		base.lines[LEFT_COLUMN_INDEX].baseNode = undefined;
 	}
 
 	const data = new Map<string, LineGroupData>([
@@ -212,7 +204,7 @@ function generateDifferentForkpoint({
 
 		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'remote';
 
-		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'large', commit };
+		lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = { type: 'Remote', commit };
 
 		// If there are local commits further down, render a dashed line from the top of the list
 		if (localBranchGroups.length > 0) {
@@ -232,7 +224,7 @@ function generateDifferentForkpoint({
 
 		lineGroup.lines[RIGHT_COLUMN_INDEX].top.color = 'local';
 		lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.color = 'local';
-		lineGroup.lines[RIGHT_COLUMN_INDEX].commitNode = { type: 'large', commit };
+		lineGroup.lines[RIGHT_COLUMN_INDEX].commitNode = { type: 'Local', commit };
 
 		if (localCommitWithChangeIdFound) {
 			// If a previous local commit with change ID was found, color with "shadow"
@@ -241,7 +233,7 @@ function generateDifferentForkpoint({
 
 			if (commit.relatedRemoteCommit) {
 				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
-					type: 'small',
+					type: 'Remote',
 					commit: commit.relatedRemoteCommit
 				};
 			}
@@ -255,7 +247,7 @@ function generateDifferentForkpoint({
 				}
 
 				lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
-					type: 'small',
+					type: 'Remote',
 					commit: commit.relatedRemoteCommit
 				};
 				lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'shadow';
@@ -284,7 +276,7 @@ function generateDifferentForkpoint({
 			lineGroup.lines[MIDDLE_COLUMN_INDEX].bottom.color = 'integrated';
 			lineGroup.lines[MIDDLE_COLUMN_INDEX].bottom.style = 'dashed';
 
-			lineGroup.lines[MIDDLE_COLUMN_INDEX].commitNode = { type: 'large', commit };
+			lineGroup.lines[MIDDLE_COLUMN_INDEX].commitNode = { type: 'LocalShadow', commit };
 		} else {
 			// If we have local branches, maintain that color on the top half of the first commit
 			if (index === 0) {
@@ -295,7 +287,7 @@ function generateDifferentForkpoint({
 			}
 
 			lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.color = 'integrated';
-			lineGroup.lines[RIGHT_COLUMN_INDEX].commitNode = { type: 'large', commit };
+			lineGroup.lines[RIGHT_COLUMN_INDEX].commitNode = { type: 'LocalShadow', commit };
 
 			if (localCommitWithChangeIdFound) {
 				// If there is a commit with change id above, just use shadow style
@@ -304,7 +296,7 @@ function generateDifferentForkpoint({
 
 				if (commit.relatedRemoteCommit) {
 					lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
-						type: 'small',
+						type: 'Remote',
 						commit: commit.relatedRemoteCommit
 					};
 				}
@@ -316,7 +308,7 @@ function generateDifferentForkpoint({
 					}
 
 					lineGroup.lines[LEFT_COLUMN_INDEX].commitNode = {
-						type: 'small',
+						type: 'Remote',
 						commit: commit.relatedRemoteCommit
 					};
 					lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color = 'shadow';
@@ -332,13 +324,6 @@ function generateDifferentForkpoint({
 			}
 		}
 	});
-
-	// Mark the fork point below the integrated or local branch groups if present
-	if (integratedBranchGroups.length > 0) {
-		integratedBranchGroups.at(-1)!.lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.type = 'fork';
-	} else if (localBranchGroups.length > 0) {
-		localBranchGroups.at(-1)!.lineGroup.lines[RIGHT_COLUMN_INDEX].bottom.type = 'fork';
-	}
 
 	function setLeftSideBase() {
 		let color: Color | undefined;
@@ -363,18 +348,15 @@ function generateDifferentForkpoint({
 		base.lines[MIDDLE_COLUMN_INDEX].top.color = 'integrated';
 		base.lines[MIDDLE_COLUMN_INDEX].top.style =
 			integratedBranchGroups.at(-1)!.lineGroup.lines[MIDDLE_COLUMN_INDEX].bottom.style;
-		base.lines[MIDDLE_COLUMN_INDEX].baseNode = {};
 
 		setLeftSideBase();
 	} else if (localBranchGroups.length > 0) {
 		base.lines[MIDDLE_COLUMN_INDEX].top.color = 'local';
-		base.lines[MIDDLE_COLUMN_INDEX].baseNode = {};
 
 		setLeftSideBase();
 	} else if (remoteBranchGroups.length > 0) {
 		base.lines[LEFT_COLUMN_INDEX].top.color = 'remote';
 		base.lines[LEFT_COLUMN_INDEX].top.style = 'dashed';
-		base.lines[LEFT_COLUMN_INDEX].baseNode = {};
 	}
 
 	function removeLeftMostColumn() {

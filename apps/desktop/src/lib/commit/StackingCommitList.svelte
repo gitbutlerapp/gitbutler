@@ -1,7 +1,6 @@
 <script lang="ts">
 	import CommitAction from './CommitAction.svelte';
-	import CommitCard from './CommitCard.svelte';
-	import { Project } from '$lib/backend/projects';
+	import CommitCard from './StackingCommitCard.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
@@ -17,10 +16,9 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Commit, DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
-	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+	import LineGroupStacking from '@gitbutler/ui/commitLinesStacking/LineGroup.svelte';
+	import { LineManagerFactory } from '@gitbutler/ui/commitLinesStacking/lineManager';
 	import type { Snippet } from 'svelte';
-	import { goto } from '$app/navigation';
 
 	interface Props {
 		localCommits: DetailedCommit[];
@@ -38,14 +36,12 @@
 		integratedCommits,
 		remoteCommits,
 		isUnapplied,
-		localCommitsConflicted,
 		pushButton,
 		localAndRemoteCommitsConflicted
 	}: Props = $props();
 
 	const branch = getContextStore(VirtualBranch);
 	const baseBranch = getContextStore(BaseBranch);
-	const project = getContext(Project);
 	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
@@ -67,9 +63,7 @@
 	);
 
 	const mappedLocalCommits = $derived(
-		localCommits.length > 0
-			? [...localCommits.map(transformAnyCommit), { id: LineSpacer.Local }]
-			: []
+		localCommits.length > 0 ? localCommits.map(transformAnyCommit) : []
 	);
 	const mappedLocalAndRemoteCommits = $derived(
 		localAndRemoteCommits.length > 0
@@ -93,13 +87,6 @@
 		)
 	);
 
-	// Force the "base" commit lines to update when $branch updates.
-	let tsKey = $state<number | undefined>(undefined);
-	$effect(() => {
-		$branch;
-		tsKey = Date.now();
-	});
-
 	const hasCommits = $derived($branch.commits && $branch.commits.length > 0);
 	const headCommit = $derived($branch.commits.at(0));
 
@@ -110,7 +97,6 @@
 	);
 
 	let isIntegratingCommits = $state(false);
-	let baseIsUnfolded = $state(false);
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!$branch || !$baseBranch) {
@@ -145,7 +131,7 @@
 {/snippet}
 
 {#if hasCommits || hasRemoteCommits}
-	<div class="commits">
+	<div class="commits stacked">
 		<!-- UPSTREAM COMMITS -->
 
 		{#if remoteCommits.length > 0}
@@ -163,14 +149,14 @@
 						isHeadCommit={commit.id === headCommit?.id}
 					>
 						{#snippet lines(topHeightPx)}
-							<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+							<LineGroupStacking lineGroup={lineManager.get(commit.id)} {topHeightPx} />
 						{/snippet}
 					</CommitCard>
 				{/each}
 
 				<CommitAction>
 					{#snippet lines()}
-						<LineGroup lineGroup={lineManager.get(LineSpacer.Remote)} topHeightPx={0} />
+						<LineGroupStacking lineGroup={lineManager.get(LineSpacer.Remote)} topHeightPx={0} />
 					{/snippet}
 					{#snippet action()}
 						<Button
@@ -215,7 +201,7 @@
 						isHeadCommit={commit.id === headCommit?.id}
 					>
 						{#snippet lines(topHeightPx)}
-							<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+							<LineGroupStacking lineGroup={lineManager.get(commit.id)} {topHeightPx} />
 						{/snippet}
 					</CommitCard>
 
@@ -232,16 +218,6 @@
 						on:click={() => insertBlankCommit(commit.id, 'below')}
 					/>
 				{/each}
-				{#if pushButton}
-					<CommitAction bottomBorder={hasRemoteCommits}>
-						{#snippet lines()}
-							<LineGroup lineGroup={lineManager.get(LineSpacer.Local)} topHeightPx={0} />
-						{/snippet}
-						{#snippet action()}
-							{@render pushButton({ disabled: localCommitsConflicted })}
-						{/snippet}
-					</CommitAction>
-				{/if}
 			</div>
 		{/if}
 
@@ -260,7 +236,7 @@
 						commitUrl={$gitHost?.commitUrl(commit.id)}
 					>
 						{#snippet lines(topHeightPx)}
-							<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+							<LineGroupStacking lineGroup={lineManager.get(commit.id)} {topHeightPx} />
 						{/snippet}
 					</CommitCard>
 					{@render reorderDropzone(
@@ -278,7 +254,10 @@
 				{#if remoteCommits.length > 0 && localCommits.length === 0 && pushButton}
 					<CommitAction>
 						{#snippet lines()}
-							<LineGroup lineGroup={lineManager.get(LineSpacer.LocalAndRemote)} topHeightPx={0} />
+							<LineGroupStacking
+								lineGroup={lineManager.get(LineSpacer.LocalAndRemote)}
+								topHeightPx={0}
+							/>
 						{/snippet}
 						{#snippet action()}
 							{@render pushButton({ disabled: localAndRemoteCommitsConflicted })}
@@ -303,43 +282,12 @@
 						commitUrl={$gitHost?.commitUrl(commit.id)}
 					>
 						{#snippet lines(topHeightPx)}
-							<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+							<LineGroupStacking lineGroup={lineManager.get(commit.id)} {topHeightPx} />
 						{/snippet}
 					</CommitCard>
 				{/each}
 			</div>
 		{/if}
-
-		<!-- BASE -->
-		<div class="base-row-container" class:base-row-container_unfolded={baseIsUnfolded}>
-			<div
-				class="base-row"
-				tabindex="0"
-				role="button"
-				onclick={(e) => {
-					e.stopPropagation();
-					baseIsUnfolded = !baseIsUnfolded;
-				}}
-				onkeydown={(e) => e.key === 'Enter' && (baseIsUnfolded = !baseIsUnfolded)}
-			>
-				<div class="base-row__lines">
-					{#key tsKey}
-						<LineGroup lineGroup={lineManager.base} />
-					{/key}
-				</div>
-				<div class="base-row__content">
-					<span class="text-11 base-row__text">
-						Base commit
-						<button
-							class="base-row__commit-link"
-							onclick={async () => await goto(`/${project.id}/base`)}
-						>
-							{$branch.forkPoint ? $branch.forkPoint.slice(0, 7) : ''}
-						</button>
-					</span>
-				</div>
-			</div>
-		</div>
 	</div>
 {/if}
 
@@ -354,75 +302,13 @@
 		border-bottom-right-radius: var(--radius-m);
 
 		--base-top-margin: 8px;
-		--base-row-height: 20px;
-		--base-row-height-unfolded: 48px;
-
 		--base-icon-top: -8px;
 
 		--avatar-first-top: 50px;
 		--avatar-top: 16px;
 	}
 
-	/* BASE ROW */
-
-	.base-row-container {
-		display: flex;
-		flex-direction: column;
-		height: var(--base-row-height);
-		border-bottom-left-radius: var(--radius-m);
-		border-bottom-right-radius: var(--radius-m);
-
-		overflow: hidden;
-		transition: height var(--transition-medium);
-
-		&:hover {
-			&:not(.base-row-container_unfolded) {
-				height: 22px;
-			}
-
-			& .base-row {
-				background-color: var(--clr-bg-2-muted);
-			}
-		}
-	}
-
-	.base-row-container_unfolded {
-		--base-row-height: var(--base-row-height-unfolded);
-		--base-icon-top: -3px;
-
-		& .base-row__text {
-			opacity: 1;
-		}
-	}
-
-	.base-row {
-		display: flex;
-		gap: 8px;
-		border-top: 1px solid var(--clr-border-3);
-		min-height: calc(var(--base-row-height-unfolded) - var(--base-top-margin));
-		margin-top: var(--base-top-margin);
-		transition: background-color var(--transition-fast);
-	}
-
-	.base-row__lines {
-		display: flex;
-		margin-top: -9px;
-	}
-
-	.base-row__content {
-		display: flex;
-		align-items: center;
-	}
-
-	.base-row__text {
-		color: var(--clr-text-2);
-		opacity: 0;
-		margin-top: 2px;
-		transition: opacity var(--transition-medium);
-	}
-
-	.base-row__commit-link {
-		text-decoration: underline;
-		cursor: pointer;
+	.commits.stacked {
+		border-top: none;
 	}
 </style>

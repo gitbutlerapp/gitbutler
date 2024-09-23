@@ -30,15 +30,31 @@
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { type Snippet } from 'svelte';
 
-	export let branch: VirtualBranch | undefined = undefined;
-	export let commit: DetailedCommit | Commit;
-	export let commitUrl: string | undefined = undefined;
-	export let isHeadCommit: boolean = false;
-	export let isUnapplied = false;
-	export let first = false;
-	export let last = false;
-	export let type: CommitStatus;
-	export let lines: Snippet<[number]> | undefined = undefined;
+	interface Props {
+		branch?: VirtualBranch | undefined;
+		commit: DetailedCommit | Commit;
+		commitUrl?: string | undefined;
+		isHeadCommit?: boolean;
+		isUnapplied?: boolean;
+		first?: boolean;
+		last?: boolean;
+		type: CommitStatus;
+		lines?: Snippet<[number]> | undefined;
+		filesToggleable?: boolean;
+	}
+
+	const {
+		branch = undefined,
+		commit,
+		commitUrl = undefined,
+		isHeadCommit = false,
+		isUnapplied = false,
+		first = false,
+		last = false,
+		type,
+		lines = undefined,
+		filesToggleable = true
+	}: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
@@ -46,20 +62,20 @@
 	const modeService = maybeGetContext(ModeService);
 
 	const commitStore = createCommitStore(commit);
-	$: commitStore.set(commit);
+	$effect(() => {
+		commitStore.set(commit);
+	});
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
-	let draggableCommitElement: HTMLElement | null = null;
+	let draggableCommitElement = $state<HTMLElement | undefined>();
 	let contextMenu: CommitContextMenu;
-	let files: RemoteFile[] = [];
-	let showDetails = false;
+	let files = $state<RemoteFile[]>([]);
+	let showDetails = $state(false);
 
 	async function loadFiles() {
 		files = await listRemoteCommitFiles(project.id, commit.id);
 	}
-
-	export let filesToggleable = true;
 
 	function toggleFiles() {
 		if (!filesToggleable) return;
@@ -85,11 +101,11 @@
 	let isUndoable = commit instanceof DetailedCommit;
 
 	let commitMessageModal: Modal;
-	let commitMessageValid = false;
-	let description = '';
+	let commitMessageValid = $state(false);
+	let description = $state('');
 
 	let createRefModal: Modal;
-	let createRefName = $baseBranch.remoteName + '/';
+	let createRefName = $state($baseBranch.remoteName + '/');
 
 	function openCreateRefModal(e: Event, commit: DetailedCommit | Commit) {
 		e.stopPropagation();
@@ -128,16 +144,16 @@
 
 	const commitShortSha = commit.id.substring(0, 7);
 
-	let topHeightPx = 24;
+	let topHeightPx = $state(24);
 
-	$: {
+	$effect(() => {
 		topHeightPx = 24;
 		if (first) topHeightPx = 58;
 		if (showDetails && !first) topHeightPx += 12;
-	}
+	});
 
-	let dragDirection: 'up' | 'down' | undefined;
-	let isDragTargeted = false;
+	let dragDirection: 'up' | 'down' | undefined = $state();
+	let isDragTargeted = $state(false);
 
 	function canEdit() {
 		if (isUnapplied) return false;
@@ -153,7 +169,7 @@
 		modeService!.enterEditMode(commit.id, branch!.refname);
 	}
 
-	$: conflicted = commit instanceof DetailedCommit && commit.conflicted;
+	const conflicted = $derived(commit instanceof DetailedCommit && commit.conflicted);
 </script>
 
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
@@ -206,7 +222,7 @@
 />
 
 <div
-	class="commit-row"
+	class="commit-row stacking-feature"
 	class:is-commit-open={showDetails}
 	class:is-first={first}
 	class:is-last={last}
@@ -228,29 +244,29 @@
 		</div>
 	{/if}
 
-	<div class="commit-card" class:is-first={first} class:is-last={last}>
+	<div class="commit-card stacking-feature" class:is-first={first} class:is-last={last}>
 		<CommitDragItem {commit}>
 			<!-- GENERAL INFO -->
 			<div
 				bind:this={draggableCommitElement}
-				class="commit__header"
-				on:click={toggleFiles}
-				on:keyup={onKeyup}
+				class="commit__header stacking-feature"
+				onclick={toggleFiles}
+				onkeyup={onKeyup}
 				role="button"
 				tabindex="0"
-				on:contextmenu={(e) => {
+				oncontextmenu={(e) => {
 					contextMenu.open(e);
 				}}
-				on:dragenter={() => {
+				ondragenter={() => {
 					isDragTargeted = true;
 				}}
-				on:dragleave={() => {
+				ondragleave={() => {
 					isDragTargeted = false;
 				}}
-				on:drop={() => {
+				ondrop={() => {
 					isDragTargeted = false;
 				}}
-				on:drag={(e) => {
+				ondrag={(e) => {
 					const target = e.target as HTMLElement;
 					const targetHeight = target.offsetHeight;
 					const targetTop = target.getBoundingClientRect().top;
@@ -273,36 +289,12 @@
 						}
 					: nonDraggable()}
 			>
-				<div
-					class="accent-border-line"
-					class:is-first={first}
-					class:is-last={last}
-					class:local={type === 'local'}
-					class:local-and-remote={type === 'localAndRemote'}
-					class:upstream={type === 'remote'}
-					class:integrated={type === 'integrated'}
-				></div>
-
 				{#if !isUnapplied}
 					{#if type === 'local' || type === 'localAndRemote'}
 						<div class="commit__drag-icon">
 							<Icon name="draggable-narrow" />
 						</div>
 					{/if}
-				{/if}
-
-				{#if first}
-					<div class="commit__type text-semibold text-12">
-						{#if type === 'remote'}
-							Remote <Icon name="remote" />
-						{:else if type === 'local'}
-							Local <Icon name="local" />
-						{:else if type === 'localAndRemote'}
-							Local and remote
-						{:else if type === 'integrated'}
-							Integrated
-						{/if}
-					</div>
 				{/if}
 
 				{#if isUndoable && !commit.descriptionTitle}
@@ -341,7 +333,10 @@
 
 						<button
 							class="commit__subtitle-btn commit__subtitle-btn_dashed"
-							on:click|stopPropagation={() => copyToClipboard(commit.id)}
+							onclick={(e) => {
+								e.stopPropagation();
+								copyToClipboard(commit.id);
+							}}
 						>
 							<span>{commitShortSha}</span>
 
@@ -355,7 +350,8 @@
 
 							<button
 								class="commit__subtitle-btn"
-								on:click|stopPropagation={() => {
+								onclick={(e) => {
+									e.stopPropagation();
 									if (commitUrl) openExternalUrl(commitUrl);
 								}}
 							>
@@ -406,6 +402,26 @@
 										icon="edit-small"
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
+									{#if commit instanceof DetailedCommit && !commit.remoteRef}
+										<Button
+											size="tag"
+											style="ghost"
+											outline
+											icon="branch"
+											onclick={(e: Event) => {openCreateRefModal(e, commit)}}>Create ref</Button
+										>
+									{/if}
+									{#if commit instanceof DetailedCommit && commit.remoteRef}
+										<Button
+											size="tag"
+											style="ghost"
+											outline
+											icon="remote"
+											onclick={() => {
+												pushCommitRef(commit);
+											}}>Push ref</Button
+										>
+									{/if}
 								{/if}
 								{#if canEdit() && project.succeedingRebases}
 									<Button size="tag" style="ghost" outline onclick={editPatch}>
@@ -443,6 +459,10 @@
 			padding-right: 14px;
 		}
 
+		&.stacking-feature {
+			padding-right: 0px !important;
+		}
+
 		&:not(.is-first) {
 			border-top: 1px dotted var(--clr-border-2);
 		}
@@ -473,6 +493,11 @@
 		&:not(.is-first) {
 			border-top: none;
 		}
+		&.stacking-feature {
+			margin-top: 0px !important;
+			background-color: transparent !important;
+			border: none !important;
+		}
 	}
 
 	.commit__conflicted {
@@ -483,38 +508,16 @@
 		color: var(--clr-core-err-40);
 	}
 
-	.accent-border-line {
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 4px;
-		height: 100%;
-		z-index: var(--z-ground);
-
-		&.local {
-			background-color: var(--clr-commit-local);
-		}
-		&.local-and-remote {
-			background-color: var(--clr-commit-remote);
-		}
-		&.upstream {
-			background-color: var(--clr-commit-upstream);
-		}
-		&.integrated {
-			background-color: var(--clr-commit-shadow);
-		}
-	}
-
-	.commit__type {
-		opacity: 0.4;
-	}
-
 	/* HEADER */
 	.commit__header {
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
 		padding: 14px;
+
+		&.stacking-feature:hover {
+			background-color: unset;
+		}
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);

@@ -40,13 +40,11 @@
 			right: 0;
 			width: 2px;
 			height: calc(100% + 1px);
-			background: repeating-linear-gradient(
-				0,
-				transparent,
-				transparent 2px,
-				var(--border-color) 2px,
-				var(--border-color) 4px
-			);
+			background: repeating-linear-gradient(0,
+					transparent,
+					transparent 2px,
+					var(--border-color) 2px,
+					var(--border-color) 4px);
 		}
 	}
 }
