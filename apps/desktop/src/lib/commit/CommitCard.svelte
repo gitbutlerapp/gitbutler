@@ -165,6 +165,7 @@
 			bind:valid={commitMessageValid}
 			isExpanded={true}
 			cancel={close}
+			commit={submitCommitMessageModal}
 		/>
 	{/snippet}
 	{#snippet controls(close)}

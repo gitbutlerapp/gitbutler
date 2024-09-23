@@ -133,6 +133,8 @@
 			return;
 		}
 
+		if (commit && (e.ctrlKey || e.metaKey) && e.key === KeyName.Enter) commit();
+
 		if (e.key === KeyName.Delete && value.length === 0) {
 			e.preventDefault();
 			if (titleTextArea) {
