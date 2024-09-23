@@ -33,7 +33,7 @@ export type SelectedFile = {
 
 type CallBack = (value: string[]) => void;
 
-export class FileIdSelection {
+export class FileIdSelection implements Readable<string[]> {
 	private value: string[];
 	private callbacks: CallBack[];
 
@@ -52,7 +52,7 @@ export class FileIdSelection {
 		return () => this.unsubscribe(callback);
 	}
 
-	unsubscribe(callback: CallBack) {
+	private unsubscribe(callback: CallBack) {
 		this.callbacks = this.callbacks.filter((cb) => cb !== callback);
 	}
 
@@ -73,10 +73,6 @@ export class FileIdSelection {
 		this.emit();
 	}
 
-	map<T>(callback: (fileId: string) => T) {
-		return this.value.map((fileKey) => callback(fileKey));
-	}
-
 	set(values: string[]) {
 		this.value = values;
 		this.emit();
@@ -92,7 +88,7 @@ export class FileIdSelection {
 		this.emit();
 	}
 
-	emit() {
+	private emit() {
 		for (const callback of this.callbacks) {
 			callback(this.value);
 		}
@@ -145,10 +141,6 @@ export class FileIdSelection {
 		this.#files = flattenPromises(files);
 
 		return this.#files;
-	}
-
-	get length() {
-		return this.value.length;
 	}
 }
 
