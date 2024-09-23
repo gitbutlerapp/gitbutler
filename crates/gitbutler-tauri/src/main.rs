@@ -190,6 +190,7 @@ fn main() {
                     virtual_branches::commands::normalize_branch_name,
                     virtual_branches::commands::upstream_integration_statuses,
                     virtual_branches::commands::integrate_upstream,
+                    virtual_branches::commands::find_commit,
                     secret::secret_get_global,
                     secret::secret_set_global,
                     undo::list_snapshots,

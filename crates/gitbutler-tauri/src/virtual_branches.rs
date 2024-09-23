@@ -6,7 +6,7 @@ pub mod commands {
     use gitbutler_branch_actions::upstream_integration::{BranchStatuses, Resolution};
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranch,
-        RemoteBranchData, RemoteBranchFile, VirtualBranches,
+        RemoteBranchData, RemoteBranchFile, RemoteCommit, VirtualBranches,
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
@@ -592,6 +592,18 @@ pub mod commands {
         gitbutler_branch_actions::update_commit_message(&project, branch_id, commit_oid, message)?;
         emit_vbranches(&windows, project_id);
         Ok(())
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects), err(Debug))]
+    pub fn find_commit(
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        commit_oid: String,
+    ) -> Result<Option<RemoteCommit>, Error> {
+        let project = projects.get(project_id)?;
+        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
+        gitbutler_branch_actions::find_commit(&project, commit_oid).map_err(Into::into)
     }
 
     #[tauri::command(async)]

@@ -6,7 +6,7 @@ use crate::{
     branch_manager::BranchManagerExt,
     file::RemoteBranchFile,
     remote,
-    remote::{RemoteBranch, RemoteBranchData},
+    remote::{RemoteBranch, RemoteBranchData, RemoteCommit},
     VirtualBranchesExt,
 };
 use anyhow::{Context, Result};
@@ -460,6 +460,11 @@ pub fn update_commit_message(
         guard.write_permission(),
     );
     vbranch::update_commit_message(&ctx, branch_id, commit_oid, message).map_err(Into::into)
+}
+
+pub fn find_commit(project: &Project, commit_oid: git2::Oid) -> Result<Option<RemoteCommit>> {
+    let ctx = CommandContext::open(project)?;
+    remote::get_commit_data(&ctx, commit_oid)
 }
 
 pub fn fetch_from_remotes(project: &Project, askpass: Option<String>) -> Result<FetchResult> {

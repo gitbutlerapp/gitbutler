@@ -7,6 +7,7 @@
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
+	import { CommitService } from '$lib/commits/service';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
@@ -66,6 +67,7 @@
 		setContext(VirtualBranchService, data.vbranchService);
 		setContext(BranchController, data.branchController);
 		setContext(BaseBranchService, data.baseBranchService);
+		setContext(CommitService, data.commitService);
 		setContext(BaseBranch, baseBranch);
 		setContext(Project, project);
 		setContext(BranchDragActionsFactory, data.branchDragActionsFactory);
