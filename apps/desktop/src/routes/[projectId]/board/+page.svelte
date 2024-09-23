@@ -38,11 +38,13 @@
 	const modeService = getContext(ModeService);
 	const mode = modeService.mode;
 
-	$: {
-		if ($mode?.type === 'Edit') {
-			// eslint-disable-next-line svelte/valid-compile
-			goto(`/${project.id}/edit`);
-		}
+	function gotoEdit() {
+		goto(`/${project.id}/edit`);
+	}
+
+	$: if ($mode?.type === 'Edit') {
+		// That was causing an incorrect linting error when project.id was accessed inside the reactive block
+		gotoEdit();
 	}
 </script>
 

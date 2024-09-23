@@ -30,8 +30,7 @@
 	let isResizerHovered = false;
 	let isResizerDragging = false;
 
-	// eslint-disable-next-line svelte/valid-compile
-	$: isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
+	const isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
 
 	function toggleNavCollapse() {
 		$isNavCollapsed = !$isNavCollapsed;

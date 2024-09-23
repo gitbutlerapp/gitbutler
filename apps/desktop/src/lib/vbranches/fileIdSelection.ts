@@ -1,3 +1,4 @@
+import { flattenPromises } from '$lib/utils/flattenPromises';
 import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { derived, type Readable } from 'svelte/store';
@@ -103,24 +104,32 @@ export class FileIdSelection {
 		return fileKey;
 	}
 
-	#selectedFile: Readable<Promise<[string | undefined, AnyFile | undefined]>> | undefined;
+	#selectedFile: Readable<[string | undefined, AnyFile | undefined] | undefined> | undefined;
 	get selectedFile() {
-		this.#selectedFile ||= derived(
+		if (this.#selectedFile) return this.#selectedFile;
+
+		const files = derived(
 			[this as Readable<string[]>, this.localFiles],
-			async ([selection, localFiles]): Promise<[string | undefined, AnyFile | undefined]> => {
-				if (selection.length !== 1) return [undefined, undefined];
+			async ([selection, localFiles]): Promise<
+				[string | undefined, AnyFile | undefined] | undefined
+			> => {
+				if (selection.length !== 1) return undefined;
 				const fileKey = parseFileKey(selection[0]!);
 				const file = await findFileByKey(localFiles, this.projectId, fileKey);
 				return [fileKey.commitId, file];
 			}
 		);
 
+		this.#selectedFile = flattenPromises(files);
+
 		return this.#selectedFile;
 	}
 
-	#files: Readable<Promise<AnyFile[]>> | undefined;
+	#files: Readable<AnyFile[] | undefined> | undefined;
 	get files() {
-		this.#files ||= derived(
+		if (this.#files) return this.#files;
+
+		const files = derived(
 			[this as Readable<string[]>, this.localFiles],
 			async ([selection, localFiles]): Promise<AnyFile[]> => {
 				const files = await Promise.all(
@@ -132,6 +141,8 @@ export class FileIdSelection {
 				return files.filter(isDefined);
 			}
 		);
+
+		this.#files = flattenPromises(files);
 
 		return this.#files;
 	}

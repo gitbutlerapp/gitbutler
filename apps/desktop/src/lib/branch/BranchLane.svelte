@@ -84,7 +84,9 @@
 
 	const project = getContext(Project);
 	const fileIdSelection = new FileIdSelection(project.id, branchFiles);
-	const selectedFile = $derived(fileIdSelection.selectedFile);
+	const selectedFile = fileIdSelection.selectedFile;
+	const commitId = $derived($selectedFile?.[0]);
+	const selected = $derived($selectedFile?.[1]);
 	setContext(FileIdSelection, fileIdSelection);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
@@ -109,39 +111,37 @@
 <div class="wrapper" data-tauri-drag-region>
 	<BranchCard {commitBoxOpen} {isLaneCollapsed} />
 
-	{#await $selectedFile then [commitId, selected]}
-		{#if selected}
-			<div
-				class="file-preview"
-				bind:this={rsViewport}
-				in:slide={{ duration: 180, easing: quintOut, axis: 'x' }}
-				style:width={`${fileWidth || $defaultFileWidthRem}rem`}
-			>
-				<FileCard
-					isUnapplied={false}
-					conflicted={selected.conflicted}
-					file={selected}
-					readonly={selected instanceof RemoteFile}
-					selectable={$commitBoxOpen && commitId === undefined}
-					{commitId}
-					on:close={() => {
-						fileIdSelection.clear();
-					}}
-				/>
-				<Resizer
-					viewport={rsViewport}
-					direction="right"
-					minWidth={400}
-					defaultLineColor="var(--clr-border-2)"
-					on:width={(e) => {
-						fileWidth = e.detail / (16 * $userSettings.zoom);
-						lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
-						$defaultFileWidthRem = fileWidth;
-					}}
-				/>
-			</div>
-		{/if}
-	{/await}
+	{#if selected}
+		<div
+			class="file-preview"
+			bind:this={rsViewport}
+			in:slide={{ duration: 180, easing: quintOut, axis: 'x' }}
+			style:width={`${fileWidth || $defaultFileWidthRem}rem`}
+		>
+			<FileCard
+				isUnapplied={false}
+				conflicted={selected.conflicted}
+				file={selected}
+				readonly={selected instanceof RemoteFile}
+				selectable={$commitBoxOpen && commitId === undefined}
+				{commitId}
+				on:close={() => {
+					fileIdSelection.clear();
+				}}
+			/>
+			<Resizer
+				viewport={rsViewport}
+				direction="right"
+				minWidth={400}
+				defaultLineColor="var(--clr-border-2)"
+				on:width={(e) => {
+					fileWidth = e.detail / (16 * $userSettings.zoom);
+					lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
+					$defaultFileWidthRem = fileWidth;
+				}}
+			/>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">

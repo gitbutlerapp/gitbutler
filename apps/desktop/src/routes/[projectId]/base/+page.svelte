@@ -24,14 +24,15 @@
 	const fileIdSelection = new FileIdSelection(project.id, writable([]));
 	setContext(FileIdSelection, fileIdSelection);
 
-	// eslint-disable-next-line svelte/valid-compile
-	$: selectedFile = fileIdSelection.selectedFile;
+	const selectedFile = fileIdSelection.selectedFile;
+
+	$: commitId = $selectedFile?.[0];
+	$: selected = $selectedFile?.[1];
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
 
-	// eslint-disable-next-line svelte/valid-compile
-	$: error = baseBranchService.error;
+	const error = baseBranchService.error;
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
@@ -65,20 +66,18 @@
 			/>
 		</div>
 		<div class="base__right">
-			{#await $selectedFile then [commitId, selected]}
-				{#if selected}
-					<FileCard
-						conflicted={selected.conflicted}
-						file={selected}
-						isUnapplied={false}
-						readonly={true}
-						{commitId}
-						on:close={() => {
-							fileIdSelection.clear();
-						}}
-					/>
-				{/if}
-			{/await}
+			{#if selected}
+				<FileCard
+					conflicted={selected.conflicted}
+					file={selected}
+					isUnapplied={false}
+					readonly={true}
+					{commitId}
+					on:close={() => {
+						fileIdSelection.clear();
+					}}
+				/>
+			{/if}
 		</div>
 	</div>
 {/if}
