@@ -4,7 +4,7 @@ import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { Hunk, LocalFile } from './types';
+import type { BranchPushResult, Hunk, LocalFile } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
 export class BranchController {
@@ -261,16 +261,16 @@ export class BranchController {
 		}
 	}
 
-	async pushBranch(branchId: string, withForce: boolean): Promise<string> {
+	async pushBranch(branchId: string, withForce: boolean): Promise<BranchPushResult> {
 		try {
-			const upstreamRef = await invoke<string>('push_virtual_branch', {
+			const pushResult = await invoke<BranchPushResult>('push_virtual_branch', {
 				projectId: this.projectId,
 				branchId,
 				withForce
 			});
 			posthog.capture('Push Successful');
 			await this.vbranchService.refresh();
-			return upstreamRef;
+			return pushResult;
 		} catch (err: any) {
 			console.error(err);
 			const { code, message } = err;

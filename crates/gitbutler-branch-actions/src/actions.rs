@@ -418,7 +418,7 @@ pub fn push_virtual_branch(
     branch_id: BranchId,
     with_force: bool,
     askpass: Option<Option<BranchId>>,
-) -> Result<Refname> {
+) -> Result<vbranch::PushResult> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Pushing a branch requires open workspace mode")?;
     vbranch::push(&ctx, branch_id, with_force, askpass)
