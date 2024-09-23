@@ -1,5 +1,3 @@
-import { entries, type UnknowObject } from './object';
-
 const PREFERRED_REMOTE = 'origin';
 const BRANCH_SEPARATOR = '/';
 const REF_REMOTES_PREFIX = 'refs/remotes/';
@@ -22,14 +20,14 @@ export function getBranchRemoteFromRef(ref: string): string | undefined {
 	return parts.length > 1 ? parts[0] : undefined;
 }
 
-const BRANCH_RANKING_EXACT: UnknowObject<number> = {
+const BRANCH_RANKING_EXACT: Record<string, number> = {
 	'upstream/main': 100,
 	'upstream/master': 100,
 	'origin/main': 90,
 	'origin/master': 90
 };
 
-const BRANCH_RANKING_ENDS_WITH: UnknowObject<number> = {
+const BRANCH_RANKING_ENDS_WITH: Record<string, number> = {
 	'/master': 70,
 	'/main': 70
 };
@@ -40,7 +38,7 @@ function branchRank(branchName: string): number {
 		return exactMatch;
 	}
 
-	for (const [key, value] of entries(BRANCH_RANKING_ENDS_WITH)) {
+	for (const [key, value] of Object.entries(BRANCH_RANKING_ENDS_WITH)) {
 		if (branchName.endsWith(key)) {
 			return value;
 		}
