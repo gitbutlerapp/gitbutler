@@ -4,19 +4,21 @@ use std::os::unix::fs::PermissionsExt;
 use std::os::windows::process::CommandExt;
 use std::{io::Write, path::Path, process::Stdio, str};
 
+use crate::{Config, LogUntil};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
 use git2::{BlameOptions, Tree};
-use gitbutler_branch::{gix_to_git2_signature, SignaturePurpose};
+use gitbutler_branch::SignaturePurpose;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
+use gitbutler_oxidize::{
+    git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, gix_to_git2_signature,
+};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::objs::WriteTo;
 use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
 use tracing::instrument;
-
-use crate::{Config, LogUntil};
 
 /// Extension trait for `git2::Repository`.
 ///
@@ -536,7 +538,7 @@ impl RepositoryExt for git2::Repository {
         let author = repo
             .author()
             .transpose()?
-            .map(gitbutler_branch::gix_to_git2_signature)
+            .map(gix_to_git2_signature)
             .transpose()?
             .context("No author is configured in Git")
             .context(Code::AuthorMissing)?;
@@ -619,7 +621,6 @@ impl CheckoutIndexBuilder<'_> {
     }
 }
 
-// TODO(ST): put this into `gix`, the logic seems good, add unit-test for number generation.
 pub trait GixRepositoryExt: Sized {
     /// Configure the repository for diff operations between trees.
     /// This means it needs an object cache relative to the amount of files in the repository.
@@ -632,26 +633,4 @@ impl GixRepositoryExt for gix::Repository {
         self.object_cache_size_if_unset(bytes);
         Ok(self)
     }
-}
-
-// TODO: expose in separate crate to deduplicate
-fn git2_to_gix_object_id(id: git2::Oid) -> gix::ObjectId {
-    gix::ObjectId::try_from(id.as_bytes()).expect("git2 oid is always valid")
-}
-
-// TODO: expose in separate crate to deduplicate
-fn git2_signature_to_gix_signature(input: &git2::Signature<'_>) -> gix::actor::Signature {
-    gix::actor::Signature {
-        name: input.name_bytes().into(),
-        email: input.email_bytes().into(),
-        time: gix::date::Time {
-            seconds: input.when().seconds(),
-            offset: input.when().offset_minutes() * 60,
-            sign: input.when().offset_minutes().into(),
-        },
-    }
-}
-
-fn gix_to_git2_oid(id: impl Into<gix::ObjectId>) -> git2::Oid {
-    git2::Oid::from_bytes(id.into().as_bytes()).expect("always valid")
 }
