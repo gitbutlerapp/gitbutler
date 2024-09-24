@@ -4,7 +4,9 @@ pub mod commands {
         BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest,
     };
     use gitbutler_branch_actions::internal::PushResult;
-    use gitbutler_branch_actions::upstream_integration::{BranchStatuses, Resolution};
+    use gitbutler_branch_actions::upstream_integration::{
+        BaseBranchResolutionApproach, BranchStatuses, Resolution,
+    };
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranch,
         RemoteBranchData, RemoteBranchFile, RemoteCommit, VirtualBranches,
@@ -595,6 +597,21 @@ pub mod commands {
         emit_vbranches(&windows, project_id);
 
         Ok(())
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects), err(Debug))]
+    pub fn resolve_upstream_integration(
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        resolution_approach: BaseBranchResolutionApproach,
+    ) -> Result<String, Error> {
+        let project = projects.get(project_id)?;
+
+        let new_target_id =
+            gitbutler_branch_actions::resolve_upstream_integration(&project, resolution_approach)?;
+        let commit_id = git2::Oid::to_string(&new_target_id);
+        Ok(commit_id)
     }
 
     pub(crate) fn emit_vbranches(windows: &WindowState, project_id: projects::ProjectId) {

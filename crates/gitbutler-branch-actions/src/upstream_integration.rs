@@ -34,6 +34,14 @@ pub enum BranchStatuses {
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
+pub enum BaseBranchResolutionApproach {
+    Rebase,
+    Merge,
+    HardReset,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 enum ResolutionApproach {
     Rebase,
     Merge,
@@ -311,6 +319,39 @@ pub(crate) fn integrate_upstream(
     }
 
     Ok(())
+}
+
+pub(crate) fn resolve_upstream_integration(
+    command_context: &CommandContext,
+    resolution_approach: BaseBranchResolutionApproach,
+    permission: &mut WorktreeWritePermission,
+) -> Result<git2::Oid> {
+    let context = UpstreamIntegrationContext::open(command_context, permission)?;
+    let repo = command_context.repository();
+    let new_target_id = context.new_target.id();
+    let old_target_id = context.old_target.id();
+    let fork_point = repo.merge_base(old_target_id, new_target_id)?;
+
+    match resolution_approach {
+        BaseBranchResolutionApproach::HardReset => Ok(new_target_id),
+        BaseBranchResolutionApproach::Merge => {
+            let new_head = gitbutler_merge_commits(
+                repo,
+                context.old_target,
+                context.new_target,
+                &context.target_branch_name,
+                &context.target_branch_name,
+            )?;
+
+            Ok(new_head.id())
+        }
+        BaseBranchResolutionApproach::Rebase => {
+            let commits = repo.l(old_target_id, LogUntil::Commit(fork_point))?;
+            let new_head = cherry_rebase_group(repo, new_target_id, &commits, true)?;
+
+            Ok(new_head)
+        }
+    }
 }
 
 fn compute_resolutions(

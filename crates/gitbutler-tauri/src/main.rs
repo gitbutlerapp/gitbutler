@@ -188,6 +188,7 @@ fn main() {
                     virtual_branches::commands::normalize_branch_name,
                     virtual_branches::commands::upstream_integration_statuses,
                     virtual_branches::commands::integrate_upstream,
+                    virtual_branches::commands::resolve_upstream_integration,
                     virtual_branches::commands::find_commit,
                     stack::create_series,
                     stack::remove_series,

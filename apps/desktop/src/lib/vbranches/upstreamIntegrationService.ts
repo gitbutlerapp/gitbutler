@@ -37,6 +37,8 @@ export type Resolution = {
 	approach: ResolutionApproach;
 };
 
+export type BaseBranchResolutionApproach = 'rebase' | 'merge' | 'hardReset';
+
 export function getResolutionApproach(statusInfo: BranchStatusInfo): ResolutionApproach {
 	if (statusInfo.status.type === 'fullyIntegrated') {
 		return { type: 'delete' };
@@ -79,7 +81,7 @@ export class UpstreamIntegrationService {
 		private virtualBranchService: VirtualBranchService
 	) {}
 
-	upstreamStatuses(): Readable<BranchStatusesWithBranches | undefined> {
+	upstreamStatuses(_targetId?: string): Readable<BranchStatusesWithBranches | undefined> {
 		const branchStatuses = readable<BranchStatusesResponse | undefined>(undefined, (set) => {
 			invoke<BranchStatusesResponse>('upstream_integration_statuses', {
 				projectId: this.project.id
@@ -115,5 +117,12 @@ export class UpstreamIntegrationService {
 
 	async integrateUpstream(resolutions: Resolution[]) {
 		return await invoke('integrate_upstream', { projectId: this.project.id, resolutions });
+	}
+
+	async resolveUpstreamIntegration(type: BaseBranchResolutionApproach) {
+		return await invoke<string>('resolve_upstream_integration', {
+			projectId: this.project.id,
+			resolutionApproach: { type }
+		});
 	}
 }

@@ -10,6 +10,7 @@
 		getResolutionApproach,
 		sortStatusInfo,
 		UpstreamIntegrationService,
+		type BaseBranchResolutionApproach,
 		type BranchStatusesWithBranches,
 		type BranchStatusInfo,
 		type Resolution
@@ -39,6 +40,8 @@
 	let results = $state(new SvelteMap<string, Resolution>());
 	let statuses = $state<BranchStatusInfo[]>([]);
 	let expanded = $state<boolean>(false);
+	let baseResolutionApproach = $state<BaseBranchResolutionApproach>('hardReset');
+	let targetId = $state<string | undefined>(undefined);
 
 	$effect(() => {
 		if ($branchStatuses?.type !== 'updatesRequired') {
@@ -67,6 +70,17 @@
 
 		statuses = statusesTmp;
 	});
+
+	$effect(() => {
+		if (targetId) {
+			branchStatuses = upstreamIntegrationService.upstreamStatuses(targetId);
+		}
+	});
+
+	async function handleBaseResolutionSelection(resolution: BaseBranchResolutionApproach) {
+		baseResolutionApproach = resolution;
+		targetId = await upstreamIntegrationService.resolveUpstreamIntegration(resolution);
+	}
 
 	async function integrate() {
 		integratingUpstream = 'loading';
@@ -144,6 +158,34 @@
 					{/if}
 				</div>
 			{/if}
+
+			{#if $base?.diverged}
+				<div class="branch-status">
+					<div class="description">
+						<h5 class="text-16">{$base.branchName ?? 'Unknown'}</h5>
+						<p>Diverged</p>
+					</div>
+
+					<div class="action">
+						<Select
+							value={baseResolutionApproach}
+							onselect={handleBaseResolutionSelection}
+							options={[
+								{ label: 'Rebase', value: 'rebase' },
+								{ label: 'Merge', value: 'merge' },
+								{ label: 'Hard reset', value: 'hardReset' }
+							]}
+						>
+							{#snippet itemSnippet({ item, highlighted })}
+								<SelectItem selected={highlighted} {highlighted}>
+									{item.label}
+								</SelectItem>
+							{/snippet}
+						</Select>
+					</div>
+				</div>
+			{/if}
+
 			{#if statuses.length > 0}
 				<div class="statuses">
 					{#each statuses as { branch, status }}
@@ -168,11 +210,8 @@
 										onselect={(value) => {
 											const result = results.get(branch.id)!;
 
-											results.set(branch.id, {
-												...result,
-												approach: { type: value as 'rebase' | 'merge' | 'unapply' }
-											});
-										}}
+										results.set(branch.id, {...result, approach: { type: value }})
+									}}
 										options={[
 											{ label: 'Rebase', value: 'rebase' },
 											{ label: 'Merge', value: 'merge' },
