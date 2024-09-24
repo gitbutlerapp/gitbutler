@@ -85,6 +85,12 @@
 		await tick();
 		modal?.show();
 	}
+
+	export const imports = {
+		get open() {
+			return modal?.imports.open;
+		}
+	};
 </script>
 
 <Modal bind:this={modal} title="Integrate upstream changes" {onClose} width="small" noPadding>

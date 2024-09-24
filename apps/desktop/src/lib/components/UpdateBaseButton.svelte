@@ -20,16 +20,11 @@
 
 	let modal = $state<IntegrateUpstreamModal>();
 
-	let modalOpen = $state<boolean>(false);
-
 	function openModal() {
-		modalOpen = true;
 		modal?.show();
 	}
 
-	function onClose() {
-		modalOpen = false;
-	}
+	function onClose() {}
 
 	async function updateBaseBranch() {
 		let infoText = await branchController.updateBaseBranch();
@@ -54,7 +49,7 @@
 				updateBaseBranch();
 			}
 		}}
-		loading={modalOpen}
+		loading={modal?.imports.open}
 	>
 		Update
 	</Button>

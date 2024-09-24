@@ -30,7 +30,6 @@
 
 	let updateTargetModal: Modal;
 	let integrateUpstreamModal: IntegrateUpstreamModal | undefined;
-	let integrateUpstreamModalOpen = false;
 	let mergeUpstreamWarningDismissedCheckbox = false;
 
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false;
@@ -42,13 +41,8 @@
 		}
 	}
 
-	function closeIntegrateUpstreamModal() {
-		integrateUpstreamModalOpen = false;
-	}
-
 	function mergeUpstream() {
 		if (project.succeedingRebases) {
-			integrateUpstreamModalOpen = true;
 			integrateUpstreamModal?.show();
 		} else {
 			if (mergeUpstreamWarningDismissedCheckbox) {
@@ -68,16 +62,13 @@
 	</div>
 
 	{#if base.upstreamCommits?.length > 0}
-		<IntegrateUpstreamModal
-			bind:this={integrateUpstreamModal}
-			onClose={closeIntegrateUpstreamModal}
-		/>
+		<IntegrateUpstreamModal bind:this={integrateUpstreamModal} />
 		<Button
 			style="pop"
 			kind="solid"
 			tooltip={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
-			disabled={$mode?.type !== 'OpenWorkspace' || integrateUpstreamModalOpen}
-			loading={integrateUpstreamModalOpen}
+			disabled={$mode?.type !== 'OpenWorkspace' || integrateUpstreamModal.imports.open}
+			loading={integrateUpstreamModal.imports.open}
 			onclick={mergeUpstream}
 		>
 			Merge into common base
