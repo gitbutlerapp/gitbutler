@@ -1,8 +1,8 @@
 <script lang="ts">
+	import IntegrateUpstreamModal from './IntegrateUpstreamModal.svelte';
 	import Spacer from '../shared/Spacer.svelte';
 	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
-	import UpdateBaseButton from '$lib/components/UpdateBaseButton.svelte';
 	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { ModeService } from '$lib/modes/service';
@@ -29,6 +29,7 @@
 	);
 
 	let updateTargetModal: Modal;
+	let integrateUpstreamModal: IntegrateUpstreamModal | undefined;
 	let mergeUpstreamWarningDismissedCheckbox = false;
 
 	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false;
@@ -40,7 +41,17 @@
 		}
 	}
 
-	let updateBaseButton: UpdateBaseButton | undefined;
+	function mergeUpstream() {
+		if (project.succeedingRebases) {
+			integrateUpstreamModal?.show();
+		} else {
+			if (mergeUpstreamWarningDismissedCheckbox) {
+				updateBaseBranch();
+			} else {
+				updateTargetModal.show();
+			}
+		}
+	}
 </script>
 
 <div class="wrapper">
@@ -51,23 +62,14 @@
 	</div>
 
 	{#if base.upstreamCommits?.length > 0}
-		<UpdateBaseButton bind:this={updateBaseButton} showButton={false} />
+		<IntegrateUpstreamModal bind:this={integrateUpstreamModal} />
 		<Button
 			style="pop"
 			kind="solid"
 			tooltip={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
-			disabled={$mode?.type !== 'OpenWorkspace'}
-			onclick={() => {
-				if (project.succeedingRebases) {
-					updateBaseButton?.openModal();
-				} else {
-					if ($mergeUpstreamWarningDismissed) {
-						updateBaseBranch();
-					} else {
-						updateTargetModal.show();
-					}
-				}
-			}}
+			disabled={$mode?.type !== 'OpenWorkspace' || integrateUpstreamModal.imports.open}
+			loading={integrateUpstreamModal.imports.open}
+			onclick={mergeUpstream}
 		>
 			Merge into common base
 		</Button>
