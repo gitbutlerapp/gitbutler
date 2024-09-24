@@ -158,71 +158,76 @@ impl RepositoryExt for git2::Repository {
     /// Note that right now, it doesn't skip big files.
     #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
     fn create_wd_tree(&self) -> Result<Tree> {
-        let repo = gix::open(self.path())?;
-        let workdir = repo.work_dir().context("Need non-bare repository")?;
-        let mut head_tree_editor = repo.edit_tree(repo.head_tree_id()?)?;
-        let status_changes = repo
-            .status(gix::progress::Discard)?
-            .index_worktree_rewrites(None)
-            .index_worktree_submodules(None)
-            .into_index_worktree_iter(None::<BString>)?;
-        for change in status_changes {
-            let change = change?;
-            match change {
-                // modified or tracked files are unconditionally added as blob.
-                gix::status::index_worktree::iter::Item::Modification {
-                    rela_path,
-                    status: EntryStatus::Change(Change::Type | Change::Modification { .. }),
-                    ..
-                }
-                | gix::status::index_worktree::iter::Item::DirectoryContents {
-                    entry:
-                        gix::dir::Entry {
-                            rela_path,
-                            status: gix::dir::entry::Status::Untracked,
-                            ..
-                        },
-                    ..
-                } => {
-                    let path = workdir.join(gix::path::from_bstr(&rela_path));
-                    let Ok(md) = std::fs::symlink_metadata(&path) else {
-                        continue;
-                    };
-                    let (id, kind) = if md.is_symlink() {
-                        let target = std::fs::read_link(&path).with_context(|| {
-                            format!(
-                                "Failed to read link at '{}' for adding to the object database",
-                                path.display()
-                            )
-                        })?;
-                        let id = repo.write_blob(gix::path::into_bstr(target).as_bytes())?;
-                        (id, gix::object::tree::EntryKind::Link)
-                    } else {
-                        let mut file = std::fs::File::open(&path).with_context(|| {
-                            format!(
-                                "Could not open file at '{}' for adding it to the object database",
-                                path.display()
-                            )
-                        })?;
-                        let kind = if gix::fs::is_executable(&md) {
-                            gix::object::tree::EntryKind::BlobExecutable
-                        } else {
-                            gix::object::tree::EntryKind::Blob
-                        };
-                        (repo.write_blob_stream(&mut file)?, kind)
-                    };
+        let in_memory_repository = self.in_memory_repo()?;
+        let mut index = in_memory_repository.index()?;
+        index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+        let tree_oid = index.write_tree_to(self)?;
+        Ok(self.find_tree(tree_oid)?)
+        // let repo = gix::open(self.path())?;
+        // let workdir = repo.work_dir().context("Need non-bare repository")?;
+        // let mut head_tree_editor = repo.edit_tree(repo.head_tree_id()?)?;
+        // let status_changes = repo
+        //     .status(gix::progress::Discard)?
+        //     .index_worktree_rewrites(None)
+        //     .index_worktree_submodules(None)
+        //     .into_index_worktree_iter(None::<BString>)?;
+        // for change in status_changes {
+        //     let change = change?;
+        //     match change {
+        //         // modified or tracked files are unconditionally added as blob.
+        //         gix::status::index_worktree::iter::Item::Modification {
+        //             rela_path,
+        //             status: EntryStatus::Change(Change::Type | Change::Modification { .. }),
+        //             ..
+        //         }
+        //         | gix::status::index_worktree::iter::Item::DirectoryContents {
+        //             entry:
+        //                 gix::dir::Entry {
+        //                     rela_path,
+        //                     status: gix::dir::entry::Status::Untracked,
+        //                     ..
+        //                 },
+        //             ..
+        //         } => {
+        //             let path = workdir.join(gix::path::from_bstr(&rela_path));
+        //             let Ok(md) = std::fs::symlink_metadata(&path) else {
+        //                 continue;
+        //             };
+        //             let (id, kind) = if md.is_symlink() {
+        //                 let target = std::fs::read_link(&path).with_context(|| {
+        //                     format!(
+        //                         "Failed to read link at '{}' for adding to the object database",
+        //                         path.display()
+        //                     )
+        //                 })?;
+        //                 let id = repo.write_blob(gix::path::into_bstr(target).as_bytes())?;
+        //                 (id, gix::object::tree::EntryKind::Link)
+        //             } else {
+        //                 let mut file = std::fs::File::open(&path).with_context(|| {
+        //                     format!(
+        //                         "Could not open file at '{}' for adding it to the object database",
+        //                         path.display()
+        //                     )
+        //                 })?;
+        //                 let kind = if gix::fs::is_executable(&md) {
+        //                     gix::object::tree::EntryKind::BlobExecutable
+        //                 } else {
+        //                     gix::object::tree::EntryKind::Blob
+        //                 };
+        //                 (repo.write_blob_stream(&mut file)?, kind)
+        //             };
 
-                    head_tree_editor.upsert(rela_path, kind, id)?;
-                }
-                gix::status::index_worktree::iter::Item::Rewrite { .. } => {
-                    unreachable!("disabled")
-                }
-                _ => {}
-            }
-        }
+        //             head_tree_editor.upsert(rela_path, kind, id)?;
+        //         }
+        //         gix::status::index_worktree::iter::Item::Rewrite { .. } => {
+        //             unreachable!("disabled")
+        //         }
+        //         _ => {}
+        //     }
+        // }
 
-        let oid = git2::Oid::from_bytes(head_tree_editor.write()?.as_bytes())?;
-        self.find_tree(oid).map(Into::into).map_err(Into::into)
+        // let oid = git2::Oid::from_bytes(head_tree_editor.write()?.as_bytes())?;
+        // self.find_tree(oid).map(Into::into).map_err(Into::into)
     }
 
     fn workspace_ref_from_head(&self) -> Result<git2::Reference<'_>> {
