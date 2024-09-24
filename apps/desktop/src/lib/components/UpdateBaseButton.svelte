@@ -24,8 +24,6 @@
 		modal?.show();
 	}
 
-	function onClose() {}
-
 	async function updateBaseBranch() {
 		let infoText = await branchController.updateBaseBranch();
 		if (infoText) {
@@ -34,7 +32,7 @@
 	}
 </script>
 
-<IntegrateUpstreamModal bind:this={modal} {onClose} />
+<IntegrateUpstreamModal bind:this={modal} />
 
 {#if displayButton}
 	<Button
