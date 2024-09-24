@@ -21,34 +21,37 @@
 	import { tick } from 'svelte';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 
-	const resetBranchTo = {
-		remote: {
-			title: 'Reset to remote',
-			header:
-				'You are about to reset the target branch to the remote branch. This will lose all the changes ahead of the remote branch.',
-			tooltip:
-				'Resets the target branch to the upstream branch. Will lose all the changes ahead of the upstream branch.',
-			color: 'warning',
-			action: updateBaseBranch
-		},
-		local: {
-			title: 'Reset to local',
-			header:
-				'You are about to reset the target branch to the local branch. This will lose all the remote changes not in the local branch.',
-			tooltip:
-				'Resets the upstream branch to the local target branch. Will lose all the remote changes not in the local branch.',
-			color: 'pop',
-			action: async () => await pushBaseBranch()
-		}
-	} as const;
-
-	type ResetActionType = keyof typeof resetBranchTo;
-
 	interface Props {
 		base: BaseBranch;
 	}
 
 	const { base }: Props = $props();
+
+	const resetBaseTo = {
+		local: {
+			title: 'Push local changes',
+			header:
+				'You are about to reset the upstream target branch to the local branch. This will lose all the remote changes not in the local branch.',
+			content: 'You will force-push your local changes to the remote branch.',
+			tooltip:
+				'Resets the upstream branch to the local target branch. Will lose all the remote changes not in the local branch.',
+			color: 'pop',
+			handler: handlePushLocalChanges,
+			action: pushBaseBranch
+		},
+		remote: {
+			title: 'Discard local changes',
+			header:
+				'You are about to reset the target branch to the remote branch. This will lose all the changes ahead of the remote branch.',
+			content: 'You are about to hard reset your local base branch to the remote branch',
+			tooltip: `Choose how to integrate the commits from ${base.branchName} into the base of all applied virtual branches`,
+			color: 'warning',
+			handler: handleMergeUpstream,
+			action: updateBaseBranch
+		}
+	} as const;
+
+	type ResetBaseStrategy = keyof typeof resetBaseTo;
 
 	const baseBranchService = getContext(BaseBranchService);
 	const branchController = getContext(BranchController);
@@ -64,10 +67,12 @@
 
 	let baseBranchIsUpdating = $state<boolean>(false);
 	let updateTargetModal = $state<Modal>();
+	let resetBaseStrategy = $state<ResetBaseStrategy | undefined>(undefined);
 	let confirmResetModal = $state<Modal>();
-	let resetActionType = $state<ResetActionType | undefined>(undefined);
+	const confirmResetModalOpen = $derived(!!confirmResetModal?.imports.open);
+	let integrateUpstreamModal = $state<IntegrateUpstreamModal>();
+	const integrateUpstreamModalOpen = $derived(!!integrateUpstreamModal?.imports.open);
 	let mergeUpstreamWarningDismissedCheckbox = $state<boolean>(false);
-	let integrateUpstreamModal = $state<IntegrateUpstreamModal | undefined>();
 
 	const multiple = $derived(
 		base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false
@@ -122,29 +127,44 @@
 		baseBranchIsUpdating = false;
 	}
 
-	function mergeUpstream() {
-		if (project.succeedingRebases) {
+	async function handleMergeUpstream() {
+		if (project.succeedingRebases && !onlyLocalAhead) {
 			integrateUpstreamModal?.show();
-		} else {
-			if (mergeUpstreamWarningDismissedCheckbox) {
-				updateBaseBranch();
-			} else {
-				updateTargetModal?.show();
-			}
+			return;
 		}
+
+		if (base.diverged) {
+			await confirmResetBranch('remote');
+			return;
+		}
+
+		if ($mergeUpstreamWarningDismissed) {
+			updateBaseBranch();
+			return;
+		}
+		updateTargetModal?.show();
 	}
 
 	async function pushBaseBranch() {
 		baseBranchIsUpdating = true;
 		await baseBranchService.push(!onlyLocalAhead);
 		await tick();
+		await baseBranchService.refresh();
 		baseBranchIsUpdating = false;
 	}
 
-	async function confirmResetBranch(type: ResetActionType) {
-		resetActionType = type;
+	async function confirmResetBranch(strategy: ResetBaseStrategy) {
+		resetBaseStrategy = strategy;
 		await tick();
 		confirmResetModal?.show();
+	}
+
+	async function handlePushLocalChanges() {
+		if (onlyLocalAhead) {
+			await pushBaseBranch();
+			return;
+		}
+		await confirmResetBranch('local');
 	}
 </script>
 
@@ -188,14 +208,13 @@
 			{multiple ? 'commits' : 'commit'}
 		</div>
 
-		<IntegrateUpstreamModal bind:this={integrateUpstreamModal} />
 		<Button
 			style="pop"
 			kind="solid"
 			tooltip={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
-			disabled={$mode?.type !== 'OpenWorkspace' || integrateUpstreamModal?.imports.open}
-			loading={integrateUpstreamModal?.imports.open}
-			onclick={mergeUpstream}
+			disabled={$mode?.type !== 'OpenWorkspace' || integrateUpstreamModalOpen}
+			loading={integrateUpstreamModalOpen}
+			onclick={handleMergeUpstream}
 		>
 			Merge into common base
 		</Button>
@@ -229,15 +248,18 @@
 				{/snippet}
 				{#snippet action()}
 					<Button
-						style={resetBranchTo.remote.color}
+						wide
 						icon="warning"
 						kind="solid"
-						tooltip={resetBranchTo.remote.tooltip}
-						loading={baseBranchIsUpdating}
-						disabled={$mode?.type !== 'OpenWorkspace' || baseBranchIsUpdating}
-						onclick={async () => await confirmResetBranch('remote')}
+						style={resetBaseTo.remote.color}
+						tooltip={resetBaseTo.remote.tooltip}
+						loading={baseBranchIsUpdating || integrateUpstreamModalOpen}
+						disabled={$mode?.type !== 'OpenWorkspace' ||
+							baseBranchIsUpdating ||
+							integrateUpstreamModalOpen}
+						onclick={resetBaseTo.remote.handler}
 					>
-						{resetBranchTo.remote.title}
+						Integrate upstream changes
 					</Button>
 				{/snippet}
 			</CommitAction>
@@ -271,37 +293,33 @@
 				<div class="local-actions-wrapper">
 					<Button
 						wide
-						style={resetBranchTo.local.color}
+						style={resetBaseTo.local.color}
 						icon={onlyLocalAhead ? undefined : 'warning'}
 						kind="solid"
 						tooltip={onlyLocalAhead
 							? 'Push your local changes to upstream'
-							: resetBranchTo.local.tooltip}
-						loading={baseBranchIsUpdating}
-						disabled={$mode?.type !== 'OpenWorkspace' || baseBranchIsUpdating}
-						onclick={async () => {
-							if (onlyLocalAhead) {
-								await pushBaseBranch();
-								return;
-							}
-							await confirmResetBranch('local');
-						}}
+							: resetBaseTo.local.tooltip}
+						loading={baseBranchIsUpdating || confirmResetModalOpen}
+						disabled={$mode?.type !== 'OpenWorkspace' ||
+							baseBranchIsUpdating ||
+							confirmResetModalOpen}
+						onclick={resetBaseTo.local.handler}
 					>
-						{onlyLocalAhead ? 'Push' : resetBranchTo.local.title}
+						{onlyLocalAhead ? 'Push' : resetBaseTo.local.title}
 					</Button>
 
 					{#if onlyLocalAhead}
 						<Button
 							wide
-							style={resetBranchTo.remote.color}
+							style="error"
 							icon="warning"
 							kind="solid"
-							tooltip={resetBranchTo.remote.tooltip}
-							loading={baseBranchIsUpdating}
-							disabled={$mode?.type !== 'OpenWorkspace' || baseBranchIsUpdating}
-							onclick={async () => await confirmResetBranch('remote')}
+							tooltip="Discard your local changes"
+							disabled={$mode?.type !== 'OpenWorkspace' || integrateUpstreamModalOpen}
+							loading={integrateUpstreamModalOpen}
+							onclick={handleMergeUpstream}
 						>
-							{resetBranchTo.remote.title}
+							Discard local changes
 						</Button>
 					{/if}
 				</div>
@@ -369,45 +387,43 @@
 	{/snippet}
 </Modal>
 
-{#if resetActionType}
+{#if resetBaseStrategy}
 	<Modal
 		width="small"
-		title={resetBranchTo[resetActionType].title}
+		title={resetBaseTo[resetBaseStrategy].title}
 		bind:this={confirmResetModal}
-		onSubmit={(close) => {
-			if (resetActionType) {
-				resetBranchTo[resetActionType].action();
-			}
+		onSubmit={async (close) => {
+			if (resetBaseStrategy) await resetBaseTo[resetBaseStrategy].action();
 			close();
 		}}
 	>
 		<div class="modal-content">
 			<p class="text-12">
-				{#if resetActionType === 'remote'}
-					{base.divergedAhead.length > 1
-						? `You will lose the ${base.divergedAhead.length} local commits ahead of the remote branch.`
-						: 'You will lose the local commit ahead of the remote branch.'}
-				{:else}
-					You will force-push the local branch to the remote branch.
-					<br />
-					<br />
+				{resetBaseTo[resetBaseStrategy].content}
+				<br />
+				<br />
+				{#if resetBaseStrategy === 'local'}
 					{base.divergedBehind.length > 1
 						? `The ${base.divergedBehind.length} commits in the remote branch will be lost.`
 						: 'The commit in the remote branch will be lost.'}
+				{:else if resetBaseStrategy === 'remote'}
+					{base.divergedAhead.length > 1
+						? `The ${base.divergedAhead.length} commits in the local branch will be lost.`
+						: 'The commit in the local branch will be lost.'}
 				{/if}
 			</p>
 		</div>
 
 		{#snippet controls(close)}
-			{#if resetActionType}
-				<Button style="ghost" outline onclick={close}>Cancel</Button>
-				<Button style="error" kind="solid" type="submit" icon="warning"
-					>{resetBranchTo[resetActionType].title}</Button
-				>
-			{/if}
+			<Button style="ghost" outline onclick={close}>Cancel</Button>
+			<Button style="error" kind="solid" type="submit" icon="warning"
+				>{resetBaseTo[resetBaseStrategy!].title}</Button
+			>
 		{/snippet}
 	</Modal>
 {/if}
+
+<IntegrateUpstreamModal bind:this={integrateUpstreamModal} />
 
 <style>
 	.header-wrapper {
@@ -435,6 +451,7 @@
 		width: 100%;
 		gap: 8px;
 	}
+
 	.modal-content {
 		display: flex;
 		flex-direction: column;
