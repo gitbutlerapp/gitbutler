@@ -425,9 +425,6 @@ importers:
       svelte-check:
         specifier: catalog:svelte
         version: 4.0.1(svelte@5.0.0-next.243)(typescript@5.4.5)
-      util:
-        specifier: ^0.12.5
-        version: 0.12.5
       vite:
         specifier: 'catalog:'
         version: 5.2.13(@types/node@22.3.0)

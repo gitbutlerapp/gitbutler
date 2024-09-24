@@ -56,7 +56,6 @@
 		"storybook-dark-mode": "^4.0.2",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
-		"util": "^0.12.5",
 		"vite": "catalog:",
 		"vitest": "^2.0.5"
 	},
