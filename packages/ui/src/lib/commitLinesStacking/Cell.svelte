@@ -14,7 +14,8 @@
 	class:local={cell.type === 'Local'}
 	class:remote={cell.type === 'Remote'}
 	class:local-and-remote={cell.type === 'LocalShadow'}
-	class:integrated={cell.type === 'Upstream'}
+	class:upstream={cell.type === 'Upstream'}
+	class:integrated={cell.type === 'Integrated'}
 	class:dashed={cell.style === 'dashed' || isBottom}
 ></div>
 

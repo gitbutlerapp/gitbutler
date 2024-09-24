@@ -3530,6 +3530,25 @@
 						}
 					}
 				}
+			},
+			"integrated": {
+				"$type": "color",
+				"$value": "{clr-core.purp.50}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr-core.purp.50}",
+						"dark": "{clr-core.purp.40}"
+					},
+					"figma": {
+						"variableId": "VariableID:4666:4125",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
 			}
 		},
 		"text": {
@@ -4099,36 +4118,42 @@
 		"shadow": {
 			"s": {
 				"$type": "shadow",
-				"$value": {
-					"inset": false,
-					"color": "#0000000f",
-					"offsetX": "0px",
-					"offsetY": "4px",
-					"blur": "14px",
-					"spread": "0px"
-				}
+				"$value": [
+					{
+						"inset": false,
+						"color": "#0000000f",
+						"offsetX": "0px",
+						"offsetY": "4px",
+						"blur": "14px",
+						"spread": "0px"
+					}
+				]
 			},
 			"m": {
 				"$type": "shadow",
-				"$value": {
-					"inset": false,
-					"color": "#00000014",
-					"offsetX": "0px",
-					"offsetY": "6px",
-					"blur": "30px",
-					"spread": "0px"
-				}
+				"$value": [
+					{
+						"inset": false,
+						"color": "#00000014",
+						"offsetX": "0px",
+						"offsetY": "6px",
+						"blur": "30px",
+						"spread": "0px"
+					}
+				]
 			},
 			"l": {
 				"$type": "shadow",
-				"$value": {
-					"inset": false,
-					"color": "#0000001a",
-					"offsetX": "0px",
-					"offsetY": "10px",
-					"blur": "40px",
-					"spread": "0px"
-				}
+				"$value": [
+					{
+						"inset": false,
+						"color": "#0000001a",
+						"offsetX": "0px",
+						"offsetY": "10px",
+						"blur": "40px",
+						"spread": "0px"
+					}
+				]
 			}
 		}
 	},
@@ -4137,7 +4162,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius"],
-			"createdAt": "2024-09-11T23:46:21.639Z"
+			"createdAt": "2024-09-24T14:55:11.375Z"
 		}
 	}
 }

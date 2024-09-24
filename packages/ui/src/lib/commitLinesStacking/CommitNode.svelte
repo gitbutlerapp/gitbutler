@@ -26,7 +26,8 @@
 	class:remote={type === 'Remote'}
 	class:local={type === 'Local'}
 	class:local-and-remote={type === 'LocalShadow'}
-	class:integrated={type === 'Upstream'}
+	class:upstream={type === 'Upstream'}
+	class:integrated={type === 'Integrated'}
 >
 	{#if commitNode.commit}
 		<div class="commit-node-dot"></div>
@@ -42,7 +43,7 @@
 		z-index: var(--z-ground);
 
 		&.remote {
-			--border-color: var(--clr-commit-upstream);
+			--border-color: var(--clr-commit-remote);
 		}
 
 		&.local {
@@ -50,11 +51,15 @@
 		}
 
 		&.local-and-remote {
-			--border-color: var(--clr-commit-remote);
+			--border-color: var(--clr-commit-shadow);
+		}
+
+		&.upstream {
+			--border-color: var(--clr-commit-upstream);
 		}
 
 		&.integrated {
-			--border-color: var(--clr-commit-shadow);
+			--border-color: var(--clr-commit-integrated);
 		}
 
 		& .small-node {

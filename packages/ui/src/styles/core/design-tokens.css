@@ -197,6 +197,7 @@
 	--clr-commit-local: var(--clr-core-pop-50);
 	--clr-commit-remote: var(--clr-core-ntrl-50);
 	--clr-commit-shadow: var(--clr-core-ntrl-60);
+	--clr-commit-integrated: var(--clr-core-purp-50);
 	--clr-text-1: var(--clr-core-ntrl-5);
 	--clr-text-2: var(--clr-core-ntrl-50);
 	--clr-text-3: var(--clr-core-ntrl-60);
@@ -375,6 +376,7 @@
 	--clr-commit-local: var(--clr-core-pop-50);
 	--clr-commit-remote: var(--clr-core-ntrl-50);
 	--clr-commit-shadow: var(--clr-core-ntrl-40);
+	--clr-commit-integrated: var(--clr-core-purp-40);
 	--clr-text-1: var(--clr-core-ntrl-95);
 	--clr-text-2: var(--clr-core-ntrl-60);
 	--clr-text-3: var(--clr-core-ntrl-40);
