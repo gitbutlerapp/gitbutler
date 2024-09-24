@@ -45,4 +45,5 @@ path = "tests/mod.rs"
 [dev-dependencies]
 gitbutler-testsupport.workspace = true
 gitbutler-user.workspace = true
+gitbutler-git = { workspace = true, features = ["test-askpass-path"] }
 serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
