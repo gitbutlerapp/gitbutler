@@ -1,14 +1,14 @@
 <script lang="ts">
 	import Tooltip from '$lib/Tooltip.svelte';
 	import { isDefined } from '$lib/utils/typeguards';
-	import type { CommitNodeData, Color, CellType } from '$lib/commitLinesStacking/types';
+	import type { CommitNodeData, CellType } from '$lib/commitLinesStacking/types';
 
 	interface Props {
 		commitNode: CommitNodeData;
-		color: CellType;
+		type: CellType;
 	}
 
-	const { commitNode, color }: Props = $props();
+	const { commitNode, type }: Props = $props();
 
 	const hoverText = $derived(
 		[
@@ -19,37 +19,27 @@
 			.filter(isDefined)
 			.join('\n')
 	);
-
-	// $inspect('COMMIT_NODE', commitNode);
 </script>
 
-{#if commitNode.commit?.author}
-	<div
-		class="container"
-		class:remote={color === 'Remote'}
-		class:local={color === 'Local'}
-		class:local-and-remote={color === 'LocalShadow'}
-		class:integrated={color === 'Upstream'}
-	>
-		<!-- class:none={color === 'none'} -->
-		<!-- class:shadow={color === 'Shadow'} -->
-		{#if commitNode.commit}
-			<div class="commit-node-dot"></div>
-		{:else}
-			<Tooltip text={hoverText}>
-				<div class="small-node"></div>
-			</Tooltip>
-		{/if}
-	</div>
-{/if}
+<div
+	class="container"
+	class:remote={type === 'Remote'}
+	class:local={type === 'Local'}
+	class:local-and-remote={type === 'LocalShadow'}
+	class:integrated={type === 'Upstream'}
+>
+	{#if commitNode.commit}
+		<div class="commit-node-dot"></div>
+	{:else}
+		<Tooltip text={hoverText}>
+			<div class="small-node"></div>
+		</Tooltip>
+	{/if}
+</div>
 
 <style lang="postcss">
 	.container {
 		z-index: var(--z-ground);
-
-		&.none {
-			--border-color: transparent;
-		}
 
 		&.remote {
 			--border-color: var(--clr-commit-upstream);
@@ -61,10 +51,6 @@
 
 		&.local-and-remote {
 			--border-color: var(--clr-commit-remote);
-		}
-
-		&.shadow {
-			--border-color: var(--clr-commit-shadow);
 		}
 
 		&.integrated {
@@ -83,28 +69,17 @@
 			border-radius: 8px;
 		}
 
-		& .large-node {
-			height: 16px;
-			width: 16px;
-
-			margin-top: -8px;
-			margin-bottom: -8px;
-			margin-left: -9px;
-			margin-right: -7px;
-
-			background-color: var(--border-color);
-			border-radius: 8px;
+		.commit-node-dot {
+			height: 10px;
+			width: 10px;
+			margin-right: -4px;
 
 			display: flex;
 			align-items: center;
 			justify-content: center;
-		}
 
-		.commit-node-dot {
-			width: 8px;
-			height: 8px;
 			border-radius: 50%;
-			background-color: red;
+			background-color: var(--border-color);
 		}
 	}
 </style>

@@ -7,10 +7,11 @@
 	interface Props {
 		line: LineData;
 		topHeightPx?: number;
+		isBottom?: boolean;
 	}
 
-	const { line, topHeightPx = 12 }: Props = $props();
-	console.log('LINE', line);
+	const { line, topHeightPx = 12, isBottom = false }: Props = $props();
+	console.log('LINE', { line, isBottom });
 </script>
 
 <div class="line">
@@ -18,10 +19,10 @@
 		<Cell cell={line.top} />
 	</div>
 	{#if line.commitNode}
-		<CommitNode commitNode={line.commitNode} color={line.commitNode.type ?? 'Local'} />
+		<CommitNode commitNode={line.commitNode} type={line.commitNode.type ?? 'Local'} />
 	{/if}
 	<div class="line-bottom">
-		<Cell cell={line.bottom} isBottom />
+		<Cell cell={line.bottom} {isBottom} />
 	</div>
 </div>
 
@@ -33,7 +34,7 @@
 		gap: 0.25rem;
 		align-items: flex-end;
 		width: 24px;
-		margin-right: -2px;
+		margin-right: 8px;
 	}
 
 	.line-top {

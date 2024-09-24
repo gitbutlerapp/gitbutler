@@ -1,15 +1,13 @@
-export type Color = 'local' | 'localAndRemote' | 'remote' | 'integrated' | 'shadow' | 'none';
-
-export type Style = 'dashed';
+export type Style = 'dashed' | 'solid';
 export interface CellData {
-	color: Color;
+	type: CellType;
 	style?: Style;
 }
 
 export interface CommitNodeData {
-	line: LineData;
+	// line: LineData;
+	commit: CommitData;
 	type?: CellType;
-	commit?: CommitData;
 }
 
 export interface LineData {
@@ -17,11 +15,6 @@ export interface LineData {
 	bottom: CellData;
 	commitNode?: CommitNodeData;
 }
-
-// export interface LineGroupData {
-// 	// A tuple of two, three, or four lines
-// 	lines: LineData[];
-// }
 
 export interface Author {
 	name?: string;

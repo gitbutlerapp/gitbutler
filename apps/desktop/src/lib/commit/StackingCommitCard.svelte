@@ -56,6 +56,8 @@
 		filesToggleable = true
 	}: Props = $props();
 
+	console.log('COMMIT_CARD.FIRST', first, commit);
+
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
@@ -144,11 +146,11 @@
 
 	const commitShortSha = commit.id.substring(0, 7);
 
-	let topHeightPx = $state(24);
+	let topHeightPx = $state(12);
 
 	$effect(() => {
-		topHeightPx = 24;
-		if (first) topHeightPx = 58;
+		topHeightPx = 16;
+		if (first) topHeightPx = 16;
 		if (showDetails && !first) topHeightPx += 12;
 	});
 
