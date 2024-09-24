@@ -125,7 +125,7 @@
 		updatePatch();
 	}
 
-	function orderSectionPatch(order: Array) {
+	function orderSectionPatch(order: any[]) {
 		let opts = {
 			method: 'PATCH',
 			headers: {
@@ -159,10 +159,10 @@
 
 	function editSection(code: string) {
 		console.log('Editing section', code);
-		let editor = document.querySelector('.edit-' + code);
+		let editor = document.querySelector<HTMLElement>('.edit-' + code);
 		if (editor) {
 			editor.style.display = 'block';
-			let display = document.querySelector('.display-' + code);
+			let display = document.querySelector<HTMLElement>('.display-' + code);
 			if (display) {
 				display.style.display = 'none';
 			}
@@ -171,9 +171,9 @@
 
 	function saveSection(code: string) {
 		console.log('Saving section', code);
-		let editor = document.querySelector('.edit-' + code);
+		let editor = document.querySelector<HTMLElement>('.edit-' + code);
 		if (editor) {
-			let text = editor.querySelector('textarea').value;
+			let text = editor.querySelector('textarea')!.value;
 			let opts = {
 				method: 'PATCH',
 				headers: {
@@ -201,7 +201,7 @@
 					});
 			}
 			editor.style.display = 'none';
-			let display = document.querySelector('.display-' + code);
+			let display = document.querySelector<HTMLElement>('.display-' + code);
 			if (display) {
 				display.style.display = 'block';
 				display.innerHTML = text;
@@ -278,9 +278,13 @@
 					<div id="section-{section.id}">
 						{#if section.section_type === 'diff'}
 							<div class="right">
-								<a class="action" on:click={() => addSection(section.position)}>add</a>
-								[<a class="action" on:click={() => moveSection(section.position, -1)}>up</a>
-								<a class="action" on:click={() => moveSection(section.position, 1)}>down</a>]
+								<button class="action" on:click={() => addSection(section.position)}>add</button>
+								[<button class="action" on:click={() => moveSection(section.position, -1)}
+									>up</button
+								>
+								<button class="action" on:click={() => moveSection(section.position, 1)}
+									>down</button
+								>]
 							</div>
 							<div>
 								<strong>{section.new_path}</strong>
@@ -288,12 +292,15 @@
 							<div><pre><code>{section.diff_patch}</code></pre></div>
 						{:else}
 							<div class="right">
-								<a class="action" on:click={() => addSection(section.position)}>add</a>
+								<button class="action" on:click={() => addSection(section.position)}>add</button>
 								[
-								<a class="action" on:click={() => editSection(section.code)}>edit</a>] [
-								<a class="action" on:click={() => deleteSection(section.code)}>del</a>] [
-								<a class="action" on:click={() => moveSection(section.position, -1)}>up</a>
-								<a class="action" on:click={() => moveSection(section.position, 1)}>down</a>
+								<button class="action" on:click={() => editSection(section.code)}>edit</button>] [
+								<button class="action" on:click={() => deleteSection(section.code)}>del</button>] [
+								<button class="action" on:click={() => moveSection(section.position, -1)}>up</button
+								>
+								<button class="action" on:click={() => moveSection(section.position, 1)}
+									>down</button
+								>
 								]
 							</div>
 							<div class="editor edit-{section.code}">
@@ -305,7 +312,7 @@
 					</div>
 				{/each}
 				<div class="right">
-					<a class="action" on:click={() => addSection(patch.sections.length)}>add</a>
+					<button class="action" on:click={() => addSection(patch.sections.length)}>add</button>
 				</div>
 			</div>
 		</div>

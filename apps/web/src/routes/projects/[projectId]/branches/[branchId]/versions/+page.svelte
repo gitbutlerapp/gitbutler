@@ -80,7 +80,7 @@
 						<code style="background-color:#{patch.change_id.substr(0, 6)}"
 							>{patch.change_id.substr(0, 6)}</code
 						>:
-						<code style="background-color:#{patch.commit_sha.substr(0, 6)}" <code
+						<code style="background-color:#{patch.commit_sha.substr(0, 6)}"
 							>{patch.commit_sha.substr(0, 6)}</code
 						>: {patch.title} : v{patch.version}
 					</li>
@@ -95,23 +95,10 @@
 	hr {
 		margin: 10px 0;
 	}
-	h2 {
-		font-size: 1.5rem;
-	}
 	.columns {
 		display: flex;
 	}
 	.column {
 		flex: 1;
-	}
-	.column div {
-		margin: 4px 0;
-	}
-	.patch {
-		background-color: #fff;
-		border: 1px solid #ccc;
-		padding: 15px 20px;
-		margin: 10px 0;
-		border-radius: 10px;
 	}
 </style>
