@@ -478,43 +478,11 @@ fn compute_resolutions(
 
 #[cfg(test)]
 mod test {
-    use std::fs;
-
     use gitbutler_branch::BranchOwnershipClaims;
-    use tempfile::tempdir;
+    use gitbutler_testsupport::testing_repository::TestingRepository;
     use uuid::Uuid;
 
     use super::*;
-
-    fn commit_file<'a>(
-        repository: &'a git2::Repository,
-        parent: Option<&git2::Commit>,
-        files: &[(&str, &str)],
-    ) -> git2::Commit<'a> {
-        for (file_name, contents) in files {
-            fs::write(repository.path().join("..").join(file_name), contents).unwrap();
-        }
-        let mut index = repository.index().unwrap();
-        // Make sure we're not having weird cached state
-        index.read(true).unwrap();
-        index
-            .add_all(["*"], git2::IndexAddOption::DEFAULT, None)
-            .unwrap();
-
-        let signature = git2::Signature::now("Caleb", "caleb@gitbutler.com").unwrap();
-        let commit = repository
-            .commit(
-                None,
-                &signature,
-                &signature,
-                "Committee",
-                &repository.find_tree(index.write_tree().unwrap()).unwrap(),
-                parent.map(|c| vec![c]).unwrap_or_default().as_slice(),
-            )
-            .unwrap();
-
-        repository.find_commit(commit).unwrap()
-    }
 
     fn make_branch(head: git2::Oid, tree: git2::Oid) -> Branch {
         Branch {
@@ -540,16 +508,15 @@ mod test {
 
     #[test]
     fn test_up_to_date_if_head_commits_equivalent() {
-        let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init(tempdir.path()).unwrap();
-        let initial_commit = commit_file(&repository, None, &[("foo.txt", "bar")]);
-        let head_commit = commit_file(&repository, Some(&initial_commit), &[("foo.txt", "baz")]);
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let head_commit = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
 
         let context = UpstreamIntegrationContext {
             _permission: None,
             old_target: head_commit.clone(),
             new_target: head_commit,
-            repository: &repository,
+            repository: &test_repository.repository,
             virtual_branches_in_workspace: vec![],
             target_branch_name: "main".to_string(),
         };
@@ -562,17 +529,16 @@ mod test {
 
     #[test]
     fn test_updates_required_if_new_head_ahead() {
-        let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init(tempdir.path()).unwrap();
-        let initial_commit = commit_file(&repository, None, &[("foo.txt", "bar")]);
-        let old_target = commit_file(&repository, Some(&initial_commit), &[("foo.txt", "baz")]);
-        let new_target = commit_file(&repository, Some(&old_target), &[("foo.txt", "qux")]);
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let old_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
+        let new_target = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "qux")]);
 
         let context = UpstreamIntegrationContext {
             _permission: None,
             old_target,
             new_target,
-            repository: &repository,
+            repository: &test_repository.repository,
             virtual_branches_in_workspace: vec![],
             target_branch_name: "main".to_string(),
         };
@@ -585,11 +551,10 @@ mod test {
 
     #[test]
     fn test_empty_branch() {
-        let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init(tempdir.path()).unwrap();
-        let initial_commit = commit_file(&repository, None, &[("foo.txt", "bar")]);
-        let old_target = commit_file(&repository, Some(&initial_commit), &[("foo.txt", "baz")]);
-        let new_target = commit_file(&repository, Some(&old_target), &[("foo.txt", "qux")]);
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let old_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
+        let new_target = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "qux")]);
 
         let branch = make_branch(old_target.id(), old_target.tree_id());
 
@@ -597,7 +562,7 @@ mod test {
             _permission: None,
             old_target,
             new_target,
-            repository: &repository,
+            repository: &test_repository.repository,
             virtual_branches_in_workspace: vec![branch.clone()],
             target_branch_name: "main".to_string(),
         };
@@ -610,14 +575,11 @@ mod test {
 
     #[test]
     fn test_conflicted_head_branch() {
-        let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init(tempdir.path()).unwrap();
-        let initial_commit = commit_file(&repository, None, &[("foo.txt", "bar")]);
-        // Create refs/heads/master
-        repository.branch("master", &initial_commit, false).unwrap();
-        let old_target = commit_file(&repository, Some(&initial_commit), &[("foo.txt", "baz")]);
-        let branch_head = commit_file(&repository, Some(&old_target), &[("foo.txt", "fux")]);
-        let new_target = commit_file(&repository, Some(&old_target), &[("foo.txt", "qux")]);
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let old_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
+        let branch_head = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "fux")]);
+        let new_target = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "qux")]);
 
         let branch = make_branch(branch_head.id(), branch_head.tree_id());
 
@@ -625,7 +587,7 @@ mod test {
             _permission: None,
             old_target,
             new_target: new_target.clone(),
-            repository: &repository,
+            repository: &test_repository.repository,
             virtual_branches_in_workspace: vec![branch.clone()],
             target_branch_name: "main".to_string(),
         };
@@ -655,11 +617,12 @@ mod test {
             panic!("Should be variant UpdatedObjects")
         };
 
-        let head_commit = repository.find_commit(head).unwrap();
+        let head_commit = test_repository.repository.find_commit(head).unwrap();
         assert_eq!(head_commit.parent(0).unwrap().id(), new_target.id());
         assert!(head_commit.is_conflicted());
 
-        let head_tree = repository
+        let head_tree = test_repository
+            .repository
             .find_real_tree(&head_commit, Default::default())
             .unwrap();
         assert_eq!(head_tree.id(), tree)
@@ -667,12 +630,11 @@ mod test {
 
     #[test]
     fn test_conflicted_tree_branch() {
-        let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init(tempdir.path()).unwrap();
-        let initial_commit = commit_file(&repository, None, &[("foo.txt", "bar")]);
-        let old_target = commit_file(&repository, Some(&initial_commit), &[("foo.txt", "baz")]);
-        let branch_head = commit_file(&repository, Some(&old_target), &[("foo.txt", "fux")]);
-        let new_target = commit_file(&repository, Some(&old_target), &[("foo.txt", "qux")]);
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let old_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
+        let branch_head = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "fux")]);
+        let new_target = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "qux")]);
 
         let branch = make_branch(old_target.id(), branch_head.tree_id());
 
@@ -680,7 +642,7 @@ mod test {
             _permission: None,
             old_target,
             new_target,
-            repository: &repository,
+            repository: &test_repository.repository,
             virtual_branches_in_workspace: vec![branch.clone()],
             target_branch_name: "main".to_string(),
         };
@@ -698,13 +660,12 @@ mod test {
 
     #[test]
     fn test_conflicted_head_and_tree_branch() {
-        let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init(tempdir.path()).unwrap();
-        let initial_commit = commit_file(&repository, None, &[("foo.txt", "bar")]);
-        let old_target = commit_file(&repository, Some(&initial_commit), &[("foo.txt", "baz")]);
-        let branch_head = commit_file(&repository, Some(&old_target), &[("foo.txt", "fux")]);
-        let branch_tree = commit_file(&repository, Some(&old_target), &[("foo.txt", "bax")]);
-        let new_target = commit_file(&repository, Some(&old_target), &[("foo.txt", "qux")]);
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let old_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
+        let branch_head = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "fux")]);
+        let branch_tree = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "bax")]);
+        let new_target = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "qux")]);
 
         let branch = make_branch(branch_head.id(), branch_tree.tree_id());
 
@@ -712,7 +673,7 @@ mod test {
             _permission: None,
             old_target,
             new_target,
-            repository: &repository,
+            repository: &test_repository.repository,
             virtual_branches_in_workspace: vec![branch.clone()],
             target_branch_name: "main".to_string(),
         };
@@ -730,11 +691,10 @@ mod test {
 
     #[test]
     fn test_integrated() {
-        let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init(tempdir.path()).unwrap();
-        let initial_commit = commit_file(&repository, None, &[("foo.txt", "bar")]);
-        let old_target = commit_file(&repository, Some(&initial_commit), &[("foo.txt", "baz")]);
-        let new_target = commit_file(&repository, Some(&old_target), &[("foo.txt", "qux")]);
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let old_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
+        let new_target = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "qux")]);
 
         let branch = make_branch(new_target.id(), new_target.tree_id());
 
@@ -742,7 +702,7 @@ mod test {
             _permission: None,
             old_target,
             new_target,
-            repository: &repository,
+            repository: &test_repository.repository,
             virtual_branches_in_workspace: vec![branch.clone()],
             target_branch_name: "main".to_string(),
         };
@@ -755,25 +715,17 @@ mod test {
 
     #[test]
     fn test_integrated_commit_with_uncommited_changes() {
-        let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init(tempdir.path()).unwrap();
+        let test_repository = TestingRepository::open();
         let initial_commit =
-            commit_file(&repository, None, &[("foo.txt", "bar"), ("bar.txt", "bar")]);
-        let old_target = commit_file(
-            &repository,
+            test_repository.commit_tree(None, &[("foo.txt", "bar"), ("bar.txt", "bar")]);
+        let old_target = test_repository.commit_tree(
             Some(&initial_commit),
             &[("foo.txt", "baz"), ("bar.txt", "bar")],
         );
-        let new_target = commit_file(
-            &repository,
-            Some(&old_target),
-            &[("foo.txt", "qux"), ("bar.txt", "bar")],
-        );
-        let tree = commit_file(
-            &repository,
-            Some(&old_target),
-            &[("foo.txt", "baz"), ("bar.txt", "qux")],
-        );
+        let new_target = test_repository
+            .commit_tree(Some(&old_target), &[("foo.txt", "qux"), ("bar.txt", "bar")]);
+        let tree = test_repository
+            .commit_tree(Some(&old_target), &[("foo.txt", "baz"), ("bar.txt", "qux")]);
 
         let branch = make_branch(new_target.id(), tree.tree_id());
 
@@ -781,7 +733,7 @@ mod test {
             _permission: None,
             old_target,
             new_target,
-            repository: &repository,
+            repository: &test_repository.repository,
             virtual_branches_in_workspace: vec![branch.clone()],
             target_branch_name: "main".to_string(),
         };
@@ -794,31 +746,23 @@ mod test {
 
     #[test]
     fn test_safly_updatable() {
-        let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init(tempdir.path()).unwrap();
-        let initial_commit = commit_file(
-            &repository,
-            None,
-            &[("files-one.txt", "foo"), ("file-two.txt", "foo")],
-        );
-        let old_target = commit_file(
-            &repository,
+        let test_repository = TestingRepository::open();
+        let initial_commit =
+            test_repository.commit_tree(None, &[("files-one.txt", "foo"), ("file-two.txt", "foo")]);
+        let old_target = test_repository.commit_tree(
             Some(&initial_commit),
             &[("file-one.txt", "bar"), ("file-two.txt", "foo")],
         );
-        let new_target = commit_file(
-            &repository,
+        let new_target = test_repository.commit_tree(
             Some(&old_target),
             &[("file-one.txt", "baz"), ("file-two.txt", "foo")],
         );
 
-        let branch_head = commit_file(
-            &repository,
+        let branch_head = test_repository.commit_tree(
             Some(&old_target),
             &[("file-one.txt", "bar"), ("file-two.txt", "bar")],
         );
-        let branch_tree = commit_file(
-            &repository,
+        let branch_tree = test_repository.commit_tree(
             Some(&branch_head),
             &[("file-one.txt", "bar"), ("file-two.txt", "baz")],
         );
@@ -829,7 +773,7 @@ mod test {
             _permission: None,
             old_target,
             new_target,
-            repository: &repository,
+            repository: &test_repository.repository,
             virtual_branches_in_workspace: vec![branch.clone()],
             target_branch_name: "main".to_string(),
         };

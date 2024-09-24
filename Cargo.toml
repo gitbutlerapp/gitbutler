@@ -37,8 +37,9 @@ resolver = "2"
 [workspace.dependencies]
 bstr = "1.10.0"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { git = "https://github.com/Byron/gitoxide", rev = "72daa46bad9d397ef2cc48a3cffda23f414ccd8a", default-features = false, features = [] }
-git2 = { version = "0.18.3", features = [
+gix = { git = "https://github.com/Byron/gitoxide", rev = "72daa46bad9d397ef2cc48a3cffda23f414ccd8a", default-features = false, features = [
+] }
+git2 = { version = "0.19.0", features = [
     "vendored-openssl",
     "vendored-libgit2",
 ] }
