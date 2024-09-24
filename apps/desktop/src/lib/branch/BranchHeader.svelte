@@ -395,9 +395,7 @@
 		display: flex;
 		gap: 2px;
 		padding: 10px;
-	}
-	.header__info-wrapper--stacking {
-		border-radius: 0 !important;
+		align-items: stretch;
 	}
 	.header__info {
 		flex: 1;
@@ -438,7 +436,7 @@
 	}
 	.draggable {
 		display: flex;
-		height: fit-content;
+		align-items: center;
 		cursor: grab;
 		padding: 2px 2px 0 0;
 		color: var(--clr-scale-ntrl-50);

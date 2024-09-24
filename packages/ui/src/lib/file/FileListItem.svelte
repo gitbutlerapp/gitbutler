@@ -22,6 +22,7 @@
 		conflicted?: boolean;
 		locked?: boolean;
 		lockText?: string;
+		stacking?: boolean;
 		oncheck?: (
 			e: Event & {
 				currentTarget: EventTarget & HTMLInputElement;
@@ -49,6 +50,7 @@
 		conflicted,
 		locked,
 		lockText,
+		stacking = false,
 		oncheck,
 		onclick,
 		onkeydown,
@@ -65,6 +67,7 @@
 	class:selected-draggable={selected}
 	class:clickable
 	class:draggable
+	class:stacking
 	aria-selected={selected}
 	role="option"
 	tabindex="-1"
@@ -138,6 +141,11 @@
 		border-bottom: 1px solid var(--clr-border-3);
 
 		&:last-child {
+			border-bottom: none;
+		}
+
+		&.stacking {
+			background: transparent;
 			border-bottom: none;
 		}
 	}

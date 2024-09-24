@@ -146,12 +146,12 @@
 
 	const commitShortSha = commit.id.substring(0, 7);
 
-	let topHeightPx = $state(12);
-
-	$effect(() => {
-		topHeightPx = 16;
-		if (first) topHeightPx = 16;
-		if (showDetails && !first) topHeightPx += 12;
+	let topHeightPx = $derived.by(() => {
+		if (showDetails && !first) {
+			return 28;
+		} else {
+			return 16;
+		}
 	});
 
 	let dragDirection: 'up' | 'down' | undefined = $state();
@@ -229,6 +229,39 @@
 	class:is-first={first}
 	class:is-last={last}
 	class:has-lines={lines}
+	onclick={toggleFiles}
+	onkeyup={onKeyup}
+	role="button"
+	tabindex="0"
+	ondragenter={() => {
+		isDragTargeted = true;
+	}}
+	ondragleave={() => {
+		isDragTargeted = false;
+	}}
+	ondrop={() => {
+		isDragTargeted = false;
+	}}
+	ondrag={(e) => {
+					const target = e.target as HTMLElement;
+					const targetHeight = target.offsetHeight;
+					const targetTop = target.getBoundingClientRect().top;
+					const mouseY = e.clientY;
+
+					const isTop = mouseY < targetTop + targetHeight / 2;
+
+					dragDirection = isTop ? 'up' : 'down';
+				}}
+	use:draggableCommit={commit instanceof DetailedCommit && !isUnapplied && type !== 'integrated'
+		? {
+				label: commit.descriptionTitle,
+				sha: commitShortSha,
+				dateAndAuthor: getTimeAndAuthor(),
+				commitType: type,
+				data: new DraggableCommit(commit.branchId, commit, isHeadCommit),
+				viewportId: 'board-viewport'
+			}
+		: nonDraggable()}
 >
 	{#if dragDirection && isDragTargeted}
 		<div
@@ -252,44 +285,11 @@
 			<div
 				bind:this={draggableCommitElement}
 				class="commit__header stacking-feature"
-				onclick={toggleFiles}
-				onkeyup={onKeyup}
 				role="button"
 				tabindex="0"
 				oncontextmenu={(e) => {
 					contextMenu.open(e);
 				}}
-				ondragenter={() => {
-					isDragTargeted = true;
-				}}
-				ondragleave={() => {
-					isDragTargeted = false;
-				}}
-				ondrop={() => {
-					isDragTargeted = false;
-				}}
-				ondrag={(e) => {
-					const target = e.target as HTMLElement;
-					const targetHeight = target.offsetHeight;
-					const targetTop = target.getBoundingClientRect().top;
-					const mouseY = e.clientY;
-
-					const isTop = mouseY < targetTop + targetHeight / 2;
-
-					dragDirection = isTop ? 'up' : 'down';
-				}}
-				use:draggableCommit={commit instanceof DetailedCommit &&
-				!isUnapplied &&
-				type !== 'integrated'
-					? {
-							label: commit.descriptionTitle,
-							sha: commitShortSha,
-							dateAndAuthor: getTimeAndAuthor(),
-							commitType: type,
-							data: new DraggableCommit(commit.branchId, commit, isHeadCommit),
-							viewportId: 'board-viewport'
-						}
-					: nonDraggable()}
 			>
 				{#if !isUnapplied}
 					{#if type === 'local' || type === 'localAndRemote'}
@@ -340,7 +340,7 @@
 								copyToClipboard(commit.id);
 							}}
 						>
-							<span>{commitShortSha}</span>
+							{commitShortSha}
 
 							<div class="commit__subtitle-btn__icon">
 								<Icon name="copy-small" />
@@ -409,7 +409,7 @@
 											size="tag"
 											style="ghost"
 											outline
-											icon="branch"
+											icon="virtual-branch-small"
 											onclick={(e: Event) => {openCreateRefModal(e, commit)}}>Create ref</Button
 										>
 									{/if}
@@ -585,7 +585,7 @@
 		display: flex;
 		align-items: center;
 
-		text-decoration: underline;
+		text-decoration-line: underline;
 		text-underline-offset: 2px;
 		transition: color var(--transition-fast);
 
@@ -629,8 +629,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		padding: 10px 14px;
-		border-top: 1px solid var(--clr-border-2);
+		padding: 0 0 10px 0;
 	}
 
 	.commit__actions {
@@ -638,18 +637,19 @@
 		display: flex;
 		gap: 4px;
 		overflow-x: auto;
-		margin: 0 -14px;
-		padding: 4px 14px;
 	}
 
 	/* FILES */
 	.files-container {
-		border-top: 1px solid var(--clr-border-2);
+		border: 1px solid var(--clr-border-2);
+		border-radius: 0.5rem;
+		margin-right: 0.5rem;
 	}
 
 	/* MODIFIERS */
 	.is-commit-open {
 		& .commit-card {
+			margin-bottom: 12px;
 			border-radius: var(--radius-m);
 
 			&:not(.is-first) {
