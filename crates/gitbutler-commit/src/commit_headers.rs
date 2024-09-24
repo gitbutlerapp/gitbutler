@@ -53,6 +53,24 @@ impl From<CommitHeadersV1> for CommitHeadersV2 {
     }
 }
 
+// TODO: remove CommitBuffer entirely
+impl From<CommitHeadersV2> for Vec<(BString, BString)> {
+    fn from(hdr: CommitHeadersV2) -> Self {
+        let mut out = vec![
+            (
+                BString::from(HEADERS_VERSION_HEADER),
+                BString::from(V2_HEADERS_VERSION),
+            ),
+            (V2_CHANGE_ID_HEADER.into(), hdr.change_id.clone().into()),
+        ];
+
+        if let Some(conflicted) = hdr.conflicted {
+            out.push((V2_CONFLICTED_HEADER.into(), conflicted.to_string().into()));
+        }
+        out
+    }
+}
+
 pub trait HasCommitHeaders {
     fn gitbutler_headers(&self) -> Option<CommitHeadersV2>;
 }

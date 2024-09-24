@@ -1,5 +1,4 @@
 use anyhow::Result;
-use bstr::BString;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use std::path::Path;
@@ -30,9 +29,7 @@ impl RepoCommands for Project {
 
     fn check_signing_settings(&self) -> Result<bool> {
         let ctx = CommandContext::open(self)?;
-        let signed = ctx
-            .repository()
-            .sign_buffer(&BString::new("test".into()).into());
+        let signed = ctx.repository().sign_buffer(b"test");
         match signed {
             Ok(_) => Ok(true),
             Err(e) => Err(e),
