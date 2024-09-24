@@ -1,11 +1,11 @@
 <script lang="ts">
 	import Tooltip from '$lib/Tooltip.svelte';
 	import { isDefined } from '$lib/utils/typeguards';
-	import type { CommitNodeData, Color } from '$lib/commitLinesStacking/types';
+	import type { CommitNodeData, Color, CellType } from '$lib/commitLinesStacking/types';
 
 	interface Props {
 		commitNode: CommitNodeData;
-		color: Color;
+		color: CellType;
 	}
 
 	const { commitNode, color }: Props = $props();
@@ -26,14 +26,14 @@
 {#if commitNode.commit?.author}
 	<div
 		class="container"
-		class:none={color === 'none'}
-		class:remote={color === 'remote'}
-		class:local={color === 'local'}
-		class:local-and-remote={color === 'localAndRemote'}
-		class:shadow={color === 'shadow'}
-		class:integrated={color === 'integrated'}
+		class:remote={color === 'Remote'}
+		class:local={color === 'Local'}
+		class:local-and-remote={color === 'LocalShadow'}
+		class:integrated={color === 'Upstream'}
 	>
-		{#if commitNode.type === 'large' && commitNode.commit}
+		<!-- class:none={color === 'none'} -->
+		<!-- class:shadow={color === 'Shadow'} -->
+		{#if commitNode.commit}
 			<div class="commit-node-dot"></div>
 		{:else}
 			<Tooltip text={hoverText}>

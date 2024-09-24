@@ -16,7 +16,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Commit, DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import LineGroupStacking from '@gitbutler/ui/commitLinesStacking/LineGroup.svelte';
+	import Line from '@gitbutler/ui/commitLinesStacking/Line.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLinesStacking/lineManager';
 	import type { Snippet } from 'svelte';
 
@@ -149,14 +149,14 @@
 						isHeadCommit={commit.id === headCommit?.id}
 					>
 						{#snippet lines(topHeightPx)}
-							<LineGroupStacking lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+							<Line line={lineManager.get(commit.id)} {topHeightPx} />
 						{/snippet}
 					</CommitCard>
 				{/each}
 
 				<CommitAction>
 					{#snippet lines()}
-						<LineGroupStacking lineGroup={lineManager.get(LineSpacer.Remote)} topHeightPx={0} />
+						<Line line={lineManager.get(LineSpacer.Remote)} topHeightPx={0} />
 					{/snippet}
 					{#snippet action()}
 						<Button
@@ -201,7 +201,7 @@
 						isHeadCommit={commit.id === headCommit?.id}
 					>
 						{#snippet lines(topHeightPx)}
-							<LineGroupStacking lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+							<Line line={lineManager.get(commit.id)} {topHeightPx} />
 						{/snippet}
 					</CommitCard>
 
@@ -236,7 +236,7 @@
 						commitUrl={$gitHost?.commitUrl(commit.id)}
 					>
 						{#snippet lines(topHeightPx)}
-							<LineGroupStacking lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+							<Line line={lineManager.get(commit.id)} {topHeightPx} />
 						{/snippet}
 					</CommitCard>
 					{@render reorderDropzone(
@@ -254,10 +254,7 @@
 				{#if remoteCommits.length > 0 && localCommits.length === 0 && pushButton}
 					<CommitAction>
 						{#snippet lines()}
-							<LineGroupStacking
-								lineGroup={lineManager.get(LineSpacer.LocalAndRemote)}
-								topHeightPx={0}
-							/>
+							<Line line={lineManager.get(LineSpacer.LocalAndRemote)} topHeightPx={0} />
 						{/snippet}
 						{#snippet action()}
 							{@render pushButton({ disabled: localAndRemoteCommitsConflicted })}
@@ -282,7 +279,7 @@
 						commitUrl={$gitHost?.commitUrl(commit.id)}
 					>
 						{#snippet lines(topHeightPx)}
-							<LineGroupStacking lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+							<Line line={lineManager.get(commit.id)} {topHeightPx} />
 						{/snippet}
 					</CommitCard>
 				{/each}

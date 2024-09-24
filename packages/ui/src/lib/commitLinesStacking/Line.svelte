@@ -10,7 +10,7 @@
 	}
 
 	const { line, topHeightPx = 12 }: Props = $props();
-	// $inspect('LINE', line);
+	console.log('LINE', line);
 </script>
 
 <div class="line">
@@ -18,7 +18,7 @@
 		<Cell cell={line.top} />
 	</div>
 	{#if line.commitNode}
-		<CommitNode commitNode={line.commitNode} color={line.bottom.color} />
+		<CommitNode commitNode={line.commitNode} color={line.commitNode.type ?? 'Local'} />
 	{/if}
 	<div class="line-bottom">
 		<Cell cell={line.bottom} isBottom />
