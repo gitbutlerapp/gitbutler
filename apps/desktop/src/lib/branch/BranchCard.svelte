@@ -241,7 +241,7 @@
 						{#if $stackingFeature}
 							{@const groups = groupCommitsByRef(branch.commits)}
 							{#each groups as group (group.ref)}
-								<div class="commit-group">
+								<div class="commit-group" class:stacking={$stackingFeature}>
 									{#if group.branchName}
 										<StackedBranchHeader upstreamName={group.branchName} />
 										<PullRequestCard upstreamName={group.branchName} />
@@ -346,6 +346,7 @@
 	.no-changes.card,
 	.new-branch.card {
 		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
+		margin-bottom: 10px;
 	}
 	/* End Stacking */
 
@@ -399,5 +400,9 @@
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-1);
 		overflow: hidden;
+
+		&.stacking {
+			margin-top: 0px;
+		}
 	}
 </style>

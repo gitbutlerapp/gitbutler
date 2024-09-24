@@ -11,7 +11,6 @@
 	}
 
 	const { line, topHeightPx = 12, isBottom = false }: Props = $props();
-	console.log('LINE', { line, isBottom });
 </script>
 
 <div class="line">

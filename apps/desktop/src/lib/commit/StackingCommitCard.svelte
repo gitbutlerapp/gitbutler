@@ -56,8 +56,6 @@
 		filesToggleable = true
 	}: Props = $props();
 
-	console.log('COMMIT_CARD.FIRST', first, commit);
-
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);

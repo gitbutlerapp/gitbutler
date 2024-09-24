@@ -1,10 +1,4 @@
-import type {
-	CommitData,
-	LineData,
-	// CellData,
-	// CommitNodeData,
-	CellType
-} from '$lib/commitLinesStacking/types';
+import type { CommitData, LineData, CellType, Style } from '$lib/commitLinesStacking/types';
 
 interface Commits {
 	remoteCommits: CommitData[];
@@ -19,9 +13,6 @@ function generateSameForkpoint({
 	localAndRemoteCommits,
 	integratedCommits
 }: Commits) {
-	// const LEFT_COLUMN_INDEX = 0;
-	// const RIGHT_COLUMN_INDEX = 1;
-
 	const remoteBranchGroups = mapToCommitLineGroupPair(remoteCommits);
 	const localBranchGroups = mapToCommitLineGroupPair(localCommits);
 	const localAndRemoteBranchGroups = mapToCommitLineGroupPair(localAndRemoteCommits);
@@ -48,12 +39,7 @@ function generateSameForkpoint({
 	});
 
 	let localCommitWithChangeIdFound = false;
-	localBranchGroups.forEach(({ commit, line }, index) => {
-		// The first local commit should have the top be dashed
-		// if (index === 0) {
-		// 	line.top.style = 'dashed';
-		// }
-
+	localBranchGroups.forEach(({ commit, line }) => {
 		line.top.type = 'Local';
 		line.bottom.type = 'Local';
 		line.commitNode = { type: 'Local', commit };
@@ -129,11 +115,9 @@ function generateSameForkpoint({
 				line.top.type = remoteBranchGroups.at(-1)!.line.bottom.type;
 			}
 		} else {
-			// line.top.color = 'integrated';
-			line.top.type = 'Upstream';
+			line.top.type = 'Integrated';
 		}
-		// line.bottom.color = 'integrated';
-		line.bottom.type = 'Upstream';
+		line.bottom.type = 'Integrated';
 
 		line.commitNode = { type: 'LocalShadow', commit };
 	});
@@ -147,29 +131,14 @@ function generateSameForkpoint({
 		}
 	}
 
-	// Remove padding column if unrequired
-	// if (localBranchGroups.length === 0) {
-	// 	remoteBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.pop());
-	// 	localBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.pop());
-	// 	localAndRemoteBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.pop());
-	// 	integratedBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.pop());
-	//
-	// 	base.lines.pop();
-	// }
-
 	// Set base
-	// base.lines[LEFT_COLUMN_INDEX].top.style = 'dashed';
 	if (integratedBranchGroups.length > 0) {
-		// base.top.color = 'integrated';
-		base.top.type = 'Upstream';
+		base.top.type = 'Integrated';
 	} else if (localAndRemoteBranchGroups.length > 0) {
-		// base.top.color = 'localAndRemote';
 		base.top.type = 'LocalShadow';
 	} else if (localBranchGroups.length > 0) {
-		// base.top.color = 'local';
 		base.top.type = 'Local';
 	} else if (remoteBranchGroups.length > 0) {
-		// base.top.color = 'remote';
 		base.top.type = 'Remote';
 	}
 
@@ -189,10 +158,6 @@ function generateDifferentForkpoint({
 	localAndRemoteCommits,
 	integratedCommits
 }: Commits) {
-	const LEFT_COLUMN_INDEX = 0;
-	const MIDDLE_COLUMN_INDEX = 1;
-	const RIGHT_COLUMN_INDEX = 2;
-
 	if (localAndRemoteCommits.length > 0) {
 		throw new Error('There should never be local and remote commits with a different forkpoint');
 	}
@@ -235,8 +200,8 @@ function generateDifferentForkpoint({
 
 		if (localCommitWithChangeIdFound) {
 			// If a previous local commit with change ID was found, color with "shadow"
-			line.top.type = 'Shadow';
-			line.bottom.type = 'Shadow';
+			line.top.type = 'LocalShadow';
+			line.bottom.type = 'LocalShadow';
 
 			if (commit.relatedRemoteCommit) {
 				line.commitNode = {
@@ -250,14 +215,14 @@ function generateDifferentForkpoint({
 
 				// Since this is the first, if there were any remote commits, we should inherit that color
 				if (remoteBranchGroups.length > 0) {
-					line.top.type = 'remote';
+					line.top.type = 'Remote';
 				}
 
 				line.commitNode = {
 					type: 'Remote',
 					commit: commit.relatedRemoteCommit
 				};
-				line.bottom.type = 'Shadow';
+				line.bottom.type = 'LocalShadow';
 
 				localCommitWithChangeIdFound = true;
 			} else {
@@ -276,13 +241,11 @@ function generateDifferentForkpoint({
 
 			// Don't color in if its the first commit
 			if (index !== 0) {
-				// line.top.color = 'integrated';
-				line.top.type = 'Upstream';
+				line.top.type = 'Integrated';
 				line.top.style = 'dashed';
 			}
 
-			// line.bottom.color = 'integrated';
-			line.bottom.type = 'Upstream';
+			line.bottom.type = 'Integrated';
 			line.bottom.style = 'dashed';
 
 			line.commitNode = { type: 'LocalShadow', commit };
@@ -291,18 +254,16 @@ function generateDifferentForkpoint({
 			if (index === 0) {
 				line.top.type = localBranchGroups.at(-1)?.line.bottom.type || 'Local';
 			} else {
-				// line.top.color = 'integrated';
-				line.top.type = 'Upstream';
+				line.top.type = 'Integrated';
 			}
 
-			// line.bottom.color = 'integrated';
-			line.bottom.type = 'Upstream';
-			line.commitNode = { type: 'LocalShadow', commit };
+			line.bottom.type = 'Integrated';
+			line.commitNode = { type: 'Integrated', commit };
 
 			if (localCommitWithChangeIdFound) {
 				// If there is a commit with change id above, just use shadow style
-				line.top.type = 'Remote';
-				line.bottom.type = 'Remote';
+				line.top.type = 'LocalShadow';
+				line.bottom.type = 'LocalShadow';
 
 				if (commit.relatedRemoteCommit) {
 					line.commitNode = {
@@ -355,8 +316,7 @@ function generateDifferentForkpoint({
 
 	// Set base
 	if (integratedBranchGroups.length > 0) {
-		// base.top.color = 'integrated';
-		base.top.type = 'Upstream';
+		base.top.type = 'Integrated';
 		base.top.style = integratedBranchGroups.at(-1)!.line.bottom.style;
 
 		setLeftSideBase();
@@ -369,50 +329,6 @@ function generateDifferentForkpoint({
 		base.top.style = 'dashed';
 	}
 
-	// function removeLeftMostColumn() {
-	// 	remoteBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.shift());
-	// 	localBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.shift());
-	// 	integratedBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.shift());
-	// 	base.lines.shift();
-	// }
-
-	// function removeRightMostColumn() {
-	// 	remoteBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.pop());
-	// 	localBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.pop());
-	// 	integratedBranchGroups.forEach(({ lineGroup }) => lineGroup.lines.pop());
-	// 	base.lines.pop();
-	// }
-
-	// Remove the left column if there is no ghost line
-	// const hasGhostLine = [
-	// 	...remoteBranchGroups,
-	// 	...localBranchGroups,
-	// 	...integratedBranchGroups
-	// ].some(
-	// 	({ lineGroup }) =>
-	// 		lineGroup.lines[LEFT_COLUMN_INDEX].top.color !== 'none' ||
-	// 		lineGroup.lines[LEFT_COLUMN_INDEX].bottom.color !== 'none'
-	// );
-
-	// if (!hasGhostLine) {
-	// 	removeLeftMostColumn();
-	// }
-
-	// Remove the right two columns if there is only remote commits
-	if (integratedBranchGroups.length === 0 && localBranchGroups.length === 0) {
-		// removeRightMostColumn();
-		// removeRightMostColumn();
-	}
-
-	// Remove one right column if there is only integrated with no local or remote commits
-	if (
-		integratedBranchGroups.length > 0 &&
-		localBranchGroups.length === 0 &&
-		remoteBranchGroups.length === 0
-	) {
-		// removeRightMostColumn();
-	}
-
 	const data = new Map<string, LineData>([
 		...remoteBranchGroups.map(({ commit, line }) => [commit.id, line]),
 		...localBranchGroups.map(({ commit, line }) => [commit.id, line]),
@@ -422,15 +338,15 @@ function generateDifferentForkpoint({
 	return { data, base };
 }
 
-function mapToCommitLineGroupPair(commits: CommitData[]): { commit: CommitData; line: LineData }[] {
+function mapToCommitLineGroupPair(commits: CommitData[]) {
 	if (commits.length === 0) return [];
 
 	const groupings = commits.map((commit) => ({
 		commit,
 		line: {
-			top: { type: 'Local', style: 'solid' },
-			bottom: { type: 'Local', style: 'solid' },
-			commitNode: { type: 'Local', commit: {} }
+			top: { type: 'Local' as CellType, style: 'solid' as Style },
+			bottom: { type: 'Local' as CellType, style: 'solid' as Style },
+			commitNode: { type: 'Local' as CellType, commit }
 		}
 	}));
 
@@ -438,15 +354,6 @@ function mapToCommitLineGroupPair(commits: CommitData[]): { commit: CommitData; 
 }
 
 function blankLineGroup(): LineData {
-	// const lines = Array(lineCount)
-	// 	.fill(undefined)
-	// 	.map(
-	// 		(): LineData => ({
-	// 			top: { type: 'straight', color: 'none' },
-	// 			bottom: { type: 'straight', color: 'none' }
-	// 		})
-	// 	);
-	//
 	return {
 		top: { type: 'Local' },
 		bottom: { type: 'Local' }

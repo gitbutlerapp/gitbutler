@@ -5,7 +5,6 @@ export interface CellData {
 }
 
 export interface CommitNodeData {
-	// line: LineData;
 	commit: CommitData;
 	type?: CellType;
 }
@@ -33,4 +32,4 @@ export interface CommitData {
 	relatedRemoteCommit?: CommitData;
 }
 
-export type CellType = 'Local' | 'Remote' | 'Upstream' | 'LocalShadow';
+export type CellType = 'Local' | 'Remote' | 'Integrated' | 'Upstream' | 'LocalShadow';
