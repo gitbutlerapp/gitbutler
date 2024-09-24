@@ -42,6 +42,12 @@
 		onClose?.();
 		dialogElement?.close();
 	}
+
+	export const imports = {
+		get open() {
+			return open;
+		}
+	};
 </script>
 
 <dialog
