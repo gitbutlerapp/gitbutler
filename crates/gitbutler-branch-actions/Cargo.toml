@@ -26,6 +26,7 @@ gitbutler-fs.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-cherry-pick.workspace = true
+gitbutler-oxidize.workspace = true
 serde = { workspace = true, features = ["std"] }
 bstr.workspace = true
 diffy = "0.4.0"

@@ -21,6 +21,7 @@ use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_diff::{trees, GitHunk, Hunk};
 use gitbutler_error::error::{Code, Marker};
 use gitbutler_operating_modes::assure_open_workspace_mode;
+use gitbutler_oxidize::git2_signature_to_gix_signature;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -451,18 +452,6 @@ impl TryFrom<&git2::Commit<'_>> for CommitData {
             author: git2_signature_to_gix_signature(commit.author()),
             committer: git2_signature_to_gix_signature(commit.committer()),
         })
-    }
-}
-
-fn git2_signature_to_gix_signature(input: git2::Signature<'_>) -> gix::actor::Signature {
-    gix::actor::Signature {
-        name: input.name_bytes().into(),
-        email: input.email_bytes().into(),
-        time: gix::date::Time {
-            seconds: input.when().seconds(),
-            offset: input.when().offset_minutes() * 60,
-            sign: input.when().offset_minutes().into(),
-        },
     }
 }
 

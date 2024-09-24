@@ -1,0 +1,11 @@
+[package]
+name = "gitbutler-oxidize"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+anyhow.workspace = true
+gix.workspace = true
+git2.workspace = true
