@@ -18,14 +18,8 @@ function generateSameForkpoint({
 	const localAndRemoteBranchGroups = mapToCommitLineGroupPair(localAndRemoteCommits);
 	const integratedBranchGroups = mapToCommitLineGroupPair(integratedCommits);
 
-	const base = blankLineGroup();
-
-	remoteBranchGroups.forEach(({ commit, line }, index) => {
-		// We don't color in top half of the first remote commit
-		if (index !== 0) {
-			line.top.type = 'Remote';
-		}
-
+	remoteBranchGroups.forEach(({ commit, line }) => {
+		line.top.type = 'Remote';
 		line.bottom.type = 'Remote';
 		line.commitNode = { type: 'Remote', commit };
 
@@ -88,59 +82,17 @@ function generateSameForkpoint({
 		}
 	});
 
-	localAndRemoteBranchGroups.forEach(({ commit, line }, index) => {
-		if (index === 0) {
-			// Copy the top color from any commits above for the first commit
-			if (localBranchGroups.length > 0) {
-				line.top.type = localBranchGroups.at(-1)!.line.bottom.type;
-			} else if (remoteBranchGroups.length > 0) {
-				line.top.type = remoteBranchGroups.at(-1)!.line.bottom.type;
-			}
-		} else {
-			line.top.type = 'LocalShadow';
-		}
+	localAndRemoteBranchGroups.forEach(({ commit, line }) => {
+		line.top.type = 'LocalShadow';
 		line.bottom.type = 'LocalShadow';
-
 		line.commitNode = { type: 'LocalShadow', commit };
 	});
 
-	integratedBranchGroups.forEach(({ commit, line }, index) => {
-		if (index === 0) {
-			// Copy the top color from any commits above for the first commit
-			if (localAndRemoteBranchGroups.length > 0) {
-				line.top.type = localAndRemoteBranchGroups.at(-1)!.line.bottom.type;
-			} else if (localBranchGroups.length > 0) {
-				line.top.type = localBranchGroups.at(-1)!.line.bottom.type;
-			} else if (remoteBranchGroups.length > 0) {
-				line.top.type = remoteBranchGroups.at(-1)!.line.bottom.type;
-			}
-		} else {
-			line.top.type = 'Integrated';
-		}
+	integratedBranchGroups.forEach(({ commit, line }) => {
+		line.top.type = 'Integrated';
 		line.bottom.type = 'Integrated';
-
 		line.commitNode = { type: 'LocalShadow', commit };
 	});
-
-	// Set forkpoints
-	if (localBranchGroups.length > 0) {
-		if (localAndRemoteBranchGroups.length > 0) {
-			localAndRemoteBranchGroups[0].line.top.type = 'Local';
-		} else if (integratedBranchGroups.length > 0) {
-			integratedBranchGroups[0].line.top.type = 'Local';
-		}
-	}
-
-	// Set base
-	if (integratedBranchGroups.length > 0) {
-		base.top.type = 'Integrated';
-	} else if (localAndRemoteBranchGroups.length > 0) {
-		base.top.type = 'LocalShadow';
-	} else if (localBranchGroups.length > 0) {
-		base.top.type = 'Local';
-	} else if (remoteBranchGroups.length > 0) {
-		base.top.type = 'Remote';
-	}
 
 	const data = new Map<string, LineData>([
 		...remoteBranchGroups.map(({ commit, line }) => [commit.id, line]),
@@ -149,7 +101,7 @@ function generateSameForkpoint({
 		...integratedBranchGroups.map(({ commit, line }) => [commit.id, line])
 	] as [string, LineData][]);
 
-	return { data, base };
+	return { data };
 }
 
 function generateDifferentForkpoint({
@@ -166,16 +118,9 @@ function generateDifferentForkpoint({
 	const localBranchGroups = mapToCommitLineGroupPair(localCommits);
 	const integratedBranchGroups = mapToCommitLineGroupPair(integratedCommits);
 
-	const base = blankLineGroup();
-
-	remoteBranchGroups.forEach(({ commit, line }, index) => {
-		// Don't color top half if its the first commit of the list
-		if (index !== 0) {
-			line.top.type = 'Remote';
-		}
-
+	remoteBranchGroups.forEach(({ commit, line }) => {
+		line.top.type = 'Remote';
 		line.bottom.type = 'Remote';
-
 		line.commitNode = { type: 'Remote', commit };
 
 		// If there are local commits further down, render a dashed line from the top of the list
@@ -296,46 +241,13 @@ function generateDifferentForkpoint({
 		}
 	});
 
-	function setLeftSideBase() {
-		let leftType: CellType | undefined;
-		if (integratedBranchGroups.length > 0) {
-			leftType = integratedBranchGroups.at(-1)!.line.bottom.type;
-		} else if (localBranchGroups.length > 0) {
-			leftType = localBranchGroups.at(-1)!.line.bottom.type;
-		} else if (remoteBranchGroups.length > 0) {
-			leftType = remoteBranchGroups.at(-1)!.line.bottom.type;
-		} else {
-			leftType = 'Local';
-		}
-
-		base.top.type = leftType;
-		base.bottom.type = leftType;
-		base.top.style = 'dashed';
-		base.bottom.style = 'dashed';
-	}
-
-	// Set base
-	if (integratedBranchGroups.length > 0) {
-		base.top.type = 'Integrated';
-		base.top.style = integratedBranchGroups.at(-1)!.line.bottom.style;
-
-		setLeftSideBase();
-	} else if (localBranchGroups.length > 0) {
-		base.top.type = 'Local';
-
-		setLeftSideBase();
-	} else if (remoteBranchGroups.length > 0) {
-		base.top.type = 'Remote';
-		base.top.style = 'dashed';
-	}
-
 	const data = new Map<string, LineData>([
 		...remoteBranchGroups.map(({ commit, line }) => [commit.id, line]),
 		...localBranchGroups.map(({ commit, line }) => [commit.id, line]),
 		...integratedBranchGroups.map(({ commit, line }) => [commit.id, line])
 	] as [string, LineData][]);
 
-	return { data, base };
+	return { data };
 }
 
 function mapToCommitLineGroupPair(commits: CommitData[]) {
@@ -353,13 +265,6 @@ function mapToCommitLineGroupPair(commits: CommitData[]) {
 	return groupings;
 }
 
-function blankLineGroup(): LineData {
-	return {
-		top: { type: 'Local' },
-		bottom: { type: 'Local' }
-	};
-}
-
 /**
  * The Line Manager assumes that the groups of commits will be in the following order:
  * 1. Remote Commits (Commits you don't have in your branch)
@@ -369,18 +274,15 @@ function blankLineGroup(): LineData {
  */
 export class LineManager {
 	private data: Map<string, LineData>;
-	base: LineData;
 
 	constructor(commits: Commits, sameForkpoint: boolean) {
 		// We should never have local and remote commits with a different forkpoint
 		if (sameForkpoint || commits.localAndRemoteCommits.length > 0) {
-			const { data, base } = generateSameForkpoint(commits);
+			const { data } = generateSameForkpoint(commits);
 			this.data = data;
-			this.base = base;
 		} else {
-			const { data, base } = generateDifferentForkpoint(commits);
+			const { data } = generateDifferentForkpoint(commits);
 			this.data = data;
-			this.base = base;
 		}
 	}
 
