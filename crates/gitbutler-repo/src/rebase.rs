@@ -442,7 +442,89 @@ mod test {
             let blob = tree.get_name("foo.txt").unwrap().id(); // We fail here to get the entry because the tree is empty
             let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
 
-            assert_eq!(blob.content(), b"b") // expect b"b", using x as a test inverse
+            assert_eq!(blob.content(), b"b")
+        }
+
+        #[test]
+        fn test_diverging_renames() {
+            let test_repository = TestingRepository::open();
+
+            // Make some commits
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a")]);
+            let b = test_repository.commit_tree(None, &[("bar.txt", "a")]);
+            let c = test_repository.commit_tree(None, &[("baz.txt", "a")]);
+            test_repository.commit_tree(None, &[("foo.txt", "asdfasdf")]);
+
+            // Merge the index
+            let mut index: git2::Index = test_repository
+                .repository
+                .merge_trees(
+                    &a.tree().unwrap(), // Base
+                    &b.tree().unwrap(), // Ours
+                    &c.tree().unwrap(), // Theirs
+                    None,
+                )
+                .unwrap();
+
+            assert!(index.has_conflicts());
+
+            // Call our index resolution function
+            resolve_index(&test_repository.repository, &mut index).unwrap();
+
+            // Ensure there are no conflicts
+            assert!(!index.has_conflicts());
+
+            let tree = index.write_tree_to(&test_repository.repository).unwrap();
+            let tree: git2::Tree = test_repository.repository.find_tree(tree).unwrap();
+
+            assert!(tree.get_name("foo.txt").is_none());
+            assert!(tree.get_name("baz.txt").is_none());
+
+            let blob = tree.get_name("bar.txt").unwrap().id(); // We fail here to get the entry because the tree is empty
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+
+            assert_eq!(blob.content(), b"a")
+        }
+
+        #[test]
+        fn test_converging_renames() {
+            let test_repository = TestingRepository::open();
+
+            // Make some commits
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a"), ("bar.txt", "b")]);
+            let b = test_repository.commit_tree(None, &[("baz.txt", "a")]);
+            let c = test_repository.commit_tree(None, &[("baz.txt", "b")]);
+            test_repository.commit_tree(None, &[("foo.txt", "asdfasdf")]);
+
+            // Merge the index
+            let mut index: git2::Index = test_repository
+                .repository
+                .merge_trees(
+                    &a.tree().unwrap(), // Base
+                    &b.tree().unwrap(), // Ours
+                    &c.tree().unwrap(), // Theirs
+                    None,
+                )
+                .unwrap();
+
+            assert!(index.has_conflicts());
+
+            // Call our index resolution function
+            resolve_index(&test_repository.repository, &mut index).unwrap();
+
+            // Ensure there are no conflicts
+            assert!(!index.has_conflicts());
+
+            let tree = index.write_tree_to(&test_repository.repository).unwrap();
+            let tree: git2::Tree = test_repository.repository.find_tree(tree).unwrap();
+
+            assert!(tree.get_name("foo.txt").is_none());
+            assert!(tree.get_name("bar.txt").is_none());
+
+            let blob = tree.get_name("baz.txt").unwrap().id(); // We fail here to get the entry because the tree is empty
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+
+            assert_eq!(blob.content(), b"a")
         }
     }
 }
