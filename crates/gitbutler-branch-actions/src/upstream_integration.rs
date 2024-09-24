@@ -611,7 +611,9 @@ mod test {
     #[test]
     fn test_conflicted_head_branch() {
         let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init(tempdir.path()).unwrap();
+        let repository =
+            git2::Repository::init_opts(tempdir.path(), &gitbutler_testsupport::init_opts())
+                .unwrap();
         let initial_commit = commit_file(&repository, None, &[("foo.txt", "bar")]);
         // Create refs/heads/master
         repository.branch("master", &initial_commit, false).unwrap();
