@@ -15,8 +15,7 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 
-	// eslint-disable-next-line svelte/valid-compile
-	$: base = baseBranchService.base;
+	const base = baseBranchService.base;
 	$: selected = $page.url.href.endsWith('/base');
 </script>
 

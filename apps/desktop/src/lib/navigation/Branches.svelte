@@ -299,12 +299,6 @@
 	}
 
 	/* BRANCHES LIST */
-
-	.scroll-container {
-		display: flex;
-		flex-direction: column;
-	}
-
 	.group {
 		display: flex;
 		flex-direction: column;

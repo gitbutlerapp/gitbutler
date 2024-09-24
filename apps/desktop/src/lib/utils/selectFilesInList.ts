@@ -22,6 +22,7 @@ export function selectFilesInList(
 			fileIdSelection.add(file.id, commit?.id);
 		}
 	} else if (e.shiftKey && allowMultiple) {
+		// TODO(CTO): Not sure that this is accurate.
 		const initiallySelectedIndex = sortedFiles.findIndex(
 			(f) => f.id === fileIdSelection.only()?.fileId
 		);
