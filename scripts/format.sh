@@ -9,6 +9,7 @@ function rust() {
 }
 
 function node() {
+	pnpm fix
 	pnpm format
 }
 
