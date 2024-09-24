@@ -326,6 +326,7 @@
 		padding: 12px;
 	}
 
+	/* Stacking */
 	.card-no-stacking {
 		flex: 1;
 		display: flex;
@@ -340,6 +341,13 @@
 		display: flex;
 		flex-direction: column;
 	}
+
+	.branch-card__files.card,
+	.no-changes.card,
+	.new-branch.card {
+		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
+	}
+	/* End Stacking */
 
 	.branch-card__files {
 		display: flex;

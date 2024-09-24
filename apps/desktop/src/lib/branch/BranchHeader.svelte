@@ -219,9 +219,10 @@
 		</div>
 	</div>
 {:else}
-	<div class="header__wrapper">
+	<div class="header__wrapper" class:header__wrapper--stacking={$stackingFeature}>
 		<div
 			class="header card"
+			class:header_card--stacking={$stackingFeature}
 			class:header_target-branch={branch.selectedForChanges}
 			class:header_target-branch-animation={isTargetBranchAnimated && branch.selectedForChanges}
 		>
@@ -337,6 +338,13 @@
 		top: 12px;
 		padding-bottom: 8px;
 	}
+	.header__wrapper--stacking {
+		padding-bottom: unset !important;
+	}
+	.header_card--stacking {
+		border-bottom-right-radius: 0px;
+		border-bottom-left-radius: 0px;
+	}
 	.header {
 		z-index: var(--z-lifted);
 		position: relative;
@@ -387,6 +395,9 @@
 		display: flex;
 		gap: 2px;
 		padding: 10px;
+	}
+	.header__info-wrapper--stacking {
+		border-radius: 0 !important;
 	}
 	.header__info {
 		flex: 1;
