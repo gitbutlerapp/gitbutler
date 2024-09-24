@@ -7,6 +7,7 @@ use gitbutler_branch::{
 };
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo::{GixRepositoryExt, RepositoryExt as _};
@@ -288,14 +289,6 @@ fn branch_group_to_branch(
         has_local,
         head,
     }))
-}
-
-fn gix_to_git2_oid(id: impl Into<gix::ObjectId>) -> git2::Oid {
-    git2::Oid::from_bytes(id.into().as_bytes()).expect("always valid")
-}
-
-fn git2_to_gix_object_id(id: git2::Oid) -> gix::ObjectId {
-    gix::ObjectId::try_from(id.as_bytes()).expect("git2 oid is always valid")
 }
 
 /// A sum type of branch that can be a plain git branch or a virtual branch
