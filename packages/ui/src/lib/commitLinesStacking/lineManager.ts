@@ -91,7 +91,7 @@ function generateSameForkpoint({
 	integratedBranchGroups.forEach(({ commit, line }) => {
 		line.top.type = 'Integrated';
 		line.bottom.type = 'Integrated';
-		line.commitNode = { type: 'LocalShadow', commit };
+		line.commitNode = { type: 'Integrated', commit };
 	});
 
 	const data = new Map<string, LineData>([
@@ -150,7 +150,7 @@ function generateDifferentForkpoint({
 
 			if (commit.relatedRemoteCommit) {
 				line.commitNode = {
-					type: 'Remote',
+					type: 'LocalShadow',
 					commit: commit.relatedRemoteCommit
 				};
 			}
@@ -193,7 +193,7 @@ function generateDifferentForkpoint({
 			line.bottom.type = 'Integrated';
 			line.bottom.style = 'dashed';
 
-			line.commitNode = { type: 'LocalShadow', commit };
+			line.commitNode = { type: 'Integrated', commit };
 		} else {
 			// If we have local branches, maintain that color on the top half of the first commit
 			if (index === 0) {
@@ -212,7 +212,7 @@ function generateDifferentForkpoint({
 
 				if (commit.relatedRemoteCommit) {
 					line.commitNode = {
-						type: 'Remote',
+						type: 'LocalShadow',
 						commit: commit.relatedRemoteCommit
 					};
 				}

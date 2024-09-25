@@ -1,12 +1,13 @@
 <script lang="ts">
-	import type { CommitNodeData, CellType } from '$lib/commitLinesStacking/types';
+	import type { CellType } from '$lib/commitLinesStacking/types';
 
 	interface Props {
-		commitNode: CommitNodeData;
 		type: CellType;
 	}
 
-	const { commitNode, type }: Props = $props();
+	const { type }: Props = $props();
+
+	const isSquircle = $derived(['Remote', 'Upstream', 'Integrated', 'LocalShadow'].includes(type));
 </script>
 
 <div
@@ -17,7 +18,7 @@
 	class:upstream={type === 'Upstream'}
 	class:integrated={type === 'Integrated'}
 >
-	<div class="commit-node-dot"></div>
+	<div class="commit-node-dot" class:squircle={isSquircle}></div>
 	{#if type === 'LocalShadow'}
 		<div class="commit-node-dot secondary"></div>
 	{/if}
@@ -63,6 +64,13 @@
 
 			border-radius: 50%;
 			background-color: var(--border-color);
+
+			&.squircle {
+				height: 0.625rem;
+				width: 0.625rem;
+				border-radius: 0.2rem;
+				transform: rotate(45deg);
+			}
 
 			&.secondary {
 				height: 0.7rem;
