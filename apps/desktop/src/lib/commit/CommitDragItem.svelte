@@ -3,6 +3,7 @@
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { Commit, VirtualBranch, DetailedCommit } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
@@ -40,9 +41,16 @@
 				{hovered}
 				{activated}
 				label="Amend commit"
-				extraPaddings={{
-					left: 4
-				}}
+				extraPaddings={$stackingFeature
+					? {
+							left: -4,
+							top: 2,
+							right: 4,
+							bottom: -4
+						}
+					: {
+							left: 4
+						}}
 			/>
 		{/snippet}
 	</Dropzone>
@@ -57,9 +65,16 @@
 				{hovered}
 				{activated}
 				label="Squash commit"
-				extraPaddings={{
-					left: 4
-				}}
+				extraPaddings={$stackingFeature
+					? {
+							left: -4,
+							top: 2,
+							right: 4,
+							bottom: -4
+						}
+					: {
+							left: 4
+						}}
 			/>
 		{/snippet}
 	</Dropzone>
