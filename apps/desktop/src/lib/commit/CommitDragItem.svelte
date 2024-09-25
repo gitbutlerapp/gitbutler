@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { CommitDragActions, CommitDragActionsFactory } from '$lib/commits/dragActions';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
-	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { Commit, VirtualBranch, DetailedCommit } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 

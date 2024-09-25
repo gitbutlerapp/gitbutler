@@ -91,17 +91,6 @@
 	let createRefModal: Modal;
 	let createRefName = $baseBranch.remoteName + '/';
 
-	function openCreateRefModal(e: Event, commit: DetailedCommit | Commit) {
-		e.stopPropagation();
-		createRefModal.show(commit);
-	}
-
-	function pushCommitRef(commit: DetailedCommit) {
-		if (branch && commit.remoteRef) {
-			branchController.pushChangeReference(branch.id, commit.remoteRef);
-		}
-	}
-
 	function openCommitMessageModal(e: Event) {
 		e.stopPropagation();
 

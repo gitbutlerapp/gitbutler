@@ -1,4 +1,3 @@
-import { LineManager as StackingLineManager } from '$lib/commitLinesStacking/lineManager';
 import type { CommitData, LineGroupData, LineData, Color } from '$lib/commitLines/types';
 
 interface Commits {
