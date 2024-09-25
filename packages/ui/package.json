@@ -24,7 +24,7 @@
 		"storybook:build": "storybook build",
 		"test": "vitest run --mode development",
 		"test:watch": "vitest --watch --mode development",
-		"playwright:install": "playwright install"
+		"playwright:install": "playwright install --with-deps chromium"
 	},
 	"devDependencies": {
 		"@csstools/postcss-bundler": "^1.0.15",

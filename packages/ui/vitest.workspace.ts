@@ -1,6 +1,6 @@
-import { defineWorkspace } from 'vitest/config';
 import { storybookTest } from '@storybook/experimental-addon-test/vitest-plugin';
 import { storybookSveltekitPlugin } from '@storybook/sveltekit/vite-plugin';
+import { defineWorkspace } from 'vitest/config';
 
 export default defineWorkspace([
 	'vite.config.ts',
