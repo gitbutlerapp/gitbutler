@@ -2553,6 +2553,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backtrace",
+ "base64 0.22.1",
  "console-subscriber",
  "dirs 5.0.1",
  "futures",
