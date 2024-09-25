@@ -1,12 +1,12 @@
 <script lang="ts" module>
-	export type SelectItem = {
+	export type SelectItem<T extends string = string> = {
 		label: string;
-		value: string;
+		value: T;
 		selectable?: boolean;
 	};
 </script>
 
-<script lang="ts">
+<script lang="ts" generics="T extends string">
 	import OptionsGroup from './OptionsGroup.svelte';
 	import SearchItem from './SearchItem.svelte';
 	import TextBox from '../shared/TextBox.svelte';
@@ -21,14 +21,14 @@
 		disabled?: boolean;
 		loading?: boolean;
 		wide?: boolean;
-		options: SelectItem[];
-		value?: any;
+		options: SelectItem<T>[];
+		value?: T;
 		placeholder?: string;
 		maxHeight?: number;
 		searchable?: boolean;
-		itemSnippet: Snippet<[{ item: any; highlighted: boolean }]>;
+		itemSnippet: Snippet<[{ item: SelectItem<T>; highlighted: boolean }]>;
 		children?: Snippet;
-		onselect?: (value: string) => void;
+		onselect?: (value: T) => void;
 	}
 
 	const {
@@ -92,15 +92,16 @@
 		else openList();
 	}
 
-	function handleSelect(item: { label: string; value: string }) {
+	function handleSelect(item: SelectItem<T>) {
 		const value = item.value;
 		onselect?.(value);
 		closeList();
 	}
 
 	function handleEnter() {
-		if (highlightedIndex !== undefined && filteredOptions[highlightedIndex]) {
-			handleSelect(filteredOptions[highlightedIndex] as SelectItem);
+		const option = highlightedIndex !== undefined ? filteredOptions[highlightedIndex] : undefined;
+		if (option) {
+			handleSelect(option);
 		}
 	}
 
