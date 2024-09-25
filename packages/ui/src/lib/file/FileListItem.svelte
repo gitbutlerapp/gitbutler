@@ -148,6 +148,10 @@
 			background: transparent;
 			border-bottom: none;
 		}
+
+		&:not(:last-child).stacking {
+			border-bottom: 1px solid var(--clr-border-3);
+		}
 	}
 
 	.file-list-item.clickable {

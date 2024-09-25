@@ -68,8 +68,8 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
-	let draggableCommitElement = $state<HTMLElement | undefined>();
-	let contextMenu: CommitContextMenu;
+	let draggableCommitElement = $state<HTMLElement>();
+	let contextMenu = $state<CommitContextMenu>();
 	let files = $state<RemoteFile[]>([]);
 	let showDetails = $state(false);
 
@@ -214,12 +214,14 @@
 	{/snippet}
 </Modal>
 
-<CommitContextMenu
-	bind:this={contextMenu}
-	targetElement={draggableCommitElement}
-	{commit}
-	{commitUrl}
-/>
+{#if draggableCommitElement}
+	<CommitContextMenu
+		bind:this={contextMenu}
+		targetElement={draggableCommitElement}
+		{commit}
+		{commitUrl}
+	/>
+{/if}
 
 <div
 	class="commit-row stacking-feature"
@@ -286,7 +288,7 @@
 				role="button"
 				tabindex="0"
 				oncontextmenu={(e) => {
-					contextMenu.open(e);
+					contextMenu?.open(e);
 				}}
 			>
 				{#if !isUnapplied}
