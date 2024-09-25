@@ -308,7 +308,7 @@ impl BranchManager<'_> {
         // if not, we need to merge or rebase the branch to get it up to date
 
         let merge_base = repo
-            .merge_base(default_target.sha, dbg!(branch.head))
+            .merge_base(default_target.sha, branch.head)
             .context(format!(
                 "failed to find merge base between {} and {}",
                 default_target.sha, branch.head
