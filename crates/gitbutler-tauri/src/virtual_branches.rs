@@ -5,7 +5,7 @@ pub mod commands {
     };
     use gitbutler_branch_actions::internal::PushResult;
     use gitbutler_branch_actions::upstream_integration::{
-        BaseBranchResolutionApproach, BranchStatuses, Resolution,
+        BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
     };
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranch,
@@ -575,10 +575,14 @@ pub mod commands {
     pub fn upstream_integration_statuses(
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
+        target_commit_oid: Option<String>,
     ) -> Result<BranchStatuses, Error> {
         let project = projects.get(project_id)?;
+        let commit_oid = target_commit_oid
+            .map(|commit_id| git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e)))
+            .transpose()?;
         Ok(gitbutler_branch_actions::upstream_integration_statuses(
-            &project,
+            &project, commit_oid,
         )?)
     }
 
@@ -589,10 +593,14 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         resolutions: Vec<Resolution>,
+        base_branch_resolution: Option<BaseBranchResolution>,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-
-        gitbutler_branch_actions::integrate_upstream(&project, &resolutions)?;
+        gitbutler_branch_actions::integrate_upstream(
+            &project,
+            &resolutions,
+            base_branch_resolution,
+        )?;
 
         emit_vbranches(&windows, project_id);
 

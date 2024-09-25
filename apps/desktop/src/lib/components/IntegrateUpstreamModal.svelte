@@ -7,6 +7,7 @@
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { getContext } from '$lib/utils/context';
 	import {
+		getBaseBrancheResolution,
 		getResolutionApproach,
 		sortStatusInfo,
 		UpstreamIntegrationService,
@@ -41,7 +42,7 @@
 	let statuses = $state<BranchStatusInfo[]>([]);
 	let expanded = $state<boolean>(false);
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach>('hardReset');
-	let targetId = $state<string | undefined>(undefined);
+	let targetCommitOid = $state<string | undefined>(undefined);
 
 	$effect(() => {
 		if ($branchStatuses?.type !== 'updatesRequired') {
@@ -71,21 +72,35 @@
 		statuses = statusesTmp;
 	});
 
+	// Re-fetch upstream statuses if the target commit oid changes
 	$effect(() => {
-		if (targetId) {
-			branchStatuses = upstreamIntegrationService.upstreamStatuses(targetId);
+		if (targetCommitOid) {
+			branchStatuses = upstreamIntegrationService.upstreamStatuses(targetCommitOid);
 		}
 	});
 
-	async function handleBaseResolutionSelection(resolution: BaseBranchResolutionApproach) {
+	// Resolve the target commit oid if the base branch diverged and the the resolution
+	// approach is changed
+	$effect(() => {
+		if ($base?.diverged) {
+			upstreamIntegrationService.resolveUpstreamIntegration(baseResolutionApproach).then((Oid) => {
+				targetCommitOid = Oid;
+			});
+		}
+	});
+
+	function handleBaseResolutionSelection(resolution: BaseBranchResolutionApproach) {
 		baseResolutionApproach = resolution;
-		targetId = await upstreamIntegrationService.resolveUpstreamIntegration(resolution);
 	}
 
 	async function integrate() {
 		integratingUpstream = 'loading';
 		await tick();
-		await upstreamIntegrationService.integrateUpstream(Array.from(results.values()));
+		const baseResolution = getBaseBrancheResolution(targetCommitOid, baseResolutionApproach);
+		await upstreamIntegrationService.integrateUpstream(
+			Array.from(results.values()),
+			baseResolution
+		);
 		await baseBranchService.refresh();
 		integratingUpstream = 'completed';
 
@@ -172,7 +187,7 @@
 							onselect={handleBaseResolutionSelection}
 							options={[
 								{ label: 'Rebase', value: 'rebase' },
-								{ label: 'Merge', value: 'merge' },
+								// { label: 'Merge', value: 'merge' }, hide merging for now
 								{ label: 'Hard reset', value: 'hardReset' }
 							]}
 						>

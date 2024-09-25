@@ -49,6 +49,14 @@ enum ResolutionApproach {
     Delete,
 }
 
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BaseBranchResolution {
+    #[serde(with = "gitbutler_serde::oid")]
+    target_commit_oid: git2::Oid,
+    approach: BaseBranchResolutionApproach,
+}
+
 impl BranchStatus {
     fn resolution_acceptable(&self, approach: &ResolutionApproach) -> bool {
         match self {
@@ -91,6 +99,7 @@ pub struct UpstreamIntegrationContext<'a> {
 impl<'a> UpstreamIntegrationContext<'a> {
     pub(crate) fn open(
         command_context: &'a CommandContext,
+        target_commit_oid: Option<git2::Oid>,
         permission: &'a mut WorktreeWritePermission,
     ) -> Result<Self> {
         let virtual_branches_handle = command_context.project().virtual_branches();
@@ -99,7 +108,12 @@ impl<'a> UpstreamIntegrationContext<'a> {
         let target_branch = repository
             .find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("Branch not found"))?;
-        let new_target = target_branch.get().peel_to_commit()?;
+
+        let new_target = target_commit_oid.map_or_else(
+            || target_branch.get().peel_to_commit(),
+            |oid| repository.find_commit(oid),
+        )?;
+
         let old_target = repository.find_commit(target.sha)?;
         let virtual_branches_in_workspace = virtual_branches_handle.list_branches_in_workspace()?;
 
@@ -211,9 +225,14 @@ pub fn upstream_integration_statuses(
 pub(crate) fn integrate_upstream(
     command_context: &CommandContext,
     resolutions: &[Resolution],
+    base_branch_resolution: Option<BaseBranchResolution>,
     permission: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    let context = UpstreamIntegrationContext::open(command_context, permission)?;
+    let (target_commit_oid, base_branch_resolution_approach) = base_branch_resolution
+        .map(|r| (Some(r.target_commit_oid), Some(r.approach)))
+        .unwrap_or((None, None));
+
+    let context = UpstreamIntegrationContext::open(command_context, target_commit_oid, permission)?;
     let virtual_branches_state = VirtualBranchesHandle::new(command_context.project().gb_dir());
     let default_target = virtual_branches_state.get_default_target()?;
 
@@ -258,7 +277,8 @@ pub(crate) fn integrate_upstream(
         }
     }
 
-    let integration_results = compute_resolutions(&context, resolutions)?;
+    let integration_results =
+        compute_resolutions(&context, resolutions, base_branch_resolution_approach)?;
 
     {
         // We preform the updates in stages. If deleting or unapplying fails, we
@@ -326,7 +346,7 @@ pub(crate) fn resolve_upstream_integration(
     resolution_approach: BaseBranchResolutionApproach,
     permission: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
-    let context = UpstreamIntegrationContext::open(command_context, permission)?;
+    let context = UpstreamIntegrationContext::open(command_context, None, permission)?;
     let repo = command_context.repository();
     let new_target_id = context.new_target.id();
     let old_target_id = context.old_target.id();
@@ -357,10 +377,12 @@ pub(crate) fn resolve_upstream_integration(
 fn compute_resolutions(
     context: &UpstreamIntegrationContext,
     resolutions: &[Resolution],
+    base_branch_resolution_approach: Option<BaseBranchResolutionApproach>,
 ) -> Result<Vec<(BranchId, IntegrationResult)>> {
     let UpstreamIntegrationContext {
         repository,
         new_target,
+        old_target,
         virtual_branches_in_workspace,
         target_branch_name,
         ..
@@ -443,9 +465,17 @@ fn compute_resolutions(
                     // Rebase the commits, then try rebasing the tree. If
                     // the tree ends up conflicted, commit the tree.
 
+                    // If the base branch needs to resolve its divergence
+                    // pick only the commits that are ahead of the old target head
+                    let lower_bound = if base_branch_resolution_approach.is_some() {
+                        old_target.id()
+                    } else {
+                        new_target.id()
+                    };
+
                     // Rebase virtual branches' commits
                     let virtual_branch_commits =
-                        repository.l(virtual_branch.head, LogUntil::Commit(new_target.id()))?;
+                        repository.l(virtual_branch.head, LogUntil::Commit(lower_bound))?;
 
                     let new_head = cherry_rebase_group(
                         repository,
@@ -636,6 +666,7 @@ mod test {
                 branch_tree: branch.tree,
                 approach: ResolutionApproach::Rebase,
             }],
+            None,
         )
         .unwrap();
 

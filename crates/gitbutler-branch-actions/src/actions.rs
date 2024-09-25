@@ -2,7 +2,8 @@ use super::r#virtual as vbranch;
 use crate::move_commits;
 use crate::reorder_commits;
 use crate::upstream_integration::{
-    self, BaseBranchResolutionApproach, BranchStatuses, Resolution, UpstreamIntegrationContext,
+    self, BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
+    UpstreamIntegrationContext,
 };
 use crate::{
     base,
@@ -522,16 +523,27 @@ pub fn get_uncommited_files_reusable(project: &Project) -> Result<DiffByPathMap>
     crate::branch::get_uncommited_files_raw(&context, guard.read_permission())
 }
 
-pub fn upstream_integration_statuses(project: &Project) -> Result<BranchStatuses> {
+pub fn upstream_integration_statuses(
+    project: &Project,
+    target_commit_oid: Option<git2::Oid>,
+) -> Result<BranchStatuses> {
     let command_context = CommandContext::open(project)?;
     let mut guard = project.exclusive_worktree_access();
 
-    let context = UpstreamIntegrationContext::open(&command_context, guard.write_permission())?;
+    let context = UpstreamIntegrationContext::open(
+        &command_context,
+        target_commit_oid,
+        guard.write_permission(),
+    )?;
 
     upstream_integration::upstream_integration_statuses(&context)
 }
 
-pub fn integrate_upstream(project: &Project, resolutions: &[Resolution]) -> Result<()> {
+pub fn integrate_upstream(
+    project: &Project,
+    resolutions: &[Resolution],
+    base_branch_resolution: Option<BaseBranchResolution>,
+) -> Result<()> {
     let command_context = CommandContext::open(project)?;
     let mut guard = project.exclusive_worktree_access();
 
@@ -543,6 +555,7 @@ pub fn integrate_upstream(project: &Project, resolutions: &[Resolution]) -> Resu
     upstream_integration::integrate_upstream(
         &command_context,
         resolutions,
+        base_branch_resolution,
         guard.write_permission(),
     )
 }
