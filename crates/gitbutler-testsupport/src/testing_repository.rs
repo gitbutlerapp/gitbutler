@@ -12,6 +12,18 @@ impl TestingRepository {
         let tempdir = tempdir().unwrap();
         let repository = git2::Repository::init(tempdir.path()).unwrap();
 
+        let config = repository.config().unwrap();
+        match config.open_level(git2::ConfigLevel::Local) {
+            Ok(mut local) => {
+                local.set_str("commit.gpgsign", "false").unwrap();
+                local.set_str("user.name", "gitbutler-test").unwrap();
+                local
+                    .set_str("user.email", "gitbutler-test@example.com")
+                    .unwrap();
+            }
+            Err(err) => panic!("{}", err),
+        }
+
         Self {
             tempdir,
             repository,
