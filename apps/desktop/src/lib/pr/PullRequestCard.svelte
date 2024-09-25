@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MergeButton from './MergeButton.svelte';
+	import PrDetailsModal from './PrDetailsModal.svelte';
 	import ViewPrButton from './ViewPrButton.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
@@ -34,6 +35,8 @@
 	const vbranchService = getContext(VirtualBranchService);
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
+
+	let prDetailsModal = $state<PrDetailsModal>();
 
 	const gitHostListingService = getGitHostListingService();
 	const prStore = $derived($gitHostListingService?.prs);
@@ -201,6 +204,19 @@
 			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
 			{$pr.title}
 		</div>
+		{#if !$stackingFeature}
+			<div class="pr-options">
+				<Button
+					size="tag"
+					style="ghost"
+					outline
+					icon="eye-shown"
+					onclick={() => {
+						prDetailsModal?.show();
+					}}>View details</Button
+				>
+			</div>
+		{/if}
 		<div class:pr-tags={!$stackingFeature} class:stacked-pr-tags={$stackingFeature}>
 			<Button
 				size="tag"
@@ -278,6 +294,10 @@
 	</div>
 {/if}
 
+{#if $pr}
+	<PrDetailsModal bind:this={prDetailsModal} pr={$pr} />
+{/if}
+
 <style lang="postcss">
 	.stacked-pr {
 		position: relative;
@@ -304,6 +324,10 @@
 		padding: 14px 14px 12px 14px;
 		user-select: text;
 		cursor: text;
+	}
+
+	.pr-options {
+		margin-bottom: 12px;
 	}
 
 	.pr-tags {

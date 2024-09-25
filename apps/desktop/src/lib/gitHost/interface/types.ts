@@ -30,6 +30,7 @@ export interface PullRequest {
 export interface DetailedPullRequest {
 	id: number;
 	title: string;
+	body: string | undefined;
 	number: number;
 	sourceBranch: string;
 	draft?: boolean;
