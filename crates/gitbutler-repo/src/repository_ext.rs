@@ -4,18 +4,21 @@ use std::os::unix::fs::PermissionsExt;
 use std::os::windows::process::CommandExt;
 use std::{io::Write, path::Path, process::Stdio, str};
 
+use crate::{Config, LogUntil};
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
 use git2::{BlameOptions, Tree};
-use gitbutler_branch::{gix_to_git2_signature, SignaturePurpose};
-use gitbutler_commit::{commit_buffer::CommitBuffer, commit_headers::CommitHeadersV2};
+use gitbutler_branch::SignaturePurpose;
+use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
+use gitbutler_oxidize::{
+    git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, gix_to_git2_signature,
+};
 use gitbutler_reference::{Refname, RemoteRefname};
+use gix::objs::WriteTo;
 use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
 use tracing::instrument;
-
-use crate::{Config, LogUntil};
 
 /// Extension trait for `git2::Repository`.
 ///
@@ -45,8 +48,9 @@ pub trait RepositoryExt {
     fn in_memory_repo(&self) -> Result<git2::Repository>;
     /// Fetches the workspace commit from the gitbutler/workspace branch
     fn workspace_commit(&self) -> Result<git2::Commit<'_>>;
-    /// Takes a CommitBuffer and returns it after being signed by by your git signing configuration
-    fn sign_buffer(&self, buffer: &CommitBuffer) -> Result<BString>;
+    /// `buffer` is the commit object to sign, but in theory could be anything to compute the signature for.
+    /// Returns the computed signature.
+    fn sign_buffer(&self, buffer: &[u8]) -> Result<BString>;
 
     fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder;
     fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()>;
@@ -248,45 +252,43 @@ impl RepositoryExt for git2::Repository {
         parents: &[&git2::Commit<'_>],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
-        fn commit_buffer(
-            repository: &git2::Repository,
-            commit_buffer: &CommitBuffer,
-        ) -> Result<git2::Oid> {
-            let oid = repository
-                .odb()?
-                .write(git2::ObjectType::Commit, &commit_buffer.as_bstring())?;
+        let repo = gix::open(self.path())?;
+        let mut commit = gix::objs::Commit {
+            message: message.into(),
+            tree: git2_to_gix_object_id(tree.id()),
+            author: git2_signature_to_gix_signature(author),
+            committer: git2_signature_to_gix_signature(committer),
+            encoding: None,
+            parents: parents
+                .iter()
+                .map(|commit| git2_to_gix_object_id(commit.id()))
+                .collect(),
+            extra_headers: commit_headers.unwrap_or_default().into(),
+        };
 
-            Ok(oid)
-        }
-
-        let mut buffer: CommitBuffer = self
-            .commit_create_buffer(author, committer, message, tree, parents)?
-            .into();
-
-        buffer.set_gitbutler_headers(commit_headers);
-
-        let oid = if self.gb_config()?.sign_commits.unwrap_or(false) {
-            let signature = self.sign_buffer(&buffer);
+        if self.gb_config()?.sign_commits.unwrap_or(false) {
+            let mut buf = Vec::new();
+            commit.write_to(&mut buf)?;
+            let signature = self.sign_buffer(&buf);
             match signature {
-                Ok(signature) => self
-                    .commit_signed(
-                        buffer.as_bstring().to_string().as_str(),
-                        signature.to_string().as_str(),
-                        None,
-                    )
-                    .map_err(Into::into),
+                Ok(signature) => {
+                    commit.extra_headers.push(("gpgsig".into(), signature));
+                }
                 Err(e) => {
                     // If signing fails, set the "gitbutler.signCommits" config to false before erroring out
                     self.set_gb_config(GbConfig {
                         sign_commits: Some(false),
                         ..GbConfig::default()
                     })?;
-                    Err(anyhow!("Failed to sign commit: {}", e).context(Code::CommitSigningFailed))
+                    return Err(
+                        anyhow!("Failed to sign commit: {}", e).context(Code::CommitSigningFailed)
+                    );
                 }
             }
-        } else {
-            commit_buffer(self, &buffer)
-        }?;
+        }
+        // TODO: extra-headers should be supported in `gix` directly.
+        let oid = gix_to_git2_oid(repo.write_object(&commit)?);
+
         // update reference
         if let Some(refname) = update_ref {
             self.reference(&refname.to_string(), oid, true, message)?;
@@ -311,7 +313,7 @@ impl RepositoryExt for git2::Repository {
         self.blame_file(path, Some(&mut opts))
     }
 
-    fn sign_buffer(&self, buffer: &CommitBuffer) -> Result<BString> {
+    fn sign_buffer(&self, buffer: &[u8]) -> Result<BString> {
         // check git config for gpg.signingkey
         // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
         let signing_key = self.config()?.get_string("user.signingkey");
@@ -326,7 +328,7 @@ impl RepositoryExt for git2::Repository {
             if is_ssh {
                 // write commit data to a temp file so we can sign it
                 let mut signature_storage = tempfile::NamedTempFile::new()?;
-                signature_storage.write_all(&buffer.as_bstring())?;
+                signature_storage.write_all(buffer)?;
                 let buffer_file_to_sign_path = signature_storage.into_temp_path();
 
                 let gpg_program = self.config()?.get_string("gpg.ssh.program");
@@ -421,11 +423,7 @@ impl RepositoryExt for git2::Repository {
                             .context(format!("Could not execute GPG program using {:?}", cmd))
                     }
                 };
-                child
-                    .stdin
-                    .take()
-                    .expect("configured")
-                    .write_all(&buffer.as_bstring())?;
+                child.stdin.take().expect("configured").write_all(buffer)?;
 
                 let output = child.wait_with_output()?;
                 if output.status.success() {
@@ -540,7 +538,7 @@ impl RepositoryExt for git2::Repository {
         let author = repo
             .author()
             .transpose()?
-            .map(gitbutler_branch::gix_to_git2_signature)
+            .map(gix_to_git2_signature)
             .transpose()?
             .context("No author is configured in Git")
             .context(Code::AuthorMissing)?;
@@ -623,7 +621,6 @@ impl CheckoutIndexBuilder<'_> {
     }
 }
 
-// TODO(ST): put this into `gix`, the logic seems good, add unit-test for number generation.
 pub trait GixRepositoryExt: Sized {
     /// Configure the repository for diff operations between trees.
     /// This means it needs an object cache relative to the amount of files in the repository.

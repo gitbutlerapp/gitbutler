@@ -16,14 +16,7 @@ export type BranchStatus =
 			};
 	  };
 
-type BranchStatuses =
-	| {
-			type: 'upToDate';
-	  }
-	| {
-			type: 'updatesRequired';
-			subject: [string, BranchStatus][];
-	  };
+export type BranchStatusInfo = { branch: VirtualBranch; status: BranchStatus };
 
 export type BranchStatusesWithBranches =
 	| {
@@ -31,7 +24,7 @@ export type BranchStatusesWithBranches =
 	  }
 	| {
 			type: 'updatesRequired';
-			subject: { branch: VirtualBranch; status: BranchStatus }[];
+			subject: BranchStatusInfo[];
 	  };
 
 export type ResolutionApproach = {
@@ -44,6 +37,42 @@ export type Resolution = {
 	approach: ResolutionApproach;
 };
 
+export function getResolutionApproach(statusInfo: BranchStatusInfo): ResolutionApproach {
+	if (statusInfo.status.type === 'fullyIntegrated') {
+		return { type: 'delete' };
+	}
+
+	if (statusInfo.branch.allowRebasing) {
+		return { type: 'rebase' };
+	}
+
+	return { type: 'merge' };
+}
+
+export function sortStatusInfo(a: BranchStatusInfo, b: BranchStatusInfo): number {
+	if (
+		(a.status.type !== 'fullyIntegrated' && b.status.type !== 'fullyIntegrated') ||
+		(a.status.type === 'fullyIntegrated' && b.status.type === 'fullyIntegrated')
+	) {
+		return (a.branch?.name || 'Unknown').localeCompare(b.branch?.name || 'Unknown');
+	}
+
+	if (a.status.type === 'fullyIntegrated') {
+		return 1;
+	} else {
+		return -1;
+	}
+}
+
+type BranchStatusesResponse =
+	| {
+			type: 'upToDate';
+	  }
+	| {
+			type: 'updatesRequired';
+			subject: [string, BranchStatus][];
+	  };
+
 export class UpstreamIntegrationService {
 	constructor(
 		private project: Project,
@@ -51,10 +80,10 @@ export class UpstreamIntegrationService {
 	) {}
 
 	upstreamStatuses(): Readable<BranchStatusesWithBranches | undefined> {
-		const branchStatuses = readable<BranchStatuses | undefined>(undefined, (set) => {
-			invoke<BranchStatuses>('upstream_integration_statuses', { projectId: this.project.id }).then(
-				set
-			);
+		const branchStatuses = readable<BranchStatusesResponse | undefined>(undefined, (set) => {
+			invoke<BranchStatusesResponse>('upstream_integration_statuses', {
+				projectId: this.project.id
+			}).then(set);
 		});
 
 		const branchStatusesWithBranches = derived(
@@ -85,7 +114,6 @@ export class UpstreamIntegrationService {
 	}
 
 	async integrateUpstream(resolutions: Resolution[]) {
-		console.log(resolutions);
 		return await invoke('integrate_upstream', { projectId: this.project.id, resolutions });
 	}
 }

@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
@@ -10,7 +10,7 @@ use gitbutler_commit::{
 };
 use gitbutler_error::error::Marker;
 
-use crate::{temporary_workdir::TemporaryWorkdir, LogUntil, RepositoryExt as _};
+use crate::{LogUntil, RepositoryExt as _};
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
@@ -103,8 +103,6 @@ fn commit_unconflicted_cherry_result<'repository>(
     to_rebase: git2::Commit,
     mut cherrypick_index: git2::Index,
 ) -> Result<git2::Commit<'repository>> {
-    let commit_headers = to_rebase.gitbutler_headers();
-
     let is_merge_commit = to_rebase.parent_count() > 0;
 
     let merge_tree_oid = cherrypick_index
@@ -120,10 +118,13 @@ fn commit_unconflicted_cherry_result<'repository>(
         .find_tree(merge_tree_oid)
         .context("failed to find merge tree")?;
 
-    let commit_headers = commit_headers.map(|commit_headers| CommitHeadersV2 {
-        conflicted: None,
-        ..commit_headers
-    });
+    // Set conflicted header to None
+    let commit_headers = to_rebase
+        .gitbutler_headers()
+        .map(|commit_headers| CommitHeadersV2 {
+            conflicted: None,
+            ..commit_headers
+        });
 
     let commit_oid = crate::RepositoryExt::commit_with_signature(
         repository,
@@ -168,18 +169,23 @@ fn commit_conflicted_cherry_result<'repository>(
     let resolved_tree_id = cherrypick_index.write_tree_to(repository)?;
 
     // convert files into a string and save as a blob
-    let conflicted_files_string = conflicted_files.join("\n");
+    let conflicted_files_string = conflicted_files
+        .iter()
+        .map(|path| path.to_str())
+        .collect::<Option<Vec<_>>>()
+        .ok_or(anyhow!("Failed to get paths as strings"))?
+        .join("\n");
     let conflicted_files_blob = repository.blob(conflicted_files_string.as_bytes())?;
 
     // create a treewriter
     let mut tree_writer = repository.treebuilder(None)?;
 
-    let side0 = repository.find_real_tree(&head, Default::default())?;
-    let side1 = repository.find_real_tree(&to_rebase, ConflictedTreeKey::Theirs)?;
+    let head_tree = repository.find_real_tree(&head, Default::default())?;
+    let to_rebase_tree = repository.find_real_tree(&to_rebase, ConflictedTreeKey::Theirs)?;
 
     // save the state of the conflict, so we can recreate it later
-    tree_writer.insert(&*ConflictedTreeKey::Ours, side0.id(), 0o040000)?;
-    tree_writer.insert(&*ConflictedTreeKey::Theirs, side1.id(), 0o040000)?;
+    tree_writer.insert(&*ConflictedTreeKey::Ours, head_tree.id(), 0o040000)?;
+    tree_writer.insert(&*ConflictedTreeKey::Theirs, to_rebase_tree.id(), 0o040000)?;
     tree_writer.insert(&*ConflictedTreeKey::Base, base_tree.id(), 0o040000)?;
     tree_writer.insert(
         &*ConflictedTreeKey::AutoResolution,
@@ -227,55 +233,6 @@ fn commit_conflicted_cherry_result<'repository>(
         .context("failed to find commit")
 }
 
-/// Automatically resolves an index with a preferences for the "our" side
-///
-/// Within our rebasing and merging logic, "their" is the commit that is getting
-/// cherry picked, and "our" is the commit that it is getting cherry picked on
-/// to.
-///
-/// This means that if we experience a conflict, we drop the changes that are
-/// in the commit that is getting cherry picked in favor of what came before it
-fn resolve_index(
-    repository: &git2::Repository,
-    cherrypick_index: &mut git2::Index,
-) -> Result<Vec<String>, anyhow::Error> {
-    let mut conflicted_files = vec![];
-    let workdir = TemporaryWorkdir::open(repository)?;
-    workdir.repository().set_index(cherrypick_index)?;
-    let index_conflicts = cherrypick_index.conflicts()?.flatten().collect::<Vec<_>>();
-
-    for mut conflict in index_conflicts {
-        if let Some(ancestor) = &conflict.ancestor {
-            let path = std::str::from_utf8(&ancestor.path).unwrap();
-            let path = Path::new(path);
-            cherrypick_index.remove_path(path)?;
-        }
-
-        if let (Some(their), None) = (&conflict.their, &conflict.our) {
-            let path = std::str::from_utf8(&their.path).unwrap();
-            conflicted_files.push(path.to_string());
-            let their_path = Path::new(path);
-            cherrypick_index.remove_path(their_path)?;
-        } else if let (None, Some(our)) = (&conflict.their, &mut conflict.our) {
-            let path = std::str::from_utf8(&our.path).unwrap();
-            conflicted_files.push(path.to_string());
-            let blob = repository.find_blob(our.id)?;
-            cherrypick_index.add_frombuffer(our, blob.content())?;
-        } else if let (Some(their), Some(our)) = (&conflict.their, &mut conflict.our) {
-            let their_path = std::str::from_utf8(&their.path).unwrap();
-            let our_path = std::str::from_utf8(&our.path).unwrap();
-            conflicted_files.push(our_path.to_string());
-            let blob = repository.find_blob(our.id)?;
-
-            let their_path = Path::new(their_path);
-            cherrypick_index.remove_path(their_path)?;
-            cherrypick_index.add_frombuffer(our, blob.content())?;
-        }
-    }
-
-    Ok(conflicted_files)
-}
-
 pub fn gitbutler_merge_commits<'repository>(
     repository: &'repository git2::Repository,
     target_commit: git2::Commit<'repository>,
@@ -300,7 +257,12 @@ pub fn gitbutler_merge_commits<'repository>(
     let (author, committer) = repository.signatures()?;
 
     // convert files into a string and save as a blob
-    let conflicted_files_string = conflicted_files.join("\n");
+    let conflicted_files_string = conflicted_files
+        .iter()
+        .map(|path| path.to_str())
+        .collect::<Option<Vec<_>>>()
+        .ok_or(anyhow!("Failed to get paths as strings"))?
+        .join("\n");
     let conflicted_files_blob = repository.blob(conflicted_files_string.as_bytes())?;
 
     // create a treewriter
@@ -369,4 +331,68 @@ pub fn gitbutler_merge_commits<'repository>(
     .context("failed to create commit")?;
 
     Ok(repository.find_commit(commit_oid)?)
+}
+
+/// Automatically resolves an index with a preferences for the "our" side
+///
+/// Within our rebasing and merging logic, "their" is the commit that is getting
+/// cherry picked, and "our" is the commit that it is getting cherry picked on
+/// to.
+///
+/// This means that if we experience a conflict, we drop the changes that are
+/// in the commit that is getting cherry picked in favor of what came before it
+fn resolve_index(
+    repository: &git2::Repository,
+    cherrypick_index: &mut git2::Index,
+) -> Result<Vec<PathBuf>, anyhow::Error> {
+    fn bytes_to_path(path: &[u8]) -> Result<PathBuf> {
+        let path = std::str::from_utf8(path)?;
+        Ok(Path::new(path).to_owned())
+    }
+
+    let mut conflicted_files = vec![];
+
+    // Set the index on an in-memory repository
+    let in_memory_repository = repository.in_memory_repo()?;
+    in_memory_repository.set_index(cherrypick_index)?;
+
+    let index_conflicts = cherrypick_index.conflicts()?.flatten().collect::<Vec<_>>();
+
+    for mut conflict in index_conflicts {
+        // There may be a case when there is an ancestor in the index without
+        // a "their" OR "our" side. This is probably caused by the same file
+        // getting renamed and modified in the two commits.
+        if let Some(ancestor) = &conflict.ancestor {
+            let path = bytes_to_path(&ancestor.path)?;
+            cherrypick_index.remove_path(&path)?;
+        }
+
+        if let (Some(their), None) = (&conflict.their, &conflict.our) {
+            // Their (the commit we're rebasing)'s change gets dropped
+            let their_path = bytes_to_path(&their.path)?;
+            cherrypick_index.remove_path(&their_path)?;
+
+            conflicted_files.push(their_path);
+        } else if let (None, Some(our)) = (&conflict.their, &mut conflict.our) {
+            // Our (the commit we're rebasing onto)'s gets kept
+            let blob = repository.find_blob(our.id)?;
+            cherrypick_index.add_frombuffer(our, blob.content())?;
+
+            let our_path = bytes_to_path(&our.path)?;
+            conflicted_files.push(our_path);
+        } else if let (Some(their), Some(our)) = (&conflict.their, &mut conflict.our) {
+            // We keep our (the commit we're rebasing onto)'s side of the
+            // conflict
+            let their_path = bytes_to_path(&their.path)?;
+            let blob = repository.find_blob(our.id)?;
+
+            cherrypick_index.remove_path(&their_path)?;
+            cherrypick_index.add_frombuffer(our, blob.content())?;
+
+            let our_path = bytes_to_path(&our.path)?;
+            conflicted_files.push(our_path);
+        }
+    }
+
+    Ok(conflicted_files)
 }
