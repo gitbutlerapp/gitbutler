@@ -142,7 +142,7 @@
 		modeService!.enterEditMode(commit.id, branch!.refname);
 	}
 
-	$: conflicted = commit instanceof DetailedCommit && commit.conflicted;
+	$: conflicted = commit.conflicted;
 </script>
 
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>

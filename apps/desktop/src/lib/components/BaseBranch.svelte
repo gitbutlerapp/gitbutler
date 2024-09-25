@@ -66,6 +66,7 @@
 	);
 
 	let baseBranchIsUpdating = $state<boolean>(false);
+	const baseBranchConflicted = $derived(base.conflicted);
 	let updateTargetModal = $state<Modal>();
 	let resetBaseStrategy = $state<ResetBaseStrategy | undefined>(undefined);
 	let confirmResetModal = $state<Modal>();
@@ -73,6 +74,12 @@
 	let integrateUpstreamModal = $state<IntegrateUpstreamModal>();
 	const integrateUpstreamModalOpen = $derived(!!integrateUpstreamModal?.imports.open);
 	let mergeUpstreamWarningDismissedCheckbox = $state<boolean>(false);
+
+	const pushButtonTooltip = $derived.by(() => {
+		if (onlyLocalAhead) return 'Push your local changes to upstream';
+		if (base.conflicted) return 'Cannot push while there are conflicts';
+		return resetBaseTo.local.tooltip;
+	});
 
 	const multiple = $derived(
 		base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false
@@ -296,13 +303,12 @@
 						style={resetBaseTo.local.color}
 						icon={onlyLocalAhead ? undefined : 'warning'}
 						kind="solid"
-						tooltip={onlyLocalAhead
-							? 'Push your local changes to upstream'
-							: resetBaseTo.local.tooltip}
+						tooltip={pushButtonTooltip}
 						loading={baseBranchIsUpdating || confirmResetModalOpen}
 						disabled={$mode?.type !== 'OpenWorkspace' ||
 							baseBranchIsUpdating ||
-							confirmResetModalOpen}
+							confirmResetModalOpen ||
+							baseBranchConflicted}
 						onclick={resetBaseTo.local.handler}
 					>
 						{onlyLocalAhead ? 'Push' : resetBaseTo.local.title}

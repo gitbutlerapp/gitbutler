@@ -39,6 +39,7 @@ pub struct BaseBranch {
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
     pub last_fetched_ms: Option<u128>,
+    pub conflicted: bool,
     pub diverged: bool,
     #[serde(with = "gitbutler_serde::oid_vec")]
     pub diverged_ahead: Vec<git2::Oid>,
@@ -607,6 +608,9 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
         .map(commit_to_remote_commit)
         .collect::<Vec<_>>();
 
+    // we assume that only local commits can be conflicted
+    let conflicted = recent_commits.iter().any(|commit| commit.conflicted);
+
     // there has got to be a better way to do this.
     let push_remote_url = match target.push_remote_name {
         Some(ref name) => match repo.find_remote(name) {
@@ -637,6 +641,7 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
             .map(FetchResult::timestamp)
             .copied()
             .map(|t| t.duration_since(time::UNIX_EPOCH).unwrap().as_millis()),
+        conflicted,
         diverged,
         diverged_ahead,
         diverged_behind,
