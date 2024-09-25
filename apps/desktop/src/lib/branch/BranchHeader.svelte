@@ -340,10 +340,15 @@
 	}
 	.header__wrapper--stacking {
 		padding-bottom: unset !important;
+
+		& .header__info-wrapper .draggable {
+			height: auto;
+		}
 	}
 	.header_card--stacking {
 		border-bottom-right-radius: 0px;
 		border-bottom-left-radius: 0px;
+		border-bottom-width: 0px;
 	}
 	.header {
 		z-index: var(--z-lifted);
@@ -395,7 +400,6 @@
 		display: flex;
 		gap: 2px;
 		padding: 10px;
-		align-items: stretch;
 	}
 	.header__info {
 		flex: 1;
@@ -436,6 +440,7 @@
 	}
 	.draggable {
 		display: flex;
+		height: fit-content;
 		align-items: center;
 		cursor: grab;
 		padding: 2px 2px 0 0;

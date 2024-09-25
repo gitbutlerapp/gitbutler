@@ -286,7 +286,7 @@
 				bind:this={draggableCommitElement}
 				class="commit__header stacking-feature"
 				role="button"
-				tabindex="0"
+				tabindex="-1"
 				oncontextmenu={(e) => {
 					contextMenu?.open(e);
 				}}
@@ -456,6 +456,7 @@
 	.commit-row {
 		position: relative;
 		display: flex;
+		background-color: var(--clr-bg-1);
 
 		&.has-lines {
 			padding-right: 14px;
@@ -466,7 +467,7 @@
 		}
 
 		&:not(.is-first) {
-			border-top: 1px dotted var(--clr-border-2);
+			border-top: 1px solid var(--clr-border-2);
 		}
 	}
 
