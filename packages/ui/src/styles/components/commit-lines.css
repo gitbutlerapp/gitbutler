@@ -22,12 +22,16 @@
 		--border-color: var(--clr-commit-remote);
 	}
 
+	&.local-shadow {
+		--border-color: var(--clr-commit-local);
+	}
+
 	&.shadow {
 		--border-color: var(--clr-commit-shadow);
 	}
 
 	&.integrated {
-		--border-color: var(--clr-commit-shadow);
+		--border-color: var(--clr-commit-integrated);
 	}
 
 	&.dashed {
@@ -40,13 +44,11 @@
 			right: 0;
 			width: 2px;
 			height: calc(100% + 1px);
-			background: repeating-linear-gradient(
-				0,
-				transparent,
-				transparent 2px,
-				var(--border-color) 2px,
-				var(--border-color) 4px
-			);
+			background: repeating-linear-gradient(0,
+					transparent,
+					transparent 2px,
+					var(--border-color) 2px,
+					var(--border-color) 4px);
 		}
 	}
 }

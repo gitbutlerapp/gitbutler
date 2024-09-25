@@ -1,6 +1,4 @@
 <script lang="ts">
-	import Tooltip from '$lib/Tooltip.svelte';
-	import { isDefined } from '$lib/utils/typeguards';
 	import type { CommitNodeData, CellType } from '$lib/commitLinesStacking/types';
 
 	interface Props {
@@ -9,37 +7,25 @@
 	}
 
 	const { commitNode, type }: Props = $props();
-
-	const hoverText = $derived(
-		[
-			commitNode.commit?.author?.name,
-			commitNode.commit?.title,
-			commitNode.commit?.id.substring(0, 7)
-		]
-			.filter(isDefined)
-			.join('\n')
-	);
 </script>
 
 <div
 	class="container"
 	class:remote={type === 'Remote'}
 	class:local={type === 'Local'}
-	class:local-and-remote={type === 'LocalShadow'}
+	class:local-shadow={type === 'LocalShadow'}
 	class:upstream={type === 'Upstream'}
 	class:integrated={type === 'Integrated'}
 >
-	{#if commitNode.commit}
-		<div class="commit-node-dot"></div>
-	{:else}
-		<Tooltip text={hoverText}>
-			<div class="small-node"></div>
-		</Tooltip>
+	<div class="commit-node-dot"></div>
+	{#if type === 'LocalShadow'}
+		<div class="commit-node-dot secondary"></div>
 	{/if}
 </div>
 
 <style lang="postcss">
 	.container {
+		position: relative;
 		z-index: var(--z-ground);
 
 		&.remote {
@@ -50,8 +36,12 @@
 			--border-color: var(--clr-commit-local);
 		}
 
-		&.local-and-remote {
-			--border-color: var(--clr-commit-shadow);
+		&.local-shadow {
+			--border-color: var(--clr-commit-local);
+		}
+
+		&.local-shadow .secondary {
+			--border-color: var(--clr-commit-remote);
 		}
 
 		&.upstream {
@@ -60,18 +50,6 @@
 
 		&.integrated {
 			--border-color: var(--clr-commit-integrated);
-		}
-
-		& .small-node {
-			height: 10px;
-			width: 10px;
-
-			margin-top: -5px;
-			margin-bottom: -5px;
-			margin-left: -6px;
-			margin-right: -4px;
-			background-color: var(--border-color);
-			border-radius: 8px;
 		}
 
 		.commit-node-dot {
@@ -85,6 +63,18 @@
 
 			border-radius: 50%;
 			background-color: var(--border-color);
+
+			&.secondary {
+				height: 0.7rem;
+				width: 0.7rem;
+				position: absolute;
+				top: -0.025rem;
+				left: -0.5rem;
+
+				border-radius: 0.2rem;
+				border: 0.175rem solid var(--clr-bg-2);
+				transform: rotate(45deg);
+			}
 		}
 	}
 </style>

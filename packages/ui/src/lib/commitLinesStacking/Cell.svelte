@@ -13,7 +13,7 @@
 	class="commit-line"
 	class:local={cell.type === 'Local'}
 	class:remote={cell.type === 'Remote'}
-	class:local-and-remote={cell.type === 'LocalShadow'}
+	class:local-shadow={cell.type === 'LocalShadow'}
 	class:upstream={cell.type === 'Upstream'}
 	class:integrated={cell.type === 'Integrated'}
 	class:dashed={cell.style === 'dashed' || isBottom}
