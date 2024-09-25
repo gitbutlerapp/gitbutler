@@ -4,11 +4,11 @@ import type { StorybookConfig } from '@storybook/sveltekit';
 const config: StorybookConfig = {
 	stories: ['../src/stories/**/*.mdx', '../src/stories/**/*.stories.@(js|jsx|mjs|ts|tsx|svelte)'],
 	addons: [
-        getAbsolutePath('@storybook/addon-links'),
-        getAbsolutePath('@storybook/addon-essentials'),
-        getAbsolutePath('storybook-dark-mode'),
-        getAbsolutePath('@storybook/experimental-addon-vitest'),
-    ],
+		getAbsolutePath('@storybook/addon-links'),
+		getAbsolutePath('@storybook/addon-essentials'),
+		getAbsolutePath('storybook-dark-mode'),
+		getAbsolutePath('@storybook/experimental-addon-test')
+	],
 	framework: {
 		name: getAbsolutePath('@storybook/sveltekit'),
 		options: {}

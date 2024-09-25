@@ -31,7 +31,7 @@
 		"@storybook/addon-essentials": "^8.3.0",
 		"@storybook/addon-links": "^8.3.0",
 		"@storybook/blocks": "^8.3.0",
-		"@storybook/experimental-addon-vitest": "^8.3.0-beta.1",
+		"@storybook/experimental-addon-test": "^8.3.0",
 		"@storybook/svelte": "^8.3.0",
 		"@storybook/sveltekit": "^8.3.0",
 		"@sveltejs/adapter-static": "catalog:svelte",

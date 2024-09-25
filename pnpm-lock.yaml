@@ -350,9 +350,9 @@ importers:
       '@storybook/blocks':
         specifier: ^8.3.0
         version: 8.3.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.3.3)
-      '@storybook/experimental-addon-vitest':
-        specifier: ^8.3.0-beta.1
-        version: 8.3.0-beta.1(@vitest/browser@2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))
+      '@storybook/experimental-addon-test':
+        specifier: ^8.3.0
+        version: 8.3.3(@vitest/browser@2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))
       '@storybook/svelte':
         specifier: ^8.3.0
         version: 8.3.3(storybook@8.3.3)(svelte@5.0.0-next.243)
@@ -1551,11 +1551,11 @@ packages:
   '@storybook/csf@0.1.11':
     resolution: {integrity: sha512-dHYFQH3mA+EtnCkHXzicbLgsvzYjcDJ1JWsogbItZogkPHgSJM/Wr71uMkcvw8v9mmCyP4NpXJuu6bPoVsOnzg==}
 
-  '@storybook/experimental-addon-vitest@8.3.0-beta.1':
-    resolution: {integrity: sha512-56E3pGJGgQ2peF47i0HBFvjXfc6zZeCo4xe2Bv1qk5R6C9HraW6IiNozhiZ9x3lDbu4yohs6NRFIPVNR0pFH1A==}
+  '@storybook/experimental-addon-test@8.3.3':
+    resolution: {integrity: sha512-YGGd2UDyy7Jxf3dEIkgQkl+HSl6mUFuiQPobQh492eGM+h1XwTzLofSINUXRx9FbkeUdFl2yj/ug9VMoeZQWBA==}
     peerDependencies:
       '@vitest/browser': ^2.0.0
-      storybook: ^8.3.0-beta.1
+      storybook: ^8.3.3
       vitest: ^2.0.0
 
   '@storybook/global@5.0.0':
@@ -7379,7 +7379,7 @@ snapshots:
     dependencies:
       type-fest: 2.19.0
 
-  '@storybook/experimental-addon-vitest@8.3.0-beta.1(@vitest/browser@2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))':
+  '@storybook/experimental-addon-test@8.3.3(@vitest/browser@2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))':
     dependencies:
       '@storybook/csf': 0.1.11
       '@vitest/browser': 2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
