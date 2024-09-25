@@ -343,7 +343,7 @@ pub fn gitbutler_merge_commits<'repository>(
 /// in the commit that is getting cherry picked in favor of what came before it
 fn resolve_index(
     repository: &git2::Repository,
-    cherrypick_index: &mut git2::Index,
+    index: &mut git2::Index,
 ) -> Result<Vec<PathBuf>, anyhow::Error> {
     fn bytes_to_path(path: &[u8]) -> Result<PathBuf> {
         let path = std::str::from_utf8(path)?;
@@ -354,9 +354,9 @@ fn resolve_index(
 
     // Set the index on an in-memory repository
     let in_memory_repository = repository.in_memory_repo()?;
-    in_memory_repository.set_index(cherrypick_index)?;
+    in_memory_repository.set_index(index)?;
 
-    let index_conflicts = cherrypick_index.conflicts()?.flatten().collect::<Vec<_>>();
+    let index_conflicts = index.conflicts()?.flatten().collect::<Vec<_>>();
 
     for mut conflict in index_conflicts {
         // There may be a case when there is an ancestor in the index without
@@ -364,19 +364,20 @@ fn resolve_index(
         // getting renamed and modified in the two commits.
         if let Some(ancestor) = &conflict.ancestor {
             let path = bytes_to_path(&ancestor.path)?;
-            cherrypick_index.remove_path(&path)?;
+            index.remove_path(&path)?;
         }
 
         if let (Some(their), None) = (&conflict.their, &conflict.our) {
             // Their (the commit we're rebasing)'s change gets dropped
             let their_path = bytes_to_path(&their.path)?;
-            cherrypick_index.remove_path(&their_path)?;
+            index.remove_path(&their_path)?;
 
             conflicted_files.push(their_path);
         } else if let (None, Some(our)) = (&conflict.their, &mut conflict.our) {
             // Our (the commit we're rebasing onto)'s gets kept
             let blob = repository.find_blob(our.id)?;
-            cherrypick_index.add_frombuffer(our, blob.content())?;
+            our.flags = 0; // For some unknown reason we need to set flags to 0
+            index.add_frombuffer(our, blob.content())?;
 
             let our_path = bytes_to_path(&our.path)?;
             conflicted_files.push(our_path);
@@ -386,8 +387,9 @@ fn resolve_index(
             let their_path = bytes_to_path(&their.path)?;
             let blob = repository.find_blob(our.id)?;
 
-            cherrypick_index.remove_path(&their_path)?;
-            cherrypick_index.add_frombuffer(our, blob.content())?;
+            index.remove_path(&their_path)?;
+            our.flags = 0; // For some unknown reason we need to set flags to 0
+            index.add_frombuffer(our, blob.content())?;
 
             let our_path = bytes_to_path(&our.path)?;
             conflicted_files.push(our_path);
@@ -395,4 +397,134 @@ fn resolve_index(
     }
 
     Ok(conflicted_files)
+}
+
+#[cfg(test)]
+mod test {
+    #[cfg(test)]
+    mod resolve_index {
+        use gitbutler_testsupport::testing_repository::TestingRepository;
+
+        use crate::rebase::resolve_index;
+
+        #[test]
+        fn test_same_file_twice() {
+            let test_repository = TestingRepository::open();
+
+            // Make some commits
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a")]);
+            let b = test_repository.commit_tree(None, &[("foo.txt", "b")]);
+            let c = test_repository.commit_tree(None, &[("foo.txt", "c")]);
+            test_repository.commit_tree(None, &[("foo.txt", "asdfasdf")]);
+
+            // Merge the index
+            let mut index: git2::Index = test_repository
+                .repository
+                .merge_trees(
+                    &a.tree().unwrap(), // Base
+                    &b.tree().unwrap(), // Ours
+                    &c.tree().unwrap(), // Theirs
+                    None,
+                )
+                .unwrap();
+
+            assert!(index.has_conflicts());
+
+            // Call our index resolution function
+            resolve_index(&test_repository.repository, &mut index).unwrap();
+
+            // Ensure there are no conflicts
+            assert!(!index.has_conflicts());
+
+            let tree = index.write_tree_to(&test_repository.repository).unwrap();
+            let tree: git2::Tree = test_repository.repository.find_tree(tree).unwrap();
+
+            let blob = tree.get_name("foo.txt").unwrap().id(); // We fail here to get the entry because the tree is empty
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+
+            assert_eq!(blob.content(), b"b")
+        }
+
+        #[test]
+        fn test_diverging_renames() {
+            let test_repository = TestingRepository::open();
+
+            // Make some commits
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a")]);
+            let b = test_repository.commit_tree(None, &[("bar.txt", "a")]);
+            let c = test_repository.commit_tree(None, &[("baz.txt", "a")]);
+            test_repository.commit_tree(None, &[("foo.txt", "asdfasdf")]);
+
+            // Merge the index
+            let mut index: git2::Index = test_repository
+                .repository
+                .merge_trees(
+                    &a.tree().unwrap(), // Base
+                    &b.tree().unwrap(), // Ours
+                    &c.tree().unwrap(), // Theirs
+                    None,
+                )
+                .unwrap();
+
+            assert!(index.has_conflicts());
+
+            // Call our index resolution function
+            resolve_index(&test_repository.repository, &mut index).unwrap();
+
+            // Ensure there are no conflicts
+            assert!(!index.has_conflicts());
+
+            let tree = index.write_tree_to(&test_repository.repository).unwrap();
+            let tree: git2::Tree = test_repository.repository.find_tree(tree).unwrap();
+
+            assert!(tree.get_name("foo.txt").is_none());
+            assert!(tree.get_name("baz.txt").is_none());
+
+            let blob = tree.get_name("bar.txt").unwrap().id(); // We fail here to get the entry because the tree is empty
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+
+            assert_eq!(blob.content(), b"a")
+        }
+
+        #[test]
+        fn test_converging_renames() {
+            let test_repository = TestingRepository::open();
+
+            // Make some commits
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a"), ("bar.txt", "b")]);
+            let b = test_repository.commit_tree(None, &[("baz.txt", "a")]);
+            let c = test_repository.commit_tree(None, &[("baz.txt", "b")]);
+            test_repository.commit_tree(None, &[("foo.txt", "asdfasdf")]);
+
+            // Merge the index
+            let mut index: git2::Index = test_repository
+                .repository
+                .merge_trees(
+                    &a.tree().unwrap(), // Base
+                    &b.tree().unwrap(), // Ours
+                    &c.tree().unwrap(), // Theirs
+                    None,
+                )
+                .unwrap();
+
+            assert!(index.has_conflicts());
+
+            // Call our index resolution function
+            resolve_index(&test_repository.repository, &mut index).unwrap();
+
+            // Ensure there are no conflicts
+            assert!(!index.has_conflicts());
+
+            let tree = index.write_tree_to(&test_repository.repository).unwrap();
+            let tree: git2::Tree = test_repository.repository.find_tree(tree).unwrap();
+
+            assert!(tree.get_name("foo.txt").is_none());
+            assert!(tree.get_name("bar.txt").is_none());
+
+            let blob = tree.get_name("baz.txt").unwrap().id(); // We fail here to get the entry because the tree is empty
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+
+            assert_eq!(blob.content(), b"a")
+        }
+    }
 }

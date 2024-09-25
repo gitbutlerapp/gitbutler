@@ -7,6 +7,8 @@ pub use test_project::TestProject;
 mod suite;
 pub use suite::*;
 
+pub mod testing_repository;
+
 pub mod paths {
     use tempfile::TempDir;
 
