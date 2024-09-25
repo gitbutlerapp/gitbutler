@@ -23,7 +23,8 @@
 		"storybook": "storybook dev --no-open -p 6006",
 		"storybook:build": "storybook build",
 		"test": "vitest run --mode development",
-		"test:watch": "vitest --watch --mode development"
+		"test:watch": "vitest --watch --mode development",
+		"playwright:install": "playwright install"
 	},
 	"devDependencies": {
 		"@csstools/postcss-bundler": "^1.0.15",
