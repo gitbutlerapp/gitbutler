@@ -38,6 +38,7 @@ gitbutler-cherry-pick.workspace = true
 gitbutler-oxidize.workspace = true
 uuid.workspace = true
 itertools = "0.13"
+base64 = "0.22.1"
 
 [[test]]
 name = "repo"

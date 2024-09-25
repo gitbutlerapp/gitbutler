@@ -1,7 +1,6 @@
 pub mod commands {
     use crate::error::{Error, UnmarkedError};
     use anyhow::Result;
-    use base64::{engine::general_purpose, Engine as _};
     use gitbutler_branch_actions::RemoteBranchFile;
     use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
@@ -77,28 +76,6 @@ pub mod commands {
         relative_path: &Path,
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
-        let ctx = CommandContext::open(&project)?;
-        if &project
-            .path
-            .join(relative_path)
-            .canonicalize()?
-            .as_path()
-            .starts_with(project.path.clone())
-        {
-            let tree = ctx.repository().head()?.peel_to_tree()?;
-            let entry = tree.get_path(relative_path)?;
-            let blob = ctx.repository().find_blob(entry.id())?;
-            if !blob.is_binary() {
-                let content = std::str::from_utf8(blob.content())?;
-                Ok(content.to_string())
-            } else {
-                let binary_content = blob.content();
-                let encoded_content = general_purpose::STANDARD.encode(&binary_content);
-                Ok(encoded_content)
-            }
-        }
-        else {
-            anyhow::bail!("Invalid workspace file");
-        }
+        Ok(project.read_file_from_workspace(relative_path)?)
     }
 }

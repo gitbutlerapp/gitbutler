@@ -68,7 +68,7 @@ gitbutler-operating-modes.workspace = true
 gitbutler-edit-mode.workspace = true
 open = "5"
 url = "2.5.2"
-base64 = "0.22.1"
+
 
 [dependencies.tauri]
 version = "1.8.0"

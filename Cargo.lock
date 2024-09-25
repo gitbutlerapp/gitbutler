@@ -2474,6 +2474,7 @@ name = "gitbutler-repo"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "base64 0.22.1",
  "bstr",
  "git2",
  "gitbutler-branch",
@@ -2565,7 +2566,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backtrace",
- "base64 0.22.1",
  "console-subscriber",
  "dirs 5.0.1",
  "futures",
