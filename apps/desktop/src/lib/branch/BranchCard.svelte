@@ -269,14 +269,12 @@
 								{pushButton}
 							/>
 						{/if}
-						{#if $stackingFeature}
-							{@render pushButton({
-								disabled:
-									localCommitsConflicted ||
-									localAndRemoteCommitsConflicted ||
-									$localCommits.length === 0
-							})}
-						{/if}
+						{@render pushButton({
+							disabled:
+								localCommitsConflicted ||
+								localAndRemoteCommitsConflicted ||
+								$localCommits.length === 0
+						})}
 					</div>
 				</div>
 			</ScrollableContainer>
