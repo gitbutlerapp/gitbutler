@@ -71,20 +71,13 @@
 			: []
 	);
 
-	const forkPoint = $derived($branch.forkPoint);
-	const upstreamForkPoint = $derived($branch.upstreamData?.forkPoint);
-	const isRebased = $derived(!!forkPoint && !!upstreamForkPoint && forkPoint !== upstreamForkPoint);
-
 	const lineManager = $derived(
-		lineManagerFactory.build(
-			{
-				remoteCommits: mappedRemoteCommits,
-				localCommits: mappedLocalCommits,
-				localAndRemoteCommits: mappedLocalAndRemoteCommits,
-				integratedCommits: integratedCommits.map(transformAnyCommit)
-			},
-			!isRebased
-		)
+		lineManagerFactory.build({
+			remoteCommits: mappedRemoteCommits,
+			localCommits: mappedLocalCommits,
+			localAndRemoteCommits: mappedLocalAndRemoteCommits,
+			integratedCommits: integratedCommits.map(transformAnyCommit)
+		})
 	);
 
 	const hasCommits = $derived($branch.commits && $branch.commits.length > 0);
