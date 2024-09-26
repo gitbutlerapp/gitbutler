@@ -25,6 +25,7 @@ function generateSameForkpoint({
 
 		// If there are local commits we want to fill in a local dashed line
 		if (localBranchGroups.length > 0) {
+			line.commitNode.type = 'Local';
 			line.top.type = 'Local';
 			line.bottom.type = 'Local';
 			line.top.style = 'dashed';

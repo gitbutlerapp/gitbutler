@@ -227,8 +227,7 @@
 	}
 
 	/* MODIFIERS */
-
 	.selected-draggable {
-		background-color: var(--clr-theme-pop-bg);
+		background-color: var(--clr-theme-pop-bg) !important;
 	}
 </style>
