@@ -271,7 +271,10 @@
 						{/if}
 						{#if $stackingFeature}
 							{@render pushButton({
-								disabled: localCommitsConflicted || localAndRemoteCommitsConflicted
+								disabled:
+									localCommitsConflicted ||
+									localAndRemoteCommitsConflicted ||
+									$localCommits.length === 0
 							})}
 						{/if}
 					</div>
