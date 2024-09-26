@@ -1,26 +1,43 @@
 <script lang="ts">
-	import type { CellType } from '$lib/commitLinesStacking/types';
+	import Tooltip from '$lib/Tooltip.svelte';
+	import { isDefined } from '$lib/utils/typeguards';
+	import type { CellType, CommitNodeData } from '$lib/commitLinesStacking/types';
 
 	interface Props {
+		commitNode: CommitNodeData;
 		type: CellType;
 	}
 
-	const { type }: Props = $props();
+	const { commitNode, type }: Props = $props();
 
 	const isSquircle = $derived(['Remote', 'Upstream', 'Integrated', 'LocalShadow'].includes(type));
+
+	const hoverText = $derived(
+		[
+			commitNode.commit?.author?.name,
+			commitNode.commit?.title,
+			commitNode.commit?.id.substring(0, 7)
+		]
+			.filter(isDefined)
+			.join('\n')
+	);
 </script>
 
 <div
 	class="container"
-	class:remote={type === 'Remote'}
+	class:remote={type === 'LocalRemote'}
 	class:local={type === 'Local'}
 	class:local-shadow={type === 'LocalShadow'}
 	class:upstream={type === 'Upstream'}
 	class:integrated={type === 'Integrated'}
 >
-	<div class="commit-node-dot" class:squircle={isSquircle}></div>
+	<Tooltip text={hoverText}>
+		<div class="commit-node-dot" class:squircle={isSquircle}></div>
+	</Tooltip>
 	{#if type === 'LocalShadow'}
-		<div class="commit-node-dot secondary"></div>
+		<Tooltip text={hoverText}>
+			<div class="commit-node-dot secondary"></div>
+		</Tooltip>
 	{/if}
 </div>
 

@@ -19,9 +19,9 @@ function generateSameForkpoint({
 	const integratedBranchGroups = mapToCommitLineGroupPair(integratedCommits);
 
 	remoteBranchGroups.forEach(({ commit, line }) => {
-		line.top.type = 'Remote';
-		line.bottom.type = 'Remote';
-		line.commitNode = { type: 'Remote', commit };
+		line.top.type = 'LocalRemote';
+		line.bottom.type = 'LocalRemote';
+		line.commitNode = { type: 'LocalRemote', commit };
 
 		// If there are local commits we want to fill in a local dashed line
 		if (localBranchGroups.length > 0) {
@@ -42,7 +42,7 @@ function generateSameForkpoint({
 		let leftType: CellType | undefined;
 
 		if (remoteBranchGroups.length > 0) {
-			leftType = 'Remote';
+			leftType = 'LocalRemote';
 		} else {
 			leftType = 'LocalShadow';
 		}
@@ -54,7 +54,7 @@ function generateSameForkpoint({
 
 			if (commit.relatedRemoteCommit) {
 				line.commitNode = {
-					type: 'Remote',
+					type: 'LocalRemote',
 					commit: commit.relatedRemoteCommit
 				};
 			}
@@ -66,7 +66,7 @@ function generateSameForkpoint({
 				}
 
 				line.commitNode = {
-					type: 'Remote',
+					type: 'LocalRemote',
 					commit: commit.relatedRemoteCommit
 				};
 				line.bottom.type = leftType;
@@ -75,8 +75,8 @@ function generateSameForkpoint({
 			} else {
 				// If there are any remote commits, continue the line
 				if (remoteBranchGroups.length > 0) {
-					line.top.type = 'Remote';
-					line.bottom.type = 'Remote';
+					line.top.type = 'LocalRemote';
+					line.bottom.type = 'LocalRemote';
 				}
 			}
 		}
@@ -119,9 +119,9 @@ function generateDifferentForkpoint({
 	const integratedBranchGroups = mapToCommitLineGroupPair(integratedCommits);
 
 	remoteBranchGroups.forEach(({ commit, line }) => {
-		line.top.type = 'Remote';
-		line.bottom.type = 'Remote';
-		line.commitNode = { type: 'Remote', commit };
+		line.top.type = 'LocalRemote';
+		line.bottom.type = 'LocalRemote';
+		line.commitNode = { type: 'LocalRemote', commit };
 
 		// If there are local commits further down, render a dashed line from the top of the list
 		if (localBranchGroups.length > 0) {
@@ -160,11 +160,11 @@ function generateDifferentForkpoint({
 
 				// Since this is the first, if there were any remote commits, we should inherit that color
 				if (remoteBranchGroups.length > 0) {
-					line.top.type = 'Remote';
+					line.top.type = 'LocalRemote';
 				}
 
 				line.commitNode = {
-					type: 'Remote',
+					type: 'LocalRemote',
 					commit: commit.relatedRemoteCommit
 				};
 				line.bottom.type = 'LocalShadow';
@@ -173,8 +173,8 @@ function generateDifferentForkpoint({
 			} else {
 				// Otherwise maintain the left color if it exists
 				if (remoteBranchGroups.length > 0) {
-					line.top.type = 'Remote';
-					line.bottom.type = 'Remote';
+					line.top.type = 'LocalRemote';
+					line.bottom.type = 'LocalRemote';
 				}
 			}
 		}
@@ -220,21 +220,21 @@ function generateDifferentForkpoint({
 				if (commit.relatedRemoteCommit) {
 					// If we have just found a commit with a shadow style, match the top style
 					if (remoteBranchGroups.length > 0) {
-						line.top.type = 'Remote';
+						line.top.type = 'LocalRemote';
 					}
 
 					line.commitNode = {
-						type: 'Remote',
+						type: 'LocalRemote',
 						commit: commit.relatedRemoteCommit
 					};
-					line.bottom.type = 'Remote';
+					line.bottom.type = 'LocalRemote';
 
 					localCommitWithChangeIdFound = true;
 				} else {
 					// Otherwise style as remote if there are any
 					if (remoteBranchGroups.length > 0) {
-						line.top.type = 'Remote';
-						line.bottom.type = 'Remote';
+						line.top.type = 'LocalRemote';
+						line.bottom.type = 'LocalRemote';
 					}
 				}
 			}

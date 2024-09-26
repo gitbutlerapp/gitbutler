@@ -18,7 +18,7 @@
 		<Cell cell={line.top} />
 	</div>
 	{#if line.commitNode}
-		<CommitNode type={line.commitNode.type ?? 'Local'} />
+		<CommitNode commitNode={line.commitNode} type={line.commitNode.type ?? 'Local'} />
 	{/if}
 	<div class="line-bottom">
 		<Cell cell={line.bottom} {isBottom} />

@@ -32,4 +32,4 @@ export interface CommitData {
 	relatedRemoteCommit?: CommitData;
 }
 
-export type CellType = 'Local' | 'Remote' | 'Integrated' | 'Upstream' | 'LocalShadow';
+export type CellType = 'Local' | 'LocalRemote' | 'Integrated' | 'Upstream' | 'LocalShadow';

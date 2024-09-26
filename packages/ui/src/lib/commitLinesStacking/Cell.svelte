@@ -12,7 +12,7 @@
 <div
 	class="commit-line"
 	class:local={cell.type === 'Local'}
-	class:remote={cell.type === 'Remote'}
+	class:remote={cell.type === 'LocalRemote'}
 	class:local-shadow={cell.type === 'LocalShadow'}
 	class:upstream={cell.type === 'Upstream'}
 	class:integrated={cell.type === 'Integrated'}
