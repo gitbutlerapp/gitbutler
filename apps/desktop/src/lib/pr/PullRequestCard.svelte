@@ -284,7 +284,7 @@
 {/if}
 
 {#if $pr}
-	<PrDetailsModal bind:this={prDetailsModal} pr={$pr} />
+	<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
 {/if}
 
 <style lang="postcss">

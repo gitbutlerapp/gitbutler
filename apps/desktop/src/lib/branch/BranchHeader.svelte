@@ -4,7 +4,6 @@
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import DefaultTargetButton from './DefaultTargetButton.svelte';
 	import PullRequestButton from '../pr/PullRequestButton.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
@@ -14,6 +13,7 @@
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { showError, showToast } from '$lib/notifications/toasts';
+	import PrDetailsModal, { type CreatePrParams } from '$lib/pr/PrDetailsModal.svelte';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { sleep } from '$lib/utils/sleep';
@@ -22,6 +22,7 @@
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { tick } from 'svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
@@ -41,13 +42,14 @@
 	const branchStore = getContextStore(VirtualBranch);
 	const prMonitor = getGitHostPrMonitor();
 	const gitHost = getGitHost();
-	const project = getContext(Project);
 
 	const baseBranchName = $derived($baseBranch.shortName);
 	const branch = $derived($branchStore);
 	const pr = $derived($prMonitor?.pr);
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let useDraftPr = $state<boolean>(false);
+	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
 	let isLoading = $state(false);
 	let isTargetBranchAnimated = $state(false);
@@ -70,48 +72,10 @@
 
 	let headerInfoHeight = $state(0);
 
-	interface CreatePrOpts {
-		draft: boolean;
-	}
-
-	const defaultPrOpts: CreatePrOpts = {
-		draft: true
-	};
-
-	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
-		const opts = { ...defaultPrOpts, ...createPrOpts };
+	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
 		if (!$gitHost) {
 			error('Pull request service not available');
 			return;
-		}
-
-		let title: string;
-		let body: string;
-
-		let pullRequestTemplateBody: string | undefined;
-		const prTemplatePath = project.git_host.pullRequestTemplatePath;
-
-		if (prTemplatePath) {
-			pullRequestTemplateBody = await $prService?.pullRequestTemplateContent(
-				prTemplatePath,
-				project.id
-			);
-		}
-
-		if (pullRequestTemplateBody) {
-			title = branch.name;
-			body = pullRequestTemplateBody;
-		} else {
-			// In case of a single commit, use the commit summary and description for the title and
-			// description of the PR.
-			if (branch.commits.length === 1) {
-				const commit = branch.commits[0];
-				title = commit?.descriptionTitle ?? '';
-				body = commit?.descriptionBody ?? '';
-			} else {
-				title = branch.name;
-				body = '';
-			}
 		}
 
 		isLoading = true;
@@ -148,9 +112,9 @@
 			}
 
 			await $prService.createPr({
-				title,
-				body,
-				draft: opts.draft,
+				title: params.title,
+				body: params.body,
+				draft: params.draft,
 				baseBranchName,
 				upstreamName: upstreamBranchName
 			});
@@ -164,6 +128,12 @@
 		}
 		await $gitListService?.refresh();
 		baseBranchService.fetchFromRemotes();
+	}
+
+	async function handleCreatePR(draft: boolean) {
+		useDraftPr = draft;
+		await tick();
+		prDetailsModal?.show();
 	}
 </script>
 
@@ -270,7 +240,7 @@
 					<div class="header__buttons">
 						{#if !$pr}
 							<PullRequestButton
-								click={async ({ draft }) => await createPr({ draft })}
+								click={async ({ draft }) => await handleCreatePR(draft)}
 								disabled={branch.commits.length === 0 || !$gitHost || !$prService}
 								tooltip={!$gitHost || !$prService
 									? 'You can enable git host integration in the settings'
@@ -300,6 +270,13 @@
 		<div class="header__top-overlay" data-remove-from-draggable data-tauri-drag-region></div>
 	</div>
 {/if}
+
+<PrDetailsModal
+	bind:this={prDetailsModal}
+	type="preview"
+	onCreatePr={createPr}
+	draft={useDraftPr}
+/>
 
 <style>
 	.header__wrapper {
