@@ -12,7 +12,9 @@
 	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import CommitList from '$lib/commit/CommitList.svelte';
+	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
