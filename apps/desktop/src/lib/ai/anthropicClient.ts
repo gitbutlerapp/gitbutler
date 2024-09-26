@@ -1,4 +1,8 @@
-import { SHORT_DEFAULT_COMMIT_TEMPLATE, SHORT_DEFAULT_BRANCH_TEMPLATE } from '$lib/ai/prompts';
+import {
+	SHORT_DEFAULT_COMMIT_TEMPLATE,
+	SHORT_DEFAULT_BRANCH_TEMPLATE,
+	SHORT_DEFAULT_PR_TEMPLATE
+} from '$lib/ai/prompts';
 import { type AIClient, type AnthropicModelName, type Prompt } from '$lib/ai/types';
 import { buildFailureFromAny, ok, type Result } from '$lib/result';
 import { fetch, Body } from '@tauri-apps/api/http';
@@ -11,6 +15,7 @@ type AnthropicAPIResponse = {
 export class AnthropicAIClient implements AIClient {
 	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;
 	defaultBranchTemplate = SHORT_DEFAULT_BRANCH_TEMPLATE;
+	defaultPRTemplate = SHORT_DEFAULT_PR_TEMPLATE;
 
 	constructor(
 		private apiKey: string,

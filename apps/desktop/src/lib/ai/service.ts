@@ -59,6 +59,16 @@ type SummarizeBranchOpts = {
 	userToken?: string;
 };
 
+type SummarizePROpts = {
+	commitMessages: string[];
+	title: string;
+	body: string;
+	prTemplate?: Prompt;
+	prBodyTemplate?: string;
+	userToken?: string;
+	onToken?: (token: string) => void;
+};
+
 // Exported for testing only
 export function buildDiff(hunks: Hunk[], limit: number) {
 	return shuffle(hunks.map((h) => `${h.filePath} - ${h.diff}`))
@@ -318,5 +328,52 @@ export class AIService {
 		const message = messageResult.value;
 
 		return ok(message.replaceAll(' ', '-').replaceAll('\n', '-'));
+	}
+
+	async describePR({
+		commitMessages,
+		title,
+		body,
+		prTemplate,
+		prBodyTemplate,
+		userToken
+	}: SummarizePROpts): Promise<Result<string, Error>> {
+		const aiClientResult = await this.buildClient(userToken);
+		if (isFailure(aiClientResult)) return aiClientResult;
+		const aiClient = aiClientResult.value;
+		const defaultPRTemplate = prTemplate ?? aiClient.defaultPRTemplate;
+
+		const prBodyTemplateDirective = prBodyTemplate
+			? `PR_TEMPLATE:
+\`\`\`
+${prBodyTemplate}
+\`\`\`
+`
+			: '';
+
+		const prompt: Prompt = defaultPRTemplate.map((message) => {
+			if (message.role !== MessageRole.User) {
+				return message;
+			}
+
+			return {
+				role: MessageRole.User,
+				content: message.content
+					.replaceAll('%{pr_template_directive}', prBodyTemplateDirective)
+					.replaceAll('%{commit_messages}', commitMessages.slice().reverse().join('\n<###>\n'))
+					.replaceAll('%{title}', title)
+					.replaceAll('%{body}', body)
+			};
+		});
+
+		const messageResult = await aiClient.evaluate(prompt);
+		if (isFailure(messageResult)) return messageResult;
+
+		let message = messageResult.value.trim();
+		if (message.startsWith('```\n') && message.endsWith('\n```')) {
+			message = message.slice(4, -4);
+		}
+
+		return ok(message);
 	}
 }

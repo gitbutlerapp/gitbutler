@@ -117,3 +117,35 @@ index 1cbfaa2..7aeebcf 100644
 	},
 	...SHORT_DEFAULT_BRANCH_TEMPLATE
 ];
+
+export const SHORT_DEFAULT_PR_TEMPLATE: Prompt = [
+	{
+		role: MessageRole.System,
+		content: `You're a helpful coding assitant.
+Create a description for a pull request.
+Use the provided context, like the COMMIT_MESSAGES, PR_TEMPLATE, current TITLE and BODY.
+The list of commit messages is separated by this token: <###>.
+Only respond with the PR description in RAW MARKDOWN format.`
+	},
+	{
+		role: MessageRole.User,
+		content: `Please could you write a pull request description for my changes.
+%{pr_template_directive}
+
+TITLE:
+\`\`\`
+%{title}
+\`\`\`
+
+BODY:
+\`\`\`
+%{body}
+\`\`\`
+
+COMMIT_MESSAGES:
+\`\`\`
+%{commit_messages}
+\`\`\`
+`
+	}
+];

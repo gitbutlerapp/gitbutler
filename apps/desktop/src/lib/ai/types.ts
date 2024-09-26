@@ -42,6 +42,7 @@ export interface AIClient {
 
 	defaultBranchTemplate: Prompt;
 	defaultCommitTemplate: Prompt;
+	defaultPRTemplate: Prompt;
 }
 
 export type UserPrompt = {
