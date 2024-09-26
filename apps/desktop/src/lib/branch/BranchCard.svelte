@@ -257,6 +257,12 @@
 									/>
 								</div>
 							{/each}
+							{@render pushButton({
+								disabled:
+									localCommitsConflicted ||
+									localAndRemoteCommitsConflicted ||
+									$localCommits.length === 0
+							})}
 						{:else}
 							<CommitList
 								localCommits={$localCommits}
@@ -269,12 +275,6 @@
 								{pushButton}
 							/>
 						{/if}
-						{@render pushButton({
-							disabled:
-								localCommitsConflicted ||
-								localAndRemoteCommitsConflicted ||
-								$localCommits.length === 0
-						})}
 					</div>
 				</div>
 			</ScrollableContainer>
