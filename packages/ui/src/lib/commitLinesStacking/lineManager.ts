@@ -78,6 +78,7 @@ function generateSameForkpoint({
 				if (remoteBranchGroups.length > 0) {
 					line.top.type = 'LocalRemote';
 					line.bottom.type = 'LocalRemote';
+					line.commitNode.type = 'LocalRemote';
 				}
 			}
 		}
