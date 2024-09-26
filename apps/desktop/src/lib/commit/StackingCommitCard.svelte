@@ -1,6 +1,6 @@
 <script lang="ts">
 	import CommitContextMenu from './CommitContextMenu.svelte';
-	import CommitDragItem from './CommitDragItem.svelte';
+	// import StackingCommitDragItem from './StackingCommitDragItem.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
@@ -36,10 +36,9 @@
 		commitUrl?: string | undefined;
 		isHeadCommit?: boolean;
 		isUnapplied?: boolean;
-		first?: boolean;
 		last?: boolean;
 		type: CommitStatus;
-		lines?: Snippet<[number]> | undefined;
+		lines?: Snippet | undefined;
 		filesToggleable?: boolean;
 	}
 
@@ -49,7 +48,6 @@
 		commitUrl = undefined,
 		isHeadCommit = false,
 		isUnapplied = false,
-		first = false,
 		last = false,
 		type,
 		lines = undefined,
@@ -144,14 +142,6 @@
 
 	const commitShortSha = commit.id.substring(0, 7);
 
-	let topHeightPx = $derived.by(() => {
-		if (showDetails && !first) {
-			return 28;
-		} else {
-			return 16;
-		}
-	});
-
 	let dragDirection: 'up' | 'down' | undefined = $state();
 	let isDragTargeted = $state(false);
 
@@ -224,11 +214,9 @@
 {/if}
 
 <div
-	class="commit-row stacking-feature"
+	class="commit-row"
 	class:is-commit-open={showDetails}
-	class:is-first={first}
 	class:is-last={last}
-	class:has-lines={lines}
 	onclick={toggleFiles}
 	onkeyup={onKeyup}
 	role="button"
@@ -268,187 +256,183 @@
 			class="pseudo-reorder-zone"
 			class:top={dragDirection === 'up'}
 			class:bottom={dragDirection === 'down'}
-			class:is-first={first}
 			class:is-last={last}
 		></div>
 	{/if}
 
 	{#if lines}
 		<div>
-			{@render lines(topHeightPx)}
+			{@render lines()}
 		</div>
 	{/if}
 
-	<div class="commit-card stacking-feature" class:is-first={first} class:is-last={last}>
-		<CommitDragItem {commit}>
-			<!-- GENERAL INFO -->
-			<div
-				bind:this={draggableCommitElement}
-				class="commit__header stacking-feature"
-				role="button"
-				tabindex="-1"
-				oncontextmenu={(e) => {
-					contextMenu?.open(e);
-				}}
-			>
-				{#if !isUnapplied}
-					{#if type === 'local' || type === 'localAndRemote'}
-						<div class="commit__drag-icon">
-							<Icon name="draggable-narrow" />
-						</div>
-					{/if}
-				{/if}
-
-				{#if isUndoable && !commit.descriptionTitle}
-					<span class="text-13 text-body text-semibold commit__empty-title"
-						>empty commit message</span
-					>
-				{:else}
-					<h5 class="text-13 text-body text-semibold commit__title" class:truncate={!showDetails}>
-						{commit.descriptionTitle}
-					</h5>
-
-					<div class="text-11 commit__subtitle">
-						{#if commit.isSigned}
-							<Tooltip text="Signed">
-								<div class="commit__signed">
-									<Icon name="success-outline-small" />
-								</div>
-							</Tooltip>
-
-							<span class="commit__subtitle-divider">•</span>
-						{/if}
-
-						{#if conflicted}
-							<Tooltip
-								text={"Conflicted commits must be resolved before they can be ammended or squashed.\nPlease resolve conflicts using the 'Resolve conflicts' button"}
-							>
-								<div class="commit__conflicted">
-									<Icon name="warning-small" />
-
-									Conflicted
-								</div>
-							</Tooltip>
-
-							<span class="commit__subtitle-divider">•</span>
-						{/if}
-
-						<button
-							class="commit__subtitle-btn commit__subtitle-btn_dashed"
-							onclick={(e) => {
-								e.stopPropagation();
-								copyToClipboard(commit.id);
-							}}
-						>
-							{commitShortSha}
-
-							<div class="commit__subtitle-btn__icon">
-								<Icon name="copy-small" />
-							</div>
-						</button>
-
-						{#if showDetails && commitUrl}
-							<span class="commit__subtitle-divider">•</span>
-
-							<button
-								class="commit__subtitle-btn"
-								onclick={(e) => {
-									e.stopPropagation();
-									if (commitUrl) openExternalUrl(commitUrl);
-								}}
-							>
-								<span>Open</span>
-
-								<div class="commit__subtitle-btn__icon">
-									<Icon name="open-link" />
-								</div>
-							</button>
-						{/if}
-						<span class="commit__subtitle-divider">•</span>
-						<span>{getTimeAndAuthor()}</span>
+	<div class="commit-card" class:is-last={last}>
+		<!-- GENERAL INFO -->
+		<div
+			bind:this={draggableCommitElement}
+			class="commit__header"
+			role="button"
+			tabindex="-1"
+			oncontextmenu={(e) => {
+				contextMenu?.open(e);
+			}}
+		>
+			{#if !isUnapplied}
+				{#if type === 'local' || type === 'localAndRemote'}
+					<div class="commit__drag-icon">
+						<Icon name="draggable-narrow" />
 					</div>
 				{/if}
-			</div>
+			{/if}
 
-			<!-- HIDDEN -->
-			{#if showDetails}
-				{#if commit.descriptionBody || isUndoable}
-					<div class="commit__details">
-						{#if commit.descriptionBody}
-							<span class="commit__description text-12 text-body">
-								{commit.descriptionBody}
-							</span>
-						{/if}
+			{#if isUndoable && !commit.descriptionTitle}
+				<span class="text-13 text-body text-semibold commit__empty-title">empty commit message</span
+				>
+			{:else}
+				<h5 class="text-13 text-body text-semibold commit__title" class:truncate={!showDetails}>
+					{commit.descriptionTitle}
+				</h5>
 
-						{#if isUndoable}
-							<div class="commit__actions hide-native-scrollbar">
-								{#if isUndoable}
-									{#if !conflicted}
-										<Button
-											size="tag"
-											style="ghost"
-											outline
-											icon="undo-small"
-											onclick={(e: MouseEvent) => {
-												currentCommitMessage.set(commit.description);
-												e.stopPropagation();
-												undoCommit(commit);
-											}}
-											>Undo</Button
-										>
-									{/if}
+				<div class="text-11 commit__subtitle">
+					{#if commit.isSigned}
+						<Tooltip text="Signed">
+							<div class="commit__signed">
+								<Icon name="success-outline-small" />
+							</div>
+						</Tooltip>
+
+						<span class="commit__subtitle-divider">•</span>
+					{/if}
+
+					{#if conflicted}
+						<Tooltip
+							text={"Conflicted commits must be resolved before they can be ammended or squashed.\nPlease resolve conflicts using the 'Resolve conflicts' button"}
+						>
+							<div class="commit__conflicted">
+								<Icon name="warning-small" />
+
+								Conflicted
+							</div>
+						</Tooltip>
+
+						<span class="commit__subtitle-divider">•</span>
+					{/if}
+
+					<button
+						class="commit__subtitle-btn commit__subtitle-btn_dashed"
+						onclick={(e) => {
+							e.stopPropagation();
+							copyToClipboard(commit.id);
+						}}
+					>
+						{commitShortSha}
+
+						<div class="commit__subtitle-btn__icon">
+							<Icon name="copy-small" />
+						</div>
+					</button>
+
+					{#if showDetails && commitUrl}
+						<span class="commit__subtitle-divider">•</span>
+
+						<button
+							class="commit__subtitle-btn"
+							onclick={(e) => {
+								e.stopPropagation();
+								if (commitUrl) openExternalUrl(commitUrl);
+							}}
+						>
+							<span>Open</span>
+
+							<div class="commit__subtitle-btn__icon">
+								<Icon name="open-link" />
+							</div>
+						</button>
+					{/if}
+					<span class="commit__subtitle-divider">•</span>
+					<span>{getTimeAndAuthor()}</span>
+				</div>
+			{/if}
+		</div>
+
+		<!-- HIDDEN -->
+		{#if showDetails}
+			{#if commit.descriptionBody || isUndoable}
+				<div class="commit__details">
+					{#if commit.descriptionBody}
+						<span class="commit__description text-12 text-body">
+							{commit.descriptionBody}
+						</span>
+					{/if}
+
+					{#if isUndoable}
+						<div class="commit__actions hide-native-scrollbar">
+							{#if isUndoable}
+								{#if !conflicted}
 									<Button
 										size="tag"
 										style="ghost"
 										outline
-										icon="edit-small"
-										onclick={openCommitMessageModal}>Edit message</Button
+										icon="undo-small"
+										onclick={(e: MouseEvent) => {
+												currentCommitMessage.set(commit.description);
+												e.stopPropagation();
+												undoCommit(commit);
+											}}
+										>Undo</Button
 									>
-									{#if commit instanceof DetailedCommit && !commit.remoteRef}
-										<Button
-											size="tag"
-											style="ghost"
-											outline
-											icon="virtual-branch-small"
-											onclick={(e: Event) => {openCreateRefModal(e, commit)}}>Create ref</Button
-										>
-									{/if}
-									{#if commit instanceof DetailedCommit && commit.remoteRef}
-										<Button
-											size="tag"
-											style="ghost"
-											outline
-											icon="remote"
-											onclick={() => {
-												pushCommitRef(commit);
-											}}>Push ref</Button
-										>
-									{/if}
 								{/if}
-								{#if canEdit() && project.succeedingRebases}
-									<Button size="tag" style="ghost" outline onclick={editPatch}>
-										{#if conflicted}
-											Resolve conflicts
-										{:else}
-											Edit patch
-										{/if}
-									</Button>
+								<Button
+									size="tag"
+									style="ghost"
+									outline
+									icon="edit-small"
+									onclick={openCommitMessageModal}>Edit message</Button
+								>
+								{#if commit instanceof DetailedCommit && !commit.remoteRef}
+									<Button
+										size="tag"
+										style="ghost"
+										outline
+										icon="virtual-branch-small"
+										onclick={(e: Event) => {openCreateRefModal(e, commit)}}>Create ref</Button
+									>
 								{/if}
-							</div>
-						{/if}
-					</div>
-				{/if}
-
-				<div class="files-container">
-					<BranchFilesList
-						allowMultiple={!isUnapplied && type !== 'remote'}
-						{files}
-						{isUnapplied}
-						readonly={type === 'remote' || isUnapplied}
-					/>
+								{#if commit instanceof DetailedCommit && commit.remoteRef}
+									<Button
+										size="tag"
+										style="ghost"
+										outline
+										icon="remote"
+										onclick={() => {
+											pushCommitRef(commit);
+										}}>Push ref</Button
+									>
+								{/if}
+							{/if}
+							{#if canEdit() && project.succeedingRebases}
+								<Button size="tag" style="ghost" outline onclick={editPatch}>
+									{#if conflicted}
+										Resolve conflicts
+									{:else}
+										Edit patch
+									{/if}
+								</Button>
+							{/if}
+						</div>
+					{/if}
 				</div>
 			{/if}
-		</CommitDragItem>
+
+			<div class="files-container">
+				<BranchFilesList
+					allowMultiple={!isUnapplied && type !== 'remote'}
+					{files}
+					{isUnapplied}
+					readonly={type === 'remote' || isUnapplied}
+				/>
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -456,18 +440,19 @@
 	.commit-row {
 		position: relative;
 		display: flex;
+		gap: 10px;
 		background-color: var(--clr-bg-1);
 
-		&.has-lines {
-			padding-right: 14px;
+		transition: background-color var(--transition-fast);
+
+		&:not(.is-commit-open) {
+			&:hover {
+				background-color: var(--clr-bg-1-muted);
+			}
 		}
 
-		&.stacking-feature {
-			padding-right: 0px !important;
-		}
-
-		&:not(.is-first) {
-			border-top: 1px solid var(--clr-border-2);
+		&:not(.is-last) {
+			border-bottom: 1px solid var(--clr-border-2);
 		}
 	}
 
@@ -476,31 +461,7 @@
 		position: relative;
 		flex-direction: column;
 		flex: 1;
-
-		background-color: var(--clr-bg-1);
-		border-right: 1px solid var(--clr-border-2);
 		overflow: hidden;
-		transition: background-color var(--transition-fast);
-
-		&.is-first {
-			margin-top: 12px;
-			border-top: 1px solid var(--clr-border-2);
-			border-top-left-radius: var(--radius-m);
-			border-top-right-radius: var(--radius-m);
-		}
-		&.is-last {
-			border-bottom: 1px solid var(--clr-border-2);
-			border-bottom-left-radius: var(--radius-m);
-			border-bottom-right-radius: var(--radius-m);
-		}
-		&:not(.is-first) {
-			border-top: none;
-		}
-		&.stacking-feature {
-			margin-top: 0px !important;
-			background-color: transparent !important;
-			border: none !important;
-		}
 	}
 
 	.commit__conflicted {
@@ -516,15 +477,9 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
-		padding: 14px;
-
-		&.stacking-feature:hover {
-			background-color: unset;
-		}
+		padding: 14px 14px 14px 0;
 
 		&:hover {
-			background-color: var(--clr-bg-1-muted);
-
 			& .commit__drag-icon {
 				opacity: 1;
 			}
@@ -630,7 +585,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 12px;
-		padding: 0 0 10px 0;
+		padding-bottom: 12px;
 	}
 
 	.commit__actions {
@@ -643,25 +598,16 @@
 	/* FILES */
 	.files-container {
 		border: 1px solid var(--clr-border-2);
-		border-radius: 0.5rem;
-		margin-right: 0.5rem;
+		border-radius: var(--radius-m);
+		margin-right: 14px;
+		margin-bottom: 14px;
+		overflow: hidden;
 	}
 
 	/* MODIFIERS */
 	.is-commit-open {
 		& .commit-card {
-			margin-bottom: 12px;
 			border-radius: var(--radius-m);
-
-			&:not(.is-first) {
-				margin-top: 12px;
-				border-top: 1px solid var(--clr-border-2);
-			}
-
-			&:not(.is-last) {
-				margin-bottom: 12px;
-				border-bottom: 1px solid var(--clr-border-2);
-			}
 		}
 
 		& .commit__subtitle-btn__icon {
@@ -687,10 +633,6 @@
 
 	.pseudo-reorder-zone.bottom {
 		bottom: -1px;
-	}
-
-	.pseudo-reorder-zone.top.is-first {
-		top: 6px;
 	}
 
 	.pseudo-reorder-zone.bottom.is-last {

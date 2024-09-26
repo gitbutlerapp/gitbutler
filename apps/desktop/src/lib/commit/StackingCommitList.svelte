@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CommitAction from './CommitAction.svelte';
-	import CommitCard from './StackingCommitCard.svelte';
+	import StackingCommitCard from './StackingCommitCard.svelte';
+	import StackingCommitDragItem from './StackingCommitDragItem.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
@@ -124,32 +125,31 @@
 {/snippet}
 
 {#if hasCommits || hasRemoteCommits}
-	<div class="commits stacked">
+	<div class="commits">
 		<!-- UPSTREAM COMMITS -->
 
 		{#if remoteCommits.length > 0}
 			<!-- To make the sticky position work, commits should be wrapped in a div -->
 			<div class="commits-group">
 				{#each remoteCommits as commit, idx (commit.id)}
-					<CommitCard
+					<StackingCommitCard
 						type="remote"
 						branch={$branch}
 						{commit}
 						{isUnapplied}
-						first={idx === 0}
 						last={idx === remoteCommits.length - 1}
 						commitUrl={$gitHost?.commitUrl(commit.id)}
 						isHeadCommit={commit.id === headCommit?.id}
 					>
-						{#snippet lines(topHeightPx)}
-							<Line line={lineManager.get(commit.id)} {topHeightPx} />
+						{#snippet lines()}
+							<Line line={lineManager.get(commit.id)} />
 						{/snippet}
-					</CommitCard>
+					</StackingCommitCard>
 				{/each}
 
 				<CommitAction>
 					{#snippet lines()}
-						<Line line={lineManager.get(LineSpacer.Remote)} topHeightPx={0} />
+						<Line line={lineManager.get(LineSpacer.Remote)} />
 					{/snippet}
 					{#snippet action()}
 						<Button
@@ -184,19 +184,20 @@
 					getReorderDropzoneOffset({ isFirst: true })
 				)}
 				{#each localCommits as commit, idx (commit.id)}
-					<CommitCard
-						{commit}
-						{isUnapplied}
-						type="local"
-						first={idx === 0}
-						branch={$branch}
-						last={idx === localCommits.length - 1}
-						isHeadCommit={commit.id === headCommit?.id}
-					>
-						{#snippet lines(topHeightPx)}
-							<Line line={lineManager.get(commit.id)} {topHeightPx} />
-						{/snippet}
-					</CommitCard>
+					<StackingCommitDragItem {commit}>
+						<StackingCommitCard
+							{commit}
+							{isUnapplied}
+							type="local"
+							branch={$branch}
+							last={idx === localCommits.length - 1}
+							isHeadCommit={commit.id === headCommit?.id}
+						>
+							{#snippet lines()}
+								<Line line={lineManager.get(commit.id)} />
+							{/snippet}
+						</StackingCommitCard>
+					</StackingCommitDragItem>
 
 					{@render reorderDropzone(
 						reorderDropzoneManager.dropzoneBelowCommit(commit.id),
@@ -218,20 +219,21 @@
 		{#if localAndRemoteCommits.length > 0}
 			<div class="commits-group">
 				{#each localAndRemoteCommits as commit, idx (commit.id)}
-					<CommitCard
-						{commit}
-						{isUnapplied}
-						type="localAndRemote"
-						first={idx === 0}
-						branch={$branch}
-						last={idx === localAndRemoteCommits.length - 1}
-						isHeadCommit={commit.id === headCommit?.id}
-						commitUrl={$gitHost?.commitUrl(commit.id)}
-					>
-						{#snippet lines(topHeightPx)}
-							<Line line={lineManager.get(commit.id)} {topHeightPx} />
-						{/snippet}
-					</CommitCard>
+					<StackingCommitDragItem {commit}>
+						<StackingCommitCard
+							{commit}
+							{isUnapplied}
+							type="localAndRemote"
+							branch={$branch}
+							last={idx === localAndRemoteCommits.length - 1}
+							isHeadCommit={commit.id === headCommit?.id}
+							commitUrl={$gitHost?.commitUrl(commit.id)}
+						>
+							{#snippet lines()}
+								<Line line={lineManager.get(commit.id)} />
+							{/snippet}
+						</StackingCommitCard>
+					</StackingCommitDragItem>
 					{@render reorderDropzone(
 						reorderDropzoneManager.dropzoneBelowCommit(commit.id),
 						getReorderDropzoneOffset({
@@ -247,7 +249,7 @@
 				{#if remoteCommits.length > 0 && localCommits.length === 0 && pushButton}
 					<CommitAction>
 						{#snippet lines()}
-							<Line line={lineManager.get(LineSpacer.LocalAndRemote)} topHeightPx={0} />
+							<Line line={lineManager.get(LineSpacer.LocalAndRemote)} />
 						{/snippet}
 						{#snippet action()}
 							{@render pushButton({ disabled: localAndRemoteCommitsConflicted })}
@@ -261,20 +263,19 @@
 		{#if integratedCommits.length > 0}
 			<div class="commits-group">
 				{#each integratedCommits as commit, idx (commit.id)}
-					<CommitCard
+					<StackingCommitCard
 						{commit}
 						{isUnapplied}
 						type="integrated"
-						first={idx === 0}
 						branch={$branch}
 						isHeadCommit={commit.id === headCommit?.id}
 						last={idx === integratedCommits.length - 1}
 						commitUrl={$gitHost?.commitUrl(commit.id)}
 					>
-						{#snippet lines(topHeightPx)}
-							<Line line={lineManager.get(commit.id)} {topHeightPx} />
+						{#snippet lines()}
+							<Line line={lineManager.get(commit.id)} />
 						{/snippet}
-					</CommitCard>
+					</StackingCommitCard>
 				{/each}
 			</div>
 		{/if}
@@ -287,18 +288,17 @@
 		display: flex;
 		flex-direction: column;
 		background-color: var(--clr-bg-2);
-		border-top: 1px solid var(--clr-border-2);
-		border-bottom-left-radius: var(--radius-m);
-		border-bottom-right-radius: var(--radius-m);
-
-		--base-top-margin: 8px;
-		--base-icon-top: -8px;
-
-		--avatar-first-top: 50px;
-		--avatar-top: 16px;
+		border-radius: var(--radius-m);
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		margin-bottom: 10px;
 	}
 
-	.commits.stacked {
-		border-top: none;
+	.commits-group {
+		border-bottom: 1px solid var(--clr-border-2);
+
+		&:last-child {
+			border-bottom: none;
+		}
 	}
 </style>

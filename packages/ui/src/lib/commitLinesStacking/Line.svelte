@@ -1,20 +1,18 @@
 <script lang="ts">
 	import Cell from '$lib/commitLinesStacking/Cell.svelte';
 	import CommitNode from '$lib/commitLinesStacking/CommitNode.svelte';
-	import { pxToRem } from '$lib/utils/pxToRem';
 	import type { LineData } from '$lib/commitLinesStacking/types';
 
 	interface Props {
 		line: LineData;
-		topHeightPx?: number;
 		isBottom?: boolean;
 	}
 
-	const { line, topHeightPx = 12, isBottom = false }: Props = $props();
+	const { line, isBottom = false }: Props = $props();
 </script>
 
 <div class="line">
-	<div class="line-top" style:--top-height={pxToRem(topHeightPx)}>
+	<div class="line-top">
 		<Cell cell={line.top} />
 	</div>
 	{#if line.commitNode}
@@ -37,7 +35,7 @@
 	}
 
 	.line-top {
-		height: var(--top-height);
+		height: 16px;
 		width: 100%;
 	}
 
