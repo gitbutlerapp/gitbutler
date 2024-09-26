@@ -40,102 +40,74 @@ function relatedCommit(): CommitData {
 	};
 }
 
-export const sameForkpointAllPopulated: Story = {
+export const allPopulated: Story = {
 	args: {
 		remoteCommits: [commit(), commit()],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [commit(), commit()],
-		integratedCommits: [commit(), commit()],
-		sameForkpoint: true
+		integratedCommits: [commit(), commit()]
 	}
 };
 
-export const sameForkpointNoLocals: Story = {
+export const noLocals: Story = {
 	args: {
 		remoteCommits: [commit(), commit()],
 		localCommits: [],
 		localAndRemoteCommits: [commit(), commit()],
-		integratedCommits: [commit(), commit()],
-		sameForkpoint: true
+		integratedCommits: [commit(), commit()]
 	}
 };
 
-export const sameForkpointNoLocalAndRemotes: Story = {
+export const noLocalAndRemotes: Story = {
 	args: {
 		remoteCommits: [commit(), commit()],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [],
-		integratedCommits: [commit(), commit()],
-		sameForkpoint: true
+		integratedCommits: [commit(), commit()]
 	}
 };
 
-export const sameForkpointNoLocalAndRemotesOrIntegrateds: Story = {
+export const noLocalAndRemotesOrIntegrateds: Story = {
 	args: {
 		remoteCommits: [commit(), commit()],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [],
-		integratedCommits: [],
-		sameForkpoint: true
+		integratedCommits: []
 	}
 };
 
-export const sameForkpointNoRemote: Story = {
+export const noRemote: Story = {
 	args: {
 		remoteCommits: [],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [commit()],
-		integratedCommits: [commit(), commit()],
-		sameForkpoint: true
+		integratedCommits: [commit(), commit()]
 	}
 };
 
-export const differentForkpointAll: Story = {
+export const noIntegrated: Story = {
 	args: {
 		remoteCommits: [commit(), commit()],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [],
-		integratedCommits: [commit(), commit()],
-		sameForkpoint: false
+		integratedCommits: []
 	}
 };
 
-export const differentForkpointNoIntegrated: Story = {
-	args: {
-		remoteCommits: [commit(), commit()],
-		localCommits: [commit(), relatedCommit()],
-		localAndRemoteCommits: [],
-		integratedCommits: [],
-		sameForkpoint: false
-	}
-};
-
-export const differentForkpointNoLocal: Story = {
-	args: {
-		remoteCommits: [commit(), commit()],
-		localCommits: [],
-		localAndRemoteCommits: [],
-		integratedCommits: [commit(), relatedCommit(), commit()],
-		sameForkpoint: false
-	}
-};
-
-export const differentForkpointNoIntegratedNoRemote: Story = {
+export const localAndShadowOnly: Story = {
 	args: {
 		remoteCommits: [],
 		localCommits: [commit(), relatedCommit()],
 		localAndRemoteCommits: [],
-		integratedCommits: [],
-		sameForkpoint: false
+		integratedCommits: []
 	}
 };
 
-export const differentForkpointOnlyRemote: Story = {
+export const onlyRemote: Story = {
 	args: {
 		remoteCommits: [commit(), commit()],
 		localCommits: [],
 		localAndRemoteCommits: [],
-		integratedCommits: [],
-		sameForkpoint: false
+		integratedCommits: []
 	}
 };

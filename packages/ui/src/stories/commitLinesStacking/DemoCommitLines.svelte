@@ -8,22 +8,12 @@
 		localCommits: CommitData[];
 		localAndRemoteCommits: CommitData[];
 		integratedCommits: CommitData[];
-		sameForkpoint: boolean;
 	}
 
-	const {
-		remoteCommits,
-		localCommits,
-		localAndRemoteCommits,
-		integratedCommits,
-		sameForkpoint
-	}: Props = $props();
+	const { remoteCommits, localCommits, localAndRemoteCommits, integratedCommits }: Props = $props();
 
 	const lineManager = $derived(
-		new LineManager(
-			{ remoteCommits, localCommits, localAndRemoteCommits, integratedCommits },
-			sameForkpoint
-		)
+		new LineManager({ remoteCommits, localCommits, localAndRemoteCommits, integratedCommits })
 	);
 </script>
 
