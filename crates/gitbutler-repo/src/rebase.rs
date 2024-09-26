@@ -233,6 +233,11 @@ fn commit_conflicted_cherry_result<'repository>(
         .context("failed to find commit")
 }
 
+/// Merge two commits together
+///
+/// The `target_commit` and `incoming_commit` must have a common ancestor.
+///
+/// If there is a merge conflict, the
 pub fn gitbutler_merge_commits<'repository>(
     repository: &'repository git2::Repository,
     target_commit: git2::Commit<'repository>,
@@ -244,52 +249,63 @@ pub fn gitbutler_merge_commits<'repository>(
     let merge_base = repository.find_commit(merge_base)?;
 
     let base_tree = repository.find_real_tree(&merge_base, Default::default())?;
-    let target_tree = repository.find_real_tree(&target_commit, Default::default())?;
-    let incoming_tree = repository.find_real_tree(&incoming_commit, ConflictedTreeKey::Theirs)?;
+    // We want to use the auto-resolution when computing the merge, but for
+    // reconstructing it later, we want the "theirsiest" and "oursiest" trees
+    let target_tree = repository.find_real_tree(&target_commit, ConflictedTreeKey::Theirs)?;
+    let incoming_tree = repository.find_real_tree(&incoming_commit, ConflictedTreeKey::Ours)?;
 
+    let target_merge_tree = repository.find_real_tree(&target_commit, Default::default())?;
+    let incoming_merge_tree = repository.find_real_tree(&incoming_commit, Default::default())?;
     let mut merged_index =
-        repository.merge_trees(&base_tree, &target_tree, &incoming_tree, None)?;
+        repository.merge_trees(&base_tree, &incoming_merge_tree, &target_merge_tree, None)?;
 
-    let conflicted_files = resolve_index(repository, &mut merged_index)?;
+    let tree_oid;
+    let conflicted_files;
 
-    let resolved_tree_id = merged_index.write_tree_to(repository)?;
+    if merged_index.has_conflicts() {
+        conflicted_files = resolve_index(repository, &mut merged_index)?;
 
-    let (author, committer) = repository.signatures()?;
+        // Index gets resolved from the `resolve_index` call above, so we can safly write it out
+        let resolved_tree_id = merged_index.write_tree_to(repository)?;
 
-    // convert files into a string and save as a blob
-    let conflicted_files_string = conflicted_files
-        .iter()
-        .map(|path| path.to_str())
-        .collect::<Option<Vec<_>>>()
-        .ok_or(anyhow!("Failed to get paths as strings"))?
-        .join("\n");
-    let conflicted_files_blob = repository.blob(conflicted_files_string.as_bytes())?;
+        // convert files into a string and save as a blob
+        let conflicted_files_string = conflicted_files
+            .iter()
+            .map(|path| path.to_str())
+            .collect::<Option<Vec<_>>>()
+            .ok_or(anyhow!("Failed to get paths as strings"))?
+            .join("\n");
+        let conflicted_files_blob = repository.blob(conflicted_files_string.as_bytes())?;
 
-    // create a treewriter
-    let mut tree_writer = repository.treebuilder(None)?;
+        // create a treewriter
+        let mut tree_writer = repository.treebuilder(None)?;
 
-    // save the state of the conflict, so we can recreate it later
-    tree_writer.insert(&*ConflictedTreeKey::Ours, target_tree.id(), 0o040000)?;
-    tree_writer.insert(&*ConflictedTreeKey::Theirs, incoming_tree.id(), 0o040000)?;
-    tree_writer.insert(&*ConflictedTreeKey::Base, base_tree.id(), 0o040000)?;
-    tree_writer.insert(
-        &*ConflictedTreeKey::AutoResolution,
-        resolved_tree_id,
-        0o040000,
-    )?;
-    tree_writer.insert(
-        &*ConflictedTreeKey::ConflictFiles,
-        conflicted_files_blob,
-        0o100644,
-    )?;
+        // save the state of the conflict, so we can recreate it later
+        tree_writer.insert(&*ConflictedTreeKey::Ours, incoming_tree.id(), 0o040000)?;
+        tree_writer.insert(&*ConflictedTreeKey::Theirs, target_tree.id(), 0o040000)?;
+        tree_writer.insert(&*ConflictedTreeKey::Base, base_tree.id(), 0o040000)?;
+        tree_writer.insert(
+            &*ConflictedTreeKey::AutoResolution,
+            resolved_tree_id,
+            0o040000,
+        )?;
+        tree_writer.insert(
+            &*ConflictedTreeKey::ConflictFiles,
+            conflicted_files_blob,
+            0o100644,
+        )?;
 
-    // in case someone checks this out with vanilla Git, we should warn why it looks like this
-    let readme_content =
+        // in case someone checks this out with vanilla Git, we should warn why it looks like this
+        let readme_content =
         b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
-    let readme_blob = repository.blob(readme_content)?;
-    tree_writer.insert("README.txt", readme_blob, 0o100644)?;
+        let readme_blob = repository.blob(readme_content)?;
+        tree_writer.insert("README.txt", readme_blob, 0o100644)?;
 
-    let tree_oid = tree_writer.write().context("failed to write tree")?;
+        tree_oid = tree_writer.write().context("failed to write tree")?;
+    } else {
+        conflicted_files = vec![];
+        tree_oid = merged_index.write_tree_to(repository)?;
+    }
 
     let commit_headers = incoming_commit
         .gitbutler_headers()
@@ -312,6 +328,8 @@ pub fn gitbutler_merge_commits<'repository>(
                 }
             }
         });
+
+    let (author, committer) = repository.signatures()?;
 
     let commit_oid = crate::RepositoryExt::commit_with_signature(
         repository,
@@ -402,10 +420,279 @@ fn resolve_index(
 #[cfg(test)]
 mod test {
     #[cfg(test)]
-    mod resolve_index {
+    mod gitbutler_merge_commits {
+        use std::path::Path;
+
+        use crate::rebase::gitbutler_merge_commits;
+        use gitbutler_commit::commit_ext::CommitExt as _;
         use gitbutler_testsupport::testing_repository::TestingRepository;
 
+        #[test]
+        fn unconflicting_merge() {
+            let test_repository = TestingRepository::open();
+
+            // Make some commits
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a")]);
+            let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "b")]);
+            let c = test_repository.commit_tree(Some(&a), &[("foo.txt", "a"), ("bar.txt", "a")]);
+
+            let result =
+                gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature")
+                    .unwrap();
+
+            assert!(!result.is_conflicted());
+
+            let tree = result.tree().unwrap();
+
+            let blob = tree.get_name("foo.txt").unwrap().id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(blob.content(), b"b");
+
+            let blob = tree.get_name("bar.txt").unwrap().id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(blob.content(), b"a");
+        }
+
+        #[test]
+        fn conflicting_merge() {
+            let test_repository = TestingRepository::open();
+
+            // Make some commits
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a")]);
+            let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "b")]);
+            let c = test_repository.commit_tree(Some(&a), &[("foo.txt", "c")]);
+
+            let result =
+                gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature")
+                    .unwrap();
+
+            assert!(result.is_conflicted());
+
+            let tree = result.tree().unwrap();
+
+            let blob = tree
+                .get_path(Path::new(".auto-resolution/foo.txt"))
+                .unwrap()
+                .id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(
+                blob.content(),
+                b"c",
+                "Expect the incoming change to be preferred"
+            );
+            let blob = tree
+                .get_path(Path::new(".conflict-base-0/foo.txt"))
+                .unwrap()
+                .id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(blob.content(), b"a", "Expect the base to match commit a");
+            let blob = tree
+                .get_path(Path::new(".conflict-side-0/foo.txt"))
+                .unwrap()
+                .id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(
+                blob.content(),
+                b"c",
+                "Expect side 0 (ours) to be the incoming change"
+            );
+            let blob = tree
+                .get_path(Path::new(".conflict-side-1/foo.txt"))
+                .unwrap()
+                .id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(
+                blob.content(),
+                b"b",
+                "Expect side 1 (theirs) to be the target change"
+            )
+        }
+
+        #[test]
+        fn merging_conflicted_commit_with_unconflicted_incoming() {
+            let test_repository = TestingRepository::open();
+
+            // Make some commits
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a")]);
+            let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "b")]);
+            let c = test_repository.commit_tree(Some(&a), &[("foo.txt", "c")]);
+            let d = test_repository.commit_tree(Some(&a), &[("foo.txt", "a"), ("bar.txt", "a")]);
+
+            let bc_result =
+                gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature")
+                    .unwrap();
+
+            let result = gitbutler_merge_commits(
+                &test_repository.repository,
+                bc_result,
+                d,
+                "master",
+                "feature",
+            )
+            .unwrap();
+
+            // While its based on a conflicted commit, merging `bc_result` and `d`
+            // should not conflict, because the auto-resolution of `bc_result`,
+            // and `a` can be cleanly merged when `a` is the base.
+            //
+            // bc_result auto-resoultion tree:
+            // foo.txt: c
+
+            assert!(!result.is_conflicted());
+
+            let tree = result.tree().unwrap();
+
+            let blob = tree.get_name("foo.txt").unwrap().id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(blob.content(), b"c");
+
+            let blob = tree.get_name("bar.txt").unwrap().id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(blob.content(), b"a");
+        }
+
+        #[test]
+        fn merging_conflicted_commit_with_conflicted_incoming() {
+            let test_repository = TestingRepository::open();
+
+            // Make some commits
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a"), ("bar.txt", "a")]);
+            let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "b"), ("bar.txt", "a")]);
+            let c = test_repository.commit_tree(Some(&a), &[("foo.txt", "c"), ("bar.txt", "a")]);
+            let d = test_repository.commit_tree(Some(&a), &[("foo.txt", "a"), ("bar.txt", "b")]);
+            let e = test_repository.commit_tree(Some(&a), &[("foo.txt", "a"), ("bar.txt", "c")]);
+
+            let bc_result =
+                gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature")
+                    .unwrap();
+
+            let de_result =
+                gitbutler_merge_commits(&test_repository.repository, d, e, "master", "feature")
+                    .unwrap();
+
+            let result = gitbutler_merge_commits(
+                &test_repository.repository,
+                bc_result,
+                de_result,
+                "master",
+                "feature",
+            )
+            .unwrap();
+
+            // We don't expect result to be conflicted, because we've chosen the
+            // setup such that the auto-resolution of `bc_result` and `de_result`
+            // don't conflict when merged themselves.
+            //
+            // bc_result auto-resoultion tree:
+            // foo.txt: c
+            // bar.txt: a
+            //
+            // bc_result auto-resoultion tree:
+            // foo.txt: a
+            // bar.txt: c
+
+            assert!(!result.is_conflicted());
+
+            let tree = result.tree().unwrap();
+
+            let blob = tree.get_name("foo.txt").unwrap().id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(blob.content(), b"c");
+
+            let blob = tree.get_name("bar.txt").unwrap().id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(blob.content(), b"c");
+        }
+
+        #[test]
+        fn merging_conflicted_commit_with_conflicted_incoming_and_results_in_conflicted() {
+            let test_repository = TestingRepository::open();
+
+            // Make some commits
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a")]);
+            let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "b")]);
+            let c = test_repository.commit_tree(Some(&a), &[("foo.txt", "c")]);
+            let d = test_repository.commit_tree(Some(&a), &[("foo.txt", "d")]);
+            let e = test_repository.commit_tree(Some(&a), &[("foo.txt", "f")]);
+
+            let bc_result =
+                gitbutler_merge_commits(&test_repository.repository, b, c, "master", "feature")
+                    .unwrap();
+
+            let de_result =
+                gitbutler_merge_commits(&test_repository.repository, d, e, "master", "feature")
+                    .unwrap();
+
+            let result = gitbutler_merge_commits(
+                &test_repository.repository,
+                bc_result,
+                de_result,
+                "master",
+                "feature",
+            )
+            .unwrap();
+
+            // We don't expect result to be conflicted, because we've chosen the
+            // setup such that the auto-resolution of `bc_result` and `de_result`
+            // don't conflict when merged themselves.
+            //
+            // bc_result auto-resoultion tree:
+            // foo.txt: c
+            //
+            // bc_result auto-resoultion tree:
+            // foo.txt: f
+            //
+            // This conflicts and results in auto-resolution f
+            //
+            // We however expect the theirs side to be "b" and the ours side to
+            // be "f"
+
+            assert!(result.is_conflicted());
+
+            let tree = result.tree().unwrap();
+
+            let blob = tree
+                .get_path(Path::new(".auto-resolution/foo.txt"))
+                .unwrap()
+                .id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(
+                blob.content(),
+                b"f",
+                "Expect the incoming change to be preferred"
+            );
+            let blob = tree
+                .get_path(Path::new(".conflict-base-0/foo.txt"))
+                .unwrap()
+                .id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(blob.content(), b"a", "Expect the base to match commit a");
+            let blob = tree
+                .get_path(Path::new(".conflict-side-0/foo.txt"))
+                .unwrap()
+                .id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(
+                blob.content(),
+                b"f",
+                "Expect side 0 (ours) to be the incoming change"
+            );
+            let blob = tree
+                .get_path(Path::new(".conflict-side-1/foo.txt"))
+                .unwrap()
+                .id();
+            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
+            assert_eq!(
+                blob.content(),
+                b"b",
+                "Expect side 1 (theirs) to be the target change"
+            )
+        }
+    }
+    #[cfg(test)]
+    mod resolve_index {
         use crate::rebase::resolve_index;
+        use gitbutler_testsupport::testing_repository::TestingRepository;
 
         #[test]
         fn test_same_file_twice() {
