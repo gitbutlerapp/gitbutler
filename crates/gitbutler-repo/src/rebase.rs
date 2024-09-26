@@ -46,6 +46,8 @@ pub fn cherry_rebase(
 /// new head commit oid if it's successful
 /// the difference between this and a libgit2 based rebase is that this will successfully
 /// rebase empty commits (two commits with identical trees)
+///
+/// the commit id's to rebase should be ordered such that the child most commit is first
 pub fn cherry_rebase_group(
     repository: &git2::Repository,
     target_commit_oid: git2::Oid,
@@ -419,11 +421,237 @@ fn resolve_index(
 
 #[cfg(test)]
 mod test {
+    use std::path::Path;
+
+    use bstr::ByteSlice;
+
+    fn assert_tree_matches(
+        repository: &git2::Repository,
+        commit: &git2::Commit,
+        files: &[(&str, &[u8])],
+    ) {
+        let tree = commit.tree().unwrap();
+
+        for (path, content) in files {
+            let blob = tree.get_path(Path::new(path)).unwrap().id();
+            let blob: git2::Blob = repository.find_blob(blob).unwrap();
+            assert_eq!(
+                blob.content(),
+                *content,
+                "{}: expect {} == {}",
+                path,
+                blob.content().to_str_lossy(),
+                content.to_str_lossy()
+            );
+        }
+    }
+
+    #[cfg(test)]
+    mod cherry_rebase_group {
+        use crate::{rebase::test::assert_tree_matches, repository_ext::RepositoryExt as _};
+        use gitbutler_commit::commit_ext::CommitExt;
+        use gitbutler_testsupport::testing_repository::TestingRepository;
+
+        use crate::{rebase::cherry_rebase_group, LogUntil};
+
+        #[test]
+        fn unconflicting_rebase() {
+            let test_repository = TestingRepository::open();
+
+            // Make some commits
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a"), ("bar.txt", "a")]);
+            let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "b"), ("bar.txt", "a")]);
+            let c = test_repository.commit_tree(Some(&b), &[("foo.txt", "c"), ("bar.txt", "a")]);
+            let d = test_repository.commit_tree(Some(&a), &[("foo.txt", "a"), ("bar.txt", "x")]);
+
+            let result =
+                cherry_rebase_group(&test_repository.repository, d.id(), &[c.id(), b.id()], true)
+                    .unwrap();
+
+            let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
+
+            let commits: Vec<git2::Commit> = test_repository
+                .repository
+                .log(commit.id(), LogUntil::End)
+                .unwrap();
+
+            assert!(commits.into_iter().all(|commit| !commit.is_conflicted()));
+
+            assert_tree_matches(
+                &test_repository.repository,
+                &commit,
+                &[("foo.txt", b"c"), ("bar.txt", b"x")],
+            );
+        }
+
+        #[test]
+        fn single_commit_ends_up_conflicted() {
+            let test_repository = TestingRepository::open();
+
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a")]);
+            let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "b")]);
+            let c = test_repository.commit_tree(Some(&a), &[("foo.txt", "c")]);
+
+            // Rebase C on top of B
+            let result =
+                cherry_rebase_group(&test_repository.repository, b.id(), &[c.id()], true).unwrap();
+
+            let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
+
+            assert!(commit.is_conflicted());
+
+            assert_tree_matches(
+                &test_repository.repository,
+                &commit,
+                &[
+                    (".auto-resolution/foo.txt", b"b"), // Prefer the commit we're rebasing onto
+                    (".conflict-base-0/foo.txt", b"a"), // The content of A
+                    (".conflict-side-0/foo.txt", b"b"), // "Our" side, content of B
+                    (".conflict-side-1/foo.txt", b"c"), // "Their" side, content of C
+                ],
+            );
+        }
+
+        #[test]
+        fn rebase_single_conflicted_commit() {
+            let test_repository = TestingRepository::open();
+
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a")]);
+            let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "b")]);
+            let c = test_repository.commit_tree(Some(&a), &[("foo.txt", "c")]);
+            let d = test_repository.commit_tree(Some(&a), &[("foo.txt", "d")]);
+
+            // Rebase C on top of B => C'
+            let result =
+                cherry_rebase_group(&test_repository.repository, b.id(), &[c.id()], true).unwrap();
+
+            // Rebase C' on top of D => C''
+            let result =
+                cherry_rebase_group(&test_repository.repository, d.id(), &[result], true).unwrap();
+
+            let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
+
+            assert!(commit.is_conflicted());
+
+            assert_tree_matches(
+                &test_repository.repository,
+                &commit,
+                &[
+                    (".auto-resolution/foo.txt", b"d"), // Prefer the commit we're rebasing onto
+                    (".conflict-base-0/foo.txt", b"a"), // The content of A
+                    (".conflict-side-0/foo.txt", b"d"), // "Our" side, content of B
+                    (".conflict-side-1/foo.txt", b"c"), // "Their" side, content of C
+                ],
+            );
+        }
+
+        /// Test what happens if you were to keep rebasing a branch on top of origin/master
+        #[test]
+        fn rebase_onto_series_multiple_times() {
+            let test_repository = TestingRepository::open();
+
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a")]);
+            let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "b")]);
+            let c = test_repository.commit_tree(Some(&b), &[("foo.txt", "c")]);
+            let d = test_repository.commit_tree(Some(&a), &[("foo.txt", "d")]);
+
+            // Rebase D on top of B => D'
+            let result =
+                cherry_rebase_group(&test_repository.repository, b.id(), &[d.id()], true).unwrap();
+
+            let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
+            assert!(commit.is_conflicted());
+
+            assert_tree_matches(
+                &test_repository.repository,
+                &commit,
+                &[
+                    (".auto-resolution/foo.txt", b"b"), // Prefer the commit we're rebasing onto
+                    (".conflict-base-0/foo.txt", b"a"), // The content of A
+                    (".conflict-side-0/foo.txt", b"b"), // "Our" side, content of B
+                    (".conflict-side-1/foo.txt", b"d"), // "Their" side, content of D
+                ],
+            );
+
+            // Rebase D' on top of C => D''
+            let result =
+                cherry_rebase_group(&test_repository.repository, c.id(), &[result], true).unwrap();
+
+            let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
+            assert!(commit.is_conflicted());
+
+            assert_tree_matches(
+                &test_repository.repository,
+                &commit,
+                &[
+                    (".auto-resolution/foo.txt", b"c"), // Prefer the commit we're rebasing onto
+                    (".conflict-base-0/foo.txt", b"a"), // The content of A
+                    (".conflict-side-0/foo.txt", b"c"), // "Our" side, content of C
+                    (".conflict-side-1/foo.txt", b"d"), // "Their" side, content of D
+                ],
+            );
+        }
+
+        #[test]
+        fn multiple_commit_ends_up_conflicted() {
+            let test_repository = TestingRepository::open();
+
+            let a = test_repository.commit_tree(None, &[("foo.txt", "a"), ("bar.txt", "a")]);
+            let b = test_repository.commit_tree(Some(&a), &[("foo.txt", "b"), ("bar.txt", "a")]);
+            let c = test_repository.commit_tree(Some(&b), &[("foo.txt", "b"), ("bar.txt", "b")]);
+            let d = test_repository.commit_tree(Some(&a), &[("foo.txt", "c"), ("bar.txt", "c")]);
+
+            // Rebase C on top of B
+            let result =
+                cherry_rebase_group(&test_repository.repository, d.id(), &[c.id(), b.id()], true)
+                    .unwrap();
+
+            let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
+
+            let commits: Vec<git2::Commit> = test_repository
+                .repository
+                .log(commit.id(), LogUntil::Commit(d.id()))
+                .unwrap();
+
+            assert!(commits.iter().all(|commit| commit.is_conflicted()));
+
+            // Rebased version of B (B')
+            assert_tree_matches(
+                &test_repository.repository,
+                &commits[1],
+                &[
+                    (".auto-resolution/foo.txt", b"c"),
+                    (".auto-resolution/bar.txt", b"c"),
+                    (".conflict-base-0/foo.txt", b"a"), // Commit A contents
+                    (".conflict-base-0/bar.txt", b"a"),
+                    (".conflict-side-0/foo.txt", b"c"), // (ours) Commit D contents
+                    (".conflict-side-0/bar.txt", b"c"),
+                    (".conflict-side-1/foo.txt", b"b"), // (theirs) Commit B contents
+                    (".conflict-side-1/bar.txt", b"a"),
+                ],
+            );
+
+            // Rebased version of C
+            assert_tree_matches(
+                &test_repository.repository,
+                &commits[0],
+                &[
+                    (".auto-resolution/foo.txt", b"c"),
+                    (".auto-resolution/bar.txt", b"c"),
+                    (".conflict-base-0/foo.txt", b"b"), // Commit B contents
+                    (".conflict-base-0/bar.txt", b"a"),
+                    (".conflict-side-0/foo.txt", b"c"), // (ours) Commit B' contents
+                    (".conflict-side-0/bar.txt", b"c"),
+                    (".conflict-side-1/foo.txt", b"b"), // (theirs) Commit C contents
+                    (".conflict-side-1/bar.txt", b"b"),
+                ],
+            );
+        }
+    }
+
     #[cfg(test)]
     mod gitbutler_merge_commits {
-        use std::path::Path;
-
-        use crate::rebase::gitbutler_merge_commits;
+        use crate::rebase::{gitbutler_merge_commits, test::assert_tree_matches};
         use gitbutler_commit::commit_ext::CommitExt as _;
         use gitbutler_testsupport::testing_repository::TestingRepository;
 
@@ -442,15 +670,11 @@ mod test {
 
             assert!(!result.is_conflicted());
 
-            let tree = result.tree().unwrap();
-
-            let blob = tree.get_name("foo.txt").unwrap().id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(blob.content(), b"b");
-
-            let blob = tree.get_name("bar.txt").unwrap().id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(blob.content(), b"a");
+            assert_tree_matches(
+                &test_repository.repository,
+                &result,
+                &[("foo.txt", b"b"), ("bar.txt", b"a")],
+            );
         }
 
         #[test]
@@ -468,44 +692,16 @@ mod test {
 
             assert!(result.is_conflicted());
 
-            let tree = result.tree().unwrap();
-
-            let blob = tree
-                .get_path(Path::new(".auto-resolution/foo.txt"))
-                .unwrap()
-                .id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(
-                blob.content(),
-                b"c",
-                "Expect the incoming change to be preferred"
+            assert_tree_matches(
+                &test_repository.repository,
+                &result,
+                &[
+                    (".auto-resolution/foo.txt", b"c"), // Prefer the "Our" side, C
+                    (".conflict-base-0/foo.txt", b"a"), // The content of A
+                    (".conflict-side-0/foo.txt", b"c"), // "Our" side, content of B
+                    (".conflict-side-1/foo.txt", b"b"), // "Their" side, content of C
+                ],
             );
-            let blob = tree
-                .get_path(Path::new(".conflict-base-0/foo.txt"))
-                .unwrap()
-                .id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(blob.content(), b"a", "Expect the base to match commit a");
-            let blob = tree
-                .get_path(Path::new(".conflict-side-0/foo.txt"))
-                .unwrap()
-                .id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(
-                blob.content(),
-                b"c",
-                "Expect side 0 (ours) to be the incoming change"
-            );
-            let blob = tree
-                .get_path(Path::new(".conflict-side-1/foo.txt"))
-                .unwrap()
-                .id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(
-                blob.content(),
-                b"b",
-                "Expect side 1 (theirs) to be the target change"
-            )
         }
 
         #[test]
@@ -540,15 +736,11 @@ mod test {
 
             assert!(!result.is_conflicted());
 
-            let tree = result.tree().unwrap();
-
-            let blob = tree.get_name("foo.txt").unwrap().id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(blob.content(), b"c");
-
-            let blob = tree.get_name("bar.txt").unwrap().id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(blob.content(), b"a");
+            assert_tree_matches(
+                &test_repository.repository,
+                &result,
+                &[("foo.txt", b"c"), ("bar.txt", b"a")],
+            );
         }
 
         #[test]
@@ -593,15 +785,11 @@ mod test {
 
             assert!(!result.is_conflicted());
 
-            let tree = result.tree().unwrap();
-
-            let blob = tree.get_name("foo.txt").unwrap().id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(blob.content(), b"c");
-
-            let blob = tree.get_name("bar.txt").unwrap().id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(blob.content(), b"c");
+            assert_tree_matches(
+                &test_repository.repository,
+                &result,
+                &[("foo.txt", b"c"), ("bar.txt", b"c")],
+            );
         }
 
         #[test]
@@ -632,10 +820,6 @@ mod test {
             )
             .unwrap();
 
-            // We don't expect result to be conflicted, because we've chosen the
-            // setup such that the auto-resolution of `bc_result` and `de_result`
-            // don't conflict when merged themselves.
-            //
             // bc_result auto-resoultion tree:
             // foo.txt: c
             //
@@ -649,44 +833,16 @@ mod test {
 
             assert!(result.is_conflicted());
 
-            let tree = result.tree().unwrap();
-
-            let blob = tree
-                .get_path(Path::new(".auto-resolution/foo.txt"))
-                .unwrap()
-                .id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(
-                blob.content(),
-                b"f",
-                "Expect the incoming change to be preferred"
+            assert_tree_matches(
+                &test_repository.repository,
+                &result,
+                &[
+                    (".auto-resolution/foo.txt", b"f"), // Incoming change preferred
+                    (".conflict-base-0/foo.txt", b"a"), // Base should match A
+                    (".conflict-side-0/foo.txt", b"f"), // Side 0 should be incoming change
+                    (".conflict-side-1/foo.txt", b"b"), // Side 1 should be target change
+                ],
             );
-            let blob = tree
-                .get_path(Path::new(".conflict-base-0/foo.txt"))
-                .unwrap()
-                .id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(blob.content(), b"a", "Expect the base to match commit a");
-            let blob = tree
-                .get_path(Path::new(".conflict-side-0/foo.txt"))
-                .unwrap()
-                .id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(
-                blob.content(),
-                b"f",
-                "Expect side 0 (ours) to be the incoming change"
-            );
-            let blob = tree
-                .get_path(Path::new(".conflict-side-1/foo.txt"))
-                .unwrap()
-                .id();
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-            assert_eq!(
-                blob.content(),
-                b"b",
-                "Expect side 1 (theirs) to be the target change"
-            )
         }
     }
     #[cfg(test)]
