@@ -1,6 +1,5 @@
 <script lang="ts">
 	import CommitContextMenu from './CommitContextMenu.svelte';
-	// import StackingCommitDragItem from './StackingCommitDragItem.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
@@ -134,12 +133,6 @@
 		commitMessageModal.close();
 	}
 
-	function getTimeAndAuthor() {
-		const timeAgo = getTimeAgo(commit.createdAt);
-		const author = type === 'localAndRemote' || type === 'remote' ? commit.author.name : 'you';
-		return `${timeAgo} by ${author}`;
-	}
-
 	const commitShortSha = commit.id.substring(0, 7);
 
 	let dragDirection: 'up' | 'down' | undefined = $state();
@@ -244,7 +237,8 @@
 		? {
 				label: commit.descriptionTitle,
 				sha: commitShortSha,
-				dateAndAuthor: getTimeAndAuthor(),
+				date: getTimeAgo(commit.createdAt),
+				authorImgUrl: commit.author.gravatarUrl,
 				commitType: type,
 				data: new DraggableCommit(commit.branchId, commit, isHeadCommit),
 				viewportId: 'board-viewport'
@@ -318,6 +312,12 @@
 						<span class="commit__subtitle-divider">•</span>
 					{/if}
 
+					<Tooltip text={commit.author.name}>
+						<img class="commit__subtitle-avatar" src={commit.author.gravatarUrl} alt="" />
+					</Tooltip>
+
+					<span class="commit__subtitle-divider">•</span>
+
 					<button
 						class="commit__subtitle-btn commit__subtitle-btn_dashed"
 						onclick={(e) => {
@@ -350,7 +350,7 @@
 						</button>
 					{/if}
 					<span class="commit__subtitle-divider">•</span>
-					<span>{getTimeAndAuthor()}</span>
+					<span>{getTimeAgo(commit.createdAt)}</span>
 				</div>
 			{/if}
 		</div>
@@ -573,6 +573,12 @@
 			color var(--transition-fast),
 			transform var(--transition-medium),
 			margin-left var(--transition-fast);
+	}
+
+	.commit__subtitle-avatar {
+		width: 12px;
+		height: 12px;
+		border-radius: 50%;
 	}
 
 	/* DIVIDER - DOT SYMBOL */

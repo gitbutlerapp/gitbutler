@@ -255,7 +255,8 @@
 					? {
 							label: commit.descriptionTitle,
 							sha: commitShortSha,
-							dateAndAuthor: getTimeAndAuthor(),
+							date: getTimeAgo(commit.createdAt),
+							authorImgUrl: commit.author.gravatarUrl,
 							commitType: type,
 							data: new DraggableCommit(commit.branchId, commit, isHeadCommit),
 							viewportId: 'board-viewport'
