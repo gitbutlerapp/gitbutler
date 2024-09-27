@@ -257,12 +257,14 @@
 									/>
 								</div>
 							{/each}
-							{@render pushButton({
-								disabled:
-									localCommitsConflicted ||
-									localAndRemoteCommitsConflicted ||
-									$localCommits.length === 0
-							})}
+							{#if $integratedCommits.length === 0 && $localCommits.length > 0}
+								{@render pushButton({
+									disabled:
+										localCommitsConflicted ||
+										localAndRemoteCommitsConflicted ||
+										$localCommits.length === 0
+								})}
+							{/if}
 						{:else}
 							<CommitList
 								localCommits={$localCommits}
