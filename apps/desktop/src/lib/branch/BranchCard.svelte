@@ -341,15 +341,14 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
+		gap: 10px;
 	}
 
-	.branch-card__files.card,
-	.no-changes.card,
-	.new-branch.card {
-		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
-		margin-bottom: 10px;
+	.commit-group {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
 	}
-	/* End Stacking */
 
 	.branch-card__files {
 		display: flex;

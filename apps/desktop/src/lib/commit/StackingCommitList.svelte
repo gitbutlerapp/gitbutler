@@ -291,7 +291,6 @@
 		border-radius: var(--radius-m);
 		overflow: hidden;
 		border: 1px solid var(--clr-border-2);
-		margin-bottom: 10px;
 	}
 
 	.commits-group {
