@@ -260,7 +260,7 @@
 	.search-input {
 		width: 100%;
 		height: 100%;
-		opacity: 0;
+		visibility: hidden;
 		padding-left: 8px;
 		border-radius: var(--radius-s);
 		border: 1px solid var(--clr-border-2);
@@ -289,7 +289,7 @@
 		}
 
 		& .search-input {
-			opacity: 1;
+			visibility: visible;
 		}
 	}
 
