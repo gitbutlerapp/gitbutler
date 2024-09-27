@@ -329,6 +329,12 @@
 		padding: 12px;
 	}
 
+	.branch-card__files.card,
+	.no-changes.card,
+	.new-branch.card {
+		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
+	}
+
 	/* Stacking */
 	.card-no-stacking {
 		flex: 1;
