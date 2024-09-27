@@ -555,8 +555,8 @@
 			& .commit__subtitle-btn__icon {
 				width: var(--size-icon);
 				opacity: 1;
-				transform: scale(1);
 				margin-left: 2px;
+				transform: scale3d(1, 1, 1);
 			}
 		}
 	}
@@ -567,16 +567,16 @@
 
 	.commit__subtitle-btn__icon {
 		display: flex;
-		margin-left: 0;
 		width: 0;
 		opacity: 0;
-		transform: scale(0.6);
+		margin-left: 0;
+		transform: scale3d(0.6, 0.6, 0.6); /* CSS glitch fix */
 		transition:
 			width var(--transition-medium),
 			opacity var(--transition-fast),
 			color var(--transition-fast),
 			transform var(--transition-medium),
-			margin-left var(--transition-fast);
+			margin var(--transition-fast);
 	}
 
 	.commit__subtitle-avatar {
@@ -616,15 +616,11 @@
 
 	/* MODIFIERS */
 	.is-commit-open {
-		& .commit-card {
-			border-radius: var(--radius-m);
-		}
-
 		& .commit__subtitle-btn__icon {
 			width: var(--size-icon);
 			opacity: 1;
-			transform: scale(1);
 			margin-left: 2px;
+			transform: scale3d(1, 1, 1);
 		}
 	}
 
