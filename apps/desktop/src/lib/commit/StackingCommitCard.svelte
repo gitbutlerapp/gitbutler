@@ -445,6 +445,10 @@
 
 		transition: background-color var(--transition-fast);
 
+		&:focus {
+			outline: none;
+		}
+
 		&:not(.is-commit-open) {
 			&:hover {
 				background-color: var(--clr-bg-1-muted);
