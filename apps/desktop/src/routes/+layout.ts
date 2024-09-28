@@ -12,6 +12,7 @@ import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { UserService } from '$lib/stores/user';
 import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLinesStacking/lineManager';
 import lscache from 'lscache';
 import type { LayoutLoad } from './$types';
 
@@ -43,6 +44,7 @@ export const load: LayoutLoad = async () => {
 	const remotesService = new RemotesService();
 	const aiPromptService = new AIPromptService();
 	const lineManagerFactory = new LineManagerFactory();
+	const stackingLineManagerFactory = new StackingLineManagerFactory();
 
 	return {
 		authService,
@@ -56,6 +58,7 @@ export const load: LayoutLoad = async () => {
 		remotesService,
 		aiPromptService,
 		lineManagerFactory,
+		stackingLineManagerFactory,
 		secretsService
 	};
 };

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { maybeGetContextStore } from '$lib/utils/context';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -6,9 +7,13 @@
 	import type { AnyFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	export let title: string;
-	export let files: AnyFile[];
-	export let showCheckboxes = false;
+	interface Props {
+		title: string;
+		files: AnyFile[];
+		showCheckboxes?: boolean;
+	}
+
+	const { title, files, showCheckboxes = false }: Props = $props();
 
 	const selectedOwnership: Writable<SelectedOwnership> | undefined =
 		maybeGetContextStore(SelectedOwnership);
@@ -41,11 +46,11 @@
 		return false;
 	}
 
-	$: indeterminate = selectedOwnership ? isIndeterminate($selectedOwnership) : false;
-	$: checked = isAllChecked($selectedOwnership);
+	const indeterminate = $derived(selectedOwnership ? isIndeterminate($selectedOwnership) : false);
+	const checked = $derived(isAllChecked($selectedOwnership));
 </script>
 
-<div class="header">
+<div class="header" class:stacking={$stackingFeature}>
 	<div class="header__left">
 		{#if showCheckboxes && files.length > 1}
 			<Checkbox
@@ -79,6 +84,10 @@
 		border-bottom: none;
 		border-radius: var(--radius-m) var(--radius-m) 0 0;
 		background-color: var(--clr-bg-1);
+
+		&.stacking {
+			background-color: transparent !important;
+		}
 	}
 	.header__title {
 		display: flex;

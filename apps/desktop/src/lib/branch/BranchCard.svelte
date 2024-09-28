@@ -12,6 +12,7 @@
 	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import CommitList from '$lib/commit/CommitList.svelte';
+	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
@@ -240,12 +241,12 @@
 						{#if $stackingFeature}
 							{@const groups = groupCommitsByRef(branch.commits)}
 							{#each groups as group (group.ref)}
-								<div class="commit-group">
+								<div class="commit-group" class:stacking={$stackingFeature}>
 									{#if group.branchName}
 										<StackedBranchHeader upstreamName={group.branchName} />
 										<PullRequestCard upstreamName={group.branchName} />
 									{/if}
-									<CommitList
+									<StackingCommitList
 										localCommits={group.localCommits}
 										localAndRemoteCommits={group.remoteCommits}
 										integratedCommits={group.integratedCommits}
@@ -256,6 +257,14 @@
 									/>
 								</div>
 							{/each}
+							{#if $integratedCommits.length === 0 && $localCommits.length > 0}
+								{@render pushButton({
+									disabled:
+										localCommitsConflicted ||
+										localAndRemoteCommitsConflicted ||
+										$localCommits.length === 0
+								})}
+							{/if}
 						{:else}
 							<CommitList
 								localCommits={$localCommits}
@@ -267,11 +276,6 @@
 								{localAndRemoteCommitsConflicted}
 								{pushButton}
 							/>
-						{/if}
-						{#if $stackingFeature}
-							{@render pushButton({
-								disabled: localCommitsConflicted || localAndRemoteCommitsConflicted
-							})}
 						{/if}
 					</div>
 				</div>
@@ -325,6 +329,13 @@
 		padding: 12px;
 	}
 
+	.branch-card__files.card,
+	.no-changes.card,
+	.new-branch.card {
+		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
+	}
+
+	/* Stacking */
 	.card-no-stacking {
 		flex: 1;
 		display: flex;
@@ -338,6 +349,13 @@
 		flex: 1;
 		display: flex;
 		flex-direction: column;
+		gap: 10px;
+	}
+
+	.commit-group {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
 	}
 
 	.branch-card__files {
@@ -351,6 +369,15 @@
 		display: flex;
 		flex-direction: column;
 		padding: 12px;
+	}
+
+	.card-no-stacking {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background: var(--clr-bg-1);
 	}
 
 	.new-branch,
@@ -382,13 +409,5 @@
 		width: 1px;
 		height: 100%;
 		background-color: var(--clr-border-2);
-	}
-
-	.commit-group {
-		margin: 10px 0;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-		background: var(--clr-bg-1);
-		overflow: hidden;
 	}
 </style>
