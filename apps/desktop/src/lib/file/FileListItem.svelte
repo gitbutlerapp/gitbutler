@@ -15,7 +15,6 @@
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import { onDestroy } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import FileCard from './FileCard.svelte';
 
 	interface Props {
 		file: AnyFile;
