@@ -16,6 +16,7 @@ gitbutler-error.workspace = true
 gitbutler-fs.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-oxidize.workspace = true
+gitbutler-patch-reference.workspace = true
 itertools = "0.13"
 toml.workspace = true
 serde = { workspace = true, features = ["std"] }

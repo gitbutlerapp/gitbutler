@@ -32,6 +32,7 @@ members = [
     "crates/gitbutler-edit-mode",
     "crates/gitbutler-cherry-pick",
     "crates/gitbutler-oxidize",
+    "crates/gitbutler-patch-reference",
 ]
 resolver = "2"
 
@@ -86,6 +87,7 @@ gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
 gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
 gitbutler-cherry-pick = { path = "crates/gitbutler-cherry-pick" }
 gitbutler-oxidize = { path = "crates/gitbutler-oxidize" }
+gitbutler-patch-reference = { path = "crates/gitbutler-patch-reference" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better

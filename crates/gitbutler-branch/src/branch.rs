@@ -1,6 +1,7 @@
 use anyhow::Result;
 use bstr::{BStr, ByteSlice};
 use gitbutler_id::id::Id;
+use gitbutler_patch_reference::PatchReference;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use serde::{Deserialize, Serialize, Serializer};
 use std::ops::Deref;
@@ -58,8 +59,14 @@ pub struct Branch {
     pub in_workspace: bool,
     #[serde(default)]
     pub not_in_workspace_wip_change_id: Option<String>,
+    /// TODO: This is now obsolete in favor of the heads field before.
     #[serde(default)]
     pub references: Vec<ChangeReference>,
+    /// Represents the Stack state of pseudo-references ("heads").
+    /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
+    #[serde(default)]
+    // pub heads: StackHeads,
+    pub heads: Vec<PatchReference>,
 }
 
 fn default_true() -> bool {

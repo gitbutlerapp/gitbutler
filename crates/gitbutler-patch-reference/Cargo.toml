@@ -1,0 +1,11 @@
+[package]
+name = "gitbutler-patch-reference"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+anyhow = "1.0.86"
+serde = { workspace = true, features = ["std"] }
+gitbutler-command-context.workspace = true

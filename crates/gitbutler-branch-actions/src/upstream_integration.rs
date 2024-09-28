@@ -489,6 +489,7 @@ mod test {
             in_workspace: true,
             not_in_workspace_wip_change_id: None,
             references: vec![],
+            heads: Default::default(),
         }
     }
 

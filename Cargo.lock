@@ -2148,6 +2148,7 @@ dependencies = [
  "gitbutler-fs",
  "gitbutler-id",
  "gitbutler-oxidize",
+ "gitbutler-patch-reference",
  "gitbutler-reference",
  "gitbutler-serde",
  "gix",
@@ -2432,6 +2433,15 @@ dependencies = [
  "anyhow",
  "git2",
  "gix",
+]
+
+[[package]]
+name = "gitbutler-patch-reference"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-command-context",
+ "serde",
 ]
 
 [[package]]
