@@ -1,5 +1,6 @@
-use std::fs;
+use std::{fs, path::Path};
 
+use gix_testtools::bstr::ByteSlice as _;
 use tempfile::{tempdir, TempDir};
 
 pub struct TestingRepository {
@@ -77,5 +78,26 @@ impl TestingRepository {
             .unwrap();
 
         self.repository.find_commit(commit).unwrap()
+    }
+}
+
+pub fn assert_tree_matches<'a>(
+    repository: &'a git2::Repository,
+    commit: &git2::Commit<'a>,
+    files: &[(&str, &[u8])],
+) {
+    let tree = commit.tree().unwrap();
+
+    for (path, content) in files {
+        let blob = tree.get_path(Path::new(path)).unwrap().id();
+        let blob: git2::Blob<'a> = repository.find_blob(blob).unwrap();
+        assert_eq!(
+            blob.content(),
+            *content,
+            "{}: expect {} == {}",
+            path,
+            blob.content().to_str_lossy(),
+            content.to_str_lossy()
+        );
     }
 }

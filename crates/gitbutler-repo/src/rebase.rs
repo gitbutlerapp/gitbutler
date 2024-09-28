@@ -421,36 +421,11 @@ fn resolve_index(
 
 #[cfg(test)]
 mod test {
-    use std::path::Path;
-
-    use bstr::ByteSlice;
-
-    fn assert_tree_matches(
-        repository: &git2::Repository,
-        commit: &git2::Commit,
-        files: &[(&str, &[u8])],
-    ) {
-        let tree = commit.tree().unwrap();
-
-        for (path, content) in files {
-            let blob = tree.get_path(Path::new(path)).unwrap().id();
-            let blob: git2::Blob = repository.find_blob(blob).unwrap();
-            assert_eq!(
-                blob.content(),
-                *content,
-                "{}: expect {} == {}",
-                path,
-                blob.content().to_str_lossy(),
-                content.to_str_lossy()
-            );
-        }
-    }
-
     #[cfg(test)]
     mod cherry_rebase_group {
-        use crate::{rebase::test::assert_tree_matches, repository_ext::RepositoryExt as _};
+        use crate::repository_ext::RepositoryExt as _;
         use gitbutler_commit::commit_ext::CommitExt;
-        use gitbutler_testsupport::testing_repository::TestingRepository;
+        use gitbutler_testsupport::testing_repository::{assert_tree_matches, TestingRepository};
 
         use crate::{rebase::cherry_rebase_group, LogUntil};
 
@@ -651,9 +626,9 @@ mod test {
 
     #[cfg(test)]
     mod gitbutler_merge_commits {
-        use crate::rebase::{gitbutler_merge_commits, test::assert_tree_matches};
+        use crate::rebase::gitbutler_merge_commits;
         use gitbutler_commit::commit_ext::CommitExt as _;
-        use gitbutler_testsupport::testing_repository::TestingRepository;
+        use gitbutler_testsupport::testing_repository::{assert_tree_matches, TestingRepository};
 
         #[test]
         fn unconflicting_merge() {
