@@ -13,9 +13,16 @@ export const CheckboxStory: Story = {
 	name: 'Checkbox',
 	args: {
 		name: 'Checkbox',
+		style: 'default',
 		checked: false,
 		disabled: false,
 		indeterminate: false,
 		small: false
+	},
+	argTypes: {
+		style: {
+			options: ['default', 'neutral'],
+			control: { type: 'select' }
+		}
 	}
 };

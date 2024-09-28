@@ -1,6 +1,6 @@
 #[cfg(target_family = "unix")]
 use std::os::unix::prelude::PermissionsExt;
-use std::{borrow::Borrow, path::PathBuf};
+use std::{borrow::Borrow, fs, path::PathBuf};
 
 use anyhow::{anyhow, Context, Result};
 use bstr::{BString, ByteSlice, ByteVec};
@@ -38,13 +38,14 @@ where
     let head_commit = git_repository.find_commit(commit_oid)?;
     let base_tree = head_commit.tree()?;
 
-    hunks_onto_tree(ctx, &base_tree, files)
+    hunks_onto_tree(ctx, &base_tree, files, false)
 }
 
 pub fn hunks_onto_tree<T>(
     ctx: &CommandContext,
     base_tree: &git2::Tree,
     files: impl IntoIterator<Item = (impl Borrow<PathBuf>, impl Borrow<Vec<T>>)>,
+    allow_new_file: bool,
 ) -> Result<git2::Oid>
 where
     T: Into<GitHunk> + Clone,
@@ -62,7 +63,21 @@ where
             && hunks[0].diff_lines.contains_str(b"Subproject commit");
 
         // if file exists
-        if full_path.exists() {
+        let full_path_exists = full_path.exists();
+        let discard_hunk = (hunks.len() == 1).then(|| &hunks[0]);
+        if full_path_exists || allow_new_file {
+            if discard_hunk.map_or(false, |hunk| hunk.change_type == crate::ChangeType::Deleted) {
+                // File was created but now that hunk is being discarded with an inversed hunk
+                builder.remove(rel_path);
+                fs::remove_file(full_path.clone()).or_else(|err| {
+                    if err.kind() == std::io::ErrorKind::NotFound {
+                        Ok(())
+                    } else {
+                        Err(err)
+                    }
+                })?;
+                continue;
+            }
             // if file is executable, use 755, otherwise 644
             let mut filemode = git2::FileMode::Blob;
             // check if full_path file is executable
@@ -115,7 +130,7 @@ where
                 )?;
                 builder.upsert(rel_path, blob_oid, filemode);
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
-                if hunks.len() == 1 && hunks[0].binary {
+                if discard_hunk.map_or(false, |hunk| hunk.binary) {
                     let new_blob_oid = &hunks[0].diff_lines;
                     // convert string to Oid
                     let new_blob_oid = new_blob_oid
@@ -177,6 +192,20 @@ where
                 // create a blob
                 let new_blob_oid = git_repository.blob(blob_contents.as_bytes())?;
                 // upsert into the builder
+                builder.upsert(rel_path, new_blob_oid, filemode);
+            } else if !full_path_exists
+                && discard_hunk.map_or(false, |hunk| hunk.change_type == crate::ChangeType::Added)
+            {
+                // File was deleted but now that hunk is being discarded with an inversed hunk
+                let mut all_diffs = BString::default();
+                for hunk in hunks {
+                    all_diffs.push_str(&hunk.diff_lines);
+                }
+                let patch = Patch::from_bytes(&all_diffs)?;
+                let blob_contents =
+                    apply([], &patch).context(format!("failed to apply {}", all_diffs))?;
+
+                let new_blob_oid = git_repository.blob(&blob_contents)?;
                 builder.upsert(rel_path, new_blob_oid, filemode);
             } else {
                 // create a git blob from a file on disk

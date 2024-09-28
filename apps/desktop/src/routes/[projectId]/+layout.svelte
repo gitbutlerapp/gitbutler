@@ -6,16 +6,12 @@
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
-	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
-	import { BranchService, createBranchServiceStore } from '$lib/branches/service';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
+	import { CommitService } from '$lib/commits/service';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
-	import {
-		gitHostPullRequestTemplatePath,
-		gitHostUsePullRequestTemplate
-	} from '$lib/config/config';
+	import { featureTopics } from '$lib/config/uiFeatureFlags';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostFactory';
 	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
@@ -28,18 +24,21 @@
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
+	import CreateIssueModal from '$lib/topics/CreateIssueModal.svelte';
+	import CreateTopicModal from '$lib/topics/CreateTopicModal.svelte';
+	import { TopicService } from '$lib/topics/service';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { debounce } from '$lib/utils/debounce';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
+	import { derived as storeDerived } from 'svelte/store';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
-
-	const nameNormalizationService = getNameNormalizationServiceContext();
 
 	const {
 		vbranchService,
@@ -68,6 +67,7 @@
 		setContext(VirtualBranchService, data.vbranchService);
 		setContext(BranchController, data.branchController);
 		setContext(BaseBranchService, data.baseBranchService);
+		setContext(CommitService, data.commitService);
 		setContext(BaseBranch, baseBranch);
 		setContext(Project, project);
 		setContext(BranchDragActionsFactory, data.branchDragActionsFactory);
@@ -77,13 +77,12 @@
 		setContext(BranchListingService, data.branchListingService);
 		setContext(ModeService, data.modeService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
+		setContext(UpstreamIntegrationService, data.upstreamIntegrationService);
 	});
 
 	let intervalId: any;
 
 	const showHistoryView = persisted(false, 'showHistoryView');
-	const usePullRequestTemplate = gitHostUsePullRequestTemplate();
-	const pullRequestTemplatePath = gitHostPullRequestTemplatePath();
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
 	const gitHostFactory = $derived(new DefaultGitHostFactory(octokit));
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
@@ -92,7 +91,14 @@
 
 	const listServiceStore = createGitHostListingServiceStore(undefined);
 	const gitHostStore = createGitHostStore(undefined);
-	const branchServiceStore = createBranchServiceStore(undefined);
+	const gitHostIssueSerice = storeDerived(gitHostStore, (gitHostStore) =>
+		gitHostStore?.issueService()
+	);
+
+	$effect.pre(() => {
+		const topicService = new TopicService(project, gitHostIssueSerice);
+		setContext(TopicService, topicService);
+	});
 
 	$effect.pre(() => {
 		const combinedBranchListingService = new CombinedBranchListingService(
@@ -110,9 +116,9 @@
 
 	// TODO: can we eliminate the need to debounce?
 	const fetch = $derived(fetchSignal.event);
-	const debouncedBaseBranchResfresh = debounce(() => baseBranchService.refresh(), 500);
+	const debouncedBaseBranchRefresh = debounce(() => baseBranchService.refresh(), 500);
 	$effect(() => {
-		if ($fetch || $head) debouncedBaseBranchResfresh();
+		if ($fetch || $head) debouncedBaseBranchRefresh();
 	});
 
 	// TODO: can we eliminate the need to debounce?
@@ -124,27 +130,13 @@
 	$effect(() => {
 		const gitHost =
 			repoInfo && baseBranchName
-				? gitHostFactory.build(
-						repoInfo,
-						baseBranchName,
-						forkInfo,
-						usePullRequestTemplate,
-						pullRequestTemplatePath
-					)
+				? gitHostFactory.build(repoInfo, baseBranchName, forkInfo)
 				: undefined;
 
 		const ghListService = gitHost?.listService();
 
 		listServiceStore.set(ghListService);
 		gitHostStore.set(gitHost);
-		branchServiceStore.set(
-			new BranchService(
-				vbranchService,
-				remoteBranchService,
-				ghListService,
-				nameNormalizationService
-			)
-		);
 	});
 
 	// Once on load and every time the project id changes
@@ -172,7 +164,16 @@
 	onDestroy(() => {
 		clearFetchInterval();
 	});
+
+	const topicsEnabled = featureTopics();
 </script>
+
+{#if $topicsEnabled}
+	{#if $gitHostStore?.issueService()}
+		<CreateIssueModal registerKeypress />
+	{/if}
+	<CreateTopicModal registerKeypress />
+{/if}
 
 <!-- forces components to be recreated when projectId changes -->
 {#key projectId}

@@ -17,12 +17,9 @@
 
 	const branch = maybeGetContextStore(VirtualBranch);
 
-	let actions = $state<CommitDragActions>();
-	$effect.pre(() => {
-		if (!$branch) return;
-
-		actions = commitDragActionsFactory.build($branch, commit);
-	});
+	const actions = $derived<CommitDragActions | undefined>(
+		$branch && commitDragActionsFactory.build($branch, commit)
+	);
 </script>
 
 <div class="dropzone-wrapper">

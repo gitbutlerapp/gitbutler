@@ -53,7 +53,7 @@ fn rebase_commit() {
     let unapplied_branch = {
         // unapply first vbranch
         let unapplied_branch =
-            gitbutler_branch_actions::convert_to_real_branch(project, branch1_id).unwrap();
+            gitbutler_branch_actions::save_and_unapply_virutal_branch(project, branch1_id).unwrap();
 
         assert_eq!(
             fs::read_to_string(repository.path().join("another_file.txt")).unwrap(),
@@ -163,7 +163,7 @@ fn rebase_work() {
     let unapplied_branch = {
         // unapply first vbranch
         let unapplied_branch =
-            gitbutler_branch_actions::convert_to_real_branch(project, branch1_id).unwrap();
+            gitbutler_branch_actions::save_and_unapply_virutal_branch(project, branch1_id).unwrap();
 
         let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 0);
@@ -199,10 +199,8 @@ fn rebase_work() {
         let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        // TODO: Should be 1
-        assert_eq!(branches[0].files.len(), 0);
-        // TODO: Should be 0
-        assert_eq!(branches[0].commits.len(), 1);
+        assert_eq!(branches[0].files.len(), 1);
+        assert_eq!(branches[0].commits.len(), 0);
         assert!(branches[0].active);
         assert!(!branches[0].conflicted);
 

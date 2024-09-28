@@ -89,6 +89,7 @@ pub fn list_local_branches(ctx: &CommandContext) -> Result<Vec<RemoteBranch>> {
         if !branch_is_trunk
             && branch.name.branch() != Some("gitbutler/integration") // Remove after rename migration complete.
             && branch.name.branch() != Some("gitbutler/workspace")
+            && branch.name.branch() != Some("gitbutler/edit")
             && branch.name.branch() != Some("gitbutler/target")
         {
             remote_branches.push(branch);
@@ -107,6 +108,23 @@ pub(crate) fn get_branch_data(ctx: &CommandContext, refname: &Refname) -> Result
 
     branch_to_remote_branch_data(ctx, &branch, default_target.sha)?
         .context("failed to get branch data")
+}
+
+pub(crate) fn get_commit_data(
+    ctx: &CommandContext,
+    sha: git2::Oid,
+) -> Result<Option<RemoteCommit>> {
+    let commit = match ctx.repository().find_commit(sha) {
+        Ok(commit) => commit,
+        Err(error) => {
+            if error.code() == git2::ErrorCode::NotFound {
+                return Ok(None);
+            } else {
+                anyhow::bail!(error);
+            }
+        }
+    };
+    Ok(Some(commit_to_remote_commit(&commit)))
 }
 
 pub(crate) fn branch_to_remote_branch(
@@ -148,6 +166,7 @@ pub(crate) fn branch_to_remote_branch_data(
         .target()
         .map(|sha| {
             let ahead = ctx
+                .repository()
                 .log(sha, LogUntil::Commit(base))
                 .context("failed to get ahead commits")?;
 

@@ -40,11 +40,24 @@ export class BitBucket implements GitHost {
 		return undefined;
 	}
 
-	prService(_baseBranch: string, _upstreamName: string) {
+	issueService() {
+		return undefined;
+	}
+
+	prService() {
 		return undefined;
 	}
 
 	checksMonitor(_sourceBranch: string) {
+		return undefined;
+	}
+
+	async availablePullRequestTemplates(_path?: string) {
+		// See: https://confluence.atlassian.com/bitbucketserver/create-a-pull-request-808488431.html#Createapullrequest-templatePullrequestdescriptiontemplates
+		return undefined;
+	}
+
+	async pullRequestTemplateContent(_path?: string) {
 		return undefined;
 	}
 }

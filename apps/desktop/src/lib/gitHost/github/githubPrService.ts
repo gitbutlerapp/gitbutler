@@ -1,59 +1,59 @@
 import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
+import { invoke } from '$lib/backend/ipc';
 import { showToast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
-import { get, writable } from 'svelte/store';
-import type { Persisted } from '$lib/persisted/persisted';
+import { writable } from 'svelte/store';
+import type { GitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHostPrService } from '../interface/gitHostPrService';
-import type { DetailedPullRequest, MergeMethod, PullRequest } from '../interface/types';
+import type {
+	CreatePullRequestArgs,
+	DetailedPullRequest,
+	MergeMethod,
+	PullRequest
+} from '../interface/types';
 import type { Octokit } from '@octokit/rest';
-
-const DEFAULT_PULL_REQUEST_TEMPLATE_PATH = '.github/PULL_REQUEST_TEMPLATE.md';
 
 export class GitHubPrService implements GitHostPrService {
 	loading = writable(false);
 
 	constructor(
 		private octokit: Octokit,
-		private repo: RepoInfo,
-		private baseBranch: string,
-		private upstreamName: string,
-		private usePullRequestTemplate?: Persisted<boolean>,
-		private pullRequestTemplatePath?: Persisted<string>
+		private repo: RepoInfo
 	) {}
 
-	async createPr(title: string, body: string, draft: boolean): Promise<PullRequest> {
+	async createPr({
+		title,
+		body,
+		draft,
+		baseBranchName,
+		upstreamName
+	}: CreatePullRequestArgs): Promise<PullRequest> {
 		this.loading.set(true);
-		const request = async (pullRequestTemplate: string | undefined = '') => {
+		const request = async () => {
 			const resp = await this.octokit.rest.pulls.create({
 				owner: this.repo.owner,
 				repo: this.repo.name,
-				head: this.upstreamName,
-				base: this.baseBranch,
+				head: upstreamName,
+				base: baseBranchName,
 				title,
-				body: body ? body : pullRequestTemplate,
+				body,
 				draft
 			});
+
 			return ghResponseToInstance(resp.data);
 		};
 
 		let attempts = 0;
 		let lastError: any;
 		let pr: PullRequest | undefined;
-		let pullRequestTemplate: string | undefined;
-		const usePrTemplate = this.usePullRequestTemplate ? get(this.usePullRequestTemplate) : null;
-
-		if (!body && usePrTemplate) {
-			pullRequestTemplate = await this.fetchPrTemplate();
-		}
 
 		// Use retries since request can fail right after branch push.
 		while (attempts < 4) {
 			try {
-				pr = await request(pullRequestTemplate);
+				pr = await request();
 				posthog.capture('PR Successful');
 				return pr;
 			} catch (err: any) {
@@ -65,32 +65,6 @@ export class GitHubPrService implements GitHostPrService {
 			}
 		}
 		throw lastError;
-	}
-
-	async fetchPrTemplate() {
-		const path = this.pullRequestTemplatePath
-			? get(this.pullRequestTemplatePath)
-			: DEFAULT_PULL_REQUEST_TEMPLATE_PATH;
-
-		try {
-			const response = await this.octokit.rest.repos.getContent({
-				owner: this.repo.owner,
-				repo: this.repo.name,
-				path
-			});
-			const b64Content = (response.data as any)?.content;
-			if (b64Content) {
-				return decodeURIComponent(escape(atob(b64Content)));
-			}
-		} catch (err) {
-			console.error(`Error fetching pull request template at path: ${path}`, err);
-
-			showToast({
-				title: 'Failed to fetch pull request template',
-				message: `Template not found at path: \`${path}\`.`,
-				style: 'neutral'
-			});
-		}
 	}
 
 	async get(prNumber: number): Promise<DetailedPullRequest> {
@@ -114,5 +88,37 @@ export class GitHubPrService implements GitHostPrService {
 
 	prMonitor(prNumber: number): GitHubPrMonitor {
 		return new GitHubPrMonitor(this, prNumber);
+	}
+
+	async pullRequestTemplateContent(path: string, projectId: string) {
+		try {
+			const fileContents: string | undefined = await invoke('get_pr_template_contents', {
+				relativePath: path,
+				projectId
+			});
+			return fileContents;
+		} catch (err) {
+			console.error(`Error reading pull request template at path: ${path}`, err);
+
+			showToast({
+				title: 'Failed to read pull request template',
+				message: `Could not read: \`${path}\`.`,
+				style: 'neutral'
+			});
+		}
+	}
+
+	async availablePullRequestTemplates(path: string): Promise<string[] | undefined> {
+		// TODO: Find a workaround to avoid this dynamic import
+		// https://github.com/sveltejs/kit/issues/905
+		const { join } = await import('@tauri-apps/api/path');
+		const targetPath = await join(path, '.github');
+
+		const availableTemplates: string[] | undefined = await invoke(
+			'available_pull_request_templates',
+			{ rootPath: targetPath }
+		);
+
+		return availableTemplates;
 	}
 }

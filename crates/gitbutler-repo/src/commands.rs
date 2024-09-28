@@ -1,7 +1,7 @@
 use anyhow::Result;
-use bstr::BString;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use std::path::Path;
 
 use crate::{Config, RepositoryExt};
 
@@ -11,6 +11,7 @@ pub trait RepoCommands {
     fn get_local_config(&self, key: &str) -> Result<Option<String>>;
     fn set_local_config(&self, key: &str, value: &str) -> Result<()>;
     fn check_signing_settings(&self) -> Result<bool>;
+    fn read_file_from_workspace(&self, relative_path: &Path) -> Result<String>;
 }
 
 impl RepoCommands for Project {
@@ -27,10 +28,8 @@ impl RepoCommands for Project {
     }
 
     fn check_signing_settings(&self) -> Result<bool> {
-        let repo = CommandContext::open(self)?;
-        let signed = repo
-            .repository()
-            .sign_buffer(&BString::new("test".into()).into());
+        let ctx = CommandContext::open(self)?;
+        let signed = ctx.repository().sign_buffer(b"test");
         match signed {
             Ok(_) => Ok(true),
             Err(e) => Err(e),
@@ -46,5 +45,29 @@ impl RepoCommands for Project {
         let ctx = CommandContext::open(self)?;
         ctx.repository().remote(name, url)?;
         Ok(())
+    }
+
+    fn read_file_from_workspace(&self, relative_path: &Path) -> Result<String> {
+        let ctx = CommandContext::open(self)?;
+        if self
+            .path
+            .join(relative_path)
+            .canonicalize()?
+            .as_path()
+            .starts_with(self.path.clone())
+        {
+            let tree = ctx.repository().head()?.peel_to_tree()?;
+            let entry = tree.get_path(relative_path)?;
+            let blob = ctx.repository().find_blob(entry.id())?;
+
+            if !blob.is_binary() {
+                let content = std::str::from_utf8(blob.content())?;
+                Ok(content.to_string())
+            } else {
+                anyhow::bail!("File is binary");
+            }
+        } else {
+            anyhow::bail!("Invalid workspace file");
+        }
     }
 }

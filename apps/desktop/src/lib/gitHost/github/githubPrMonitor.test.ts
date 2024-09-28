@@ -30,7 +30,7 @@ describe.concurrent('GitHubPrMonitor', () => {
 			baseBranch: 'test-branch',
 			octokit
 		});
-		service = gh.prService('base-branch', 'upstream-branch');
+		service = gh.prService();
 		monitor = service?.prMonitor(123);
 	});
 

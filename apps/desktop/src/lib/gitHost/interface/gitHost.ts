@@ -1,4 +1,5 @@
 import { buildContextStore } from '$lib/utils/context';
+import type { GitHostIssueService } from '$lib/gitHost/interface/gitHostIssueService';
 import type { GitHostBranch } from './gitHostBranch';
 import type { GitHostChecksMonitor } from './gitHostChecksMonitor';
 import type { GitHostListingService } from './gitHostListingService';
@@ -8,8 +9,10 @@ export interface GitHost {
 	// Lists PRs for the repo.
 	listService(): GitHostListingService | undefined;
 
+	issueService(): GitHostIssueService | undefined;
+
 	// Detailed information about a specific PR.
-	prService(baseBranch: string, upstreamName: string): GitHostPrService | undefined;
+	prService(): GitHostPrService | undefined;
 
 	// Results from CI check-runs.
 	checksMonitor(branchName: string): GitHostChecksMonitor | undefined;

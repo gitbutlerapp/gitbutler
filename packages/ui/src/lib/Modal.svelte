@@ -8,13 +8,23 @@
 		width?: 'default' | 'large' | 'small' | 'xsmall';
 		title?: string;
 		icon?: keyof typeof iconsJson;
+		noPadding?: boolean;
 		onClose?: () => void;
 		onSubmit?: (close: () => void) => void;
-		children: Snippet<[item?: any]>;
+		children: Snippet<[item: any, close: () => void]>;
 		controls?: Snippet<[close: () => void, item: any]>;
 	}
 
-	const { width = 'default', title, icon, onClose, children, controls, onSubmit }: Props = $props();
+	const {
+		width = 'default',
+		title,
+		icon,
+		onClose,
+		children,
+		controls,
+		onSubmit,
+		noPadding = false
+	}: Props = $props();
 
 	let open = $state(false);
 	let item = $state<any>();
@@ -32,11 +42,16 @@
 		onClose?.();
 		dialogElement?.close();
 	}
+
+	export const imports = {
+		get open() {
+			return open;
+		}
+	};
 </script>
 
 <dialog
 	bind:this={dialogElement}
-	class="modal-container"
 	class:default={width === 'default'}
 	class:large={width === 'large'}
 	class:small={width === 'small'}
@@ -63,8 +78,8 @@
 				</div>
 			{/if}
 
-			<div class="modal__body custom-scrollbar text-13 text-body">
-				{@render children(item)}
+			<div class="modal__body custom-scrollbar text-13 text-body" class:no-padding={noPadding}>
+				{@render children(item, close)}
 			</div>
 
 			{#if controls}
@@ -84,39 +99,46 @@
 
 	dialog[open] {
 		display: flex;
-	}
 
-	dialog[open]::backdrop {
-		/* NOTE: temporarily hardcoded var(--clr-overlay-bg); */
-		background-color: color(srgb 0 0 0 / 0.34901960784313724);
-	}
+		border: 1px solid var(--clr-border-2);
 
-	html.dark dialog[open]::backdrop {
-		/* NOTE: temporarily hardcoded dark var(--clr-overlay-bg); */
-		background-color: color(srgb 0.8392156862745098 0.8392156862745098 0.8392156862745098 / 0.4);
-	}
-
-	.modal-container[open]::backdrop {
-		animation: dialog-fade 0.15s ease-in;
-	}
-
-	.modal-container[open] {
-		animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
-	}
-
-	.modal-container {
 		flex-direction: column;
 
 		max-height: calc(100vh - 80px);
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-l);
+
+		animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
+
+		/* MODIFIERS */
+		&.default {
+			width: 580px;
+		}
+
+		&.large {
+			width: 840px;
+		}
+
+		&.small {
+			width: 380px;
+		}
+
+		&.xsmall {
+			width: 310px;
+		}
 	}
 
-	dialog[open] {
-		border: 1px solid var(--clr-border-2);
+	dialog[open]::backdrop {
+		/* NOTE: temporarily hardcoded var(--clr-overlay-bg); */
+		background-color: color(srgb 0 0 0 / 0.34901960784313724);
+		animation: dialog-fade 0.15s ease-in;
 	}
 
+	html.dark dialog[open]::backdrop {
+		/* NOTE: temporarily hardcoded dark var(--clr-overlay-bg); */
+		background-color: color(srgb 0.8392156862745098 0.8392156862745098 0.8392156862745098 / 0.4);
+	}
 	.modal__header {
 		display: flex;
 		padding: 16px;
@@ -125,9 +147,13 @@
 	}
 
 	.modal__body {
-		overflow: auto;
+		overflow: hidden;
 		padding: 16px;
 		line-height: 160%;
+
+		&.no-padding {
+			padding: 0;
+		}
 	}
 
 	.modal__body > :global(code),
@@ -161,22 +187,5 @@
 		to {
 			opacity: 1;
 		}
-	}
-
-	/* MODIFIERS */
-	.modal-container.default {
-		width: 580px;
-	}
-
-	.modal-container.large {
-		width: 840px;
-	}
-
-	.modal-container.small {
-		width: 380px;
-	}
-
-	.modal-container.xsmall {
-		width: 310px;
 	}
 </style>

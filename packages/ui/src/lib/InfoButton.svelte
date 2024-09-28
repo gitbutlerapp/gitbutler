@@ -61,7 +61,7 @@
 	{#if show}
 		<div
 			use:portal={'body'}
-			use:setPosition={{ targetEl, position: 'bottom', align: 'center' }}
+			use:setPosition={{ targetEl, position: 'bottom', align: 'center', gap: 2 }}
 			class="tooltip-container"
 			role="presentation"
 			transition:flyScale
@@ -86,13 +86,17 @@
 	.wrapper {
 		position: relative;
 		display: inline-flex;
+		transform: translateY(10%);
+
+		--default-size: 14px;
+		--small-size: 12px;
 	}
 
 	.info-button {
 		position: relative;
 		flex-shrink: 0;
 		color: var(--clr-text-2);
-		border-radius: 16px;
+		border-radius: var(--default-size);
 		box-shadow: inset 0 0 0 1.5px var(--clr-text-2);
 		transition: box-shadow var(--transition-fast);
 
@@ -118,20 +122,18 @@
 	}
 
 	.wrapper.medium {
-		transform: translateY(20%);
-
 		& .info-button {
-			width: 16px;
-			height: 16px;
+			width: var(--default-size);
+			height: var(--default-size);
 
 			&::before {
-				top: 4px;
+				top: 3px;
 				width: 2px;
 				height: 2px;
 			}
 
 			&::after {
-				top: 7px;
+				top: 6px;
 				width: 2px;
 				height: 5px;
 			}
@@ -139,11 +141,9 @@
 	}
 
 	.wrapper.small {
-		transform: translateY(10%);
-
 		& .info-button {
-			width: 12px;
-			height: 12px;
+			width: var(--small-size);
+			height: var(--small-size);
 
 			&::before {
 				top: 3px;
@@ -170,7 +170,7 @@
 	.tooltip-card {
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: 6px;
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
@@ -182,10 +182,12 @@
 
 	.tooltip-title {
 		color: var(--clr-text-1);
+		user-select: text;
 	}
 
 	.tooltip-description {
 		color: var(--clr-scale-ntrl-40);
+		user-select: text;
 	}
 
 	.tooltip-arrow {

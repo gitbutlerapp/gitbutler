@@ -11,6 +11,7 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use bstr::ByteSlice;
 use git2::TreeEntry;
 use gitbutler_branch::{
     BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest, Target, VirtualBranchesHandle,
@@ -754,6 +755,27 @@ fn commit_id_can_be_generated_or_specified() -> Result<()> {
     Ok(())
 }
 
+/// This sets up the following scenario:
+///
+/// Target commit:
+/// test.txt: line1\nline2\nline3\nline4\n
+///
+/// Make commit "last push":
+/// test.txt: line1\nline2\nline3\nline4\nupstream\n
+///
+/// "Server side" origin/master:
+/// test.txt: line1\nline2\nline3\nline4\nupstream\ncoworker work\n
+///
+/// Write uncommited:
+/// test.txt: line1\nline2\nline3\nline4\nupstream\n
+/// test2.txt: file2\n
+///
+/// Create vbranch:
+///    - set head to "last push"
+///
+/// Inspect Virtual branch:
+/// commited: test.txt: line1\nline2\nline3\nline4\n+upstream\n
+/// uncommited: test2.txt: file2\n
 #[test]
 fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     let suite = Suite::default();
@@ -821,6 +843,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     let mut branch = branch_manager
         .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
         .expect("failed to create virtual branch");
+
     branch.upstream = Some(remote_branch.clone());
     branch.head = last_push;
     vb_state.set_branch(branch.clone())?;
@@ -829,13 +852,32 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
     assert_eq!(branches.len(), 1);
     let branch1 = &branches[0];
+
     assert_eq!(
         branch1.files.len(),
-        1 + 1,
-        "'test' (modified compared to index) and 'test2' (untracked).\
-        This is actually correct when looking at the git repository"
+        1,
+        "test2.txt contains uncommited changes"
     );
-    assert_eq!(branch1.commits.len(), 1);
+    assert_eq!(branch1.files[0].path.to_str().unwrap(), "test2.txt");
+    assert_eq!(
+        branch1.files[0].hunks[0].diff.to_str().unwrap(),
+        "@@ -0,0 +1 @@\n+file2\n"
+    );
+
+    assert_eq!(
+        branch1.commits.len(),
+        1,
+        "test.txt is commited inside this commit"
+    );
+    assert_eq!(branch1.commits[0].files.len(), 1);
+    assert_eq!(
+        branch1.commits[0].files[0].path.to_str().unwrap(),
+        "test.txt"
+    );
+    assert_eq!(
+        branch1.commits[0].files[0].hunks[0].diff.to_str().unwrap(),
+        "@@ -2,3 +2,4 @@ line1\n line2\n line3\n line4\n+upstream\n"
+    );
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
     internal::integrate_upstream_commits(ctx, branch1.id)?;
@@ -1099,8 +1141,7 @@ fn unapply_branch() -> Result<()> {
     assert!(branch.active);
 
     let branch_manager = ctx.branch_manager();
-    let real_branch =
-        branch_manager.convert_to_real_branch(branch1_id, guard.write_permission())?;
+    let real_branch = branch_manager.save_and_unapply(branch1_id, guard.write_permission())?;
 
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
     assert_eq!("line1\nline2\nline3\nline4\n", String::from_utf8(contents)?);
@@ -1126,8 +1167,7 @@ fn unapply_branch() -> Result<()> {
 
     let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
-    // TODO: expect there to be 0 branches
-    assert_eq!(branch.files.len(), 0);
+    assert_eq!(branch.files.len(), 1);
     assert!(branch.active);
 
     Ok(())
@@ -1183,15 +1223,13 @@ fn apply_unapply_added_deleted_files() -> Result<()> {
     internal::list_virtual_branches(ctx, guard.write_permission()).unwrap();
 
     let branch_manager = ctx.branch_manager();
-    let real_branch_2 =
-        branch_manager.convert_to_real_branch(branch2_id, guard.write_permission())?;
+    let real_branch_2 = branch_manager.save_and_unapply(branch2_id, guard.write_permission())?;
 
     // check that file2 is back
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("file2\n", String::from_utf8(contents)?);
 
-    let real_branch_3 =
-        branch_manager.convert_to_real_branch(branch3_id, guard.write_permission())?;
+    let real_branch_3 = branch_manager.save_and_unapply(branch3_id, guard.write_permission())?;
     // check that file3 is gone
     assert!(!Path::new(&project.path).join(file_path3).exists());
 
@@ -1267,8 +1305,8 @@ fn detect_mergeable_branch() -> Result<()> {
 
     // unapply both branches and create some conflicting ones
     let branch_manager = ctx.branch_manager();
-    branch_manager.convert_to_real_branch(branch1_id, guard.write_permission())?;
-    branch_manager.convert_to_real_branch(branch2_id, guard.write_permission())?;
+    branch_manager.save_and_unapply(branch1_id, guard.write_permission())?;
+    branch_manager.save_and_unapply(branch2_id, guard.write_permission())?;
 
     ctx.repository().set_head("refs/heads/master")?;
     ctx.repository()

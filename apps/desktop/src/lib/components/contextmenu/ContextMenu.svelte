@@ -189,7 +189,7 @@
 		background: var(--clr-bg-2);
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
-		box-shadow: var(--shadow-s);
+		box-shadow: var(--fx-shadow-s);
 
 		animation: fadeIn 0.08s ease-out forwards;
 	}

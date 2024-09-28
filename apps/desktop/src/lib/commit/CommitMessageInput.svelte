@@ -19,7 +19,7 @@
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { isWhiteSpaceString } from '$lib/utils/string';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -29,11 +29,13 @@
 
 	export let isExpanded: boolean;
 	export let commitMessage: string;
+	export let focusOnMount: boolean = false;
 	export let valid: boolean = false;
 	export let commit: (() => void) | undefined = undefined;
+	export let cancel: () => void;
 
 	const user = getContextStore(User);
-	const selectedOwnership = getContextStore(Ownership);
+	const selectedOwnership = getContextStore(SelectedOwnership);
 	const aiService = getContext(AIService);
 	const branch = getContextStore(VirtualBranch);
 	const project = getContext(Project);
@@ -61,7 +63,7 @@
 	}
 
 	function focusTextAreaOnMount(el: HTMLTextAreaElement) {
-		el.focus();
+		if (focusOnMount) el.focus();
 	}
 
 	function updateFieldsHeight() {
@@ -71,7 +73,7 @@
 
 	async function generateCommitMessage(files: LocalFile[]) {
 		const hunks = files.flatMap((f) =>
-			f.hunks.filter((h) => $selectedOwnership.contains(f.id, h.id))
+			f.hunks.filter((h) => $selectedOwnership.isSelected(f.id, h.id))
 		);
 		// Branches get their names generated only if there are at least 4 lines of code
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
@@ -125,6 +127,14 @@
 	function handleDescriptionKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
 		const value = e.currentTarget.value;
 
+		if (e.key === KeyName.Escape) {
+			e.preventDefault();
+			cancel();
+			return;
+		}
+
+		if (commit && (e.ctrlKey || e.metaKey) && e.key === KeyName.Enter) commit();
+
 		if (e.key === KeyName.Delete && value.length === 0) {
 			e.preventDefault();
 			if (titleTextArea) {
@@ -144,6 +154,12 @@
 	}
 
 	function handleSummaryKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
+		if (e.key === KeyName.Escape) {
+			e.preventDefault();
+			cancel();
+			return;
+		}
+
 		if (commit && (e.ctrlKey || e.metaKey) && e.key === KeyName.Enter) commit();
 		if (e.key === KeyName.Enter) {
 			e.preventDefault();
@@ -170,6 +186,10 @@
 
 			descriptionTextArea?.focus();
 		}
+	}
+
+	export function focus() {
+		titleTextArea?.focus();
 	}
 </script>
 

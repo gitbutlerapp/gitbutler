@@ -78,7 +78,7 @@ impl GitHunk {
             new_lines: 0,
             diff_lines: Default::default(),
             binary: false,
-            change_type: ChangeType::Modified,
+            change_type: ChangeType::Added,
         }
     }
 }
@@ -387,6 +387,11 @@ fn reverse_patch(patch: &BStr) -> Option<BString> {
 
 // returns `None` if the reversal failed
 pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
+    let new_change_type = match hunk.change_type {
+        ChangeType::Added => ChangeType::Deleted,
+        ChangeType::Deleted => ChangeType::Added,
+        ChangeType::Modified => ChangeType::Modified,
+    };
     if hunk.binary {
         None
     } else {
@@ -397,7 +402,7 @@ pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
             new_lines: hunk.old_lines,
             diff_lines: diff.into(),
             binary: hunk.binary,
-            change_type: hunk.change_type,
+            change_type: new_change_type,
         })
     }
 }

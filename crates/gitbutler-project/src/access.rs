@@ -1,7 +1,7 @@
-use std::{collections::BTreeMap, sync::Arc};
-
 use anyhow::{bail, Context};
 use parking_lot::RawRwLock;
+use std::path::PathBuf;
+use std::{collections::BTreeMap, sync::Arc};
 
 use crate::{Project, ProjectId};
 
@@ -13,12 +13,12 @@ impl Project {
     ///
     /// Note that the lock is automatically released on `Drop`, or when the process quits for any reason,
     /// so it can't go stale.
-    pub fn try_exclusive_access(&self) -> anyhow::Result<fslock::LockFile> {
+    pub fn try_exclusive_access(&self) -> anyhow::Result<LockFile> {
         // MIGRATION: bluntly remove old lock files, which are now more generally named to also fit
         //            the CLI.
         std::fs::remove_file(self.gb_dir().join("window.lock").as_os_str()).ok();
 
-        let mut lock = fslock::LockFile::open(self.gb_dir().join("project.lock").as_os_str())?;
+        let mut lock = LockFile::open(self.gb_dir().join("project.lock").as_os_str())?;
         let got_lock = lock
             .try_lock()
             .context("Failed to check if lock is taken")?;
@@ -103,3 +103,48 @@ impl WorktreeWritePermission {
 
 static WORKTREE_LOCKS: parking_lot::Mutex<BTreeMap<ProjectId, Arc<parking_lot::RwLock<()>>>> =
     parking_lot::Mutex::new(BTreeMap::new());
+
+/// A file-based lock that can indicate exclusive access.
+///
+/// As opposed to its actual implementation, it will ignore failures due to lack of filesystem support.
+pub struct LockFile {
+    /// The actual lock implementation.
+    inner: fslock::LockFile,
+    /// The path which was originally locked, for error reporting.
+    path: PathBuf,
+}
+
+/// Lifecycle and operations
+impl LockFile {
+    /// Open the file at `path`, possibly creating it, for the purpose of using it for file-based locking.
+    pub fn open(path: impl Into<PathBuf>) -> Result<Self, fslock::Error> {
+        let path = path.into();
+        Ok(Self {
+            inner: fslock::LockFile::open(path.as_path())?,
+            path,
+        })
+    }
+
+    /// Try to lock the resource, or pretend it was locked if the underlying filesystem didn't support it.
+    pub fn try_lock(&mut self) -> Result<bool, fslock::Error> {
+        self.inner.try_lock().or_else(|err| {
+            if err.kind() == std::io::ErrorKind::Unsupported {
+                tracing::warn!(
+                    "Filesystem hosting '{}' doesn't support file locking - pretending to own lock to avoid failure",
+                    self.path.display()
+                );
+                Ok(true)
+            } else {
+                Err(err)
+            }
+        })
+    }
+
+    /// Drop the lock on this file, or do nothing if we don't own the lock.
+    pub fn unlock(&mut self) -> Result<(), fslock::Error> {
+        if !self.inner.owns_lock() {
+            return Ok(());
+        }
+        self.inner.unlock()
+    }
+}

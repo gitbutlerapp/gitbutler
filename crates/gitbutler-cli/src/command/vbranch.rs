@@ -54,7 +54,7 @@ pub fn status(project: Project) -> Result<()> {
 
 pub fn unapply(project: Project, branch_name: String) -> Result<()> {
     let branch = branch_by_name(&project, &branch_name)?;
-    debug_print(gitbutler_branch_actions::convert_to_real_branch(
+    debug_print(gitbutler_branch_actions::save_and_unapply_virutal_branch(
         &project, branch.id,
     )?)
 }

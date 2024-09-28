@@ -4,21 +4,19 @@
 	import { Lexer } from 'marked';
 
 	interface Props {
-		content: string;
+		content: string | undefined;
 	}
 
 	let { content }: Props = $props();
 
-	const lexer = new Lexer(options);
-	const tokens = lexer.lex(content);
+	const tokens = $derived.by(() => {
+		const lexer = new Lexer(options);
+		return lexer.lex(content ?? '');
+	});
 </script>
 
-<div class="markdown-content">
-	<MarkdownContent type="init" {tokens} />
+<div class="markdown">
+	{#if tokens}
+		<MarkdownContent type="init" {tokens} />
+	{/if}
 </div>
-
-<style>
-	.markdown-content {
-		display: inline;
-	}
-</style>

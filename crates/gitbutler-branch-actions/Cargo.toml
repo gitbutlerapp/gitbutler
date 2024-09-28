@@ -26,6 +26,7 @@ gitbutler-fs.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-cherry-pick.workspace = true
+gitbutler-oxidize.workspace = true
 serde = { workspace = true, features = ["std"] }
 bstr.workspace = true
 diffy = "0.4.0"
@@ -50,6 +51,7 @@ glob = "0.3.1"
 serial_test = "3.1.1"
 tempfile = "3.10"
 criterion = "0.5.1"
+uuid.workspace = true
 
 [features]
 ## Only enabled when benchmark runs are performed.

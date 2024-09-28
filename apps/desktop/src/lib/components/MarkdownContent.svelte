@@ -1,32 +1,49 @@
 <script lang="ts">
 	/* eslint svelte/valid-compile: "off" */
+	/* - Required because spreading in prop destructuring still throws eslint errors */
 	import { renderers } from '$lib/utils/markdownRenderers';
 	import type { Tokens, Token } from 'marked';
+	import type { Component } from 'svelte';
 
 	type Props =
 		| { type: 'init'; tokens: Token[] }
 		| Tokens.Link
 		| Tokens.Heading
 		| Tokens.Image
-		| Tokens.Space
 		| Tokens.Blockquote
 		| Tokens.Code
+		| Tokens.Text
 		| Tokens.Codespan
-		| Tokens.Text;
+		| Tokens.Paragraph
+		| Tokens.ListItem
+		| Tokens.List;
 
-	let { type, ...rest }: Props = $props();
+	const { type, ...rest }: Props = $props();
 </script>
 
-{#if type && renderers[type as keyof typeof renderers]}
-	<svelte:component this={renderers[type as keyof typeof renderers] as any} {...rest}>
-		{#if 'tokens' in rest}
-			<svelte:self tokens={rest.tokens} />
-		{/if}
-	</svelte:component>
-{:else if 'tokens' in rest && rest.tokens}
+{#if (!type || type === 'init') && 'tokens' in rest && rest.tokens}
 	{#each rest.tokens as token}
 		<svelte:self {...token} />
 	{/each}
-{:else if 'raw' in rest}
-	{@html rest.raw?.replaceAll('\n', '<br />') ?? ''}
+{:else if renderers[type]}
+	{@const CurrentComponent = renderers[type] as Component<Props>}
+	{#if type === 'list'}
+		{@const listItems = (rest as Extract<Props, { type: 'list' }>).items}
+		<CurrentComponent {...rest}>
+			{#each listItems as item}
+				{@const ChildComponent = renderers[item.type]}
+				<ChildComponent {...item}>
+					<svelte:self tokens={item.tokens} />
+				</ChildComponent>
+			{/each}
+		</CurrentComponent>
+	{:else}
+		<CurrentComponent {...rest}>
+			{#if 'tokens' in rest && rest.tokens}
+				<svelte:self tokens={rest.tokens} />
+			{:else if 'raw' in rest}
+				{rest.raw}
+			{/if}
+		</CurrentComponent>
+	{/if}
 {/if}

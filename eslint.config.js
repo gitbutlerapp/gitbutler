@@ -49,7 +49,10 @@ export default tsEslint.config(
 			parser: svelteParser,
 			parserOptions: {
 				parser: tsParser,
-				extraFileExtensions: ['.svelte']
+				extraFileExtensions: ['.svelte'],
+				svelteFeatures: {
+					experimentalGenerics: true
+				}
 			}
 		}
 	},

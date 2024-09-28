@@ -20,12 +20,29 @@ fn should_unapply_diff() {
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let c = gitbutler_branch_actions::create_commit(
+        project,
+        branches.first().unwrap().id,
+        "asdf",
+        None,
+        false,
+    );
+    assert!(c.is_ok());
 
-    gitbutler_branch_actions::delete_virtual_branch(project, branches[0].id).unwrap();
+    gitbutler_branch_actions::unapply_without_saving_virtual_branch(project, branches[0].id)
+        .unwrap();
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 0);
     assert!(!repository.path().join("file.txt").exists());
+
+    let mut opts = git2::StatusOptions::new();
+    opts.include_untracked(true);
+    let statuses = repository
+        .local_repository
+        .statuses(Some(&mut opts))
+        .unwrap();
+    assert!(statuses.is_empty());
 
     let refnames = repository
         .references()
@@ -58,7 +75,7 @@ fn should_remove_reference() {
     )
     .unwrap();
 
-    gitbutler_branch_actions::delete_virtual_branch(project, id).unwrap();
+    gitbutler_branch_actions::unapply_without_saving_virtual_branch(project, id).unwrap();
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 0);

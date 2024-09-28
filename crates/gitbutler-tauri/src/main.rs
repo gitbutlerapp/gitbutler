@@ -38,7 +38,7 @@ fn main() {
                 .target(LogTarget::LogDir)
                 .level(log::LevelFilter::Error);
 
-            tauri::Builder::default()
+            let builder = tauri::Builder::default()
                 .setup(move |tauri_app| {
                     let window = gitbutler_tauri::window::create(
                         &tauri_app.handle(),
@@ -118,7 +118,6 @@ fn main() {
 
                     Ok(())
                 })
-                .plugin(tauri_plugin_window_state::Builder::default().build())
                 .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
                 .plugin(tauri_plugin_context_menu::init())
                 .plugin(tauri_plugin_store::Builder::default().build())
@@ -152,6 +151,7 @@ fn main() {
                     repo::commands::check_signing_settings,
                     repo::commands::git_clone_repository,
                     repo::commands::get_uncommited_files,
+                    repo::commands::get_pr_template_contents,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::delete_local_branch,
@@ -162,8 +162,8 @@ fn main() {
                     virtual_branches::commands::integrate_upstream_commits,
                     virtual_branches::commands::update_virtual_branch,
                     virtual_branches::commands::update_branch_order,
-                    virtual_branches::commands::delete_virtual_branch,
-                    virtual_branches::commands::convert_to_real_branch,
+                    virtual_branches::commands::unapply_without_saving_virtual_branch,
+                    virtual_branches::commands::save_and_unapply_virtual_branch,
                     virtual_branches::commands::unapply_ownership,
                     virtual_branches::commands::reset_files,
                     virtual_branches::commands::push_virtual_branch,
@@ -188,6 +188,9 @@ fn main() {
                     virtual_branches::commands::fetch_from_remotes,
                     virtual_branches::commands::move_commit,
                     virtual_branches::commands::normalize_branch_name,
+                    virtual_branches::commands::upstream_integration_statuses,
+                    virtual_branches::commands::integrate_upstream,
+                    virtual_branches::commands::find_commit,
                     secret::secret_get_global,
                     secret::secret_set_global,
                     undo::list_snapshots,
@@ -199,6 +202,7 @@ fn main() {
                     menu::get_editor_link_scheme,
                     github::commands::init_device_oauth,
                     github::commands::check_auth_status,
+                    github::commands::available_pull_request_templates,
                     askpass::commands::submit_prompt_response,
                     remotes::list_remotes,
                     remotes::add_remote,
@@ -239,7 +243,12 @@ fn main() {
                         }
                         _ => {}
                     }
-                })
+                });
+
+            #[cfg(not(target_os = "linux"))]
+            let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
+
+            builder
                 .build(tauri_context)
                 .expect("Failed to build tauri app")
                 .run(|app_handle, event| {

@@ -24,8 +24,9 @@
 		"check": {
 			"dependsOn": ["@gitbutler/ui#package"]
 		},
+		"playwright:install": {},
 		"test": {
-			"dependsOn": ["@gitbutler/ui#package"]
+			"dependsOn": ["@gitbutler/ui#package", "playwright:install"]
 		},
 		"//#globallint": {
 			// Root rules require dependencies to manually be listed https://github.com/vercel/turbo/discussions/7481

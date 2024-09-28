@@ -1,3 +1,4 @@
+import { flattenPromises } from '$lib/utils/flattenPromises';
 import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { derived, type Readable } from 'svelte/store';
@@ -32,7 +33,7 @@ export type SelectedFile = {
 
 type CallBack = (value: string[]) => void;
 
-export class FileIdSelection {
+export class FileIdSelection implements Readable<string[]> {
 	private value: string[];
 	private callbacks: CallBack[];
 
@@ -51,13 +52,16 @@ export class FileIdSelection {
 		return () => this.unsubscribe(callback);
 	}
 
-	unsubscribe(callback: CallBack) {
+	private unsubscribe(callback: CallBack) {
 		this.callbacks = this.callbacks.filter((cb) => cb !== callback);
 	}
 
 	add(fileId: string, commitId?: string) {
-		this.value.push(stringifyFileKey(fileId, commitId));
-		this.emit();
+		const fileKey = stringifyFileKey(fileId, commitId);
+		if (!this.value.includes(fileKey)) {
+			this.value.push(fileKey);
+			this.emit();
+		}
 	}
 
 	has(fileId: string, commitId?: string) {
@@ -67,10 +71,6 @@ export class FileIdSelection {
 	remove(fileId: string, commitId?: string) {
 		this.value = this.value.filter((key) => key !== stringifyFileKey(fileId, commitId));
 		this.emit();
-	}
-
-	map<T>(callback: (fileId: string) => T) {
-		return this.value.map((fileKey) => callback(fileKey));
 	}
 
 	set(values: string[]) {
@@ -88,7 +88,7 @@ export class FileIdSelection {
 		this.emit();
 	}
 
-	emit() {
+	private emit() {
 		for (const callback of this.callbacks) {
 			callback(this.value);
 		}
@@ -100,24 +100,32 @@ export class FileIdSelection {
 		return fileKey;
 	}
 
-	#selectedFile: Readable<Promise<[string | undefined, AnyFile | undefined]>> | undefined;
+	#selectedFile: Readable<[string | undefined, AnyFile | undefined] | undefined> | undefined;
 	get selectedFile() {
-		this.#selectedFile ||= derived(
+		if (this.#selectedFile) return this.#selectedFile;
+
+		const files = derived(
 			[this as Readable<string[]>, this.localFiles],
-			async ([selection, localFiles]): Promise<[string | undefined, AnyFile | undefined]> => {
-				if (selection.length !== 1) return [undefined, undefined];
+			async ([selection, localFiles]): Promise<
+				[string | undefined, AnyFile | undefined] | undefined
+			> => {
+				if (selection.length !== 1) return undefined;
 				const fileKey = parseFileKey(selection[0]!);
 				const file = await findFileByKey(localFiles, this.projectId, fileKey);
 				return [fileKey.commitId, file];
 			}
 		);
 
+		this.#selectedFile = flattenPromises(files);
+
 		return this.#selectedFile;
 	}
 
-	#files: Readable<Promise<AnyFile[]>> | undefined;
+	#files: Readable<AnyFile[] | undefined> | undefined;
 	get files() {
-		this.#files ||= derived(
+		if (this.#files) return this.#files;
+
+		const files = derived(
 			[this as Readable<string[]>, this.localFiles],
 			async ([selection, localFiles]): Promise<AnyFile[]> => {
 				const files = await Promise.all(
@@ -130,11 +138,9 @@ export class FileIdSelection {
 			}
 		);
 
-		return this.#files;
-	}
+		this.#files = flattenPromises(files);
 
-	get length() {
-		return this.value.length;
+		return this.#files;
 	}
 }
 

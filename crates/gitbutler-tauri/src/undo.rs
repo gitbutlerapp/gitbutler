@@ -31,7 +31,6 @@ pub fn list_snapshots(
 #[instrument(skip(projects), err(Debug))]
 pub fn restore_snapshot(
     projects: State<'_, projects::Controller>,
-    handle: tauri::AppHandle,
     project_id: ProjectId,
     sha: String,
 ) -> Result<(), Error> {

@@ -3,7 +3,7 @@
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	export let spacer = false;
-	export let gap = 20;
+	export let gap = 16;
 </script>
 
 <div class="settings-section" style="gap: {pxToRem(gap)}">

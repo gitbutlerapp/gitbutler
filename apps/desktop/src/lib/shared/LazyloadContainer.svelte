@@ -7,9 +7,10 @@
 		minTriggerCount: number;
 		role?: AriaRole | undefined | null;
 		ontrigger: (lastChild: Element) => void;
+		onkeydown?: (e: KeyboardEvent) => void;
 	}
 
-	let { children, minTriggerCount, role, ontrigger }: Props = $props();
+	let { children, minTriggerCount, role, ontrigger, onkeydown }: Props = $props();
 
 	let lazyContainerEl: HTMLDivElement;
 
@@ -47,7 +48,7 @@
 	});
 </script>
 
-<div class="lazy-container" {role} bind:this={lazyContainerEl}>
+<div class="lazy-container" {role} bind:this={lazyContainerEl} {onkeydown}>
 	{@render children()}
 </div>
 

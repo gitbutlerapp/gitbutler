@@ -16,7 +16,7 @@
 </script>
 
 <Tooltip text={tooltip} align={tooltipAlign} position={tooltipPosition}>
-	<div class="image-wrapper {size}" style:background-color={stringToColor(tooltip)}>
+	<div class="image-wrapper {size}" style:background-color={stringToColor(srcUrl)}>
 		<img
 			class="avatar"
 			alt={tooltip}

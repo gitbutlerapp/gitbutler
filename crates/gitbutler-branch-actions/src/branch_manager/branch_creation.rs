@@ -8,7 +8,10 @@ use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{rebase::cherry_rebase, RepoActionsExt, RepositoryExt};
+use gitbutler_repo::{
+    rebase::{cherry_rebase_group, gitbutler_merge_commits},
+    LogUntil, RepoActionsExt, RepositoryExt,
+};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use tracing::instrument;
 
@@ -310,38 +313,62 @@ impl BranchManager<'_> {
                 "failed to find merge base between {} and {}",
                 default_target.sha, branch.head
             ))?;
-        if merge_base != default_target.sha {
-            let _span = tracing::debug_span!("merge-base isn't default-target").entered();
-            // Branch is out of date, merge or rebase it
-            let merge_base_tree = repo
-                .find_commit(merge_base)
-                .context(format!("failed to find merge base commit {}", merge_base))?
-                .tree()
-                .context("failed to find merge base tree")?;
 
-            let branch_tree = repo
-                .find_tree(branch.tree)
-                .context("failed to find branch tree")?;
+        // Branch is out of date, merge or rebase it
+        let merge_base_tree = repo
+            .find_commit(merge_base)
+            .context(format!("failed to find merge base commit {}", merge_base))?
+            .tree()
+            .context("failed to find merge base tree")?;
 
-            let mut merge_index = repo
-                .merge_trees(&merge_base_tree, &branch_tree, &target_tree, None)
+        let branch_tree = repo
+            .find_tree(branch.tree)
+            .context("failed to find branch tree")?;
+
+        // We don't support having two branches applied that conflict with each other
+        {
+            let mut index = repo.index()?;
+            index.add_all(["*"], git2::IndexAddOption::default(), None)?;
+            let index_tree = index.write_tree()?;
+            let index_tree = repo.find_tree(index_tree)?;
+            let branch_merged_with_other_applied_branches = repo
+                .merge_trees(&merge_base_tree, &branch_tree, &index_tree, None)
                 .context("failed to merge trees")?;
 
-            if merge_index.has_conflicts() {
+            if branch_merged_with_other_applied_branches.has_conflicts() {
+                for branch in vb_state
+                    .list_branches_in_workspace()?
+                    .iter()
+                    .filter(|branch| branch.id != branch_id)
+                {
+                    self.save_and_unapply(branch.id, perm)?;
+                }
+            }
+        }
+
+        // Do we need to rebase the branch on top of the default target?
+        if merge_base != default_target.sha {
+            let mut branch_merged_with_default_target =
+                repo.merge_trees(&merge_base_tree, &branch_tree, &target_tree, None)?;
+
+            // If there are conflicts and edit mode is disabled
+            if branch_merged_with_default_target.has_conflicts()
+                && !self.ctx.project().succeeding_rebases
+            {
                 // currently we can only deal with the merge problem branch
                 for branch in vb_state
                     .list_branches_in_workspace()?
                     .iter()
                     .filter(|branch| branch.id != branch_id)
                 {
-                    self.convert_to_real_branch(branch.id, perm)?;
+                    self.save_and_unapply(branch.id, perm)?;
                 }
 
                 // apply the branch
                 vb_state.set_branch(branch.clone())?;
 
                 // checkout the conflicts
-                repo.checkout_index_builder(&mut merge_index)
+                repo.checkout_index_builder(&mut branch_merged_with_default_target)
                     .allow_conflicts()
                     .conflict_style_merge()
                     .force()
@@ -349,7 +376,8 @@ impl BranchManager<'_> {
                     .context("failed to checkout index")?;
 
                 // mark conflicts
-                let conflicts = merge_index
+
+                let conflicts = branch_merged_with_default_target
                     .conflicts()
                     .context("failed to get merge index conflicts")?;
                 let mut merge_conflicts = Vec::new();
@@ -364,124 +392,27 @@ impl BranchManager<'_> {
                 return Ok(branch.name);
             }
 
-            let head_commit = repo
-                .find_commit(branch.head)
-                .context("failed to find head commit")?;
+            let new_head = if branch.allow_rebasing {
+                let commits_to_rebase = repo.l(branch.head, LogUntil::Commit(merge_base))?;
 
-            let merged_branch_tree_oid = merge_index
-                .write_tree_to(self.ctx.repository())
-                .context("failed to write tree")?;
+                let head_oid =
+                    cherry_rebase_group(repo, default_target.sha, &commits_to_rebase, true)?;
 
-            let merged_branch_tree = repo
-                .find_tree(merged_branch_tree_oid)
-                .context("failed to find tree")?;
-
-            let ok_with_force_push = branch.allow_rebasing;
-            if branch.upstream.is_some() && !ok_with_force_push {
-                // branch was pushed to upstream, and user doesn't like force pushing.
-                // create a merge commit to avoid the need of force pushing then.
-
-                let new_branch_head = self.ctx.commit(
-                    format!(
-                        "Merged {}/{} into {}",
-                        default_target.branch.remote(),
-                        default_target.branch.branch(),
-                        branch.name
-                    )
-                    .as_str(),
-                    &merged_branch_tree,
-                    &[&head_commit, &target_commit],
-                    None,
-                )?;
-
-                // ok, update the virtual branch
-                branch.head = new_branch_head;
+                repo.find_commit(head_oid)?
             } else {
-                let rebase = cherry_rebase(
-                    self.ctx,
-                    target_commit.id(),
-                    target_commit.id(),
-                    branch.head,
-                );
-                let mut rebase_success = true;
-                let mut last_rebase_head = branch.head;
-                match rebase {
-                    Ok(rebase_oid) => {
-                        if let Some(oid) = rebase_oid {
-                            last_rebase_head = oid;
-                        }
-                    }
-                    Err(_) => {
-                        rebase_success = false;
-                    }
-                }
+                gitbutler_merge_commits(
+                    repo,
+                    repo.find_commit(branch.head)?,
+                    repo.find_commit(default_target.sha)?,
+                    &branch.name,
+                    default_target.branch.branch(),
+                )?
+            };
 
-                if rebase_success {
-                    // rebase worked out, rewrite the branch head
-                    branch.head = last_rebase_head;
-                } else {
-                    // rebase failed, do a merge commit
+            branch.head = new_head.id();
+            branch.tree = new_head.tree_id();
 
-                    // get tree from merge_tree_oid
-                    let merge_tree = repo
-                        .find_tree(merged_branch_tree_oid)
-                        .context("failed to find tree")?;
-
-                    // commit the merge tree oid
-                    let new_branch_head = self
-                        .ctx
-                        .commit(
-                            format!(
-                                "Merged {}/{} into {}",
-                                default_target.branch.remote(),
-                                default_target.branch.branch(),
-                                branch.name
-                            )
-                            .as_str(),
-                            &merge_tree,
-                            &[&head_commit, &target_commit],
-                            None,
-                        )
-                        .context("failed to commit merge")?;
-
-                    branch.head = new_branch_head;
-                }
-            }
-
-            branch.tree = repo
-                .find_commit(branch.head)?
-                .tree()
-                .map_err(anyhow::Error::from)?
-                .id();
             vb_state.set_branch(branch.clone())?;
-        }
-
-        let _span = tracing::debug_span!("finalize").entered();
-
-        let wd_tree = self.ctx.repository().create_wd_tree()?;
-
-        let branch_tree = repo
-            .find_tree(branch.tree)
-            .context("failed to find branch tree")?;
-
-        // check index for conflicts
-        let mut merge_index = repo
-            .merge_trees(&target_tree, &wd_tree, &branch_tree, None)
-            .context("failed to merge trees")?;
-
-        if merge_index.has_conflicts() {
-            // mark conflicts
-            let conflicts = merge_index
-                .conflicts()
-                .context("failed to get merge index conflicts")?;
-            let mut merge_conflicts = Vec::new();
-            for path in conflicts.flatten() {
-                if let Some(ours) = path.our {
-                    let path = gix::path::try_from_bstr(Cow::Owned(ours.path.into()))?;
-                    merge_conflicts.push(path);
-                }
-            }
-            conflicts::mark(self.ctx, &merge_conflicts, Some(default_target.sha))?;
         }
 
         // apply the branch
@@ -489,11 +420,26 @@ impl BranchManager<'_> {
 
         vbranch::ensure_selected_for_changes(&vb_state)
             .context("failed to ensure selected for changes")?;
-        // checkout the merge index
-        repo.checkout_index_builder(&mut merge_index)
+
+        let final_tree = vb_state
+            .list_branches_in_workspace()?
+            .into_iter()
+            .try_fold(target_tree.clone(), |final_tree, branch| {
+                let branch_tree = repo.find_tree(branch.tree)?;
+                let mut result = repo.merge_trees(&target_tree, &final_tree, &branch_tree, None)?;
+                let final_tree_oid = result.write_tree_to(repo)?;
+                repo.find_tree(final_tree_oid)
+                    .context("Failed to find tree")
+            })?;
+
+        // checkout final_tree into the working directory
+        repo.checkout_tree_builder(&final_tree)
             .force()
+            .remove_untracked()
             .checkout()
-            .context("failed to checkout index")?;
+            .context("failed to checkout tree")?;
+
+        update_workspace_commit(&vb_state, self.ctx)?;
 
         // Look for and handle the vbranch indicator commit
         // TODO: This is not unapplying the WIP commit for some unholy reason.
@@ -504,16 +450,15 @@ impl BranchManager<'_> {
 
                 if let Some(headers) = potential_wip_commit.gitbutler_headers() {
                     if headers.change_id == wip_commit_to_unapply {
-                        vbranch::undo_commit(self.ctx, branch.id, branch.head)?;
+                        branch = vbranch::undo_commit(self.ctx, branch.id, branch.head)?;
                     }
                 }
 
                 branch.not_in_workspace_wip_change_id = None;
+
                 vb_state.set_branch(branch.clone())?;
             }
         }
-
-        update_workspace_commit(&vb_state, self.ctx)?;
 
         Ok(branch.name)
     }

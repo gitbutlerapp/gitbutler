@@ -193,6 +193,7 @@
 	}
 
 	.textbox__icon {
+		display: flex;
 		z-index: var(--z-ground);
 		pointer-events: none;
 		position: absolute;

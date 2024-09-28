@@ -412,7 +412,11 @@ function generateDifferentForkpoint({
 	}
 
 	// Remove one right column if there is only integrated with no local or remote commits
-	if (integratedBranchGroups.length > 0 && localBranchGroups.length === 0 && remoteBranchGroups) {
+	if (
+		integratedBranchGroups.length > 0 &&
+		localBranchGroups.length === 0 &&
+		remoteBranchGroups.length === 0
+	) {
 		removeRightMostColumn();
 	}
 

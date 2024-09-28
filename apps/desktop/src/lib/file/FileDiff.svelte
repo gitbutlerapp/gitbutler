@@ -1,11 +1,10 @@
 <script lang="ts">
 	import HunkViewer from '$lib/hunk/HunkViewer.svelte';
+	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
 
 	interface Props {
@@ -68,22 +67,26 @@
 		{#each sections as section}
 			{@const { added, removed } = computeAddedRemovedByHunk(section)}
 			{#if 'hunk' in section}
+				{@const isHunkLocked = section.hunk.lockedTo && section.hunk.lockedTo.length > 0 && commits}
 				<div class="hunk-wrapper">
-					<div class="indicators text-11 text-semibold">
-						<div class="text-10 semibold added-removed">
-							<span class="added">+{added}</span>
-							<span class="removed">-{removed}</span>
+					{#if isHunkLocked || section.hunk.poisoned}
+						<div class="indicators text-11 text-semibold">
+							{#if isHunkLocked}
+								<InfoMessage filled outlined={false} style="warning" icon="locked">
+									<svelte:fragment slot="content"
+										>{getLockText(section.hunk.lockedTo, commits)}</svelte:fragment
+									>
+								</InfoMessage>
+							{/if}
+							{#if section.hunk.poisoned}
+								<InfoMessage filled outlined={false}>
+									<svelte:fragment slot="content"
+										>Can not manage this hunk because it depends on changes from multiple branches</svelte:fragment
+									>
+								</InfoMessage>
+							{/if}
 						</div>
-
-						{#if section.hunk.lockedTo && section.hunk.lockedTo.length > 0 && commits}
-							<Tooltip text={getLockText(section.hunk.lockedTo, commits)}>
-								<Icon name="locked-small" color="warning" />
-							</Tooltip>
-						{/if}
-						{#if section.hunk.poisoned}
-							Can not manage this hunk because it depends on changes from multiple branches
-						{/if}
-					</div>
+					{/if}
 					<HunkViewer
 						{filePath}
 						{section}
@@ -116,30 +119,10 @@
 		flex-direction: column;
 		gap: 10px;
 	}
+
 	.indicators {
 		display: flex;
 		align-items: center;
 		gap: 2px;
-	}
-
-	.added-removed {
-		display: flex;
-		border-radius: var(--radius-s);
-		overflow: hidden;
-	}
-
-	.removed,
-	.added {
-		padding: 2px 4px;
-	}
-
-	.added {
-		color: var(--clr-scale-succ-30);
-		background-color: var(--clr-theme-succ-bg);
-	}
-
-	.removed {
-		color: var(--clr-scale-err-30);
-		background-color: var(--clr-theme-err-bg);
 	}
 </style>

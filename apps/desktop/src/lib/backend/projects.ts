@@ -27,6 +27,10 @@ export class Project {
 	use_diff_context: boolean | undefined;
 	snapshot_lines_threshold!: number | undefined;
 	use_new_locking!: boolean;
+	git_host!: {
+		hostType: 'github' | 'gitlab' | 'bitbucket' | 'azure';
+		pullRequestTemplatePath: string;
+	};
 
 	private succeeding_rebases!: boolean;
 	get succeedingRebases() {
@@ -154,25 +158,21 @@ export class ProjectService {
 		return path;
 	}
 
-	validateProjectPath(path: string, showErrors = true) {
+	validateProjectPath(path: string) {
 		if (/^\\\\wsl.localhost/i.test(path)) {
-			if (showErrors) {
-				showError(
-					'Use the Linux version of GitButler',
-					'For WSL2 projects, install the Linux version of GitButler inside of your WSL2 distro'
-				);
-			}
+			const errorMsg =
+				'For WSL2 projects, install the Linux version of GitButler inside of your WSL2 distro';
+			console.error(errorMsg);
+			showError('Use the Linux version of GitButler', errorMsg);
 
 			return false;
 		}
 
 		if (/^\\\\/i.test(path)) {
-			if (showErrors) {
-				showError(
-					'UNC Paths are not directly supported',
-					'Using git across a network is not recommended. Either clone the repo locally, or use the NET USE command to map a network drive'
-				);
-			}
+			const errorMsg =
+				'Using git across a network is not recommended. Either clone the repo locally, or use the NET USE command to map a network drive';
+			console.error(errorMsg);
+			showError('UNC Paths are not directly supported', errorMsg);
 
 			return false;
 		}

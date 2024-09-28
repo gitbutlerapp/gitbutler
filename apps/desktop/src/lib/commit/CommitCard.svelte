@@ -1,10 +1,11 @@
 <script lang="ts">
+	import CommitContextMenu from './CommitContextMenu.svelte';
 	import CommitDragItem from './CommitDragItem.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
-	import { featureBranchStacking } from '$lib/config/uiFeatureFlags';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
@@ -50,9 +51,8 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
-	const branchStacking = featureBranchStacking();
-
 	let draggableCommitElement: HTMLElement | null = null;
+	let contextMenu: CommitContextMenu;
 	let files: RemoteFile[] = [];
 	let showDetails = false;
 
@@ -60,7 +60,10 @@
 		files = await listRemoteCommitFiles(project.id, commit.id);
 	}
 
+	export let filesToggleable = true;
+
 	function toggleFiles() {
+		if (!filesToggleable) return;
 		showDetails = !showDetails;
 
 		if (showDetails) loadFiles();
@@ -155,11 +158,16 @@
 </script>
 
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
-	<CommitMessageInput
-		bind:commitMessage={description}
-		bind:valid={commitMessageValid}
-		isExpanded={true}
-	/>
+	{#snippet children(_, close)}
+		<CommitMessageInput
+			focusOnMount
+			bind:commitMessage={description}
+			bind:valid={commitMessageValid}
+			isExpanded={true}
+			cancel={close}
+			commit={submitCommitMessageModal}
+		/>
+	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
 		<Button style="neutral" type="submit" kind="solid" grow disabled={!commitMessageValid}>
@@ -190,6 +198,13 @@
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
 	{/snippet}
 </Modal>
+
+<CommitContextMenu
+	bind:this={contextMenu}
+	targetElement={draggableCommitElement}
+	{commit}
+	{commitUrl}
+/>
 
 <div
 	class="commit-row"
@@ -224,6 +239,9 @@
 				on:keyup={onKeyup}
 				role="button"
 				tabindex="0"
+				on:contextmenu={(e) => {
+					contextMenu.open(e);
+				}}
 				on:dragenter={() => {
 					isDragTargeted = true;
 				}}
@@ -240,7 +258,7 @@
 					const mouseY = e.clientY;
 
 					const isTop = mouseY < targetTop + targetHeight / 2;
-					
+
 					dragDirection = isTop ? 'up' : 'down';
 				}}
 				use:draggableCommit={commit instanceof DetailedCommit &&
@@ -349,18 +367,8 @@
 								</div>
 							</button>
 						{/if}
-
 						<span class="commit__subtitle-divider">•</span>
-
 						<span>{getTimeAndAuthor()}</span>
-
-						{#if $branchStacking && commit instanceof DetailedCommit}
-							<div
-								style="background-color:var(--clr-core-pop-80); border-radius: 3px; padding: 2px;"
-							>
-								{commit?.remoteRef}
-							</div>
-						{/if}
 					</div>
 				{/if}
 			</div>
@@ -399,7 +407,7 @@
 										icon="edit-small"
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
-									{#if $branchStacking && commit instanceof DetailedCommit && !commit.remoteRef}
+									{#if $stackingFeature && commit instanceof DetailedCommit && !commit.remoteRef}
 										<Button
 											size="tag"
 											style="ghost"
@@ -408,7 +416,7 @@
 											onclick={(e: Event) => {openCreateRefModal(e, commit)}}>Create ref</Button
 										>
 									{/if}
-									{#if $branchStacking && commit instanceof DetailedCommit && commit.remoteRef}
+									{#if $stackingFeature && commit instanceof DetailedCommit && commit.remoteRef}
 										<Button
 											size="tag"
 											style="ghost"

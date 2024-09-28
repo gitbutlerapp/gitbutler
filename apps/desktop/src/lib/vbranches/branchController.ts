@@ -4,7 +4,7 @@ import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { Hunk, LocalFile } from './types';
+import type { BranchPushResult, Hunk, LocalFile } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
 export class BranchController {
@@ -238,9 +238,9 @@ export class BranchController {
 		}
 	}
 
-	async convertToRealBranch(branchId: string) {
+	async saveAndUnapply(branchId: string) {
 		try {
-			await invoke<void>('convert_to_real_branch', {
+			await invoke<void>('save_and_unapply_virtual_branch', {
 				projectId: this.projectId,
 				branch: branchId
 			});
@@ -261,18 +261,22 @@ export class BranchController {
 		}
 	}
 
-	async pushBranch(branchId: string, withForce: boolean): Promise<void> {
+	async pushBranch(branchId: string, withForce: boolean): Promise<BranchPushResult> {
 		try {
-			await invoke<void>('push_virtual_branch', {
+			const pushResult = await invoke<BranchPushResult>('push_virtual_branch', {
 				projectId: this.projectId,
 				branchId,
 				withForce
 			});
 			posthog.capture('Push Successful');
 			await this.vbranchService.refresh();
+			return pushResult;
 		} catch (err: any) {
-			posthog.capture('Push Failed', { error: err });
-			if (err.code === 'errors.git.authentication') {
+			console.error(err);
+			const { code, message } = err;
+			posthog.capture('Push Failed', { error: { code, message } });
+
+			if (code === 'errors.git.authentication') {
 				showToast({
 					title: 'Git push failed',
 					message: `
@@ -281,7 +285,7 @@ export class BranchController {
                         Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
                         on fetching and pushing for ways to resolve the problem.
                     `,
-					error: err.message,
+					error: message,
 					style: 'error'
 				});
 			} else {
@@ -293,7 +297,7 @@ export class BranchController {
                         Please check our [documentation](https://docs.gitbutler.com/troubleshooting/fetch-push)
                         on fetching and pushing for ways to resolve the problem.
                     `,
-					error: err.message,
+					error: message,
 					style: 'error'
 				});
 			}
@@ -301,13 +305,16 @@ export class BranchController {
 		}
 	}
 
-	async deleteBranch(branchId: string) {
+	async unapplyWithoutSaving(branchId: string) {
 		try {
 			// TODO: make this optimistic again.
-			await invoke<void>('delete_virtual_branch', { projectId: this.projectId, branchId });
-			toasts.success('Branch deleted successfully');
+			await invoke<void>('unapply_without_saving_virtual_branch', {
+				projectId: this.projectId,
+				branchId
+			});
+			toasts.success('Branch unapplied successfully');
 		} catch (err) {
-			showError('Failed to delete branch', err);
+			showError('Failed to unapply branch', err);
 		} finally {
 			this.remoteBranchService.refresh();
 		}

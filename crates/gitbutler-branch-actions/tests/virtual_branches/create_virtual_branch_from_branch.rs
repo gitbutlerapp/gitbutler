@@ -39,7 +39,8 @@ fn integration() {
 
         let name = branch.upstream.unwrap().name;
 
-        gitbutler_branch_actions::delete_virtual_branch(project, branch_id).unwrap();
+        gitbutler_branch_actions::unapply_without_saving_virtual_branch(project, branch_id)
+            .unwrap();
 
         name
     };

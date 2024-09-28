@@ -20,6 +20,7 @@ use gitbutler_project::access::WorktreeWritePermission;
 use tracing::instrument;
 
 /// Represents the uncommitted status of the applied virtual branches in the workspace.
+#[derive(Debug)]
 pub struct VirtualBranchesStatus {
     /// A collection of branches and their associated uncommitted file changes.
     pub branches: Vec<(Branch, Vec<VirtualBranchFile>)>,

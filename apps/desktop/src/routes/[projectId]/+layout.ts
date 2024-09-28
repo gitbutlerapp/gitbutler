@@ -3,6 +3,7 @@ import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
+import { CommitService } from '$lib/commits/service';
 import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { HistoryService } from '$lib/history/history';
@@ -11,6 +12,7 @@ import { ModeService } from '$lib/modes/service';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 import { BranchController } from '$lib/vbranches/branchController';
+import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { error } from '@sveltejs/kit';
 import type { Project } from '$lib/backend/projects';
@@ -53,6 +55,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	const historyService = new HistoryService(projectId);
 	const baseBranchService = new BaseBranchService(projectId);
+	const commitService = new CommitService(projectId);
 
 	const branchListingService = new BranchListingService(projectId);
 	const remoteBranchService = new RemoteBranchService(
@@ -80,10 +83,12 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const reorderDropzoneManagerFactory = new ReorderDropzoneManagerFactory(branchController);
 
 	const uncommitedFileWatcher = new UncommitedFilesWatcher(project);
+	const upstreamIntegrationService = new UpstreamIntegrationService(project, vbranchService);
 
 	return {
 		authService,
 		baseBranchService,
+		commitService,
 		branchController,
 		historyService,
 		projectId,
@@ -93,6 +98,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		projectMetrics,
 		modeService,
 		fetchSignal,
+		upstreamIntegrationService,
 
 		// These observables are provided for convenience
 		branchDragActionsFactory,

@@ -127,9 +127,7 @@
 				</span>
 			</div>
 			{#if pullrequest.body}
-				<div class="markdown">
-					<Markdown content={pullrequest.body} />
-				</div>
+				<Markdown content={pullrequest.body} />
 			{/if}
 		</div>
 		<div class="card__footer">

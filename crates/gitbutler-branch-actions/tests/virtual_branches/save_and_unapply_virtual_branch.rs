@@ -19,7 +19,7 @@ fn unapply_with_data() {
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
 
-    gitbutler_branch_actions::convert_to_real_branch(project, branches[0].id).unwrap();
+    gitbutler_branch_actions::save_and_unapply_virutal_branch(project, branches[0].id).unwrap();
 
     assert!(!repository.path().join("file.txt").exists());
 
@@ -71,7 +71,7 @@ fn conflicting() {
         );
 
         let unapplied_branch =
-            gitbutler_branch_actions::convert_to_real_branch(project, branch.id).unwrap();
+            gitbutler_branch_actions::save_and_unapply_virutal_branch(project, branch.id).unwrap();
 
         Refname::from_str(&unapplied_branch).unwrap()
     };
@@ -118,7 +118,7 @@ fn conflicting() {
 
     {
         // Converting the branch to a real branch should put us back in an unconflicted state
-        gitbutler_branch_actions::convert_to_real_branch(project, branch_id).unwrap();
+        gitbutler_branch_actions::save_and_unapply_virutal_branch(project, branch_id).unwrap();
 
         assert_eq!(
             std::fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -143,7 +143,7 @@ fn delete_if_empty() {
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
 
-    gitbutler_branch_actions::convert_to_real_branch(project, branches[0].id).unwrap();
+    gitbutler_branch_actions::save_and_unapply_virutal_branch(project, branches[0].id).unwrap();
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 0);

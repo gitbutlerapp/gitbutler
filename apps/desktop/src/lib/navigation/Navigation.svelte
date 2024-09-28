@@ -6,8 +6,10 @@
 	import WorkspaceButton from './WorkspaceButton.svelte';
 	import Resizer from '../shared/Resizer.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { featureTopics } from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/modes/service';
 	import EditButton from '$lib/navigation/EditButton.svelte';
+	import TopicsButton from '$lib/navigation/TopicsButton.svelte';
 	import { persisted } from '$lib/persisted/persisted';
 	import { platformName } from '$lib/platform/platform';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -28,8 +30,7 @@
 	let isResizerHovered = false;
 	let isResizerDragging = false;
 
-	// eslint-disable-next-line svelte/valid-compile
-	$: isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
+	const isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
 
 	function toggleNavCollapse() {
 		$isNavCollapsed = !$isNavCollapsed;
@@ -43,6 +44,8 @@
 
 	const modeService = getContext(ModeService);
 	const mode = modeService.mode;
+
+	const topicsEnabled = featureTopics();
 </script>
 
 <svelte:window on:keydown={handleKeyDown} />
@@ -119,6 +122,10 @@
 						<WorkspaceButton href={`/${project.id}/board`} isNavCollapsed={$isNavCollapsed} />
 					{:else if $mode?.type === 'Edit'}
 						<EditButton href={`/${project.id}/edit`} isNavCollapsed={$isNavCollapsed} />
+					{/if}
+
+					{#if $topicsEnabled}
+						<TopicsButton href={`/${project.id}/topics`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 				</div>
 			</div>

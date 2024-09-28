@@ -17,6 +17,7 @@
 @import './components/text-input.css';
 @import './components/commit-lines.css';
 @import './components/draggable.css';
+@import './components/segment.css';
 
 /* LAYERS PRIORITY */
 @layer reset, sharable;

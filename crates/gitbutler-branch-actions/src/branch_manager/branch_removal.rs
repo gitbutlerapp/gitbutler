@@ -22,7 +22,7 @@ use crate::{
 impl BranchManager<'_> {
     // to unapply a branch, we need to write the current tree out, then remove those file changes from the wd
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
-    pub fn convert_to_real_branch(
+    pub fn save_and_unapply(
         &self,
         branch_id: BranchId,
         perm: &mut WorktreeWritePermission,
@@ -38,12 +38,7 @@ impl BranchManager<'_> {
         // Convert the vbranch to a real branch
         let real_branch = self.build_real_branch(&mut target_branch)?;
 
-        self.delete_branch(branch_id, perm, &target_commit)?;
-
-        // If we were conflicting, it means that it was the only branch applied. Since we've now unapplied it we can clear all conflicts
-        if conflicts::is_conflicting(self.ctx, None)? {
-            conflicts::clear(self.ctx)?;
-        }
+        self.unapply_without_saving(branch_id, perm, &target_commit)?;
 
         vb_state.update_ordering()?;
 
@@ -57,7 +52,7 @@ impl BranchManager<'_> {
     }
 
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
-    pub(crate) fn delete_branch(
+    pub(crate) fn unapply_without_saving(
         &self,
         branch_id: BranchId,
         perm: &mut WorktreeWritePermission,
@@ -136,6 +131,13 @@ impl BranchManager<'_> {
 
         vbranch::ensure_selected_for_changes(&vb_state)
             .context("failed to ensure selected for changes")?;
+
+        // If we were conflicting, it means that it was the only branch applied. Since we've now unapplied it we can clear all conflicts
+        if conflicts::is_conflicting(self.ctx, None)? {
+            conflicts::clear(self.ctx)?;
+        }
+        crate::integration::update_workspace_commit(&vb_state, self.ctx)
+            .context("failed to update gitbutler workspace")?;
 
         Ok(())
     }

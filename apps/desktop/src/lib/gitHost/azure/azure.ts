@@ -36,11 +36,24 @@ export class AzureDevOps implements GitHost {
 		return undefined;
 	}
 
-	prService(_baseBranch: string, _upstreamName: string) {
+	issueService() {
+		return undefined;
+	}
+
+	prService() {
 		return undefined;
 	}
 
 	checksMonitor(_sourceBranch: string) {
+		return undefined;
+	}
+
+	async availablePullRequestTemplates(_path?: string) {
+		// See: https://learn.microsoft.com/en-us/azure/devops/repos/git/pull-request-templates?view=azure-devops#default-pull-request-templates
+		return undefined;
+	}
+
+	async pullRequestTemplateContent(_path?: string) {
 		return undefined;
 	}
 }

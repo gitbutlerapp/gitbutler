@@ -4,7 +4,7 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { slideFade } from '@gitbutler/ui/utils/transitions';
@@ -15,12 +15,13 @@
 	export let hasSectionsAfter: boolean;
 
 	const branchController = getContext(BranchController);
-	const selectedOwnership = getContextStore(Ownership);
+	const selectedOwnership = getContextStore(SelectedOwnership);
 	const branch = getContextStore(VirtualBranch);
 
 	const runCommitHooks = projectRunCommitHooks(projectId);
 	const commitMessage = persistedCommitMessage(projectId, $branch.id);
 
+	let commitMessageInput: CommitMessageInput;
 	let isCommitting = false;
 	let commitMessageValid = false;
 	let isInViewport = false;
@@ -39,6 +40,14 @@
 		} finally {
 			isCommitting = false;
 		}
+	}
+
+	function close() {
+		$expanded = false;
+	}
+
+	export function focus() {
+		commitMessageInput.focus();
 	}
 </script>
 
@@ -62,24 +71,17 @@
 	}}
 >
 	<CommitMessageInput
+		bind:this={commitMessageInput}
 		bind:commitMessage={$commitMessage}
 		bind:valid={commitMessageValid}
 		isExpanded={$expanded}
+		cancel={close}
 		{commit}
 	/>
 	<div class="actions" class:commit-box__actions-expanded={$expanded}>
 		{#if $expanded && !isCommitting}
 			<div class="cancel-btn-wrapper" transition:slideFade={{ duration: 200, axis: 'x' }}>
-				<Button
-					style="ghost"
-					outline
-					id="commit-to-branch"
-					onclick={() => {
-						$expanded = false;
-					}}
-				>
-					Cancel
-				</Button>
+				<Button style="ghost" outline id="commit-to-branch" onclick={close}>Cancel</Button>
 			</div>
 		{/if}
 		<Button
@@ -88,13 +90,15 @@
 			outline={!$expanded}
 			grow
 			loading={isCommitting}
-			disabled={(isCommitting || !commitMessageValid || $selectedOwnership.isEmpty()) && $expanded}
+			disabled={(isCommitting || !commitMessageValid || $selectedOwnership.nothingSelected()) &&
+				$expanded}
 			id="commit-to-branch"
 			onclick={() => {
 				if ($expanded) {
 					commit();
 				} else {
 					$expanded = true;
+					commitMessageInput.focus();
 				}
 			}}
 		>

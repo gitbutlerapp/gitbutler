@@ -1,39 +1,35 @@
 <script lang="ts">
 	import { Project, ProjectService } from '$lib/backend/projects';
-	import AiPromptSelect from '$lib/components/AIPromptSelect.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
-	import { projectAiGenEnabled } from '$lib/config/config';
 	import Section from '$lib/settings/Section.svelte';
 	import Link from '$lib/shared/Link.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
+	import TextArea from '$lib/shared/TextArea.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
-	import { UserService } from '$lib/stores/user';
-	import { getContext } from '$lib/utils/context';
+	import { User } from '$lib/stores/user';
+	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
-	import Button from '@gitbutler/ui/Button.svelte';
-	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
-	const userService = getContext(UserService);
-	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
-	const user = userService.user;
+	const user = getContextStore(User);
+	const projectService = getContext(ProjectService);
 
-	const aiGenEnabled = projectAiGenEnabled(project.id);
+	let title = project?.title;
+	let description = project?.description;
 
-	onMount(async () => {
-		if (!project?.api) return;
-		if (!$user) return;
-		const cloudProject = await projectService.getCloudProject(
-			$user.access_token,
-			project.api.repository_id
-		);
-		if (cloudProject === project.api) return;
-		project.api = { ...cloudProject, sync: project.api.sync, sync_code: project.api.sync_code };
+	async function saveProject() {
+		const api =
+			$user && project.api
+				? await projectService.updateCloudProject($user?.access_token, project.api.repository_id, {
+						name: project.title,
+						description: project.description
+					})
+				: undefined;
+		project.api = api ? { ...api, sync: false, sync_code: undefined } : undefined;
 		projectService.updateProject(project);
-	});
+	}
 
 	async function onSyncChange(sync: boolean) {
 		if (!$user) return;
@@ -72,58 +68,41 @@
 	}
 </script>
 
-{#if !$user}
-	<WelcomeSigninAction />
-	<Spacer />
-{/if}
-
-<Section spacer>
-	<svelte:fragment slot="title">AI options</svelte:fragment>
-	<svelte:fragment slot="description">
-		GitButler supports the use of OpenAI and Anthropic to provide commit message and branch name
-		generation. This works either through GitButler's API or in a bring your own key configuration
-		and can be configured in the main preferences screen.
-	</svelte:fragment>
-
-	<div class="options">
-		<SectionCard labelFor="aiGenEnabled" orientation="row">
-			<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
-			<svelte:fragment slot="caption">
-				If enabled, diffs will be sent to OpenAI or Anthropic's servers when pressing the "Generate
-				message" and "Generate branch name" button.
-			</svelte:fragment>
-			<svelte:fragment slot="actions">
-				<Toggle
-					id="aiGenEnabled"
-					checked={$aiGenEnabled}
-					on:click={() => {
-						$aiGenEnabled = !$aiGenEnabled;
+<SectionCard>
+	<form>
+		<fieldset class="fields-wrapper">
+			<TextBox label="Project path" readonly id="path" value={project?.path} />
+			<section class="description-wrapper">
+				<TextBox
+					label="Project name"
+					id="name"
+					placeholder="Project name can't be empty"
+					bind:value={title}
+					required
+					on:change={(e) => {
+						project.title = e.detail;
+						saveProject();
 					}}
 				/>
-			</svelte:fragment>
-		</SectionCard>
-	</div>
-
-	<SectionCard>
-		<svelte:fragment slot="title">Custom prompts</svelte:fragment>
-
-		<AiPromptSelect promptUse="commits" />
-		<AiPromptSelect promptUse="branches" />
-
-		<Spacer margin={8} />
-
-		<p class="text-12 text-body">
-			You can apply your own custom prompts to the project. By default, the project uses GitButler
-			prompts, but you can create your own prompts in the general settings.
-		</p>
-		<Button style="ghost" outline icon="edit-text" onclick={async () => await goto('/settings/ai')}
-			>Customize prompts</Button
-		>
-	</SectionCard>
-</Section>
+				<TextArea
+					id="description"
+					rows={3}
+					placeholder="Project description"
+					bind:value={description}
+					on:change={() => {
+						project.description = description;
+						saveProject();
+					}}
+					maxHeight={300}
+				/>
+			</section>
+		</fieldset>
+	</form>
+</SectionCard>
 
 {#if $user?.role === 'admin'}
-	<Section spacer>
+	<Spacer />
+	<Section>
 		<svelte:fragment slot="title">Full data synchronization</svelte:fragment>
 
 		<SectionCard labelFor="historySync" orientation="row">
@@ -139,13 +118,13 @@
 				/>
 			</svelte:fragment>
 		</SectionCard>
-		<SectionCard labelFor="historySync" orientation="row">
+		<SectionCard labelFor="branchesySync" orientation="row">
 			<svelte:fragment slot="caption">
 				Sync this repository's branches with the GitButler Remote.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle
-					id="historySync"
+					id="branchesySync"
 					checked={project.api?.sync_code || false}
 					on:click={async (e) => await onSyncCodeChange(!!e.detail)}
 				/>
@@ -153,7 +132,7 @@
 		</SectionCard>
 
 		{#if project.api}
-			<div class="api-link">
+			<div class="api-link text-12">
 				<Link
 					target="_blank"
 					rel="noreferrer"
@@ -164,9 +143,16 @@
 		{/if}
 	</Section>
 {/if}
+<Spacer />
 
-<style lang="postcss">
-	.options {
+<style>
+	.fields-wrapper {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+	}
+
+	.description-wrapper {
 		display: flex;
 		flex-direction: column;
 		gap: 8px;

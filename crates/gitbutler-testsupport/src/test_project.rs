@@ -10,7 +10,7 @@ pub fn temp_dir() -> TempDir {
 }
 
 pub struct TestProject {
-    local_repository: git2::Repository,
+    pub local_repository: git2::Repository,
     local_tmp: Option<TempDir>,
     remote_repository: git2::Repository,
     remote_tmp: Option<TempDir>,

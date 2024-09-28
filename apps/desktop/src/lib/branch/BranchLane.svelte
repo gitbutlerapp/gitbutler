@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchCard from './BranchCard.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { projectLaneCollapsed } from '$lib/config/config';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
@@ -12,12 +11,7 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
-	import {
-		getContext,
-		getContextStoreBySymbol,
-		createContextStore,
-		getContextStore
-	} from '$lib/utils/context';
+	import { getContext, getContextStoreBySymbol, createContextStore } from '$lib/utils/context';
 	import {
 		createIntegratedCommitsContextStore,
 		createLocalCommitsContextStore,
@@ -25,7 +19,7 @@
 		createRemoteCommitsContextStore
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { Ownership } from '$lib/vbranches/ownership';
+	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { RemoteFile, VirtualBranch } from '$lib/vbranches/types';
 	import lscache from 'lscache';
 	import { setContext } from 'svelte';
@@ -35,19 +29,11 @@
 
 	const { branch }: { branch: VirtualBranch } = $props();
 
-	const baseBranch = getContextStore(BaseBranch);
-
 	const gitHost = getGitHost();
-	const baseBranchName = $derived($baseBranch.shortName);
-	const upstreamName = $derived(branch.upstreamName);
 
 	// BRANCH SERVICE
 	const prService = createGitHostPrServiceStore(undefined);
-	$effect(() =>
-		prService.set(
-			upstreamName && baseBranchName ? $gitHost?.prService(baseBranchName, upstreamName) : undefined
-		)
-	);
+	$effect(() => prService.set($gitHost?.prService()));
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
@@ -69,12 +55,15 @@
 
 	// BRANCH
 	const branchStore = createContextStore(VirtualBranch, branch);
-	const ownershipStore = createContextStore(Ownership, Ownership.fromBranch(branch));
+	const selectedOwnershipStore = createContextStore(
+		SelectedOwnership,
+		SelectedOwnership.fromBranch(branch)
+	);
 	const branchFiles = writable(branch.files);
 
 	$effect(() => {
 		branchStore.set(branch);
-		ownershipStore.set(Ownership.fromBranch(branch));
+		selectedOwnershipStore.update((o) => o?.update(branch));
 		branchFiles.set(branch.files);
 	});
 
@@ -95,7 +84,9 @@
 
 	const project = getContext(Project);
 	const fileIdSelection = new FileIdSelection(project.id, branchFiles);
-	const selectedFile = $derived(fileIdSelection.selectedFile);
+	const selectedFile = fileIdSelection.selectedFile;
+	const commitId = $derived($selectedFile?.[0]);
+	const selected = $derived($selectedFile?.[1]);
 	setContext(FileIdSelection, fileIdSelection);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
@@ -120,39 +111,37 @@
 <div class="wrapper" data-tauri-drag-region>
 	<BranchCard {commitBoxOpen} {isLaneCollapsed} />
 
-	{#await $selectedFile then [commitId, selected]}
-		{#if selected}
-			<div
-				class="file-preview"
-				bind:this={rsViewport}
-				in:slide={{ duration: 180, easing: quintOut, axis: 'x' }}
-				style:width={`${fileWidth || $defaultFileWidthRem}rem`}
-			>
-				<FileCard
-					isUnapplied={false}
-					conflicted={selected.conflicted}
-					file={selected}
-					readonly={selected instanceof RemoteFile}
-					selectable={$commitBoxOpen}
-					{commitId}
-					on:close={() => {
-						fileIdSelection.clear();
-					}}
-				/>
-				<Resizer
-					viewport={rsViewport}
-					direction="right"
-					minWidth={400}
-					defaultLineColor="var(--clr-border-2)"
-					on:width={(e) => {
-						fileWidth = e.detail / (16 * $userSettings.zoom);
-						lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
-						$defaultFileWidthRem = fileWidth;
-					}}
-				/>
-			</div>
-		{/if}
-	{/await}
+	{#if selected}
+		<div
+			class="file-preview"
+			bind:this={rsViewport}
+			in:slide={{ duration: 180, easing: quintOut, axis: 'x' }}
+			style:width={`${fileWidth || $defaultFileWidthRem}rem`}
+		>
+			<FileCard
+				isUnapplied={false}
+				conflicted={selected.conflicted}
+				file={selected}
+				readonly={selected instanceof RemoteFile}
+				selectable={$commitBoxOpen && commitId === undefined}
+				{commitId}
+				on:close={() => {
+					fileIdSelection.clear();
+				}}
+			/>
+			<Resizer
+				viewport={rsViewport}
+				direction="right"
+				minWidth={400}
+				defaultLineColor="var(--clr-border-2)"
+				on:width={(e) => {
+					fileWidth = e.detail / (16 * $userSettings.zoom);
+					lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
+					$defaultFileWidthRem = fileWidth;
+				}}
+			/>
+		</div>
+	{/if}
 </div>
 
 <style lang="postcss">

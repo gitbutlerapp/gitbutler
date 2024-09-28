@@ -6,7 +6,7 @@ use git2::build::CheckoutBuilder;
 use gitbutler_branch::{signature, Branch, SignaturePurpose, VirtualBranchesHandle};
 use gitbutler_branch_actions::internal::list_virtual_branches;
 use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
-use gitbutler_cherry_pick::RepositoryExt as _;
+use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{
     commit_ext::CommitExt,
@@ -27,7 +27,6 @@ use gitbutler_repo::{
 pub mod commands;
 
 pub const EDIT_UNCOMMITED_FILES_REF: &str = "refs/gitbutler/edit_uncommited_files";
-pub const EDIT_INITIAL_STATE_REF: &str = "refs/gitbutler/edit_initial_state";
 
 fn save_uncommited_files(ctx: &CommandContext) -> Result<()> {
     let repository = ctx.repository();
@@ -103,10 +102,26 @@ fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Res
 fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<()> {
     let repository = ctx.repository();
 
+    let author_signature = signature(SignaturePurpose::Author)?;
+    let committer_signature = signature(SignaturePurpose::Committer)?;
+
     // Checkout commits's parent
-    let commit_parent = commit.parent(0)?;
+    let commit_parent = if commit.is_conflicted() {
+        let base_tree = repository.find_real_tree(commit, ConflictedTreeKey::Base)?;
+
+        let base = repository.commit(
+            None,
+            &author_signature,
+            &committer_signature,
+            "Conflict base",
+            &base_tree,
+            &[],
+        )?;
+        repository.find_commit(base)?
+    } else {
+        commit.parent(0)?
+    };
     repository.reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")?;
-    repository.reference(EDIT_INITIAL_STATE_REF, commit_parent.id(), true, "")?;
     repository.set_head(EDIT_BRANCH_REF)?;
     repository.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
 
@@ -121,20 +136,6 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<(
                 .remove_untracked(true)
                 .conflict_style_diff3(true),
         ),
-    )?;
-
-    let tree = repository.create_wd_tree()?;
-
-    let author_signature = signature(SignaturePurpose::Author)?;
-    let committer_signature = signature(SignaturePurpose::Committer)?;
-    // Commit initial state commit
-    repository.commit(
-        Some(EDIT_INITIAL_STATE_REF),
-        &author_signature,
-        &committer_signature,
-        "Initial state commit",
-        &tree,
-        &[&commit_parent],
     )?;
 
     Ok(())
@@ -236,7 +237,6 @@ pub(crate) fn save_and_return_to_workspace(
     let commit = repository
         .find_commit(edit_mode_metadata.commit_oid)
         .context("Failed to find commit")?;
-    let commit_parent = commit.parent(0).context("Failed to get commit's parent")?;
     let stashed_workspace_changes_reference = repository
         .find_reference(EDIT_UNCOMMITED_FILES_REF)
         .context("Failed to find stashed workspace changes")?;
@@ -250,8 +250,14 @@ pub(crate) fn save_and_return_to_workspace(
         bail!("Failed to find virtual branch for this reference. Entering and leaving edit mode for non-virtual branches is unsupported")
     };
 
+    let parents = commit.parents().collect::<Vec<_>>();
+
     // Recommit commit
-    let tree = repository.create_wd_tree()?;
+    let mut index = repository.index()?;
+    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
+    let tree = index.write_tree()?;
+    let tree = repository.find_tree(tree)?;
+
     let commit_headers = commit
         .gitbutler_headers()
         .map(|commit_headers| CommitHeadersV2 {
@@ -266,7 +272,7 @@ pub(crate) fn save_and_return_to_workspace(
             &commit.committer(),
             &commit.message_bstr().to_str_lossy(),
             &tree,
-            &[&commit_parent],
+            &parents.iter().collect::<Vec<_>>(),
             commit_headers,
         )
         .context("Failed to commit new commit")?;
@@ -303,9 +309,10 @@ pub(crate) fn save_and_return_to_workspace(
             .context("Failed to update gitbutler workspace")?;
 
         let rebased_stashed_workspace_changes_commit = cherry_rebase_group(
-            ctx,
+            repository,
             workspace_commit_oid,
-            &mut [stashed_workspace_changes_commit.id()],
+            &[stashed_workspace_changes_commit.id()],
+            true,
         )
         .context("Failed to rebase stashed workspace commit changes")?;
 
@@ -344,12 +351,9 @@ pub(crate) fn starting_index_state(
     let commit_parent = commit.parent(0)?;
     let commit_parent_tree = repository.find_real_tree(&commit_parent, Default::default())?;
 
-    let initial_state = repository
-        .find_reference(EDIT_INITIAL_STATE_REF)?
-        .peel_to_tree()?;
+    let index = get_commit_index(repository, &commit)?;
 
-    let diff =
-        repository.diff_tree_to_tree(Some(&commit_parent_tree), Some(&initial_state), None)?;
+    let diff = repository.diff_tree_to_index(Some(&commit_parent_tree), Some(&index), None)?;
 
     let diff_files = hunks_by_filepath(Some(repository), &diff)?
         .into_iter()

@@ -49,11 +49,3 @@ export function projectLaneCollapsed(projectId: string, laneId: string): Persist
 export function persistedCommitMessage(projectId: string, branchId: string): Persisted<string> {
 	return persisted('', 'projectCurrentCommitMessage_' + projectId + '_' + branchId);
 }
-
-export function gitHostUsePullRequestTemplate(): Persisted<boolean> {
-	return persisted(false, 'gitHostUsePullRequestTemplate');
-}
-
-export function gitHostPullRequestTemplatePath(): Persisted<string> {
-	return persisted('', 'gitHostPullRequestTemplatePath');
-}

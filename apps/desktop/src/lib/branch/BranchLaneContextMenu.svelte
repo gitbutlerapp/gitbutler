@@ -59,8 +59,8 @@
 		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);
 	}
 
-	function unapplyBranch() {
-		branchController.convertToRealBranch(branch.id);
+	function saveAndUnapply() {
+		branchController.saveAndUnapply(branch.id);
 	}
 
 	let normalizedBranchName: string;
@@ -93,20 +93,20 @@
 		<ContextMenuItem
 			label="Unapply"
 			on:click={() => {
-				unapplyBranch();
+				saveAndUnapply();
 				contextMenuEl?.close();
 			}}
 		/>
 
 		<ContextMenuItem
-			label="Delete"
+			label="Unapply and drop changes"
 			on:click={async () => {
 				if (
 					branch.name.toLowerCase().includes('virtual branch') &&
 					commits.length === 0 &&
 					branch.files?.length === 0
 				) {
-					await branchController.deleteBranch(branch.id);
+					await branchController.unapplyWithoutSaving(branch.id);
 				} else {
 					deleteBranchModal.show(branch);
 				}
@@ -185,7 +185,7 @@
 	onSubmit={async (close) => {
 		try {
 			isDeleting = true;
-			await branchController.deleteBranch(branch.id);
+			await branchController.unapplyWithoutSaving(branch.id);
 			close();
 		} finally {
 			isDeleting = false;

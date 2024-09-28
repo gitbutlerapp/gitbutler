@@ -1,8 +1,6 @@
 mod branch;
 
-use anyhow::Context;
 pub use branch::{Branch, BranchCreateRequest, BranchId, BranchIdentity, BranchUpdateRequest};
-use bstr::ByteSlice;
 mod branch_ext;
 pub use branch_ext::BranchExt;
 mod reference_ext;
@@ -20,6 +18,7 @@ mod reference;
 pub use reference::ChangeReference;
 
 mod state;
+use gitbutler_oxidize::gix_to_git2_signature;
 use lazy_static::lazy_static;
 pub use state::{VirtualBranches as VirtualBranchesState, VirtualBranchesHandle};
 lazy_static! {
@@ -47,26 +46,6 @@ pub fn signature(purpose: SignaturePurpose) -> anyhow::Result<git2::Signature<'s
         }),
     };
     gix_to_git2_signature(signature)
-}
-
-/// Convert `actor` to a `git2` representation or fail if that's not possible.
-/// Note that the current time as provided by `gix` is also used as it.
-pub fn gix_to_git2_signature(
-    actor: gix::actor::SignatureRef<'_>,
-) -> anyhow::Result<git2::Signature<'static>> {
-    let offset_in_minutes = actor.time.offset / 60;
-    let time = git2::Time::new(actor.time.seconds, offset_in_minutes);
-    Ok(git2::Signature::new(
-        actor
-            .name
-            .to_str()
-            .with_context(|| format!("Could not process actor name: {}", actor.name))?,
-        actor
-            .email
-            .to_str()
-            .with_context(|| format!("Could not process actor email: {}", actor.email))?,
-        &time,
-    )?)
 }
 
 /// Return the time of a commit as `now` unless the `overriding_variable_name` contains a parseable date,

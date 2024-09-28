@@ -137,6 +137,7 @@ export class VirtualBranch {
 	allowRebasing!: boolean;
 	pr?: PullRequest;
 	refname!: string;
+	tree!: string;
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status === 'local');
@@ -374,4 +375,9 @@ export class BranchData {
 	get displayName(): string {
 		return this.name.replace('refs/remotes/', '').replace('origin/', '').replace('refs/heads/', '');
 	}
+}
+
+export interface BranchPushResult {
+	refname: string;
+	remote: string;
 }

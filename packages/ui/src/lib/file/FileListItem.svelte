@@ -18,6 +18,7 @@
 		clickable?: boolean;
 		showCheckbox?: boolean;
 		checked?: boolean;
+		indeterminate?: boolean;
 		conflicted?: boolean;
 		locked?: boolean;
 		lockText?: string;
@@ -44,6 +45,7 @@
 		clickable = true,
 		showCheckbox = false,
 		checked = $bindable(),
+		indeterminate,
 		conflicted,
 		locked,
 		lockText,
@@ -81,7 +83,7 @@
 	}}
 >
 	{#if showCheckbox}
-		<Checkbox small {checked} onchange={oncheck} />
+		<Checkbox small {checked} {indeterminate} onchange={oncheck} />
 	{/if}
 	<div class="info">
 		<FileIcon {fileName} size={14} />

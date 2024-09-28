@@ -1,8 +1,6 @@
 <script lang="ts">
 	import DomainButton from './DomainButton.svelte';
 	import UpdateBaseButton from '../components/UpdateBaseButton.svelte';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { getContextStore } from '$lib/utils/context';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
@@ -13,7 +11,6 @@
 
 	const { href, isNavCollapsed }: Props = $props();
 
-	const baseBranch = getContextStore(BaseBranch);
 	const label = 'Workspace';
 </script>
 
@@ -27,7 +24,7 @@
 
 	{#if !isNavCollapsed}
 		<span class="text-14 text-semibold" class:collapsed-txt={isNavCollapsed}>{label}</span>
-		{#if ($baseBranch?.behind || 0) > 0 && !isNavCollapsed}
+		{#if !isNavCollapsed}
 			<UpdateBaseButton />
 		{/if}
 	{/if}

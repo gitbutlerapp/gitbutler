@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchHeader from './BranchHeader.svelte';
+	import StackedBranchHeader from './StackedBranchHeader.svelte';
 	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
 	import PullRequestCard from '../pr/PullRequestCard.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
@@ -12,7 +13,11 @@
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import CommitList from '$lib/commit/CommitList.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
+	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { showError } from '$lib/notifications/toasts';
 	import { persisted } from '$lib/persisted/persisted';
 	import { isFailure } from '$lib/result';
@@ -22,8 +27,16 @@
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { groupCommitsByRef } from '$lib/vbranches/commitGroups';
+	import {
+		getIntegratedCommits,
+		getLocalAndRemoteCommits,
+		getLocalCommits,
+		getRemoteCommits
+	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
@@ -52,6 +65,7 @@
 
 	let laneWidth: number | undefined = $state();
 
+	let commitDialog = $state<CommitDialog>();
 	let scrollViewport: HTMLElement | undefined = $state();
 	let rsViewport: HTMLElement | undefined = $state();
 
@@ -62,9 +76,7 @@
 	});
 
 	async function generateBranchName() {
-		console.log('before');
 		if (!aiGenEnabled) return;
-		console.log('after');
 
 		const hunks = branch.files.flatMap((f) => f.hunks);
 
@@ -93,6 +105,33 @@
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey + branch.id);
 	});
+
+	const localCommits = getLocalCommits();
+	const localAndRemoteCommits = getLocalAndRemoteCommits();
+	const integratedCommits = getIntegratedCommits();
+	const remoteCommits = getRemoteCommits();
+
+	let isPushingCommits = $state(false);
+	const localCommitsConflicted = $derived($localCommits.some((commit) => commit.conflicted));
+	const localAndRemoteCommitsConflicted = $derived(
+		$localAndRemoteCommits.some((commit) => commit.conflicted)
+	);
+
+	const listingService = getGitHostListingService();
+	const prMonitor = getGitHostPrMonitor();
+	const checksMonitor = getGitHostChecksMonitor();
+
+	async function push() {
+		isPushingCommits = true;
+		try {
+			await branchController.pushBranch(branch.id, branch.requiresForce);
+			$listingService?.refresh();
+			$prMonitor?.refresh();
+			$checksMonitor?.update();
+		} finally {
+			isPushingCommits = false;
+		}
+	}
 </script>
 
 {#if $isLaneCollapsed}
@@ -122,16 +161,20 @@
 					data-tauri-drag-region
 				>
 					<BranchHeader {isLaneCollapsed} onGenerateBranchName={generateBranchName} />
-					<PullRequestCard />
-					<div class="card">
+					{#if !$stackingFeature && branch.upstream?.givenName}
+						<PullRequestCard upstreamName={branch.upstream.givenName} />
+					{/if}
+					<div class:card-no-stacking={!$stackingFeature} class:card-stacking={$stackingFeature}>
 						{#if branch.files?.length > 0}
-							<div class="branch-card__files">
+							<div class="branch-card__files" class:card={$stackingFeature}>
 								<Dropzones>
 									<BranchFiles
 										isUnapplied={false}
 										files={branch.files}
 										showCheckboxes={$commitBoxOpen}
 										allowMultiple
+										commitDialogExpanded={commitBoxOpen}
+										focusCommitDialog={() => commitDialog?.focus()}
 									/>
 									{#if branch.conflicted}
 										<div class="card-notifications">
@@ -150,6 +193,7 @@
 								</Dropzones>
 
 								<CommitDialog
+									bind:this={commitDialog}
 									projectId={project.id}
 									expanded={commitBoxOpen}
 									hasSectionsAfter={branch.commits.length > 0}
@@ -157,7 +201,7 @@
 							</div>
 						{:else if branch.commits.length === 0}
 							<Dropzones>
-								<div class="new-branch">
+								<div class="new-branch" class:card={$stackingFeature}>
 									<EmptyStatePlaceholder image={laneNewSvg} width="11rem">
 										<svelte:fragment slot="title">This is a new branch</svelte:fragment>
 										<svelte:fragment slot="caption">
@@ -168,7 +212,7 @@
 							</Dropzones>
 						{:else}
 							<Dropzones>
-								<div class="no-changes">
+								<div class="no-changes" class:card={$stackingFeature}>
 									<EmptyStatePlaceholder image={noChangesSvg} width="11rem" hasBottomMargin={false}>
 										<svelte:fragment slot="caption"
 											>No uncommitted changes on this branch</svelte:fragment
@@ -178,7 +222,57 @@
 							</Dropzones>
 						{/if}
 
-						<CommitList isUnapplied={false} />
+						{#snippet pushButton({disabled}: {disabled: boolean})}
+							<Button
+								style="pop"
+								kind="solid"
+								wide
+								loading={isPushingCommits}
+								{disabled}
+								tooltip={localCommitsConflicted
+									? 'In order to push, please resolve any conflicted commits.'
+									: undefined}
+								onclick={push}
+							>
+								{branch.requiresForce ? 'Force push' : 'Push'}
+							</Button>
+						{/snippet}
+						{#if $stackingFeature}
+							{@const groups = groupCommitsByRef(branch.commits)}
+							{#each groups as group (group.ref)}
+								<div class="commit-group">
+									{#if group.branchName}
+										<StackedBranchHeader upstreamName={group.branchName} />
+										<PullRequestCard upstreamName={group.branchName} />
+									{/if}
+									<CommitList
+										localCommits={group.localCommits}
+										localAndRemoteCommits={group.remoteCommits}
+										integratedCommits={group.integratedCommits}
+										remoteCommits={[]}
+										isUnapplied={false}
+										{localCommitsConflicted}
+										{localAndRemoteCommitsConflicted}
+									/>
+								</div>
+							{/each}
+						{:else}
+							<CommitList
+								localCommits={$localCommits}
+								localAndRemoteCommits={$localAndRemoteCommits}
+								integratedCommits={$integratedCommits}
+								remoteCommits={$remoteCommits}
+								isUnapplied={false}
+								{localCommitsConflicted}
+								{localAndRemoteCommitsConflicted}
+								{pushButton}
+							/>
+						{/if}
+						{#if $stackingFeature}
+							{@render pushButton({
+								disabled: localCommitsConflicted || localAndRemoteCommitsConflicted
+							})}
+						{/if}
 					</div>
 				</div>
 			</ScrollableContainer>
@@ -231,8 +325,19 @@
 		padding: 12px;
 	}
 
-	.card {
+	.card-no-stacking {
 		flex: 1;
+		display: flex;
+		flex-direction: column;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background: var(--clr-bg-1);
+	}
+
+	.card-stacking {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.branch-card__files {
@@ -277,5 +382,13 @@
 		width: 1px;
 		height: 100%;
 		background-color: var(--clr-border-2);
+	}
+
+	.commit-group {
+		margin: 10px 0;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background: var(--clr-bg-1);
+		overflow: hidden;
 	}
 </style>

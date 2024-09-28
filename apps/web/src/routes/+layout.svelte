@@ -31,6 +31,7 @@
 
 <div class="app">
 	<Navigation />
+
 	<main>
 		{@render children()}
 	</main>
@@ -53,7 +54,7 @@
 		flex-direction: column;
 		padding: 1rem;
 		width: 100%;
-		max-width: 64rem;
+		max-width: 84rem;
 		margin: 0 auto;
 	}
 

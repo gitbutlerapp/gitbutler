@@ -1,8 +1,6 @@
 use bstr::{BStr, BString};
 use uuid::Uuid;
 
-use crate::commit_buffer::CommitBuffer;
-
 /// Header used to determine which version of the headers is in use. This should never be changed
 const HEADERS_VERSION_HEADER: &str = "gitbutler-headers-version";
 
@@ -53,6 +51,23 @@ impl From<CommitHeadersV1> for CommitHeadersV2 {
     }
 }
 
+impl From<CommitHeadersV2> for Vec<(BString, BString)> {
+    fn from(hdr: CommitHeadersV2) -> Self {
+        let mut out = vec![
+            (
+                BString::from(HEADERS_VERSION_HEADER),
+                BString::from(V2_HEADERS_VERSION),
+            ),
+            (V2_CHANGE_ID_HEADER.into(), hdr.change_id.clone().into()),
+        ];
+
+        if let Some(conflicted) = hdr.conflicted {
+            out.push((V2_CONFLICTED_HEADER.into(), conflicted.to_string().into()));
+        }
+        out
+    }
+}
+
 pub trait HasCommitHeaders {
     fn gitbutler_headers(&self) -> Option<CommitHeadersV2>;
 }
@@ -70,7 +85,7 @@ impl HasCommitHeaders for git2::Commit<'_> {
 
                 let conflicted = match self.header_field_bytes(V2_CONFLICTED_HEADER) {
                     Ok(value) => {
-                        let value = dbg!(value.as_str())?;
+                        let value = value.as_str()?;
 
                         value.parse::<u64>().ok()
                     }
@@ -98,25 +113,13 @@ impl HasCommitHeaders for git2::Commit<'_> {
     }
 }
 
+/// Lifecycle
 impl CommitHeadersV2 {
     /// Used to create a CommitHeadersV2. This does not allow a change_id to be
     /// provided in order to ensure a consistent format.
     pub fn new() -> CommitHeadersV2 {
         CommitHeadersV2 {
             ..Default::default()
-        }
-    }
-
-    pub fn inject_default(commit_buffer: &mut CommitBuffer) {
-        CommitHeadersV2::default().inject_into(commit_buffer)
-    }
-
-    pub fn inject_into(&self, commit_buffer: &mut CommitBuffer) {
-        commit_buffer.set_header(HEADERS_VERSION_HEADER, V2_HEADERS_VERSION);
-        commit_buffer.set_header(V2_CHANGE_ID_HEADER, &self.change_id);
-
-        if let Some(conflicted) = self.conflicted {
-            commit_buffer.set_header(V2_CONFLICTED_HEADER, &conflicted.to_string())
         }
     }
 }
