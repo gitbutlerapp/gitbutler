@@ -43,7 +43,7 @@ function relatedCommit(): CommitData {
 export const allPopulated: Story = {
 	args: {
 		remoteCommits: [commit(), commit()],
-		localCommits: [commit(), relatedCommit()],
+		localCommits: [commit(), commit(), relatedCommit(), relatedCommit()],
 		localAndRemoteCommits: [commit(), commit()],
 		integratedCommits: [commit(), commit()]
 	}
@@ -97,7 +97,7 @@ export const noIntegrated: Story = {
 export const localAndShadowOnly: Story = {
 	args: {
 		remoteCommits: [],
-		localCommits: [commit(), relatedCommit()],
+		localCommits: [relatedCommit(), relatedCommit()],
 		localAndRemoteCommits: [],
 		integratedCommits: []
 	}

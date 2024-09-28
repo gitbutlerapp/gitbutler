@@ -10,7 +10,7 @@
 </script>
 
 <div
-	class="commit-line"
+	class="commit-line stacked"
 	class:local={cell.type === 'Local'}
 	class:remote={cell.type === 'LocalRemote'}
 	class:local-shadow={cell.type === 'LocalShadow'}

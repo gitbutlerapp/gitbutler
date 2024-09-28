@@ -53,7 +53,7 @@
 		}
 
 		&.remote {
-			--border-color: var(--clr-commit-upstream);
+			--border-color: var(--clr-commit-remote);
 		}
 
 		&.local {

@@ -31,7 +31,11 @@
 	}
 
 	&.integrated {
-		--border-color: var(--clr-commit-integrated);
+		--border-color: var(--clr-commit-shadow);
+
+		&.stacked {
+			--border-color: var(--clr-commit-integrated);
+		}
 	}
 
 	&.dashed {
