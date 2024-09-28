@@ -1,6 +1,7 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'crates/*'
 
 catalog:
   vite: 5.2.13
