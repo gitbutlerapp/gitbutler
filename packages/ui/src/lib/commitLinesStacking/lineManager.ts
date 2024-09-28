@@ -49,8 +49,8 @@ function generateLineData({
 
 			if (commit.relatedRemoteCommit) {
 				line.commitNode = {
-					type: 'LocalRemote',
-					commit: commit.relatedRemoteCommit
+					type: 'LocalShadow',
+					commit,
 				};
 			}
 		} else {
@@ -62,7 +62,7 @@ function generateLineData({
 
 				line.commitNode = {
 					type: 'LocalShadow',
-					commit: commit.relatedRemoteCommit
+					commit,
 				};
 				line.bottom.type = 'LocalShadow';
 
