@@ -15,6 +15,7 @@
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import { onDestroy } from 'svelte';
 	import type { Writable } from 'svelte/store';
+	import FileCard from './FileCard.svelte';
 
 	interface Props {
 		file: AnyFile;
@@ -144,6 +145,7 @@
 	{onclick}
 	{onkeydown}
 	locked={file.locked}
+	conflicted={file.conflicted}
 	{lockText}
 	oncheck={(e) => {
 		const isChecked = e.currentTarget.checked;
