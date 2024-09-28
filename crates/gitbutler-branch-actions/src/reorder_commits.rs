@@ -6,7 +6,7 @@ use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt as _};
 
-use crate::VirtualBranchesExt as _;
+use crate::{branch_trees::checkout_branch_trees, VirtualBranchesExt as _};
 
 ///
 /// Presume we had the stack:
@@ -47,7 +47,7 @@ pub(crate) fn reorder_commit(
     branch_id: BranchId,
     subject_commit_oid: git2::Oid,
     offset: i32,
-    _perm: &mut WorktreeWritePermission,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let repository = ctx.repository();
     let vb_state = ctx.project().virtual_branches();
@@ -74,6 +74,8 @@ pub(crate) fn reorder_commit(
 
     branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
     vb_state.set_branch(branch.clone())?;
+
+    checkout_branch_trees(ctx, perm)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
