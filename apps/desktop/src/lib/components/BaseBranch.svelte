@@ -67,8 +67,8 @@
 			style="pop"
 			kind="solid"
 			tooltip={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
-			disabled={$mode?.type !== 'OpenWorkspace' || integrateUpstreamModal.imports.open}
-			loading={integrateUpstreamModal.imports.open}
+			disabled={$mode?.type !== 'OpenWorkspace' || integrateUpstreamModal?.imports.open}
+			loading={integrateUpstreamModal?.imports.open}
 			onclick={mergeUpstream}
 		>
 			Merge into common base
