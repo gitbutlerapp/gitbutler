@@ -10,7 +10,8 @@ export interface DraggableConfig {
 	readonly label?: string;
 	readonly filePath?: string;
 	readonly sha?: string;
-	readonly dateAndAuthor?: string;
+	readonly date?: string;
+	readonly authorImgUrl?: string;
 	readonly commitType?: CommitStatus;
 	readonly data?: Draggable | Promise<Draggable>;
 	readonly viewportId?: string;
@@ -197,13 +198,20 @@ export function createCommitElement(
 	commitType: CommitStatus | undefined,
 	label: string | undefined,
 	sha: string | undefined,
-	dateAndAuthor: string | undefined
+	date: string | undefined,
+	authorImgUrl: string | undefined
 ): HTMLDivElement {
 	const cardEl = createElement('div', ['draggable-commit']) as HTMLDivElement;
 	const labelEl = createElement('span', ['text-13', 'text-bold'], label || 'Empty commit');
 	const infoEl = createElement('div', ['draggable-commit-info', 'text-11']);
+	const authorImgEl = createElement(
+		'img',
+		['draggable-commit-author-img'],
+		undefined,
+		authorImgUrl
+	);
 	const shaEl = createElement('span', ['draggable-commit-info-text'], sha);
-	const dateAndAuthorEl = createElement('span', ['draggable-commit-info-text'], dateAndAuthor);
+	const dateAndAuthorEl = createElement('span', ['draggable-commit-info-text'], date);
 
 	if (commitType) {
 		const indicatorClass = `draggable-commit-${commitType}`;
@@ -211,6 +219,7 @@ export function createCommitElement(
 	}
 
 	cardEl.appendChild(labelEl);
+	infoEl.appendChild(authorImgEl);
 	infoEl.appendChild(shaEl);
 	infoEl.appendChild(dateAndAuthorEl);
 	cardEl.appendChild(infoEl);
@@ -219,7 +228,7 @@ export function createCommitElement(
 
 export function draggableCommit(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig) {
-		return createCommitElement(opts.commitType, opts.label, opts.sha, opts.dateAndAuthor);
+		return createCommitElement(opts.commitType, opts.label, opts.sha, opts.date, opts.authorImgUrl);
 	}
 	return setupDragHandlers(node, initialOpts, createClone, {
 		handlerWidth: true

@@ -5,7 +5,6 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
-	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
@@ -91,17 +90,6 @@
 
 	let createRefModal: Modal;
 	let createRefName = $baseBranch.remoteName + '/';
-
-	function openCreateRefModal(e: Event, commit: DetailedCommit | Commit) {
-		e.stopPropagation();
-		createRefModal.show(commit);
-	}
-
-	function pushCommitRef(commit: DetailedCommit) {
-		if (branch && commit.remoteRef) {
-			branchController.pushChangeReference(branch.id, commit.remoteRef);
-		}
-	}
 
 	function openCommitMessageModal(e: Event) {
 		e.stopPropagation();
@@ -267,7 +255,8 @@
 					? {
 							label: commit.descriptionTitle,
 							sha: commitShortSha,
-							dateAndAuthor: getTimeAndAuthor(),
+							date: getTimeAgo(commit.createdAt),
+							authorImgUrl: commit.author.gravatarUrl,
 							commitType: type,
 							data: new DraggableCommit(commit.branchId, commit, isHeadCommit),
 							viewportId: 'board-viewport'
@@ -407,26 +396,6 @@
 										icon="edit-small"
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
-									{#if $stackingFeature && commit instanceof DetailedCommit && !commit.remoteRef}
-										<Button
-											size="tag"
-											style="ghost"
-											outline
-											icon="branch"
-											onclick={(e: Event) => {openCreateRefModal(e, commit)}}>Create ref</Button
-										>
-									{/if}
-									{#if $stackingFeature && commit instanceof DetailedCommit && commit.remoteRef}
-										<Button
-											size="tag"
-											style="ghost"
-											outline
-											icon="remote"
-											onclick={() => {
-												pushCommitRef(commit);
-											}}>Push ref</Button
-										>
-									{/if}
 								{/if}
 								{#if canEdit() && project.succeedingRebases}
 									<Button size="tag" style="ghost" outline onclick={editPatch}>

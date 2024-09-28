@@ -11,7 +11,7 @@
 	}
 
 	&.remote {
-		--border-color: var(--clr-commit-upstream);
+		--border-color: var(--clr-commit-remote);
 	}
 
 	&.local {
@@ -22,12 +22,20 @@
 		--border-color: var(--clr-commit-remote);
 	}
 
+	&.local-shadow {
+		--border-color: var(--clr-commit-local);
+	}
+
 	&.shadow {
 		--border-color: var(--clr-commit-shadow);
 	}
 
 	&.integrated {
 		--border-color: var(--clr-commit-shadow);
+
+		&.stacked {
+			--border-color: var(--clr-commit-integrated);
+		}
 	}
 
 	&.dashed {

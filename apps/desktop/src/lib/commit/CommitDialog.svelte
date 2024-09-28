@@ -119,6 +119,7 @@
 		padding: 14px;
 		background: var(--clr-bg-1);
 		border-top: 1px solid var(--clr-border-2);
+		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
 		transition: background-color var(--transition-medium);
 	}
 

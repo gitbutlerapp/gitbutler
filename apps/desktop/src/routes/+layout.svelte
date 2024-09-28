@@ -36,6 +36,7 @@
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLinesStacking/lineManager';
 	import { onMount, setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
@@ -61,6 +62,8 @@
 	setContext(RemotesService, data.remotesService);
 	setContext(AIPromptService, data.aiPromptService);
 	setContext(LineManagerFactory, data.lineManagerFactory);
+	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
+
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 
 	const user = data.userService.user;

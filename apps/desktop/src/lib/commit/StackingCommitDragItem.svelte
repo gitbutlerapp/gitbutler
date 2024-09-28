@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { CommitDragActions, CommitDragActionsFactory } from '$lib/commits/dragActions';
-	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { getContext, maybeGetContextStore } from '$lib/utils/context';
@@ -37,18 +36,7 @@
 		{@render squashDropzone()}
 
 		{#snippet overlay({ hovered, activated })}
-			<CardOverlay
-				{hovered}
-				{activated}
-				label="Amend commit"
-				extraPaddings={$stackingFeature
-					? {
-							left: 4
-						}
-					: {
-							left: 4
-						}}
-			/>
+			<CardOverlay {hovered} {activated} label="Amend commit" />
 		{/snippet}
 	</Dropzone>
 {/snippet}
@@ -58,18 +46,7 @@
 		{@render children()}
 
 		{#snippet overlay({ hovered, activated })}
-			<CardOverlay
-				{hovered}
-				{activated}
-				label="Squash commit"
-				extraPaddings={$stackingFeature
-					? {
-							left: -4
-						}
-					: {
-							left: 4
-						}}
-			/>
+			<CardOverlay {hovered} {activated} label="Squash commit" />
 		{/snippet}
 	</Dropzone>
 {/snippet}

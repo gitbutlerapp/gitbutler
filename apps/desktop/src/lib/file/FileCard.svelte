@@ -49,7 +49,7 @@
 <div id={`file-${file.id}`} class="file-card" class:card={isCard}>
 	<FileCardHeader {file} {isFileLocked} on:close />
 	{#if conflicted}
-		<div class="mb-2 bg-red-500 px-2 py-0 font-bold text-white">
+		<div class="file-card__resolved-btn">
 			<button
 				class="font-bold text-white"
 				onclick={async () => await branchController.markResolved(file.path)}
@@ -103,5 +103,11 @@
 		flex-direction: column;
 		max-height: 100%;
 		flex-grow: 1;
+	}
+
+	.file-card__resolved-btn {
+		margin-bottom: 0.25rem;
+		background-color: var(--clr-theme-err-soft);
+		padding: 0.5rem;
 	}
 </style>

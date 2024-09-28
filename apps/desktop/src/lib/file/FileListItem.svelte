@@ -1,5 +1,6 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
 	import { itemsSatisfy } from '$lib/utils/array';
@@ -134,6 +135,7 @@
 	fileName={file.filename}
 	filePath={file.path}
 	fileStatus={computeFileStatus(file)}
+	stacking={$stackingFeature}
 	{selected}
 	{showCheckbox}
 	{checked}
@@ -142,6 +144,7 @@
 	{onclick}
 	{onkeydown}
 	locked={file.locked}
+	conflicted={file.conflicted}
 	{lockText}
 	oncheck={(e) => {
 		const isChecked = e.currentTarget.checked;
