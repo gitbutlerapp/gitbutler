@@ -5,6 +5,7 @@ use std::{borrow::Borrow, fs, path::PathBuf};
 use anyhow::{anyhow, Context, Result};
 use bstr::{BString, ByteSlice, ByteVec};
 use diffy::{apply_bytes as diffy_apply, Line, Patch};
+use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use hex::ToHex;
 
@@ -36,7 +37,7 @@ where
     let git_repository: &git2::Repository = ctx.repository();
 
     let head_commit = git_repository.find_commit(commit_oid)?;
-    let base_tree = head_commit.tree()?;
+    let base_tree = git_repository.find_real_tree(&head_commit, Default::default())?;
 
     hunks_onto_tree(ctx, &base_tree, files, false)
 }
