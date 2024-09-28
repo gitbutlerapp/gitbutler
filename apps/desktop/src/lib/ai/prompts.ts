@@ -118,6 +118,21 @@ index 1cbfaa2..7aeebcf 100644
 	...SHORT_DEFAULT_BRANCH_TEMPLATE
 ];
 
+export const DEFAULT_PR_SUMMARY_MAIN_DIRECTIVE =
+	'Please create a pull request description for my changes.';
+
+export function getPrTemplateDirective(prBodyTemplate: string | undefined): string {
+	if (!prBodyTemplate) {
+		return '';
+	}
+
+	return `PR_TEMPLATE:
+\`\`\`
+${prBodyTemplate}
+\`\`\`
+`;
+}
+
 export const SHORT_DEFAULT_PR_TEMPLATE: Prompt = [
 	{
 		role: MessageRole.System,
@@ -125,11 +140,11 @@ export const SHORT_DEFAULT_PR_TEMPLATE: Prompt = [
 Create a description for a pull request.
 Use the provided context, like the COMMIT_MESSAGES, PR_TEMPLATE, current TITLE and BODY.
 The list of commit messages is separated by this token: <###>.
-Only respond with the PR description in RAW MARKDOWN format.`
+Only respond with the PR description`
 	},
 	{
 		role: MessageRole.User,
-		content: `Please could you write a pull request description for my changes.
+		content: `%{pr_main_directive}
 %{pr_template_directive}
 
 TITLE:

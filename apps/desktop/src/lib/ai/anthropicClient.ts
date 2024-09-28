@@ -3,48 +3,77 @@ import {
 	SHORT_DEFAULT_BRANCH_TEMPLATE,
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
-import { type AIClient, type AnthropicModelName, type Prompt } from '$lib/ai/types';
-import { buildFailureFromAny, ok, type Result } from '$lib/result';
-import { fetch, Body } from '@tauri-apps/api/http';
+import {
+	type AIClient,
+	type AIEvalOptions,
+	type AnthropicModelName,
+	type Prompt
+} from '$lib/ai/types';
+import { andThenAsync, ok, wrapAsync, type Result } from '$lib/result';
+import Anthropic from '@anthropic-ai/sdk';
+import type { MessageParam, RawMessageStreamEvent } from '@anthropic-ai/sdk/resources/messages.mjs';
+import type { Stream } from '@anthropic-ai/sdk/streaming.mjs';
 
-type AnthropicAPIResponse = {
-	content: { text: string }[];
-	error: { type: string; message: string };
-};
+const DEFAULT_MAX_TOKENS = 1024;
+
+function splitPromptMessages(prompt: Prompt): [MessageParam[], string | undefined] {
+	const messages: MessageParam[] = [];
+	let system: string | undefined = undefined;
+	for (const message of prompt) {
+		if (message.role === 'system') {
+			system = message.content;
+			continue;
+		}
+
+		messages.push({
+			role: message.role,
+			content: message.content
+		});
+	}
+
+	return [messages, system];
+}
 
 export class AnthropicAIClient implements AIClient {
 	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;
 	defaultBranchTemplate = SHORT_DEFAULT_BRANCH_TEMPLATE;
 	defaultPRTemplate = SHORT_DEFAULT_PR_TEMPLATE;
 
-	constructor(
-		private apiKey: string,
-		private modelName: AnthropicModelName
-	) {}
+	private client: Anthropic;
+	private apiKey: string;
+	private modelName: AnthropicModelName;
 
-	async evaluate(prompt: Prompt): Promise<Result<string, Error>> {
-		const body = Body.json({
-			messages: prompt,
-			max_tokens: 1024,
-			model: this.modelName
+	constructor(apiKey: string, modelName: AnthropicModelName) {
+		this.apiKey = apiKey;
+		this.modelName = modelName;
+		this.client = new Anthropic({
+			apiKey: this.apiKey,
+			dangerouslyAllowBrowser: true
+		});
+	}
+
+	async evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<Result<string, Error>> {
+		const responseResult = await wrapAsync<Stream<RawMessageStreamEvent>, Error>(async () => {
+			const [messages, system] = splitPromptMessages(prompt);
+			return await this.client.messages.create({
+				max_tokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
+				system,
+				messages,
+				model: this.modelName,
+				stream: true
+			});
 		});
 
-		const response = await fetch<AnthropicAPIResponse>('https://api.anthropic.com/v1/messages', {
-			method: 'POST',
-			headers: {
-				'x-api-key': this.apiKey,
-				'anthropic-version': '2023-06-01',
-				'content-type': 'application/json'
-			},
-			body
+		return await andThenAsync(responseResult, async (response) => {
+			const buffer: string[] = [];
+			for await (const event of response) {
+				if (event.type === 'content_block_delta' && event.delta.type === 'text_delta') {
+					const token = event.delta.text;
+					options?.onToken?.(token);
+					buffer.push(token);
+				}
+			}
+			return ok(buffer.join(''));
 		});
-
-		if (response.ok && response.data?.content?.[0]?.text) {
-			return ok(response.data.content[0].text);
-		} else {
-			return buildFailureFromAny(
-				`Anthropic returned error code ${response.status} ${response.data?.error?.message}`
-			);
-		}
 	}
 }
