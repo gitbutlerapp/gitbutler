@@ -100,7 +100,7 @@
 	<SectionCard centerAlign>
 		<svelte:fragment slot="title">Diff font</svelte:fragment>
 		<svelte:fragment slot="caption"
-			>Sets the font size for the diff view. The first font is the default, others are fallbacks.
+			>Sets the font for the diff view. The first font name is the default, others are fallbacks.
 		</svelte:fragment>
 
 		<div class="diff-preview">
