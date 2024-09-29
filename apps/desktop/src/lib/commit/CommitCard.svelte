@@ -32,21 +32,13 @@
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { type Snippet } from 'svelte';
 
-
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const modeService = maybeGetContext(ModeService);
 
-	const commitStore = createCommitStore(commit);
-	run(() => {
-		commitStore.set(commit);
-	});
-
-	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
-
 	let draggableCommitElement: HTMLElement | null = $state(null);
-	let contextMenu: CommitContextMenu = $state();
+	let contextMenu = $state<CommitContextMenu>();
 	let files: RemoteFile[] = $state([]);
 	let showDetails = $state(false);
 
@@ -79,6 +71,13 @@
 		lines = undefined,
 		filesToggleable = true
 	}: Props = $props();
+
+	const commitStore = createCommitStore(commit);
+	run(() => {
+		commitStore.set(commit);
+	});
+
+	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
 	function toggleFiles() {
 		if (!filesToggleable) return;
@@ -352,7 +351,7 @@
 							class="commit__subtitle-btn commit__subtitle-btn_dashed"
 							onclick={(event) => {
 								event.stopPropagation();
-								copyToClipboard(commit.id)
+								copyToClipboard(commit.id);
 							}}
 						>
 							<span>{commitShortSha}</span>
@@ -369,9 +368,8 @@
 								class="commit__subtitle-btn"
 								onclick={(event) => {
 									event.stopPropagation();
-									
+
 									if (commitUrl) openExternalUrl(commitUrl);
-								
 								}}
 							>
 								<span>Open</span>
