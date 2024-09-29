@@ -6,12 +6,16 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
-	export let isNavCollapsed: boolean;
+	interface Props {
+		isNavCollapsed: boolean;
+	}
 
-	let buttonTrigger: HTMLButtonElement;
+	let { isNavCollapsed }: Props = $props();
+
+	let buttonTrigger: HTMLButtonElement = $state();
 	const project = getContext(Project);
 
-	let popup: ProjectsPopup;
+	let popup: ProjectsPopup = $state();
 </script>
 
 <div class="wrapper">
@@ -19,7 +23,7 @@
 		<button
 			bind:this={buttonTrigger}
 			class="text-input button"
-			on:mousedown={(e) => {
+			onmousedown={(e) => {
 				e.preventDefault();
 				popup.toggle();
 			}}

@@ -17,7 +17,11 @@
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import { goto } from '$app/navigation';
 
-	export let pullrequest: PullRequest;
+	interface Props {
+		pullrequest: PullRequest;
+	}
+
+	let { pullrequest }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
@@ -25,10 +29,10 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const virtualBranchService = getContext(VirtualBranchService);
 
-	let remoteName = structuredClone(pullrequest.repoName) || '';
-	let createRemoteModal: Modal | undefined;
+	let remoteName = $state(structuredClone(pullrequest.repoName) || '');
+	let createRemoteModal: Modal | undefined = $state();
 
-	let loading = false;
+	let loading = $state(false);
 
 	function closeModal(close: () => void) {
 		remoteName = structuredClone(pullrequest.repoName) || '';

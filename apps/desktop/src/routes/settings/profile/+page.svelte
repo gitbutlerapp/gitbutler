@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { deleteAllData } from '$lib/backend/data';
 	import Login from '$lib/components/Login.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
@@ -19,23 +21,28 @@
 
 	const fileTypes = ['image/jpeg', 'image/png'];
 
-	let saving = false;
-	let newName = '';
-	let isDeleting = false;
-	let loaded = false;
+	let saving = $state(false);
+	let newName = $state('');
+	let isDeleting = $state(false);
+	let loaded = $state(false);
 
-	$: userPicture = $user?.picture;
+	let userPicture;
+	run(() => {
+		userPicture = $user?.picture;
+	});
 
-	let deleteConfirmationModal: Modal;
+	let deleteConfirmationModal: Modal = $state();
 
-	$: if ($user && !loaded) {
-		loaded = true;
-		userService.getUser($user?.access_token).then((cloudUser) => {
-			cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
-			userService.setUser(cloudUser);
-		});
-		newName = $user?.name || '';
-	}
+	run(() => {
+		if ($user && !loaded) {
+			loaded = true;
+			userService.getUser($user?.access_token).then((cloudUser) => {
+				cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
+				userService.setUser(cloudUser);
+			});
+			newName = $user?.name || '';
+		}
+	});
 
 	async function onSubmit(e: SubmitEvent) {
 		if (!$user) return;
@@ -93,10 +100,10 @@
 <SettingsPage title="Profile">
 	{#if $user}
 		<SectionCard>
-			<form on:submit={onSubmit} class="profile-form">
+			<form onsubmit={onSubmit} class="profile-form">
 				<label id="profile-picture" class="profile-pic-wrapper focus-state" for="picture">
 					<input
-						on:change={onPictureChange}
+						onchange={onPictureChange}
 						type="file"
 						id="picture"
 						name="picture"

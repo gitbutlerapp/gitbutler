@@ -26,9 +26,9 @@
 		'defaulTrayWidth_ ' + project.id
 	);
 
-	let viewport: HTMLDivElement;
-	let isResizerHovered = false;
-	let isResizerDragging = false;
+	let viewport: HTMLDivElement = $state();
+	let isResizerHovered = $state(false);
+	let isResizerDragging = $state(false);
 
 	const isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
 
@@ -48,7 +48,7 @@
 	const topicsEnabled = featureTopics();
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
+<svelte:window onkeydown={handleKeyDown} />
 
 <aside class="navigation-wrapper">
 	<div
@@ -89,7 +89,7 @@
 		<button
 			class="folding-button"
 			class:resizer-hovered={isResizerHovered || isResizerDragging}
-			on:mousedown={toggleNavCollapse}
+			onmousedown={toggleNavCollapse}
 		>
 			<svg viewBox="0 0 6 11" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<path

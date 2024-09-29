@@ -4,7 +4,7 @@
 
 <button
 	class="banner"
-	on:click={async () => await openExternalUrl('https://docs.gitbutler.com/community/supporters')}
+	onclick={async () => await openExternalUrl('https://docs.gitbutler.com/community/supporters')}
 >
 	<div class="banner-content">
 		<h4 class="banner-label text-14 text-bold">Thank you to all GitButler early supporters</h4>

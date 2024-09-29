@@ -1,7 +1,19 @@
 <script lang="ts">
-	export let image: string;
-	export let width: string = '18rem';
-	export let hasBottomMargin: boolean = true;
+	interface Props {
+		image: string;
+		width?: string;
+		hasBottomMargin?: boolean;
+		title?: import('svelte').Snippet;
+		caption?: import('svelte').Snippet;
+	}
+
+	let {
+		image,
+		width = '18rem',
+		hasBottomMargin = true,
+		title,
+		caption
+	}: Props = $props();
 </script>
 
 <div class="empty-state-container">
@@ -15,14 +27,14 @@
 		</div>
 
 		<div class="empty-state__content">
-			{#if $$slots.title}
+			{#if title}
 				<h2 class="empty-state__title text-15 text-body text-semibold">
-					<slot name="title" />
+					{@render title?.()}
 				</h2>
 			{/if}
-			{#if $$slots.caption}
+			{#if caption}
 				<p class="empty-state__caption text-13 text-body">
-					<slot name="caption" />
+					{@render caption?.()}
 				</p>
 			{/if}
 		</div>

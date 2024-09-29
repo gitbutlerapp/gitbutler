@@ -5,33 +5,67 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
-	export let element: HTMLElement | undefined = undefined;
-	export let id: string | undefined = undefined; // Required to make label clickable
-	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let value: string | undefined = undefined;
-	export let width: number | undefined = undefined;
-	export let textAlign: 'left' | 'center' | 'right' = 'left';
-	export let placeholder: string | undefined = undefined;
-	export let helperText: string | undefined = undefined;
-	export let label: string | undefined = undefined;
-	export let reversedDirection: boolean = false;
-	export let wide: boolean = false;
-	export let minVal: number | undefined = undefined;
-	export let maxVal: number | undefined = undefined;
-	export let showCountActions = false;
-	export let disabled = false;
-	export let readonly = false;
-	export let required = false;
-	export let noselect = false;
-	export let selectall = false;
-	export let spellcheck = false;
-	export let autocorrect = false;
-	export let autocomplete = false;
-	export let focus = false;
 	// eslint-disable-next-line func-style
-	export let onClickOutside = () => {};
 
-	export let type: 'text' | 'password' | 'select' | 'number' | 'email' = 'text';
+	interface Props {
+		element?: HTMLElement | undefined;
+		id?: string | undefined;
+		icon?: keyof typeof iconsJson | undefined;
+		value?: string | undefined;
+		width?: number | undefined;
+		textAlign?: 'left' | 'center' | 'right';
+		placeholder?: string | undefined;
+		helperText?: string | undefined;
+		label?: string | undefined;
+		reversedDirection?: boolean;
+		wide?: boolean;
+		minVal?: number | undefined;
+		maxVal?: number | undefined;
+		showCountActions?: boolean;
+		disabled?: boolean;
+		readonly?: boolean;
+		required?: boolean;
+		noselect?: boolean;
+		selectall?: boolean;
+		spellcheck?: boolean;
+		autocorrect?: boolean;
+		autocomplete?: boolean;
+		focus?: boolean;
+		onClickOutside?: any;
+		type?: 'text' | 'password' | 'select' | 'number' | 'email';
+		onclick?: (event: any) => void;
+		onmousedown?: (event: any) => void;
+	}
+
+	let {
+		element = $bindable(undefined),
+		id = undefined,
+		icon = undefined,
+		value = $bindable(undefined),
+		width = undefined,
+		textAlign = 'left',
+		placeholder = undefined,
+		helperText = undefined,
+		label = undefined,
+		reversedDirection = false,
+		wide = false,
+		minVal = undefined,
+		maxVal = undefined,
+		showCountActions = false,
+		disabled = false,
+		readonly = false,
+		required = false,
+		noselect = false,
+		selectall = false,
+		spellcheck = false,
+		autocorrect = false,
+		autocomplete = false,
+		focus = false,
+		onClickOutside = () => {},
+		type = 'text',
+		onclick,
+		onmousedown
+	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{
 		input: string;
@@ -39,9 +73,9 @@
 		keydown: KeyboardEvent;
 	}>();
 
-	let showPassword = false;
-	let isInputValid = true;
-	let htmlInput: HTMLInputElement;
+	let showPassword = $state(false);
+	let isInputValid = $state(true);
+	let htmlInput: HTMLInputElement = $state();
 
 	onMount(() => {
 		if (selectall) htmlInput.select();
@@ -93,22 +127,22 @@
 			style:text-align={textAlign}
 			bind:value
 			bind:this={htmlInput}
-			on:click
-			on:mousedown
-			on:input={(e) => {
+			{onclick}
+			{onmousedown}
+			oninput={(e) => {
 				dispatch('input', e.currentTarget.value);
 
 				isInputValid = e.currentTarget.checkValidity();
 			}}
-			on:change={(e) => dispatch('change', e.currentTarget.value)}
-			on:keydown={(e) => dispatch('keydown', e)}
+			onchange={(e) => dispatch('change', e.currentTarget.value)}
+			onkeydown={(e) => dispatch('keydown', e)}
 		/>
 
 		{#if type === 'number' && showCountActions}
 			<div class="textbox__count-actions">
 				<button
 					class="textbox__count-btn"
-					on:click={() => {
+					onclick={() => {
 						htmlInput.stepDown();
 						dispatch('input', htmlInput.value);
 						dispatch('change', htmlInput.value);
@@ -120,7 +154,7 @@
 				</button>
 				<button
 					class="textbox__count-btn"
-					on:click={() => {
+					onclick={() => {
 						htmlInput.stepUp();
 						dispatch('input', htmlInput.value);
 						dispatch('change', htmlInput.value);
@@ -136,7 +170,7 @@
 		{#if type === 'password'}
 			<button
 				class="textbox__show-hide-icon"
-				on:click={() => {
+				onclick={() => {
 					showPassword = !showPassword;
 					htmlInput.focus();
 				}}

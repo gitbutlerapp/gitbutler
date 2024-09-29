@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import SupportersBanner from './SupportersBanner.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -6,8 +8,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	let currentSection: string | undefined;
-	$: currentSection = getPageName($page.url.pathname);
+	let currentSection: string | undefined = $state();
 
 	const settingsPageRegExp = /\/settings\/(.*?)(?:$|\/)/;
 
@@ -20,6 +21,9 @@
 	function onMenuClick(section: string) {
 		goto(`/settings/${section}`, { replaceState: true });
 	}
+	run(() => {
+		currentSection = getPageName($page.url.pathname);
+	});
 </script>
 
 <aside class="profile-sidebar" data-tauri-drag-region>
@@ -47,7 +51,7 @@
 					<button
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'profile'}
-						on:mousedown={() => onMenuClick('profile')}
+						onmousedown={() => onMenuClick('profile')}
 					>
 						<Icon name="profile" />
 						<span class="text-14 text-semibold">Profile</span>
@@ -57,7 +61,7 @@
 					<button
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'appearance'}
-						on:mousedown={() => onMenuClick('appearance')}
+						onmousedown={() => onMenuClick('appearance')}
 					>
 						<Icon name="appearance" />
 						<span class="text-14 text-semibold">Appearance</span>
@@ -67,7 +71,7 @@
 					<button
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'git'}
-						on:mousedown={() => onMenuClick('git')}
+						onmousedown={() => onMenuClick('git')}
 					>
 						<Icon name="git" />
 						<span class="text-14 text-semibold">Git stuff</span>
@@ -78,7 +82,7 @@
 					<button
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'integrations'}
-						on:mousedown={() => onMenuClick('integrations')}
+						onmousedown={() => onMenuClick('integrations')}
 					>
 						<Icon name="integrations" />
 						<span class="text-14 text-semibold">Integrations</span>
@@ -88,7 +92,7 @@
 					<button
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'ai'}
-						on:mousedown={() => onMenuClick('ai')}
+						onmousedown={() => onMenuClick('ai')}
 					>
 						<Icon name="ai" />
 						<span class="text-14 text-semibold">AI options</span>
@@ -98,7 +102,7 @@
 					<button
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'telemetry'}
-						on:mousedown={() => onMenuClick('telemetry')}
+						onmousedown={() => onMenuClick('telemetry')}
 					>
 						<Icon name="stat" />
 						<span class="text-14 text-semibold">Telemetry</span>
@@ -108,7 +112,7 @@
 					<button
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'experimental'}
-						on:mousedown={() => onMenuClick('experimental')}
+						onmousedown={() => onMenuClick('experimental')}
 					>
 						<Icon name="idea" />
 						<span class="text-14 text-semibold">Experimental</span>
@@ -122,7 +126,7 @@
 		<div class="social-banners">
 			<button
 				class="social-banner"
-				on:click={async () =>
+				onclick={async () =>
 					await openExternalUrl('mailto:hello@gitbutler.com?subject=Feedback or question!')}
 			>
 				<span class="text-14 text-bold">Contact us</span>
@@ -130,7 +134,7 @@
 			</button>
 			<button
 				class="social-banner"
-				on:click={async () => await openExternalUrl('https://discord.gg/MmFkmaJ42D')}
+				onclick={async () => await openExternalUrl('https://discord.gg/MmFkmaJ42D')}
 			>
 				<span class="text-14 text-bold">Join our Discord</span>
 				<Icon name="discord" />

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import TextBox from '../shared/TextBox.svelte';
 	import { PromptService } from '$lib/backend/prompt';
 	import { getContext } from '$lib/utils/context';
@@ -8,17 +10,21 @@
 	const promptService = getContext(PromptService);
 	const [prompt, error] = promptService.reactToPrompt({ timeoutMs: 30000 });
 
-	let value = '';
-	let modal: Modal;
-	let loading = false;
+	let value = $state('');
+	let modal: Modal = $state();
+	let loading = $state(false);
 
-	$: if ($prompt) {
-		modal?.show();
-	}
+	run(() => {
+		if ($prompt) {
+			modal?.show();
+		}
+	});
 
-	$: if (!$prompt && !$error) {
-		modal?.close();
-	}
+	run(() => {
+		if (!$prompt && !$error) {
+			modal?.close();
+		}
+	});
 
 	async function submit() {
 		if (!$prompt) return;

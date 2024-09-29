@@ -14,15 +14,19 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { join } from '@tauri-apps/api/path';
 
-	export let branchId: string | undefined;
-	export let target: HTMLElement | undefined;
-	export let isUnapplied;
+	interface Props {
+		branchId: string | undefined;
+		target: HTMLElement | undefined;
+		isUnapplied: any;
+	}
+
+	let { branchId, target, isUnapplied }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 
-	let confirmationModal: Modal;
-	let contextMenu: ContextMenu;
+	let confirmationModal: Modal = $state();
+	let contextMenu: ContextMenu = $state();
 
 	function isDeleted(item: any): boolean {
 		return item.files.some((f: AnyFile) => computeFileStatus(f) === 'D');

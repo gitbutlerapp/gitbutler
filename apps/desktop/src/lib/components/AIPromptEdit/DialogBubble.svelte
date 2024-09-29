@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { MessageRole } from '$lib/ai/types';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import { autoHeight } from '$lib/utils/autoHeight';
@@ -6,19 +8,30 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 
-	export let disableRemove = false;
-	export let isError = false;
-	export let isLast = false;
-	export let autofocus = false;
-	export let editing = false;
-	export let promptMessage: { role: MessageRole; content: string };
+	interface Props {
+		disableRemove?: boolean;
+		isError?: boolean;
+		isLast?: boolean;
+		autofocus?: boolean;
+		editing?: boolean;
+		promptMessage: { role: MessageRole; content: string };
+	}
+
+	let {
+		disableRemove = false,
+		isError = false,
+		isLast = false,
+		autofocus = false,
+		editing = false,
+		promptMessage = $bindable()
+	}: Props = $props();
 
 	const dispatcher = createEventDispatcher<{
 		removeLastExample: void;
 		addExample: void;
 		input: string;
 	}>();
-	let textareaElement: HTMLTextAreaElement | undefined;
+	let textareaElement: HTMLTextAreaElement | undefined = $state();
 
 	function focusTextareaOnMount(
 		textareaElement: HTMLTextAreaElement | undefined,
@@ -31,9 +44,13 @@
 		}
 	}
 
-	$: focusTextareaOnMount(textareaElement, autofocus, editing);
+	run(() => {
+		focusTextareaOnMount(textareaElement, autofocus, editing);
+	});
 
-	$: if (textareaElement) autoHeight(textareaElement);
+	run(() => {
+		if (textareaElement) autoHeight(textareaElement);
+	});
 </script>
 
 <div
@@ -60,12 +77,12 @@
 				class="textarea scrollbar text-13 text-body"
 				class:is-error={isError}
 				rows={1}
-				on:input={(e) => {
+				oninput={(e) => {
 					autoHeight(e.currentTarget);
 
 					dispatcher('input', e.currentTarget.value);
 				}}
-				on:change={(e) => {
+				onchange={(e) => {
 					autoHeight(e.currentTarget);
 				}}
 			></textarea>

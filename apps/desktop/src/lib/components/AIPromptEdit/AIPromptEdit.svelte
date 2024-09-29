@@ -6,11 +6,15 @@
 	import { get } from 'svelte/store';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 
-	export let promptUse: 'commits' | 'branches';
+	interface Props {
+		promptUse: 'commits' | 'branches';
+	}
+
+	let { promptUse }: Props = $props();
 
 	const promptService = getContext(PromptService);
 
-	let prompts: Prompts;
+	let prompts: Prompts = $state();
 
 	if (promptUse === 'commits') {
 		prompts = promptService.commitPrompts;
@@ -18,7 +22,7 @@
 		prompts = promptService.branchPrompts;
 	}
 
-	$: userPrompts = prompts.userPrompts;
+	let userPrompts = $derived(prompts.userPrompts);
 
 	function createNewPrompt() {
 		prompts.userPrompts.set([

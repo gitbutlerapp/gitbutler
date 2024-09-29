@@ -60,7 +60,7 @@
 	let detailsExpanded = $state(!!topic?.body);
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
+<svelte:window onkeydown={handleKeyDown} />
 
 <Modal bind:this={modal}>
 	<h2 class="text-18 text-bold">Create an topic</h2>

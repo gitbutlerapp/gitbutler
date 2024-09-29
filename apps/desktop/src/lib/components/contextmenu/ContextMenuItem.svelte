@@ -2,12 +2,24 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
-	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let label: string;
-	export let disabled = false;
+	interface Props {
+		icon?: keyof typeof iconsJson | undefined;
+		label: string;
+		disabled?: boolean;
+		onclick?: (event: any) => void;
+		control?: import('svelte').Snippet;
+	}
+
+	let {
+		icon = undefined,
+		label,
+		disabled = false,
+		onclick,
+		control
+	}: Props = $props();
 </script>
 
-<button class="menu-item" class:disabled {disabled} on:click>
+<button class="menu-item" class:disabled {disabled} {onclick}>
 	{#if icon}
 		<Icon name={icon} />
 	{/if}
@@ -15,7 +27,7 @@
 	<span class="label text-12">
 		{label}
 	</span>
-	<slot name="control" />
+	{@render control?.()}
 </button>
 
 <style lang="postcss">

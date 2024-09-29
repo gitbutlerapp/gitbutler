@@ -15,7 +15,11 @@
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 
-	export let base: BaseBranch;
+	interface Props {
+		base: BaseBranch;
+	}
+
+	let { base }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const modeService = getContext(ModeService);
@@ -28,11 +32,11 @@
 		branchController.projectId
 	);
 
-	let updateTargetModal: Modal;
-	let integrateUpstreamModal: IntegrateUpstreamModal | undefined;
-	let mergeUpstreamWarningDismissedCheckbox = false;
+	let updateTargetModal: Modal = $state();
+	let integrateUpstreamModal: IntegrateUpstreamModal | undefined = $state();
+	let mergeUpstreamWarningDismissedCheckbox = $state(false);
 
-	$: multiple = base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false;
+	let multiple = $derived(base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false);
 
 	async function updateBaseBranch() {
 		let infoText = await branchController.updateBaseBranch();

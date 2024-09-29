@@ -1,16 +1,28 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { onMount } from 'svelte';
 
-	export let foldable: boolean = false;
-	export let foldedAmount: number | undefined = undefined;
-	export let foldedHeight = '3rem';
+	interface Props {
+		foldable?: boolean;
+		foldedAmount?: number | undefined;
+		foldedHeight?: string;
+		children?: import('svelte').Snippet;
+	}
 
-	let isOpen: boolean = false;
-	let el: HTMLElement;
+	let {
+		foldable = false,
+		foldedAmount = undefined,
+		foldedHeight = '3rem',
+		children
+	}: Props = $props();
 
-	let contentHeight: string;
+	let isOpen: boolean = $state(false);
+	let el: HTMLElement = $state();
+
+	let contentHeight: string = $state();
 
 	function setHeight() {
 		contentHeight = `calc(${pxToRem(el.scrollHeight)} + ${pxToRem(8)})`;
@@ -22,9 +34,11 @@
 		setHeight();
 	});
 
-	$: if (el) {
-		setHeight();
-	}
+	run(() => {
+		if (el) {
+			setHeight();
+		}
+	});
 </script>
 
 <div class="snapshot-attachment">
@@ -32,7 +46,7 @@
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div
 		bind:this={el}
-		on:click={() => {
+		onclick={() => {
 			if (foldable && !isOpen) {
 				isOpen = true;
 			}
@@ -40,12 +54,12 @@
 		class="snapshot-attachment__content"
 		style="max-height: {foldable ? (isOpen ? contentHeight : foldedHeight) : 'auto'}"
 	>
-		<slot />
+		{@render children?.()}
 	</div>
 	{#if foldable}
 		<button
 			class="toggle-btn"
-			on:click={() => {
+			onclick={() => {
 				isOpen = !isOpen;
 			}}
 		>

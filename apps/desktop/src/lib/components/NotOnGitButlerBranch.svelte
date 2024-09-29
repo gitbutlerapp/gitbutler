@@ -15,14 +15,18 @@
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { goto } from '$app/navigation';
 
-	export let baseBranch: BaseBranch;
+	interface Props {
+		baseBranch: BaseBranch;
+	}
+
+	let { baseBranch }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
 
-	let isDeleting = false;
-	let deleteConfirmationModal: RemoveProjectButton;
+	let isDeleting = $state(false);
+	let deleteConfirmationModal: RemoveProjectButton = $state();
 
 	async function onDeleteClicked() {
 		if (project) {

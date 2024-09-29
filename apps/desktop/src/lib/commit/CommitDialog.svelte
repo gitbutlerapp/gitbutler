@@ -10,9 +10,13 @@
 	import { slideFade } from '@gitbutler/ui/utils/transitions';
 	import type { Writable } from 'svelte/store';
 
-	export let projectId: string;
-	export let expanded: Writable<boolean>;
-	export let hasSectionsAfter: boolean;
+	interface Props {
+		projectId: string;
+		expanded: Writable<boolean>;
+		hasSectionsAfter: boolean;
+	}
+
+	let { projectId, expanded, hasSectionsAfter }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const selectedOwnership = getContextStore(SelectedOwnership);
@@ -21,10 +25,10 @@
 	const runCommitHooks = projectRunCommitHooks(projectId);
 	const commitMessage = persistedCommitMessage(projectId, $branch.id);
 
-	let commitMessageInput: CommitMessageInput;
-	let isCommitting = false;
-	let commitMessageValid = false;
-	let isInViewport = false;
+	let commitMessageInput: CommitMessageInput = $state();
+	let isCommitting = $state(false);
+	let commitMessageValid = $state(false);
+	let isInViewport = $state(false);
 
 	async function commit() {
 		const message = $commitMessage;

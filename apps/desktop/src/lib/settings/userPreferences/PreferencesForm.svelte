@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
@@ -8,12 +10,12 @@
 	import { getContext } from '$lib/utils/context';
 
 	const projectService = getContext(ProjectService);
-	const project = getContext(Project);
+	const project = $state(getContext(Project));
 
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
-	let useNewLocking = project?.use_new_locking || false;
+	let useNewLocking = $state(project?.use_new_locking || false);
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
 
@@ -32,19 +34,21 @@
 		await projectService.updateProject(project);
 	}
 
-	let succeedingRebases = project.succeedingRebases;
+	let succeedingRebases = $state(project.succeedingRebases);
 
-	$: {
+	run(() => {
 		project.succeedingRebases = succeedingRebases;
 		projectService.updateProject(project);
-	}
+	});
 
 	async function setUseNewLocking(value: boolean) {
 		project.use_new_locking = value;
 		await projectService.updateProject(project);
 	}
 
-	$: setUseNewLocking(useNewLocking);
+	run(() => {
+		setUseNewLocking(useNewLocking);
+	});
 
 	async function handleAllowForcePushClick(event: MouseEvent) {
 		await setWithForcePush((event.target as HTMLInputElement)?.checked);

@@ -4,8 +4,12 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
 
-	export let pop = false;
-	export let isNavCollapsed = false;
+	interface Props {
+		pop?: boolean;
+		isNavCollapsed?: boolean;
+	}
+
+	let { pop = false, isNavCollapsed = false }: Props = $props();
 
 	const user = getContextStore(User);
 </script>
@@ -13,7 +17,7 @@
 <button
 	class="btn"
 	class:pop
-	on:click={async () => await goto('/settings/')}
+	onclick={async () => await goto('/settings/')}
 	class:collapsed={isNavCollapsed}
 >
 	{#if !isNavCollapsed}

@@ -4,21 +4,37 @@
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { createEventDispatcher } from 'svelte';
 
-	export let value: string | undefined;
-	export let placeholder: string | undefined = undefined;
-	export let required = false;
-	export let rows = 4;
-	export let maxHeight: number | undefined = undefined;
-	export let id: string | undefined = undefined;
-	export let disabled = false;
-	export let autocomplete: string | undefined = undefined;
-	export let autocorrect: string | undefined = undefined;
-	export let spellcheck = false;
-	export let label: string | undefined = undefined;
+	interface Props {
+		value: string | undefined;
+		placeholder?: string | undefined;
+		required?: boolean;
+		rows?: number;
+		maxHeight?: number | undefined;
+		id?: string | undefined;
+		disabled?: boolean;
+		autocomplete?: string | undefined;
+		autocorrect?: string | undefined;
+		spellcheck?: boolean;
+		label?: string | undefined;
+	}
+
+	let {
+		value = $bindable(),
+		placeholder = undefined,
+		required = false,
+		rows = 4,
+		maxHeight = undefined,
+		id = undefined,
+		disabled = false,
+		autocomplete = undefined,
+		autocorrect = undefined,
+		spellcheck = false,
+		label = undefined
+	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{ input: string; change: string }>();
 
-	let textareaElement: HTMLTextAreaElement;
+	let textareaElement: HTMLTextAreaElement = $state();
 </script>
 
 <div class="textarea-wrapper">
@@ -40,18 +56,18 @@
 		{autocomplete}
 		{autocorrect}
 		{spellcheck}
-		on:input={(e) => {
+		oninput={(e) => {
 			dispatch('input', e.currentTarget.value);
 			autoHeight(e.currentTarget);
 		}}
-		on:change={(e) => {
+		onchange={(e) => {
 			dispatch('change', e.currentTarget.value);
 			autoHeight(e.currentTarget);
 		}}
 		use:resizeObserver={(e) => {
 			autoHeight(e.currentTarget as HTMLTextAreaElement);
 		}}
-		on:focus={(e) => autoHeight(e.currentTarget)}
+		onfocus={(e) => autoHeight(e.currentTarget)}
 		style:max-height={maxHeight ? pxToRem(maxHeight) : undefined}
 	></textarea>
 </div>

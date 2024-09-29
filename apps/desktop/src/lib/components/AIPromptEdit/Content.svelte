@@ -6,13 +6,17 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 
-	export let displayMode: 'readOnly' | 'writable' = 'writable';
-	export let prompt: UserPrompt;
+	interface Props {
+		displayMode?: 'readOnly' | 'writable';
+		prompt: UserPrompt;
+	}
 
-	let expanded = false;
-	let editing = false;
-	let promptMessages = structuredClone(prompt.prompt);
-	let promptName = structuredClone(prompt.name);
+	let { displayMode = 'writable', prompt = $bindable() }: Props = $props();
+
+	let expanded = $state(false);
+	let editing = $state(false);
+	let promptMessages = $state(structuredClone(prompt.prompt));
+	let promptName = $state(structuredClone(prompt.name));
 	let initialName = promptName;
 
 	// Ensure the prompt messages have a default user prompt
@@ -51,7 +55,7 @@
 		dispatcher('deletePrompt', { prompt });
 	}
 
-	let errorMessages = [] as number[];
+	let errorMessages = $state([] as number[]);
 
 	function save() {
 		errorMessages = checkForEmptyMessages();
@@ -75,7 +79,7 @@
 		editing = false;
 	}
 
-	$: isInEditing = displayMode === 'writable' && editing;
+	let isInEditing = $derived(displayMode === 'writable' && editing);
 
 	function toggleExpand() {
 		if (isInEditing) return;
@@ -102,8 +106,8 @@
 		role="button"
 		class="header"
 		class:editing={isInEditing}
-		on:click={toggleExpand}
-		on:keydown={(e) => e.key === 'Enter' && toggleExpand()}
+		onclick={toggleExpand}
+		onkeydown={(e) => e.key === 'Enter' && toggleExpand()}
 	>
 		{#if !isInEditing}
 			<Icon name="doc" />
