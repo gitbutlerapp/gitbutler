@@ -253,10 +253,7 @@ pub(crate) fn save_and_return_to_workspace(
     let parents = commit.parents().collect::<Vec<_>>();
 
     // Recommit commit
-    let mut index = repository.index()?;
-    index.add_all(["*"], git2::IndexAddOption::DEFAULT, None)?;
-    let tree = index.write_tree()?;
-    let tree = repository.find_tree(tree)?;
+    let tree = repository.create_wd_tree()?;
 
     let commit_headers = commit
         .gitbutler_headers()

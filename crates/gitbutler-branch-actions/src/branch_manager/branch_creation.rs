@@ -327,12 +327,14 @@ impl BranchManager<'_> {
 
         // We don't support having two branches applied that conflict with each other
         {
-            let mut index = repo.index()?;
-            index.add_all(["*"], git2::IndexAddOption::default(), None)?;
-            let index_tree = index.write_tree()?;
-            let index_tree = repo.find_tree(index_tree)?;
+            let uncommited_changes_tree = repo.create_wd_tree()?;
             let branch_merged_with_other_applied_branches = repo
-                .merge_trees(&merge_base_tree, &branch_tree, &index_tree, None)
+                .merge_trees(
+                    &merge_base_tree,
+                    &branch_tree,
+                    &uncommited_changes_tree,
+                    None,
+                )
                 .context("failed to merge trees")?;
 
             if branch_merged_with_other_applied_branches.has_conflicts() {
