@@ -14,7 +14,7 @@
 	}
 
 	body {
-		font-family: 'Inter', sans-serif;
+		font-family: var(--base-font-family);
 		line-height: inherit;
 		padding: 0;
 		margin: 0;
