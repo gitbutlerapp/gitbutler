@@ -15,12 +15,12 @@
 	interface Props {
 		entry: Snapshot;
 		isWithinRestore?: boolean;
-		selectedFile?: 
-		| {
-				entryId: string;
-				path: string;
-		  }
-		| undefined;
+		selectedFile?:
+			| {
+					entryId: string;
+					path: string;
+			  }
+			| undefined;
 	}
 
 	let { entry, isWithinRestore = true, selectedFile = undefined }: Props = $props();

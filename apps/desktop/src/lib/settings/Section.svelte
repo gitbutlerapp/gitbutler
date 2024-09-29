@@ -11,14 +11,7 @@
 		children?: import('svelte').Snippet;
 	}
 
-	let {
-		spacer = false,
-		gap = 16,
-		top,
-		title,
-		description,
-		children
-	}: Props = $props();
+	let { spacer = false, gap = 16, top, title, description, children }: Props = $props();
 </script>
 
 <div class="settings-section" style="gap: {pxToRem(gap)}">

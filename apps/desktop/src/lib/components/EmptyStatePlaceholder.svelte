@@ -7,13 +7,7 @@
 		caption?: import('svelte').Snippet;
 	}
 
-	let {
-		image,
-		width = '18rem',
-		hasBottomMargin = true,
-		title,
-		caption
-	}: Props = $props();
+	let { image, width = '18rem', hasBottomMargin = true, title, caption }: Props = $props();
 </script>
 
 <div class="empty-state-container">

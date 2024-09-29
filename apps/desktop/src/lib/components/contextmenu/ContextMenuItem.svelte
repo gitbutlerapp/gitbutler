@@ -10,13 +10,7 @@
 		control?: import('svelte').Snippet;
 	}
 
-	let {
-		icon = undefined,
-		label,
-		disabled = false,
-		onclick,
-		control
-	}: Props = $props();
+	let { icon = undefined, label, disabled = false, onclick, control }: Props = $props();
 </script>
 
 <button class="menu-item" class:disabled {disabled} {onclick}>

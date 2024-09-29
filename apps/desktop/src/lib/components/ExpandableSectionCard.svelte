@@ -32,7 +32,7 @@
 	on:click={maybeToggle}
 >
 	<svelte:fragment slot="title">
-		{@render header?.({ expanded, })}
+		{@render header?.({ expanded })}
 	</svelte:fragment>
 </SectionCard>
 

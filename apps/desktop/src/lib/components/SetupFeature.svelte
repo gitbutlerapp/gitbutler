@@ -1,5 +1,4 @@
 <script lang="ts">
-
 	interface Props {
 		disabled?: boolean;
 		success?: boolean;

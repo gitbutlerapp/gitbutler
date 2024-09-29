@@ -36,7 +36,9 @@
 	let integrateUpstreamModal: IntegrateUpstreamModal | undefined = $state();
 	let mergeUpstreamWarningDismissedCheckbox = $state(false);
 
-	let multiple = $derived(base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false);
+	let multiple = $derived(
+		base ? base.upstreamCommits.length > 1 || base.upstreamCommits.length === 0 : false
+	);
 
 	async function updateBaseBranch() {
 		let infoText = await branchController.updateBaseBranch();

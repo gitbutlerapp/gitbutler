@@ -10,12 +10,7 @@
 		children?: import('svelte').Snippet;
 	}
 
-	let {
-		icon = undefined,
-		selected = false,
-		loading = false,
-		children
-	}: Props = $props();
+	let { icon = undefined, selected = false, loading = false, children }: Props = $props();
 
 	const dispatch = createEventDispatcher<{ click: void }>();
 </script>

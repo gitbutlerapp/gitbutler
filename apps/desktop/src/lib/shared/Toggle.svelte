@@ -18,16 +18,7 @@
 	}: Props = $props();
 </script>
 
-<input
-	bind:checked
-	{onclick}
-	type="checkbox"
-	class="toggle"
-	class:small
-	{value}
-	{id}
-	{disabled}
-/>
+<input bind:checked {onclick} type="checkbox" class="toggle" class:small {value} {id} {disabled} />
 
 <style lang="postcss">
 	.toggle {
