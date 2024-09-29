@@ -1642,57 +1642,6 @@ pub(crate) fn insert_blank_commit(
     Ok(())
 }
 
-// remove a commit in a branch by rebasing all commits _except_ for it onto it's parent
-// if successful, it will update the branch head to the new head commit
-pub(crate) fn undo_commit(
-    ctx: &CommandContext,
-    branch_id: BranchId,
-    commit_oid: git2::Oid,
-) -> Result<Branch> {
-    let vb_state = ctx.project().virtual_branches();
-
-    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
-    let commit = ctx
-        .repository()
-        .find_commit(commit_oid)
-        .context("failed to find commit")?;
-
-    if commit.is_conflicted() {
-        bail!("Can not undo a conflicted commit");
-    }
-
-    let new_commit_oid;
-
-    if branch.head == commit_oid {
-        // if commit is the head, just set head to the parent
-        new_commit_oid = commit.parent(0).context("failed to find parent")?.id();
-    } else {
-        // if commit is not the head, rebase all commits above it onto it's parent
-        let parent_commit_oid = commit.parent(0).context("failed to find parent")?.id();
-
-        match cherry_rebase(ctx, parent_commit_oid, commit_oid, branch.head) {
-            Ok(Some(new_head)) => {
-                new_commit_oid = new_head;
-            }
-            Ok(None) => bail!("no rebase happened"),
-            Err(err) => {
-                return Err(err).context("rebase failed");
-            }
-        }
-    }
-
-    if new_commit_oid != commit_oid {
-        branch.head = new_commit_oid;
-        branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-        vb_state.set_branch(branch.clone())?;
-
-        crate::integration::update_workspace_commit(&vb_state, ctx)
-            .context("failed to update gitbutler workspace")?;
-    }
-
-    Ok(branch)
-}
-
 /// squashes a commit from a virtual branch into its parent.
 pub(crate) fn squash(
     ctx: &CommandContext,
