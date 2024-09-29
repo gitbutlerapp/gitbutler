@@ -9,16 +9,16 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PatchReference {
     /// The target of the reference - this can be a commit or a change that points to a commit.
-    pub target: ReferenceTarget,
+    pub target: CommitOrChangeId,
     /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
     /// The name must be unique within the repository.
     pub name: String,
 }
 
-/// The target of a `PathchReference`. This can be either a `CommitId` or a `ChangeId`.
+/// A patch identifier which is either `CommitId` or a `ChangeId`.
 /// ChangeId should always be used if available.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum ReferenceTarget {
+pub enum CommitOrChangeId {
     /// A reference that points directly to a commit.
     CommitId(String),
     /// A referrence that points to a change (patch) through which a valid commit can be derived.

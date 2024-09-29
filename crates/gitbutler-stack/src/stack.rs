@@ -8,7 +8,7 @@ use gitbutler_branch::Target;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_patch_reference::{PatchReference, ReferenceTarget};
+use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::LogUntil;
@@ -18,7 +18,9 @@ use gix::validate::reference::name_partial;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-/// A Stack represents multiple "branches" that are dependent on each other in series.
+use crate::series::Series;
+
+/// A (series) Stack represents multiple "branches" that are dependent on each other in series.
 ///
 /// An initialized Stack must:
 /// - have at least one head (branch)
@@ -72,11 +74,16 @@ pub trait Stack {
         branch_name: String,
         with_force: bool,
     ) -> Result<()>;
+
+    /// Returns a list of all branches/series in the stack.
+    /// This operation will compute the current list of local and remote commits that belong to each series.
+    /// The first entry is the newest in the Stack (i.e the top of the stack).
+    fn list_branches(&self, ctx: &CommandContext) -> Result<Vec<Series>>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PatchReferenceUpdate {
-    pub target: Option<ReferenceTarget>,
+    pub target: Option<CommitOrChangeId>,
     pub name: Option<String>,
 }
 
@@ -95,7 +102,7 @@ impl Stack for Branch {
             return Err(anyhow!("Stack already initialized"));
         }
         let reference = PatchReference {
-            target: ReferenceTarget::CommitId(self.head.to_string()),
+            target: CommitOrChangeId::CommitId(self.head.to_string()),
             name: normalize_branch_name(&self.name)?,
         };
         let state = branch_state(ctx);
@@ -195,6 +202,63 @@ impl Stack for Branch {
             None,
             Some(Some(self.id)),
         )
+    }
+
+    fn list_branches(&self, ctx: &CommandContext) -> Result<Vec<Series>> {
+        if !self.initialized() {
+            return Err(anyhow!("Stack has not been initialized"));
+        }
+        let state = branch_state(ctx);
+        let default_target = state.get_default_target()?;
+        let mut all_series: Vec<Series> = vec![];
+        let merge_base = ctx.repository().merge_base(self.head, default_target.sha)?;
+
+        // All the commits between the head of the stack and the merge base (not inclusive)
+        // Starts from the bottom of the stack
+        let mut patches = ctx
+            .repository()
+            .log(self.head, LogUntil::Commit(merge_base))?
+            .iter()
+            .map(|c| match c.change_id() {
+                Some(change_id) => CommitOrChangeId::ChangeId(change_id.to_string()),
+                None => CommitOrChangeId::CommitId(c.id().to_string()),
+            })
+            .collect_vec();
+
+        // We want the top of the stack to be first
+        let mut heads_in_order = self.heads.clone();
+        heads_in_order.reverse();
+
+        for window in heads_in_order.windows(2) {
+            if let [current_head, next_head] = window {
+                let mut local_commits: Vec<CommitOrChangeId> = vec![];
+                // if the patch matches the current head, add it to the local_commits list
+                // if the patch matches the next head, bread out of the inner loop
+                // if the patch does not either head, add it to the local_commits list and continue
+                while !patches.is_empty() {
+                    let patch = patches
+                        .last()
+                        .ok_or_else(|| anyhow!("No patches found"))?
+                        .clone();
+                    if current_head.target == patch {
+                        local_commits.push(patch);
+                        patches.pop();
+                    } else if next_head.target == patch {
+                        break;
+                    } else {
+                        local_commits.push(patch);
+                        patches.pop();
+                    }
+                }
+                let series = Series {
+                    head: current_head.clone(),
+                    local_commits,
+                    remote_commits: vec![], // TODO
+                };
+                all_series.push(series);
+            }
+        }
+        Ok(all_series)
     }
 }
 
@@ -313,14 +377,16 @@ fn get_branch(stack: &Branch, name: &str) -> Result<(usize, PatchReference)> {
 }
 
 fn get_target_commit<'a>(
-    reference_target: &'a ReferenceTarget,
+    reference_target: &'a CommitOrChangeId,
     ctx: &'a CommandContext,
     stack_head: git2::Oid,
     default_target: &Target,
 ) -> Result<git2::Commit<'a>> {
     Ok(match reference_target {
-        ReferenceTarget::CommitId(commit_id) => ctx.repository().find_commit(commit_id.parse()?)?,
-        ReferenceTarget::ChangeId(change_id) => {
+        CommitOrChangeId::CommitId(commit_id) => {
+            ctx.repository().find_commit(commit_id.parse()?)?
+        }
+        CommitOrChangeId::ChangeId(change_id) => {
             commit_by_branch_id_and_change_id(ctx, stack_head, default_target.sha, change_id)?
         }
     })
