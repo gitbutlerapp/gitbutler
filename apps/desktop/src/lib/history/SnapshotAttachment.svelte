@@ -1,9 +1,8 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { onMount } from 'svelte';
+	import { run } from 'svelte/legacy';
 
 	interface Props {
 		foldable?: boolean;
@@ -20,12 +19,14 @@
 	}: Props = $props();
 
 	let isOpen: boolean = $state(false);
-	let el: HTMLElement = $state();
+	let el = $state<HTMLElement>();
 
-	let contentHeight: string = $state();
+	let contentHeight = $state<string>();
 
 	function setHeight() {
-		contentHeight = `calc(${pxToRem(el.scrollHeight)} + ${pxToRem(8)})`;
+		if (el) {
+			contentHeight = `calc(${pxToRem(el.scrollHeight)} + ${pxToRem(8)})`;
+		}
 	}
 
 	onMount(() => {

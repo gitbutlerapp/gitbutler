@@ -26,7 +26,7 @@
 		'defaulTrayWidth_ ' + project.id
 	);
 
-	let viewport: HTMLDivElement = $state();
+	let viewport = $state<HTMLDivElement>();
 	let isResizerHovered = $state(false);
 	let isResizerDragging = $state(false);
 
@@ -57,48 +57,51 @@
 		role="button"
 		class:folding-button_folded={$isNavCollapsed}
 	>
-		<Resizer
-			{viewport}
-			direction="right"
-			minWidth={minResizerWidth}
-			defaultLineColor="var(--clr-border-2)"
-			zIndex="var(--z-floating)"
-			on:dblclick={toggleNavCollapse}
-			on:width={(e) => {
-				$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
-			}}
-			on:hover={(e) => {
-				isResizerHovered = e.detail;
-			}}
-			on:resizing={(e) => {
-				isResizerDragging = e.detail;
-			}}
-			on:overflowValue={(e) => {
-				const overflowValue = e.detail;
+		{#if viewport}
+			<Resizer
+				{viewport}
+				direction="right"
+				minWidth={minResizerWidth}
+				defaultLineColor="var(--clr-border-2)"
+				zIndex="var(--z-floating)"
+				on:dblclick={toggleNavCollapse}
+				on:width={(e) => {
+					$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
+				}}
+				on:hover={(e) => {
+					isResizerHovered = e.detail;
+				}}
+				on:resizing={(e) => {
+					isResizerDragging = e.detail;
+				}}
+				on:overflowValue={(e) => {
+					const overflowValue = e.detail;
 
-				if (!$isNavCollapsed && overflowValue > minResizerRatio) {
-					$isNavCollapsed = true;
-				}
+					if (!$isNavCollapsed && overflowValue > minResizerRatio) {
+						$isNavCollapsed = true;
+					}
 
-				if ($isNavCollapsed && overflowValue < minResizerRatio) {
-					$isNavCollapsed = false;
-				}
-			}}
-		/>
+					if ($isNavCollapsed && overflowValue < minResizerRatio) {
+						$isNavCollapsed = false;
+					}
+				}}
+			/>
 
-		<button
-			class="folding-button"
-			class:resizer-hovered={isResizerHovered || isResizerDragging}
-			onmousedown={toggleNavCollapse}
-		>
-			<svg viewBox="0 0 6 11" fill="none" xmlns="http://www.w3.org/2000/svg">
-				<path
-					d="M5 1.25L1.59055 5.08564C1.25376 5.46452 1.25376 6.03548 1.59055 6.41436L5 10.25"
-					stroke-width="1.5"
-					vector-effect="non-scaling-stroke"
-				/>
-			</svg>
-		</button>
+			<button
+				aria-label="Fold"
+				class="folding-button"
+				class:resizer-hovered={isResizerHovered || isResizerDragging}
+				onmousedown={toggleNavCollapse}
+			>
+				<svg viewBox="0 0 6 11" fill="none" xmlns="http://www.w3.org/2000/svg">
+					<path
+						d="M5 1.25L1.59055 5.08564C1.25376 5.46452 1.25376 6.03548 1.59055 6.41436L5 10.25"
+						stroke-width="1.5"
+						vector-effect="non-scaling-stroke"
+					/>
+				</svg>
+			</button>
+		{/if}
 	</div>
 
 	<div

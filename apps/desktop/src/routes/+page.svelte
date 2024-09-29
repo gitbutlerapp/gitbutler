@@ -1,6 +1,6 @@
-<script lang="ts">
-	import { run } from 'svelte/legacy';
+<svelte:options runes={true} />
 
+<script lang="ts">
 	import { ProjectService } from '$lib/backend/projects';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import { getContext } from '$lib/utils/context';
@@ -23,7 +23,7 @@
 		return null;
 	});
 
-	run(() => {
+	$effect(() => {
 		if ($redirect) {
 			goto(`/${$redirect}/`);
 		} else if ($redirect === null) {

@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
 	import Resizer from '../shared/Resizer.svelte';
 	import { Project } from '$lib/backend/projects';
@@ -19,6 +17,7 @@
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
+	import { run } from 'svelte/legacy';
 	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 
@@ -106,8 +105,8 @@
 		)
 	);
 
-	let rsViewport: HTMLDivElement = $state();
-	let laneWidth: number = $state();
+	let rsViewport = $state<HTMLDivElement>();
+	let laneWidth = $state<number>();
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);

@@ -4,31 +4,35 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { createEventDispatcher } from 'svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		displayMode?: 'readOnly' | 'writable';
 		prompt: UserPrompt;
+		deletePrompt?: (prompt: UserPrompt) => void;
 	}
 
-	let { displayMode = 'writable', prompt = $bindable() }: Props = $props();
+	let { displayMode = 'writable', prompt = $bindable(), deletePrompt }: Props = $props();
 
 	let expanded = $state(false);
 	let editing = $state(false);
 	let promptMessages = $state(structuredClone(prompt.prompt));
 	let promptName = $state(structuredClone(prompt.name));
+	// eslint-disable-next-line svelte/valid-compile
 	let initialName = promptName;
 
 	// Ensure the prompt messages have a default user prompt
-	if (promptMessages.length === 0) {
-		promptMessages = [
-			...promptMessages,
-			{
-				role: MessageRole.User,
-				content: ''
-			}
-		];
-	}
+	onMount(() => {
+		if (promptMessages.length === 0) {
+			promptMessages = [
+				...promptMessages,
+				{
+					role: MessageRole.User,
+					content: ''
+				}
+			];
+		}
+	});
 
 	function addExample() {
 		promptMessages = [
@@ -47,12 +51,6 @@
 	function removeLastExample() {
 		console.log(promptMessages);
 		promptMessages = promptMessages.slice(0, -2);
-	}
-
-	const dispatcher = createEventDispatcher<{ deletePrompt: { prompt: UserPrompt } }>();
-
-	function deletePrompt() {
-		dispatcher('deletePrompt', { prompt });
 	}
 
 	let errorMessages = $state([] as number[]);
@@ -122,22 +120,24 @@
 
 	{#if expanded}
 		<div class="content" class:default-mode={prompt.id === 'default'} class:editing={isInEditing}>
-			{#each promptMessages as promptMessage, index}
-				<DialogBubble
-					bind:promptMessage
-					editing={isInEditing}
-					isLast={index + 1 === promptMessages.length || promptMessages.length === 1}
-					disableRemove={promptMessages.length === 1}
-					on:addExample={addExample}
-					on:removeLastExample={removeLastExample}
-					on:input={() => {
-						errorMessages = errorMessages.filter((errorIndex) => errorIndex !== index);
-					}}
-					isError={errorMessages.includes(index)}
-				/>
+			{#each promptMessages as _promptMessage, index}
+				{#if promptMessages[index]}
+					<DialogBubble
+						bind:promptMessage={promptMessages[index]}
+						editing={isInEditing}
+						isLast={index + 1 === promptMessages.length || promptMessages.length === 1}
+						disableRemove={promptMessages.length === 1}
+						{addExample}
+						{removeLastExample}
+						input={() => {
+							errorMessages = errorMessages.filter((errorIndex) => errorIndex !== index);
+						}}
+						isError={errorMessages.includes(index)}
+					/>
 
-				{#if index % 2 === 0}
-					<hr class="sections-divider" />
+					{#if index % 2 === 0}
+						<hr class="sections-divider" />
+					{/if}
 				{/if}
 			{/each}
 		</div>
@@ -157,7 +157,7 @@
 						style="error"
 						onclick={(e: MouseEvent) => {
 							e.stopPropagation();
-							deletePrompt();
+							deletePrompt?.(prompt);
 						}}
 						icon="bin-small">Delete</Button
 					>

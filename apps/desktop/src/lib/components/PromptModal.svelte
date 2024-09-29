@@ -1,17 +1,16 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import TextBox from '../shared/TextBox.svelte';
 	import { PromptService } from '$lib/backend/prompt';
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { run } from 'svelte/legacy';
 
 	const promptService = getContext(PromptService);
 	const [prompt, error] = promptService.reactToPrompt({ timeoutMs: 30000 });
 
 	let value = $state('');
-	let modal: Modal = $state();
+	let modal = $state<Modal>();
 	let loading = $state(false);
 
 	run(() => {

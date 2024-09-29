@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
@@ -16,6 +14,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
+	import { run } from 'svelte/legacy';
 
 	const projectService = getContext(ProjectService);
 	const project = $state(getContext(Project));
@@ -113,15 +112,17 @@
 
 <Section>
 	<SectionCard orientation="row" labelFor="signCommits">
-		<svelte:fragment slot="title">Sign commits</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Sign commits
+		{/snippet}
+		{#snippet caption()}
 			Use GPG or SSH to sign your commits so they can be verified as authentic.
 			<br />
 			GitButler will sign commits as per your git configuration.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle id="signCommits" checked={signCommits} on:click={handleSignCommitsClick} />
-		</svelte:fragment>
+		{/snippet}
+		{#snippet actions()}
+			<Toggle id="signCommits" checked={signCommits} onclick={handleSignCommitsClick} />
+		{/snippet}
 	</SectionCard>
 	{#if signCommits}
 		<SectionCard orientation="column">
@@ -162,7 +163,7 @@
 					filled
 					outlined={false}
 				>
-					<svelte:fragment slot="title">
+					{#snippet title()}
 						{#if loading}
 							<p>Checking signing</p>
 						{:else if signCheckResult}
@@ -171,7 +172,7 @@
 							<p>Signing is not working correctly</p>
 							<pre>{errorMessage}</pre>
 						{/if}
-					</svelte:fragment>
+					{/snippet}
 				</InfoMessage>
 			{/if}
 
@@ -185,9 +186,10 @@
 			<SectionCardDisclaimer>
 				Signing commits can allow other people to verify your commits if you publish the public
 				version of your signing key.
-				<Link href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
-					>Read more</Link
-				> about commit signing and verification.
+				<Link href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits">
+					Read more
+				</Link>
+				about commit signing and verification.
 			</SectionCardDisclaimer>
 		</SectionCard>
 	{/if}

@@ -2,10 +2,8 @@
 	import { clickOutside } from '$lib/clickOutside';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
-
-	// eslint-disable-next-line func-style
 
 	interface Props {
 		element?: HTMLElement | undefined;
@@ -35,6 +33,10 @@
 		type?: 'text' | 'password' | 'select' | 'number' | 'email';
 		onclick?: (event: any) => void;
 		onmousedown?: (event: any) => void;
+
+		input?: (e: string) => void;
+		change?: (e: string) => void;
+		keydown?: (e: KeyboardEvent) => void;
 	}
 
 	let {
@@ -64,22 +66,20 @@
 		onClickOutside = () => {},
 		type = 'text',
 		onclick,
-		onmousedown
-	}: Props = $props();
+		onmousedown,
 
-	const dispatch = createEventDispatcher<{
-		input: string;
-		change: string;
-		keydown: KeyboardEvent;
-	}>();
+		input: oninput,
+		change: onchange,
+		keydown: onkeydown
+	}: Props = $props();
 
 	let showPassword = $state(false);
 	let isInputValid = $state(true);
-	let htmlInput: HTMLInputElement = $state();
+	let htmlInput = $state<HTMLInputElement>();
 
 	onMount(() => {
-		if (selectall) htmlInput.select();
-		else if (focus) htmlInput.focus();
+		if (selectall) htmlInput?.select();
+		else if (focus) htmlInput?.focus();
 	});
 </script>
 
@@ -130,12 +130,12 @@
 			{onclick}
 			{onmousedown}
 			oninput={(e) => {
-				dispatch('input', e.currentTarget.value);
+				oninput?.(e.currentTarget.value);
 
 				isInputValid = e.currentTarget.checkValidity();
 			}}
-			onchange={(e) => dispatch('change', e.currentTarget.value)}
-			onkeydown={(e) => dispatch('keydown', e)}
+			onchange={(e) => onchange?.(e.currentTarget.value)}
+			onkeydown={(e) => onkeydown?.(e)}
 		/>
 
 		{#if type === 'number' && showCountActions}
@@ -143,11 +143,13 @@
 				<button
 					class="textbox__count-btn"
 					onclick={() => {
-						htmlInput.stepDown();
-						dispatch('input', htmlInput.value);
-						dispatch('change', htmlInput.value);
+						htmlInput?.stepDown();
+						if (htmlInput && htmlInput.value) {
+							oninput?.(htmlInput.value);
+							onchange?.(htmlInput.value);
 
-						isInputValid = htmlInput.checkValidity();
+							isInputValid = htmlInput?.checkValidity();
+						}
 					}}
 				>
 					<Icon name="minus-small" />
@@ -155,11 +157,13 @@
 				<button
 					class="textbox__count-btn"
 					onclick={() => {
-						htmlInput.stepUp();
-						dispatch('input', htmlInput.value);
-						dispatch('change', htmlInput.value);
+						if (htmlInput) {
+							htmlInput.stepUp();
+							oninput?.(htmlInput.value);
+							onchange?.(htmlInput.value);
 
-						isInputValid = htmlInput.checkValidity();
+							isInputValid = htmlInput.checkValidity();
+						}
 					}}
 				>
 					<Icon name="plus-small" />
@@ -172,7 +176,7 @@
 				class="textbox__show-hide-icon"
 				onclick={() => {
 					showPassword = !showPassword;
-					htmlInput.focus();
+					htmlInput?.focus();
 				}}
 			>
 				<Icon name={showPassword ? 'eye-shown' : 'eye-hidden'} />

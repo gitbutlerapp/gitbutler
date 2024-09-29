@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import BoardEmptyState from './BoardEmptyState.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
@@ -14,6 +12,8 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { flip } from 'svelte/animate';
+	import { run } from 'svelte/legacy';
+	import type { VirtualBranch } from '$lib/vbranches/types';
 
 	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
@@ -21,8 +21,8 @@
 	const branches = vbranchService.branches;
 	const showHistoryView = persisted(false, 'showHistoryView');
 
-	let dragged: HTMLDivElement | undefined = $state();
-	let dropZone: HTMLDivElement = $state();
+	let dragged = $state<HTMLDivElement>();
+	let dropZone = $state<HTMLDivElement>();
 
 	let dragHandle: any = $state();
 	let clone: any = $state();
@@ -31,8 +31,8 @@
 			$showHistoryView = true;
 		}
 	});
-	let sortedBranches;
-	run(() => {
+	let sortedBranches = $state<VirtualBranch[]>();
+	$effect(() => {
 		sortedBranches = $branches?.sort((a, b) => a.order - b.order) || [];
 	});
 
@@ -46,8 +46,8 @@
 		const currentPosition = children.indexOf(dragged);
 
 		let dropPosition = 0;
-		let mouseLeft = e.clientX - dropZone.getBoundingClientRect().left;
-		let cumulativeWidth = dropZone.offsetLeft;
+		let mouseLeft = e.clientX - (dropZone?.getBoundingClientRect().left ?? 0);
+		let cumulativeWidth = dropZone?.offsetLeft ?? 0;
 
 		for (let i = 0; i < children.length; i++) {
 			if (i === currentPosition) {
@@ -66,9 +66,11 @@
 
 		// Update sorted branch array manually.
 		if (currentPosition !== dropPosition) {
-			const el = sortedBranches.splice(currentPosition, 1);
-			sortedBranches.splice(dropPosition, 0, ...el);
-			sortedBranches = sortedBranches; // Redraws #each loop.
+			if (sortedBranches?.length) {
+				const el = sortedBranches.splice(currentPosition, 1);
+				sortedBranches.splice(dropPosition, 0, ...el);
+				sortedBranches = sortedBranches; // Redraws #each loop.
+			}
 		}
 	}, 200);
 
@@ -94,7 +96,9 @@
 			if (!dragged) {
 				return; // Something other than a lane was dropped.
 			}
-			branchController.updateBranchOrder(sortedBranches.map((b, i) => ({ id: b.id, order: i })));
+			if (sortedBranches) {
+				branchController.updateBranchOrder(sortedBranches.map((b, i) => ({ id: b.id, order: i })));
+			}
 		}}
 	>
 		<div
@@ -104,42 +108,44 @@
 			bind:this={dropZone}
 			ondragover={(e) => handleDragOver(e)}
 		>
-			{#each sortedBranches as branch (branch.id)}
-				<div
-					role="presentation"
-					aria-label="Branch"
-					tabindex="-1"
-					class="branch draggable-branch"
-					draggable="true"
-					animate:flip={{ duration: 150 }}
-					onmousedown={(e) => (dragHandle = e.target)}
-					ondragstart={(e) => {
-						if (dragHandle.dataset.dragHandle === undefined) {
-							// We rely on elements with id `drag-handle` to initiate this drag
-							e.preventDefault();
-							e.stopPropagation();
-							return;
-						}
-						clone = cloneElement(e.currentTarget);
-						document.body.appendChild(clone);
-						// Get chromium to fire dragover & drop events
-						// https://stackoverflow.com/questions/6481094/html5-drag-and-drop-ondragover-not-firing-in-chrome/6483205#6483205
-						e.dataTransfer?.setData('text/html', 'd'); // cannot be empty string
-						e.dataTransfer?.setDragImage(clone, e.offsetX, e.offsetY); // Adds the padding
-						dragged = e.currentTarget;
-						dragged.style.opacity = '0.6';
-					}}
-					ondragend={() => {
-						if (dragged) {
-							dragged.style.opacity = '1';
-							dragged = undefined;
-						}
-						clone?.remove();
-					}}
-				>
-					<BranchLane {branch} />
-				</div>
-			{/each}
+			{#if sortedBranches}
+				{#each sortedBranches as branch (branch.id)}
+					<div
+						role="presentation"
+						aria-label="Branch"
+						tabindex="-1"
+						class="branch draggable-branch"
+						draggable="true"
+						animate:flip={{ duration: 150 }}
+						onmousedown={(e) => (dragHandle = e.target)}
+						ondragstart={(e) => {
+							if (dragHandle.dataset.dragHandle === undefined) {
+								// We rely on elements with id `drag-handle` to initiate this drag
+								e.preventDefault();
+								e.stopPropagation();
+								return;
+							}
+							clone = cloneElement(e.currentTarget);
+							document.body.appendChild(clone);
+							// Get chromium to fire dragover & drop events
+							// https://stackoverflow.com/questions/6481094/html5-drag-and-drop-ondragover-not-firing-in-chrome/6483205#6483205
+							e.dataTransfer?.setData('text/html', 'd'); // cannot be empty string
+							e.dataTransfer?.setDragImage(clone, e.offsetX, e.offsetY); // Adds the padding
+							dragged = e.currentTarget;
+							dragged.style.opacity = '0.6';
+						}}
+						ondragend={() => {
+							if (dragged) {
+								dragged.style.opacity = '1';
+								dragged = undefined;
+							}
+							clone?.remove();
+						}}
+					>
+						<BranchLane {branch} />
+					</div>
+				{/each}
+			{/if}
 		</div>
 
 		{#if $branches.length === 0}

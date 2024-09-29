@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import CommitContextMenu from './CommitContextMenu.svelte';
 	import CommitDragItem from './CommitDragItem.svelte';
 	import { Project } from '$lib/backend/projects';
@@ -31,6 +29,7 @@
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { type Snippet } from 'svelte';
+	import { run } from 'svelte/legacy';
 
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
@@ -102,11 +101,11 @@
 
 	let isUndoable = commit instanceof DetailedCommit;
 
-	let commitMessageModal: Modal = $state();
+	let commitMessageModal = $state<Modal>();
 	let commitMessageValid = $state(false);
 	let description = $state('');
 
-	let createRefModal: Modal = $state();
+	let createRefModal = $state<Modal>();
 	let createRefName = $state($baseBranch.remoteName + '/');
 
 	function openCommitMessageModal(e: Event) {
@@ -114,7 +113,7 @@
 
 		description = commit.description;
 
-		commitMessageModal.show();
+		commitMessageModal?.show();
 	}
 
 	function submitCommitMessageModal() {
@@ -124,7 +123,7 @@
 			branchController.updateCommitMessage(branch.id, commit.id, description);
 		}
 
-		commitMessageModal.close();
+		commitMessageModal?.close();
 	}
 
 	function getTimeAndAuthor() {
@@ -194,7 +193,7 @@
 					'refs/remotes/' + createRefName,
 					commit.changeId
 				);
-				createRefModal.close();
+				createRefModal?.close();
 			}}
 		>
 			Ok
@@ -246,7 +245,7 @@
 				role="button"
 				tabindex="0"
 				oncontextmenu={(e) => {
-					contextMenu.open(e);
+					contextMenu?.open(e);
 				}}
 				ondragenter={() => {
 					isDragTargeted = true;

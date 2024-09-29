@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { MessageRole } from '$lib/ai/types';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import { autoHeight } from '$lib/utils/autoHeight';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import { run } from 'svelte/legacy';
 
 	interface Props {
 		disableRemove?: boolean;
@@ -15,6 +14,10 @@
 		autofocus?: boolean;
 		editing?: boolean;
 		promptMessage: { role: MessageRole; content: string };
+
+		removeLastExample: () => void;
+		addExample: () => void;
+		input: () => void;
 	}
 
 	let {

@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Board from '$lib/components/Board.svelte';
@@ -17,8 +15,8 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
-	let viewport: HTMLDivElement = $state();
-	let contents: HTMLDivElement = $state();
+	let viewport = $state<HTMLDivElement>();
+	let contents = $state<HTMLDivElement>();
 
 	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(project.id);
 
@@ -29,7 +27,7 @@
 		return true;
 	}
 
-	run(() => {
+	$effect(() => {
 		if (shouldShowHttpsWarning()) {
 			showToast({
 				title: 'HTTPS remote detected',
@@ -46,7 +44,7 @@
 		goto(`/${project.id}/edit`);
 	}
 
-	run(() => {
+	$effect(() => {
 		if ($mode?.type === 'Edit') {
 			// That was causing an incorrect linting error when project.id was accessed inside the reactive block
 			gotoEdit();

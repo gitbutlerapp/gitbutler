@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { deleteAllData } from '$lib/backend/data';
 	import Login from '$lib/components/Login.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
@@ -26,14 +24,14 @@
 	let isDeleting = $state(false);
 	let loaded = $state(false);
 
-	let userPicture;
-	run(() => {
+	let userPicture = $state<string>();
+	$effect(() => {
 		userPicture = $user?.picture;
 	});
 
-	let deleteConfirmationModal: Modal = $state();
+	let deleteConfirmationModal = $state<Modal>();
 
-	run(() => {
+	$effect(() => {
 		if ($user && !loaded) {
 			loaded = true;
 			userService.getUser($user?.access_token).then((cloudUser) => {
@@ -91,7 +89,7 @@
 			console.error(err);
 			showError('Failed to delete project', err);
 		} finally {
-			deleteConfirmationModal.close();
+			deleteConfirmationModal?.close();
 			isDeleting = false;
 		}
 	}
@@ -135,24 +133,28 @@
 
 	{#if $user}
 		<SectionCard orientation="row">
-			<svelte:fragment slot="title">Signing out</svelte:fragment>
-			<svelte:fragment slot="caption">
+			{#snippet title()}
+				Signing out
+			{/snippet}
+			{#snippet caption()}
 				Ready to take a break? Click here to log out and unwind.
-			</svelte:fragment>
+			{/snippet}
 
 			<Login />
 		</SectionCard>
 	{/if}
 
 	<SectionCard orientation="row">
-		<svelte:fragment slot="title">Remove all projects</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Remove all projects
+		{/snippet}
+		{#snippet caption()}
 			You can delete all projects from the GitButler app.
 			<br />
 			Your code remains safe. it only clears the configuration.
-		</svelte:fragment>
+		{/snippet}
 
-		<Button style="error" kind="soft" onclick={() => deleteConfirmationModal.show()}>
+		<Button style="error" kind="soft" onclick={() => deleteConfirmationModal?.show()}>
 			Remove projects…
 		</Button>
 

@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
@@ -27,6 +25,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { createEventDispatcher, onMount, tick } from 'svelte';
+	import { run } from 'svelte/legacy';
 	import { fly } from 'svelte/transition';
 
 	interface Props {
@@ -42,6 +41,7 @@
 		isExpanded,
 		commitMessage = $bindable(),
 		focusOnMount = false,
+		// eslint-disable-next-line
 		valid = $bindable(false),
 		commit = undefined,
 		cancel
@@ -65,8 +65,8 @@
 	let aiLoading = $state(false);
 	let aiConfigurationValid = $state(false);
 
-	let titleTextArea: HTMLTextAreaElement = $state();
-	let descriptionTextArea: HTMLTextAreaElement = $state();
+	let titleTextArea = $state<HTMLTextAreaElement>();
+	let descriptionTextArea = $state<HTMLTextAreaElement>();
 
 	let { title, description } = $derived(splitMessage(commitMessage));
 	run(() => {
@@ -194,8 +194,8 @@
 				commitMessage = concatMessage(toKeep, newDescription);
 				tick().then(() => {
 					descriptionTextArea?.focus();
-					descriptionTextArea.setSelectionRange(0, 0);
-					autoHeight(descriptionTextArea);
+					descriptionTextArea?.setSelectionRange(0, 0);
+					if (descriptionTextArea) autoHeight(descriptionTextArea);
 				});
 			}
 
@@ -278,14 +278,18 @@
 								label="Extra concise"
 								on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
 							>
-								<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+								{#snippet control()}
+									<Checkbox small bind:checked={$commitGenerationExtraConcise} />
+								{/snippet}
 							</ContextMenuItem>
 
 							<ContextMenuItem
 								label="Use emojis 😎"
 								on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
 							>
-								<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+								{#snippet control()}
+									<Checkbox small bind:checked={$commitGenerationUseEmojis} />
+								{/snippet}
 							</ContextMenuItem>
 						</ContextMenuSection>
 					{/snippet}
