@@ -17,3 +17,11 @@ gitbutler-patch-reference.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-commit.workspace = true
+
+[[test]]
+name="stack"
+path = "tests/mod.rs"
+
+[dev-dependencies]
+gitbutler-testsupport.workspace = true
+tempfile = "3.10"

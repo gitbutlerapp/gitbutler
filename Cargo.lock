@@ -2548,9 +2548,11 @@ dependencies = [
  "gitbutler-patch-reference",
  "gitbutler-reference",
  "gitbutler-repo",
+ "gitbutler-testsupport",
  "gix",
  "itertools 0.13.0",
  "serde",
+ "tempfile",
 ]
 
 [[package]]

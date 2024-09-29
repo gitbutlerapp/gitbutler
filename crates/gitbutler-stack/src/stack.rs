@@ -372,7 +372,7 @@ fn get_branch(stack: &Branch, name: &str) -> Result<(usize, PatchReference)> {
         .into_iter()
         .enumerate()
         .find(|(_, h)| h.name == name)
-        .ok_or_else(|| anyhow!("Branch {} not found", name))?;
+        .ok_or_else(|| anyhow!("Series with name {} not found", name))?;
     Ok((idx, head))
 }
 
