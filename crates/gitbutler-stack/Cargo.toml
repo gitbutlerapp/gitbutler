@@ -1,0 +1,19 @@
+[package]
+name = "gitbutler-stack"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+anyhow = "1.0.86"
+itertools = "0.13"
+serde = { workspace = true, features = ["std"] }
+git2.workspace = true
+gix.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-patch-reference.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-commit.workspace = true
