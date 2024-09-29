@@ -27,16 +27,7 @@
 		binary: false,
 		poisoned: false,
 		changeType: 'modified',
-		diff: `@@ -59,7 +59,7 @@ (HunkDiff.svelte, line 141)
- 			on:branchSelected={async (e) => {
- 				selectedBranch = e.detail;
- 				// TODO: Temporary solution to forcing Windows to use system executable
--				if ($platformName === 'win32') {
-+				if ($platformName === 'wsin32') {
- 					setTarget();
- 				}
- 			}}
-		`,
+		diff: '',
 		filePath: 'test',
 		new_start: 59,
 		new_lines: 7
@@ -44,11 +35,11 @@
 
 	// prettier-ignore
 	const hunkSubsections = [
+		{expanded: true, lines: [{beforeLineNumber: 56, afterLineNumber: 56, content: "\t\t\t// Diff example"}], sectionType: 2, maxLineNumber: 55},
 		{expanded: true, lines: [{beforeLineNumber: 57, afterLineNumber: 57, content: "\t\t\tprojectName={project.title}"}, {beforeLineNumber: 58, afterLineNumber: 58, content: "\t\t\t{remoteBranches}"}, {beforeLineNumber: 59, afterLineNumber: 59, content: "\t\t\ton:branchSelected={async (e) => {"}], sectionType: 2, maxLineNumber: 59},
-		{expanded: true, lines: [{beforeLineNumber: 60, afterLineNumber: undefined, content: "\t\t\t\tselectedBranch = e.detail;"}], sectionType: 1, maxLineNumber: 60},
-		{expanded: true, lines: [{beforeLineNumber: 61, afterLineNumber: 60, content: "\t\t\t\t// TODO: Temporary solution to forcing Windows to use system executable"}], sectionType: 2, maxLineNumber: 61},
-		{expanded: true, lines: [{beforeLineNumber: 62, afterLineNumber: undefined, content: "\t\t\t\tif ($platformName === 'win32') {"}], sectionType: 1, maxLineNumber: 62},
-		{expanded: true, lines: [{beforeLineNumber: undefined, afterLineNumber: 61, content: "\t\t\t\tif ($platformName === 'wsin32') {"}], sectionType: 0, maxLineNumber: 61},
+		{expanded: true, lines: [{beforeLineNumber: 61, afterLineNumber: undefined, content: "\t\t\t\tselectedBranch = e.detail;"}], sectionType: 0, maxLineNumber: 60},
+		{expanded: true, lines: [{beforeLineNumber: 62, afterLineNumber: undefined, content: "\t\t\t\tif ($platformName === 'win32') {"}], sectionType: 2, maxLineNumber: 61},
+		{expanded: true, lines: [{beforeLineNumber: undefined, afterLineNumber: 61, content: "\t\t\t\tif ($platformName === 'wsin64') {"}], sectionType: 1, maxLineNumber: 61},
 		{expanded: true, lines: [{beforeLineNumber: 63, afterLineNumber: 62, content: "\t\t\t\t\tsetTarget();"}, {beforeLineNumber: 64, afterLineNumber: 63, content: "\t\t\t\t}"}, {beforeLineNumber: 65, afterLineNumber: 64, content: "\t\t\t}}"}], sectionType: 2, maxLineNumber: 65}
 	];
 
