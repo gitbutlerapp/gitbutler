@@ -5,6 +5,9 @@ use gitbutler_repo::RepositoryExt as _;
 
 use crate::VirtualBranchesExt as _;
 
+/// Checks out the combined trees of all branches in the workspace.
+///
+/// This function will fail if the applied branches conflict with each other.
 pub(crate) fn checkout_branch_trees<'a>(
     ctx: &'a CommandContext,
     _perm: &mut WorktreeWritePermission,

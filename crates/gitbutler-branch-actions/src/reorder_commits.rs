@@ -8,6 +8,10 @@ use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt as _};
 
 use crate::{branch_trees::checkout_branch_trees, VirtualBranchesExt as _};
 
+/// Moves a commit up or down a stack by a certain offset.
+///
+/// After the commit is moved, the combined branch trees are checked out.
+/// A stack must have at least two commits in it. A 0 offset is a no-op.
 ///
 /// Presume we had the stack:
 ///
@@ -23,25 +27,12 @@ use crate::{branch_trees::checkout_branch_trees, VirtualBranchesExt as _};
 /// B
 /// D
 ///
-/// Presume we had the stack:
-///
-/// A
-/// B
-/// C
-/// D
-///
-/// If B was the subject, and the offset was 1, we would expect:
+/// Or, if B was the subject, and the offset was 1, we would expect:
 ///
 /// A
 /// C
 /// B
 /// D
-///
-
-// move a given commit in a branch up one or down one
-// if the offset is positive, move the commit down one
-// if the offset is negative, move the commit up one
-// rewrites the branch head to the new head commit
 pub(crate) fn reorder_commit(
     ctx: &CommandContext,
     branch_id: BranchId,
@@ -246,7 +237,9 @@ mod test {
         use gitbutler_commit::commit_ext::CommitExt as _;
         use gitbutler_repo::LogUntil;
         use gitbutler_repo::RepositoryExt as _;
-        use gitbutler_testsupport::testing_repository::{assert_tree_matches, TestingRepository};
+        use gitbutler_testsupport::testing_repository::{
+            assert_commit_tree_matches, TestingRepository,
+        };
 
         #[test]
         fn less_than_two_commits_is_an_error() {
@@ -299,7 +292,7 @@ mod test {
                 test_repository.repository.find_commit(result.head).unwrap();
             assert!(!a_prime.is_conflicted());
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &a_prime,
                 &[("foo.txt", b"a"), ("bar.txt", b"a"), ("baz.txt", b"a")],
@@ -308,7 +301,7 @@ mod test {
             let b_prime: git2::Commit = a_prime.parent(0).unwrap();
             assert!(!b_prime.is_conflicted());
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &b_prime,
                 &[("foo.txt", b"a"), ("baz.txt", b"a")],
@@ -363,12 +356,12 @@ mod test {
                 test_repository.repository.find_commit(result.head).unwrap();
             assert!(!a_prime.is_conflicted());
 
-            assert_tree_matches(&test_repository.repository, &a_prime, &[("foo.txt", b"x")]);
+            assert_commit_tree_matches(&test_repository.repository, &a_prime, &[("foo.txt", b"x")]);
 
             let b_prime: git2::Commit = a_prime.parent(0).unwrap();
             assert!(b_prime.is_conflicted());
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &b_prime,
                 &[

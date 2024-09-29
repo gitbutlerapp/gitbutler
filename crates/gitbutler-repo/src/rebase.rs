@@ -425,7 +425,9 @@ mod test {
     mod cherry_rebase_group {
         use crate::repository_ext::RepositoryExt as _;
         use gitbutler_commit::commit_ext::CommitExt;
-        use gitbutler_testsupport::testing_repository::{assert_tree_matches, TestingRepository};
+        use gitbutler_testsupport::testing_repository::{
+            assert_commit_tree_matches, TestingRepository,
+        };
 
         use crate::{rebase::cherry_rebase_group, LogUntil};
 
@@ -452,7 +454,7 @@ mod test {
 
             assert!(commits.into_iter().all(|commit| !commit.is_conflicted()));
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &commit,
                 &[("foo.txt", b"c"), ("bar.txt", b"x")],
@@ -475,7 +477,7 @@ mod test {
 
             assert!(commit.is_conflicted());
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &commit,
                 &[
@@ -508,7 +510,7 @@ mod test {
 
             assert!(commit.is_conflicted());
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &commit,
                 &[
@@ -537,7 +539,7 @@ mod test {
             let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
             assert!(commit.is_conflicted());
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &commit,
                 &[
@@ -555,7 +557,7 @@ mod test {
             let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
             assert!(commit.is_conflicted());
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &commit,
                 &[
@@ -591,7 +593,7 @@ mod test {
             assert!(commits.iter().all(|commit| commit.is_conflicted()));
 
             // Rebased version of B (B')
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &commits[1],
                 &[
@@ -607,7 +609,7 @@ mod test {
             );
 
             // Rebased version of C
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &commits[0],
                 &[
@@ -628,7 +630,9 @@ mod test {
     mod gitbutler_merge_commits {
         use crate::rebase::gitbutler_merge_commits;
         use gitbutler_commit::commit_ext::CommitExt as _;
-        use gitbutler_testsupport::testing_repository::{assert_tree_matches, TestingRepository};
+        use gitbutler_testsupport::testing_repository::{
+            assert_commit_tree_matches, TestingRepository,
+        };
 
         #[test]
         fn unconflicting_merge() {
@@ -645,7 +649,7 @@ mod test {
 
             assert!(!result.is_conflicted());
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &result,
                 &[("foo.txt", b"b"), ("bar.txt", b"a")],
@@ -667,7 +671,7 @@ mod test {
 
             assert!(result.is_conflicted());
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &result,
                 &[
@@ -711,7 +715,7 @@ mod test {
 
             assert!(!result.is_conflicted());
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &result,
                 &[("foo.txt", b"c"), ("bar.txt", b"a")],
@@ -760,7 +764,7 @@ mod test {
 
             assert!(!result.is_conflicted());
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &result,
                 &[("foo.txt", b"c"), ("bar.txt", b"c")],
@@ -808,7 +812,7 @@ mod test {
 
             assert!(result.is_conflicted());
 
-            assert_tree_matches(
+            assert_commit_tree_matches(
                 &test_repository.repository,
                 &result,
                 &[

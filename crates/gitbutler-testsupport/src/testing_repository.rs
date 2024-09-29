@@ -81,13 +81,19 @@ impl TestingRepository {
     }
 }
 
-pub fn assert_tree_matches<'a>(
+pub fn assert_commit_tree_matches<'a>(
     repository: &'a git2::Repository,
     commit: &git2::Commit<'a>,
     files: &[(&str, &[u8])],
 ) {
-    let tree = commit.tree().unwrap();
+    assert_tree_matches(repository, &commit.tree().unwrap(), files);
+}
 
+pub fn assert_tree_matches<'a>(
+    repository: &'a git2::Repository,
+    tree: &git2::Tree<'a>,
+    files: &[(&str, &[u8])],
+) {
     for (path, content) in files {
         let blob = tree.get_path(Path::new(path)).unwrap().id();
         let blob: git2::Blob<'a> = repository.find_blob(blob).unwrap();
