@@ -26,6 +26,7 @@
 		subsections: ContentSection[];
 		tabSize: number;
 		diffFont: string;
+		diffLigatures: boolean;
 		minWidth: number;
 		draggingDisabled: boolean;
 		onclick: () => void;
@@ -51,6 +52,7 @@
 		subsections,
 		tabSize,
 		diffFont,
+		diffLigatures,
 		minWidth,
 		draggingDisabled = false,
 		onclick,
@@ -340,6 +342,7 @@
 	bind:clientHeight={tableHeight}
 	class="table__wrapper hide-native-scrollbar"
 	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
+	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
 >
 	<ScrollableContainer horz padding={{ left: NUMBER_COLUMN_WIDTH_PX * 2 + 2 }}>
 		<table data-hunk-id={hunk.id} class="table__section">

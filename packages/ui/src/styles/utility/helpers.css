@@ -37,6 +37,16 @@ pre {
 	}
 }
 
+.stack-v {
+	display: flex;
+	flex-direction: column;
+}
+
+.stack-h {
+	display: flex;
+	flex-direction: row;
+}
+
 .truncate {
 	overflow: hidden;
 	text-overflow: ellipsis;

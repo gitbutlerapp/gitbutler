@@ -71,69 +71,93 @@
 		<ThemeSelector {userSettings} />
 	</SectionCard>
 
-	<SectionCard orientation="row" centerAlign>
-		<svelte:fragment slot="title">Tab size</svelte:fragment>
-		<svelte:fragment slot="caption">
-			The number of spaces a tab is equal to when previewing code changes.
-		</svelte:fragment>
+	<div class="stack-v">
+		<SectionCard centerAlign roundedBottom={false}>
+			<svelte:fragment slot="title">Diff font</svelte:fragment>
+			<svelte:fragment slot="caption"
+				>Sets the font for the diff view. The first font name is the default, others are fallbacks.
+			</svelte:fragment>
 
-		<svelte:fragment slot="actions">
-			<TextBox
-				type="number"
-				width={100}
-				textAlign="center"
-				value={$userSettings.tabSize.toString()}
-				minVal={1}
-				maxVal={8}
-				showCountActions
-				on:change={(e) => {
-					userSettings.update((s) => ({
-						...s,
-						tabSize: parseInt(e.detail) || $userSettings.tabSize
-					}));
-				}}
-				placeholder={$userSettings.tabSize.toString()}
-			/>
-		</svelte:fragment>
-	</SectionCard>
+			<div class="diff-preview">
+				<TextBox
+					wide
+					bind:value={$userSettings.diffFont}
+					required
+					on:change={(e) => {
+						userSettings.update((s) => ({
+							...s,
+							diffFont: e.detail
+						}));
+					}}
+				/>
 
-	<SectionCard centerAlign>
-		<svelte:fragment slot="title">Diff font</svelte:fragment>
-		<svelte:fragment slot="caption"
-			>Sets the font for the diff view. The first font name is the default, others are fallbacks.
-		</svelte:fragment>
+				<HunkDiff
+					readonly
+					filePath="test.tsx"
+					minWidth={1.25}
+					selectable={false}
+					draggingDisabled
+					tabSize={$userSettings.tabSize}
+					diffFont={$userSettings.diffFont}
+					diffLigatures={$userSettings.diffLigatures}
+					hunk={testHunk}
+					subsections={hunkSubsections}
+					onclick={() => {}}
+					handleSelected={() => {}}
+					handleLineContextMenu={() => {}}
+				/>
+			</div>
+		</SectionCard>
 
-		<div class="diff-preview">
-			<TextBox
-				wide
-				bind:value={$userSettings.diffFont}
-				required
-				on:change={(e) => {
-					userSettings.update((s) => ({
-						...s,
-						diffFont: e.detail
-					}));
-				}}
-			/>
+		<SectionCard
+			labelFor="allowDiffLigatures"
+			orientation="row"
+			roundedTop={false}
+			roundedBottom={false}
+		>
+			<svelte:fragment slot="title">Allow font ligatures</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<Toggle
+					id="allowDiffLigatures"
+					checked={$userSettings.diffLigatures}
+					on:click={() => {
+						userSettings.update((s) => ({
+							...s,
+							diffLigatures: !$userSettings.diffLigatures
+						}));
+					}}
+				/>
+			</svelte:fragment>
+		</SectionCard>
 
-			<HunkDiff
-				readonly
-				filePath="test.tsx"
-				minWidth={1.25}
-				selectable={false}
-				draggingDisabled
-				tabSize={$userSettings.tabSize}
-				diffFont={$userSettings.diffFont}
-				hunk={testHunk}
-				subsections={hunkSubsections}
-				onclick={() => {}}
-				handleSelected={() => {}}
-				handleLineContextMenu={() => {}}
-			/>
-		</div>
-	</SectionCard>
+		<SectionCard orientation="row" centerAlign roundedTop={false}>
+			<svelte:fragment slot="title">Tab size</svelte:fragment>
+			<svelte:fragment slot="caption">
+				The number of spaces a tab is equal to when previewing code changes.
+			</svelte:fragment>
 
-	<form on:change={(e) => onScrollbarFormChange(e.currentTarget)}>
+			<svelte:fragment slot="actions">
+				<TextBox
+					type="number"
+					width={100}
+					textAlign="center"
+					value={$userSettings.tabSize.toString()}
+					minVal={1}
+					maxVal={8}
+					showCountActions
+					on:change={(e) => {
+						userSettings.update((s) => ({
+							...s,
+							tabSize: parseInt(e.detail) || $userSettings.tabSize
+						}));
+					}}
+					placeholder={$userSettings.tabSize.toString()}
+				/>
+			</svelte:fragment>
+		</SectionCard>
+	</div>
+
+	<form class="stack-v" on:change={(e) => onScrollbarFormChange(e.currentTarget)}>
 		<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll">
 			<svelte:fragment slot="title">Scrollbar-On-Scroll</svelte:fragment>
 			<svelte:fragment slot="caption">

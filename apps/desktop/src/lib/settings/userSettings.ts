@@ -20,6 +20,7 @@ export interface Settings {
 	scrollbarVisibilityState: ScrollbarVisilitySettings;
 	tabSize: number;
 	diffFont: string;
+	diffLigatures: boolean;
 }
 
 const defaults: Settings = {
@@ -35,7 +36,8 @@ const defaults: Settings = {
 	zoom: 1,
 	scrollbarVisibilityState: 'scroll',
 	tabSize: 4,
-	diffFont: 'Geist Mono, Menlo, monospace'
+	diffFont: 'Geist Mono, Menlo, monospace',
+	diffLigatures: false
 };
 
 export function loadUserSettings(): Writable<Settings> {
