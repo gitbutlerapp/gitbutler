@@ -12,8 +12,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
 use git2_hooks::HookResult;
 use gitbutler_branch::{
-    dedup, dedup_fmt, reconcile_claims, signature, Branch, BranchId, BranchOwnershipClaims,
-    BranchUpdateRequest, OwnershipClaim, SignaturePurpose, Target, VirtualBranchesHandle,
+    dedup, dedup_fmt, reconcile_claims, Branch, BranchId, BranchOwnershipClaims,
+    BranchUpdateRequest, OwnershipClaim, Target, VirtualBranchesHandle,
 };
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
@@ -1586,139 +1586,6 @@ pub(crate) fn amend(
     } else {
         Err(anyhow!("rebase failed"))
     }
-}
-
-// move a given commit in a branch up one or down one
-// if the offset is positive, move the commit down one
-// if the offset is negative, move the commit up one
-// rewrites the branch head to the new head commit
-pub(crate) fn reorder_commit(
-    ctx: &CommandContext,
-    branch_id: BranchId,
-    commit_oid: git2::Oid,
-    offset: i32,
-) -> Result<()> {
-    let vb_state = ctx.project().virtual_branches();
-
-    let default_target = vb_state.get_default_target()?;
-
-    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
-    // find the commit to offset from
-    let commit = ctx
-        .repository()
-        .find_commit(commit_oid)
-        .context("failed to find commit")?;
-
-    let parent = commit.parent(0).context("failed to find parent")?;
-    let parent_oid = parent.id();
-
-    let repository = ctx.repository();
-
-    let tree = repository
-        .find_tree(branch.tree)
-        .context("Failed to get branch tree")?;
-
-    let author_signature =
-        signature(SignaturePurpose::Author).context("Failed to get gitbutler signature")?;
-    let committer_signature =
-        signature(SignaturePurpose::Committer).context("Failed to get gitbutler signature")?;
-
-    let head = repository
-        .find_commit(branch.head)
-        .context("Failed to find branch head commit")?;
-
-    let tree_commit = repository
-        .commit(
-            None,
-            &author_signature,
-            &committer_signature,
-            "Branch commited changes",
-            &tree,
-            &[&head],
-        )
-        .context("Failed to commit uncommited changes")?;
-
-    let succeeding_rebases = ctx.project().succeeding_rebases;
-
-    if offset < 0 {
-        // move commit up
-        if branch.head == commit_oid {
-            // can't move the head commit up
-            return Ok(());
-        }
-
-        // get a list of the commits to rebase
-        let mut ids_to_rebase = ctx
-            .repository()
-            .l(branch.head, LogUntil::Commit(commit.id()))?;
-
-        ids_to_rebase.insert(
-            ids_to_rebase.len() - offset.unsigned_abs() as usize,
-            commit_oid,
-        );
-
-        let new_head =
-            cherry_rebase_group(repository, parent_oid, &ids_to_rebase, succeeding_rebases)
-                .context("rebase failed")?;
-
-        branch.head = new_head;
-    } else {
-        //  move commit down
-        if default_target.sha == parent_oid {
-            // can't move the commit down past the target
-            return Ok(());
-        }
-
-        let mut target = parent.clone();
-
-        for _ in 0..offset {
-            target = target.parent(0).context("failed to find target")?;
-        }
-
-        let target_oid = target.id();
-
-        // get a list of the commits to rebase
-        let mut ids_to_rebase: Vec<git2::Oid> = ctx
-            .repository()
-            .l(branch.head, LogUntil::Commit(target_oid))?
-            .iter()
-            .filter(|id| **id != commit_oid)
-            .cloned()
-            .collect();
-
-        ids_to_rebase.push(commit_oid);
-
-        let new_head =
-            cherry_rebase_group(repository, target_oid, &ids_to_rebase, succeeding_rebases)
-                .context("rebase failed")?;
-
-        branch.head = new_head;
-    }
-
-    let new_tree_commit =
-        cherry_rebase_group(repository, branch.head, &[tree_commit], succeeding_rebases)
-            .context("rebase failed")?;
-
-    let new_tree_commit = repository
-        .find_commit(new_tree_commit)
-        .context("Failed to find new tree commit")?;
-
-    branch.tree = repository
-        .find_real_tree(&new_tree_commit, Default::default())?
-        .id();
-
-    // Use the conflicted tree commit as the head.
-    if new_tree_commit.is_conflicted() {
-        branch.head = new_tree_commit.id();
-    }
-
-    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-    vb_state.set_branch(branch.clone())?;
-
-    crate::integration::update_workspace_commit(&vb_state, ctx)
-        .context("failed to update gitbutler workspace")?;
-
-    Ok(())
 }
 
 // create and insert a blank commit (no tree change) either above or below a commit

@@ -66,18 +66,18 @@ impl RepositoryExt for git2::Repository {
     ) -> Result<git2::Index, anyhow::Error> {
         // we need to do a manual 3-way patch merge
         // find the base, which is the parent of to_rebase
-        let base = if to_rebase.is_conflicted() {
+        let base = dbg!(if to_rebase.is_conflicted() {
             // Use to_rebase's recorded base
             self.find_real_tree(to_rebase, ConflictedTreeKey::Base)?
         } else {
             let base_commit = to_rebase.parent(0)?;
             // Use the parent's auto-resolution
             self.find_real_tree(&base_commit, Default::default())?
-        };
+        });
         // Get the auto-resolution
-        let ours = self.find_real_tree(head, Default::default())?;
+        let ours = dbg!(self.find_real_tree(head, Default::default())?);
         // Get the original theirs
-        let thiers = self.find_real_tree(to_rebase, ConflictedTreeKey::Theirs)?;
+        let thiers = dbg!(self.find_real_tree(to_rebase, ConflictedTreeKey::Theirs)?);
 
         self.merge_trees(&base, &ours, &thiers, merge_options)
             .context("failed to merge trees for cherry pick")

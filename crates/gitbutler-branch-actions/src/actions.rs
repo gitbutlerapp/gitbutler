@@ -1,4 +1,5 @@
 use super::r#virtual as vbranch;
+use crate::reorder_commits;
 use crate::upstream_integration::{self, BranchStatuses, Resolution, UpstreamIntegrationContext};
 use crate::{
     base,
@@ -372,7 +373,14 @@ pub fn reorder_commit(
         SnapshotDetails::new(OperationKind::ReorderCommit),
         guard.write_permission(),
     );
-    vbranch::reorder_commit(&ctx, branch_id, commit_oid, offset).map_err(Into::into)
+    reorder_commits::reorder_commit(
+        &ctx,
+        branch_id,
+        commit_oid,
+        offset,
+        guard.write_permission(),
+    )
+    .map_err(Into::into)
 }
 
 pub fn reset_virtual_branch(
