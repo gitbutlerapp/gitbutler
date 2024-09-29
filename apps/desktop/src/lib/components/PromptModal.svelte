@@ -4,21 +4,26 @@
 	import { getContext } from '$lib/utils/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { run } from 'svelte/legacy';
 
 	const promptService = getContext(PromptService);
 	const [prompt, error] = promptService.reactToPrompt({ timeoutMs: 30000 });
 
-	let value = '';
-	let modal: Modal;
-	let loading = false;
+	let value = $state('');
+	let modal = $state<Modal>();
+	let loading = $state(false);
 
-	$: if ($prompt) {
-		modal?.show();
-	}
+	run(() => {
+		if ($prompt) {
+			modal?.show();
+		}
+	});
 
-	$: if (!$prompt && !$error) {
-		modal?.close();
-	}
+	run(() => {
+		if (!$prompt && !$error) {
+			modal?.close();
+		}
+	});
 
 	async function submit() {
 		if (!$prompt) return;

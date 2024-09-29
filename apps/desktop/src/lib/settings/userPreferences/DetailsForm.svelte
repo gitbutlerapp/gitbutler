@@ -12,12 +12,12 @@
 	import * as toasts from '$lib/utils/toasts';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
-	const project = getContext(Project);
+	const project = $state(getContext(Project));
 	const user = getContextStore(User);
 	const projectService = getContext(ProjectService);
 
-	let title = project?.title;
-	let description = project?.description;
+	let title = $state(project?.title);
+	let description = $state(project?.description);
 
 	async function saveProject() {
 		const api =

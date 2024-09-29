@@ -15,8 +15,8 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
-	let viewport: HTMLDivElement;
-	let contents: HTMLDivElement;
+	let viewport = $state<HTMLDivElement>();
+	let contents = $state<HTMLDivElement>();
 
 	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(project.id);
 
@@ -27,13 +27,15 @@
 		return true;
 	}
 
-	$: if (shouldShowHttpsWarning()) {
-		showToast({
-			title: 'HTTPS remote detected',
-			message: 'In order to push & fetch, you may need to set up an SSH key.',
-			style: 'neutral'
-		});
-	}
+	$effect(() => {
+		if (shouldShowHttpsWarning()) {
+			showToast({
+				title: 'HTTPS remote detected',
+				message: 'In order to push & fetch, you may need to set up an SSH key.',
+				style: 'neutral'
+			});
+		}
+	});
 
 	const modeService = getContext(ModeService);
 	const mode = modeService.mode;
@@ -42,10 +44,12 @@
 		goto(`/${project.id}/edit`);
 	}
 
-	$: if ($mode?.type === 'Edit') {
-		// That was causing an incorrect linting error when project.id was accessed inside the reactive block
-		gotoEdit();
-	}
+	$effect(() => {
+		if ($mode?.type === 'Edit') {
+			// That was causing an incorrect linting error when project.id was accessed inside the reactive block
+			gotoEdit();
+		}
+	});
 </script>
 
 <div class="board-wrapper">

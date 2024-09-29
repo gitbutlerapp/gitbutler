@@ -14,12 +14,13 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
+	import { run } from 'svelte/legacy';
 
 	const projectService = getContext(ProjectService);
-	const project = getContext(Project);
+	const project = $state(getContext(Project));
 
 	let useNewLocking = project?.use_new_locking || false;
-	let signCommits = false;
+	let signCommits = $state(false);
 
 	const gitConfig = getContext(GitConfigService);
 
@@ -29,11 +30,11 @@
 	}
 
 	// gpg.format
-	let signingFormat = 'openpgp';
+	let signingFormat = $state('openpgp');
 	// user.signingkey
-	let signingKey = '';
+	let signingKey = $state('');
 	// gpg.ssh.program / gpg.program
-	let signingProgram = '';
+	let signingProgram = $state('');
 
 	const signingFormatOptions = [
 		{
@@ -46,16 +47,16 @@
 		}
 	];
 
-	let checked = false;
-	let loading = true;
-	let signCheckResult = false;
-	let errorMessage = '';
+	let checked = $state(false);
+	let loading = $state(true);
+	let signCheckResult = $state(false);
+	let errorMessage = $state('');
 	let succeedingRebases = project.succeedingRebases;
 
-	$: {
+	run(() => {
 		project.succeedingRebases = succeedingRebases;
 		projectService.updateProject(project);
-	}
+	});
 
 	async function checkSigning() {
 		checked = true;
@@ -88,7 +89,9 @@
 		await projectService.updateProject(project);
 	}
 
-	$: setUseNewLocking(useNewLocking);
+	run(() => {
+		setUseNewLocking(useNewLocking);
+	});
 
 	onMount(async () => {
 		let gitConfigSettings = await gitConfig.getGbConfig(project.id);
@@ -109,15 +112,17 @@
 
 <Section>
 	<SectionCard orientation="row" labelFor="signCommits">
-		<svelte:fragment slot="title">Sign commits</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Sign commits
+		{/snippet}
+		{#snippet caption()}
 			Use GPG or SSH to sign your commits so they can be verified as authentic.
 			<br />
 			GitButler will sign commits as per your git configuration.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle id="signCommits" checked={signCommits} on:click={handleSignCommitsClick} />
-		</svelte:fragment>
+		{/snippet}
+		{#snippet actions()}
+			<Toggle id="signCommits" checked={signCommits} onclick={handleSignCommitsClick} />
+		{/snippet}
 	</SectionCard>
 	{#if signCommits}
 		<SectionCard orientation="column">
@@ -158,7 +163,7 @@
 					filled
 					outlined={false}
 				>
-					<svelte:fragment slot="title">
+					{#snippet title()}
 						{#if loading}
 							<p>Checking signing</p>
 						{:else if signCheckResult}
@@ -167,7 +172,7 @@
 							<p>Signing is not working correctly</p>
 							<pre>{errorMessage}</pre>
 						{/if}
-					</svelte:fragment>
+					{/snippet}
 				</InfoMessage>
 			{/if}
 
@@ -181,9 +186,10 @@
 			<SectionCardDisclaimer>
 				Signing commits can allow other people to verify your commits if you publish the public
 				version of your signing key.
-				<Link href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits"
-					>Read more</Link
-				> about commit signing and verification.
+				<Link href="https://docs.gitbutler.com/features/virtual-branches/verifying-commits">
+					Read more
+				</Link>
+				about commit signing and verification.
 			</SectionCardDisclaimer>
 		</SectionCard>
 	{/if}

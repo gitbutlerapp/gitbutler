@@ -36,15 +36,15 @@
 		});
 	}
 
-	let modal: Modal;
+	let modal: Modal = $state();
 
-	let messageInputValue = '';
-	let emailInputValue = '';
-	let sendLogs = false;
-	let sendProjectData = false;
-	let sendProjectRepository = false;
+	let messageInputValue = $state('');
+	let emailInputValue = $state('');
+	let sendLogs = $state(false);
+	let sendProjectData = $state(false);
+	let sendProjectRepository = $state(false);
 
-	$: projectId = $page.params.projectId!;
+	let projectId = $derived($page.params.projectId!);
 
 	function reset() {
 		messageInputValue = '';

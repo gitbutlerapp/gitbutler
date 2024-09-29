@@ -12,13 +12,17 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
 
-	export let error: any = undefined;
+	interface Props {
+		error?: any;
+	}
+
+	let { error = undefined }: Props = $props();
 
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
 
-	let loading = false;
-	let deleteConfirmationModal: RemoveProjectButton;
+	let loading = $state(false);
+	let deleteConfirmationModal: RemoveProjectButton = $state();
 
 	async function onDeleteClicked() {
 		loading = true;

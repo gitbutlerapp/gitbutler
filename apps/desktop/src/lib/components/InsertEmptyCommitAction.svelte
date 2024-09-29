@@ -2,9 +2,13 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
 
-	export let isLast = false;
-	export let isFirst = false;
-	export let isMiddle = false;
+	interface Props {
+		isLast?: boolean;
+		isFirst?: boolean;
+		isMiddle?: boolean;
+	}
+
+	let { isLast = false, isFirst = false, isMiddle = false }: Props = $props();
 
 	const dispatch = createEventDispatcher<{ click: void }>();
 </script>

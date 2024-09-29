@@ -18,14 +18,14 @@
 
 	let project = getContext(Project);
 
-	let selectedBranch = { name: $baseBranch.branchName };
-	let selectedRemote = { name: $baseBranch.actualPushRemoteName() };
-	let targetChangeDisabled = false;
+	let selectedBranch = $state({ name: $baseBranch.branchName });
+	let selectedRemote = $state({ name: $baseBranch.actualPushRemoteName() });
+	let targetChangeDisabled = $state(false);
 
 	if ($activeBranches) {
 		targetChangeDisabled = $activeBranches.length > 0;
 	}
-	let isSwitching = false;
+	let isSwitching = $state(false);
 
 	function uniqueRemotes(remoteBranches: { name: string }[]) {
 		return Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({

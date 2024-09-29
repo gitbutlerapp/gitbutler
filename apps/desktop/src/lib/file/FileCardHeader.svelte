@@ -8,14 +8,18 @@
 	import { createEventDispatcher } from 'svelte';
 	import type { AnyFile } from '$lib/vbranches/types';
 
-	export let file: AnyFile;
-	export let isFileLocked: boolean;
+	interface Props {
+		file: AnyFile;
+		isFileLocked: boolean;
+	}
+
+	let { file, isFileLocked }: Props = $props();
 
 	const dispatch = createEventDispatcher<{ close: void }>();
-	$: fileStats = computeAddedRemovedByFiles(file);
-	$: fileStatus = computeFileStatus(file);
+	let fileStats = $derived(computeAddedRemovedByFiles(file));
+	let fileStatus = $derived(computeFileStatus(file));
 
-	$: fileTitle = splitFilePath(file.path);
+	let fileTitle = $derived(splitFilePath(file.path));
 </script>
 
 <div class="header">

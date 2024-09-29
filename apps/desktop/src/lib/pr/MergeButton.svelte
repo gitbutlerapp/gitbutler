@@ -6,11 +6,21 @@
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { createEventDispatcher } from 'svelte';
 
-	export let projectId: string;
-	export let loading = false;
-	export let disabled = false;
-	export let wide = false;
-	export let tooltip = '';
+	interface Props {
+		projectId: string;
+		loading?: boolean;
+		disabled?: boolean;
+		wide?: boolean;
+		tooltip?: string;
+	}
+
+	let {
+		projectId,
+		loading = false,
+		disabled = false,
+		wide = false,
+		tooltip = ''
+	}: Props = $props();
 
 	function persistedAction(projectId: string): Persisted<MergeMethod> {
 		const key = 'projectMergeMethod';
@@ -20,7 +30,7 @@
 	const dispatch = createEventDispatcher<{ click: { method: MergeMethod } }>();
 	const action = persistedAction(projectId);
 
-	let dropDown: DropDownButton;
+	let dropDown: DropDownButton = $state();
 
 	const labels = {
 		[MergeMethod.Merge]: 'Merge pull request',

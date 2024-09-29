@@ -25,7 +25,7 @@
 	const loading = historyService.loading;
 	const isAllLoaded = historyService.isAllLoaded;
 
-	let currentFilePreview: RemoteFile | undefined = undefined;
+	let currentFilePreview: RemoteFile | undefined = $state(undefined);
 
 	function findRestorationRanges(snapshots: Snapshot[]) {
 		if (snapshots.length === 0) return [];
@@ -73,12 +73,12 @@
 
 	let snapshotFilesTempStore:
 		| { entryId: string; diffs: { [key: string]: SnapshotDiff } }
-		| undefined = undefined;
-	let selectedFile: { entryId: string; path: string } | undefined = undefined;
+		| undefined = $state(undefined);
+	let selectedFile: { entryId: string; path: string } | undefined = $state(undefined);
 </script>
 
 <svelte:window
-	on:keydown={(e) => {
+	onkeydown={(e) => {
 		e.key === 'Escape' && dispatch('hide');
 	}}
 />

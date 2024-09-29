@@ -1,21 +1,24 @@
 <script lang="ts">
-	export let small = false;
-	export let disabled = false;
-	export let checked = false;
-	export let value = '';
-	export let id = '';
+	interface Props {
+		small?: boolean;
+		disabled?: boolean;
+		checked?: boolean;
+		value?: string;
+		id?: string;
+		onclick?: (event: any) => void;
+	}
+
+	let {
+		small = false,
+		disabled = false,
+		checked = $bindable(false),
+		value = '',
+		id = '',
+		onclick
+	}: Props = $props();
 </script>
 
-<input
-	bind:checked
-	on:click|stopPropagation
-	type="checkbox"
-	class="toggle"
-	class:small
-	{value}
-	{id}
-	{disabled}
-/>
+<input bind:checked {onclick} type="checkbox" class="toggle" class:small {value} {id} {disabled} />
 
 <style lang="postcss">
 	.toggle {

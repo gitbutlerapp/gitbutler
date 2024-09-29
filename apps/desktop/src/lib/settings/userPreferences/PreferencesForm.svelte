@@ -6,14 +6,15 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
+	import { run } from 'svelte/legacy';
 
 	const projectService = getContext(ProjectService);
-	const project = getContext(Project);
+	const project = $state(getContext(Project));
 
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
 	let allowForcePushing = project?.ok_with_force_push;
 	let omitCertificateCheck = project?.omit_certificate_check;
-	let useNewLocking = project?.use_new_locking || false;
+	let useNewLocking = $state(project?.use_new_locking || false);
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
 
@@ -32,19 +33,21 @@
 		await projectService.updateProject(project);
 	}
 
-	let succeedingRebases = project.succeedingRebases;
+	let succeedingRebases = $state(project.succeedingRebases);
 
-	$: {
+	run(() => {
 		project.succeedingRebases = succeedingRebases;
 		projectService.updateProject(project);
-	}
+	});
 
 	async function setUseNewLocking(value: boolean) {
 		project.use_new_locking = value;
 		await projectService.updateProject(project);
 	}
 
-	$: setUseNewLocking(useNewLocking);
+	run(() => {
+		setUseNewLocking(useNewLocking);
+	});
 
 	async function handleAllowForcePushClick(event: MouseEvent) {
 		await setWithForcePush((event.target as HTMLInputElement)?.checked);
@@ -57,52 +60,56 @@
 
 <Section gap={8}>
 	<SectionCard orientation="row" labelFor="allowForcePush">
-		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Allow force pushing
+		{/snippet}
+		{#snippet caption()}
 			Force pushing allows GitButler to override branches even if they were pushed to remote.
 			GitButler will never force push to the target branch.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle
-				id="allowForcePush"
-				checked={allowForcePushing}
-				on:click={handleAllowForcePushClick}
-			/>
-		</svelte:fragment>
+		{/snippet}
+		{#snippet actions()}
+			<Toggle id="allowForcePush" checked={allowForcePushing} onclick={handleAllowForcePushClick} />
+		{/snippet}
 	</SectionCard>
 
 	<SectionCard orientation="row" labelFor="omitCertificateCheck">
-		<svelte:fragment slot="title">Ignore host certificate checks</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Ignore host certificate checks
+		{/snippet}
+		{#snippet caption()}
 			Enabling this will ignore host certificate checks when authenticating with ssh.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle
 				id="omitCertificateCheck"
 				checked={omitCertificateCheck}
-				on:click={handleOmitCertificateCheckClick}
+				onclick={handleOmitCertificateCheckClick}
 			/>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 
 	<SectionCard labelFor="runHooks" orientation="row">
-		<svelte:fragment slot="title">Run commit hooks</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Run commit hooks
+		{/snippet}
+		{#snippet caption()}
 			Enabling this will run any git pre and post commit hooks you have configured in your
 			repository.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle id="runHooks" bind:checked={$runCommitHooks} />
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 
 	<SectionCard orientation="row" centerAlign>
-		<svelte:fragment slot="title">Snapshot lines threshold</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Snapshot lines threshold
+		{/snippet}
+		{#snippet caption()}
 			The number of lines that trigger a snapshot when saving.
-		</svelte:fragment>
+		{/snippet}
 
-		<svelte:fragment slot="actions">
+		{#snippet actions()}
 			<TextBox
 				type="number"
 				width={100}
@@ -115,29 +122,33 @@
 					setSnapshotLinesThreshold(parseInt(e.detail));
 				}}
 			/>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 
 	<SectionCard labelFor="useNewLocking" orientation="row">
-		<svelte:fragment slot="title">Use new experimental hunk locking algorithm</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Use new experimental hunk locking algorithm
+		{/snippet}
+		{#snippet caption()}
 			This new hunk locking algorithm is still in the testing phase but should more accurately catch
 			locks and subsequently cause fewer errors.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle id="useNewLocking" bind:checked={useNewLocking} />
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 
 	<SectionCard labelFor="succeedingRebases" orientation="row">
-		<svelte:fragment slot="title">Edit mode and succeeding rebases</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Edit mode and succeeding rebases
+		{/snippet}
+		{#snippet caption()}
 			This is an experimental setting which will ensure that rebasing will always succeed,
 			introduces a mode for editing individual commits, and adds the ability to resolve conflicted
 			commits.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle id="succeedingRebases" bind:checked={succeedingRebases} />
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 </Section>

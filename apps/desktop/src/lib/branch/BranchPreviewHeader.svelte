@@ -15,23 +15,27 @@
 	import type { Branch } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
-	export let localBranch: Branch | undefined;
-	export let remoteBranch: Branch | undefined;
-	export let pr: PullRequest | undefined;
+	interface Props {
+		localBranch: Branch | undefined;
+		remoteBranch: Branch | undefined;
+		pr: PullRequest | undefined;
+	}
 
-	$: branch = remoteBranch || localBranch!;
-	$: upstream = remoteBranch?.givenName;
+	let { localBranch, remoteBranch, pr }: Props = $props();
+
+	let branch = $derived(remoteBranch || localBranch!);
+	let upstream = $derived(remoteBranch?.givenName);
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 	const gitHost = getGitHost();
 	const modeSerivce = getContext(ModeService);
 	const mode = modeSerivce.mode;
-	$: gitHostBranch = upstream ? $gitHost?.branch(upstream) : undefined;
+	let gitHostBranch = $derived(upstream ? $gitHost?.branch(upstream) : undefined);
 
-	let isApplying = false;
-	let isDeleting = false;
-	let deleteBranchModal: Modal;
+	let isApplying = $state(false);
+	let isDeleting = $state(false);
+	let deleteBranchModal: Modal = $state();
 </script>
 
 <div class="header__wrapper">

@@ -10,13 +10,17 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	export let isNavCollapsed: boolean;
+	interface Props {
+		isNavCollapsed: boolean;
+	}
+
+	let { isNavCollapsed }: Props = $props();
 
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 
 	const base = baseBranchService.base;
-	$: selected = $page.url.href.endsWith('/base');
+	let selected = $derived($page.url.href.endsWith('/base'));
 </script>
 
 <DomainButton

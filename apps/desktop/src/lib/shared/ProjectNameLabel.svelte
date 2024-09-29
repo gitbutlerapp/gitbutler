@@ -1,6 +1,10 @@
 <script lang="ts">
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	export let projectName: string = '';
+	interface Props {
+		projectName?: string;
+	}
+
+	let { projectName = '' }: Props = $props();
 </script>
 
 <div class="project-name">

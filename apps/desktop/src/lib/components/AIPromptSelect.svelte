@@ -4,10 +4,15 @@
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { getContext } from '$lib/utils/context';
+	import { run } from 'svelte/legacy';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
-	export let promptUse: 'commits' | 'branches';
+	interface Props {
+		promptUse: 'commits' | 'branches';
+	}
+
+	let { promptUse }: Props = $props();
 
 	const project = getContext(Project);
 	const promptService = getContext(PromptService);
@@ -24,7 +29,7 @@
 	}
 
 	let userPrompts = prompts.userPrompts;
-	let allPrompts: UserPrompt[] = [];
+	let allPrompts: UserPrompt[] = $state([]);
 
 	const defaultId = crypto.randomUUID();
 
@@ -35,11 +40,15 @@
 		];
 	}
 
-	$: setAllPrompts($userPrompts);
+	run(() => {
+		setAllPrompts($userPrompts);
+	});
 
-	$: if (!$selectedPromptId || !promptService.findPrompt(allPrompts, $selectedPromptId)) {
-		$selectedPromptId = defaultId;
-	}
+	run(() => {
+		if (!$selectedPromptId || !promptService.findPrompt(allPrompts, $selectedPromptId)) {
+			$selectedPromptId = defaultId;
+		}
+	});
 </script>
 
 <Select

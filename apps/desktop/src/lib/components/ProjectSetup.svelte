@@ -11,15 +11,19 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
-	export let remoteBranches: RemoteBranchInfo[];
+	interface Props {
+		remoteBranches: RemoteBranchInfo[];
+	}
 
-	const project = getContext(Project);
+	let { remoteBranches }: Props = $props();
+
+	const project = $state(getContext(Project));
 	const projectService = getContext(ProjectService);
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
 
-	let selectedBranch = ['', ''];
-	let loading = false;
+	let selectedBranch = $state(['', '']);
+	let loading = $state(false);
 
 	async function setTarget() {
 		if (!selectedBranch[0] || selectedBranch[0] === '') return;

@@ -1,3 +1,5 @@
+<svelte:options runes={true} />
+
 <script lang="ts">
 	import { ProjectService } from '$lib/backend/projects';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
@@ -10,7 +12,7 @@
 
 	const projects = projectService.projects;
 
-	$: debug = $page.url.searchParams.get('debug');
+	let debug = $derived($page.url.searchParams.get('debug'));
 
 	const persistedId = projectService.getLastOpenedProject();
 	const redirect = derived(projects, (projects) => {
@@ -21,13 +23,13 @@
 		return null;
 	});
 
-	$: {
+	$effect(() => {
 		if ($redirect) {
 			goto(`/${$redirect}/`);
 		} else if ($redirect === null) {
 			goto('/onboarding');
 		}
-	}
+	});
 </script>
 
 {#if $redirect === undefined}

@@ -25,16 +25,16 @@
 	const user = userService.user;
 	let initialized = false;
 
-	let modelKind: ModelKind | undefined;
-	let openAIKeyOption: KeyOption | undefined;
-	let anthropicKeyOption: KeyOption | undefined;
-	let openAIKey: string | undefined;
-	let openAIModelName: OpenAIModelName | undefined;
-	let anthropicKey: string | undefined;
-	let anthropicModelName: AnthropicModelName | undefined;
-	let diffLengthLimit: number | undefined;
-	let ollamaEndpoint: string | undefined;
-	let ollamaModel: string | undefined;
+	let modelKind: ModelKind | undefined = $state();
+	let openAIKeyOption: KeyOption | undefined = $state();
+	let anthropicKeyOption: KeyOption | undefined = $state();
+	let openAIKey: string | undefined = $state();
+	let openAIModelName: OpenAIModelName | undefined = $state();
+	let anthropicKey: string | undefined = $state();
+	let anthropicModelName: AnthropicModelName | undefined = $state();
+	let diffLengthLimit: number | undefined = $state();
+	let ollamaEndpoint: string | undefined = $state();
+	let ollamaModel: string | undefined = $state();
 
 	async function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
@@ -45,20 +45,6 @@
 		if (!initialized) return;
 		await secretsService.set(handle, secret || '');
 	}
-
-	$: setConfiguration(GitAIConfigKey.ModelProvider, modelKind);
-
-	$: setConfiguration(GitAIConfigKey.OpenAIKeyOption, openAIKeyOption);
-	$: setConfiguration(GitAIConfigKey.OpenAIModelName, openAIModelName);
-	$: setSecret(AISecretHandle.OpenAIKey, openAIKey);
-
-	$: setConfiguration(GitAIConfigKey.AnthropicKeyOption, anthropicKeyOption);
-	$: setConfiguration(GitAIConfigKey.AnthropicModelName, anthropicModelName);
-	$: setConfiguration(GitAIConfigKey.DiffLengthLimit, diffLengthLimit?.toString());
-	$: setSecret(AISecretHandle.AnthropicKey, anthropicKey);
-
-	$: setConfiguration(GitAIConfigKey.OllamaEndpoint, ollamaEndpoint);
-	$: setConfiguration(GitAIConfigKey.OllamaModelName, ollamaModel);
 
 	onMount(async () => {
 		modelKind = await aiService.getModelKind();
@@ -76,13 +62,11 @@
 		ollamaEndpoint = await aiService.getOllamaEndpoint();
 		ollamaModel = await aiService.getOllamaModelName();
 
-		// Ensure reactive declarations have finished running before we set initialized to true
+		// Ensure reactive declarations have finished $effectning before we set initialized to true
 		await tick();
 
 		initialized = true;
 	});
-
-	$: if (form) form.modelKind.value = modelKind;
 
 	const keyOptions = [
 		{
@@ -137,12 +121,45 @@
 		}
 	];
 
-	let form: HTMLFormElement;
+	let form = $state<HTMLFormElement>();
 
 	function onFormChange(form: HTMLFormElement) {
 		const formData = new FormData(form);
 		modelKind = formData.get('modelKind') as ModelKind;
 	}
+	$effect(() => {
+		setConfiguration(GitAIConfigKey.ModelProvider, modelKind);
+	});
+	$effect(() => {
+		setConfiguration(GitAIConfigKey.OpenAIKeyOption, openAIKeyOption);
+	});
+	$effect(() => {
+		setConfiguration(GitAIConfigKey.OpenAIModelName, openAIModelName);
+	});
+	$effect(() => {
+		setSecret(AISecretHandle.OpenAIKey, openAIKey);
+	});
+	$effect(() => {
+		setConfiguration(GitAIConfigKey.AnthropicKeyOption, anthropicKeyOption);
+	});
+	$effect(() => {
+		setConfiguration(GitAIConfigKey.AnthropicModelName, anthropicModelName);
+	});
+	$effect(() => {
+		setConfiguration(GitAIConfigKey.DiffLengthLimit, diffLengthLimit?.toString());
+	});
+	$effect(() => {
+		setSecret(AISecretHandle.AnthropicKey, anthropicKey);
+	});
+	$effect(() => {
+		setConfiguration(GitAIConfigKey.OllamaEndpoint, ollamaEndpoint);
+	});
+	$effect(() => {
+		setConfiguration(GitAIConfigKey.OllamaModelName, ollamaModel);
+	});
+	$effect(() => {
+		if (form) form.modelKind.value = modelKind;
+	});
 </script>
 
 <SettingsPage title="AI options">
@@ -153,17 +170,19 @@
 		configuration.
 	</p>
 
-	<form class="git-radio" bind:this={form} on:change={(e) => onFormChange(e.currentTarget)}>
+	<form class="git-radio" bind:this={form} onchange={(e) => onFormChange(e.currentTarget)}>
 		<SectionCard
 			roundedBottom={false}
 			orientation="row"
 			labelFor="open-ai"
 			bottomBorder={modelKind !== ModelKind.OpenAI}
 		>
-			<svelte:fragment slot="title">Open AI</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{#snippet title()}
+				Open AI
+			{/snippet}
+			{#snippet actions()}
 				<RadioButton name="modelKind" id="open-ai" value={ModelKind.OpenAI} />
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 		{#if modelKind === ModelKind.OpenAI}
 			<SectionCard roundedTop={false} roundedBottom={false} orientation="row" topDivider>
@@ -188,9 +207,9 @@
 							<AuthorizationBanner message="Please sign in to use the GitButler API." />
 						{:else}
 							<InfoMessage filled outlined={false} style="pop" icon="ai">
-								<svelte:fragment slot="title">
+								{#snippet title()}
 									GitButler uses OpenAI API for commit messages and branch names
-								</svelte:fragment>
+								{/snippet}
 							</InfoMessage>
 						{/if}
 					{/if}
@@ -224,10 +243,12 @@
 			labelFor="anthropic"
 			bottomBorder={modelKind !== ModelKind.Anthropic}
 		>
-			<svelte:fragment slot="title">Anthropic</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{#snippet title()}
+				Anthropic
+			{/snippet}
+			{#snippet actions()}
 				<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 		{#if modelKind === ModelKind.Anthropic}
 			<SectionCard roundedTop={false} roundedBottom={false} orientation="row" topDivider>
@@ -252,9 +273,9 @@
 							<AuthorizationBanner message="Please sign in to use the GitButler API." />
 						{:else}
 							<InfoMessage filled outlined={false} style="pop" icon="ai">
-								<svelte:fragment slot="title">
+								{#snippet title()}
 									GitButler uses Anthropic API for commit messages and branch names
-								</svelte:fragment>
+								{/snippet}
 							</InfoMessage>
 						{/if}
 					{/if}
@@ -293,10 +314,12 @@
 			labelFor="ollama"
 			bottomBorder={modelKind !== ModelKind.Ollama}
 		>
-			<svelte:fragment slot="title">Ollama 🦙</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{#snippet title()}
+				Ollama 🦙
+			{/snippet}
+			{#snippet actions()}
 				<RadioButton name="modelKind" id="ollama" value={ModelKind.Ollama} />
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 		{#if modelKind === ModelKind.Ollama}
 			<SectionCard roundedTop={false} orientation="row" topDivider>
@@ -316,11 +339,13 @@
 	<Spacer />
 
 	<SectionCard orientation="row">
-		<svelte:fragment slot="title">Amount of provided context</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Amount of provided context
+		{/snippet}
+		{#snippet caption()}
 			How many characters of your git diff should be provided to AI
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<TextBox
 				type="number"
 				width={80}
@@ -332,20 +357,22 @@
 				}}
 				placeholder="5000"
 			/>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 
 	<Spacer />
 
 	<Section>
-		<svelte:fragment slot="title">Custom AI prompts</svelte:fragment>
-		<svelte:fragment slot="description">
+		{#snippet title()}
+			Custom AI prompts
+		{/snippet}
+		{#snippet description()}
 			GitButler's AI assistant generates commit messages and branch names. Use default prompts or
 			create your own. Assign prompts in the <button
 				class="link"
-				on:click={() => console.log('got to project settings')}>project settings</button
+				onclick={() => console.log('got to project settings')}>project settings</button
 			>.
-		</svelte:fragment>
+		{/snippet}
 
 		<div class="prompt-groups">
 			<AiPromptEdit promptUse="commits" />

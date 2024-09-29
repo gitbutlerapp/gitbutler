@@ -25,14 +25,27 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { createEventDispatcher, onMount, tick } from 'svelte';
+	import { run } from 'svelte/legacy';
 	import { fly } from 'svelte/transition';
 
-	export let isExpanded: boolean;
-	export let commitMessage: string;
-	export let focusOnMount: boolean = false;
-	export let valid: boolean = false;
-	export let commit: (() => void) | undefined = undefined;
-	export let cancel: () => void;
+	interface Props {
+		isExpanded: boolean;
+		commitMessage: string;
+		focusOnMount?: boolean;
+		valid?: boolean;
+		commit?: (() => void) | undefined;
+		cancel: () => void;
+	}
+
+	let {
+		isExpanded,
+		commitMessage = $bindable(),
+		focusOnMount = false,
+		// eslint-disable-next-line
+		valid = $bindable(false),
+		commit = undefined,
+		cancel
+	}: Props = $props();
 
 	const user = getContextStore(User);
 	const selectedOwnership = getContextStore(SelectedOwnership);
@@ -49,14 +62,16 @@
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(project.id);
 	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(project.id);
 
-	let aiLoading = false;
-	let aiConfigurationValid = false;
+	let aiLoading = $state(false);
+	let aiConfigurationValid = $state(false);
 
-	let titleTextArea: HTMLTextAreaElement;
-	let descriptionTextArea: HTMLTextAreaElement;
+	let titleTextArea = $state<HTMLTextAreaElement>();
+	let descriptionTextArea = $state<HTMLTextAreaElement>();
 
-	$: ({ title, description } = splitMessage(commitMessage));
-	$: valid = !!title;
+	let { title, description } = $derived(splitMessage(commitMessage));
+	run(() => {
+		valid = !!title;
+	});
 
 	function concatMessage(title: string, description: string) {
 		return `${title}\n\n${description}`;
@@ -179,8 +194,8 @@
 				commitMessage = concatMessage(toKeep, newDescription);
 				tick().then(() => {
 					descriptionTextArea?.focus();
-					descriptionTextArea.setSelectionRange(0, 0);
-					autoHeight(descriptionTextArea);
+					descriptionTextArea?.setSelectionRange(0, 0);
+					if (descriptionTextArea) autoHeight(descriptionTextArea);
 				});
 			}
 
@@ -204,12 +219,12 @@
 			rows="1"
 			bind:this={titleTextArea}
 			use:focusTextAreaOnMount
-			on:focus={(e) => autoHeight(e.currentTarget)}
-			on:input={(e) => {
+			onfocus={(e) => autoHeight(e.currentTarget)}
+			oninput={(e) => {
 				commitMessage = concatMessage(e.currentTarget.value, description);
 				autoHeight(e.currentTarget);
 			}}
-			on:keydown={handleSummaryKeyDown}
+			onkeydown={handleSummaryKeyDown}
 		></textarea>
 
 		{#if title.length > 0 || description}
@@ -221,12 +236,12 @@
 				spellcheck="false"
 				rows="1"
 				bind:this={descriptionTextArea}
-				on:focus={(e) => autoHeight(e.currentTarget)}
-				on:input={(e) => {
+				onfocus={(e) => autoHeight(e.currentTarget)}
+				oninput={(e) => {
 					commitMessage = concatMessage(title, e.currentTarget.value);
 					autoHeight(e.currentTarget);
 				}}
-				on:keydown={handleDescriptionKeyDown}
+				onkeydown={handleDescriptionKeyDown}
 			></textarea>
 		{/if}
 
@@ -263,14 +278,18 @@
 								label="Extra concise"
 								on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
 							>
-								<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+								{#snippet control()}
+									<Checkbox small bind:checked={$commitGenerationExtraConcise} />
+								{/snippet}
 							</ContextMenuItem>
 
 							<ContextMenuItem
 								label="Use emojis 😎"
 								on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
 							>
-								<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+								{#snippet control()}
+									<Checkbox small bind:checked={$commitGenerationUseEmojis} />
+								{/snippet}
 							</ContextMenuItem>
 						</ContextMenuSection>
 					{/snippet}

@@ -4,7 +4,11 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { Writable } from 'svelte/store';
 
-	export let analyticsConfirmed: Writable<boolean>;
+	interface Props {
+		analyticsConfirmed: Writable<boolean>;
+	}
+
+	let { analyticsConfirmed }: Props = $props();
 </script>
 
 <div class="analytics-confirmation">

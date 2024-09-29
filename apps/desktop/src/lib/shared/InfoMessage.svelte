@@ -11,14 +11,31 @@
 
 	type IconColor = ComponentColor | undefined;
 
-	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let style: MessageStyle = 'neutral';
-	export let outlined: boolean = true;
-	export let filled: boolean = false;
-	export let primary: string | undefined = undefined;
-	export let secondary: string | undefined = undefined;
-	export let shadow = false;
-	export let error: string | undefined = undefined;
+	interface Props {
+		icon?: keyof typeof iconsJson | undefined;
+		style?: MessageStyle;
+		outlined?: boolean;
+		filled?: boolean;
+		primary?: string | undefined;
+		secondary?: string | undefined;
+		shadow?: boolean;
+		error?: string | undefined;
+		title?: import('svelte').Snippet;
+		content?: import('svelte').Snippet;
+	}
+
+	let {
+		icon = undefined,
+		style = 'neutral',
+		outlined = true,
+		filled = false,
+		primary = undefined,
+		secondary = undefined,
+		shadow = false,
+		error = undefined,
+		title,
+		content
+	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{ primary: void; secondary: void }>();
 
@@ -56,15 +73,15 @@
 	<Icon name={icon ? icon : iconMap[style]} color={iconColorMap[style]} />
 	<div class="info-message__inner">
 		<div class="info-message__content">
-			{#if $$slots.title}
+			{#if title}
 				<div class="info-message__title text-13 text-body text-semibold">
-					<slot name="title" />
+					{@render title?.()}
 				</div>
 			{/if}
 
-			{#if $$slots.content}
+			{#if content}
 				<div class="info-message__text text-12 text-body">
-					<slot name="content" />
+					{@render content?.()}
 				</div>
 			{/if}
 		</div>

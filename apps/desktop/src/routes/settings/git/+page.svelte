@@ -9,7 +9,7 @@
 
 	const gitConfig = getContext(GitConfigService);
 
-	let annotateCommits = true;
+	let annotateCommits = $state(true);
 
 	function toggleCommitterSigning() {
 		annotateCommits = !annotateCommits;

@@ -4,7 +4,11 @@
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 
-	export let error: any = undefined;
+	interface Props {
+		error?: any;
+	}
+
+	let { error = undefined }: Props = $props();
 </script>
 
 <DecorativeSplitView img={loadErrorSvg}>
