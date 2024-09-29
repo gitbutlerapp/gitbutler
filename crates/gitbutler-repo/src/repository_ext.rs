@@ -1020,5 +1020,38 @@ mod test {
             assert!(tree.get_name("file1.txt").is_none());
             assert!(tree.get_name("file2.txt").is_some());
         }
+
+        #[test]
+        fn should_not_change_index() {
+            let test_repository = TestingRepository::open();
+
+            let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
+            test_repository
+                .repository
+                .branch("master", &commit, true)
+                .unwrap();
+
+            let mut index = test_repository.repository.index().unwrap();
+            index.remove_all(["*"], None).unwrap();
+            index.write().unwrap();
+
+            let index_tree = index.write_tree().unwrap();
+            let index_tree = test_repository.repository.find_tree(index_tree).unwrap();
+            assert_eq!(index_tree.len(), 0);
+
+            let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
+
+            let mut index = test_repository.repository.index().unwrap();
+            let index_tree = index.write_tree().unwrap();
+            let index_tree = test_repository.repository.find_tree(index_tree).unwrap();
+            assert_eq!(index_tree.len(), 0);
+
+            // Tree should match whatever is written on disk
+            assert_tree_matches(
+                &test_repository.repository,
+                &tree,
+                &[("file1.txt", b"content1")],
+            );
+        }
     }
 }
