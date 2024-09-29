@@ -1,6 +1,7 @@
 <script lang="ts">
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
+	import HunkDiff from '$lib/hunk/HunkDiff.svelte';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
 	import {
@@ -12,9 +13,44 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContextStoreBySymbol } from '$lib/utils/context';
+	import { type Hunk } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
+
+	const testHunk = {
+		id: '59-66',
+		hash: 'test',
+		modifiedAt: new Date(),
+		lockedTo: [],
+		locked: false,
+		binary: false,
+		poisoned: false,
+		changeType: 'modified',
+		diff: `@@ -59,7 +59,7 @@ (HunkDiff.svelte, line 141)
+ 			on:branchSelected={async (e) => {
+ 				selectedBranch = e.detail;
+ 				// TODO: Temporary solution to forcing Windows to use system executable
+-				if ($platformName === 'win32') {
++				if ($platformName === 'wsin32') {
+ 					setTarget();
+ 				}
+ 			}}
+		`,
+		filePath: 'test',
+		new_start: 59,
+		new_lines: 7
+	} as Hunk;
+
+	// prettier-ignore
+	const hunkSubsections = [
+		{expanded: true, lines: [{beforeLineNumber: 57, afterLineNumber: 57, content: "\t\t\tprojectName={project.title}"}, {beforeLineNumber: 58, afterLineNumber: 58, content: "\t\t\t{remoteBranches}"}, {beforeLineNumber: 59, afterLineNumber: 59, content: "\t\t\ton:branchSelected={async (e) => {"}], sectionType: 2, maxLineNumber: 59},
+		{expanded: true, lines: [{beforeLineNumber: 60, afterLineNumber: undefined, content: "\t\t\t\tselectedBranch = e.detail;"}], sectionType: 1, maxLineNumber: 60},
+		{expanded: true, lines: [{beforeLineNumber: 61, afterLineNumber: 60, content: "\t\t\t\t// TODO: Temporary solution to forcing Windows to use system executable"}], sectionType: 2, maxLineNumber: 61},
+		{expanded: true, lines: [{beforeLineNumber: 62, afterLineNumber: undefined, content: "\t\t\t\tif ($platformName === 'win32') {"}], sectionType: 1, maxLineNumber: 62},
+		{expanded: true, lines: [{beforeLineNumber: undefined, afterLineNumber: 61, content: "\t\t\t\tif ($platformName === 'wsin32') {"}], sectionType: 0, maxLineNumber: 61},
+		{expanded: true, lines: [{beforeLineNumber: 63, afterLineNumber: 62, content: "\t\t\t\t\tsetTarget();"}, {beforeLineNumber: 64, afterLineNumber: 63, content: "\t\t\t\t}"}, {beforeLineNumber: 65, afterLineNumber: 64, content: "\t\t\t}}"}], sectionType: 2, maxLineNumber: 65}
+	];
 
 	function onScrollbarFormChange(form: HTMLFormElement) {
 		const formData = new FormData(form);
@@ -59,6 +95,40 @@
 				placeholder={$userSettings.tabSize.toString()}
 			/>
 		</svelte:fragment>
+	</SectionCard>
+
+	<SectionCard centerAlign>
+		<svelte:fragment slot="title">Diff font</svelte:fragment>
+		<svelte:fragment slot="caption">Controls the font size of the diff view.</svelte:fragment>
+
+		<div class="diff-preview">
+			<TextBox
+				wide
+				bind:value={$userSettings.diffFont}
+				required
+				on:change={(e) => {
+					userSettings.update((s) => ({
+						...s,
+						diffFont: e.detail
+					}));
+				}}
+			/>
+
+			<HunkDiff
+				readonly
+				filePath="test.tsx"
+				minWidth={1.25}
+				selectable={false}
+				draggingDisabled
+				tabSize={$userSettings.tabSize}
+				diffFont={$userSettings.diffFont}
+				hunk={testHunk}
+				subsections={hunkSubsections}
+				onclick={() => {}}
+				handleSelected={() => {}}
+				handleLineContextMenu={() => {}}
+			/>
+		</div>
 	</SectionCard>
 
 	<form on:change={(e) => onScrollbarFormChange(e.currentTarget)}>
@@ -125,3 +195,11 @@
 		</svelte:fragment>
 	</SectionCard>
 </SettingsPage>
+
+<style>
+	.diff-preview {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+</style>

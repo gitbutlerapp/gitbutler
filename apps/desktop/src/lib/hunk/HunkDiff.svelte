@@ -25,6 +25,7 @@
 		selectable: boolean;
 		subsections: ContentSection[];
 		tabSize: number;
+		diffFont: string;
 		minWidth: number;
 		draggingDisabled: boolean;
 		onclick: () => void;
@@ -49,12 +50,15 @@
 		selectable,
 		subsections,
 		tabSize,
+		diffFont,
 		minWidth,
 		draggingDisabled = false,
 		onclick,
 		handleSelected,
 		handleLineContextMenu
 	}: Props = $props();
+
+	console.log(minWidth);
 
 	const WHITESPACE_REGEX = /\s/;
 	const NUMBER_COLUMN_WIDTH_PX = minWidth * 20;
@@ -335,11 +339,11 @@
 	bind:clientWidth={tableWidth}
 	bind:clientHeight={tableHeight}
 	class="table__wrapper hide-native-scrollbar"
-	style="--tab-size: {tabSize}"
+	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
 >
 	<ScrollableContainer horz padding={{ left: NUMBER_COLUMN_WIDTH_PX * 2 + 2 }}>
 		<table data-hunk-id={hunk.id} class="table__section">
-			<thead class="table__title">
+			<thead class="table__title" class:draggable={!draggingDisabled}>
 				<tr
 					onclick={() => {
 						selectable && handleSelected(hunk, !isSelected);
@@ -442,7 +446,7 @@
 	table,
 	.table__section {
 		width: 100%;
-		font-family: var(--mono-font-family);
+		font-family: var(--diff-font);
 		border-collapse: separate;
 		border-spacing: 0;
 	}
@@ -494,8 +498,11 @@
 	}
 
 	.table__title {
-		cursor: grab;
 		user-select: none;
+	}
+
+	.draggable {
+		cursor: grab;
 	}
 
 	.table__drag-handle {
@@ -552,7 +559,6 @@
 		width: calc(var(--table-width) - var(--number-col-width));
 		height: calc(100% + var(--border-width) * 2);
 		box-sizing: border-box;
-		font-family: var(--mono-font-family);
 		font-weight: 400;
 		font-size: 12px;
 		padding: 4px 6px;

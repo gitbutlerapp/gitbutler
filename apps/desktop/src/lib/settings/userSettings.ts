@@ -19,6 +19,7 @@ export interface Settings {
 	zoom: number;
 	scrollbarVisibilityState: ScrollbarVisilitySettings;
 	tabSize: number;
+	diffFont: string;
 }
 
 const defaults: Settings = {
@@ -33,7 +34,8 @@ const defaults: Settings = {
 	stashedBranchesHeight: 150,
 	zoom: 1,
 	scrollbarVisibilityState: 'scroll',
-	tabSize: 4
+	tabSize: 4,
+	diffFont: 'Geist Mono, Menlo, monospace'
 };
 
 export function loadUserSettings(): Writable<Settings> {

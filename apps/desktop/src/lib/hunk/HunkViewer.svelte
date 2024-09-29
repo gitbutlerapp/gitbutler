@@ -92,6 +92,7 @@
 				{selectable}
 				{draggingDisabled}
 				tabSize={$userSettings.tabSize}
+				diffFont={$userSettings.diffFont}
 				hunk={section.hunk}
 				onclick={() => {
 					contextMenu?.close();
