@@ -11,11 +11,6 @@ export function featureBaseBranchSwitching(): Persisted<boolean> {
 	return persisted(false, key);
 }
 
-export function featureInlineUnifiedDiffs(): Persisted<boolean> {
-	const key = 'inlineUnifiedDiffs';
-	return persisted(false, key);
-}
-
 export const stackingFeature = persisted(false, 'stackingFeature');
 
 export function featureTopics(): Persisted<boolean> {

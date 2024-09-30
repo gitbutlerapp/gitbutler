@@ -14,31 +14,31 @@
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContextStoreBySymbol } from '$lib/utils/context';
 	import { type Hunk } from '$lib/vbranches/types';
+	import type { ContentSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
-	const testHunk = {
+	const testHunk: Hunk = {
 		id: '59-66',
 		hash: 'test',
 		modifiedAt: new Date(),
 		lockedTo: [],
 		locked: false,
-		binary: false,
 		poisoned: false,
 		changeType: 'modified',
 		diff: '',
 		filePath: 'test',
 		new_start: 59,
 		new_lines: 7
-	} as Hunk;
+	};
 
 	// prettier-ignore
-	const hunkSubsections = [
+	const hunkSubsections: ContentSection[] = [
 		{expanded: true, lines: [{beforeLineNumber: 56, afterLineNumber: 56, content: "\t\t\t// Diff example"}], sectionType: 2, maxLineNumber: 55},
 		{expanded: true, lines: [{beforeLineNumber: 57, afterLineNumber: 57, content: "\t\t\tprojectName={project.title}"}, {beforeLineNumber: 58, afterLineNumber: 58, content: "\t\t\t{remoteBranches}"}, {beforeLineNumber: 59, afterLineNumber: 59, content: "\t\t\ton:branchSelected={async (e) => {"}], sectionType: 2, maxLineNumber: 59},
-		{expanded: true, lines: [{beforeLineNumber: 61, afterLineNumber: undefined, content: "\t\t\t\tselectedBranch = e.detail;"}], sectionType: 0, maxLineNumber: 60},
-		{expanded: true, lines: [{beforeLineNumber: 62, afterLineNumber: undefined, content: "\t\t\t\tif ($platformName === 'win32') {"}], sectionType: 2, maxLineNumber: 61},
+		{expanded: true, lines: [{beforeLineNumber: 61, afterLineNumber: undefined, content: "\t\t\t\tselectedBranch = e.detail;"}], sectionType: 2, maxLineNumber: 60},
+		{expanded: true, lines: [{beforeLineNumber: 62, afterLineNumber: undefined, content: "\t\t\t\tif ($platformName === 'win32') {"}], sectionType: 0, maxLineNumber: 61},
 		{expanded: true, lines: [{beforeLineNumber: undefined, afterLineNumber: 61, content: "\t\t\t\tif ($platformName === 'win64') {"}], sectionType: 1, maxLineNumber: 61},
 		{expanded: true, lines: [{beforeLineNumber: 63, afterLineNumber: 62, content: "\t\t\t\t\tsetTarget();"}, {beforeLineNumber: 64, afterLineNumber: 63, content: "\t\t\t\t}"}, {beforeLineNumber: 65, afterLineNumber: 64, content: "\t\t\t}}"}], sectionType: 2, maxLineNumber: 65}
 	];
@@ -75,6 +75,7 @@
 				tabSize={$userSettings.tabSize}
 				diffFont={$userSettings.diffFont}
 				diffLigatures={$userSettings.diffLigatures}
+				inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 				hunk={testHunk}
 				subsections={hunkSubsections}
 				onclick={() => {}}
@@ -124,7 +125,7 @@
 			</svelte:fragment>
 		</SectionCard>
 
-		<SectionCard orientation="row" centerAlign roundedTop={false}>
+		<SectionCard orientation="row" centerAlign roundedTop={false} roundedBottom={false}>
 			<svelte:fragment slot="title">Tab size</svelte:fragment>
 			<svelte:fragment slot="caption">
 				The number of spaces a tab is equal to when previewing code changes.
@@ -146,6 +147,26 @@
 						}));
 					}}
 					placeholder={$userSettings.tabSize.toString()}
+				/>
+			</svelte:fragment>
+		</SectionCard>
+
+		<SectionCard labelFor="inlineUnifiedDiffs" orientation="row" roundedTop={false}>
+			<svelte:fragment slot="title">Display word diffs inline</svelte:fragment>
+			<svelte:fragment slot="caption">
+				Instead of separate lines for removals and additions, this feature shows a single line with
+				both added and removed words highlighted.
+			</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<Toggle
+					id="inlineUnifiedDiffs"
+					checked={$userSettings.inlineUnifiedDiffs}
+					on:click={() => {
+						userSettings.update((s) => ({
+							...s,
+							inlineUnifiedDiffs: !s.inlineUnifiedDiffs
+						}));
+					}}
 				/>
 			</svelte:fragment>
 		</SectionCard>

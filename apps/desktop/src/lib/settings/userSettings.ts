@@ -21,6 +21,7 @@ export interface Settings {
 	tabSize: number;
 	diffFont: string;
 	diffLigatures: boolean;
+	inlineUnifiedDiffs: boolean;
 }
 
 const defaults: Settings = {
@@ -37,7 +38,8 @@ const defaults: Settings = {
 	scrollbarVisibilityState: 'scroll',
 	tabSize: 4,
 	diffFont: 'Geist Mono, Menlo, monospace',
-	diffLigatures: false
+	diffLigatures: false,
+	inlineUnifiedDiffs: false
 };
 
 export function loadUserSettings(): Writable<Settings> {

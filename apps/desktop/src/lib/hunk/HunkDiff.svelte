@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { type Row, Operation, type DiffRows } from './types';
-	import { featureInlineUnifiedDiffs } from '$lib/config/uiFeatureFlags';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';
@@ -27,6 +26,7 @@
 		tabSize: number;
 		diffFont: string;
 		diffLigatures: boolean;
+		inlineUnifiedDiffs: boolean;
 		minWidth: number;
 		draggingDisabled: boolean;
 		onclick: () => void;
@@ -53,6 +53,7 @@
 		tabSize,
 		diffFont,
 		diffLigatures,
+		inlineUnifiedDiffs,
 		minWidth,
 		draggingDisabled = false,
 		onclick,
@@ -73,8 +74,6 @@
 
 	const selected = $derived($selectedOwnership?.isSelected(hunk.filePath, hunk.id) ?? false);
 	let isSelected = $derived(selectable && selected);
-
-	const inlineUnifiedDiffs = featureInlineUnifiedDiffs();
 
 	function charDiff(text1: string, text2: string): { 0: number; 1: string }[] {
 		const differ = new diff_match_patch();
@@ -254,7 +253,7 @@
 				return acc;
 			}
 
-			if ($inlineUnifiedDiffs) {
+			if (inlineUnifiedDiffs) {
 				const rows = computeInlineWordDiff(prevSection, nextSection);
 
 				acc.splice(-prevSection.lines.length);
