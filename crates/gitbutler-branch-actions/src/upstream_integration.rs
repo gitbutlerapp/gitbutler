@@ -12,7 +12,7 @@ use gitbutler_repo::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{BranchManagerExt, VirtualBranchesExt as _};
+use crate::{branch_trees::checkout_branch_trees, BranchManagerExt, VirtualBranchesExt as _};
 
 #[derive(Serialize, PartialEq, Debug)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
@@ -282,10 +282,6 @@ pub(crate) fn integrate_upstream(
 
         let mut branches = virtual_branches_state.list_branches_in_workspace()?;
 
-        let new_target_tree = context.new_target.tree()?;
-        let mut final_tree = context.new_target.tree()?;
-        let repository = context.repository;
-
         // Update branch trees
         for (branch_id, integration_result) in &integration_results {
             let IntegrationResult::UpdatedObjects { head, tree } = integration_result else {
@@ -300,21 +296,11 @@ pub(crate) fn integrate_upstream(
             branch.tree = *tree;
 
             virtual_branches_state.set_branch(branch.clone())?;
-
-            // Combine tree into new working tree
-            {
-                let branch_tree = repository.find_tree(branch.tree)?;
-                let mut merge_result: git2::Index =
-                    repository.merge_trees(&new_target_tree, &final_tree, &branch_tree, None)?;
-                let final_tree_oid = merge_result.write_tree_to(repository)?;
-                final_tree = repository.find_tree(final_tree_oid)?;
-            }
         }
 
-        repository.checkout_tree_builder(&final_tree)
-            .force()
-            .checkout()
-            .context("failed to checkout index, this should not have happened, we should have already detected this")?;
+        // Now that we've potentially updated the branch trees, lets checkout
+        // the result of merging them all together.
+        checkout_branch_trees(command_context, permission)?;
 
         virtual_branches_state.set_default_target(Target {
             sha: context.new_target.id(),
