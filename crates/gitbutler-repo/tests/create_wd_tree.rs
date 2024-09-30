@@ -488,3 +488,28 @@ fn executable_blobs() {
         )],
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn links() {
+    let test_repository = TestingRepository::open();
+
+    let commit = test_repository.commit_tree(None, &[("target", "helloworld")]);
+    test_repository
+        .repository
+        .branch("master", &commit, true)
+        .unwrap();
+
+    std::os::unix::fs::symlink("target", test_repository.tempdir.path().join("link1.txt")).unwrap();
+
+    let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
+
+    assert_tree_matches_with_mode(
+        &test_repository.repository,
+        tree.id(),
+        &[
+            ("link1.txt", b"target", &[EntryAttribute::Link]),
+            ("target", b"helloworld", &[EntryAttribute::Blob]),
+        ],
+    );
+}

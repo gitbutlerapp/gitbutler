@@ -87,6 +87,12 @@ impl TestingRepository {
 
         self.repository.find_commit(commit).unwrap()
     }
+
+    pub fn persist(self) {
+        let path = self.tempdir.into_path();
+
+        println!("Persisting test repository at {:?}", path);
+    }
 }
 
 pub fn assert_commit_tree_matches<'a>(

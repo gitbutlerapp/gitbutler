@@ -199,6 +199,13 @@ impl RepositoryExt for git2::Repository {
                 let file_path = worktree_path.join(path).to_owned();
 
                 if file_path.is_symlink() {
+                    let resolved_path = file_path.read_link()?;
+                    let path_str = resolved_path
+                        .to_str()
+                        .context("Failed to convert path to str")?;
+
+                    let blob = self.blob(path_str.as_bytes())?;
+                    tree_update_builder.upsert(path, blob, git2::FileMode::Link);
                 } else {
                     let file = std::fs::read(&file_path)?;
                     let blob = self.blob(&file)?;
