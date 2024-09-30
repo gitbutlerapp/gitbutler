@@ -60,8 +60,6 @@
 		handleLineContextMenu
 	}: Props = $props();
 
-	console.log(minWidth);
-
 	const WHITESPACE_REGEX = /\s/;
 	const NUMBER_COLUMN_WIDTH_PX = minWidth * 20;
 	const BORDER_WIDTH = 1;
