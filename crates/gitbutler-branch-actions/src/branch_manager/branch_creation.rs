@@ -452,7 +452,7 @@ impl BranchManager<'_> {
 
                 if let Some(headers) = potential_wip_commit.gitbutler_headers() {
                     if headers.change_id == wip_commit_to_unapply {
-                        branch = vbranch::undo_commit(self.ctx, branch.id, branch.head)?;
+                        branch = crate::undo_commit::undo_commit(self.ctx, branch.id, branch.head)?;
                     }
                 }
 

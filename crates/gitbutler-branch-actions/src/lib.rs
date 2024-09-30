@@ -45,6 +45,7 @@ pub mod conflicts;
 
 mod branch_trees;
 mod reorder_commits;
+mod undo_commit;
 
 mod author;
 mod status;

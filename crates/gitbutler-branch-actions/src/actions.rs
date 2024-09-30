@@ -298,7 +298,7 @@ pub fn undo_commit(project: &Project, branch_id: BranchId, commit_oid: git2::Oid
     assure_open_workspace_mode(&ctx).context("Undoing a commit requires open workspace mode")?;
     let mut guard = project.exclusive_worktree_access();
     let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
-    let result: Result<()> = vbranch::undo_commit(&ctx, branch_id, commit_oid)
+    let result: Result<()> = crate::undo_commit::undo_commit(&ctx, branch_id, commit_oid)
         .map(|_| ())
         .map_err(Into::into);
     let _ = snapshot_tree.and_then(|snapshot_tree| {
