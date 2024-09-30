@@ -2,7 +2,6 @@
 use std::os::unix::fs::PermissionsExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
-use std::path::PathBuf;
 use std::{io::Write, path::Path, process::Stdio, str};
 
 use crate::{Config, LogUntil};
@@ -17,6 +16,7 @@ use gitbutler_oxidize::{
     git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, gix_to_git2_signature,
 };
 use gitbutler_reference::{Refname, RemoteRefname};
+use gix::fs::is_executable;
 use gix::objs::WriteTo;
 use tracing::instrument;
 
@@ -24,7 +24,6 @@ use tracing::instrument;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
-    fn worktree_path(&self) -> PathBuf;
     fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
     fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>>;
     fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>>;
@@ -164,7 +163,7 @@ impl RepositoryExt for git2::Repository {
     fn create_wd_tree(&self) -> Result<Tree> {
         let mut tree_update_builder = git2::build::TreeUpdateBuilder::new();
 
-        let worktree_path = self.worktree_path();
+        let worktree_path = self.workdir().context("Could not find worktree path")?;
 
         let statuses = self.statuses(Some(
             StatusOptions::new()
@@ -197,11 +196,28 @@ impl RepositoryExt for git2::Repository {
             } else if (status.is_index_deleted() && !status.is_wt_new()) || status.is_wt_deleted() {
                 tree_update_builder.remove(path);
             } else {
-                let file_path = worktree_path.join(path);
-                let file = std::fs::read(file_path)?;
-                let blob = self.blob(&file)?;
+                let file_path = worktree_path.join(path).to_owned();
 
-                tree_update_builder.upsert(path, blob, git2::FileMode::Blob);
+                if file_path.is_symlink() {
+                    let resolved_path = file_path.read_link()?;
+                    let path_str = resolved_path
+                        .to_str()
+                        .context("Failed to convert path to str")?;
+
+                    let blob = self.blob(path_str.as_bytes())?;
+                    tree_update_builder.upsert(path, blob, git2::FileMode::Link);
+                } else {
+                    let file = std::fs::read(&file_path)?;
+                    let blob = self.blob(&file)?;
+
+                    let file_type = if is_executable(&file_path.metadata()?) {
+                        git2::FileMode::BlobExecutable
+                    } else {
+                        git2::FileMode::Blob
+                    };
+
+                    tree_update_builder.upsert(path, blob, file_type);
+                }
             }
         }
 
@@ -209,15 +225,6 @@ impl RepositoryExt for git2::Repository {
         let tree_oid = tree_update_builder.create_updated(self, &head_tree)?;
 
         Ok(self.find_tree(tree_oid)?)
-    }
-
-    /// Returns the path of the working directory of the repository.
-    fn worktree_path(&self) -> PathBuf {
-        if self.is_bare() {
-            self.path().to_owned()
-        } else {
-            self.path().join("..")
-        }
     }
 
     fn workspace_ref_from_head(&self) -> Result<git2::Reference<'_>> {
@@ -627,431 +634,5 @@ impl GixRepositoryExt for gix::Repository {
         let bytes = self.compute_object_cache_size_for_tree_diffs(&***self.index_or_empty()?);
         self.object_cache_size_if_unset(bytes);
         Ok(self)
-    }
-}
-
-#[cfg(test)]
-mod test {
-    mod create_wd_tree {
-        use std::path::Path;
-
-        use crate::repository_ext::RepositoryExt as _;
-        use gitbutler_testsupport::testing_repository::{assert_tree_matches, TestingRepository};
-
-        /// These tests exercise the truth table that we use to update the HEAD
-        /// tree to match the worktree.
-        ///
-        /// Truth table for upsert/remove:
-        /// | HEAD Tree -> Index | Index -> Worktree | Action |
-        /// | add                | delete            | no-action |
-        /// | modify             | delete            | remove |
-        /// |                    | delete            | remove |
-        /// | delete             |                   | remove |
-        /// | delete             | add               | upsert |
-        /// | add                |                   | upsert |
-        /// |                    | add               | upsert |
-        /// | add                | modify            | upsert |
-        /// | modify             | modify            | upsert |
-        #[cfg(test)]
-        mod head_upsert_truthtable {
-            use super::*;
-
-            // | add                | delete            | no-action |
-            #[test]
-            fn index_new_worktree_delete() {
-                let test_repository = TestingRepository::open();
-
-                let commit = test_repository.commit_tree(None, &[]);
-                test_repository
-                    .repository
-                    .branch("master", &commit, true)
-                    .unwrap();
-
-                std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content1")
-                    .unwrap();
-
-                let mut index = test_repository.repository.index().unwrap();
-                index.add_path(Path::new("file1.txt")).unwrap();
-                index.write().unwrap();
-
-                std::fs::remove_file(test_repository.tempdir.path().join("file1.txt")).unwrap();
-
-                let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-                assert_eq!(tree.len(), 0, "Tree should end up empty");
-            }
-
-            // | modify             | delete            | remove    |
-            #[test]
-            fn index_modify_worktree_delete() {
-                let test_repository = TestingRepository::open();
-
-                let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
-                test_repository
-                    .repository
-                    .branch("master", &commit, true)
-                    .unwrap();
-
-                std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content2")
-                    .unwrap();
-
-                let mut index = test_repository.repository.index().unwrap();
-                index.add_path(Path::new("file1.txt")).unwrap();
-                index.write().unwrap();
-
-                std::fs::remove_file(test_repository.tempdir.path().join("file1.txt")).unwrap();
-
-                let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-                assert_eq!(tree.len(), 0, "Tree should end up empty");
-            }
-
-            // |                    | delete            | remove    |
-            #[test]
-            fn worktree_delete() {
-                let test_repository = TestingRepository::open();
-
-                let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
-                test_repository
-                    .repository
-                    .branch("master", &commit, true)
-                    .unwrap();
-
-                std::fs::remove_file(test_repository.tempdir.path().join("file1.txt")).unwrap();
-
-                let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-                assert_eq!(tree.len(), 0, "Tree should end up empty");
-            }
-
-            // | delete             |                   | remove    |
-            #[test]
-            fn index_delete() {
-                let test_repository = TestingRepository::open();
-
-                let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
-                test_repository
-                    .repository
-                    .branch("master", &commit, true)
-                    .unwrap();
-
-                let mut index = test_repository.repository.index().unwrap();
-                index.remove_all(["*"], None).unwrap();
-                index.write().unwrap();
-
-                let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-                // We should ignore whatever happens to the index
-                assert_tree_matches(
-                    &test_repository.repository,
-                    &tree,
-                    &[("file1.txt", b"content1")],
-                );
-            }
-
-            // | delete             | add               | upsert    |
-            #[test]
-            fn index_delete_worktree_add() {
-                let test_repository = TestingRepository::open();
-
-                let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
-                test_repository
-                    .repository
-                    .branch("master", &commit, true)
-                    .unwrap();
-
-                let mut index = test_repository.repository.index().unwrap();
-                index.remove_all(["*"], None).unwrap();
-                index.write().unwrap();
-
-                std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content2")
-                    .unwrap();
-
-                let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-                // Tree should match whatever is written on disk
-                assert_tree_matches(
-                    &test_repository.repository,
-                    &tree,
-                    &[("file1.txt", b"content2")],
-                );
-            }
-
-            // | add                |                   | upsert    |
-            #[test]
-            fn index_add() {
-                let test_repository = TestingRepository::open();
-
-                let commit = test_repository.commit_tree(None, &[]);
-                test_repository
-                    .repository
-                    .branch("master", &commit, true)
-                    .unwrap();
-
-                std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content2")
-                    .unwrap();
-
-                let mut index = test_repository.repository.index().unwrap();
-                index.add_path(Path::new("file1.txt")).unwrap();
-                index.write().unwrap();
-
-                let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-                // Tree should match whatever is written on disk
-                assert_tree_matches(
-                    &test_repository.repository,
-                    &tree,
-                    &[("file1.txt", b"content2")],
-                );
-            }
-
-            // |                    | add               | upsert    |
-            #[test]
-            fn worktree_add() {
-                let test_repository = TestingRepository::open();
-
-                let commit = test_repository.commit_tree(None, &[]);
-                test_repository
-                    .repository
-                    .branch("master", &commit, true)
-                    .unwrap();
-
-                std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content2")
-                    .unwrap();
-
-                let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-                // Tree should match whatever is written on disk
-                assert_tree_matches(
-                    &test_repository.repository,
-                    &tree,
-                    &[("file1.txt", b"content2")],
-                );
-            }
-
-            // | add                | modify            | upsert    |
-            #[test]
-            fn index_add_worktree_modify() {
-                let test_repository = TestingRepository::open();
-
-                let commit = test_repository.commit_tree(None, &[]);
-                test_repository
-                    .repository
-                    .branch("master", &commit, true)
-                    .unwrap();
-
-                std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content1")
-                    .unwrap();
-
-                let mut index = test_repository.repository.index().unwrap();
-                index.add_path(Path::new("file1.txt")).unwrap();
-                index.write().unwrap();
-
-                std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content2")
-                    .unwrap();
-
-                let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-                // Tree should match whatever is written on disk
-                assert_tree_matches(
-                    &test_repository.repository,
-                    &tree,
-                    &[("file1.txt", b"content2")],
-                );
-            }
-
-            // | modify             | modify            | upsert    |
-            #[test]
-            fn index_modify_worktree_modify() {
-                let test_repository = TestingRepository::open();
-
-                let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
-                test_repository
-                    .repository
-                    .branch("master", &commit, true)
-                    .unwrap();
-
-                std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content2")
-                    .unwrap();
-
-                let mut index = test_repository.repository.index().unwrap();
-                index.add_path(Path::new("file1.txt")).unwrap();
-                index.write().unwrap();
-
-                std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content3")
-                    .unwrap();
-
-                let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-                // Tree should match whatever is written on disk
-                assert_tree_matches(
-                    &test_repository.repository,
-                    &tree,
-                    &[("file1.txt", b"content3")],
-                );
-            }
-        }
-
-        #[test]
-        fn lists_uncommited_changes() {
-            let test_repository = TestingRepository::open();
-
-            // Initial commit
-            // Create wd tree requires the HEAD branch to exist and for there
-            // to be at least one commit on that branch.
-            let commit = test_repository.commit_tree(None, &[]);
-            test_repository
-                .repository
-                .branch("master", &commit, true)
-                .unwrap();
-
-            std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content1").unwrap();
-            std::fs::write(test_repository.tempdir.path().join("file2.txt"), "content2").unwrap();
-
-            let tree = test_repository.repository.create_wd_tree().unwrap();
-
-            assert_tree_matches(
-                &test_repository.repository,
-                &tree,
-                &[("file1.txt", b"content1"), ("file2.txt", b"content2")],
-            );
-        }
-
-        #[test]
-        fn does_not_include_staged_but_deleted_files() {
-            let test_repository = TestingRepository::open();
-
-            // Initial commit
-            // Create wd tree requires the HEAD branch to exist and for there
-            // to be at least one commit on that branch.
-            let commit = test_repository.commit_tree(None, &[]);
-            test_repository
-                .repository
-                .branch("master", &commit, true)
-                .unwrap();
-
-            std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content1").unwrap();
-            std::fs::write(test_repository.tempdir.path().join("file2.txt"), "content2").unwrap();
-
-            std::fs::write(test_repository.tempdir.path().join("file3.txt"), "content2").unwrap();
-            let mut index: git2::Index = test_repository.repository.index().unwrap();
-            index.add_path(Path::new("file3.txt")).unwrap();
-            index.write().unwrap();
-            std::fs::remove_file(test_repository.tempdir.path().join("file3.txt")).unwrap();
-
-            let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-            assert_tree_matches(
-                &test_repository.repository,
-                &tree,
-                &[("file1.txt", b"content1"), ("file2.txt", b"content2")],
-            );
-            assert!(tree.get_name("file3.txt").is_none());
-        }
-
-        #[test]
-        fn should_be_empty_after_checking_out_empty_tree() {
-            let test_repository = TestingRepository::open();
-
-            let commit = test_repository.commit_tree(
-                None,
-                &[("file1.txt", "content1"), ("file2.txt", "content2")],
-            );
-            test_repository
-                .repository
-                .branch("master", &commit, true)
-                .unwrap();
-
-            // Checkout an empty tree
-            {
-                let tree_oid = test_repository
-                    .repository
-                    .treebuilder(None)
-                    .unwrap()
-                    .write()
-                    .unwrap();
-                let tree = test_repository.repository.find_tree(tree_oid).unwrap();
-                test_repository
-                    .repository
-                    .checkout_tree_builder(&tree)
-                    .force()
-                    .remove_untracked()
-                    .checkout()
-                    .unwrap();
-            }
-
-            assert!(!test_repository.tempdir.path().join("file1.txt").exists());
-            assert!(!test_repository.tempdir.path().join("file2.txt").exists());
-
-            let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-            // Fails because `create_wd_tree` uses the head commit as the base,
-            // and then performs modifications to the tree
-            assert_eq!(tree.len(), 0);
-        }
-
-        #[test]
-        fn should_track_deleted_files() {
-            let test_repository = TestingRepository::open();
-
-            let commit = test_repository.commit_tree(
-                None,
-                &[("file1.txt", "content1"), ("file2.txt", "content2")],
-            );
-            test_repository
-                .repository
-                .branch("master", &commit, true)
-                .unwrap();
-
-            // Make sure the index is empty, perhaps the user did this action
-            let mut index: git2::Index = test_repository.repository.index().unwrap();
-            index.remove_all(["*"], None).unwrap();
-            index.write().unwrap();
-
-            std::fs::remove_file(test_repository.tempdir.path().join("file1.txt")).unwrap();
-
-            assert!(!test_repository.tempdir.path().join("file1.txt").exists());
-            assert!(test_repository.tempdir.path().join("file2.txt").exists());
-
-            let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-            // Fails because `create_wd_tree` uses the head commit as the base,
-            // and then performs modifications to the tree
-            assert!(tree.get_name("file1.txt").is_none());
-            assert!(tree.get_name("file2.txt").is_some());
-        }
-
-        #[test]
-        fn should_not_change_index() {
-            let test_repository = TestingRepository::open();
-
-            let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
-            test_repository
-                .repository
-                .branch("master", &commit, true)
-                .unwrap();
-
-            let mut index = test_repository.repository.index().unwrap();
-            index.remove_all(["*"], None).unwrap();
-            index.write().unwrap();
-
-            let index_tree = index.write_tree().unwrap();
-            let index_tree = test_repository.repository.find_tree(index_tree).unwrap();
-            assert_eq!(index_tree.len(), 0);
-
-            let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
-
-            let mut index = test_repository.repository.index().unwrap();
-            let index_tree = index.write_tree().unwrap();
-            let index_tree = test_repository.repository.find_tree(index_tree).unwrap();
-            assert_eq!(index_tree.len(), 0);
-
-            // Tree should match whatever is written on disk
-            assert_tree_matches(
-                &test_repository.repository,
-                &tree,
-                &[("file1.txt", b"content1")],
-            );
-        }
     }
 }

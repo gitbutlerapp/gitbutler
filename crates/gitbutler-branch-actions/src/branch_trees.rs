@@ -67,7 +67,6 @@ pub(crate) fn checkout_branch_trees<'a>(
 mod test {
     use std::fs;
 
-    use bstr::ByteSlice as _;
     use gitbutler_branch::BranchCreateRequest;
     use gitbutler_command_context::CommandContext;
     use gitbutler_repo::RepositoryExt as _;
@@ -131,10 +130,6 @@ mod test {
         // Assert tree is indeed empty
         {
             let tree: git2::Tree = test_project.local_repository.create_wd_tree().unwrap();
-            dbg!(tree
-                .into_iter()
-                .map(|t| t.name_bytes().to_str_lossy().to_string())
-                .collect::<Vec<_>>());
 
             // Tree should be empty
             assert_eq!(
