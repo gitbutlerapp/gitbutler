@@ -275,8 +275,6 @@ mod test {
                 &[("foo.txt", "a"), ("bar.txt", "a"), ("baz.txt", "a")],
             );
 
-            dbg!(merge_base.tree_id(), a.tree_id(), b.tree_id());
-
             let result = crate::reorder_commits::inner_reorder_commit(
                 &test_repository.repository,
                 merge_base.id(),
