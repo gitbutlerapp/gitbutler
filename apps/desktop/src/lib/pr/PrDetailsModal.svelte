@@ -7,16 +7,23 @@
 </script>
 
 <script lang="ts">
+	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import Markdown from '$lib/components/Markdown.svelte';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
+	import { showError } from '$lib/notifications/toasts';
+	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
+	import { User } from '$lib/stores/user';
 	import { autoHeight } from '$lib/utils/autoHeight';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { onMetaEnter } from '$lib/utils/hotkeys';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { tick } from 'svelte';
 	import type { DetailedPullRequest } from '$lib/gitHost/interface/types';
 
 	interface BaseProps {
@@ -38,17 +45,27 @@
 
 	let props: Props = $props();
 
+	const user = getContextStore(User);
 	const project = getContext(Project);
 	const branchStore = getContextStore(VirtualBranch);
 	const prService = getGitHostPrService();
+	const aiService = getContext(AIService);
+	const aiGenEnabled = projectAiGenEnabled(project.id);
+
+	const branch = $derived($branchStore);
+	const prTemplatePath = $derived(project.git_host.pullRequestTemplatePath);
 
 	let modal = $state<Modal>();
 	let bodyTextArea = $state<HTMLTextAreaElement | null>(null);
 	let isEditing = $state<boolean>(false);
-	const branch = $derived($branchStore);
-	const prTemplatePath = $derived(project.git_host.pullRequestTemplatePath);
 	let pullRequestTemplateBody = $state<string | undefined>(undefined);
+	let aiIsLoading = $state<boolean>(false);
+	let aiConfigurationValid = $state<boolean>(false);
+	let aiDescriptionDirective = $state<string | undefined>(undefined);
 
+	const canUseAI = $derived.by(() => {
+		return aiConfigurationValid || $aiGenEnabled;
+	});
 	const defaultTitle: string = $derived.by(() => {
 		if (props.type === 'display') return props.pr.title;
 		// In case of a single commit, use the commit summary for the title
@@ -86,6 +103,14 @@
 		}
 	});
 
+	$effect(() => {
+		if (modal?.imports.open) {
+			aiService.validateConfiguration($user?.access_token).then((valid) => {
+				aiConfigurationValid = valid;
+			});
+		}
+	});
+
 	function updateFieldsHeight() {
 		if (bodyTextArea) autoHeight(bodyTextArea);
 	}
@@ -104,8 +129,48 @@
 		isEditing = !isEditing;
 	}
 
+	async function handleAIButtonPressed() {
+		if (!aiGenEnabled) return;
+
+		aiIsLoading = true;
+		await tick();
+
+		let firstToken = true;
+
+		const descriptionResult = await aiService?.describePR({
+			title: actualTitle,
+			body: actualBody,
+			directive: aiDescriptionDirective,
+			commitMessages: branch.commits.map((c) => c.description),
+			prBodyTemplate: pullRequestTemplateBody,
+			userToken: $user.access_token,
+			onToken: (t) => {
+				if (firstToken) {
+					firstToken = false;
+					inputBody = '';
+				}
+				inputBody += t;
+				updateFieldsHeight();
+			}
+		});
+
+		if (isFailure(descriptionResult)) {
+			showError('Failed to generate commit message', descriptionResult.failure);
+			aiIsLoading = false;
+			return;
+		}
+
+		inputBody = descriptionResult.value;
+		aiIsLoading = false;
+		aiDescriptionDirective = undefined;
+		await tick();
+
+		updateFieldsHeight();
+	}
+
 	function onClose() {
 		isEditing = false;
+		inputTitle = undefined;
 		inputBody = undefined;
 	}
 
@@ -133,7 +198,7 @@
 							<div class="text-input pr-modal__title-input-wrapper">
 								<input
 									type="text"
-									class="text-13 text-body text-semibold pr-modal__title-input"
+									class="text-13 text-body pr-modal__title-input"
 									value={actualTitle}
 									oninput={(e) => {
 										inputTitle = e.currentTarget.value;
@@ -153,13 +218,14 @@
 						>
 							<textarea
 								bind:this={bodyTextArea}
+								disabled={aiIsLoading}
 								value={actualBody}
 								onfocus={(e) => autoHeight(e.currentTarget)}
 								oninput={(e) => {
 									inputBody = e.currentTarget.value;
 									autoHeight(e.currentTarget);
 								}}
-								class="text-13 text-body text-semibold pr-modal__body-input"
+								class="text-13 text-body pr-modal__body-input"
 							></textarea>
 						</div>
 					{:else if actualBody}
@@ -173,17 +239,52 @@
 			</div>
 		</ScrollableContainer>
 		<div class="pr-modal__footer">
-			{#if props.type === 'preview'}
-				<Button style="ghost" outline onclick={close}>Cancel</Button>
-				<Button style="neutral" kind="solid" onclick={toggleEdit}
-					>{isEditing ? 'Done' : 'Edit'}</Button
-				>
-				<Button style="pop" kind="solid" disabled={isEditing} onclick={() => handleCreatePR(close)}
-					>{props.draft ? 'Create Draft PR' : 'Create PR'}</Button
-				>
-			{:else if props.type === 'display'}
-				<Button style="ghost" outline onclick={close}>Done</Button>
+			{#if isEditing && canUseAI}
+				<div class="text-input pr-modal__ai-prompt-wrapper">
+					<textarea
+						class="text-13 text-body pr-modal__ai-prompt-input"
+						disabled={aiIsLoading}
+						value={aiDescriptionDirective ?? ''}
+						placeholder={aiService.prSummaryMainDirective}
+						onkeydown={onMetaEnter(handleAIButtonPressed)}
+						onfocus={(e) => autoHeight(e.currentTarget)}
+						oninput={(e) => {
+							aiDescriptionDirective = e.currentTarget.value;
+							autoHeight(e.currentTarget);
+						}}
+					></textarea>
+					<Button
+						style="neutral"
+						kind="solid"
+						icon="ai-small"
+						tooltip={!aiConfigurationValid
+							? 'You must be logged in or have provided your own API key'
+							: !$aiGenEnabled
+								? 'You must have summary generation enabled'
+								: undefined}
+						disabled={!canUseAI || aiIsLoading}
+						isLoading={aiIsLoading}
+						onclick={handleAIButtonPressed}>Generate description</Button
+					>
+				</div>
 			{/if}
+			<div class="pr-modal__button-wrapper">
+				{#if props.type === 'preview'}
+					<Button style="ghost" outline onclick={close}>Cancel</Button>
+					<Button style="neutral" kind="solid" onclick={toggleEdit}
+						>{isEditing ? 'Done' : 'Edit'}</Button
+					>
+					<Button
+						style="pop"
+						kind="solid"
+						disabled={isEditing}
+						onclick={() => handleCreatePR(close)}
+						>{props.draft ? 'Create Draft PR' : 'Create PR'}</Button
+					>
+				{:else if props.type === 'display'}
+					<Button style="ghost" outline onclick={close}>Done</Button>
+				{/if}
+			</div>
 		</div>
 	{/snippet}
 </Modal>
@@ -226,7 +327,7 @@
 		flex-direction: column;
 		gap: 4px;
 	}
-
+	.pr-modal__ai-prompt-input,
 	.pr-modal__body-input {
 		overflow: hidden;
 		display: flex;
@@ -245,15 +346,32 @@
 		}
 	}
 
+	.pr-modal__ai-prompt-input {
+		width: 100%;
+	}
+
 	.pr-modal__footer {
 		display: flex;
+		flex-direction: column;
 		width: 100%;
-		justify-content: flex-end;
-		gap: 8px;
+		gap: 16px;
 		padding: 16px;
 		border-top: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 		border-bottom-left-radius: var(--radius-l);
 		border-bottom-right-radius: var(--radius-l);
+	}
+
+	.pr-modal__button-wrapper {
+		display: flex;
+		gap: 8px;
+		width: 100%;
+		justify-content: flex-end;
+	}
+
+	.pr-modal__ai-prompt-wrapper {
+		display: flex;
+		width: 100%;
+		padding: 8px;
 	}
 </style>
