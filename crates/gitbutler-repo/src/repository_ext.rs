@@ -2,7 +2,6 @@
 use std::os::unix::fs::PermissionsExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
-use std::path::PathBuf;
 use std::{io::Write, path::Path, process::Stdio, str};
 
 use crate::{Config, LogUntil};
@@ -17,6 +16,7 @@ use gitbutler_oxidize::{
     git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, gix_to_git2_signature,
 };
 use gitbutler_reference::{Refname, RemoteRefname};
+use gix::fs::is_executable;
 use gix::objs::WriteTo;
 use tracing::instrument;
 
@@ -196,11 +196,21 @@ impl RepositoryExt for git2::Repository {
             } else if (status.is_index_deleted() && !status.is_wt_new()) || status.is_wt_deleted() {
                 tree_update_builder.remove(path);
             } else {
-                let file_path = worktree_path.join(path);
-                let file = std::fs::read(file_path)?;
-                let blob = self.blob(&file)?;
+                let file_path = worktree_path.join(path).to_owned();
 
-                tree_update_builder.upsert(path, blob, git2::FileMode::Blob);
+                if file_path.is_symlink() {
+                } else {
+                    let file = std::fs::read(&file_path)?;
+                    let blob = self.blob(&file)?;
+
+                    let file_type = if is_executable(&file_path.metadata()?) {
+                        git2::FileMode::BlobExecutable
+                    } else {
+                        git2::FileMode::Blob
+                    };
+
+                    tree_update_builder.upsert(path, blob, file_type);
+                }
             }
         }
 

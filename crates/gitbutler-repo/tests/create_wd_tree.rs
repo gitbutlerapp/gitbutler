@@ -1,7 +1,12 @@
-use std::path::Path;
+use std::{
+    fs::{File, Permissions},
+    path::Path,
+};
 
 use gitbutler_repo::RepositoryExt as _;
-use gitbutler_testsupport::testing_repository::{assert_tree_matches, TestingRepository};
+use gitbutler_testsupport::testing_repository::{
+    assert_tree_matches, assert_tree_matches_with_mode, EntryAttribute, TestingRepository,
+};
 
 /// These tests exercise the truth table that we use to update the HEAD
 /// tree to match the worktree.
@@ -19,7 +24,6 @@ use gitbutler_testsupport::testing_repository::{assert_tree_matches, TestingRepo
 /// | modify             | modify            | upsert |
 #[cfg(test)]
 mod head_upsert_truthtable {
-
     use super::*;
 
     // | add                | delete            | no-action |
@@ -408,5 +412,79 @@ fn should_not_change_index() {
         &test_repository.repository,
         &tree,
         &[("file1.txt", b"content1")],
+    );
+}
+
+#[test]
+fn tree_behavior() {
+    let test_repository = TestingRepository::open();
+
+    let commit = test_repository.commit_tree(
+        None,
+        &[
+            ("dir1/file1.txt", "content1"),
+            ("dir2/file2.txt", "content2"),
+        ],
+    );
+
+    test_repository
+        .repository
+        .branch("master", &commit, true)
+        .unwrap();
+
+    // Update a file in a directory
+    std::fs::write(
+        test_repository.tempdir.path().join("dir1/file1.txt"),
+        "new1",
+    )
+    .unwrap();
+    // Make a new directory and file
+    std::fs::create_dir(test_repository.tempdir.path().join("dir3")).unwrap();
+    std::fs::write(
+        test_repository.tempdir.path().join("dir3/file1.txt"),
+        "new2",
+    )
+    .unwrap();
+
+    let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
+
+    assert_tree_matches(
+        &test_repository.repository,
+        &tree,
+        &[
+            ("dir1/file1.txt", b"new1"),
+            ("dir2/file2.txt", b"content2"),
+            ("dir3/file1.txt", b"new2"),
+        ],
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn executable_blobs() {
+    use std::{io::Write, os::unix::fs::PermissionsExt as _};
+
+    let test_repository = TestingRepository::open();
+
+    let commit = test_repository.commit_tree(None, &[]);
+    test_repository
+        .repository
+        .branch("master", &commit, true)
+        .unwrap();
+
+    let mut file = File::create(test_repository.tempdir.path().join("file1.txt")).unwrap();
+    file.set_permissions(Permissions::from_mode(0o755)).unwrap();
+    file.write_all(b"content1").unwrap();
+
+    let tree: git2::Tree = test_repository.repository.create_wd_tree().unwrap();
+
+    assert_tree_matches_with_mode(
+        &test_repository.repository,
+        tree.id(),
+        &[(
+            "file1.txt",
+            b"content1",
+            &[EntryAttribute::Blob, EntryAttribute::Executable],
+        )],
     );
 }

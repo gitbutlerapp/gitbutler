@@ -17,6 +17,7 @@ tempfile = "3.10.1"
 keyring.workspace = true
 serde_json = "1.0"
 gix-testtools = "0.15.0"
+gix.workspace = true
 parking_lot.workspace = true
 gitbutler-branch-actions = { path = "../gitbutler-branch-actions" }
 gitbutler-repo = { path = "../gitbutler-repo" }
@@ -27,3 +28,4 @@ gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-storage.workspace = true
 gitbutler-url.workspace = true
+gitbutler-oxidize.workspace = true

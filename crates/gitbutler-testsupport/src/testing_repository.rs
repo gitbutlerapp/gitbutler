@@ -1,5 +1,6 @@
-use std::{fs, path::Path};
+use std::fs;
 
+use gitbutler_oxidize::git2_to_gix_object_id;
 use gix_testtools::bstr::ByteSlice as _;
 use tempfile::{tempdir, TempDir};
 
@@ -50,7 +51,14 @@ impl TestingRepository {
         }
         // Write any files
         for (file_name, contents) in files {
-            fs::write(self.tempdir.path().join(file_name), contents).unwrap();
+            let path = self.tempdir.path().join(file_name);
+            let parent = path.parent().unwrap();
+
+            if !parent.exists() {
+                fs::create_dir_all(parent).unwrap();
+            }
+
+            fs::write(path, contents).unwrap();
         }
 
         // Update the index
@@ -94,16 +102,60 @@ pub fn assert_tree_matches<'a>(
     tree: &git2::Tree<'a>,
     files: &[(&str, &[u8])],
 ) {
-    for (path, content) in files {
-        let blob = tree.get_path(Path::new(path)).unwrap().id();
-        let blob: git2::Blob<'a> = repository.find_blob(blob).unwrap();
+    assert_tree_matches_with_mode(
+        repository,
+        tree.id(),
+        &files
+            .iter()
+            .map(|(path, content)| (*path, *content, &[] as &[EntryAttribute]))
+            .collect::<Vec<_>>(),
+    );
+}
+
+#[derive(Debug, Copy, Clone)]
+pub enum EntryAttribute {
+    Tree,
+    Commit,
+    Link,
+    Blob,
+    Executable,
+}
+
+pub fn assert_tree_matches_with_mode(
+    repository: &git2::Repository,
+    tree: git2::Oid,
+    files: &[(&str, &[u8], &[EntryAttribute])],
+) {
+    let gix_repository = gix::open(repository.path()).unwrap();
+
+    let tree = gix_repository
+        .find_tree(git2_to_gix_object_id(tree))
+        .unwrap();
+
+    for (path, content, entry_attributes) in files {
+        let tree_entry = tree.lookup_entry_by_path(path).unwrap().unwrap();
+        let object = gix_repository.find_object(tree_entry.id()).unwrap();
         assert_eq!(
-            blob.content(),
+            object.data,
             *content,
             "{}: expect {} == {}",
             path,
-            blob.content().to_str_lossy(),
+            object.data.to_str_lossy(),
             content.to_str_lossy()
         );
+
+        for entry_attribute in *entry_attributes {
+            match entry_attribute {
+                EntryAttribute::Tree => assert!(tree_entry.mode().is_tree(), "{} is a tree", path),
+                EntryAttribute::Commit => {
+                    assert!(tree_entry.mode().is_commit(), "{} is a commit", path)
+                }
+                EntryAttribute::Link => assert!(tree_entry.mode().is_link(), "{} is a link", path),
+                EntryAttribute::Blob => assert!(tree_entry.mode().is_blob(), "{} is a blob", path),
+                EntryAttribute::Executable => {
+                    assert!(tree_entry.mode().is_executable(), "{} is executable", path)
+                }
+            }
+        }
     }
 }
