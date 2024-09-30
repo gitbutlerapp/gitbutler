@@ -64,12 +64,31 @@
 
 	<div class="stack-v">
 		<SectionCard centerAlign roundedBottom={false}>
-			<svelte:fragment slot="title">Diff font</svelte:fragment>
+			<svelte:fragment slot="title">Diff preview</svelte:fragment>
+
+			<HunkDiff
+				readonly
+				filePath="test.tsx"
+				minWidth={1.25}
+				selectable={false}
+				draggingDisabled
+				tabSize={$userSettings.tabSize}
+				diffFont={$userSettings.diffFont}
+				diffLigatures={$userSettings.diffLigatures}
+				hunk={testHunk}
+				subsections={hunkSubsections}
+				onclick={() => {}}
+				handleSelected={() => {}}
+				handleLineContextMenu={() => {}}
+			/>
+		</SectionCard>
+
+		<SectionCard orientation="column" roundedTop={false} roundedBottom={false}>
+			<svelte:fragment slot="title">Font family</svelte:fragment>
 			<svelte:fragment slot="caption"
 				>Sets the font for the diff view. The first font name is the default, others are fallbacks.
 			</svelte:fragment>
-
-			<div class="diff-preview">
+			<svelte:fragment slot="actions">
 				<TextBox
 					wide
 					bind:value={$userSettings.diffFont}
@@ -81,23 +100,7 @@
 						}));
 					}}
 				/>
-
-				<HunkDiff
-					readonly
-					filePath="test.tsx"
-					minWidth={1.25}
-					selectable={false}
-					draggingDisabled
-					tabSize={$userSettings.tabSize}
-					diffFont={$userSettings.diffFont}
-					diffLigatures={$userSettings.diffLigatures}
-					hunk={testHunk}
-					subsections={hunkSubsections}
-					onclick={() => {}}
-					handleSelected={() => {}}
-					handleLineContextMenu={() => {}}
-				/>
-			</div>
+			</svelte:fragment>
 		</SectionCard>
 
 		<SectionCard
@@ -212,11 +215,3 @@
 		</svelte:fragment>
 	</SectionCard>
 </SettingsPage>
-
-<style>
-	.diff-preview {
-		display: flex;
-		flex-direction: column;
-		gap: 10px;
-	}
-</style>
