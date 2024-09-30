@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { type Row, Operation, type DiffRows } from './types';
-	import { featureInlineUnifiedDiffs } from '$lib/config/uiFeatureFlags';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { create } from '$lib/utils/codeHighlight';
 	import { maybeGetContextStore } from '$lib/utils/context';
@@ -25,6 +24,9 @@
 		selectable: boolean;
 		subsections: ContentSection[];
 		tabSize: number;
+		diffFont: string;
+		diffLigatures: boolean;
+		inlineUnifiedDiffs: boolean;
 		minWidth: number;
 		draggingDisabled: boolean;
 		onclick: () => void;
@@ -49,6 +51,9 @@
 		selectable,
 		subsections,
 		tabSize,
+		diffFont,
+		diffLigatures,
+		inlineUnifiedDiffs,
 		minWidth,
 		draggingDisabled = false,
 		onclick,
@@ -69,8 +74,6 @@
 
 	const selected = $derived($selectedOwnership?.isSelected(hunk.filePath, hunk.id) ?? false);
 	let isSelected = $derived(selectable && selected);
-
-	const inlineUnifiedDiffs = featureInlineUnifiedDiffs();
 
 	function charDiff(text1: string, text2: string): { 0: number; 1: string }[] {
 		const differ = new diff_match_patch();
@@ -250,7 +253,7 @@
 				return acc;
 			}
 
-			if ($inlineUnifiedDiffs) {
+			if (inlineUnifiedDiffs) {
 				const rows = computeInlineWordDiff(prevSection, nextSection);
 
 				acc.splice(-prevSection.lines.length);
@@ -335,11 +338,12 @@
 	bind:clientWidth={tableWidth}
 	bind:clientHeight={tableHeight}
 	class="table__wrapper hide-native-scrollbar"
-	style="--tab-size: {tabSize}"
+	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
+	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
 >
 	<ScrollableContainer horz padding={{ left: NUMBER_COLUMN_WIDTH_PX * 2 + 2 }}>
 		<table data-hunk-id={hunk.id} class="table__section">
-			<thead class="table__title">
+			<thead class="table__title" class:draggable={!draggingDisabled}>
 				<tr
 					onclick={() => {
 						selectable && handleSelected(hunk, !isSelected);
@@ -442,7 +446,7 @@
 	table,
 	.table__section {
 		width: 100%;
-		font-family: var(--mono-font-family);
+		font-family: var(--diff-font);
 		border-collapse: separate;
 		border-spacing: 0;
 	}
@@ -494,8 +498,11 @@
 	}
 
 	.table__title {
-		cursor: grab;
 		user-select: none;
+	}
+
+	.draggable {
+		cursor: grab;
 	}
 
 	.table__drag-handle {
@@ -552,7 +559,6 @@
 		width: calc(var(--table-width) - var(--number-col-width));
 		height: calc(100% + var(--border-width) * 2);
 		box-sizing: border-box;
-		font-family: var(--mono-font-family);
 		font-weight: 400;
 		font-size: 12px;
 		padding: 4px 6px;

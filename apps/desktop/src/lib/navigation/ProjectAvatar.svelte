@@ -36,7 +36,7 @@
 	}
 
 	.avatar-letter text {
-		font-family: 'Inter', sans-serif;
+		font-family: var(--base-font-family);
 		font-weight: 800;
 		font-size: 16px;
 		line-height: 1;

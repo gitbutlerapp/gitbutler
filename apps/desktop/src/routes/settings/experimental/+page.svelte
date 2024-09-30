@@ -2,7 +2,6 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import {
 		featureBaseBranchSwitching,
-		featureInlineUnifiedDiffs,
 		stackingFeature,
 		featureTopics
 	} from '$lib/config/uiFeatureFlags';
@@ -10,7 +9,6 @@
 	import Toggle from '$lib/shared/Toggle.svelte';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
-	const inlineUnifiedDiffs = featureInlineUnifiedDiffs();
 	const topicsEnabled = featureTopics();
 </script>
 
@@ -30,21 +28,6 @@
 				id="baseBranchSwitching"
 				checked={$baseBranchSwitching}
 				on:click={() => ($baseBranchSwitching = !$baseBranchSwitching)}
-			/>
-		</svelte:fragment>
-	</SectionCard>
-	<SectionCard labelFor="inlineUnifiedDiffs" orientation="row">
-		<svelte:fragment slot="title">Display word diffs inline</svelte:fragment>
-		<svelte:fragment slot="caption">
-			Rather than showing one line which is the all the removals and another line which is all the
-			additions, with the specific words emboldened. With the feature flag enabled, only one line
-			with both the words added and removed is displayed.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle
-				id="inlineUnifiedDiffs"
-				checked={$inlineUnifiedDiffs}
-				on:click={() => ($inlineUnifiedDiffs = !$inlineUnifiedDiffs)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
