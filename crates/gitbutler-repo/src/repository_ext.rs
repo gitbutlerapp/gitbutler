@@ -24,7 +24,6 @@ use tracing::instrument;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
-    fn worktree_path(&self) -> PathBuf;
     fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
     fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>>;
     fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>>;
@@ -164,7 +163,7 @@ impl RepositoryExt for git2::Repository {
     fn create_wd_tree(&self) -> Result<Tree> {
         let mut tree_update_builder = git2::build::TreeUpdateBuilder::new();
 
-        let worktree_path = self.worktree_path();
+        let worktree_path = self.workdir().context("Could not find worktree path")?;
 
         let statuses = self.statuses(Some(
             StatusOptions::new()
@@ -209,15 +208,6 @@ impl RepositoryExt for git2::Repository {
         let tree_oid = tree_update_builder.create_updated(self, &head_tree)?;
 
         Ok(self.find_tree(tree_oid)?)
-    }
-
-    /// Returns the path of the working directory of the repository.
-    fn worktree_path(&self) -> PathBuf {
-        if self.is_bare() {
-            self.path().to_owned()
-        } else {
-            self.path().join("..")
-        }
     }
 
     fn workspace_ref_from_head(&self) -> Result<git2::Reference<'_>> {
