@@ -32,7 +32,7 @@ bstr.workspace = true
 diffy = "0.4.0"
 hex = "0.4.3"
 regex = "1.10"
-git2-hooks = "0.3"
+git2-hooks = "0.4"
 url = { version = "2.5.2", features = ["serde"] }
 md5 = "0.7.0"
 itertools = "0.13"
