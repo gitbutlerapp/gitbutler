@@ -1,14 +1,19 @@
 <script lang="ts">
+	import { Project } from '$lib/backend/projects';
 	import { CommitService } from '$lib/commits/service';
+	import { editor } from '$lib/editorLink/editorLink';
+	import FileContextMenu from '$lib/file/FileContextMenu.svelte';
 	import ActionView from '$lib/layout/ActionView.svelte';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { getContext } from '$lib/utils/context';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { Commit, type RemoteFile } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import InfoButton from '@gitbutler/ui/InfoButton.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import { join } from '@tauri-apps/api/path';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
 
 	interface Props {
@@ -17,6 +22,7 @@
 
 	const { editModeMetadata }: Props = $props();
 
+	const project = getContext(Project);
 	const remoteCommitService = getContext(CommitService);
 	const uncommitedFileWatcher = getContext(UncommitedFilesWatcher);
 	const modeService = getContext(ModeService);
@@ -28,6 +34,9 @@
 
 	let initialFiles = $state<RemoteFile[]>([]);
 	let commit = $state<Commit | undefined>(undefined);
+
+	let filesList = $state<HTMLDivElement | undefined>(undefined);
+	let contextMenu = $state<FileContextMenu | undefined>(undefined);
 
 	$effect(() => {
 		modeService.getInitialIndexState().then((files) => {
@@ -118,6 +127,8 @@
 		return files;
 	});
 
+	const conflictedFiles = $derived(files.filter((file) => file.conflicted));
+
 	async function abort() {
 		modeServiceAborting = 'loading';
 
@@ -132,6 +143,13 @@
 		await modeService.saveEditAndReturnToWorkspace();
 
 		modeServiceSaving = 'completed';
+	}
+
+	async function openAllConflictedFiles() {
+		for (const file of conflictedFiles) {
+			const absPath = await join(project.vscodePath, file.path);
+			openExternalUrl(`${$editor}://file${absPath}`);
+		}
 	}
 </script>
 
@@ -172,7 +190,7 @@
 				<div class="commit-card__type-indicator"></div>
 			</div>
 
-			<div class="card files">
+			<div bind:this={filesList} class="card files">
 				<h3 class="text-13 text-semibold header">Commit files</h3>
 				{#each files as file}
 					<div class="file">
@@ -182,13 +200,22 @@
 							fileStatus={file.status}
 							conflicted={file.conflicted}
 							fileStatusStyle={file.status === 'M' ? 'full' : 'dot'}
-							clickable={false}
+							oncontextmenu={(e) => {
+								contextMenu?.open(e, { files: [file] });
+							}}
 						/>
 					</div>
 				{/each}
 			</div>
 		</div>
 	</div>
+
+	<FileContextMenu
+		bind:this={contextMenu}
+		target={filesList}
+		isUnapplied={false}
+		branchId={undefined}
+	/>
 
 	<!-- <div class="editmode__helpbox"> -->
 	<p class="text-12 text-body editmode__helptext">
@@ -202,6 +229,19 @@
 		<Button style="ghost" outline onclick={abort} disabled={modeServiceAborting === 'loading'}>
 			Cancel
 		</Button>
+		{#if conflictedFiles.length > 0}
+			<Button
+				style="neutral"
+				kind="solid"
+				onclick={openAllConflictedFiles}
+				icon="open-link"
+				tooltip={conflictedFiles.length === 1
+					? 'Open the conflicted file in your editor'
+					: 'Open all files with conflicts in your editor'}
+			>
+				Open conflicted files
+			</Button>
+		{/if}
 		<Button
 			style="pop"
 			kind="solid"
