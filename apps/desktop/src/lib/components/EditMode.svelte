@@ -78,27 +78,37 @@
 			});
 
 			$uncommitedFiles.forEach(([uncommitedFile]) => {
-				const initialFile = initialFileMap.get(uncommitedFile.path);
-				if (initialFile) {
-					const fileChanged = initialFile.hunks.some(
+				const existingFile = initialFileMap.get(uncommitedFile.path);
+
+				if (existingFile) {
+					const fileChanged = existingFile.hunks.some(
 						(hunk) => !uncommitedFile.hunks.map((hunk) => hunk.diff).includes(hunk.diff)
 					);
 
 					if (fileChanged && !uncommitedFile.looksConflicted) {
 						// All initial entries should have been added to the map,
-						// so we can safly assert that it will be present
+						// so we can safely assert that it will be present
 						const outputFile = outputMap.get(uncommitedFile.path)!;
 						outputFile.status = 'M';
 						outputFile.conflicted = false;
+						return;
 					}
-				} else {
-					outputMap.set(uncommitedFile.path, {
-						name: uncommitedFile.filename,
-						path: uncommitedFile.path,
-						conflicted: false,
-						status: 'A'
-					});
+
+					if (uncommitedFile.looksConflicted) {
+						const outputFile = outputMap.get(uncommitedFile.path)!;
+						outputFile.conflicted = true;
+						return;
+					}
+
+					return;
 				}
+
+				outputMap.set(uncommitedFile.path, {
+					name: uncommitedFile.filename,
+					path: uncommitedFile.path,
+					conflicted: false,
+					status: 'A'
+				});
 			});
 		}
 
