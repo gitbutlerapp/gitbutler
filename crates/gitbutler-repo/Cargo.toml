@@ -18,7 +18,7 @@ tokio = { workspace = true, features = [
 ] }
 gitbutler-git.workspace = true
 tracing.workspace = true
-tempfile = "3.10"
+tempfile = "3.13"
 serde = { workspace = true, features = ["std"] }
 log = "^0.4"
 thiserror.workspace = true

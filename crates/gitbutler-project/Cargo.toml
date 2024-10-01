@@ -29,5 +29,5 @@ path = "tests/mod.rs"
 
 [dev-dependencies]
 gitbutler-testsupport.workspace = true
-tempfile = "3.10"
+tempfile = "3.13"
 tokio = { workspace = true, features = [ "rt-multi-thread", "rt", "macros" ] }

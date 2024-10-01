@@ -18,5 +18,5 @@ path = "tests/mod.rs"
 
 [dev-dependencies]
 serial_test = "3.1.1"
-tempfile = "3.10"
+tempfile = "3.13"
 keyring.workspace = true
