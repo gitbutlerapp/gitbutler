@@ -1,6 +1,7 @@
 use std::str::FromStr;
 
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
 use gitbutler_branch::Branch;
@@ -96,7 +97,7 @@ pub trait Stack {
 }
 
 /// Request to update a PatchReference.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, Default)]
 pub struct PatchReferenceUpdate {
     pub target_update: Option<TargetUpdate>,
     pub name: Option<String>,
@@ -168,7 +169,7 @@ impl Stack for Branch {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
-        self.heads = remove_head(self.heads.clone(), branch_name)?;
+        (self.heads, _) = remove_head(self.heads.clone(), branch_name)?;
         let state = branch_state(ctx);
         state.set_branch(self.clone())
     }
@@ -182,6 +183,9 @@ impl Stack for Branch {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
+        if update == &PatchReferenceUpdate::default() {
+            return Ok(()); // noop
+        }
         let (_, head) = get_head(&self.heads, &branch_name)?;
         let mut new_head = head.clone();
         let state = branch_state(ctx);
@@ -194,13 +198,19 @@ impl Stack for Branch {
             validate_name(&new_head, ctx, &state)?;
         }
         let patches = stack_patches(ctx, &state, self.head, true)?;
-        // remove the head from the list and then re-add it, in order to assert the right order of the heads
-        let updated_heads = remove_head(self.heads.clone(), new_head.name.clone())?;
         let preceding_head = update
             .target_update
             .clone()
             .and_then(|update| update.preceding_head);
-        let updated_heads = add_head(updated_heads, new_head, preceding_head, patches)?;
+        let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches)?;
+        // first add the updated head, then remove the old one (otherwise remove_heads may will fail due to the last head being removed)
+        let (updated_heads, moved_another_reference) =
+            remove_head(updated_heads, head.name.clone())?;
+        // Remove head will never leave the stack in an invalid state (i.e. no orphaned patches)
+        // However, in case there were orphaned patches, we want to error out the entire update operation since that is less surprising
+        if update.target_update.is_some() && moved_another_reference {
+            bail!("This update would cause orphaned patches, which is disallowed");
+        }
         self.heads = updated_heads;
         state.set_branch(self.clone())
     }

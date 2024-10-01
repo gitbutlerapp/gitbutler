@@ -2,4 +2,4 @@ mod heads;
 mod series;
 mod stack;
 pub use series::Series;
-pub use stack::{PatchReferenceUpdate, Stack};
+pub use stack::{PatchReferenceUpdate, Stack, TargetUpdate};

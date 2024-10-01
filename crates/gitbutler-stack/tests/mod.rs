@@ -4,7 +4,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_repo::{LogUntil, RepositoryExt as _};
-use gitbutler_stack::Stack;
+use gitbutler_stack::{PatchReferenceUpdate, Stack, TargetUpdate};
 use itertools::Itertools;
 use tempfile::TempDir;
 
@@ -366,6 +366,163 @@ fn remove_series_no_orphan_commits() -> Result<()> {
         test_ctx.branch.heads[0].target,
         CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap())
     ); // it was updated to reference the newest commit
+    Ok(())
+}
+
+#[test]
+fn update_series_uninitialized_fails() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let update = PatchReferenceUpdate {
+        name: Some("foo".into()),
+        target_update: None,
+    };
+    let result = test_ctx
+        .branch
+        .update_series(&ctx, "virtual".into(), &update);
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "Stack has not been initialized"
+    );
+    Ok(())
+}
+
+#[test]
+fn update_series_noop_does_nothing() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+    let heads_before = test_ctx.branch.heads.clone();
+    let noop_update = PatchReferenceUpdate::default();
+    let result = test_ctx
+        .branch
+        .update_series(&ctx, "virtual".into(), &noop_update);
+    assert!(result.is_ok());
+    assert_eq!(test_ctx.branch.heads, heads_before);
+    Ok(())
+}
+
+#[test]
+fn update_series_name_fails_validation() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+    let update = PatchReferenceUpdate {
+        name: Some("invalid name".into()),
+        target_update: None,
+    };
+    let result = test_ctx
+        .branch
+        .update_series(&ctx, "virtual".into(), &update);
+    assert_eq!(result.err().unwrap().to_string(), "Invalid branch name");
+    Ok(())
+}
+
+#[test]
+fn update_series_name_success() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+    let update = PatchReferenceUpdate {
+        name: Some("new-name".into()),
+        target_update: None,
+    };
+    let result = test_ctx
+        .branch
+        .update_series(&ctx, "virtual".into(), &update);
+    assert!(result.is_ok());
+    assert_eq!(test_ctx.branch.heads[0].name, "new-name");
+    // Assert persisted
+    assert_eq!(
+        test_ctx.branch,
+        test_ctx.handle.get_branch(test_ctx.branch.id)?
+    );
+    Ok(())
+}
+
+#[test]
+fn update_series_target_fails_commit_not_in_stack() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+    let other_commit_id = test_ctx.other_commits.last().unwrap().id().to_string();
+    let update = PatchReferenceUpdate {
+        name: None,
+        target_update: Some(TargetUpdate {
+            target: CommitOrChangeId::CommitId(other_commit_id.clone()),
+            preceding_head: None,
+        }),
+    };
+    let result = test_ctx
+        .branch
+        .update_series(&ctx, "virtual".into(), &update);
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        format!(
+            "The commit {} is not between the stack head and the stack base",
+            other_commit_id
+        )
+    );
+    Ok(())
+}
+
+#[test]
+fn update_series_target_orphan_commit_fails() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+    let initial_state = test_ctx.branch.heads.clone();
+    let first_commit_change_id = test_ctx.commits.first().unwrap().change_id().unwrap();
+    let update = PatchReferenceUpdate {
+        name: Some("new-lol".into()),
+        target_update: Some(TargetUpdate {
+            target: CommitOrChangeId::ChangeId(first_commit_change_id.clone()),
+            preceding_head: None,
+        }),
+    };
+    let result = test_ctx
+        .branch
+        .update_series(&ctx, "virtual".into(), &update);
+
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "This update would cause orphaned patches, which is disallowed"
+    );
+    assert_eq!(initial_state, test_ctx.branch.heads); // no change due to failure
+    Ok(())
+}
+
+#[test]
+fn update_series_target_success() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+    let commit_0_change_id = CommitOrChangeId::ChangeId(test_ctx.commits[0].change_id().unwrap());
+    let series_1 = PatchReference {
+        name: "series_1".into(),
+        target: commit_0_change_id.clone(),
+    };
+    let result = test_ctx.branch.add_series(&ctx, series_1, None);
+    assert!(result.is_ok());
+    assert_eq!(test_ctx.branch.heads[0].target, commit_0_change_id);
+    let commit_1_change_id = CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap());
+    let update = PatchReferenceUpdate {
+        name: None,
+        target_update: Some(TargetUpdate {
+            target: commit_1_change_id.clone(),
+            preceding_head: None,
+        }),
+    };
+    let result = test_ctx
+        .branch
+        .update_series(&ctx, "series_1".into(), &update);
+    assert!(result.is_ok());
+    assert_eq!(test_ctx.branch.heads[0].target, commit_1_change_id);
+    // Assert persisted
+    assert_eq!(
+        test_ctx.branch,
+        test_ctx.handle.get_branch(test_ctx.branch.id)?
+    );
     Ok(())
 }
 

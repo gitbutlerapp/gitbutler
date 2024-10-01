@@ -12,10 +12,12 @@ pub(crate) fn get_head(heads: &[PatchReference], name: &str) -> Result<(usize, P
     Ok((idx, head.clone()))
 }
 
+/// Returns the updated list of heads and a boolean indicating if another reference was moved
+/// to the top of the stack as a result.
 pub(crate) fn remove_head(
     mut heads: Vec<PatchReference>,
     name: String,
-) -> Result<Vec<PatchReference>> {
+) -> Result<(Vec<PatchReference>, bool)> {
     // find the head that corresponds to the supplied name, together with its index
     let (idx, head) = get_head(&heads, &name)?;
     if heads.len() == 1 {
@@ -23,15 +25,17 @@ pub(crate) fn remove_head(
     }
     // The branch that is being removed is the top (last) one.
     // This means that if there are commits, they need to be moved to the branch underneath.
+    let mut moved_another_reference = false;
     if heads.len() - 1 == idx {
         // Getting the preceeding head  and setting it's target to the target of the head being removed
         let prior_head = heads
             .get_mut(idx - 1)
             .ok_or_else(|| anyhow!("Cannot get the head before the head being removed"))?;
         prior_head.target = head.target.clone();
+        moved_another_reference = true;
     }
     heads.remove(idx);
-    Ok(heads)
+    Ok((heads, moved_another_reference))
 }
 
 /// Takes the list of current existing heads and a new head.
