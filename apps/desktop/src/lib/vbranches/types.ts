@@ -39,6 +39,10 @@ export class HunkLock {
 
 export type AnyFile = LocalFile | RemoteFile;
 
+export function isAnyFile(something: unknown): something is AnyFile {
+	return something instanceof LocalFile || something instanceof RemoteFile;
+}
+
 export class LocalFile {
 	id!: string;
 	path!: string;
