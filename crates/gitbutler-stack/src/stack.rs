@@ -18,6 +18,9 @@ use gix::validate::reference::name_partial;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
+use crate::heads::add_head;
+use crate::heads::get_head;
+use crate::heads::remove_head;
 use crate::series::Series;
 
 /// A (series) Stack represents multiple "branches" that are dependent on each other in series.
@@ -154,22 +157,7 @@ impl Stack for Branch {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
-        // find the head that corresponds to the supplied name, together with its index
-        let (idx, head) = get_branch(self, &branch_name)?;
-        if self.heads.len() == 1 {
-            return Err(anyhow!("Cannot remove the last branch from the stack"));
-        }
-        // The branch that is being removed is the top (last) one.
-        // This means that if there are commits, they need to be moved to the branch underneath.
-        if self.heads.len() - 1 == idx {
-            // Getting the preceeding head  and setting it's target to the target of the head being removed
-            let prior_head = self
-                .heads
-                .get_mut(idx - 1)
-                .ok_or_else(|| anyhow!("Cannot get the head before the head being removed"))?;
-            prior_head.target = head.target.clone();
-        }
-        self.heads.remove(idx);
+        self.heads = remove_head(self.heads.clone(), branch_name)?;
         let state = branch_state(ctx);
         state.set_branch(self.clone())
     }
@@ -183,7 +171,7 @@ impl Stack for Branch {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
-        let (idx, head) = get_branch(self, &branch_name)?;
+        let (idx, head) = get_head(&self.heads, &branch_name)?;
         let mut updated_head = head.clone();
         let state = branch_state(ctx);
         if let Some(target) = update.target {
@@ -212,7 +200,7 @@ impl Stack for Branch {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
-        let (_, reference) = get_branch(self, &branch_name)?;
+        let (_, reference) = get_head(&self.heads, &branch_name)?;
         let default_target = branch_state(ctx).get_default_target()?;
         let commit = get_target_commit(&reference.target, ctx, self.head, &default_target)?;
         let remote_name = branch_state(ctx)
@@ -423,17 +411,6 @@ fn branch_state(ctx: &CommandContext) -> VirtualBranchesHandle {
     VirtualBranchesHandle::new(ctx.project().gb_dir())
 }
 
-fn get_branch(stack: &Branch, name: &str) -> Result<(usize, PatchReference)> {
-    let (idx, head) = stack
-        .heads
-        .clone()
-        .into_iter()
-        .enumerate()
-        .find(|(_, h)| h.name == name)
-        .ok_or_else(|| anyhow!("Series with name {} not found", name))?;
-    Ok((idx, head))
-}
-
 fn get_target_commit<'a>(
     reference_target: &'a CommitOrChangeId,
     ctx: &'a CommandContext,
@@ -453,92 +430,4 @@ fn get_target_commit<'a>(
 fn reference_exists(ctx: &CommandContext, name: &str) -> Result<bool> {
     let gix_repo = ctx.gix_repository()?;
     Ok(gix_repo.find_reference(name_partial(name.into())?).is_ok())
-}
-
-/// Takes the list of current existing heads and a new head.
-/// Returns new, updated list of heads with the new head added in the correct position.
-/// If there are multiple heads pointing to the same patch, it uses `preceding_head` to disambiguate the order.
-// TODO: when there is a patch reference for a commit ID and a patch reference for a change ID, recognize if they are equivalent (i.e. point to the same commit)
-fn add_head(
-    mut existing_heads: Vec<PatchReference>,
-    new_head: PatchReference,
-    preceding_head: Option<PatchReference>,
-    patches: Vec<CommitOrChangeId>,
-) -> Result<Vec<PatchReference>> {
-    // Go over all patches in the stack from bottom to top
-    // If `new_head` or the first (bottom of the stack) head in existing_heads points to the patch, add it to the list
-    // If there are multiple heads that point to the same patch, the order is disambiguated by specifying the `preceding_head`
-    // If `preceding_head` is specified, it must be in the list of existing heads and it must be a head for the same patch as the `new_head`
-    if let Some(preceding_head) = &preceding_head {
-        if preceding_head.target != new_head.target {
-            return Err(anyhow!(
-                "Preceding head needs to be one that point to the same patch as new_head"
-            ));
-        }
-        if !existing_heads.contains(preceding_head) {
-            return Err(anyhow!(
-                "Preceding head is set but does not exist for specified patch"
-            ));
-        }
-    }
-    let mut updated_heads: Vec<PatchReference> = vec![];
-    let mut new_head = Option::Some(new_head);
-    //
-    for patch in &patches {
-        let existing_head = existing_heads.first().cloned();
-        match (existing_head, &new_head) {
-            // Both the new head and the next existing head the patch as a target
-            (Some(existing_head), Some(new_head_ref))
-                if existing_head.target == patch.clone()
-                    && new_head_ref.target == patch.clone() =>
-            {
-                if preceding_head.is_none() {
-                    updated_heads.push(new_head_ref.clone()); // no preceding head specified, so add the new head first
-                    new_head = None; // the `new_head` is now consumed
-                } else if preceding_head.as_ref() == updated_heads.last() {
-                    updated_heads.push(new_head_ref.clone()); // preceding_head matches the last entry, so add the new_head next
-                    new_head = None; // the `new_head` is now consumed
-                } else {
-                    updated_heads.push(existing_head.clone()); // add the next existing head as the next entry
-                    existing_heads.remove(0); // consume the next in line from the existing heads
-                }
-            }
-            // Only the next existing head matches the patch as a target
-            (Some(existing_head), _) if existing_head.target == patch.clone() => {
-                updated_heads.push(existing_head.clone()); // add the nex existing head as the next entry
-                existing_heads.remove(0); // consume the next in line from the existing heads
-            }
-            // Only the new head matches the patch as a target
-            (_, Some(new_head_ref)) if new_head_ref.target == patch.clone() => {
-                updated_heads.push(new_head_ref.clone()); // add the new head as the next entry
-                new_head = None; // the `new_head` is now consumed
-            }
-            // Neither the next existing head nor the new head match the patch as a target so continue to the next patch
-            _ => {
-                // noop
-            }
-        }
-    }
-    // the last head must point to the last commit in the stack of patches
-    if let Some(last_head) = updated_heads.last() {
-        if let Some(last_patch) = patches.last() {
-            if last_head.target != last_patch.clone() {
-                // error - invalid state - this would result in ophaned patches
-                return Err(anyhow!(
-                    "The newest head must point to the newest patch in the stack. The newest patch is {}, while the newest head with name {} points patch {}", last_patch, last_head.name, last_head.target
-                ));
-            }
-        } else {
-            // error - invalid state (at minimum there should be the merge base here)
-            return Err(anyhow!(
-                "Error while adding head - there must be at least one patch(commit) in the stack, when including the merge base"
-            ));
-        }
-    } else {
-        // error - invalid state (an initialized stack must have at least one head)
-        return Err(anyhow!(
-            "Error while adding head - there must be at least one head in an initialized stack"
-        ));
-    }
-    Ok(updated_heads)
 }
