@@ -65,7 +65,6 @@ pub struct Branch {
     /// Represents the Stack state of pseudo-references ("heads").
     /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
     #[serde(default)]
-    // pub heads: StackHeads,
     pub heads: Vec<PatchReference>,
 }
 

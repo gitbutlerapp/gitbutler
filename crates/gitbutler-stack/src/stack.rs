@@ -77,7 +77,7 @@ pub trait Stack {
         &mut self,
         ctx: &CommandContext,
         branch_name: String,
-        update: PatchReferenceUpdate,
+        update: &PatchReferenceUpdate,
     ) -> Result<()>;
 
     /// Pushes the reference (branch) to the Stack remote as derived from the default target.
@@ -95,10 +95,21 @@ pub trait Stack {
     fn list_branches(&self, ctx: &CommandContext) -> Result<Vec<Series>>;
 }
 
+/// Request to update a PatchReference.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PatchReferenceUpdate {
-    pub target: Option<CommitOrChangeId>,
+    pub target_update: Option<TargetUpdate>,
     pub name: Option<String>,
+}
+
+/// Request to update the target of a PatchReference.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TargetUpdate {
+    /// The new patch (commit or change ID) that the reference should point to.
+    pub target: CommitOrChangeId,
+    /// If there are multiple heads that point to the same patch, the order can be disambiguated by specifying the `preceding_head`.
+    /// Leaving this field empty will make the new head first in relation to other references pointing to this commit.
+    pub preceding_head: Option<PatchReference>,
 }
 
 /// A Stack implementation for gitbutler_branch::Branch
@@ -166,28 +177,31 @@ impl Stack for Branch {
         &mut self,
         ctx: &CommandContext,
         branch_name: String,
-        update: PatchReferenceUpdate,
+        update: &PatchReferenceUpdate,
     ) -> Result<()> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
-        let (idx, head) = get_head(&self.heads, &branch_name)?;
-        let mut updated_head = head.clone();
+        let (_, head) = get_head(&self.heads, &branch_name)?;
+        let mut new_head = head.clone();
         let state = branch_state(ctx);
-        if let Some(target) = update.target {
-            updated_head.target = target;
-            validate_target(&updated_head, ctx, self.head, &state)?;
+        if let Some(target_update) = &update.target_update {
+            new_head.target = target_update.target.clone();
+            validate_target(&new_head, ctx, self.head, &state)?;
         }
-        if let Some(name) = update.name {
-            updated_head.name = name;
-            validate_name(&updated_head, ctx, &state)?;
+        if let Some(name) = update.name.clone() {
+            new_head.name = name;
+            validate_name(&new_head, ctx, &state)?;
         }
-        // replace the value in self.heads at index idx with updated_head
-        if let Some(entry) = self.heads.get_mut(idx) {
-            *entry = updated_head;
-        } else {
-            return Err(anyhow!("Could not find the head to update"));
-        }
+        let patches = stack_patches(ctx, &state, self.head, true)?;
+        // remove the head from the list and then re-add it, in order to assert the right order of the heads
+        let updated_heads = remove_head(self.heads.clone(), new_head.name.clone())?;
+        let preceding_head = update
+            .target_update
+            .clone()
+            .and_then(|update| update.preceding_head);
+        let updated_heads = add_head(updated_heads, new_head, preceding_head, patches)?;
+        self.heads = updated_heads;
         state.set_branch(self.clone())
     }
 
