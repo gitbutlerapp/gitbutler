@@ -195,6 +195,7 @@
 	.label {
 		display: inline-flex;
 		white-space: nowrap;
+		padding: 0 2px;
 	}
 
 	.btn-icon {
@@ -373,30 +374,21 @@
 	/* SIZE MODIFIERS */
 
 	.btn.tag-size {
+		gap: 2px;
 		height: var(--size-tag);
 		padding: 2px 4px;
-
-		& .label {
-			padding: 0 4px;
-		}
 	}
 
 	.btn.button-size {
+		gap: 4px;
 		height: var(--size-button);
 		padding: 4px 6px;
-
-		& .label {
-			padding: 0 4px;
-		}
 	}
 
 	.btn.cta-size {
+		gap: 4px;
 		height: var(--size-cta);
 		padding: 6px 8px;
-
-		& .label {
-			padding: 0 6px;
-		}
 	}
 
 	/* FIXED WIDTH */
