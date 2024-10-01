@@ -37,11 +37,17 @@ export interface PromptMessage {
 
 export type Prompt = PromptMessage[];
 
+export interface AIEvalOptions {
+	maxTokens?: number;
+	onToken?: (t: string) => void;
+}
+
 export interface AIClient {
-	evaluate(prompt: Prompt): Promise<Result<string, Error>>;
+	evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<Result<string, Error>>;
 
 	defaultBranchTemplate: Prompt;
 	defaultCommitTemplate: Prompt;
+	defaultPRTemplate: Prompt;
 }
 
 export type UserPrompt = {

@@ -1,3 +1,4 @@
+import { DEFAULT_PR_SUMMARY_MAIN_DIRECTIVE, getPrTemplateDirective } from './prompts';
 import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import {
@@ -16,13 +17,13 @@ import {
 } from '$lib/ai/types';
 import { buildFailureFromAny, isFailure, ok, type Result } from '$lib/result';
 import { splitMessage } from '$lib/utils/commitMessage';
-import OpenAI from 'openai';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 import type { HttpClient } from '$lib/backend/httpClient';
 import type { SecretsService } from '$lib/secrets/secretsService';
 import type { Hunk } from '$lib/vbranches/types';
 
 const maxDiffLengthLimitForAPI = 5000;
+const prDescriptionTokenLimit = 4096;
 
 export enum KeyOption {
 	BringYourOwn = 'bringYourOwn',
@@ -45,19 +46,31 @@ export enum GitAIConfigKey {
 	OllamaModelName = 'gitbutler.aiOllamaModelName'
 }
 
-type SummarizeCommitOpts = {
+interface BaseAIServiceOpts {
+	userToken?: string;
+	onToken?: (token: string) => void;
+}
+
+interface SummarizeCommitOpts extends BaseAIServiceOpts {
 	hunks: Hunk[];
 	useEmojiStyle?: boolean;
 	useBriefStyle?: boolean;
 	commitTemplate?: Prompt;
-	userToken?: string;
-};
+}
 
-type SummarizeBranchOpts = {
+interface SummarizeBranchOpts extends BaseAIServiceOpts {
 	hunks: Hunk[];
 	branchTemplate?: Prompt;
-	userToken?: string;
-};
+}
+
+interface SummarizePROpts extends BaseAIServiceOpts {
+	commitMessages: string[];
+	title: string;
+	body: string;
+	directive?: string;
+	prTemplate?: Prompt;
+	prBodyTemplate?: string;
+}
 
 // Exported for testing only
 export function buildDiff(hunks: Hunk[], limit: number) {
@@ -74,6 +87,8 @@ function shuffle<T>(items: T[]): T[] {
 }
 
 export class AIService {
+	prSummaryMainDirective: Readonly<string> = DEFAULT_PR_SUMMARY_MAIN_DIRECTIVE;
+
 	constructor(
 		private gitConfig: GitConfigService,
 		private secretsService: SecretsService,
@@ -222,8 +237,7 @@ export class AIService {
 				);
 			}
 
-			const openAI = new OpenAI({ apiKey: openAIKey, dangerouslyAllowBrowser: true });
-			return ok(new OpenAIClient(openAIModelName, openAI));
+			return ok(new OpenAIClient(openAIKey, openAIModelName));
 		}
 
 		if (modelKind === ModelKind.Anthropic) {
@@ -247,7 +261,8 @@ export class AIService {
 		useEmojiStyle = false,
 		useBriefStyle = false,
 		commitTemplate,
-		userToken
+		userToken,
+		onToken
 	}: SummarizeCommitOpts): Promise<Result<string, Error>> {
 		const aiClientResult = await this.buildClient(userToken);
 		if (isFailure(aiClientResult)) return aiClientResult;
@@ -279,7 +294,7 @@ export class AIService {
 			};
 		});
 
-		const messageResult = await aiClient.evaluate(prompt);
+		const messageResult = await aiClient.evaluate(prompt, { onToken });
 		if (isFailure(messageResult)) return messageResult;
 		let message = messageResult.value;
 
@@ -294,7 +309,8 @@ export class AIService {
 	async summarizeBranch({
 		hunks,
 		branchTemplate,
-		userToken = undefined
+		userToken,
+		onToken
 	}: SummarizeBranchOpts): Promise<Result<string, Error>> {
 		const aiClientResult = await this.buildClient(userToken);
 		if (isFailure(aiClientResult)) return aiClientResult;
@@ -313,10 +329,58 @@ export class AIService {
 			};
 		});
 
-		const messageResult = await aiClient.evaluate(prompt);
+		const messageResult = await aiClient.evaluate(prompt, { onToken });
 		if (isFailure(messageResult)) return messageResult;
 		const message = messageResult.value;
 
 		return ok(message.replaceAll(' ', '-').replaceAll('\n', '-'));
+	}
+
+	async describePR({
+		commitMessages,
+		title,
+		body,
+		directive,
+		prTemplate,
+		prBodyTemplate,
+		userToken,
+		onToken
+	}: SummarizePROpts): Promise<Result<string, Error>> {
+		const aiClientResult = await this.buildClient(userToken);
+		if (isFailure(aiClientResult)) return aiClientResult;
+		const aiClient = aiClientResult.value;
+		const defaultPRTemplate = prTemplate ?? aiClient.defaultPRTemplate;
+
+		const mainDirective = (directive ?? this.prSummaryMainDirective) + '\n';
+		const prBodyTemplateDirective = getPrTemplateDirective(prBodyTemplate);
+
+		const prompt: Prompt = defaultPRTemplate.map((message) => {
+			if (message.role !== MessageRole.User) {
+				return message;
+			}
+
+			return {
+				role: MessageRole.User,
+				content: message.content
+					.replaceAll('%{pr_main_directive}', mainDirective)
+					.replaceAll('%{pr_template_directive}', prBodyTemplateDirective)
+					.replaceAll('%{commit_messages}', commitMessages.slice().reverse().join('\n<###>\n'))
+					.replaceAll('%{title}', title)
+					.replaceAll('%{body}', body)
+			};
+		});
+
+		const messageResult = await aiClient.evaluate(prompt, {
+			onToken,
+			maxTokens: prDescriptionTokenLimit
+		});
+		if (isFailure(messageResult)) return messageResult;
+
+		let message = messageResult.value.trim();
+		if (message.startsWith('```\n') && message.endsWith('\n```')) {
+			message = message.slice(4, -4);
+		}
+
+		return ok(message);
 	}
 }

@@ -97,3 +97,14 @@ export function andThen<Ok, Err, NewOk>(
 		return subject;
 	}
 }
+
+export async function andThenAsync<Ok, Err, NewOk>(
+	subject: Result<Ok, Err>,
+	transformation: (ok: Ok) => Promise<Result<NewOk, Err>>
+): Promise<Result<NewOk, Err>> {
+	if (isOk(subject)) {
+		return await transformation(subject.value);
+	} else {
+		return await Promise.resolve(subject);
+	}
+}

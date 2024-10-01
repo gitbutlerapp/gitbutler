@@ -1,4 +1,8 @@
-import { LONG_DEFAULT_BRANCH_TEMPLATE, LONG_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
+import {
+	LONG_DEFAULT_BRANCH_TEMPLATE,
+	LONG_DEFAULT_COMMIT_TEMPLATE,
+	SHORT_DEFAULT_PR_TEMPLATE
+} from '$lib/ai/prompts';
 import { MessageRole, type PromptMessage, type AIClient, type Prompt } from '$lib/ai/types';
 import { andThen, buildFailureFromAny, ok, wrap, wrapAsync, type Result } from '$lib/result';
 import { isNonEmptyObject } from '@gitbutler/ui/utils/typeguards';
@@ -76,6 +80,7 @@ function isOllamaChatResponse(response: unknown): response is OllamaChatResponse
 export class OllamaClient implements AIClient {
 	defaultCommitTemplate = LONG_DEFAULT_COMMIT_TEMPLATE;
 	defaultBranchTemplate = LONG_DEFAULT_BRANCH_TEMPLATE;
+	defaultPRTemplate = SHORT_DEFAULT_PR_TEMPLATE;
 
 	constructor(
 		private endpoint: string,

@@ -1,4 +1,8 @@
-import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
+import {
+	SHORT_DEFAULT_BRANCH_TEMPLATE,
+	SHORT_DEFAULT_COMMIT_TEMPLATE,
+	SHORT_DEFAULT_PR_TEMPLATE
+} from '$lib/ai/prompts';
 import { map, type Result } from '$lib/result';
 import type { AIClient, ModelKind, Prompt } from '$lib/ai/types';
 import type { HttpClient } from '$lib/backend/httpClient';
@@ -6,6 +10,7 @@ import type { HttpClient } from '$lib/backend/httpClient';
 export class ButlerAIClient implements AIClient {
 	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;
 	defaultBranchTemplate = SHORT_DEFAULT_BRANCH_TEMPLATE;
+	defaultPRTemplate = SHORT_DEFAULT_PR_TEMPLATE;
 
 	constructor(
 		private cloud: HttpClient,

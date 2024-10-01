@@ -1,7 +1,11 @@
 import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
-import { SHORT_DEFAULT_BRANCH_TEMPLATE, SHORT_DEFAULT_COMMIT_TEMPLATE } from '$lib/ai/prompts';
+import {
+	SHORT_DEFAULT_BRANCH_TEMPLATE,
+	SHORT_DEFAULT_COMMIT_TEMPLATE,
+	SHORT_DEFAULT_PR_TEMPLATE
+} from '$lib/ai/prompts';
 import { AISecretHandle, AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/ai/service';
 import {
 	AnthropicModelName,
@@ -76,6 +80,8 @@ const cloud = new HttpClient(fetchMock);
 class DummyAIClient implements AIClient {
 	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;
 	defaultBranchTemplate = SHORT_DEFAULT_BRANCH_TEMPLATE;
+	defaultPRTemplate = SHORT_DEFAULT_PR_TEMPLATE;
+
 	constructor(private response = 'lorem ipsum') {}
 
 	async evaluate(_prompt: Prompt): Promise<Result<string, Error>> {
