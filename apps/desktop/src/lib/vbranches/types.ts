@@ -4,6 +4,7 @@ import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '@gitbutler/ui/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
 import type { PullRequest } from '$lib/gitHost/interface/types';
+import type { PatchSeries } from '$lib/stack/types';
 
 export type ChangeType =
 	/// Entry does not exist in old version
@@ -142,6 +143,9 @@ export class VirtualBranch {
 	pr?: PullRequest;
 	refname!: string;
 	tree!: string;
+
+	// Used in the stacking context where VirtualBranch === Stack
+	series!: PatchSeries[];
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status === 'local');

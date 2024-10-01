@@ -173,7 +173,7 @@
 </script>
 
 {#if $pr}
-	<div class="card pr-card">
+	<div class="pr-header">
 		<div class="floating-button">
 			<Button
 				icon="update-small"
@@ -188,11 +188,11 @@
 				}}
 			/>
 		</div>
-		<div class="pr-title text-13 text-semibold">
+		<div class="text-13 text-semibold pr-header-title">
 			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
 			{$pr.title}
 		</div>
-		<div class="pr-tags">
+		<div class="pr-header-tags">
 			<Button
 				size="tag"
 				clickable={false}
@@ -225,7 +225,7 @@
         immediately.
         -->
 		{#if $pr}
-			<div class="pr-actions">
+			<div class="pr-header-actions">
 				{#if infoProps}
 					<InfoMessage icon={infoProps.icon} filled outlined={false} style={infoProps.messageStyle}>
 						<svelte:fragment slot="content">
@@ -270,30 +270,32 @@
 {/if}
 
 <style lang="postcss">
-	.pr-card {
+	.pr-header {
 		position: relative;
-		padding: 14px;
-		margin-bottom: 8px;
+		display: flex;
+		flex-direction: column;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
 	}
 
-	.pr-title {
+	.pr-header-title {
 		color: var(--clr-scale-ntrl-0);
-		margin-bottom: 12px;
-		margin-right: 28px;
+		padding: 14px 14px 12px 14px;
 		user-select: text;
 		cursor: text;
 	}
 
-	.pr-tags {
+	.pr-header-tags {
 		display: flex;
 		gap: 4px;
+		padding: 0 14px 12px 14px;
 	}
 
-	.pr-actions {
-		margin-top: 14px;
+	.pr-header-actions {
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
+		padding: 0 14px 12px 14px;
 	}
 
 	.floating-button {

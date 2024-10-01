@@ -35,16 +35,18 @@
 
 <div class="container">
 	{#if type === 'Local'}
-		<svg
-			class="local-commit-dot"
-			width="10"
-			height="10"
-			viewBox="0 0 10 10"
-			fill="none"
-			xmlns="http://www.w3.org/2000/svg"
-		>
-			<rect width="10" height="10" rx="5" />
-		</svg>
+		<Tooltip text={hoverText}>
+			<svg
+				class="local-commit-dot"
+				width="10"
+				height="10"
+				viewBox="0 0 10 10"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+			>
+				<rect width="10" height="10" rx="5" />
+			</svg>
+		</Tooltip>
 	{:else if type === 'LocalShadow'}
 		<div class="local-shadow-commit-dot">
 			<Tooltip text={hoverTextShadow}>

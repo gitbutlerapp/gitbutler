@@ -1,28 +1,14 @@
 <script lang="ts">
-	import ActiveBranchStatus from './ActiveBranchStatus.svelte';
-	import BranchLabel from './BranchLabel.svelte';
-	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
-	import DefaultTargetButton from './DefaultTargetButton.svelte';
-	import PullRequestButton from '../pr/PullRequestButton.svelte';
-	import { Project } from '$lib/backend/projects';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import ActiveBranchStatus from '$lib/branch/ActiveBranchStatus.svelte';
+	import BranchLabel from '$lib/branch/BranchLabel.svelte';
+	import BranchLaneContextMenu from '$lib/branch/BranchLaneContextMenu.svelte';
+	import DefaultTargetButton from '$lib/branch/DefaultTargetButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
-	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
-	import { showError, showToast } from '$lib/notifications/toasts';
-	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { sleep } from '$lib/utils/sleep';
-	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
 	interface Props {
@@ -34,22 +20,11 @@
 	const { uncommittedChanges = 0, isLaneCollapsed, onGenerateBranchName }: Props = $props();
 
 	const branchController = getContext(BranchController);
-	const baseBranchService = getContext(BaseBranchService);
-	const baseBranch = getContextStore(BaseBranch);
-	const prService = getGitHostPrService();
-	const gitListService = getGitHostListingService();
 	const branchStore = getContextStore(VirtualBranch);
-	const prMonitor = getGitHostPrMonitor();
-	const gitHost = getGitHost();
-	const project = getContext(Project);
-
-	const baseBranchName = $derived($baseBranch.shortName);
 	const branch = $derived($branchStore);
-	const pr = $derived($prMonitor?.pr);
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
-	let isLoading = $state(false);
 	let isTargetBranchAnimated = $state(false);
 
 	function handleBranchNameChange(title: string) {
@@ -69,102 +44,6 @@
 	const hasIntegratedCommits = $derived(branch.commits?.some((b) => b.isIntegrated));
 
 	let headerInfoHeight = $state(0);
-
-	interface CreatePrOpts {
-		draft: boolean;
-	}
-
-	const defaultPrOpts: CreatePrOpts = {
-		draft: true
-	};
-
-	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
-		const opts = { ...defaultPrOpts, ...createPrOpts };
-		if (!$gitHost) {
-			error('Pull request service not available');
-			return;
-		}
-
-		let title: string;
-		let body: string;
-
-		let pullRequestTemplateBody: string | undefined;
-		const prTemplatePath = project.git_host.pullRequestTemplatePath;
-
-		if (prTemplatePath) {
-			pullRequestTemplateBody = await $prService?.pullRequestTemplateContent(
-				prTemplatePath,
-				project.id
-			);
-		}
-
-		if (pullRequestTemplateBody) {
-			title = branch.name;
-			body = pullRequestTemplateBody;
-		} else {
-			// In case of a single commit, use the commit summary and description for the title and
-			// description of the PR.
-			if (branch.commits.length === 1) {
-				const commit = branch.commits[0];
-				title = commit?.descriptionTitle ?? '';
-				body = commit?.descriptionBody ?? '';
-			} else {
-				title = branch.name;
-				body = '';
-			}
-		}
-
-		isLoading = true;
-		try {
-			let upstreamBranchName = branch.upstreamName;
-
-			if (branch.commits.some((c) => !c.isRemote)) {
-				const firstPush = !branch.upstream;
-				const { refname, remote } = await branchController.pushBranch(
-					branch.id,
-					branch.requiresForce
-				);
-				upstreamBranchName = getBranchNameFromRef(refname, remote);
-
-				if (firstPush) {
-					// TODO: fix this hack for reactively available prService.
-					await sleep(500);
-				}
-			}
-
-			if (!baseBranchName) {
-				error('No base branch name determined');
-				return;
-			}
-
-			if (!upstreamBranchName) {
-				error('No upstream branch name determined');
-				return;
-			}
-
-			if (!$prService) {
-				error('Pull request service not available');
-				return;
-			}
-
-			await $prService.createPr({
-				title,
-				body,
-				draft: opts.draft,
-				baseBranchName,
-				upstreamName: upstreamBranchName
-			});
-		} catch (err: any) {
-			console.error(err);
-			const toast = mapErrorToToast(err);
-			if (toast) showToast(toast);
-			else showError('Error while creating pull request', err);
-		} finally {
-			isLoading = false;
-		}
-		await $gitListService?.refresh();
-		baseBranchService.fetchFromRemotes();
-	}
 </script>
 
 {#if $isLaneCollapsed}
@@ -209,9 +88,9 @@
 						isLaneCollapsed={$isLaneCollapsed}
 					/>
 					{#if branch.selectedForChanges}
-						<Button style="pop" kind="soft" size="tag" clickable={false} icon="target"
-							>Default branch</Button
-						>
+						<Button style="pop" kind="soft" size="tag" clickable={false} icon="target">
+							Default branch
+						</Button>
 					{/if}
 				</div>
 			</div>
@@ -231,57 +110,17 @@
 
 				<div class="header__info">
 					<BranchLabel name={branch.name} onChange={(name) => handleBranchNameChange(name)} />
-					<div class="header__remote-branch">
-						<ActiveBranchStatus
-							{hasIntegratedCommits}
-							remoteExists={!!branch.upstream}
-							isLaneCollapsed={$isLaneCollapsed}
+					<span class="button-group">
+						<DefaultTargetButton
+							selectedForChanges={branch.selectedForChanges}
+							onclick={async () => {
+								isTargetBranchAnimated = true;
+								await branchController.setSelectedForChanges(branch.id);
+							}}
 						/>
-
-						{#await branch.isMergeable then isMergeable}
-							{#if !isMergeable}
-								<Button
-									size="tag"
-									clickable={false}
-									icon="locked-small"
-									style="warning"
-									tooltip="Applying this branch will add merge conflict markers that you will have to resolve"
-								>
-									Conflict
-								</Button>
-							{/if}
-						{/await}
-					</div>
-				</div>
-			</div>
-
-			<div class="header__actions">
-				<div class="header__buttons">
-					<DefaultTargetButton
-						selectedForChanges={branch.selectedForChanges}
-						onclick={async () => {
-							isTargetBranchAnimated = true;
-							await branchController.setSelectedForChanges(branch.id);
-						}}
-					/>
-				</div>
-
-				<div class="relative">
-					<div class="header__buttons">
-						{#if !$pr}
-							<PullRequestButton
-								click={async ({ draft }) => await createPr({ draft })}
-								disabled={branch.commits.length === 0 || !$gitHost || !$prService}
-								tooltip={!$gitHost || !$prService
-									? 'You can enable git host integration in the settings'
-									: ''}
-								loading={isLoading}
-							/>
-						{/if}
 						<Button
 							bind:el={meatballButtonEl}
 							style="ghost"
-							outline
 							icon="kebab"
 							onclick={() => {
 								contextMenu?.toggle();
@@ -293,7 +132,7 @@
 							onCollapse={collapseLane}
 							{onGenerateBranchName}
 						/>
-					</div>
+					</span>
 				</div>
 			</div>
 		</div>
@@ -304,9 +143,17 @@
 <style>
 	.header__wrapper {
 		z-index: var(--z-lifted);
-		position: sticky;
 		top: 12px;
-		padding-bottom: 8px;
+		padding-bottom: unset !important;
+		& .draggable {
+			height: auto;
+		}
+	}
+
+	.header.card {
+		border-bottom-right-radius: 0px;
+		border-bottom-left-radius: 0px;
+		border-bottom-width: 0px;
 	}
 	.header {
 		z-index: var(--z-lifted);
@@ -362,26 +209,17 @@
 	.header__info {
 		flex: 1;
 		display: flex;
-		flex-direction: column;
 		overflow: hidden;
+		justify-content: space-between;
+		align-items: center;
 		gap: 10px;
 	}
-	.header__actions {
+	.button-group {
 		display: flex;
-		gap: 4px;
-		background: var(--clr-bg-1);
-		border-top: 1px solid var(--clr-border-2);
-		padding: 14px;
-		justify-content: space-between;
-		border-radius: 0 0 var(--radius-m) var(--radius-m);
-		user-select: none;
+		align-items: center;
+		gap: 10px;
 	}
 
-	.header__buttons {
-		display: flex;
-		position: relative;
-		gap: 4px;
-	}
 	.draggable {
 		display: flex;
 		height: fit-content;
@@ -394,18 +232,6 @@
 		&:hover {
 			color: var(--clr-scale-ntrl-40);
 		}
-	}
-
-	.header__remote-branch {
-		color: var(--clr-scale-ntrl-50);
-		padding-left: 2px;
-		padding-right: 2px;
-		display: flex;
-		gap: 4px;
-		text-overflow: ellipsis;
-		overflow-x: hidden;
-		white-space: nowrap;
-		align-items: center;
 	}
 
 	/*  COLLAPSIBLE LANE */

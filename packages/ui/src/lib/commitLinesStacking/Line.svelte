@@ -30,7 +30,7 @@
 		flex-direction: column;
 		gap: 0.2rem;
 		align-items: flex-end;
-		width: 24px;
+		width: 25px;
 		margin-right: 8px;
 	}
 

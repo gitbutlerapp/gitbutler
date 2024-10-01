@@ -442,6 +442,7 @@
 		position: relative;
 		display: flex;
 		gap: 10px;
+		width: 100%;
 		background-color: var(--clr-bg-1);
 
 		transition: background-color var(--transition-fast);
@@ -505,6 +506,7 @@
 
 	.commit__title {
 		flex: 1;
+		text-align: left;
 		display: block;
 		color: var(--clr-text-1);
 		width: 100%;

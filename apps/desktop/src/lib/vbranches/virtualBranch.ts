@@ -69,6 +69,7 @@ export class VirtualBranchService {
 		);
 
 		this.branches.set(branches);
+
 		this.branchesError.set(undefined);
 		this.logMetrics(branches);
 

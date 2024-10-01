@@ -49,3 +49,7 @@ export function projectLaneCollapsed(projectId: string, laneId: string): Persist
 export function persistedCommitMessage(projectId: string, branchId: string): Persisted<string> {
 	return persisted('', 'projectCurrentCommitMessage_' + projectId + '_' + branchId);
 }
+
+export function projectShowStackingCardDetails(projectId: string): Persisted<boolean> {
+	return persisted(true, 'showStackingCardDetails_' + projectId);
+}

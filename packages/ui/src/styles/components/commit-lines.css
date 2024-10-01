@@ -30,6 +30,10 @@
 		--border-color: var(--clr-commit-shadow);
 	}
 
+	&.upstream {
+		--border-color: var(--clr-commit-upstream);
+	}
+
 	&.integrated {
 		--border-color: var(--clr-commit-shadow);
 
