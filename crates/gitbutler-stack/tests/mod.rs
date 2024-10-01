@@ -1,6 +1,7 @@
 use anyhow::Result;
 use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_command_context::CommandContext;
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_repo::{LogUntil, RepositoryExt as _};
 use gitbutler_stack::Stack;
@@ -20,7 +21,12 @@ fn init_success() -> Result<()> {
     assert_eq!(branch.heads[0].name, "virtual"); // matches the stack name
     assert_eq!(
         branch.heads[0].target,
-        CommitOrChangeId::CommitId(branch.head.to_string())
+        CommitOrChangeId::ChangeId(
+            ctx.repository()
+                .find_commit(branch.head)?
+                .change_id()
+                .unwrap()
+        )
     );
     // Assert persisted
     assert_eq!(branch, test_ctx.handle.get_branch(branch.id)?);
@@ -46,9 +52,9 @@ fn add_branch_success() -> Result<()> {
     test_ctx.branch.init(&ctx)?;
     let reference = PatchReference {
         name: "asdf".into(),
-        target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
+        target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
     };
-    let result = test_ctx.branch.add_branch(&ctx, reference);
+    let result = test_ctx.branch.add_branch(&ctx, reference, None);
     assert!(result.is_ok());
     assert_eq!(test_ctx.branch.heads.len(), 2);
     // Assert persisted
@@ -67,7 +73,7 @@ fn add_branch_uninitialized_fails() -> Result<()> {
         name: "asdf".into(),
         target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
     };
-    let result = test_ctx.branch.add_branch(&ctx, reference);
+    let result = test_ctx.branch.add_branch(&ctx, reference, None);
     assert_eq!(
         result.err().unwrap().to_string(),
         "Stack has not been initialized"
@@ -84,7 +90,7 @@ fn add_branch_invalid_name_fails() -> Result<()> {
         name: "name with spaces".into(),
         target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
     };
-    let result = test_ctx.branch.add_branch(&ctx, reference);
+    let result = test_ctx.branch.add_branch(&ctx, reference, None);
     assert_eq!(result.err().unwrap().to_string(), "Invalid branch name");
     Ok(())
 }
@@ -96,11 +102,11 @@ fn add_branch_duplicate_name_fails() -> Result<()> {
     test_ctx.branch.init(&ctx)?;
     let reference = PatchReference {
         name: "asdf".into(),
-        target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
+        target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
     };
-    let result = test_ctx.branch.add_branch(&ctx, reference.clone());
+    let result = test_ctx.branch.add_branch(&ctx, reference.clone(), None);
     assert!(result.is_ok());
-    let result = test_ctx.branch.add_branch(&ctx, reference);
+    let result = test_ctx.branch.add_branch(&ctx, reference, None);
     assert_eq!(
         result.err().unwrap().to_string(),
         "A patch reference with the name asdf exists"
@@ -117,7 +123,7 @@ fn add_branch_matching_git_ref_fails() -> Result<()> {
         name: "existing-branch".into(),
         target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
     };
-    let result = test_ctx.branch.add_branch(&ctx, reference.clone());
+    let result = test_ctx.branch.add_branch(&ctx, reference.clone(), None);
     assert_eq!(
         result.err().unwrap().to_string(),
         "A git reference with the name existing-branch exists"
@@ -134,7 +140,7 @@ fn add_branch_including_refs_head_fails() -> Result<()> {
         name: "refs/heads/my-branch".into(),
         target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
     };
-    let result = test_ctx.branch.add_branch(&ctx, reference.clone());
+    let result = test_ctx.branch.add_branch(&ctx, reference.clone(), None);
     assert_eq!(
         result.err().unwrap().to_string(),
         "Stack head name cannot start with 'refs/heads'"
@@ -151,7 +157,7 @@ fn add_branch_target_commit_doesnt_exist() -> Result<()> {
         name: "my-branch".into(),
         target: CommitOrChangeId::CommitId("30696678319e0fa3a20e54f22d47fc8cf1ceaade".into()), // does not exist
     };
-    let result = test_ctx.branch.add_branch(&ctx, reference.clone());
+    let result = test_ctx.branch.add_branch(&ctx, reference.clone(), None);
     assert!(result
         .err()
         .unwrap()
@@ -169,7 +175,7 @@ fn add_branch_target_change_id_doesnt_exist() -> Result<()> {
         name: "my-branch".into(),
         target: CommitOrChangeId::ChangeId("does-not-exist".into()), // does not exist
     };
-    let result = test_ctx.branch.add_branch(&ctx, reference.clone());
+    let result = test_ctx.branch.add_branch(&ctx, reference.clone(), None);
     assert_eq!(
         result.err().unwrap().to_string(),
         "Commit with change id does-not-exist not found"
@@ -187,7 +193,7 @@ fn add_branch_target_commit_not_in_stack() -> Result<()> {
         name: "my-branch".into(),
         target: CommitOrChangeId::CommitId(other_commit_id.clone()), // does not exist
     };
-    let result = test_ctx.branch.add_branch(&ctx, reference.clone());
+    let result = test_ctx.branch.add_branch(&ctx, reference.clone(), None);
     assert_eq!(
         result.err().unwrap().to_string(),
         format!(
