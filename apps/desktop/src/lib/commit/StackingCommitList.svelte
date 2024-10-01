@@ -2,6 +2,7 @@
 	import CommitAction from './CommitAction.svelte';
 	import StackingCommitCard from './StackingCommitCard.svelte';
 	import StackingCommitDragItem from './StackingCommitDragItem.svelte';
+	import StackingUpstreamCommitsAccordion from './StackingUpstreamCommitsAccordion.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
@@ -62,9 +63,10 @@
 			? [...remoteCommits.map(transformAnyCommit), { id: LineSpacer.Remote }]
 			: []
 	);
-
 	const mappedLocalCommits = $derived(
-		localCommits.length > 0 ? localCommits.map(transformAnyCommit) : []
+		localCommits.length > 0
+			? [...localCommits.map(transformAnyCommit), { id: LineSpacer.Local }]
+			: []
 	);
 	const mappedLocalAndRemoteCommits = $derived(
 		localAndRemoteCommits.length > 0
@@ -128,9 +130,8 @@
 	<div class="commits">
 		<!-- UPSTREAM COMMITS -->
 
-		{#if remoteCommits.length > 0}
-			<!-- To make the sticky position work, commits should be wrapped in a div -->
-			<div class="commits-group">
+		{#if hasRemoteCommits}
+			<StackingUpstreamCommitsAccordion remoteCommitCount={remoteCommits.length}>
 				{#each remoteCommits as commit, idx (commit.id)}
 					<StackingCommitCard
 						type="remote"
@@ -146,30 +147,27 @@
 						{/snippet}
 					</StackingCommitCard>
 				{/each}
-
-				<CommitAction>
-					{#snippet lines()}
-						<Line line={lineManager.get(LineSpacer.Remote)} />
-					{/snippet}
-					{#snippet action()}
-						<Button
-							style="warning"
-							kind="solid"
-							loading={isIntegratingCommits}
-							onclick={async () => {
-								isIntegratingCommits = true;
-								try {
-									await branchController.mergeUpstream($branch.id);
-								} catch (e) {
-									console.error(e);
-								} finally {
-									isIntegratingCommits = false;
-								}
-							}}>Integrate upstream</Button
-						>
-					{/snippet}
-				</CommitAction>
-			</div>
+				{#snippet action()}
+					<Button
+						style="warning"
+						kind="solid"
+						grow
+						loading={isIntegratingCommits}
+						onclick={async () => {
+							isIntegratingCommits = true;
+							try {
+								await branchController.mergeUpstream($branch.id);
+							} catch (e) {
+								console.error(e);
+							} finally {
+								isIntegratingCommits = false;
+							}
+						}}
+					>
+						Integrate upstream
+					</Button>
+				{/snippet}
+			</StackingUpstreamCommitsAccordion>
 		{/if}
 
 		<!-- LOCAL COMMITS -->
@@ -288,9 +286,8 @@
 		display: flex;
 		flex-direction: column;
 		background-color: var(--clr-bg-2);
-		border-radius: var(--radius-m);
+		border-radius: 0 0 var(--radius-m) var(--radius-m);
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
 	}
 
 	.commits-group {

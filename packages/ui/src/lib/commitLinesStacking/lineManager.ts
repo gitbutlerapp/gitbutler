@@ -22,9 +22,9 @@ function generateLineData({
 	const integratedBranchGroups = mapToCommitLineGroupPair(integratedCommits);
 
 	remoteBranchGroups.forEach(({ commit, line }) => {
-		line.top.type = 'LocalRemote';
-		line.bottom.type = 'LocalRemote';
-		line.commitNode = { type: 'LocalRemote', commit };
+		line.top.type = 'Upstream';
+		line.bottom.type = 'Upstream';
+		line.commitNode = { type: 'Upstream', commit };
 
 		// If there are local commits we want to fill in a local dashed line
 		if (localBranchGroups.length > 0) {

@@ -7,6 +7,8 @@ import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BranchPushResult, Hunk, LocalFile } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
+type CommitIdOrChangeId = { CommitId: string } | { ChangeId: string };
+
 export class BranchController {
 	constructor(
 		readonly projectId: string,
@@ -93,6 +95,25 @@ export class BranchController {
 			});
 		} catch (err) {
 			showError('Failed to update branch name', err);
+		}
+	}
+
+	async createPatchSeries(
+		branchId: string,
+		referenceName: string,
+		commitIdOrChangeId?: CommitIdOrChangeId
+	) {
+		try {
+			await invoke<void>('create_series', {
+				projectId: this.projectId,
+				branchId: branchId,
+				request: {
+					target_patch: commitIdOrChangeId,
+					name: referenceName
+				}
+			});
+		} catch (err) {
+			showError('Failed to create branch reference', err);
 		}
 	}
 
@@ -261,9 +282,14 @@ export class BranchController {
 		}
 	}
 
-	async pushBranch(branchId: string, withForce: boolean): Promise<BranchPushResult> {
+	async pushBranch(
+		branchId: string,
+		withForce: boolean,
+		stack: boolean = false
+	): Promise<BranchPushResult> {
 		try {
-			const pushResult = await invoke<BranchPushResult>('push_virtual_branch', {
+			const command = stack ? 'push_stack' : 'push_virtual_branch';
+			const pushResult = await invoke<BranchPushResult>(command, {
 				projectId: this.projectId,
 				branchId,
 				withForce

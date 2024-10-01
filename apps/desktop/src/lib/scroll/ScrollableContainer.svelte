@@ -31,9 +31,9 @@
 		onthumbdrag
 	}: Props = $props();
 
-	let viewport: HTMLDivElement | undefined = $state();
-	let contents: HTMLDivElement | undefined = $state();
-	let scrollable: boolean | undefined = $state();
+	let viewport = $state<HTMLDivElement>();
+	let contents = $state<HTMLDivElement>();
+	let scrollable = $state<boolean>();
 
 	let observer: ResizeObserver;
 

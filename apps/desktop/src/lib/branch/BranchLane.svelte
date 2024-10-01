@@ -2,6 +2,7 @@
 	import BranchCard from './BranchCard.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { projectLaneCollapsed } from '$lib/config/config';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { createGitHostChecksMonitorStore } from '$lib/gitHost/interface/gitHostChecksMonitor';
@@ -11,6 +12,7 @@
 	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
+	import Stack from '$lib/stack/Stack.svelte';
 	import { getContext, getContextStoreBySymbol, createContextStore } from '$lib/utils/context';
 	import {
 		createIntegratedCommitsContextStore,
@@ -109,7 +111,11 @@
 </script>
 
 <div class="wrapper" data-tauri-drag-region>
-	<BranchCard {commitBoxOpen} {isLaneCollapsed} />
+	{#if $stackingFeature}
+		<Stack {commitBoxOpen} {isLaneCollapsed} />
+	{:else}
+		<BranchCard {commitBoxOpen} {isLaneCollapsed} />
+	{/if}
 
 	{#if selected}
 		<div

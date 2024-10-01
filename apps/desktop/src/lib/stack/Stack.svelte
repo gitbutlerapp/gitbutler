@@ -1,16 +1,17 @@
 <script lang="ts">
-	import BranchHeader from './BranchHeader.svelte';
+	import StackHeader from './StackHeader.svelte';
+	import StackSeries from './StackSeries.svelte';
 	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
-	import PullRequestCard from '../pr/PullRequestCard.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import Dropzones from '$lib/branch/Dropzones.svelte';
+	import StackingNewStackCard from '$lib/branch/StackingNewStackCard.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
-	import CommitList from '$lib/commit/CommitList.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
@@ -22,14 +23,15 @@
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
+	import Spacer from '$lib/shared/Spacer.svelte';
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import {
-		getIntegratedCommits,
+		// getIntegratedCommits,
 		getLocalAndRemoteCommits,
-		getLocalCommits,
-		getRemoteCommits
+		getLocalCommits
+		// getRemoteCommits
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
@@ -48,6 +50,7 @@
 	const branchStore = getContextStore(VirtualBranch);
 	const project = getContext(Project);
 	const user = getContextStore(User);
+	const baseBranch = getContextStore(BaseBranch);
 
 	const branch = $derived($branchStore);
 
@@ -63,8 +66,8 @@
 	let laneWidth: number | undefined = $state();
 
 	let commitDialog = $state<CommitDialog>();
-	let scrollViewport: HTMLElement | undefined = $state();
-	let rsViewport: HTMLElement | undefined = $state();
+	let scrollViewport = $state<HTMLElement>();
+	let rsViewport = $state<HTMLElement>();
 
 	$effect(() => {
 		if ($commitBoxOpen && branch.files.length === 0) {
@@ -105,8 +108,8 @@
 
 	const localCommits = getLocalCommits();
 	const localAndRemoteCommits = getLocalAndRemoteCommits();
-	const integratedCommits = getIntegratedCommits();
-	const remoteCommits = getRemoteCommits();
+	// const integratedCommits = getIntegratedCommits();
+	// const remoteCommits = getRemoteCommits();
 
 	let isPushingCommits = $state(false);
 	const localCommitsConflicted = $derived($localCommits.some((commit) => commit.conflicted));
@@ -121,7 +124,7 @@
 	async function push() {
 		isPushingCommits = true;
 		try {
-			await branchController.pushBranch(branch.id, branch.requiresForce);
+			await branchController.pushBranch(branch.id, branch.requiresForce, true);
 			$listingService?.refresh();
 			$prMonitor?.refresh();
 			$checksMonitor?.update();
@@ -129,16 +132,31 @@
 			isPushingCommits = false;
 		}
 	}
+
+	function addSeries(e: MouseEvent) {
+		e.stopPropagation();
+		console.log('CREATE SERIES.BRANCH', { branch, baseBranchName: $baseBranch.remoteName });
+		const topChangeId = branch.commits.at(-1)?.changeId;
+		if (topChangeId) {
+			branchController.createChangeReference(
+				branch?.id || '',
+				'refs/remotes/' +
+					$baseBranch.remoteName +
+					'/' +
+					`series-${Math.floor(Math.random() * 1000)}`,
+				topChangeId
+			);
+		}
+	}
 </script>
 
 {#if $isLaneCollapsed}
 	<div class="collapsed-lane-container">
-		<BranchHeader
+		<StackHeader
 			uncommittedChanges={branch.files.length}
 			onGenerateBranchName={generateBranchName}
 			{isLaneCollapsed}
 		/>
-
 		<div class="collapsed-lane-divider" data-remove-from-draggable></div>
 	</div>
 {:else}
@@ -157,13 +175,10 @@
 					class="branch-card__contents"
 					data-tauri-drag-region
 				>
-					<BranchHeader {isLaneCollapsed} onGenerateBranchName={generateBranchName} />
-					{#if branch.upstream?.givenName}
-						<PullRequestCard upstreamName={branch.upstream.givenName} />
-					{/if}
-					<div class="branch-card__files-wrapper">
+					<StackHeader {isLaneCollapsed} onGenerateBranchName={generateBranchName} />
+					<div class="card-stacking">
 						{#if branch.files?.length > 0}
-							<div class="branch-card__files">
+							<div class="branch-card__files card">
 								<Dropzones>
 									<BranchFiles
 										isUnapplied={false}
@@ -198,7 +213,7 @@
 							</div>
 						{:else if branch.commits.length === 0}
 							<Dropzones>
-								<div class="new-branch">
+								<div class="new-branch card">
 									<EmptyStatePlaceholder image={laneNewSvg} width="11rem">
 										<svelte:fragment slot="title">This is a new branch</svelte:fragment>
 										<svelte:fragment slot="caption">
@@ -209,23 +224,28 @@
 							</Dropzones>
 						{:else}
 							<Dropzones>
-								<div class="no-changes">
+								<div class="no-changes card">
 									<EmptyStatePlaceholder image={noChangesSvg} width="11rem" hasBottomMargin={false}>
-										<svelte:fragment slot="caption"
-											>No uncommitted changes on this branch</svelte:fragment
-										>
+										<svelte:fragment slot="caption">
+											No uncommitted changes on this branch
+										</svelte:fragment>
 									</EmptyStatePlaceholder>
 								</div>
 							</Dropzones>
 						{/if}
-
-						{#snippet pushButton({ disabled }: { disabled: boolean })}
+						<Spacer dotted />
+						<div class="lane-branches">
+							<StackingNewStackCard branchId={branch.id} {addSeries} />
+							<StackSeries {branch} />
+						</div>
+						<!-- TODO: Sticky styling -->
+						<div class="lane-branches__action">
 							<Button
 								style="pop"
 								kind="solid"
 								wide
 								loading={isPushingCommits}
-								{disabled}
+								disabled={localCommitsConflicted || localAndRemoteCommitsConflicted}
 								tooltip={localCommitsConflicted
 									? 'In order to push, please resolve any conflicted commits.'
 									: undefined}
@@ -233,33 +253,25 @@
 							>
 								{branch.requiresForce ? 'Force push' : 'Push'}
 							</Button>
-						{/snippet}
-						<CommitList
-							localCommits={$localCommits}
-							localAndRemoteCommits={$localAndRemoteCommits}
-							integratedCommits={$integratedCommits}
-							remoteCommits={$remoteCommits}
-							isUnapplied={false}
-							{localCommitsConflicted}
-							{localAndRemoteCommitsConflicted}
-							{pushButton}
-						/>
+						</div>
 					</div>
 				</div>
 			</ScrollableContainer>
 			<div class="divider-line">
-				<Resizer
-					viewport={rsViewport}
-					direction="right"
-					minWidth={380}
-					sticky
-					defaultLineColor={$fileIdSelection.length === 1 ? 'transparent' : 'var(--clr-border-2)'}
-					on:width={(e) => {
-						laneWidth = e.detail / (16 * $userSettings.zoom);
-						lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
-						$defaultBranchWidthRem = laneWidth;
-					}}
-				/>
+				{#if rsViewport}
+					<Resizer
+						viewport={rsViewport}
+						direction="right"
+						minWidth={380}
+						sticky
+						defaultLineColor={$fileIdSelection.length === 1 ? 'transparent' : 'var(--clr-border-2)'}
+						on:width={(e) => {
+							laneWidth = e.detail / (16 * $userSettings.zoom);
+							lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
+							$defaultBranchWidthRem = laneWidth;
+						}}
+					/>
+				{/if}
 			</div>
 		</div>
 	</div>
@@ -271,12 +283,31 @@
 		display: flex;
 		height: 100%;
 	}
+
 	.branch-card {
 		height: 100%;
 		position: relative;
 		user-select: none;
 		overflow-x: hidden;
 		overflow-y: scroll;
+	}
+
+	.lane-branches {
+		display: flex;
+		flex-direction: column;
+	}
+
+	:global(.lane-branches > *) {
+		margin-bottom: 12px;
+	}
+
+	.lane-branches__action {
+		z-index: var(--z-lifted);
+		position: sticky;
+		bottom: 0;
+		transition:
+			background-color 0.3s ease,
+			box-shadow 0.3s ease;
 	}
 
 	.divider-line {
@@ -296,6 +327,18 @@
 		padding: 12px;
 	}
 
+	.card-stacking {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+	}
+
+	.branch-card__files.card,
+	.no-changes.card,
+	.new-branch.card {
+		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
+	}
+
 	.branch-card__files {
 		display: flex;
 		flex-direction: column;
@@ -307,15 +350,6 @@
 		display: flex;
 		flex-direction: column;
 		padding: 12px;
-	}
-
-	.branch-card__files-wrapper {
-		flex: 1;
-		display: flex;
-		flex-direction: column;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-		background: var(--clr-bg-1);
 	}
 
 	.new-branch,
