@@ -13,7 +13,7 @@ use bstr::{BString, ByteSlice};
 use git2_hooks::HookResult;
 use gitbutler_branch::{
     dedup, dedup_fmt, reconcile_claims, Branch, BranchId, BranchOwnershipClaims,
-    BranchUpdateRequest, OwnershipClaim, Target, VirtualBranchesHandle,
+    BranchUpdateRequest, Target, VirtualBranchesHandle,
 };
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
@@ -533,11 +533,6 @@ fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<V
         }
     }
     branches
-}
-
-fn joined(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
-    ((start_a >= start_b && start_a <= end_b) || (end_a >= start_b && end_a <= end_b))
-        || ((start_b >= start_a && start_b <= end_a) || (end_b >= start_a && end_b <= end_a))
 }
 
 fn is_requires_force(ctx: &CommandContext, branch: &Branch) -> Result<bool> {
@@ -1896,141 +1891,6 @@ pub(crate) fn update_commit_message(
     Ok(())
 }
 
-/// moves commit from the branch it's in to the top of the target branch
-pub(crate) fn move_commit(
-    ctx: &CommandContext,
-    target_branch_id: BranchId,
-    commit_id: git2::Oid,
-) -> Result<()> {
-    ctx.assure_resolved()?;
-    let vb_state = ctx.project().virtual_branches();
-
-    let applied_branches = vb_state
-        .list_branches_in_workspace()
-        .context("failed to read virtual branches")?;
-
-    if !applied_branches.iter().any(|b| b.id == target_branch_id) {
-        bail!("branch {target_branch_id} is not among applied branches")
-    }
-
-    let mut applied_statuses = get_applied_status(ctx, None)?.branches;
-
-    let (ref mut source_branch, source_status) = applied_statuses
-        .iter_mut()
-        .find(|(b, _)| b.head == commit_id)
-        .ok_or_else(|| anyhow!("commit {commit_id} to be moved could not be found"))?;
-
-    let source_branch_non_comitted_files = source_status;
-
-    let source_branch_head = ctx
-        .repository()
-        .find_commit(commit_id)
-        .context("failed to find commit")?;
-
-    if source_branch_head.is_conflicted() {
-        bail!("Can not move conflicted commits");
-    }
-
-    let source_branch_head_parent = source_branch_head
-        .parent(0)
-        .context("failed to get parent commit")?;
-    let source_branch_head_tree = source_branch_head
-        .tree()
-        .context("failed to get commit tree")?;
-    let source_branch_head_parent_tree = source_branch_head_parent
-        .tree()
-        .context("failed to get parent tree")?;
-    let branch_head_diff = gitbutler_diff::trees(
-        ctx.repository(),
-        &source_branch_head_parent_tree,
-        &source_branch_head_tree,
-    )?;
-
-    let branch_head_diff: HashMap<_, _> =
-        gitbutler_diff::diff_files_into_hunks(branch_head_diff).collect();
-    let is_source_locked = source_branch_non_comitted_files.iter().any(|file| {
-        branch_head_diff
-            .get(&file.path)
-            .map_or(false, |head_diff_hunks| {
-                file.hunks.iter().any(|hunk| {
-                    let hunk: GitHunk = hunk.clone().into();
-                    head_diff_hunks.iter().any(|head_hunk| {
-                        joined(
-                            head_hunk.new_start,
-                            head_hunk.new_start + head_hunk.new_lines,
-                            hunk.new_start,
-                            hunk.new_start + hunk.new_lines,
-                        )
-                    })
-                })
-            })
-    });
-
-    if is_source_locked {
-        bail!("the source branch contains hunks locked to the target commit")
-    }
-
-    // move files ownerships from source branch to the destination branch
-
-    let ownerships_to_transfer = branch_head_diff
-        .iter()
-        .map(|(file_path, hunks)| {
-            (
-                file_path.clone(),
-                hunks.iter().map(Into::into).collect::<Vec<_>>(),
-            )
-        })
-        .map(|(file_path, hunks)| OwnershipClaim { file_path, hunks })
-        .flat_map(|file_ownership| source_branch.ownership.take(&file_ownership))
-        .collect::<Vec<_>>();
-
-    // reset the source branch to the parent commit
-    {
-        source_branch.head = source_branch_head_parent.id();
-        vb_state.set_branch(source_branch.clone())?;
-    }
-
-    // move the commit to destination branch target branch
-    {
-        let mut destination_branch = vb_state.get_branch_in_workspace(target_branch_id)?;
-
-        for ownership in ownerships_to_transfer {
-            destination_branch.ownership.put(ownership);
-        }
-
-        let new_destination_tree_oid = gitbutler_diff::write::hunks_onto_commit(
-            ctx,
-            destination_branch.head,
-            branch_head_diff,
-        )
-        .context("failed to write tree onto commit")?;
-        let new_destination_tree = ctx
-            .repository()
-            .find_tree(new_destination_tree_oid)
-            .context("failed to find tree")?;
-
-        let new_destination_head_oid = ctx
-            .commit(
-                &source_branch_head.message_bstr().to_str_lossy(),
-                &new_destination_tree,
-                &[&ctx
-                    .repository()
-                    .find_commit(destination_branch.head)
-                    .context("failed to get dst branch head commit")?],
-                source_branch_head.gitbutler_headers(),
-            )
-            .context("failed to commit")?;
-
-        destination_branch.head = new_destination_head_oid;
-        vb_state.set_branch(destination_branch.clone())?;
-    }
-
-    crate::integration::update_workspace_commit(&vb_state, ctx)
-        .context("failed to update gitbutler workspace")?;
-
-    Ok(())
-}
-
 // Goes through a set of changes and checks if conflicts are present. If no conflicts
 // are present in a file it will be resolved, meaning it will be removed from the
 // conflicts file.
@@ -2055,28 +1915,4 @@ fn update_conflict_markers(ctx: &CommandContext, files: Vec<VirtualBranchFile>) 
         }
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn joined_test() {
-        assert!(!joined(1, 2, 3, 4));
-        assert!(joined(1, 4, 2, 3));
-        assert!(joined(2, 3, 1, 4));
-        assert!(!joined(3, 4, 1, 2));
-
-        assert!(joined(1, 2, 2, 3));
-        assert!(joined(1, 3, 2, 3));
-        assert!(joined(2, 3, 1, 2));
-
-        assert!(!joined(1, 1, 2, 2));
-        assert!(joined(1, 1, 1, 1));
-        assert!(joined(1, 1, 1, 2));
-        assert!(joined(1, 2, 2, 2));
-    }
-
-    #[test]
-    fn normalize_branch_name_test() {}
 }
