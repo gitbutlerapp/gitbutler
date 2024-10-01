@@ -1,6 +1,7 @@
 use anyhow::Result;
 use gitbutler_command_context::CommandContext;
 use serde::{Deserialize, Serialize};
+use std::fmt::Display;
 
 /// A GitButler-specific reference type that points to a commit or a patch (change).
 /// The principal difference between a `PatchReference` and a regular git reference is that a `PatchReference` can point to a change (patch) that is mutable.
@@ -23,6 +24,15 @@ pub enum CommitOrChangeId {
     CommitId(String),
     /// A referrence that points to a change (patch) through which a valid commit can be derived.
     ChangeId(String),
+}
+
+impl Display for CommitOrChangeId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CommitOrChangeId::CommitId(id) => write!(f, "CommitId: {}", id),
+            CommitOrChangeId::ChangeId(id) => write!(f, "ChangeId: {}", id),
+        }
+    }
 }
 
 impl PatchReference {

@@ -458,7 +458,6 @@ fn reference_exists(ctx: &CommandContext, name: &str) -> Result<bool> {
 /// Takes the list of current existing heads and a new head.
 /// Returns new, updated list of heads with the new head added in the correct position.
 /// If there are multiple heads pointing to the same patch, it uses `preceding_head` to disambiguate the order.
-// TODO: Assert there are no loose commits
 // TODO: when there is a patch reference for a commit ID and a patch reference for a change ID, recognize if they are equivalent (i.e. point to the same commit)
 fn add_head(
     mut existing_heads: Vec<PatchReference>,
@@ -519,6 +518,27 @@ fn add_head(
                 // noop
             }
         }
+    }
+    // the last head must point to the last commit in the stack of patches
+    if let Some(last_head) = updated_heads.last() {
+        if let Some(last_patch) = patches.last() {
+            if last_head.target != last_patch.clone() {
+                // error - invalid state - this would result in ophaned patches
+                return Err(anyhow!(
+                    "The newest head must point to the newest patch in the stack. The newest patch is {}, while the newest head with name {} points patch {}", last_patch, last_head.name, last_head.target
+                ));
+            }
+        } else {
+            // error - invalid state (at minimum there should be the merge base here)
+            return Err(anyhow!(
+                "Error while adding head - there must be at least one patch(commit) in the stack, when including the merge base"
+            ));
+        }
+    } else {
+        // error - invalid state (an initialized stack must have at least one head)
+        return Err(anyhow!(
+            "Error while adding head - there must be at least one head in an initialized stack"
+        ));
     }
     Ok(updated_heads)
 }
