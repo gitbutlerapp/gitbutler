@@ -66,6 +66,26 @@ fn add_branch_success() -> Result<()> {
 }
 
 #[test]
+fn add_branch_commitid_when_changeid_available() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+    let reference = PatchReference {
+        name: "asdf".into(),
+        target: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
+    };
+    let result = test_ctx.branch.add_branch(&ctx, reference, None);
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        format!(
+            "The commit {} has a change id associated with it. Use the change id instead",
+            test_ctx.commits[1].id()
+        )
+    );
+    Ok(())
+}
+
+#[test]
 fn add_branch_uninitialized_fails() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;

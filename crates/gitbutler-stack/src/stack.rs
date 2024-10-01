@@ -283,6 +283,9 @@ impl Stack for Branch {
 /// Validates that the commit in the reference target
 ///  - exists
 ///  - is between the stack (formerly vbranch) head (inclusive) and base (inclusive)
+///
+/// If the patch reference is a commit ID, it must be the case that the the commit has no change ID associated with it.
+/// In other words, change IDs are enforeced to be preferred over commit IDs when available.
 fn validate_target(
     reference: &PatchReference,
     ctx: &CommandContext,
@@ -303,6 +306,15 @@ fn validate_target(
             "The commit {} is not between the stack head and the stack base",
             commit.id()
         ));
+    }
+    // Enforce that change ids are used when available
+    if let CommitOrChangeId::CommitId(_) = reference.target {
+        if commit.change_id().is_some() {
+            return Err(anyhow!(
+                "The commit {} has a change id associated with it. Use the change id instead",
+                commit.id()
+            ));
+        }
     }
     Ok(())
 }
