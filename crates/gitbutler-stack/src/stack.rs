@@ -54,7 +54,7 @@ pub trait Stack {
     /// The argument `preceding_head` is only used if there are multiple heads that point to the same patch, otherwise it is ignored.
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
-    fn add_branch(
+    fn add_series(
         &mut self,
         ctx: &CommandContext,
         head: PatchReference,
@@ -67,13 +67,13 @@ pub trait Stack {
     /// those commits are moved to the branch underneath it (or more accurately, the precee)
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
-    fn remove_branch(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()>;
+    fn remove_series(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()>;
 
     /// Updates an existing branch in the stack.
     /// The same invariants as `add_branch` apply.
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
-    fn update_branch(
+    fn update_series(
         &mut self,
         ctx: &CommandContext,
         branch_name: String,
@@ -82,7 +82,7 @@ pub trait Stack {
 
     /// Pushes the reference (branch) to the Stack remote as derived from the default target.
     /// This operation will error out if the target has no push remote configured.
-    fn push_branch(
+    fn push_series(
         &self,
         ctx: &CommandContext,
         branch_name: String,
@@ -92,7 +92,7 @@ pub trait Stack {
     /// Returns a list of all branches/series in the stack.
     /// This operation will compute the current list of local and remote commits that belong to each series.
     /// The first entry is the newest in the Stack (i.e the top of the stack).
-    fn list_branches(&self, ctx: &CommandContext) -> Result<Vec<Series>>;
+    fn list_series(&self, ctx: &CommandContext) -> Result<Vec<Series>>;
 }
 
 /// Request to update a PatchReference.
@@ -146,7 +146,7 @@ impl Stack for Branch {
         state.set_branch(self.clone())
     }
 
-    fn add_branch(
+    fn add_series(
         &mut self,
         ctx: &CommandContext,
         new_head: PatchReference,
@@ -164,7 +164,7 @@ impl Stack for Branch {
         state.set_branch(self.clone())
     }
 
-    fn remove_branch(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()> {
+    fn remove_series(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
@@ -173,7 +173,7 @@ impl Stack for Branch {
         state.set_branch(self.clone())
     }
 
-    fn update_branch(
+    fn update_series(
         &mut self,
         ctx: &CommandContext,
         branch_name: String,
@@ -205,7 +205,7 @@ impl Stack for Branch {
         state.set_branch(self.clone())
     }
 
-    fn push_branch(
+    fn push_series(
         &self,
         ctx: &CommandContext,
         branch_name: String,
@@ -234,7 +234,7 @@ impl Stack for Branch {
         )
     }
 
-    fn list_branches(&self, ctx: &CommandContext) -> Result<Vec<Series>> {
+    fn list_series(&self, ctx: &CommandContext) -> Result<Vec<Series>> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
