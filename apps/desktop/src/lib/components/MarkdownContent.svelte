@@ -16,7 +16,9 @@
 		| Tokens.Codespan
 		| Tokens.Paragraph
 		| Tokens.ListItem
-		| Tokens.List;
+		| Tokens.List
+		| Tokens.Strong
+		| Tokens.Br;
 
 	const { type, ...rest }: Props = $props();
 </script>
@@ -26,7 +28,7 @@
 		<svelte:self {...token} />
 	{/each}
 {:else if renderers[type]}
-	{@const CurrentComponent = renderers[type] as Component<Props>}
+	{@const CurrentComponent = renderers[type] as Component<Omit<Props, "type">>}
 	{#if type === 'list'}
 		{@const listItems = (rest as Extract<Props, { type: 'list' }>).items}
 		<CurrentComponent {...rest}>
