@@ -74,6 +74,24 @@ pub struct VirtualBranch {
     pub refname: Refname,
     #[serde(with = "gitbutler_serde::oid")]
     pub tree: git2::Oid,
+    /// New way to group commits into a multiple patch series
+    pub series: Vec<PatchSeries>,
+}
+
+/// A grouping that combines multiple commits into a patch series
+///
+/// We deviate slightly from established language as we are transitioning from lanes representing
+/// independent branches to representing independent stacks of dependent patch series (branches).
+#[derive(Debug, PartialEq, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PatchSeries {
+    pub name: String,
+    pub description: Option<String>,
+    pub upstream_reference: Option<String>,
+    /// List of patches beloning to this series, from newest to oldest
+    pub patches: Vec<VirtualBranchCommit>,
+    /// List of patches that only exist on the upstream branch
+    pub upstream_patches: Vec<VirtualBranchCommit>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -422,6 +440,7 @@ pub fn list_virtual_branches_cached(
             fork_point,
             refname,
             tree: branch.tree,
+            series: vec![],
         };
         branches.push(branch);
     }
