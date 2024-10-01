@@ -1,10 +1,10 @@
 <script lang="ts">
 	import FileStatusTag from './FileStatusTag.svelte';
-	import { splitFilePath } from '$lib/utils/filePath';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
+	import { splitFilePath } from '@gitbutler/ui/utils/filePath';
 	import { createEventDispatcher } from 'svelte';
 	import type { AnyFile } from '$lib/vbranches/types';
 

@@ -47,6 +47,7 @@
 
 	const selectedFiles = fileIdSelection.files;
 
+	// eslint-disable-next-line @typescript-eslint/promise-function-async
 	const draggableFiles = $derived.by(() => {
 		if ($selectedFiles?.some((selectedFile) => selectedFile.id === file.id)) {
 			return $selectedFiles || [];
@@ -132,7 +133,6 @@
 <FileListItem
 	id={`file-${file.id}`}
 	bind:ref={draggableEl}
-	fileName={file.filename}
 	filePath={file.path}
 	fileStatus={computeFileStatus(file)}
 	stacking={$stackingFeature}

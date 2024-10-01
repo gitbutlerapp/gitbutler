@@ -3,11 +3,11 @@
 	import { createdOnDay } from '$lib/history/history';
 	import { ModeService } from '$lib/modes/service';
 	import { getContext } from '$lib/utils/context';
-	import { splitFilePath } from '$lib/utils/filePath';
 	import { toHumanReadableTime } from '$lib/utils/time';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
+	import { splitFilePath } from '@gitbutler/ui/utils/filePath';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
