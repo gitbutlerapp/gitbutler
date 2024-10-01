@@ -204,7 +204,7 @@
 	--clr-diff-line-bg: var(--clr-bg-1);
 	--clr-diff-count-bg: color(srgb 0.9686274509803922 0.9686274509803922 0.9647058823529412);
 	--clr-diff-count-border: var(--clr-border-2);
-	--clr-diff-selected-count-bg: var(--clr-core-pop-70);
+	--clr-diff-selected-count-bg: var(--clr-core-pop-80);
 	--clr-diff-selected-count-border: var(--clr-core-pop-60);
 	--clr-diff-selected-count-text: var(--clr-core-pop-40);
 	--clr-diff-count-text: var(--clr-text-3);
@@ -242,6 +242,7 @@
 	--radius-s: 0.25rem;
 	--radius-m: 0.375rem;
 	--radius-l: 0.75rem;
+	--radius-ml: 0.625rem;
 	--fx-shadow-s: 0 4px 14px 0 color(srgb 0 0 0 / 0.058823529411764705);
 	--fx-shadow-m: 0 6px 30px 0 color(srgb 0 0 0 / 0.0784313725490196);
 	--fx-shadow-l: 0 10px 40px 0 color(srgb 0 0 0 / 0.10196078431372549);

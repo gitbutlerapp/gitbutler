@@ -4,12 +4,12 @@
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
 	import FileIcon from '$lib/file/FileIcon.svelte';
+	import { splitFilePath } from '$lib/utils/filePath';
 	import type { FileStatus } from './types';
 
 	interface Props {
 		ref?: HTMLDivElement;
 		id?: string;
-		fileName: string;
 		filePath: string;
 		fileStatus?: FileStatus;
 		fileStatusStyle?: 'dot' | 'full';
@@ -37,7 +37,6 @@
 	let {
 		ref = $bindable(),
 		id,
-		fileName,
 		filePath,
 		fileStatus,
 		fileStatusStyle = 'dot',
@@ -57,6 +56,8 @@
 		ondragstart,
 		oncontextmenu
 	}: Props = $props();
+
+	const fileInfo = splitFilePath(filePath);
 </script>
 
 <div
@@ -89,12 +90,12 @@
 		<Checkbox small {checked} {indeterminate} onchange={oncheck} />
 	{/if}
 	<div class="info">
-		<FileIcon {fileName} size={14} />
+		<FileIcon fileName={fileInfo.filename} />
 		<span class="text-12 name">
-			{fileName}
+			{fileInfo.filename}
 		</span>
 		<span class="text-12 path">
-			{filePath}
+			{fileInfo.path}
 		</span>
 	</div>
 

@@ -12,8 +12,7 @@ type Story = StoryObj<typeof meta>;
 export const FileListItemStory: Story = {
 	name: 'FileListItem',
 	args: {
-		fileName: 'file.txt',
-		filePath: '/path/to',
+		filePath: '/path/to/file.svelte',
 		fileStatus: 'A',
 		fileStatusStyle: 'dot',
 		clickable: true,

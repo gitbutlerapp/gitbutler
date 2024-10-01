@@ -195,7 +195,6 @@
 				{#each files as file}
 					<div class="file">
 						<FileListItem
-							fileName={file.name}
 							filePath={file.path}
 							fileStatus={file.status}
 							conflicted={file.conflicted}

@@ -1,6 +1,6 @@
 /* CSS VARIABLES */
 :root {
-	--transition-fast: 0.06s ease-in-out;
+	--transition-fast: 0.05s ease-in-out;
 	--transition-medium: 0.15s ease-in-out;
 	--transition-slow: 0.2s ease-in-out;
 

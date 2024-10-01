@@ -3,7 +3,6 @@
 	import FileListItem from '$lib/file/FileListItem.svelte';
 
 	interface Props {
-		fileName: string;
 		filePath: string;
 		fileStatus?: FileStatus;
 		draggable?: boolean;
@@ -22,7 +21,6 @@
 	}
 
 	let {
-		fileName,
 		filePath,
 		fileStatus,
 		draggable = false,
@@ -51,7 +49,6 @@
 
 <FileListItem
 	bind:ref
-	{fileName}
 	{filePath}
 	{fileStatus}
 	{fileStatusStyle}
