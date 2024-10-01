@@ -2545,6 +2545,7 @@ dependencies = [
  "gitbutler-branch",
  "gitbutler-command-context",
  "gitbutler-commit",
+ "gitbutler-git",
  "gitbutler-patch-reference",
  "gitbutler-reference",
  "gitbutler-repo",

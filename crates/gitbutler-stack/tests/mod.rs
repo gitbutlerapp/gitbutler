@@ -526,6 +526,47 @@ fn update_series_target_success() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn push_series_uninitialized_fails() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let result = test_ctx.branch.push_series(&ctx, "virtual".into(), false);
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "Stack has not been initialized"
+    );
+    Ok(())
+}
+
+#[test]
+fn push_series_no_remote() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+    let result = test_ctx.branch.push_series(&ctx, "virtual".into(), false);
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "No remote has been configured for the target branch"
+    );
+    Ok(())
+}
+
+#[test]
+fn push_series_success() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+
+    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let mut target = state.get_default_target()?;
+    target.push_remote_name = Some("origin".into());
+    state.set_default_target(target)?;
+
+    let result = test_ctx.branch.push_series(&ctx, "virtual".into(), false);
+    assert!(result.is_ok());
+    Ok(())
+}
+
 fn command_ctx(name: &str) -> Result<(CommandContext, TempDir)> {
     gitbutler_testsupport::writable::fixture("stacking.sh", name)
 }
