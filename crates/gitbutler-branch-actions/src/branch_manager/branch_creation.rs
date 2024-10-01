@@ -1,9 +1,10 @@
 use std::borrow::Cow;
 
-use crate::r#virtual as vbranch;
+use crate::{branch_trees::checkout_branch_trees, r#virtual as vbranch};
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::{self, dedup, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims};
-use gitbutler_commit::commit_headers::HasCommitHeaders;
+use gitbutler_cherry_pick::RepositoryExt as _;
+use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::access::WorktreeWritePermission;
@@ -353,7 +354,8 @@ impl BranchManager<'_> {
             let mut branch_merged_with_default_target =
                 repo.merge_trees(&merge_base_tree, &branch_tree, &target_tree, None)?;
 
-            // If there are conflicts and edit mode is disabled
+            // If there are conflicts after a merge and succeeding rebases is
+            // disabled, use the old flow.
             if branch_merged_with_default_target.has_conflicts()
                 && !self.ctx.project().succeeding_rebases
             {
@@ -400,7 +402,26 @@ impl BranchManager<'_> {
                 let head_oid =
                     cherry_rebase_group(repo, default_target.sha, &commits_to_rebase, true)?;
 
-                repo.find_commit(head_oid)?
+                let rebased_commits = repo.log(head_oid, LogUntil::Commit(merge_base))?;
+
+                // If it turns out that the branch wasn't rebaseable, and
+                // succeeding rebases is disabled, we need to merge the branch
+                //
+                // We don't need to consider trees here any uncommited changes
+                // are stored in the head commit.
+                if rebased_commits.iter().any(|commit| commit.is_conflicted())
+                    && !self.ctx.project().succeeding_rebases
+                {
+                    gitbutler_merge_commits(
+                        repo,
+                        repo.find_commit(branch.head)?,
+                        repo.find_commit(default_target.sha)?,
+                        &branch.name,
+                        default_target.branch.branch(),
+                    )?
+                } else {
+                    repo.find_commit(head_oid)?
+                }
             } else {
                 gitbutler_merge_commits(
                     repo,
@@ -412,7 +433,7 @@ impl BranchManager<'_> {
             };
 
             branch.head = new_head.id();
-            branch.tree = new_head.tree_id();
+            branch.tree = repo.find_real_tree(&new_head, Default::default())?.id();
 
             vb_state.set_branch(branch.clone())?;
         }
@@ -423,44 +444,30 @@ impl BranchManager<'_> {
         vbranch::ensure_selected_for_changes(&vb_state)
             .context("failed to ensure selected for changes")?;
 
-        let final_tree = vb_state
-            .list_branches_in_workspace()?
-            .into_iter()
-            .try_fold(target_tree.clone(), |final_tree, branch| {
-                let branch_tree = repo.find_tree(branch.tree)?;
-                let mut result = repo.merge_trees(&target_tree, &final_tree, &branch_tree, None)?;
-                let final_tree_oid = result.write_tree_to(repo)?;
-                repo.find_tree(final_tree_oid)
-                    .context("Failed to find tree")
-            })?;
-
-        // checkout final_tree into the working directory
-        repo.checkout_tree_builder(&final_tree)
-            .force()
-            .remove_untracked()
-            .checkout()
-            .context("failed to checkout tree")?;
-
-        update_workspace_commit(&vb_state, self.ctx)?;
-
-        // Look for and handle the vbranch indicator commit
-        // TODO: This is not unapplying the WIP commit for some unholy reason.
-        // If you can figgure it out I'll buy you a beer.
         {
             if let Some(wip_commit_to_unapply) = branch.not_in_workspace_wip_change_id {
                 let potential_wip_commit = repo.find_commit(branch.head)?;
 
-                if let Some(headers) = potential_wip_commit.gitbutler_headers() {
-                    if headers.change_id == wip_commit_to_unapply {
-                        branch = crate::undo_commit::undo_commit(self.ctx, branch.id, branch.head)?;
+                // Don't try to undo commit if its conflicted
+                if !potential_wip_commit.is_conflicted() {
+                    if let Some(headers) = potential_wip_commit.gitbutler_headers() {
+                        if headers.change_id == wip_commit_to_unapply {
+                            branch =
+                                crate::undo_commit::undo_commit(self.ctx, branch.id, branch.head)?;
+                        }
                     }
+
+                    branch.not_in_workspace_wip_change_id = None;
+
+                    vb_state.set_branch(branch.clone())?;
                 }
-
-                branch.not_in_workspace_wip_change_id = None;
-
-                vb_state.set_branch(branch.clone())?;
             }
         }
+
+        // Now that we've added a branch to the workspace, lets merge together all the trees
+        checkout_branch_trees(self.ctx, perm)?;
+
+        update_workspace_commit(&vb_state, self.ctx)?;
 
         Ok(branch.name)
     }
