@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use anyhow::bail;
 use anyhow::Result;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 
@@ -18,7 +19,7 @@ pub(crate) fn remove_head(
     // find the head that corresponds to the supplied name, together with its index
     let (idx, head) = get_head(&heads, &name)?;
     if heads.len() == 1 {
-        return Err(anyhow!("Cannot remove the last branch from the stack"));
+        bail!("Cannot remove the last branch from the stack")
     }
     // The branch that is being removed is the top (last) one.
     // This means that if there are commits, they need to be moved to the branch underneath.
@@ -62,37 +63,39 @@ pub(crate) fn add_head(
     let mut updated_heads: Vec<PatchReference> = vec![];
     let mut new_head = Option::Some(new_head);
     for patch in &patches {
-        let existing_head = existing_heads.first().cloned();
-        match (existing_head, &new_head) {
-            // Both the new head and the next existing head reference the patch as a target
-            (Some(existing_head), Some(new_head_ref))
-                if existing_head.target == patch.clone()
-                    && new_head_ref.target == patch.clone() =>
-            {
-                if preceding_head.is_none() {
-                    updated_heads.push(new_head_ref.clone()); // no preceding head specified, so add the new head first
-                    new_head = None; // the `new_head` is now consumed
-                } else if preceding_head.as_ref() == updated_heads.last() {
-                    updated_heads.push(new_head_ref.clone()); // preceding_head matches the last entry, so add the new_head next
-                    new_head = None; // the `new_head` is now consumed
-                } else {
-                    updated_heads.push(existing_head.clone()); // add the next existing head as the next entry
+        loop {
+            let existing_head = existing_heads.first().cloned();
+            match (existing_head, &new_head) {
+                // Both the new head and the next existing head reference the patch as a target
+                (Some(existing_head), Some(new_head_ref))
+                    if existing_head.target == patch.clone()
+                        && new_head_ref.target == patch.clone() =>
+                {
+                    if preceding_head.is_none() {
+                        updated_heads.push(new_head_ref.clone()); // no preceding head specified, so add the new head first
+                        new_head = None; // the `new_head` is now consumed
+                    } else if preceding_head.as_ref() == updated_heads.last() {
+                        updated_heads.push(new_head_ref.clone()); // preceding_head matches the last entry, so add the new_head next
+                        new_head = None; // the `new_head` is now consumed
+                    } else {
+                        updated_heads.push(existing_head.clone()); // add the next existing head as the next entry
+                        existing_heads.remove(0); // consume the next in line from the existing heads
+                    }
+                }
+                // Only the next existing head matches the patch as a target
+                (Some(existing_head), _) if existing_head.target == patch.clone() => {
+                    updated_heads.push(existing_head.clone()); // add the nex existing head as the next entry
                     existing_heads.remove(0); // consume the next in line from the existing heads
                 }
-            }
-            // Only the next existing head matches the patch as a target
-            (Some(existing_head), _) if existing_head.target == patch.clone() => {
-                updated_heads.push(existing_head.clone()); // add the nex existing head as the next entry
-                existing_heads.remove(0); // consume the next in line from the existing heads
-            }
-            // Only the new head matches the patch as a target
-            (_, Some(new_head_ref)) if new_head_ref.target == patch.clone() => {
-                updated_heads.push(new_head_ref.clone()); // add the new head as the next entry
-                new_head = None; // the `new_head` is now consumed
-            }
-            // Neither the next existing head nor the new head match the patch as a target so continue to the next patch
-            _ => {
-                // noop
+                // Only the new head matches the patch as a target
+                (_, Some(new_head_ref)) if new_head_ref.target == patch.clone() => {
+                    updated_heads.push(new_head_ref.clone()); // add the new head as the next entry
+                    new_head = None; // the `new_head` is now consumed
+                }
+                // Neither the next existing head nor the new head match the patch as a target so continue to the next patch
+                _ => {
+                    break;
+                }
             }
         }
     }
@@ -101,21 +104,19 @@ pub(crate) fn add_head(
         if let Some(last_patch) = patches.last() {
             if last_head.target != last_patch.clone() {
                 // error - invalid state - this would result in ophaned patches
-                return Err(anyhow!(
+                bail!(
                     "The newest head must point to the newest patch in the stack. The newest patch is {}, while the newest head with name {} points patch {}", last_patch, last_head.name, last_head.target
-                ));
+                );
             }
         } else {
             // error - invalid state (at minimum there should be the merge base here)
-            return Err(anyhow!(
+            bail!(
                 "Error while adding head - there must be at least one patch(commit) in the stack, when including the merge base"
-            ));
+            );
         }
     } else {
         // error - invalid state (an initialized stack must have at least one head)
-        return Err(anyhow!(
-            "Error while adding head - there must be at least one head in an initialized stack"
-        ));
+        bail!("Error while adding head - there must be at least one head in an initialized stack");
     }
     Ok(updated_heads)
 }
