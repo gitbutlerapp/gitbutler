@@ -23,9 +23,9 @@ mock_instant = { version = "0.5.1", optional = true }
 
 [dev-dependencies]
 gitbutler-notify-debouncer = { path = ".", features = ["mock_instant"] }
-pretty_assertions = "1.4.0"
-rstest = "0.22"
-serde = { version = "1.0.204", features = ["derive"] }
+pretty_assertions = "1.4.1"
+rstest = "0.23"
+serde = { version = "1.0.210", features = ["derive"] }
 deser-hjson = "1.1.1"
 
 [lints.clippy]
