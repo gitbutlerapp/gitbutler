@@ -28,6 +28,7 @@ use gitbutler_repo::{
     rebase::{cherry_rebase, cherry_rebase_group},
     LogUntil, RepoActionsExt, RepositoryExt,
 };
+use gitbutler_stack::{commit_by_oid_or_change_id, Stack};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -416,6 +417,14 @@ pub fn list_virtual_branches_cached(
 
         let refname = branch.refname()?.into();
 
+        // TODO: Error out here once this API is stable
+        let series = match stack_series(ctx, &branch, &default_target, &check_commit) {
+            Ok(series) => series,
+            Err(e) => {
+                tracing::warn!("failed to compute stack series: {:?}", e);
+                vec![]
+            }
+        };
         let branch = VirtualBranch {
             id: branch.id,
             name: branch.name,
@@ -440,7 +449,7 @@ pub fn list_virtual_branches_cached(
             fork_point,
             refname,
             tree: branch.tree,
-            series: vec![],
+            series,
         };
         branches.push(branch);
     }
@@ -450,6 +459,42 @@ pub fn list_virtual_branches_cached(
     branches.sort_by(|a, b| a.order.cmp(&b.order));
 
     Ok((branches, status.skipped_files))
+}
+
+fn stack_series(
+    ctx: &CommandContext,
+    branch: &Branch,
+    default_target: &Target,
+    check_commit: &IsCommitIntegrated,
+) -> Result<Vec<PatchSeries>> {
+    let mut api_series: Vec<PatchSeries> = vec![];
+    for series in branch.list_series(ctx)? {
+        let upstream_reference = default_target.push_remote_name.as_ref().and_then(|remote| {
+            if series.head.pushed(remote.as_str(), ctx).ok()? {
+                series.head.remote_reference(remote.as_str()).ok()
+            } else {
+                None
+            }
+        });
+        let mut patches: Vec<VirtualBranchCommit> = vec![];
+        for patch in series.local_commits {
+            let commit = commit_by_oid_or_change_id(&patch, ctx, branch.head, default_target)?;
+            let is_integrated = check_commit.is_integrated(&commit)?;
+            // TODO: correctly determine if commit is remote
+            let vcommit =
+                commit_to_vbranch_commit(ctx, branch, &commit, is_integrated, false, None)?;
+            patches.push(vcommit);
+        }
+        api_series.push(PatchSeries {
+            name: series.head.name,
+            description: series.head.description,
+            upstream_reference,
+            patches,
+            upstream_patches: vec![],
+        });
+    }
+
+    Ok(api_series)
 }
 
 /// The commit-data we can use for comparison to see which remote-commit was used to craete
@@ -1057,6 +1102,10 @@ pub fn commit(
     branch.head = commit_oid;
     branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
     vb_state.set_branch(branch.clone())?;
+    if let Err(e) = branch.set_stack_head(ctx, commit_oid) {
+        // TODO: Make this error out when this functionality is stable
+        tracing::warn!("failed to set stack head: {:?}", e);
+    }
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;

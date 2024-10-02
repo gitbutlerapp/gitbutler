@@ -571,7 +571,7 @@ pub fn integrate_upstream(project: &Project, resolutions: &[Resolution]) -> Resu
     )
 }
 
-fn open_with_verify(project: &Project) -> Result<CommandContext> {
+pub(crate) fn open_with_verify(project: &Project) -> Result<CommandContext> {
     let ctx = CommandContext::open(project)?;
     let mut guard = project.exclusive_worktree_access();
 

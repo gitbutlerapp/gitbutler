@@ -636,7 +636,7 @@ pub mod commands {
         Ok(())
     }
 
-    fn emit_vbranches(windows: &WindowState, project_id: projects::ProjectId) {
+    pub(crate) fn emit_vbranches(windows: &WindowState, project_id: projects::ProjectId) {
         if let Err(error) = windows.post(gitbutler_watcher::Action::CalculateVirtualBranches(
             project_id,
         )) {

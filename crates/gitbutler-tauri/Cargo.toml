@@ -28,7 +28,11 @@ console-subscriber = "0.4.0"
 dirs = "5.0.1"
 futures.workspace = true
 git2.workspace = true
-gix = { workspace = true, features = ["max-performance", "blocking-http-transport-curl", "worktree-mutation"] }
+gix = { workspace = true, features = [
+    "max-performance",
+    "blocking-http-transport-curl",
+    "worktree-mutation",
+] }
 once_cell = "1.19"
 reqwest = { version = "0.12.4", features = ["json"] }
 serde.workspace = true
@@ -59,6 +63,7 @@ gitbutler-project.workspace = true
 gitbutler-user.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
+gitbutler-patch-reference.workspace = true
 gitbutler-error.workspace = true
 gitbutler-secret.workspace = true
 gitbutler-id.workspace = true

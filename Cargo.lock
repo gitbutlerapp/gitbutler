@@ -2148,6 +2148,7 @@ dependencies = [
  "gitbutler-fs",
  "gitbutler-id",
  "gitbutler-oxidize",
+ "gitbutler-patch-reference",
  "gitbutler-reference",
  "gitbutler-serde",
  "gix",
@@ -2182,10 +2183,12 @@ dependencies = [
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-oxidize",
+ "gitbutler-patch-reference",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-serde",
+ "gitbutler-stack",
  "gitbutler-testsupport",
  "gitbutler-time",
  "gitbutler-url",
@@ -2435,6 +2438,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-patch-reference"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-command-context",
+ "serde",
+]
+
+[[package]]
 name = "gitbutler-project"
 version = "0.0.0"
 dependencies = [
@@ -2527,6 +2539,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-stack"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-branch",
+ "gitbutler-command-context",
+ "gitbutler-commit",
+ "gitbutler-git",
+ "gitbutler-patch-reference",
+ "gitbutler-reference",
+ "gitbutler-repo",
+ "gitbutler-testsupport",
+ "gix",
+ "itertools 0.13.0",
+ "rand 0.8.5",
+ "serde",
+ "tempfile",
+]
+
+[[package]]
 name = "gitbutler-storage"
 version = "0.0.0"
 dependencies = [
@@ -2581,6 +2614,7 @@ dependencies = [
  "gitbutler-id",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
+ "gitbutler-patch-reference",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
