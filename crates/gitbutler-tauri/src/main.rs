@@ -13,7 +13,7 @@
 
 use gitbutler_tauri::{
     askpass, commands, config, github, logs, menu, modes, open, projects, remotes, repo, secret,
-    undo, users, virtual_branches, zip, App, WindowState,
+    stack, undo, users, virtual_branches, zip, App, WindowState,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
@@ -191,6 +191,11 @@ fn main() {
                     virtual_branches::commands::upstream_integration_statuses,
                     virtual_branches::commands::integrate_upstream,
                     virtual_branches::commands::find_commit,
+                    stack::create_series,
+                    stack::remove_series,
+                    stack::update_series_name,
+                    stack::update_series_description,
+                    stack::push_stack,
                     secret::secret_get_global,
                     secret::secret_set_global,
                     undo::list_snapshots,
