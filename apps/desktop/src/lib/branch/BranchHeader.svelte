@@ -48,7 +48,7 @@
 	const branch = $derived($branchStore);
 	const pr = $derived($prMonitor?.pr);
 
-	let contextMenu = $state<ContextMenu>();
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
 	let isLoading = $state(false);
 	let isTargetBranchAnimated = $state(false);

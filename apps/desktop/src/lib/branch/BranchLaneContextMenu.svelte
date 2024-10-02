@@ -17,7 +17,7 @@
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
 	interface Props {
-		contextMenuEl?: ContextMenu;
+		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		target?: HTMLElement;
 		onCollapse: () => void;
 		onGenerateBranchName: () => void;

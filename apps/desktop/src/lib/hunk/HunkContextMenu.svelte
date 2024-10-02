@@ -18,7 +18,7 @@
 
 	const branchController = getContext(BranchController);
 
-	let contextMenu: ContextMenu;
+	let contextMenu: ReturnType<typeof ContextMenu>;
 
 	export function open(e: MouseEvent, item: any) {
 		contextMenu.open(e, item);

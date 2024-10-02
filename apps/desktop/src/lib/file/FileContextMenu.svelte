@@ -22,7 +22,7 @@
 	const project = getContext(Project);
 
 	let confirmationModal: Modal;
-	let contextMenu: ContextMenu;
+	let contextMenu: ReturnType<typeof ContextMenu>;
 
 	function isDeleted(item: any): boolean {
 		if (!item.files || !Array.isArray(item.files)) return false;

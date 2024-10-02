@@ -66,7 +66,7 @@
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
 	let draggableCommitElement = $state<HTMLElement>();
-	let contextMenu = $state<CommitContextMenu>();
+	let contextMenu = $state<ReturnType<typeof CommitContextMenu>>();
 	let files = $state<RemoteFile[]>([]);
 	let showDetails = $state(false);
 
