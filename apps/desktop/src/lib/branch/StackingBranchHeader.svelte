@@ -17,6 +17,7 @@
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -34,6 +35,8 @@
 	const prService = getGitHostPrService();
 	const gitListService = getGitHostListingService();
 	const gitHost = getGitHost();
+	const upstreamName = $derived($branchStore.upstreamName);
+	const gitHostBranch = $derived(upstreamName ? $gitHost?.branch(upstreamName) : undefined);
 	const project = getContext(Project);
 
 	const baseBranchName = $derived($baseBranch.shortName);
@@ -150,10 +153,20 @@
 		<div class="text-14 text-bold branch-info__name">
 			<span class="remote-name">{$baseBranch.remoteName ?? 'origin'}/</span>
 			<BranchLabel name={branch.name} onChange={(name) => editTitle(name)} />
+			<Button
+				size="tag"
+				icon="open-link"
+				style="ghost"
+				onclick={(e: MouseEvent) => {
+					const url = gitHostBranch?.url;
+					if (url) openExternalUrl(url);
+					e.preventDefault();
+					e.stopPropagation();
+				}}
+			></Button>
 		</div>
 		<div class="branch-info__btns">
-			<Button icon="description" outline type="ghost" color="neutral" />
-			<Button icon="edit-text" outline type="ghost" color="neutral" />
+			<Button size="tag" icon="kebab" style="ghost"></Button>
 		</div>
 	</div>
 	<div class="branch-action">
@@ -190,6 +203,9 @@
 		align-items: center;
 
 		& .branch-info__name {
+			display: flex;
+			align-items: stretch;
+			justify-content: start;
 			padding: 8px 16px;
 			flex-grow: 1;
 		}
@@ -199,8 +215,8 @@
 		}
 
 		.remote-name {
+			margin-top: 3px;
 			color: var(--clr-scale-ntrl-60);
-			margin-right: -3px;
 		}
 	}
 
