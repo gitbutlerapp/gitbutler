@@ -621,6 +621,35 @@ fn push_series_success() -> Result<()> {
 }
 
 #[test]
+fn update_name_after_push() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.initialize(&ctx)?;
+
+    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let mut target = state.get_default_target()?;
+    target.push_remote_name = Some("origin".into());
+    state.set_default_target(target)?;
+
+    let result = test_ctx.branch.push_series(&ctx, "virtual".into(), false);
+    assert!(result.is_ok());
+    let result = test_ctx.branch.update_series(
+        &ctx,
+        "virtual".into(),
+        &PatchReferenceUpdate {
+            name: Some("new-name".into()),
+            ..Default::default()
+        },
+    );
+    assert!(result.is_err());
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "Cannot update the name of a head that has been pushed to a remote"
+    );
+    Ok(())
+}
+
+#[test]
 fn list_series_uninitialized() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;

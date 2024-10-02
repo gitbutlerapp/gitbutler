@@ -235,6 +235,13 @@ impl Stack for Branch {
                 .iter_mut()
                 .find(|h: &&mut PatchReference| h.name == branch_name);
             if let Some(head) = head {
+                // ensure that the head has not been pushed to a remote yet
+                let default_target = branch_state(ctx).get_default_target()?;
+                if let Some(remote) = default_target.push_remote_name {
+                    if reference_exists(ctx, &head.remote_reference(remote)?)? {
+                        bail!("Cannot update the name of a head that has been pushed to a remote");
+                    }
+                }
                 head.name = name;
                 validate_name(head, ctx, &state)?;
             }
