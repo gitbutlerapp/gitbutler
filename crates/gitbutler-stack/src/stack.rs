@@ -266,7 +266,7 @@ impl Stack for Branch {
                 // ensure that the head has not been pushed to a remote yet
                 let default_target = branch_state(ctx).get_default_target()?;
                 if let Some(remote) = default_target.push_remote_name {
-                    if reference_exists(ctx, &head.remote_reference(remote)?)? {
+                    if reference_exists(ctx, &head.remote_reference(remote.as_str())?)? {
                         bail!("Cannot update the name of a head that has been pushed to a remote");
                     }
                 }
@@ -297,15 +297,17 @@ impl Stack for Branch {
         }
         let (_, reference) = get_head(&self.heads, &branch_name)?;
         let default_target = branch_state(ctx).get_default_target()?;
-        let commit = get_target_commit(&reference.target, ctx, self.head, &default_target)?;
+        let commit =
+            commit_by_oid_or_change_id(&reference.target, ctx, self.head, &default_target)?;
         let remote_name = branch_state(ctx)
             .get_default_target()?
             .push_remote_name
             .ok_or(anyhow!(
                 "No remote has been configured for the target branch"
             ))?;
-        let upstream_refname = RemoteRefname::from_str(&reference.remote_reference(remote_name)?)
-            .context("Failed to parse the remote reference for branch")?;
+        let upstream_refname =
+            RemoteRefname::from_str(&reference.remote_reference(remote_name.as_str())?)
+                .context("Failed to parse the remote reference for branch")?;
         ctx.push(
             commit.id(),
             &upstream_refname,
@@ -327,7 +329,7 @@ impl Stack for Branch {
         let mut previous_head = repo.merge_base(self.head, default_target.sha)?;
         for head in self.heads.clone() {
             let head_commit =
-                get_target_commit(&head.target, ctx, self.head, &default_target)?.id();
+                commit_by_oid_or_change_id(&head.target, ctx, self.head, &default_target)?.id();
             let local_patches = repo
                 .log(head_commit, LogUntil::Commit(previous_head))?
                 .iter()
@@ -361,7 +363,7 @@ fn validate_target(
     state: &VirtualBranchesHandle,
 ) -> Result<()> {
     let default_target = state.get_default_target()?;
-    let commit = get_target_commit(&reference.target, ctx, stack_head, &default_target)?;
+    let commit = commit_by_oid_or_change_id(&reference.target, ctx, stack_head, &default_target)?;
     let stack_commits = ctx
         .repository()
         // TODO: seems like the range that is actually needed is from head to the merge base
@@ -440,7 +442,7 @@ fn validate_name(
     let default_target = state.get_default_target()?;
     // assert that there is no remote git reference with this name
     if let Some(remote_name) = default_target.push_remote_name {
-        if reference_exists(ctx, &reference.remote_reference(remote_name)?)? {
+        if reference_exists(ctx, &reference.remote_reference(remote_name.as_str())?)? {
             return Err(anyhow!(
                 "A git reference with the name {} exists",
                 &reference.name
@@ -486,7 +488,7 @@ fn branch_state(ctx: &CommandContext) -> VirtualBranchesHandle {
     VirtualBranchesHandle::new(ctx.project().gb_dir())
 }
 
-fn get_target_commit<'a>(
+pub fn commit_by_oid_or_change_id<'a>(
     reference_target: &'a CommitOrChangeId,
     ctx: &'a CommandContext,
     stack_head: git2::Oid,

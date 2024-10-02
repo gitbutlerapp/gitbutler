@@ -39,12 +39,12 @@ impl Display for CommitOrChangeId {
 
 impl PatchReference {
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
-    pub fn remote_reference(&self, remote: String) -> Result<String> {
+    pub fn remote_reference(&self, remote: &str) -> Result<String> {
         Ok(format!("refs/remotes/{}/{}", remote, self.name))
     }
 
     /// Returns `true` if the reference is pushed to the provided remote
-    pub fn pushed(&self, remote: String, ctx: CommandContext) -> Result<bool> {
+    pub fn pushed(&self, remote: &str, ctx: &CommandContext) -> Result<bool> {
         let remote_ref = self.remote_reference(remote)?;
         Ok(ctx.repository().find_reference(&remote_ref).is_ok())
     }
