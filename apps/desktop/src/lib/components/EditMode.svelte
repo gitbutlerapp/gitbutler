@@ -5,6 +5,7 @@
 	import FileContextMenu from '$lib/file/FileContextMenu.svelte';
 	import ActionView from '$lib/layout/ActionView.svelte';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { getContext } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -191,20 +192,25 @@
 			</div>
 
 			<div bind:this={filesList} class="card files">
-				<h3 class="text-13 text-semibold header">Commit files</h3>
-				{#each files as file}
-					<div class="file">
-						<FileListItem
-							filePath={file.path}
-							fileStatus={file.status}
-							conflicted={file.conflicted}
-							fileStatusStyle={file.status === 'M' ? 'full' : 'dot'}
-							oncontextmenu={(e) => {
-								contextMenu?.open(e, { files: [file] });
-							}}
-						/>
-					</div>
-				{/each}
+				<h3 class="text-13 text-semibold header">Commit files: {files.length}</h3>
+				<ScrollableContainer maxHeight="50vh">
+					{#each files as file}
+						<div class="file">
+							<FileListItem
+								filePath={file.path}
+								fileStatus={file.status}
+								conflicted={file.conflicted}
+								fileStatusStyle={file.status === 'M' ? 'full' : 'dot'}
+								onclick={(e) => {
+									contextMenu?.open(e, { files: [file] });
+								}}
+								oncontextmenu={(e) => {
+									contextMenu?.open(e, { files: [file] });
+								}}
+							/>
+						</div>
+					{/each}
+				</ScrollableContainer>
 			</div>
 		</div>
 	</div>
