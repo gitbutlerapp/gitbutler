@@ -10,6 +10,7 @@
 	import { getContext } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { Commit, type RemoteFile } from '$lib/vbranches/types';
+	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import InfoButton from '@gitbutler/ui/InfoButton.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
@@ -192,7 +193,10 @@
 			</div>
 
 			<div bind:this={filesList} class="card files">
-				<h3 class="text-13 text-semibold header">Commit files: {files.length}</h3>
+				<div class="header">
+					<h3 class="text-13 text-semibold">Commit files</h3>
+					<Badge label={files.length} />
+				</div>
 				<ScrollableContainer maxHeight="50vh">
 					{#each files as file}
 						<div class="file">
@@ -279,9 +283,12 @@
 		padding-bottom: 8px;
 
 		& .header {
-			margin-left: 16px;
-			margin-top: 16px;
-			margin-bottom: 8px;
+			display: flex;
+			align-items: center;
+			gap: 4px;
+			padding-left: 16px;
+			padding-top: 16px;
+			padding-bottom: 8px;
 		}
 
 		& .file {
@@ -370,14 +377,6 @@
 		height: 100%;
 		background: linear-gradient(180deg, var(--clr-commit-local) 0%, transparent 100%);
 	}
-
-	/* .editmode__helpbox {
-		color: var(--clr-text-2);
-		margin-bottom: 16px;
-		padding: 12px;
-		border-radius: var(--radius-m);
-		background-color: var(--clr-bg-1-muted);
-	} */
 
 	.editmode__helptext {
 		color: var(--clr-text-3);
