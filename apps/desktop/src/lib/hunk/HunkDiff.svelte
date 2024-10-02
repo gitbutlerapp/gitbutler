@@ -412,11 +412,16 @@
 							class:diff-line-addition={row.type === SectionType.AddedLines}
 							class:is-last={row.isLast}
 							oncontextmenu={(event) => {
-							const lineNumber = (row.beforeLineNumber
-								? row.beforeLineNumber
-								: row.afterLineNumber) as number;
-							handleLineContextMenu({ event, hunk, lineNumber, subsection: subsections[0] as ContentSection });
-						}}
+								const lineNumber = (
+									row.beforeLineNumber ? row.beforeLineNumber : row.afterLineNumber
+								) as number;
+								handleLineContextMenu({
+									event,
+									hunk,
+									lineNumber,
+									subsection: subsections[0] as ContentSection
+								});
+							}}
 						>
 							{@html row.tokens.join('')}
 						</td>

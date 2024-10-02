@@ -106,7 +106,10 @@
 						isApplying = true;
 						try {
 							if (localBranch) {
-								await branchController.createvBranchFromBranch(localBranch.name, remoteBranch?.name);
+								await branchController.createvBranchFromBranch(
+									localBranch.name,
+									remoteBranch?.name
+								);
 							} else {
 								await branchController.createvBranchFromBranch(remoteBranch!.name);
 							}

@@ -224,15 +224,15 @@
 		isDragTargeted = false;
 	}}
 	ondrag={(e) => {
-					const target = e.target as HTMLElement;
-					const targetHeight = target.offsetHeight;
-					const targetTop = target.getBoundingClientRect().top;
-					const mouseY = e.clientY;
+		const target = e.target as HTMLElement;
+		const targetHeight = target.offsetHeight;
+		const targetTop = target.getBoundingClientRect().top;
+		const mouseY = e.clientY;
 
-					const isTop = mouseY < targetTop + targetHeight / 2;
+		const isTop = mouseY < targetTop + targetHeight / 2;
 
-					dragDirection = isTop ? 'up' : 'down';
-				}}
+		dragDirection = isTop ? 'up' : 'down';
+	}}
 	use:draggableCommit={commit instanceof DetailedCommit && !isUnapplied && type !== 'integrated'
 		? {
 				label: commit.descriptionTitle,
@@ -375,11 +375,10 @@
 										outline
 										icon="undo-small"
 										onclick={(e: MouseEvent) => {
-												currentCommitMessage.set(commit.description);
-												e.stopPropagation();
-												undoCommit(commit);
-											}}
-										>Undo</Button
+											currentCommitMessage.set(commit.description);
+											e.stopPropagation();
+											undoCommit(commit);
+										}}>Undo</Button
 									>
 								{/if}
 								<Button
@@ -395,7 +394,9 @@
 										style="ghost"
 										outline
 										icon="virtual-branch-small"
-										onclick={(e: Event) => {openCreateRefModal(e, commit)}}>Create ref</Button
+										onclick={(e: Event) => {
+											openCreateRefModal(e, commit);
+										}}>Create ref</Button
 									>
 								{/if}
 								{#if commit instanceof DetailedCommit && commit.remoteRef}

@@ -62,7 +62,9 @@
 					id="use-pull-request-template-boolean"
 					bind:checked={useTemplate}
 					on:click={(e) => {
-						setUsePullRequestTemplate((e.target as MouseEvent['target'] & { checked: boolean }).checked);
+						setUsePullRequestTemplate(
+							(e.target as MouseEvent['target'] & { checked: boolean }).checked
+						);
 					}}
 				/>
 			</svelte:fragment>

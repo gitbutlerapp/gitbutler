@@ -10,18 +10,17 @@
 	const { label, reversedDirection }: Props = $props();
 </script>
 
-{#snippet buttons({ 
-		label, 
-		outline, 
-		style, 
-		reversedDirection 
-	}: { 
-		label: string, 
-		outline: boolean, 
-		style?: ComponentColor, 
-		reversedDirection?: boolean 
-	}
-)}
+{#snippet buttons({
+	label,
+	outline,
+	style,
+	reversedDirection
+}: {
+	label: string;
+	outline: boolean;
+	style?: ComponentColor;
+	reversedDirection?: boolean;
+})}
 	<div class="group">
 		<Button size="cta" {style} icon="plus-small" {reversedDirection}>{label}</Button>
 		<Button size="cta" {style} kind="solid" {outline} icon="plus-small" {reversedDirection}>
