@@ -44,7 +44,7 @@
 
 	let alwaysShow = $state(false);
 	let viewport = $state<HTMLDivElement>();
-	let contextMenu = $state<HunkContextMenu>();
+	let contextMenu = $state<ReturnType<typeof HunkContextMenu>>();
 	const draggingDisabled = $derived(isUnapplied);
 
 	function onHunkSelected(hunk: Hunk, isSelected: boolean) {

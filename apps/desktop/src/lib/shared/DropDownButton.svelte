@@ -36,7 +36,7 @@
 		onclick
 	}: DropDownButtonProps = $props();
 
-	let contextMenu = $state<ContextMenu>();
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let iconEl = $state<HTMLElement>();
 	let visible = $state(false);
 

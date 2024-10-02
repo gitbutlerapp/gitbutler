@@ -6,7 +6,7 @@
 
 	const { target, url }: { target: HTMLElement | undefined; url: string } = $props();
 
-	let menu: ContextMenu;
+	let menu: ReturnType<typeof ContextMenu>;
 
 	export function openByMouse(e: MouseEvent) {
 		menu.open(e);

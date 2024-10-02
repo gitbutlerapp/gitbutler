@@ -16,7 +16,7 @@
 	export let hideInactive: Writable<boolean | undefined>;
 
 	let target: HTMLElement;
-	let contextMenu: ContextMenu;
+	let contextMenu: ReturnType<typeof ContextMenu>;
 
 	export function onFilterClick() {
 		contextMenu.toggle();

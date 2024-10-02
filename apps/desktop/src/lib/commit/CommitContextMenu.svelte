@@ -16,7 +16,7 @@
 
 	const target = $derived(targetElement ?? undefined);
 
-	let contextMenu = $state<ContextMenu>();
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 
 	export function open(e: MouseEvent) {
 		e.preventDefault();
