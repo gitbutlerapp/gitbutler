@@ -24,6 +24,14 @@ use tracing::instrument;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    /// Returns the common ancestor of the given commit Oids.
+    ///
+    /// This is like `git merge-base --octopus`.
+    ///
+    /// This method is called `merge_base_octopussy` so that it doesn't
+    /// conflict with the libgit2 binding I upstreamed when it eventually
+    /// gets merged.
+    fn merge_base_octopussy(&self, ids: &[git2::Oid]) -> Result<git2::Oid>;
     fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
     fn l(&self, from: git2::Oid, to: LogUntil) -> Result<Vec<git2::Oid>>;
     fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>>;
@@ -556,6 +564,21 @@ impl RepositoryExt for git2::Repository {
         }?;
 
         Ok((author, committer))
+    }
+
+    fn merge_base_octopussy(&self, ids: &[git2::Oid]) -> Result<git2::Oid> {
+        if ids.len() < 2 {
+            bail!("Merge base octopussy requires at least two commit ids to operate on");
+        };
+
+        let first_oid = ids[0];
+
+        let output = ids[1..].iter().try_fold(first_oid, |base, oid| {
+            self.merge_base(base, *oid)
+                .context("Failed to find merge base")
+        })?;
+
+        Ok(output)
     }
 }
 
