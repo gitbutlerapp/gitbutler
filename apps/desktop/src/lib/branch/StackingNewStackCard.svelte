@@ -46,7 +46,7 @@
 		<Spacer />
 	{/if}
 	<section class="card__action" class:showDetails={!showDetails}>
-		<StackingStatusIcon icon="plus-small" color="neutral" gap={true} />
+		<StackingStatusIcon icon="plus-small" gap={true} />
 		<Button grow style="neutral" onclick={addSeriesToStack}>Add a branch to the stack</Button>
 	</section>
 </section>
