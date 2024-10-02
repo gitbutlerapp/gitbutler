@@ -131,7 +131,7 @@
 		<!-- UPSTREAM COMMITS -->
 
 		{#if hasRemoteCommits}
-			<StackingUpstreamCommitsAccordion remoteCommitCount={remoteCommits.length}>
+			<StackingUpstreamCommitsAccordion count={Math.min(remoteCommits.length, 3)}>
 				{#each remoteCommits as commit, idx (commit.id)}
 					<StackingCommitCard
 						type="remote"
