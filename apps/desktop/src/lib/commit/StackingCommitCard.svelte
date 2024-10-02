@@ -103,10 +103,14 @@
 
 	let createRefModal: Modal;
 	let createRefName = $state($baseBranch.remoteName + '/');
+	let createRefTargetCommit: DetailedCommit | Commit | undefined;
 
-	function openCreateRefModal(e: Event, commit: DetailedCommit | Commit) {
+	function openCreateRefModal(e: Event) {
 		e.stopPropagation();
-		createRefModal.show(commit);
+		if (createRefTargetCommit) {
+			createRefModal.show(createRefTargetCommit);
+		}
+		createRefTargetCommit = undefined;
 	}
 
 	function pushCommitRef(commit: DetailedCommit) {
@@ -174,25 +178,24 @@
 	{/snippet}
 </Modal>
 
-<Modal bind:this={createRefModal} width="small">
-	{#snippet children(commit)}
+<Modal
+	bind:this={createRefModal}
+	width="small"
+	onSubmit={() => {
+		console.log('creatingRef.commit', commit);
+		branchController.createChangeReference(
+			branch?.id || '',
+			'refs/remotes/' + createRefName,
+			commit.changeId
+		);
+		createRefModal.close();
+	}}
+>
+	{#snippet children()}
 		<TextBox label="Remote branch name" id="newRemoteName" bind:value={createRefName} focus />
-		<Button
-			style="pop"
-			kind="solid"
-			onclick={() => {
-				branchController.createChangeReference(
-					branch?.id || '',
-					'refs/remotes/' + createRefName,
-					commit.changeId
-				);
-				createRefModal.close();
-			}}
-		>
-			Ok
-		</Button>
 	{/snippet}
 	{#snippet controls(close)}
+		<Button style="pop" kind="solid">Ok</Button>
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
 	{/snippet}
 </Modal>
@@ -395,9 +398,12 @@
 										outline
 										icon="virtual-branch-small"
 										onclick={(e: Event) => {
-											openCreateRefModal(e, commit);
-										}}>Create ref</Button
+											createRefTargetCommit = commit;
+											openCreateRefModal(e);
+										}}
 									>
+										Create ref
+									</Button>
 								{/if}
 								{#if commit instanceof DetailedCommit && commit.remoteRef}
 									<Button
