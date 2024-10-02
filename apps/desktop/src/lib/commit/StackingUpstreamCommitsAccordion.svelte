@@ -5,12 +5,12 @@
 	interface Props {
 		children: Snippet;
 		action: Snippet;
-		remoteCommitCount: number;
+		count: number;
 	}
 
-	const { children, action, remoteCommitCount }: Props = $props();
+	const { children, action, count }: Props = $props();
 
-	let isOpen = $state(false);
+	let isOpen = $state(count === 1);
 
 	function toggle() {
 		isOpen = !isOpen;
@@ -18,29 +18,40 @@
 </script>
 
 <button class="accordion" onclick={toggle}>
-	<div class="accordion-row">
-		<div class="accordion-row__line dots">
-			{#each new Array(remoteCommitCount) as _, idx}
-				<svg
-					width="14"
-					height="14"
-					viewBox="0 0 14 14"
-					class="upstream-dot"
-					style="--dot: {idx + 1}; --dotCount: {remoteCommitCount + 1};"
-					fill="none"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<rect x="1.76782" y="1.76764" width="10.535" height="10.535" rx="3" stroke-width="2" />
-				</svg>
-			{/each}
+	{#if count !== 1}
+		<div class="accordion-row header">
+			<div class="accordion-row__line dots">
+				{#if !isOpen}
+					{#each new Array(count) as _, idx}
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 14 14"
+							class="upstream-dot"
+							style="--dot: {idx + 1}; --dotCount: {count + 1};"
+							fill="none"
+							xmlns="http://www.w3.org/2000/svg"
+						>
+							<rect
+								x="1.76782"
+								y="1.76764"
+								width="10.535"
+								height="10.535"
+								rx="3"
+								stroke-width="2"
+							/>
+						</svg>
+					{/each}
+				{/if}
+			</div>
+			<div class="accordion-row__right">
+				<h5 class="text-13 text-body text-semibold title">Upstream commits</h5>
+				<Icon name={isOpen ? 'chevron-up' : 'chevron-down'} />
+			</div>
 		</div>
-		<div class="accordion-row__right">
-			<h5 class="text-13 text-body text-semibold title">Upstream commits</h5>
-			<Icon name={isOpen ? 'chevron-up' : 'chevron-down'} />
-		</div>
-	</div>
+	{/if}
 	{#if isOpen}
-		<div class="accordion-row">
+		<div class="accordion-children">
 			{@render children()}
 		</div>
 
@@ -93,7 +104,7 @@
 				position: absolute;
 				fill: var(--clr-commit-upstream);
 				stroke: var(--clr-theme-warn-bg);
-				transform: translateX(-6px) translateY(calc(var(--dot) * 7.5px)) rotate(45deg);
+				transform: translateX(-6px) translateY(calc(var(--dot) * 7px)) rotate(45deg);
 			}
 		}
 
@@ -111,5 +122,15 @@
 			color: var(--clr-text-1);
 			width: 100%;
 		}
+	}
+
+	.accordion-children {
+		display: flex;
+		flex-direction: column;
+		width: 100%;
+		min-height: 44px;
+		align-items: stretch;
+		text-align: left;
+		border-bottom: 1px solid var(--clr-border-2);
 	}
 </style>
