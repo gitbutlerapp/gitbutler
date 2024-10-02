@@ -7,7 +7,7 @@ use gitbutler_branch::{BranchId, OwnershipClaim};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::rebase::cherry_rebase_group;
+use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt};
 use std::collections::HashMap;
 
 /// moves commit from the branch it's in to the top of the target branch
@@ -59,12 +59,37 @@ pub(crate) fn move_commit(
         &source_branch_head_tree,
     )?;
 
+    let default_target = vb_state.get_default_target()?;
+    let merge_base = ctx
+        .repository()
+        .merge_base(default_target.sha, commit_id)
+        .context("failed to find merge base")?;
+    let merge_base = ctx
+        .repository()
+        .find_commit(merge_base)
+        .context("failed to find merge base")?;
+
     let branch_head_diff: HashMap<_, _> =
         gitbutler_diff::diff_files_into_hunks(branch_head_diff).collect();
     let is_source_locked = check_source_lock(source_branch_non_comitted_files, &branch_head_diff);
 
+    let mut ancestor_commits = ctx.repository().log(
+        source_branch_head_parent.id(),
+        LogUntil::Commit(merge_base.id()),
+    )?;
+    ancestor_commits.push(merge_base);
+
+    let ancestor_commits = ancestor_commits;
+
+    let is_ancestor_locked =
+        check_source_lock_to_ancestors(ctx.repository(), ancestor_commits, &branch_head_diff);
+
     if is_source_locked {
         bail!("the source branch contains hunks locked to the target commit")
+    }
+
+    if is_ancestor_locked {
+        bail!("the source branch contains hunks locked to the target commit ancestors")
     }
 
     // move files ownerships from source branch to the destination branch
@@ -135,6 +160,62 @@ fn check_source_lock(
             })
     });
     is_source_locked
+}
+
+/// determines if the source commit is locked to any of its ancestors
+fn check_source_lock_to_ancestors(
+    repository: &git2::Repository,
+    ancestor_commits: Vec<git2::Commit>,
+    source_commit_diff: &HashMap<std::path::PathBuf, Vec<gitbutler_diff::GitHunk>>,
+) -> bool {
+    let mut previous: Option<git2::Commit> = None;
+
+    for ancestor_commit in ancestor_commits {
+        if previous.is_none() {
+            previous = Some(ancestor_commit);
+            continue;
+        }
+
+        let previous_commit = previous.take().unwrap();
+
+        let old_tree = ancestor_commit.tree().unwrap();
+        let new_tree = previous_commit.tree().unwrap();
+
+        let diff = gitbutler_diff::trees(repository, &old_tree, &new_tree);
+
+        if diff.is_err() {
+            previous = Some(ancestor_commit);
+            continue;
+        }
+
+        let diff = diff.unwrap();
+        let diff: HashMap<_, _> = gitbutler_diff::diff_files_into_hunks(diff).collect();
+
+        let is_source_locked = diff.iter().any(|(file_path, hunks)| {
+            source_commit_diff
+                .get(file_path)
+                .map_or(false, |source_hunks| {
+                    hunks.iter().any(|hunk| {
+                        source_hunks.iter().any(|source_hunk| {
+                            lines_overlap(
+                                hunk.new_start,
+                                hunk.new_start + hunk.new_lines,
+                                source_hunk.new_start,
+                                source_hunk.new_start + source_hunk.new_lines,
+                            )
+                        })
+                    })
+                })
+        });
+
+        if is_source_locked {
+            return true;
+        }
+
+        previous = Some(ancestor_commit);
+    }
+
+    false
 }
 
 fn lines_overlap(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
