@@ -14,6 +14,8 @@ pub struct PatchReference {
     /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
     /// The name must be unique within the repository.
     pub name: String,
+    /// Optional description of the series. This could be markdown or anything our hearts desire.
+    pub description: Option<String>,
 }
 
 /// A patch identifier which is either `CommitId` or a `ChangeId`.

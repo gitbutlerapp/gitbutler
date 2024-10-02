@@ -54,10 +54,16 @@ fn add_series_success() -> Result<()> {
     let reference = PatchReference {
         name: "asdf".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
+        description: Some("my description".into()),
     };
     let result = test_ctx.branch.add_series(&ctx, reference, None);
     assert!(result.is_ok());
     assert_eq!(test_ctx.branch.heads.len(), 2);
+    assert_eq!(test_ctx.branch.heads[0].name, "asdf");
+    assert_eq!(
+        test_ctx.branch.heads[0].description,
+        Some("my description".into())
+    );
     // Assert persisted
     assert_eq!(
         test_ctx.branch,
@@ -79,6 +85,7 @@ fn add_multiple_series() -> Result<()> {
     let head_4 = PatchReference {
         name: "head_4".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
+        description: None,
     };
     let result = test_ctx
         .branch
@@ -89,6 +96,7 @@ fn add_multiple_series() -> Result<()> {
     let head_2 = PatchReference {
         name: "head_2".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
+        description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, head_2, None);
     assert!(result.is_ok());
@@ -97,6 +105,7 @@ fn add_multiple_series() -> Result<()> {
     let head_1 = PatchReference {
         name: "head_1".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits.first().unwrap().change_id().unwrap()),
+        description: None,
     };
 
     let result = test_ctx.branch.add_series(&ctx, head_1, None);
@@ -116,6 +125,7 @@ fn add_series_commitid_when_changeid_available() -> Result<()> {
     let reference = PatchReference {
         name: "asdf".into(),
         target: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
+        description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, reference, None);
     assert_eq!(
@@ -135,6 +145,7 @@ fn add_series_uninitialized_fails() -> Result<()> {
     let reference = PatchReference {
         name: "asdf".into(),
         target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
+        description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, reference, None);
     assert_eq!(
@@ -152,6 +163,7 @@ fn add_series_invalid_name_fails() -> Result<()> {
     let reference = PatchReference {
         name: "name with spaces".into(),
         target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
+        description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, reference, None);
     assert_eq!(result.err().unwrap().to_string(), "Invalid branch name");
@@ -166,6 +178,7 @@ fn add_series_duplicate_name_fails() -> Result<()> {
     let reference = PatchReference {
         name: "asdf".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
+        description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert!(result.is_ok());
@@ -185,6 +198,7 @@ fn add_series_matching_git_ref_fails() -> Result<()> {
     let reference = PatchReference {
         name: "existing-branch".into(),
         target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
+        description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert_eq!(
@@ -202,6 +216,7 @@ fn add_series_including_refs_head_fails() -> Result<()> {
     let reference = PatchReference {
         name: "refs/heads/my-branch".into(),
         target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
+        description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert_eq!(
@@ -219,6 +234,7 @@ fn add_series_target_commit_doesnt_exist() -> Result<()> {
     let reference = PatchReference {
         name: "my-branch".into(),
         target: CommitOrChangeId::CommitId("30696678319e0fa3a20e54f22d47fc8cf1ceaade".into()), // does not exist
+        description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert!(result
@@ -237,6 +253,7 @@ fn add_series_target_change_id_doesnt_exist() -> Result<()> {
     let reference = PatchReference {
         name: "my-branch".into(),
         target: CommitOrChangeId::ChangeId("does-not-exist".into()), // does not exist
+        description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert_eq!(
@@ -255,6 +272,7 @@ fn add_series_target_commit_not_in_stack() -> Result<()> {
     let reference = PatchReference {
         name: "my-branch".into(),
         target: CommitOrChangeId::CommitId(other_commit_id.clone()), // does not exist
+        description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert_eq!(
@@ -322,6 +340,7 @@ fn remove_series_with_multiple_last_heads() -> Result<()> {
     let to_stay = PatchReference {
         name: "to_stay".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
+        description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, to_stay.clone(), None);
     assert!(result.is_ok());
@@ -352,6 +371,7 @@ fn remove_series_no_orphan_commits() -> Result<()> {
     let to_stay = PatchReference {
         name: "to_stay".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits.first().unwrap().change_id().unwrap()),
+        description: None,
     }; // references the oldest commit
     let result = test_ctx.branch.add_series(&ctx, to_stay.clone(), None);
     assert!(result.is_ok());
@@ -376,6 +396,7 @@ fn update_series_uninitialized_fails() -> Result<()> {
     let update = PatchReferenceUpdate {
         name: Some("foo".into()),
         target_update: None,
+        description: None,
     };
     let result = test_ctx
         .branch
@@ -410,6 +431,7 @@ fn update_series_name_fails_validation() -> Result<()> {
     let update = PatchReferenceUpdate {
         name: Some("invalid name".into()),
         target_update: None,
+        description: None,
     };
     let result = test_ctx
         .branch
@@ -426,12 +448,39 @@ fn update_series_name_success() -> Result<()> {
     let update = PatchReferenceUpdate {
         name: Some("new-name".into()),
         target_update: None,
+        description: None,
     };
     let result = test_ctx
         .branch
         .update_series(&ctx, "virtual".into(), &update);
     assert!(result.is_ok());
     assert_eq!(test_ctx.branch.heads[0].name, "new-name");
+    // Assert persisted
+    assert_eq!(
+        test_ctx.branch,
+        test_ctx.handle.get_branch(test_ctx.branch.id)?
+    );
+    Ok(())
+}
+
+#[test]
+fn update_series_set_description() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+    let update = PatchReferenceUpdate {
+        name: None,
+        target_update: None,
+        description: Some(Some("my description".into())),
+    };
+    let result = test_ctx
+        .branch
+        .update_series(&ctx, "virtual".into(), &update);
+    assert!(result.is_ok());
+    assert_eq!(
+        test_ctx.branch.heads[0].description,
+        Some("my description".into())
+    );
     // Assert persisted
     assert_eq!(
         test_ctx.branch,
@@ -452,6 +501,7 @@ fn update_series_target_fails_commit_not_in_stack() -> Result<()> {
             target: CommitOrChangeId::CommitId(other_commit_id.clone()),
             preceding_head: None,
         }),
+        description: None,
     };
     let result = test_ctx
         .branch
@@ -479,6 +529,7 @@ fn update_series_target_orphan_commit_fails() -> Result<()> {
             target: CommitOrChangeId::ChangeId(first_commit_change_id.clone()),
             preceding_head: None,
         }),
+        description: None,
     };
     let result = test_ctx
         .branch
@@ -501,6 +552,7 @@ fn update_series_target_success() -> Result<()> {
     let series_1 = PatchReference {
         name: "series_1".into(),
         target: commit_0_change_id.clone(),
+        description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, series_1, None);
     assert!(result.is_ok());
@@ -512,6 +564,7 @@ fn update_series_target_success() -> Result<()> {
             target: commit_1_change_id.clone(),
             preceding_head: None,
         }),
+        description: None,
     };
     let result = test_ctx
         .branch
@@ -607,6 +660,7 @@ fn list_series_two_heads_same_commit() -> Result<()> {
     let head_before = PatchReference {
         name: "head_before".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
+        description: None,
     };
     // add `head_before` before the initial head
     let result = test_ctx.branch.add_series(&ctx, head_before, None);
@@ -641,6 +695,7 @@ fn list_series_two_heads_different_commit() -> Result<()> {
         name: "head_before".into(),
         // point to the first commit
         target: CommitOrChangeId::ChangeId(test_ctx.commits.first().unwrap().change_id().unwrap()),
+        description: None,
     };
     // add `head_before` before the initial head
     let result = test_ctx.branch.add_series(&ctx, head_before, None);

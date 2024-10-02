@@ -101,6 +101,9 @@ pub trait Stack {
 pub struct PatchReferenceUpdate {
     pub target_update: Option<TargetUpdate>,
     pub name: Option<String>,
+    /// If present, this sets the value of the description field.
+    /// It is possible to set this to Some(None) which will remove an existing description.
+    pub description: Option<Option<String>>,
 }
 
 /// Request to update the target of a PatchReference.
@@ -140,6 +143,7 @@ impl Stack for Branch {
                 CommitOrChangeId::CommitId(commit.id().to_string())
             },
             name: normalize_branch_name(&self.name)?,
+            description: None,
         };
         let state = branch_state(ctx);
         validate_name(&reference, ctx, &state)?;
@@ -186,30 +190,55 @@ impl Stack for Branch {
         if update == &PatchReferenceUpdate::default() {
             return Ok(()); // noop
         }
-        let (_, head) = get_head(&self.heads, &branch_name)?;
-        let mut new_head = head.clone();
+
         let state = branch_state(ctx);
+        let patches = stack_patches(ctx, &state, self.head, true)?;
+        let mut updated_heads = self.heads.clone();
+
+        // Handle target updates
         if let Some(target_update) = &update.target_update {
+            let mut new_head = updated_heads
+                .clone()
+                .into_iter()
+                .find(|h| h.name == branch_name)
+                .ok_or_else(|| anyhow!("Series with name {} not found", branch_name))?;
             new_head.target = target_update.target.clone();
             validate_target(&new_head, ctx, self.head, &state)?;
+            let preceding_head = update
+                .target_update
+                .clone()
+                .and_then(|update| update.preceding_head);
+            // drop the old head and add the new one
+            let (idx, _) = get_head(&updated_heads, &branch_name)?;
+            updated_heads.remove(idx);
+            if patches.last() != updated_heads.last().map(|h| &h.target) {
+                bail!("This update would cause orphaned patches, which is disallowed");
+            }
+            updated_heads = add_head(
+                updated_heads,
+                new_head.clone(),
+                preceding_head,
+                patches.clone(),
+            )?;
         }
+
+        // Handle name updates
         if let Some(name) = update.name.clone() {
-            new_head.name = name;
-            validate_name(&new_head, ctx, &state)?;
+            let head = updated_heads
+                .iter_mut()
+                .find(|h: &&mut PatchReference| h.name == branch_name);
+            if let Some(head) = head {
+                head.name = name;
+                validate_name(head, ctx, &state)?;
+            }
         }
-        let patches = stack_patches(ctx, &state, self.head, true)?;
-        let preceding_head = update
-            .target_update
-            .clone()
-            .and_then(|update| update.preceding_head);
-        let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches)?;
-        // first add the updated head, then remove the old one (otherwise remove_heads may will fail due to the last head being removed)
-        let (updated_heads, moved_another_reference) =
-            remove_head(updated_heads, head.name.clone())?;
-        // Remove head will never leave the stack in an invalid state (i.e. no orphaned patches)
-        // However, in case there were orphaned patches, we want to error out the entire update operation since that is less surprising
-        if update.target_update.is_some() && moved_another_reference {
-            bail!("This update would cause orphaned patches, which is disallowed");
+
+        // Handle description updates
+        if let Some(description) = update.description.clone() {
+            let head = updated_heads.iter_mut().find(|h| h.name == branch_name);
+            if let Some(head) = head {
+                head.description = description;
+            }
         }
         self.heads = updated_heads;
         state.set_branch(self.clone())
