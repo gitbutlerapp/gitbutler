@@ -29,4 +29,4 @@ path = "tests/mod.rs"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
-tempfile = "3.10"
+tempfile = "3.13"

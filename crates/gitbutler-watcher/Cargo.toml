@@ -15,7 +15,7 @@ gitbutler-oplog.workspace = true
 thiserror.workspace = true
 anyhow = "1.0.86"
 tokio = { workspace = true, features = ["macros"] }
-tokio-util = "0.7.11"
+tokio-util = "0.7.12"
 tracing.workspace = true
 gix = { workspace = true, features = ["excludes"] }
 gitbutler-command-context.workspace = true
