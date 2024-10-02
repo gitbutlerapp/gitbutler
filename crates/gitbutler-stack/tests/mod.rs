@@ -567,6 +567,103 @@ fn push_series_success() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn list_series_uninitialized() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let result = test_ctx.branch.list_series(&ctx);
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        "Stack has not been initialized"
+    );
+    Ok(())
+}
+
+#[test]
+fn list_series_default_head() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+    let result = test_ctx.branch.list_series(&ctx);
+    assert!(result.is_ok());
+    let result = result.unwrap();
+    // the number of series matches the number of heads
+    assert_eq!(result.len(), test_ctx.branch.heads.len());
+    assert_eq!(result[0].head.name, "virtual");
+    let expected_patches = test_ctx
+        .commits
+        .iter()
+        .map(|c| CommitOrChangeId::ChangeId(c.change_id().unwrap()))
+        .collect_vec();
+    assert_eq!(result[0].local_commits, expected_patches);
+    Ok(())
+}
+
+#[test]
+fn list_series_two_heads_same_commit() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+    let head_before = PatchReference {
+        name: "head_before".into(),
+        target: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
+    };
+    // add `head_before` before the initial head
+    let result = test_ctx.branch.add_series(&ctx, head_before, None);
+    assert!(result.is_ok());
+
+    let result = test_ctx.branch.list_series(&ctx);
+    assert!(result.is_ok());
+    let result = result.unwrap();
+
+    // the number of series matches the number of heads
+    assert_eq!(result.len(), test_ctx.branch.heads.len());
+
+    let expected_patches = test_ctx
+        .commits
+        .iter()
+        .map(|c| CommitOrChangeId::ChangeId(c.change_id().unwrap()))
+        .collect_vec();
+    // Expect the commits to be part of the `head_before`
+    assert_eq!(result[0].local_commits, expected_patches);
+    assert_eq!(result[0].head.name, "head_before");
+    assert_eq!(result[1].local_commits, vec![]);
+    assert_eq!(result[1].head.name, "virtual");
+    Ok(())
+}
+
+#[test]
+fn list_series_two_heads_different_commit() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.init(&ctx)?;
+    let head_before = PatchReference {
+        name: "head_before".into(),
+        // point to the first commit
+        target: CommitOrChangeId::ChangeId(test_ctx.commits.first().unwrap().change_id().unwrap()),
+    };
+    // add `head_before` before the initial head
+    let result = test_ctx.branch.add_series(&ctx, head_before, None);
+    assert!(result.is_ok());
+    let result = test_ctx.branch.list_series(&ctx);
+    assert!(result.is_ok());
+    let result = result.unwrap();
+    // the number of series matches the number of heads
+    assert_eq!(result.len(), test_ctx.branch.heads.len());
+    let mut expected_patches = test_ctx
+        .commits
+        .iter()
+        .map(|c| CommitOrChangeId::ChangeId(c.change_id().unwrap()))
+        .collect_vec();
+    assert_eq!(result[0].local_commits, vec![expected_patches.remove(0)]); // the first patch is in the first series
+    assert_eq!(result[0].head.name, "head_before");
+    assert_eq!(expected_patches.len(), 2);
+    assert_eq!(result[1].local_commits, expected_patches); // the other two patches are in the second series
+    assert_eq!(result[1].head.name, "virtual");
+
+    Ok(())
+}
+
 fn command_ctx(name: &str) -> Result<(CommandContext, TempDir)> {
     gitbutler_testsupport::writable::fixture("stacking.sh", name)
 }

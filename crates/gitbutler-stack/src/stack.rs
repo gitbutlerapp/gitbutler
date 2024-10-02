@@ -244,49 +244,34 @@ impl Stack for Branch {
         )
     }
 
+    // todo: remote commits are not being populated yet
     fn list_series(&self, ctx: &CommandContext) -> Result<Vec<Series>> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
         let state = branch_state(ctx);
         let mut all_series: Vec<Series> = vec![];
-
-        // All the commits between the head of the stack and the merge base (not inclusive)
-        // Starts from the bottom of the stack
-        let mut patches = stack_patches(ctx, &state, self.head, false)?;
-
-        // We want the top of the stack to be first
-        let mut heads_in_order = self.heads.clone();
-        heads_in_order.reverse();
-
-        for window in heads_in_order.windows(2) {
-            if let [current_head, next_head] = window {
-                let mut local_commits: Vec<CommitOrChangeId> = vec![];
-                // if the patch matches the current head, add it to the local_commits list
-                // if the patch matches the next head, bread out of the inner loop
-                // if the patch does not either head, add it to the local_commits list and continue
-                while !patches.is_empty() {
-                    let patch = patches
-                        .last()
-                        .ok_or_else(|| anyhow!("No patches found"))?
-                        .clone();
-                    if current_head.target == patch {
-                        local_commits.push(patch);
-                        patches.pop();
-                    } else if next_head.target == patch {
-                        break;
-                    } else {
-                        local_commits.push(patch);
-                        patches.pop();
-                    }
-                }
-                let series = Series {
-                    head: current_head.clone(),
-                    local_commits,
-                    remote_commits: vec![], // TODO
-                };
-                all_series.push(series);
-            }
+        let repo = ctx.repository();
+        let default_target = state.get_default_target()?;
+        let mut previous_head = repo.merge_base(self.head, default_target.sha)?;
+        for head in self.heads.clone() {
+            let head_commit =
+                get_target_commit(&head.target, ctx, self.head, &default_target)?.id();
+            let local_patches = repo
+                .log(head_commit, LogUntil::Commit(previous_head))?
+                .iter()
+                .rev() // oldest commit first
+                .map(|c| match c.change_id() {
+                    Some(change_id) => CommitOrChangeId::ChangeId(change_id.to_string()),
+                    None => CommitOrChangeId::CommitId(c.id().to_string()),
+                })
+                .collect_vec();
+            all_series.push(Series {
+                head: head.clone(),
+                local_commits: local_patches,
+                remote_commits: vec![], // TODO
+            });
+            previous_head = head_commit;
         }
         Ok(all_series)
     }
