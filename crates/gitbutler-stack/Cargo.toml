@@ -8,6 +8,7 @@ publish = false
 [dependencies]
 anyhow = "1.0.86"
 itertools = "0.13"
+rand = "0.8.5"
 serde = { workspace = true, features = ["std"] }
 git2.workspace = true
 gix.workspace = true

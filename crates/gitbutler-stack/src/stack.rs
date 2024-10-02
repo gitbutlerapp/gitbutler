@@ -40,7 +40,7 @@ pub trait Stack {
     /// Errors out if the stack has already been initialized.
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
-    fn init(&mut self, ctx: &CommandContext) -> Result<()>;
+    fn initialize(&mut self, ctx: &CommandContext) -> Result<()>;
 
     /// Adds a new "Branch" to the Stack.
     /// This is in fact just creating a new  GitButler patch reference (head) and associates it with the stack.
@@ -131,12 +131,12 @@ impl Stack for Branch {
     fn initialized(&self) -> bool {
         !self.heads.is_empty()
     }
-    fn init(&mut self, ctx: &CommandContext) -> Result<()> {
+    fn initialize(&mut self, ctx: &CommandContext) -> Result<()> {
         if self.initialized() {
-            return Err(anyhow!("Stack already initialized"));
+            return Ok(());
         }
         let commit = ctx.repository().find_commit(self.head)?;
-        let reference = PatchReference {
+        let mut reference = PatchReference {
             target: if let Some(change_id) = commit.change_id() {
                 CommitOrChangeId::ChangeId(change_id.to_string())
             } else {
@@ -146,6 +146,13 @@ impl Stack for Branch {
             description: None,
         };
         let state = branch_state(ctx);
+        if reference_exists(ctx, &reference.name)?
+            || patch_reference_exists(&state, &reference.name)?
+        {
+            // TODO: do something better here
+            let prefix = rand::random::<u32>().to_string();
+            reference.name = format!("{}-{}", &reference.name, prefix);
+        }
         validate_name(&reference, ctx, &state)?;
         self.heads = vec![reference];
         state.set_branch(self.clone())
@@ -406,12 +413,7 @@ fn validate_name(
         }
     }
     // assert that there are no existing patch references with this name
-    if state
-        .list_all_branches()?
-        .iter()
-        .flat_map(|b| b.heads.iter())
-        .any(|r| r.name == reference.name)
-    {
+    if patch_reference_exists(state, &reference.name)? {
         return Err(anyhow!(
             "A patch reference with the name {} exists",
             &reference.name
@@ -468,4 +470,12 @@ fn get_target_commit<'a>(
 fn reference_exists(ctx: &CommandContext, name: &str) -> Result<bool> {
     let gix_repo = ctx.gix_repository()?;
     Ok(gix_repo.find_reference(name_partial(name.into())?).is_ok())
+}
+
+fn patch_reference_exists(state: &VirtualBranchesHandle, name: &str) -> Result<bool> {
+    Ok(state
+        .list_all_branches()?
+        .iter()
+        .flat_map(|b| b.heads.iter())
+        .any(|r| r.name == name))
 }
