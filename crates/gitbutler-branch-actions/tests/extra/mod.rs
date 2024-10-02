@@ -17,7 +17,8 @@ use gitbutler_branch::{
     BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest, Target, VirtualBranchesHandle,
 };
 use gitbutler_branch_actions::{
-    get_applied_status, internal, update_workspace_commit, verify_branch, BranchManagerExt, Get,
+    get_applied_status, internal, update_workspace_commit,
+    verify_branch, BranchManagerExt, Get,
 };
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -880,7 +881,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     );
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    internal::integrate_upstream_commits(ctx, branch1.id)?;
+    internal::branch_upstream_integration::integrate_upstream_commits(ctx, branch1.id)?;
 
     let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branch1 = &branches[0];
@@ -991,7 +992,7 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    internal::integrate_upstream_commits(ctx, branch1.id)?;
+    internal::branch_upstream_integration::integrate_upstream_commits(ctx, branch1.id)?;
 
     let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branch1 = &branches[0];

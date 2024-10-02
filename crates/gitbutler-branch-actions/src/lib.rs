@@ -20,6 +20,7 @@ pub use r#virtual::{BranchStatus, VirtualBranch, VirtualBranchHunksByPathMap, Vi
 /// Avoid using these!
 /// This was previously `pub use r#virtual::*;`
 pub mod internal {
+    pub use super::branch_upstream_integration;
     pub use super::r#virtual::*;
     pub use super::remote::list_local_branches;
 }
@@ -44,6 +45,7 @@ pub use remote::{RemoteBranch, RemoteBranchData, RemoteCommit};
 pub mod conflicts;
 
 pub mod branch_trees;
+pub mod branch_upstream_integration;
 mod move_commits;
 mod reorder_commits;
 mod undo_commit;
