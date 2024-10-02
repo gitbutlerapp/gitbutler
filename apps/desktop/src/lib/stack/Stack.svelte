@@ -135,7 +135,6 @@
 
 	function addSeries(e: MouseEvent) {
 		e.stopPropagation();
-		console.log('CREATE SERIES.BRANCH', { branch, baseBranchName: $baseBranch.remoteName });
 		const topChangeId = branch.commits.at(-1)?.changeId;
 		if (topChangeId) {
 			branchController.createChangeReference(

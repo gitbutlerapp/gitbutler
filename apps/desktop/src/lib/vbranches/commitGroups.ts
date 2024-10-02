@@ -1,4 +1,10 @@
+/**
+ * This will be removed as soon as Kiril has landed the stacking api.
+ */
 import { DetailedCommit } from './types';
+
+// If no remoteRef exists on the first commit, create a fake one.
+export const AUTO_GROUP = 'auto-group';
 
 class CommitGroup {
 	commits: DetailedCommit[];
@@ -28,9 +34,11 @@ export function groupCommitsByRef(arr: DetailedCommit[]): CommitGroup[] {
 	const groups: CommitGroup[] = [];
 	let currentGroup: CommitGroup | undefined;
 
-	for (const item of arr) {
-		if (item.remoteRef || currentGroup === undefined) {
-			currentGroup = new CommitGroup(item.remoteRef);
+	for (let i = 0; i < arr.length; i++) {
+		const item = arr[i] as DetailedCommit; // Becasuse of noUncheckedIndexedAccess.
+		const remoteRef = i === 0 ? item.remoteRef || AUTO_GROUP : item.remoteRef;
+		if (remoteRef || currentGroup === undefined) {
+			currentGroup = new CommitGroup(remoteRef);
 			groups.push(currentGroup);
 		}
 		currentGroup.commits.push(item);
