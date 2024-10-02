@@ -3,7 +3,6 @@
 	import { CommitService } from '$lib/commits/service';
 	import { editor } from '$lib/editorLink/editorLink';
 	import FileContextMenu from '$lib/file/FileContextMenu.svelte';
-	import ActionView from '$lib/layout/ActionView.svelte';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
@@ -155,11 +154,7 @@
 	}
 </script>
 
-<ActionView
-	paddings={{
-		left: 48
-	}}
->
+<div class="editmode__container">
 	<h2 class="editmode__title text-18 text-body text-bold">
 		You are editing commit <span class="code-string">
 			{editModeMetadata.commitOid.slice(0, 7)}
@@ -171,51 +166,49 @@
 	</h2>
 
 	<div class="commit-group">
-		<div class="commit-line__container">
-			<div class="commit-line__top-line"></div>
-			<div class="commit-line__avatar">
-				<Avatar srcUrl="oops" tooltip="author" />
-			</div>
-			<div class="commit-line__bottom-line"></div>
-		</div>
+		<div class="card commit-card">
+			<h3 class="text-13 text-semibold commit-card__title">
+				{commit?.descriptionTitle || 'Undefined commit'}
+			</h3>
 
-		<div class="commit-data">
-			<div class="card commit-card">
-				<h3 class="text-13 text-semibold commit-card__title">
-					{commit?.descriptionTitle ?? 'unknown'}
-				</h3>
+			{#if commit}
 				<div class="text-11 commit-card__details">
+					{#if commit.author.gravatarUrl && commit.author.email}
+						<Avatar srcUrl={commit.author.gravatarUrl} tooltip={commit.author.email} />
+						<span class="commit-card__divider">•</span>
+					{/if}
 					<span class="">{editModeMetadata.commitOid.slice(0, 7)}</span>
 					<span class="commit-card__divider">•</span>
-					<span class="">{commit?.author.name ?? 'unknown'}</span>
+					<span class="">{commit.author.name}</span>
 				</div>
-				<div class="commit-card__type-indicator"></div>
-			</div>
+			{/if}
 
-			<div bind:this={filesList} class="card files">
-				<div class="header">
-					<h3 class="text-13 text-semibold">Commit files</h3>
-					<Badge label={files.length} />
-				</div>
-				<ScrollableContainer maxHeight="50vh">
-					{#each files as file}
-						<div class="file">
-							<FileListItem
-								filePath={file.path}
-								fileStatus={file.status}
-								conflicted={file.conflicted}
-								fileStatusStyle={file.status === 'M' ? 'full' : 'dot'}
-								onclick={(e) => {
-									contextMenu?.open(e, { files: [file] });
-								}}
-								oncontextmenu={(e) => {
-									contextMenu?.open(e, { files: [file] });
-								}}
-							/>
-						</div>
-					{/each}
-				</ScrollableContainer>
+			<div class="commit-card__type-indicator"></div>
+		</div>
+
+		<div bind:this={filesList} class="card files">
+			<div class="header">
+				<h3 class="text-13 text-semibold">Commit files</h3>
+				<Badge label={files.length} />
 			</div>
+			<ScrollableContainer>
+				{#each files as file}
+					<div class="file">
+						<FileListItem
+							filePath={file.path}
+							fileStatus={file.status}
+							conflicted={file.conflicted}
+							fileStatusStyle={file.status === 'M' ? 'full' : 'dot'}
+							onclick={(e) => {
+								contextMenu?.open(e, { files: [file] });
+							}}
+							oncontextmenu={(e) => {
+								contextMenu?.open(e, { files: [file] });
+							}}
+						/>
+					</div>
+				{/each}
+			</ScrollableContainer>
 		</div>
 	</div>
 
@@ -226,13 +219,11 @@
 		branchId={undefined}
 	/>
 
-	<!-- <div class="editmode__helpbox"> -->
 	<p class="text-12 text-body editmode__helptext">
 		Please don't make any commits while in edit mode.
 		<br />
 		To exit edit mode, use the provided actions.
 	</p>
-	<!-- </div> -->
 
 	<div class="editmode__actions">
 		<Button style="ghost" outline onclick={abort} disabled={modeServiceAborting === 'loading'}>
@@ -261,9 +252,21 @@
 			Save and exit
 		</Button>
 	</div>
-</ActionView>
+</div>
 
 <style lang="postcss">
+	.editmode__container {
+		--side-padding: 40px;
+		display: flex;
+		flex-direction: column;
+		justify-content: center;
+		margin: 0 auto;
+		padding: 40px var(--side-padding) 24px;
+		overflow: hidden;
+		width: 100%;
+		max-width: calc(520px + 2 * var(--side-padding));
+	}
+
 	.editmode__title {
 		color: var(--clr-text-1);
 		margin-bottom: 12px;
@@ -278,6 +281,7 @@
 	}
 
 	.files {
+		flex: 1;
 		margin-bottom: 12px;
 		overflow: hidden;
 		padding-bottom: 8px;
@@ -307,22 +311,16 @@
 	.commit-group {
 		position: relative;
 		display: flex;
-		gap: 14px;
-	}
-
-	.commit-data {
-		position: relative;
-		display: flex;
 		flex-direction: column;
 		gap: 4px;
-		width: 100%;
+		overflow: hidden;
 	}
 
 	/* COMMIT CARD */
 	.commit-card {
 		position: relative;
 		padding: 14px 14px 14px 16px;
-		gap: 6px;
+		gap: 8px;
 		overflow: hidden;
 	}
 
@@ -343,39 +341,6 @@
 		width: 4px;
 		height: 100%;
 		background-color: var(--clr-commit-local);
-	}
-
-	/* COMMIT LINE */
-	.commit-line__container {
-		position: absolute;
-		top: 0;
-		left: -26px;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		height: 100%;
-	}
-
-	.commit-line__avatar {
-		position: absolute;
-		top: 15px;
-		left: 50%;
-		transform: translateX(-50%);
-		border: 2px solid var(--clr-commit-local);
-		border-radius: 50%;
-	}
-
-	.commit-line__top-line {
-		width: 2px;
-		height: 48px;
-		margin-top: -26px;
-		background: linear-gradient(180deg, transparent 0%, var(--clr-commit-local) 100%);
-	}
-
-	.commit-line__bottom-line {
-		width: 2px;
-		height: 100%;
-		background: linear-gradient(180deg, var(--clr-commit-local) 0%, transparent 100%);
 	}
 
 	.editmode__helptext {
