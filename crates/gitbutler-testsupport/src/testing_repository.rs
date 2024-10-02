@@ -3,6 +3,7 @@ use std::fs;
 use gitbutler_oxidize::git2_to_gix_object_id;
 use gix_testtools::bstr::ByteSlice as _;
 use tempfile::{tempdir, TempDir};
+use uuid::Uuid;
 
 pub struct TestingRepository {
     pub repository: git2::Repository,
@@ -35,6 +36,15 @@ impl TestingRepository {
     pub fn commit_tree<'a>(
         &'a self,
         parent: Option<&git2::Commit<'a>>,
+        files: &[(&str, &str)],
+    ) -> git2::Commit<'a> {
+        self.commit_tree_with_message(parent, &Uuid::new_v4().to_string(), files)
+    }
+
+    pub fn commit_tree_with_message<'a>(
+        &'a self,
+        parent: Option<&git2::Commit<'a>>,
+        message: &str,
         files: &[(&str, &str)],
     ) -> git2::Commit<'a> {
         // Remove everything other than the .git folder
@@ -76,7 +86,7 @@ impl TestingRepository {
                 None,
                 &signature,
                 &signature,
-                "Committee",
+                message,
                 &self
                     .repository
                     .find_tree(index.write_tree().unwrap())
