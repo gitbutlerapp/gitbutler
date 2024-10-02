@@ -17,6 +17,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_stack::Stack;
 use tracing::instrument;
 
 /// Represents the uncommitted status of the applied virtual branches in the workspace.
@@ -98,6 +99,9 @@ pub fn get_applied_status_cached(
     let locks = compute_locks(ctx.repository(), &base_diffs, &virtual_branches, base_tree)?;
 
     for branch in &mut virtual_branches {
+        if let Err(e) = branch.initialize(ctx) {
+            tracing::warn!("failed to initialize stack: {:?}", e);
+        }
         let old_claims = branch.ownership.claims.clone();
         let new_claims = old_claims
             .iter()
