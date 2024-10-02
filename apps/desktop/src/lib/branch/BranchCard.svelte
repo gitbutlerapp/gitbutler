@@ -223,7 +223,7 @@
 							</Dropzones>
 						{/if}
 
-						{#snippet pushButton({disabled}: {disabled: boolean})}
+						{#snippet pushButton({ disabled }: { disabled: boolean })}
 							<Button
 								style="pop"
 								kind="solid"

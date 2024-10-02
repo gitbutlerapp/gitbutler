@@ -166,10 +166,13 @@
 									<Select
 										value={results.get(branch.id)!.approach.type}
 										onselect={(value) => {
-										const result = results.get(branch.id)!
+											const result = results.get(branch.id)!;
 
-										results.set(branch.id, {...result, approach: { type: value as "rebase" | "merge" | "unapply" }})
-									}}
+											results.set(branch.id, {
+												...result,
+												approach: { type: value as 'rebase' | 'merge' | 'unapply' }
+											});
+										}}
 										options={[
 											{ label: 'Rebase', value: 'rebase' },
 											{ label: 'Merge', value: 'merge' },

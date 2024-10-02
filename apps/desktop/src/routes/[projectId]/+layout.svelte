@@ -116,13 +116,16 @@
 
 	// TODO: can we eliminate the need to debounce?
 	const fetch = $derived(fetchSignal.event);
-	const debouncedBaseBranchRefresh = debounce(() => baseBranchService.refresh(), 500);
+	const debouncedBaseBranchRefresh = debounce(async () => await baseBranchService.refresh(), 500);
 	$effect(() => {
 		if ($fetch || $head) debouncedBaseBranchRefresh();
 	});
 
 	// TODO: can we eliminate the need to debounce?
-	const debouncedRemoteBranchRefresh = debounce(() => remoteBranchService.refresh(), 500);
+	const debouncedRemoteBranchRefresh = debounce(
+		async () => await remoteBranchService.refresh(),
+		500
+	);
 	$effect(() => {
 		if ($baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
 	});

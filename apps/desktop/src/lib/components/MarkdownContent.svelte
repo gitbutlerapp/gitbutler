@@ -28,7 +28,7 @@
 		<svelte:self {...token} />
 	{/each}
 {:else if renderers[type]}
-	{@const CurrentComponent = renderers[type] as Component<Omit<Props, "type">>}
+	{@const CurrentComponent = renderers[type] as Component<Omit<Props, 'type'>>}
 	{#if type === 'list'}
 		{@const listItems = (rest as Extract<Props, { type: 'list' }>).items}
 		<CurrentComponent {...rest}>

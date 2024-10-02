@@ -75,7 +75,7 @@
 		{#if props.icon || props.selected}
 			<div class="icon">
 				{#if props.icon}
-					<Icon name={props.loading ? 'spinner' : props.icon as keyof typeof iconsJson} />
+					<Icon name={props.loading ? 'spinner' : (props.icon as keyof typeof iconsJson)} />
 				{:else}
 					<Icon name="tick" />
 				{/if}
