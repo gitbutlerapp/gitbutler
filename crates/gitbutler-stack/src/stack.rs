@@ -150,8 +150,20 @@ impl Stack for Branch {
             description: None,
         };
         let state = branch_state(ctx);
+        let remote_reference_exists = state
+            .get_default_target()?
+            .push_remote_name
+            .and_then(|remote| {
+                reference
+                    .remote_reference(remote.as_str())
+                    .and_then(|reference| reference_exists(ctx, &reference))
+                    .ok()
+            })
+            .unwrap_or(false);
+
         if reference_exists(ctx, &reference.name)?
             || patch_reference_exists(&state, &reference.name)?
+            || remote_reference_exists
         {
             // TODO: do something better here
             let prefix = rand::random::<u32>().to_string();
