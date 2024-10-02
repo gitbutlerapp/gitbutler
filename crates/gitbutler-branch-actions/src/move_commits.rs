@@ -3,12 +3,11 @@ use crate::{
     VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::ByteSlice;
 use gitbutler_branch::{BranchId, OwnershipClaim};
 use gitbutler_command_context::CommandContext;
-use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::RepoActionsExt;
+use gitbutler_repo::rebase::cherry_rebase_group;
 use std::collections::HashMap;
 
 /// moves commit from the branch it's in to the top of the target branch
@@ -50,9 +49,7 @@ pub(crate) fn move_commit(
     let source_branch_head_parent = source_commit
         .parent(0)
         .context("failed to get parent commit")?;
-    let source_branch_head_tree = source_commit
-        .tree()
-        .context("failed to get commit tree")?;
+    let source_branch_head_tree = source_commit.tree().context("failed to get commit tree")?;
     let source_branch_head_parent_tree = source_branch_head_parent
         .tree()
         .context("failed to get parent tree")?;
@@ -84,47 +81,28 @@ pub(crate) fn move_commit(
         .flat_map(|file_ownership| source_branch.ownership.take(&file_ownership))
         .collect::<Vec<_>>();
 
-    // reset the source branch to the parent commit
-    {
-        source_branch.head = source_branch_head_parent.id();
-        vb_state.set_branch(source_branch.clone())?;
-    }
-
     // move the commit to destination branch target branch
-    {
-        let mut destination_branch = vb_state.get_branch_in_workspace(target_branch_id)?;
 
-        for ownership in ownerships_to_transfer {
-            destination_branch.ownership.put(ownership);
-        }
+    let mut destination_branch = vb_state.get_branch_in_workspace(target_branch_id)?;
 
-        let new_destination_tree_oid = gitbutler_diff::write::hunks_onto_commit(
-            ctx,
-            destination_branch.head,
-            branch_head_diff,
-        )
-        .context("failed to write tree onto commit")?;
-
-        let new_destination_tree = ctx
-            .repository()
-            .find_tree(new_destination_tree_oid)
-            .context("failed to find tree")?;
-
-        let new_destination_head_oid = ctx
-            .commit(
-                &source_commit.message_bstr().to_str_lossy(),
-                &new_destination_tree,
-                &[&ctx
-                    .repository()
-                    .find_commit(destination_branch.head)
-                    .context("failed to get dst branch head commit")?],
-                source_commit.gitbutler_headers(),
-            )
-            .context("failed to commit")?;
-
-        destination_branch.head = new_destination_head_oid;
-        vb_state.set_branch(destination_branch.clone())?;
+    for ownership in ownerships_to_transfer {
+        destination_branch.ownership.put(ownership);
     }
+
+    let new_destination_head_oid = cherry_rebase_group(
+        ctx.repository(),
+        destination_branch.head,
+        &[source_commit.id()],
+        true,
+    )?;
+
+    // reset the source branch to the parent commit
+    // and update the destination branch head
+    source_branch.head = source_branch_head_parent.id();
+    vb_state.set_branch(source_branch.clone())?;
+
+    destination_branch.head = new_destination_head_oid;
+    vb_state.set_branch(destination_branch.clone())?;
 
     checkout_branch_trees(ctx, perm)?;
 
