@@ -1,10 +1,12 @@
-export type BranchColor = 'neutral' | 'integrated';
+import type { CommitStatus } from '$lib/vbranches/types';
 
 const colorMap = {
-	neutral: 'var(--clr-scale-ntrl-80)',
+	local: 'var(--clr-commit-local)',
+	localAndRemote: 'var(--clr-commit-shadow)',
+	remote: 'var(--clr-commit-remote)',
 	integrated: 'var(--clr-commit-integrated)'
 };
 
-export function getColorFromBranchType(type: BranchColor) {
+export function getColorFromBranchType(type: CommitStatus) {
 	return colorMap[type];
 }

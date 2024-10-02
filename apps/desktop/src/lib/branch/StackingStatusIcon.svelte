@@ -1,28 +1,27 @@
 <script lang="ts">
-	import { getColorFromBranchType, type BranchColor } from './stackingUtils';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 
+	const FALLBACK_COLOR = 'var(--clr-scale-ntrl-80)';
+
 	interface Props {
-		icon: 'plus-small' | 'tick-small';
-		color: BranchColor;
+		icon: 'plus-small' | 'tick-small' | 'virtual-branch-small';
+		iconColor?: string;
+		color?: string;
 		gap?: boolean;
 		lineTop?: boolean;
 	}
 
-	const { icon, color, gap = false, lineTop = false }: Props = $props();
-
-	// TODO: Better handle colors
-	const bgColor = $derived(getColorFromBranchType(color));
+	const { icon, iconColor, color = FALLBACK_COLOR, gap = false, lineTop = false }: Props = $props();
 </script>
 
 <div class="stack__status gap" class:gap>
 	{#if lineTop}
-		<div class="stack__status--bar" style:--bg-color={bgColor}></div>
+		<div class="stack__status--bar" style:--bg-color={color}></div>
 	{/if}
-	<div class="stack__status--icon" style:--bg-color={bgColor}>
+	<div class="stack__status--icon" style:--bg-color={color} style:--icon-color={iconColor}>
 		<Icon name={icon} />
 	</div>
-	<div class="stack__status--bar" style:--bg-color={bgColor}></div>
+	<div class="stack__status--bar" style:--bg-color={color}></div>
 </div>
 
 <style>
@@ -44,7 +43,7 @@
 			height: 28px;
 			border-radius: 30%;
 			background-color: var(--bg-color);
-			color: var(--clr-text-1);
+			color: var(--icon-color, var(--clr-text-1));
 		}
 		& .stack__status--bar {
 			height: 10px;

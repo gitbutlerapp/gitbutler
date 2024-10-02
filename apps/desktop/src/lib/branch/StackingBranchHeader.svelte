@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
 	import StackingStatusIcon from './StackingStatusIcon.svelte';
-	import { getColorFromBranchType, type BranchColor } from './stackingUtils';
+	import { getColorFromBranchType } from './stackingUtils';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
@@ -21,7 +21,7 @@
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 
@@ -48,9 +48,8 @@
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
 
-	// TODO: Get Branch Status
-	const branchType = $state<BranchColor>('integrated');
-	const lineColor = $derived(getColorFromBranchType(branchType));
+	const branchColorType = $derived<CommitStatus>(branch.commits?.[0]?.status ?? 'local');
+	const lineColor = $derived(getColorFromBranchType(branchColorType));
 
 	interface CreatePrOpts {
 		draft: boolean;
@@ -163,7 +162,7 @@
 
 <div class="branch-header">
 	<div class="branch-info">
-		<StackingStatusIcon icon="tick-small" color={branchType} gap={false} lineTop />
+		<StackingStatusIcon icon="tick-small" iconColor="#fff" color={lineColor} gap={false} lineTop />
 		<div class="text-14 text-bold branch-info__name">
 			<span class="remote-name">{$baseBranch.remoteName ?? 'origin'}/</span>
 			<BranchLabel name={branch.name} onChange={(name) => editTitle(name)} />
