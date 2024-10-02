@@ -81,6 +81,10 @@ pub trait Stack {
         update: &PatchReferenceUpdate,
     ) -> Result<()>;
 
+    /// Updates the most recent series of the stack to point to a new patch (commit or change ID).
+    /// This is a helper function that is equivalent to `update_series` with the target update set.
+    fn set_stack_head(&mut self, ctx: &CommandContext, commit_id: git2::Oid) -> Result<()>;
+
     /// Pushes the reference (branch) to the Stack remote as derived from the default target.
     /// This operation will error out if the target has no push remote configured.
     fn push_series(
@@ -182,6 +186,30 @@ impl Stack for Branch {
         }
         (self.heads, _) = remove_head(self.heads.clone(), branch_name)?;
         let state = branch_state(ctx);
+        state.set_branch(self.clone())
+    }
+
+    fn set_stack_head(&mut self, ctx: &CommandContext, commit_id: git2::Oid) -> Result<()> {
+        if !self.initialized() {
+            return Err(anyhow!("Stack has not been initialized"));
+        }
+        if self.head != commit_id {
+            bail!("The commit {} is not the head of the stack", commit_id);
+        }
+        let commit = ctx.repository().find_commit(commit_id)?;
+        let patch = if let Some(change_id) = commit.change_id() {
+            CommitOrChangeId::ChangeId(change_id.to_string())
+        } else {
+            CommitOrChangeId::CommitId(commit.id().to_string())
+        };
+
+        let state = branch_state(ctx);
+        let head = self
+            .heads
+            .last_mut()
+            .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
+        head.target = patch.clone();
+        validate_target(head, ctx, self.head, &state)?;
         state.set_branch(self.clone())
     }
 

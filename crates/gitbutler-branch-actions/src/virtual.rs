@@ -28,6 +28,7 @@ use gitbutler_repo::{
     rebase::{cherry_rebase, cherry_rebase_group},
     LogUntil, RepoActionsExt, RepositoryExt,
 };
+use gitbutler_stack::Stack;
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -1057,6 +1058,10 @@ pub fn commit(
     branch.head = commit_oid;
     branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
     vb_state.set_branch(branch.clone())?;
+    if let Err(e) = branch.set_stack_head(ctx, commit_oid) {
+        // TODO: Make this error out when this functionality is stable
+        tracing::warn!("failed to set stack head: {:?}", e);
+    }
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;

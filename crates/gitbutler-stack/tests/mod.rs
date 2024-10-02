@@ -13,9 +13,7 @@ fn init_success() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
     let mut branch = test_ctx.branch;
-    assert!(!branch.initialized());
-    assert_eq!(branch.heads.len(), 0);
-    let result = branch.initialize(&ctx);
+    let result = branch.initialize(&ctx); // this is noop really
     assert!(result.is_ok());
     assert!(branch.initialized());
     assert_eq!(branch.heads.len(), 1);
@@ -134,23 +132,6 @@ fn add_series_commitid_when_changeid_available() -> Result<()> {
             "The commit {} has a change id associated with it. Use the change id instead",
             test_ctx.commits[1].id()
         )
-    );
-    Ok(())
-}
-
-#[test]
-fn add_series_uninitialized_fails() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    let reference = PatchReference {
-        name: "asdf".into(),
-        target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
-        description: None,
-    };
-    let result = test_ctx.branch.add_series(&ctx, reference, None);
-    assert_eq!(
-        result.err().unwrap().to_string(),
-        "Stack has not been initialized"
     );
     Ok(())
 }
@@ -286,18 +267,6 @@ fn add_series_target_commit_not_in_stack() -> Result<()> {
 }
 
 #[test]
-fn remove_series_uninitialized_fails() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    let result = test_ctx.branch.remove_series(&ctx, "some-name".to_string());
-    assert_eq!(
-        result.err().unwrap().to_string(),
-        "Stack has not been initialized"
-    );
-    Ok(())
-}
-
-#[test]
 fn remove_series_last_fails() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
@@ -386,25 +355,6 @@ fn remove_series_no_orphan_commits() -> Result<()> {
         test_ctx.branch.heads[0].target,
         CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap())
     ); // it was updated to reference the newest commit
-    Ok(())
-}
-
-#[test]
-fn update_series_uninitialized_fails() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    let update = PatchReferenceUpdate {
-        name: Some("foo".into()),
-        target_update: None,
-        description: None,
-    };
-    let result = test_ctx
-        .branch
-        .update_series(&ctx, "virtual".into(), &update);
-    assert_eq!(
-        result.err().unwrap().to_string(),
-        "Stack has not been initialized"
-    );
     Ok(())
 }
 
@@ -580,18 +530,6 @@ fn update_series_target_success() -> Result<()> {
 }
 
 #[test]
-fn push_series_uninitialized_fails() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let test_ctx = test_ctx(&ctx)?;
-    let result = test_ctx.branch.push_series(&ctx, "virtual".into(), false);
-    assert_eq!(
-        result.err().unwrap().to_string(),
-        "Stack has not been initialized"
-    );
-    Ok(())
-}
-
-#[test]
 fn push_series_no_remote() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
@@ -645,18 +583,6 @@ fn update_name_after_push() -> Result<()> {
     assert_eq!(
         result.err().unwrap().to_string(),
         "Cannot update the name of a head that has been pushed to a remote"
-    );
-    Ok(())
-}
-
-#[test]
-fn list_series_uninitialized() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let test_ctx = test_ctx(&ctx)?;
-    let result = test_ctx.branch.list_series(&ctx);
-    assert_eq!(
-        result.err().unwrap().to_string(),
-        "Stack has not been initialized"
     );
     Ok(())
 }
@@ -745,6 +671,35 @@ fn list_series_two_heads_different_commit() -> Result<()> {
     assert_eq!(result[1].local_commits, expected_patches); // the other two patches are in the second series
     assert_eq!(result[1].head.name, "virtual");
 
+    Ok(())
+}
+
+#[test]
+fn set_stack_head_commit_from_other_stack() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let result = test_ctx
+        .branch
+        .set_stack_head(&ctx, test_ctx.other_commits.first().unwrap().id());
+    assert!(result.is_err());
+    Ok(())
+}
+
+#[test]
+fn set_stack_head_commit_not_head() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let result = test_ctx
+        .branch
+        .set_stack_head(&ctx, test_ctx.commits.get(1).unwrap().id());
+    assert!(result.is_err());
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        format!(
+            "The commit {} is not the head of the stack",
+            test_ctx.commits[1].id()
+        )
+    );
     Ok(())
 }
 
