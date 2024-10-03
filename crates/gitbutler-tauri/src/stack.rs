@@ -1,5 +1,5 @@
 use gitbutler_branch::BranchId;
-use gitbutler_patch_reference::PatchReference;
+use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use tauri::State;
@@ -15,11 +15,10 @@ pub fn create_series(
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
     branch_id: BranchId,
-    head: PatchReference,
-    preceding_head: Option<PatchReference>,
+    request: CreateSeriesRequest,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
-    gitbutler_branch_actions::stack::create_series(&project, branch_id, head, preceding_head)?;
+    gitbutler_branch_actions::stack::create_series(&project, branch_id, request)?;
     emit_vbranches(&windows, project_id);
     Ok(())
 }

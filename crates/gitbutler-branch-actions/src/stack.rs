@@ -1,8 +1,9 @@
 use anyhow::{Context, Result};
 use gitbutler_branch::BranchId;
-use gitbutler_patch_reference::PatchReference;
+use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_project::Project;
 use gitbutler_stack::{PatchReferenceUpdate, Stack};
+use serde::{Deserialize, Serialize};
 
 use crate::{actions::open_with_verify, VirtualBranchesExt};
 use gitbutler_operating_modes::assure_open_workspace_mode;
@@ -21,13 +22,39 @@ use gitbutler_operating_modes::assure_open_workspace_mode;
 pub fn create_series(
     project: &Project,
     branch_id: BranchId,
-    head: PatchReference,
-    preceding_head: Option<PatchReference>,
+    req: CreateSeriesRequest,
 ) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
-    stack.add_series(ctx, head, preceding_head)
+    // If target_patch is None, create a new head that points to the top of the stack (most recent patch)
+    if let Some(target_patch) = req.target_patch {
+        stack.add_series(
+            ctx,
+            PatchReference {
+                target: target_patch,
+                name: req.name,
+                description: req.description,
+            },
+            req.preceding_head,
+        )
+    } else {
+        stack.add_series_top_of_stack(ctx, req.name, req.description)
+    }
+}
+
+/// Request to create a new series in a stack
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct CreateSeriesRequest {
+    /// Name of the new series
+    name: String,
+    /// Description of the new series - can be markdown or antyhing really
+    description: Option<String>,
+    /// The target patch (head) to create these series for. If let None, the new series will be at the top of the stack
+    target_patch: Option<CommitOrChangeId>,
+    /// The name of the series that preceed the newly created series.
+    /// This is used to disambiguate the order whne they point to the same patch
+    preceding_head: Option<String>,
 }
 
 /// Removes series grouping from the Stack. This will not touch the patches / commits contained in the series.
