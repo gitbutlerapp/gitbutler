@@ -95,6 +95,30 @@ fn add_series_top_of_stack() -> Result<()> {
 }
 
 #[test]
+fn add_series_top_base() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.initialize(&ctx)?;
+    let merge_base = ctx.repository().find_commit(
+        ctx.repository()
+            .merge_base(test_ctx.branch.head, test_ctx.default_target.sha)?,
+    )?;
+    let reference = PatchReference {
+        name: "asdf".into(),
+        target: CommitOrChangeId::CommitId(merge_base.id().to_string()),
+        description: Some("my description".into()),
+    };
+    let result = test_ctx.branch.add_series(&ctx, reference, None);
+    println!("{:?}", result);
+    // Assert persisted
+    assert_eq!(
+        test_ctx.branch,
+        test_ctx.handle.get_branch(test_ctx.branch.id)?
+    );
+    Ok(())
+}
+
+#[test]
 fn add_multiple_series() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
@@ -760,6 +784,7 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
         // other_branch: other_branch.clone(),
         other_commits,
         handle,
+        default_target: target,
     })
 }
 struct TestContext<'a> {
@@ -770,4 +795,5 @@ struct TestContext<'a> {
     #[allow(dead_code)]
     other_commits: Vec<git2::Commit<'a>>,
     handle: VirtualBranchesHandle,
+    default_target: gitbutler_branch::Target,
 }

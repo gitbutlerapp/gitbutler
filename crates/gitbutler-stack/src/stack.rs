@@ -415,12 +415,13 @@ fn validate_target(
     let merge_base = ctx
         .repository()
         .merge_base(stack_head, default_target.sha)?;
-    let stack_commits = ctx
+    let mut stack_commits = ctx
         .repository()
         .log(stack_head, LogUntil::Commit(merge_base))?
         .iter()
         .map(|c| c.id())
         .collect_vec();
+    stack_commits.insert(0, merge_base);
     if !stack_commits.contains(&commit.id()) {
         return Err(anyhow!(
             "The commit {} is not between the stack head and the stack base",
