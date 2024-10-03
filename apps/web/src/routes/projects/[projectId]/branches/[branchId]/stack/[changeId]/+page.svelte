@@ -337,6 +337,7 @@
 				<div>
 					<code
 						><a
+							rel="external"
 							href="/projects/{data.projectId}/branches/{data.branchId}/stack/{stackPatch.change_id}"
 							>{stackPatch.change_id.substr(0, 8)}</a
 						></code
