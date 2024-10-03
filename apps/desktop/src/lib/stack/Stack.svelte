@@ -147,6 +147,9 @@
 			);
 		}
 	}
+
+	let stickyPushFooter = $state<HTMLDivElement>();
+	let scrollEndVisible = $state(false);
 </script>
 
 {#if $isLaneCollapsed}
@@ -167,6 +170,7 @@
 					top: 12,
 					bottom: 12
 				}}
+				bind:scrollEndVisible
 			>
 				<div
 					bind:this={rsViewport}
@@ -237,23 +241,26 @@
 							<StackingNewStackCard branchId={branch.id} {addSeries} />
 							<StackSeries {branch} />
 						</div>
-						<!-- TODO: Sticky styling -->
-						<div class="lane-branches__action">
-							<Button
-								style="pop"
-								kind="solid"
-								wide
-								loading={isPushingCommits}
-								disabled={localCommitsConflicted || localAndRemoteCommitsConflicted}
-								tooltip={localCommitsConflicted
-									? 'In order to push, please resolve any conflicted commits.'
-									: undefined}
-								onclick={push}
-							>
-								{branch.requiresForce ? 'Force push' : 'Push'}
-							</Button>
-						</div>
 					</div>
+				</div>
+				<div
+					class="lane-branches__action"
+					class:scroll-end-visible={scrollEndVisible}
+					bind:this={stickyPushFooter}
+				>
+					<Button
+						style="pop"
+						kind="solid"
+						wide
+						loading={isPushingCommits}
+						disabled={localCommitsConflicted || localAndRemoteCommitsConflicted}
+						tooltip={localCommitsConflicted
+							? 'In order to push, please resolve any conflicted commits.'
+							: undefined}
+						onclick={push}
+					>
+						{branch.requiresForce ? 'Force push' : 'Push'}
+					</Button>
 				</div>
 			</ScrollableContainer>
 			<div class="divider-line">
@@ -294,19 +301,22 @@
 	.lane-branches {
 		display: flex;
 		flex-direction: column;
-	}
-
-	:global(.lane-branches > *) {
-		margin-bottom: 12px;
+		gap: 12px;
 	}
 
 	.lane-branches__action {
 		z-index: var(--z-lifted);
 		position: sticky;
-		bottom: 0;
+		padding: 14px;
+		bottom: 0px;
 		transition:
 			background-color 0.3s ease,
 			box-shadow 0.3s ease;
+
+		&:not(.scroll-end-visible) {
+			background-color: var(--clr-bg-1);
+			border-top: 1px solid var(--clr-border-2);
+		}
 	}
 
 	.divider-line {
@@ -323,7 +333,7 @@
 		flex-direction: column;
 		flex: 1;
 		min-height: 100%;
-		padding: 12px;
+		padding: 12px 12px 0;
 	}
 
 	.card-stacking {
