@@ -1,15 +1,17 @@
 <script lang="ts">
 	import StackingStatusIcon from './StackingStatusIcon.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { projectShowStackingCardDetails } from '$lib/config/config';
 	import Link from '$lib/shared/Link.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
+	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 
 	const project = getContext(Project);
 	const branchController = getContext(BranchController);
@@ -20,22 +22,24 @@
 	let showDetails = $state($showStackingCardDetails);
 	let loading = $state(false);
 
+	let createRefModal: Modal;
+	let createRefName: string | undefined = $state();
+
 	function closeStackingCard() {
 		showStackingCardDetails.set(false);
 		showDetails = false;
 	}
 
 	function addSeries() {
+		if (!createRefName) {
+			error('No branch name provided');
+			createRefModal.close();
+			return;
+		}
 		loading = true;
 		try {
-			branchController.createPatchSeries(
-				$branch.id,
-				'refs/remotes/' +
-					$baseBranch.remoteName +
-					'/' +
-					`series-${Math.floor(Math.random() * 1000)}`,
-				target
-			);
+			branchController.createPatchSeries($branch.id, createRefName);
+			createRefModal.close();
 		} finally {
 			loading = false;
 		}
@@ -59,9 +63,26 @@
 	{/if}
 	<section class="card__action" class:showDetails={!showDetails}>
 		<StackingStatusIcon icon="plus-small" gap={true} />
-		<Button grow style="neutral" {loading} onclick={addSeries}>Add a branch to the stack</Button>
+		<Button grow style="neutral" {loading} onclick={() => createRefModal.show()}
+			>Add a branch to the stack</Button
+		>
 	</section>
 </section>
+
+<Modal
+	bind:this={createRefModal}
+	title="Add branch to the stack"
+	width="small"
+	onSubmit={addSeries}
+>
+	{#snippet children()}
+		<TextBox placeholder="New branch name" id="newRemoteName" bind:value={createRefName} focus />
+	{/snippet}
+	{#snippet controls(close)}
+		<Button style="pop" kind="solid">Ok</Button>
+		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
+	{/snippet}
+</Modal>
 
 <style>
 	.card {
