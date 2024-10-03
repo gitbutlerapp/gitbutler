@@ -21,6 +21,7 @@
 			const token = $page.url.searchParams.get('gb_access_token');
 			if (token && token.length > 0) {
 				$page.data.authService.setToken(token);
+				localStorage.setItem('gb_access_token', token);
 
 				$page.url.searchParams.delete('gb_access_token');
 				goto(`?${$page.url.searchParams.toString()}`);

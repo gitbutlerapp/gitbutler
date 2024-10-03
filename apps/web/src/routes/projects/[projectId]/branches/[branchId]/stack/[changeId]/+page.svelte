@@ -16,6 +16,8 @@
 
 	onMount(() => {
 		key = localStorage.getItem('gb_access_token');
+		console.log(key);
+
 		let projectId = data.projectId;
 		let branchId = data.branchId;
 		let changeId = data.changeId;
