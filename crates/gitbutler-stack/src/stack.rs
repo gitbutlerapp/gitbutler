@@ -376,10 +376,13 @@ fn validate_target(
 ) -> Result<()> {
     let default_target = state.get_default_target()?;
     let commit = commit_by_oid_or_change_id(&reference.target, ctx, stack_head, &default_target)?;
+
+    let merge_base = ctx
+        .repository()
+        .merge_base(stack_head, default_target.sha)?;
     let stack_commits = ctx
         .repository()
-        // TODO: seems like the range that is actually needed is from head to the merge base
-        .log(stack_head, LogUntil::Commit(default_target.sha))?
+        .log(stack_head, LogUntil::Commit(merge_base))?
         .iter()
         .map(|c| c.id())
         .collect_vec();
@@ -481,10 +484,10 @@ fn commit_by_branch_id_and_change_id<'a>(
     change_id: &str,
 ) -> Result<git2::Commit<'a>> {
     // Find the commit with the change id
+    let merge_base = ctx.repository().merge_base(stack_head, target_sha)?;
     let commit = ctx
         .repository()
-        // TODO: seems like the range that is actually needed is from head to the merge base
-        .log(stack_head, LogUntil::Commit(target_sha))?
+        .log(stack_head, LogUntil::Commit(merge_base))?
         .iter()
         .map(|c| c.id())
         .find(|c| {
