@@ -19,8 +19,8 @@
 
 <header>
 	<a href="/" class="nav__left">
-		<img src={GitButler} width="48" alt="github" />
-		<h2>GitButler</h2>
+		<img src={GitButler} width="32" alt="gitbutler" />
+		<div class="word-mark">GitButler</div>
 	</a>
 	<div>
 		<a href="/downloads">Downloads</a>
@@ -45,13 +45,18 @@
 
 <style>
 	header {
-		max-width: 64rem;
 		width: 100%;
 		margin: 0 auto;
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		padding: 16px;
+		padding: 8px;
+		background: var(--clr-bg-1-muted);
+	}
+
+	.word-mark {
+		font-size: 1.5rem;
+		font-weight: bold;
 	}
 
 	a {

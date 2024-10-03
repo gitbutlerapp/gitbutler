@@ -48,7 +48,7 @@
 {:else}
 	<div><a href="/projects/{data.projectId}">project</a></div>
 
-	<h1>Patch Stack</h1>
+	<h2>Patch Stack</h2>
 	<div class="columns">
 		<div class="column">
 			Title: <strong>{stackData.title}</strong><br />
@@ -91,6 +91,10 @@
 					Additions: {patch.statistics.lines - patch.statistics.deletions}, Deletions: {patch
 						.statistics.deletions}, Files: {patch.statistics.file_count}
 				</div>
+				<hr />
+				<div>Viewed: {patch.review.viewed}</div>
+				<div>Signed Off:{patch.review.signed_off}</div>
+				<div>Rejected: {patch.review.rejected}</div>
 			</div>
 		</div>
 	{/each}
@@ -113,7 +117,7 @@
 		margin: 4px 0;
 	}
 	.patch {
-		background-color: #fff;
+		background-color: var(--clr-bg-1-muted);
 		border: 1px solid #ccc;
 		padding: 15px 20px;
 		margin: 10px 0;
