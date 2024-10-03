@@ -59,7 +59,7 @@ pub trait Stack {
         &mut self,
         ctx: &CommandContext,
         head: PatchReference,
-        preceding_head: Option<PatchReference>,
+        preceding_head_name: Option<String>,
     ) -> Result<()>;
 
     /// A convinience method just like `add_series`, but adds a new branch on top of the stack.
@@ -186,11 +186,18 @@ impl Stack for Branch {
         &mut self,
         ctx: &CommandContext,
         new_head: PatchReference,
-        preceding_head: Option<PatchReference>,
+        preceding_head_name: Option<String>,
     ) -> Result<()> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
+        let preceding_head = if let Some(preceding_head_name) = preceding_head_name {
+            let (_, preceding_head) = get_head(&self.heads, &preceding_head_name)
+                .context("The specified preceding_head could not be found")?;
+            Some(preceding_head)
+        } else {
+            None
+        };
         let state = branch_state(ctx);
         let patches = stack_patches(ctx, &state, self.head, true)?;
         validate_name(&new_head, ctx, &state)?;
@@ -217,7 +224,7 @@ impl Stack for Branch {
             name,
             description,
         };
-        self.add_series(ctx, new_head, Some(current_top_head.clone()))
+        self.add_series(ctx, new_head, Some(current_top_head.name.clone()))
     }
 
     fn remove_series(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()> {

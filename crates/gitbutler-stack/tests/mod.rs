@@ -111,7 +111,7 @@ fn add_multiple_series() -> Result<()> {
     };
     let result = test_ctx
         .branch
-        .add_series(&ctx, head_4, Some(default_head.clone()));
+        .add_series(&ctx, head_4, Some(default_head.name.clone()));
     assert!(result.is_ok());
     assert_eq!(head_names(&test_ctx), vec!["virtual", "head_4"]);
 

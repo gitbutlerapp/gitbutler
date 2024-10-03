@@ -54,8 +54,7 @@ pub struct CreateSeriesRequest {
     target_patch: Option<CommitOrChangeId>,
     /// The name of the series that preceed the newly created series.
     /// This is used to disambiguate the order whne they point to the same patch
-    // TODO: the API can be furthe simplified name here should be sufficient
-    preceding_head: Option<PatchReference>,
+    preceding_head: Option<String>,
 }
 
 /// Removes series grouping from the Stack. This will not touch the patches / commits contained in the series.
