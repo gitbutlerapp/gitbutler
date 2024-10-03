@@ -45,15 +45,24 @@ export class VirtualBranchService {
 				if (upstreamName) {
 					try {
 						const data = await this.remoteBranchService.getRemoteBranchData(upstreamName);
-						const commits = data.commits;
-						commits.forEach((uc) => {
+						const upstreamCommits = data.commits;
+						const stackedCommits = b.series.flatMap((series) => series.patches);
+
+						upstreamCommits.forEach((uc) => {
 							const match = b.commits.find((c) => commitCompare(uc, c));
+							const stackedMatch = stackedCommits.find((c) => commitCompare(uc, c));
 							if (match) {
 								match.relatedTo = uc;
 								uc.relatedTo = match;
 							}
+							if (stackedMatch) {
+								// This asymmetric difference is not ideal, but gets the job done while
+								// we are experimenting with stacking.
+								stackedMatch.relatedTo = uc;
+							}
 						});
-						linkAsParentChildren(commits);
+						linkAsParentChildren(upstreamCommits);
+						linkAsParentChildren(stackedCommits);
 						b.upstreamData = data;
 					} catch (e: any) {
 						console.log(e);
