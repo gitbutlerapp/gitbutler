@@ -23,7 +23,7 @@
 
 	let deleteSeriesModal: Modal;
 	let renameSeriesModal: Modal;
-	let newSeriesName = $state('');
+	let newHeadName: string = $state(headName);
 	let isDeleting = $state(false);
 
 	const branch = $derived($branchStore);
@@ -59,11 +59,13 @@
 	width="small"
 	bind:this={renameSeriesModal}
 	onSubmit={(close) => {
-		branchController.updateBranchRemoteName(branch.id, newSeriesName);
+		if (newHeadName && newHeadName !== headName) {
+			branchController.updateSeriesName(branch.id, headName, newHeadName);
+		}
 		close();
 	}}
 >
-	<TextBox label="Series Name" id="newSeriesName" bind:value={newSeriesName} focus />
+	<TextBox label="Series Name" id="newSeriesName" bind:value={newHeadName} focus />
 
 	{#snippet controls(close)}
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>

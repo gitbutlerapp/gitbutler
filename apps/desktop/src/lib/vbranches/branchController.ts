@@ -129,6 +129,19 @@ export class BranchController {
 		}
 	}
 
+	async updateSeriesName(branchId: string, headName: string, newHeadName: string) {
+		try {
+			await invoke<void>('update_series_name', {
+				projectId: this.projectId,
+				branchId,
+				headName,
+				newHeadName
+			});
+		} catch (err) {
+			showError('Failed to update remote name', err);
+		}
+	}
+
 	/*
 	 * Creates a new GitButler change reference associated with a branch.
 	 * @param branchId
