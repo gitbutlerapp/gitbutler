@@ -32,21 +32,22 @@
 <ContextMenu bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Add a description"
+			disabled
+			label="Add description"
 			on:click={() => {
 				addDescription();
 				contextMenuEl?.close();
 			}}
 		/>
 		<ContextMenuItem
-			label="Rename Series"
+			label="Rename"
 			on:click={async () => {
 				renameSeriesModal.show(branch);
 				contextMenuEl?.close();
 			}}
 		/>
 		<ContextMenuItem
-			label="Delete Series Only"
+			label="Delete"
 			on:click={() => {
 				deleteSeriesModal.show(branch);
 				contextMenuEl?.close();
@@ -57,6 +58,7 @@
 
 <Modal
 	width="small"
+	title="Rename series"
 	bind:this={renameSeriesModal}
 	onSubmit={(close) => {
 		if (newHeadName && newHeadName !== headName) {
@@ -65,7 +67,7 @@
 		close();
 	}}
 >
-	<TextBox label="Series Name" id="newSeriesName" bind:value={newHeadName} focus />
+	<TextBox placeholder="New name" id="newSeriesName" bind:value={newHeadName} focus />
 
 	{#snippet controls(close)}
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
@@ -75,7 +77,7 @@
 
 <Modal
 	width="small"
-	title="Delete Series Only"
+	title="Delete series"
 	bind:this={deleteSeriesModal}
 	onSubmit={async (close) => {
 		try {
