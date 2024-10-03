@@ -23,7 +23,7 @@
 	const { loading, disabled, tooltip, click }: Props = $props();
 
 	const preferredAction = persisted<Action>(Action.Create, 'projectDefaultPrAction');
-	let dropDown: DropDownButton;
+	let dropDown = $state<ReturnType<typeof DropDownButton>>();
 
 	$effect(() => {
 		if (!Object.values(Action).includes($preferredAction)) {
@@ -49,7 +49,7 @@
 					label={labels[method]}
 					on:click={() => {
 						preferredAction.set(method);
-						dropDown.close();
+						dropDown?.close();
 					}}
 				/>
 			{/each}
