@@ -71,6 +71,30 @@ fn add_series_success() -> Result<()> {
 }
 
 #[test]
+fn add_series_top_of_stack() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.initialize(&ctx)?;
+    let result =
+        test_ctx
+            .branch
+            .add_series_top_of_stack(&ctx, "asdf".into(), Some("my description".into()));
+    assert!(result.is_ok());
+    assert_eq!(test_ctx.branch.heads.len(), 2);
+    assert_eq!(test_ctx.branch.heads[1].name, "asdf");
+    assert_eq!(
+        test_ctx.branch.heads[1].description,
+        Some("my description".into())
+    );
+    // Assert persisted
+    assert_eq!(
+        test_ctx.branch,
+        test_ctx.handle.get_branch(test_ctx.branch.id)?
+    );
+    Ok(())
+}
+
+#[test]
 fn add_multiple_series() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;

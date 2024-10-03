@@ -62,6 +62,14 @@ pub trait Stack {
         preceding_head: Option<PatchReference>,
     ) -> Result<()>;
 
+    /// A convinience method just like `add_series`, but adds a new branch on top of the stack.
+    fn add_series_top_of_stack(
+        &mut self,
+        ctx: &CommandContext,
+        name: String,
+        description: Option<String>,
+    ) -> Result<()>;
+
     /// Removes a branch from the Stack.
     /// The very last branch (reference) cannot be removed (A Stack must always contains at least one reference)
     /// If there were commits/changes that were *only* referenced by the removed branch,
@@ -190,6 +198,26 @@ impl Stack for Branch {
         let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches)?;
         self.heads = updated_heads;
         state.set_branch(self.clone())
+    }
+
+    fn add_series_top_of_stack(
+        &mut self,
+        ctx: &CommandContext,
+        name: String,
+        description: Option<String>,
+    ) -> Result<()> {
+        if !self.initialized() {
+            return Err(anyhow!("Stack has not been initialized"));
+        }
+        let current_top_head = self.heads.last().ok_or(anyhow!(
+            "Stack is in an invalid state - heads list is empty"
+        ))?;
+        let new_head = PatchReference {
+            target: current_top_head.target.clone(),
+            name,
+            description,
+        };
+        self.add_series(ctx, new_head, Some(current_top_head.clone()))
     }
 
     fn remove_series(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()> {
