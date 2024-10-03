@@ -185,7 +185,7 @@
 		console.log('creatingRef.commit', commit);
 		branchController.createPatchSeries(
 			branch?.id || '',
-			'refs/remotes/' + createRefName,
+			createRefName,
 			commit.changeId ? { ChangeId: commit.changeId } : { CommitId: commit.id }
 		);
 		createRefModal.close();
