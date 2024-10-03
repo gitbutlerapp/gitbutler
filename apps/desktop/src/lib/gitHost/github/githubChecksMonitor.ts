@@ -13,7 +13,10 @@ export const MIN_COMPLETED_AGE = 20000;
 export class GitHubChecksMonitor implements GitHostChecksMonitor {
 	private _status: ChecksStatus | undefined | null;
 	readonly status = writable<ChecksStatus | undefined | null>(undefined, () => {
-		this.start();
+		// Hack: updating the loading writable can lead to state_unsafe_mutation.
+		setTimeout(() => {
+			this.start();
+		}, 0);
 		return () => {
 			this.stop();
 		};
