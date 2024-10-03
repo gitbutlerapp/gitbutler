@@ -114,7 +114,7 @@
 
 	// Fetch PR template content
 	$effect(() => {
-		if ($prService && pullRequestTemplateBody === undefined) {
+		if ($prService && pullRequestTemplateBody === undefined && prTemplatePath) {
 			$prService.pullRequestTemplateContent(prTemplatePath, project.id).then((template) => {
 				pullRequestTemplateBody = template;
 			});
