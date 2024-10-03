@@ -402,7 +402,7 @@
 											openCreateRefModal(e);
 										}}
 									>
-										Create ref
+										Add branch
 									</Button>
 								{/if}
 								{#if commit instanceof DetailedCommit && commit.remoteRef}
