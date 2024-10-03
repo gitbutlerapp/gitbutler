@@ -7,7 +7,7 @@
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import {
-		ReorderDropzoneManagerFactory,
+		ReorderDropzoneManager,
 		type ReorderDropzone
 	} from '$lib/dragging/reorderDropzoneManager';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
@@ -31,6 +31,7 @@
 		pushButton?: Snippet<[{ disabled: boolean }]>;
 		localCommitsConflicted: boolean;
 		localAndRemoteCommitsConflicted: boolean;
+		reorderDropzoneManager: ReorderDropzoneManager;
 	}
 	const {
 		localCommits,
@@ -39,7 +40,8 @@
 		remoteCommits,
 		isUnapplied,
 		pushButton,
-		localAndRemoteCommitsConflicted
+		localAndRemoteCommitsConflicted,
+		reorderDropzoneManager
 	}: Props = $props();
 
 	const branch = getContextStore(VirtualBranch);
@@ -47,7 +49,6 @@
 	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
-	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 	const gitHost = getGitHost();
 
 	// TODO: Why does eslint-svelte-plugin complain about enum?
@@ -87,10 +88,6 @@
 	const headCommit = $derived($branch.commits.at(0));
 
 	const hasRemoteCommits = $derived(remoteCommits.length > 0);
-
-	const reorderDropzoneManager = $derived(
-		reorderDropzoneManagerFactory.build($branch, [...localCommits, ...localAndRemoteCommits])
-	);
 
 	let isIntegratingCommits = $state(false);
 

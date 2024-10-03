@@ -1,6 +1,8 @@
 <script lang="ts">
 	import StackingBranchHeader from '$lib/branch/StackingBranchHeader.svelte';
 	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
+	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
+	import { getContext } from '$lib/utils/context';
 	import {
 		getLocalAndRemoteCommits,
 		getLocalCommits,
@@ -24,6 +26,11 @@
 	const localAndRemoteCommitsConflicted = $derived(
 		$localAndRemoteCommits.some((commit) => commit.conflicted)
 	);
+
+	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
+	const reorderDropzoneManager = $derived(
+		reorderDropzoneManagerFactory.build(branch, [...branch.localCommits, ...branch.remoteCommits])
+	);
 </script>
 
 <!-- TODO: Add connecting line on background between NewStackCard above and branches below -->
@@ -31,7 +38,7 @@
 	<div class="branch-group">
 		<StackingBranchHeader
 			commits={currentSeries.patches}
-			name={currentSeries.name}
+			name={currentSeries.branchName}
 			upstreamName={currentSeries.name}
 		/>
 		<StackingCommitList
@@ -40,6 +47,7 @@
 			integratedCommits={currentSeries.integratedCommits}
 			remoteCommits={$remoteCommits}
 			isUnapplied={false}
+			{reorderDropzoneManager}
 			{localCommitsConflicted}
 			{localAndRemoteCommitsConflicted}
 		/>
