@@ -8,7 +8,6 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { Project } from '$lib/backend/projects';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import StackingNewStackCard from '$lib/branch/StackingNewStackCard.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
@@ -50,7 +49,6 @@
 	const branchStore = getContextStore(VirtualBranch);
 	const project = getContext(Project);
 	const user = getContextStore(User);
-	const baseBranch = getContextStore(BaseBranch);
 
 	const branch = $derived($branchStore);
 
@@ -130,21 +128,6 @@
 			$checksMonitor?.update();
 		} finally {
 			isPushingCommits = false;
-		}
-	}
-
-	function addSeries(e: MouseEvent) {
-		e.stopPropagation();
-		const topChangeId = branch.commits.at(-1)?.changeId;
-		if (topChangeId) {
-			branchController.createChangeReference(
-				branch?.id || '',
-				'refs/remotes/' +
-					$baseBranch.remoteName +
-					'/' +
-					`series-${Math.floor(Math.random() * 1000)}`,
-				topChangeId
-			);
 		}
 	}
 
@@ -238,7 +221,7 @@
 						{/if}
 						<Spacer dotted />
 						<div class="lane-branches">
-							<StackingNewStackCard branchId={branch.id} {addSeries} />
+							<StackingNewStackCard />
 							<StackSeries {branch} />
 						</div>
 					</div>

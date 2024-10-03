@@ -7,7 +7,7 @@ import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BranchPushResult, Hunk, LocalFile } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
-type CommitIdOrChangeId = { CommitId: string } | { ChangeId: string };
+export type CommitIdOrChangeId = { CommitId: string } | { ChangeId: string };
 
 export class BranchController {
 	constructor(
