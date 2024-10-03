@@ -6,7 +6,7 @@ use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, Virtual
 use serde::{Deserialize, Serialize, Serializer};
 use std::ops::Deref;
 
-use crate::{ownership::BranchOwnershipClaims, reference::ChangeReference};
+use crate::ownership::BranchOwnershipClaims;
 
 pub type BranchId = Id<Branch>;
 
@@ -59,9 +59,6 @@ pub struct Branch {
     pub in_workspace: bool,
     #[serde(default)]
     pub not_in_workspace_wip_change_id: Option<String>,
-    /// TODO: This is now obsolete in favor of the heads field before.
-    #[serde(default)]
-    pub references: Vec<ChangeReference>,
     /// Represents the Stack state of pseudo-references ("heads").
     /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
     #[serde(default)]

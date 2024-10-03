@@ -11,9 +11,7 @@ use crate::{
     VirtualBranchesExt,
 };
 use anyhow::{Context, Result};
-use gitbutler_branch::{
-    BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest, ChangeReference,
-};
+use gitbutler_branch::{BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_operating_modes::assure_open_workspace_mode;
@@ -327,37 +325,6 @@ pub fn insert_blank_commit(
         guard.write_permission(),
     );
     vbranch::insert_blank_commit(&ctx, branch_id, commit_oid, offset).map_err(Into::into)
-}
-
-pub fn create_change_reference(
-    project: &Project,
-    branch_id: BranchId,
-    name: ReferenceName,
-    change_id: String,
-) -> Result<ChangeReference> {
-    let ctx = open_with_verify(project)?;
-    assure_open_workspace_mode(&ctx).context("Requires an open workspace mode")?;
-    gitbutler_repo::create_change_reference(&ctx, branch_id, name, change_id)
-}
-
-pub fn push_change_reference(
-    project: &Project,
-    branch_id: BranchId,
-    name: ReferenceName,
-    with_force: bool,
-) -> Result<()> {
-    let ctx = open_with_verify(project)?;
-    gitbutler_repo::push_change_reference(&ctx, branch_id, name, with_force)
-}
-
-pub fn update_change_reference(
-    project: &Project,
-    branch_id: BranchId,
-    name: ReferenceName,
-    new_change_id: String,
-) -> Result<ChangeReference> {
-    let ctx = open_with_verify(project)?;
-    gitbutler_repo::update_change_reference(&ctx, branch_id, name, new_change_id)
 }
 
 pub fn reorder_commit(

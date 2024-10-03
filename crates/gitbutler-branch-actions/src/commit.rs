@@ -6,8 +6,6 @@ use anyhow::{Context, Result};
 use gitbutler_branch::{Branch, BranchId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_reference::ReferenceName;
-use gitbutler_repo::list_branch_references;
 use gitbutler_serde::BStringForFrontend;
 use serde::Serialize;
 
@@ -41,7 +39,6 @@ pub struct VirtualBranchCommit {
     /// This is used by the frontend similar to the `change_id` to group matching commits.
     #[serde(with = "gitbutler_serde::oid_opt")]
     pub copied_from_remote_id: Option<git2::Oid>,
-    pub remote_ref: Option<ReferenceName>,
 }
 
 pub(crate) fn commit_to_vbranch_commit(
@@ -64,15 +61,6 @@ pub(crate) fn commit_to_vbranch_commit(
             c
         })
         .collect::<Vec<_>>();
-    let remote_ref = list_branch_references(ctx, branch.id)
-        .map(|references| {
-            references
-                .into_iter()
-                .find(|r| Some(r.change_id.clone()) == commit.change_id())
-        })
-        .ok()
-        .flatten()
-        .map(|r| r.name);
 
     let commit = VirtualBranchCommit {
         id: commit.id(),
@@ -88,7 +76,6 @@ pub(crate) fn commit_to_vbranch_commit(
         is_signed: commit.is_signed(),
         conflicted: commit.is_conflicted(),
         copied_from_remote_id,
-        remote_ref,
     };
 
     Ok(commit)
