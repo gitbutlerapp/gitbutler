@@ -1,32 +1,44 @@
 <script lang="ts">
 	import StackingStatusIcon from './StackingStatusIcon.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { projectShowStackingCardDetails } from '$lib/config/config';
 	import Link from '$lib/shared/Link.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
-	import { getContext } from '$lib/utils/context';
+	import { getContext, getContextStore } from '$lib/utils/context';
+	import { BranchController } from '$lib/vbranches/branchController';
+	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 
-	interface Props {
-		addSeries: (e: MouseEvent) => void;
-		branchId: string;
-	}
-
-	const { branchId: _branchId, addSeries }: Props = $props();
-
 	const project = getContext(Project);
+	const branchController = getContext(BranchController);
+	const branch = getContextStore(VirtualBranch);
 
 	const showStackingCardDetails = projectShowStackingCardDetails(project.id);
+
 	let showDetails = $state($showStackingCardDetails);
+	let loading = $state(false);
 
 	function closeStackingCard() {
 		showStackingCardDetails.set(false);
 		showDetails = false;
 	}
 
-	async function addSeriesToStack(e: MouseEvent) {
-		addSeries(e);
+	function addSeries() {
+		loading = true;
+		try {
+			branchController.createPatchSeries(
+				$branch.id,
+				'refs/remotes/' +
+					$baseBranch.remoteName +
+					'/' +
+					`series-${Math.floor(Math.random() * 1000)}`,
+				target
+			);
+		} finally {
+			loading = false;
+		}
 	}
 </script>
 
@@ -47,7 +59,7 @@
 	{/if}
 	<section class="card__action" class:showDetails={!showDetails}>
 		<StackingStatusIcon icon="plus-small" gap={true} />
-		<Button grow style="neutral" onclick={addSeriesToStack}>Add a branch to the stack</Button>
+		<Button grow style="neutral" {loading} onclick={addSeries}>Add a branch to the stack</Button>
 	</section>
 </section>
 
