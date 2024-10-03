@@ -76,6 +76,7 @@ pub struct VirtualBranch {
     #[serde(with = "gitbutler_serde::oid")]
     pub tree: git2::Oid,
     /// New way to group commits into a multiple patch series
+    /// Most recent entries are first in order
     pub series: Vec<PatchSeries>,
 }
 
@@ -461,6 +462,8 @@ pub fn list_virtual_branches_cached(
     Ok((branches, status.skipped_files))
 }
 
+/// Returns the stack series for the API.
+/// Newest first, oldest last in the list
 fn stack_series(
     ctx: &CommandContext,
     branch: &Branch,
@@ -494,6 +497,7 @@ fn stack_series(
             upstream_patches: vec![],
         });
     }
+    api_series.reverse();
 
     Ok(api_series)
 }
