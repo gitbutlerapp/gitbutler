@@ -117,6 +117,18 @@ export class BranchController {
 		}
 	}
 
+	async removePatchSeries(branchId: string, name: string) {
+		try {
+			await invoke<void>('remove_series', {
+				projectId: this.projectId,
+				branchId,
+				headName: name
+			});
+		} catch (err) {
+			showError('Failed remove series', err);
+		}
+	}
+
 	/*
 	 * Creates a new GitButler change reference associated with a branch.
 	 * @param branchId

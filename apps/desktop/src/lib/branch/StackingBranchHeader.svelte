@@ -201,6 +201,7 @@
 			<StackingBranchHeaderContextMenu
 				bind:contextMenuEl={contextMenu}
 				target={meatballButtonEl}
+				headName={name}
 				{addDescription}
 			/>
 		</div>
