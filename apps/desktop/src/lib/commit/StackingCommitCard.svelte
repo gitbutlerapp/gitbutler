@@ -183,10 +183,10 @@
 	width="small"
 	onSubmit={() => {
 		console.log('creatingRef.commit', commit);
-		branchController.createChangeReference(
+		branchController.createPatchSeries(
 			branch?.id || '',
 			'refs/remotes/' + createRefName,
-			commit.changeId
+			commit.changeId ? { ChangeId: commit.changeId } : { CommitId: commit.id }
 		);
 		createRefModal.close();
 	}}
