@@ -11,6 +11,7 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore, maybeGetContext } from '$lib/utils/context';
+	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
@@ -102,7 +103,7 @@
 	let description = $state('');
 
 	let createRefModal: Modal;
-	let createRefName = $state($baseBranch.remoteName + '/');
+	let createRefName: string | undefined = $state();
 	let createRefTargetCommit: DetailedCommit | Commit | undefined;
 
 	function openCreateRefModal(e: Event) {
@@ -180,11 +181,19 @@
 
 <Modal
 	bind:this={createRefModal}
+	title="Add branch to the stack"
 	width="small"
 	onSubmit={() => {
-		console.log('creatingRef.commit', commit);
+		if (!createRefName) {
+			error('No branch name provided');
+			createRefModal.close();
+			return;
+		}
+		if (!branch) {
+			return;
+		}
 		branchController.createPatchSeries(
-			branch?.id || '',
+			branch.id,
 			createRefName,
 			commit.changeId ? { ChangeId: commit.changeId } : { CommitId: commit.id }
 		);
@@ -192,7 +201,7 @@
 	}}
 >
 	{#snippet children()}
-		<TextBox label="Remote branch name" id="newRemoteName" bind:value={createRefName} focus />
+		<TextBox placeholder="New branch name" id="newRemoteName" bind:value={createRefName} focus />
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="pop" kind="solid">Ok</Button>
