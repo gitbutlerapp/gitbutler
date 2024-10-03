@@ -4,7 +4,6 @@ import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '@gitbutler/ui/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
 import type { PullRequest } from '$lib/gitHost/interface/types';
-import type { PatchSeries } from '$lib/stack/types';
 
 export type ChangeType =
 	/// Entry does not exist in old version
@@ -145,6 +144,7 @@ export class VirtualBranch {
 	tree!: string;
 
 	// Used in the stacking context where VirtualBranch === Stack
+	@Type(() => PatchSeries)
 	series!: PatchSeries[];
 
 	get localCommits() {
@@ -388,4 +388,31 @@ export class BranchData {
 export interface BranchPushResult {
 	refname: string;
 	remote: string;
+}
+
+export class PatchSeries {
+	name!: string;
+	description?: string;
+	upstreamReference?: string;
+
+	@Type(() => DetailedCommit)
+	patches!: DetailedCommit[];
+	@Type(() => DetailedCommit)
+	upstreamPatches!: DetailedCommit[];
+
+	get localCommits() {
+		return this.patches.filter((c) => c.status === 'local');
+	}
+
+	get remoteCommits() {
+		return this.patches.filter((c) => c.status === 'localAndRemote');
+	}
+
+	get integratedCommits() {
+		return this.patches.filter((c) => c.status === 'integrated');
+	}
+
+	get branchName() {
+		return this.name?.replace('refs/remotes/origin/', '');
+	}
 }

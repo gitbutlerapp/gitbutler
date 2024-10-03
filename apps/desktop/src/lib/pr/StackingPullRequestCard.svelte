@@ -4,7 +4,7 @@
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { getContext } from '$lib/utils/context';
@@ -13,15 +13,18 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 	import { createTimeAgoStore } from '@gitbutler/ui/utils/timeAgo';
-	import type { ChecksStatus } from '$lib/gitHost/interface/types';
+	import type { GitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
+	import type { ChecksStatus, DetailedPullRequest } from '$lib/gitHost/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	interface Props {
-		upstreamName: string;
+		pr: DetailedPullRequest;
+		prMonitor?: GitHostPrMonitor;
+		sourceBranch: string;
 	}
 
-	const { upstreamName }: Props = $props();
+	const { pr, prMonitor, sourceBranch }: Props = $props();
 
 	type StatusInfo = {
 		text: string;
@@ -34,27 +37,24 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 
+	const gitHost = getGitHost();
 	const gitHostListingService = getGitHostListingService();
-	const prStore = $derived($gitHostListingService?.prs);
-	const prs = $derived(prStore ? $prStore : undefined);
-
-	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
-	const prNumber = $derived(listedPr?.number);
 
 	const prService = getGitHostPrService();
-	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 
-	const checksMonitor = getGitHostChecksMonitor();
+	const checksMonitor = $derived(sourceBranch ? $gitHost?.checksMonitor(sourceBranch) : undefined);
+	$effect(() => {
+		console.log(checksMonitor);
+	});
 	// This PR has been loaded on demand, and contains more details than the version
 	// obtained when listing them.
-	const pr = $derived(prMonitor?.pr);
-	const checks = $derived($checksMonitor?.status);
+	const checks = $derived(checksMonitor?.status);
 
 	// While the pr monitor is set to fetch updates by interval, we want
 	// frequent updates while checks are running.
-	$effect(() => {
-		if ($checks) prMonitor?.refresh();
-	});
+	// $effect(() => {
+	// 	if ($checks) prMonitor?.refresh();
+	// });
 
 	let isMerging = $state(false);
 
@@ -62,10 +62,18 @@
 	const timeAgo = $derived($lastFetch ? createTimeAgoStore($lastFetch) : undefined);
 
 	const mrLoading = $derived(prMonitor?.loading);
-	const checksLoading = $derived($checksMonitor?.loading);
+	const checksLoading = $derived(checksMonitor?.loading);
 
-	const checksError = $derived($checksMonitor?.error);
+	$effect(() => {
+		console.log($checksLoading);
+	});
+
+	const checksError = $derived(checksMonitor?.error);
 	const detailsError = $derived(prMonitor?.error);
+
+	$effect(() => {
+		console.log($checksError);
+	});
 
 	function getChecksCount(status: ChecksStatus): string {
 		if (!status) return 'Running checks';
@@ -103,19 +111,19 @@
 	});
 
 	const prStatusInfo: StatusInfo = $derived.by(() => {
-		if (!$pr) {
+		if (!pr) {
 			return { text: 'Status', icon: 'spinner', style: 'neutral' };
 		}
 
-		if ($pr?.mergedAt) {
+		if (pr?.mergedAt) {
 			return { text: 'Merged', icon: 'merged-pr-small', style: 'purple' };
 		}
 
-		if ($pr?.closedAt) {
+		if (pr?.closedAt) {
 			return { text: 'Closed', icon: 'closed-pr-small', style: 'error' };
 		}
 
-		if ($pr?.draft) {
+		if (pr?.draft) {
 			return { text: 'Draft', icon: 'draft-pr-small', style: 'neutral' };
 		}
 
@@ -123,7 +131,7 @@
 	});
 
 	const infoProps: StatusInfo | undefined = $derived.by(() => {
-		const mergeableState = $pr?.mergeableState;
+		const mergeableState = pr?.mergeableState;
 		if (mergeableState === 'blocked' && !$checks && !$checksLoading) {
 			return {
 				icon: 'error',
@@ -133,7 +141,7 @@
 		}
 
 		if ($checks?.completed) {
-			if ($pr?.draft) {
+			if (pr?.draft) {
 				return {
 					icon: 'warning',
 					messageStyle: 'neutral',
@@ -172,7 +180,7 @@
 	});
 </script>
 
-{#if $pr}
+{#if pr}
 	<div class="pr-header">
 		<div class="floating-button">
 			<Button
@@ -183,14 +191,14 @@
 				loading={$mrLoading || $checksLoading}
 				tooltip={$timeAgo ? 'Updated ' + $timeAgo : ''}
 				onclick={async () => {
-					$checksMonitor?.update();
+					checksMonitor?.update();
 					prMonitor?.refresh();
 				}}
 			/>
 		</div>
 		<div class="text-13 text-semibold pr-header-title">
-			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
-			{$pr.title}
+			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
+			{pr.title}
 		</div>
 		<div class="pr-header-tags">
 			<Button
@@ -202,7 +210,7 @@
 			>
 				{prStatusInfo.text}
 			</Button>
-			{#if !$pr.closedAt && checksTagInfo}
+			{#if !pr.closedAt && checksTagInfo}
 				<Button
 					size="tag"
 					clickable={false}
@@ -213,7 +221,7 @@
 					{checksTagInfo.text}
 				</Button>
 			{/if}
-			<ViewPrButton url={$pr.htmlUrl} />
+			<ViewPrButton url={pr.htmlUrl} />
 		</div>
 
 		<!--
@@ -224,7 +232,7 @@
         determining "no checks will run for this PR" such that we can show the merge button
         immediately.
         -->
-		{#if $pr}
+		{#if pr}
 			<div class="pr-header-actions">
 				{#if infoProps}
 					<InfoMessage icon={infoProps.icon} filled outlined={false} style={infoProps.messageStyle}>
@@ -239,16 +247,16 @@
 					projectId={project.id}
 					disabled={$mrLoading ||
 						$checksLoading ||
-						$pr.draft ||
-						!$pr.mergeable ||
-						['dirty', 'unknown', 'blocked', 'behind'].includes($pr.mergeableState)}
+						pr.draft ||
+						!pr.mergeable ||
+						['dirty', 'unknown', 'blocked', 'behind'].includes(pr.mergeableState)}
 					loading={isMerging}
 					on:click={async (e) => {
-						if (!$pr) return;
+						if (!pr) return;
 						isMerging = true;
 						const method = e.detail.method;
 						try {
-							await $prService?.merge(method, $pr.number);
+							await $prService?.merge(method, pr.number);
 							await baseBranchService.fetchFromRemotes();
 							await Promise.all([
 								prMonitor?.refresh(),

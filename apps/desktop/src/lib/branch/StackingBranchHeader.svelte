@@ -10,20 +10,26 @@
 	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import PullRequestButton from '$lib/pr/PullRequestButton.svelte';
 	import StackingPullRequestCard from '$lib/pr/StackingPullRequestCard.svelte';
-	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
+	import { DetailedCommit, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
+
+	interface Props {
+		name: string;
+		upstreamName?: string;
+		commits: DetailedCommit[];
+	}
+
+	const { name, upstreamName, commits }: Props = $props();
 
 	let isLoading = $state(false);
 	let descriptionVisible = $state(false);
@@ -33,23 +39,32 @@
 
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
-	const prMonitor = getGitHostPrMonitor();
 	const baseBranchService = getContext(BaseBranchService);
 	const prService = getGitHostPrService();
 	const gitListService = getGitHostListingService();
 	const gitHost = getGitHost();
-	const upstreamName = $derived($branchStore.upstreamName);
 	const gitHostBranch = $derived(upstreamName ? $gitHost?.branch(upstreamName) : undefined);
 	const project = getContext(Project);
 
 	const baseBranchName = $derived($baseBranch.shortName);
-	const pr = $derived($prMonitor?.pr);
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
 
 	const branchColorType = $derived<CommitStatus>(branch.commits?.[0]?.status ?? 'local');
 	const lineColor = $derived(getColorFromBranchType(branchColorType));
+
+	// Pretty cumbersome way of getting the PR number, would be great if we can
+	// make it more concise somehow.
+	const hostedListingServiceStore = getGitHostListingService();
+	const prStore = $derived($hostedListingServiceStore?.prs);
+	const prs = $derived(prStore ? $prStore : undefined);
+
+	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
+	const prNumber = $derived(listedPr?.number);
+
+	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
+	const pr = $derived(prMonitor?.pr);
 
 	interface CreatePrOpts {
 		draft: boolean;
@@ -80,33 +95,28 @@
 		}
 
 		if (pullRequestTemplateBody) {
-			title = branch.name;
+			title = name;
 			body = pullRequestTemplateBody;
 		} else {
 			// In case of a single commit, use the commit summary and description for the title and
 			// description of the PR.
-			if (branch.commits.length === 1) {
-				const commit = branch.commits[0];
+			if (commits.length === 1) {
+				const commit = commits[0];
 				title = commit?.descriptionTitle ?? '';
 				body = commit?.descriptionBody ?? '';
 			} else {
-				title = branch.name;
+				title = name;
 				body = '';
 			}
 		}
 
 		isLoading = true;
 		try {
-			let upstreamBranchName = branch.upstreamName;
+			let upstreamBranchName: string | undefined = upstreamName;
 
-			if (branch.commits.some((c) => !c.isRemote)) {
+			if (commits.some((c) => !c.isRemote)) {
 				const firstPush = !branch.upstream;
-				const { refname, remote } = await branchController.pushBranch(
-					branch.id,
-					branch.requiresForce
-				);
-				upstreamBranchName = getBranchNameFromRef(refname, remote);
-
+				await branchController.pushBranch(branch.id, branch.requiresForce, true);
 				if (firstPush) {
 					// TODO: fix this hack for reactively available prService.
 					await sleep(500);
@@ -165,7 +175,7 @@
 		<StackingStatusIcon icon="tick-small" iconColor="#fff" color={lineColor} gap={false} lineTop />
 		<div class="text-14 text-bold branch-info__name">
 			<span class="remote-name">{$baseBranch.remoteName ?? 'origin'}/</span>
-			<BranchLabel name={branch.name} onChange={(name) => editTitle(name)} />
+			<BranchLabel {name} onChange={(name) => editTitle(name)} />
 			<Button
 				size="tag"
 				icon="open-link"
@@ -207,12 +217,12 @@
 	<div class="branch-action">
 		<div class="branch-action__line" style:--bg-color={lineColor}></div>
 		<div class="branch-action__body">
-			{#if $pr && branch.upstream?.givenName}
-				<StackingPullRequestCard upstreamName={branch.upstream.givenName} />
+			{#if $pr}
+				<StackingPullRequestCard pr={$pr} {prMonitor} sourceBranch={$pr.sourceBranch} />
 			{:else}
 				<PullRequestButton
 					click={async ({ draft }) => await createPr({ draft })}
-					disabled={branch.commits.length === 0 || !$gitHost || !$prService}
+					disabled={commits.length === 0 || !$gitHost || !$prService}
 					tooltip={!$gitHost || !$prService
 						? 'You can enable git host integration in the settings'
 						: ''}
