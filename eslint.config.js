@@ -83,6 +83,7 @@ export default tsEslint.config(
 			'!.storybook',
 			'target/',
 			'crates/',
+			'packages/ui/storybook-static',
 			// We're having issues parsing splat syntax in svelte components
 			'packages/ui/src/stories/**/*.svelte'
 		]
