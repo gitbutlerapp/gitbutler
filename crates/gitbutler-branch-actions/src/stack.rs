@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use gitbutler_branch::BranchId;
+use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_project::Project;
 use gitbutler_stack::{PatchReferenceUpdate, Stack};
@@ -116,9 +117,24 @@ pub fn update_series_description(
 pub fn push_stack(project: &Project, branch_id: BranchId, with_force: bool) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let stack = ctx.project().virtual_branches().get_branch(branch_id)?;
+    let state = ctx.project().virtual_branches();
+    let stack = state.get_branch(branch_id)?;
+
+    let repo = ctx.repository();
+    let merge_base =
+        repo.find_commit(repo.merge_base(stack.head, state.get_default_target()?.sha)?)?;
+    let merge_base = if let Some(change_id) = merge_base.change_id() {
+        CommitOrChangeId::ChangeId(change_id)
+    } else {
+        CommitOrChangeId::CommitId(merge_base.id().to_string())
+    };
+
     let stack_series = stack.list_series(ctx)?;
     for series in stack_series {
+        if series.head.target == merge_base {
+            // Nothing to push for this one
+            continue;
+        }
         stack.push_series(ctx, series.head.name, with_force)?;
     }
     Ok(())
