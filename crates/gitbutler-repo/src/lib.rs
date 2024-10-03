@@ -17,9 +17,4 @@ pub use config::Config;
 
 pub mod askpass;
 
-mod change_reference;
-
-pub use change_reference::{
-    create_change_reference, list_branch_references, push_change_reference, update_change_reference,
-};
 pub mod temporary_workdir;

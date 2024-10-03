@@ -38,7 +38,6 @@ fn reconcile_ownership_simple() {
         in_workspace: true,
         not_in_workspace_wip_change_id: None,
         source_refname: None,
-        references: vec![],
         heads: Default::default(),
     };
     let branch_b = Branch {
@@ -67,7 +66,6 @@ fn reconcile_ownership_simple() {
         in_workspace: true,
         not_in_workspace_wip_change_id: None,
         source_refname: None,
-        references: vec![],
         heads: Default::default(),
     };
     let all_branches: Vec<Branch> = vec![branch_a.clone(), branch_b.clone()];

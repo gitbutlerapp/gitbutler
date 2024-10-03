@@ -117,7 +117,6 @@ impl BranchManager<'_> {
             in_workspace: true,
             not_in_workspace_wip_change_id: None,
             source_refname: None,
-            references: vec![],
             heads: Default::default(),
         };
 
@@ -262,7 +261,6 @@ impl BranchManager<'_> {
                 allow_rebasing: self.ctx.project().ok_with_force_push.into(),
                 in_workspace: true,
                 not_in_workspace_wip_change_id: None,
-                references: vec![],
                 heads: Default::default(),
             }
         };
