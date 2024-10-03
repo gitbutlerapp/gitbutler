@@ -485,6 +485,7 @@ fn stack_series(
                 commit_to_vbranch_commit(ctx, branch, &commit, is_integrated, false, None)?;
             patches.push(vcommit);
         }
+        patches.reverse();
         api_series.push(PatchSeries {
             name: series.head.name,
             description: series.head.description,
