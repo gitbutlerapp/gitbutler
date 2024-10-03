@@ -4,28 +4,6 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
-catalogs:
-  default:
-    vite:
-      specifier: 5.2.13
-      version: 5.2.13
-  svelte:
-    '@sveltejs/adapter-static':
-      specifier: 3.0.4
-      version: 3.0.4
-    '@sveltejs/kit':
-      specifier: 2.5.25
-      version: 2.5.25
-    '@sveltejs/vite-plugin-svelte':
-      specifier: 4.0.0-next.6
-      version: 4.0.0-next.6
-    svelte:
-      specifier: 5.0.0-next.243
-      version: 5.0.0-next.243
-    svelte-check:
-      specifier: 4.0.1
-      version: 4.0.1
-
 importers:
 
   .:
@@ -307,6 +285,9 @@ importers:
       moment:
         specifier: ^2.30.1
         version: 2.30.1
+      svelte-gravatar:
+        specifier: ^1.0.3
+        version: 1.0.3(svelte@5.0.0-next.243)
     devDependencies:
       '@fontsource/fira-mono':
         specifier: ^4.5.10
@@ -2525,6 +2506,9 @@ packages:
   chardet@0.7.0:
     resolution: {integrity: sha512-mT8iDcrh03qDGRRmoA2hmBJnxpllMR+0/0qlzjqZES6NdiWDcZkCNAk4rPFZ9Q85r27unkiNNg8ZOiwZXBHwcA==}
 
+  charenc@0.0.2:
+    resolution: {integrity: sha512-yrLQ/yVUFXkzg7EDQsPieE/53+0RlaWTs+wBrvW36cyilJ2SaDWfl4Yj7MtLTXleV9uEKefbAGUPv2/iWSooRA==}
+
   check-error@2.1.1:
     resolution: {integrity: sha512-OAlb+T7V4Op9OwdkjmguYRqncdlx5JiofwOAUkmTF+jNdHwzTaTs4sRAGpzLF3oOz5xAyDGrPgeIDFQmDOTiJw==}
     engines: {node: '>= 16'}
@@ -2665,6 +2649,9 @@ packages:
   cross-spawn@7.0.3:
     resolution: {integrity: sha512-iRDPJKUPVEND7dHPO8rkbOnPpyDygcDFtWjpeWNCgy8WP2rXcxXL8TskReQl6OrB2G7+UJrags1q15Fudc7G6w==}
     engines: {node: '>= 8'}
+
+  crypt@0.0.2:
+    resolution: {integrity: sha512-mCxBlsHFYh9C+HVpiEacem8FEBnMXgU9gy4zmNC+SXAZNB/1idgp/aulFJ4FgCi7GPEVbfyng092GqL2k2rmow==}
 
   css-shorthand-properties@1.1.1:
     resolution: {integrity: sha512-Md+Juc7M3uOdbAFwOYlTrccIZ7oCFuzrhKYQjdeUEW/sE1hv17Jp/Bws+ReOPpGVBTYCBoYo+G17V5Qo8QQ75A==}
@@ -3752,6 +3739,9 @@ packages:
     resolution: {integrity: sha512-gDYaKHJmnj4aWxyj6YHyXVpdQawtVLHU5cb+eztPGczf6cjuTdwve5ZIEfgXqH4e57An1D1AKf8CZ3kYrQRqYA==}
     engines: {node: '>= 0.4'}
 
+  is-buffer@1.1.6:
+    resolution: {integrity: sha512-NcdALwpXkTm5Zvvbk7owOUSvVvBKDgKP5/ewfXEznmQFfs4ZRmanOeKBTjRVjka3QFoN6XJ+9F3USqfHqTaU5w==}
+
   is-callable@1.2.7:
     resolution: {integrity: sha512-1BC0BVFhS/p0qtw6enp8e+8OD0UrK0oFLztSjNzhcKA3WDuJxxAPXzPuPtKkjEY9UUoEWlX/8fgKeu2S8i9JTA==}
     engines: {node: '>= 0.4'}
@@ -4163,6 +4153,9 @@ packages:
     resolution: {integrity: sha512-YiGcYcWj50YrwBgNzFoYhQ1hT6GmQbFG8SksnYJX1z4BXTHSOrz1GB5/Jm2yQvMg4nN1FHP4M6r03R10KrVUiA==}
     engines: {node: '>= 18'}
     hasBin: true
+
+  md5@2.3.0:
+    resolution: {integrity: sha512-T1GITYmFaKuO91vxyoQMFETst+O71VUPEU3ze5GNzDm0OWdP8v1ziTaAEPUr/3kLsY3Sftgz242A1SetQiDL7g==}
 
   media-typer@0.3.0:
     resolution: {integrity: sha512-dq+qelQ9akHpcOl/gUVRTxVIOkAJ1wR3QAvb4RsVjS8oVoFjDGTc679wJYmUmknUF5HwMLOgb5O+a3KxfWapPQ==}
@@ -5312,6 +5305,11 @@ packages:
     peerDependencies:
       svelte: ^3.57.0 || ^4.0.0
 
+  svelte-gravatar@1.0.3:
+    resolution: {integrity: sha512-CNxIV2lAuiqwdaPrGAM/BFj5U1dNNQXzeyh+HVi/48BODFXoDy0L1CMqYyvM+aKiF4ideZUBwT0S9/C1BeL5oA==}
+    peerDependencies:
+      svelte: '*'
+
   svelte-preprocess@5.1.3:
     resolution: {integrity: sha512-xxAkmxGHT+J/GourS5mVJeOXZzne1FR5ljeOUAMXUkfEhkLEllRreXpbl3dIYJlcJRfL1LO1uIAPpBpBfiqGPw==}
     engines: {node: '>= 16.0.0', pnpm: ^8.0.0}
@@ -5348,6 +5346,9 @@ packages:
         optional: true
       typescript:
         optional: true
+
+  svelte-waypoint@0.1.4:
+    resolution: {integrity: sha512-UEqoXZjJeKj2sWlAIsBOFjxjMn+KP8aFCc/zjdmZi1cCOE59z6T2C+I6ZaAf8EmNQqNzfZVB/Lci4Ci9spzXAw==}
 
   svelte-writable-derived@3.1.0:
     resolution: {integrity: sha512-cTvaVFNIJ036vSDIyPxJYivKC7ZLtcFOPm1Iq6qWBDo1fOHzfk6ZSbwaKrxhjgy52Rbl5IHzRcWgos6Zqn9/rg==}
@@ -5974,6 +5975,28 @@ packages:
   zip-stream@6.0.1:
     resolution: {integrity: sha512-zK7YHHz4ZXpW89AHXUPbQVGKI7uvkd3hzusTdotCg1UxyaVtg0zFJSTfW/Dq5f7OBBVnq6cZIaC8Ti4hb6dtCA==}
     engines: {node: '>= 14'}
+
+catalogs:
+  default:
+    vite:
+      specifier: 5.2.13
+      version: 5.2.13
+  svelte:
+    '@sveltejs/adapter-static':
+      specifier: 3.0.4
+      version: 3.0.4
+    '@sveltejs/kit':
+      specifier: 2.5.25
+      version: 2.5.25
+    '@sveltejs/vite-plugin-svelte':
+      specifier: 4.0.0-next.6
+      version: 4.0.0-next.6
+    svelte:
+      specifier: 5.0.0-next.243
+      version: 5.0.0-next.243
+    svelte-check:
+      specifier: 4.0.1
+      version: 4.0.1
 
 snapshots:
 
@@ -8639,6 +8662,8 @@ snapshots:
 
   chardet@0.7.0: {}
 
+  charenc@0.0.2: {}
+
   check-error@2.1.1: {}
 
   chokidar@3.6.0:
@@ -8781,6 +8806,8 @@ snapshots:
       path-key: 3.1.1
       shebang-command: 2.0.0
       which: 2.0.2
+
+  crypt@0.0.2: {}
 
   css-shorthand-properties@1.1.1: {}
 
@@ -10152,6 +10179,8 @@ snapshots:
       call-bind: 1.0.7
       has-tostringtag: 1.0.2
 
+  is-buffer@1.1.6: {}
+
   is-callable@1.2.7: {}
 
   is-core-module@2.13.1:
@@ -10530,6 +10559,12 @@ snapshots:
       react: 18.3.1
 
   marked@10.0.0: {}
+
+  md5@2.3.0:
+    dependencies:
+      charenc: 0.0.2
+      crypt: 0.0.2
+      is-buffer: 1.1.6
 
   media-typer@0.3.0: {}
 
@@ -11738,6 +11773,12 @@ snapshots:
       svelte: 5.0.0-next.243
       svelte-writable-derived: 3.1.0(svelte@5.0.0-next.243)
 
+  svelte-gravatar@1.0.3(svelte@5.0.0-next.243):
+    dependencies:
+      md5: 2.3.0
+      svelte: 5.0.0-next.243
+      svelte-waypoint: 0.1.4
+
   svelte-preprocess@5.1.3(@babel/core@7.24.7)(postcss-load-config@5.1.0(postcss@8.4.39))(postcss@8.4.39)(svelte@5.0.0-next.243)(typescript@5.4.5):
     dependencies:
       '@types/pug': 2.0.6
@@ -11751,6 +11792,8 @@ snapshots:
       postcss: 8.4.39
       postcss-load-config: 5.1.0(postcss@8.4.39)
       typescript: 5.4.5
+
+  svelte-waypoint@0.1.4: {}
 
   svelte-writable-derived@3.1.0(svelte@5.0.0-next.243):
     dependencies:

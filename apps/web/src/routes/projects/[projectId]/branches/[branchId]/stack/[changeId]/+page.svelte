@@ -1,7 +1,9 @@
 <script lang="ts">
-	import hljs from 'highlight.js';
+	import DiffPatch from '$lib/components/DiffPatch.svelte';
+	import DiffPatchArray from '$lib/components/DiffPatchArray.svelte';
 	import { marked } from 'marked';
 	import { onMount } from 'svelte';
+	import Gravatar from 'svelte-gravatar';
 	import { env } from '$env/dynamic/public';
 
 	let state = 'loading';
@@ -16,7 +18,6 @@
 
 	onMount(() => {
 		key = localStorage.getItem('gb_access_token');
-		console.log(key);
 
 		let projectId = data.projectId;
 		let branchId = data.branchId;
@@ -66,8 +67,6 @@
 				state = 'loaded';
 				// wait a second
 				setTimeout(() => {
-					console.log('Highlighting code');
-					hljs.highlightAll();
 					// render markdowns
 					let markdowns = document.querySelectorAll('.markdown');
 					markdowns.forEach((markdown) => {
@@ -279,16 +278,29 @@
 		let chatBox = document.querySelector<HTMLElement>('.chatBox');
 		if (chatBox) {
 			let text = chatBox.querySelector('textarea')!.value;
+			let params: {
+				chat: string;
+				change_id: any;
+				range?: string;
+				diff_path?: string;
+				diff_sha?: string;
+			} = {
+				chat: text,
+				change_id: data.changeId
+			};
+			if (commentRange.length > 0) {
+				params.range = commentRange;
+				params.diff_path = diffPath;
+				params.diff_sha = diffSha;
+			}
+			console.log('FUCKING POST', params);
 			let opts = {
 				method: 'POST',
 				headers: {
 					'X-AUTH-TOKEN': key || '',
 					'Content-Type': 'application/json'
 				},
-				body: JSON.stringify({
-					chat: text,
-					change_id: data.changeId
-				})
+				body: JSON.stringify(params)
 			};
 			if (key) {
 				fetch(
@@ -325,6 +337,16 @@
 				});
 		}
 	}
+
+	let commentRange: string = '';
+	let diffPath: string = '';
+	let diffSha: string = '';
+
+	function rangeSelect(range: string, diff_path: string, diff_sha: string) {
+		commentRange = range;
+		diffPath = diff_path;
+		diffSha = diff_sha;
+	}
 </script>
 
 {#if state === 'loading'}
@@ -333,7 +355,7 @@
 	<p>Unauthorized</p>
 {:else}
 	<div class="columns">
-		<div class="column">
+		<div class="column patchArea">
 			<h3>Patch Series: <a href="../stack">{stack.title}</a></h3>
 			{#each stack.patches as stackPatch}
 				<div>
@@ -364,26 +386,63 @@
 					<div>Commit SHA: <code>{patch.commit_sha.substr(0, 10)}</code></div>
 					<div>Patch Version: {patch.version}</div>
 					<div>Series Position: {patch.position + 1}/{stack.stack_size}</div>
-					<div>Contributors: {patch.contributors}</div>
-					<div>Review:</div>
-					<div>Viewed: {patch.review.viewed}</div>
-					<div>Signed Off: {patch.review.signed_off}</div>
-					<div>Rejected: {patch.review.rejected}</div>
+					<div>
+						Contributors:
+						{#each patch.contributors as email}
+							<Gravatar {email} size={20} />
+						{/each}
+					</div>
 					<div>
 						Additions: {patch.statistics.lines - patch.statistics.deletions}, Deletions: {patch
 							.statistics.deletions}, Files: {patch.statistics.file_count}
 					</div>
 				</div>
 				<div class="column">
-					<h3>Sign off</h3>
+					{#if patch.review.viewed.length > 0}
+						<div>
+							<div class="title">Viewed:</div>
+							{#each patch.review.viewed as email}
+								<Gravatar {email} size={20} />
+							{/each}
+						</div>
+					{/if}
+
+					{#if patch.review.signed_off.length > 0}
+						<div>
+							<div class="title">Signed Off:</div>
+							{#each patch.review.signed_off as email}
+								<Gravatar {email} size={20} />
+							{/each}
+						</div>
+					{/if}
+
+					{#if patch.review.length > 0}
+						<div>
+							<div class="title">Rejected:</div>
+							{#each patch.review.rejected as email}
+								<Gravatar {email} size={20} />
+							{/each}
+						</div>
+					{/if}
+
+					<h3>Your sign off status</h3>
 					{#if status[data.changeId]}
-						<div>Last View: {status[data.changeId].last_viewed}</div>
-						<div>Last Review: {status[data.changeId].last_reviewed}</div>
-						<div>Last Signoff: {status[data.changeId].last_signoff}</div>
+						{#if status[data.changeId].last_signoff}
+							<div class="signoff">You signed off on this patch</div>
+						{/if}
+						{#if !status[data.changeId].last_reviewed}
+							<div class="rejected">You have not reviewed this patch</div>
+						{:else if !status[data.changeId].last_signoff}
+							<div class="rejected">You have rejected this patch</div>
+						{/if}
 					{/if}
 					<div>
-						<button class="button" on:click={() => signOff(true)}>Sign Off</button>
-						<button class="button" on:click={() => signOff(false)}>Reject</button>
+						{#if !status[data.changeId].last_signoff}
+							<button class="button" on:click={() => signOff(true)}>Sign Off</button>
+						{/if}
+						{#if status[data.changeId].last_signoff || !status[data.changeId].last_reviewed}
+							<button class="button" on:click={() => signOff(false)}>Reject</button>
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -403,10 +462,18 @@
 									>down</button
 								>]
 							</div>
-							<div>
-								<strong>{section.new_path}</strong>
+							<div class="filePath">
+								{section.new_path}
 							</div>
-							<div><pre><code class="patch-diff">{section.diff_patch}</code></pre></div>
+							<div>
+								<DiffPatch
+									onRangeSelect={(range, diff_path, diff_sha) =>
+										rangeSelect(range, diff_path, diff_sha)}
+									diffPath={section.new_path}
+									diffSha={section.diff_sha}
+									diff={section.diff_patch}
+								/>
+							</div>
 						{:else}
 							<div class="right">
 								<button class="action" on:click={() => addSection(section.position)}>add</button>
@@ -439,9 +506,18 @@
 				{#each chats as chat}
 					<div class="chatEntry">
 						<div class="chatHeader">
-							<div>{chat.user.email}</div>
+							<div class="avatar">
+								<Gravatar email={chat.user.email} size={20} />
+							</div>
 							<div>{chat.created_at}</div>
 						</div>
+						{#if chat.diff_patch_array}
+							<div>
+								<div class="diffPath">{chat.diff_path}</div>
+								<!-- {chat.diff_sha} -->
+								<DiffPatchArray diffArray={chat.diff_patch_array} />
+							</div>
+						{/if}
 						<div class="chatComment">{chat.comment}</div>
 					</div>
 				{/each}
@@ -455,12 +531,12 @@
 		</div>
 	</div>
 {/if}
-<link
-	rel="stylesheet"
-	href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/default.min.css"
-/>
 
 <style>
+	.patchArea {
+		max-width: 800px;
+		overflow-x: scroll;
+	}
 	hr {
 		margin: 1rem 0;
 	}
@@ -525,13 +601,17 @@
 		border: 1px solid #ccc;
 		padding: 5px;
 	}
+	.chatArea {
+		width: 600px;
+		min-width: 600px;
+	}
 	.chatWindow {
 		border: 1px solid #ccc;
 		border-radius: 5px;
 		padding: 5px;
 		margin: 5px 0;
-		max-height: 500px;
-		height: 500px;
+		max-height: 600px;
+		height: 600px;
 		overflow-y: scroll;
 	}
 	.chatEntry {
@@ -564,5 +644,38 @@
 		height: 30px;
 		font-family: monospace;
 		font-size: large;
+	}
+	.avatar {
+		border-radius: 50%;
+		overflow: hidden;
+	}
+
+	.filePath {
+		font-family: monospace;
+		font-weight: bold;
+		font-size: 1.4em;
+		margin-bottom: 10px;
+	}
+	.signoff {
+		background-color: #e6ffed;
+		padding: 5px;
+		border-radius: 5px;
+	}
+	.rejected {
+		background-color: #ffeef0;
+		padding: 5px;
+		border-radius: 5px;
+	}
+	.title {
+		min-width: 100px;
+		display: inline-block;
+		border-right: 1px solid #eee;
+	}
+	.diffPath {
+		font-family: monospace;
+		font-weight: bold;
+		font-size: 1.1em;
+		margin-top: 10px;
+		margin-bottom: 6px;
 	}
 </style>

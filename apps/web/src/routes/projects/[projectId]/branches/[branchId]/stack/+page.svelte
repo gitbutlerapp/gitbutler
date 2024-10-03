@@ -1,7 +1,9 @@
 <script lang="ts">
 	import moment from 'moment';
 	import { onMount } from 'svelte';
+	import Gravatar from 'svelte-gravatar';
 	import { env } from '$env/dynamic/public';
+
 	// load moment
 	let state = 'loading';
 	let stackData: any = {};
@@ -92,9 +94,32 @@
 						.statistics.deletions}, Files: {patch.statistics.file_count}
 				</div>
 				<hr />
-				<div>Viewed: {patch.review.viewed}</div>
-				<div>Signed Off:{patch.review.signed_off}</div>
-				<div>Rejected: {patch.review.rejected}</div>
+				<div>
+					Viewed:
+					{#each patch.review.viewed as email}
+						<Gravatar {email} size={20} />
+					{/each}
+				</div>
+				<div>
+					Signed Off:
+					{#each patch.review.signed_off as email}
+						<Gravatar {email} size={20} />
+					{/each}
+				</div>
+				<div>
+					Rejected:
+					{#each patch.review.rejected as email}
+						<Gravatar {email} size={20} />
+					{/each}
+				</div>
+				<hr />
+				{#if patch.review.rejected.length > 0}
+					<div class="rejected">X</div>
+				{:else if patch.review.signed_off.length > 0}
+					<div class="signoff">✓</div>
+				{:else}
+					<div class="unreviewed">?</div>
+				{/if}
 			</div>
 		</div>
 	{/each}
@@ -122,5 +147,23 @@
 		padding: 15px 20px;
 		margin: 10px 0;
 		border-radius: 10px;
+	}
+	.rejected {
+		background-color: rgb(224, 92, 92);
+		color: white;
+		padding: 5px;
+		border-radius: 5px;
+	}
+	.signoff {
+		background-color: rgb(77, 219, 77);
+		color: white;
+		padding: 5px;
+		border-radius: 5px;
+	}
+	.unreviewed {
+		background-color: rgb(204, 204, 69);
+		color: black;
+		padding: 5px;
+		border-radius: 5px;
 	}
 </style>
