@@ -282,6 +282,7 @@
 						{#if isEditing}
 							<div class="text-input pr-modal__title-input-wrapper">
 								<input
+									tabindex="0"
 									type="text"
 									class="text-13 text-body pr-modal__title-input"
 									value={actualTitle}
@@ -302,6 +303,7 @@
 							use:resizeObserver={updateFieldsHeight}
 						>
 							<textarea
+								tabindex="0"
 								bind:this={bodyTextArea}
 								disabled={aiIsLoading}
 								value={actualBody}
@@ -327,6 +329,7 @@
 			{#if isEditing && canUseAI}
 				<div class="text-input pr-modal__ai-prompt-wrapper">
 					<textarea
+						tabindex="0"
 						class="text-13 text-body pr-modal__ai-prompt-input"
 						disabled={aiIsLoading}
 						value={aiDescriptionDirective ?? ''}
