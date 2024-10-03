@@ -12,16 +12,16 @@
 	interface Props {
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		target?: HTMLElement;
+		headName: string;
 		addDescription: () => void;
 	}
 
-	let { contextMenuEl = $bindable(), target, addDescription }: Props = $props();
+	let { contextMenuEl = $bindable(), target, headName, addDescription }: Props = $props();
 
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
 
 	let deleteSeriesModal: Modal;
-	let deleteSeriesCommitsModal: Modal;
 	let renameSeriesModal: Modal;
 	let newSeriesName = $state('');
 	let isDeleting = $state(false);
@@ -42,13 +42,6 @@
 			label="Rename Series"
 			on:click={async () => {
 				renameSeriesModal.show(branch);
-				contextMenuEl?.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Delete Series & Commits"
-			on:click={() => {
-				deleteSeriesCommitsModal.show(branch);
 				contextMenuEl?.close();
 			}}
 		/>
@@ -80,35 +73,12 @@
 
 <Modal
 	width="small"
-	title="Delete Series"
+	title="Delete Series Only"
 	bind:this={deleteSeriesModal}
 	onSubmit={async (close) => {
 		try {
 			isDeleting = true;
-			await branchController.saveAndUnapply(branch.id);
-			close();
-		} finally {
-			isDeleting = false;
-		}
-	}}
->
-	{#snippet children(branch)}
-		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
-	{/snippet}
-	{#snippet controls(close)}
-		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="error" kind="solid" type="submit" loading={isDeleting}>Delete</Button>
-	{/snippet}
-</Modal>
-
-<Modal
-	width="small"
-	title="Delete Series & Commits"
-	bind:this={deleteSeriesCommitsModal}
-	onSubmit={async (close) => {
-		try {
-			isDeleting = true;
-			await branchController.unapplyWithoutSaving(branch.id);
+			await branchController.removePatchSeries(branch.id, headName);
 			close();
 		} finally {
 			isDeleting = false;
