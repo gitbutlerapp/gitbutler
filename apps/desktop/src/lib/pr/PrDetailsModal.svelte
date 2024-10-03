@@ -7,24 +7,35 @@
 </script>
 
 <script lang="ts">
+	import { getPreferredPRAction, PRAction } from './pr';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
-	import { showError } from '$lib/notifications/toasts';
+	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { User } from '$lib/stores/user';
 	import { autoHeight } from '$lib/utils/autoHeight';
+	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { onMetaEnter } from '$lib/utils/hotkeys';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import { sleep } from '$lib/utils/sleep';
+	import { error } from '$lib/utils/toasts';
+	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { tick } from 'svelte';
-	import type { DetailedPullRequest } from '$lib/gitHost/interface/types';
+	import type { DetailedPullRequest, PullRequest } from '$lib/gitHost/interface/types';
 
 	interface BaseProps {
 		type: 'display' | 'preview';
@@ -37,8 +48,6 @@
 
 	interface PreviewProps extends BaseProps {
 		type: 'preview';
-		draft: boolean;
-		onCreatePr: (p: CreatePrParams) => void;
 	}
 
 	type Props = DisplayProps | PreviewProps;
@@ -47,17 +56,26 @@
 
 	const user = getContextStore(User);
 	const project = getContext(Project);
+	const baseBranch = getContextStore(BaseBranch);
 	const branchStore = getContextStore(VirtualBranch);
+	const branchController = getContext(BranchController);
+	const baseBranchService = getContext(BaseBranchService);
+	const gitListService = getGitHostListingService();
 	const prService = getGitHostPrService();
 	const aiService = getContext(AIService);
 	const aiGenEnabled = projectAiGenEnabled(project.id);
+	const gitHost = getGitHost();
+	const preferredPRAction = getPreferredPRAction();
 
 	const branch = $derived($branchStore);
+	const baseBranchName = $derived($baseBranch.shortName);
 	const prTemplatePath = $derived(project.git_host.pullRequestTemplatePath);
+	const isDraft = $derived<boolean>($preferredPRAction === PRAction.CreateDraft);
 
 	let modal = $state<Modal>();
 	let bodyTextArea = $state<HTMLTextAreaElement | null>(null);
 	let isEditing = $state<boolean>(false);
+	let isLoading = $state<boolean>(false);
 	let pullRequestTemplateBody = $state<string | undefined>(undefined);
 	let aiIsLoading = $state<boolean>(false);
 	let aiConfigurationValid = $state<boolean>(false);
@@ -115,14 +133,81 @@
 		if (bodyTextArea) autoHeight(bodyTextArea);
 	}
 
+	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
+		if (!$gitHost) {
+			error('Pull request service not available');
+			return;
+		}
+
+		isLoading = true;
+		try {
+			let upstreamBranchName = branch.upstreamName;
+
+			if (branch.commits.some((c) => !c.isRemote)) {
+				const firstPush = !branch.upstream;
+				const { refname, remote } = await branchController.pushBranch(
+					branch.id,
+					branch.requiresForce
+				);
+				upstreamBranchName = getBranchNameFromRef(refname, remote);
+
+				if (firstPush) {
+					// TODO: fix this hack for reactively available prService.
+					await sleep(500);
+				}
+			}
+
+			if (!baseBranchName) {
+				error('No base branch name determined');
+				return;
+			}
+
+			if (!upstreamBranchName) {
+				error('No upstream branch name determined');
+				return;
+			}
+
+			if (!$prService) {
+				error('Pull request service not available');
+				return;
+			}
+
+			await $prService.createPr({
+				title: params.title,
+				body: params.body,
+				draft: params.draft,
+				baseBranchName,
+				upstreamName: upstreamBranchName
+			});
+		} catch (err: any) {
+			console.error(err);
+			const toast = mapErrorToToast(err);
+			if (toast) showToast(toast);
+			else showError('Error while creating pull request', err);
+		} finally {
+			isLoading = false;
+		}
+		await $gitListService?.refresh();
+		baseBranchService.fetchFromRemotes();
+	}
+
 	function handleCreatePR(close: () => void) {
 		if (props.type !== 'preview') return;
-		props.onCreatePr({
+		createPr({
 			title: actualTitle,
 			body: actualBody,
-			draft: props.draft
+			draft: isDraft
 		});
 		close();
+	}
+
+	function handleCheckDraft(
+		e: Event & {
+			currentTarget: EventTarget & HTMLInputElement;
+		}
+	) {
+		const isDraft = e.currentTarget.checked;
+		preferredPRAction.set(isDraft ? PRAction.CreateDraft : PRAction.Create);
 	}
 
 	function toggleEdit() {
@@ -270,6 +355,11 @@
 			{/if}
 			<div class="pr-modal__button-wrapper">
 				{#if props.type === 'preview'}
+					<div class="pr-modal__checkbox-wrapper">
+						<Checkbox name="is-draft" small checked={isDraft} onchange={handleCheckDraft} />
+						<label class="text-13" for="is-draft">Draft</label>
+					</div>
+
 					<Button style="ghost" outline onclick={close}>Cancel</Button>
 					<Button style="neutral" kind="solid" onclick={toggleEdit}
 						>{isEditing ? 'Done' : 'Edit'}</Button
@@ -277,9 +367,10 @@
 					<Button
 						style="pop"
 						kind="solid"
-						disabled={isEditing}
+						disabled={isEditing || isLoading}
+						{isLoading}
 						onclick={() => handleCreatePR(close)}
-						>{props.draft ? 'Create Draft PR' : 'Create PR'}</Button
+						>{isDraft ? 'Create Draft PR' : 'Create PR'}</Button
 					>
 				{:else if props.type === 'display'}
 					<Button style="ghost" outline onclick={close}>Done</Button>
@@ -362,11 +453,20 @@
 		border-bottom-right-radius: var(--radius-l);
 	}
 
+	.pr-modal__checkbox-wrapper {
+		display: flex;
+		width: 100%;
+		gap: 8px;
+		justify-content: flex-start;
+		align-items: center;
+	}
+
 	.pr-modal__button-wrapper {
 		display: flex;
 		gap: 8px;
 		width: 100%;
 		justify-content: flex-end;
+		align-items: center;
 	}
 
 	.pr-modal__ai-prompt-wrapper {

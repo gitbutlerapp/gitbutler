@@ -3,28 +3,17 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import DefaultTargetButton from './DefaultTargetButton.svelte';
-	import PullRequestButton from '../pr/PullRequestButton.svelte';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { stackingFeature } from '$lib/config/uiFeatureFlags';
-	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
-	import { showError, showToast } from '$lib/notifications/toasts';
-	import PrDetailsModal, { type CreatePrParams } from '$lib/pr/PrDetailsModal.svelte';
-	import { getBranchNameFromRef } from '$lib/utils/branch';
+	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { sleep } from '$lib/utils/sleep';
-	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { tick } from 'svelte';
-	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
 	interface Props {
@@ -36,23 +25,17 @@
 	const { uncommittedChanges = 0, isLaneCollapsed, onGenerateBranchName }: Props = $props();
 
 	const branchController = getContext(BranchController);
-	const baseBranchService = getContext(BaseBranchService);
-	const baseBranch = getContextStore(BaseBranch);
 	const prService = getGitHostPrService();
-	const gitListService = getGitHostListingService();
 	const branchStore = getContextStore(VirtualBranch);
 	const prMonitor = getGitHostPrMonitor();
 	const gitHost = getGitHost();
 
-	const baseBranchName = $derived($baseBranch.shortName);
 	const branch = $derived($branchStore);
 	const pr = $derived($prMonitor?.pr);
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let useDraftPr = $state<boolean>(false);
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
-	let isLoading = $state(false);
 	let isTargetBranchAnimated = $state(false);
 
 	function handleBranchNameChange(title: string) {
@@ -73,67 +56,7 @@
 
 	let headerInfoHeight = $state(0);
 
-	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
-		if (!$gitHost) {
-			error('Pull request service not available');
-			return;
-		}
-
-		isLoading = true;
-		try {
-			let upstreamBranchName = branch.upstreamName;
-
-			if (branch.commits.some((c) => !c.isRemote)) {
-				const firstPush = !branch.upstream;
-				const { refname, remote } = await branchController.pushBranch(
-					branch.id,
-					branch.requiresForce
-				);
-				upstreamBranchName = getBranchNameFromRef(refname, remote);
-
-				if (firstPush) {
-					// TODO: fix this hack for reactively available prService.
-					await sleep(500);
-				}
-			}
-
-			if (!baseBranchName) {
-				error('No base branch name determined');
-				return;
-			}
-
-			if (!upstreamBranchName) {
-				error('No upstream branch name determined');
-				return;
-			}
-
-			if (!$prService) {
-				error('Pull request service not available');
-				return;
-			}
-
-			await $prService.createPr({
-				title: params.title,
-				body: params.body,
-				draft: params.draft,
-				baseBranchName,
-				upstreamName: upstreamBranchName
-			});
-		} catch (err: any) {
-			console.error(err);
-			const toast = mapErrorToToast(err);
-			if (toast) showToast(toast);
-			else showError('Error while creating pull request', err);
-		} finally {
-			isLoading = false;
-		}
-		await $gitListService?.refresh();
-		baseBranchService.fetchFromRemotes();
-	}
-
-	async function handleCreatePR(draft: boolean) {
-		useDraftPr = draft;
-		await tick();
+	function handleOpenPR() {
 		prDetailsModal?.show();
 	}
 </script>
@@ -268,14 +191,13 @@
 					<div class="relative">
 						<div class="header__buttons">
 							{#if !$pr}
-								<PullRequestButton
-									click={async ({ draft }) => await handleCreatePR(draft)}
+								<Button
+									style="ghost"
+									outline
+									tooltip="Start a PR"
 									disabled={branch.commits.length === 0 || !$gitHost || !$prService}
-									tooltip={!$gitHost || !$prService
-										? 'You can enable git host integration in the settings'
-										: ''}
-									loading={isLoading}
-								/>
+									onclick={handleOpenPR}>PR</Button
+								>
 							{/if}
 							<Button
 								bind:el={meatballButtonEl}
@@ -301,12 +223,7 @@
 	</div>
 {/if}
 
-<PrDetailsModal
-	bind:this={prDetailsModal}
-	type="preview"
-	onCreatePr={createPr}
-	draft={useDraftPr}
-/>
+<PrDetailsModal bind:this={prDetailsModal} type="preview" />
 
 <style>
 	.header__wrapper {
