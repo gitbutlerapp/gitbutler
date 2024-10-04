@@ -151,6 +151,7 @@
 			<div class="header__actions">
 				<div class="header__buttons">
 					<DefaultTargetButton
+						size="button"
 						selectedForChanges={branch.selectedForChanges}
 						onclick={async () => {
 							isTargetBranchAnimated = true;
