@@ -12,28 +12,39 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { fade } from 'svelte/transition';
 
-	export let minimal = false;
-	export let disabled = false;
+	interface Props {
+		minimal?: boolean;
+		disabled?: boolean;
+	}
+
+	const { minimal = false, disabled = false }: Props = $props();
 
 	const githubUserService = getGitHubUserServiceStore();
 	const userService = getContext(UserService);
-	const user = userService.user;
+	const user = $derived(userService.user);
+	const gitHubUser = $derived($githubUserService?.authenticatedUser);
 
 	// step flags
-	let codeCopied = false;
-	let GhActivationLinkPressed = false;
-	let GhActivationPageOpened = false;
+	let codeCopied = $state<boolean>(false);
+	let GhActivationLinkPressed = $state<boolean>(false);
+	let GhActivationPageOpened = $state<boolean>(false);
 
-	let loading = false;
-	let userCode = '';
-	let deviceCode = '';
-	let gitHubOauthModal: Modal;
+	let loading = $state<boolean>(false);
+	let userCode = $state<string>('');
+	let deviceCode = $state<string>('');
+	let gitHubOauthModal = $state<ReturnType<typeof Modal>>();
+
+	// Fetch GitHub user data
+	$effect(() => {
+		if ($gitHubUser) return;
+		$githubUserService?.fetch();
+	});
 
 	function gitHubStartOauth() {
 		initDeviceOauth().then((verification) => {
 			userCode = verification.user_code;
 			deviceCode = verification.device_code;
-			gitHubOauthModal.show();
+			gitHubOauthModal?.show();
 		});
 	}
 
@@ -44,15 +55,17 @@
 			const accessToken = await checkAuthStatus({ deviceCode });
 			$user.github_access_token = accessToken;
 			await userService.setUser($user);
-			// TODO: Remove setting of gh username since it isn't used anywhere.
-			$user.github_username = await $githubUserService?.fetchGitHubLogin();
-			userService.setUser($user);
+
+			await $githubUserService?.fetch();
+			$user.github_username = $gitHubUser?.login;
+			await userService.setUser($user);
+
 			toasts.success('GitHub authenticated');
 		} catch (err: any) {
 			console.error(err);
 			toasts.error('GitHub authentication failed');
 		} finally {
-			gitHubOauthModal.close();
+			gitHubOauthModal?.close();
 			loading = false;
 		}
 	}
@@ -69,39 +82,54 @@
 {#if minimal}
 	<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 {:else}
-	<SectionCard orientation="row">
-		<svelte:fragment slot="iconSide">
-			<div class="icon-wrapper">
-				{#if $user?.github_access_token}
-					<div class="icon-wrapper__tick">
-						<Icon name="success" color="success" size={18} />
-					</div>
-				{/if}
-				<svg
-					width="28"
-					height="28"
-					viewBox="0 0 28 28"
-					fill="var(--clr-scale-ntrl-0)"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<path
-						fill-rule="evenodd"
-						clip-rule="evenodd"
-						d="M14.0116 0C6.26354 0 0 6.41664 0 14.3549C0 20.7004 4.01327 26.0717 9.58073 27.9728C10.2768 28.1157 10.5318 27.6639 10.5318 27.2838C10.5318 26.9511 10.5088 25.8104 10.5088 24.6218C6.61115 25.4776 5.79949 22.9106 5.79949 22.9106C5.17311 21.247 4.245 20.8194 4.245 20.8194C2.96929 19.94 4.33793 19.94 4.33793 19.94C5.75303 20.0351 6.49557 21.4135 6.49557 21.4135C7.74804 23.5998 9.76629 22.9821 10.5782 22.6017C10.6941 21.6748 11.0655 21.0332 11.4599 20.6767C8.3512 20.344 5.08047 19.1082 5.08047 13.5942C5.08047 12.0257 5.63687 10.7423 6.51851 9.74425C6.37941 9.38784 5.89213 7.91405 6.6579 5.94152C6.6579 5.94152 7.84097 5.56119 10.5085 7.41501C11.6506 7.10079 12.8284 6.94094 14.0116 6.9396C15.1947 6.9396 16.4007 7.10614 17.5143 7.41501C20.1822 5.56119 21.3653 5.94152 21.3653 5.94152C22.131 7.91405 21.6435 9.38784 21.5044 9.74425C22.4092 10.7423 22.9427 12.0257 22.9427 13.5942C22.9427 19.1082 19.672 20.32 16.5401 20.6767C17.0506 21.1282 17.4911 21.9837 17.4911 23.3385C17.4911 25.2635 17.4682 26.8084 17.4682 27.2836C17.4682 27.6639 17.7234 28.1157 18.4192 27.9731C23.9867 26.0714 27.9999 20.7004 27.9999 14.3549C28.0229 6.41664 21.7364 0 14.0116 0Z"
+	<div class="stack-v">
+		<SectionCard orientation="row" roundedBottom={!$user}>
+			<svelte:fragment slot="iconSide">
+				<div class="icon-wrapper">
+					{#if $user?.github_access_token}
+						<div class="icon-wrapper__tick">
+							<Icon name="success" color="success" size={18} />
+						</div>
+					{/if}
+					<svg
+						width="28"
+						height="28"
+						viewBox="0 0 28 28"
+						fill="var(--clr-scale-ntrl-0)"
+						xmlns="http://www.w3.org/2000/svg"
+					>
+						<path
+							fill-rule="evenodd"
+							clip-rule="evenodd"
+							d="M14.0116 0C6.26354 0 0 6.41664 0 14.3549C0 20.7004 4.01327 26.0717 9.58073 27.9728C10.2768 28.1157 10.5318 27.6639 10.5318 27.2838C10.5318 26.9511 10.5088 25.8104 10.5088 24.6218C6.61115 25.4776 5.79949 22.9106 5.79949 22.9106C5.17311 21.247 4.245 20.8194 4.245 20.8194C2.96929 19.94 4.33793 19.94 4.33793 19.94C5.75303 20.0351 6.49557 21.4135 6.49557 21.4135C7.74804 23.5998 9.76629 22.9821 10.5782 22.6017C10.6941 21.6748 11.0655 21.0332 11.4599 20.6767C8.3512 20.344 5.08047 19.1082 5.08047 13.5942C5.08047 12.0257 5.63687 10.7423 6.51851 9.74425C6.37941 9.38784 5.89213 7.91405 6.6579 5.94152C6.6579 5.94152 7.84097 5.56119 10.5085 7.41501C11.6506 7.10079 12.8284 6.94094 14.0116 6.9396C15.1947 6.9396 16.4007 7.10614 17.5143 7.41501C20.1822 5.56119 21.3653 5.94152 21.3653 5.94152C22.131 7.91405 21.6435 9.38784 21.5044 9.74425C22.4092 10.7423 22.9427 12.0257 22.9427 13.5942C22.9427 19.1082 19.672 20.32 16.5401 20.6767C17.0506 21.1282 17.4911 21.9837 17.4911 23.3385C17.4911 25.2635 17.4682 26.8084 17.4682 27.2836C17.4682 27.6639 17.7234 28.1157 18.4192 27.9731C23.9867 26.0714 27.9999 20.7004 27.9999 14.3549C28.0229 6.41664 21.7364 0 14.0116 0Z"
+						/>
+					</svg>
+				</div>
+			</svelte:fragment>
+			<svelte:fragment slot="title">GitHub</svelte:fragment>
+			<svelte:fragment slot="caption">Allows you to view and create Pull Requests.</svelte:fragment>
+			{#if !$user?.github_access_token}
+				<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
+			{/if}
+		</SectionCard>
+		{#if $gitHubUser && $user}
+			<SectionCard orientation="row" roundedTop={false}>
+				<svelte:fragment slot="iconSide">
+					<img
+						class="profile-pic"
+						src={$gitHubUser.avatar_url}
+						alt=""
+						referrerpolicy="no-referrer"
 					/>
-				</svg>
-			</div>
-		</svelte:fragment>
-		<svelte:fragment slot="title">GitHub</svelte:fragment>
-		<svelte:fragment slot="caption">Allows you to view and create Pull Requests.</svelte:fragment>
-		{#if $user?.github_access_token}
-			<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}>
-				Forget
-			</Button>
-		{:else}
-			<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
+				</svelte:fragment>
+				<svelte:fragment slot="title">{$gitHubUser.login}</svelte:fragment>
+				<svelte:fragment slot="caption">{$gitHubUser.name}</svelte:fragment>
+				<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}>
+					Forget
+				</Button>
+			</SectionCard>
 		{/if}
-	</SectionCard>
+	</div>
 {/if}
 
 <Modal
@@ -301,5 +329,11 @@
 		background-color: var(--clr-bg);
 		border: 1px solid var(--clr-border-2);
 		user-select: text;
+	}
+
+	.profile-pic {
+		width: 28px;
+		height: 28px;
+		border-radius: 50%;
 	}
 </style>

@@ -1,13 +1,20 @@
 import { buildContextStore } from '$lib/utils/context';
-import type { Octokit } from '@octokit/rest';
+import { writable } from 'svelte/store';
+import type { Octokit, RestEndpointMethodTypes } from '@octokit/rest';
+
+type GitHubGetAuthenticatedUserData =
+	RestEndpointMethodTypes['users']['getAuthenticated']['response']['data'];
 
 export class GitHubUserService {
+	readonly authenticatedUser = writable<GitHubGetAuthenticatedUserData | undefined>(undefined);
+
 	constructor(private octokit: Octokit) {}
 
-	async fetchGitHubLogin(): Promise<string> {
+	async fetch(): Promise<GitHubGetAuthenticatedUserData> {
 		try {
 			const rsp = await this.octokit.users.getAuthenticated();
-			return rsp.data.login;
+			this.authenticatedUser.set(rsp.data);
+			return rsp.data;
 		} catch (e) {
 			console.error(e);
 			throw e;
