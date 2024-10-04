@@ -277,6 +277,13 @@
 	function createChatMessage() {
 		let chatBox = document.querySelector<HTMLElement>('.chatBox');
 		if (chatBox) {
+			// check if this is an issue
+			var checkbox = document.getElementById('issue');
+			let is_issue = false;
+			if ((checkbox as HTMLInputElement).checked) {
+				is_issue = true;
+			}
+
 			let text = chatBox.querySelector('textarea')!.value;
 			let params: {
 				chat: string;
@@ -284,16 +291,17 @@
 				range?: string;
 				diff_path?: string;
 				diff_sha?: string;
+				issue?: boolean;
 			} = {
 				chat: text,
-				change_id: data.changeId
+				change_id: data.changeId,
+				issue: is_issue
 			};
 			if (commentRange.length > 0) {
 				params.range = commentRange;
 				params.diff_path = diffPath;
 				params.diff_sha = diffSha;
 			}
-			console.log('FUCKING POST', params);
 			let opts = {
 				method: 'POST',
 				headers: {
@@ -338,11 +346,35 @@
 		}
 	}
 
+	function resolveIssue(uuid: string) {
+		//:project_id/chat/:chat_uuid
+		console.log('Resolving issue', uuid);
+		let opts = {
+			method: 'PATCH',
+			headers: {
+				'X-AUTH-TOKEN': key || '',
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				resolved: true
+			})
+		};
+		if (key) {
+			fetch(env.PUBLIC_APP_HOST + 'api/chat_messages/' + data.projectId + '/chat/' + uuid, opts)
+				.then(async (response) => await response.json())
+				.then((data) => {
+					console.log('resolved', data);
+					fetchAndUpdateChat();
+				});
+		}
+	}
+
 	let commentRange: string = '';
 	let diffPath: string = '';
 	let diffSha: string = '';
 
 	function rangeSelect(range: string, diff_path: string, diff_sha: string) {
+		console.log('range selected', range, diff_path, diff_sha);
 		commentRange = range;
 		diffPath = diff_path;
 		diffSha = diff_sha;
@@ -504,7 +536,7 @@
 			<h3>Chat</h3>
 			<div class="chatWindow">
 				{#each chats as chat}
-					<div class="chatEntry">
+					<div class="chatEntry {chat.issue ? 'issue' : ''} {chat.resolved ? 'resolved' : ''}">
 						<div class="chatHeader">
 							<div class="avatar">
 								<Gravatar email={chat.user.email} size={20} />
@@ -519,13 +551,28 @@
 							</div>
 						{/if}
 						<div class="chatComment">{chat.comment}</div>
+						{#if chat.issue}
+							{#if chat.resolved}
+								<div class="right">resolved</div>
+							{:else}
+								<button class="action" on:click={() => resolveIssue(chat.uuid)}>resolve</button>
+							{/if}
+						{/if}
 					</div>
 				{/each}
 			</div>
 			<div class="chatBox">
 				<div class="input">
-					<textarea></textarea>
-					<button class="action" on:click={() => createChatMessage()}>send</button>
+					<div class="messageBox">
+						<textarea></textarea>
+					</div>
+					<div class="chatOptions">
+						<div class="issueOptions">
+							<input type="checkbox" id="issue" name="issue" value="issue" />
+							<div>issue</div>
+						</div>
+						<button class="actionChat" on:click={() => createChatMessage()}>send</button>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -533,6 +580,27 @@
 {/if}
 
 <style>
+	.actionChat {
+		cursor: pointer;
+		color: #ffffff;
+		padding: 5px 10px;
+		background-color: var(--clr-theme-pop-element);
+		border-radius: 5px;
+	}
+	.issueOptions {
+		display: flex;
+		flex-direction: row;
+		gap: 5px;
+		color: #626262;
+		/* justify vertically */
+		align-items: center;
+	}
+	.chatOptions {
+		padding: 4px;
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+	}
 	.patchArea {
 		max-width: 800px;
 		overflow-x: scroll;
@@ -621,6 +689,12 @@
 		padding: 5px;
 		margin: 5px 0;
 	}
+	.chatEntry.issue {
+		background-color: #ffeef0;
+	}
+	.chatEntry.issue.resolved {
+		background-color: #eeeeee;
+	}
 	.chatHeader {
 		display: flex;
 		flex-direction: row;
@@ -641,9 +715,11 @@
 	}
 	.chatBox textarea {
 		width: 100%;
-		height: 30px;
+		height: 40px;
+		border-radius: 5px;
 		font-family: monospace;
 		font-size: large;
+		padding: 5px;
 	}
 	.avatar {
 		border-radius: 50%;
