@@ -75,7 +75,8 @@
 		files = await listRemoteCommitFiles(project.id, commit.id);
 	}
 
-	function toggleFiles() {
+	function toggleFiles(e?: MouseEvent) {
+		e?.stopPropagation();
 		if (!filesToggleable) return;
 		showDetails = !showDetails;
 
