@@ -25,7 +25,7 @@
 	import { autoHeight } from '$lib/utils/autoHeight';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { onMetaEnter } from '$lib/utils/hotkeys';
+	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
@@ -72,7 +72,8 @@
 	const prTemplatePath = $derived(project.git_host.pullRequestTemplatePath);
 	const isDraft = $derived<boolean>($preferredPRAction === PRAction.CreateDraft);
 
-	let modal = $state<Modal>();
+	let modal = $state<ReturnType<typeof Modal>>();
+	let inputTitleElem = $state<HTMLInputElement | null>(null);
 	let bodyTextArea = $state<HTMLTextAreaElement | null>(null);
 	let isEditing = $state<boolean>(false);
 	let isLoading = $state<boolean>(false);
@@ -211,6 +212,7 @@
 	}
 
 	function toggleEdit() {
+		if (props.type !== 'preview') return;
 		isEditing = !isEditing;
 	}
 
@@ -253,6 +255,33 @@
 		updateFieldsHeight();
 	}
 
+	function handleModalKeydown(e: KeyboardEvent) {
+		switch (e.key) {
+			case 'e':
+				if (e.metaKey || e.ctrlKey) {
+					e.stopPropagation();
+					e.preventDefault();
+					toggleEdit();
+				}
+				break;
+			case 'g':
+				if (e.metaKey || e.ctrlKey) {
+					e.stopPropagation();
+					e.preventDefault();
+					handleAIButtonPressed();
+				}
+				break;
+			case KeyName.Enter:
+				if (isEditing || isLoading || aiIsLoading) break;
+				if (e.metaKey || e.ctrlKey) {
+					e.stopPropagation();
+					e.preventDefault();
+					handleCreatePR(() => modal?.close());
+				}
+				break;
+		}
+	}
+
 	function onClose() {
 		isEditing = false;
 		inputTitle = undefined;
@@ -270,7 +299,7 @@
 	};
 </script>
 
-<Modal bind:this={modal} width="large" noPadding {onClose}>
+<Modal bind:this={modal} width="large" noPadding {onClose} onKeyDown={handleModalKeydown}>
 	{#snippet children(_, close)}
 		<ScrollableContainer maxHeight="70vh">
 			<div class="pr-modal__content">
@@ -282,6 +311,7 @@
 						{#if isEditing}
 							<div class="text-input pr-modal__title-input-wrapper">
 								<input
+									bind:this={inputTitleElem}
 									tabindex="0"
 									type="text"
 									class="text-13 text-body pr-modal__title-input"
@@ -370,7 +400,7 @@
 					<Button
 						style="pop"
 						kind="solid"
-						disabled={isEditing || isLoading}
+						disabled={isEditing || isLoading || aiIsLoading}
 						{isLoading}
 						onclick={() => handleCreatePR(close)}
 						>{isDraft ? 'Create Draft PR' : 'Create PR'}</Button
