@@ -75,51 +75,54 @@
 
 	<h2>Patches</h2>
 	{#each stackData.patches as patch}
-		<div class="columns patch">
-			<div class="column">
-				<div>Title: <strong>{patch.title}</strong></div>
-				<div>Change Id: <code><a href="./stack/{patch.change_id}">{patch.change_id}</a></code></div>
-				<div>Commit: <code>{patch.commit_sha}</code></div>
-				<div>Version: {patch.version}</div>
-				<div><strong>Files:</strong></div>
-				{#each patch.statistics.files as file}
-					<div><code>{file}</code></div>
-				{/each}
-			</div>
-			<div class="column">
-				<div>Created: <span class="dtime">{patch.created_at}</span></div>
-				<div>Contributors: {patch.contributors}</div>
-				<div>
-					Additions: {patch.statistics.lines - patch.statistics.deletions}, Deletions: {patch
-						.statistics.deletions}, Files: {patch.statistics.file_count}
-				</div>
-				<hr />
-				<div>
-					Viewed:
-					{#each patch.review.viewed as email}
-						<Gravatar {email} size={20} />
+		<div class="patch">
+			{#if patch.review.rejected.length > 0}
+				<div class="patchHeader rejected">X</div>
+			{:else if patch.review.signed_off.length > 0}
+				<div class="patchHeader signoff">✓</div>
+			{:else}
+				<div class="patchHeader unreviewed">?</div>
+			{/if}
+			<div class="columns patchData">
+				<div class="column">
+					<div>Title: <strong>{patch.title}</strong></div>
+					<div>
+						Change Id: <code><a href="./stack/{patch.change_id}">{patch.change_id}</a></code>
+					</div>
+					<div>Commit: <code>{patch.commit_sha}</code></div>
+					<div>Version: {patch.version}</div>
+					<div><strong>Files:</strong></div>
+					{#each patch.statistics.files as file}
+						<div><code>{file}</code></div>
 					{/each}
 				</div>
-				<div>
-					Signed Off:
-					{#each patch.review.signed_off as email}
-						<Gravatar {email} size={20} />
-					{/each}
+				<div class="column">
+					<div>Created: <span class="dtime">{patch.created_at}</span></div>
+					<div>Contributors: {patch.contributors}</div>
+					<div>
+						Additions: {patch.statistics.lines - patch.statistics.deletions}, Deletions: {patch
+							.statistics.deletions}, Files: {patch.statistics.file_count}
+					</div>
+					<hr />
+					<div>
+						Viewed:
+						{#each patch.review.viewed as email}
+							<Gravatar {email} size={20} />
+						{/each}
+					</div>
+					<div>
+						Signed Off:
+						{#each patch.review.signed_off as email}
+							<Gravatar {email} size={20} />
+						{/each}
+					</div>
+					<div>
+						Rejected:
+						{#each patch.review.rejected as email}
+							<Gravatar {email} size={20} />
+						{/each}
+					</div>
 				</div>
-				<div>
-					Rejected:
-					{#each patch.review.rejected as email}
-						<Gravatar {email} size={20} />
-					{/each}
-				</div>
-				<hr />
-				{#if patch.review.rejected.length > 0}
-					<div class="rejected">X</div>
-				{:else if patch.review.signed_off.length > 0}
-					<div class="signoff">✓</div>
-				{:else}
-					<div class="unreviewed">?</div>
-				{/if}
 			</div>
 		</div>
 	{/each}
@@ -144,26 +147,26 @@
 	.patch {
 		background-color: var(--clr-bg-1-muted);
 		border: 1px solid #ccc;
-		padding: 15px 20px;
 		margin: 10px 0;
 		border-radius: 10px;
+	}
+	.patchData {
+		padding: 15px 20px;
+	}
+	.patchHeader {
+		padding: 5px;
+		border-radius: 5px 5px 0 0;
 	}
 	.rejected {
 		background-color: rgb(224, 92, 92);
 		color: white;
-		padding: 5px;
-		border-radius: 5px;
 	}
 	.signoff {
 		background-color: rgb(77, 219, 77);
 		color: white;
-		padding: 5px;
-		border-radius: 5px;
 	}
 	.unreviewed {
-		background-color: rgb(204, 204, 69);
+		background-color: rgb(215, 215, 144);
 		color: black;
-		padding: 5px;
-		border-radius: 5px;
 	}
 </style>
