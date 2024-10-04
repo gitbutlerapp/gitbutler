@@ -162,6 +162,8 @@
 	.branch {
 		height: 100%;
 		width: fit-content;
+		/* disable lane outline on modal close */
+		outline: none;
 	}
 
 	.draggable-branch {
