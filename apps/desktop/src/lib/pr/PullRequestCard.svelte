@@ -36,7 +36,7 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 
-	let prDetailsModal = $state<PrDetailsModal>();
+	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 
 	const gitHostListingService = getGitHostListingService();
 	const prStore = $derived($gitHostListingService?.prs);
@@ -202,21 +202,14 @@
 			class="text-13 text-semibold"
 		>
 			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
-			{$pr.title}
+			<Button
+				style="ghost"
+				outline
+				onclick={() => {
+					prDetailsModal?.show();
+				}}>{$pr.title}</Button
+			>
 		</div>
-		{#if !$stackingFeature}
-			<div class="pr-options">
-				<Button
-					size="tag"
-					style="ghost"
-					outline
-					icon="eye-shown"
-					onclick={() => {
-						prDetailsModal?.show();
-					}}>View details</Button
-				>
-			</div>
-		{/if}
 		<div class:pr-tags={!$stackingFeature} class:stacked-pr-tags={$stackingFeature}>
 			<Button
 				size="tag"
@@ -324,10 +317,6 @@
 		padding: 14px 14px 12px 14px;
 		user-select: text;
 		cursor: text;
-	}
-
-	.pr-options {
-		margin-bottom: 12px;
 	}
 
 	.pr-tags {
