@@ -1,14 +1,18 @@
 <script lang="ts">
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	export let image: string;
-	export let width: string = '18rem';
-	export let hasBottomMargin: boolean = true;
+	export let width: number = 256;
+	export let bottomMargin: number = 0;
+	export let topBottomPadding: number = 48;
+	export let leftRightPadding: number = 0;
 </script>
 
 <div class="empty-state-container">
 	<div
 		class="empty-state"
-		style:max-width={width}
-		style:margin-bottom={hasBottomMargin ? '48px' : '0'}
+		style:max-width={pxToRem(width)}
+		style:margin-bottom={pxToRem(bottomMargin)}
+		style:padding={`${pxToRem(topBottomPadding)} ${pxToRem(leftRightPadding)}`}
 	>
 		<div class="empty-state__image">
 			{@html image}
@@ -48,7 +52,6 @@
 		color: var(--clr-scale-ntrl-60);
 		background: var(--clr-bg-1);
 		justify-content: center;
-		padding: 48px 0;
 		width: 100%;
 		gap: 16px;
 		border-radius: var(--radius-m);

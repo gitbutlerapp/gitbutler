@@ -1,6 +1,5 @@
 <script lang="ts">
 	import BranchHeader from './BranchHeader.svelte';
-	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
 	import PullRequestCard from '../pr/PullRequestCard.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { PromptService } from '$lib/ai/promptService';
@@ -34,6 +33,7 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
@@ -199,7 +199,7 @@
 						{:else if branch.commits.length === 0}
 							<Dropzones>
 								<div class="new-branch">
-									<EmptyStatePlaceholder image={laneNewSvg} width="11rem">
+									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
 										<svelte:fragment slot="title">This is a new branch</svelte:fragment>
 										<svelte:fragment slot="caption">
 											You can drag and drop files or parts of files here.
@@ -210,7 +210,7 @@
 						{:else}
 							<Dropzones>
 								<div class="no-changes">
-									<EmptyStatePlaceholder image={noChangesSvg} width="11rem" hasBottomMargin={false}>
+									<EmptyStatePlaceholder image={noChangesSvg} width={180}>
 										<svelte:fragment slot="caption"
 											>No uncommitted changes on this branch</svelte:fragment
 										>
