@@ -11,6 +11,7 @@
 		noPadding?: boolean;
 		onClose?: () => void;
 		onSubmit?: (close: () => void) => void;
+		onKeyDown?: (e: KeyboardEvent) => void;
 		children: Snippet<[item: any, close: () => void]>;
 		controls?: Snippet<[close: () => void, item: any]>;
 	}
@@ -23,6 +24,7 @@
 		children,
 		controls,
 		onSubmit,
+		onKeyDown,
 		noPadding = false
 	}: Props = $props();
 
@@ -50,7 +52,11 @@
 	};
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <dialog
+	tabindex="0"
+	onkeydown={onKeyDown}
 	bind:this={dialogElement}
 	class:default={width === 'default'}
 	class:large={width === 'large'}
