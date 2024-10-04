@@ -1,7 +1,6 @@
 <script lang="ts">
 	import StackingStatusIcon from './StackingStatusIcon.svelte';
-	import { Project } from '$lib/backend/projects';
-	import { projectShowStackingCardDetails } from '$lib/config/config';
+	import { showStackingCardDetails } from '$lib/config/config';
 	import Link from '$lib/shared/Link.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
@@ -13,13 +12,9 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 
-	const project = getContext(Project);
 	const branchController = getContext(BranchController);
 	const branch = getContextStore(VirtualBranch);
 
-	const showStackingCardDetails = projectShowStackingCardDetails(project.id);
-
-	let showDetails = $state($showStackingCardDetails);
 	let loading = $state(false);
 
 	let createRefModal: Modal;
@@ -27,7 +22,6 @@
 
 	function closeStackingCard() {
 		showStackingCardDetails.set(false);
-		showDetails = false;
 	}
 
 	function addSeries() {
@@ -47,7 +41,7 @@
 </script>
 
 <section class="card">
-	{#if showDetails}
+	{#if $showStackingCardDetails}
 		<button tabindex="0" class="card__close" onclick={closeStackingCard}>
 			<Icon name="cross-small" />
 		</button>
@@ -61,11 +55,11 @@
 		</div>
 		<Spacer />
 	{/if}
-	<section class="card__action" class:showDetails={!showDetails}>
+	<section class="card__action" class:showDetails={!$showStackingCardDetails}>
 		<StackingStatusIcon icon="plus-small" gap={true} />
-		<Button grow style="neutral" {loading} onclick={() => createRefModal.show()}
-			>Add a branch to the stack</Button
-		>
+		<Button grow style="neutral" {loading} onclick={() => createRefModal.show()}>
+			Add a branch to the stack
+		</Button>
 	</section>
 </section>
 
