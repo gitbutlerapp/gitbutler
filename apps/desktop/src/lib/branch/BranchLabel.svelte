@@ -8,8 +8,6 @@
 	}
 
 	let { name, disabled = false, onChange }: Props = $props();
-
-	let inputEl = $state<HTMLInputElement>();
 </script>
 
-<LabelInput bind:inputEl class="text-14 text-bold" value={name} {disabled} {onChange} />
+<LabelInput class="text-14 text-bold" value={name} {disabled} {onChange} />
