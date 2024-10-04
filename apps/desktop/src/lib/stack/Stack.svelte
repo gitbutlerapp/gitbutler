@@ -27,10 +27,8 @@
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import {
-		// getIntegratedCommits,
 		getLocalAndRemoteCommits,
 		getLocalCommits
-		// getRemoteCommits
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
@@ -64,7 +62,6 @@
 	let laneWidth: number | undefined = $state();
 
 	let commitDialog = $state<CommitDialog>();
-	let scrollViewport = $state<HTMLElement>();
 	let rsViewport = $state<HTMLElement>();
 
 	$effect(() => {
@@ -106,8 +103,6 @@
 
 	const localCommits = getLocalCommits();
 	const localAndRemoteCommits = getLocalAndRemoteCommits();
-	// const integratedCommits = getIntegratedCommits();
-	// const remoteCommits = getRemoteCommits();
 
 	let isPushingCommits = $state(false);
 	const localCommitsConflicted = $derived($localCommits.some((commit) => commit.conflicted));
@@ -131,7 +126,6 @@
 		}
 	}
 
-	let stickyPushFooter = $state<HTMLDivElement>();
 	let scrollEndVisible = $state(false);
 </script>
 
@@ -145,7 +139,7 @@
 		<div class="collapsed-lane-divider" data-remove-from-draggable></div>
 	</div>
 {:else}
-	<div class="resizer-wrapper" bind:this={scrollViewport}>
+	<div class="resizer-wrapper">
 		<div class="branch-card hide-native-scrollbar" class:target-branch={branch.selectedForChanges}>
 			<ScrollableContainer
 				wide
@@ -229,7 +223,6 @@
 				<div
 					class="lane-branches__action"
 					class:scroll-end-visible={scrollEndVisible}
-					bind:this={stickyPushFooter}
 				>
 					<Button
 						style="pop"
