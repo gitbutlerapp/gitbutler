@@ -386,10 +386,28 @@ impl Stack for Branch {
                     None => CommitOrChangeId::CommitId(c.id().to_string()),
                 })
                 .collect_vec();
+
+            let mut remote_patches: Vec<CommitOrChangeId> = vec![];
+            if let Some(remote_name) = default_target.push_remote_name.as_ref() {
+                if head.pushed(remote_name, ctx).unwrap_or_default() {
+                    let head_commit = repo
+                        .find_reference(&head.remote_reference(remote_name)?)?
+                        .peel_to_commit()?;
+                    let merge_base = repo.merge_base(head_commit.id(), default_target.sha)?;
+                    repo.log(head_commit.id(), LogUntil::Commit(merge_base))?
+                        .iter()
+                        .rev()
+                        .map(|c| match c.change_id() {
+                            Some(change_id) => CommitOrChangeId::ChangeId(change_id.to_string()),
+                            None => CommitOrChangeId::CommitId(c.id().to_string()),
+                        })
+                        .for_each(|c| remote_patches.push(c));
+                }
+            };
             all_series.push(Series {
                 head: head.clone(),
                 local_commits: local_patches,
-                remote_commits: vec![], // TODO
+                remote_commits: remote_patches,
             });
             previous_head = head_commit;
         }

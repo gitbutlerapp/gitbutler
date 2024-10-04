@@ -471,7 +471,8 @@ fn stack_series(
     check_commit: &IsCommitIntegrated,
 ) -> Result<Vec<PatchSeries>> {
     let mut api_series: Vec<PatchSeries> = vec![];
-    for series in branch.list_series(ctx)? {
+    let stack_series = branch.list_series(ctx)?;
+    for series in stack_series.clone() {
         let upstream_reference = default_target.push_remote_name.as_ref().and_then(|remote| {
             if series.head.pushed(remote.as_str(), ctx).ok()? {
                 series.head.remote_reference(remote.as_str()).ok()
@@ -480,21 +481,41 @@ fn stack_series(
             }
         });
         let mut patches: Vec<VirtualBranchCommit> = vec![];
-        for patch in series.local_commits {
+        for patch in series.clone().local_commits {
             let commit = commit_by_oid_or_change_id(&patch, ctx, branch.head, default_target)?;
             let is_integrated = check_commit.is_integrated(&commit)?;
-            // TODO: correctly determine if commit is remote
-            let vcommit =
-                commit_to_vbranch_commit(ctx, branch, &commit, is_integrated, false, None)?;
+            let vcommit = commit_to_vbranch_commit(
+                ctx,
+                branch,
+                &commit,
+                is_integrated,
+                series.remote(&patch),
+                None,
+            )?;
             patches.push(vcommit);
         }
         patches.reverse();
+        let mut upstream_patches = vec![];
+        for patch in series.upstream_only(&stack_series) {
+            let commit = commit_by_oid_or_change_id(&patch, ctx, branch.head, default_target)?;
+            let is_integrated = check_commit.is_integrated(&commit)?;
+            let vcommit = commit_to_vbranch_commit(
+                ctx,
+                branch,
+                &commit,
+                is_integrated,
+                true, // per definition
+                None,
+            )?;
+            upstream_patches.push(vcommit);
+        }
+        upstream_patches.reverse();
         api_series.push(PatchSeries {
             name: series.head.name,
             description: series.head.description,
             upstream_reference,
             patches,
-            upstream_patches: vec![],
+            upstream_patches,
         });
     }
     api_series.reverse();
