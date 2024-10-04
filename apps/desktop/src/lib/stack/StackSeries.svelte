@@ -34,7 +34,7 @@
 </script>
 
 <!-- TODO: Add connecting line on background between NewStackCard above and branches below -->
-{#each branch.series as currentSeries}
+{#each branch.series as currentSeries (currentSeries.name)}
 	<div class="branch-group">
 		<StackingBranchHeader
 			commits={currentSeries.patches}
