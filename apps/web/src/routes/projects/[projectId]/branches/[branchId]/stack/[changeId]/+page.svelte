@@ -10,7 +10,7 @@
 	let patch: any = {};
 	let stack: any = {};
 	let status: any = {};
-	let chats: any = [];
+	let events: any = [];
 	let key: any = '';
 	let uuid: any = '';
 
@@ -256,7 +256,7 @@
 	}
 
 	function fetchAndUpdateChat() {
-		fetch(env.PUBLIC_APP_HOST + 'api/chat_messages/' + data.projectId + '/chats/' + data.changeId, {
+		fetch(env.PUBLIC_APP_HOST + 'api/patch_events/' + data.projectId + '/patch/' + data.changeId, {
 			method: 'GET',
 			headers: {
 				'X-AUTH-TOKEN': key || ''
@@ -266,7 +266,7 @@
 			.then((data) => {
 				console.log(data);
 				setTimeout(() => {
-					chats = data;
+					events = data;
 					setTimeout(() => {
 						scrollToBottom();
 					}, 150); // I don't know how to DOM in Svelte, but it takes a second
@@ -342,6 +342,7 @@
 				.then((data) => {
 					console.log('sign off', data);
 					getPatchStatus();
+					fetchAndUpdateChat();
 				});
 		}
 	}
@@ -469,11 +470,13 @@
 						{/if}
 					{/if}
 					<div>
-						{#if !status[data.changeId].last_signoff}
-							<button class="button" on:click={() => signOff(true)}>Sign Off</button>
-						{/if}
-						{#if status[data.changeId].last_signoff || !status[data.changeId].last_reviewed}
-							<button class="button" on:click={() => signOff(false)}>Reject</button>
+						{#if status[data.changeId]}
+							{#if !status[data.changeId].last_signoff}
+								<button class="button" on:click={() => signOff(true)}>Sign Off</button>
+							{/if}
+							{#if status[data.changeId].last_signoff || !status[data.changeId].last_reviewed}
+								<button class="button" on:click={() => signOff(false)}>Reject</button>
+							{/if}
 						{/if}
 					</div>
 				</div>
@@ -535,30 +538,85 @@
 		<div class="column chatArea">
 			<h3>Chat</h3>
 			<div class="chatWindow">
-				{#each chats as chat}
-					<div class="chatEntry {chat.issue ? 'issue' : ''} {chat.resolved ? 'resolved' : ''}">
-						<div class="chatHeader">
-							<div class="avatar">
-								<Gravatar email={chat.user.email} size={20} />
+				{#each events as event}
+					{#if event.event_type === 'chat'}
+						<div
+							class="chatEntry {event.object.issue ? 'issue' : ''} {event.object.resolved
+								? 'resolved'
+								: ''}"
+						>
+							<div class="chatHeader">
+								<div class="avatar">
+									<Gravatar email={event.object.user.email} size={20} />
+								</div>
+								<div>{event.object.created_at}</div>
 							</div>
-							<div>{chat.created_at}</div>
-						</div>
-						{#if chat.diff_patch_array}
-							<div>
-								<div class="diffPath">{chat.diff_path}</div>
-								<!-- {chat.diff_sha} -->
-								<DiffPatchArray diffArray={chat.diff_patch_array} />
-							</div>
-						{/if}
-						<div class="chatComment">{chat.comment}</div>
-						{#if chat.issue}
-							{#if chat.resolved}
-								<div class="right">resolved</div>
-							{:else}
-								<button class="action" on:click={() => resolveIssue(chat.uuid)}>resolve</button>
+							{#if event.object.diff_patch_array}
+								<div>
+									<div class="diffPath">{event.object.diff_path}</div>
+									<!-- {chat.diff_sha} -->
+									<DiffPatchArray diffArray={event.object.diff_patch_array} />
+								</div>
 							{/if}
+							<div class="chatComment">{event.object.comment}</div>
+							{#if event.object.issue}
+								{#if event.object.resolved}
+									<div class="right">resolved</div>
+								{:else}
+									<button class="action" on:click={() => resolveIssue(event.object.uuid)}
+										>resolve</button
+									>
+								{/if}
+							{/if}
+						</div>
+					{/if}
+					{#if event.event_type === 'issue_status'}
+						{#if event.data.resolution}
+							<div class="issueEvent event">
+								<div class="eventDetail">
+									{event.user.email} resolved issue {event.object.uuid.substr(0, 8)}
+								</div>
+								<div class="eventDate">
+									{event.created_at}
+								</div>
+							</div>
 						{/if}
-					</div>
+					{/if}
+
+					{#if event.event_type === 'patch_status'}
+						{#if event.data.status}
+							<div class="signoffEvent event">
+								<div class="eventDetail">
+									{event.user.email}
+									signed off
+								</div>
+								<div class="eventDate">
+									{event.created_at}
+								</div>
+							</div>
+						{:else}
+							<div class="rejectEvent event">
+								<div class="eventDetail">
+									{event.user.email}
+									requested changes
+								</div>
+								<div class="eventDate">
+									{event.created_at}
+								</div>
+							</div>
+						{/if}
+					{/if}
+
+					{#if event.event_type === 'patch_version'}
+						<div class="versionEvent event">
+							<div class="eventDetail">
+								new patch version: v{event.object.version}
+							</div>
+							<div class="eventDate">
+								{event.created_at}
+							</div>
+						</div>
+					{/if}
 				{/each}
 			</div>
 			<div class="chatBox">
@@ -580,6 +638,40 @@
 {/if}
 
 <style>
+	.event {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		margin-bottom: 0.5em;
+	}
+	.eventDate {
+		color: #888;
+		font-size: small;
+	}
+
+	.issueEvent {
+		background-color: #dbecff;
+		padding: 5px;
+		border-radius: 5px;
+	}
+	.signoffEvent {
+		background-color: #e6ffed;
+		padding: 5px;
+		border-radius: 5px;
+	}
+	.rejectEvent {
+		background-color: #ffeef0;
+		padding: 5px;
+		border-radius: 5px;
+	}
+	.versionEvent {
+		padding: 5px;
+		border-bottom: 1px solid rgb(96, 43, 43);
+	}
+	.versionEvent .eventDetail {
+		color: #844;
+	}
+
 	.actionChat {
 		cursor: pointer;
 		color: #ffffff;
