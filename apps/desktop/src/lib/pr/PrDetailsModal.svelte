@@ -30,7 +30,7 @@
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -38,7 +38,7 @@
 	import type { DetailedPullRequest, PullRequest } from '$lib/gitHost/interface/types';
 
 	interface BaseProps {
-		type: 'display' | 'preview';
+		type: 'display' | 'preview' | 'preview-series';
 	}
 
 	interface DisplayProps extends BaseProps {
@@ -50,7 +50,14 @@
 		type: 'preview';
 	}
 
-	type Props = DisplayProps | PreviewProps;
+	interface PreviewSeriesProps {
+		type: 'preview-series';
+		name: string;
+		upstreamName?: string;
+		commits: DetailedCommit[];
+	}
+
+	type Props = DisplayProps | PreviewProps | PreviewSeriesProps;
 
 	let props: Props = $props();
 
@@ -68,6 +75,11 @@
 	const preferredPRAction = getPreferredPRAction();
 
 	const branch = $derived($branchStore);
+	const branchName = $derived(props.type === 'preview-series' ? props.name : branch.name);
+	const commits = $derived(props.type === 'preview-series' ? props.commits : branch.commits);
+	const upstreamName = $derived(
+		props.type === 'preview-series' ? props.upstreamName : branch.upstreamName
+	);
 	const baseBranchName = $derived($baseBranch.shortName);
 	const prTemplatePath = $derived(project.git_host.pullRequestTemplatePath);
 	const isDraft = $derived<boolean>($preferredPRAction === PRAction.CreateDraft);
@@ -88,11 +100,11 @@
 	const defaultTitle: string = $derived.by(() => {
 		if (props.type === 'display') return props.pr.title;
 		// In case of a single commit, use the commit summary for the title
-		if (branch.commits.length === 1) {
-			const commit = branch.commits[0];
+		if (commits.length === 1) {
+			const commit = commits[0];
 			return commit?.descriptionTitle ?? '';
 		} else {
-			return branch.name;
+			return branchName;
 		}
 	});
 
@@ -100,8 +112,8 @@
 		if (props.type === 'display') return props.pr.body ?? '';
 		if (pullRequestTemplateBody) return pullRequestTemplateBody;
 		// In case of a single commit, use the commit description for the body
-		if (branch.commits.length === 1) {
-			const commit = branch.commits[0];
+		if (commits.length === 1) {
+			const commit = commits[0];
 			return commit?.descriptionBody ?? '';
 		} else {
 			return '';
@@ -142,15 +154,19 @@
 
 		isLoading = true;
 		try {
-			let upstreamBranchName = branch.upstreamName;
+			let upstreamBranchName = upstreamName;
 
-			if (branch.commits.some((c) => !c.isRemote)) {
+			if (commits.some((c) => !c.isRemote)) {
 				const firstPush = !branch.upstream;
-				const { refname, remote } = await branchController.pushBranch(
+				const pushResult = await branchController.pushBranch(
 					branch.id,
-					branch.requiresForce
+					branch.requiresForce,
+					props.type === 'preview-series'
 				);
-				upstreamBranchName = getBranchNameFromRef(refname, remote);
+
+				if (pushResult) {
+					upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
+				}
 
 				if (firstPush) {
 					// TODO: fix this hack for reactively available prService.
@@ -192,9 +208,9 @@
 		baseBranchService.fetchFromRemotes();
 	}
 
-	function handleCreatePR(close: () => void) {
-		if (props.type !== 'preview') return;
-		createPr({
+	async function handleCreatePR(close: () => void) {
+		if (props.type === 'display') return;
+		await createPr({
 			title: actualTitle,
 			body: actualBody,
 			draft: isDraft
@@ -212,7 +228,7 @@
 	}
 
 	function toggleEdit() {
-		if (props.type !== 'preview') return;
+		if (props.type === 'display') return;
 		isEditing = !isEditing;
 	}
 
@@ -228,7 +244,7 @@
 			title: actualTitle,
 			body: actualBody,
 			directive: aiDescriptionDirective,
-			commitMessages: branch.commits.map((c) => c.description),
+			commitMessages: commits.map((c) => c.description),
 			prBodyTemplate: pullRequestTemplateBody,
 			userToken: $user.access_token,
 			onToken: (t) => {
@@ -387,7 +403,7 @@
 				</div>
 			{/if}
 			<div class="pr-modal__button-wrapper">
-				{#if props.type === 'preview'}
+				{#if props.type === 'preview' || props.type === 'preview-series'}
 					<div class="pr-modal__checkbox-wrapper">
 						<Checkbox name="is-draft" small checked={isDraft} onchange={handleCheckDraft} />
 						<label class="text-13" for="is-draft">Draft</label>
@@ -402,7 +418,7 @@
 						kind="solid"
 						disabled={isEditing || isLoading || aiIsLoading}
 						{isLoading}
-						onclick={() => handleCreatePR(close)}
+						onclick={async () => await handleCreatePR(close)}
 						>{isDraft ? 'Create Draft PR' : 'Create PR'}</Button
 					>
 				{:else if props.type === 'display'}

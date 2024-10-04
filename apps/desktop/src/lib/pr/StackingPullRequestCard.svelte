@@ -1,5 +1,6 @@
 <script lang="ts">
 	import MergeButton from './MergeButton.svelte';
+	import PrDetailsModal from './PrDetailsModal.svelte';
 	import ViewPrButton from './ViewPrButton.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
@@ -57,6 +58,7 @@
 	// });
 
 	let isMerging = $state(false);
+	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 
 	const lastFetch = $derived(prMonitor?.lastFetch);
 	const timeAgo = $derived($lastFetch ? createTimeAgoStore($lastFetch) : undefined);
@@ -64,16 +66,8 @@
 	const mrLoading = $derived(prMonitor?.loading);
 	const checksLoading = $derived(checksMonitor?.loading);
 
-	$effect(() => {
-		console.log($checksLoading);
-	});
-
 	const checksError = $derived(checksMonitor?.error);
 	const detailsError = $derived(prMonitor?.error);
-
-	$effect(() => {
-		console.log($checksError);
-	});
 
 	function getChecksCount(status: ChecksStatus): string {
 		if (!status) return 'Running checks';
@@ -198,7 +192,15 @@
 		</div>
 		<div class="text-13 text-semibold pr-header-title">
 			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
-			{pr.title}
+			<Button
+				style="ghost"
+				outline
+				onclick={() => {
+					prDetailsModal?.show();
+				}}
+			>
+				{pr.title}</Button
+			>
 		</div>
 		<div class="pr-header-tags">
 			<Button
@@ -275,6 +277,8 @@
 			</div>
 		{/if}
 	</div>
+
+	<PrDetailsModal bind:this={prDetailsModal} type="display" {pr} />
 {/if}
 
 <style lang="postcss">
