@@ -18,7 +18,7 @@
 	import { Commit, DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
-	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+	import { LineManagerFactory, LineSpacer } from '@gitbutler/ui/commitLines/lineManager';
 	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -51,14 +51,6 @@
 
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 	const gitHost = getGitHost();
-
-	// TODO: Why does eslint-svelte-plugin complain about enum?
-	// eslint-disable-next-line svelte/valid-compile
-	enum LineSpacer {
-		Remote = 'remote-spacer',
-		Local = 'local-spacer',
-		LocalAndRemote = 'local-and-remote-spacer'
-	}
 
 	const mappedRemoteCommits = $derived(
 		remoteCommits.length > 0

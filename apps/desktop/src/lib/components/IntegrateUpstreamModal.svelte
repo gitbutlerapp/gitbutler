@@ -7,9 +7,11 @@
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { getContext } from '$lib/utils/context';
 	import {
+		getBaseBrancheResolution,
 		getResolutionApproach,
 		sortStatusInfo,
 		UpstreamIntegrationService,
+		type BaseBranchResolutionApproach,
 		type BranchStatusesWithBranches,
 		type BranchStatusInfo,
 		type Resolution
@@ -39,6 +41,8 @@
 	let results = $state(new SvelteMap<string, Resolution>());
 	let statuses = $state<BranchStatusInfo[]>([]);
 	let expanded = $state<boolean>(false);
+	let baseResolutionApproach = $state<BaseBranchResolutionApproach>('hardReset');
+	let targetCommitOid = $state<string | undefined>(undefined);
 
 	$effect(() => {
 		if ($branchStatuses?.type !== 'updatesRequired') {
@@ -68,10 +72,35 @@
 		statuses = statusesTmp;
 	});
 
+	// Re-fetch upstream statuses if the target commit oid changes
+	$effect(() => {
+		if (targetCommitOid) {
+			branchStatuses = upstreamIntegrationService.upstreamStatuses(targetCommitOid);
+		}
+	});
+
+	// Resolve the target commit oid if the base branch diverged and the the resolution
+	// approach is changed
+	$effect(() => {
+		if ($base?.diverged) {
+			upstreamIntegrationService.resolveUpstreamIntegration(baseResolutionApproach).then((Oid) => {
+				targetCommitOid = Oid;
+			});
+		}
+	});
+
+	function handleBaseResolutionSelection(resolution: BaseBranchResolutionApproach) {
+		baseResolutionApproach = resolution;
+	}
+
 	async function integrate() {
 		integratingUpstream = 'loading';
 		await tick();
-		await upstreamIntegrationService.integrateUpstream(Array.from(results.values()));
+		const baseResolution = getBaseBrancheResolution(targetCommitOid, baseResolutionApproach);
+		await upstreamIntegrationService.integrateUpstream(
+			Array.from(results.values()),
+			baseResolution
+		);
 		await baseBranchService.refresh();
 		integratingUpstream = 'completed';
 
@@ -144,6 +173,34 @@
 					{/if}
 				</div>
 			{/if}
+
+			{#if $base?.diverged}
+				<div class="branch-status">
+					<div class="description">
+						<h5 class="text-16">{$base.branchName ?? 'Unknown'}</h5>
+						<p>Diverged</p>
+					</div>
+
+					<div class="action">
+						<Select
+							value={baseResolutionApproach}
+							onselect={handleBaseResolutionSelection}
+							options={[
+								{ label: 'Rebase', value: 'rebase' },
+								// { label: 'Merge', value: 'merge' }, hide merging for now
+								{ label: 'Hard reset', value: 'hardReset' }
+							]}
+						>
+							{#snippet itemSnippet({ item, highlighted })}
+								<SelectItem selected={highlighted} {highlighted}>
+									{item.label}
+								</SelectItem>
+							{/snippet}
+						</Select>
+					</div>
+				</div>
+			{/if}
+
 			{#if statuses.length > 0}
 				<div class="statuses">
 					{#each statuses as { branch, status }}
@@ -168,10 +225,7 @@
 										onselect={(value) => {
 											const result = results.get(branch.id)!;
 
-											results.set(branch.id, {
-												...result,
-												approach: { type: value as 'rebase' | 'merge' | 'unapply' }
-											});
+											results.set(branch.id, { ...result, approach: { type: value } });
 										}}
 										options={[
 											{ label: 'Rebase', value: 'rebase' },

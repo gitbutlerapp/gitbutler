@@ -1,5 +1,11 @@
 import type { CommitData, LineGroupData, LineData, Color } from '$lib/commitLines/types';
 
+export enum LineSpacer {
+	Remote = 'remote-spacer',
+	Local = 'local-spacer',
+	LocalAndRemote = 'local-and-remote-spacer'
+}
+
 interface Commits {
 	remoteCommits: CommitData[];
 	localCommits: CommitData[];

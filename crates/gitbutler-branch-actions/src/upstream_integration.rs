@@ -34,11 +34,27 @@ pub enum BranchStatuses {
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
+pub enum BaseBranchResolutionApproach {
+    Rebase,
+    Merge,
+    HardReset,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 enum ResolutionApproach {
     Rebase,
     Merge,
     Unapply,
     Delete,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BaseBranchResolution {
+    #[serde(with = "gitbutler_serde::oid")]
+    target_commit_oid: git2::Oid,
+    approach: BaseBranchResolutionApproach,
 }
 
 impl BranchStatus {
@@ -83,6 +99,7 @@ pub struct UpstreamIntegrationContext<'a> {
 impl<'a> UpstreamIntegrationContext<'a> {
     pub(crate) fn open(
         command_context: &'a CommandContext,
+        target_commit_oid: Option<git2::Oid>,
         permission: &'a mut WorktreeWritePermission,
     ) -> Result<Self> {
         let virtual_branches_handle = command_context.project().virtual_branches();
@@ -91,7 +108,12 @@ impl<'a> UpstreamIntegrationContext<'a> {
         let target_branch = repository
             .find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("Branch not found"))?;
-        let new_target = target_branch.get().peel_to_commit()?;
+
+        let new_target = target_commit_oid.map_or_else(
+            || target_branch.get().peel_to_commit(),
+            |oid| repository.find_commit(oid),
+        )?;
+
         let old_target = repository.find_commit(target.sha)?;
         let virtual_branches_in_workspace = virtual_branches_handle.list_branches_in_workspace()?;
 
@@ -203,9 +225,14 @@ pub fn upstream_integration_statuses(
 pub(crate) fn integrate_upstream(
     command_context: &CommandContext,
     resolutions: &[Resolution],
+    base_branch_resolution: Option<BaseBranchResolution>,
     permission: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    let context = UpstreamIntegrationContext::open(command_context, permission)?;
+    let (target_commit_oid, base_branch_resolution_approach) = base_branch_resolution
+        .map(|r| (Some(r.target_commit_oid), Some(r.approach)))
+        .unwrap_or((None, None));
+
+    let context = UpstreamIntegrationContext::open(command_context, target_commit_oid, permission)?;
     let virtual_branches_state = VirtualBranchesHandle::new(command_context.project().gb_dir());
     let default_target = virtual_branches_state.get_default_target()?;
 
@@ -250,7 +277,8 @@ pub(crate) fn integrate_upstream(
         }
     }
 
-    let integration_results = compute_resolutions(&context, resolutions)?;
+    let integration_results =
+        compute_resolutions(&context, resolutions, base_branch_resolution_approach)?;
 
     {
         // We preform the updates in stages. If deleting or unapplying fails, we
@@ -313,13 +341,48 @@ pub(crate) fn integrate_upstream(
     Ok(())
 }
 
+pub(crate) fn resolve_upstream_integration(
+    command_context: &CommandContext,
+    resolution_approach: BaseBranchResolutionApproach,
+    permission: &mut WorktreeWritePermission,
+) -> Result<git2::Oid> {
+    let context = UpstreamIntegrationContext::open(command_context, None, permission)?;
+    let repo = command_context.repository();
+    let new_target_id = context.new_target.id();
+    let old_target_id = context.old_target.id();
+    let fork_point = repo.merge_base(old_target_id, new_target_id)?;
+
+    match resolution_approach {
+        BaseBranchResolutionApproach::HardReset => Ok(new_target_id),
+        BaseBranchResolutionApproach::Merge => {
+            let new_head = gitbutler_merge_commits(
+                repo,
+                context.old_target,
+                context.new_target,
+                &context.target_branch_name,
+                &context.target_branch_name,
+            )?;
+
+            Ok(new_head.id())
+        }
+        BaseBranchResolutionApproach::Rebase => {
+            let commits = repo.l(old_target_id, LogUntil::Commit(fork_point))?;
+            let new_head = cherry_rebase_group(repo, new_target_id, &commits, true)?;
+
+            Ok(new_head)
+        }
+    }
+}
+
 fn compute_resolutions(
     context: &UpstreamIntegrationContext,
     resolutions: &[Resolution],
+    base_branch_resolution_approach: Option<BaseBranchResolutionApproach>,
 ) -> Result<Vec<(BranchId, IntegrationResult)>> {
     let UpstreamIntegrationContext {
         repository,
         new_target,
+        old_target,
         virtual_branches_in_workspace,
         target_branch_name,
         ..
@@ -402,9 +465,17 @@ fn compute_resolutions(
                     // Rebase the commits, then try rebasing the tree. If
                     // the tree ends up conflicted, commit the tree.
 
+                    // If the base branch needs to resolve its divergence
+                    // pick only the commits that are ahead of the old target head
+                    let lower_bound = if base_branch_resolution_approach.is_some() {
+                        old_target.id()
+                    } else {
+                        new_target.id()
+                    };
+
                     // Rebase virtual branches' commits
                     let virtual_branch_commits =
-                        repository.l(virtual_branch.head, LogUntil::Commit(new_target.id()))?;
+                        repository.l(virtual_branch.head, LogUntil::Commit(lower_bound))?;
 
                     let new_head = cherry_rebase_group(
                         repository,
@@ -595,6 +666,7 @@ mod test {
                 branch_tree: branch.tree,
                 approach: ResolutionApproach::Rebase,
             }],
+            None,
         )
         .unwrap();
 
@@ -606,6 +678,383 @@ mod test {
         let head_commit = test_repository.repository.find_commit(head).unwrap();
         assert_eq!(head_commit.parent(0).unwrap().id(), new_target.id());
         assert!(head_commit.is_conflicted());
+
+        let head_tree = test_repository
+            .repository
+            .find_real_tree(&head_commit, Default::default())
+            .unwrap();
+        assert_eq!(head_tree.id(), tree)
+    }
+
+    #[test]
+    fn test_conflicted_head_branch_resolve_divergence_hard_reset() {
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let old_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
+        let branch_head = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "fux")]);
+        // new target diverged from old target
+        let new_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "qux")]);
+
+        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+
+        let context = UpstreamIntegrationContext {
+            _permission: None,
+            old_target,
+            new_target: new_target.clone(),
+            repository: &test_repository.repository,
+            virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
+        };
+
+        assert_eq!(
+            upstream_integration_statuses(&context).unwrap(),
+            BranchStatuses::UpdatesRequired(vec![(
+                branch.id,
+                BranchStatus::Conflicted {
+                    potentially_conflicted_uncommited_changes: false
+                }
+            )]),
+        );
+
+        let updates = compute_resolutions(
+            &context,
+            &[Resolution {
+                branch_id: branch.id,
+                branch_tree: branch.tree,
+                approach: ResolutionApproach::Rebase,
+            }],
+            Some(BaseBranchResolutionApproach::HardReset),
+        )
+        .unwrap();
+
+        assert_eq!(updates.len(), 1);
+        let IntegrationResult::UpdatedObjects { head, tree } = updates[0].1 else {
+            panic!("Should be variant UpdatedObjects")
+        };
+
+        let head_commit = test_repository.repository.find_commit(head).unwrap();
+        assert_eq!(head_commit.parent(0).unwrap().id(), new_target.id());
+        assert!(head_commit.is_conflicted());
+
+        let head_tree = test_repository
+            .repository
+            .find_real_tree(&head_commit, Default::default())
+            .unwrap();
+        assert_eq!(head_tree.id(), tree)
+    }
+
+    #[test]
+    fn test_unconflicted_head_branch_resolve_divergence_hard_reset() {
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let old_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
+        let branch_head =
+            test_repository.commit_tree(Some(&old_target), &[("bar.txt", "no problem")]);
+        // new target diverged from old target
+        let new_target =
+            test_repository.commit_tree(Some(&initial_commit), &[("other.txt", "qux")]);
+
+        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+
+        let context = UpstreamIntegrationContext {
+            _permission: None,
+            old_target,
+            new_target: new_target.clone(),
+            repository: &test_repository.repository,
+            virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
+        };
+
+        assert_eq!(
+            upstream_integration_statuses(&context).unwrap(),
+            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+        );
+
+        let updates = compute_resolutions(
+            &context,
+            &[Resolution {
+                branch_id: branch.id,
+                branch_tree: branch.tree,
+                approach: ResolutionApproach::Rebase,
+            }],
+            Some(BaseBranchResolutionApproach::HardReset),
+        )
+        .unwrap();
+
+        assert_eq!(updates.len(), 1);
+        let IntegrationResult::UpdatedObjects { head, tree } = updates[0].1 else {
+            panic!("Should be variant UpdatedObjects")
+        };
+
+        let head_commit = test_repository.repository.find_commit(head).unwrap();
+        assert_eq!(head_commit.parent(0).unwrap().id(), new_target.id());
+        assert!(!head_commit.is_conflicted());
+
+        let head_tree = test_repository
+            .repository
+            .find_real_tree(&head_commit, Default::default())
+            .unwrap();
+        assert_eq!(head_tree.id(), tree)
+    }
+
+    #[test]
+    fn test_conflicted_head_branch_resolve_divergence_rebase() {
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let old_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
+        let branch_head = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "fux")]);
+        // new target diverged from old target
+        let new_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "qux")]);
+
+        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+
+        let commits_to_rebase = test_repository
+            .repository
+            .l(old_target.id(), LogUntil::Commit(initial_commit.id()))
+            .unwrap();
+        let head_after_rebase = cherry_rebase_group(
+            &test_repository.repository,
+            new_target.id(),
+            &commits_to_rebase,
+            true,
+        )
+        .unwrap();
+
+        let context = UpstreamIntegrationContext {
+            _permission: None,
+            old_target,
+            new_target: test_repository
+                .repository
+                .find_commit(head_after_rebase)
+                .unwrap(),
+            repository: &test_repository.repository,
+            virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
+        };
+
+        assert_eq!(
+            upstream_integration_statuses(&context).unwrap(),
+            BranchStatuses::UpdatesRequired(vec![(
+                branch.id,
+                BranchStatus::Conflicted {
+                    potentially_conflicted_uncommited_changes: false
+                }
+            )]),
+        );
+
+        let updates = compute_resolutions(
+            &context,
+            &[Resolution {
+                branch_id: branch.id,
+                branch_tree: branch.tree,
+                approach: ResolutionApproach::Rebase,
+            }],
+            Some(BaseBranchResolutionApproach::Rebase),
+        )
+        .unwrap();
+
+        assert_eq!(updates.len(), 1);
+        let IntegrationResult::UpdatedObjects { head, tree } = updates[0].1 else {
+            panic!("Should be variant UpdatedObjects")
+        };
+
+        let head_commit = test_repository.repository.find_commit(head).unwrap();
+        assert_eq!(head_commit.parent(0).unwrap().id(), head_after_rebase);
+        assert!(head_commit.is_conflicted());
+
+        let head_tree = test_repository
+            .repository
+            .find_real_tree(&head_commit, Default::default())
+            .unwrap();
+        assert_eq!(head_tree.id(), tree)
+    }
+
+    #[test]
+    fn test_unconflicted_head_branch_resolve_divergence_rebase() {
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let old_target = test_repository.commit_tree(Some(&initial_commit), &[("bar.txt", "baz")]);
+        let branch_head = test_repository.commit_tree(Some(&old_target), &[("bar.txt", "fux")]);
+        // new target diverged from old target
+        let new_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "qux")]);
+
+        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+
+        let commits_to_rebase = test_repository
+            .repository
+            .l(old_target.id(), LogUntil::Commit(initial_commit.id()))
+            .unwrap();
+        let head_after_rebase = cherry_rebase_group(
+            &test_repository.repository,
+            new_target.id(),
+            &commits_to_rebase,
+            true,
+        )
+        .unwrap();
+
+        let context = UpstreamIntegrationContext {
+            _permission: None,
+            old_target,
+            new_target: test_repository
+                .repository
+                .find_commit(head_after_rebase)
+                .unwrap(),
+            repository: &test_repository.repository,
+            virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
+        };
+
+        assert_eq!(
+            upstream_integration_statuses(&context).unwrap(),
+            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+        );
+
+        let updates = compute_resolutions(
+            &context,
+            &[Resolution {
+                branch_id: branch.id,
+                branch_tree: branch.tree,
+                approach: ResolutionApproach::Rebase,
+            }],
+            Some(BaseBranchResolutionApproach::Rebase),
+        )
+        .unwrap();
+
+        assert_eq!(updates.len(), 1);
+        let IntegrationResult::UpdatedObjects { head, tree } = updates[0].1 else {
+            panic!("Should be variant UpdatedObjects")
+        };
+
+        let head_commit = test_repository.repository.find_commit(head).unwrap();
+        assert_eq!(head_commit.parent(0).unwrap().id(), head_after_rebase);
+        assert!(!head_commit.is_conflicted());
+
+        let head_tree = test_repository
+            .repository
+            .find_real_tree(&head_commit, Default::default())
+            .unwrap();
+        assert_eq!(head_tree.id(), tree)
+    }
+
+    #[test]
+    fn test_conflicted_head_branch_resolve_divergence_merge() {
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let old_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
+        let branch_head = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "fux")]);
+        // new target diverged from old target
+        let new_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "qux")]);
+
+        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+
+        let merge_commit = gitbutler_merge_commits(
+            &test_repository.repository,
+            old_target.clone(),
+            new_target,
+            "main",
+            "main",
+        )
+        .unwrap();
+
+        let context = UpstreamIntegrationContext {
+            _permission: None,
+            old_target,
+            new_target: merge_commit.clone(),
+            repository: &test_repository.repository,
+            virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
+        };
+
+        assert_eq!(
+            upstream_integration_statuses(&context).unwrap(),
+            BranchStatuses::UpdatesRequired(vec![(
+                branch.id,
+                BranchStatus::Conflicted {
+                    potentially_conflicted_uncommited_changes: false
+                }
+            )]),
+        );
+
+        let updates = compute_resolutions(
+            &context,
+            &[Resolution {
+                branch_id: branch.id,
+                branch_tree: branch.tree,
+                approach: ResolutionApproach::Rebase,
+            }],
+            Some(BaseBranchResolutionApproach::Merge),
+        )
+        .unwrap();
+
+        assert_eq!(updates.len(), 1);
+        let IntegrationResult::UpdatedObjects { head, tree } = updates[0].1 else {
+            panic!("Should be variant UpdatedObjects")
+        };
+
+        let head_commit = test_repository.repository.find_commit(head).unwrap();
+        assert_eq!(head_commit.parent(0).unwrap().id(), merge_commit.id());
+        assert!(head_commit.is_conflicted());
+
+        let head_tree = test_repository
+            .repository
+            .find_real_tree(&head_commit, Default::default())
+            .unwrap();
+        assert_eq!(head_tree.id(), tree)
+    }
+
+    #[test]
+    fn test_unconflicted_head_branch_resolve_divergence_merge() {
+        let test_repository = TestingRepository::open();
+        let initial_commit = test_repository.commit_tree(None, &[("foo.txt", "bar")]);
+        let old_target = test_repository.commit_tree(Some(&initial_commit), &[("bar.txt", "baz")]);
+        let branch_head = test_repository.commit_tree(Some(&old_target), &[("bar.txt", "fux")]);
+        // new target diverged from old target
+        let new_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "qux")]);
+
+        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+
+        let merge_commit = gitbutler_merge_commits(
+            &test_repository.repository,
+            old_target.clone(),
+            new_target,
+            "main",
+            "main",
+        )
+        .unwrap();
+
+        let context = UpstreamIntegrationContext {
+            _permission: None,
+            old_target,
+            new_target: merge_commit.clone(),
+            repository: &test_repository.repository,
+            virtual_branches_in_workspace: vec![branch.clone()],
+            target_branch_name: "main".to_string(),
+        };
+
+        assert_eq!(
+            upstream_integration_statuses(&context).unwrap(),
+            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+        );
+
+        let updates = compute_resolutions(
+            &context,
+            &[Resolution {
+                branch_id: branch.id,
+                branch_tree: branch.tree,
+                approach: ResolutionApproach::Rebase,
+            }],
+            Some(BaseBranchResolutionApproach::Merge),
+        )
+        .unwrap();
+
+        assert_eq!(updates.len(), 1);
+        let IntegrationResult::UpdatedObjects { head, tree } = updates[0].1 else {
+            panic!("Should be variant UpdatedObjects")
+        };
+
+        let head_commit = test_repository.repository.find_commit(head).unwrap();
+        assert_eq!(head_commit.parent(0).unwrap().id(), merge_commit.id());
+        assert!(!head_commit.is_conflicted());
 
         let head_tree = test_repository
             .repository

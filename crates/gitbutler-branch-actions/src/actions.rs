@@ -1,5 +1,10 @@
 use super::r#virtual as vbranch;
-use crate::upstream_integration::{self, BranchStatuses, Resolution, UpstreamIntegrationContext};
+use crate::move_commits;
+use crate::reorder_commits;
+use crate::upstream_integration::{
+    self, BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
+    UpstreamIntegrationContext,
+};
 use crate::{
     base,
     base::BaseBranch,
@@ -9,7 +14,6 @@ use crate::{
     remote::{RemoteBranch, RemoteBranchData, RemoteCommit},
     VirtualBranchesExt,
 };
-use crate::{move_commits, reorder_commits};
 use anyhow::{Context, Result};
 use gitbutler_branch::{BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
@@ -156,6 +160,11 @@ pub fn set_base_branch(project: &Project, target_branch: &RemoteRefname) -> Resu
 pub fn set_target_push_remote(project: &Project, push_remote: &str) -> Result<()> {
     let ctx = CommandContext::open(project)?;
     base::set_target_push_remote(&ctx, push_remote)
+}
+
+pub fn push_base_branch(project: &Project, with_force: bool) -> Result<()> {
+    let ctx = CommandContext::open(project)?;
+    base::push(&ctx, with_force)
 }
 
 pub fn integrate_upstream_commits(project: &Project, branch_id: BranchId) -> Result<()> {
@@ -514,16 +523,27 @@ pub fn get_uncommited_files_reusable(project: &Project) -> Result<DiffByPathMap>
     crate::branch::get_uncommited_files_raw(&context, guard.read_permission())
 }
 
-pub fn upstream_integration_statuses(project: &Project) -> Result<BranchStatuses> {
+pub fn upstream_integration_statuses(
+    project: &Project,
+    target_commit_oid: Option<git2::Oid>,
+) -> Result<BranchStatuses> {
     let command_context = CommandContext::open(project)?;
     let mut guard = project.exclusive_worktree_access();
 
-    let context = UpstreamIntegrationContext::open(&command_context, guard.write_permission())?;
+    let context = UpstreamIntegrationContext::open(
+        &command_context,
+        target_commit_oid,
+        guard.write_permission(),
+    )?;
 
     upstream_integration::upstream_integration_statuses(&context)
 }
 
-pub fn integrate_upstream(project: &Project, resolutions: &[Resolution]) -> Result<()> {
+pub fn integrate_upstream(
+    project: &Project,
+    resolutions: &[Resolution],
+    base_branch_resolution: Option<BaseBranchResolution>,
+) -> Result<()> {
     let command_context = CommandContext::open(project)?;
     let mut guard = project.exclusive_worktree_access();
 
@@ -535,6 +555,21 @@ pub fn integrate_upstream(project: &Project, resolutions: &[Resolution]) -> Resu
     upstream_integration::integrate_upstream(
         &command_context,
         resolutions,
+        base_branch_resolution,
+        guard.write_permission(),
+    )
+}
+
+pub fn resolve_upstream_integration(
+    project: &Project,
+    resolution_approach: BaseBranchResolutionApproach,
+) -> Result<git2::Oid> {
+    let command_context = CommandContext::open(project)?;
+    let mut guard = project.exclusive_worktree_access();
+
+    upstream_integration::resolve_upstream_integration(
+        &command_context,
+        resolution_approach,
         guard.write_permission(),
     )
 }

@@ -39,6 +39,12 @@ pub struct BaseBranch {
     pub upstream_commits: Vec<RemoteCommit>,
     pub recent_commits: Vec<RemoteCommit>,
     pub last_fetched_ms: Option<u128>,
+    pub conflicted: bool,
+    pub diverged: bool,
+    #[serde(with = "gitbutler_serde::oid_vec")]
+    pub diverged_ahead: Vec<git2::Oid>,
+    #[serde(with = "gitbutler_serde::oid_vec")]
+    pub diverged_behind: Vec<git2::Oid>,
 }
 
 pub(crate) fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
@@ -558,6 +564,26 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
     let commit = branch.get().peel_to_commit()?;
     let oid = commit.id();
 
+    // determine if the base branch is behind it's upstream
+    let (number_commits_ahead, number_commits_behind) = repo.graph_ahead_behind(target.sha, oid)?;
+
+    let diverged_ahead = repo
+        .log(target.sha, LogUntil::Take(number_commits_ahead))
+        .context("failed to get fork point")?
+        .iter()
+        .map(|commit| commit.id())
+        .collect::<Vec<_>>();
+
+    let diverged_behind = repo
+        .log(oid, LogUntil::Take(number_commits_behind))
+        .context("failed to get fork point")?
+        .iter()
+        .map(|commit| commit.id())
+        .collect::<Vec<_>>();
+
+    // if there are commits ahead of the base branch consider it diverged
+    let diverged = !diverged_ahead.is_empty();
+
     // gather a list of commits between oid and target.sha
     let upstream_commits = repo
         .log(oid, LogUntil::Commit(target.sha))
@@ -573,6 +599,9 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
         .iter()
         .map(commit_to_remote_commit)
         .collect::<Vec<_>>();
+
+    // we assume that only local commits can be conflicted
+    let conflicted = recent_commits.iter().any(|commit| commit.conflicted);
 
     // there has got to be a better way to do this.
     let push_remote_url = match target.push_remote_name {
@@ -604,10 +633,21 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
             .map(FetchResult::timestamp)
             .copied()
             .map(|t| t.duration_since(time::UNIX_EPOCH).unwrap().as_millis()),
+        conflicted,
+        diverged,
+        diverged_ahead,
+        diverged_behind,
     };
     Ok(base)
 }
 
 fn default_target(base_path: &Path) -> Result<Target> {
     VirtualBranchesHandle::new(base_path).get_default_target()
+}
+
+pub(crate) fn push(ctx: &CommandContext, with_force: bool) -> Result<()> {
+    ctx.assure_resolved()?;
+    let target = default_target(&ctx.project().gb_dir())?;
+    let _ = ctx.push(target.sha, &target.branch, with_force, None, None);
+    Ok(())
 }

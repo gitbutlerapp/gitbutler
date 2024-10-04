@@ -55,6 +55,7 @@ pub struct RemoteCommit {
     pub change_id: Option<String>,
     #[serde(with = "gitbutler_serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
+    pub conflicted: bool,
 }
 
 /// Return information on all local branches, while skipping gitbutler-specific branches in `refs/heads`.
@@ -206,6 +207,7 @@ pub(crate) fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {
         author: commit.author().into(),
         change_id: commit.change_id(),
         parent_ids,
+        conflicted: commit.is_conflicted(),
     }
 }
 

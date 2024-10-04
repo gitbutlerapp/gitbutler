@@ -8,11 +8,11 @@ pub use actions::{
     get_uncommited_files_reusable, insert_blank_commit, integrate_upstream,
     integrate_upstream_commits, list_local_branches, list_remote_commit_files,
     list_virtual_branches, list_virtual_branches_cached, move_commit, move_commit_file,
-    push_virtual_branch, reorder_commit, reset_files, reset_virtual_branch,
-    save_and_unapply_virutal_branch, set_base_branch, set_target_push_remote, squash,
-    unapply_ownership, unapply_without_saving_virtual_branch, undo_commit, update_base_branch,
-    update_branch_order, update_commit_message, update_virtual_branch,
-    upstream_integration_statuses,
+    push_base_branch, push_virtual_branch, reorder_commit, reset_files, reset_virtual_branch,
+    resolve_upstream_integration, save_and_unapply_virutal_branch, set_base_branch,
+    set_target_push_remote, squash, unapply_ownership, unapply_without_saving_virtual_branch,
+    undo_commit, update_base_branch, update_branch_order, update_commit_message,
+    update_virtual_branch, upstream_integration_statuses,
 };
 
 mod r#virtual;

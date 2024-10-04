@@ -17,6 +17,10 @@ export class BaseBranch {
 	@Type(() => Commit)
 	recentCommits!: Commit[];
 	lastFetchedMs?: number;
+	conflicted!: boolean;
+	diverged!: boolean;
+	divergedAhead!: string[];
+	divergedBehind!: string[];
 
 	actualPushRemoteName(): string {
 		return this.pushRemoteName || this.remoteName;

@@ -4,11 +4,12 @@
 
 	interface Props {
 		bottomBorder?: boolean;
+		backgroundColor?: boolean;
 		lines: Snippet;
 		action: Snippet;
 	}
 
-	const { bottomBorder = true, lines, action }: Props = $props();
+	const { bottomBorder = true, backgroundColor = true, lines, action }: Props = $props();
 
 	let isNotInViewport = $state(false);
 </script>
@@ -18,6 +19,7 @@
 	class:not-in-viewport={!isNotInViewport}
 	class:sticky-z-index={!isNotInViewport}
 	class:bottom-border={bottomBorder}
+	class:background-color={backgroundColor}
 	use:intersectionObserver={{
 		callback: (entry) => {
 			if (entry?.isIntersecting) {
@@ -46,10 +48,13 @@
 		position: relative;
 		display: flex;
 
-		background-color: var(--clr-bg-2);
 		overflow: hidden;
 
 		transition: border-top var(--transition-fast);
+	}
+
+	.background-color {
+		background-color: var(--clr-bg-2);
 	}
 
 	.action {
