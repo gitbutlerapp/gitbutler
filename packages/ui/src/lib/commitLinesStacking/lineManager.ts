@@ -27,46 +27,10 @@ function generateLineData({
 		line.commitNode = { type: 'Upstream', commit };
 	});
 
-	let localCommitWithChangeIdFound = false;
 	localBranchGroups.forEach(({ commit, line }) => {
 		line.top.type = 'Local';
 		line.bottom.type = 'Local';
 		line.commitNode = { type: 'Local', commit };
-
-		if (localCommitWithChangeIdFound) {
-			// If a commit with a change ID has been found above this commit, use the leftStyle
-			line.top.type = 'LocalShadow';
-			line.bottom.type = 'LocalShadow';
-
-			if (commit.relatedRemoteCommit) {
-				line.commitNode = {
-					type: 'LocalShadow',
-					commit
-				};
-			}
-		} else {
-			if (commit.relatedRemoteCommit) {
-				// For the first commit with a change ID found, only set the top if there are any remote commits
-				if (remoteBranchGroups.length > 0) {
-					line.top.type = 'LocalShadow';
-				}
-
-				line.commitNode = {
-					type: 'LocalShadow',
-					commit
-				};
-				line.bottom.type = 'LocalShadow';
-
-				localCommitWithChangeIdFound = true;
-			} else {
-				// If there are any remote commits, continue the line
-				if (remoteBranchGroups.length > 0) {
-					line.top.type = 'LocalRemote';
-					line.bottom.type = 'LocalRemote';
-					line.commitNode.type = 'LocalRemote';
-				}
-			}
-		}
 	});
 
 	localAndRemoteBranchGroups.forEach(({ commit, line }) => {
