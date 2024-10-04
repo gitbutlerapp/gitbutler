@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
+	import { debounce } from '$lib/utils/debounce';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 
 	interface Props {
@@ -29,10 +30,10 @@
 </script>
 
 <span
-	use:resizeObserver={(e) => {
+	use:resizeObserver={debounce((e) => {
 		inputWidth = `${Math.round(e.frame.width)}px`;
 		inputHeight = `${Math.round(e.frame.height)}px`;
-	}}
+	}, 100)}
 	class="label-input-measure-el"
 	class:text-12={multiline}
 	class:text-14={!multiline}
@@ -69,9 +70,9 @@
 				inputEl?.blur();
 			}
 		}}
-		use:resizeObserver={(e) => {
+		use:resizeObserver={debounce((e) => {
 			textAreaWidth = `${Math.round(e.frame.width)}px`;
-		}}
+		}, 100)}
 		autocomplete="off"
 		autocorrect="off"
 		spellcheck="false"
