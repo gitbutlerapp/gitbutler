@@ -32,7 +32,6 @@
 <ContextMenu bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
 		<ContextMenuItem
-			disabled
 			label="Add description"
 			on:click={() => {
 				addDescription();

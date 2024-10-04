@@ -5,6 +5,7 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import StackingBranchDescription from '$lib/branch/StackingBranchDescription.svelte';
 	import StackingBranchHeaderContextMenu from '$lib/branch/StackingBranchHeaderContextMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
@@ -209,8 +210,8 @@
 	{#if descriptionVisible}
 		<div class="branch-info__description">
 			<div class="branch-action__line" style:--bg-color={lineColor}></div>
-			<BranchLabel
-				name={branch.description}
+			<StackingBranchDescription
+				value={branch.description}
 				onChange={(description) => editDescription(description)}
 			/>
 		</div>
@@ -270,6 +271,7 @@
 
 	.branch-info__description {
 		width: 100%;
+		margin-top: -5px;
 		display: flex;
 		justify-content: flex-start;
 		align-items: stretch;
