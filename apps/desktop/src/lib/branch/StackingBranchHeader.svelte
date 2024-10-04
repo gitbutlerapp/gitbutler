@@ -253,6 +253,7 @@
 			align-items: stretch;
 			justify-content: start;
 			padding: 8px 16px;
+			min-width: 0;
 			flex-grow: 1;
 		}
 
