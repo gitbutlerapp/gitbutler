@@ -45,7 +45,7 @@ impl PatchReference {
 
     /// Returns `true` if the reference is pushed to the provided remote
     pub fn pushed(&self, remote: &str, ctx: &CommandContext) -> Result<bool> {
-        let remote_ref = self.remote_reference(remote)?;
+        let remote_ref = self.remote_reference(remote)?; // todo: this should probably just return false
         Ok(ctx.repository().find_reference(&remote_ref).is_ok())
     }
 }
