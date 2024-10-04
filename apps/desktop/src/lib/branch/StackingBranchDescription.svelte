@@ -4,8 +4,7 @@
 	interface Props {
 		value: string;
 		disabled?: boolean;
-		onChange?: (value: string) => void;
-		class?: string;
+		onChange?: (value: string) => Promise<void>;
 	}
 
 	let { value, disabled = false, onChange }: Props = $props();

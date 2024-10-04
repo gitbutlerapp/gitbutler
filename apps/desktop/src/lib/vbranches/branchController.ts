@@ -138,7 +138,20 @@ export class BranchController {
 				newHeadName
 			});
 		} catch (err) {
-			showError('Failed to update remote name', err);
+			showError('Failed to update series name', err);
+		}
+	}
+
+	async updateSeriesDescription(branchId: string, headName: string, description: string) {
+		try {
+			await invoke<void>('update_series_description', {
+				projectId: this.projectId,
+				branchId,
+				headName,
+				description
+			});
+		} catch (err) {
+			showError('Failed to update series description', err);
 		}
 	}
 
