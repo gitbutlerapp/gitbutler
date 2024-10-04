@@ -35,7 +35,7 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 
-	let prDetailsModal = $state<PrDetailsModal>();
+	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 
 	const gitHostListingService = getGitHostListingService();
 	const prStore = $derived($gitHostListingService?.prs);
@@ -193,17 +193,12 @@
 		</div>
 		<div class="pr-title text-13 text-semibold">
 			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
-			{$pr.title}
-		</div>
-		<div class="pr-options">
 			<Button
-				size="tag"
 				style="ghost"
 				outline
-				icon="eye-shown"
 				onclick={() => {
 					prDetailsModal?.show();
-				}}>View details</Button
+				}}>{$pr.title}</Button
 			>
 		</div>
 		<div class="pr-tags">
@@ -302,25 +297,7 @@
 		cursor: text;
 	}
 
-	<<<<<<< ours|||||||ancestor .stacked-pr-title {
-		color: var(--clr-scale-ntrl-0);
-		padding: 14px 14px 12px 14px;
-		user-select: text;
-		cursor: text;
-	}
-
-	======= .stacked-pr-title {
-		color: var(--clr-scale-ntrl-0);
-		padding: 14px 14px 12px 14px;
-		user-select: text;
-		cursor: text;
-	}
-
-	.pr-options {
-		margin-bottom: 12px;
-	}
-
-	>>>>>>>theirs .pr-tags {
+	.pr-tags {
 		display: flex;
 		gap: 4px;
 	}
