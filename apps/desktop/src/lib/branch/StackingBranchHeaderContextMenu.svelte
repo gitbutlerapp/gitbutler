@@ -13,10 +13,17 @@
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		target?: HTMLElement;
 		headName: string;
-		addDescription: () => void;
+		description?: string;
+		toggleDescription: () => Promise<void>;
 	}
 
-	let { contextMenuEl = $bindable(), target, headName, addDescription }: Props = $props();
+	let {
+		contextMenuEl = $bindable(),
+		target,
+		headName,
+		description,
+		toggleDescription
+	}: Props = $props();
 
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
@@ -25,6 +32,7 @@
 	let renameSeriesModal: Modal;
 	let newHeadName: string = $state(headName);
 	let isDeleting = $state(false);
+	let showDescription = $state(!!description);
 
 	const branch = $derived($branchStore);
 </script>
@@ -32,9 +40,10 @@
 <ContextMenu bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Add description"
-			on:click={() => {
-				addDescription();
+			label={`${!showDescription ? 'Add' : 'Remove'} description`}
+			on:click={async () => {
+				await toggleDescription();
+				showDescription = !showDescription;
 				contextMenuEl?.close();
 			}}
 		/>

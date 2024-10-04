@@ -39,6 +39,7 @@
 		<StackingBranchHeader
 			commits={currentSeries.patches}
 			name={currentSeries.branchName}
+			description={currentSeries.description}
 			upstreamName={currentSeries.name}
 		/>
 		<StackingCommitList
