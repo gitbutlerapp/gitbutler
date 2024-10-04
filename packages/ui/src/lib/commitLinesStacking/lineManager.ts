@@ -25,15 +25,6 @@ function generateLineData({
 		line.top.type = 'Upstream';
 		line.bottom.type = 'Upstream';
 		line.commitNode = { type: 'Upstream', commit };
-
-		// If there are local commits we want to fill in a local dashed line
-		if (localBranchGroups.length > 0) {
-			line.commitNode.type = 'Local';
-			line.top.type = 'Local';
-			line.bottom.type = 'Local';
-			line.top.style = 'dashed';
-			line.bottom.style = 'dashed';
-		}
 	});
 
 	let localCommitWithChangeIdFound = false;
