@@ -135,16 +135,19 @@
 		}
 	}
 
-	dialog[open]::backdrop {
-		/* NOTE: temporarily hardcoded var(--clr-overlay-bg); */
-		background-color: color(srgb 0 0 0 / 0.34901960784313724);
+	/* backdrop global */
+	/* NOTE: temporarily hardcoded var(--clr-overlay-bg); */
+	:global(dialog[open]::backdrop) {
+		background-color: rgba(214, 214, 214, 0.4);
 		animation: dialog-fade 0.15s ease-in;
 	}
 
-	html.dark dialog[open]::backdrop {
-		/* NOTE: temporarily hardcoded dark var(--clr-overlay-bg); */
-		background-color: color(srgb 0.8392156862745098 0.8392156862745098 0.8392156862745098 / 0.4);
+	/* backdrop dark */
+	/* NOTE: temporarily hardcoded dark var(--clr-overlay-bg); */
+	:global(html.dark dialog[open]::backdrop) {
+		background-color: rgba(0, 0, 0, 0.35);
 	}
+
 	.modal__header {
 		display: flex;
 		padding: 16px;
