@@ -26,10 +26,7 @@
 	import { User } from '$lib/stores/user';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import {
-		getLocalAndRemoteCommits,
-		getLocalCommits
-	} from '$lib/vbranches/contexts';
+	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -220,10 +217,7 @@
 						</div>
 					</div>
 				</div>
-				<div
-					class="lane-branches__action"
-					class:scroll-end-visible={scrollEndVisible}
-				>
+				<div class="lane-branches__action" class:scroll-end-visible={scrollEndVisible}>
 					<Button
 						style="pop"
 						kind="solid"
