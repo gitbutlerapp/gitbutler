@@ -564,33 +564,25 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
     let commit = branch.get().peel_to_commit()?;
     let oid = commit.id();
 
-    // determined if the base branch is behind it's upstream
-    let fork_point = repo.merge_base(target.sha, oid).context(format!(
-        "failed to find merge base between {} and {}",
-        target.sha, oid
-    ))?;
+    // determine if the base branch is behind it's upstream
+    let (number_commits_ahead, number_commits_behind) = repo.graph_ahead_behind(target.sha, oid)?;
 
-    let diverged = fork_point != target.sha;
+    let diverged_ahead = repo
+        .log(target.sha, LogUntil::Take(number_commits_ahead))
+        .context("failed to get fork point")?
+        .iter()
+        .map(|commit| commit.id())
+        .collect::<Vec<_>>();
 
-    let diverged_ahead = if diverged {
-        repo.log(target.sha, LogUntil::Commit(fork_point))
-            .context("failed to get diverged ahead commits")?
-            .iter()
-            .map(|commit| commit.id())
-            .collect::<Vec<git2::Oid>>()
-    } else {
-        Vec::new()
-    };
+    let diverged_behind = repo
+        .log(oid, LogUntil::Take(number_commits_behind))
+        .context("failed to get fork point")?
+        .iter()
+        .map(|commit| commit.id())
+        .collect::<Vec<_>>();
 
-    let diverged_behind = if diverged {
-        repo.log(oid, LogUntil::Commit(fork_point))
-            .context("failed to get diverged behind commits")?
-            .iter()
-            .map(|commit| commit.id())
-            .collect::<Vec<git2::Oid>>()
-    } else {
-        Vec::new()
-    };
+    // if there are commits ahead of the base branch consider it diverged
+    let diverged = !diverged_ahead.is_empty();
 
     // gather a list of commits between oid and target.sha
     let upstream_commits = repo
