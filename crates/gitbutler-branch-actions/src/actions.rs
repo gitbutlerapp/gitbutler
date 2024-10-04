@@ -1,5 +1,4 @@
 use super::r#virtual as vbranch;
-use crate::reorder_commits;
 use crate::upstream_integration::{self, BranchStatuses, Resolution, UpstreamIntegrationContext};
 use crate::{
     base,
@@ -10,6 +9,7 @@ use crate::{
     remote::{RemoteBranch, RemoteBranchData, RemoteCommit},
     VirtualBranchesExt,
 };
+use crate::{move_commits, reorder_commits};
 use anyhow::{Context, Result};
 use gitbutler_branch::{BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
@@ -480,7 +480,8 @@ pub fn move_commit(
         SnapshotDetails::new(OperationKind::MoveCommit),
         guard.write_permission(),
     );
-    vbranch::move_commit(&ctx, target_branch_id, commit_oid).map_err(Into::into)
+    move_commits::move_commit(&ctx, target_branch_id, commit_oid, guard.write_permission())
+        .map_err(Into::into)
 }
 
 #[instrument(level = tracing::Level::DEBUG, skip(project), err(Debug))]
