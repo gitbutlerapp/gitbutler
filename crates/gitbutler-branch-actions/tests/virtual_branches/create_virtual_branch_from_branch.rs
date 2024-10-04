@@ -436,7 +436,7 @@ mod conflict_cases {
             )
             .unwrap();
 
-        gitbutler_branch_actions::integrate_upstream(&project, &[]).unwrap();
+        gitbutler_branch_actions::integrate_upstream(&project, &[], None).unwrap();
 
         // Apply B
 
@@ -535,7 +535,7 @@ mod conflict_cases {
             )
             .unwrap();
 
-        gitbutler_branch_actions::integrate_upstream(&project, &[]).unwrap();
+        gitbutler_branch_actions::integrate_upstream(&project, &[], None).unwrap();
 
         // Apply B
 

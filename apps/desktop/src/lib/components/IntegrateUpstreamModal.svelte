@@ -225,8 +225,8 @@
 										onselect={(value) => {
 											const result = results.get(branch.id)!;
 
-										results.set(branch.id, {...result, approach: { type: value }})
-									}}
+											results.set(branch.id, { ...result, approach: { type: value } });
+										}}
 										options={[
 											{ label: 'Rebase', value: 'rebase' },
 											{ label: 'Merge', value: 'merge' },
