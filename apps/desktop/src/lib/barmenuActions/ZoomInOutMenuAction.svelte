@@ -15,9 +15,13 @@
 	const DEFAULT_ZOOM = 1;
 	const ZOOM_STEP = 0.0625;
 
+	function setDomZoom(zoom: number) {
+		document.documentElement.style.fontSize = zoom + 'rem';
+	}
+
 	function updateZoom(newZoom: number) {
 		zoom = Math.min(Math.max(newZoom, MIN_ZOOM), MAX_ZOOM);
-		document.documentElement.style.fontSize = zoom + 'rem';
+		setDomZoom(zoom);
 		userSettings.update((s) => ({ ...s, zoom }));
 	}
 
@@ -29,6 +33,10 @@
 	});
 
 	onMount(() => {
+		if (zoom !== DEFAULT_ZOOM) {
+			setDomZoom(zoom);
+		}
+
 		const unsubscribeZoomIn = listen<string>('menu://view/zoom-in/clicked', () =>
 			updateZoom(zoom + ZOOM_STEP)
 		);
