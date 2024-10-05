@@ -56,12 +56,9 @@
 		position: relative;
 		display: flex;
 
-		& :global(> *) {
+		& :global(> span) {
+			display: flex;
 			margin-right: -4px;
-
-			&:last-child {
-				margin-right: 0;
-			}
 		}
 	}
 
