@@ -175,10 +175,20 @@
 			{/if}
 
 			{#if $base?.diverged}
-				<div class="branch-status">
+				<div class="branch-status base-branch">
 					<div class="description">
-						<h5 class="text-16">{$base.branchName ?? 'Unknown'}</h5>
-						<p>Diverged</p>
+						<div class="description-header">
+							<img class="icon" src="/images/domain-icons/trunk.svg" alt="" />
+							<h5 class="text-16">{$base.branchName ?? 'Unknown'}</h5>
+						</div>
+						<Button
+							clickable={false}
+							size="tag"
+							style="warning"
+							outline
+							reversedDirection
+							shrinkable>Diverged</Button
+						>
 					</div>
 
 					<div class="action">
@@ -187,7 +197,7 @@
 							onselect={handleBaseResolutionSelection}
 							options={[
 								{ label: 'Rebase', value: 'rebase' },
-								// { label: 'Merge', value: 'merge' }, hide merging for now
+								{ label: 'Merge', value: 'merge' },
 								{ label: 'Hard reset', value: 'hardReset' }
 							]}
 						>
@@ -206,19 +216,39 @@
 					{#each statuses as { branch, status }}
 						<div class="branch-status" class:integrated={status.type === 'fullyIntegrated'}>
 							<div class="description">
-								<h5 class="text-16">{branch?.name || 'Unknown'}</h5>
+								<div class="description-header">
+									<Button
+										clickable={false}
+										size="tag"
+										icon="virtual-branch-small"
+										style="neutral"
+										reversedDirection
+									/>
+									<h5 class="text-16">{branch?.name || 'Unknown'}</h5>
+								</div>
 								{#if status.type === 'conflicted'}
-									<p>Conflicted</p>
+									<Button clickable={false} size="tag" style="warning" outline reversedDirection
+										>Conflicted</Button
+									>
 								{:else if status.type === 'saflyUpdatable' || status.type === 'empty'}
-									<p>No Conflicts</p>
+									<Button clickable={false} size="tag" style="neutral" outline reversedDirection
+										>No conflicts</Button
+									>
 								{:else if status.type === 'fullyIntegrated'}
-									<p>Integrated</p>
+									<Button
+										clickable={false}
+										size="tag"
+										icon="pr-small"
+										style="success"
+										kind="solid"
+										reversedDirection>Integrated</Button
+									>
 								{/if}
 							</div>
 
 							<div class="action" class:action--centered={status.type === 'fullyIntegrated'}>
 								{#if status.type === 'fullyIntegrated'}
-									<p>Changes included in base branch</p>
+									<p class="text-12 text-light info">Changes included in base branch</p>
 								{:else if results.get(branch.id)}
 									<Select
 										value={results.get(branch.id)!.approach.type}
@@ -257,6 +287,13 @@
 </Modal>
 
 <style>
+	.icon {
+		border-radius: var(--radius-s);
+		height: 20px;
+		width: 20px;
+		flex-shrink: 0;
+	}
+
 	.upstream-commits {
 		text-align: left;
 		padding: 0 16px;
@@ -274,13 +311,17 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: space-around;
-		gap: 14px;
 	}
 
 	.branch-status {
 		display: flex;
 		justify-content: space-between;
-		padding: 0 14px;
+		padding: 14px;
+
+		&.base-branch {
+			border-top: 1px solid var(--clr-border-2);
+			border-bottom: 1px solid var(--clr-border-2);
+		}
 
 		&.integrated {
 			background-color: var(--clr-bg-2);
@@ -302,7 +343,16 @@
 				align-items: center;
 				justify-content: center;
 			}
+
+			& .info {
+				color: var(--clr-text-2);
+			}
 		}
+	}
+
+	.description-header {
+		display: flex;
+		gap: 8px;
 	}
 
 	.commit-expand-button {
