@@ -5,7 +5,7 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		width?: 'default' | 'large' | 'small' | 'xsmall';
+		width?: 'default' | 'medium-large' | 'large' | 'small' | 'xsmall';
 		title?: string;
 		icon?: keyof typeof iconsJson;
 		noPadding?: boolean;
@@ -59,6 +59,7 @@
 	onkeydown={onKeyDown}
 	bind:this={dialogElement}
 	class:default={width === 'default'}
+	class:medium-large={width === 'medium-large'}
 	class:large={width === 'large'}
 	class:small={width === 'small'}
 	class:xsmall={width === 'xsmall'}
@@ -120,6 +121,10 @@
 		/* MODIFIERS */
 		&.default {
 			width: 580px;
+		}
+
+		&.medium-large {
+			width: 640px;
 		}
 
 		&.large {
