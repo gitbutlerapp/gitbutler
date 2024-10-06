@@ -21,19 +21,21 @@
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
+	import BorderlessTextarea from '$lib/shared/BorderlessTextarea.svelte';
+	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
 	import { autoHeight } from '$lib/utils/autoHeight';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
-	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
+	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 	import { tick } from 'svelte';
 	import type { DetailedPullRequest, PullRequest } from '$lib/gitHost/interface/types';
 
@@ -82,17 +84,18 @@
 	);
 	const baseBranchName = $derived($baseBranch.shortName);
 	const prTemplatePath = $derived(project.git_host.pullRequestTemplatePath);
-	const isDraft = $derived<boolean>($preferredPRAction === PRAction.CreateDraft);
+	let isDraft = $state<boolean>($preferredPRAction === PRAction.CreateDraft);
 
 	let modal = $state<ReturnType<typeof Modal>>();
-	let inputTitleElem = $state<HTMLInputElement | null>(null);
+	// let inputTitleElem = $state<HTMLInputElement | null>(null);
 	let bodyTextArea = $state<HTMLTextAreaElement | null>(null);
-	let isEditing = $state<boolean>(false);
+	let isEditing = $state<boolean>(true);
 	let isLoading = $state<boolean>(false);
 	let pullRequestTemplateBody = $state<string | undefined>(undefined);
 	let aiIsLoading = $state<boolean>(false);
 	let aiConfigurationValid = $state<boolean>(false);
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
+	let showAiBox = $state<boolean>(false);
 
 	const canUseAI = $derived.by(() => {
 		return aiConfigurationValid || $aiGenEnabled;
@@ -218,18 +221,8 @@
 		close();
 	}
 
-	function handleCheckDraft(
-		e: Event & {
-			currentTarget: EventTarget & HTMLInputElement;
-		}
-	) {
-		const isDraft = e.currentTarget.checked;
-		preferredPRAction.set(isDraft ? PRAction.CreateDraft : PRAction.Create);
-	}
-
-	function toggleEdit() {
-		if (props.type === 'display') return;
-		isEditing = !isEditing;
+	function handleCheckDraft() {
+		isDraft = !isDraft;
 	}
 
 	async function handleAIButtonPressed() {
@@ -277,7 +270,6 @@
 				if (e.metaKey || e.ctrlKey) {
 					e.stopPropagation();
 					e.preventDefault();
-					toggleEdit();
 				}
 				break;
 			case 'g':
@@ -299,7 +291,7 @@
 	}
 
 	function onClose() {
-		isEditing = false;
+		isEditing = true;
 		inputTitle = undefined;
 		inputBody = undefined;
 	}
@@ -313,214 +305,206 @@
 			return modal?.imports.open;
 		}
 	};
+
+	const isPreviewOnly = props.type === 'display';
 </script>
 
-<Modal bind:this={modal} width="large" noPadding {onClose} onKeyDown={handleModalKeydown}>
-	{#snippet children(_, close)}
-		<ScrollableContainer maxHeight="70vh">
-			<div class="pr-modal__content">
-				<div class="card">
-					<div
-						class="card__header text-14 text-body text-semibold pr-modal__header"
-						class:editing={isEditing}
-					>
-						{#if isEditing}
-							<div class="text-input pr-modal__title-input-wrapper">
-								<input
-									bind:this={inputTitleElem}
-									tabindex="0"
-									type="text"
-									class="text-13 text-body pr-modal__title-input"
-									value={actualTitle}
-									oninput={(e) => {
-										inputTitle = e.currentTarget.value;
-									}}
-								/>
-							</div>
-						{:else if actualTitle}
-							{actualTitle}
-						{:else}
-							<span class="text-clr2"> No title provided.</span>
-						{/if}
-					</div>
-					{#if isEditing}
-						<div
-							class="pr-modal__body-input-wrapper text-input"
-							use:resizeObserver={updateFieldsHeight}
-						>
-							<textarea
-								tabindex="0"
-								bind:this={bodyTextArea}
-								disabled={aiIsLoading}
-								value={actualBody}
-								onfocus={(e) => autoHeight(e.currentTarget)}
-								oninput={(e) => {
-									inputBody = e.currentTarget.value;
-									autoHeight(e.currentTarget);
-								}}
-								class="text-13 text-body pr-modal__body-input"
-							></textarea>
-						</div>
-					{:else if actualBody}
-						<div class="card__content text-13 text-body">
-							<Markdown content={actualBody} />
-						</div>
-					{:else}
-						<div class="card__content text-13 text-body text-clr2">No PR description.</div>
-					{/if}
-				</div>
+<Modal bind:this={modal} width="medium-large" noPadding {onClose} onKeyDown={handleModalKeydown}>
+	<div class="pr-content">
+		<!-- MAIN FIELDS -->
+		<div class="pr-header">
+			<div class="pr-title">
+				<BorderlessTextarea
+					placeholder="PR title"
+					value={actualTitle}
+					fontSize={18}
+					readonly={!isEditing || isPreviewOnly}
+					oninput={(e) => {
+						inputTitle = e.currentTarget.value;
+					}}
+				/>
 			</div>
-		</ScrollableContainer>
-		<div class="pr-modal__footer">
-			{#if isEditing && canUseAI}
-				<div class="text-input pr-modal__ai-prompt-wrapper">
-					<textarea
-						tabindex="0"
-						class="text-13 text-body pr-modal__ai-prompt-input"
-						disabled={aiIsLoading}
-						value={aiDescriptionDirective ?? ''}
+
+			{#if !isPreviewOnly}
+				<SegmentControl
+					defaultIndex={isPreviewOnly ? 1 : 0}
+					onselect={(id) => {
+						if (id === 'write') {
+							isEditing = true;
+						} else {
+							isEditing = false;
+						}
+					}}
+				>
+					<Segment id="write">Write</Segment>
+					<Segment id="preview">Preview</Segment>
+				</SegmentControl>
+			{/if}
+		</div>
+
+		{#if isPreviewOnly || !isEditing}
+			<div class="pr-description-preview scrollbar">
+				<Markdown content={actualBody} />
+			</div>
+		{:else}
+			<BorderlessTextarea
+				bind:value={inputBody}
+				maxHeight="66vh"
+				padding={{ top: 16, right: 16, bottom: 16, left: 20 }}
+				placeholder="Add description…"
+				oninput={(e) => {
+					inputBody = e.currentTarget.value;
+				}}
+			/>
+		{/if}
+
+		<!-- AI GENRATION -->
+		{#if !isPreviewOnly && canUseAI && isEditing}
+			<div class="pr-ai" class:show-ai-box={showAiBox}>
+				{#if showAiBox}
+					<BorderlessTextarea
+						bind:value={aiDescriptionDirective}
+						maxHeight="66vh"
+						padding={{ top: 16, right: 16, bottom: 16, left: 20 }}
 						placeholder={aiService.prSummaryMainDirective}
 						onkeydown={onMetaEnter(handleAIButtonPressed)}
-						onfocus={(e) => autoHeight(e.currentTarget)}
 						oninput={(e) => {
 							aiDescriptionDirective = e.currentTarget.value;
-							autoHeight(e.currentTarget);
 						}}
-					></textarea>
-					<Button
-						style="neutral"
-						kind="solid"
-						icon="ai-small"
-						tooltip={!aiConfigurationValid
-							? 'You must be logged in or have provided your own API key'
-							: !$aiGenEnabled
-								? 'You must have summary generation enabled'
-								: undefined}
-						disabled={!canUseAI || aiIsLoading}
-						isLoading={aiIsLoading}
-						onclick={handleAIButtonPressed}>Generate description</Button
-					>
-				</div>
-			{/if}
-			<div class="pr-modal__button-wrapper">
-				{#if props.type === 'preview' || props.type === 'preview-series'}
-					<div class="pr-modal__checkbox-wrapper">
-						<Checkbox name="is-draft" small checked={isDraft} onchange={handleCheckDraft} />
-						<label class="text-13" for="is-draft">Draft</label>
+					/>
+					<div class="pr-ai__actions">
+						<Button style="ghost" outline onclick={() => (showAiBox = false)}>Hide</Button>
+						<Button
+							style="neutral"
+							kind="solid"
+							icon="ai-small"
+							tooltip={!aiConfigurationValid
+								? 'You must be logged in or have provided your own API key'
+								: !$aiGenEnabled
+									? 'You must have summary generation enabled'
+									: undefined}
+							disabled={!canUseAI || aiIsLoading}
+							isLoading={aiIsLoading}
+							onclick={handleAIButtonPressed}
+						>
+							Generate
+						</Button>
 					</div>
-
-					<Button style="ghost" outline onclick={close}>Cancel</Button>
-					<Button style="neutral" kind="solid" onclick={toggleEdit}
-						>{isEditing ? 'Done' : 'Edit'}</Button
-					>
-					<Button
-						style="pop"
-						kind="solid"
-						disabled={isEditing || isLoading || aiIsLoading}
-						{isLoading}
-						onclick={async () => await handleCreatePR(close)}
-						>{isDraft ? 'Create Draft PR' : 'Create PR'}</Button
-					>
-				{:else if props.type === 'display'}
-					<Button style="ghost" outline onclick={close}>Done</Button>
+				{:else}
+					<div class="pr-ai__actions">
+						<Button
+							style="ghost"
+							outline
+							icon="ai-small"
+							tooltip={!aiConfigurationValid
+								? 'You must be logged in or have provided your own API key'
+								: !$aiGenEnabled
+									? 'You must have summary generation enabled'
+									: undefined}
+							disabled={!canUseAI || aiIsLoading}
+							isLoading={aiIsLoading}
+							onclick={() => {
+								showAiBox = true;
+							}}
+						>
+							Generate description
+						</Button>
+					</div>
 				{/if}
+			</div>
+		{/if}
+	</div>
+
+	<!-- FOOTER -->
+
+	{#snippet controls(close)}
+		<div class="pr-footer">
+			<!-- {#if props.type === 'preview' || props.type === 'preview-series'} -->
+			<label class="draft-toggle__wrap">
+				<Toggle id="is-draft-toggle" small checked={isDraft} on:click={handleCheckDraft} />
+				<label class="text-12 draft-toggle__label" for="is-draft-toggle">Create as a draft</label>
+			</label>
+
+			<div class="pr-footer__actions">
+				<Button style="ghost" outline onclick={close}>Cancel</Button>
+				<Button
+					style="pop"
+					kind="solid"
+					disabled={isLoading || aiIsLoading}
+					{isLoading}
+					onclick={async () => await handleCreatePR(close)}
+					>{isDraft ? 'Create draft pull request' : 'Create pull request'}</Button
+				>
+				<!-- {:else if props.type === 'display'}
+					<Button style="ghost" outline onclick={close}>Done</Button>
+				{/if} -->
 			</div>
 		</div>
 	{/snippet}
 </Modal>
 
 <style lang="postcss">
-	.pr-modal__content {
-		padding: 16px;
-	}
-
-	.pr-modal__header {
-		position: sticky;
-		top: 0;
-		background: var(--clr-bg-1);
-		border-top-left-radius: var(--radius-m);
-		border-top-right-radius: var(--radius-m);
-		&.editing {
-			padding: 8px;
-		}
-	}
-
-	.pr-modal__title-input-wrapper {
-		display: flex;
-		position: relative;
-		width: 100%;
-		flex-direction: column;
-		gap: 4px;
-	}
-	.pr-modal__title-input {
-		width: 100%;
-		border: none;
-		background: none;
-		outline: none;
-	}
-
-	.pr-modal__body-input-wrapper {
-		display: flex;
-		position: relative;
-		padding: 16px;
-		margin: 8px;
-		flex-direction: column;
-		gap: 4px;
-	}
-	.pr-modal__ai-prompt-input,
-	.pr-modal__body-input {
-		overflow: hidden;
+	.pr-content {
 		display: flex;
 		flex-direction: column;
-		align-items: flex-end;
+	}
+
+	.pr-header {
+		display: flex;
 		gap: 16px;
-		background: none;
-		resize: none;
-
-		&:focus {
-			outline: none;
-		}
-
-		&::placeholder {
-			color: oklch(from var(--clr-scale-ntrl-30) l c h / 0.4);
-		}
+		padding: 16px 16px 0 20px;
 	}
 
-	.pr-modal__ai-prompt-input {
-		width: 100%;
+	.pr-title {
+		flex: 1;
+		margin-top: 4px;
 	}
 
-	.pr-modal__footer {
+	.pr-description-preview {
+		overflow-y: auto;
+		display: flex;
+		padding: 16px 16px 16px 20px;
+		max-height: 66vh;
+	}
+
+	/* AI BOX */
+
+	.pr-ai {
 		display: flex;
 		flex-direction: column;
-		width: 100%;
-		gap: 16px;
-		padding: 16px;
-		border-top: 1px solid var(--clr-border-2);
-		background-color: var(--clr-bg-1);
-		border-bottom-left-radius: var(--radius-l);
-		border-bottom-right-radius: var(--radius-l);
 	}
 
-	.pr-modal__checkbox-wrapper {
+	.show-ai-box {
+		border-top: 1px solid var(--clr-border-3);
+	}
+
+	.pr-ai__actions {
 		display: flex;
-		width: 100%;
-		gap: 8px;
-		justify-content: flex-start;
+		gap: 6px;
+		padding: 0 20px 16px;
+	}
+
+	/* FOOTER */
+
+	.pr-footer {
+		display: flex;
+		justify-content: space-between;
 		align-items: center;
+		width: 100%;
 	}
 
-	.pr-modal__button-wrapper {
+	.pr-footer__actions {
 		display: flex;
 		gap: 8px;
-		width: 100%;
-		justify-content: flex-end;
-		align-items: center;
 	}
 
-	.pr-modal__ai-prompt-wrapper {
+	.draft-toggle__wrap {
 		display: flex;
-		width: 100%;
-		padding: 8px;
+		align-items: center;
+		gap: 10px;
+	}
+
+	.draft-toggle__label {
+		color: var(--clr-text-2);
 	}
 </style>

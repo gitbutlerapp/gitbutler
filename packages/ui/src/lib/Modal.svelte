@@ -112,6 +112,7 @@
 		flex-direction: column;
 
 		max-height: calc(100vh - 80px);
+		overflow: hidden;
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-l);
