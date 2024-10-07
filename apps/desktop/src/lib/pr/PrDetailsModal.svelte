@@ -362,7 +362,7 @@
 						}
 					}}
 				>
-					<Segment id="write">Write</Segment>
+					<Segment id="write">Edit</Segment>
 					<Segment id="preview">Preview</Segment>
 				</SegmentControl>
 			{/if}
