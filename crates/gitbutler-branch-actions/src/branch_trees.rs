@@ -1,6 +1,10 @@
 use anyhow::{bail, Result};
+use gitbutler_branch::Branch;
+use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
+use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_repo::rebase::cherry_rebase_group;
 use gitbutler_repo::RepositoryExt as _;
 
 use crate::VirtualBranchesExt as _;
@@ -58,6 +62,91 @@ pub(crate) fn checkout_branch_trees<'a>(
             .checkout()?;
 
         Ok(final_tree)
+    }
+}
+
+pub struct BranchHeadAndTree {
+    /// This is a commit Oid.
+    ///
+    /// This should be used as the new head Oid for the branch.
+    pub head: git2::Oid,
+    /// This is a tree Oid.
+    ///
+    /// This should be used as the new tree Oid for the branch.
+    pub tree: git2::Oid,
+}
+
+/// Given a new head for a branch, this comptues how the tree should be
+/// rebased on top of the new head. If the rebased tree is conflicted, then
+/// the function will return a new head commit which is the conflicted
+/// tree commit, and the the tree oid will be the auto-resolved tree.
+///
+/// This does not mutate the branch, or update the virtual_branches.toml.
+/// You probably also want to call [`checkout_branch_trees`] after you have
+/// mutated the virtual_branches.toml.
+pub fn compute_updated_branch_head(
+    repository: &git2::Repository,
+    branch: &Branch,
+    new_head: git2::Oid,
+    fearless_rebasing: bool,
+) -> Result<BranchHeadAndTree> {
+    compute_updated_branch_head_for_commits(
+        repository,
+        branch.head,
+        branch.tree,
+        new_head,
+        fearless_rebasing,
+    )
+}
+
+/// Given a new head for a branch, this comptues how the tree should be
+/// rebased on top of the new head. If the rebased tree is conflicted, then
+/// the function will return a new head commit which is the conflicted
+/// tree commit, and the the tree oid will be the auto-resolved tree.
+///
+/// If you have access to a [`Branch`] object, it's probably preferable to
+/// use [`compute_updated_branch_head`] instead to prevent programmer error.
+///
+/// This does not mutate the branch, or update the virtual_branches.toml.
+/// You probably also want to call [`checkout_branch_trees`] after you have
+/// mutated the virtual_branches.toml.
+pub fn compute_updated_branch_head_for_commits(
+    repository: &git2::Repository,
+    old_head: git2::Oid,
+    old_tree: git2::Oid,
+    new_head: git2::Oid,
+    fearless_rebasing: bool,
+) -> Result<BranchHeadAndTree> {
+    let (author, committer) = repository.signatures()?;
+
+    let commited_tree = repository.commit_with_signature(
+        None,
+        &author,
+        &committer,
+        "Uncommited changes",
+        &repository.find_tree(old_tree)?,
+        &[&repository.find_commit(old_head)?],
+        Default::default(),
+    )?;
+
+    let rebased_tree =
+        cherry_rebase_group(repository, new_head, &[commited_tree], fearless_rebasing)?;
+    let rebased_tree = repository.find_commit(rebased_tree)?;
+
+    if rebased_tree.is_conflicted() {
+        let auto_tree_id = repository
+            .find_real_tree(&rebased_tree, Default::default())?
+            .id();
+
+        Ok(BranchHeadAndTree {
+            head: rebased_tree.id(),
+            tree: auto_tree_id,
+        })
+    } else {
+        Ok(BranchHeadAndTree {
+            head: new_head,
+            tree: rebased_tree.tree_id(),
+        })
     }
 }
 

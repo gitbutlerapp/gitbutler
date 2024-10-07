@@ -1,12 +1,15 @@
 use anyhow::{bail, Context as _, Result};
-use gitbutler_branch::{signature, BranchId, SignaturePurpose};
-use gitbutler_cherry_pick::RepositoryExt as _;
+use gitbutler_branch::BranchId;
 use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt as _};
 
-use crate::{branch_trees::checkout_branch_trees, VirtualBranchesExt as _};
+use crate::{
+    branch_trees::{
+        checkout_branch_trees, compute_updated_branch_head_for_commits, BranchHeadAndTree,
+    },
+    VirtualBranchesExt as _,
+};
 
 /// Moves a commit up or down a stack by a certain offset.
 ///
@@ -119,44 +122,35 @@ fn inner_reorder_commit(
 
     ensure_offset_within_bounds(subject_commit, offset, branch_commits)?;
 
-    let author = signature(SignaturePurpose::Author)?;
-    let committer = signature(SignaturePurpose::Committer)?;
-    let tree_commit = repository.commit(
-        None,
-        &author,
-        &committer,
-        "Uncommited changes",
-        branch_tree,
-        &[&repository.find_commit(branch_commits[0])?],
-    )?;
-
-    let branch_commits = reorder_commit_list(subject_commit, offset, branch_commits)?;
+    let reordered_commits = reorder_commit_list(subject_commit, offset, branch_commits)?;
 
     // Rebase branch commits
     // We are passing all the commits to the cherry_rebase_group funcion, but
     // this is not a concern as it will verbaitm copy any commits that have
     // not had their parents changed.
-    let new_head_oid =
-        cherry_rebase_group(repository, base_commit, &branch_commits, succeeding_rebases)?;
+    let new_head_oid = cherry_rebase_group(
+        repository,
+        base_commit,
+        &reordered_commits,
+        succeeding_rebases,
+    )?;
 
-    // Rebase branch tree on top of new stack
-    let new_tree_commit =
-        cherry_rebase_group(repository, new_head_oid, &[tree_commit], succeeding_rebases)?;
-    let new_tree_commit = repository.find_commit(new_tree_commit)?;
+    // Calculate the new head and tree
+    let BranchHeadAndTree {
+        head: new_head_oid,
+        tree: new_tree_oid,
+    } = compute_updated_branch_head_for_commits(
+        repository,
+        branch_commits[0], // This function only operates on lists of 2 or greater
+        branch_tree.id(),
+        new_head_oid,
+        succeeding_rebases,
+    )?;
 
-    if new_tree_commit.is_conflicted() {
-        Ok(ReorderResult {
-            tree: repository
-                .find_real_tree(&new_tree_commit, Default::default())?
-                .id(),
-            head: new_tree_commit.id(),
-        })
-    } else {
-        Ok(ReorderResult {
-            tree: new_tree_commit.tree_id(),
-            head: new_head_oid,
-        })
-    }
+    Ok(ReorderResult {
+        head: new_head_oid,
+        tree: new_tree_oid,
+    })
 }
 
 fn reorder_commit_list(

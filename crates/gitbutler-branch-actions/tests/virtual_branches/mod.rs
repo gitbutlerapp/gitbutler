@@ -57,6 +57,7 @@ impl Test {
 
 mod amend;
 mod apply_virtual_branch;
+mod branch_trees;
 mod create_commit;
 mod create_virtual_branch_from_branch;
 mod init;

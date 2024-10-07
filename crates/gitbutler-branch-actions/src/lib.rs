@@ -43,7 +43,7 @@ pub use remote::{RemoteBranch, RemoteBranchData, RemoteCommit};
 
 pub mod conflicts;
 
-mod branch_trees;
+pub mod branch_trees;
 mod move_commits;
 mod reorder_commits;
 mod undo_commit;
