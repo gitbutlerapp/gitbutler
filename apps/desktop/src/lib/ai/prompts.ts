@@ -1,4 +1,4 @@
-import { type Prompt, MessageRole } from '$lib/ai/types';
+import { type Prompt, MessageRole } from './types';
 
 export const SHORT_DEFAULT_COMMIT_TEMPLATE: Prompt = [
 	{

@@ -22,6 +22,7 @@
 	import AppUpdater from '$lib/components/AppUpdater.svelte';
 	import PromptModal from '$lib/components/PromptModal.svelte';
 	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
+	import { AppSettings } from '$lib/config/appSettings';
 	import {
 		createGitHubUserServiceStore as createGitHubUserServiceStore,
 		GitHubUserService
@@ -70,6 +71,7 @@
 	setContext(AIPromptService, data.aiPromptService);
 	setContext(LineManagerFactory, data.lineManagerFactory);
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
+	setContext(AppSettings, data.appSettings);
 
 	const webRoutesService = new WebRoutesService(true, env.PUBLIC_CLOUD_BASE_URL);
 	const desktopRoutesService = new DesktopRoutesService(webRoutesService);

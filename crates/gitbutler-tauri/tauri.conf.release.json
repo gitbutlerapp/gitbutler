@@ -1,43 +1,21 @@
 {
+	"productName": "GitButler",
+	"identifier": "com.gitbutler.app",
 	"build": {
-		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode production && cargo build --release -p gitbutler-git && bash ./gitbutler-tauri/inject-git-binaries.sh"
+		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode production && cargo build --release -p gitbutler-git && bash ./crates/gitbutler-tauri/inject-git-binaries.sh"
 	},
-	"package": {
-		"productName": "GitButler"
+	"bundle": {
+		"active": true,
+		"icon": [
+			"icons/32x32.png",
+			"icons/128x128.png",
+			"icons/128x128@2x.png",
+			"icons/icon.icns",
+			"icons/icon.ico"
+		],
+		"externalBin": ["gitbutler-git-setsid", "gitbutler-git-askpass"]
 	},
-	"tauri": {
-		"bundle": {
-			"identifier": "com.gitbutler.app",
-			"icon": [
-				"icons/32x32.png",
-				"icons/128x128.png",
-				"icons/128x128@2x.png",
-				"icons/icon.icns",
-				"icons/icon.ico"
-			],
-			"externalBin": ["gitbutler-git-setsid", "gitbutler-git-askpass"],
-			"windows": {
-				"certificateThumbprint": null,
-				"wix": {
-					"template": "templates/installer.wxs"
-				}
-			},
-			"rpm": {
-				"depends": ["webkit2gtk4.0-devel"]
-			},
-			"deb": {
-				"depends": ["libwebkit2gtk-4.0-dev", "libgtk-3-dev"]
-			}
-		},
-		"security": {
-			"csp": {
-				"default-src": "'self'",
-				"img-src": "'self' asset: https://asset.localhost data: tauri://localhost https://avatars.githubusercontent.com https://*.gitbutler.com  https://gitbutler-public.s3.amazonaws.com https://*.gravatar.com https://io.wp.com https://i0.wp.com https://i1.wp.com https://i2.wp.com https://i3.wp.com https://github.com https://*.googleusercontent.com",
-				"connect-src": "'self' https://eu.posthog.com https://eu.i.posthog.com https://app.gitbutler.com https://o4504644069687296.ingest.sentry.io ws://localhost:7703 https://github.com https://api.github.com https://api.openai.com https://api.anthropic.com/v1/messages",
-				"script-src": "'self' https://eu.posthog.com https://eu.i.posthog.com",
-				"style-src": "'self' 'unsafe-inline'"
-			}
-		},
+	"plugins": {
 		"updater": {
 			"active": true,
 			"dialog": false,

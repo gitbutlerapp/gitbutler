@@ -1,4 +1,12 @@
 import { DEFAULT_PR_SUMMARY_MAIN_DIRECTIVE, getPrTemplateDirective } from './prompts';
+import {
+	OpenAIModelName,
+	type AIClient,
+	AnthropicModelName,
+	ModelKind,
+	MessageRole,
+	type Prompt
+} from './types';
 import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import {
@@ -7,14 +15,6 @@ import {
 	OllamaClient
 } from '$lib/ai/ollamaClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
-import {
-	OpenAIModelName,
-	type AIClient,
-	AnthropicModelName,
-	ModelKind,
-	MessageRole,
-	type Prompt
-} from '$lib/ai/types';
 import { buildFailureFromAny, isFailure, ok, type Result } from '$lib/result';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { get } from 'svelte/store';

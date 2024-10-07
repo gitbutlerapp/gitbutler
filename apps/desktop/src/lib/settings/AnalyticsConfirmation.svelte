@@ -1,10 +1,12 @@
 <script lang="ts">
 	import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
+	import { AppSettings } from '$lib/config/appSettings';
 	import AnalyticsSettings from '$lib/settings/AnalyticsSettings.svelte';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import type { Writable } from 'svelte/store';
 
-	export let analyticsConfirmed: Writable<boolean>;
+	const appSettings = getContext(AppSettings);
+	const analyticsConfirmed = appSettings.appAnalyticsConfirmed;
 </script>
 
 <div class="analytics-confirmation">
@@ -19,7 +21,7 @@
 			icon="chevron-right-small"
 			onclick={() => {
 				$analyticsConfirmed = true;
-				initAnalyticsIfEnabled();
+				initAnalyticsIfEnabled(appSettings);
 			}}
 		>
 			Continue

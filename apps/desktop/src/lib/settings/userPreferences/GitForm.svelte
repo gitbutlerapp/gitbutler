@@ -26,7 +26,7 @@
 
 <Section>
 	<CommitSigningForm />
-	{#if $platformName !== 'win32'}
+	{#if platformName !== 'windows'}
 		<Spacer />
 		<KeysForm showProjectName={false} />
 	{/if}

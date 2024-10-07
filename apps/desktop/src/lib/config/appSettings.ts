@@ -2,99 +2,83 @@
  * This file contains functions for managing application settings.
  * Settings are persisted in <Application Data>/settings.json and are used by both the UI and the backend.
  *
- * @module appSettings
+ * TODO: Rewrite this to be an injectable object so we don't need `storeInstance`.
  */
 
+import { Store } from '@tauri-apps/plugin-store';
 import { writable, type Writable } from 'svelte/store';
-import { Store } from 'tauri-plugin-store-api';
 
-const store = new Store('settings.json');
-
-/**
- * Persisted confirmation that user has confirmed their analytics settings.
- */
-export function appAnalyticsConfirmed() {
-	return persisted(false, 'appAnalyticsConfirmed');
+export async function loadAppSettings() {
+	const diskStore = await Store.load('settings.json', { autoSave: true });
+	return new AppSettings(diskStore);
 }
 
-/**
- * Provides a writable store for obtaining or setting the current state of application metrics.
- * The application metrics can be enabled or disabled by setting the value of the store to true or false.
- * @returns A writable store with the appMetricsEnabled config.
- */
-export function appMetricsEnabled() {
-	return persisted(true, 'appMetricsEnabled');
-}
+export class AppSettings {
+	constructor(private diskStore: Store) {}
 
-/**
- * Provides a writable store for obtaining or setting the current state of application error reporting.
- * The application error reporting can be enabled or disabled by setting the value of the store to true or false.
- * @returns A writable store with the appErrorReportingEnabled config.
- */
-export function appErrorReportingEnabled() {
-	return persisted(true, 'appErrorReportingEnabled');
-}
+	/**
+	 * Persisted confirmation that user has confirmed their analytics settings.
+	 */
+	readonly appAnalyticsConfirmed = this.persisted(false, 'appAnalyticsConfirmed');
 
-/**
- * Provides a writable store for obtaining or setting the current state of non-anonemous application metrics.
- * The setting can be enabled or disabled by setting the value of the store to true or false.
- * @returns A writable store with the appNonAnonMetricsEnabled config.
- */
-export function appNonAnonMetricsEnabled() {
-	return persisted(false, 'appNonAnonMetricsEnabled');
-}
+	/**
+	 * Provides a writable store for obtaining or setting the current state of application metrics.
+	 * The application metrics can be enabled or disabled by setting the value of the store to true or false.
+	 * @returns A writable store with the appMetricsEnabled config.
+	 */
+	readonly appMetricsEnabled = this.persisted(true, 'appMetricsEnabled');
 
-function persisted<T>(initial: T, key: string): Writable<T> & { onDisk: () => Promise<T> } {
-	async function setAndPersist(value: T, set: (value: T) => void) {
-		await store.set(key, value);
-		await store.save();
+	/**
+	 * Provides a writable store for obtaining or setting the current state of application error reporting.
+	 * The application error reporting can be enabled or disabled by setting the value of the store to true or false.
+	 * @returns A writable store with the appErrorReportingEnabled config.
+	 */
+	readonly appErrorReportingEnabled = this.persisted(true, 'appErrorReportingEnabled');
 
-		set(value);
+	/**
+	 * Provides a writable store for obtaining or setting the current state of non-anonemous application metrics.
+	 * The setting can be enabled or disabled by setting the value of the store to true or false.
+	 * @returns A writable store with the appNonAnonMetricsEnabled config.
+	 */
+	readonly appNonAnonMetricsEnabled = this.persisted(false, 'appNonAnonMetricsEnabled');
+
+	private persisted<T>(initial: T, key: string): Writable<T> & { onDisk: () => Promise<T> } {
+		const diskStore = this.diskStore;
+		const storeValueWithDefault = this.storeValueWithDefault.bind(this);
+
+		const keySpecificStore = writable<T>(initial, (set) => {
+			synchronize(set);
+		});
+
+		const subscribe = keySpecificStore.subscribe;
+
+		async function setAndPersist(value: T, set: (value: T) => void) {
+			diskStore?.set(key, value);
+			set(value);
+		}
+
+		async function synchronize(set: (value: T) => void): Promise<void> {
+			const value = await storeValueWithDefault(initial, key);
+			set(value);
+		}
+
+		async function set(value: T) {
+			setAndPersist(value, keySpecificStore.set);
+		}
+
+		async function onDisk() {
+			return await storeValueWithDefault(initial, key);
+		}
+
+		function update() {
+			throw 'Not implemented';
+		}
+
+		return { subscribe, set, update, onDisk };
 	}
 
-	async function synchronize(set: (value: T) => void): Promise<void> {
-		const value = await storeValueWithDefault(initial, key);
-		set(value);
-	}
-
-	function update() {
-		throw 'Not implemented';
-	}
-
-	const thisStore = writable<T>(initial, (set) => {
-		synchronize(set);
-	});
-
-	async function set(value: T) {
-		setAndPersist(value, thisStore.set);
-	}
-
-	async function onDisk() {
-		return await storeValueWithDefault(initial, key);
-	}
-
-	const subscribe = thisStore.subscribe;
-
-	return {
-		subscribe,
-		set,
-		update,
-		onDisk
-	};
-}
-
-async function storeValueWithDefault<T>(initial: T, key: string): Promise<T> {
-	try {
-		await store.load();
-	} catch {
-		// If file does not exist, reset it
-		store.reset();
-	}
-	const stored = (await store.get(key)) as T;
-
-	if (stored === null) {
-		return initial;
-	} else {
-		return stored;
+	async storeValueWithDefault<T>(initial: T, key: string): Promise<T> {
+		const stored = this.diskStore?.get(key) as T;
+		return stored === null ? initial : stored;
 	}
 }
