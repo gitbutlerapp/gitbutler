@@ -179,18 +179,6 @@ pub fn integrate_upstream_commits(project: &Project, branch_id: BranchId) -> Res
     vbranch::integrate_upstream_commits(&ctx, branch_id).map_err(Into::into)
 }
 
-pub fn update_base_branch(project: &Project) -> Result<Vec<ReferenceName>> {
-    let ctx = open_with_verify(project)?;
-    assure_open_workspace_mode(&ctx)
-        .context("Updating base branch requires open workspace mode")?;
-    let mut guard = project.exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
-        SnapshotDetails::new(OperationKind::UpdateWorkspaceBase),
-        guard.write_permission(),
-    );
-    base::update_base_branch(&ctx, guard.write_permission()).map_err(Into::into)
-}
-
 pub fn update_virtual_branch(project: &Project, branch_update: BranchUpdateRequest) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Updating a branch requires open workspace mode")?;

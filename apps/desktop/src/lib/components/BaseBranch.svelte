@@ -6,11 +6,9 @@
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { ModeService } from '$lib/modes/service';
-	import { showInfo } from '$lib/notifications/toasts';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import { groupByCondition } from '$lib/utils/array';
 	import { getContext } from '$lib/utils/context';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
@@ -44,14 +42,15 @@
 			tooltip: `Choose how to integrate the commits from ${base.branchName} into the base of all applied virtual branches`,
 			color: 'warning',
 			handler: handleMergeUpstream,
-			action: updateBaseBranch
+			action: () => {
+				integrateUpstreamModal?.show();
+			}
 		}
 	} as const;
 
 	type ResetBaseStrategy = keyof typeof resetBaseTo;
 
 	const baseBranchService = getContext(BaseBranchService);
-	const branchController = getContext(BranchController);
 	const modeService = getContext(ModeService);
 	const gitHost = getGitHost();
 	const lineManagerFactory = getContext(LineManagerFactory);
@@ -115,16 +114,6 @@
 			true
 		)
 	);
-
-	async function updateBaseBranch() {
-		baseBranchIsUpdating = true;
-		const infoText = await branchController.updateBaseBranch();
-		if (infoText) {
-			showInfo('Stashed conflicting branches', infoText);
-		}
-		await tick();
-		baseBranchIsUpdating = false;
-	}
 
 	async function handleMergeUpstream() {
 		if (!onlyLocalAhead) {
