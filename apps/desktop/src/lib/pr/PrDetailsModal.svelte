@@ -20,7 +20,6 @@
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
-	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import BorderlessTextarea from '$lib/shared/BorderlessTextarea.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
@@ -290,6 +289,18 @@
 		}
 	}
 
+	function showBorderOnScroll(e: Event) {
+		const target = e.target as HTMLElement;
+		const scrollPosition = target.scrollTop;
+		const top = scrollPosition < 5;
+
+		if (top) {
+			target.style.borderTop = 'none';
+		} else {
+			target.style.borderTop = '1px solid var(--clr-border-3)';
+		}
+	}
+
 	function onClose() {
 		isEditing = true;
 		inputTitle = undefined;
@@ -342,77 +353,77 @@
 			{/if}
 		</div>
 
-		{#if isPreviewOnly || !isEditing}
-			<div class="pr-description-preview scrollbar">
-				<Markdown content={actualBody} />
-			</div>
-		{:else}
-			<BorderlessTextarea
-				bind:value={inputBody}
-				maxHeight="66vh"
-				padding={{ top: 16, right: 16, bottom: 16, left: 20 }}
-				placeholder="Add description…"
-				oninput={(e) => {
-					inputBody = e.currentTarget.value;
-				}}
-			/>
-		{/if}
+		<div class="pr-fields scrollbar" onscroll={showBorderOnScroll}>
+			{#if isPreviewOnly || !isEditing}
+				<div class="pr-description-preview scrollbar">
+					<Markdown content={actualBody} />
+				</div>
+			{:else}
+				<BorderlessTextarea
+					bind:value={inputBody}
+					padding={{ top: 0, right: 16, bottom: 16, left: 20 }}
+					placeholder="Add description…"
+					oninput={(e) => {
+						inputBody = e.currentTarget.value;
+					}}
+				/>
+			{/if}
 
-		<!-- AI GENRATION -->
-		{#if !isPreviewOnly && canUseAI && isEditing}
-			<div class="pr-ai" class:show-ai-box={showAiBox}>
-				{#if showAiBox}
-					<BorderlessTextarea
-						bind:value={aiDescriptionDirective}
-						maxHeight="66vh"
-						padding={{ top: 16, right: 16, bottom: 16, left: 20 }}
-						placeholder={aiService.prSummaryMainDirective}
-						onkeydown={onMetaEnter(handleAIButtonPressed)}
-						oninput={(e) => {
-							aiDescriptionDirective = e.currentTarget.value;
-						}}
-					/>
-					<div class="pr-ai__actions">
-						<Button style="ghost" outline onclick={() => (showAiBox = false)}>Hide</Button>
-						<Button
-							style="neutral"
-							kind="solid"
-							icon="ai-small"
-							tooltip={!aiConfigurationValid
-								? 'You must be logged in or have provided your own API key'
-								: !$aiGenEnabled
-									? 'You must have summary generation enabled'
-									: undefined}
-							disabled={!canUseAI || aiIsLoading}
-							isLoading={aiIsLoading}
-							onclick={handleAIButtonPressed}
-						>
-							Generate
-						</Button>
-					</div>
-				{:else}
-					<div class="pr-ai__actions">
-						<Button
-							style="ghost"
-							outline
-							icon="ai-small"
-							tooltip={!aiConfigurationValid
-								? 'You must be logged in or have provided your own API key'
-								: !$aiGenEnabled
-									? 'You must have summary generation enabled'
-									: undefined}
-							disabled={!canUseAI || aiIsLoading}
-							isLoading={aiIsLoading}
-							onclick={() => {
-								showAiBox = true;
+			<!-- AI GENRATION -->
+			{#if !isPreviewOnly && canUseAI && isEditing}
+				<div class="pr-ai" class:show-ai-box={showAiBox}>
+					{#if showAiBox}
+						<BorderlessTextarea
+							bind:value={aiDescriptionDirective}
+							padding={{ top: 16, right: 16, bottom: 0, left: 20 }}
+							placeholder={aiService.prSummaryMainDirective}
+							onkeydown={onMetaEnter(handleAIButtonPressed)}
+							oninput={(e) => {
+								aiDescriptionDirective = e.currentTarget.value;
 							}}
-						>
-							Generate description
-						</Button>
-					</div>
-				{/if}
-			</div>
-		{/if}
+						/>
+						<div class="pr-ai__actions">
+							<Button style="ghost" outline onclick={() => (showAiBox = false)}>Hide</Button>
+							<Button
+								style="neutral"
+								kind="solid"
+								icon="ai-small"
+								tooltip={!aiConfigurationValid
+									? 'You must be logged in or have provided your own API key'
+									: !$aiGenEnabled
+										? 'You must have summary generation enabled'
+										: undefined}
+								disabled={!canUseAI || aiIsLoading}
+								isLoading={aiIsLoading}
+								onclick={handleAIButtonPressed}
+							>
+								Generate
+							</Button>
+						</div>
+					{:else}
+						<div class="pr-ai__actions">
+							<Button
+								style="ghost"
+								outline
+								icon="ai-small"
+								tooltip={!aiConfigurationValid
+									? 'You must be logged in or have provided your own API key'
+									: !$aiGenEnabled
+										? 'You must have summary generation enabled'
+										: undefined}
+								disabled={!canUseAI || aiIsLoading}
+								isLoading={aiIsLoading}
+								onclick={() => {
+									showAiBox = true;
+								}}
+							>
+								Generate description
+							</Button>
+						</div>
+					{/if}
+				</div>
+			{/if}
+		</div>
 	</div>
 
 	<!-- FOOTER -->
@@ -435,9 +446,6 @@
 					onclick={async () => await handleCreatePR(close)}
 					>{isDraft ? 'Create draft pull request' : 'Create pull request'}</Button
 				>
-				<!-- {:else if props.type === 'display'}
-					<Button style="ghost" outline onclick={close}>Done</Button>
-				{/if} -->
 			</div>
 		</div>
 	{/snippet}
@@ -447,12 +455,18 @@
 	.pr-content {
 		display: flex;
 		flex-direction: column;
+		/* max-height: 66vh; */
+	}
+
+	.pr-fields {
+		overflow-y: auto;
+		max-height: 66vh;
 	}
 
 	.pr-header {
 		display: flex;
 		gap: 16px;
-		padding: 16px 16px 0 20px;
+		padding: 16px 16px 12px 20px;
 	}
 
 	.pr-title {
@@ -464,7 +478,6 @@
 		overflow-y: auto;
 		display: flex;
 		padding: 16px 16px 16px 20px;
-		max-height: 66vh;
 	}
 
 	/* AI BOX */
@@ -481,7 +494,7 @@
 	.pr-ai__actions {
 		display: flex;
 		gap: 6px;
-		padding: 0 20px 16px;
+		padding: 12px 20px 16px;
 	}
 
 	/* FOOTER */

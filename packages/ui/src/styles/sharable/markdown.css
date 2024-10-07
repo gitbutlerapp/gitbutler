@@ -1,4 +1,8 @@
 @layer sharable {
+	.markdown {
+		user-select: text;
+	}
+
 	.markdown p:last-child,
 	.markdown ul:last-child,
 	.markdown ol:last-child,

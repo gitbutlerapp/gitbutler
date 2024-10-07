@@ -80,6 +80,7 @@
 		color: var(--clr-text-1);
 		overflow-y: auto; /* Enable scrolling when max height is reached */
 		background-color: transparent;
+		/* background-color: rgba(0, 0, 0, 0.1); */
 	}
 
 	/* placeholder */
