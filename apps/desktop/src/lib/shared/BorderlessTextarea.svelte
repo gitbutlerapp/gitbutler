@@ -46,8 +46,8 @@
 	bind:this={ref}
 	bind:value
 	use:resizeObserver={(e) => {
-    autoHeight(e.currentTarget as HTMLTextAreaElement);
-  }}
+		autoHeight(e.currentTarget as HTMLTextAreaElement);
+	}}
 	class="borderless-textarea scrollbar"
 	rows={1}
 	{placeholder}
