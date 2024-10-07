@@ -178,18 +178,6 @@
 		</div>
 		<div class="pr-tags">
 			<Button
-				icon="update-small"
-				size="tag"
-				style="ghost"
-				outline
-				loading={$mrLoading}
-				tooltip={$timeAgo ? 'Updated ' + $timeAgo : ''}
-				onclick={async () => {
-					$checksMonitor?.update();
-					prMonitor?.refresh();
-				}}
-			/>
-			<Button
 				size="tag"
 				clickable={false}
 				style={prStatusInfo.style}
@@ -220,6 +208,18 @@
 			>
 				PR details
 			</Button>
+			<Button
+				icon="update-small"
+				size="tag"
+				style="ghost"
+				outline
+				loading={$mrLoading}
+				tooltip={$timeAgo ? 'Updated ' + $timeAgo : ''}
+				onclick={async () => {
+					$checksMonitor?.update();
+					prMonitor?.refresh();
+				}}
+			/>
 		</div>
 
 		<!--
@@ -304,11 +304,5 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-	}
-
-	.floating-button {
-		position: absolute;
-		right: 6px;
-		top: 6px;
 	}
 </style>

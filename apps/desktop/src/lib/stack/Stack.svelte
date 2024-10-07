@@ -144,7 +144,7 @@
 					top: 12,
 					bottom: 12
 				}}
-				bind:scrollEndVisible
+				onscrollEnd={(visible) => (scrollEndVisible = visible)}
 			>
 				<div
 					bind:this={rsViewport}
@@ -279,9 +279,6 @@
 		position: sticky;
 		padding: 14px;
 		bottom: 0px;
-		transition:
-			background-color 0.3s ease,
-			box-shadow 0.3s ease;
 
 		&:not(.scroll-end-visible) {
 			background-color: var(--clr-bg-1);

@@ -14,8 +14,9 @@
 		thickness?: string;
 		horz?: boolean;
 		onthumbdrag?: (dragging: boolean) => void;
-		onscroll?: (e: Event) => void;
 		children: Snippet;
+		onscrollEnd?: (visible: boolean) => void;
+		onscroll?: (e: Event) => void;
 	}
 
 	let {
@@ -30,12 +31,14 @@
 		horz,
 		children,
 		onthumbdrag,
-		onscroll
+		onscroll,
+		onscrollEnd
 	}: Props = $props();
 
 	let viewport = $state<HTMLDivElement>();
 	let contents = $state<HTMLDivElement>();
 	let scrollable = $state<boolean>();
+	let scrollEndVisible = $state<boolean>(false);
 
 	let observer: ResizeObserver;
 
@@ -50,6 +53,14 @@
 	});
 
 	onDestroy(() => observer.disconnect());
+
+	$effect(() => {
+		if (scrollEndVisible) {
+			onscrollEnd?.(true);
+		} else {
+			onscrollEnd?.(false);
+		}
+	});
 </script>
 
 <div class="scrollable" style:flex-grow={wide ? 1 : 0} style:max-height={maxHeight}>
@@ -58,7 +69,12 @@
 		class="viewport hide-native-scrollbar"
 		style:height
 		style:overflow-y={scrollable ? 'auto' : 'hidden'}
-		{onscroll}
+		onscroll={(e) => {
+			const target = e.target as HTMLDivElement;
+			scrollEndVisible = target.scrollTop + target.clientHeight >= target.scrollHeight;
+
+			onscroll?.(e);
+		}}
 	>
 		<div bind:this={contents} class="contents" class:fill-viewport={fillViewport}>
 			{@render children()}

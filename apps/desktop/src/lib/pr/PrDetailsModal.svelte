@@ -466,19 +466,19 @@
 					<Button
 						style="ghost"
 						outline
-						icon="open-link"
-						onclick={() => {
-							openExternalUrl(props.pr.htmlUrl);
-						}}>Open in browser</Button
-					>
-					<Button
-						style="ghost"
-						outline
 						icon={prLinkCopied ? 'tick-small' : 'copy-small'}
 						disabled={prLinkCopied}
 						onclick={() => {
 							handlePrLinkCopied(props.pr.htmlUrl);
 						}}>{prLinkCopied ? 'Link copied!' : 'Copy PR link'}</Button
+					>
+					<Button
+						style="ghost"
+						outline
+						icon="open-link"
+						onclick={() => {
+							openExternalUrl(props.pr.htmlUrl);
+						}}>Open in browser</Button
 					>
 				</div>
 				<Button style="ghost" outline onclick={close}>Close</Button>
@@ -507,7 +507,7 @@
 	.pr-description-preview {
 		overflow-y: auto;
 		display: flex;
-		padding: 16px 16px 16px 20px;
+		padding: 0 16px 16px 20px;
 	}
 
 	/* AI BOX */

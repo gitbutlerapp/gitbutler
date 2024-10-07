@@ -181,18 +181,6 @@
 		</div>
 		<div class="pr-header-tags">
 			<Button
-				icon="update-small"
-				size="tag"
-				style="ghost"
-				outline
-				loading={$mrLoading}
-				tooltip={$timeAgo ? 'Updated ' + $timeAgo : ''}
-				onclick={async () => {
-					checksMonitor?.update();
-					prMonitor?.refresh();
-				}}
-			/>
-			<Button
 				size="tag"
 				clickable={false}
 				icon={prStatusInfo.icon}
@@ -223,6 +211,18 @@
 			>
 				PR details
 			</Button>
+			<Button
+				icon="update-small"
+				size="tag"
+				style="ghost"
+				outline
+				loading={$mrLoading}
+				tooltip={$timeAgo ? 'Updated ' + $timeAgo : ''}
+				onclick={async () => {
+					checksMonitor?.update();
+					prMonitor?.refresh();
+				}}
+			/>
 		</div>
 
 		<!--

@@ -124,9 +124,10 @@
 			{:else}
 				<Button
 					style="ghost"
+					wide
 					outline
 					disabled={commits.length === 0 || !$gitHost || !$prService}
-					onclick={handleOpenPR}>Start a PR</Button
+					onclick={handleOpenPR}>Create pull request</Button
 				>
 			{/if}
 		</div>
