@@ -335,6 +335,7 @@
 		<div class="pr-header">
 			<div class="pr-title">
 				<BorderlessTextarea
+					autofocus
 					placeholder="PR title"
 					value={actualTitle}
 					fontSize={18}
@@ -356,8 +357,8 @@
 						}
 					}}
 				>
-					<Segment id="write">Edit</Segment>
-					<Segment id="preview">Preview</Segment>
+					<Segment unfocusable id="write">Edit</Segment>
+					<Segment unfocusable id="preview">Preview</Segment>
 				</SegmentControl>
 			{/if}
 		</div>
