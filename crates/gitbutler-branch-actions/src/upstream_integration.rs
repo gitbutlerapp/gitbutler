@@ -326,9 +326,22 @@ pub(crate) fn integrate_upstream(
             virtual_branches_state.set_branch(branch.clone())?;
         }
 
-        // Now that we've potentially updated the branch trees, lets checkout
-        // the result of merging them all together.
-        checkout_branch_trees(command_context, permission)?;
+        // checkout_branch_trees won't checkout anything if there are no
+        // applied branches, and returns the current_wd_tree as its result.
+        // This is very sensible, but in this case, we want to checkout the
+        // new target sha.
+        if branches.is_empty() {
+            context
+                .repository
+                .checkout_tree_builder(&context.new_target.tree()?)
+                .force()
+                .remove_untracked()
+                .checkout()?;
+        } else {
+            // Now that we've potentially updated the branch trees, lets checkout
+            // the result of merging them all together.
+            checkout_branch_trees(command_context, permission)?;
+        }
 
         virtual_branches_state.set_default_target(Target {
             sha: context.new_target.id(),
