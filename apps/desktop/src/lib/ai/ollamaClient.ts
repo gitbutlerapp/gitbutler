@@ -6,7 +6,7 @@ import {
 import { MessageRole, type PromptMessage, type AIClient, type Prompt } from '$lib/ai/types';
 import { andThen, buildFailureFromAny, ok, wrap, wrapAsync, type Result } from '$lib/result';
 import { isNonEmptyObject } from '@gitbutler/ui/utils/typeguards';
-import { fetch, Body, Response } from '@tauri-apps/api/http';
+import { fetch } from '@tauri-apps/plugin-http';
 
 export const DEFAULT_OLLAMA_ENDPOINT = 'http://127.0.0.1:11434';
 export const DEFAULT_OLLAMA_MODEL_NAME = 'llama3';
@@ -137,9 +137,9 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 	 * @param request - The OllamaChatRequest object containing the request details.
 	 * @returns A Promise that resolves to the Response object.
 	 */
-	private async fetchChat(request: OllamaChatRequest): Promise<Result<Response<any>, Error>> {
+	private async fetchChat(request: OllamaChatRequest): Promise<Result<any, Error>> {
 		const url = new URL(OllamaAPEndpoint.Chat, this.endpoint);
-		const body = Body.json(request);
+		const body = JSON.stringify(request);
 		return await wrapAsync(
 			async () =>
 				await fetch(url.toString(), {

@@ -1,14 +1,14 @@
 use std::{env, fs};
 
-use crate::open::open_that as open_url;
 use anyhow::Context;
-use gitbutler_error::{error, error::Code};
+use gitbutler_error::error::{self, Code};
 use serde_json::json;
 #[cfg(target_os = "macos")]
-use tauri::AboutMetadata;
+use tauri::menu::AboutMetadata;
+use tauri::Emitter;
 use tauri::{
-    AppHandle, CustomMenuItem, Manager, Menu, MenuItem, PackageInfo, Runtime, Submenu,
-    WindowMenuEvent,
+    menu::{Menu, MenuEvent, MenuItemBuilder, PredefinedMenuItem, Submenu, SubmenuBuilder},
+    AppHandle, Manager, Runtime, WebviewWindow,
 };
 use tracing::instrument;
 
@@ -16,21 +16,22 @@ use crate::error::Error;
 
 #[tauri::command(async)]
 #[instrument(skip(handle), err(Debug))]
-pub fn menu_item_set_enabled(
-    handle: AppHandle,
-    menu_item_id: &str,
-    enabled: bool,
-) -> Result<(), Error> {
+pub fn menu_item_set_enabled(handle: AppHandle, id: &str, enabled: bool) -> Result<(), Error> {
     let window = handle
         .get_window("main")
         .expect("main window always present");
 
     let menu_item = window
-        .menu_handle()
-        .try_get_item(menu_item_id)
-        .with_context(|| error::Context::new(format!("menu item not found: {}", menu_item_id)))?;
+        .menu()
+        .context("menu not found")?
+        .get(id)
+        .with_context(|| error::Context::new(format!("menu item not found: {}", id)))?;
 
-    menu_item.set_enabled(enabled).context(Code::Unknown)?;
+    menu_item
+        .as_menuitem()
+        .context(Code::Unknown)?
+        .set_enabled(enabled)
+        .context(Code::Unknown)?;
 
     Ok(())
 }
@@ -56,275 +57,264 @@ fn check_if_installed(executable_name: &str) -> bool {
     }
 }
 
-pub fn build(_package_info: &PackageInfo) -> Menu {
-    let mut menu = Menu::new();
-
-    // Used in different menus depending on target os.
-    let check_for_updates = CustomMenuItem::new("global/update", "Check for updates…");
+pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Menu<R>> {
+    let check_for_updates =
+        MenuItemBuilder::with_id("global/update", "Check for updates…").build(handle)?;
 
     #[cfg(target_os = "macos")]
-    {
-        let app_name = &_package_info.name;
-
-        menu = menu.add_submenu(Submenu::new(
-            app_name,
-            Menu::new()
-                .add_native_item(MenuItem::About(
-                    app_name.to_string(),
-                    AboutMetadata::default(),
-                ))
-                .add_native_item(MenuItem::Separator)
-                .add_item(CustomMenuItem::new("global/settings", "Settings").accelerator("Cmd+,"))
-                .add_item(check_for_updates)
-                .add_native_item(MenuItem::Separator)
-                .add_native_item(MenuItem::Services)
-                .add_native_item(MenuItem::Separator)
-                .add_native_item(MenuItem::Hide)
-                .add_native_item(MenuItem::HideOthers)
-                .add_native_item(MenuItem::ShowAll)
-                .add_native_item(MenuItem::Separator)
-                .add_native_item(MenuItem::Quit),
-        ));
-    }
-
-    let mut file_menu = Menu::new();
-
-    file_menu = file_menu.add_item(
-        CustomMenuItem::new("file/add-local-repo", "Add Local Repository…")
-            .accelerator("CmdOrCtrl+O"),
-    );
-    file_menu = file_menu.add_item(
-        CustomMenuItem::new("file/clone-repo", "Clone Repository…")
-            .accelerator("CmdOrCtrl+Shift+O"),
-    );
+    let app_name = handle
+        .config()
+        .product_name
+        .clone()
+        .context("App name not defined.")?;
 
     #[cfg(target_os = "macos")]
-    {
-        // NB: macOS has the concept of having an app running but its
-        // window closed, but other platforms do not
-        file_menu = file_menu.add_native_item(MenuItem::Separator);
-        file_menu = file_menu.add_native_item(MenuItem::CloseWindow);
-    }
+    let mac_menu = &SubmenuBuilder::new(handle, app_name)
+        .about(Some(AboutMetadata::default()))
+        .separator()
+        .text("global/settings", "Settings")
+        .item(&check_for_updates)
+        .separator()
+        .services()
+        .separator()
+        .hide()
+        .hide_others()
+        .show_all()
+        .separator()
+        .quit()
+        .build()?;
+
+    let file_menu = &SubmenuBuilder::new(handle, "File")
+        .items(&[
+            &MenuItemBuilder::with_id("file/add-local-repo", "Add Local Repository…")
+                .accelerator("CmdOrCtrl+O")
+                .build(handle)?,
+            &MenuItemBuilder::with_id("file/clone-repo", "Clone Repository…")
+                .accelerator("CmdOrCtrl+Shift+O")
+                .build(handle)?,
+            &PredefinedMenuItem::separator(handle)?,
+        ])
+        .build()?;
+
+    #[cfg(target_os = "macos")]
+    file_menu.append(&PredefinedMenuItem::close_window(handle, None)?)?;
+
     #[cfg(not(target_os = "macos"))]
-    {
-        file_menu = file_menu.add_native_item(MenuItem::Separator);
-        file_menu = file_menu.add_native_item(MenuItem::Quit);
-        file_menu = file_menu.add_item(check_for_updates)
-    }
-
-    menu = menu.add_submenu(Submenu::new("File", file_menu));
+    file_menu.append_items(&[&PredefinedMenuItem::quit(handle, None)?, &check_for_updates])?;
 
     #[cfg(not(target_os = "linux"))]
-    let mut edit_menu = Menu::new();
+    let edit_menu = &Submenu::new(handle, "Edit", true)?;
 
     #[cfg(target_os = "macos")]
     {
-        edit_menu = edit_menu.add_native_item(MenuItem::Undo);
-        edit_menu = edit_menu.add_native_item(MenuItem::Redo);
-        edit_menu = edit_menu.add_native_item(MenuItem::Separator);
+        edit_menu.append_items(&[
+            &PredefinedMenuItem::undo(handle, None)?,
+            &PredefinedMenuItem::redo(handle, None)?,
+            &PredefinedMenuItem::separator(handle)?,
+        ])?;
     }
-
     #[cfg(not(target_os = "linux"))]
     {
-        edit_menu = edit_menu.add_native_item(MenuItem::Cut);
-        edit_menu = edit_menu.add_native_item(MenuItem::Copy);
-        edit_menu = edit_menu.add_native_item(MenuItem::Paste);
+        edit_menu.append_items(&[
+            &PredefinedMenuItem::cut(handle, None)?,
+            &PredefinedMenuItem::copy(handle, None)?,
+            &PredefinedMenuItem::paste(handle, None)?,
+        ])?;
     }
 
     #[cfg(target_os = "macos")]
-    {
-        edit_menu = edit_menu.add_native_item(MenuItem::SelectAll);
-    }
+    edit_menu.append(&PredefinedMenuItem::select_all(handle, None)?)?;
 
-    #[cfg(not(target_os = "linux"))]
-    {
-        menu = menu.add_submenu(Submenu::new("Edit", edit_menu));
-    }
-
-    let mut view_menu = Menu::new();
+    let view_menu = &Submenu::new(handle, "View", true)?;
 
     #[cfg(target_os = "macos")]
-    {
-        view_menu = view_menu.add_native_item(MenuItem::EnterFullScreen);
-    }
-
-    view_menu = view_menu.add_item(
-        CustomMenuItem::new("view/switch-theme", "Switch Theme").accelerator("CmdOrCtrl+T"),
-    );
-
-    view_menu = view_menu.add_native_item(MenuItem::Separator);
-    view_menu = view_menu
-        .add_item(CustomMenuItem::new("view/zoom-in", "Zoom In").accelerator("CmdOrCtrl+="));
-    view_menu = view_menu
-        .add_item(CustomMenuItem::new("view/zoom-out", "Zoom Out").accelerator("CmdOrCtrl+-"));
-    view_menu = view_menu
-        .add_item(CustomMenuItem::new("view/zoom-reset", "Reset Zoom").accelerator("CmdOrCtrl+0"));
-
-    view_menu = view_menu.add_native_item(MenuItem::Separator);
+    view_menu.append(&PredefinedMenuItem::fullscreen(handle, None)?)?;
+    view_menu.append_items(&[
+        &MenuItemBuilder::with_id("view/switch-theme", "Switch Theme")
+            .accelerator("CmdOrCtrl+T")
+            .build(handle)?,
+        &PredefinedMenuItem::separator(handle)?,
+        &MenuItemBuilder::with_id("view/zoom-in", "Zoom In")
+            .accelerator("CmdOrCtrl+=")
+            .build(handle)?,
+        &MenuItemBuilder::with_id("view/zoom-out", "Zoom Out")
+            .accelerator("CmdOrCtrl+-")
+            .build(handle)?,
+        &MenuItemBuilder::with_id("view/zoom-reset", "Reset Zoom")
+            .accelerator("CmdOrCtrl+0")
+            .build(handle)?,
+        &PredefinedMenuItem::separator(handle)?,
+    ])?;
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
-    {
-        view_menu = view_menu.add_item(CustomMenuItem::new("view/devtools", "Developer Tools"));
-    }
+    view_menu.append_items(&[
+        &MenuItemBuilder::with_id("view/devtools", "Developer Tools").build(handle)?,
+        &MenuItemBuilder::with_id("view/reload", "Reload View")
+            .accelerator("CmdOrCtrl+R")
+            .build(handle)?,
+    ])?;
 
-    view_menu = view_menu
-        .add_item(CustomMenuItem::new("view/reload", "Reload View").accelerator("CmdOrCtrl+R"));
-
-    menu = menu.add_submenu(Submenu::new("View", view_menu));
-
-    let mut project_menu = Menu::new();
-    project_menu = project_menu.add_item(
-        CustomMenuItem::new("project/history", "Project History").accelerator("CmdOrCtrl+Shift+H"),
-    );
-    project_menu = project_menu.add_item(CustomMenuItem::new(
-        "project/open-in-vscode",
-        "Open in VS Code",
-    ));
-
-    project_menu = project_menu.add_native_item(MenuItem::Separator);
-    project_menu =
-        project_menu.add_item(CustomMenuItem::new("project/settings", "Project Settings"));
-    menu = menu.add_submenu(Submenu::new("Project", project_menu));
+    let project_menu = &SubmenuBuilder::new(handle, "Project")
+        .item(
+            &MenuItemBuilder::with_id("project/history", "Project History")
+                .accelerator("CmdOrCtrl+Shift+H")
+                .build(handle)?,
+        )
+        .text("project/open-in-vscode", "Open in VS Code")
+        .separator()
+        .text("project/settings", "Project Settings")
+        .build()?;
 
     #[cfg(target_os = "macos")]
-    {
-        let mut window_menu = Menu::new();
-        window_menu = window_menu.add_native_item(MenuItem::Minimize);
+    let window_menu = &SubmenuBuilder::new(handle, "Window")
+        .items(&[
+            &PredefinedMenuItem::minimize(handle, None)?,
+            &PredefinedMenuItem::maximize(handle, None)?,
+            &PredefinedMenuItem::separator(handle)?,
+            &PredefinedMenuItem::close_window(handle, None)?,
+        ])
+        .build()?;
 
-        window_menu = window_menu.add_native_item(MenuItem::Zoom);
-        window_menu = window_menu.add_native_item(MenuItem::Separator);
+    let help_menu = &SubmenuBuilder::new(handle, "Help")
+        .text("help/documentation", "Documentation")
+        .text("help/github", "Source Code")
+        .text("help/release-notes", "Release Notes")
+        .separator()
+        .text("help/share-debug-info", "Share Debug Info…")
+        .text("help/report-issue", "Report an Issue…")
+        .separator()
+        .text("help/discord", "Discord")
+        .text("help/youtube", "YouTube")
+        .text("help/x", "X")
+        .separator()
+        .item(
+            &MenuItemBuilder::with_id(
+                "help/version",
+                format!("Version {}", handle.package_info().version),
+            )
+            .enabled(false)
+            .build(handle)?,
+        )
+        .build()?;
 
-        window_menu = window_menu.add_native_item(MenuItem::CloseWindow);
-        menu = menu.add_submenu(Submenu::new("Window", window_menu));
-    }
-
-    let mut help_menu = Menu::new();
-    help_menu = help_menu.add_item(CustomMenuItem::new("help/documentation", "Documentation"));
-    help_menu = help_menu.add_item(CustomMenuItem::new("help/github", "Source Code"));
-    help_menu = help_menu.add_item(CustomMenuItem::new("help/release-notes", "Release Notes"));
-    help_menu = help_menu.add_native_item(MenuItem::Separator);
-    help_menu = help_menu.add_item(CustomMenuItem::new(
-        "help/share-debug-info",
-        "Share Debug Info…",
-    ));
-    help_menu = help_menu.add_item(CustomMenuItem::new("help/report-issue", "Report an Issue…"));
-    help_menu = help_menu.add_native_item(MenuItem::Separator);
-    help_menu = help_menu.add_item(CustomMenuItem::new("help/discord", "Discord"));
-    help_menu = help_menu.add_item(CustomMenuItem::new("help/youtube", "YouTube"));
-    help_menu = help_menu.add_item(CustomMenuItem::new("help/x", "X"));
-    help_menu = help_menu.add_native_item(MenuItem::Separator);
-    help_menu = help_menu.add_item(disabled_menu_item(
-        "help/version",
-        &format!("Version {}", _package_info.version),
-    ));
-    menu = menu.add_submenu(Submenu::new("Help", help_menu));
-
-    menu
+    Menu::with_items(
+        handle,
+        &[
+            #[cfg(target_os = "macos")]
+            mac_menu,
+            file_menu,
+            #[cfg(not(target_os = "linux"))]
+            edit_menu,
+            view_menu,
+            project_menu,
+            #[cfg(target_os = "macos")]
+            window_menu,
+            help_menu,
+        ],
+    )
 }
 
-fn disabled_menu_item(id: &str, title: &str) -> CustomMenuItem {
-    let mut item = CustomMenuItem::new(id, title);
-    item.enabled = false;
-    item
-}
-
-pub fn handle_event<R: Runtime>(event: &WindowMenuEvent<R>) {
-    if event.menu_item_id() == "file/add-local-repo" {
-        emit(event.window(), "menu://file/add-local-repo/clicked");
+pub fn handle_event(webview: &WebviewWindow, event: &MenuEvent) {
+    if event.id() == "file/add-local-repo" {
+        emit(webview, "menu://file/add-local-repo/clicked");
         return;
     }
 
-    if event.menu_item_id() == "file/clone-repo" {
-        emit(event.window(), "menu://file/clone-repo/clicked");
+    if event.id() == "file/clone-repo" {
+        emit(webview, "menu://file/clone-repo/clicked");
         return;
     }
 
     #[cfg(any(debug_assertions, feature = "devtools"))]
     {
-        if event.menu_item_id() == "view/devtools" {
-            event.window().open_devtools();
+        if event.id() == "view/devtools" {
+            webview.open_devtools();
             return;
         }
     }
 
-    if event.menu_item_id() == "view/switch-theme" {
-        emit(event.window(), "menu://view/switch-theme/clicked");
+    if event.id() == "view/switch-theme" {
+        emit(webview, "menu://view/switch-theme/clicked");
         return;
     }
 
-    if event.menu_item_id() == "view/reload" {
-        emit(event.window(), "menu://view/reload/clicked");
+    if event.id() == "view/reload" {
+        emit(webview, "menu://view/reload/clicked");
         return;
     }
 
-    if event.menu_item_id() == "view/zoom-in" {
-        emit(event.window(), "menu://view/zoom-in/clicked");
+    if event.id() == "view/zoom-in" {
+        emit(webview, "menu://view/zoom-in/clicked");
         return;
     }
 
-    if event.menu_item_id() == "view/zoom-out" {
-        emit(event.window(), "menu://view/zoom-out/clicked");
+    if event.id() == "view/zoom-out" {
+        emit(webview, "menu://view/zoom-out/clicked");
         return;
     }
 
-    if event.menu_item_id() == "view/zoom-reset" {
-        emit(event.window(), "menu://view/zoom-reset/clicked");
+    if event.id() == "view/zoom-reset" {
+        emit(webview, "menu://view/zoom-reset/clicked");
         return;
     }
 
-    if event.menu_item_id() == "help/share-debug-info" {
-        emit(event.window(), "menu://help/share-debug-info/clicked");
+    if event.id() == "help/share-debug-info" {
+        emit(webview, "menu://help/share-debug-info/clicked");
         return;
     }
 
-    if event.menu_item_id() == "project/history" {
-        emit(event.window(), "menu://project/history/clicked");
+    if event.id() == "project/history" {
+        emit(webview, "menu://project/history/clicked");
         return;
     }
 
-    if event.menu_item_id() == "project/open-in-vscode" {
-        emit(event.window(), "menu://project/open-in-vscode/clicked");
+    if event.id() == "project/open-in-vscode" {
+        emit(webview, "menu://project/open-in-vscode/clicked");
         return;
     }
 
-    if event.menu_item_id() == "project/settings" {
-        emit(event.window(), "menu://project/settings/clicked");
+    if event.id() == "project/settings" {
+        emit(webview, "menu://project/settings/clicked");
         return;
     }
 
-    if event.menu_item_id() == "global/settings" {
-        emit(event.window(), "menu://global/settings/clicked");
+    if event.id() == "global/settings" {
+        emit(webview, "menu://global/settings/clicked");
         return;
     }
 
-    if event.menu_item_id() == "global/update" {
-        emit(event.window(), "menu://global/update/clicked");
+    if event.id() == "global/update" {
+        emit(webview, "menu://global/update/clicked");
         return;
     }
 
     'open_link: {
-        let result = match event.menu_item_id() {
-            "help/documentation" => open_url("https://docs.gitbutler.com"),
-            "help/github" => open_url("https://github.com/gitbutlerapp/gitbutler"),
-            "help/release-notes" => open_url("https://github.com/gitbutlerapp/gitbutler/releases"),
-            "help/report-issue" => open_url("https://github.com/gitbutlerapp/gitbutler/issues/new"),
-            "help/discord" => open_url("https://discord.com/invite/MmFkmaJ42D"),
-            "help/youtube" => open_url("https://www.youtube.com/@gitbutlerapp"),
-            "help/x" => open_url("https://x.com/gitbutler"),
+        let result = match event.id().0.as_str() {
+            "help/documentation" => open::that("https://docs.gitbutler.com"),
+            "help/github" => open::that("https://github.com/gitbutlerapp/gitbutler"),
+            "help/release-notes" => {
+                open::that("https://discord.com/channels/1060193121130000425/1183737922785116161")
+            }
+            "help/report-issue" => {
+                open::that("https://github.com/gitbutlerapp/gitbutler/issues/new")
+            }
+            "help/discord" => open::that("https://discord.com/invite/MmFkmaJ42D"),
+            "help/youtube" => open::that("https://www.youtube.com/@gitbutlerapp"),
+            "help/x" => open::that("https://x.com/gitbutler"),
             _ => break 'open_link,
         };
 
         if let Err(err) = result {
-            tracing::error!(error = ?err, "failed to open url for {}", event.menu_item_id());
+            tracing::error!(error = ?err, "failed to open url for {}", event.id().0);
         }
 
         return;
     }
 
-    tracing::error!("unhandled 'help' menu event: {}", event.menu_item_id());
+    tracing::error!("unhandled 'help' menu event: {}", event.id().0);
 }
 
-fn emit<R: Runtime>(window: &tauri::Window<R>, event: &str) {
+fn emit<R: Runtime>(window: &tauri::WebviewWindow<R>, event: &str) {
     if let Err(err) = window.emit(event, json!({})) {
         tracing::error!(error = ?err, "failed to emit event");
     }

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { UpdaterService } from '$lib/backend/updater';
+	import { UpdaterService, type InstallStatus } from '$lib/backend/updater';
 	import { showToast } from '$lib/notifications/toasts';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -11,10 +11,10 @@
 
 	let version = $state<string | undefined>();
 	let releaseNotes = $state<string | undefined>();
-	let status = $state<string | undefined>();
+	let status = $state<InstallStatus | undefined>();
 
 	$effect(() => {
-		({ version, releaseNotes, status } = $update || {});
+		({ version, releaseNotes, status } = $update);
 	});
 
 	function handleDismiss() {
@@ -22,14 +22,14 @@
 	}
 </script>
 
-{#if version || status === 'UPTODATE'}
+{#if version || status === 'Up-to-date'}
 	<div class="update-banner" data-testid="update-banner" class:busy={$loading}>
 		<div class="floating-button">
 			<Button icon="cross-small" style="ghost" onclick={handleDismiss} />
 		</div>
 		<div class="img">
 			<div class="circle-img">
-				{#if status !== 'DONE' && status !== 'UPTODATE'}
+				{#if status !== 'Done' && status !== 'Up-to-date'}
 					<svg
 						class="arrow-img"
 						width="12"
@@ -96,17 +96,19 @@
 		</div>
 
 		<h4 class="text-13 label">
-			{#if status === 'UPTODATE'}
+			{#if status === 'Up-to-date'}
 				You are up-to-date!
-			{:else if status === 'PENDING'}
-				Downloading update...
-			{:else if status === 'DOWNLOADED'}
-				Installing update...
-			{:else if status === 'DONE'}
+			{:else if status === 'Downloading'}
+				Downloading update…
+			{:else if status === 'Downloaded'}
+				Update downloaded
+			{:else if status === 'Installing'}
+				Installing update…
+			{:else if status === 'Done'}
 				Install complete
-			{:else if status === 'CHECKING'}
+			{:else if status === 'Checking'}
 				Checking for update…
-			{:else if status === 'ERROR'}
+			{:else if status === 'Error'}
 				Error occurred
 			{:else if version}
 				New version available
@@ -130,7 +132,7 @@
 				</Button>
 			{/if}
 			<div class="status-section">
-				{#if status !== 'ERROR' && status !== 'UPTODATE'}
+				{#if status !== 'Error' && status !== 'Up-to-date'}
 					<div class="sliding-gradient"></div>
 				{/if}
 				<div class="cta-btn" transition:fade={{ duration: 100 }}>
@@ -141,12 +143,12 @@
 							kind="solid"
 							testId="download-update"
 							onmousedown={async () => {
-								await updaterService.installUpdate();
+								await updaterService.downloadAndInstall();
 							}}
 						>
 							Update to {version}
 						</Button>
-					{:else if status === 'UPTODATE'}
+					{:else if status === 'Up-to-date'}
 						<Button
 							wide
 							style="pop"
@@ -158,7 +160,7 @@
 						>
 							Got it!
 						</Button>
-					{:else if status === 'DONE'}
+					{:else if status === 'Done'}
 						<Button
 							style="pop"
 							kind="solid"

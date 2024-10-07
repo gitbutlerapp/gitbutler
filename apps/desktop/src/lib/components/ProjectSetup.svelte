@@ -27,7 +27,7 @@
 		loading = true;
 		try {
 			// TODO: Refactor temporary solution to forcing Windows to use system executable
-			if ($platformName === 'win32') {
+			if (platformName === 'windows') {
 				project.preferred_key = 'systemExecutable';
 				await projectsService.updateProject(project);
 				await baseBranchService.refresh();
@@ -41,7 +41,7 @@
 </script>
 
 <DecorativeSplitView img={newProjectSvg}>
-	{#if selectedBranch[0] && selectedBranch[0] !== '' && $platformName !== 'win32'}
+	{#if selectedBranch[0] && selectedBranch[0] !== '' && platformName !== 'windows'}
 		{@const [remoteName, branchName] = selectedBranch[0].split(/\/(.*)/s)}
 		<KeysForm {remoteName} {branchName} disabled={loading} />
 		<div class="actions">
@@ -59,7 +59,7 @@
 			on:branchSelected={async (e) => {
 				selectedBranch = e.detail;
 				// TODO: Temporary solution to forcing Windows to use system executable
-				if ($platformName === 'win32') {
+				if (platformName === 'windows') {
 					setTarget();
 				}
 			}}

@@ -1,12 +1,6 @@
-import { AISecretHandle } from '$lib/ai/service';
 import { invoke } from '$lib/backend/ipc';
 import { buildContext } from '@gitbutler/shared/context';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
-
-const MIGRATION_HANDLES = [
-	AISecretHandle.AnthropicKey.toString(),
-	AISecretHandle.OpenAIKey.toString()
-];
 
 export type SecretsService = {
 	get(handle: string): Promise<string | undefined>;
@@ -22,12 +16,6 @@ export class RustSecretService implements SecretsService {
 	async get(handle: string) {
 		const secret = await invoke<string>('secret_get_global', { handle });
 		if (secret) return secret;
-
-		if (MIGRATION_HANDLES.includes(handle)) {
-			const key = 'gitbutler.' + handle;
-			const migratedSecret = await this.migrate(key, handle);
-			if (migratedSecret !== undefined) return migratedSecret;
-		}
 	}
 
 	async set(handle: string, secret: string) {

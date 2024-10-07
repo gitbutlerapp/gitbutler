@@ -2,7 +2,7 @@ import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import { persisted } from '@gitbutler/shared/persisted';
-import { open } from '@tauri-apps/api/dialog';
+import { open } from '@tauri-apps/plugin-dialog';
 import { plainToInstance } from 'class-transformer';
 import { derived, get, writable, type Readable } from 'svelte/store';
 import type { ForgeType } from './forge';
