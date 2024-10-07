@@ -268,12 +268,6 @@
 
 	function handleModalKeydown(e: KeyboardEvent) {
 		switch (e.key) {
-			case 'e':
-				if (e.metaKey || e.ctrlKey) {
-					e.stopPropagation();
-					e.preventDefault();
-				}
-				break;
 			case 'g':
 				if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
 					e.stopPropagation();
