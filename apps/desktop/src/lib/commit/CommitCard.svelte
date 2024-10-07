@@ -51,7 +51,7 @@
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
 	let draggableCommitElement: HTMLElement | null = null;
-	let contextMenu: CommitContextMenu;
+	let contextMenu: ReturnType<typeof CommitContextMenu> | undefined;
 	let files: RemoteFile[] = [];
 	let showDetails = false;
 
@@ -228,7 +228,7 @@
 				role="button"
 				tabindex="0"
 				on:contextmenu={(e) => {
-					contextMenu.open(e);
+					contextMenu?.open(e);
 				}}
 				on:dragenter={() => {
 					isDragTargeted = true;
