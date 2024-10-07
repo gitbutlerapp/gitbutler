@@ -7,7 +7,7 @@ use tracing_subscriber::{fmt::format::FmtSpan, layer::SubscriberExt, Layer};
 
 pub fn init(app_handle: &AppHandle, performance_logging: bool) {
     let logs_dir = app_handle
-        .path_resolver()
+        .path()
         .app_log_dir()
         .expect("failed to get logs dir");
     fs::create_dir_all(&logs_dir).expect("failed to create logs dir");
@@ -88,11 +88,7 @@ pub fn init(app_handle: &AppHandle, performance_logging: bool) {
 
 fn get_server_addr(app_handle: &AppHandle) -> (Ipv4Addr, u16) {
     let config = app_handle.config();
-    let product_name = config
-        .package
-        .product_name
-        .as_ref()
-        .expect("product name not set");
+    let product_name = config.product_name.as_ref().expect("product name not set");
     let port = if product_name.eq("GitButler") {
         6667
     } else if product_name.eq("GitButler Nightly") {

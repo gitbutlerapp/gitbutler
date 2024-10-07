@@ -17,6 +17,7 @@
 		"prepare": "svelte-kit sync"
 	},
 	"devDependencies": {
+		"@anthropic-ai/sdk": "^0.27.3",
 		"@codemirror/lang-cpp": "^6.0.2",
 		"@codemirror/lang-css": "^6.2.1",
 		"@codemirror/lang-html": "^6.4.9",
@@ -42,7 +43,16 @@
 		"@sveltejs/adapter-static": "catalog:svelte",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
-		"@tauri-apps/api": "^1.6.0",
+		"@tauri-apps/api": "^2.0.3",
+		"@tauri-apps/plugin-dialog": "^2.0.1",
+		"@tauri-apps/plugin-http": "^2.0.1",
+		"@tauri-apps/plugin-fs": "^2.0.1",
+		"@tauri-apps/plugin-log": "^2.0.0",
+		"@tauri-apps/plugin-os": "^2.0.0",
+		"@tauri-apps/plugin-process": "^2.0.0",
+		"@tauri-apps/plugin-shell": "^2.0.1",
+		"@tauri-apps/plugin-store": "^2.1.0",
+		"@tauri-apps/plugin-updater": "^2.0.0",
 		"@testing-library/jest-dom": "^6.4.8",
 		"@testing-library/svelte": "^5.2.1",
 		"@types/diff-match-patch": "^1.0.36",
@@ -77,15 +87,12 @@
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"svelte-french-toast": "^1.2.0",
-		"tauri-plugin-log-api": "https://github.com/tauri-apps/tauri-plugin-log#v1",
-		"tauri-plugin-store-api": "https://github.com/tauri-apps/tauri-plugin-store#v1",
 		"tinykeys": "^2.1.0",
 		"ts-node": "^10.9.2",
 		"vite": "catalog:",
 		"vitest": "^2.0.5"
 	},
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.27.3",
 		"openai": "^4.47.3"
 	}
 }
