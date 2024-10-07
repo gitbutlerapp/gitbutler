@@ -1,5 +1,6 @@
 import { defineConfig, defineDocs } from "fumadocs-mdx/config"
 import remarkYoutube from "remark-youtube"
+import { remarkMermaid } from "@/components/mermaid"
 import { remarkHeading, remarkImage, remarkStructure, rehypeCode } from "fumadocs-core/mdx-plugins"
 
 export const { docs, meta } = defineDocs({
@@ -16,7 +17,7 @@ export default defineConfig({
         dark: "catppuccin-mocha"
       }
     },
-    remarkPlugins: [remarkHeading, remarkImage, remarkStructure, remarkYoutube],
+    remarkPlugins: [remarkHeading, remarkImage, remarkStructure, remarkYoutube, remarkMermaid],
     rehypePlugins: (v) => [rehypeCode, ...v]
   }
 })
