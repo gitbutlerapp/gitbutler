@@ -1,74 +1,53 @@
 {
+	"productName": "GitButler Dev",
+	"identifier": "com.gitbutler.app.dev",
 	"build": {
 		"beforeDevCommand": "pnpm dev:internal-tauri",
 		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode development",
-		"devPath": "http://localhost:1420",
-		"distDir": "../../apps/desktop/build",
-		"withGlobalTauri": false
+		"frontendDist": "../../apps/desktop/build",
+		"devUrl": "http://localhost:1420"
 	},
-	"package": {
-		"productName": "GitButler Dev"
-	},
-	"tauri": {
-		"allowlist": {
-			"fs": {
-				"readFile": true,
-				"scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*"]
+	"bundle": {
+		"active": false,
+		"category": "DeveloperTool",
+		"copyright": "Copyright © 2023-2024 GitButler. All rights reserved.",
+		"createUpdaterArtifacts": "v1Compatible",
+		"targets": ["app", "dmg", "appimage", "deb", "rpm", "msi"],
+		"icon": [
+			"icons/dev/32x32.png",
+			"icons/dev/128x128.png",
+			"icons/dev/128x128@2x.png",
+			"icons/dev/icon.icns",
+			"icons/dev/icon.ico"
+		],
+		"windows": {
+			"certificateThumbprint": null
+		},
+		"linux": {
+			"rpm": {
+				"depends": ["webkit2gtk4.1-devel"]
 			},
-			"dialog": {
-				"open": true
-			},
-			"os": {
-				"all": true
-			},
-			"protocol": {
-				"asset": true,
-				"assetScope": ["$APPCACHE/images/*"]
-			},
-			"process": {
-				"relaunch": true
-			},
-			"window": {
-				"startDragging": true,
-				"maximize": true,
-				"unmaximize": true
-			},
-			"path": {
-				"all": true
-			},
-			"http": {
-				"all": true,
-				"request": true,
-				"scope": [
-					"https://api.anthropic.com/v1/messages",
-					"http://127.0.0.1:11434/api/chat",
-					"http://127.0.0.1:11434/api/generate",
-					"http://127.0.0.1:11434/api/embeddings"
-				]
-			},
-			"shell": {
-				"open": true
+			"deb": {
+				"depends": ["libwebkit2gtk-4.1-dev", "libgtk-3-dev"]
 			}
-		},
-		"bundle": {
-			"active": true,
-			"identifier": "com.gitbutler.app.dev",
-			"category": "DeveloperTool",
-			"copyright": "Copyright © 2023-2024 GitButler. All rights reserved.",
-			"icon": [
-				"icons/dev/32x32.png",
-				"icons/dev/128x128.png",
-				"icons/dev/128x128@2x.png",
-				"icons/dev/icon.icns",
-				"icons/dev/icon.ico"
+		}
+	},
+	"plugins": {
+		"updater": {
+			"endpoints": [
+				"https://app.gitbutler.com/releases/nightly/{{target}}-{{arch}}/{{current_version}}"
 			],
-			"targets": ["app", "dmg", "appimage", "deb", "rpm", "updater", "msi"]
-		},
+			"pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDYwNTc2RDhBM0U0MjM4RUIKUldUck9FSStpbTFYWUE5UkJ3eXhuekZOL2V2RnpKaFUxbGJRNzBMVmF5V0gzV1JvN3hRblJMRDIK"
+		}
+	},
+	"app": {
+		"withGlobalTauri": false,
+		"enableGTKAppId": true,
 		"security": {
 			"csp": {
 				"default-src": "'self'",
-				"img-src": "'self' asset: https://asset.localhost data: tauri://localhost https://avatars.githubusercontent.com https://*.gitbutler.com https://gitbutler-public.s3.amazonaws.com https://*.gravatar.com https://lh3.googleusercontent.com",
-				"connect-src": "'self' https://eu.posthog.com https://eu.i.posthog.com https://app.gitbutler.com https://o4504644069687296.ingest.sentry.io ws://localhost:7703 https://github.com https://api.github.com",
+				"img-src": "'self' asset: https://asset.localhost data: tauri://localhost https://avatars.githubusercontent.com https://*.gitbutler.com  https://gitbutler-public.s3.amazonaws.com https://*.gravatar.com https://io.wp.com https://i0.wp.com https://i1.wp.com https://i2.wp.com https://i3.wp.com https://github.com https://*.googleusercontent.com",
+				"connect-src": "'self' ipc: https://eu.posthog.com https://eu.i.posthog.com https://app.gitbutler.com https://o4504644069687296.ingest.sentry.io ws://localhost:7703 https://github.com https://api.github.com https://api.openai.com",
 				"script-src": "'self' https://eu.posthog.com https://eu.i.posthog.com",
 				"style-src": "'self' 'unsafe-inline'"
 			}

@@ -15,16 +15,15 @@ use gitbutler_tauri::{
     askpass, commands, config, forge, github, logs, menu, modes, open, projects, remotes, repo,
     secret, stack, undo, users, virtual_branches, zip, App, WindowState,
 };
+use tauri::Emitter;
 use tauri::{generate_context, Manager};
-use tauri_plugin_log::LogTarget;
+use tauri_plugin_log::{Target, TargetKind};
 
 fn main() {
     let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
     gitbutler_project::configure_git2();
     let tauri_context = generate_context!();
-    gitbutler_secret::secret::set_application_namespace(
-        &tauri_context.config().tauri.bundle.identifier,
-    );
+    gitbutler_secret::secret::set_application_namespace(&tauri_context.config().identifier);
 
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
@@ -34,33 +33,30 @@ fn main() {
             tauri::async_runtime::set(tokio::runtime::Handle::current());
 
             let log = tauri_plugin_log::Builder::default()
-                .log_name("ui-logs")
-                .target(LogTarget::LogDir)
+                .target(Target::new(TargetKind::LogDir {
+                    file_name: Some("ui-logs".to_string()),
+                }))
                 .level(log::LevelFilter::Error);
 
             let builder = tauri::Builder::default()
                 .setup(move |tauri_app| {
                     let window = gitbutler_tauri::window::create(
-                        &tauri_app.handle(),
+                        tauri_app.handle(),
                         "main",
                         "index.html".into(),
                     )
                     .expect("Failed to create window");
-                    #[cfg(debug_assertions)]
-                    window.open_devtools();
 
-                    tokio::task::spawn(async move {
-                        let mut six_hours =
-                            tokio::time::interval(tokio::time::Duration::new(6 * 60 * 60, 0));
-                        loop {
-                            six_hours.tick().await;
-                            _ = window.emit_and_trigger("tauri://update", ());
-                        }
-                    });
+                    // TODO(mtsgrd): Is there a better way to disable devtools in E2E tests?
+                    #[cfg(debug_assertions)]
+                    if tauri_app.config().product_name != Some("GitButler Test".to_string()) {
+                        window.open_devtools();
+                    }
 
                     let app_handle = tauri_app.handle();
 
-                    logs::init(&app_handle, performance_logging);
+                    logs::init(app_handle, performance_logging);
+
                     tracing::info!(
                         "system git executable for fetch/push: {git:?}",
                         git = gix::path::env::exe_invocation(),
@@ -81,14 +77,14 @@ fn main() {
                             let handle = app_handle.clone();
                             move |event| {
                                 handle
-                                    .emit_all("git_prompt", event)
+                                    .emit("git_prompt", event)
                                     .expect("tauri event emission doesn't fail in practice")
                             }
                         });
                     }
 
                     let (app_data_dir, app_cache_dir, app_log_dir) = {
-                        let paths = app_handle.path_resolver();
+                        let paths = app_handle.path();
                         (
                             paths.app_data_dir().expect("missing app data dir"),
                             paths.app_cache_dir().expect("missing app cache dir"),
@@ -116,10 +112,20 @@ fn main() {
                     });
                     app_handle.manage(app);
 
+                    tauri_app.on_menu_event(move |_handle, event| {
+                        menu::handle_event(&window.clone(), &event)
+                    });
                     Ok(())
                 })
+                .plugin(tauri_plugin_http::init())
+                .plugin(tauri_plugin_shell::init())
+                .plugin(tauri_plugin_os::init())
+                .plugin(tauri_plugin_process::init())
                 .plugin(tauri_plugin_single_instance::init(|_, _, _| {}))
-                .plugin(tauri_plugin_context_menu::init())
+                .plugin(tauri_plugin_updater::Builder::new().build())
+                .plugin(tauri_plugin_dialog::init())
+                .plugin(tauri_plugin_fs::init())
+                // .plugin(tauri_plugin_context_menu::init())
                 .plugin(tauri_plugin_store::Builder::default().build())
                 .plugin(log.build())
                 .invoke_handler(tauri::generate_handler![
@@ -221,36 +227,30 @@ fn main() {
                     forge::commands::get_available_review_templates,
                     forge::commands::get_review_template_contents,
                 ])
-                .menu(menu::build(tauri_context.package_info()))
-                .on_menu_event(|event| menu::handle_event(&event))
-                .on_window_event(|event| {
-                    let window = event.window();
-                    match event.event() {
-                        #[cfg(target_os = "macos")]
-                        tauri::WindowEvent::CloseRequested { api, .. } => {
-                            if window.app_handle().windows().len() == 1 {
-                                tracing::debug!(
-                                    "Hiding all application windows and preventing exit"
-                                );
-                                window.app_handle().hide().ok();
-                                api.prevent_close();
-                            }
+                .menu(menu::build)
+                .on_window_event(|window, event| match event {
+                    #[cfg(target_os = "macos")]
+                    tauri::WindowEvent::CloseRequested { api, .. } => {
+                        if window.app_handle().windows().len() == 1 {
+                            tracing::debug!("Hiding all application windows and preventing exit");
+                            window.app_handle().hide().ok();
+                            api.prevent_close();
                         }
-                        tauri::WindowEvent::Destroyed => {
-                            window
-                                .app_handle()
-                                .state::<WindowState>()
-                                .remove(window.label());
-                        }
-                        tauri::WindowEvent::Focused(focused) if *focused => {
-                            window
-                                .app_handle()
-                                .state::<WindowState>()
-                                .flush(window.label())
-                                .ok();
-                        }
-                        _ => {}
                     }
+                    tauri::WindowEvent::Destroyed => {
+                        window
+                            .app_handle()
+                            .state::<WindowState>()
+                            .remove(window.label());
+                    }
+                    tauri::WindowEvent::Focused(focused) if *focused => {
+                        window
+                            .app_handle()
+                            .state::<WindowState>()
+                            .flush(window.label())
+                            .ok();
+                    }
+                    _ => {}
                 });
 
             #[cfg(not(target_os = "linux"))]

@@ -157,6 +157,7 @@ jobs:
         run: |
           sudo apt update;
           sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
             build-essential \
             curl \
             wget \
@@ -186,11 +187,10 @@ jobs:
             --dist                       "./release" \
             --version                    "${{ env.version }}"
         env:
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_PROVIDER_SHORT_NAME }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}

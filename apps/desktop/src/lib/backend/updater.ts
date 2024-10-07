@@ -1,17 +1,30 @@
 import { Tauri } from './tauri';
 import { showToast } from '$lib/notifications/toasts';
-import { relaunch } from '@tauri-apps/api/process';
-import {
-	installUpdate,
-	type UpdateResult,
-	type UpdateManifest,
-	type UpdateStatus
-} from '@tauri-apps/api/updater';
+import { relaunch } from '@tauri-apps/plugin-process';
+import { type DownloadEvent, Update } from '@tauri-apps/plugin-updater';
 import posthog from 'posthog-js';
-import { derived, readable, writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 
-type Status = UpdateStatus | 'DOWNLOADED';
-const TIMEOUT_SECONDS = 30;
+type UpdateStatus = {
+	version?: string;
+	releaseNotes?: string;
+	status?: InstallStatus | undefined;
+};
+
+export type InstallStatus =
+	| 'Checking'
+	| 'Downloading'
+	| 'Downloaded'
+	| 'Installing'
+	| 'Done'
+	| 'Up-to-date'
+	| 'Error';
+
+const downloadStatusMap: { [K in DownloadEvent['event']]: InstallStatus } = {
+	Started: 'Downloading',
+	Progress: 'Downloading',
+	Finished: 'Downloaded'
+};
 
 export const UPDATE_INTERVAL_MS = 3600000; // Hourly
 
@@ -19,39 +32,23 @@ export const UPDATE_INTERVAL_MS = 3600000; // Hourly
  * Note that the Tauri API `checkUpdate` hangs indefinitely in dev mode, build
  * a nightly if you want to test the updater manually.
  *
- * export TAURI_PRIVATE_KEY=doesnot
- * export TAURI_KEY_PASSWORD=matter
+ * export TAURI_SIGNING_PRIVATE_KEY=doesnot
+ * export TAURI_SIGNING_PRIVATE_KEY_PASSWORD=matter
  * ./scripts/release.sh --channel nightly --version "0.5.678"
  */
 export class UpdaterService {
 	readonly loading = writable(false);
-	readonly status = writable<Status | undefined>();
-	private manifest = writable<UpdateManifest | undefined>(undefined, () => {
+	readonly update = writable<UpdateStatus>({}, () => {
 		this.start();
 		return () => {
 			this.stop();
 		};
 	});
 
-	private currentVersion = readable<string | undefined>(undefined, (set) => {
-		this.tauri.currentVersion().then((version) => set(version));
-	});
-
-	readonly update = derived(
-		[this.manifest, this.status, this.currentVersion],
-		([manifest, status, currentVersion]) => {
-			return {
-				version: manifest?.version,
-				releaseNotes: manifest?.body,
-				status,
-				currentVersion
-			};
-		}
-	);
-
 	private intervalId: any;
 	private seenVersion: string | undefined;
-	private lastCheckWasManual = false;
+	private tauriDownload: Update['download'] | undefined;
+	private tauriInstall: Update['install'] | undefined;
 
 	unlistenStatus?: () => void;
 	unlistenMenu?: () => void;
@@ -62,18 +59,6 @@ export class UpdaterService {
 		this.unlistenMenu = this.tauri.listen<string>('menu://global/update/clicked', () => {
 			this.checkForUpdate(true);
 		});
-
-		this.unlistenStatus = await this.tauri.onUpdaterEvent((event) => {
-			const { error, status } = event;
-			if (status !== 'UPTODATE' || this.lastCheckWasManual) {
-				this.status.set(status);
-			}
-			if (error) {
-				handleError(error, false);
-				posthog.capture('App Update Status Error', { error });
-			}
-		});
-
 		setInterval(async () => await this.checkForUpdate(), UPDATE_INTERVAL_MS);
 		this.checkForUpdate();
 	}
@@ -81,7 +66,6 @@ export class UpdaterService {
 	private async stop() {
 		this.unlistenStatus?.();
 		this.unlistenMenu?.();
-
 		if (this.intervalId) {
 			clearInterval(this.intervalId);
 			this.intervalId = undefined;
@@ -90,53 +74,79 @@ export class UpdaterService {
 
 	async checkForUpdate(manual = false) {
 		this.loading.set(true);
-		this.lastCheckWasManual = manual;
 		try {
-			const update = await Promise.race([
-				this.tauri.checkUpdate(), // In DEV mode this never returns.
-				new Promise<UpdateResult>((_resolve, reject) =>
-					// For manual testing use resolve instead of reject here.
-					setTimeout(
-						() => reject(`Timed out after ${TIMEOUT_SECONDS} seconds.`),
-						TIMEOUT_SECONDS * 1000
-					)
-				)
-			]);
-			await this.processUpdate(update, manual);
+			this.handleUpdate(await this.tauri.checkUpdate(), manual); // In DEV mode this never returns.
 		} catch (err: unknown) {
-			// No toast unless manually invoked.
-			if (manual) {
-				handleError(err, true);
-			} else {
-				console.error(err);
-			}
+			handleError(err, manual);
 		} finally {
 			this.loading.set(false);
 		}
 	}
 
-	private async processUpdate(update: UpdateResult, manual: boolean) {
-		const { shouldUpdate, manifest } = update;
-		if (shouldUpdate === false && manual) {
-			this.status.set('UPTODATE');
+	private handleUpdate(update: Update | null, manual: boolean) {
+		if (update === null) {
+			this.update.set({});
+			return;
 		}
-		if (manifest && manifest.version !== this.seenVersion) {
-			this.manifest.set(manifest);
-			this.seenVersion = manifest.version;
+		if (!update.available && manual) {
+			this.setStatus('Up-to-date');
+		} else if (
+			update.available &&
+			update.version !== this.seenVersion &&
+			update.currentVersion !== '0.0.0' // DEV mode.
+		) {
+			const { version, body, download, install } = update;
+			this.tauriDownload = download.bind(update);
+			this.tauriInstall = install.bind(update);
+			this.seenVersion = version;
+			this.update.set({
+				version,
+				releaseNotes: body,
+				status: undefined
+			});
 		}
 	}
 
-	async installUpdate() {
+	async downloadAndInstall() {
 		this.loading.set(true);
 		try {
-			await installUpdate();
+			await this.download();
+			await this.install();
 			posthog.capture('App Update Successful');
-		} catch (err: any) {
+		} catch (error: any) {
 			// We expect toast to be shown by error handling in `onUpdaterEvent`
-			posthog.capture('App Update Install Error', { error: err });
+			handleError(error, true);
+			this.update.set({ status: 'Error' });
+			posthog.capture('App Update Install Error', { error });
 		} finally {
 			this.loading.set(false);
 		}
+	}
+
+	private async download() {
+		if (!this.tauriDownload) {
+			throw new Error('Download function not available.');
+		}
+		this.setStatus('Downloading');
+		await this.tauriDownload((progress: DownloadEvent) => {
+			this.setStatus(downloadStatusMap[progress.event]);
+		});
+		this.setStatus('Downloaded');
+	}
+
+	private async install() {
+		if (!this.tauriInstall) {
+			throw new Error('Install function not available.');
+		}
+		this.setStatus('Installing');
+		await this.tauriInstall();
+		this.setStatus('Done');
+	}
+
+	private setStatus(status: InstallStatus) {
+		this.update.update((update) => {
+			return { ...update, status };
+		});
 	}
 
 	async relaunchApp() {
@@ -148,8 +158,7 @@ export class UpdaterService {
 	}
 
 	dismiss() {
-		this.manifest.set(undefined);
-		this.status.set(undefined);
+		this.update.set({});
 	}
 }
 
