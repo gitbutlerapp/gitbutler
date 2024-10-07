@@ -1,0 +1,82 @@
+<script lang="ts">
+	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import type { HTMLAttributes } from 'svelte/elements';
+
+	interface Props extends HTMLAttributes<HTMLTextAreaElement | HTMLInputElement> {
+		value: string;
+		multiline: boolean;
+		disabled: boolean;
+		element: HTMLTextAreaElement | HTMLInputElement | undefined;
+		inputHeight: string;
+		inputWidth: string;
+		textAreaWidth: string;
+		autocomplete: string;
+	}
+
+	let {
+		multiline,
+		value = $bindable(),
+		inputHeight = $bindable(),
+		inputWidth = $bindable(),
+		element = $bindable(),
+		textAreaWidth = $bindable(),
+		...props
+	}: Props = $props();
+</script>
+
+{#if multiline}
+	<textarea
+		bind:value
+		bind:this={element}
+		style:height={inputHeight}
+		style:width={'100%'}
+		use:resizeObserver={(e) => {
+			textAreaWidth = `${Math.round(e.frame.width)}px`;
+		}}
+		{...props}
+	></textarea>
+{:else}
+	<input type="text" bind:value bind:this={element} style:width={inputWidth} {...props} />
+{/if}
+
+<style lang="postcss">
+	.label-input {
+		min-width: 44px;
+		min-height: 20px;
+		padding: 2px 4px;
+		border: 1px solid transparent;
+	}
+	.label-input {
+		text-overflow: ellipsis;
+
+		width: 100%;
+		border-radius: var(--radius-s);
+		color: var(--clr-scale-ntrl-0);
+		background-color: var(--clr-bg-1);
+		outline: none;
+
+		/* not readonly */
+		&:not([disabled]):hover {
+			background-color: var(--clr-bg-2);
+		}
+
+		&:not([disabled]):focus {
+			outline: none;
+			background-color: var(--clr-bg-2);
+			border-color: var(--clr-border-2);
+		}
+	}
+
+	input {
+		height: 20px;
+		overflow: hidden;
+		white-space: nowrap;
+	}
+
+	textarea {
+		max-height: 76px;
+		resize: none;
+		word-break: break-word;
+		overflow-wrap: break-word;
+	}
+</style>
