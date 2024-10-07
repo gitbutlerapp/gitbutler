@@ -36,6 +36,13 @@ pub mod commands {
     }
 
     #[derive(Debug, Deserialize, Serialize)]
+    pub struct GitHubLoginWithSecrets {
+        label: Option<String>,
+        access_token: String,
+        username: String,
+    }
+
+    #[derive(Debug, Deserialize, Serialize)]
     pub struct UserWithSecrets {
         id: u64,
         name: Option<String>,
@@ -50,6 +57,7 @@ pub mod commands {
         role: Option<String>,
         github_access_token: Option<String>,
         github_username: Option<String>,
+        github_logins: Vec<GitHubLoginWithSecrets>,
     }
 
     impl TryFrom<User> for UserWithSecrets {
@@ -58,6 +66,19 @@ pub mod commands {
         fn try_from(value: User) -> Result<Self, Self::Error> {
             let access_token = value.access_token()?;
             let github_access_token = value.github_access_token()?;
+            let github_logins = value
+                .github_logins
+                .into_iter()
+                .map(|login| {
+                    let access_token = login.access_token()?;
+                    Ok(GitHubLoginWithSecrets {
+                        label: login.label,
+                        access_token: access_token.0,
+                        username: login.username,
+                    })
+                })
+                .collect::<Result<Vec<_>, Self::Error>>()?;
+
             let User {
                 id,
                 name,
@@ -86,6 +107,7 @@ pub mod commands {
                 role,
                 github_access_token: github_access_token.map(|s| s.0),
                 github_username,
+                github_logins,
             })
         }
     }

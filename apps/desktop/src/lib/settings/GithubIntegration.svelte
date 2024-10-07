@@ -1,8 +1,9 @@
 <script lang="ts">
+	import GitHubListItemComponent from './githubIntegration/GitHubListItemComponent.svelte';
 	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { getGitHubUserServiceStore } from '$lib/gitHost/github/githubUserService';
-	import { UserService } from '$lib/stores/user';
+	import { getGitHubLoginList, UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
@@ -11,6 +12,8 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { fade } from 'svelte/transition';
+
+	const FORM_KEY = 'github-login';
 
 	interface Props {
 		minimal?: boolean;
@@ -23,6 +26,7 @@
 	const userService = getContext(UserService);
 	const user = $derived(userService.user);
 	const gitHubUser = $derived($githubUserService?.authenticatedUser);
+	const gitHubLogins = $derived(getGitHubLoginList($user));
 
 	// step flags
 	let codeCopied = $state<boolean>(false);
@@ -38,6 +42,14 @@
 	$effect(() => {
 		if ($gitHubUser) return;
 		$githubUserService?.fetch();
+	});
+
+	// Set username
+	$effect(() => {
+		if ($gitHubUser && $user && $user.github_username !== $gitHubUser.login) {
+			$user.github_username = $gitHubUser.login;
+			userService.setUser($user);
+		}
 	});
 
 	function gitHubStartOauth() {
@@ -74,8 +86,85 @@
 		if ($user) {
 			$user.github_access_token = '';
 			$user.github_username = '';
+			$user.github_logins = [];
 			userService.setUser($user);
 		}
+	}
+
+	async function handleAddLogin() {
+		if (!$user?.github_username || !$user?.github_access_token) return;
+		const currentLoginStored = $user.github_logins.find(
+			(login) => login.username === $user.github_username
+		);
+
+		if (!currentLoginStored) {
+			$user.github_logins.push({
+				username: $user.github_username,
+				accessToken: $user.github_access_token,
+				label: undefined
+			});
+			await userService.setUser($user);
+		}
+
+		gitHubStartOauth();
+	}
+
+	async function onFormChange(_form: HTMLFormElement) {
+		// if (!$user?.github_username || !$user?.github_access_token) return;
+
+		// const formData = new FormData(form);
+		// const selectedLoginUsername = formData.get(FORM_KEY);
+
+		// if (!isStr(selectedLoginUsername)) {
+		// 	showError('Select GitHub login', 'Invalid form selected');
+		// 	return;
+		// }
+
+		// if ($user) {
+		// 	const copiedUser = {
+		// 		...$user,
+		// 		gitHubLogins: [...$user.github_logins]
+		// 	};
+
+		// 	console.log(copiedUser.github_logins)
+
+		// 	const currentLoginStored = copiedUser.github_logins.find(
+		// 		(login) => login.username === copiedUser.github_username
+		// 	);
+
+		// 	if (!currentLoginStored) {
+		// 		copiedUser.github_logins.push({
+		// 			username: copiedUser.github_username,
+		// 			accessToken: copiedUser.github_access_token,
+		// 			label: undefined
+		// 		});
+		// 		// await userService.setUser(copiedUser);
+		// 	}
+
+		// 	const newLogin = copiedUser.github_logins.find(
+		// 		(login) => login.username === selectedLoginUsername
+		// 	);
+
+		// 	console.log(copiedUser.github_logins)
+
+		// 	console.log(newLogin)
+
+		// 	if (!newLogin) {
+		// 		showError('Select GitHub login', 'Login not found');
+		// 		return;
+		// 	}
+
+		// 	if (!newLogin.accessToken) {
+		// 		showError('Select GitHub login', 'Login does not have an access token');
+		// 		return;
+		// 	}
+
+		// 	copiedUser.github_username = newLogin.username;
+		// 	copiedUser.github_access_token = newLogin.accessToken;
+
+		// 	console.log(copiedUser.github_access_token);
+		// 	await userService.setUser(copiedUser);
+		// }
 	}
 </script>
 
@@ -108,25 +197,28 @@
 			</svelte:fragment>
 			<svelte:fragment slot="title">GitHub</svelte:fragment>
 			<svelte:fragment slot="caption">Allows you to view and create Pull Requests.</svelte:fragment>
+			{#if gitHubLogins.length > 1}
+				<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}>
+					Forget all profiles
+				</Button>
+			{/if}
 			{#if !$user?.github_access_token}
 				<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 			{/if}
 		</SectionCard>
-		{#if $gitHubUser && $user}
+		{#if gitHubLogins.length > 0}
+			<form onchange={async (e) => await onFormChange(e.currentTarget)}>
+				{#each gitHubLogins as login (login.username)}
+					<GitHubListItemComponent {login} {disabled} radioButtonName={FORM_KEY} />
+				{/each}
+			</form>
+
 			<SectionCard orientation="row" roundedTop={false}>
-				<svelte:fragment slot="iconSide">
-					<img
-						class="profile-pic"
-						src={$gitHubUser.avatar_url}
-						alt=""
-						referrerpolicy="no-referrer"
-					/>
-				</svelte:fragment>
-				<svelte:fragment slot="title">{$gitHubUser.login}</svelte:fragment>
-				<svelte:fragment slot="caption">{$gitHubUser.name}</svelte:fragment>
-				<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}>
-					Forget
-				</Button>
+				<svelte:fragment slot="title">Add login</svelte:fragment>
+				<svelte:fragment slot="caption">Add another GitHub login</svelte:fragment>
+				<Button style="pop" kind="solid" icon="plus-small" {disabled} onclick={handleAddLogin}
+					>Add</Button
+				>
 			</SectionCard>
 		{/if}
 	</div>
@@ -329,11 +421,5 @@
 		background-color: var(--clr-bg);
 		border: 1px solid var(--clr-border-2);
 		user-select: text;
-	}
-
-	.profile-pic {
-		width: 28px;
-		height: 28px;
-		border-radius: 50%;
 	}
 </style>

@@ -31,7 +31,9 @@
 	$: if ($user && !loaded) {
 		loaded = true;
 		userService.getUser($user?.access_token).then((cloudUser) => {
-			cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
+			cloudUser.github_access_token ??= $user?.github_access_token; // prevent overwriting with null
+			cloudUser.github_username ??= $user?.github_username; // prevent overwriting with null
+			cloudUser.github_logins ??= $user?.github_logins; // prevent overwriting with null
 			userService.setUser(cloudUser);
 		});
 		newName = $user?.name || '';
@@ -50,7 +52,9 @@
 				name: newName,
 				picture: picture
 			});
-			updatedUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
+			updatedUser.github_access_token ??= $user?.github_access_token; // prevent overwriting with null
+			updatedUser.github_username ??= $user?.github_username; // prevent overwriting with null
+			updatedUser.github_logins ??= $user?.github_logins; // prevent overwriting with null
 			userService.setUser(updatedUser);
 			toasts.success('Profile updated');
 		} catch (err: any) {

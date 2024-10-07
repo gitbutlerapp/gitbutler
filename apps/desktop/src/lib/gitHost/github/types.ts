@@ -2,6 +2,8 @@ import type { CheckSuite, DetailedPullRequest, Label, PullRequest } from '../int
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 
 export type DetailedGitHubPullRequest = RestEndpointMethodTypes['pulls']['get']['response']['data'];
+export type GitHubGetAuthenticatedUserData =
+	RestEndpointMethodTypes['users']['getAuthenticated']['response']['data'];
 
 export function parseGitHubDetailedPullRequest(
 	data: DetailedGitHubPullRequest

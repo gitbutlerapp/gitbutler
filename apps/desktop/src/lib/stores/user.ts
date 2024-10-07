@@ -41,6 +41,7 @@ export class UserService {
 	constructor(private httpClient: HttpClient) {}
 
 	async setUser(user: User | undefined) {
+		console.log('Setting user - github access token', user?.github_access_token);
 		if (user) await invoke('set_user', { user });
 		else await this.clearUser();
 		this.user.set(user);
@@ -132,6 +133,12 @@ export class UserService {
 	}
 }
 
+export interface GitHubLogin {
+	label: string | undefined;
+	accessToken: string;
+	username: string;
+}
+
 export class User {
 	id!: number;
 	name: string | undefined;
@@ -145,6 +152,54 @@ export class User {
 	access_token!: string;
 	role: string | undefined;
 	supporter!: boolean;
+	/**
+	 * Selected GitHub access token.
+	 */
 	github_access_token: string | undefined;
+	/**
+	 * Selected GitHub username.
+	 */
 	github_username: string | undefined;
+	/**
+	 * List of avaiable GitHub logins.
+	 *
+	 * By default this is empty, but is populated when adding secondary GitHub logins.
+	 */
+	github_logins!: GitHubLogin[];
+}
+
+interface BaseGitHubLoginListItem extends GitHubLogin {
+	selected: boolean;
+}
+
+interface SelectedGitHubLoginListItem extends BaseGitHubLoginListItem {
+	selected: true;
+}
+
+interface UnselectedGitHubLoginListItem extends BaseGitHubLoginListItem {
+	selected: false;
+}
+
+export type GitHubLoginListItem = SelectedGitHubLoginListItem | UnselectedGitHubLoginListItem;
+
+export function getGitHubLoginList(user: User | undefined): GitHubLoginListItem[] {
+	const list: GitHubLoginListItem[] = [];
+	if (!user) return list;
+
+	for (const login of user.github_logins) {
+		if (login.username !== user.github_username) {
+			list.push({ ...login, selected: false });
+		}
+	}
+
+	if (user.github_access_token) {
+		list.push({
+			label: undefined,
+			accessToken: user.github_access_token,
+			username: user.github_username ?? 'unknown',
+			selected: true
+		});
+	}
+
+	return list.sort((a, b) => a.username.localeCompare(b.username));
 }
