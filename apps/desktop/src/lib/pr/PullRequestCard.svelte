@@ -25,7 +25,7 @@
 
 	type StatusInfo = {
 		text: string;
-		icon: keyof typeof iconsJson | undefined;
+		icon?: keyof typeof iconsJson | undefined;
 		style?: ComponentColor;
 		messageStyle?: MessageStyle;
 	};
@@ -92,36 +92,32 @@
 						? 'success-small'
 						: 'error-small'
 					: 'spinner';
-			const text = $checks.completed
-				? $checks.success
-					? 'Checks passed'
-					: 'Checks failed'
-				: getChecksCount($checks);
+			const text = $checks.completed ? 'Checks' : getChecksCount($checks);
 			return { style, icon, text };
 		}
 		if ($checksLoading) {
-			return { style: 'neutral', icon: 'spinner', text: ' Checks' };
+			return { style: 'neutral', icon: 'spinner', text: 'Checks' };
 		}
 	});
 
 	const prStatusInfo: StatusInfo = $derived.by(() => {
 		if (!$pr) {
-			return { text: 'Status', icon: 'spinner', style: 'neutral' };
+			return { text: 'Status', style: 'neutral' };
 		}
 
 		if ($pr?.mergedAt) {
-			return { text: 'Merged', icon: 'merged-pr-small', style: 'purple' };
+			return { text: 'Merged', style: 'purple' };
 		}
 
 		if ($pr?.closedAt) {
-			return { text: 'Closed', icon: 'closed-pr-small', style: 'error' };
+			return { text: 'Closed', style: 'error' };
 		}
 
 		if ($pr?.draft) {
-			return { text: 'Draft', icon: 'draft-pr-small', style: 'neutral' };
+			return { text: 'Draft', style: 'neutral' };
 		}
 
-		return { text: 'Open', icon: 'pr-small', style: 'success' };
+		return { text: 'Open', style: 'success' };
 	});
 
 	const infoProps: StatusInfo | undefined = $derived.by(() => {
@@ -196,7 +192,6 @@
 			<Button
 				size="tag"
 				clickable={false}
-				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
 				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
 			>
@@ -207,6 +202,7 @@
 					size="tag"
 					clickable={false}
 					icon={checksTagInfo.icon}
+					reversedDirection
 					style={checksTagInfo.style}
 					kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
 				>
