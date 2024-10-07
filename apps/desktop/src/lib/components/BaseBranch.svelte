@@ -1,11 +1,9 @@
 <script lang="ts">
 	import IntegrateUpstreamModal from './IntegrateUpstreamModal.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import CommitAction from '$lib/commit/CommitAction.svelte';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
-	import { projectMergeUpstreamWarningDismissed } from '$lib/config/config';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { ModeService } from '$lib/modes/service';
 	import { showInfo } from '$lib/notifications/toasts';
@@ -14,7 +12,6 @@
 	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
 	import { LineManagerFactory, LineSpacer } from '@gitbutler/ui/commitLines/lineManager';
@@ -57,13 +54,9 @@
 	const branchController = getContext(BranchController);
 	const modeService = getContext(ModeService);
 	const gitHost = getGitHost();
-	const project = getContext(Project);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
 	const mode = $derived(modeService.mode);
-	const mergeUpstreamWarningDismissed = $derived(
-		projectMergeUpstreamWarningDismissed(branchController.projectId)
-	);
 
 	let baseBranchIsUpdating = $state<boolean>(false);
 	const baseBranchConflicted = $derived(base.conflicted);
@@ -73,7 +66,6 @@
 	const confirmResetModalOpen = $derived(!!confirmResetModal?.imports.open);
 	let integrateUpstreamModal = $state<IntegrateUpstreamModal>();
 	const integrateUpstreamModalOpen = $derived(!!integrateUpstreamModal?.imports.open);
-	let mergeUpstreamWarningDismissedCheckbox = $state<boolean>(false);
 
 	const pushButtonTooltip = $derived.by(() => {
 		if (onlyLocalAhead) return 'Push your local changes to upstream';
@@ -135,7 +127,7 @@
 	}
 
 	async function handleMergeUpstream() {
-		if (project.succeedingRebases && !onlyLocalAhead) {
+		if (!onlyLocalAhead) {
 			integrateUpstreamModal?.show();
 			return;
 		}
@@ -145,10 +137,6 @@
 			return;
 		}
 
-		if ($mergeUpstreamWarningDismissed) {
-			updateBaseBranch();
-			return;
-		}
 		updateTargetModal?.show();
 	}
 
@@ -352,47 +340,6 @@
 	</div>
 </div>
 
-<Modal
-	width="small"
-	bind:this={updateTargetModal}
-	title="Merge Upstream Work"
-	onSubmit={(close) => {
-		updateBaseBranch();
-		if (mergeUpstreamWarningDismissedCheckbox) {
-			mergeUpstreamWarningDismissed.set(true);
-		}
-		close();
-	}}
->
-	<div class="modal-content">
-		<p class="text-14 text-body">You are about to merge upstream work from your base branch.</p>
-	</div>
-	<div class="modal-content">
-		<h4 class="text-14 text-body text-semibold">What will this do?</h4>
-		<p class="modal__small-text text-12 text-body">
-			We will try to merge the work that is upstream into each of your virtual branches, so that
-			they are all up to date.
-		</p>
-		<p class="modal__small-text text-12 text-body">
-			Any virtual branches that we can't merge cleanly, we will unapply and mark with a blue dot.
-			You can merge these manually later.
-		</p>
-		<p class="modal__small-text text-12 text-body">
-			Any virtual branches that are fully integrated upstream will be automatically removed.
-		</p>
-	</div>
-
-	<label class="modal__dont-show-again" for="dont-show-again">
-		<Checkbox name="dont-show-again" bind:checked={mergeUpstreamWarningDismissedCheckbox} />
-		<span class="text-12">Don't show this again</span>
-	</label>
-
-	{#snippet controls(close)}
-		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="pop" kind="solid" type="submit">Merge Upstream</Button>
-	{/snippet}
-</Modal>
-
 {#if resetBaseStrategy}
 	<Modal
 		width="small"
@@ -467,19 +414,5 @@
 		&:last-child {
 			margin-bottom: 0;
 		}
-	}
-
-	.modal__small-text {
-		opacity: 0.6;
-	}
-
-	.modal__dont-show-again {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 14px;
-		background-color: var(--clr-bg-2);
-		border-radius: var(--radius-m);
-		margin-bottom: 6px;
 	}
 </style>
