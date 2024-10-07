@@ -1,10 +1,7 @@
-use anyhow::{anyhow, bail, Context, Result};
-use gitbutler_branch::{
-    signature, Branch, BranchId, SignaturePurpose, Target, VirtualBranchesHandle,
-};
+use anyhow::{anyhow, bail, Result};
+use gitbutler_branch::{Branch, BranchId, Target, VirtualBranchesHandle};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
@@ -12,7 +9,10 @@ use gitbutler_repo::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::{branch_trees::checkout_branch_trees, BranchManagerExt, VirtualBranchesExt as _};
+use crate::{
+    branch_trees::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree},
+    BranchManagerExt, VirtualBranchesExt as _,
+};
 
 #[derive(Serialize, PartialEq, Debug)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
@@ -432,47 +432,24 @@ fn compute_resolutions(
                         target_branch_name,
                     )?;
 
-                    let head = repository.find_commit(virtual_branch.head)?;
-                    let tree = repository.find_tree(virtual_branch.tree)?;
-
-                    // Rebase tree
-                    let author_signature = signature(SignaturePurpose::Author)
-                        .context("Failed to get gitbutler signature")?;
-                    let committer_signature = signature(SignaturePurpose::Committer)
-                        .context("Failed to get gitbutler signature")?;
-                    let committed_tree = repository.commit(
-                        None,
-                        &author_signature,
-                        &committer_signature,
-                        "Uncommited changes",
-                        &tree,
-                        &[&head],
+                    // Get the updated tree oid
+                    let BranchHeadAndTree {
+                        head: new_head,
+                        tree: new_tree,
+                    } = compute_updated_branch_head(
+                        repository,
+                        virtual_branch,
+                        new_head.id(),
+                        true,
                     )?;
 
-                    // Rebase commited tree
-                    let new_commited_tree =
-                        cherry_rebase_group(repository, new_head.id(), &[committed_tree], true)?;
-                    let new_commited_tree = repository.find_commit(new_commited_tree)?;
-
-                    if new_commited_tree.is_conflicted() {
-                        Ok((
-                            virtual_branch.id,
-                            IntegrationResult::UpdatedObjects {
-                                head: new_commited_tree.id(),
-                                tree: repository
-                                    .find_real_tree(&new_commited_tree, Default::default())?
-                                    .id(),
-                            },
-                        ))
-                    } else {
-                        Ok((
-                            virtual_branch.id,
-                            IntegrationResult::UpdatedObjects {
-                                head: new_head.id(),
-                                tree: new_commited_tree.tree_id(),
-                            },
-                        ))
-                    }
+                    Ok((
+                        virtual_branch.id,
+                        IntegrationResult::UpdatedObjects {
+                            head: new_head,
+                            tree: new_tree,
+                        },
+                    ))
                 }
                 ResolutionApproach::Rebase => {
                     // Rebase the commits, then try rebasing the tree. If
@@ -497,47 +474,19 @@ fn compute_resolutions(
                         true,
                     )?;
 
-                    let head = repository.find_commit(virtual_branch.head)?;
-                    let tree = repository.find_tree(virtual_branch.tree)?;
+                    // Get the updated tree oid
+                    let BranchHeadAndTree {
+                        head: new_head,
+                        tree: new_tree,
+                    } = compute_updated_branch_head(repository, virtual_branch, new_head, true)?;
 
-                    // Rebase tree
-                    let author_signature = signature(SignaturePurpose::Author)
-                        .context("Failed to get gitbutler signature")?;
-                    let committer_signature = signature(SignaturePurpose::Committer)
-                        .context("Failed to get gitbutler signature")?;
-                    let committed_tree = repository.commit(
-                        None,
-                        &author_signature,
-                        &committer_signature,
-                        "Uncommited changes",
-                        &tree,
-                        &[&head],
-                    )?;
-
-                    // Rebase commited tree
-                    let new_commited_tree =
-                        cherry_rebase_group(repository, new_head, &[committed_tree], true)?;
-                    let new_commited_tree = repository.find_commit(new_commited_tree)?;
-
-                    if new_commited_tree.is_conflicted() {
-                        Ok((
-                            virtual_branch.id,
-                            IntegrationResult::UpdatedObjects {
-                                head: new_commited_tree.id(),
-                                tree: repository
-                                    .find_real_tree(&new_commited_tree, Default::default())?
-                                    .id(),
-                            },
-                        ))
-                    } else {
-                        Ok((
-                            virtual_branch.id,
-                            IntegrationResult::UpdatedObjects {
-                                head: new_head,
-                                tree: new_commited_tree.tree_id(),
-                            },
-                        ))
-                    }
+                    Ok((
+                        virtual_branch.id,
+                        IntegrationResult::UpdatedObjects {
+                            head: new_head,
+                            tree: new_tree,
+                        },
+                    ))
                 }
             }
         })
@@ -549,6 +498,7 @@ fn compute_resolutions(
 #[cfg(test)]
 mod test {
     use gitbutler_branch::BranchOwnershipClaims;
+    use gitbutler_commit::commit_ext::CommitExt as _;
     use gitbutler_testsupport::testing_repository::TestingRepository;
     use uuid::Uuid;
 
