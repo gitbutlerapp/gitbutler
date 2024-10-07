@@ -739,7 +739,6 @@ pub(crate) fn integrate_with_rebase(
         ctx.repository(),
         branch.head(),
         unknown_commits.as_mut_slice(),
-        ctx.project().succeeding_rebases,
     )
 }
 
@@ -1819,12 +1818,7 @@ pub(crate) fn squash(
     .with_context(|| format!("commit {commit_id} not in the branch"))?;
     let ids_to_rebase = ids_to_rebase.to_vec();
 
-    match cherry_rebase_group(
-        ctx.repository(),
-        new_commit_oid,
-        &ids_to_rebase,
-        ctx.project().succeeding_rebases,
-    ) {
+    match cherry_rebase_group(ctx.repository(), new_commit_oid, &ids_to_rebase) {
         Ok(new_head_id) => {
             // save new branch head
             branch.set_head(new_head_id);
@@ -1905,13 +1899,8 @@ pub(crate) fn update_commit_message(
     .with_context(|| format!("commit {commit_id} not in the branch"))?;
     let ids_to_rebase = ids_to_rebase.to_vec();
 
-    let new_head_id = cherry_rebase_group(
-        ctx.repository(),
-        new_commit_oid,
-        &ids_to_rebase,
-        ctx.project().succeeding_rebases,
-    )
-    .map_err(|err| err.context("rebase error"))?;
+    let new_head_id = cherry_rebase_group(ctx.repository(), new_commit_oid, &ids_to_rebase)
+        .map_err(|err| err.context("rebase error"))?;
     // save new branch head
     branch.set_head(new_head_id);
     branch.updated_timestamp_ms = gitbutler_time::time::now_ms();

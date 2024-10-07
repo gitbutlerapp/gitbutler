@@ -118,7 +118,6 @@ pub(crate) fn move_commit(
         ctx.repository(),
         destination_branch.head(),
         &[source_commit.id()],
-        true,
     )?;
 
     // reset the source branch to the parent commit

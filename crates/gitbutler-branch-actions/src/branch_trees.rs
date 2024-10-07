@@ -88,15 +88,8 @@ pub fn compute_updated_branch_head(
     repository: &git2::Repository,
     branch: &Branch,
     new_head: git2::Oid,
-    fearless_rebasing: bool,
 ) -> Result<BranchHeadAndTree> {
-    compute_updated_branch_head_for_commits(
-        repository,
-        branch.head(),
-        branch.tree,
-        new_head,
-        fearless_rebasing,
-    )
+    compute_updated_branch_head_for_commits(repository, branch.head(), branch.tree, new_head)
 }
 
 /// Given a new head for a branch, this comptues how the tree should be
@@ -115,7 +108,6 @@ pub fn compute_updated_branch_head_for_commits(
     old_head: git2::Oid,
     old_tree: git2::Oid,
     new_head: git2::Oid,
-    fearless_rebasing: bool,
 ) -> Result<BranchHeadAndTree> {
     let (author, committer) = repository.signatures()?;
 
@@ -129,8 +121,7 @@ pub fn compute_updated_branch_head_for_commits(
         Default::default(),
     )?;
 
-    let rebased_tree =
-        cherry_rebase_group(repository, new_head, &[commited_tree], fearless_rebasing)?;
+    let rebased_tree = cherry_rebase_group(repository, new_head, &[commited_tree])?;
     let rebased_tree = repository.find_commit(rebased_tree)?;
 
     if rebased_tree.is_conflicted() {

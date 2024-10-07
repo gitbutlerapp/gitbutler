@@ -94,8 +94,6 @@ pub struct Project {
     pub omit_certificate_check: Option<bool>,
     // The number of changed lines that will trigger a snapshot
     pub snapshot_lines_threshold: Option<usize>,
-    #[serde(default = "default_false")]
-    pub succeeding_rebases: bool,
     #[serde(default)]
     pub git_host: GitHostSettings,
 }
@@ -107,10 +105,6 @@ pub struct GitHostSettings {
     pub host_type: Option<String>,
     #[serde(default)]
     pub pull_request_template_path: Option<String>,
-}
-
-fn default_false() -> bool {
-    false
 }
 
 impl Project {
