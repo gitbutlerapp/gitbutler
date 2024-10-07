@@ -227,6 +227,7 @@
 	}
 
 	async function handleAIButtonPressed() {
+		if (props.type === 'display') return;
 		if (!aiGenEnabled) return;
 
 		aiIsLoading = true;
@@ -274,7 +275,7 @@
 				}
 				break;
 			case 'g':
-				if (e.metaKey || e.ctrlKey) {
+				if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
 					e.stopPropagation();
 					e.preventDefault();
 					handleAIButtonPressed();
@@ -374,7 +375,7 @@
 				</div>
 			{:else}
 				<BorderlessTextarea
-					bind:value={inputBody}
+					value={actualBody}
 					padding={{ top: 0, right: 16, bottom: 16, left: 20 }}
 					placeholder="Add description…"
 					oninput={(e) => {
