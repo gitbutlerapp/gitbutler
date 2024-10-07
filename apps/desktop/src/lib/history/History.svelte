@@ -1,5 +1,4 @@
 <script lang="ts">
-	import EmptyStatePlaceholder from '../components/EmptyStatePlaceholder.svelte';
 	import FullviewLoading from '../components/FullviewLoading.svelte';
 	import LazyloadContainer from '../shared/LazyloadContainer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
@@ -12,6 +11,7 @@
 	import { getContext } from '$lib/utils/context';
 	import { RemoteFile } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { plainToInstance } from 'class-transformer';
 	import { createEventDispatcher } from 'svelte';
@@ -126,7 +126,7 @@
 
 			<!-- EMPTY STATE -->
 			{#if $snapshots.length === 0 && !$loading}
-				<EmptyStatePlaceholder image={emptyFolderSvg}>
+				<EmptyStatePlaceholder image={emptyFolderSvg} bottomMargin={48}>
 					<svelte:fragment slot="title">No snapshots yet</svelte:fragment>
 					<svelte:fragment slot="caption">
 						Gitbutler saves your work, including file changes, so your progress is always secure.

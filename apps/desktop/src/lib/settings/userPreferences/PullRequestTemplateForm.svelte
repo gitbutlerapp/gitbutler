@@ -1,4 +1,5 @@
 <script lang="ts">
+	import notFoundSvg from '$lib/assets/empty-state/not-found.svg?raw';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
@@ -6,9 +7,11 @@
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
+	import Link from '$lib/shared/Link.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '$lib/utils/context';
+	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
@@ -19,6 +22,7 @@
 	let useTemplate = $state(!!project.git_host?.pullRequestTemplatePath);
 	let selectedTemplate = $state(project.git_host?.pullRequestTemplatePath ?? '');
 	let allAvailableTemplates = $state<{ label: string; value: string }[]>([]);
+	let isTemplatesAvailable = $state(false);
 
 	$effect(() => {
 		if (!project.path) return;
@@ -31,6 +35,8 @@
 						value: relativePath
 					};
 				});
+
+				isTemplatesAvailable = allAvailableTemplates.length > 0;
 			}
 		});
 	});
@@ -50,13 +56,13 @@
 </script>
 
 <Section>
-	<div>
+	<div class="stack-v">
 		<SectionCard
-			roundedBottom={false}
+			roundedBottom={!useTemplate}
 			orientation="row"
 			labelFor="use-pull-request-template-boolean"
 		>
-			<svelte:fragment slot="title">Enable pull request templates</svelte:fragment>
+			<svelte:fragment slot="title">Pull request templates</svelte:fragment>
 			<svelte:fragment slot="actions">
 				<Toggle
 					id="use-pull-request-template-boolean"
@@ -73,27 +79,42 @@
 				on this project through GitButler.
 			</svelte:fragment>
 		</SectionCard>
-		<SectionCard roundedTop={false} orientation="row" labelFor="use-pull-request-template-path">
-			<svelte:fragment slot="caption">
-				<Select
-					value={selectedTemplate}
-					options={allAvailableTemplates.map(({ label, value }) => ({ label, value }))}
-					label="Available Templates"
-					wide={true}
-					searchable
-					disabled={allAvailableTemplates.length === 0}
-					onselect={(value) => {
-						setPullRequestTemplatePath(value);
-					}}
-				>
-					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === selectedTemplate} {highlighted}>
-							{item.label}
-						</SelectItem>
-					{/snippet}
-				</Select>
-			</svelte:fragment>
-		</SectionCard>
+
+		{#if useTemplate}
+			<SectionCard roundedTop={false} orientation="row">
+				{#if isTemplatesAvailable}
+					<Select
+						value={selectedTemplate}
+						options={allAvailableTemplates.map(({ label, value }) => ({ label, value }))}
+						label="Available Templates"
+						wide={true}
+						searchable
+						disabled={allAvailableTemplates.length === 0}
+						onselect={(value) => {
+							setPullRequestTemplatePath(value);
+						}}
+					>
+						{#snippet itemSnippet({ item, highlighted })}
+							<SelectItem selected={item.value === selectedTemplate} {highlighted}>
+								{item.label}
+							</SelectItem>
+						{/snippet}
+					</Select>
+				{:else}
+					<EmptyStatePlaceholder image={notFoundSvg} topBottomPadding={20}>
+						<svelte:fragment slot="caption"
+							>No templates found in the project
+							<span class="text-11">
+								<Link
+									href="https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository"
+									>How to create a template</Link
+								></span
+							>
+						</svelte:fragment>
+					</EmptyStatePlaceholder>
+				{/if}
+			</SectionCard>
+		{/if}
 	</div>
 </Section>
 <Spacer />

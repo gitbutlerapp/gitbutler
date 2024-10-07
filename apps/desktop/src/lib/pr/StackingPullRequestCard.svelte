@@ -1,6 +1,6 @@
 <script lang="ts">
 	import MergeButton from './MergeButton.svelte';
-	import ViewPrButton from './ViewPrButton.svelte';
+	import PrDetailsModal from './PrDetailsModal.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
@@ -55,6 +55,7 @@
 	// });
 
 	let isMerging = $state(false);
+	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 
 	const lastFetch = $derived(prMonitor?.lastFetch);
 	const timeAgo = $derived($lastFetch ? createTimeAgoStore($lastFetch) : undefined);
@@ -62,12 +63,8 @@
 	const mrLoading = $derived(prMonitor?.loading);
 	const checksLoading = $derived(checksMonitor?.loading);
 
-	$inspect('checksLoading', $checksLoading);
-
 	const checksError = $derived(checksMonitor?.error);
 	const detailsError = $derived(prMonitor?.error);
-
-	$inspect('checksError', $checksError);
 
 	function getChecksCount(status: ChecksStatus): string {
 		if (!status) return 'Running checks';
@@ -176,23 +173,9 @@
 
 {#if pr}
 	<div class="pr-header">
-		<div class="floating-button">
-			<Button
-				icon="update-small"
-				size="tag"
-				style="ghost"
-				outline
-				loading={$mrLoading || $checksLoading}
-				tooltip={$timeAgo ? 'Updated ' + $timeAgo : ''}
-				onclick={async () => {
-					checksMonitor?.update();
-					prMonitor?.refresh();
-				}}
-			/>
-		</div>
 		<div class="text-13 text-semibold pr-header-title">
 			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
-			{pr.title}
+			<span>{pr.title}</span>
 		</div>
 		<div class="pr-header-tags">
 			<Button
@@ -215,7 +198,29 @@
 					{checksTagInfo.text}
 				</Button>
 			{/if}
-			<ViewPrButton url={pr.htmlUrl} />
+			<Button
+				size="tag"
+				style="ghost"
+				outline
+				icon="description-small"
+				onclick={() => {
+					prDetailsModal?.show();
+				}}
+			>
+				PR details
+			</Button>
+			<Button
+				icon="update-small"
+				size="tag"
+				style="ghost"
+				outline
+				loading={$mrLoading}
+				tooltip={$timeAgo ? 'Updated ' + $timeAgo : ''}
+				onclick={async () => {
+					checksMonitor?.update();
+					prMonitor?.refresh();
+				}}
+			/>
 		</div>
 
 		<!--
@@ -269,6 +274,8 @@
 			</div>
 		{/if}
 	</div>
+
+	<PrDetailsModal bind:this={prDetailsModal} type="display" {pr} />
 {/if}
 
 <style lang="postcss">

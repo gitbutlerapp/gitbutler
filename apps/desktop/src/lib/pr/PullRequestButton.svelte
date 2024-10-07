@@ -1,18 +1,8 @@
 <script lang="ts">
+	import { getPreferredPRAction, PRAction, PRActionLabels, prActions } from './pr';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { persisted } from '$lib/persisted/persisted';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
-
-	enum Action {
-		Create = 'createPr',
-		CreateDraft = 'createDraftPr'
-	}
-	const actions = Object.values(Action);
-	const labels = {
-		[Action.Create]: 'Create PR',
-		[Action.CreateDraft]: 'Create Draft PR'
-	};
 
 	type Props = {
 		loading: boolean;
@@ -22,14 +12,8 @@
 	};
 	const { loading, disabled, tooltip, click }: Props = $props();
 
-	const preferredAction = persisted<Action>(Action.Create, 'projectDefaultPrAction');
+	const preferredAction = getPreferredPRAction();
 	let dropDown = $state<ReturnType<typeof DropDownButton>>();
-
-	$effect(() => {
-		if (!Object.values(Action).includes($preferredAction)) {
-			$preferredAction = Action.Create;
-		}
-	});
 </script>
 
 <DropDownButton
@@ -39,14 +23,14 @@
 	{disabled}
 	{loading}
 	bind:this={dropDown}
-	onclick={() => click({ draft: $preferredAction === Action.CreateDraft })}
+	onclick={() => click({ draft: $preferredAction === PRAction.CreateDraft })}
 >
-	{labels[$preferredAction]}
+	{PRActionLabels[$preferredAction]}
 	{#snippet contextMenuSlot()}
 		<ContextMenuSection>
-			{#each actions as method}
+			{#each prActions as method}
 				<ContextMenuItem
-					label={labels[method]}
+					label={PRActionLabels[method]}
 					on:click={() => {
 						preferredAction.set(method);
 						dropDown?.close();

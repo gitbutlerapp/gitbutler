@@ -2,7 +2,6 @@
 	import GroupHeader from './GroupHeader.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
 	import { CombinedBranchListingService } from '$lib/branches/branchListing';
-	import EmptyStatePlaceholder from '$lib/components/EmptyStatePlaceholder.svelte';
 	import BranchListingSidebarEntry from '$lib/navigation/BranchListingSidebarEntry.svelte';
 	import ChunkyList from '$lib/navigation/ChunkyList.svelte';
 	import PullRequestSidebarEntry from '$lib/navigation/PullRequestSidebarEntry.svelte';
@@ -10,6 +9,7 @@
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { getContext } from '$lib/utils/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
+	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
@@ -154,7 +154,7 @@
 				{/if}
 			</ScrollableContainer>
 		{:else}
-			<EmptyStatePlaceholder image={noBranchesSvg} width="11rem">
+			<EmptyStatePlaceholder image={noBranchesSvg} width={180} bottomMargin={48}>
 				<svelte:fragment slot="caption">No branches<br />match your filter</svelte:fragment>
 			</EmptyStatePlaceholder>
 		{/if}

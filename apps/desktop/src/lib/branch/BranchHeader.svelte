@@ -3,26 +3,16 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import DefaultTargetButton from './DefaultTargetButton.svelte';
-	import PullRequestButton from '../pr/PullRequestButton.svelte';
-	import { Project } from '$lib/backend/projects';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
-	import { showError, showToast } from '$lib/notifications/toasts';
-	import { getBranchNameFromRef } from '$lib/utils/branch';
+	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import { getContext, getContextStore } from '$lib/utils/context';
-	import { sleep } from '$lib/utils/sleep';
-	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 
 	interface Props {
@@ -34,22 +24,17 @@
 	const { uncommittedChanges = 0, isLaneCollapsed, onGenerateBranchName }: Props = $props();
 
 	const branchController = getContext(BranchController);
-	const baseBranchService = getContext(BaseBranchService);
-	const baseBranch = getContextStore(BaseBranch);
 	const prService = getGitHostPrService();
-	const gitListService = getGitHostListingService();
 	const branchStore = getContextStore(VirtualBranch);
 	const prMonitor = getGitHostPrMonitor();
 	const gitHost = getGitHost();
-	const project = getContext(Project);
 
-	const baseBranchName = $derived($baseBranch.shortName);
 	const branch = $derived($branchStore);
 	const pr = $derived($prMonitor?.pr);
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
-	let isLoading = $state(false);
 	let isTargetBranchAnimated = $state(false);
 
 	function handleBranchNameChange(title: string) {
@@ -70,100 +55,8 @@
 
 	let headerInfoHeight = $state(0);
 
-	interface CreatePrOpts {
-		draft: boolean;
-	}
-
-	const defaultPrOpts: CreatePrOpts = {
-		draft: true
-	};
-
-	async function createPr(createPrOpts: CreatePrOpts): Promise<PullRequest | undefined> {
-		const opts = { ...defaultPrOpts, ...createPrOpts };
-		if (!$gitHost) {
-			error('Pull request service not available');
-			return;
-		}
-
-		let title: string;
-		let body: string;
-
-		let pullRequestTemplateBody: string | undefined;
-		const prTemplatePath = project.git_host.pullRequestTemplatePath;
-
-		if (prTemplatePath) {
-			pullRequestTemplateBody = await $prService?.pullRequestTemplateContent(
-				prTemplatePath,
-				project.id
-			);
-		}
-
-		if (pullRequestTemplateBody) {
-			title = branch.name;
-			body = pullRequestTemplateBody;
-		} else {
-			// In case of a single commit, use the commit summary and description for the title and
-			// description of the PR.
-			if (branch.commits.length === 1) {
-				const commit = branch.commits[0];
-				title = commit?.descriptionTitle ?? '';
-				body = commit?.descriptionBody ?? '';
-			} else {
-				title = branch.name;
-				body = '';
-			}
-		}
-
-		isLoading = true;
-		try {
-			let upstreamBranchName = branch.upstreamName;
-
-			if (branch.commits.some((c) => !c.isRemote)) {
-				const firstPush = !branch.upstream;
-				const { refname, remote } = await branchController.pushBranch(
-					branch.id,
-					branch.requiresForce
-				);
-				upstreamBranchName = getBranchNameFromRef(refname, remote);
-
-				if (firstPush) {
-					// TODO: fix this hack for reactively available prService.
-					await sleep(500);
-				}
-			}
-
-			if (!baseBranchName) {
-				error('No base branch name determined');
-				return;
-			}
-
-			if (!upstreamBranchName) {
-				error('No upstream branch name determined');
-				return;
-			}
-
-			if (!$prService) {
-				error('Pull request service not available');
-				return;
-			}
-
-			await $prService.createPr({
-				title,
-				body,
-				draft: opts.draft,
-				baseBranchName,
-				upstreamName: upstreamBranchName
-			});
-		} catch (err: any) {
-			console.error(err);
-			const toast = mapErrorToToast(err);
-			if (toast) showToast(toast);
-			else showError('Error while creating pull request', err);
-		} finally {
-			isLoading = false;
-		}
-		await $gitListService?.refresh();
-		baseBranchService.fetchFromRemotes();
+	function handleOpenPR() {
+		prDetailsModal?.show();
 	}
 </script>
 
@@ -258,6 +151,7 @@
 			<div class="header__actions">
 				<div class="header__buttons">
 					<DefaultTargetButton
+						size="button"
 						selectedForChanges={branch.selectedForChanges}
 						onclick={async () => {
 							isTargetBranchAnimated = true;
@@ -269,14 +163,12 @@
 				<div class="relative">
 					<div class="header__buttons">
 						{#if !$pr}
-							<PullRequestButton
-								click={async ({ draft }) => await createPr({ draft })}
+							<Button
+								style="ghost"
+								outline
 								disabled={branch.commits.length === 0 || !$gitHost || !$prService}
-								tooltip={!$gitHost || !$prService
-									? 'You can enable git host integration in the settings'
-									: ''}
-								loading={isLoading}
-							/>
+								onclick={handleOpenPR}>Create PR</Button
+							>
 						{/if}
 						<Button
 							bind:el={meatballButtonEl}
@@ -300,6 +192,8 @@
 		<div class="header__top-overlay" data-remove-from-draggable data-tauri-drag-region></div>
 	</div>
 {/if}
+
+<PrDetailsModal bind:this={prDetailsModal} type="preview" />
 
 <style>
 	.header__wrapper {

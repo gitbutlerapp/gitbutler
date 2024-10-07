@@ -1,3 +1,4 @@
+import { isStr } from '$lib/utils/string';
 import { writable, type Writable } from 'svelte/store';
 import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 
@@ -34,6 +35,10 @@ export function showError(title: string, error: unknown) {
 			return;
 		const message = 'message' in error ? error.message : String(error);
 		showToast({ title, error: message, style: 'error' });
+	}
+
+	if (isStr(error)) {
+		showToast({ title, error, style: 'error' });
 	}
 }
 

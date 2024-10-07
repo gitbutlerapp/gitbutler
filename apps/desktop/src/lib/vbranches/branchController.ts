@@ -324,10 +324,10 @@ export class BranchController {
 		branchId: string,
 		withForce: boolean,
 		stack: boolean = false
-	): Promise<BranchPushResult> {
+	): Promise<BranchPushResult | undefined> {
 		try {
 			const command = stack ? 'push_stack' : 'push_virtual_branch';
-			const pushResult = await invoke<BranchPushResult>(command, {
+			const pushResult = await invoke<BranchPushResult | undefined>(command, {
 				projectId: this.projectId,
 				branchId,
 				withForce
