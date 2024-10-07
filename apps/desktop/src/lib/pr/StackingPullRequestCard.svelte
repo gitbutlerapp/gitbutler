@@ -43,9 +43,7 @@
 	const prService = getGitHostPrService();
 
 	const checksMonitor = $derived(sourceBranch ? $gitHost?.checksMonitor(sourceBranch) : undefined);
-	$effect(() => {
-		console.log(checksMonitor);
-	});
+	$inspect('checksMonitor', checksMonitor);
 	// This PR has been loaded on demand, and contains more details than the version
 	// obtained when listing them.
 	const checks = $derived(checksMonitor?.status);
@@ -64,16 +62,12 @@
 	const mrLoading = $derived(prMonitor?.loading);
 	const checksLoading = $derived(checksMonitor?.loading);
 
-	$effect(() => {
-		console.log($checksLoading);
-	});
+	$inspect('checksLoading', $checksLoading);
 
 	const checksError = $derived(checksMonitor?.error);
 	const detailsError = $derived(prMonitor?.error);
 
-	$effect(() => {
-		console.log($checksError);
-	});
+	$inspect('checksError', $checksError);
 
 	function getChecksCount(status: ChecksStatus): string {
 		if (!status) return 'Running checks';
