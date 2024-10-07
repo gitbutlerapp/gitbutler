@@ -9,6 +9,7 @@
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
@@ -205,7 +206,11 @@
 				style="ghost"
 				outline
 				icon="description-small"
-				onclick={() => {
+				onclick={(e: MouseEvent) => {
+					if (e.ctrlKey || e.metaKey) {
+						openExternalUrl(pr.htmlUrl);
+						return;
+					}
 					prDetailsModal?.show();
 				}}
 			>
