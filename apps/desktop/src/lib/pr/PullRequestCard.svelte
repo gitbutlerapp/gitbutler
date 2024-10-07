@@ -176,25 +176,23 @@
 
 {#if $pr}
 	<div class="card pr-card">
-		<div class="floating-button">
+		<div class="pr-title text-13 text-semibold">
+			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
+			<span>{$pr.title}</span>
+		</div>
+		<div class="pr-tags">
 			<Button
 				icon="update-small"
 				size="tag"
 				style="ghost"
 				outline
-				loading={$mrLoading || $checksLoading}
+				loading={$mrLoading}
 				tooltip={$timeAgo ? 'Updated ' + $timeAgo : ''}
 				onclick={async () => {
 					$checksMonitor?.update();
 					prMonitor?.refresh();
 				}}
 			/>
-		</div>
-		<div class="pr-title text-13 text-semibold">
-			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
-			<span>{$pr.title}</span>
-		</div>
-		<div class="pr-tags">
 			<Button
 				size="tag"
 				clickable={false}

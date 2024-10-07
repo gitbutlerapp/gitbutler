@@ -175,26 +175,23 @@
 
 {#if pr}
 	<div class="pr-header">
-		<div class="floating-button">
+		<div class="text-13 text-semibold pr-header-title">
+			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
+			<span>{pr.title}</span>
+		</div>
+		<div class="pr-header-tags">
 			<Button
 				icon="update-small"
 				size="tag"
 				style="ghost"
 				outline
-				loading={$mrLoading || $checksLoading}
+				loading={$mrLoading}
 				tooltip={$timeAgo ? 'Updated ' + $timeAgo : ''}
 				onclick={async () => {
 					checksMonitor?.update();
 					prMonitor?.refresh();
 				}}
 			/>
-		</div>
-
-		<div class="text-13 text-semibold pr-header-title">
-			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
-			<span>{pr.title}</span>
-		</div>
-		<div class="pr-header-tags">
 			<Button
 				size="tag"
 				clickable={false}
