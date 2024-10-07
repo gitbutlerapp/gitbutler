@@ -10,7 +10,6 @@
 		placeholder?: string;
 		class?: string;
 		multiline?: boolean;
-		inputEl?: HTMLInputElement | HTMLTextAreaElement;
 	}
 
 	let {
@@ -18,7 +17,6 @@
 		placeholder,
 		disabled = false,
 		onChange,
-		inputEl = $bindable(),
 		class: className = '',
 		multiline = false
 	}: Props = $props();
@@ -27,6 +25,8 @@
 	let textAreaWidth = $state('');
 	let inputWidth = $state('');
 	let inputHeight = $state('');
+
+	let inputEl = $state<HTMLInputElement | HTMLTextAreaElement>();
 </script>
 
 <span
@@ -37,8 +37,9 @@
 	class="label-input-measure-el"
 	class:text-12={multiline}
 	class:text-14={!multiline}
+	class:text-bold={!multiline}
 	class:wrap={multiline}
-	style:width={multiline ? textAreaWidth : 'inherit'}
+	style:width={multiline ? textAreaWidth : 'auto'}
 >
 	{value}
 </span>
@@ -118,14 +119,14 @@
 	.label-input-measure-el,
 	.label-input {
 		min-width: 44px;
-		padding: 2px 4px;
 		min-height: 20px;
+		padding: 2px 4px;
 		border: 1px solid transparent;
 	}
 	.label-input-measure-el {
 		pointer-events: none;
 		visibility: hidden;
-		border: 1px solid transparent;
+		border: 2px solid transparent;
 		color: black;
 		position: fixed;
 		display: inline-block;
