@@ -166,9 +166,8 @@
 							<Button
 								style="ghost"
 								outline
-								tooltip="Start a PR"
 								disabled={branch.commits.length === 0 || !$gitHost || !$prService}
-								onclick={handleOpenPR}>PR</Button
+								onclick={handleOpenPR}>Create PR</Button
 							>
 						{/if}
 						<Button

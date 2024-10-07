@@ -218,7 +218,7 @@
 					prDetailsModal?.show();
 				}}
 			>
-				Show PR details
+				PR details
 			</Button>
 		</div>
 

@@ -474,10 +474,11 @@
 					<Button
 						style="ghost"
 						outline
-						icon="copy"
+						icon={prLinkCopied ? 'tick-small' : 'copy-small'}
+						disabled={prLinkCopied}
 						onclick={() => {
 							handlePrLinkCopied(props.pr.htmlUrl);
-						}}>{prLinkCopied ? 'Link copied!' : 'Copy link'}</Button
+						}}>{prLinkCopied ? 'Link copied!' : 'Copy PR link'}</Button
 					>
 				</div>
 				<Button style="ghost" outline onclick={close}>Close</Button>
