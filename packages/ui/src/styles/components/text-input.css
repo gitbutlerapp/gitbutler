@@ -1,6 +1,6 @@
 .text-input {
 	padding: 4px 10px;
-	color: var(--clr-scale-ntrl-0);
+	color: var(--clr-text-1);
 	background-color: var(--clr-bg-1);
 	border: 1px solid var(--clr-border-2);
 	border-radius: var(--radius-s);

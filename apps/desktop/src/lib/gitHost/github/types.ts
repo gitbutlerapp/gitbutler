@@ -10,6 +10,7 @@ export function parseGitHubDetailedPullRequest(
 		id: data.id,
 		number: data.number,
 		title: data.title,
+		body: data.body ?? undefined,
 		sourceBranch: data.base?.ref,
 		draft: data.draft,
 		htmlUrl: data.html_url,

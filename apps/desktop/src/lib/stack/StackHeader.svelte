@@ -112,6 +112,7 @@
 					<BranchLabel name={branch.name} onChange={(name) => handleBranchNameChange(name)} />
 					<span class="button-group">
 						<DefaultTargetButton
+							size="tag"
 							selectedForChanges={branch.selectedForChanges}
 							onclick={async () => {
 								isTargetBranchAnimated = true;

@@ -5,12 +5,13 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		width?: 'default' | 'large' | 'small' | 'xsmall';
+		width?: 'default' | 'medium-large' | 'large' | 'small' | 'xsmall';
 		title?: string;
 		icon?: keyof typeof iconsJson;
 		noPadding?: boolean;
 		onClose?: () => void;
 		onSubmit?: (close: () => void) => void;
+		onKeyDown?: (e: KeyboardEvent) => void;
 		children: Snippet<[item: any, close: () => void]>;
 		controls?: Snippet<[close: () => void, item: any]>;
 	}
@@ -23,6 +24,7 @@
 		children,
 		controls,
 		onSubmit,
+		onKeyDown,
 		noPadding = false
 	}: Props = $props();
 
@@ -50,9 +52,14 @@
 	};
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
 <dialog
+	tabindex="0"
+	onkeydown={onKeyDown}
 	bind:this={dialogElement}
 	class:default={width === 'default'}
+	class:medium-large={width === 'medium-large'}
 	class:large={width === 'large'}
 	class:small={width === 'small'}
 	class:xsmall={width === 'xsmall'}
@@ -105,6 +112,7 @@
 		flex-direction: column;
 
 		max-height: calc(100vh - 80px);
+		overflow: hidden;
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-l);
@@ -114,6 +122,10 @@
 		/* MODIFIERS */
 		&.default {
 			width: 580px;
+		}
+
+		&.medium-large {
+			width: 640px;
 		}
 
 		&.large {
@@ -129,16 +141,19 @@
 		}
 	}
 
-	dialog[open]::backdrop {
-		/* NOTE: temporarily hardcoded var(--clr-overlay-bg); */
-		background-color: color(srgb 0 0 0 / 0.34901960784313724);
+	/* backdrop global */
+	/* NOTE: temporarily hardcoded var(--clr-overlay-bg); */
+	:global(dialog[open]::backdrop) {
+		background-color: rgba(214, 214, 214, 0.4);
 		animation: dialog-fade 0.15s ease-in;
 	}
 
-	html.dark dialog[open]::backdrop {
-		/* NOTE: temporarily hardcoded dark var(--clr-overlay-bg); */
-		background-color: color(srgb 0.8392156862745098 0.8392156862745098 0.8392156862745098 / 0.4);
+	/* backdrop dark */
+	/* NOTE: temporarily hardcoded dark var(--clr-overlay-bg); */
+	:global(html.dark dialog[open]::backdrop) {
+		background-color: rgba(0, 0, 0, 0.35);
 	}
+
 	.modal__header {
 		display: flex;
 		padding: 16px;
