@@ -309,6 +309,18 @@
 		inputBody = undefined;
 	}
 
+	let prLinkCopied = $state(false);
+	function handlePrLinkCopied(link: string) {
+		if (!navigator.clipboard) return;
+
+		navigator.clipboard.writeText(link);
+		prLinkCopied = true;
+
+		setTimeout(() => {
+			prLinkCopied = false;
+		}, 2000);
+	}
+
 	export function show() {
 		modal?.show();
 	}
@@ -450,14 +462,24 @@
 					>
 				</div>
 			{:else}
-				<Button
-					style="ghost"
-					outline
-					icon="open-link"
-					onclick={() => {
-						openExternalUrl(props.pr.htmlUrl);
-					}}>Open in browser</Button
-				>
+				<div class="pr-footer__actions">
+					<Button
+						style="ghost"
+						outline
+						icon="open-link"
+						onclick={() => {
+							openExternalUrl(props.pr.htmlUrl);
+						}}>Open in browser</Button
+					>
+					<Button
+						style="ghost"
+						outline
+						icon="copy"
+						onclick={() => {
+							handlePrLinkCopied(props.pr.htmlUrl);
+						}}>{prLinkCopied ? 'Link copied!' : 'Copy link'}</Button
+					>
+				</div>
 				<Button style="ghost" outline onclick={close}>Close</Button>
 			{/if}
 		</div>

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import MergeButton from './MergeButton.svelte';
 	import PrDetailsModal from './PrDetailsModal.svelte';
-	import ViewPrButton from './ViewPrButton.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
@@ -193,13 +192,7 @@
 		</div>
 		<div class="pr-title text-13 text-semibold">
 			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
-			<Button
-				style="ghost"
-				outline
-				onclick={() => {
-					prDetailsModal?.show();
-				}}>{$pr.title}</Button
-			>
+			<span>{$pr.title}</span>
 		</div>
 		<div class="pr-tags">
 			<Button
@@ -222,7 +215,17 @@
 					{checksTagInfo.text}
 				</Button>
 			{/if}
-			<ViewPrButton url={$pr.htmlUrl} />
+			<Button
+				size="tag"
+				style="ghost"
+				outline
+				icon="description-small"
+				onclick={() => {
+					prDetailsModal?.show();
+				}}
+			>
+				Show PR details
+			</Button>
 		</div>
 
 		<!--
