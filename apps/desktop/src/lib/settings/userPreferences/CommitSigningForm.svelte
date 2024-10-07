@@ -12,7 +12,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import { invoke } from '@tauri-apps/api/tauri';
+	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
 
 	const projectsService = getContext(ProjectsService);

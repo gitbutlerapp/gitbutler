@@ -12,7 +12,7 @@ pub(super) mod state {
         use anyhow::{Context, Result};
         use gitbutler_project::ProjectId;
         use gitbutler_watcher::Change;
-        use tauri::Manager;
+        use tauri::Emitter;
 
         /// A change we want to inform the frontend about.
         #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,7 +64,7 @@ pub(super) mod state {
         impl ChangeForFrontend {
             pub(super) fn send(&self, app_handle: &tauri::AppHandle) -> Result<()> {
                 app_handle
-                    .emit_all(&self.name, Some(&self.payload))
+                    .emit(&self.name, Some(&self.payload))
                     .context("emit event")?;
                 tracing::trace!(event_name = self.name);
                 Ok(())
@@ -204,16 +204,16 @@ pub fn create(
     handle: &tauri::AppHandle,
     label: &state::WindowLabelRef,
     window_relative_url: String,
-) -> tauri::Result<tauri::Window> {
+) -> tauri::Result<tauri::WebviewWindow> {
     tracing::info!("creating window '{label}' created at '{window_relative_url}'");
-    let window = tauri::WindowBuilder::new(
+    let window = tauri::WebviewWindowBuilder::new(
         handle,
         label,
-        tauri::WindowUrl::App(window_relative_url.into()),
+        tauri::WebviewUrl::App(window_relative_url.into()),
     )
     .resizable(true)
     .title(handle.package_info().name.clone())
-    .disable_file_drop_handler()
+    .disable_drag_drop_handler()
     .min_inner_size(800.0, 600.0)
     .inner_size(1160.0, 720.0)
     .build()?;
@@ -225,19 +225,19 @@ pub fn create(
     handle: &tauri::AppHandle,
     label: &state::WindowLabelRef,
     window_relative_url: String,
-) -> tauri::Result<tauri::Window> {
+) -> tauri::Result<tauri::WebviewWindow> {
     tracing::info!("creating window '{label}' created at '{window_relative_url}'");
-    let window = tauri::WindowBuilder::new(
+    let window = tauri::WebviewWindowBuilder::new(
         handle,
         label,
-        tauri::WindowUrl::App(window_relative_url.into()),
+        tauri::WebviewUrl::App(window_relative_url.into()),
     )
     .resizable(true)
     .title(handle.package_info().name.clone())
     .min_inner_size(800.0, 600.0)
     .inner_size(1160.0, 720.0)
     .hidden_title(true)
-    .disable_file_drop_handler()
+    .disable_drag_drop_handler()
     .title_bar_style(tauri::TitleBarStyle::Overlay)
     .build()?;
     Ok(window)

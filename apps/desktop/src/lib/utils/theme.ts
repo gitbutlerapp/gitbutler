@@ -1,6 +1,7 @@
-import { appWindow, type Theme } from '@tauri-apps/api/window';
+import { getCurrentWindow, type Theme } from '@tauri-apps/api/window';
 import { writable, type Writable } from 'svelte/store';
 import type { Settings } from '$lib/settings/userSettings';
+const appWindow = getCurrentWindow();
 
 export const theme = writable('dark');
 

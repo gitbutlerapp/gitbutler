@@ -113,9 +113,9 @@
 		role="menu"
 	>
 		<!-- condition prevents split second UI shift -->
-		{#if $platformName || env.PUBLIC_TESTING}
+		{#if platformName || env.PUBLIC_TESTING}
 			<div class="navigation-top">
-				{#if $platformName === 'darwin'}
+				{#if platformName === 'macos'}
 					<div class="drag-region" data-tauri-drag-region></div>
 				{/if}
 				<ProjectSelector isNavCollapsed={$isNavCollapsed} />

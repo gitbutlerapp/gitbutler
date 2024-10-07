@@ -8,6 +8,7 @@ import { ProjectsService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
 import { Tauri } from '$lib/backend/tauri';
 import { UpdaterService } from '$lib/backend/updater';
+import { loadAppSettings } from '$lib/config/appSettings';
 import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
@@ -28,7 +29,10 @@ export const csr = true;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async () => {
-	initAnalyticsIfEnabled();
+	// Awaited and will block initial render, but it is necessary in order to respect the user
+	// settings on telemetry.
+	const appSettings = await loadAppSettings();
+	initAnalyticsIfEnabled(appSettings);
 
 	// TODO: Find a workaround to avoid this dynamic import
 	// https://github.com/sveltejs/kit/issues/905
@@ -57,6 +61,7 @@ export const load: LayoutLoad = async () => {
 	return {
 		commandService,
 		tokenMemoryService,
+		appSettings,
 		authService,
 		cloud: httpClient,
 		projectsService,

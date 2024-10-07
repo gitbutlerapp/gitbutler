@@ -10,9 +10,9 @@
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import * as Sentry from '@sentry/sveltekit';
-	import { open } from '@tauri-apps/api/dialog';
 	import { documentDir } from '@tauri-apps/api/path';
 	import { join } from '@tauri-apps/api/path';
+	import { open } from '@tauri-apps/plugin-dialog';
 	import { posthog } from 'posthog-js';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';

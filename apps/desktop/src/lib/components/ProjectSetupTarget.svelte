@@ -254,7 +254,7 @@
 			testId="set-base-branch"
 			id="set-base-branch"
 		>
-			{#if $platformName === 'win32'}
+			{#if platformName === 'windows'}
 				Let's go
 			{:else}
 				Continue
