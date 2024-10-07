@@ -20,6 +20,7 @@
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import BorderlessTextarea from '$lib/shared/BorderlessTextarea.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
@@ -29,6 +30,7 @@
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
+	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -353,9 +355,9 @@
 			{/if}
 		</div>
 
-		<div class="pr-fields scrollbar" onscroll={showBorderOnScroll}>
+		<ScrollableContainer wide maxHeight="66vh" onscroll={showBorderOnScroll}>
 			{#if isPreviewOnly || !isEditing}
-				<div class="pr-description-preview scrollbar">
+				<div class="pr-description-preview">
 					<Markdown content={actualBody} />
 				</div>
 			{:else}
@@ -423,30 +425,41 @@
 					{/if}
 				</div>
 			{/if}
-		</div>
+		</ScrollableContainer>
 	</div>
 
 	<!-- FOOTER -->
 
 	{#snippet controls(close)}
 		<div class="pr-footer">
-			<!-- {#if props.type === 'preview' || props.type === 'preview-series'} -->
-			<label class="draft-toggle__wrap">
-				<Toggle id="is-draft-toggle" small checked={isDraft} on:click={handleCheckDraft} />
-				<label class="text-12 draft-toggle__label" for="is-draft-toggle">Create as a draft</label>
-			</label>
+			{#if props.type !== 'display'}
+				<label class="draft-toggle__wrap">
+					<Toggle id="is-draft-toggle" small checked={isDraft} on:click={handleCheckDraft} />
+					<label class="text-12 draft-toggle__label" for="is-draft-toggle">Create as a draft</label>
+				</label>
 
-			<div class="pr-footer__actions">
-				<Button style="ghost" outline onclick={close}>Cancel</Button>
+				<div class="pr-footer__actions">
+					<Button style="ghost" outline onclick={close}>Cancel</Button>
+					<Button
+						style="pop"
+						kind="solid"
+						disabled={isLoading || aiIsLoading}
+						{isLoading}
+						onclick={async () => await handleCreatePR(close)}
+						>{isDraft ? 'Create draft pull request' : 'Create pull request'}</Button
+					>
+				</div>
+			{:else}
 				<Button
-					style="pop"
-					kind="solid"
-					disabled={isLoading || aiIsLoading}
-					{isLoading}
-					onclick={async () => await handleCreatePR(close)}
-					>{isDraft ? 'Create draft pull request' : 'Create pull request'}</Button
+					style="ghost"
+					outline
+					icon="open-link"
+					onclick={() => {
+						openExternalUrl(props.pr.htmlUrl);
+					}}>Open in browser</Button
 				>
-			</div>
+				<Button style="ghost" outline onclick={close}>Close</Button>
+			{/if}
 		</div>
 	{/snippet}
 </Modal>
@@ -455,12 +468,6 @@
 	.pr-content {
 		display: flex;
 		flex-direction: column;
-		/* max-height: 66vh; */
-	}
-
-	.pr-fields {
-		overflow-y: auto;
-		max-height: 66vh;
 	}
 
 	.pr-header {

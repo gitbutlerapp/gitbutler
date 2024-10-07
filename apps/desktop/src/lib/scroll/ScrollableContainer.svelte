@@ -14,8 +14,8 @@
 		thickness?: string;
 		horz?: boolean;
 		onthumbdrag?: (dragging: boolean) => void;
+		onscroll?: (e: Event) => void;
 		children: Snippet;
-		scrollEndVisible?: boolean;
 	}
 
 	let {
@@ -30,7 +30,7 @@
 		horz,
 		children,
 		onthumbdrag,
-		scrollEndVisible = $bindable(false)
+		onscroll
 	}: Props = $props();
 
 	let viewport = $state<HTMLDivElement>();
@@ -47,10 +47,6 @@
 		});
 		if (viewport) observer.observe(viewport);
 		if (contents) observer.observe(contents);
-
-		scrollEndVisible = viewport
-			? viewport.scrollTop + viewport.clientHeight >= viewport.scrollHeight
-			: false;
 	});
 
 	onDestroy(() => observer.disconnect());
@@ -62,10 +58,7 @@
 		class="viewport hide-native-scrollbar"
 		style:height
 		style:overflow-y={scrollable ? 'auto' : 'hidden'}
-		onscroll={(e) => {
-			const target = e.target as HTMLDivElement;
-			scrollEndVisible = target.scrollTop + target.clientHeight >= target.scrollHeight;
-		}}
+		{onscroll}
 	>
 		<div bind:this={contents} class="contents" class:fill-viewport={fillViewport}>
 			{@render children()}
