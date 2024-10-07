@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
+	import TextInput from '$lib/shared/TextInput.svelte';
 	import { debounce } from '$lib/utils/debounce';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
 
@@ -22,11 +23,15 @@
 	}: Props = $props();
 
 	let initialValue = value;
+	// `textAreaWidth` is required for multiline because the hidden observer div is
+	// positioned  'fixed' and so it won't stop growing with its content when it hits the
+	// end/edge of its container, and in the case of multiline, it must wrap the text at
+	// the same time as the actual textarea in order to keep the height/width we're measuring
+	// correct
 	let textAreaWidth = $state('');
 	let inputWidth = $state('');
 	let inputHeight = $state('');
-
-	let inputEl = $state<HTMLInputElement | HTMLTextAreaElement>();
+	let inputEl = $state<HTMLTextAreaElement | HTMLInputElement>();
 </script>
 
 <span
@@ -43,131 +48,58 @@
 >
 	{value}
 </span>
-{#if multiline}
-	<textarea
-		{disabled}
-		bind:this={inputEl}
-		bind:value
-		onchange={(e) => onChange?.(e.currentTarget.value.trim())}
-		title={value}
-		{placeholder}
-		class={`label-input ${className}`}
-		ondblclick={(e) => e.stopPropagation()}
-		onclick={(e) => {
-			e.stopPropagation();
-			inputEl?.focus();
-			if ($autoSelectBranchNameFeature) {
-				inputEl?.select();
-			}
-		}}
-		onblur={() => {
-			if (value === '') value = initialValue;
-		}}
-		onfocus={() => {
-			initialValue = value;
-		}}
-		onkeydown={(e) => {
-			if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Escape') {
-				inputEl?.blur();
-			}
-		}}
-		use:resizeObserver={debounce((e) => {
-			textAreaWidth = `${Math.round(e.frame.width)}px`;
-		}, 100)}
-		autocomplete="off"
-		autocorrect="off"
-		spellcheck="false"
-		style:height={inputHeight}
-	></textarea>
-{:else}
-	<input
-		type="text"
-		{disabled}
-		bind:this={inputEl}
-		bind:value
-		onchange={(e) => onChange?.(e.currentTarget.value.trim())}
-		title={value}
-		{placeholder}
-		class={`label-input ${className}`}
-		ondblclick={(e) => e.stopPropagation()}
-		onclick={(e) => {
-			e.stopPropagation();
-			inputEl?.focus();
-			if ($autoSelectBranchNameFeature) {
-				inputEl?.select();
-			}
-		}}
-		onblur={() => {
-			if (value === '') value = initialValue;
-		}}
-		onfocus={() => {
-			initialValue = value;
-		}}
-		onkeydown={(e) => {
-			if (e.key === 'Enter' || e.key === 'Escape') {
-				inputEl?.blur();
-			}
-		}}
-		autocomplete="off"
-		autocorrect="off"
-		spellcheck="false"
-		style:width={inputWidth}
-	/>
-{/if}
+<TextInput
+	{multiline}
+	{placeholder}
+	{disabled}
+	bind:element={inputEl}
+	bind:value
+	bind:textAreaWidth
+	bind:inputHeight
+	bind:inputWidth
+	title={value}
+	autocomplete="off"
+	autocorrect="off"
+	spellcheck="false"
+	class={`label-input ${className}`}
+	onchange={(e) => onChange?.(e.currentTarget.value.trim())}
+	ondblclick={(e: MouseEvent) => e.stopPropagation()}
+	onclick={(e: MouseEvent) => {
+		e.stopPropagation();
+		inputEl?.focus();
+		if ($autoSelectBranchNameFeature) {
+			inputEl?.select();
+		}
+	}}
+	onblur={() => {
+		if (value === '') value = initialValue;
+	}}
+	onfocus={() => {
+		initialValue = value;
+	}}
+	onkeydown={(e: KeyboardEvent) => {
+		if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Escape') {
+			inputEl?.blur();
+		}
+	}}
+/>
 
 <style lang="postcss">
-	.label-input-measure-el,
-	.label-input {
-		min-width: 44px;
-		min-height: 20px;
-		padding: 2px 4px;
-		border: 1px solid transparent;
-	}
 	.label-input-measure-el {
-		pointer-events: none;
-		visibility: hidden;
-		border: 2px solid transparent;
-		color: black;
 		position: fixed;
 		display: inline-block;
+		visibility: hidden;
+		min-width: 44px;
+		min-height: 20px;
+
+		padding: 2px 4px;
+		pointer-events: none;
+		color: black;
+		border: 2px solid transparent;
 		white-space: pre;
 
 		&.wrap {
 			white-space: pre-wrap;
 		}
-	}
-	.label-input {
-		text-overflow: ellipsis;
-
-		width: 100%;
-		border-radius: var(--radius-s);
-		color: var(--clr-scale-ntrl-0);
-		background-color: var(--clr-bg-1);
-		outline: none;
-
-		/* not readonly */
-		&:not([disabled]):hover {
-			background-color: var(--clr-bg-2);
-		}
-
-		&:not([disabled]):focus {
-			outline: none;
-			background-color: var(--clr-bg-2);
-			border-color: var(--clr-border-2);
-		}
-	}
-
-	input {
-		height: 20px;
-		overflow: hidden;
-		white-space: nowrap;
-	}
-
-	textarea {
-		max-height: 76px;
-		resize: none;
-		word-break: break-all;
-		overflow-wrap: break-word;
-		overflow-x: hidden;
 	}
 </style>
