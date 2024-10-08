@@ -2189,7 +2189,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-serde",
- "gitbutler-stack",
+ "gitbutler-stack-api",
  "gitbutler-testsupport",
  "gitbutler-time",
  "gitbutler-url",
@@ -2540,7 +2540,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-stack"
+name = "gitbutler-stack-api"
 version = "0.0.0"
 dependencies = [
  "anyhow",

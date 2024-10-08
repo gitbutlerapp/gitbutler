@@ -1,5 +1,5 @@
 [package]
-name = "gitbutler-stack"
+name = "gitbutler-stack-api"
 version = "0.0.0"
 edition = "2021"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
@@ -20,7 +20,7 @@ gitbutler-repo.workspace = true
 gitbutler-commit.workspace = true
 
 [[test]]
-name="stack"
+name = "stack-api"
 path = "tests/mod.rs"
 
 [dev-dependencies]

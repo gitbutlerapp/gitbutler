@@ -4,7 +4,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_repo::{LogUntil, RepositoryExt as _};
-use gitbutler_stack::{PatchReferenceUpdate, Stack, TargetUpdate};
+use gitbutler_stack_api::{PatchReferenceUpdate, Stack, TargetUpdate};
 use itertools::Itertools;
 use tempfile::TempDir;
 

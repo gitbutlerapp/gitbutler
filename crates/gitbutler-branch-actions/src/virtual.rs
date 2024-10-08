@@ -28,7 +28,7 @@ use gitbutler_repo::{
     rebase::{cherry_rebase, cherry_rebase_group},
     LogUntil, RepoActionsExt, RepositoryExt,
 };
-use gitbutler_stack::{commit_by_oid_or_change_id, Stack};
+use gitbutler_stack_api::{commit_by_oid_or_change_id, Stack};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
 use std::collections::HashSet;
