@@ -8,7 +8,7 @@ use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, ReferenceName, Refname};
 use gitbutler_repo::{RepoActionsExt, RepositoryExt};
-use gitbutler_stack::{Branch, BranchId};
+use gitbutler_stack::{Stack, StackId};
 use tracing::instrument;
 
 use super::BranchManager;
@@ -25,7 +25,7 @@ impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
     pub fn save_and_unapply(
         &self,
-        branch_id: BranchId,
+        branch_id: StackId,
         perm: &mut WorktreeWritePermission,
     ) -> Result<ReferenceName> {
         let vb_state = self.ctx.project().virtual_branches();
@@ -55,7 +55,7 @@ impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
     pub(crate) fn unapply_without_saving(
         &self,
-        branch_id: BranchId,
+        branch_id: StackId,
         perm: &mut WorktreeWritePermission,
         target_commit: &Commit,
     ) -> Result<()> {
@@ -146,7 +146,7 @@ impl BranchManager<'_> {
 
 impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, vbranch), err(Debug))]
-    fn build_real_branch(&self, vbranch: &mut Branch) -> Result<git2::Branch<'_>> {
+    fn build_real_branch(&self, vbranch: &mut Stack) -> Result<git2::Branch<'_>> {
         let repo = self.ctx.repository();
         let target_commit = repo.find_commit(vbranch.head())?;
         let branch_name = vbranch.name.clone();
@@ -164,7 +164,7 @@ impl BranchManager<'_> {
 
     fn build_wip_commit(
         &self,
-        vbranch: &mut Branch,
+        vbranch: &mut Stack,
         branch: &git2::Branch<'_>,
     ) -> Result<Option<git2::Oid>> {
         let repo = self.ctx.repository();

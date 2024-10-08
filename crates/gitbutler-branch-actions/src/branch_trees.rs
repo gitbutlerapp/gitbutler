@@ -5,7 +5,7 @@ use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::rebase::cherry_rebase_group;
 use gitbutler_repo::RepositoryExt as _;
-use gitbutler_stack::Branch;
+use gitbutler_stack::Stack;
 
 use crate::VirtualBranchesExt as _;
 
@@ -86,7 +86,7 @@ pub struct BranchHeadAndTree {
 /// mutated the virtual_branches.toml.
 pub fn compute_updated_branch_head(
     repository: &git2::Repository,
-    branch: &Branch,
+    branch: &Stack,
     new_head: git2::Oid,
     fearless_rebasing: bool,
 ) -> Result<BranchHeadAndTree> {

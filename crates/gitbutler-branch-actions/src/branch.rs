@@ -11,7 +11,7 @@ use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo::{GixRepositoryExt, RepositoryExt as _};
 use gitbutler_serde::BStringForFrontend;
-use gitbutler_stack::{Branch as GitButlerBranch, BranchId, Target};
+use gitbutler_stack::{Stack as GitButlerBranch, StackId, Target};
 use gix::object::tree::diff::Action;
 use gix::prelude::ObjectIdExt;
 use gix::reference::Category;
@@ -437,7 +437,7 @@ pub struct VirtualBranchReference {
     /// A non-normalized name of the branch, set by the user
     pub given_name: String,
     /// Virtual Branch UUID identifier
-    pub id: BranchId,
+    pub id: StackId,
     /// Determines if the virtual branch is applied in the workspace
     pub in_workspace: bool,
 }

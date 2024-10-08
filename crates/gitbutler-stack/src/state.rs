@@ -12,7 +12,7 @@ use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    branch::{Branch, BranchId},
+    stack::{Stack, StackId},
     target::Target,
 };
 
@@ -22,24 +22,24 @@ pub struct VirtualBranches {
     /// This is the target/base that is set when a repo is added to gb
     default_target: Option<Target>,
     /// The targets for each virtual branch
-    branch_targets: HashMap<BranchId, Target>,
+    branch_targets: HashMap<StackId, Target>,
     /// The current state of the virtual branches
-    branches: HashMap<BranchId, Branch>,
+    branches: HashMap<StackId, Stack>,
 }
 
 impl VirtualBranches {
     /// Lists all virtual branches that are in the user's workspace.
     ///
     /// Errors if the file cannot be read or written.
-    pub(crate) fn list_all_branches(&self) -> Result<Vec<Branch>> {
-        let branches: Vec<Branch> = self.branches.values().cloned().collect();
+    pub(crate) fn list_all_branches(&self) -> Result<Vec<Stack>> {
+        let branches: Vec<Stack> = self.branches.values().cloned().collect();
         Ok(branches)
     }
 
     /// Lists all virtual branches that are in the user's workspace.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn list_branches_in_workspace(&self) -> Result<Vec<Branch>> {
+    pub fn list_branches_in_workspace(&self) -> Result<Vec<Stack>> {
         self.list_all_branches().map(|branches| {
             branches
                 .into_iter()
@@ -97,7 +97,7 @@ impl VirtualBranchesHandle {
     /// Sets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn set_branch(&self, branch: Branch) -> Result<()> {
+    pub fn set_branch(&self, branch: Stack) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.branches.insert(branch.id, branch);
         self.write_file(&virtual_branches)?;
@@ -107,7 +107,7 @@ impl VirtualBranchesHandle {
     /// Marks a particular branch as not in the workspace
     ///
     /// Errors if the file cannot be read or written.
-    pub fn mark_as_not_in_workspace(&self, id: BranchId) -> Result<()> {
+    pub fn mark_as_not_in_workspace(&self, id: StackId) -> Result<()> {
         let mut branch = self.get_branch(id)?;
         branch.in_workspace = false;
         self.set_branch(branch)?;
@@ -117,7 +117,7 @@ impl VirtualBranchesHandle {
     pub fn find_by_source_refname_where_not_in_workspace(
         &self,
         refname: &Refname,
-    ) -> Result<Option<Branch>> {
+    ) -> Result<Option<Stack>> {
         let branches = self.list_all_branches()?;
         Ok(branches.into_iter().find(|branch| {
             if branch.in_workspace {
@@ -135,7 +135,7 @@ impl VirtualBranchesHandle {
     /// Gets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_branch_in_workspace(&self, id: BranchId) -> Result<Branch> {
+    pub fn get_branch_in_workspace(&self, id: StackId) -> Result<Stack> {
         self.try_branch_in_workspace(id)?
             .ok_or_else(|| anyhow!("branch with ID {id} not found"))
     }
@@ -143,20 +143,20 @@ impl VirtualBranchesHandle {
     /// Gets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn get_branch(&self, id: BranchId) -> Result<Branch> {
+    pub fn get_branch(&self, id: StackId) -> Result<Stack> {
         self.try_branch(id)?
             .ok_or_else(|| anyhow!("branch with ID {id} not found"))
     }
 
     /// Gets the state of the given virtual branch returning `Some(branch)` or `None`
     /// if that branch doesn't exist.
-    pub fn try_branch_in_workspace(&self, id: BranchId) -> Result<Option<Branch>> {
+    pub fn try_branch_in_workspace(&self, id: StackId) -> Result<Option<Stack>> {
         Ok(self.try_branch(id)?.filter(|branch| branch.in_workspace))
     }
 
     /// Gets the state of the given virtual branch returning `Some(branch)` or `None`
     /// if that branch doesn't exist.
-    pub fn try_branch(&self, id: BranchId) -> Result<Option<Branch>> {
+    pub fn try_branch(&self, id: StackId) -> Result<Option<Stack>> {
         let virtual_branches = self.read_file()?;
         Ok(virtual_branches.branches.get(&id).cloned())
     }
@@ -164,16 +164,16 @@ impl VirtualBranchesHandle {
     /// Lists all branches in `virtual_branches.toml`.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn list_all_branches(&self) -> Result<Vec<Branch>> {
+    pub fn list_all_branches(&self) -> Result<Vec<Stack>> {
         let virtual_branches = self.read_file()?;
-        let branches: Vec<Branch> = virtual_branches.branches.values().cloned().collect();
+        let branches: Vec<Stack> = virtual_branches.branches.values().cloned().collect();
         Ok(branches)
     }
 
     /// Lists all virtual branches that are in the user's workspace.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn list_branches_in_workspace(&self) -> Result<Vec<Branch>> {
+    pub fn list_branches_in_workspace(&self) -> Result<Vec<Stack>> {
         self.list_all_branches().map(|branches| {
             branches
                 .into_iter()
@@ -218,14 +218,14 @@ impl VirtualBranchesHandle {
             .list_branches_in_workspace()?
             .iter()
             .sorted_by_key(|branch| branch.order)
-            .collect::<Vec<&Branch>>()
+            .collect::<Vec<&Stack>>()
             .last()
             .map_or(0, |b| b.order + 1);
 
         Ok(order)
     }
 
-    pub fn delete_branch_entry(&self, branch_id: &BranchId) -> Result<()> {
+    pub fn delete_branch_entry(&self, branch_id: &StackId) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.branches.remove(branch_id);
         self.write_file(&virtual_branches)?;

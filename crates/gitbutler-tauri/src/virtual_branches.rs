@@ -15,7 +15,7 @@ pub mod commands {
     use gitbutler_reference::{
         normalize_branch_name as normalize_name, ReferenceName, Refname, RemoteRefname,
     };
-    use gitbutler_stack::{BranchId, BranchOwnershipClaims};
+    use gitbutler_stack::{BranchOwnershipClaims, StackId};
     use std::path::PathBuf;
     use tauri::State;
     use tracing::instrument;
@@ -34,7 +34,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch: BranchId,
+        branch: StackId,
         message: &str,
         ownership: Option<BranchOwnershipClaims>,
         run_hooks: bool,
@@ -73,7 +73,7 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch: BranchCreateRequest,
-    ) -> Result<BranchId, Error> {
+    ) -> Result<StackId, Error> {
         let project = projects.get(project_id)?;
         let branch_id = gitbutler_branch_actions::create_virtual_branch(&project, &branch)?;
         emit_vbranches(&windows, project_id);
@@ -103,7 +103,7 @@ pub mod commands {
         project_id: ProjectId,
         branch: Refname,
         remote: Option<RemoteRefname>,
-    ) -> Result<BranchId, Error> {
+    ) -> Result<StackId, Error> {
         let project = projects.get(project_id)?;
         let branch_id =
             gitbutler_branch_actions::create_virtual_branch_from_branch(&project, &branch, remote)?;
@@ -117,7 +117,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch: BranchId,
+        branch: StackId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         gitbutler_branch_actions::integrate_upstream_commits(&project, branch)?;
@@ -224,7 +224,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch_id: BranchId,
+        branch_id: StackId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         gitbutler_branch_actions::unapply_without_saving_virtual_branch(&project, branch_id)?;
@@ -238,7 +238,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch: BranchId,
+        branch: StackId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         gitbutler_branch_actions::save_and_unapply_virutal_branch(&project, branch)?;
@@ -266,7 +266,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch_id: BranchId,
+        branch_id: StackId,
         files: Vec<PathBuf>,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
@@ -281,7 +281,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch_id: BranchId,
+        branch_id: StackId,
         with_force: bool,
     ) -> Result<PushResult, Error> {
         let project = projects.get(project_id)?;
@@ -326,7 +326,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch_id: BranchId,
+        branch_id: StackId,
         target_commit_oid: String,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
@@ -342,7 +342,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch_id: BranchId,
+        branch_id: StackId,
         commit_oid: String,
         ownership: BranchOwnershipClaims,
     ) -> Result<String, Error> {
@@ -359,7 +359,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch_id: BranchId,
+        branch_id: StackId,
         from_commit_oid: String,
         to_commit_oid: String,
         ownership: BranchOwnershipClaims,
@@ -384,7 +384,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch_id: BranchId,
+        branch_id: StackId,
         commit_oid: String,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
@@ -400,7 +400,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch_id: BranchId,
+        branch_id: StackId,
         commit_oid: String,
         offset: i32,
     ) -> Result<(), Error> {
@@ -417,7 +417,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch_id: BranchId,
+        branch_id: StackId,
         commit_oid: String,
         offset: i32,
     ) -> Result<(), Error> {
@@ -481,7 +481,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch_id: BranchId,
+        branch_id: StackId,
         target_commit_oid: String,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
@@ -531,7 +531,7 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         commit_oid: String,
-        target_branch_id: BranchId,
+        target_branch_id: StackId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
@@ -546,7 +546,7 @@ pub mod commands {
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-        branch_id: BranchId,
+        branch_id: StackId,
         commit_oid: String,
         message: &str,
     ) -> Result<(), Error> {

@@ -6,7 +6,7 @@ use anyhow::{Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_serde::BStringForFrontend;
-use gitbutler_stack::{Branch, BranchId};
+use gitbutler_stack::{Stack, StackId};
 use serde::Serialize;
 
 // this is the struct that maps to the view `Commit` type in Typescript
@@ -30,7 +30,7 @@ pub struct VirtualBranchCommit {
     pub is_integrated: bool,
     #[serde(with = "gitbutler_serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
-    pub branch_id: BranchId,
+    pub branch_id: StackId,
     pub change_id: Option<String>,
     pub is_signed: bool,
     pub conflicted: bool,
@@ -43,7 +43,7 @@ pub struct VirtualBranchCommit {
 
 pub(crate) fn commit_to_vbranch_commit(
     ctx: &CommandContext,
-    branch: &Branch,
+    branch: &Stack,
     commit: &git2::Commit,
     is_integrated: bool,
     is_remote: bool,

@@ -1,11 +1,11 @@
 use bstr::{BStr, ByteSlice};
-use gitbutler_stack::{BranchId, BranchOwnershipClaims};
+use gitbutler_stack::{BranchOwnershipClaims, StackId};
 use serde::{Deserialize, Serialize, Serializer};
 use std::ops::Deref;
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct BranchUpdateRequest {
-    pub id: BranchId,
+    pub id: StackId,
     pub name: Option<String>,
     pub notes: Option<String>,
     pub ownership: Option<BranchOwnershipClaims>,

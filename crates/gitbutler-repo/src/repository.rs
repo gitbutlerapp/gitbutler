@@ -6,7 +6,7 @@ use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_stack::{Branch, BranchId};
+use gitbutler_stack::{Stack, StackId};
 
 use crate::{askpass, credentials, RepositoryExt};
 pub trait RepoActionsExt {
@@ -17,7 +17,7 @@ pub trait RepoActionsExt {
         branch: &RemoteRefname,
         with_force: bool,
         refspec: Option<String>,
-        askpass_broker: Option<Option<BranchId>>,
+        askpass_broker: Option<Option<StackId>>,
     ) -> Result<()>;
     fn commit(
         &self,
@@ -27,13 +27,13 @@ pub trait RepoActionsExt {
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid>;
     fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32>;
-    fn delete_branch_reference(&self, branch: &Branch) -> Result<()>;
-    fn add_branch_reference(&self, branch: &Branch) -> Result<()>;
+    fn delete_branch_reference(&self, branch: &Stack) -> Result<()>;
+    fn add_branch_reference(&self, branch: &Stack) -> Result<()>;
     fn git_test_push(
         &self,
         remote_name: &str,
         branch_name: &str,
-        askpass: Option<Option<BranchId>>,
+        askpass: Option<Option<StackId>>,
     ) -> Result<()>;
 }
 
@@ -42,7 +42,7 @@ impl RepoActionsExt for CommandContext {
         &self,
         remote_name: &str,
         branch_name: &str,
-        askpass: Option<Option<BranchId>>,
+        askpass: Option<Option<StackId>>,
     ) -> Result<()> {
         let target_branch_refname =
             Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
@@ -73,7 +73,7 @@ impl RepoActionsExt for CommandContext {
         Ok(())
     }
 
-    fn add_branch_reference(&self, branch: &Branch) -> Result<()> {
+    fn add_branch_reference(&self, branch: &Stack) -> Result<()> {
         let (should_write, with_force) = match self
             .repository()
             .find_reference(&branch.refname()?.to_string())
@@ -103,7 +103,7 @@ impl RepoActionsExt for CommandContext {
         Ok(())
     }
 
-    fn delete_branch_reference(&self, branch: &Branch) -> Result<()> {
+    fn delete_branch_reference(&self, branch: &Stack) -> Result<()> {
         match self
             .repository()
             .find_reference(&branch.refname()?.to_string())
@@ -158,7 +158,7 @@ impl RepoActionsExt for CommandContext {
         branch: &RemoteRefname,
         with_force: bool,
         refspec: Option<String>,
-        askpass_broker: Option<Option<BranchId>>,
+        askpass_broker: Option<Option<StackId>>,
     ) -> Result<()> {
         let refspec = refspec.unwrap_or_else(|| {
             if with_force {
@@ -335,7 +335,7 @@ pub enum LogUntil {
 
 async fn handle_git_prompt_push(
     prompt: String,
-    askpass: Option<Option<BranchId>>,
+    askpass: Option<Option<StackId>>,
 ) -> Option<String> {
     if let Some(branch_id) = askpass {
         tracing::info!("received prompt for branch push {branch_id:?}: {prompt:?}");

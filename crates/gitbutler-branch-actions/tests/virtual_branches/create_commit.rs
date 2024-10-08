@@ -1,7 +1,7 @@
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::VirtualBranch;
 use gitbutler_id::id::Id;
-use gitbutler_stack::Branch;
+use gitbutler_stack::Stack;
 
 use super::*;
 
@@ -120,7 +120,7 @@ fn commit_and_push_initial(repository: &TestProject) {
     repository.push();
 }
 
-fn get_virtual_branch(project: &Project, branch_id: Id<Branch>) -> VirtualBranch {
+fn get_virtual_branch(project: &Project, branch_id: Id<Stack>) -> VirtualBranch {
     gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
         .0

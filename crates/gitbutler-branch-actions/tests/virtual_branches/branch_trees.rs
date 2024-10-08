@@ -1,11 +1,11 @@
-use gitbutler_stack::Branch;
+use gitbutler_stack::Stack;
 
 /// Makes a Branch struct with a bunch of default values.
 ///
 /// This assumes that the only relevant properties for your test are the head
 /// and tree Oids.
-fn make_branch(head: git2::Oid, tree: git2::Oid) -> Branch {
-    let mut branch = Branch::new(
+fn make_branch(head: git2::Oid, tree: git2::Oid) -> Stack {
+    let mut branch = Stack::new(
         "branchy branch".into(),
         None,
         None,

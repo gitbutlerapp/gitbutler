@@ -8,7 +8,7 @@ use gitbutler_error::error::Marker;
 use gitbutler_project::{access::WorktreeWritePermission, FetchResult};
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::{rebase::cherry_rebase, LogUntil, RepoActionsExt, RepositoryExt};
-use gitbutler_stack::{Branch, BranchOwnershipClaims, Target, VirtualBranchesHandle};
+use gitbutler_stack::{BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle};
 use serde::Serialize;
 
 use crate::{
@@ -231,7 +231,7 @@ pub(crate) fn set_base_branch(
                 (None, None)
             };
 
-            let mut branch = Branch::new(
+            let mut branch = Stack::new(
                 head_name.to_string().replace("refs/heads/", ""),
                 Some(head_name),
                 upstream,
@@ -355,7 +355,7 @@ pub(crate) fn update_base_branch(
     let updated_vbranches = get_applied_status(ctx, None)?
         .branches
         .into_iter()
-        .map(|(mut branch, _)| -> Result<Option<Branch>> {
+        .map(|(mut branch, _)| -> Result<Option<Stack>> {
             let branch_tree = repo.find_tree(branch.tree)?;
 
             let branch_head_commit = repo.find_commit(branch.head()).context(format!(
@@ -369,7 +369,7 @@ pub(crate) fn update_base_branch(
                 branch.id
             ))?;
 
-            let result_integrated_detected = |mut branch: Branch| -> Result<Option<Branch>> {
+            let result_integrated_detected = |mut branch: Stack| -> Result<Option<Stack>> {
                 // branch head tree is the same as the new target tree.
                 // meaning we can safely use the new target commit as the branch head.
 
@@ -455,7 +455,7 @@ pub(crate) fn update_base_branch(
 
             let ok_with_force_push = branch.allow_rebasing;
 
-            let result_merge = |mut branch: Branch| -> Result<Option<Branch>> {
+            let result_merge = |mut branch: Stack| -> Result<Option<Stack>> {
                 // branch was pushed to upstream, and user doesn't like force pushing.
                 // create a merge commit to avoid the need of force pushing then.
                 let branch_head_merge_tree = repo

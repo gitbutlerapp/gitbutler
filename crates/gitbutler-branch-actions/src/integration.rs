@@ -11,7 +11,7 @@ use gitbutler_error::error::Marker;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{LogUntil, RepositoryExt};
-use gitbutler_stack::{Branch, VirtualBranchesHandle};
+use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
 
 use crate::{branch_manager::BranchManagerExt, conflicts, VirtualBranchesExt};
@@ -36,7 +36,7 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
         .context("failed to get target")?;
     let repo: &git2::Repository = ctx.repository();
 
-    let mut virtual_branches: Vec<Branch> = vb_state.list_branches_in_workspace()?;
+    let mut virtual_branches: Vec<Stack> = vb_state.list_branches_in_workspace()?;
 
     let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = repo.find_real_tree(&target_commit, Default::default())?;
@@ -152,7 +152,7 @@ pub fn update_workspace_commit(
     let vb_state = ctx.project().virtual_branches();
 
     // get all virtual branches, we need to try to update them all
-    let virtual_branches: Vec<Branch> = vb_state
+    let virtual_branches: Vec<Stack> = vb_state
         .list_branches_in_workspace()
         .context("failed to list virtual branches")?;
 

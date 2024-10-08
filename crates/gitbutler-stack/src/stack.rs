@@ -6,15 +6,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::ownership::BranchOwnershipClaims;
 
-pub type BranchId = Id<Branch>;
+pub type StackId = Id<Stack>;
 
 // this is the struct for the virtual branch data that is stored in our data
 // store. it is more or less equivalent to a git branch reference, but it is not
 // stored or accessible from the git repository itself. it is stored in our
 // session storage under the branches/ directory.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
-pub struct Branch {
-    pub id: BranchId,
+pub struct Stack {
+    pub id: StackId,
     /// A user-specified name with no restrictions.
     /// It will be normalized except to be a valid [ref-name](Branch::refname()) if named `refs/gitbutler/<normalize(name)>`.
     pub name: String,
@@ -83,7 +83,7 @@ where
     Ok(x)
 }
 
-impl Branch {
+impl Stack {
     /// Creates a new `Branch` with the given name. The `in_workspace` flag is set to `true`.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -99,7 +99,7 @@ impl Branch {
     ) -> Self {
         let now = gitbutler_time::time::now_ms();
         Self {
-            id: BranchId::generate(),
+            id: StackId::generate(),
             name,
             notes: String::new(),
             source_refname,
@@ -132,10 +132,10 @@ impl Branch {
     }
 }
 
-impl TryFrom<&Branch> for VirtualRefname {
+impl TryFrom<&Stack> for VirtualRefname {
     type Error = anyhow::Error;
 
-    fn try_from(value: &Branch) -> std::result::Result<Self, Self::Error> {
+    fn try_from(value: &Stack) -> std::result::Result<Self, Self::Error> {
         Ok(Self {
             branch: normalize_branch_name(&value.name)?,
         })

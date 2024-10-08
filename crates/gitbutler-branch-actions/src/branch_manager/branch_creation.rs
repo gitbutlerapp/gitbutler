@@ -14,7 +14,7 @@ use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
     LogUntil, RepoActionsExt, RepositoryExt,
 };
-use gitbutler_stack::{Branch, BranchId, BranchOwnershipClaims};
+use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use tracing::instrument;
 
@@ -32,7 +32,7 @@ impl BranchManager<'_> {
         &self,
         create: &BranchCreateRequest,
         perm: &mut WorktreeWritePermission,
-    ) -> Result<Branch> {
+    ) -> Result<Stack> {
         let vb_state = self.ctx.project().virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
@@ -100,7 +100,7 @@ impl BranchManager<'_> {
             }
         }
 
-        let mut branch = Branch::new(
+        let mut branch = Stack::new(
             name.clone(),
             None,
             None,
@@ -128,7 +128,7 @@ impl BranchManager<'_> {
         target: &Refname,
         upstream_branch: Option<RemoteRefname>,
         perm: &mut WorktreeWritePermission,
-    ) -> Result<BranchId> {
+    ) -> Result<StackId> {
         // only set upstream if it's not the default target
         let upstream_branch = match upstream_branch {
             Some(upstream_branch) => Some(upstream_branch),
@@ -182,7 +182,7 @@ impl BranchManager<'_> {
             .list_branches_in_workspace()
             .context("failed to read virtual branches")?
             .into_iter()
-            .collect::<Vec<Branch>>();
+            .collect::<Vec<Stack>>();
 
         let order = vb_state.next_order_index()?;
 
@@ -235,7 +235,7 @@ impl BranchManager<'_> {
             branch
         } else {
             let upstream_head = upstream_branch.is_some().then_some(head_commit.id());
-            Branch::new(
+            Stack::new(
                 branch_name.clone(),
                 Some(target.clone()),
                 upstream_branch,
@@ -271,7 +271,7 @@ impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
     fn apply_branch(
         &self,
-        branch_id: BranchId,
+        branch_id: StackId,
         perm: &mut WorktreeWritePermission,
     ) -> Result<String> {
         self.ctx.assure_resolved()?;

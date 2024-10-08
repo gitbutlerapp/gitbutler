@@ -7,7 +7,7 @@ use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::{RepoActionsExt, RepositoryExt};
-use gitbutler_stack::BranchId;
+use gitbutler_stack::StackId;
 
 #[derive(Clone)]
 pub struct App {
@@ -45,7 +45,7 @@ impl App {
         project_id: ProjectId,
         remote_name: &str,
         branch_name: &str,
-        askpass: Option<Option<BranchId>>,
+        askpass: Option<Option<StackId>>,
     ) -> Result<()> {
         let project = self.projects().get(project_id)?;
         let ctx = CommandContext::open(&project)?;

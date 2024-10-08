@@ -4,7 +4,7 @@ use anyhow::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize, Serializer};
 
-use crate::{file_ownership::OwnershipClaim, Branch};
+use crate::{file_ownership::OwnershipClaim, Stack};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct BranchOwnershipClaims {
@@ -93,12 +93,12 @@ impl BranchOwnershipClaims {
 
 #[derive(Debug, Clone)]
 pub struct ClaimOutcome {
-    pub updated_branch: Branch,
+    pub updated_branch: Stack,
     pub removed_claims: Vec<OwnershipClaim>,
 }
 pub fn reconcile_claims(
-    all_branches: Vec<Branch>,
-    claiming_branch: &Branch,
+    all_branches: Vec<Stack>,
+    claiming_branch: &Stack,
     new_claims: &[OwnershipClaim],
 ) -> Result<Vec<ClaimOutcome>> {
     let mut other_branches = all_branches

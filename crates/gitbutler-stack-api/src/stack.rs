@@ -12,7 +12,7 @@ use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::LogUntil;
 use gitbutler_repo::RepoActionsExt;
 use gitbutler_repo::RepositoryExt;
-use gitbutler_stack::Branch;
+use gitbutler_stack::Stack;
 use gitbutler_stack::Target;
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::validate::reference::name_partial;
@@ -30,7 +30,7 @@ use crate::series::Series;
 /// - have at least one head (branch)
 /// - include only referecences that are part of the stack
 /// - always have it's commits under a reference i.e. no orphaned commits
-pub trait Stack {
+pub trait StackActions {
     /// An initialized stack has at least one head (branch).
     fn initialized(&self) -> bool;
 
@@ -139,7 +139,7 @@ pub struct TargetUpdate {
 /// The first patches are in the beginning of the list and the most recent patches are at the end of the list (top of the stack)
 /// Similarly, heads that point to earlier commits are first in the order, and the last head always points to the most recent patch.
 /// If there are multiple heads that point to the same patch, the `add` and `update` operations can specify the intended order.
-impl Stack for Branch {
+impl StackActions for Stack {
     fn initialized(&self) -> bool {
         !self.heads.is_empty()
     }

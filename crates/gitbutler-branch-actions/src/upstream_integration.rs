@@ -6,7 +6,7 @@ use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
     LogUntil, RepoActionsExt as _, RepositoryExt as _,
 };
-use gitbutler_stack::{Branch, BranchId, Target, VirtualBranchesHandle};
+use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -29,7 +29,7 @@ pub enum BranchStatus {
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 pub enum BranchStatuses {
     UpToDate,
-    UpdatesRequired(Vec<(BranchId, BranchStatus)>),
+    UpdatesRequired(Vec<(StackId, BranchStatus)>),
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -74,7 +74,7 @@ impl BranchStatus {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Resolution {
-    branch_id: BranchId,
+    branch_id: StackId,
     /// Used to ensure a given branch hasn't changed since the UI issued the command.
     #[serde(with = "gitbutler_serde::oid")]
     branch_tree: git2::Oid,
@@ -90,7 +90,7 @@ enum IntegrationResult {
 pub struct UpstreamIntegrationContext<'a> {
     _permission: Option<&'a mut WorktreeWritePermission>,
     repository: &'a git2::Repository,
-    virtual_branches_in_workspace: Vec<Branch>,
+    virtual_branches_in_workspace: Vec<Stack>,
     new_target: git2::Commit<'a>,
     old_target: git2::Commit<'a>,
     target_branch_name: String,
@@ -391,7 +391,7 @@ fn compute_resolutions(
     context: &UpstreamIntegrationContext,
     resolutions: &[Resolution],
     base_branch_resolution_approach: Option<BaseBranchResolutionApproach>,
-) -> Result<Vec<(BranchId, IntegrationResult)>> {
+) -> Result<Vec<(StackId, IntegrationResult)>> {
     let UpstreamIntegrationContext {
         repository,
         new_target,
@@ -502,8 +502,8 @@ mod test {
 
     use super::*;
 
-    fn make_branch(head: git2::Oid, tree: git2::Oid) -> Branch {
-        let mut branch = Branch::new(
+    fn make_branch(head: git2::Oid, tree: git2::Oid) -> Stack {
+        let mut branch = Stack::new(
             "branchy branch".into(),
             None,
             None,

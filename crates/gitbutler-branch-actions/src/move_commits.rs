@@ -7,13 +7,13 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt};
-use gitbutler_stack::{BranchId, OwnershipClaim};
+use gitbutler_stack::{OwnershipClaim, StackId};
 use std::collections::HashMap;
 
 /// moves commit from the branch it's in to the top of the target branch
 pub(crate) fn move_commit(
     ctx: &CommandContext,
-    target_branch_id: BranchId,
+    target_branch_id: StackId,
     commit_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {

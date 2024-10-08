@@ -16,7 +16,7 @@ use gitbutler_project::{
     Project,
 };
 use gitbutler_repo::RepositoryExt;
-use gitbutler_stack::{Branch, VirtualBranchesHandle, VirtualBranchesState};
+use gitbutler_stack::{Stack, VirtualBranchesHandle, VirtualBranchesState};
 use tracing::instrument;
 
 use super::{
@@ -732,7 +732,7 @@ fn lines_since_snapshot(project: &Project, repo: &git2::Repository) -> Result<us
 
 #[instrument(level = tracing::Level::DEBUG, skip(branch, repo), err(Debug))]
 fn branch_lines_since_snapshot(
-    branch: &Branch,
+    branch: &Stack,
     repo: &git2::Repository,
     head_sha: git2::Oid,
 ) -> Result<usize> {

@@ -2,8 +2,8 @@ use anyhow::{Context, Result};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_project::Project;
-use gitbutler_stack::BranchId;
-use gitbutler_stack_api::{PatchReferenceUpdate, Stack};
+use gitbutler_stack::StackId;
+use gitbutler_stack_api::{PatchReferenceUpdate, StackActions};
 use serde::{Deserialize, Serialize};
 
 use crate::{actions::open_with_verify, VirtualBranchesExt};
@@ -22,7 +22,7 @@ use gitbutler_operating_modes::assure_open_workspace_mode;
 /// The argument `preceding_head` is only used if there are multiple heads that point to the same patch, otherwise it is ignored.
 pub fn create_series(
     project: &Project,
-    branch_id: BranchId,
+    branch_id: StackId,
     req: CreateSeriesRequest,
 ) -> Result<()> {
     let ctx = &open_with_verify(project)?;
@@ -62,7 +62,7 @@ pub struct CreateSeriesRequest {
 /// The very last branch (reference) cannot be removed (A Stack must always contains at least one reference)
 /// If there were commits/changes that were *only* referenced by the removed branch,
 /// those commits are moved to the branch underneath it (or more accurately, the precee)
-pub fn remove_series(project: &Project, branch_id: BranchId, head_name: String) -> Result<()> {
+pub fn remove_series(project: &Project, branch_id: StackId, head_name: String) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
@@ -74,7 +74,7 @@ pub fn remove_series(project: &Project, branch_id: BranchId, head_name: String) 
 /// If the series have been pushed to a remote, the name can not be changed as it corresponds to a remote ref.
 pub fn update_series_name(
     project: &Project,
-    branch_id: BranchId,
+    branch_id: StackId,
     head_name: String,
     new_head_name: String,
 ) -> Result<()> {
@@ -95,7 +95,7 @@ pub fn update_series_name(
 /// The description can be set to `None` to remove it.
 pub fn update_series_description(
     project: &Project,
-    branch_id: BranchId,
+    branch_id: StackId,
     head_name: String,
     description: Option<String>,
 ) -> Result<()> {
@@ -114,7 +114,7 @@ pub fn update_series_description(
 
 /// Pushes all series in the stack to the remote.
 /// This operation will error out if the target has no push remote configured.
-pub fn push_stack(project: &Project, branch_id: BranchId, with_force: bool) -> Result<()> {
+pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let state = ctx.project().virtual_branches();

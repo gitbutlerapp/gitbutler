@@ -4,7 +4,7 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_repo::{LogUntil, RepositoryExt as _};
 use gitbutler_stack::VirtualBranchesHandle;
-use gitbutler_stack_api::{PatchReferenceUpdate, Stack, TargetUpdate};
+use gitbutler_stack_api::{PatchReferenceUpdate, StackActions, TargetUpdate};
 use itertools::Itertools;
 use tempfile::TempDir;
 
@@ -788,7 +788,7 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     })
 }
 struct TestContext<'a> {
-    branch: gitbutler_stack::Branch,
+    branch: gitbutler_stack::Stack,
     /// Oldest commit first
     commits: Vec<git2::Commit<'a>>,
     /// Oldest commit first
