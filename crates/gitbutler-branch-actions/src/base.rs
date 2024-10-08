@@ -19,6 +19,7 @@ use crate::{
     hunk::VirtualBranchHunk,
     integration::update_workspace_commit,
     remote::{commit_to_remote_commit, RemoteCommit},
+    stack::StackExt,
     status::get_applied_status,
     VirtualBranchesExt,
 };
@@ -233,7 +234,8 @@ pub(crate) fn set_base_branch(
                 (None, None)
             };
 
-            let mut branch = Branch::new(
+            let mut branch = Branch::new_initialized(
+                ctx,
                 head_name.to_string().replace("refs/heads/", ""),
                 Some(head_name),
                 upstream,

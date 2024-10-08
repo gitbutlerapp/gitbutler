@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use crate::{branch_trees::checkout_branch_trees, r#virtual as vbranch};
+use crate::{branch_trees::checkout_branch_trees, r#virtual as vbranch, stack::StackExt};
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::{self, dedup, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims};
 use gitbutler_cherry_pick::RepositoryExt as _;
@@ -98,7 +98,8 @@ impl BranchManager<'_> {
             }
         }
 
-        let mut branch = Branch::new(
+        let mut branch = Branch::new_initialized(
+            self.ctx,
             name.clone(),
             None,
             None,
@@ -233,7 +234,8 @@ impl BranchManager<'_> {
             branch
         } else {
             let upstream_head = upstream_branch.is_some().then_some(head_commit.id());
-            Branch::new(
+            Branch::new_initialized(
+                self.ctx,
                 branch_name.clone(),
                 Some(target.clone()),
                 upstream_branch,

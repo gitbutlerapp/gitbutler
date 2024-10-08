@@ -1,8 +1,10 @@
 use anyhow::{Context, Result};
-use gitbutler_branch::BranchId;
+use gitbutler_branch::{Branch, BranchId};
+use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_project::Project;
+use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_stack::{PatchReferenceUpdate, Stack};
 use serde::{Deserialize, Serialize};
 
@@ -138,4 +140,56 @@ pub fn push_stack(project: &Project, branch_id: BranchId, with_force: bool) -> R
         stack.push_series(ctx, series.head.name, with_force)?;
     }
     Ok(())
+}
+
+pub trait StackExt {
+    // TODO: When this is stable, make it error out on initialization failure
+    /// Creates a new `Branch` with the given name and attempts to initialize the `Stack`.
+    /// If initialization fails, a warning is logged and the branch is returned as is.
+    #[allow(clippy::too_many_arguments)]
+    fn new_initialized(
+        ctx: &CommandContext,
+        name: String,
+        source_refname: Option<Refname>,
+        upstream: Option<RemoteRefname>,
+        upstream_head: Option<git2::Oid>,
+        tree: git2::Oid,
+        head: git2::Oid,
+        order: usize,
+        selected_for_changes: Option<i64>,
+        allow_rebasing: bool,
+    ) -> Self;
+}
+
+impl StackExt for Branch {
+    #[allow(clippy::too_many_arguments)]
+    fn new_initialized(
+        ctx: &CommandContext,
+        name: String,
+        source_refname: Option<Refname>,
+        upstream: Option<RemoteRefname>,
+        upstream_head: Option<git2::Oid>,
+        tree: git2::Oid,
+        head: git2::Oid,
+        order: usize,
+        selected_for_changes: Option<i64>,
+        allow_rebasing: bool,
+    ) -> Self {
+        let mut branch = Branch::new(
+            name,
+            source_refname,
+            upstream,
+            upstream_head,
+            tree,
+            head,
+            order,
+            selected_for_changes,
+            allow_rebasing,
+        );
+        if let Err(e) = branch.initialize(ctx) {
+            // TODO: When this is stable, make it error out
+            tracing::warn!("failed to initialize stack: {:?}", e);
+        }
+        branch
+    }
 }
