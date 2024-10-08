@@ -8,6 +8,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_reference::normalize_branch_name;
+use gitbutler_reference::Refname;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::LogUntil;
 use gitbutler_repo::RepoActionsExt;
@@ -31,6 +32,23 @@ use crate::series::Series;
 /// - include only referecences that are part of the stack
 /// - always have it's commits under a reference i.e. no orphaned commits
 pub trait StackActions {
+    // TODO: When this is stable, make it error out on initialization failure
+    /// Constructs and initializes a new Stack.
+    /// If initialization fails, a warning is logged and the stack is returned as is.
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        ctx: &CommandContext,
+        name: String,
+        source_refname: Option<Refname>,
+        upstream: Option<RemoteRefname>,
+        upstream_head: Option<git2::Oid>,
+        tree: git2::Oid,
+        head: git2::Oid,
+        order: usize,
+        selected_for_changes: Option<i64>,
+        allow_rebasing: bool,
+    ) -> Self;
+
     /// An initialized stack has at least one head (branch).
     fn initialized(&self) -> bool;
 
@@ -140,6 +158,37 @@ pub struct TargetUpdate {
 /// Similarly, heads that point to earlier commits are first in the order, and the last head always points to the most recent patch.
 /// If there are multiple heads that point to the same patch, the `add` and `update` operations can specify the intended order.
 impl StackActions for Stack {
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        ctx: &CommandContext,
+        name: String,
+        source_refname: Option<Refname>,
+        upstream: Option<RemoteRefname>,
+        upstream_head: Option<git2::Oid>,
+        tree: git2::Oid,
+        head: git2::Oid,
+        order: usize,
+        selected_for_changes: Option<i64>,
+        allow_rebasing: bool,
+    ) -> Self {
+        let mut branch = Stack::new_uninitialized(
+            name,
+            source_refname,
+            upstream,
+            upstream_head,
+            tree,
+            head,
+            order,
+            selected_for_changes,
+            allow_rebasing,
+        );
+        if let Err(e) = branch.initialize(ctx) {
+            // TODO: When this is stable, make it error out
+            tracing::warn!("failed to initialize stack: {:?}", e);
+        }
+        branch
+    }
+
     fn initialized(&self) -> bool {
         !self.heads.is_empty()
     }

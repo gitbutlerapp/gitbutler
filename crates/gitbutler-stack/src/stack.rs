@@ -84,6 +84,7 @@ where
 }
 
 impl Stack {
+    /// DO NOT USE THIS DIRECTLY, use `StackActions::new` instead.
     /// Creates a new `Branch` with the given name. The `in_workspace` flag is set to `true`.
     #[allow(clippy::too_many_arguments)]
     pub fn new_uninitialized(
