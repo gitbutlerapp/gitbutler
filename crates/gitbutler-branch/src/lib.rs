@@ -4,10 +4,8 @@ mod reference_ext;
 pub use reference_ext::{ReferenceExt, ReferenceExtGix};
 mod dedup;
 pub use dedup::{dedup, dedup_fmt};
-mod reference;
-pub mod serde;
-pub use reference::ChangeReference;
 mod branch;
+pub mod serde;
 pub use branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest};
 
 use gitbutler_oxidize::gix_to_git2_signature;
