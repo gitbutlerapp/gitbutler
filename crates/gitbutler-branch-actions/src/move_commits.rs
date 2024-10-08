@@ -16,6 +16,7 @@ pub(crate) fn move_commit(
     target_branch_id: BranchId,
     commit_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
+    source_branch_id: BranchId,
 ) -> Result<()> {
     ctx.assure_resolved()?;
     let vb_state = ctx.project().virtual_branches();
@@ -32,8 +33,8 @@ pub(crate) fn move_commit(
 
     let (ref mut source_branch, source_status) = applied_statuses
         .iter_mut()
-        .find(|(b, _)| b.head() == commit_id)
-        .ok_or_else(|| anyhow!("commit {commit_id} to be moved could not be found"))?;
+        .find(|(b, _)| b.id == source_branch_id)
+        .ok_or_else(|| anyhow!("the source branch could not be found"))?;
 
     let source_branch_non_comitted_files = source_status;
 
@@ -82,7 +83,7 @@ pub(crate) fn move_commit(
     let ancestor_commits = ancestor_commits;
 
     let is_ancestor_locked =
-        check_source_lock_to_ancestors(ctx.repository(), ancestor_commits, &branch_head_diff);
+        check_source_lock_to_commits(ctx.repository(), &ancestor_commits, &branch_head_diff);
 
     if is_source_locked {
         bail!("the source branch contains hunks locked to the target commit")
@@ -90,6 +91,22 @@ pub(crate) fn move_commit(
 
     if is_ancestor_locked {
         bail!("the source branch contains hunks locked to the target commit ancestors")
+    }
+
+    let mut commits_to_rebase = vec![];
+    let is_head_commit = commit_id == source_branch.head();
+    if !is_head_commit {
+        commits_to_rebase = ctx
+            .repository()
+            .log(source_branch.head(), LogUntil::Commit(commit_id))
+            .unwrap();
+
+        let is_parent_locked =
+            check_source_lock_to_commits(ctx.repository(), &commits_to_rebase, &branch_head_diff);
+
+        if is_parent_locked {
+            bail!("the source branch contains hunks locked to the target commit parents")
+        }
     }
 
     // move files ownerships from source branch to the destination branch
@@ -121,9 +138,21 @@ pub(crate) fn move_commit(
         true,
     )?;
 
-    // reset the source branch to the parent commit
-    // and update the destination branch head
-    source_branch.set_head(source_branch_head_parent.id());
+    if !is_head_commit {
+        let ids_to_rebase: Vec<git2::Oid> = commits_to_rebase.iter().map(|c| c.id()).collect();
+        let new_source_head_oid = cherry_rebase_group(
+            ctx.repository(),
+            source_branch_head_parent.id(),
+            &ids_to_rebase,
+            false,
+        )?;
+        source_branch.set_head(new_source_head_oid);
+    } else {
+        // reset the source branch to the parent commit
+        // and update the destination branch head
+        source_branch.set_head(source_branch_head_parent.id());
+    }
+
     vb_state.set_branch(source_branch.clone())?;
 
     destination_branch.set_head(new_destination_head_oid);
@@ -162,29 +191,29 @@ fn check_source_lock(
     is_source_locked
 }
 
-/// determines if the source commit is locked to any of its ancestors
-fn check_source_lock_to_ancestors(
+/// determines if the source commit is locked to any commits
+fn check_source_lock_to_commits(
     repository: &git2::Repository,
-    ancestor_commits: Vec<git2::Commit>,
+    commits: &Vec<git2::Commit>,
     source_commit_diff: &HashMap<std::path::PathBuf, Vec<gitbutler_diff::GitHunk>>,
 ) -> bool {
-    let mut previous: Option<git2::Commit> = None;
+    let mut previous: Option<&git2::Commit> = None;
 
-    for ancestor_commit in ancestor_commits {
+    for commit in commits {
         if previous.is_none() {
-            previous = Some(ancestor_commit);
+            previous = Some(commit);
             continue;
         }
 
         let previous_commit = previous.take().unwrap();
 
-        let old_tree = ancestor_commit.tree().unwrap();
+        let old_tree = commit.tree().unwrap();
         let new_tree = previous_commit.tree().unwrap();
 
         let diff = gitbutler_diff::trees(repository, &old_tree, &new_tree);
 
         if diff.is_err() {
-            previous = Some(ancestor_commit);
+            previous = Some(commit);
             continue;
         }
 
@@ -212,7 +241,7 @@ fn check_source_lock_to_ancestors(
             return true;
         }
 
-        previous = Some(ancestor_commit);
+        previous = Some(commit);
     }
 
     false
