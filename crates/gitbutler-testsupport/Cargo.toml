@@ -29,3 +29,4 @@ gitbutler-reference.workspace = true
 gitbutler-storage.workspace = true
 gitbutler-url.workspace = true
 gitbutler-oxidize.workspace = true
+uuid.workspace = true
