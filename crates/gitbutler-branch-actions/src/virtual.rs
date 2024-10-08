@@ -29,7 +29,7 @@ use gitbutler_repo::{
 use gitbutler_stack::{
     reconcile_claims, BranchOwnershipClaims, Stack, StackId, Target, VirtualBranchesHandle,
 };
-use gitbutler_stack_api::{commit_by_oid_or_change_id, StackActions};
+use gitbutler_stack_api::{commit_by_oid_or_change_id, StackExt};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
 use std::collections::HashSet;

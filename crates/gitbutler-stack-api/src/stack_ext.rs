@@ -31,7 +31,7 @@ use crate::series::Series;
 /// - have at least one head (branch)
 /// - include only referecences that are part of the stack
 /// - always have it's commits under a reference i.e. no orphaned commits
-pub trait StackActions {
+pub trait StackExt {
     // TODO: When this is stable, make it error out on initialization failure
     /// Constructs and initializes a new Stack.
     /// If initialization fails, a warning is logged and the stack is returned as is.
@@ -157,7 +157,7 @@ pub struct TargetUpdate {
 /// The first patches are in the beginning of the list and the most recent patches are at the end of the list (top of the stack)
 /// Similarly, heads that point to earlier commits are first in the order, and the last head always points to the most recent patch.
 /// If there are multiple heads that point to the same patch, the `add` and `update` operations can specify the intended order.
-impl StackActions for Stack {
+impl StackExt for Stack {
     #[allow(clippy::too_many_arguments)]
     fn new(
         ctx: &CommandContext,

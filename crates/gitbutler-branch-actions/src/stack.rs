@@ -3,7 +3,7 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_project::Project;
 use gitbutler_stack::StackId;
-use gitbutler_stack_api::{PatchReferenceUpdate, StackActions};
+use gitbutler_stack_api::{PatchReferenceUpdate, StackExt};
 use serde::{Deserialize, Serialize};
 
 use crate::{actions::open_with_verify, VirtualBranchesExt};
