@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	export type CheckboxStyle = 'default' | 'neutral';
-	export interface CheckboxProps {
+	export interface Props {
 		name?: string;
 		small?: boolean;
 		disabled?: boolean;
@@ -30,7 +30,7 @@
 		style = 'default',
 		onclick,
 		onchange
-	}: CheckboxProps = $props();
+	}: Props = $props();
 
 	$effect(() => {
 		if (input) input.indeterminate = indeterminate;

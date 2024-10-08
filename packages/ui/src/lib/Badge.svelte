@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
 
-	export interface BadgeProps {
+	export interface Props {
 		label: string | number;
 		style?: ComponentColor;
 		kind?: ComponentStyleKind;
@@ -9,7 +9,7 @@
 </script>
 
 <script lang="ts">
-	const { label, style = 'neutral', kind = 'solid' }: BadgeProps = $props();
+	const { label, style = 'neutral', kind = 'solid' }: Props = $props();
 </script>
 
 <div class="badge {style} {kind} text-10 text-semibold">

@@ -6,7 +6,7 @@
 	import type { ComponentColor, ComponentStyleKind } from '@gitbutler/ui/utils/colorTypes';
 	import type { Snippet } from 'svelte';
 
-	interface DropDownButtonProps {
+	interface Props {
 		icon?: keyof typeof iconsJson;
 		style?: ComponentColor;
 		kind?: ComponentStyleKind;
@@ -34,7 +34,7 @@
 		children,
 		contextMenuSlot,
 		onclick
-	}: DropDownButtonProps = $props();
+	}: Props = $props();
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let iconEl = $state<HTMLElement>();
