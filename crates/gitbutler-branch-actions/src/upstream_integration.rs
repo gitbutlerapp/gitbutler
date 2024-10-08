@@ -503,6 +503,7 @@ mod test {
     use super::*;
 
     fn make_branch(head: git2::Oid, tree: git2::Oid) -> Stack {
+        #[allow(deprecated)] // this is a test
         let mut branch = Stack::new(
             "branchy branch".into(),
             None,

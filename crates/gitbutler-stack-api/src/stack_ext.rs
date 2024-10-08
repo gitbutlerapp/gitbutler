@@ -171,6 +171,8 @@ impl StackExt for Stack {
         selected_for_changes: Option<i64>,
         allow_rebasing: bool,
     ) -> Self {
+        #[allow(deprecated)]
+        // this should be the only place (other than tests) where this is allowed
         let mut branch = Stack::new(
             name,
             source_refname,

@@ -5,6 +5,7 @@ use gitbutler_stack::{reconcile_claims, BranchOwnershipClaims, OwnershipClaim, S
 
 #[test]
 fn reconcile_ownership_simple() {
+    #[allow(deprecated)] // this is a test
     let mut branch_a = Stack::new(
         "a".to_string(),
         None,
@@ -36,6 +37,7 @@ fn reconcile_ownership_simple() {
     branch_a.created_timestamp_ms = u128::default();
     branch_a.updated_timestamp_ms = u128::default();
 
+    #[allow(deprecated)] // this is a test
     let mut branch_b = Stack::new(
         "b".to_string(),
         None,

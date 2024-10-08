@@ -9,6 +9,7 @@ use gitbutler_project::{access::WorktreeWritePermission, FetchResult};
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::{rebase::cherry_rebase, LogUntil, RepoActionsExt, RepositoryExt};
 use gitbutler_stack::{BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle};
+use gitbutler_stack_api::StackExt;
 use serde::Serialize;
 
 use crate::{
@@ -231,7 +232,8 @@ pub(crate) fn set_base_branch(
                 (None, None)
             };
 
-            let mut branch = Stack::new(
+            let mut branch = Stack::create(
+                ctx,
                 head_name.to_string().replace("refs/heads/", ""),
                 Some(head_name),
                 upstream,
