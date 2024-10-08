@@ -3,7 +3,7 @@ use std::{path::Path, time};
 use anyhow::{anyhow, Context, Result};
 use git2::Index;
 use gitbutler_branch::{
-    self, Branch, BranchId, BranchOwnershipClaims, Target, VirtualBranchesHandle,
+    self, Branch, BranchOwnershipClaims, Target, VirtualBranchesHandle,
     GITBUTLER_WORKSPACE_REFERENCE,
 };
 use gitbutler_command_context::CommandContext;
@@ -86,7 +86,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
         // merge this branches tree with our tree
         let branch_head = ctx
             .repository()
-            .find_commit(branch.head)
+            .find_commit(branch.head())
             .context("failed to find branch head")?;
         let branch_tree = branch_head
             .tree()
@@ -208,8 +208,6 @@ pub(crate) fn set_base_branch(
                 },
             );
 
-            let now_ms = gitbutler_time::time::now_ms();
-
             let (upstream, upstream_head) = if let Refname::Local(head_name) = &head_name {
                 let upstream_name = target_branch_ref.with_branch(head_name.branch());
                 if upstream_name.eq(target_branch_ref) {
@@ -235,29 +233,22 @@ pub(crate) fn set_base_branch(
                 (None, None)
             };
 
-            let branch = Branch {
-                id: BranchId::generate(),
-                name: head_name.to_string().replace("refs/heads/", ""),
-                notes: String::new(),
-                source_refname: Some(head_name),
+            let mut branch = Branch::new(
+                head_name.to_string().replace("refs/heads/", ""),
+                Some(head_name),
                 upstream,
                 upstream_head,
-                created_timestamp_ms: now_ms,
-                updated_timestamp_ms: now_ms,
-                head: current_head_commit.id(),
-                tree: gitbutler_diff::write::hunks_onto_commit(
+                gitbutler_diff::write::hunks_onto_commit(
                     ctx,
                     current_head_commit.id(),
                     gitbutler_diff::diff_files_into_hunks(wd_diff),
                 )?,
-                ownership,
-                order: 0,
-                selected_for_changes: None,
-                allow_rebasing: ctx.project().ok_with_force_push.into(),
-                in_workspace: true,
-                not_in_workspace_wip_change_id: None,
-                heads: Default::default(),
-            };
+                current_head_commit.id(),
+                0,
+                None,
+                ctx.project().ok_with_force_push.into(),
+            );
+            branch.ownership = ownership;
 
             vb_state.set_branch(branch)?;
         }
@@ -369,20 +360,22 @@ pub(crate) fn update_base_branch(
         .map(|(mut branch, _)| -> Result<Option<Branch>> {
             let branch_tree = repo.find_tree(branch.tree)?;
 
-            let branch_head_commit = repo.find_commit(branch.head).context(format!(
+            let branch_head_commit = repo.find_commit(branch.head()).context(format!(
                 "failed to find commit {} for branch {}",
-                branch.head, branch.id
+                branch.head(),
+                branch.id
             ))?;
             let branch_head_tree = branch_head_commit.tree().context(format!(
                 "failed to find tree for commit {} for branch {}",
-                branch.head, branch.id
+                branch.head(),
+                branch.id
             ))?;
 
             let result_integrated_detected = |mut branch: Branch| -> Result<Option<Branch>> {
                 // branch head tree is the same as the new target tree.
                 // meaning we can safely use the new target commit as the branch head.
 
-                branch.head = new_target_commit.id();
+                branch.set_head(new_target_commit.id());
 
                 // it also means that the branch is fully integrated into the target.
                 // disconnect it from the upstream
@@ -429,9 +422,9 @@ pub(crate) fn update_base_branch(
                 return result_integrated_detected(branch);
             }
 
-            if branch.head == target.sha {
+            if branch.head() == target.sha {
                 // there are no commits on the branch, so we can just update the head to the new target and calculate the new tree
-                branch.head = new_target_commit.id();
+                branch.set_head(new_target_commit.id());
                 branch.tree = branch_merge_index_tree_oid;
                 vb_state.set_branch(branch.clone())?;
                 return Ok(Some(branch));
@@ -486,7 +479,7 @@ pub(crate) fn update_base_branch(
                     )
                     .context("failed to commit merge")?;
 
-                branch.head = new_target_head;
+                branch.set_head(new_target_head);
                 branch.tree = branch_merge_index_tree_oid;
                 vb_state.set_branch(branch.clone())?;
                 Ok(Some(branch))
@@ -501,7 +494,7 @@ pub(crate) fn update_base_branch(
                 ctx,
                 new_target_commit.id(),
                 new_target_commit.id(),
-                branch.head,
+                branch.head(),
             );
 
             // rebase failed, just do the merge
@@ -511,7 +504,7 @@ pub(crate) fn update_base_branch(
 
             if let Some(rebased_head_oid) = rebased_head_oid? {
                 // rebase worked out, rewrite the branch head
-                branch.head = rebased_head_oid;
+                branch.set_head(rebased_head_oid);
                 branch.tree = branch_merge_index_tree_oid;
                 vb_state.set_branch(branch.clone())?;
                 return Ok(Some(branch));

@@ -36,7 +36,7 @@ pub fn checkout_branch_trees<'a>(
         Ok(tree)
     } else {
         let merge_base = repository
-            .merge_base_octopussy(&branches.iter().map(|b| b.head).collect::<Vec<_>>())?;
+            .merge_base_octopussy(&branches.iter().map(|b| b.head()).collect::<Vec<_>>())?;
 
         let merge_base_tree = repository.find_commit(merge_base)?.tree()?;
 
@@ -92,7 +92,7 @@ pub fn compute_updated_branch_head(
 ) -> Result<BranchHeadAndTree> {
     compute_updated_branch_head_for_commits(
         repository,
-        branch.head,
+        branch.head(),
         branch.tree,
         new_head,
         fearless_rebasing,

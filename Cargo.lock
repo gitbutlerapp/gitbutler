@@ -2151,6 +2151,7 @@ dependencies = [
  "gitbutler-patch-reference",
  "gitbutler-reference",
  "gitbutler-serde",
+ "gitbutler-time",
  "gix",
  "hex",
  "itertools 0.13.0",

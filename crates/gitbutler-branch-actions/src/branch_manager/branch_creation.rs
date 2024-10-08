@@ -98,27 +98,17 @@ impl BranchManager<'_> {
             }
         }
 
-        let now = gitbutler_time::time::now_ms();
-
-        let mut branch = Branch {
-            id: BranchId::generate(),
-            name: name.clone(),
-            notes: String::new(),
-            upstream: None,
-            upstream_head: None,
-            tree: tree.id(),
-            head: default_target.sha,
-            created_timestamp_ms: now,
-            updated_timestamp_ms: now,
-            ownership: BranchOwnershipClaims::default(),
+        let mut branch = Branch::new(
+            name.clone(),
+            None,
+            None,
+            None,
+            tree.id(),
+            default_target.sha,
             order,
             selected_for_changes,
-            allow_rebasing: self.ctx.project().ok_with_force_push.into(),
-            in_workspace: true,
-            not_in_workspace_wip_change_id: None,
-            source_refname: None,
-            heads: Default::default(),
-        };
+            self.ctx.project().ok_with_force_push.into(),
+        );
 
         if let Some(ownership) = &create.ownership {
             vbranch::set_ownership(&vb_state, &mut branch, ownership)
@@ -199,8 +189,6 @@ impl BranchManager<'_> {
             .any(|b| b.selected_for_changes.is_some()))
         .then_some(now_since_unix_epoch_ms());
 
-        let now = gitbutler_time::time::now_ms();
-
         // add file ownership based off the diff
         let target_commit = repo.find_commit(default_target.sha)?;
         let merge_base_oid = repo.merge_base(target_commit.id(), head_commit.id())?;
@@ -235,7 +223,7 @@ impl BranchManager<'_> {
             branch.upstream_head = upstream_branch.is_some().then_some(head_commit.id());
             branch.upstream = upstream_branch;
             branch.tree = head_commit_tree.id();
-            branch.head = head_commit.id();
+            branch.set_head(head_commit.id());
             branch.ownership = ownership;
             branch.order = order;
             branch.selected_for_changes = selected_for_changes;
@@ -244,25 +232,18 @@ impl BranchManager<'_> {
 
             branch
         } else {
-            Branch {
-                id: BranchId::generate(),
-                name: branch_name.clone(),
-                notes: String::new(),
-                source_refname: Some(target.clone()),
-                upstream_head: upstream_branch.is_some().then_some(head_commit.id()),
-                upstream: upstream_branch,
-                tree: head_commit_tree.id(),
-                head: head_commit.id(),
-                created_timestamp_ms: now,
-                updated_timestamp_ms: now,
-                ownership,
+            let upstream_head = upstream_branch.is_some().then_some(head_commit.id());
+            Branch::new(
+                branch_name.clone(),
+                Some(target.clone()),
+                upstream_branch,
+                upstream_head,
+                head_commit_tree.id(),
+                head_commit.id(),
                 order,
                 selected_for_changes,
-                allow_rebasing: self.ctx.project().ok_with_force_push.into(),
-                in_workspace: true,
-                not_in_workspace_wip_change_id: None,
-                heads: Default::default(),
-            }
+                self.ctx.project().ok_with_force_push.into(),
+            )
         };
 
         vb_state.set_branch(branch.clone())?;
@@ -309,10 +290,11 @@ impl BranchManager<'_> {
         // if not, we need to merge or rebase the branch to get it up to date
 
         let merge_base = repo
-            .merge_base(default_target.sha, branch.head)
+            .merge_base(default_target.sha, branch.head())
             .context(format!(
                 "failed to find merge base between {} and {}",
-                default_target.sha, branch.head
+                default_target.sha,
+                branch.head()
             ))?;
 
         // Branch is out of date, merge or rebase it
@@ -397,7 +379,7 @@ impl BranchManager<'_> {
             }
 
             let new_head = if branch.allow_rebasing {
-                let commits_to_rebase = repo.l(branch.head, LogUntil::Commit(merge_base))?;
+                let commits_to_rebase = repo.l(branch.head(), LogUntil::Commit(merge_base))?;
 
                 let head_oid =
                     cherry_rebase_group(repo, default_target.sha, &commits_to_rebase, true)?;
@@ -414,7 +396,7 @@ impl BranchManager<'_> {
                 {
                     gitbutler_merge_commits(
                         repo,
-                        repo.find_commit(branch.head)?,
+                        repo.find_commit(branch.head())?,
                         repo.find_commit(default_target.sha)?,
                         &branch.name,
                         default_target.branch.branch(),
@@ -425,14 +407,14 @@ impl BranchManager<'_> {
             } else {
                 gitbutler_merge_commits(
                     repo,
-                    repo.find_commit(branch.head)?,
+                    repo.find_commit(branch.head())?,
                     repo.find_commit(default_target.sha)?,
                     &branch.name,
                     default_target.branch.branch(),
                 )?
             };
 
-            branch.head = new_head.id();
+            branch.set_head(new_head.id());
             branch.tree = repo.find_real_tree(&new_head, Default::default())?.id();
 
             vb_state.set_branch(branch.clone())?;
@@ -445,15 +427,18 @@ impl BranchManager<'_> {
             .context("failed to ensure selected for changes")?;
 
         {
-            if let Some(wip_commit_to_unapply) = branch.not_in_workspace_wip_change_id {
-                let potential_wip_commit = repo.find_commit(branch.head)?;
+            if let Some(wip_commit_to_unapply) = &branch.not_in_workspace_wip_change_id {
+                let potential_wip_commit = repo.find_commit(branch.head())?;
 
                 // Don't try to undo commit if its conflicted
                 if !potential_wip_commit.is_conflicted() {
                     if let Some(headers) = potential_wip_commit.gitbutler_headers() {
-                        if headers.change_id == wip_commit_to_unapply {
-                            branch =
-                                crate::undo_commit::undo_commit(self.ctx, branch.id, branch.head)?;
+                        if headers.change_id == wip_commit_to_unapply.clone() {
+                            branch = crate::undo_commit::undo_commit(
+                                self.ctx,
+                                branch.id,
+                                branch.head(),
+                            )?;
                         }
                     }
 

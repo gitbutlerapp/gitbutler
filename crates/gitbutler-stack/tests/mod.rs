@@ -22,7 +22,7 @@ fn init_success() -> Result<()> {
         branch.heads[0].target,
         CommitOrChangeId::ChangeId(
             ctx.repository()
-                .find_commit(branch.head)?
+                .find_commit(branch.head())?
                 .change_id()
                 .unwrap()
         )
@@ -101,7 +101,7 @@ fn add_series_top_base() -> Result<()> {
     test_ctx.branch.initialize(&ctx)?;
     let merge_base = ctx.repository().find_commit(
         ctx.repository()
-            .merge_base(test_ctx.branch.head, test_ctx.default_target.sha)?,
+            .merge_base(test_ctx.branch.head(), test_ctx.default_target.sha)?,
     )?;
     let reference = PatchReference {
         name: "asdf".into(),
@@ -772,11 +772,11 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let target = handle.get_default_target()?;
     let mut branch_commits = ctx
         .repository()
-        .log(branch.head, LogUntil::Commit(target.sha))?;
+        .log(branch.head(), LogUntil::Commit(target.sha))?;
     branch_commits.reverse();
     let mut other_commits = ctx
         .repository()
-        .log(other_branch.head, LogUntil::Commit(target.sha))?;
+        .log(other_branch.head(), LogUntil::Commit(target.sha))?;
     other_commits.reverse();
     Ok(TestContext {
         branch: branch.clone(),

@@ -372,7 +372,7 @@ fn prepare_snapshot(ctx: &Project, _shared_access: &WorktreeReadPermission) -> R
 
         // let's get all the commits between the branch head and the target
         let mut revwalk = repo.revwalk()?;
-        revwalk.push(branch.head)?;
+        revwalk.push(branch.head())?;
         revwalk.hide(default_target_commit.id())?;
 
         let mut commits_tree_builder = repo.treebuilder(None)?;

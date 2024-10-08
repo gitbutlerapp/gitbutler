@@ -122,7 +122,7 @@ pub fn push_stack(project: &Project, branch_id: BranchId, with_force: bool) -> R
 
     let repo = ctx.repository();
     let merge_base =
-        repo.find_commit(repo.merge_base(stack.head, state.get_default_target()?.sha)?)?;
+        repo.find_commit(repo.merge_base(stack.head(), state.get_default_target()?.sha)?)?;
     let merge_base = if let Some(change_id) = merge_base.change_id() {
         CommitOrChangeId::ChangeId(change_id)
     } else {

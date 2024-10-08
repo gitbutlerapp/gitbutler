@@ -58,13 +58,13 @@ pub(crate) fn reorder_commit(
         merge_base,
         subject_commit_oid,
         offset,
-        &repository.l(branch.head, LogUntil::Commit(merge_base))?,
+        &repository.l(branch.head(), LogUntil::Commit(merge_base))?,
         &repository.find_tree(branch.tree)?,
         ctx.project().succeeding_rebases,
     )?;
 
     branch.tree = tree;
-    branch.head = head;
+    branch.set_head(head);
 
     branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
     vb_state.set_branch(branch.clone())?;
