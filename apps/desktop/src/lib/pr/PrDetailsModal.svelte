@@ -22,6 +22,7 @@
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import BorderlessTextarea from '$lib/shared/BorderlessTextarea.svelte';
+	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
 	import { autoHeight } from '$lib/utils/autoHeight';
@@ -245,9 +246,9 @@
 			onToken: (t) => {
 				if (firstToken) {
 					firstToken = false;
-					inputBody = '';
 				}
 				inputBody += t;
+				inputBody = '';
 				updateFieldsHeight();
 			}
 		});
@@ -260,7 +261,6 @@
 
 		inputBody = descriptionResult.value;
 		aiIsLoading = false;
-		aiDescriptionDirective = undefined;
 		await tick();
 
 		updateFieldsHeight();
@@ -329,112 +329,129 @@
 	const isPreviewOnly = props.type === 'display';
 </script>
 
-<Modal bind:this={modal} width="medium-large" noPadding {onClose} onKeyDown={handleModalKeydown}>
-	<div class="pr-content">
-		<!-- MAIN FIELDS -->
-		<div class="pr-header">
-			<div class="pr-title">
-				<BorderlessTextarea
-					autofocus
-					placeholder="PR title"
-					value={actualTitle}
-					fontSize={18}
-					readonly={!isEditing || isPreviewOnly}
-					oninput={(e) => {
-						inputTitle = e.currentTarget.value;
-					}}
-				/>
-			</div>
+<Modal bind:this={modal} width="default" noPadding {onClose} onKeyDown={handleModalKeydown}>
+	<div class="pr-header">
+		{#if !isPreviewOnly}
+			<h3 class="text-14 text-semibold pr-title">
+				{!isEditing ? actualTitle : 'Create a pull request'}
+			</h3>
+			<SegmentControl
+				defaultIndex={isPreviewOnly ? 1 : 0}
+				onselect={(id) => {
+					if (id === 'write') {
+						isEditing = true;
+					} else {
+						isEditing = false;
+					}
+				}}
+			>
+				<Segment unfocusable id="write">Edit</Segment>
+				<Segment unfocusable id="preview">Preview</Segment>
+			</SegmentControl>
+		{:else}
+			<h3 class="text-14 text-semibold pr-title">{actualTitle}</h3>
+		{/if}
+	</div>
 
-			{#if !isPreviewOnly}
-				<SegmentControl
-					defaultIndex={isPreviewOnly ? 1 : 0}
-					onselect={(id) => {
-						if (id === 'write') {
-							isEditing = true;
-						} else {
-							isEditing = false;
-						}
-					}}
-				>
-					<Segment unfocusable id="write">Edit</Segment>
-					<Segment unfocusable id="preview">Preview</Segment>
-				</SegmentControl>
-			{/if}
-		</div>
+	<!-- HEADER -->
 
-		<ScrollableContainer wide maxHeight="66vh" onscroll={showBorderOnScroll}>
+	<!-- MAIN FIELDS -->
+	<ScrollableContainer wide maxHeight="66vh" onscroll={showBorderOnScroll}>
+		<div class="pr-content">
 			{#if isPreviewOnly || !isEditing}
 				<div class="pr-description-preview">
 					<Markdown content={actualBody} />
 				</div>
 			{:else}
-				<BorderlessTextarea
-					value={actualBody}
-					padding={{ top: 0, right: 16, bottom: 16, left: 20 }}
-					placeholder="Add description…"
-					oninput={(e) => {
-						inputBody = e.currentTarget.value;
-					}}
-				/>
-			{/if}
+				<div class="pr-fields">
+					<TextBox
+						placeholder="PR title"
+						value={actualTitle}
+						readonly={!isEditing || isPreviewOnly}
+						on:change={(e) => {
+							inputTitle = e.detail;
+						}}
+					/>
 
-			<!-- AI GENRATION -->
-			{#if !isPreviewOnly && canUseAI && isEditing}
-				<div class="pr-ai" class:show-ai-box={showAiBox}>
-					{#if showAiBox}
+					<!-- DESCRIPTION FIELD -->
+					<div class="pr-description-field text-input">
 						<BorderlessTextarea
-							bind:value={aiDescriptionDirective}
-							padding={{ top: 16, right: 16, bottom: 0, left: 20 }}
-							placeholder={aiService.prSummaryMainDirective}
-							onkeydown={onMetaEnter(handleAIButtonPressed)}
+							value={actualBody}
+							autofocus
+							padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
+							placeholder="Add description…"
 							oninput={(e) => {
-								aiDescriptionDirective = e.currentTarget.value;
+								inputBody = e.currentTarget.value;
 							}}
 						/>
-						<div class="pr-ai__actions">
-							<Button style="ghost" outline onclick={() => (showAiBox = false)}>Hide</Button>
-							<Button
-								style="neutral"
-								kind="solid"
-								icon="ai-small"
-								tooltip={!aiConfigurationValid
-									? 'You must be logged in or have provided your own API key'
-									: !$aiGenEnabled
-										? 'You must have summary generation enabled'
-										: undefined}
-								disabled={!canUseAI || aiIsLoading}
-								isLoading={aiIsLoading}
-								onclick={handleAIButtonPressed}
-							>
-								Generate
-							</Button>
-						</div>
-					{:else}
-						<div class="pr-ai__actions">
-							<Button
-								style="ghost"
-								outline
-								icon="ai-small"
-								tooltip={!aiConfigurationValid
-									? 'You must be logged in or have provided your own API key'
-									: !$aiGenEnabled
-										? 'You must have summary generation enabled'
-										: undefined}
-								disabled={!canUseAI || aiIsLoading}
-								isLoading={aiIsLoading}
-								onclick={() => {
-									showAiBox = true;
-								}}
-							>
-								Generate description
-							</Button>
-						</div>
-					{/if}
+
+						<!-- AI GENRATION -->
+						{#if !isPreviewOnly && canUseAI && isEditing}
+							<div class="pr-ai" class:show-ai-box={showAiBox}>
+								{#if showAiBox}
+									<BorderlessTextarea
+										autofocus
+										bind:value={aiDescriptionDirective}
+										padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
+										placeholder={aiService.prSummaryMainDirective}
+										onkeydown={onMetaEnter(handleAIButtonPressed)}
+										oninput={(e) => {
+											aiDescriptionDirective = e.currentTarget.value;
+										}}
+									/>
+									<div class="pr-ai__actions">
+										<Button
+											style="ghost"
+											outline
+											onclick={() => {
+												showAiBox = false;
+												aiDescriptionDirective = undefined;
+											}}>Hide</Button
+										>
+										<Button
+											style="neutral"
+											kind="solid"
+											icon="ai-small"
+											tooltip={!aiConfigurationValid
+												? 'You must be logged in or have provided your own API key'
+												: !$aiGenEnabled
+													? 'You must have summary generation enabled'
+													: undefined}
+											disabled={!canUseAI || aiIsLoading}
+											isLoading={aiIsLoading}
+											onclick={handleAIButtonPressed}
+										>
+											Generate
+										</Button>
+									</div>
+								{:else}
+									<div class="pr-ai__actions">
+										<Button
+											style="ghost"
+											outline
+											icon="ai-small"
+											tooltip={!aiConfigurationValid
+												? 'You must be logged in or have provided your own API key'
+												: !$aiGenEnabled
+													? 'You must have summary generation enabled'
+													: undefined}
+											disabled={!canUseAI || aiIsLoading}
+											isLoading={aiIsLoading}
+											onclick={() => {
+												showAiBox = true;
+											}}
+										>
+											Generate description
+										</Button>
+									</div>
+								{/if}
+							</div>
+						{/if}
+					</div>
 				</div>
 			{/if}
-		</ScrollableContainer>
-	</div>
+		</div>
+	</ScrollableContainer>
 
 	<!-- FOOTER -->
 
@@ -487,13 +504,33 @@
 	.pr-content {
 		display: flex;
 		flex-direction: column;
+		padding: 0 16px 16px;
 	}
 
 	.pr-header {
 		display: flex;
+		align-items: center;
 		gap: 16px;
-		padding: 16px 16px 12px 20px;
+		padding: 16px 16px 14px;
 	}
+
+	/* FIELDS */
+
+	.pr-fields {
+		display: flex;
+		flex-direction: column;
+		gap: 10px;
+	}
+
+	.pr-description-field {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		/* reset .text-input padding */
+		padding: 0;
+	}
+
+	/* PREVIEW */
 
 	.pr-title {
 		flex: 1;
@@ -503,7 +540,6 @@
 	.pr-description-preview {
 		overflow-y: auto;
 		display: flex;
-		padding: 0 16px 16px 20px;
 	}
 
 	/* AI BOX */
@@ -514,13 +550,14 @@
 	}
 
 	.show-ai-box {
+		margin-top: 12px;
 		border-top: 1px solid var(--clr-border-3);
 	}
 
 	.pr-ai__actions {
 		display: flex;
 		gap: 6px;
-		padding: 12px 20px 16px;
+		padding: 12px;
 	}
 
 	/* FOOTER */
