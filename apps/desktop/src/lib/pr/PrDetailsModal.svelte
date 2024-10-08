@@ -571,7 +571,7 @@
 
 	.pr-footer__actions {
 		display: flex;
-		gap: 8px;
+		gap: 6px;
 	}
 
 	.draft-toggle__wrap {
