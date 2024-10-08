@@ -7,11 +7,15 @@
 	import iconsJson from '$lib/data/icons.json';
 	import type { ComponentColor } from '$lib/utils/colorTypes';
 
-	export let name: keyof typeof iconsJson;
-	export let color: IconColor = undefined;
-	export let opacity: number | undefined = 1;
-	export let spinnerRadius: number | undefined = 5;
-	export let size = 16;
+	interface Props {
+		name: keyof typeof iconsJson;
+		color?: IconColor;
+		opacity?: number | undefined;
+		spinnerRadius?: number | undefined;
+		size?: number;
+	}
+
+	let { name, color = undefined, opacity = 1, spinnerRadius = 5, size = 16 }: Props = $props();
 </script>
 
 <svg
