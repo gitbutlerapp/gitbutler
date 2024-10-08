@@ -591,9 +591,14 @@ fn commit_by_branch_id_and_change_id<'a>(
 ) -> Result<git2::Commit<'a>> {
     // Find the commit with the change id
     let merge_base = ctx.repository().merge_base(stack_head, target_sha)?;
-    let commit = ctx
-        .repository()
-        .log(stack_head, LogUntil::Commit(merge_base))?
+
+    let commits = if stack_head == merge_base {
+        vec![ctx.repository().find_commit(stack_head)?]
+    } else {
+        ctx.repository()
+            .log(stack_head, LogUntil::Commit(merge_base))?
+    };
+    let commit = commits
         .iter()
         .map(|c| c.id())
         .find(|c| {
