@@ -106,7 +106,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
         let target = virtual_branches_handle.get_default_target()?;
         let repository = command_context.repository();
         let target_branch = repository
-            .find_branch_by_refname(&target.branch.clone().into())?
+            .maybe_find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("Branch not found"))?;
 
         let new_target = target_commit_oid.map_or_else(

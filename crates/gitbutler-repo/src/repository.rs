@@ -48,7 +48,7 @@ impl RepoActionsExt for CommandContext {
             Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
         let branch = self
             .repository()
-            .find_branch_by_refname(&target_branch_refname)?
+            .maybe_find_branch_by_refname(&target_branch_refname)?
             .ok_or(anyhow!("failed to find branch {}", target_branch_refname))?;
 
         let commit_id: git2::Oid = branch.get().peel_to_commit()?.id();

@@ -126,11 +126,12 @@ pub(crate) fn set_base_branch(
     }
 
     // lookup a branch by name
-    let target_branch = match repo.find_branch_by_refname(&target_branch_ref.clone().into()) {
-        Ok(branch) => branch,
-        Err(err) => return Err(err),
-    }
-    .ok_or(anyhow!("remote branch '{}' not found", target_branch_ref))?;
+    let target_branch =
+        match repo.maybe_find_branch_by_refname(&target_branch_ref.clone().into()) {
+            Ok(branch) => branch,
+            Err(err) => return Err(err),
+        }
+        .ok_or(anyhow!("remote branch '{}' not found", target_branch_ref))?;
 
     let remote = repo
         .find_remote(target_branch_ref.remote())
@@ -311,7 +312,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Result<BaseBranch> {
     let repo = ctx.repository();
     let branch = repo
-        .find_branch_by_refname(&target.branch.clone().into())?
+        .maybe_find_branch_by_refname(&target.branch.clone().into())?
         .ok_or(anyhow!("failed to get branch"))?;
     let commit = branch.get().peel_to_commit()?;
     let oid = commit.id();

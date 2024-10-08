@@ -177,7 +177,12 @@ pub fn integrate_upstream_commits(project: &Project, branch_id: BranchId) -> Res
         SnapshotDetails::new(OperationKind::MergeUpstream),
         guard.write_permission(),
     );
-    branch_upstream_integration::integrate_upstream_commits(&ctx, branch_id).map_err(Into::into)
+    branch_upstream_integration::integrate_upstream_commits(
+        &ctx,
+        branch_id,
+        guard.write_permission(),
+    )
+    .map_err(Into::into)
 }
 
 pub fn update_virtual_branch(project: &Project, branch_update: BranchUpdateRequest) -> Result<()> {

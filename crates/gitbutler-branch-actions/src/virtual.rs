@@ -296,7 +296,7 @@ pub fn list_virtual_branches_cached(
         update_conflict_markers(ctx, files.clone())?;
 
         let upstream_branch = match branch.clone().upstream {
-            Some(upstream) => repo.find_branch_by_refname(&Refname::from(upstream))?,
+            Some(upstream) => repo.maybe_find_branch_by_refname(&Refname::from(upstream))?,
             None => None,
         };
 
@@ -1002,7 +1002,7 @@ impl<'repo> IsCommitIntegrated<'repo> {
     fn new(ctx: &'repo CommandContext, target: &Target) -> anyhow::Result<Self> {
         let remote_branch = ctx
             .repository()
-            .find_branch_by_refname(&target.branch.clone().into())?
+            .maybe_find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("failed to get branch"))?;
         let remote_head = remote_branch.get().peel_to_commit()?;
         let upstream_commits = ctx
@@ -1086,7 +1086,7 @@ pub fn is_remote_branch_mergeable(
 
     let branch = ctx
         .repository()
-        .find_branch_by_refname(&branch_name.into())?
+        .maybe_find_branch_by_refname(&branch_name.into())?
         .ok_or(anyhow!("branch not found"))?;
     let branch_oid = branch.get().target().context("detatched head")?;
     let branch_commit = ctx
