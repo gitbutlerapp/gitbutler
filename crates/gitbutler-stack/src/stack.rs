@@ -147,7 +147,7 @@ impl Stack for Branch {
         if self.initialized() {
             return Ok(());
         }
-        let commit = ctx.repository().find_commit(self.head)?;
+        let commit = ctx.repository().find_commit(self.head())?;
         let mut reference = PatchReference {
             target: if let Some(change_id) = commit.change_id() {
                 CommitOrChangeId::ChangeId(change_id.to_string())
@@ -199,9 +199,9 @@ impl Stack for Branch {
             None
         };
         let state = branch_state(ctx);
-        let patches = stack_patches(ctx, &state, self.head, true)?;
+        let patches = stack_patches(ctx, &state, self.head(), true)?;
         validate_name(&new_head, ctx, &state)?;
-        validate_target(&new_head, ctx, self.head, &state)?;
+        validate_target(&new_head, ctx, self.head(), &state)?;
         let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches)?;
         self.heads = updated_heads;
         state.set_branch(self.clone())
@@ -240,7 +240,7 @@ impl Stack for Branch {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
-        if self.head != commit_id {
+        if self.head() != commit_id {
             bail!("The commit {} is not the head of the stack", commit_id);
         }
         let commit = ctx.repository().find_commit(commit_id)?;
@@ -251,12 +251,13 @@ impl Stack for Branch {
         };
 
         let state = branch_state(ctx);
+        let stack_head = self.head();
         let head = self
             .heads
             .last_mut()
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
         head.target = patch.clone();
-        validate_target(head, ctx, self.head, &state)?;
+        validate_target(head, ctx, stack_head, &state)?;
         state.set_branch(self.clone())
     }
 
@@ -274,7 +275,7 @@ impl Stack for Branch {
         }
 
         let state = branch_state(ctx);
-        let patches = stack_patches(ctx, &state, self.head, true)?;
+        let patches = stack_patches(ctx, &state, self.head(), true)?;
         let mut updated_heads = self.heads.clone();
 
         // Handle target updates
@@ -285,7 +286,7 @@ impl Stack for Branch {
                 .find(|h| h.name == branch_name)
                 .ok_or_else(|| anyhow!("Series with name {} not found", branch_name))?;
             new_head.target = target_update.target.clone();
-            validate_target(&new_head, ctx, self.head, &state)?;
+            validate_target(&new_head, ctx, self.head(), &state)?;
             let preceding_head = update
                 .target_update
                 .clone()
@@ -345,7 +346,7 @@ impl Stack for Branch {
         let (_, reference) = get_head(&self.heads, &branch_name)?;
         let default_target = branch_state(ctx).get_default_target()?;
         let commit =
-            commit_by_oid_or_change_id(&reference.target, ctx, self.head, &default_target)?;
+            commit_by_oid_or_change_id(&reference.target, ctx, self.head(), &default_target)?;
         let remote_name = branch_state(ctx)
             .get_default_target()?
             .push_remote_name
@@ -373,10 +374,10 @@ impl Stack for Branch {
         let mut all_series: Vec<Series> = vec![];
         let repo = ctx.repository();
         let default_target = state.get_default_target()?;
-        let mut previous_head = repo.merge_base(self.head, default_target.sha)?;
+        let mut previous_head = repo.merge_base(self.head(), default_target.sha)?;
         for head in self.heads.clone() {
             let head_commit =
-                commit_by_oid_or_change_id(&head.target, ctx, self.head, &default_target)?.id();
+                commit_by_oid_or_change_id(&head.target, ctx, self.head(), &default_target)?.id();
             let local_patches = repo
                 .log(head_commit, LogUntil::Commit(previous_head))?
                 .iter()

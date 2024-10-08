@@ -2151,6 +2151,7 @@ dependencies = [
  "gitbutler-patch-reference",
  "gitbutler-reference",
  "gitbutler-serde",
+ "gitbutler-time",
  "gix",
  "hex",
  "itertools 0.13.0",
@@ -2672,6 +2673,7 @@ dependencies = [
  "parking_lot 0.12.3",
  "serde_json",
  "tempfile",
+ "uuid",
 ]
 
 [[package]]

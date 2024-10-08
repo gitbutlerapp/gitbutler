@@ -119,14 +119,12 @@ pub fn reconcile_claims(
         });
     }
 
+    let mut updated_branch = claiming_branch.clone();
+    updated_branch.ownership.claims = new_claims.to_owned();
+
     // Add the claiming branch to the list of outcomes
     claim_outcomes.push(ClaimOutcome {
-        updated_branch: Branch {
-            ownership: BranchOwnershipClaims {
-                claims: new_claims.to_owned(),
-            },
-            ..claiming_branch.clone()
-        },
+        updated_branch,
         removed_claims: Vec::new(),
     });
 

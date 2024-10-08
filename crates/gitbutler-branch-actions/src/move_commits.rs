@@ -32,7 +32,7 @@ pub(crate) fn move_commit(
 
     let (ref mut source_branch, source_status) = applied_statuses
         .iter_mut()
-        .find(|(b, _)| b.head == commit_id)
+        .find(|(b, _)| b.head() == commit_id)
         .ok_or_else(|| anyhow!("commit {commit_id} to be moved could not be found"))?;
 
     let source_branch_non_comitted_files = source_status;
@@ -116,17 +116,17 @@ pub(crate) fn move_commit(
 
     let new_destination_head_oid = cherry_rebase_group(
         ctx.repository(),
-        destination_branch.head,
+        destination_branch.head(),
         &[source_commit.id()],
         true,
     )?;
 
     // reset the source branch to the parent commit
     // and update the destination branch head
-    source_branch.head = source_branch_head_parent.id();
+    source_branch.set_head(source_branch_head_parent.id());
     vb_state.set_branch(source_branch.clone())?;
 
-    destination_branch.head = new_destination_head_oid;
+    destination_branch.set_head(new_destination_head_oid);
     vb_state.set_branch(destination_branch.clone())?;
 
     checkout_branch_trees(ctx, perm)?;

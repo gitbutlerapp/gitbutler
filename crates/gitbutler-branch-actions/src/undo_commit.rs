@@ -29,12 +29,12 @@ pub(crate) fn undo_commit(
 
     let new_head_commit = inner_undo_commit(
         ctx.repository(),
-        branch.head,
+        branch.head(),
         commit_oid,
         succeeding_rebases,
     )?;
 
-    branch.head = new_head_commit;
+    branch.set_head(new_head_commit);
     branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
     vb_state.set_branch(branch.clone())?;
 

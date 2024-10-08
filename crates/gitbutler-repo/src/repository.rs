@@ -79,7 +79,7 @@ impl RepoActionsExt for CommandContext {
             .find_reference(&branch.refname()?.to_string())
         {
             Ok(reference) => match reference.target() {
-                Some(head_oid) => Ok((head_oid != branch.head, true)),
+                Some(head_oid) => Ok((head_oid != branch.head(), true)),
                 None => Ok((true, true)),
             },
             Err(err) => match err.code() {
@@ -93,7 +93,7 @@ impl RepoActionsExt for CommandContext {
             self.repository()
                 .reference(
                     &branch.refname()?.to_string(),
-                    branch.head,
+                    branch.head(),
                     with_force,
                     "new vbranch",
                 )

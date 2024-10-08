@@ -218,7 +218,7 @@ pub fn get_applied_status_cached(
     // write updated state if not resolving
     if !ctx.is_resolving() {
         for (vbranch, files) in &mut hunks_by_branch {
-            vbranch.tree = gitbutler_diff::write::hunks_onto_oid(ctx, vbranch.head, files)?;
+            vbranch.tree = gitbutler_diff::write::hunks_onto_oid(ctx, vbranch.head(), files)?;
             vb_state
                 .set_branch(vbranch.clone())
                 .context(format!("failed to write virtual branch {}", vbranch.name))?;
@@ -261,7 +261,7 @@ fn compute_locks(
     let branch_path_diffs = virtual_branches
         .iter()
         .filter_map(|branch| {
-            let commit = repository.find_commit(branch.head).ok()?;
+            let commit = repository.find_commit(branch.head()).ok()?;
             let tree = repository
                 .find_real_tree(&commit, Default::default())
                 .ok()?;
@@ -319,7 +319,7 @@ fn compute_locks(
                 .iter()
                 .map(|b| HunkLock {
                     branch_id: b.id,
-                    commit_id: b.head,
+                    commit_id: b.head(),
                 })
                 .collect::<Vec<_>>();
 

@@ -1,73 +1,65 @@
 use std::{path::PathBuf, vec};
 
-use gitbutler_branch::{reconcile_claims, Branch, BranchId, BranchOwnershipClaims, OwnershipClaim};
+use gitbutler_branch::{reconcile_claims, Branch, BranchOwnershipClaims, OwnershipClaim};
 use gitbutler_diff::Hunk;
 
 #[test]
 fn reconcile_ownership_simple() {
-    let branch_a = Branch {
-        name: "a".to_string(),
-        ownership: BranchOwnershipClaims {
-            claims: vec![OwnershipClaim {
-                file_path: PathBuf::from("foo"),
-                hunks: vec![
-                    Hunk {
-                        start: 1,
-                        end: 3,
-                        hash: Some(Hunk::hash("1,3")),
-                    },
-                    Hunk {
-                        start: 4,
-                        end: 6,
-                        hash: Some(Hunk::hash("4,6")),
-                    },
-                ],
-            }],
-        },
-        tree: git2::Oid::zero(),
-        head: git2::Oid::zero(),
-        id: BranchId::default(),
-        notes: String::default(),
-        upstream: None,
-        upstream_head: None,
-        created_timestamp_ms: u128::default(),
-        updated_timestamp_ms: u128::default(),
-        order: usize::default(),
-        selected_for_changes: None,
-        allow_rebasing: true,
-        in_workspace: true,
-        not_in_workspace_wip_change_id: None,
-        source_refname: None,
-        heads: Default::default(),
+    let mut branch_a = Branch::new(
+        "a".to_string(),
+        None,
+        None,
+        None,
+        git2::Oid::zero(),
+        git2::Oid::zero(),
+        usize::default(),
+        None,
+        true,
+    );
+    branch_a.ownership = BranchOwnershipClaims {
+        claims: vec![OwnershipClaim {
+            file_path: PathBuf::from("foo"),
+            hunks: vec![
+                Hunk {
+                    start: 1,
+                    end: 3,
+                    hash: Some(Hunk::hash("1,3")),
+                },
+                Hunk {
+                    start: 4,
+                    end: 6,
+                    hash: Some(Hunk::hash("4,6")),
+                },
+            ],
+        }],
     };
-    let branch_b = Branch {
-        name: "b".to_string(),
-        ownership: BranchOwnershipClaims {
-            claims: vec![OwnershipClaim {
-                file_path: PathBuf::from("foo"),
-                hunks: vec![Hunk {
-                    start: 7,
-                    end: 9,
-                    hash: Some(Hunk::hash("7,9")),
-                }],
+    branch_a.created_timestamp_ms = u128::default();
+    branch_a.updated_timestamp_ms = u128::default();
+
+    let mut branch_b = Branch::new(
+        "b".to_string(),
+        None,
+        None,
+        None,
+        git2::Oid::zero(),
+        git2::Oid::zero(),
+        usize::default(),
+        None,
+        true,
+    );
+    branch_b.ownership = BranchOwnershipClaims {
+        claims: vec![OwnershipClaim {
+            file_path: PathBuf::from("foo"),
+            hunks: vec![Hunk {
+                start: 7,
+                end: 9,
+                hash: Some(Hunk::hash("7,9")),
             }],
-        },
-        tree: git2::Oid::zero(),
-        head: git2::Oid::zero(),
-        id: BranchId::default(),
-        notes: String::default(),
-        upstream: None,
-        upstream_head: None,
-        created_timestamp_ms: u128::default(),
-        updated_timestamp_ms: u128::default(),
-        order: usize::default(),
-        selected_for_changes: None,
-        allow_rebasing: true,
-        in_workspace: true,
-        not_in_workspace_wip_change_id: None,
-        source_refname: None,
-        heads: Default::default(),
+        }],
     };
+    branch_b.created_timestamp_ms = u128::default();
+    branch_b.updated_timestamp_ms = u128::default();
+
     let all_branches: Vec<Branch> = vec![branch_a.clone(), branch_b.clone()];
     let claim: Vec<OwnershipClaim> = vec![OwnershipClaim {
         file_path: PathBuf::from("foo"),
