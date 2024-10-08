@@ -100,7 +100,7 @@ impl BranchManager<'_> {
             }
         }
 
-        let mut branch = Stack::new(
+        let mut branch = Stack::new_uninitialized(
             name.clone(),
             None,
             None,
@@ -235,7 +235,7 @@ impl BranchManager<'_> {
             branch
         } else {
             let upstream_head = upstream_branch.is_some().then_some(head_commit.id());
-            Stack::new(
+            Stack::new_uninitialized(
                 branch_name.clone(),
                 Some(target.clone()),
                 upstream_branch,

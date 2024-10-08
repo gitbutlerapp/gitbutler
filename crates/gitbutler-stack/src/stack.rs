@@ -86,7 +86,7 @@ where
 impl Stack {
     /// Creates a new `Branch` with the given name. The `in_workspace` flag is set to `true`.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn new_uninitialized(
         name: String,
         source_refname: Option<Refname>,
         upstream: Option<RemoteRefname>,
