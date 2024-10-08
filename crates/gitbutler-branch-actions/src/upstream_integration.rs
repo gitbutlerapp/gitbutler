@@ -7,6 +7,7 @@ use gitbutler_repo::{
     LogUntil, RepoActionsExt as _, RepositoryExt as _,
 };
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
+use gitbutler_stack_api::StackExt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -320,10 +321,7 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            branch.set_head(*head);
-            branch.tree = *tree;
-
-            virtual_branches_state.set_branch(branch.clone())?;
+            branch.set_stack_head(command_context, *head, Some(*tree))?;
         }
 
         // checkout_branch_trees won't checkout anything if there are no

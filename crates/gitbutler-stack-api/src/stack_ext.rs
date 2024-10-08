@@ -108,8 +108,17 @@ pub trait StackExt {
     ) -> Result<()>;
 
     /// Updates the most recent series of the stack to point to a new patch (commit or change ID).
-    /// This is a helper function that is equivalent to `update_series` with the target update set.
-    fn set_stack_head(&mut self, ctx: &CommandContext, commit_id: git2::Oid) -> Result<()>;
+    /// This will set the
+    /// - `head` of the stack to the new commit
+    /// - the target of the most recent series to the new commit
+    /// - the timestamp of the stack to the current time
+    /// - the tree of the stack to the new tree (if provided)
+    fn set_stack_head(
+        &mut self,
+        ctx: &CommandContext,
+        commit_id: git2::Oid,
+        tree: Option<git2::Oid>,
+    ) -> Result<()>;
 
     /// Pushes the reference (branch) to the Stack remote as derived from the default target.
     /// This operation will error out if the target has no push remote configured.
@@ -287,12 +296,20 @@ impl StackExt for Stack {
         state.set_branch(self.clone())
     }
 
-    fn set_stack_head(&mut self, ctx: &CommandContext, commit_id: git2::Oid) -> Result<()> {
+    fn set_stack_head(
+        &mut self,
+        ctx: &CommandContext,
+        commit_id: git2::Oid,
+        tree: Option<git2::Oid>,
+    ) -> Result<()> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
-        if self.head() != commit_id {
-            bail!("The commit {} is not the head of the stack", commit_id);
+        self.updated_timestamp_ms = gitbutler_time::time::now_ms();
+        #[allow(deprecated)] // this is the only place where this is allowed
+        self.set_head(commit_id);
+        if let Some(tree) = tree {
+            self.tree = tree;
         }
         let commit = ctx.repository().find_commit(commit_id)?;
         let patch = if let Some(change_id) = commit.change_id() {
