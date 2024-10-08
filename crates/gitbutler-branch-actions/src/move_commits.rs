@@ -83,7 +83,7 @@ pub(crate) fn move_commit(
     let ancestor_commits = ancestor_commits;
 
     let is_ancestor_locked =
-        check_source_lock_to_ancestors(ctx.repository(), ancestor_commits, &branch_head_diff);
+        check_source_lock_to_commits(ctx.repository(), &ancestor_commits, &branch_head_diff);
 
     if is_source_locked {
         bail!("the source branch contains hunks locked to the target commit")
@@ -160,29 +160,29 @@ fn check_source_lock(
     is_source_locked
 }
 
-/// determines if the source commit is locked to any of its ancestors
-fn check_source_lock_to_ancestors(
+/// determines if the source commit is locked to any commits
+fn check_source_lock_to_commits(
     repository: &git2::Repository,
-    ancestor_commits: Vec<git2::Commit>,
+    commits: &Vec<git2::Commit>,
     source_commit_diff: &HashMap<std::path::PathBuf, Vec<gitbutler_diff::GitHunk>>,
 ) -> bool {
-    let mut previous: Option<git2::Commit> = None;
+    let mut previous: Option<&git2::Commit> = None;
 
-    for ancestor_commit in ancestor_commits {
+    for commit in commits {
         if previous.is_none() {
-            previous = Some(ancestor_commit);
+            previous = Some(commit);
             continue;
         }
 
         let previous_commit = previous.take().unwrap();
 
-        let old_tree = ancestor_commit.tree().unwrap();
+        let old_tree = commit.tree().unwrap();
         let new_tree = previous_commit.tree().unwrap();
 
         let diff = gitbutler_diff::trees(repository, &old_tree, &new_tree);
 
         if diff.is_err() {
-            previous = Some(ancestor_commit);
+            previous = Some(commit);
             continue;
         }
 
@@ -210,7 +210,7 @@ fn check_source_lock_to_ancestors(
             return true;
         }
 
-        previous = Some(ancestor_commit);
+        previous = Some(commit);
     }
 
     false
