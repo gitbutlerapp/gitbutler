@@ -1,30 +1,25 @@
-use gitbutler_branch::{Branch, BranchOwnershipClaims};
-use uuid::Uuid;
+use gitbutler_branch::Branch;
 
 /// Makes a Branch struct with a bunch of default values.
 ///
 /// This assumes that the only relevant properties for your test are the head
 /// and tree Oids.
 fn make_branch(head: git2::Oid, tree: git2::Oid) -> Branch {
-    Branch {
-        id: Uuid::new_v4().into(),
-        name: "branchy branch".into(),
-        notes: "bla bla bla".into(),
-        source_refname: None,
-        upstream: None,
-        upstream_head: None,
-        created_timestamp_ms: 69420,
-        updated_timestamp_ms: 69420,
+    let mut branch = Branch::new(
+        "branchy branch".into(),
+        None,
+        None,
+        None,
         tree,
         head,
-        ownership: BranchOwnershipClaims::default(),
-        order: 0,
-        selected_for_changes: None,
-        allow_rebasing: true,
-        in_workspace: true,
-        not_in_workspace_wip_change_id: None,
-        heads: Default::default(),
-    }
+        0,
+        None,
+        true,
+    );
+    branch.created_timestamp_ms = 69420;
+    branch.updated_timestamp_ms = 69420;
+    branch.notes = "bla bla bla".into();
+    branch
 }
 
 #[cfg(test)]
@@ -52,7 +47,7 @@ mod compute_updated_branch_head {
             compute_updated_branch_head(&test_repository.repository, &branch, head.id(), true)
                 .unwrap();
 
-        assert_eq!(head, branch.head);
+        assert_eq!(head, branch.head());
         assert_eq!(tree, branch.tree);
     }
 

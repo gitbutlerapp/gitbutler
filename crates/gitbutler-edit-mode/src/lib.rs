@@ -216,7 +216,7 @@ pub(crate) fn save_and_return_to_workspace(
         .context("Failed to commit new commit")?;
 
     // Rebase all all commits on top of the new commit and update reference
-    let new_branch_head = cherry_rebase(ctx, new_commit_oid, commit.id(), virtual_branch.head)
+    let new_branch_head = cherry_rebase(ctx, new_commit_oid, commit.id(), virtual_branch.head())
         .context("Failed to rebase commits onto new commit")?
         .unwrap_or(new_commit_oid);
 
@@ -232,7 +232,7 @@ pub(crate) fn save_and_return_to_workspace(
         fearless_rebasing,
     )?;
 
-    virtual_branch.head = new_branch_head;
+    virtual_branch.set_head(new_branch_head);
     virtual_branch.tree = new_branch_tree;
     virtual_branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
     vb_state

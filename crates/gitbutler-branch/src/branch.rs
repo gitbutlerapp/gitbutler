@@ -44,7 +44,7 @@ pub struct Branch {
     pub tree: git2::Oid,
     /// head is id of the last "virtual" commit in this branch
     #[serde(with = "gitbutler_serde::oid")]
-    pub head: git2::Oid,
+    head: git2::Oid,
     pub ownership: BranchOwnershipClaims,
     // order is the number by which UI should sort branches
     pub order: usize,
@@ -86,12 +86,51 @@ where
 }
 
 impl Branch {
+    /// Creates a new `Branch` with the given name. The `in_workspace` flag is set to `true`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        name: String,
+        source_refname: Option<Refname>,
+        upstream: Option<RemoteRefname>,
+        upstream_head: Option<git2::Oid>,
+        tree: git2::Oid,
+        head: git2::Oid,
+        order: usize,
+        selected_for_changes: Option<i64>,
+        allow_rebasing: bool,
+    ) -> Self {
+        let now = gitbutler_time::time::now_ms();
+        Self {
+            id: BranchId::generate(),
+            name,
+            notes: String::new(),
+            source_refname,
+            upstream,
+            upstream_head,
+            created_timestamp_ms: now,
+            updated_timestamp_ms: now,
+            tree,
+            head,
+            ownership: BranchOwnershipClaims::default(),
+            order,
+            selected_for_changes,
+            allow_rebasing,
+            in_workspace: true,
+            not_in_workspace_wip_change_id: None,
+            heads: Default::default(),
+        }
+    }
+
     pub fn refname(&self) -> anyhow::Result<VirtualRefname> {
         self.try_into()
     }
 
     pub fn head(&self) -> git2::Oid {
         self.head
+    }
+
+    pub fn set_head(&mut self, head: git2::Oid) {
+        self.head = head;
     }
 }
 

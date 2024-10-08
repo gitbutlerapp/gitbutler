@@ -845,7 +845,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
         .expect("failed to create virtual branch");
 
     branch.upstream = Some(remote_branch.clone());
-    branch.head = last_push;
+    branch.set_head(last_push);
     vb_state.set_branch(branch.clone())?;
 
     // create the branch
@@ -970,7 +970,7 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
         .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
-    branch.head = last_push;
+    branch.set_head(last_push);
     vb_state.set_branch(branch.clone())?;
 
     internal::update_branch(

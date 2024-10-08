@@ -150,14 +150,14 @@ pub fn upstream_integration_statuses(
         .iter()
         .map(|virtual_branch| {
             let tree = repository.find_tree(virtual_branch.tree)?;
-            let head = repository.find_commit(virtual_branch.head)?;
+            let head = repository.find_commit(virtual_branch.head())?;
             let head_tree = repository.find_real_tree(&head, Default::default())?;
 
             // Try cherry pick the branch's head commit onto the target to
             // see if it conflics. This is equivalent to doing a merge
             // but accounts for the commit being conflicted.
 
-            let has_commits = virtual_branch.head != old_target.id();
+            let has_commits = virtual_branch.head() != old_target.id();
             let has_uncommited_changes = head_tree.id() != tree.id();
 
             // Is the branch completly empty?
@@ -320,7 +320,7 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            branch.head = *head;
+            branch.set_head(*head);
             branch.tree = *tree;
 
             virtual_branches_state.set_branch(branch.clone())?;
@@ -422,7 +422,7 @@ fn compute_resolutions(
                     // Make a merge commit on top of the branch commits,
                     // then rebase the tree ontop of that. If the tree ends
                     // up conflicted, commit the tree.
-                    let target_commit = repository.find_commit(virtual_branch.head)?;
+                    let target_commit = repository.find_commit(virtual_branch.head())?;
 
                     let new_head = gitbutler_merge_commits(
                         repository,
@@ -465,7 +465,7 @@ fn compute_resolutions(
 
                     // Rebase virtual branches' commits
                     let virtual_branch_commits =
-                        repository.l(virtual_branch.head, LogUntil::Commit(lower_bound))?;
+                        repository.l(virtual_branch.head(), LogUntil::Commit(lower_bound))?;
 
                     let new_head = cherry_rebase_group(
                         repository,
@@ -497,33 +497,27 @@ fn compute_resolutions(
 
 #[cfg(test)]
 mod test {
-    use gitbutler_branch::BranchOwnershipClaims;
     use gitbutler_commit::commit_ext::CommitExt as _;
     use gitbutler_testsupport::testing_repository::TestingRepository;
-    use uuid::Uuid;
 
     use super::*;
 
     fn make_branch(head: git2::Oid, tree: git2::Oid) -> Branch {
-        Branch {
-            id: Uuid::new_v4().into(),
-            name: "branchy branch".into(),
-            notes: "bla bla bla".into(),
-            source_refname: None,
-            upstream: None,
-            upstream_head: None,
-            created_timestamp_ms: 69420,
-            updated_timestamp_ms: 69420,
+        let mut branch = Branch::new(
+            "branchy branch".into(),
+            None,
+            None,
+            None,
             tree,
             head,
-            ownership: BranchOwnershipClaims::default(),
-            order: 0,
-            selected_for_changes: None,
-            allow_rebasing: true,
-            in_workspace: true,
-            not_in_workspace_wip_change_id: None,
-            heads: Default::default(),
-        }
+            0,
+            None,
+            true,
+        );
+        branch.created_timestamp_ms = 69420;
+        branch.updated_timestamp_ms = 69420;
+        branch.notes = "bla bla bla".into();
+        branch
     }
 
     #[test]
