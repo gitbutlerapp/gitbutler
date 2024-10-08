@@ -2,7 +2,7 @@ use std::borrow::Cow;
 
 use crate::{branch_trees::checkout_branch_trees, r#virtual as vbranch};
 use anyhow::{anyhow, bail, Context, Result};
-use gitbutler_branch::{self, dedup, Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims};
+use gitbutler_branch::{self, dedup};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_error::error::Marker;
@@ -13,6 +13,7 @@ use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
     LogUntil, RepoActionsExt, RepositoryExt,
 };
+use gitbutler_stack::{Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use tracing::instrument;
 

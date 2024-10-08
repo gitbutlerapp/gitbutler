@@ -1,5 +1,4 @@
 use anyhow::{anyhow, bail, Result};
-use gitbutler_branch::{Branch, BranchId, Target, VirtualBranchesHandle};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
@@ -7,6 +6,7 @@ use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
     LogUntil, RepoActionsExt as _, RepositoryExt as _,
 };
+use gitbutler_stack::{Branch, BranchId, Target, VirtualBranchesHandle};
 use serde::{Deserialize, Serialize};
 
 use crate::{

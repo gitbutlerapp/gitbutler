@@ -1,6 +1,6 @@
-use crate::BranchIdentity;
 use anyhow::{Context, Result};
 use bstr::{BStr, ByteSlice};
+use gitbutler_stack::BranchIdentity;
 use gix::refs::Category;
 use itertools::Itertools;
 use std::borrow::Cow;

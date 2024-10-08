@@ -1,26 +1,15 @@
-mod branch;
-
-pub use branch::{Branch, BranchCreateRequest, BranchId, BranchIdentity, BranchUpdateRequest};
 mod branch_ext;
 pub use branch_ext::BranchExt;
 mod reference_ext;
 pub use reference_ext::{ReferenceExt, ReferenceExtGix};
 mod dedup;
 pub use dedup::{dedup, dedup_fmt};
-mod file_ownership;
-pub use file_ownership::OwnershipClaim;
-mod ownership;
-pub use ownership::{reconcile_claims, BranchOwnershipClaims, ClaimOutcome};
-pub mod serde;
-mod target;
-pub use target::Target;
 mod reference;
+pub mod serde;
 pub use reference::ChangeReference;
 
-mod state;
 use gitbutler_oxidize::gix_to_git2_signature;
 use lazy_static::lazy_static;
-pub use state::{VirtualBranches as VirtualBranchesState, VirtualBranchesHandle};
 lazy_static! {
     pub static ref GITBUTLER_WORKSPACE_REFERENCE: gitbutler_reference::LocalRefname =
         gitbutler_reference::LocalRefname::new("gitbutler/workspace", None);

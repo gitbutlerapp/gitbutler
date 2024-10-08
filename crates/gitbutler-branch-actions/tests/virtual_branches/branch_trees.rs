@@ -1,4 +1,4 @@
-use gitbutler_branch::Branch;
+use gitbutler_stack::Branch;
 
 /// Makes a Branch struct with a bunch of default values.
 ///

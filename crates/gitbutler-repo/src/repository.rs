@@ -1,12 +1,12 @@
 use std::str::FromStr;
 
 use anyhow::{anyhow, Context, Result};
-use gitbutler_branch::{Branch, BranchId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_error::error::Code;
 use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_stack::{Branch, BranchId};
 
 use crate::{askpass, credentials, RepositoryExt};
 pub trait RepoActionsExt {

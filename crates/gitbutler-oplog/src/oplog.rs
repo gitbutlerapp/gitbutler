@@ -8,7 +8,7 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use git2::{DiffOptions, FileMode};
-use gitbutler_branch::{Branch, SignaturePurpose, VirtualBranchesHandle, VirtualBranchesState};
+use gitbutler_branch::SignaturePurpose;
 use gitbutler_command_context::RepositoryExtLite;
 use gitbutler_diff::{hunks_by_filepath, FileDiff};
 use gitbutler_project::{
@@ -16,6 +16,7 @@ use gitbutler_project::{
     Project,
 };
 use gitbutler_repo::RepositoryExt;
+use gitbutler_stack::{Branch, VirtualBranchesHandle, VirtualBranchesState};
 use tracing::instrument;
 
 use super::{

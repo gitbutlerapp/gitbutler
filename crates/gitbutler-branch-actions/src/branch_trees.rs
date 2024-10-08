@@ -1,11 +1,11 @@
 use anyhow::{bail, Result};
-use gitbutler_branch::Branch;
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::rebase::cherry_rebase_group;
 use gitbutler_repo::RepositoryExt as _;
+use gitbutler_stack::Branch;
 
 use crate::VirtualBranchesExt as _;
 
@@ -156,9 +156,9 @@ pub fn compute_updated_branch_head_for_commits(
 mod test {
     use std::fs;
 
-    use gitbutler_branch::BranchCreateRequest;
     use gitbutler_command_context::CommandContext;
     use gitbutler_repo::RepositoryExt as _;
+    use gitbutler_stack::BranchCreateRequest;
     use gitbutler_testsupport::{paths, testing_repository::assert_tree_matches, TestProject};
 
     #[test]

@@ -1,0 +1,27 @@
+[package]
+name = "gitbutler-stack"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+git2.workspace = true
+gix = { workspace = true, features = [] }
+itertools = "0.13"
+anyhow = "1.0.86"
+serde = { workspace = true, features = ["std"] }
+bstr.workspace = true
+toml.workspace = true
+gitbutler-patch-reference.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-id.workspace = true
+gitbutler-serde.workspace = true
+gitbutler-time.workspace = true
+gitbutler-diff.workspace = true
+gitbutler-error.workspace = true
+gitbutler-fs.workspace = true
+
+[[test]]
+name = "branch"
+path = "tests/mod.rs"

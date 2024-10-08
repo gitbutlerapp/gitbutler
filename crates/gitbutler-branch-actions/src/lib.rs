@@ -50,7 +50,7 @@ mod undo_commit;
 
 mod author;
 mod status;
-use gitbutler_branch::VirtualBranchesHandle;
+use gitbutler_stack::VirtualBranchesHandle;
 pub use status::get_applied_status;
 trait VirtualBranchesExt {
     fn virtual_branches(&self) -> VirtualBranchesHandle;

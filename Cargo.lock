@@ -2151,6 +2151,7 @@ dependencies = [
  "gitbutler-patch-reference",
  "gitbutler-reference",
  "gitbutler-serde",
+ "gitbutler-stack",
  "gitbutler-time",
  "gix",
  "hex",
@@ -2189,6 +2190,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-serde",
+ "gitbutler-stack",
  "gitbutler-stack-api",
  "gitbutler-testsupport",
  "gitbutler-time",
@@ -2237,6 +2239,7 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
+ "gitbutler-stack",
  "gix",
  "tracing",
  "tracing-forest",
@@ -2310,6 +2313,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
+ "gitbutler-stack",
  "gitbutler-time",
  "serde",
 ]
@@ -2419,6 +2423,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-serde",
+ "gitbutler-stack",
  "gix",
  "itertools 0.13.0",
  "pretty_assertions",
@@ -2500,6 +2505,7 @@ dependencies = [
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
+ "gitbutler-stack",
  "gitbutler-testsupport",
  "gitbutler-time",
  "gitbutler-url",
@@ -2540,6 +2546,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-stack"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "git2",
+ "gitbutler-diff",
+ "gitbutler-error",
+ "gitbutler-fs",
+ "gitbutler-id",
+ "gitbutler-patch-reference",
+ "gitbutler-reference",
+ "gitbutler-serde",
+ "gitbutler-time",
+ "gix",
+ "itertools 0.13.0",
+ "serde",
+ "toml 0.8.19",
+]
+
+[[package]]
 name = "gitbutler-stack-api"
 version = "0.0.0"
 dependencies = [
@@ -2552,6 +2579,7 @@ dependencies = [
  "gitbutler-patch-reference",
  "gitbutler-reference",
  "gitbutler-repo",
+ "gitbutler-stack",
  "gitbutler-testsupport",
  "gix",
  "itertools 0.13.0",
@@ -2580,6 +2608,7 @@ dependencies = [
  "gitbutler-oplog",
  "gitbutler-project",
  "gitbutler-reference",
+ "gitbutler-stack",
  "gitbutler-url",
  "gitbutler-user",
  "itertools 0.13.0",
@@ -2620,6 +2649,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-secret",
+ "gitbutler-stack",
  "gitbutler-storage",
  "gitbutler-testsupport",
  "gitbutler-user",
@@ -2663,6 +2693,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
+ "gitbutler-stack",
  "gitbutler-storage",
  "gitbutler-url",
  "gitbutler-user",

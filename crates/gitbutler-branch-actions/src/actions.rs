@@ -15,7 +15,6 @@ use crate::{
     VirtualBranchesExt,
 };
 use anyhow::{Context, Result};
-use gitbutler_branch::{BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_operating_modes::assure_open_workspace_mode;
@@ -26,6 +25,7 @@ use gitbutler_oplog::{
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::{RepoActionsExt, RepositoryExt};
+use gitbutler_stack::{BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest};
 use std::path::PathBuf;
 use tracing::instrument;
 

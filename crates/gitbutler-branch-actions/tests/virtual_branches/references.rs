@@ -1,7 +1,7 @@
 use super::*;
 
 mod create_virtual_branch {
-    use gitbutler_branch::BranchCreateRequest;
+    use gitbutler_stack::BranchCreateRequest;
 
     use super::*;
 
@@ -90,7 +90,7 @@ mod create_virtual_branch {
 }
 
 mod update_virtual_branch {
-    use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+    use gitbutler_stack::{BranchCreateRequest, BranchUpdateRequest};
 
     use super::*;
 
@@ -202,7 +202,7 @@ mod update_virtual_branch {
 }
 
 mod push_virtual_branch {
-    use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+    use gitbutler_stack::{BranchCreateRequest, BranchUpdateRequest};
 
     use super::*;
 

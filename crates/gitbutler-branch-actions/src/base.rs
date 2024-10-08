@@ -2,15 +2,13 @@ use std::{path::Path, time};
 
 use anyhow::{anyhow, Context, Result};
 use git2::Index;
-use gitbutler_branch::{
-    self, Branch, BranchOwnershipClaims, Target, VirtualBranchesHandle,
-    GITBUTLER_WORKSPACE_REFERENCE,
-};
+use gitbutler_branch::{self, GITBUTLER_WORKSPACE_REFERENCE};
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
 use gitbutler_project::{access::WorktreeWritePermission, FetchResult};
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::{rebase::cherry_rebase, LogUntil, RepoActionsExt, RepositoryExt};
+use gitbutler_stack::{Branch, BranchOwnershipClaims, Target, VirtualBranchesHandle};
 use serde::Serialize;
 
 use crate::{

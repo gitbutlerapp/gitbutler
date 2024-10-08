@@ -1,6 +1,6 @@
 use std::fs;
 
-use gitbutler_branch::BranchCreateRequest;
+use gitbutler_stack::BranchCreateRequest;
 
 use super::Test;
 

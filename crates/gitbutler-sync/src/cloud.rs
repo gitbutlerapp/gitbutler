@@ -4,7 +4,6 @@ use std::{
 };
 
 use anyhow::{anyhow, Context, Result};
-use gitbutler_branch::{Target, VirtualBranchesHandle};
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Code;
 use gitbutler_id::id::Id;
@@ -12,6 +11,7 @@ use gitbutler_oplog::OplogExt;
 use gitbutler_project as projects;
 use gitbutler_project::{CodePushState, Project};
 use gitbutler_reference::Refname;
+use gitbutler_stack::{Target, VirtualBranchesHandle};
 use gitbutler_url::Url;
 use gitbutler_user as users;
 use itertools::Itertools;

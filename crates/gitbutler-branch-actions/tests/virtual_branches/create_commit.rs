@@ -1,6 +1,6 @@
-use gitbutler_branch::{Branch, BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::VirtualBranch;
 use gitbutler_id::id::Id;
+use gitbutler_stack::{Branch, BranchCreateRequest, BranchUpdateRequest};
 
 use super::*;
 

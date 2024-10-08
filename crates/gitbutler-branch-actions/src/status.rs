@@ -9,14 +9,14 @@ use crate::{
 };
 use anyhow::{bail, Context, Result};
 use git2::Tree;
-use gitbutler_branch::{
-    Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, OwnershipClaim,
-};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_stack::{
+    Branch, BranchCreateRequest, BranchId, BranchOwnershipClaims, OwnershipClaim,
+};
 use gitbutler_stack_api::Stack;
 use tracing::instrument;
 

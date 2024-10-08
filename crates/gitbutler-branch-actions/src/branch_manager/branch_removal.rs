@@ -2,12 +2,13 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use git2::Commit;
-use gitbutler_branch::{Branch, BranchExt, BranchId, SignaturePurpose};
+use gitbutler_branch::{BranchExt, SignaturePurpose};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, ReferenceName, Refname};
 use gitbutler_repo::{RepoActionsExt, RepositoryExt};
+use gitbutler_stack::{Branch, BranchId};
 use tracing::instrument;
 
 use super::BranchManager;

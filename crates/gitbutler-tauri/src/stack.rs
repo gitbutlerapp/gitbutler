@@ -1,7 +1,7 @@
-use gitbutler_branch::BranchId;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
+use gitbutler_stack::BranchId;
 use tauri::State;
 use tracing::instrument;
 

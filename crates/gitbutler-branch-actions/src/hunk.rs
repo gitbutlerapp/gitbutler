@@ -5,9 +5,9 @@ use std::{
     time::SystemTime,
 };
 
-use gitbutler_branch::BranchId;
 use gitbutler_diff::{GitHunk, Hunk, HunkHash};
 use gitbutler_serde::BStringForFrontend;
+use gitbutler_stack::BranchId;
 use itertools::Itertools;
 use md5::Digest;
 use serde::Serialize;

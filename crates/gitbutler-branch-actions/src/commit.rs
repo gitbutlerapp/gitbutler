@@ -3,10 +3,10 @@ use crate::{
     file::{list_virtual_commit_files, VirtualBranchFile},
 };
 use anyhow::{Context, Result};
-use gitbutler_branch::{Branch, BranchId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_serde::BStringForFrontend;
+use gitbutler_stack::{Branch, BranchId};
 use serde::Serialize;
 
 // this is the struct that maps to the view `Commit` type in Typescript

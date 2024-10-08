@@ -1,5 +1,5 @@
-use gitbutler_branch::BranchCreateRequest;
 use gitbutler_reference::Refname;
+use gitbutler_stack::BranchCreateRequest;
 
 use super::*;
 

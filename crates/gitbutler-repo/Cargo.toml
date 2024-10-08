@@ -36,6 +36,7 @@ gitbutler-commit.workspace = true
 gitbutler-url.workspace = true
 gitbutler-cherry-pick.workspace = true
 gitbutler-oxidize.workspace = true
+gitbutler-stack.workspace = true
 uuid.workspace = true
 itertools = "0.13"
 

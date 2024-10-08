@@ -1,9 +1,9 @@
 use std::vec;
 
 use anyhow::Result;
-use gitbutler_branch::{Branch, BranchUpdateRequest};
 use gitbutler_project::{access::WorktreeWritePermission, Project};
 use gitbutler_reference::ReferenceName;
+use gitbutler_stack::{Branch, BranchUpdateRequest};
 
 use super::entry::Trailer;
 use crate::{

@@ -11,10 +11,7 @@ use crate::{
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
 use git2_hooks::HookResult;
-use gitbutler_branch::{
-    dedup, dedup_fmt, reconcile_claims, Branch, BranchId, BranchOwnershipClaims,
-    BranchUpdateRequest, Target, VirtualBranchesHandle,
-};
+use gitbutler_branch::{dedup, dedup_fmt};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
@@ -27,6 +24,10 @@ use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
     rebase::{cherry_rebase, cherry_rebase_group},
     LogUntil, RepoActionsExt, RepositoryExt,
+};
+use gitbutler_stack::{
+    reconcile_claims, Branch, BranchId, BranchOwnershipClaims, BranchUpdateRequest, Target,
+    VirtualBranchesHandle,
 };
 use gitbutler_stack_api::{commit_by_oid_or_change_id, Stack};
 use gitbutler_time::time::now_since_unix_epoch_ms;

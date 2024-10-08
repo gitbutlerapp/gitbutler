@@ -1,8 +1,8 @@
 use anyhow::{bail, Context as _, Result};
-use gitbutler_branch::BranchId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt as _};
+use gitbutler_stack::BranchId;
 
 use crate::{
     branch_trees::{

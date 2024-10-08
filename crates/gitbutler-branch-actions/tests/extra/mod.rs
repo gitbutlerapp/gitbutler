@@ -13,15 +13,15 @@ use std::{
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
 use git2::TreeEntry;
-use gitbutler_branch::{
-    BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest, Target, VirtualBranchesHandle,
-};
 use gitbutler_branch_actions::{
     get_applied_status, internal, update_workspace_commit, verify_branch, BranchManagerExt, Get,
 };
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
+use gitbutler_stack::{
+    BranchCreateRequest, BranchOwnershipClaims, BranchUpdateRequest, Target, VirtualBranchesHandle,
+};
 use gitbutler_testsupport::{commit_all, virtual_branches::set_test_target, Case, Suite};
 use pretty_assertions::assert_eq;
 

@@ -1,6 +1,6 @@
 use std::fs;
 
-use gitbutler_branch::{BranchCreateRequest, BranchOwnershipClaims};
+use gitbutler_stack::{BranchCreateRequest, BranchOwnershipClaims};
 
 use super::Test;
 

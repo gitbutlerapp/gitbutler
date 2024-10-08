@@ -1,13 +1,13 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use gitbutler_branch::BranchId;
 use gitbutler_branch_actions::conflicts;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::{RepoActionsExt, RepositoryExt};
+use gitbutler_stack::BranchId;
 
 #[derive(Clone)]
 pub struct App {

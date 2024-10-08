@@ -28,7 +28,7 @@ pub enum Subcommands {
 }
 
 pub mod vbranch {
-    use gitbutler_branch::BranchIdentity;
+    use gitbutler_stack::BranchIdentity;
 
     #[derive(Debug, clap::Parser)]
     pub struct Platform {

@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
-use gitbutler_branch::BranchId;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_project::Project;
+use gitbutler_stack::BranchId;
 use gitbutler_stack_api::{PatchReferenceUpdate, Stack};
 use serde::{Deserialize, Serialize};
 

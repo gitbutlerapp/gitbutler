@@ -1,7 +1,7 @@
 use gitbutler_reference::ReferenceName;
 use serde::{Deserialize, Serialize};
 
-use crate::BranchId;
+use gitbutler_stack::BranchId;
 
 /// GitButler reference associated with a change (commit) on a virtual branch.
 /// These are not the same as regular Git references, but rather app-managed refs.

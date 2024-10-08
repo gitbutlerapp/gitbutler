@@ -1,5 +1,5 @@
-use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_stack::{BranchCreateRequest, BranchUpdateRequest};
 
 use super::*;
 

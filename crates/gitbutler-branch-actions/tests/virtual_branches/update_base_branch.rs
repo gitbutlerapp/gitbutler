@@ -1,7 +1,7 @@
 use super::*;
 
 mod applied_branch {
-    use gitbutler_branch::BranchCreateRequest;
+    use gitbutler_stack::BranchCreateRequest;
 
     use super::*;
 
@@ -392,7 +392,7 @@ mod applied_branch {
     }
 
     mod no_conflicts_pushed {
-        use gitbutler_branch::BranchUpdateRequest;
+        use gitbutler_stack::BranchUpdateRequest;
 
         use super::*;
 

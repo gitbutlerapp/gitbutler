@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::Path, sync::Arc};
 
-use gitbutler_branch::BranchId;
 use gitbutler_id::id::Id;
+use gitbutler_stack::BranchId;
 use serde::Serialize;
 use tokio::sync::{oneshot, Mutex};
 
