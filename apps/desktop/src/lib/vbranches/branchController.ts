@@ -552,12 +552,13 @@ You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
 		}
 	}
 
-	async moveCommit(targetBranchId: string, commitOid: string) {
+	async moveCommit(targetBranchId: string, commitOid: string, sourceBranchId: string) {
 		try {
 			await invoke<void>('move_commit', {
 				projectId: this.projectId,
 				targetBranchId,
-				commitOid
+				commitOid,
+				sourceBranchId
 			});
 		} catch (err: any) {
 			// TODO: Probably we wanna have error code checking in a more generic way
