@@ -37,7 +37,6 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
-	import { autoHeight } from '@gitbutler/ui/utils/autoHeight';
 	import { tick } from 'svelte';
 	import type { DetailedPullRequest, PullRequest } from '$lib/gitHost/interface/types';
 
@@ -89,8 +88,6 @@
 	let isDraft = $state<boolean>($preferredPRAction === PRAction.CreateDraft);
 
 	let modal = $state<ReturnType<typeof Modal>>();
-	// let inputTitleElem = $state<HTMLInputElement | null>(null);
-	let bodyTextArea = $state<HTMLTextAreaElement | null>(null);
 	let isEditing = $state<boolean>(true);
 	let isLoading = $state<boolean>(false);
 	let pullRequestTemplateBody = $state<string | undefined>(undefined);
@@ -146,10 +143,6 @@
 			});
 		}
 	});
-
-	function updateFieldsHeight() {
-		if (bodyTextArea) autoHeight(bodyTextArea);
-	}
 
 	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
 		if (!$gitHost) {
@@ -249,7 +242,6 @@
 				}
 				inputBody += t;
 				inputBody = '';
-				updateFieldsHeight();
 			}
 		});
 
@@ -262,8 +254,6 @@
 		inputBody = descriptionResult.value;
 		aiIsLoading = false;
 		await tick();
-
-		updateFieldsHeight();
 	}
 
 	function handleModalKeydown(e: KeyboardEvent) {
