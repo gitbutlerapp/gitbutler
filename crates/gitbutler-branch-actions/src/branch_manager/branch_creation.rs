@@ -309,10 +309,11 @@ impl BranchManager<'_> {
         // if not, we need to merge or rebase the branch to get it up to date
 
         let merge_base = repo
-            .merge_base(default_target.sha, branch.head)
+            .merge_base(default_target.sha, branch.head())
             .context(format!(
                 "failed to find merge base between {} and {}",
-                default_target.sha, branch.head
+                default_target.sha,
+                branch.head()
             ))?;
 
         // Branch is out of date, merge or rebase it
@@ -397,7 +398,7 @@ impl BranchManager<'_> {
             }
 
             let new_head = if branch.allow_rebasing {
-                let commits_to_rebase = repo.l(branch.head, LogUntil::Commit(merge_base))?;
+                let commits_to_rebase = repo.l(branch.head(), LogUntil::Commit(merge_base))?;
 
                 let head_oid =
                     cherry_rebase_group(repo, default_target.sha, &commits_to_rebase, true)?;
@@ -414,7 +415,7 @@ impl BranchManager<'_> {
                 {
                     gitbutler_merge_commits(
                         repo,
-                        repo.find_commit(branch.head)?,
+                        repo.find_commit(branch.head())?,
                         repo.find_commit(default_target.sha)?,
                         &branch.name,
                         default_target.branch.branch(),
@@ -425,7 +426,7 @@ impl BranchManager<'_> {
             } else {
                 gitbutler_merge_commits(
                     repo,
-                    repo.find_commit(branch.head)?,
+                    repo.find_commit(branch.head())?,
                     repo.find_commit(default_target.sha)?,
                     &branch.name,
                     default_target.branch.branch(),
@@ -445,15 +446,18 @@ impl BranchManager<'_> {
             .context("failed to ensure selected for changes")?;
 
         {
-            if let Some(wip_commit_to_unapply) = branch.not_in_workspace_wip_change_id {
-                let potential_wip_commit = repo.find_commit(branch.head)?;
+            if let Some(wip_commit_to_unapply) = &branch.not_in_workspace_wip_change_id {
+                let potential_wip_commit = repo.find_commit(branch.head())?;
 
                 // Don't try to undo commit if its conflicted
                 if !potential_wip_commit.is_conflicted() {
                     if let Some(headers) = potential_wip_commit.gitbutler_headers() {
-                        if headers.change_id == wip_commit_to_unapply {
-                            branch =
-                                crate::undo_commit::undo_commit(self.ctx, branch.id, branch.head)?;
+                        if headers.change_id == wip_commit_to_unapply.clone() {
+                            branch = crate::undo_commit::undo_commit(
+                                self.ctx,
+                                branch.id,
+                                branch.head(),
+                            )?;
                         }
                     }
 

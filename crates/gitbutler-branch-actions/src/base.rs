@@ -86,7 +86,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
         // merge this branches tree with our tree
         let branch_head = ctx
             .repository()
-            .find_commit(branch.head)
+            .find_commit(branch.head())
             .context("failed to find branch head")?;
         let branch_tree = branch_head
             .tree()
@@ -369,13 +369,15 @@ pub(crate) fn update_base_branch(
         .map(|(mut branch, _)| -> Result<Option<Branch>> {
             let branch_tree = repo.find_tree(branch.tree)?;
 
-            let branch_head_commit = repo.find_commit(branch.head).context(format!(
+            let branch_head_commit = repo.find_commit(branch.head()).context(format!(
                 "failed to find commit {} for branch {}",
-                branch.head, branch.id
+                branch.head(),
+                branch.id
             ))?;
             let branch_head_tree = branch_head_commit.tree().context(format!(
                 "failed to find tree for commit {} for branch {}",
-                branch.head, branch.id
+                branch.head(),
+                branch.id
             ))?;
 
             let result_integrated_detected = |mut branch: Branch| -> Result<Option<Branch>> {
@@ -429,7 +431,7 @@ pub(crate) fn update_base_branch(
                 return result_integrated_detected(branch);
             }
 
-            if branch.head == target.sha {
+            if branch.head() == target.sha {
                 // there are no commits on the branch, so we can just update the head to the new target and calculate the new tree
                 branch.head = new_target_commit.id();
                 branch.tree = branch_merge_index_tree_oid;
@@ -501,7 +503,7 @@ pub(crate) fn update_base_branch(
                 ctx,
                 new_target_commit.id(),
                 new_target_commit.id(),
-                branch.head,
+                branch.head(),
             );
 
             // rebase failed, just do the merge

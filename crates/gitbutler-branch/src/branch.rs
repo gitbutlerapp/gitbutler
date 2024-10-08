@@ -89,6 +89,10 @@ impl Branch {
     pub fn refname(&self) -> anyhow::Result<VirtualRefname> {
         self.try_into()
     }
+
+    pub fn head(&self) -> git2::Oid {
+        self.head
+    }
 }
 
 impl TryFrom<&Branch> for VirtualRefname {
