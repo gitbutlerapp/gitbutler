@@ -11,8 +11,8 @@ pub use actions::{
     push_base_branch, push_virtual_branch, reorder_commit, reset_files, reset_virtual_branch,
     resolve_upstream_integration, save_and_unapply_virutal_branch, set_base_branch,
     set_target_push_remote, squash, unapply_ownership, unapply_without_saving_virtual_branch,
-    undo_commit, update_base_branch, update_branch_order, update_commit_message,
-    update_virtual_branch, upstream_integration_statuses,
+    undo_commit, update_branch_order, update_commit_message, update_virtual_branch,
+    upstream_integration_statuses,
 };
 
 mod r#virtual;
@@ -20,6 +20,7 @@ pub use r#virtual::{BranchStatus, VirtualBranch, VirtualBranchHunksByPathMap, Vi
 /// Avoid using these!
 /// This was previously `pub use r#virtual::*;`
 pub mod internal {
+    pub use super::branch_upstream_integration;
     pub use super::r#virtual::*;
     pub use super::remote::list_local_branches;
 }
@@ -44,6 +45,7 @@ pub use remote::{RemoteBranch, RemoteBranchData, RemoteCommit};
 pub mod conflicts;
 
 pub mod branch_trees;
+pub mod branch_upstream_integration;
 mod move_commits;
 mod reorder_commits;
 mod undo_commit;

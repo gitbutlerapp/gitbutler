@@ -5,11 +5,6 @@ export function projectHttpsWarningBannerDismissed(projectId: string): Persisted
 	return persisted(false, key + projectId);
 }
 
-export function projectMergeUpstreamWarningDismissed(projectId: string): Persisted<boolean> {
-	const key = 'projectMergeUpstreamWarningDismissed_';
-	return persisted(false, key + projectId);
-}
-
 export function projectCommitGenerationExtraConcise(projectId: string): Persisted<boolean> {
 	const key = 'projectCommitGenerationExtraConcise_';
 	return persisted(false, key + projectId);

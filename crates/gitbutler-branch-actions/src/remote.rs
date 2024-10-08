@@ -104,7 +104,7 @@ pub(crate) fn get_branch_data(ctx: &CommandContext, refname: &Refname) -> Result
 
     let branch = ctx
         .repository()
-        .find_branch_by_refname(refname)?
+        .maybe_find_branch_by_refname(refname)?
         .ok_or(anyhow::anyhow!("failed to find branch {}", refname))?;
 
     branch_to_remote_branch_data(ctx, &branch, default_target.sha)?

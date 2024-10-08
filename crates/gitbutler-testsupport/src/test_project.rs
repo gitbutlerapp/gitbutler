@@ -145,14 +145,14 @@ impl TestProject {
         };
         let branch = self
             .remote_repository
-            .find_branch_by_refname(&branch_name)
+            .maybe_find_branch_by_refname(&branch_name)
             .unwrap();
         let branch_commit = branch.unwrap().get().peel_to_commit().unwrap();
 
         let master_branch = {
             let name: Refname = "refs/heads/master".parse().unwrap();
             self.remote_repository
-                .find_branch_by_refname(&name)
+                .maybe_find_branch_by_refname(&name)
                 .unwrap()
         };
         let master_branch_commit = master_branch.unwrap().get().peel_to_commit().unwrap();
@@ -222,14 +222,14 @@ impl TestProject {
         };
         let branch = self
             .remote_repository
-            .find_branch_by_refname(&branch_name)
+            .maybe_find_branch_by_refname(&branch_name)
             .unwrap();
         let branch_commit = branch.as_ref().unwrap().get().peel_to_commit().unwrap();
 
         let master_branch = {
             let name: Refname = "refs/heads/master".parse().unwrap();
             self.remote_repository
-                .find_branch_by_refname(&name)
+                .maybe_find_branch_by_refname(&name)
                 .unwrap()
         };
         let master_branch_commit = master_branch
@@ -298,7 +298,7 @@ impl TestProject {
             .unwrap()
             .peel_to_commit()
             .unwrap();
-        let tree = match self.local_repository.find_branch_by_refname(&refname) {
+        let tree = match self.local_repository.maybe_find_branch_by_refname(&refname) {
             Ok(branch) => match branch {
                 Some(branch) => branch.get().peel_to_tree().unwrap(),
                 None => {

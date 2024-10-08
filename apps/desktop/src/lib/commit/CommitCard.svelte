@@ -396,7 +396,7 @@
 										onclick={openCommitMessageModal}>Edit message</Button
 									>
 								{/if}
-								{#if canEdit() && project.succeedingRebases}
+								{#if canEdit()}
 									<Button size="tag" style="ghost" outline onclick={editPatch}>
 										{#if conflicted}
 											Resolve conflicts

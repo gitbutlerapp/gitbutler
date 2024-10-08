@@ -106,7 +106,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
         let target = virtual_branches_handle.get_default_target()?;
         let repository = command_context.repository();
         let target_branch = repository
-            .find_branch_by_refname(&target.branch.clone().into())?
+            .maybe_find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("Branch not found"))?;
 
         let new_target = target_commit_oid.map_or_else(
@@ -380,7 +380,7 @@ pub(crate) fn resolve_upstream_integration(
         }
         BaseBranchResolutionApproach::Rebase => {
             let commits = repo.l(old_target_id, LogUntil::Commit(fork_point))?;
-            let new_head = cherry_rebase_group(repo, new_target_id, &commits, true)?;
+            let new_head = cherry_rebase_group(repo, new_target_id, &commits)?;
 
             Ok(new_head)
         }
@@ -436,12 +436,7 @@ fn compute_resolutions(
                     let BranchHeadAndTree {
                         head: new_head,
                         tree: new_tree,
-                    } = compute_updated_branch_head(
-                        repository,
-                        virtual_branch,
-                        new_head.id(),
-                        true,
-                    )?;
+                    } = compute_updated_branch_head(repository, virtual_branch, new_head.id())?;
 
                     Ok((
                         virtual_branch.id,
@@ -467,18 +462,14 @@ fn compute_resolutions(
                     let virtual_branch_commits =
                         repository.l(virtual_branch.head(), LogUntil::Commit(lower_bound))?;
 
-                    let new_head = cherry_rebase_group(
-                        repository,
-                        new_target.id(),
-                        &virtual_branch_commits,
-                        true,
-                    )?;
+                    let new_head =
+                        cherry_rebase_group(repository, new_target.id(), &virtual_branch_commits)?;
 
                     // Get the updated tree oid
                     let BranchHeadAndTree {
                         head: new_head,
                         tree: new_tree,
-                    } = compute_updated_branch_head(repository, virtual_branch, new_head, true)?;
+                    } = compute_updated_branch_head(repository, virtual_branch, new_head)?;
 
                     Ok((
                         virtual_branch.id,
@@ -773,7 +764,6 @@ mod test {
             &test_repository.repository,
             new_target.id(),
             &commits_to_rebase,
-            true,
         )
         .unwrap();
 
@@ -845,7 +835,6 @@ mod test {
             &test_repository.repository,
             new_target.id(),
             &commits_to_rebase,
-            true,
         )
         .unwrap();
 
