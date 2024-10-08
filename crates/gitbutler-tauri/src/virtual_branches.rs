@@ -1,5 +1,6 @@
 pub mod commands {
     use anyhow::{anyhow, Context};
+    use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
     use gitbutler_branch_actions::internal::PushResult;
     use gitbutler_branch_actions::upstream_integration::{
         BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
@@ -14,9 +15,7 @@ pub mod commands {
     use gitbutler_reference::{
         normalize_branch_name as normalize_name, ReferenceName, Refname, RemoteRefname,
     };
-    use gitbutler_stack::{
-        BranchCreateRequest, BranchId, BranchOwnershipClaims, BranchUpdateRequest,
-    };
+    use gitbutler_stack::{BranchId, BranchOwnershipClaims};
     use std::path::PathBuf;
     use tauri::State;
     use tracing::instrument;

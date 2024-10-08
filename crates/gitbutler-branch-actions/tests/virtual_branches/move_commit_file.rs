@@ -1,5 +1,6 @@
+use gitbutler_branch::BranchCreateRequest;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_stack::{BranchCreateRequest, BranchOwnershipClaims};
+use gitbutler_stack::BranchOwnershipClaims;
 
 use super::*;
 

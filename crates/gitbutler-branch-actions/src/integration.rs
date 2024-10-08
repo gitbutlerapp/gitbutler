@@ -2,6 +2,7 @@ use std::{path::PathBuf, vec};
 
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
+use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch::{self, SignaturePurpose, GITBUTLER_WORKSPACE_REFERENCE};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
@@ -10,7 +11,7 @@ use gitbutler_error::error::Marker;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{LogUntil, RepositoryExt};
-use gitbutler_stack::{Branch, BranchCreateRequest, VirtualBranchesHandle};
+use gitbutler_stack::{Branch, VirtualBranchesHandle};
 use tracing::instrument;
 
 use crate::{branch_manager::BranchManagerExt, conflicts, VirtualBranchesExt};

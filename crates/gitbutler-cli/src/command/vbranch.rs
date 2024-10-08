@@ -1,10 +1,9 @@
 use anyhow::{bail, Result};
+use gitbutler_branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest};
 use gitbutler_branch_actions::{get_branch_listing_details, list_branches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
-use gitbutler_stack::{
-    Branch, BranchCreateRequest, BranchIdentity, BranchUpdateRequest, VirtualBranchesHandle,
-};
+use gitbutler_stack::{Branch, VirtualBranchesHandle};
 
 use crate::command::debug_print;
 

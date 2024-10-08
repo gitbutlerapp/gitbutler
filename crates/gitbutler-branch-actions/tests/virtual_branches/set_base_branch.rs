@@ -33,7 +33,7 @@ mod error {
 }
 
 mod go_back_to_workspace {
-    use gitbutler_stack::BranchCreateRequest;
+    use gitbutler_branch::BranchCreateRequest;
     use pretty_assertions::assert_eq;
 
     use super::*;

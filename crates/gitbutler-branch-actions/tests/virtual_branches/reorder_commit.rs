@@ -1,4 +1,4 @@
-use gitbutler_stack::BranchCreateRequest;
+use gitbutler_branch::BranchCreateRequest;
 
 use super::*;
 

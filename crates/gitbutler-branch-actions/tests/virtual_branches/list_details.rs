@@ -90,9 +90,9 @@ fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
 }
 
 mod util {
+    use gitbutler_branch::BranchIdentity;
     use gitbutler_branch_actions::{Author, BranchListingDetails};
     use gitbutler_command_context::CommandContext;
-    use gitbutler_stack::BranchIdentity;
 
     pub fn branch_details(
         ctx: &CommandContext,

@@ -7,6 +7,8 @@ pub use dedup::{dedup, dedup_fmt};
 mod reference;
 pub mod serde;
 pub use reference::ChangeReference;
+mod branch;
+pub use branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest};
 
 use gitbutler_oxidize::gix_to_git2_signature;
 use lazy_static::lazy_static;

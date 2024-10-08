@@ -137,9 +137,9 @@ fn one_branch_in_workspace_multiple_remotes() -> Result<()> {
 
 mod util {
     use anyhow::Result;
+    use gitbutler_branch::BranchIdentity;
     use gitbutler_branch_actions::{BranchListing, BranchListingFilter};
     use gitbutler_command_context::CommandContext;
-    use gitbutler_stack::BranchIdentity;
 
     /// A flattened and simplified mirror of `BranchListing` for comparing the actual and expected data.
     #[derive(Debug, PartialEq)]

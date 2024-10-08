@@ -1,5 +1,6 @@
 use bstr::ByteSlice;
-use gitbutler_stack::{BranchCreateRequest, BranchId};
+use gitbutler_branch::BranchCreateRequest;
+use gitbutler_stack::BranchId;
 use std::{path::PathBuf, str::FromStr};
 
 use super::Test;
