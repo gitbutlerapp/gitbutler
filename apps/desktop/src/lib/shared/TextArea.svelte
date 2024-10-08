@@ -1,7 +1,7 @@
 <script lang="ts">
-	import { autoHeight } from '$lib/utils/autoHeight';
-	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import { autoHeight } from '@gitbutler/ui/utils/autoHeight';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { createEventDispatcher } from 'svelte';
 
 	export let value: string | undefined;

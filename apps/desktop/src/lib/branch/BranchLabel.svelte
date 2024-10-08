@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
-	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 
 	interface Props {
 		name: string;

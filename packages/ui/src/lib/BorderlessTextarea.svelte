@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { autoHeight } from '$lib/utils/autoHeight';
+	import { pxToRem } from '$lib/utils/pxToRem';
 	import { resizeObserver } from '$lib/utils/resizeObserver';
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { onMount } from 'svelte';
 
 	interface Props {

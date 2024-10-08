@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { MessageRole } from '$lib/ai/types';
 	import Markdown from '$lib/components/Markdown.svelte';
-	import { autoHeight } from '$lib/utils/autoHeight';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { autoHeight } from '@gitbutler/ui/utils/autoHeight';
 	import { createEventDispatcher } from 'svelte';
 
 	export let disableRemove = false;

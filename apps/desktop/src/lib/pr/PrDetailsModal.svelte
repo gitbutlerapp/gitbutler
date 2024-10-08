@@ -21,11 +21,9 @@
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
-	import BorderlessTextarea from '$lib/shared/BorderlessTextarea.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
-	import { autoHeight } from '$lib/utils/autoHeight';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
@@ -34,10 +32,12 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import BorderlessTextarea from '@gitbutler/ui/BorderlessTextarea.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
 	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
+	import { autoHeight } from '@gitbutler/ui/utils/autoHeight';
 	import { tick } from 'svelte';
 	import type { DetailedPullRequest, PullRequest } from '$lib/gitHost/interface/types';
 
