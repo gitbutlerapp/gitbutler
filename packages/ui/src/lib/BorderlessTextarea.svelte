@@ -1,10 +1,5 @@
-<script lang="ts">
-	import { autoHeight } from '$lib/utils/autoHeight';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import { resizeObserver } from '$lib/utils/resizeObserver';
-	import { onMount } from 'svelte';
-
-	interface Props {
+<script lang="ts" module>
+	export interface Props {
 		ref?: HTMLTextAreaElement;
 		value: string | undefined;
 		placeholder?: string;
@@ -18,10 +13,17 @@
 			bottom: number;
 			left: number;
 		};
-		oninput: (e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
+		oninput?: (e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
 		onfocus?: (e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 	}
+</script>
+
+<script lang="ts">
+	import { autoHeight } from '$lib/utils/autoHeight';
+	import { pxToRem } from '$lib/utils/pxToRem';
+	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import { onMount } from 'svelte';
 
 	let {
 		ref = $bindable(),
@@ -62,7 +64,7 @@
 	{readonly}
 	oninput={(e) => {
 		autoHeight(e.currentTarget);
-		oninput(e);
+		oninput?.(e);
 	}}
 	onfocus={(e) => {
 		autoHeight(e.currentTarget);
