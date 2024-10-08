@@ -503,7 +503,7 @@ mod test {
     use super::*;
 
     fn make_branch(head: git2::Oid, tree: git2::Oid) -> Stack {
-        let mut branch = Stack::new_uninitialized(
+        let mut branch = Stack::new(
             "branchy branch".into(),
             None,
             None,

@@ -36,7 +36,7 @@ pub trait StackExt {
     /// Constructs and initializes a new Stack.
     /// If initialization fails, a warning is logged and the stack is returned as is.
     #[allow(clippy::too_many_arguments)]
-    fn new(
+    fn create(
         ctx: &CommandContext,
         name: String,
         source_refname: Option<Refname>,
@@ -159,7 +159,7 @@ pub struct TargetUpdate {
 /// If there are multiple heads that point to the same patch, the `add` and `update` operations can specify the intended order.
 impl StackExt for Stack {
     #[allow(clippy::too_many_arguments)]
-    fn new(
+    fn create(
         ctx: &CommandContext,
         name: String,
         source_refname: Option<Refname>,
@@ -171,7 +171,7 @@ impl StackExt for Stack {
         selected_for_changes: Option<i64>,
         allow_rebasing: bool,
     ) -> Self {
-        let mut branch = Stack::new_uninitialized(
+        let mut branch = Stack::new(
             name,
             source_refname,
             upstream,

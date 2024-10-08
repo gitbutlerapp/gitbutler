@@ -231,7 +231,7 @@ pub(crate) fn set_base_branch(
                 (None, None)
             };
 
-            let mut branch = Stack::new_uninitialized(
+            let mut branch = Stack::new(
                 head_name.to_string().replace("refs/heads/", ""),
                 Some(head_name),
                 upstream,
