@@ -50,12 +50,6 @@
 	let loading = true;
 	let signCheckResult = false;
 	let errorMessage = '';
-	let succeedingRebases = project.succeedingRebases;
-
-	$: {
-		project.succeedingRebases = succeedingRebases;
-		projectService.updateProject(project);
-	}
 
 	async function checkSigning() {
 		checked = true;

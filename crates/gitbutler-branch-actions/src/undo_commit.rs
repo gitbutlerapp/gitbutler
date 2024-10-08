@@ -23,16 +23,10 @@ pub(crate) fn undo_commit(
     commit_oid: git2::Oid,
 ) -> Result<Stack> {
     let vb_state = ctx.project().virtual_branches();
-    let succeeding_rebases = ctx.project().succeeding_rebases;
 
     let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
 
-    let new_head_commit = inner_undo_commit(
-        ctx.repository(),
-        branch.head(),
-        commit_oid,
-        succeeding_rebases,
-    )?;
+    let new_head_commit = inner_undo_commit(ctx.repository(), branch.head(), commit_oid)?;
 
     branch.set_head(new_head_commit);
     branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
@@ -48,7 +42,6 @@ fn inner_undo_commit(
     repository: &git2::Repository,
     branch_head_commit: git2::Oid,
     commit_to_remove: git2::Oid,
-    succeeding_rebases: bool,
 ) -> Result<git2::Oid> {
     let commit_to_remove = repository.find_commit(commit_to_remove)?;
 
@@ -68,7 +61,6 @@ fn inner_undo_commit(
         repository,
         commit_to_remove.parent_id(0)?,
         &commits_to_rebase,
-        succeeding_rebases,
     )?;
 
     Ok(new_head)
@@ -103,7 +95,6 @@ mod test {
                 &test_repository.repository,
                 conflicted_commit.id(),
                 conflicted_commit.id(),
-                true,
             );
 
             assert!(
@@ -120,8 +111,7 @@ mod test {
             let b = test_repository.commit_tree(Some(&a), &[("bar.txt", "bar")]);
             let c = test_repository.commit_tree(Some(&b), &[("baz.txt", "baz")]);
 
-            let new_head =
-                inner_undo_commit(&test_repository.repository, c.id(), c.id(), true).unwrap();
+            let new_head = inner_undo_commit(&test_repository.repository, c.id(), c.id()).unwrap();
 
             assert_eq!(new_head, b.id(), "The new head should be C's parent");
         }
@@ -142,8 +132,7 @@ mod test {
             //
             // As the theirs and ours both are different to the base, it ends up
             // conflicted.
-            let new_head =
-                inner_undo_commit(&test_repository.repository, c.id(), b.id(), true).unwrap();
+            let new_head = inner_undo_commit(&test_repository.repository, c.id(), b.id()).unwrap();
 
             let new_head_commit: git2::Commit =
                 test_repository.repository.find_commit(new_head).unwrap();

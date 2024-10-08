@@ -12,9 +12,7 @@ pub mod commands {
     use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
     use gitbutler_project::{FetchResult, ProjectId};
-    use gitbutler_reference::{
-        normalize_branch_name as normalize_name, ReferenceName, Refname, RemoteRefname,
-    };
+    use gitbutler_reference::{normalize_branch_name as normalize_name, Refname, RemoteRefname};
     use gitbutler_stack::{BranchOwnershipClaims, StackId};
     use std::path::PathBuf;
     use tauri::State;
@@ -160,19 +158,6 @@ pub mod commands {
         }
         emit_vbranches(&windows, project_id);
         Ok(base_branch)
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(projects, windows), err(Debug))]
-    pub fn update_base_branch(
-        windows: State<'_, WindowState>,
-        projects: State<'_, projects::Controller>,
-        project_id: ProjectId,
-    ) -> Result<Vec<ReferenceName>, Error> {
-        let project = projects.get(project_id)?;
-        let unapplied_branches = gitbutler_branch_actions::update_base_branch(&project)?;
-        emit_vbranches(&windows, project_id);
-        Ok(unapplied_branches)
     }
 
     #[tauri::command(async)]

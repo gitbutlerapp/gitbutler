@@ -38,9 +38,6 @@ fn main() -> Result<()> {
                     command::vbranch::details(project, names)
                 }
                 Some(vbranch::SubCommands::ListAll) => command::vbranch::list_all(project),
-                Some(vbranch::SubCommands::UpdateTarget) => {
-                    command::vbranch::update_target(project)
-                }
                 None => command::vbranch::list(project),
             }
         }

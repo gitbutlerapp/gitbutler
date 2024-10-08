@@ -1,5 +1,3 @@
-use std::borrow::Cow;
-
 use crate::{branch_trees::checkout_branch_trees, r#virtual as vbranch};
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::BranchCreateRequest;
@@ -21,9 +19,7 @@ use tracing::instrument;
 
 use super::BranchManager;
 use crate::{
-    conflicts::{self, RepoConflictsExt},
-    hunk::VirtualBranchHunk,
-    integration::update_workspace_commit,
+    conflicts::RepoConflictsExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
     VirtualBranchesExt,
 };
 
@@ -286,11 +282,6 @@ impl BranchManager<'_> {
 
         let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
 
-        let target_commit = repo
-            .find_commit(default_target.sha)
-            .context("failed to find target commit")?;
-        let target_tree = target_commit.tree().context("failed to get target tree")?;
-
         // calculate the merge base and make sure it's the same as the target commit
         // if not, we need to merge or rebase the branch to get it up to date
 
@@ -338,77 +329,12 @@ impl BranchManager<'_> {
 
         // Do we need to rebase the branch on top of the default target?
         if merge_base != default_target.sha {
-            let mut branch_merged_with_default_target =
-                repo.merge_trees(&merge_base_tree, &branch_tree, &target_tree, None)?;
-
-            // If there are conflicts after a merge and succeeding rebases is
-            // disabled, use the old flow.
-            if branch_merged_with_default_target.has_conflicts()
-                && !self.ctx.project().succeeding_rebases
-            {
-                // currently we can only deal with the merge problem branch
-                for branch in vb_state
-                    .list_branches_in_workspace()?
-                    .iter()
-                    .filter(|branch| branch.id != branch_id)
-                {
-                    self.save_and_unapply(branch.id, perm)?;
-                }
-
-                // apply the branch
-                vb_state.set_branch(branch.clone())?;
-
-                // checkout the conflicts
-                repo.checkout_index_builder(&mut branch_merged_with_default_target)
-                    .allow_conflicts()
-                    .conflict_style_merge()
-                    .force()
-                    .checkout()
-                    .context("failed to checkout index")?;
-
-                // mark conflicts
-
-                let conflicts = branch_merged_with_default_target
-                    .conflicts()
-                    .context("failed to get merge index conflicts")?;
-                let mut merge_conflicts = Vec::new();
-                for path in conflicts.flatten() {
-                    if let Some(ours) = path.our {
-                        let path = gix::path::try_from_bstr(Cow::Owned(ours.path.into()))?;
-                        merge_conflicts.push(path);
-                    }
-                }
-                conflicts::mark(self.ctx, &merge_conflicts, Some(default_target.sha))?;
-
-                return Ok(branch.name);
-            }
-
             let new_head = if branch.allow_rebasing {
                 let commits_to_rebase = repo.l(branch.head(), LogUntil::Commit(merge_base))?;
 
-                let head_oid =
-                    cherry_rebase_group(repo, default_target.sha, &commits_to_rebase, true)?;
+                let head_oid = cherry_rebase_group(repo, default_target.sha, &commits_to_rebase)?;
 
-                let rebased_commits = repo.log(head_oid, LogUntil::Commit(merge_base))?;
-
-                // If it turns out that the branch wasn't rebaseable, and
-                // succeeding rebases is disabled, we need to merge the branch
-                //
-                // We don't need to consider trees here any uncommited changes
-                // are stored in the head commit.
-                if rebased_commits.iter().any(|commit| commit.is_conflicted())
-                    && !self.ctx.project().succeeding_rebases
-                {
-                    gitbutler_merge_commits(
-                        repo,
-                        repo.find_commit(branch.head())?,
-                        repo.find_commit(default_target.sha)?,
-                        &branch.name,
-                        default_target.branch.branch(),
-                    )?
-                } else {
-                    repo.find_commit(head_oid)?
-                }
+                repo.find_commit(head_oid)?
             } else {
                 gitbutler_merge_commits(
                     repo,

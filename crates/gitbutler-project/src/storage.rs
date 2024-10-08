@@ -27,7 +27,6 @@ pub struct UpdateRequest {
     pub omit_certificate_check: Option<bool>,
     pub use_diff_context: Option<bool>,
     pub snapshot_lines_threshold: Option<usize>,
-    pub succeeding_rebases: Option<bool>,
     pub git_host: Option<GitHostSettings>,
 }
 
@@ -123,10 +122,6 @@ impl Storage {
 
         if let Some(snapshot_lines_threshold) = update_request.snapshot_lines_threshold {
             project.snapshot_lines_threshold = Some(snapshot_lines_threshold);
-        }
-
-        if let Some(succeeding_rebases) = update_request.succeeding_rebases {
-            project.succeeding_rebases = succeeding_rebases;
         }
 
         if let Some(git_host) = &update_request.git_host {

@@ -32,13 +32,6 @@
 		await projectService.updateProject(project);
 	}
 
-	let succeedingRebases = project.succeedingRebases;
-
-	$: {
-		project.succeedingRebases = succeedingRebases;
-		projectService.updateProject(project);
-	}
-
 	async function setUseNewLocking(value: boolean) {
 		project.use_new_locking = value;
 		await projectService.updateProject(project);
@@ -126,18 +119,6 @@
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle id="useNewLocking" bind:checked={useNewLocking} />
-		</svelte:fragment>
-	</SectionCard>
-
-	<SectionCard labelFor="succeedingRebases" orientation="row">
-		<svelte:fragment slot="title">Edit mode and succeeding rebases</svelte:fragment>
-		<svelte:fragment slot="caption">
-			This is an experimental setting which will ensure that rebasing will always succeed,
-			introduces a mode for editing individual commits, and adds the ability to resolve conflicted
-			commits.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle id="succeedingRebases" bind:checked={succeedingRebases} />
 		</svelte:fragment>
 	</SectionCard>
 </Section>

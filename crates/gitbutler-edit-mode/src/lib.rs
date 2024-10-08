@@ -222,16 +222,10 @@ pub(crate) fn save_and_return_to_workspace(
         .unwrap_or(new_commit_oid);
 
     // Update virtual_branch
-    let fearless_rebasing = ctx.project().succeeding_rebases;
     let BranchHeadAndTree {
         head: new_branch_head,
         tree: new_branch_tree,
-    } = compute_updated_branch_head(
-        repository,
-        &virtual_branch,
-        new_branch_head,
-        fearless_rebasing,
-    )?;
+    } = compute_updated_branch_head(repository, &virtual_branch, new_branch_head)?;
 
     virtual_branch.set_head(new_branch_head);
     virtual_branch.tree = new_branch_tree;

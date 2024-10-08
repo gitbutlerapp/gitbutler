@@ -24,6 +24,7 @@ use tracing::instrument;
 ///
 /// For now, it collects useful methods from `gitbutler-core::git::Repository`
 pub trait RepositoryExt {
+    fn find_branch_by_refname(&self, name: &Refname) -> Result<git2::Branch>;
     /// Returns the common ancestor of the given commit Oids.
     ///
     /// This is like `git merge-base --octopus`.
@@ -63,7 +64,7 @@ pub trait RepositoryExt {
     fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder;
     fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler;
-    fn find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
+    fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
     /// Based on the index, add all data similar to `git add .` and create a tree from it, which is returned.
     fn create_wd_tree(&self) -> Result<Tree>;
 
@@ -143,7 +144,7 @@ impl RepositoryExt for git2::Repository {
         }
     }
 
-    fn find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>> {
+    fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>> {
         let branch = self.find_branch(
             &name.simple_name(),
             match name {
@@ -158,6 +159,20 @@ impl RepositoryExt for git2::Repository {
             Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(None),
             Err(e) => Err(e.into()),
         }
+    }
+
+    fn find_branch_by_refname(&self, name: &Refname) -> Result<git2::Branch> {
+        let branch = self.find_branch(
+            &name.simple_name(),
+            match name {
+                Refname::Virtual(_) | Refname::Local(_) | Refname::Other(_) => {
+                    git2::BranchType::Local
+                }
+                Refname::Remote(_) => git2::BranchType::Remote,
+            },
+        )?;
+
+        Ok(branch)
     }
 
     /// Note that this will add all untracked and modified files in the worktree to

@@ -60,7 +60,6 @@ pub(crate) fn reorder_commit(
         offset,
         &repository.l(branch.head(), LogUntil::Commit(merge_base))?,
         &repository.find_tree(branch.tree)?,
-        ctx.project().succeeding_rebases,
     )?;
 
     branch.tree = tree;
@@ -107,7 +106,6 @@ fn inner_reorder_commit(
     offset: i32,
     branch_commits: &[git2::Oid],
     branch_tree: &git2::Tree,
-    succeeding_rebases: bool,
 ) -> Result<ReorderResult> {
     if branch_commits.len() < 2 {
         bail!("Cannot re-order less than two commits");
@@ -128,12 +126,7 @@ fn inner_reorder_commit(
     // We are passing all the commits to the cherry_rebase_group funcion, but
     // this is not a concern as it will verbaitm copy any commits that have
     // not had their parents changed.
-    let new_head_oid = cherry_rebase_group(
-        repository,
-        base_commit,
-        &reordered_commits,
-        succeeding_rebases,
-    )?;
+    let new_head_oid = cherry_rebase_group(repository, base_commit, &reordered_commits)?;
 
     // Calculate the new head and tree
     let BranchHeadAndTree {
@@ -144,7 +137,6 @@ fn inner_reorder_commit(
         branch_commits[0], // This function only operates on lists of 2 or greater
         branch_tree.id(),
         new_head_oid,
-        succeeding_rebases,
     )?;
 
     Ok(ReorderResult {
@@ -249,7 +241,6 @@ mod test {
                 0,
                 &[b.id()],
                 &b.tree().unwrap(),
-                true,
             );
 
             assert!(result.is_err());
@@ -276,7 +267,6 @@ mod test {
                 -1,
                 &[b.id(), a.id()],
                 &b.tree().unwrap(),
-                true,
             )
             .unwrap();
 
@@ -340,7 +330,6 @@ mod test {
                 -1,
                 &[b.id(), a.id()],
                 &b.tree().unwrap(),
-                true,
             )
             .unwrap();
 
@@ -397,7 +386,6 @@ mod test {
                 -1,
                 &[a_prime.id(), b_prime.id()],
                 &a_prime.tree().unwrap(),
-                true,
             )
             .unwrap();
 
@@ -429,7 +417,6 @@ mod test {
                 -1,
                 &[b.id(), a.id()],
                 &tree.tree().unwrap(),
-                true,
             )
             .unwrap();
 
@@ -471,7 +458,6 @@ mod test {
                 -1,
                 &[tree_commit.id(), a_prime.id(), b_prime.id()],
                 &tree.tree().unwrap(),
-                true,
             )
             .unwrap();
 

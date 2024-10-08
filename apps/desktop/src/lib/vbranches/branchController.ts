@@ -371,24 +371,6 @@ export class BranchController {
 		}
 	}
 
-	async updateBaseBranch(): Promise<string | undefined> {
-		try {
-			const stashedConflicting = await invoke<string[]>('update_base_branch', {
-				projectId: this.projectId
-			});
-			const branchRefPrefix = 'refs/heads/';
-			if (stashedConflicting.length > 0) {
-				return `The following branches were stashed due to a merge conflict during updating the workspace: \n\n \
-${stashedConflicting.map((branch) => branch.split(branchRefPrefix)[1]).join('\n')} \n\n \
-You can find them in the 'Branches' sidebar in order to resolve conflicts.`;
-			} else {
-				return undefined;
-			}
-		} finally {
-			this.baseBranchService.refresh();
-		}
-	}
-
 	/**
 	 *
 	 * @param branch The branch you want to create a virtual branch for. If you

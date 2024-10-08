@@ -879,7 +879,11 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     );
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    internal::integrate_upstream_commits(ctx, branch1.id)?;
+    internal::branch_upstream_integration::integrate_upstream_commits(
+        ctx,
+        branch1.id,
+        guard.write_permission(),
+    )?;
 
     let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branch1 = &branches[0];
@@ -990,45 +994,24 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     assert_eq!(branch1.commits.len(), 1);
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
 
-    internal::integrate_upstream_commits(ctx, branch1.id)?;
+    internal::branch_upstream_integration::integrate_upstream_commits(
+        ctx,
+        branch1.id,
+        guard.write_permission(),
+    )?;
 
     let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branch1 = &branches[0];
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
 
     assert_eq!(
-        "line1\nline2\nline3\nline4\nupstream\n<<<<<<< ours\nother side\n=======\ncoworker work\n>>>>>>> theirs\n",
+        "line1\nline2\nline3\nline4\nupstream\ncoworker work\n",
         String::from_utf8(contents)?
     );
 
-    assert_eq!(branch1.files.len(), 1);
-    assert_eq!(branch1.commits.len(), 1);
-    assert!(branch1.conflicted);
-
-    // fix the conflict
-    std::fs::write(
-        Path::new(&project.path).join(file_path),
-        "line1\nline2\nline3\nline4\nupstream\nother side\ncoworker work\n",
-    )?;
-
-    // make gb see the conflict resolution
-    update_workspace_commit(&vb_state, ctx)?;
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
-    assert!(branches[0].conflicted);
-
-    // commit the merge resolution
-    internal::commit(ctx, branch1.id, "fix merge conflict", None, false)?;
-
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
-    let branch1 = &branches[0];
-    assert!(!branch1.conflicted);
     assert_eq!(branch1.files.len(), 0);
-    assert_eq!(branch1.commits.len(), 3);
-
-    // make sure the last commit was a merge commit (2 parents)
-    let last_id = &branch1.commits[0].id;
-    let last_commit = ctx.repository().find_commit(last_id.to_owned())?;
-    assert_eq!(last_commit.parent_count(), 2);
+    assert_eq!(branch1.commits.len(), 4); // Local commit + Remote commit + Merge commit + Conflicted uncommited changes
+    assert!(!branch1.conflicted);
 
     Ok(())
 }
