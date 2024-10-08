@@ -16,6 +16,7 @@ pub(crate) fn move_commit(
     target_branch_id: BranchId,
     commit_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
+    source_branch_id: BranchId,
 ) -> Result<()> {
     ctx.assure_resolved()?;
     let vb_state = ctx.project().virtual_branches();
@@ -32,8 +33,8 @@ pub(crate) fn move_commit(
 
     let (ref mut source_branch, source_status) = applied_statuses
         .iter_mut()
-        .find(|(b, _)| b.head() == commit_id)
-        .ok_or_else(|| anyhow!("commit {commit_id} to be moved could not be found"))?;
+        .find(|(b, _)| b.id == source_branch_id)
+        .ok_or_else(|| anyhow!("the source branch could not be found"))?;
 
     let source_branch_non_comitted_files = source_status;
 
@@ -92,6 +93,22 @@ pub(crate) fn move_commit(
         bail!("the source branch contains hunks locked to the target commit ancestors")
     }
 
+    let mut commits_to_rebase = vec![];
+    let is_head_commit = commit_id == source_branch.head();
+    if !is_head_commit {
+        commits_to_rebase = ctx
+            .repository()
+            .log(source_branch.head(), LogUntil::Commit(commit_id))
+            .unwrap();
+
+        let is_parent_locked =
+            check_source_lock_to_commits(ctx.repository(), &commits_to_rebase, &branch_head_diff);
+
+        if is_parent_locked {
+            bail!("the source branch contains hunks locked to the target commit parents")
+        }
+    }
+
     // move files ownerships from source branch to the destination branch
 
     let ownerships_to_transfer = branch_head_diff
@@ -121,9 +138,21 @@ pub(crate) fn move_commit(
         true,
     )?;
 
-    // reset the source branch to the parent commit
-    // and update the destination branch head
-    source_branch.set_head(source_branch_head_parent.id());
+    if !is_head_commit {
+        let ids_to_rebase: Vec<git2::Oid> = commits_to_rebase.iter().map(|c| c.id()).collect();
+        let new_source_head_oid = cherry_rebase_group(
+            ctx.repository(),
+            source_branch_head_parent.id(),
+            &ids_to_rebase,
+            false,
+        )?;
+        source_branch.set_head(new_source_head_oid);
+    } else {
+        // reset the source branch to the parent commit
+        // and update the destination branch head
+        source_branch.set_head(source_branch_head_parent.id());
+    }
+
     vb_state.set_branch(source_branch.clone())?;
 
     destination_branch.set_head(new_destination_head_oid);
