@@ -1,15 +1,14 @@
 use std::{path::Path, time};
 
 use anyhow::{anyhow, Context, Result};
-use gitbutler_branch::{
-    self, Branch, BranchOwnershipClaims, Target, VirtualBranchesHandle,
-    GITBUTLER_WORKSPACE_REFERENCE,
-};
+use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
+use gitbutler_stack::{BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle};
+use gitbutler_stack_api::StackExt;
 use serde::Serialize;
 
 use crate::{
@@ -231,7 +230,8 @@ pub(crate) fn set_base_branch(
                 (None, None)
             };
 
-            let mut branch = Branch::new(
+            let mut branch = Stack::create(
+                ctx,
                 head_name.to_string().replace("refs/heads/", ""),
                 Some(head_name),
                 upstream,

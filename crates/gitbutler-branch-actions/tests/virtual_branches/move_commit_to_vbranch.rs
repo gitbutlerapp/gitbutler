@@ -1,5 +1,6 @@
 use bstr::ByteSlice;
-use gitbutler_branch::{BranchCreateRequest, BranchId};
+use gitbutler_branch::BranchCreateRequest;
+use gitbutler_stack::StackId;
 use std::{path::PathBuf, str::FromStr};
 
 use super::Test;
@@ -653,7 +654,7 @@ fn no_branch() {
         gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None, false)
             .unwrap();
 
-    let id = BranchId::generate();
+    let id = StackId::generate();
     assert_eq!(
         gitbutler_branch_actions::move_commit(project, id, commit_oid)
             .unwrap_err()

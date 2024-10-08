@@ -5,9 +5,9 @@ use std::{
     time::SystemTime,
 };
 
-use gitbutler_branch::BranchId;
 use gitbutler_diff::{GitHunk, Hunk, HunkHash};
 use gitbutler_serde::BStringForFrontend;
+use gitbutler_stack::StackId;
 use itertools::Itertools;
 use md5::Digest;
 use serde::Serialize;
@@ -48,7 +48,7 @@ pub struct VirtualBranchHunk {
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy)]
 #[serde(rename_all = "camelCase")]
 pub struct HunkLock {
-    pub branch_id: BranchId,
+    pub branch_id: StackId,
     #[serde(with = "gitbutler_serde::oid")]
     pub commit_id: git2::Oid,
 }

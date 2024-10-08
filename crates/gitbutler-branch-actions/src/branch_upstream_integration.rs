@@ -1,11 +1,11 @@
 use anyhow::{bail, Result};
-use gitbutler_branch::BranchId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
     LogUntil, RepositoryExt as _,
 };
+use gitbutler_stack::StackId;
 
 use crate::{
     branch_trees::{
@@ -22,7 +22,7 @@ use crate::{
 ///
 pub fn integrate_upstream_commits(
     ctx: &CommandContext,
-    branch_id: BranchId,
+    branch_id: StackId,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     conflicts::is_conflicting(ctx, None)?;

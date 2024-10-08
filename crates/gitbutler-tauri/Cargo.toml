@@ -68,6 +68,7 @@ gitbutler-error.workspace = true
 gitbutler-secret.workspace = true
 gitbutler-id.workspace = true
 gitbutler-storage.workspace = true
+gitbutler-stack.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-operating-modes.workspace = true
 gitbutler-edit-mode.workspace = true

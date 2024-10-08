@@ -11,10 +11,8 @@ use crate::{
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
 use git2_hooks::HookResult;
-use gitbutler_branch::{
-    dedup, dedup_fmt, reconcile_claims, Branch, BranchId, BranchOwnershipClaims,
-    BranchUpdateRequest, Target, VirtualBranchesHandle,
-};
+use gitbutler_branch::BranchUpdateRequest;
+use gitbutler_branch::{dedup, dedup_fmt};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
@@ -28,7 +26,10 @@ use gitbutler_repo::{
     rebase::{cherry_rebase, cherry_rebase_group},
     LogUntil, RepoActionsExt, RepositoryExt,
 };
-use gitbutler_stack::{commit_by_oid_or_change_id, Stack};
+use gitbutler_stack::{
+    reconcile_claims, BranchOwnershipClaims, Stack, StackId, Target, VirtualBranchesHandle,
+};
+use gitbutler_stack_api::{commit_by_oid_or_change_id, StackExt};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -46,7 +47,7 @@ use tracing::instrument;
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VirtualBranch {
-    pub id: BranchId,
+    pub id: StackId,
     pub name: String,
     pub notes: String,
     pub active: bool,
@@ -208,7 +209,7 @@ pub fn unapply_ownership(
 // reset a file in the project to the index state
 pub(crate) fn reset_files(
     ctx: &CommandContext,
-    branch_id: BranchId,
+    branch_id: StackId,
     files: &[PathBuf],
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
@@ -468,7 +469,7 @@ pub fn list_virtual_branches_cached(
 /// Newest first, oldest last in the list
 fn stack_series(
     ctx: &CommandContext,
-    branch: &Branch,
+    branch: &Stack,
     default_target: &Target,
     check_commit: &IsCommitIntegrated,
 ) -> Result<Vec<PatchSeries>> {
@@ -562,7 +563,7 @@ fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<V
     branches
 }
 
-fn is_requires_force(ctx: &CommandContext, branch: &Branch) -> Result<bool> {
+fn is_requires_force(ctx: &CommandContext, branch: &Stack) -> Result<bool> {
     let upstream = if let Some(upstream) = &branch.upstream {
         upstream
     } else {
@@ -587,7 +588,7 @@ fn is_requires_force(ctx: &CommandContext, branch: &Branch) -> Result<bool> {
     Ok(merge_base != upstream_commit.id())
 }
 
-pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) -> Result<Branch> {
+pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) -> Result<Stack> {
     let vb_state = ctx.project().virtual_branches();
     let mut branch = vb_state.get_branch_in_workspace(branch_update.id)?;
 
@@ -691,7 +692,7 @@ pub(crate) fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> R
 
 pub(crate) fn set_ownership(
     vb_state: &VirtualBranchesHandle,
-    target_branch: &mut Branch,
+    target_branch: &mut Stack,
     ownership: &BranchOwnershipClaims,
 ) -> Result<()> {
     if target_branch.ownership.eq(ownership) {
@@ -725,7 +726,7 @@ pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
 // reset virtual branch to a specific commit
 pub(crate) fn reset_branch(
     ctx: &CommandContext,
-    branch_id: BranchId,
+    branch_id: StackId,
     target_commit_id: git2::Oid,
 ) -> Result<()> {
     let vb_state = ctx.project().virtual_branches();
@@ -798,7 +799,7 @@ pub(crate) fn reset_branch(
 #[allow(clippy::too_many_arguments)]
 pub fn commit(
     ctx: &CommandContext,
-    branch_id: BranchId,
+    branch_id: StackId,
     message: &str,
     ownership: Option<&BranchOwnershipClaims>,
     run_hooks: bool,
@@ -932,9 +933,9 @@ pub fn commit(
 
 pub(crate) fn push(
     ctx: &CommandContext,
-    branch_id: BranchId,
+    branch_id: StackId,
     with_force: bool,
-    askpass: Option<Option<BranchId>>,
+    askpass: Option<Option<StackId>>,
 ) -> Result<PushResult> {
     let vb_state = ctx.project().virtual_branches();
 
@@ -1117,7 +1118,7 @@ pub fn is_remote_branch_mergeable(
 // then added to the "to" commit and everything above that rebased again.
 pub(crate) fn move_commit_file(
     ctx: &CommandContext,
-    branch_id: BranchId,
+    branch_id: StackId,
     from_commit_id: git2::Oid,
     to_commit_id: git2::Oid,
     target_ownership: &BranchOwnershipClaims,
@@ -1355,7 +1356,7 @@ pub(crate) fn move_commit_file(
 // and the respective branch head is updated
 pub(crate) fn amend(
     ctx: &CommandContext,
-    branch_id: BranchId,
+    branch_id: StackId,
     commit_oid: git2::Oid,
     target_ownership: &BranchOwnershipClaims,
 ) -> Result<git2::Oid> {
@@ -1482,7 +1483,7 @@ pub(crate) fn amend(
 // return the oid of the new head commit of the branch with the inserted blank commit
 pub(crate) fn insert_blank_commit(
     ctx: &CommandContext,
-    branch_id: BranchId,
+    branch_id: StackId,
     commit_oid: git2::Oid,
     offset: i32,
 ) -> Result<()> {
@@ -1532,11 +1533,7 @@ pub(crate) fn insert_blank_commit(
 }
 
 /// squashes a commit from a virtual branch into its parent.
-pub(crate) fn squash(
-    ctx: &CommandContext,
-    branch_id: BranchId,
-    commit_id: git2::Oid,
-) -> Result<()> {
+pub(crate) fn squash(ctx: &CommandContext, branch_id: StackId, commit_id: git2::Oid) -> Result<()> {
     ctx.assure_resolved()?;
 
     let vb_state = ctx.project().virtual_branches();
@@ -1631,7 +1628,7 @@ pub(crate) fn squash(
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful
 pub(crate) fn update_commit_message(
     ctx: &CommandContext,
-    branch_id: BranchId,
+    branch_id: StackId,
     commit_id: git2::Oid,
     message: &str,
 ) -> Result<()> {

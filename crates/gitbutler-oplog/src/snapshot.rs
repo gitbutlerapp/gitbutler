@@ -1,9 +1,10 @@
 use std::vec;
 
 use anyhow::Result;
-use gitbutler_branch::{Branch, BranchUpdateRequest};
+use gitbutler_branch::BranchUpdateRequest;
 use gitbutler_project::{access::WorktreeWritePermission, Project};
 use gitbutler_reference::ReferenceName;
+use gitbutler_stack::Stack;
 
 use super::entry::Trailer;
 use crate::{
@@ -49,7 +50,7 @@ pub trait SnapshotExt {
     fn snapshot_branch_update(
         &self,
         snapshot_tree: git2::Oid,
-        old_branch: &Branch,
+        old_branch: &Stack,
         update: &BranchUpdateRequest,
         error: Option<&anyhow::Error>,
         perm: &mut WorktreeWritePermission,
@@ -140,7 +141,7 @@ impl SnapshotExt for Project {
     fn snapshot_branch_update(
         &self,
         snapshot_tree: git2::Oid,
-        old_branch: &Branch,
+        old_branch: &Stack,
         update: &BranchUpdateRequest,
         error: Option<&anyhow::Error>,
         perm: &mut WorktreeWritePermission,

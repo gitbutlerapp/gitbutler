@@ -2,12 +2,13 @@ use std::path::Path;
 
 use crate::author::Author;
 use anyhow::{Context, Result};
-use gitbutler_branch::{ReferenceExt, Target, VirtualBranchesHandle};
+use gitbutler_branch::ReferenceExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
 use gitbutler_serde::BStringForFrontend;
+use gitbutler_stack::{Target, VirtualBranchesHandle};
 use serde::Serialize;
 
 /// this struct is a mapping to the view `RemoteBranch` type in Typescript

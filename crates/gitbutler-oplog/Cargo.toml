@@ -22,6 +22,7 @@ gitbutler-serde.workspace = true
 gitbutler-fs.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-diff.workspace = true
+gitbutler-stack.workspace = true
 
 [[test]]
 name = "oplog"

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, path::Path, sync::Arc};
 
-use gitbutler_branch::BranchId;
 use gitbutler_id::id::Id;
+use gitbutler_stack::StackId;
 use serde::Serialize;
 use tokio::sync::{oneshot, Mutex};
 
@@ -38,9 +38,9 @@ pub struct AskpassRequest {
 // This is needed to end up with a struct with either `branch_id` or `action`
 #[serde(untagged)]
 pub enum Context {
-    Push { branch_id: Option<BranchId> },
+    Push { branch_id: Option<StackId> },
     Fetch { action: String },
-    SignedCommit { branch_id: Option<BranchId> },
+    SignedCommit { branch_id: Option<StackId> },
 }
 
 #[derive(Clone)]
@@ -89,7 +89,7 @@ impl AskpassBroker {
 
 async fn handle_git_prompt_commit_sign_sync(
     prompt: String,
-    branch_id: Option<BranchId>,
+    branch_id: Option<StackId>,
 ) -> Option<String> {
     tracing::info!("received prompt for synchronous signed commit {branch_id:?}: {prompt:?}");
     get_broker()
@@ -103,7 +103,7 @@ async fn handle_git_prompt_commit_sign_sync(
 pub fn sign_commit_sync(
     repo_path: impl AsRef<Path>,
     base_commitish: impl AsRef<str>,
-    branch_id: Option<BranchId>,
+    branch_id: Option<StackId>,
 ) -> Result<String, impl std::error::Error> {
     let repo_path = repo_path.as_ref().to_path_buf();
     let base_commitish: &str = base_commitish.as_ref();

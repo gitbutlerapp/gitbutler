@@ -1,7 +1,7 @@
-use gitbutler_branch::BranchId;
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
+use gitbutler_stack::StackId;
 use tauri::State;
 use tracing::instrument;
 
@@ -14,7 +14,7 @@ pub fn create_series(
     windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
-    branch_id: BranchId,
+    branch_id: StackId,
     request: CreateSeriesRequest,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
@@ -29,7 +29,7 @@ pub fn remove_series(
     windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
-    branch_id: BranchId,
+    branch_id: StackId,
     head_name: String,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
@@ -44,7 +44,7 @@ pub fn update_series_name(
     windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
-    branch_id: BranchId,
+    branch_id: StackId,
     head_name: String,
     new_head_name: String,
 ) -> Result<(), Error> {
@@ -65,7 +65,7 @@ pub fn update_series_description(
     windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
-    branch_id: BranchId,
+    branch_id: StackId,
     head_name: String,
     description: Option<String>,
 ) -> Result<(), Error> {
@@ -86,7 +86,7 @@ pub fn push_stack(
     windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
-    branch_id: BranchId,
+    branch_id: StackId,
     with_force: bool,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;

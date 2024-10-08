@@ -3,7 +3,7 @@ use std::str::FromStr;
 use anyhow::{bail, Context, Result};
 use bstr::ByteSlice;
 use git2::build::CheckoutBuilder;
-use gitbutler_branch::{signature, Branch, SignaturePurpose, VirtualBranchesHandle};
+use gitbutler_branch::{signature, SignaturePurpose};
 use gitbutler_branch_actions::branch_trees::{
     checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree,
 };
@@ -23,6 +23,7 @@ use gitbutler_operating_modes::{
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::{rebase::cherry_rebase, RepositoryExt};
+use gitbutler_stack::{Stack, VirtualBranchesHandle};
 
 pub mod commands;
 
@@ -111,7 +112,7 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<(
 fn find_virtual_branch_by_reference(
     ctx: &CommandContext,
     reference: &ReferenceName,
-) -> Result<Option<Branch>> {
+) -> Result<Option<Stack>> {
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let all_virtual_branches = vb_state
         .list_branches_in_workspace()

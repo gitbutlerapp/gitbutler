@@ -1,8 +1,8 @@
 use anyhow::{bail, Context as _, Result};
-use gitbutler_branch::BranchId;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt as _};
+use gitbutler_stack::StackId;
 
 use crate::{
     branch_trees::{
@@ -38,7 +38,7 @@ use crate::{
 /// D
 pub(crate) fn reorder_commit(
     ctx: &CommandContext,
-    branch_id: BranchId,
+    branch_id: StackId,
     subject_commit_oid: git2::Oid,
     offset: i32,
     perm: &mut WorktreeWritePermission,

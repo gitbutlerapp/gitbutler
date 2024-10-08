@@ -2,9 +2,8 @@ use crate::{RemoteBranchFile, VirtualBranchesExt};
 use anyhow::{bail, Context, Result};
 use bstr::{BStr, ByteSlice};
 use core::fmt;
-use gitbutler_branch::{
-    Branch as GitButlerBranch, BranchId, BranchIdentity, ReferenceExtGix, Target,
-};
+use gitbutler_branch::BranchIdentity;
+use gitbutler_branch::ReferenceExtGix;
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
@@ -12,6 +11,7 @@ use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo::{GixRepositoryExt, RepositoryExt as _};
 use gitbutler_serde::BStringForFrontend;
+use gitbutler_stack::{Stack as GitButlerBranch, StackId, Target};
 use gix::object::tree::diff::Action;
 use gix::prelude::ObjectIdExt;
 use gix::reference::Category;
@@ -437,7 +437,7 @@ pub struct VirtualBranchReference {
     /// A non-normalized name of the branch, set by the user
     pub given_name: String,
     /// Virtual Branch UUID identifier
-    pub id: BranchId,
+    pub id: StackId,
     /// Determines if the virtual branch is applied in the workspace
     pub in_workspace: bool,
 }

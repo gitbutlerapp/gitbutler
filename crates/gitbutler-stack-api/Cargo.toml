@@ -1,0 +1,31 @@
+[package]
+name = "gitbutler-stack-api"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+anyhow = "1.0.86"
+itertools = "0.13"
+rand = "0.8.5"
+serde = { workspace = true, features = ["std"] }
+git2.workspace = true
+gix.workspace = true
+tracing.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-branch.workspace = true
+gitbutler-patch-reference.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-commit.workspace = true
+gitbutler-stack.workspace = true
+
+[[test]]
+name = "stack-api"
+path = "tests/mod.rs"
+
+[dev-dependencies]
+gitbutler-git = { workspace = true, features = ["test-askpass-path"] }
+gitbutler-testsupport.workspace = true
+tempfile = "3.13"

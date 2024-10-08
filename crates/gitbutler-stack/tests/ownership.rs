@@ -1,11 +1,12 @@
 use std::{path::PathBuf, vec};
 
-use gitbutler_branch::{reconcile_claims, Branch, BranchOwnershipClaims, OwnershipClaim};
 use gitbutler_diff::Hunk;
+use gitbutler_stack::{reconcile_claims, BranchOwnershipClaims, OwnershipClaim, Stack};
 
 #[test]
 fn reconcile_ownership_simple() {
-    let mut branch_a = Branch::new(
+    #[allow(deprecated)] // this is a test
+    let mut branch_a = Stack::new(
         "a".to_string(),
         None,
         None,
@@ -36,7 +37,8 @@ fn reconcile_ownership_simple() {
     branch_a.created_timestamp_ms = u128::default();
     branch_a.updated_timestamp_ms = u128::default();
 
-    let mut branch_b = Branch::new(
+    #[allow(deprecated)] // this is a test
+    let mut branch_b = Stack::new(
         "b".to_string(),
         None,
         None,
@@ -60,7 +62,7 @@ fn reconcile_ownership_simple() {
     branch_b.created_timestamp_ms = u128::default();
     branch_b.updated_timestamp_ms = u128::default();
 
-    let all_branches: Vec<Branch> = vec![branch_a.clone(), branch_b.clone()];
+    let all_branches: Vec<Stack> = vec![branch_a.clone(), branch_b.clone()];
     let claim: Vec<OwnershipClaim> = vec![OwnershipClaim {
         file_path: PathBuf::from("foo"),
         hunks: vec![

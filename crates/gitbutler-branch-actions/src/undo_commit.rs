@@ -1,8 +1,8 @@
 use anyhow::{bail, Context as _, Result};
-use gitbutler_branch::{Branch, BranchId};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt as _};
+use gitbutler_stack::{Stack, StackId};
 
 use crate::VirtualBranchesExt as _;
 
@@ -19,9 +19,9 @@ use crate::VirtualBranchesExt as _;
 /// undone.
 pub(crate) fn undo_commit(
     ctx: &CommandContext,
-    branch_id: BranchId,
+    branch_id: StackId,
     commit_oid: git2::Oid,
-) -> Result<Branch> {
+) -> Result<Stack> {
     let vb_state = ctx.project().virtual_branches();
 
     let mut branch = vb_state.get_branch_in_workspace(branch_id)?;

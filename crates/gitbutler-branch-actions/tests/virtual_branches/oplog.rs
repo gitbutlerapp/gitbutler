@@ -1,7 +1,8 @@
 use std::{io::Write, path::Path, time::Duration};
 
-use gitbutler_branch::{BranchCreateRequest, VirtualBranchesHandle};
+use gitbutler_branch::BranchCreateRequest;
 use gitbutler_oplog::OplogExt;
+use gitbutler_stack::VirtualBranchesHandle;
 use itertools::Itertools;
 
 use super::*;

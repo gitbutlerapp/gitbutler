@@ -1,8 +1,8 @@
-use gitbutler_branch::VirtualBranchesHandle;
 use gitbutler_branch_actions::update_workspace_commit;
 use gitbutler_operating_modes::{
     assure_open_workspace_mode, INTEGRATION_BRANCH_REF, WORKSPACE_BRANCH_REF,
 };
+use gitbutler_stack::VirtualBranchesHandle;
 
 /// Tests that "verify branch" won't complain if we are on the old integration
 /// branch, and that `update_workspace_commit` will put us back on the a branch
