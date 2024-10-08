@@ -7,10 +7,11 @@
 		id: string;
 		onselect?: (id: string) => void;
 		disabled?: boolean;
+		unfocusable?: boolean;
 		children: Snippet;
 	}
 
-	const { id, onselect, children, disabled = false }: SegmentProps = $props();
+	const { id, onselect, children, disabled = false, unfocusable = false }: SegmentProps = $props();
 
 	const context = getContext<SegmentContext>('SegmentControl');
 	const index = context.setIndex();
@@ -39,7 +40,7 @@
 	class="segment-control-item"
 	role="tab"
 	{disabled}
-	tabindex={isSelected ? -1 : 0}
+	tabindex={isSelected || unfocusable ? -1 : 0}
 	aria-selected={isSelected}
 	onmousedown={() => {
 		if (index !== $selectedSegmentIndex) {
