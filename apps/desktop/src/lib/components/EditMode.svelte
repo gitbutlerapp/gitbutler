@@ -123,7 +123,16 @@
 		}
 
 		const files = Array.from(outputMap.values());
-		files.sort((a, b) => a.path.localeCompare(b.path));
+		files.sort((a, b) => {
+			// Float conflicted files to the top
+			if (a.conflicted && !b.conflicted) {
+				return -1;
+			} else if (!a.conflicted && b.conflicted) {
+				return 1;
+			}
+
+			return a.path.localeCompare(b.path);
+		});
 
 		return files;
 	});
