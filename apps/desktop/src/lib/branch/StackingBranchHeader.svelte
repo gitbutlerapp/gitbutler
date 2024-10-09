@@ -3,6 +3,7 @@
 	import StackingStatusIcon from './StackingStatusIcon.svelte';
 	import { getColorFromBranchType } from './stackingUtils';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import StackingBranchDescription from '$lib/branch/StackingBranchDescription.svelte';
 	import StackingBranchHeaderContextMenu from '$lib/branch/StackingBranchHeaderContextMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
@@ -18,13 +19,14 @@
 
 	interface Props {
 		name: string;
+		description?: string;
 		upstreamName?: string;
 		commits: DetailedCommit[];
 	}
 
-	const { name, upstreamName, commits }: Props = $props();
+	const { name, description, upstreamName, commits }: Props = $props();
 
-	let descriptionVisible = $state(false);
+	let descriptionVisible = $state(!!description);
 
 	const branchStore = getContextStore(VirtualBranch);
 	const branch = $derived($branchStore);
@@ -62,12 +64,15 @@
 		branchController.updateBranchName(branch.id, title);
 	}
 
-	function editDescription(_description: string) {
-		// branchController.updateBranchDescription(branch.id, description);
+	async function editDescription(description: string) {
+		await branchController.updateSeriesDescription(branch.id, name, description);
 	}
 
-	function addDescription() {
-		descriptionVisible = true;
+	async function toggleDescription() {
+		descriptionVisible = !descriptionVisible;
+		if (!descriptionVisible) {
+			await branchController.updateSeriesDescription(branch.id, name, '');
+		}
 	}
 </script>
 
@@ -103,17 +108,15 @@
 				bind:contextMenuEl={contextMenu}
 				target={meatballButtonEl}
 				headName={name}
-				{addDescription}
+				{description}
+				{toggleDescription}
 			/>
 		</div>
 	</div>
 	{#if descriptionVisible}
 		<div class="branch-info__description">
 			<div class="branch-action__line" style:--bg-color={lineColor}></div>
-			<BranchLabel
-				name={branch.description}
-				onChange={(description) => editDescription(description)}
-			/>
+			<StackingBranchDescription value={description ?? ''} onChange={editDescription} />
 		</div>
 	{/if}
 	<div class="branch-action">
@@ -172,6 +175,7 @@
 
 	.branch-info__description {
 		width: 100%;
+		margin-top: -5px;
 		display: flex;
 		justify-content: flex-start;
 		align-items: stretch;
