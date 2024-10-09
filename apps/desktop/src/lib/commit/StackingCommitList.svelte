@@ -98,27 +98,12 @@
 		}
 		branchController.insertBlankCommit($branch.id, commitId, location === 'above' ? -1 : 1);
 	}
-
-	function getReorderDropzoneOffset({
-		isFirst = false,
-		isMiddle = false,
-		isLast = false
-	}: {
-		isFirst?: boolean;
-		isMiddle?: boolean;
-		isLast?: boolean;
-	}) {
-		if (isFirst) return 12;
-		if (isMiddle) return 6;
-		if (isLast) return 0;
-		return 0;
-	}
 </script>
 
-{#snippet reorderDropzone(dropzone: ReorderDropzone, yOffsetPx: number)}
+{#snippet reorderDropzone(dropzone: ReorderDropzone)}
 	<Dropzone accepts={dropzone.accepts.bind(dropzone)} ondrop={dropzone.onDrop.bind(dropzone)}>
 		{#snippet overlay({ hovered, activated })}
-			<LineOverlay {hovered} {activated} {yOffsetPx} />
+			<LineOverlay {hovered} {activated} />
 		{/snippet}
 	</Dropzone>
 {/snippet}
@@ -170,14 +155,10 @@
 		<!-- LOCAL COMMITS -->
 		{#if localCommits.length > 0}
 			<div class="commits-group">
-				<InsertEmptyCommitAction
-					isFirst
-					on:click={() => insertBlankCommit($branch.head, 'above')}
-				/>
-				{@render reorderDropzone(
-					reorderDropzoneManager.topDropzone,
-					getReorderDropzoneOffset({ isFirst: true })
-				)}
+				<InsertEmptyCommitAction isFirst onclick={() => insertBlankCommit($branch.head, 'above')} />
+
+				{@render reorderDropzone(reorderDropzoneManager.topDropzone)}
+
 				{#each localCommits as commit, idx (commit.id)}
 					<StackingCommitDragItem {commit}>
 						<StackingCommitCard
@@ -194,17 +175,11 @@
 						</StackingCommitCard>
 					</StackingCommitDragItem>
 
-					{@render reorderDropzone(
-						reorderDropzoneManager.dropzoneBelowCommit(commit.id),
-						getReorderDropzoneOffset({
-							isLast: idx + 1 === localCommits.length,
-							isMiddle: idx + 1 === localCommits.length
-						})
-					)}
+					{@render reorderDropzone(reorderDropzoneManager.dropzoneBelowCommit(commit.id))}
 
 					<InsertEmptyCommitAction
 						isLast={idx + 1 === localCommits.length}
-						on:click={() => insertBlankCommit(commit.id, 'below')}
+						onclick={() => insertBlankCommit(commit.id, 'below')}
 					/>
 				{/each}
 			</div>
@@ -213,6 +188,14 @@
 		<!-- LOCAL AND REMOTE COMMITS -->
 		{#if localAndRemoteCommits.length > 0}
 			<div class="commits-group">
+				{#if localCommits.length === 0}
+					<InsertEmptyCommitAction
+						isFirst
+						onclick={() => insertBlankCommit($branch.head, 'above')}
+					/>
+
+					{@render reorderDropzone(reorderDropzoneManager.topDropzone)}
+				{/if}
 				{#each localAndRemoteCommits as commit, idx (commit.id)}
 					<StackingCommitDragItem {commit}>
 						<StackingCommitCard
@@ -229,15 +212,12 @@
 							{/snippet}
 						</StackingCommitCard>
 					</StackingCommitDragItem>
-					{@render reorderDropzone(
-						reorderDropzoneManager.dropzoneBelowCommit(commit.id),
-						getReorderDropzoneOffset({
-							isMiddle: idx + 1 === localAndRemoteCommits.length
-						})
-					)}
+
+					{@render reorderDropzone(reorderDropzoneManager.dropzoneBelowCommit(commit.id))}
+
 					<InsertEmptyCommitAction
 						isLast={idx + 1 === localAndRemoteCommits.length}
-						on:click={() => insertBlankCommit(commit.id, 'below')}
+						onclick={() => insertBlankCommit(commit.id, 'below')}
 					/>
 				{/each}
 
@@ -284,7 +264,6 @@
 		flex-direction: column;
 		background-color: var(--clr-bg-2);
 		border-radius: 0 0 var(--radius-m) var(--radius-m);
-		overflow: hidden;
 	}
 
 	.commits-group {

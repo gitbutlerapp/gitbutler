@@ -1,19 +1,21 @@
 <script lang="ts">
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import { createEventDispatcher } from 'svelte';
 
-	export let isLast = false;
-	export let isFirst = false;
-	export let isMiddle = false;
+	interface Props {
+		isLast?: boolean;
+		isFirst?: boolean;
+		onclick?: () => void;
+	}
 
-	const dispatch = createEventDispatcher<{ click: void }>();
+	const { isLast = false, isFirst = false, onclick }: Props = $props();
 </script>
 
 <div
 	class="line-container"
 	class:is-last={isLast}
 	class:is-first={isFirst}
-	class:is-middle={isMiddle}
+	class:not-stacking={!$stackingFeature}
 >
 	<div class="hover-target">
 		<Button
@@ -25,7 +27,7 @@
 			width={26}
 			tooltip="Insert empty commit"
 			helpShowDelay={500}
-			onclick={() => dispatch('click')}
+			onclick={onclick?.()}
 		/>
 	</div>
 </div>
@@ -93,16 +95,11 @@
 	}
 
 	/* MODIFIERS */
-
-	.line-container.is-last {
-		transform: translateY(-4px);
-	}
-
-	.line-container.is-first {
+	.line-container.not-stacking.is-first {
 		transform: translateY(16px);
 	}
 
-	.line-container.is-middle {
-		transform: translateY(6px);
+	.line-container.not-stacking.is-last {
+		transform: translateY(-4px);
 	}
 </style>
