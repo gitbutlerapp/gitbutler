@@ -200,10 +200,12 @@
 							<Dropzones>
 								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
-										<svelte:fragment slot="title">This is a new branch</svelte:fragment>
-										<svelte:fragment slot="caption">
+										{#snippet title()}
+											This is a new branch
+										{/snippet}
+										{#snippet caption()}
 											You can drag and drop files or parts of files here.
-										</svelte:fragment>
+										{/snippet}
 									</EmptyStatePlaceholder>
 								</div>
 							</Dropzones>
@@ -211,9 +213,9 @@
 							<Dropzones>
 								<div class="no-changes">
 									<EmptyStatePlaceholder image={noChangesSvg} width={180}>
-										<svelte:fragment slot="caption"
-											>No uncommitted changes on this branch</svelte:fragment
-										>
+										{#snippet caption()}
+											No uncommitted changes on this branch
+										{/snippet}
 									</EmptyStatePlaceholder>
 								</div>
 							</Dropzones>

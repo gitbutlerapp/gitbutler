@@ -155,7 +155,9 @@
 			</ScrollableContainer>
 		{:else}
 			<EmptyStatePlaceholder image={noBranchesSvg} width={180} bottomMargin={48}>
-				<svelte:fragment slot="caption">No branches<br />match your filter</svelte:fragment>
+				{#snippet caption()}
+					No branches<br />match your filter
+				{/snippet}
 			</EmptyStatePlaceholder>
 		{/if}
 	{:else}
