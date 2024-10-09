@@ -45,8 +45,9 @@
 				<ContextMenuItem
 					label="Open in VSCode"
 					on:click={() => {
-						projectPath &&
+						if (projectPath) {
 							openExternalUrl(`${$editor}://file${projectPath}/${filePath}:${item.lineNumber}`);
+						}
 						contextMenu.close();
 					}}
 				/>

@@ -86,7 +86,7 @@ function persisted<T>(initial: T, key: string): Writable<T> & { onDisk: () => Pr
 async function storeValueWithDefault<T>(initial: T, key: string): Promise<T> {
 	try {
 		await store.load();
-	} catch (e) {
+	} catch {
 		// If file does not exist, reset it
 		store.reset();
 	}

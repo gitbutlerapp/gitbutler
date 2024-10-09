@@ -345,6 +345,6 @@ describe.concurrent('buildDiff', () => {
 			buildDiff([hunk1, hunk1], 10000)
 		);
 
-		expect(outputMatchesExpectedValue).toBeTruthy;
+		expect(outputMatchesExpectedValue).toBeTruthy();
 	});
 });

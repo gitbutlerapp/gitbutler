@@ -79,7 +79,9 @@
 
 <svelte:window
 	on:keydown={(e) => {
-		e.key === 'Escape' && dispatch('hide');
+		if (e.key === 'Escape') {
+			dispatch('hide');
+		}
 	}}
 />
 

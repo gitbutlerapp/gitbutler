@@ -33,7 +33,9 @@
 
 	export function close() {
 		isVisible = false;
-		onclose && onclose();
+		if (onclose) {
+			onclose();
+		}
 	}
 
 	export function open(e?: MouseEvent, newItem?: any) {
@@ -43,7 +45,9 @@
 			item = newItem;
 		}
 		isVisible = true;
-		onopen && onopen();
+		if (onopen) {
+			onopen();
+		}
 
 		if (!openByMouse) {
 			setAlignByTarget();

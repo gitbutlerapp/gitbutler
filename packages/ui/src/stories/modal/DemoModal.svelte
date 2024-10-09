@@ -1,7 +1,7 @@
 <script lang="ts">
-	import iconsJson from '$lib/data/icons.json';
 	import Button from '$lib/Button.svelte';
 	import Modal from '$lib/Modal.svelte';
+	import iconsJson from '$lib/data/icons.json';
 
 	interface Props {
 		width?: 'default' | 'small' | 'large';
@@ -11,14 +11,16 @@
 
 	const { ...args }: Props = $props();
 
-	let modal = $state<Modal>();
+	let modal = $state<ReturnType<typeof Modal>>();
 </script>
 
 <Button
 	onclick={() => {
 		modal?.show();
-	}}>Show</Button
+	}}
 >
+	Show
+</Button>
 <Modal bind:this={modal} {...args}>
 	<p>Wonderful modal content</p>
 

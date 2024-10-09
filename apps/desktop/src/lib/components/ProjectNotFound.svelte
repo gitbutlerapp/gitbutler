@@ -23,7 +23,7 @@
 		deleteProject: {
 			try {
 				await projectService.deleteProject(id);
-			} catch (e) {
+			} catch {
 				deleteSucceeded = false;
 				break deleteProject;
 			}

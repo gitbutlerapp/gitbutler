@@ -35,7 +35,11 @@
 		<button
 			class="nav__right--button"
 			onclick={() => {
-				$token ? logout() : login();
+				if ($token) {
+					logout();
+				} else {
+					login();
+				}
 			}}
 		>
 			{$token ? 'Log Out' : 'Log In'}

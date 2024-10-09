@@ -156,7 +156,6 @@ export default tsEslint.config(
 			'**/yarn.lock',
 			'.github',
 			'.vscode',
-			'src-tauri',
 			'**/eslint.config.js',
 			'**/svelte.config.js',
 			'**/vite.config.ts',

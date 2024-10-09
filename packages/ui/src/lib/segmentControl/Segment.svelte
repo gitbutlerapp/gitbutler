@@ -22,7 +22,9 @@
 	let isSelected = $state(false);
 
 	$effect(() => {
-		elRef && isFocused && elRef.focus();
+		if (elRef && isFocused) {
+			elRef.focus();
+		}
 	});
 
 	$effect(() => {
@@ -48,7 +50,9 @@
 				index,
 				id
 			});
-			onselect && onselect(id);
+			if (onselect) {
+				onselect(id);
+			}
 		}
 	}}
 	onkeydown={({ key }) => {
@@ -58,7 +62,9 @@
 					index,
 					id
 				});
-				onselect && onselect(id);
+				if (onselect) {
+					onselect(id);
+				}
 			}
 		}
 	}}

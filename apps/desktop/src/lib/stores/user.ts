@@ -7,7 +7,7 @@ import { copyToClipboard } from '$lib/utils/clipboard';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
 import { plainToInstance } from 'class-transformer';
-import { derived, writable } from 'svelte/store';
+import { writable } from 'svelte/store';
 
 export type LoginToken = {
 	token: string;
@@ -34,9 +34,6 @@ export class UserService {
 		}
 		this.user.set(undefined);
 	}
-	readonly accessToken$ = derived(this.user, (user) => {
-		user?.github_access_token;
-	});
 
 	constructor(private httpClient: HttpClient) {}
 

@@ -327,7 +327,9 @@
 		class:is-before={side === CountColumnSide.Before}
 		class:selected={isSelected}
 		onclick={() => {
-			selectable && handleSelected(hunk, !isSelected);
+			if (selectable) {
+				handleSelected(hunk, !isSelected);
+			}
 		}}
 	>
 		{side === CountColumnSide.Before ? row.beforeLineNumber : row.afterLineNumber}
@@ -346,7 +348,9 @@
 			<thead class="table__title" class:draggable={!draggingDisabled}>
 				<tr
 					onclick={() => {
-						selectable && handleSelected(hunk, !isSelected);
+						if (selectable) {
+							handleSelected(hunk, !isSelected);
+						}
 					}}
 				>
 					<th
@@ -362,7 +366,9 @@
 									checked={isSelected}
 									small
 									onclick={() => {
-										selectable && handleSelected(hunk, !isSelected);
+										if (selectable) {
+											handleSelected(hunk, !isSelected);
+										}
 									}}
 								/>
 							{/if}
