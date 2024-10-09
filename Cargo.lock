@@ -2314,6 +2314,7 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-stack",
+ "gitbutler-stack-api",
  "gitbutler-time",
  "serde",
 ]
@@ -2580,6 +2581,7 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-stack",
  "gitbutler-testsupport",
+ "gitbutler-time",
  "gix",
  "itertools 0.13.0",
  "rand 0.8.5",

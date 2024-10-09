@@ -723,30 +723,31 @@ fn list_series_two_heads_different_commit() -> Result<()> {
 }
 
 #[test]
-fn set_stack_head_commit_from_other_stack() -> Result<()> {
+fn set_stack_head_commit_invalid() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     let result = test_ctx
         .branch
-        .set_stack_head(&ctx, test_ctx.other_commits.first().unwrap().id());
+        .set_stack_head(&ctx, git2::Oid::zero(), None);
     assert!(result.is_err());
     Ok(())
 }
 
 #[test]
-fn set_stack_head_commit_not_head() -> Result<()> {
+fn set_stack_head() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
-    let result = test_ctx
-        .branch
-        .set_stack_head(&ctx, test_ctx.commits.get(1).unwrap().id());
-    assert!(result.is_err());
+    let commit = test_ctx.other_commits.last().unwrap();
+    let result = test_ctx.branch.set_stack_head(&ctx, commit.id(), None);
+    assert!(result.is_ok());
+    let result = test_ctx.branch.list_series(&ctx)?;
     assert_eq!(
-        result.err().unwrap().to_string(),
-        format!(
-            "The commit {} is not the head of the stack",
-            test_ctx.commits[1].id()
-        )
+        result.first().unwrap().head.target,
+        CommitOrChangeId::ChangeId(commit.change_id().unwrap())
+    );
+    assert_eq!(
+        test_ctx.branch.head(),
+        test_ctx.other_commits.last().unwrap().id()
     );
     Ok(())
 }

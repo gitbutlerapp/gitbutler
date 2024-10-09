@@ -3,6 +3,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt as _};
 use gitbutler_stack::StackId;
+use gitbutler_stack_api::StackExt;
 
 use crate::{
     branch_trees::{
@@ -62,11 +63,7 @@ pub(crate) fn reorder_commit(
         &repository.find_tree(branch.tree)?,
     )?;
 
-    branch.tree = tree;
-    branch.set_head(head);
-
-    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-    vb_state.set_branch(branch.clone())?;
+    branch.set_stack_head(ctx, head, Some(tree))?;
 
     checkout_branch_trees(ctx, perm)?;
 

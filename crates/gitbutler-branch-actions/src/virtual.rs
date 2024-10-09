@@ -752,9 +752,7 @@ pub(crate) fn reset_branch(
     // what hunks were released by this reset, and assign them to this branch.
     let old_head = get_workspace_head(ctx)?;
 
-    branch.set_head(target_commit_id);
-    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-    vb_state.set_branch(branch.clone())?;
+    branch.set_stack_head(ctx, target_commit_id, None)?;
 
     let updated_head = get_workspace_head(ctx)?;
     let repo = ctx.repository();
@@ -916,14 +914,7 @@ pub fn commit(
     }
 
     let vb_state = ctx.project().virtual_branches();
-    branch.tree = tree_oid;
-    branch.set_head(commit_oid);
-    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-    vb_state.set_branch(branch.clone())?;
-    if let Err(e) = branch.set_stack_head(ctx, commit_oid) {
-        // TODO: Make this error out when this functionality is stable
-        tracing::warn!("failed to set stack head: {:?}", e);
-    }
+    branch.set_stack_head(ctx, commit_oid, Some(tree_oid))?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
@@ -1330,8 +1321,7 @@ pub(crate) fn move_commit_file(
 
     // if there are no upstream commits (the "to" commit was the branch head), then we're done
     if upstream_commits.is_empty() {
-        target_branch.set_head(commit_oid);
-        vb_state.set_branch(target_branch.clone())?;
+        target_branch.set_stack_head(ctx, commit_oid, None)?;
         crate::integration::update_workspace_commit(&vb_state, ctx)?;
         return Ok(commit_oid);
     }
@@ -1342,8 +1332,7 @@ pub(crate) fn move_commit_file(
 
     // if that rebase worked, update the branch head and the gitbutler workspace
     if let Some(new_head) = new_head {
-        target_branch.set_head(new_head);
-        vb_state.set_branch(target_branch.clone())?;
+        target_branch.set_stack_head(ctx, new_head, None)?;
         crate::integration::update_workspace_commit(&vb_state, ctx)?;
         Ok(commit_oid)
     } else {
@@ -1458,8 +1447,7 @@ pub(crate) fn amend(
         .l(target_branch.head(), LogUntil::Commit(amend_commit.id()))?;
     // if there are no upstream commits, we're done
     if upstream_commits.is_empty() {
-        target_branch.set_head(commit_oid);
-        vb_state.set_branch(target_branch.clone())?;
+        target_branch.set_stack_head(ctx, commit_oid, None)?;
         crate::integration::update_workspace_commit(&vb_state, ctx)?;
         return Ok(commit_oid);
     }
@@ -1469,8 +1457,7 @@ pub(crate) fn amend(
     let new_head = cherry_rebase(ctx, commit_oid, amend_commit.id(), last_commit)?;
 
     if let Some(new_head) = new_head {
-        target_branch.set_head(new_head);
-        vb_state.set_branch(target_branch.clone())?;
+        target_branch.set_stack_head(ctx, new_head, None)?;
         crate::integration::update_workspace_commit(&vb_state, ctx)?;
         Ok(commit_oid)
     } else {
@@ -1509,14 +1496,14 @@ pub(crate) fn insert_blank_commit(
 
     if commit.id() == branch.head() && offset < 0 {
         // inserting before the first commit
-        branch.set_head(blank_commit_oid);
+        branch.set_stack_head(ctx, blank_commit_oid, None)?;
         crate::integration::update_workspace_commit(&vb_state, ctx)
             .context("failed to update gitbutler workspace")?;
     } else {
         // rebase all commits above it onto the new commit
         match cherry_rebase(ctx, blank_commit_oid, commit.id(), branch.head()) {
             Ok(Some(new_head)) => {
-                branch.set_head(new_head);
+                branch.set_stack_head(ctx, new_head, None)?;
                 crate::integration::update_workspace_commit(&vb_state, ctx)
                     .context("failed to update gitbutler workspace")?;
             }
@@ -1526,8 +1513,6 @@ pub(crate) fn insert_blank_commit(
             }
         }
     }
-    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-    vb_state.set_branch(branch.clone())?;
 
     Ok(())
 }
@@ -1613,9 +1598,7 @@ pub(crate) fn squash(ctx: &CommandContext, branch_id: StackId, commit_id: git2::
     match cherry_rebase_group(ctx.repository(), new_commit_oid, &ids_to_rebase) {
         Ok(new_head_id) => {
             // save new branch head
-            branch.set_head(new_head_id);
-            branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-            vb_state.set_branch(branch.clone())?;
+            branch.set_stack_head(ctx, new_head_id, None)?;
 
             crate::integration::update_workspace_commit(&vb_state, ctx)
                 .context("failed to update gitbutler workspace")?;
@@ -1694,9 +1677,7 @@ pub(crate) fn update_commit_message(
     let new_head_id = cherry_rebase_group(ctx.repository(), new_commit_oid, &ids_to_rebase)
         .map_err(|err| err.context("rebase error"))?;
     // save new branch head
-    branch.set_head(new_head_id);
-    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-    vb_state.set_branch(branch.clone())?;
+    branch.set_stack_head(ctx, new_head_id, None)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;

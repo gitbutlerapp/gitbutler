@@ -24,6 +24,7 @@ use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission}
 use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::{rebase::cherry_rebase, RepositoryExt};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
+use gitbutler_stack_api::StackExt;
 
 pub mod commands;
 
@@ -227,12 +228,7 @@ pub(crate) fn save_and_return_to_workspace(
         tree: new_branch_tree,
     } = compute_updated_branch_head(repository, &virtual_branch, new_branch_head)?;
 
-    virtual_branch.set_head(new_branch_head);
-    virtual_branch.tree = new_branch_tree;
-    virtual_branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-    vb_state
-        .set_branch(virtual_branch)
-        .context("Failed to update vbstate")?;
+    virtual_branch.set_stack_head(ctx, new_branch_head, Some(new_branch_tree))?;
 
     // Switch branch to gitbutler/workspace
     repository

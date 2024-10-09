@@ -129,6 +129,9 @@ impl Stack {
         self.head
     }
 
+    #[deprecated(
+        note = "DO NOT USE THIS DIRECTLY, use `stack_ext::StackExt::set_stack_head` instead."
+    )]
     pub fn set_head(&mut self, head: git2::Oid) {
         self.head = head;
     }
