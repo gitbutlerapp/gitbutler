@@ -206,16 +206,21 @@
 				style="ghost"
 				outline
 				icon="description-small"
-				onclick={(e: MouseEvent) => {
-					if (e.ctrlKey || e.metaKey) {
-						openExternalUrl(pr.htmlUrl);
-						return;
-					}
+				onclick={() => {
 					prDetailsModal?.show();
 				}}
 			>
 				PR details
 			</Button>
+			<Button
+				icon="open-link"
+				size="tag"
+				style="ghost"
+				outline
+				onclick={() => {
+					openExternalUrl(pr.htmlUrl);
+				}}
+			/>
 			<Button
 				icon="update-small"
 				size="tag"
