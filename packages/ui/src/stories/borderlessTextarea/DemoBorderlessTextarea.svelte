@@ -5,7 +5,7 @@
 	import Button from '$lib/Button.svelte';
 
 	const props: BorderlessTextareaProps = $props();
-	let value = $state('');
+	let value = $state('Hello world');
 
 	function fillTheForm() {
 		value =

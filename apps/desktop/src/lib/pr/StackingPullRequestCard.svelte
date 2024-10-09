@@ -313,10 +313,4 @@
 		gap: 8px;
 		padding: 0 14px 12px 14px;
 	}
-
-	.floating-button {
-		position: absolute;
-		right: 6px;
-		top: 6px;
-	}
 </style>

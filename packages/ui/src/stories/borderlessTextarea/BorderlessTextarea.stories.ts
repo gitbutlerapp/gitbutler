@@ -12,7 +12,7 @@ type Story = StoryObj<typeof meta>;
 export const CheckboxStory: Story = {
 	name: 'BorderlessTextarea',
 	args: {
-		name: 'BorderlessTextarea'
-	},
-	argTypes: {}
+		value: 'Hello, World!',
+		placeholder: 'Type here...'
+	}
 };

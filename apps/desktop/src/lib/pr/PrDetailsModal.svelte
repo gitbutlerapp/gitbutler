@@ -370,8 +370,9 @@
 							autofocus
 							padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
 							placeholder="Add description…"
-							oninput={(e) => {
-								inputBody = e.currentTarget.value;
+							oninput={(e: InputEvent) => {
+								const target = e.target as HTMLTextAreaElement;
+								inputBody = target.value;
 							}}
 						/>
 
@@ -385,8 +386,9 @@
 										padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
 										placeholder={aiService.prSummaryMainDirective}
 										onkeydown={onMetaEnter(handleAIButtonPressed)}
-										oninput={(e) => {
-											aiDescriptionDirective = e.currentTarget.value;
+										oninput={(e: InputEvent) => {
+											const target = e.target as HTMLTextAreaElement;
+											aiDescriptionDirective = target.value;
 										}}
 									/>
 									<div class="pr-ai__actions">
