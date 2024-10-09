@@ -411,7 +411,7 @@ pub fn list_virtual_branches_cached(
                 .cmp(path_claim_positions.get(&b.path).unwrap_or(&usize::MAX))
         });
 
-        let requires_force = is_requires_force(ctx, &branch)?;
+        let mut requires_force = is_requires_force(ctx, &branch)?;
 
         let fork_point = commits
             .last()
@@ -428,7 +428,12 @@ pub fn list_virtual_branches_cached(
             &check_commit,
             remote_commit_data,
         ) {
-            Ok(series) => series,
+            Ok((series, force)) => {
+                if series.iter().any(|s| s.upstream_reference.is_some()) {
+                    requires_force = force; // derive force requirement from the series
+                }
+                series
+            }
             Err(e) => {
                 tracing::warn!("failed to compute stack series: {:?}", e);
                 vec![]
@@ -480,7 +485,8 @@ fn stack_series(
     default_target: &Target,
     check_commit: &IsCommitIntegrated,
     remote_commit_data: HashMap<CommitData, git2::Oid>,
-) -> Result<Vec<PatchSeries>> {
+) -> Result<(Vec<PatchSeries>, bool)> {
+    let mut requires_force = false;
     let mut api_series: Vec<PatchSeries> = vec![];
     let stack_series = branch.list_series(ctx)?;
     for series in stack_series.clone() {
@@ -498,12 +504,18 @@ fn stack_series(
             let copied_from_remote_id = CommitData::try_from(&commit)
                 .ok()
                 .and_then(|data| remote_commit_data.get(&data).copied());
-            let remote_commit_id = commit.change_id().and_then(|change_id| {
-                series
-                    .remote_commit_ids_by_change_id
-                    .get(&change_id)
-                    .cloned()
-            });
+            let remote_commit_id = commit
+                .change_id()
+                .and_then(|change_id| {
+                    series
+                        .remote_commit_ids_by_change_id
+                        .get(&change_id)
+                        .cloned()
+                })
+                .or(copied_from_remote_id);
+            if remote_commit_id.map_or(false, |id| commit.id() != id) {
+                requires_force = true;
+            }
             let vcommit = commit_to_vbranch_commit(
                 ctx,
                 branch,
@@ -542,7 +554,7 @@ fn stack_series(
     }
     api_series.reverse();
 
-    Ok(api_series)
+    Ok((api_series, requires_force))
 }
 
 /// The commit-data we can use for comparison to see which remote-commit was used to craete
