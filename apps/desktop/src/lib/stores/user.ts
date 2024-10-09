@@ -137,9 +137,9 @@ export class User {
 	name: string | undefined;
 	given_name: string | undefined;
 	family_name: string | undefined;
-	email!: string;
+	email!: string | undefined;
 	picture!: string;
-	locale!: string;
+	locale!: string | undefined;
 	created_at!: string;
 	updated_at!: string;
 	access_token!: string;
