@@ -2,9 +2,12 @@ use crate::{
     author::Author,
     file::{list_virtual_commit_files, VirtualBranchFile},
 };
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
+use bstr::ByteSlice as _;
+use gitbutler_cherry_pick::ConflictedTreeKey;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_repo::rebase::ConflictEntries;
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Stack, StackId};
 use serde::Serialize;
@@ -50,6 +53,7 @@ pub struct VirtualBranchCommit {
     /// Note: This makes both the `is_remote` and `copied_from_remote_id` fields redundant, but they are kept for compatibility.
     #[serde(with = "gitbutler_serde::oid_opt")]
     pub remote_commit_id: Option<git2::Oid>,
+    pub conflicted_files: ConflictEntries,
 }
 
 pub(crate) fn commit_to_vbranch_commit(
@@ -74,6 +78,23 @@ pub(crate) fn commit_to_vbranch_commit(
         })
         .collect::<Vec<_>>();
 
+    let repository = ctx.repository();
+
+    let conflicted_files = if commit.is_conflicted() {
+        let conflict_files_string = commit.tree()?;
+        let conflict_files_string = conflict_files_string
+            .get_name(&ConflictedTreeKey::ConflictFiles)
+            .ok_or_else(|| anyhow!("conflict files not found"))?;
+        let conflict_files_string = repository
+            .find_blob(conflict_files_string.id())?
+            .content()
+            .to_str_lossy()
+            .to_string();
+        toml::from_str::<ConflictEntries>(&conflict_files_string).unwrap_or_default()
+    } else {
+        Default::default()
+    };
+
     let commit = VirtualBranchCommit {
         id: commit.id(),
         created_at: timestamp * 1000,
@@ -89,6 +110,7 @@ pub(crate) fn commit_to_vbranch_commit(
         conflicted: commit.is_conflicted(),
         copied_from_remote_id,
         remote_commit_id: remote_commit_id.or(copied_from_remote_id),
+        conflicted_files,
     };
 
     Ok(commit)

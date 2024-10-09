@@ -39,6 +39,7 @@ gitbutler-oxidize.workspace = true
 gitbutler-stack.workspace = true
 uuid.workspace = true
 itertools = "0.13"
+toml.workspace = true
 
 [[test]]
 name = "repo"

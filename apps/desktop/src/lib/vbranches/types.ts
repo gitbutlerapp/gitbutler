@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { emptyConflictEntryPresence, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '@gitbutler/ui/utils/typeguards';
@@ -166,6 +167,27 @@ export class VirtualBranch {
 export const BRANCH = Symbol('branch');
 export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
 
+export class ConflictEntries {
+	public entries: Map<string, ConflictEntryPresence> = new Map();
+	constructor(ancestorEntries: string[], ourEntries: string[], theirEntries: string[]) {
+		ancestorEntries.forEach((entry) => {
+			const entryPresence = this.entries.get(entry) || emptyConflictEntryPresence();
+			entryPresence.ancestor = true;
+			this.entries.set(entry, entryPresence);
+		});
+		ourEntries.forEach((entry) => {
+			const entryPresence = this.entries.get(entry) || emptyConflictEntryPresence();
+			entryPresence.ours = true;
+			this.entries.set(entry, entryPresence);
+		});
+		theirEntries.forEach((entry) => {
+			const entryPresence = this.entries.get(entry) || emptyConflictEntryPresence();
+			entryPresence.theirs = true;
+			this.entries.set(entry, entryPresence);
+		});
+	}
+}
+
 export class DetailedCommit {
 	id!: string;
 	author!: Author;
@@ -203,6 +225,12 @@ export class DetailedCommit {
 
 	prev?: DetailedCommit;
 	next?: DetailedCommit;
+
+	@Transform(
+		(obj) =>
+			new ConflictEntries(obj.value.ancestorEntries, obj.value.ourEntries, obj.value.theirEntries)
+	)
+	conflictedFiles!: ConflictEntries;
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
@@ -257,6 +285,10 @@ export class Commit {
 
 	isMergeCommit() {
 		return this.parentIds.length > 1;
+	}
+
+	get conflictedFiles() {
+		return new ConflictEntries([], [], []);
 	}
 }
 

@@ -391,7 +391,7 @@
 											currentCommitMessage.set(commit.description);
 											e.stopPropagation();
 											undoCommit(commit);
-										}}>Undo</Button
+										}}>Uncommit</Button
 									>
 								{/if}
 								<Button
@@ -446,6 +446,7 @@
 					allowMultiple={!isUnapplied && type !== 'remote'}
 					{files}
 					{isUnapplied}
+					conflictedFiles={commit.conflictedFiles}
 					readonly={type === 'remote' || isUnapplied}
 				/>
 			</div>

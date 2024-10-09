@@ -1,13 +1,10 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
 	import { CommitService } from '$lib/commits/service';
+	import { conflictEntryHint, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
 	import { editor } from '$lib/editorLink/editorLink';
 	import FileContextMenu from '$lib/file/FileContextMenu.svelte';
-	import {
-		ModeService,
-		type ConflictEntryPresence,
-		type EditModeMetadata
-	} from '$lib/modes/service';
+	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { getContext } from '$lib/utils/context';
@@ -61,30 +58,6 @@
 		conflicted: boolean;
 		conflictHint?: string;
 		status?: FileStatus;
-	}
-
-	function conflictEntryHint(presence: ConflictEntryPresence): string {
-		let defaultVerb = 'added';
-
-		if (presence.ancestor) {
-			defaultVerb = 'modified';
-		}
-
-		let oursVerb = defaultVerb;
-
-		if (!presence.ours) {
-			oursVerb = 'deleted';
-		}
-
-		let theirsVerb = defaultVerb;
-
-		if (!presence.theirs) {
-			theirsVerb = 'deleted';
-		}
-
-		let output = `You have ${theirsVerb} this file, They have ${oursVerb} this file.`;
-
-		return output;
 	}
 
 	const files = $derived.by(() => {
