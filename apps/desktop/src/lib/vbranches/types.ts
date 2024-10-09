@@ -234,8 +234,7 @@ export class DetailedCommit {
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
-		if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id))
-			return 'localAndRemote';
+		if (this.remoteCommitId) return 'localAndRemote';
 		return 'local';
 	}
 
