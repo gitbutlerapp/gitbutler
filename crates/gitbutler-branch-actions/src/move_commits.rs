@@ -8,6 +8,7 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt};
 use gitbutler_stack::{OwnershipClaim, StackId};
+use gitbutler_stack_api::StackExt;
 use std::collections::HashMap;
 
 /// moves commit from the branch it's in to the top of the target branch
@@ -122,11 +123,9 @@ pub(crate) fn move_commit(
 
     // reset the source branch to the parent commit
     // and update the destination branch head
-    source_branch.set_head(source_branch_head_parent.id());
-    vb_state.set_branch(source_branch.clone())?;
+    source_branch.set_stack_head(ctx, source_branch_head_parent.id(), None)?;
 
-    destination_branch.set_head(new_destination_head_oid);
-    vb_state.set_branch(destination_branch.clone())?;
+    destination_branch.set_stack_head(ctx, new_destination_head_oid, None)?;
 
     checkout_branch_trees(ctx, perm)?;
 

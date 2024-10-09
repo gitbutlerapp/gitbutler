@@ -1,5 +1,6 @@
 use anyhow::Context;
 use gitbutler_branch_actions::RemoteBranchFile;
+use gitbutler_edit_mode::ConflictEntryPresence;
 use gitbutler_operating_modes::EditModeMetadata;
 use gitbutler_operating_modes::OperatingMode;
 use gitbutler_project::Controller;
@@ -62,7 +63,7 @@ pub fn save_edit_and_return_to_workspace(
 pub fn edit_initial_index_state(
     projects: State<'_, Controller>,
     project_id: ProjectId,
-) -> Result<Vec<RemoteBranchFile>, Error> {
+) -> Result<Vec<(RemoteBranchFile, Option<ConflictEntryPresence>)>, Error> {
     let project = projects.get(project_id)?;
 
     gitbutler_edit_mode::commands::starting_index_state(&project).map_err(Into::into)

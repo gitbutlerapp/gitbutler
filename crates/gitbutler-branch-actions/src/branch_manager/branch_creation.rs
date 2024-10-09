@@ -217,13 +217,11 @@ impl BranchManager<'_> {
             },
         );
 
-        let branch = if let Ok(Some(mut branch)) =
+        let mut branch = if let Ok(Some(mut branch)) =
             vb_state.find_by_source_refname_where_not_in_workspace(target)
         {
             branch.upstream_head = upstream_branch.is_some().then_some(head_commit.id());
             branch.upstream = upstream_branch;
-            branch.tree = head_commit_tree.id();
-            branch.set_head(head_commit.id());
             branch.ownership = ownership;
             branch.order = order;
             branch.selected_for_changes = selected_for_changes;
@@ -247,7 +245,7 @@ impl BranchManager<'_> {
             )
         };
 
-        vb_state.set_branch(branch.clone())?;
+        branch.set_stack_head(self.ctx, head_commit.id(), Some(head_commit_tree.id()))?;
         self.ctx.add_branch_reference(&branch)?;
 
         match self.apply_branch(branch.id, perm) {
@@ -345,10 +343,11 @@ impl BranchManager<'_> {
                 )?
             };
 
-            branch.set_head(new_head.id());
-            branch.tree = repo.find_real_tree(&new_head, Default::default())?.id();
-
-            vb_state.set_branch(branch.clone())?;
+            branch.set_stack_head(
+                self.ctx,
+                new_head.id(),
+                Some(repo.find_real_tree(&new_head, Default::default())?.id()),
+            )?;
         }
 
         // apply the branch

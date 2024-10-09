@@ -5,7 +5,7 @@ inputs:
     description: "the features to enable (can be an array, or '*' for all, '' for defaults, or [] for none)"
     required: false
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2.7.3
@@ -24,7 +24,7 @@ runs:
     - run: |
         cargo test --workspace $(cat /tmp/features)
       env:
-        GITBUTLER_TESTS_NO_CLEANUP: "1"
+        GITBUTLER_TESTS_NO_CLEANUP: '1'
         CARGO_TERM_COLOR: always
       shell: bash
 

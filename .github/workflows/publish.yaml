@@ -1,10 +1,10 @@
-name: "Publish"
+name: 'Publish'
 on:
   schedule:
     # every day at 3am
     - cron: '0 3 * * *'
   workflow_run:
-    workflows: ["Nightly build"]
+    workflows: ['Nightly build']
     types:
       - completed
 
@@ -96,7 +96,7 @@ jobs:
       channel: ${{ env.channel }}
 
     steps:
-       # Because GitHub broke perl installations sometime in 2022 on Windows.
+      # Because GitHub broke perl installations sometime in 2022 on Windows.
       - name: perl -V (before re-install)
         if: runner.os == 'Windows'
         run: which perl && perl -V
@@ -104,7 +104,7 @@ jobs:
         if: runner.os == 'Windows'
         uses: shogo82148/actions-setup-perl@v1
         with:
-          perl-version: "5.38"
+          perl-version: '5.38'
           distribution: strawberry
       - name: Set git to use LF
         if: runner.os == 'Windows'
@@ -194,7 +194,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ env.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
+          name: '${{ env.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release/
           if-no-files-found: error
 
@@ -210,7 +210,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: runner.os == 'Windows'
         with:
-          name: "${{ env.channel }}-windows-aux-${{ github.run_number }}"
+          name: '${{ env.channel }}-windows-aux-${{ github.run_number }}'
           path: tauri-aux-artifacts/
           if-no-files-found: error
 
@@ -228,7 +228,7 @@ jobs:
       - name: Download unsigned artifacts
         uses: actions/download-artifact@v4
         with:
-          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release
       - name: Sign Windows binary
         shell: bash
@@ -239,7 +239,7 @@ jobs:
       - name: Upload signed artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release/
           if-no-files-found: error
           overwrite: true
@@ -265,7 +265,7 @@ jobs:
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
-          name: "${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}"
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release
       - name: Extract version
         shell: bash
@@ -285,9 +285,9 @@ jobs:
         with:
           aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws_bucket: "releases.gitbutler.com"
-          source_dir: "release-s3/"
-          destination_dir: "releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}"
+          aws_bucket: 'releases.gitbutler.com'
+          source_dir: 'release-s3/'
+          destination_dir: 'releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}'
 
       # tell our server to update with the version number
       - name: Notify GitButler API of new release
@@ -310,7 +310,7 @@ jobs:
       - name: Create git tag
         shell: bash
         env:
-          TAG_NAME: "${{ needs.build-tauri.outputs.channel }}/${{ needs.publish-tauri.outputs.version }}"
+          TAG_NAME: '${{ needs.build-tauri.outputs.channel }}/${{ needs.publish-tauri.outputs.version }}'
         run: |
           function tag_exists() {
             git tag --list | grep -q "^$1$"

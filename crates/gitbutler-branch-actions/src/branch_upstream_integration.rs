@@ -6,6 +6,7 @@ use gitbutler_repo::{
     LogUntil, RepositoryExt as _,
 };
 use gitbutler_stack::StackId;
+use gitbutler_stack_api::StackExt;
 
 use crate::{
     branch_trees::{
@@ -66,11 +67,7 @@ pub fn integrate_upstream_commits(
 
     let mut branch = branch.clone();
 
-    branch.set_head(head);
-    branch.tree = tree;
-
-    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-    vb_state.set_branch(branch.clone())?;
+    branch.set_stack_head(ctx, head, Some(tree))?;
 
     checkout_branch_trees(ctx, perm)?;
 

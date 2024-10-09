@@ -22,4 +22,5 @@ gitbutler-oplog.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-cherry-pick.workspace = true
+gitbutler-stack-api.workspace = true
 serde.workspace = true

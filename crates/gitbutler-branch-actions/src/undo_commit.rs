@@ -3,6 +3,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt as _};
 use gitbutler_stack::{Stack, StackId};
+use gitbutler_stack_api::StackExt;
 
 use crate::VirtualBranchesExt as _;
 
@@ -28,9 +29,7 @@ pub(crate) fn undo_commit(
 
     let new_head_commit = inner_undo_commit(ctx.repository(), branch.head(), commit_oid)?;
 
-    branch.set_head(new_head_commit);
-    branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-    vb_state.set_branch(branch.clone())?;
+    branch.set_stack_head(ctx, new_head_commit, None)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;

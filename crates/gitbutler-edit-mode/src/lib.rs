@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::{bail, Context, Result};
@@ -24,6 +26,8 @@ use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission}
 use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::{rebase::cherry_rebase, RepositoryExt};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
+use gitbutler_stack_api::StackExt;
+use serde::Serialize;
 
 pub mod commands;
 
@@ -75,7 +79,7 @@ fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<(
 
     // Checkout commits's parent
     let commit_parent = if commit.is_conflicted() {
-        let base_tree = repository.find_real_tree(commit, ConflictedTreeKey::Base)?;
+        let base_tree = repository.find_real_tree(commit, ConflictedTreeKey::Ours)?;
 
         let base = repository.commit(
             None,
@@ -227,12 +231,7 @@ pub(crate) fn save_and_return_to_workspace(
         tree: new_branch_tree,
     } = compute_updated_branch_head(repository, &virtual_branch, new_branch_head)?;
 
-    virtual_branch.set_head(new_branch_head);
-    virtual_branch.tree = new_branch_tree;
-    virtual_branch.updated_timestamp_ms = gitbutler_time::time::now_ms();
-    vb_state
-        .set_branch(virtual_branch)
-        .context("Failed to update vbstate")?;
+    virtual_branch.set_stack_head(ctx, new_branch_head, Some(new_branch_tree))?;
 
     // Switch branch to gitbutler/workspace
     repository
@@ -247,10 +246,18 @@ pub(crate) fn save_and_return_to_workspace(
     Ok(())
 }
 
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictEntryPresence {
+    pub ours: bool,
+    pub theirs: bool,
+    pub ancestor: bool,
+}
+
 pub(crate) fn starting_index_state(
     ctx: &CommandContext,
     _perm: &WorktreeReadPermission,
-) -> Result<Vec<RemoteBranchFile>> {
+) -> Result<Vec<(RemoteBranchFile, Option<ConflictEntryPresence>)>> {
     let OperatingMode::Edit(metadata) = operating_mode(ctx) else {
         bail!("Starting index state can only be fetched while in edit mode")
     };
@@ -258,10 +265,40 @@ pub(crate) fn starting_index_state(
     let repository = ctx.repository();
 
     let commit = repository.find_commit(metadata.commit_oid)?;
-    let commit_parent = commit.parent(0)?;
-    let commit_parent_tree = repository.find_real_tree(&commit_parent, Default::default())?;
+    let commit_parent_tree = if commit.is_conflicted() {
+        repository.find_real_tree(&commit, ConflictedTreeKey::Ours)?
+    } else {
+        commit.parent(0)?.tree()?
+    };
 
     let index = get_commit_index(repository, &commit)?;
+
+    let conflicts = index
+        .conflicts()?
+        .filter_map(|conflict| {
+            let Ok(conflict) = conflict else {
+                return None;
+            };
+
+            let path = conflict
+                .ancestor
+                .as_ref()
+                .or(conflict.our.as_ref())
+                .or(conflict.their.as_ref())
+                .map(|entry| PathBuf::from(entry.path.to_str_lossy().to_string()))?;
+
+            Some((
+                path,
+                ConflictEntryPresence {
+                    ours: conflict.our.is_some(),
+                    theirs: conflict.their.is_some(),
+                    ancestor: conflict.ancestor.is_some(),
+                },
+            ))
+        })
+        .collect::<HashMap<PathBuf, ConflictEntryPresence>>();
+
+    dbg!(&conflicts);
 
     let diff = repository.diff_tree_to_index(Some(&commit_parent_tree), Some(&index), None)?;
 
@@ -269,11 +306,14 @@ pub(crate) fn starting_index_state(
         .into_iter()
         .map(|(path, file)| {
             let binary = file.hunks.iter().any(|h| h.binary);
-            RemoteBranchFile {
-                path,
-                hunks: file.hunks,
-                binary,
-            }
+            (
+                RemoteBranchFile {
+                    path: path.clone(),
+                    hunks: file.hunks,
+                    binary,
+                },
+                conflicts.get(&path).cloned(),
+            )
         })
         .collect();
 

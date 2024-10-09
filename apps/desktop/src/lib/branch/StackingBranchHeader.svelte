@@ -103,6 +103,7 @@
 				bind:contextMenuEl={contextMenu}
 				target={meatballButtonEl}
 				headName={name}
+				seriesCount={branch.series?.length ?? 0}
 				{addDescription}
 			/>
 		</div>

@@ -20,6 +20,7 @@
 		checked?: boolean;
 		indeterminate?: boolean;
 		conflicted?: boolean;
+		conflictHint?: string;
 		locked?: boolean;
 		lockText?: string;
 		stacking?: boolean;
@@ -47,6 +48,7 @@
 		checked = $bindable(),
 		indeterminate,
 		conflicted,
+		conflictHint,
 		locked,
 		lockText,
 		stacking = false,
@@ -57,7 +59,7 @@
 		oncontextmenu
 	}: Props = $props();
 
-	const fileInfo = splitFilePath(filePath);
+	const fileInfo = $derived(splitFilePath(filePath));
 </script>
 
 <div
@@ -109,9 +111,11 @@
 		{/if}
 
 		{#if conflicted}
-			<div class="conflicted">
-				<Icon name="warning-small" color="error" />
-			</div>
+			<Tooltip text={conflictHint}>
+				<div class="conflicted">
+					<Icon name="warning-small" color="error" />
+				</div>
+			</Tooltip>
 		{/if}
 
 		{#if fileStatus}

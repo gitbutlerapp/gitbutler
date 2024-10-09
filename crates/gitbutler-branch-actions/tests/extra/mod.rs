@@ -21,6 +21,7 @@ use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_stack::{BranchOwnershipClaims, Target, VirtualBranchesHandle};
+use gitbutler_stack_api::StackExt;
 use gitbutler_testsupport::{commit_all, virtual_branches::set_test_target, Case, Suite};
 use pretty_assertions::assert_eq;
 
@@ -844,8 +845,7 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
         .expect("failed to create virtual branch");
 
     branch.upstream = Some(remote_branch.clone());
-    branch.set_head(last_push);
-    vb_state.set_branch(branch.clone())?;
+    branch.set_stack_head(ctx, last_push, None)?;
 
     // create the branch
     let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
@@ -973,8 +973,7 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
         .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
         .expect("failed to create virtual branch");
     branch.upstream = Some(remote_branch.clone());
-    branch.set_head(last_push);
-    vb_state.set_branch(branch.clone())?;
+    branch.set_stack_head(ctx, last_push, None)?;
 
     internal::update_branch(
         ctx,

@@ -19,6 +19,7 @@ gitbutler-patch-reference.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-repo.workspace = true
 gitbutler-commit.workspace = true
+gitbutler-time.workspace = true
 gitbutler-stack.workspace = true
 
 [[test]]
