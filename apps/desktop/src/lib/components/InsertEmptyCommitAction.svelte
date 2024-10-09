@@ -1,10 +1,10 @@
 <script lang="ts">
 	import Button from '@gitbutler/ui/Button.svelte';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { createEventDispatcher } from 'svelte';
 
 	export let isLast = false;
 	export let isFirst = false;
-	export let isMiddle = false;
 
 	const dispatch = createEventDispatcher<{ click: void }>();
 </script>
@@ -13,7 +13,7 @@
 	class="line-container"
 	class:is-last={isLast}
 	class:is-first={isFirst}
-	class:is-middle={isMiddle}
+	class:not-stacking={!$stackingFeature}
 >
 	<div class="hover-target">
 		<Button
@@ -93,11 +93,11 @@
 	}
 
 	/* MODIFIERS */
-	.line-container.is-last {
-		transform: translateY(-4px);
+	.line-container.not-stacking.is-first {
+		transform: translateY(16px);
 	}
 
-	.line-container.is-middle {
-		transform: translateY(6px);
+	.line-container.not-stacking.is-last {
+		transform: translateY(-4px);
 	}
 </style>
