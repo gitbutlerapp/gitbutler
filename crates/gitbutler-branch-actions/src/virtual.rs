@@ -529,19 +529,28 @@ fn stack_series(
         }
         patches.reverse();
         let mut upstream_patches = vec![];
-        for patch in series.upstream_only(&stack_series) {
-            let commit = commit_by_oid_or_change_id(&patch, ctx, branch.head(), default_target)?;
-            let is_integrated = check_commit.is_integrated(&commit)?;
-            let vcommit = commit_to_vbranch_commit(
-                ctx,
-                branch,
-                &commit,
-                is_integrated,
-                true, // per definition
-                None, // per definition
-                Some(commit.id()),
-            )?;
-            upstream_patches.push(vcommit);
+        if let Some(upstream_reference) = upstream_reference.clone() {
+            let remote_head = ctx
+                .repository()
+                .find_reference(&upstream_reference)?
+                .peel_to_commit()?;
+            for patch in series.upstream_only(&stack_series) {
+                if let Ok(commit) =
+                    commit_by_oid_or_change_id(&patch, ctx, remote_head.id(), default_target)
+                {
+                    let is_integrated = check_commit.is_integrated(&commit)?;
+                    let vcommit = commit_to_vbranch_commit(
+                        ctx,
+                        branch,
+                        &commit,
+                        is_integrated,
+                        true, // per definition
+                        None, // per definition
+                        Some(commit.id()),
+                    )?;
+                    upstream_patches.push(vcommit);
+                };
+            }
         }
         upstream_patches.reverse();
         api_series.push(PatchSeries {
