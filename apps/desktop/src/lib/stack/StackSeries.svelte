@@ -3,11 +3,7 @@
 	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { getContext } from '$lib/utils/context';
-	import {
-		getLocalAndRemoteCommits,
-		getLocalCommits,
-		getRemoteCommits
-	} from '$lib/vbranches/contexts';
+	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
 	import type { VirtualBranch } from '$lib/vbranches/types';
 	// import type { Series } from './types';
 
@@ -20,7 +16,6 @@
 
 	const localCommits = getLocalCommits();
 	const localAndRemoteCommits = getLocalAndRemoteCommits();
-	const remoteCommits = getRemoteCommits();
 
 	const localCommitsConflicted = $derived($localCommits.some((commit) => commit.conflicted));
 	const localAndRemoteCommitsConflicted = $derived(
