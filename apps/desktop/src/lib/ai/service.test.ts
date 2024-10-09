@@ -1,3 +1,10 @@
+import {
+	AnthropicModelName,
+	ModelKind,
+	OpenAIModelName,
+	type AIClient,
+	type Prompt
+} from './types';
 import { AnthropicAIClient } from '$lib/ai/anthropicClient';
 import { ButlerAIClient } from '$lib/ai/butlerClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
@@ -7,13 +14,6 @@ import {
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
 import { AISecretHandle, AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/ai/service';
-import {
-	AnthropicModelName,
-	ModelKind,
-	OpenAIModelName,
-	type AIClient,
-	type Prompt
-} from '$lib/ai/types';
 import { HttpClient } from '$lib/backend/httpClient';
 import { buildFailureFromAny, ok, unwrap, type Result } from '$lib/result';
 import { Hunk } from '$lib/vbranches/types';

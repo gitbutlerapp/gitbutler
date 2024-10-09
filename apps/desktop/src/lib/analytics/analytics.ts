@@ -1,34 +1,22 @@
 import { initPostHog } from '$lib/analytics/posthog';
 import { initSentry } from '$lib/analytics/sentry';
-import { appAnalyticsConfirmed } from '$lib/config/appSettings';
-import {
-	appMetricsEnabled,
-	appErrorReportingEnabled,
-	appNonAnonMetricsEnabled
-} from '$lib/config/appSettings';
+import { AppSettings } from '$lib/config/appSettings';
 import posthog from 'posthog-js';
 
-export function initAnalyticsIfEnabled() {
-	const analyticsConfirmed = appAnalyticsConfirmed();
-	analyticsConfirmed.onDisk().then((confirmed) => {
+export function initAnalyticsIfEnabled(appSettings: AppSettings) {
+	appSettings.appAnalyticsConfirmed.onDisk().then((confirmed) => {
 		if (confirmed) {
-			appErrorReportingEnabled()
-				.onDisk()
-				.then((enabled) => {
-					if (enabled) initSentry();
-				});
-			appMetricsEnabled()
-				.onDisk()
-				.then((enabled) => {
-					if (enabled) initPostHog();
-				});
-			appNonAnonMetricsEnabled()
-				.onDisk()
-				.then((enabled) => {
-					enabled
-						? posthog.capture('nonAnonMetricsEnabled')
-						: posthog.capture('nonAnonMetricsDisabled');
-				});
+			appSettings.appErrorReportingEnabled.onDisk().then((enabled) => {
+				if (enabled) initSentry();
+			});
+			appSettings.appMetricsEnabled.onDisk().then((enabled) => {
+				if (enabled) initPostHog();
+			});
+			appSettings.appNonAnonMetricsEnabled.onDisk().then((enabled) => {
+				enabled
+					? posthog.capture('nonAnonMetricsEnabled')
+					: posthog.capture('nonAnonMetricsDisabled');
+			});
 		}
 	});
 }

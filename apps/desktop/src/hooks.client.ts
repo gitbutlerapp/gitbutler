@@ -1,6 +1,6 @@
 import { showError } from '$lib/notifications/toasts';
 import { captureException } from '@sentry/sveltekit';
-import { error as logErrorToFile } from 'tauri-plugin-log-api';
+import { error as logErrorToFile } from '@tauri-apps/plugin-log';
 import type { HandleClientError } from '@sveltejs/kit';
 
 // SvelteKit error handler.
@@ -25,20 +25,23 @@ window.onunhandledrejection = (e: PromiseRejectionEvent) => {
 };
 
 function logError(error: unknown) {
-	let message = error instanceof Error ? error.message : String(error);
-	const stack = error instanceof Error ? error.stack : undefined;
+	try {
+		let message = error instanceof Error ? error.message : String(error);
+		const stack = error instanceof Error ? error.stack : undefined;
 
-	const id = captureException(message, {
-		mechanism: {
-			type: 'sveltekit',
-			handled: false
-		}
-	});
-	message = `${id}: ${message}\n`;
-	if (stack) message = `${message}\n${stack}\n`;
+		const id = captureException(message, {
+			mechanism: {
+				type: 'sveltekit',
+				handled: false
+			}
+		});
+		message = `${id}: ${message}\n`;
+		if (stack) message = `${message}\n${stack}\n`;
 
-	logErrorToFile(message);
-	console.error(message);
-	showError('Something went wrong', message);
-	return id;
+		logErrorToFile(message);
+		showError('Something went wrong', message);
+		return id;
+	} catch (err: unknown) {
+		console.error('Error while trying to log error.', err);
+	}
 }

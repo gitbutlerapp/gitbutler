@@ -4,8 +4,8 @@ import {
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
 import { map, type Result } from '$lib/result';
-import type { AIClient, ModelKind, Prompt } from '$lib/ai/types';
 import type { HttpClient } from '$lib/backend/httpClient';
+import type { AIClient, ModelKind, Prompt } from './types';
 
 export class ButlerAIClient implements AIClient {
 	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;

@@ -1,51 +1,20 @@
 {
+	"productName": "GitButler Test",
+	"identifier": "com.gitbutler.app.test",
 	"build": {
-		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode development",
-		"distDir": "../../apps/desktop/build"
+		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode development && cargo build -p gitbutler-git"
 	},
-	"package": {
-		"productName": "GitButler Dev"
-	},
-	"tauri": {
-		"allowlist": {
-			"fs": {
-				"readFile": true,
-				"scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*"]
-			},
-			"dialog": {
-				"open": true
-			},
-			"os": {
-				"all": true
-			},
-			"protocol": {
-				"asset": true,
-				"assetScope": ["$APPCACHE/images/*"]
-			},
-			"process": {
-				"relaunch": true
-			},
-			"window": {
-				"startDragging": true,
-				"maximize": true,
-				"unmaximize": true
-			},
-			"path": {
-				"all": true
-			},
-			"http": {
-				"all": true,
-				"request": true,
-				"scope": [
-					"https://api.anthropic.com/v1/messages",
-					"http://127.0.0.1:11434/api/chat",
-					"http://127.0.0.1:11434/api/generate",
-					"http://127.0.0.1:11434/api/embeddings"
-				]
+	"app": {
+		"enableGTKAppId": true,
+		"withGlobalTauri": false,
+		"security": {
+			"csp": {
+				"default-src": "'self'",
+				"img-src": "'self' asset: https://asset.localhost data: tauri://localhost https://avatars.githubusercontent.com https://*.gitbutler.com  https://gitbutler-public.s3.amazonaws.com https://*.gravatar.com https://io.wp.com https://i0.wp.com https://i1.wp.com https://i2.wp.com https://i3.wp.com https://github.com https://*.googleusercontent.com",
+				"connect-src": "'self' ipc: https://eu.posthog.com https://eu.i.posthog.com https://app.gitbutler.com https://o4504644069687296.ingest.sentry.io ws://localhost:7703 https://github.com https://api.github.com https://api.openai.com",
+				"script-src": "'self' https://eu.posthog.com https://eu.i.posthog.com",
+				"style-src": "'self' 'unsafe-inline'"
 			}
-		},
-		"bundle": {
-			"active": false
 		}
 	}
 }

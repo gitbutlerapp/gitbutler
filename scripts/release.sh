@@ -111,27 +111,22 @@ done
 
 [ -z "${VERSION-}" ] && error "--version is not set"
 
-[ -z "${TAURI_PRIVATE_KEY-}" ] && error "$TAURI_PRIVATE_KEY is not set"
-[ -z "${TAURI_KEY_PASSWORD-}" ] && error "$TAURI_KEY_PASSWORD is not set"
+[ -z "${TAURI_SIGNING_PRIVATE_KEY-}" ] && error "$TAURI_SIGNING_PRIVATE_KEY is not set"
+[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD-}" ] && error "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD is not set"
 
 if [ "$CHANNEL" != "release" ] && [ "$CHANNEL" != "nightly" ]; then
 	error "--channel must be either 'release' or 'nightly'"
 fi
 
-export TAURI_PRIVATE_KEY="$TAURI_PRIVATE_KEY"
-export TAURI_KEY_PASSWORD="$TAURI_KEY_PASSWORD"
-
 if [ "$DO_SIGN" = "true" ]; then
 	if [ "$OS" = "macos" ]; then
 		[ -z "${APPLE_CERTIFICATE-}" ] && error "$APPLE_CERTIFICATE is not set"
 		[ -z "${APPLE_CERTIFICATE_PASSWORD-}" ] && error "$APPLE_CERTIFICATE_PASSWORD is not set"
-		[ -z "${APPLE_SIGNING_IDENTITY-}" ] && error "$APPLE_SIGNING_IDENTITY is not set"
 		[ -z "${APPLE_ID-}" ] && error "$APPLE_ID is not set"
 		[ -z "${APPLE_TEAM_ID-}" ] && error "$APPLE_TEAM_ID is not set"
 		[ -z "${APPLE_PASSWORD-}" ] && error "$APPLE_PASSWORD is not set"
 		export APPLE_CERTIFICATE="$APPLE_CERTIFICATE"
 		export APPLE_CERTIFICATE_PASSWORD="$APPLE_CERTIFICATE_PASSWORD"
-		export APPLE_SIGNING_IDENTITY="$APPLE_SIGNING_IDENTITY"
 		export APPLE_ID="$APPLE_ID"
 		export APPLE_TEAM_ID="$APPLE_TEAM_ID"
 		export APPLE_PASSWORD="$APPLE_PASSWORD"
@@ -163,7 +158,7 @@ trap 'rm -rf "$TMP_DIR"' exit
 CONFIG_PATH=$(readlink -f "$PWD/../crates/gitbutler-tauri/tauri.conf.$CHANNEL.json")
 
 # update the version in the tauri release config
-jq '.package.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
+jq '.version="'"$VERSION"'"' "$CONFIG_PATH" >"$TMP_DIR/tauri.conf.json"
 
 if [ "$OS" = "windows" ]; then
 	FEATURES="windows"

@@ -1,16 +1,14 @@
 <script lang="ts">
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import {
-		appErrorReportingEnabled,
-		appMetricsEnabled,
-		appNonAnonMetricsEnabled
-	} from '$lib/config/appSettings';
+	import { AppSettings } from '$lib/config/appSettings';
 	import Link from '$lib/shared/Link.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
+	import { getContext } from '$lib/utils/context';
 
-	const errorReportingEnabled = appErrorReportingEnabled();
-	const metricsEnabled = appMetricsEnabled();
-	const nonAnonMetricsEnabled = appNonAnonMetricsEnabled();
+	const appSettings = getContext(AppSettings);
+	const errorReportingEnabled = appSettings.appErrorReportingEnabled;
+	const metricsEnabled = appSettings.appMetricsEnabled;
+	const nonAnonMetricsEnabled = appSettings.appNonAnonMetricsEnabled;
 </script>
 
 <section class="analytics-settings">
