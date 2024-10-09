@@ -4305,7 +4305,7 @@ dependencies = [
  "httpdate",
  "itoa 1.0.11",
  "pin-project-lite",
- "socket2 0.4.10",
+ "socket2 0.5.7",
  "tokio",
  "tower-service",
  "tracing",
@@ -7544,8 +7544,8 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-context-menu"
-version = "0.8.1"
-source = "git+https://github.com/c2r0b/tauri-plugin-context-menu?branch=main#1cdd3b55677054ba0e237893435fdc05006b9a3e"
+version = "0.8.2"
+source = "git+https://github.com/c2r0b/tauri-plugin-context-menu?branch=main#8d5854f186a046d51df38c4ec7863a83f4e1221c"
 dependencies = [
  "cocoa",
  "dispatch",
