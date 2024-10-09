@@ -73,8 +73,8 @@
 		<TextBox placeholder="New branch name" id="newRemoteName" bind:value={createRefName} focus />
 	{/snippet}
 	{#snippet controls(close)}
-		<Button style="pop" kind="solid">Ok</Button>
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
+		<Button style="pop" kind="solid">Ok</Button>
 	{/snippet}
 </Modal>
 
