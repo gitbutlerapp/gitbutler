@@ -416,6 +416,7 @@
 						{files}
 						{isUnapplied}
 						readonly={type === 'remote' || isUnapplied}
+						conflictedFiles={commit.conflictedFiles}
 					/>
 				</div>
 			{/if}

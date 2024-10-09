@@ -2,16 +2,11 @@ import { invoke, listen } from '$lib/backend/ipc';
 import { RemoteFile } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { derived, writable } from 'svelte/store';
+import type { ConflictEntryPresence } from '$lib/conflictEntryPresence';
 
 export interface EditModeMetadata {
 	commitOid: string;
 	branchReference: string;
-}
-
-export interface ConflictEntryPresence {
-	ours: boolean;
-	theirs: boolean;
-	ancestor: boolean;
 }
 
 type Mode =

@@ -2209,6 +2209,7 @@ dependencies = [
  "serial_test",
  "tempfile",
  "tokio",
+ "toml 0.8.19",
  "tracing",
  "url",
  "urlencoding",
@@ -2521,6 +2522,7 @@ dependencies = [
  "tempfile",
  "thiserror",
  "tokio",
+ "toml 0.8.19",
  "tracing",
  "uuid",
 ]
