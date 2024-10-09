@@ -25,6 +25,7 @@ pub struct VirtualBranchCommit {
     pub description: BStringForFrontend,
     pub created_at: u128,
     pub author: Author,
+    /// Dont use, favor `remote_commit_id` instead
     pub is_remote: bool,
     pub files: Vec<VirtualBranchFile>,
     pub is_integrated: bool,
@@ -39,6 +40,16 @@ pub struct VirtualBranchCommit {
     /// This is used by the frontend similar to the `change_id` to group matching commits.
     #[serde(with = "gitbutler_serde::oid_opt")]
     pub copied_from_remote_id: Option<git2::Oid>,
+    /// Represents the remote commit id of this patch.
+    /// This field is set if:
+    ///   - The commit has been pushed
+    ///   - The commit has been copied from a remote commit (when applying a remote branch)
+    ///
+    /// The `remote_commit_id` may be the same as the `id` or it may be different if the commit has been rebased or updated.
+    ///
+    /// Note: This makes both the `is_remote` and `copied_from_remote_id` fields redundant, but they are kept for compatibility.
+    #[serde(with = "gitbutler_serde::oid_opt")]
+    pub remote_commit_id: Option<git2::Oid>,
 }
 
 pub(crate) fn commit_to_vbranch_commit(
@@ -48,6 +59,7 @@ pub(crate) fn commit_to_vbranch_commit(
     is_integrated: bool,
     is_remote: bool,
     copied_from_remote_id: Option<git2::Oid>,
+    remote_commit_id: Option<git2::Oid>,
 ) -> Result<VirtualBranchCommit> {
     let timestamp = u128::try_from(commit.time().seconds())?;
     let message = commit.message_bstr().to_owned();
@@ -76,6 +88,7 @@ pub(crate) fn commit_to_vbranch_commit(
         is_signed: commit.is_signed(),
         conflicted: commit.is_conflicted(),
         copied_from_remote_id,
+        remote_commit_id: remote_commit_id.or(copied_from_remote_id),
     };
 
     Ok(commit)
