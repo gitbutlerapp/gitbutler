@@ -30,6 +30,7 @@ export interface CommitData {
 	// If an author is not provided, a commit node will not be drawn
 	author?: Author;
 	relatedRemoteCommit?: CommitData;
+	remoteCommitId?: string;
 }
 
-export type CellType = 'Local' | 'LocalRemote' | 'Integrated' | 'Upstream' | 'LocalShadow';
+export type CellType = 'local' | 'localAndRemote' | 'integrated' | 'remote' | 'localAndShadow';
