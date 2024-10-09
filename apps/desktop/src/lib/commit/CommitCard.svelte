@@ -385,7 +385,7 @@
 												currentCommitMessage.set(commit.description);
 												e.stopPropagation();
 												undoCommit(commit);
-											}}>Undo</Button
+											}}>Uncommit</Button
 										>
 									{/if}
 									<Button
