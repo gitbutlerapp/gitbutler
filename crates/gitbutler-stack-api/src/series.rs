@@ -1,11 +1,12 @@
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
+use std::collections::HashMap;
 
 /// Series or (patch) Series is a set of patches (commits) that are dependent on each other.
 /// This is effectively a sub-branch within a (series) stack.
 /// The difference from a branch is that only the patches (commits) unique to the series are included.
 ///
 /// The `pushed` status, as well as the `remote_reference` can be obtained from the methods on `head` (PatchReference).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Series {
     /// The GitButler-managed head reference for this series. It points to a commit ID or a change ID in the stack.
     /// This head may or may not be part of the commits that are in the series
@@ -19,6 +20,9 @@ pub struct Series {
     /// If the branch/series have never been pushed, this list will be empty.
     /// Topologically ordered, the first entry is the newest in the series.
     pub remote_commits: Vec<CommitOrChangeId>,
+    /// The commit IDs of the remote commits that are part of this series, grouped by change id.
+    /// Since we dont have a change_id to commit_id index, this is used to determine
+    pub remote_commit_ids_by_change_id: HashMap<String, git2::Oid>,
 }
 
 impl Series {

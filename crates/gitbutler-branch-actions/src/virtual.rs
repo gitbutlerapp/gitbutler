@@ -380,6 +380,7 @@ pub fn list_virtual_branches_cached(
                         is_integrated,
                         is_remote,
                         copied_from_remote_id,
+                        None, // remote_commit_id is only used inside PatchSeries
                     )
                 })
                 .collect::<Result<Vec<_>>>()?
@@ -420,7 +421,13 @@ pub fn list_virtual_branches_cached(
         let refname = branch.refname()?.into();
 
         // TODO: Error out here once this API is stable
-        let series = match stack_series(ctx, &branch, &default_target, &check_commit) {
+        let series = match stack_series(
+            ctx,
+            &branch,
+            &default_target,
+            &check_commit,
+            remote_commit_data,
+        ) {
             Ok(series) => series,
             Err(e) => {
                 tracing::warn!("failed to compute stack series: {:?}", e);
@@ -472,6 +479,7 @@ fn stack_series(
     branch: &Stack,
     default_target: &Target,
     check_commit: &IsCommitIntegrated,
+    remote_commit_data: HashMap<CommitData, git2::Oid>,
 ) -> Result<Vec<PatchSeries>> {
     let mut api_series: Vec<PatchSeries> = vec![];
     let stack_series = branch.list_series(ctx)?;
@@ -487,13 +495,23 @@ fn stack_series(
         for patch in series.clone().local_commits {
             let commit = commit_by_oid_or_change_id(&patch, ctx, branch.head(), default_target)?;
             let is_integrated = check_commit.is_integrated(&commit)?;
+            let copied_from_remote_id = CommitData::try_from(&commit)
+                .ok()
+                .and_then(|data| remote_commit_data.get(&data).copied());
+            let remote_commit_id = commit.change_id().and_then(|change_id| {
+                series
+                    .remote_commit_ids_by_change_id
+                    .get(&change_id)
+                    .cloned()
+            });
             let vcommit = commit_to_vbranch_commit(
                 ctx,
                 branch,
                 &commit,
                 is_integrated,
                 series.remote(&patch),
-                None,
+                copied_from_remote_id,
+                remote_commit_id,
             )?;
             patches.push(vcommit);
         }
@@ -508,7 +526,8 @@ fn stack_series(
                 &commit,
                 is_integrated,
                 true, // per definition
-                None,
+                None, // per definition
+                Some(commit.id()),
             )?;
             upstream_patches.push(vcommit);
         }

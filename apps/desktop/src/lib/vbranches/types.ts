@@ -188,6 +188,19 @@ export class DetailedCommit {
 	// author, commit and message.
 	copiedFromRemoteId?: string;
 
+	/**
+	 *
+	 * Represents the remote commit id of this patch.
+	 * This field is set if:
+	 *   - The commit has been pushed
+	 *   - The commit has been copied from a remote commit (when applying a remote branch)
+	 *
+	 * The `remoteCommitId` may be the same as the `id` or it may be different if the commit has been rebased or updated.
+	 *
+	 * Note: This makes both the `isRemote` and `copiedFromRemoteId` fields redundant, but they are kept for compatibility.
+	 */
+	remoteCommitId?: string;
+
 	prev?: DetailedCommit;
 	next?: DetailedCommit;
 

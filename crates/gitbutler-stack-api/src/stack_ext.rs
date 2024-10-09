@@ -24,6 +24,7 @@ use crate::heads::add_head;
 use crate::heads::get_head;
 use crate::heads::remove_head;
 use crate::series::Series;
+use std::collections::HashMap;
 
 /// A (series) Stack represents multiple "branches" that are dependent on each other in series.
 ///
@@ -457,6 +458,7 @@ impl StackExt for Stack {
                 .collect_vec();
 
             let mut remote_patches: Vec<CommitOrChangeId> = vec![];
+            let mut remote_commit_ids_by_change_id: HashMap<String, git2::Oid> = HashMap::new();
             if let Some(remote_name) = default_target.push_remote_name.as_ref() {
                 if head.pushed(remote_name, ctx).unwrap_or_default() {
                     let head_commit = repo
@@ -466,17 +468,24 @@ impl StackExt for Stack {
                     repo.log(head_commit.id(), LogUntil::Commit(merge_base))?
                         .iter()
                         .rev()
-                        .map(|c| match c.change_id() {
-                            Some(change_id) => CommitOrChangeId::ChangeId(change_id.to_string()),
-                            None => CommitOrChangeId::CommitId(c.id().to_string()),
-                        })
-                        .for_each(|c| remote_patches.push(c));
+                        .for_each(|c| {
+                            let commit_or_change_id = match c.change_id() {
+                                Some(change_id) => {
+                                    remote_commit_ids_by_change_id
+                                        .insert(change_id.to_string(), c.id());
+                                    CommitOrChangeId::ChangeId(change_id.to_string())
+                                }
+                                None => CommitOrChangeId::CommitId(c.id().to_string()),
+                            };
+                            remote_patches.push(commit_or_change_id);
+                        });
                 }
             };
             all_series.push(Series {
                 head: head.clone(),
                 local_commits: local_patches,
                 remote_commits: remote_patches,
+                remote_commit_ids_by_change_id,
             });
             previous_head = head_commit;
         }
