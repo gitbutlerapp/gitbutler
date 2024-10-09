@@ -109,7 +109,7 @@ pub(crate) fn commit_to_vbranch_commit(
         is_signed: commit.is_signed(),
         conflicted: commit.is_conflicted(),
         copied_from_remote_id,
-        remote_commit_id: remote_commit_id.or(copied_from_remote_id),
+        remote_commit_id,
         conflicted_files,
     };
 
