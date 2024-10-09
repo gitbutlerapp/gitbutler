@@ -114,7 +114,6 @@
 	async function push() {
 		isPushingCommits = true;
 		try {
-			// TODO: Ensure requiresForce is bubbled up from each series to the stack here
 			await branchController.pushBranch(branch.id, branch.requiresForce, true);
 			$listingService?.refresh();
 			$prMonitor?.refresh();

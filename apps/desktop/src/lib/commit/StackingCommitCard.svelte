@@ -8,10 +8,8 @@
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
 	import { ModeService } from '$lib/modes/service';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { getContext, getContextStore, maybeGetContext } from '$lib/utils/context';
-	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
@@ -103,24 +101,6 @@
 	let commitMessageValid = $state(false);
 	let description = $state('');
 
-	let createRefModal: Modal;
-	let createRefName: string | undefined = $state();
-	let createRefTargetCommit: DetailedCommit | Commit | undefined;
-
-	function openCreateRefModal(e: Event) {
-		e.stopPropagation();
-		if (createRefTargetCommit) {
-			createRefModal.show(createRefTargetCommit);
-		}
-		createRefTargetCommit = undefined;
-	}
-
-	function pushCommitRef(commit: DetailedCommit) {
-		if (branch && commit.remoteRef) {
-			branchController.pushChangeReference(branch.id, commit.remoteRef);
-		}
-	}
-
 	function openCommitMessageModal(e: Event) {
 		e.stopPropagation();
 
@@ -177,36 +157,6 @@
 		<Button style="neutral" type="submit" kind="solid" grow disabled={!commitMessageValid}>
 			Submit
 		</Button>
-	{/snippet}
-</Modal>
-
-<Modal
-	bind:this={createRefModal}
-	title="Add branch to the stack"
-	width="small"
-	onSubmit={() => {
-		if (!createRefName) {
-			error('No branch name provided');
-			createRefModal.close();
-			return;
-		}
-		if (!branch) {
-			return;
-		}
-		branchController.createPatchSeries(
-			branch.id,
-			createRefName,
-			commit.changeId ? { ChangeId: commit.changeId } : { CommitId: commit.id }
-		);
-		createRefModal.close();
-	}}
->
-	{#snippet children()}
-		<TextBox placeholder="New branch name" id="newRemoteName" bind:value={createRefName} focus />
-	{/snippet}
-	{#snippet controls(close)}
-		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" kind="solid">Ok</Button>
 	{/snippet}
 </Modal>
 
@@ -401,31 +351,6 @@
 									icon="edit-small"
 									onclick={openCommitMessageModal}>Edit message</Button
 								>
-								{#if commit instanceof DetailedCommit && !commit.remoteRef}
-									<Button
-										size="tag"
-										style="ghost"
-										outline
-										icon="virtual-branch-small"
-										onclick={(e: Event) => {
-											createRefTargetCommit = commit;
-											openCreateRefModal(e);
-										}}
-									>
-										Add branch
-									</Button>
-								{/if}
-								{#if commit instanceof DetailedCommit && commit.remoteRef}
-									<Button
-										size="tag"
-										style="ghost"
-										outline
-										icon="remote"
-										onclick={() => {
-											pushCommitRef(commit);
-										}}>Push ref</Button
-									>
-								{/if}
 							{/if}
 							{#if canEdit()}
 								<Button size="tag" style="ghost" outline onclick={editPatch}>
