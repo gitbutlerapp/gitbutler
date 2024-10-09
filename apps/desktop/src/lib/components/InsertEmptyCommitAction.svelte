@@ -1,12 +1,14 @@
 <script lang="ts">
-	import Button from '@gitbutler/ui/Button.svelte';
 	import { stackingFeature } from '$lib/config/uiFeatureFlags';
-	import { createEventDispatcher } from 'svelte';
+	import Button from '@gitbutler/ui/Button.svelte';
 
-	export let isLast = false;
-	export let isFirst = false;
+	interface Props {
+		isLast?: boolean;
+		isFirst?: boolean;
+		onclick?: () => void;
+	}
 
-	const dispatch = createEventDispatcher<{ click: void }>();
+	const { isLast = false, isFirst = false, onclick }: Props = $props();
 </script>
 
 <div
@@ -25,7 +27,7 @@
 			width={26}
 			tooltip="Insert empty commit"
 			helpShowDelay={500}
-			onclick={() => dispatch('click')}
+			onclick={onclick?.()}
 		/>
 	</div>
 </div>

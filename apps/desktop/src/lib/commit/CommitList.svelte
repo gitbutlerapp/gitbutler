@@ -188,10 +188,7 @@
 		<!-- LOCAL COMMITS -->
 		{#if localCommits.length > 0}
 			<div class="commits-group">
-				<InsertEmptyCommitAction
-					isFirst
-					on:click={() => insertBlankCommit($branch.head, 'above')}
-				/>
+				<InsertEmptyCommitAction isFirst onclick={() => insertBlankCommit($branch.head, 'above')} />
 				{@render reorderDropzone(
 					reorderDropzoneManager.topDropzone,
 					getReorderDropzoneOffset({ isFirst: true })
@@ -221,7 +218,7 @@
 
 					<InsertEmptyCommitAction
 						isLast={idx + 1 === localCommits.length}
-						on:click={() => insertBlankCommit(commit.id, 'below')}
+						onclick={() => insertBlankCommit(commit.id, 'below')}
 					/>
 				{/each}
 				{#if pushButton}
@@ -263,7 +260,7 @@
 					)}
 					<InsertEmptyCommitAction
 						isLast={idx + 1 === localAndRemoteCommits.length}
-						on:click={() => insertBlankCommit(commit.id, 'below')}
+						onclick={() => insertBlankCommit(commit.id, 'below')}
 					/>
 				{/each}
 
