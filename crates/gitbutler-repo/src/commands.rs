@@ -2,7 +2,7 @@ use anyhow::Result;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use std::path::Path;
-
+use base64::{engine::general_purpose, Engine as _};
 use crate::{Config, RepositoryExt};
 
 pub trait RepoCommands {
@@ -64,7 +64,9 @@ impl RepoCommands for Project {
                 let content = std::str::from_utf8(blob.content())?;
                 Ok(content.to_string())
             } else {
-                anyhow::bail!("File is binary");
+                let binary_content = blob.content();
+                let encoded_content = general_purpose::STANDARD.encode(&binary_content);
+                Ok(encoded_content)
             }
         } else {
             anyhow::bail!("Invalid workspace file");

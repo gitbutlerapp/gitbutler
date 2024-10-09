@@ -1,6 +1,8 @@
 pub mod commands {
+    use crate::error::{Error, UnmarkedError};
     use anyhow::Result;
     use gitbutler_branch_actions::RemoteBranchFile;
+    use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_repo::RepoCommands;
@@ -8,8 +10,6 @@ pub mod commands {
     use std::sync::atomic::AtomicBool;
     use tauri::State;
     use tracing::instrument;
-
-    use crate::error::{Error, UnmarkedError};
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
@@ -76,7 +76,6 @@ pub mod commands {
         relative_path: &Path,
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
-
         Ok(project.read_file_from_workspace(relative_path)?)
     }
 }
