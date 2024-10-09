@@ -1,7 +1,7 @@
 name: init-env-node
 description: Prepare Node.js Environment
 runs:
-  using: "composite"
+  using: 'composite'
   steps:
     - uses: pnpm/action-setup@v4
       name: Install pnpm
@@ -13,4 +13,3 @@ runs:
     - name: Install dependencies
       shell: bash
       run: pnpm install
-
