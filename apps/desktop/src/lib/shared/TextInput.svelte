@@ -29,7 +29,6 @@
 		bind:value
 		bind:this={element}
 		style:height={inputHeight}
-		style:width={'100%'}
 		use:resizeObserver={(e) => {
 			textAreaWidth = `${Math.round(e.frame.width)}px`;
 		}}
@@ -74,6 +73,7 @@
 	}
 
 	textarea {
+		width: '100%';
 		max-height: 76px;
 		resize: none;
 		word-break: break-word;

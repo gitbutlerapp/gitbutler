@@ -1,5 +1,5 @@
 <script lang="ts">
-	import LabelInput from '$lib/shared/LabelInput.svelte';
+	import ComboLabelInput from '$lib/shared/ComboLabelInput.svelte';
 
 	interface Props {
 		name: string;
@@ -10,4 +10,4 @@
 	let { name, disabled = false, onChange }: Props = $props();
 </script>
 
-<LabelInput class="text-14 text-bold" value={name} {disabled} {onChange} />
+<ComboLabelInput class="text-14 text-bold" value={name} {disabled} {onChange} />

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import LabelInput from '$lib/shared/LabelInput.svelte';
+	import ComboLabelInput from '$lib/shared/ComboLabelInput.svelte';
 
 	interface Props {
 		value: string;
@@ -10,7 +10,7 @@
 	let { value, disabled = false, onChange }: Props = $props();
 </script>
 
-<LabelInput
+<ComboLabelInput
 	class="branch-description text-12"
 	placeholder="Series description"
 	multiline
