@@ -12,17 +12,7 @@ type Story = StoryObj<typeof meta>;
 export const CheckboxStory: Story = {
 	name: 'BorderlessTextarea',
 	args: {
-		name: 'BorderlessTextarea',
-		style: 'default',
-		checked: false,
-		disabled: false,
-		indeterminate: false,
-		small: false
+		name: 'BorderlessTextarea'
 	},
-	argTypes: {
-		style: {
-			options: ['default', 'neutral'],
-			control: { type: 'select' }
-		}
-	}
+	argTypes: {}
 };
