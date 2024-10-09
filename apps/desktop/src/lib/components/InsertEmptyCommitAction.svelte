@@ -93,13 +93,8 @@
 	}
 
 	/* MODIFIERS */
-
 	.line-container.is-last {
 		transform: translateY(-4px);
-	}
-
-	.line-container.is-first {
-		transform: translateY(16px);
 	}
 
 	.line-container.is-middle {
