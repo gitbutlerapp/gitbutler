@@ -236,12 +236,12 @@
 			commitMessages: commits.map((c) => c.description),
 			prBodyTemplate: pullRequestTemplateBody,
 			userToken: $user.access_token,
-			onToken: (t) => {
+			onToken: async (t) => {
 				if (firstToken) {
+					inputBody = '';
 					firstToken = false;
 				}
 				inputBody += t;
-				inputBody = '';
 			}
 		});
 
