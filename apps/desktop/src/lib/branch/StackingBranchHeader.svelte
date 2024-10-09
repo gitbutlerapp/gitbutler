@@ -39,17 +39,16 @@
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
 
+	// TODO: Simplify figuring out if shadow color is needed
 	const currentSeries = $derived(branch.series?.find((series) => series.name === upstreamName));
 	const topPatch = $derived(currentSeries?.patches[0]);
 	const hasShadow = $derived.by(() => {
 		if (!topPatch || !topPatch.remoteCommitId) return false;
-
 		if (topPatch.remoteCommitId !== topPatch.id) return true;
-
 		return false;
 	});
 	const branchColorType = $derived<CommitStatus | 'localAndShadow'>(
-		hasShadow ? 'localAndShadow' : (topPatch?.status ?? 'local')
+		hasShadow ? 'localAndShadow' : topPatch?.status ?? 'local'
 	);
 	const lineColor = $derived(getColorFromBranchType(branchColorType));
 
@@ -154,6 +153,7 @@
 		border-bottom: 1px solid var(--clr-border-2);
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
 	}
 
 	.branch-info {
