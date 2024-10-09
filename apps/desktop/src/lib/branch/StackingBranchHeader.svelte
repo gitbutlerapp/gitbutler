@@ -39,7 +39,8 @@
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
 
-	const branchColorType = $derived<CommitStatus>(branch.commits?.[0]?.status ?? 'local');
+	const currentSeries = $derived(branch.series?.find((series) => series.name === upstreamName));
+	const branchColorType = $derived<CommitStatus>(currentSeries?.patches[0]?.status ?? 'local');
 	const lineColor = $derived(getColorFromBranchType(branchColorType));
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
