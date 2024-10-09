@@ -10,7 +10,7 @@ pub struct User {
     pub name: Option<String>,
     pub given_name: Option<String>,
     pub family_name: Option<String>,
-    pub email: String,
+    pub email: Option<String>,
     pub picture: String,
     pub locale: Option<String>,
     pub created_at: String,
