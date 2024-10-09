@@ -80,7 +80,6 @@ class Indexer {
 	}
 
 	private getIndex(key: string) {
-		// console.log('reorderDzManager.getIndex.key', key, this.dropzoneIndexes);
 		if (key === 'top') {
 			return this.dropzoneIndexes.get(key) ?? 0;
 		} else {
@@ -121,6 +120,8 @@ class Entry {
 		const index = this.commitIndexes.get(commitId);
 
 		// TODO: Handle updated commitIds after rebasing in `commitIndexes`
+		// Reordering works, but it throws errors for old commitIds that it can't find
+		// anymore after rebasing, for example.
 		// if (index === undefined) {
 		// 	throw new Error(`Commit ${commitId} not found in commitIndexes`);
 		// }

@@ -11,11 +11,11 @@
 
 <div
 	class="commit-line stacked"
-	class:local={cell.type === 'Local'}
-	class:remote={cell.type === 'LocalRemote'}
-	class:local-shadow={cell.type === 'LocalShadow'}
-	class:upstream={cell.type === 'Upstream'}
-	class:integrated={cell.type === 'Integrated'}
+	class:local={cell.type === 'local'}
+	class:remote={cell.type === 'localAndRemote'}
+	class:local-shadow={cell.type === 'localAndShadow'}
+	class:upstream={cell.type === 'remote'}
+	class:integrated={cell.type === 'integrated'}
 	class:dashed={cell.style === 'dashed' || isBottom}
 ></div>
 

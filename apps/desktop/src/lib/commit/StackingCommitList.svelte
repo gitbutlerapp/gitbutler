@@ -23,7 +23,6 @@
 
 	interface Props {
 		remoteOnlyPatches: DetailedCommit[];
-		// Remaining patches that aren't remote-only
 		patches: DetailedCommit[];
 		isUnapplied: boolean;
 		pushButton?: Snippet<[{ disabled: boolean }]>;
@@ -57,7 +56,7 @@
 	const lineManager = $derived(
 		lineManagerFactory.build({
 			remoteCommits: remoteOnlyPatches,
-			localCommits: patches.filter((patch) => !patch.isRemote),
+			localCommits: patches.filter((patch) => !patch.remoteCommitId),
 			localAndRemoteCommits: patches.filter((patch) => patch.remoteCommitId),
 			integratedCommits: patches.filter((patch) => patch.isIntegrated)
 		})
@@ -163,7 +162,6 @@
 				{/each}
 			</div>
 		{/if}
-		<!-- {#if remoteCommits.length > 0 && localCommits.length === 0 && pushButton} -->
 		{#if remoteOnlyPatches.length > 0 && patches.length === 0 && pushButton}
 			<CommitAction>
 				{#snippet lines()}

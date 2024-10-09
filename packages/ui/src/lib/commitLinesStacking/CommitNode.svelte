@@ -21,7 +21,7 @@
 	);
 
 	const hoverTextShadow = $derived.by(() => {
-		return commitNode.type === 'LocalShadow'
+		return commitNode.type === 'localAndShadow'
 			? [
 					commitNode.commit?.relatedRemoteCommit?.author?.name,
 					commitNode.commit?.relatedRemoteCommit?.title,
@@ -34,7 +34,7 @@
 </script>
 
 <div class="container">
-	{#if type === 'Local'}
+	{#if type === 'local'}
 		<Tooltip text={hoverText}>
 			<svg
 				class="local-commit-dot"
@@ -47,7 +47,7 @@
 				<rect width="10" height="10" rx="5" />
 			</svg>
 		</Tooltip>
-	{:else if type === 'LocalShadow'}
+	{:else if type === 'localAndShadow'}
 		<div class="local-shadow-commit-dot">
 			<Tooltip text={hoverTextShadow}>
 				<svg
@@ -82,9 +82,9 @@
 		<Tooltip text={hoverText}>
 			<svg
 				class="generic-commit-dot"
-				class:remote={type === 'LocalRemote'}
-				class:upstream={type === 'Upstream'}
-				class:integrated={type === 'Integrated'}
+				class:remote={type === 'localAndRemote'}
+				class:upstream={type === 'remote'}
+				class:integrated={type === 'integrated'}
 				width="11"
 				height="12"
 				viewBox="0 0 11 12"

@@ -40,7 +40,17 @@
 	let meatballButtonEl = $state<HTMLDivElement>();
 
 	const currentSeries = $derived(branch.series?.find((series) => series.name === upstreamName));
-	const branchColorType = $derived<CommitStatus>(currentSeries?.patches[0]?.status ?? 'local');
+	const topPatch = $derived(currentSeries?.patches[0]);
+	const hasShadow = $derived.by(() => {
+		if (!topPatch || !topPatch.remoteCommitId) return false;
+
+		if (topPatch.remoteCommitId !== topPatch.id) return true;
+
+		return false;
+	});
+	const branchColorType = $derived<CommitStatus | 'localAndShadow'>(
+		hasShadow ? 'localAndShadow' : (topPatch?.status ?? 'local')
+	);
 	const lineColor = $derived(getColorFromBranchType(branchColorType));
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
