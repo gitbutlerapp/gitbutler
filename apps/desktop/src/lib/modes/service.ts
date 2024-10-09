@@ -8,6 +8,12 @@ export interface EditModeMetadata {
 	branchReference: string;
 }
 
+export interface ConflictEntryPresence {
+	ours: boolean;
+	theirs: boolean;
+	ancestor: boolean;
+}
+
 type Mode =
 	| { type: 'OpenWorkspace' }
 	| { type: 'OutsideWorkspace' }
@@ -64,10 +70,13 @@ export class ModeService {
 	}
 
 	async getInitialIndexState() {
-		return plainToInstance(
-			RemoteFile,
-			await invoke<unknown[]>('edit_initial_index_state', { projectId: this.projectId })
-		);
+		const rawOutput = await invoke<unknown[][]>('edit_initial_index_state', {
+			projectId: this.projectId
+		});
+
+		return rawOutput.map((entry) => {
+			return [plainToInstance(RemoteFile, entry[0]), entry[1] as ConflictEntryPresence | undefined];
+		}) as [RemoteFile, ConflictEntryPresence | undefined][];
 	}
 }
 

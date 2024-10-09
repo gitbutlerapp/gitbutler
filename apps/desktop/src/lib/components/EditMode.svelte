@@ -3,7 +3,11 @@
 	import { CommitService } from '$lib/commits/service';
 	import { editor } from '$lib/editorLink/editorLink';
 	import FileContextMenu from '$lib/file/FileContextMenu.svelte';
-	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
+	import {
+		ModeService,
+		type ConflictEntryPresence,
+		type EditModeMetadata
+	} from '$lib/modes/service';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { getContext } from '$lib/utils/context';
@@ -33,7 +37,7 @@
 	let modeServiceAborting = $state<'inert' | 'loading' | 'completed'>('inert');
 	let modeServiceSaving = $state<'inert' | 'loading' | 'completed'>('inert');
 
-	let initialFiles = $state<RemoteFile[]>([]);
+	let initialFiles = $state<[RemoteFile, ConflictEntryPresence | undefined][]>([]);
 	let commit = $state<Commit | undefined>(undefined);
 
 	let filesList = $state<HTMLDivElement | undefined>(undefined);
@@ -55,7 +59,32 @@
 		name: string;
 		path: string;
 		conflicted: boolean;
+		conflictHint?: string;
 		status?: FileStatus;
+	}
+
+	function conflictEntryHint(presence: ConflictEntryPresence): string {
+		let defaultVerb = 'added';
+
+		if (presence.ancestor) {
+			defaultVerb = 'modified';
+		}
+
+		let oursVerb = defaultVerb;
+
+		if (!presence.ours) {
+			oursVerb = 'deleted';
+		}
+
+		let theirsVerb = defaultVerb;
+
+		if (!presence.theirs) {
+			theirsVerb = 'deleted';
+		}
+
+		let output = `You have ${theirsVerb} this file, They have ${oursVerb} this file.`;
+
+		return output;
 	}
 
 	const files = $derived.by(() => {
@@ -65,7 +94,7 @@
 
 		// Build maps of files
 		{
-			initialFiles.forEach((initialFile) => {
+			initialFiles.forEach(([initialFile]) => {
 				initialFileMap.set(initialFile.path, initialFile);
 			});
 
@@ -76,14 +105,21 @@
 
 		// Create output
 		{
-			initialFiles.forEach((initialFile) => {
+			initialFiles.forEach(([initialFile, conflictEntryPresence]) => {
 				const isDeleted = uncommitedFileMap.has(initialFile.path);
+
+				if (conflictEntryPresence) {
+					console.log(initialFile.path, conflictEntryPresence);
+				}
 
 				outputMap.set(initialFile.path, {
 					name: initialFile.filename,
 					path: initialFile.path,
-					conflicted: initialFile.looksConflicted,
-					status: isDeleted ? undefined : 'D'
+					conflicted: !!conflictEntryPresence,
+					conflictHint: conflictEntryPresence
+						? conflictEntryHint(conflictEntryPresence)
+						: undefined,
+					status: isDeleted || !!conflictEntryPresence ? undefined : 'D'
 				});
 			});
 
@@ -95,18 +131,13 @@
 						(hunk) => !uncommitedFile.hunks.map((hunk) => hunk.diff).includes(hunk.diff)
 					);
 
-					if (fileChanged && !uncommitedFile.looksConflicted) {
+					if (fileChanged) {
 						// All initial entries should have been added to the map,
 						// so we can safely assert that it will be present
 						const outputFile = outputMap.get(uncommitedFile.path)!;
-						outputFile.status = 'M';
-						outputFile.conflicted = false;
-						return;
-					}
-
-					if (uncommitedFile.looksConflicted) {
-						const outputFile = outputMap.get(uncommitedFile.path)!;
-						outputFile.conflicted = true;
+						if (!outputFile.conflicted) {
+							outputFile.status = 'M';
+						}
 						return;
 					}
 
@@ -122,8 +153,8 @@
 			});
 		}
 
-		const files = Array.from(outputMap.values());
-		files.sort((a, b) => {
+		const orderedOutput = Array.from(outputMap.values());
+		orderedOutput.sort((a, b) => {
 			// Float conflicted files to the top
 			if (a.conflicted && !b.conflicted) {
 				return -1;
@@ -134,7 +165,7 @@
 			return a.path.localeCompare(b.path);
 		});
 
-		return files;
+		return orderedOutput;
 	});
 
 	const conflictedFiles = $derived(files.filter((file) => file.conflicted));
@@ -201,12 +232,13 @@
 				<Badge label={files.length} />
 			</div>
 			<ScrollableContainer>
-				{#each files as file}
+				{#each files as file (file.path)}
 					<div class="file">
 						<FileListItem
 							filePath={file.path}
 							fileStatus={file.status}
 							conflicted={file.conflicted}
+							conflictHint={file.conflictHint}
 							fileStatusStyle={file.status === 'M' ? 'full' : 'dot'}
 							onclick={(e) => {
 								contextMenu?.open(e, { files: [file] });
