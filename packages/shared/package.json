@@ -1,0 +1,68 @@
+{
+	"name": "@gitbutler/shared",
+	"version": "0.0.1",
+	"description": "UI Elements shared between GitButler Web and Desktop",
+	"scripts": {
+		"dev": "vite dev",
+		"check": "svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "pnpm check --watch",
+		"package": "pnpm run --sequential \"/^package:.*/\"",
+		"package:svelte": "svelte-kit sync && svelte-package",
+		"prepublishOnly": "pnpm run package",
+		"prepare": "svelte-kit sync",
+		"test": "vitest run --mode development",
+		"test:watch": "vitest --watch --mode development"
+	},
+	"exports": {
+		"./*.svelte": {
+			"svelte": "./dist/*.svelte",
+			"types": "./dist/*.svelte.d.ts"
+		},
+		"./*": {
+			"import": "./dist/*.js",
+			"types": "./dist/*.d.ts"
+		},
+		"./*.css": {
+			"import": "./dist/styles/*.css"
+		},
+		"./*.json": {
+			"import": "./dist/*.json",
+			"types": "./dist/*.json"
+		}
+	},
+	"files": [
+		"dist",
+		"!dist/**/*.test.*",
+		"!dist/**/*.spec.*"
+	],
+	"peerDependencies": {
+		"svelte": "^4.0.0 || ^5.0.0-0"
+	},
+	"devDependencies": {
+		"@gitbutler/ui": "workspace:*",
+		"@csstools/postcss-bundler": "^1.0.15",
+		"@sveltejs/adapter-static": "catalog:svelte",
+		"@sveltejs/kit": "catalog:svelte",
+		"@sveltejs/package": "^2.3.2",
+		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
+		"@terrazzo/cli": "^0.0.11",
+		"@terrazzo/plugin-css": "^0.0.9",
+		"@types/postcss-pxtorem": "^6.0.3",
+		"@vitest/browser": "^2.0.5",
+		"autoprefixer": "^10.4.19",
+		"cpy-cli": "^5.0.0",
+		"date-fns": "^2.30.0",
+		"playwright": "^1.46.1",
+		"postcss": "^8.4.38",
+		"postcss-cli": "^11.0.0",
+		"postcss-minify": "^1.1.0",
+		"postcss-nesting": "^12.1.5",
+		"postcss-pxtorem": "^6.1.0",
+		"rimraf": "^6.0.1",
+		"svelte": "catalog:svelte",
+		"svelte-check": "catalog:svelte",
+		"vite": "catalog:",
+		"vitest": "^2.0.5"
+	},
+	"type": "module"
+}

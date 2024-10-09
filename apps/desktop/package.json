@@ -33,6 +33,7 @@
 		"@codemirror/language": "^6.10.2",
 		"@codemirror/legacy-modes": "^6.4.0",
 		"@gitbutler/ui": "workspace:*",
+		"@gitbutler/shared": "workspace:*",
 		"@lezer/common": "^1.2.1",
 		"@lezer/highlight": "^1.2.0",
 		"@octokit/rest": "^20.1.1",
