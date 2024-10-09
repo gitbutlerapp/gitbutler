@@ -3476,12 +3476,12 @@
 			},
 			"local": {
 				"$type": "color",
-				"$value": "{clr-core.pop.50}",
+				"$value": "{clr-core.ntrl.50}",
 				"$description": "",
 				"$extensions": {
 					"mode": {
-						"light": "{clr-core.pop.50}",
-						"dark": "{clr-core.pop.50}"
+						"light": "{clr-core.ntrl.50}",
+						"dark": "{clr-core.ntrl.50}"
 					},
 					"figma": {
 						"variableId": "VariableID:3171:9428",
@@ -3495,12 +3495,12 @@
 			},
 			"remote": {
 				"$type": "color",
-				"$value": "{clr-core.ntrl.50}",
+				"$value": "{clr-core.pop.50}",
 				"$description": "",
 				"$extensions": {
 					"mode": {
-						"light": "{clr-core.ntrl.50}",
-						"dark": "{clr-core.ntrl.50}"
+						"light": "{clr-core.pop.50}",
+						"dark": "{clr-core.pop.50}"
 					},
 					"figma": {
 						"variableId": "VariableID:3171:9429",
@@ -3980,6 +3980,65 @@
 					}
 				}
 			}
+		},
+		"stack-tab": {
+			"active": {
+				"$type": "color",
+				"$value": "{clr.bg.1}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr.bg.1}",
+						"dark": "{clr.bg.1}"
+					},
+					"figma": {
+						"variableId": "VariableID:4766:20135",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"inactive": {
+				"$type": "color",
+				"$value": "{clr.bg.2}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr.bg.2}",
+						"dark": "{clr.bg.2}"
+					},
+					"figma": {
+						"variableId": "VariableID:4766:20450",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			},
+			"inactive-hover": {
+				"$type": "color",
+				"$value": "{clr.scale.ntrl.95}",
+				"$description": "",
+				"$extensions": {
+					"mode": {
+						"light": "{clr.scale.ntrl.95}",
+						"dark": "{clr-core.ntrl.10}"
+					},
+					"figma": {
+						"variableId": "VariableID:4766:20452",
+						"collection": {
+							"id": "VariableCollectionId:8:1868",
+							"name": "clr",
+							"defaultModeId": "8:5"
+						}
+					}
+				}
+			}
 		}
 	},
 	"size": {
@@ -4178,7 +4237,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius"],
-			"createdAt": "2024-10-01T09:40:21.045Z"
+			"createdAt": "2024-10-09T14:46:18.350Z"
 		}
 	}
 }

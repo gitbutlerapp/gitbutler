@@ -194,8 +194,8 @@
 	--clr-illustration-outline: color(srgb 0.2784313725490196 0.3137254901960784 0.3137254901960784);
 	--clr-illustration-fill: color(srgb 0.9882352941176471 0.9882352941176471 0.9450980392156862);
 	--clr-commit-upstream: var(--clr-core-warn-50);
-	--clr-commit-local: var(--clr-core-pop-50);
-	--clr-commit-remote: var(--clr-core-ntrl-50);
+	--clr-commit-local: var(--clr-core-ntrl-50);
+	--clr-commit-remote: var(--clr-core-pop-50);
 	--clr-commit-shadow: var(--clr-core-ntrl-60);
 	--clr-commit-integrated: var(--clr-core-purp-50);
 	--clr-text-1: var(--clr-core-ntrl-5);
@@ -234,6 +234,9 @@
 	--clr-diff-addition-line-bg: color(srgb 0.8784313725490196 0.984313725490196 0.9411764705882353);
 	--clr-tooltip-border: var(--clr-core-ntrl-10);
 	--clr-tooltip-bg: var(--clr-core-ntrl-10);
+	--clr-stack-tab-active: var(--clr-bg-1);
+	--clr-stack-tab-inactive: var(--clr-bg-2);
+	--clr-stack-tab-inactive-hover: var(--clr-scale-ntrl-95);
 	--size-icon: 1rem;
 	--size-tag: 1.375rem;
 	--size-button: 1.75rem;
@@ -374,8 +377,8 @@
 	);
 	--clr-illustration-fill: color(srgb 0.8470588235294118 0.8901960784313725 0.7568627450980392);
 	--clr-commit-upstream: var(--clr-core-warn-50);
-	--clr-commit-local: var(--clr-core-pop-50);
-	--clr-commit-remote: var(--clr-core-ntrl-50);
+	--clr-commit-local: var(--clr-core-ntrl-50);
+	--clr-commit-remote: var(--clr-core-pop-50);
 	--clr-commit-shadow: var(--clr-core-ntrl-40);
 	--clr-commit-integrated: var(--clr-core-purp-40);
 	--clr-text-1: var(--clr-core-ntrl-95);
@@ -420,6 +423,9 @@
 	);
 	--clr-tooltip-border: var(--clr-core-ntrl-30);
 	--clr-tooltip-bg: var(--clr-core-ntrl-10);
+	--clr-stack-tab-active: var(--clr-bg-1);
+	--clr-stack-tab-inactive: var(--clr-bg-2);
+	--clr-stack-tab-inactive-hover: var(--clr-core-ntrl-10);
 }
 
 .bg-clr1 {
