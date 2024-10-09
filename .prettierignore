@@ -14,12 +14,3 @@ flake*
 # Ignore files for PNPM, NPM and YARN
 pnpm-lock.yaml
 package-lock.json
-yarn.lock
-
-# Ignore not svelte dirs
-/.github
-/.vscode
-/src-tauri
-
-# Written to disk when using `act`
-.pnpm-store

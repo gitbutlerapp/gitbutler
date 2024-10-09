@@ -1,11 +1,11 @@
-name: "Documentation"
+name: 'Documentation'
 description: Request to update or improve GitButler documentation
-labels: ["triage", "documentation"]
+labels: ['triage', 'documentation']
 body:
   - type: textarea
     attributes:
       label: What is the improvement or update you wish to see?
-      description: "Example: The GitButler docs are missing information about X."
+      description: 'Example: The GitButler docs are missing information about X.'
     validations:
       required: true
   - type: textarea
@@ -17,6 +17,6 @@ body:
   - type: input
     attributes:
       label: Does the docs page already exist? Please link to it.
-      description: "Example: https://docs.gitbutler.com/features/virtual-branches"
+      description: 'Example: https://docs.gitbutler.com/features/virtual-branches'
     validations:
       required: false
