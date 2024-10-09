@@ -13,10 +13,17 @@
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		target?: HTMLElement;
 		headName: string;
+		seriesCount: number;
 		addDescription: () => void;
 	}
 
-	let { contextMenuEl = $bindable(), target, headName, addDescription }: Props = $props();
+	let {
+		contextMenuEl = $bindable(),
+		target,
+		seriesCount,
+		headName,
+		addDescription
+	}: Props = $props();
 
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
@@ -48,6 +55,7 @@
 		/>
 		<ContextMenuItem
 			label="Delete"
+			disabled={seriesCount <= 1}
 			on:click={() => {
 				deleteSeriesModal.show(branch);
 				contextMenuEl?.close();
