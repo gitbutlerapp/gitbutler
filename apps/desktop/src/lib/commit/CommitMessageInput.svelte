@@ -13,17 +13,17 @@
 	import { isFailure } from '$lib/result';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { User } from '$lib/stores/user';
-	import { autoHeight } from '$lib/utils/autoHeight';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { KeyName } from '$lib/utils/hotkeys';
-	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { isWhiteSpaceString } from '$lib/utils/string';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import { autoHeight } from '@gitbutler/ui/utils/autoHeight';
+	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { createEventDispatcher, onMount, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
 

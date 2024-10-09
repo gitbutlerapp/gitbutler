@@ -127,11 +127,13 @@
 			<!-- EMPTY STATE -->
 			{#if $snapshots.length === 0 && !$loading}
 				<EmptyStatePlaceholder image={emptyFolderSvg} bottomMargin={48}>
-					<svelte:fragment slot="title">No snapshots yet</svelte:fragment>
-					<svelte:fragment slot="caption">
+					{#snippet title()}
+						No snapshots yet
+					{/snippet}
+					{#snippet caption()}
 						Gitbutler saves your work, including file changes, so your progress is always secure.
 						Adjust snapshot settings in project settings.
-					</svelte:fragment>
+					{/snippet}
 				</EmptyStatePlaceholder>
 			{/if}
 

@@ -1,5 +1,5 @@
 <script lang="ts" module>
-	export interface ButtonProps {
+	export interface Props {
 		el?: HTMLElement;
 		// Interaction props
 		disabled?: boolean;
@@ -79,7 +79,7 @@
 		oncontextmenu,
 		onkeydown,
 		children
-	}: ButtonProps = $props();
+	}: Props = $props();
 
 	function handleAction(e: MouseEvent) {
 		if (loading || disabled || !clickable) {

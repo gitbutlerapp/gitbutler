@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Badge, { type BadgeProps } from '$lib/Badge.svelte';
+	import Badge, { type Props as BadgeProps } from '$lib/Badge.svelte';
 
 	const props: BadgeProps = $props();
 </script>

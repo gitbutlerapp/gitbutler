@@ -21,11 +21,9 @@
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
-	import BorderlessTextarea from '$lib/shared/BorderlessTextarea.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
-	import { autoHeight } from '$lib/utils/autoHeight';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { getContext, getContextStore } from '$lib/utils/context';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
@@ -34,6 +32,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import BorderlessTextarea from '@gitbutler/ui/BorderlessTextarea.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
@@ -89,8 +88,6 @@
 	let isDraft = $state<boolean>($preferredPRAction === PRAction.CreateDraft);
 
 	let modal = $state<ReturnType<typeof Modal>>();
-	// let inputTitleElem = $state<HTMLInputElement | null>(null);
-	let bodyTextArea = $state<HTMLTextAreaElement | null>(null);
 	let isEditing = $state<boolean>(true);
 	let isLoading = $state<boolean>(false);
 	let pullRequestTemplateBody = $state<string | undefined>(undefined);
@@ -146,10 +143,6 @@
 			});
 		}
 	});
-
-	function updateFieldsHeight() {
-		if (bodyTextArea) autoHeight(bodyTextArea);
-	}
 
 	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
 		if (!$gitHost) {
@@ -249,7 +242,6 @@
 				}
 				inputBody += t;
 				inputBody = '';
-				updateFieldsHeight();
 			}
 		});
 
@@ -262,8 +254,6 @@
 		inputBody = descriptionResult.value;
 		aiIsLoading = false;
 		await tick();
-
-		updateFieldsHeight();
 	}
 
 	function handleModalKeydown(e: KeyboardEvent) {
@@ -380,8 +370,9 @@
 							autofocus
 							padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
 							placeholder="Add description…"
-							oninput={(e) => {
-								inputBody = e.currentTarget.value;
+							oninput={(e: InputEvent) => {
+								const target = e.target as HTMLTextAreaElement;
+								inputBody = target.value;
 							}}
 						/>
 
@@ -395,8 +386,9 @@
 										padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
 										placeholder={aiService.prSummaryMainDirective}
 										onkeydown={onMetaEnter(handleAIButtonPressed)}
-										oninput={(e) => {
-											aiDescriptionDirective = e.currentTarget.value;
+										oninput={(e: InputEvent) => {
+											const target = e.target as HTMLTextAreaElement;
+											aiDescriptionDirective = target.value;
 										}}
 									/>
 									<div class="pr-ai__actions">

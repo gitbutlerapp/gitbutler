@@ -47,7 +47,6 @@
 
 	const selectedFiles = fileIdSelection.files;
 
-	// eslint-disable-next-line @typescript-eslint/promise-function-async
 	const draggableFiles = $derived.by(() => {
 		if ($selectedFiles?.some((selectedFile) => selectedFile.id === file.id)) {
 			return $selectedFiles || [];

@@ -35,9 +35,9 @@
 	function openSearch() {
 		searching = true;
 
-		if (searchEl) {
+		setTimeout(() => {
 			searchEl.focus();
-		}
+		}, 0);
 	}
 
 	function toggleSearch() {
@@ -155,7 +155,9 @@
 			</ScrollableContainer>
 		{:else}
 			<EmptyStatePlaceholder image={noBranchesSvg} width={180} bottomMargin={48}>
-				<svelte:fragment slot="caption">No branches<br />match your filter</svelte:fragment>
+				{#snippet caption()}
+					No branches<br />match your filter
+				{/snippet}
 			</EmptyStatePlaceholder>
 		{/if}
 	{:else}
@@ -260,7 +262,7 @@
 	.search-input {
 		width: 100%;
 		height: 100%;
-		visibility: hidden;
+		display: none;
 		padding-left: 8px;
 		border-radius: var(--radius-s);
 		border: 1px solid var(--clr-border-2);
@@ -289,7 +291,7 @@
 		}
 
 		& .search-input {
-			visibility: visible;
+			display: block;
 		}
 	}
 
