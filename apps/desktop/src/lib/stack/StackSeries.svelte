@@ -42,10 +42,8 @@
 			upstreamName={currentSeries.name}
 		/>
 		<StackingCommitList
-			localCommits={currentSeries.localCommits}
-			localAndRemoteCommits={currentSeries.remoteCommits}
-			integratedCommits={currentSeries.integratedCommits}
-			remoteCommits={$remoteCommits}
+			remoteOnlyPatches={currentSeries.upstreamPatches}
+			patches={currentSeries.patches}
 			isUnapplied={false}
 			{reorderDropzoneManager}
 			{localCommitsConflicted}
