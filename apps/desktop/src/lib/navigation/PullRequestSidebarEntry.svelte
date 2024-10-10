@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';

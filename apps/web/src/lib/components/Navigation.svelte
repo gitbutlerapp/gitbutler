@@ -1,7 +1,7 @@
 <script lang="ts">
 	import GitButler from '../images/gitbutler.svg';
 	import { AuthService } from '$lib/auth/authService';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import { env } from '$env/dynamic/public';
 
 	const authService = getContext(AuthService);

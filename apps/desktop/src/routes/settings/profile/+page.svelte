@@ -8,8 +8,8 @@
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { UserService } from '$lib/stores/user';
-	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { goto } from '$app/navigation';

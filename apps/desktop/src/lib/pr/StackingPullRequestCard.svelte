@@ -7,10 +7,10 @@
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
-	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 	import { createTimeAgoStore } from '@gitbutler/ui/utils/timeAgo';

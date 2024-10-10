@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { stackingFeature } from '$lib/config/uiFeatureFlags';
-	import { maybeGetContextStore } from '$lib/utils/context';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
+	import { maybeGetContextStore } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import type { AnyFile, ConflictEntries } from '$lib/vbranches/types';

@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	const {

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { ModeService } from '$lib/modes/service';
 	import AccountLink from '$lib/shared/AccountLink.svelte';
-	import { getContext } from '$lib/utils/context';
 	import * as events from '$lib/utils/events';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 

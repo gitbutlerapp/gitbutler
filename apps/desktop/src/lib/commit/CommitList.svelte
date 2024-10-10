@@ -12,10 +12,10 @@
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { getContext } from '$lib/utils/context';
-	import { getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Commit, DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import { getContext } from '@gitbutler/shared/context';
+	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
 	import { LineManagerFactory, LineSpacer } from '@gitbutler/ui/commitLines/lineManager';

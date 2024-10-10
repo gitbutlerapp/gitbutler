@@ -2,8 +2,8 @@
 	import StackingBranchHeader from '$lib/branch/StackingBranchHeader.svelte';
 	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
-	import { getContext } from '$lib/utils/context';
 	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
+	import { getContext } from '@gitbutler/shared/context';
 	import type { VirtualBranch } from '$lib/vbranches/types';
 	// import type { Series } from './types';
 

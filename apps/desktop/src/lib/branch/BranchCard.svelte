@@ -22,7 +22,6 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import { User } from '$lib/stores/user';
-	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import {
 		getIntegratedCommits,
@@ -32,6 +31,7 @@
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import lscache from 'lscache';

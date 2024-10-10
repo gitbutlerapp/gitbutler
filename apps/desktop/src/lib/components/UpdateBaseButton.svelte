@@ -1,7 +1,7 @@
 <script lang="ts">
 	import IntegrateUpstreamModal from './IntegrateUpstreamModal.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	const baseBranchService = getContext(BaseBranchService);

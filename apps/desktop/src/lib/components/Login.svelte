@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Link from '../shared/Link.svelte';
 	import { UserService, type LoginToken } from '$lib/stores/user';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	const userService = getContext(UserService);

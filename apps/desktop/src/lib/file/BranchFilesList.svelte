@@ -6,7 +6,6 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { chunk } from '$lib/utils/array';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { updateSelection } from '$lib/utils/selection';
@@ -14,6 +13,7 @@
 	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import { SelectedOwnership, updateOwnership } from '$lib/vbranches/ownership';
+	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { AnyFile, ConflictEntries } from '$lib/vbranches/types';

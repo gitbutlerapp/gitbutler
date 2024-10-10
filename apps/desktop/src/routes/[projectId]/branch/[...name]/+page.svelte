@@ -5,10 +5,10 @@
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
-	import { getContext } from '$lib/utils/context';
 	import { groupBy } from '$lib/utils/groupBy';
 	import { error } from '$lib/utils/toasts';
 	import { Branch } from '$lib/vbranches/types';
+	import { getContext } from '@gitbutler/shared/context';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 

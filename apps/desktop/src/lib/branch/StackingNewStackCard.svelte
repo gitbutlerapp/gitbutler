@@ -4,10 +4,10 @@
 	import Link from '$lib/shared/Link.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';

@@ -10,10 +10,10 @@
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import StackingPullRequestCard from '$lib/pr/StackingPullRequestCard.svelte';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { DetailedCommit, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	interface Props {

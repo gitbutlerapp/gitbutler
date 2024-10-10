@@ -5,7 +5,7 @@
 	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
 	import { ProjectService } from '$lib/backend/projects';
 	import IconLink from '$lib/shared/IconLink.svelte';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);

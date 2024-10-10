@@ -1,4 +1,4 @@
-import { buildContextStore } from '$lib/utils/context';
+import { buildContextStore } from '@gitbutler/shared/context';
 import type { Octokit } from '@octokit/rest';
 
 export class GitHubUserService {

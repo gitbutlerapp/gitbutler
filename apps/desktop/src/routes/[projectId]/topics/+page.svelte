@@ -5,7 +5,7 @@
 	import CreateTopicModal from '$lib/topics/CreateTopicModal.svelte';
 	import Topic from '$lib/topics/Topic.svelte';
 	import { TopicService } from '$lib/topics/service';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	const topicService = getContext(TopicService);

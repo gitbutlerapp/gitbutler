@@ -4,7 +4,7 @@
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import ProjectSetup from '$lib/components/ProjectSetup.svelte';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 
 	const project = getContext(Project);
 </script>

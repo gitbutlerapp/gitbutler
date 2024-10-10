@@ -4,9 +4,9 @@
 	import BranchLaneContextMenu from '$lib/branch/BranchLaneContextMenu.svelte';
 	import DefaultTargetButton from '$lib/branch/DefaultTargetButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Persisted } from '$lib/persisted/persisted';

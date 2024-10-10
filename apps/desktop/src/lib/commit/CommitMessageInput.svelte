@@ -14,11 +14,11 @@
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { User } from '$lib/stores/user';
 	import { splitMessage } from '$lib/utils/commitMessage';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { isWhiteSpaceString } from '$lib/utils/string';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';

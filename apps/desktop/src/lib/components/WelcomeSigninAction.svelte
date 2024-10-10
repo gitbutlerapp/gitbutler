@@ -2,7 +2,7 @@
 	import WelcomeAction from './WelcomeAction.svelte';
 	import signinSvg from '$lib/assets/signin.svg?raw';
 	import { UserService } from '$lib/stores/user';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
 
 	const {

@@ -23,11 +23,11 @@
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import { User } from '$lib/stores/user';
-	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import lscache from 'lscache';

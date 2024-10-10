@@ -8,7 +8,7 @@
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';

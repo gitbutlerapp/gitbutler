@@ -1,4 +1,4 @@
-import { buildContextStore } from '$lib/utils/context';
+import { buildContextStore } from '@gitbutler/shared/context';
 import type { ChecksStatus } from './types';
 import type { Readable } from 'svelte/store';
 

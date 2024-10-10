@@ -3,7 +3,7 @@
 	import { Project } from '$lib/backend/projects';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 	import type { Persisted } from '$lib/persisted/persisted';
 

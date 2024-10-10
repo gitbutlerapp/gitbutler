@@ -2,11 +2,11 @@
 	import { listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
 	import { editor } from '$lib/editorLink/editorLink';
-	import { getContext } from '$lib/utils/context';
 	import * as events from '$lib/utils/events';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 

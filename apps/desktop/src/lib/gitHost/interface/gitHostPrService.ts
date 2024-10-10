@@ -1,4 +1,4 @@
-import { buildContextStore } from '$lib/utils/context';
+import { buildContextStore } from '@gitbutler/shared/context';
 import type { GitHostPrMonitor } from './gitHostPrMonitor';
 import type { CreatePullRequestArgs, DetailedPullRequest, MergeMethod, PullRequest } from './types';
 import type { Writable } from 'svelte/store';

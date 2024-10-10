@@ -14,9 +14,9 @@ import {
 	type AIClient,
 	type Prompt
 } from '$lib/ai/types';
-import { HttpClient } from '$lib/backend/httpClient';
 import { buildFailureFromAny, ok, unwrap, type Result } from '$lib/result';
 import { Hunk } from '$lib/vbranches/types';
+import { HttpClient } from '@gitbutler/shared/httpClient';
 import { plainToInstance } from 'class-transformer';
 import { expect, test, describe, vi } from 'vitest';
 import type { GbConfig, GitConfigService } from '$lib/backend/gitConfigService';
@@ -75,7 +75,7 @@ class DummySecretsService implements SecretsService {
 }
 
 const fetchMock = vi.fn();
-const cloud = new HttpClient(fetchMock);
+const cloud = new HttpClient(fetchMock, 'https://www.example.com');
 
 class DummyAIClient implements AIClient {
 	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;

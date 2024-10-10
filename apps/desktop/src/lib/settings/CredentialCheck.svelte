@@ -3,7 +3,7 @@
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import Link from '../shared/Link.svelte';
 	import { AuthService } from '$lib/backend/auth';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';

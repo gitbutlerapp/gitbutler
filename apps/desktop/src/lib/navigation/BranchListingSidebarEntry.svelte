@@ -7,7 +7,7 @@
 		type BranchListing
 	} from '$lib/branches/branchListing';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';

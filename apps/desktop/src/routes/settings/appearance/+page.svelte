@@ -12,8 +12,8 @@
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
-	import { getContextStoreBySymbol } from '$lib/utils/context';
 	import { type Hunk } from '$lib/vbranches/types';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import type { ContentSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 

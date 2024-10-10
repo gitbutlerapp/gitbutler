@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContextStoreBySymbol } from '$lib/utils/context';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { initTheme } from '$lib/utils/theme';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
 

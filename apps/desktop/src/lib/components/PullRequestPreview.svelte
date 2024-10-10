@@ -6,11 +6,11 @@
 	import { RemotesService } from '$lib/remotes/service';
 	import Link from '$lib/shared/Link.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { remoteUrlIsHttp } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { get } from 'svelte/store';
