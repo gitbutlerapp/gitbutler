@@ -192,7 +192,7 @@
 	}}
 >
 	{#snippet children(branch)}
-		Are you sure you want to unapply and drop changes in branch <strong>{branch.name}</strong>?
+		All changes will be lost for <strong>{branch.name}</strong>. Are you sure you want to continue?
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
