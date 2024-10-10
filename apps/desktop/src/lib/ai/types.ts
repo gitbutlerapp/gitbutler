@@ -1,3 +1,4 @@
+import { isStr } from '$lib/utils/string';
 import type { Persisted } from '$lib/persisted/persisted';
 import type { Result } from '$lib/result';
 
@@ -28,6 +29,12 @@ export enum MessageRole {
 	System = 'system',
 	User = 'user',
 	Assistant = 'assistant'
+}
+
+export function isMessageRole(role: unknown): role is MessageRole {
+	if (!isStr(role)) return false;
+	const roles = Object.values(MessageRole);
+	return roles.includes(role as MessageRole);
 }
 
 export interface PromptMessage {
