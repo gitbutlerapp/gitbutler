@@ -1,5 +1,5 @@
 import { invoke as ipcInvoke } from '$lib/backend/ipc';
-import { buildContext } from '$lib/utils/context';
+import { buildContext } from '@gitbutler/shared/context';
 
 export interface NameNormalizationService {
 	normalize(branchName: string): Promise<string>;

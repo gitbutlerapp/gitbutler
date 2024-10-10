@@ -12,7 +12,7 @@
 	import { UserService } from '$lib/stores/user';
 	import { unique } from '$lib/utils/array';
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';

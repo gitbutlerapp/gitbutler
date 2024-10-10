@@ -4,7 +4,7 @@
 	import GithubIntegration from '$lib/settings/GithubIntegration.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import { UserService } from '$lib/stores/user';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 
 	const userService = getContext(UserService);
 	const user = userService.user;

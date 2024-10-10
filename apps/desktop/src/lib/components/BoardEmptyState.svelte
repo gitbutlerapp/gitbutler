@@ -4,9 +4,9 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { editor } from '$lib/editorLink/editorLink';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	const gitHost = getGitHost();

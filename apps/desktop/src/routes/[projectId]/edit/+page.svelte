@@ -2,7 +2,7 @@
 	import { Project } from '$lib/backend/projects';
 	import EditMode from '$lib/components/EditMode.svelte';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import { goto } from '$app/navigation';
 
 	const modeService = getContext(ModeService);

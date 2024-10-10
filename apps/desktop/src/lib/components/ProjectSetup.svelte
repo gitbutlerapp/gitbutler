@@ -6,8 +6,8 @@
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import KeysForm from '$lib/settings/KeysForm.svelte';
-	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 

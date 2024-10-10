@@ -2,8 +2,8 @@
 	import SnapshotAttachment from './SnapshotAttachment.svelte';
 	import { createdOnDay } from '$lib/history/history';
 	import { ModeService } from '$lib/modes/service';
-	import { getContext } from '$lib/utils/context';
 	import { toHumanReadableTime } from '$lib/utils/time';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';

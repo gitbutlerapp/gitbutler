@@ -3,7 +3,7 @@
 	import OptionsGroup from '$lib/select/OptionsGroup.svelte';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
-	import { getContext, maybeGetContext } from '$lib/utils/context';
+	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 

@@ -5,7 +5,6 @@
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
-	import { getContext } from '$lib/utils/context';
 	import {
 		getBaseBrancheResolution,
 		getResolutionApproach,
@@ -16,6 +15,7 @@
 		type BranchStatusInfo,
 		type Resolution
 	} from '$lib/vbranches/upstreamIntegrationService';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { tick } from 'svelte';

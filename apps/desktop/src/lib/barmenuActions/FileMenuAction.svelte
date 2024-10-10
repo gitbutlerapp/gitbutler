@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
 	import { ProjectService } from '$lib/backend/projects';
-	import { getContext } from '$lib/utils/context';
 	import { createKeybind } from '$lib/utils/hotkeys';
+	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 

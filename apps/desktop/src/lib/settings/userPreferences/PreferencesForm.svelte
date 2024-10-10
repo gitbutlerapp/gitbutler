@@ -5,7 +5,7 @@
 	import Section from '$lib/settings/Section.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 
 	const projectService = getContext(ProjectService);
 	const project = getContext(Project);

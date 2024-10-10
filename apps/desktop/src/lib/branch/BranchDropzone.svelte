@@ -7,9 +7,9 @@
 	// import components
 	import { DraggableFile, DraggableHunk } from '$lib/dragging/draggables';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
-	import { getContext } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	const branchController = getContext(BranchController);

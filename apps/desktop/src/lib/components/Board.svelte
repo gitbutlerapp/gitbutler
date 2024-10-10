@@ -6,11 +6,11 @@
 	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { cloneElement } from '$lib/dragging/draggable';
 	import { persisted } from '$lib/persisted/persisted';
-	import { getContext } from '$lib/utils/context';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { throttle } from '$lib/utils/misc';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import { getContext } from '@gitbutler/shared/context';
 	import { flip } from 'svelte/animate';
 
 	const vbranchService = getContext(VirtualBranchService);
