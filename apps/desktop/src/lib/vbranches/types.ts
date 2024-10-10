@@ -1,9 +1,11 @@
 import 'reflect-metadata';
+import { stackingFeature } from '$lib/config/uiFeatureFlags';
 import { emptyConflictEntryPresence, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '@gitbutler/ui/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
+import { get } from 'svelte/store';
 import type { PullRequest } from '$lib/gitHost/interface/types';
 
 export type ChangeType =
@@ -242,7 +244,12 @@ export class DetailedCommit {
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
-		if (this.remoteCommitId) return 'localAndRemote';
+		if (get(stackingFeature)) {
+			if (this.remoteCommitId) return 'localAndRemote';
+		} else {
+			if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id))
+				return 'localAndRemote';
+		}
 		return 'local';
 	}
 
