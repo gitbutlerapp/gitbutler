@@ -161,6 +161,14 @@ export class VirtualBranch {
 
 		return this.upstreamName || this.name;
 	}
+
+	get ancestorMostConflictedCommit(): DetailedCommit | undefined {
+		if (this.commits.length === 0) return undefined;
+		for (let i = this.commits.length - 1; i >= 0; i--) {
+			const commit = this.commits[i];
+			if (commit?.conflicted) return commit;
+		}
+	}
 }
 
 // Used for dependency injection
