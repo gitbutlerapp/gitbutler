@@ -47,10 +47,10 @@
 		if (topPatch.remoteCommitId !== topPatch.id) return true;
 		return false;
 	});
-	const branchColorType = $derived<CommitStatus | 'localAndShadow'>(
+	const branchType = $derived<CommitStatus | 'localAndShadow'>(
 		hasShadow ? 'localAndShadow' : topPatch?.status ?? 'local'
 	);
-	const lineColor = $derived(getColorFromBranchType(branchColorType));
+	const lineColor = $derived(getColorFromBranchType(branchType));
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
@@ -69,7 +69,9 @@
 	}
 
 	function editTitle(title: string) {
-		branchController.updateBranchName(branch.id, title);
+		if (currentSeries?.name && title !== currentSeries.name) {
+			branchController.updateSeriesName(branch.id, currentSeries.name, title);
+		}
 	}
 
 	function editDescription(_description: string) {
@@ -83,21 +85,29 @@
 
 <div class="branch-header">
 	<div class="branch-info">
-		<StackingStatusIcon icon="tick-small" iconColor="#fff" color={lineColor} gap={false} lineTop />
+		<StackingStatusIcon
+			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
+			iconColor="#fff"
+			color={lineColor}
+			gap={false}
+			lineTop
+		/>
 		<div class="text-14 text-bold branch-info__name">
 			<span class="remote-name">{$baseBranch.remoteName ?? 'origin'}/</span>
 			<BranchLabel {name} onChange={(name) => editTitle(name)} />
-			<Button
-				size="tag"
-				icon="open-link"
-				style="ghost"
-				onclick={(e: MouseEvent) => {
-					const url = gitHostBranch?.url;
-					if (url) openExternalUrl(url);
-					e.preventDefault();
-					e.stopPropagation();
-				}}
-			></Button>
+			{#if gitHostBranch}
+				<Button
+					size="tag"
+					icon="open-link"
+					style="ghost"
+					onclick={(e: MouseEvent) => {
+						const url = gitHostBranch?.url;
+						if (url) openExternalUrl(url);
+						e.preventDefault();
+						e.stopPropagation();
+					}}
+				></Button>
+			{/if}
 		</div>
 		<div class="branch-info__btns">
 			<Button
@@ -127,33 +137,43 @@
 			/>
 		</div>
 	{/if}
-	<div class="branch-action">
-		<div class="branch-action__line" style:--bg-color={lineColor}></div>
-		<div class="branch-action__body">
-			{#if $pr}
-				<StackingPullRequestCard pr={$pr} {prMonitor} sourceBranch={$pr.sourceBranch} />
-			{:else}
-				<Button
-					style="ghost"
-					wide
-					outline
-					disabled={commits.length === 0 || !$gitHost || !$prService}
-					onclick={handleOpenPR}>Create pull request</Button
-				>
-			{/if}
+	{#if gitHostBranch}
+		<div class="branch-action">
+			<div class="branch-action__line" style:--bg-color={lineColor}></div>
+			<div class="branch-action__body">
+				{#if $pr}
+					<StackingPullRequestCard pr={$pr} {prMonitor} sourceBranch={$pr.sourceBranch} />
+				{:else}
+					<Button
+						style="ghost"
+						wide
+						outline
+						disabled={commits.length === 0 || !$gitHost || !$prService}
+						onclick={handleOpenPR}>Create pull request</Button
+					>
+				{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
+	<PrDetailsModal
+		bind:this={prDetailsModal}
+		type="preview-series"
+		{upstreamName}
+		{name}
+		{commits}
+	/>
 </div>
-
-<PrDetailsModal bind:this={prDetailsModal} type="preview-series" {upstreamName} {name} {commits} />
 
 <style lang="postcss">
 	.branch-header {
 		display: flex;
-		border-bottom: 1px solid var(--clr-border-2);
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+
+		&:not(:last-child) {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
 	}
 
 	.branch-info {

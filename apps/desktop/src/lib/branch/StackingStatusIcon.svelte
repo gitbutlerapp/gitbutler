@@ -4,7 +4,7 @@
 	const FALLBACK_COLOR = 'var(--clr-scale-ntrl-80)';
 
 	interface Props {
-		icon: 'plus-small' | 'tick-small' | 'virtual-branch-small';
+		icon: 'plus-small' | 'tick-small' | 'remote-branch-small';
 		iconColor?: string;
 		color?: string;
 		gap?: boolean;

@@ -52,8 +52,8 @@
 	let aiLoading = false;
 	let aiConfigurationValid = false;
 
-	let titleTextArea: HTMLTextAreaElement;
-	let descriptionTextArea: HTMLTextAreaElement;
+	let titleTextArea: HTMLTextAreaElement | undefined;
+	let descriptionTextArea: HTMLTextAreaElement | undefined;
 
 	$: ({ title, description } = splitMessage(commitMessage));
 	$: valid = !!title;
@@ -138,7 +138,7 @@
 		if (e.key === KeyName.Delete && value.length === 0) {
 			e.preventDefault();
 			if (titleTextArea) {
-				titleTextArea?.focus();
+				titleTextArea.focus();
 				titleTextArea.selectionStart = titleTextArea.textLength;
 			}
 			autoHeight(e.currentTarget);
@@ -178,9 +178,11 @@
 					: `${toMove}\n${description}`;
 				commitMessage = concatMessage(toKeep, newDescription);
 				tick().then(() => {
-					descriptionTextArea?.focus();
-					descriptionTextArea.setSelectionRange(0, 0);
-					autoHeight(descriptionTextArea);
+					if (descriptionTextArea) {
+						descriptionTextArea.focus();
+						descriptionTextArea.setSelectionRange(0, 0);
+						autoHeight(descriptionTextArea);
+					}
 				});
 			}
 
