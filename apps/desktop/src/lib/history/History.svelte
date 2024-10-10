@@ -19,13 +19,13 @@
 
 	const project = getContext(Project);
 	const historyService = getContext(HistoryService);
-	const snapshots = historyService.snapshots;
+	const snapshots = $derived(historyService.snapshots);
 	const dispatch = createEventDispatcher<{ hide: any }>();
 
 	const loading = historyService.loading;
 	const isAllLoaded = historyService.isAllLoaded;
 
-	let currentFilePreview: RemoteFile | undefined = undefined;
+	let currentFilePreview = $state<RemoteFile>();
 
 	function findRestorationRanges(snapshots: Snapshot[]) {
 		if (snapshots.length === 0) return [];
@@ -74,7 +74,7 @@
 	let snapshotFilesTempStore:
 		| { entryId: string; diffs: { [key: string]: SnapshotDiff } }
 		| undefined = undefined;
-	let selectedFile: { entryId: string; path: string } | undefined = undefined;
+	let selectedFile = $state<{ entryId: string; path: string }>();
 </script>
 
 <svelte:window
