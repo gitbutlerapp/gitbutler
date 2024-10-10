@@ -1,7 +1,10 @@
 <script lang="ts">
+	import { invoke } from '$lib/backend/ipc';
+	import { Project } from '$lib/backend/projects';
 	import HunkViewer from '$lib/hunk/HunkViewer.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
+	import { getContext } from '$lib/utils/context';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
@@ -32,6 +35,7 @@
 	}: Props = $props();
 
 	let alwaysShow = $state(false);
+	const project = getContext(Project);
 	const localCommits = isFileLocked ? getLocalCommits() : undefined;
 	const remoteCommits = isFileLocked ? getLocalAndRemoteCommits() : undefined;
 
@@ -49,11 +53,56 @@
 	}
 	const maxLineNumber = $derived(sections.at(-1)?.maxLineNumber);
 	const minWidth = $derived(getGutterMinWidth(maxLineNumber));
+
+	const KB = 1024;
+	const MB = 1024 ** 2;
+	const GB = 1024 ** 3;
+	
+	function formatFileSize(bytes: number): string {
+		if (bytes < KB) return bytes + ' B';
+		else if (bytes < MB) return (bytes / KB).toFixed(1) + ' KB';
+		else if (bytes < GB) return (bytes / MB).toFixed(1) + ' MB';
+		else return (bytes / GB).toFixed(1) + ' GB';
+	}
+
+	let blobSize: number = $state(0);
+	let blobName: string | undefined = $state(undefined);
+	let blobContent: string | undefined = $state(undefined);
+	let imageMimeType: string | undefined = $state(undefined);
+	let errorMessage: string | undefined = $state(undefined);
+
+	async function fetchBlobInfo() {
+		try {
+			const blobInfo: Record<string, string> = await invoke('get_blob_info', {
+				relativePath: filePath,
+				projectId: project.id
+			});
+
+			blobContent = blobInfo.content;
+			blobName = blobInfo.name;
+			imageMimeType = blobInfo.mimeType;
+			blobSize = parseInt(blobInfo.size || '0', 10);
+			errorMessage = undefined;
+		} catch (error) {
+			console.error(error);
+			errorMessage = "untracked file";
+		}
+	}
+
+	$effect(() => {
+		fetchBlobInfo();
+	});
+
 </script>
 
 <div class="hunks">
-	{#if isBinary}
-		Binary content not shown
+	{#if errorMessage}
+		<p>{errorMessage}</p>
+	{:else if isBinary}
+		{#if imageMimeType && blobContent}
+			<img src="data:{imageMimeType};base64,{blobContent}" alt={blobName} />
+		{/if}
+		<p>Size: {formatFileSize(blobSize)}</p>
 	{:else if isLarge}
 		Diff too large to be shown
 	{:else if sections.length > 50 && !alwaysShow}
@@ -124,5 +173,14 @@
 		display: flex;
 		align-items: center;
 		gap: 2px;
+	}
+	img {
+		max-width: 100%;
+		height: auto;
+	}
+	p {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 	}
 </style>
