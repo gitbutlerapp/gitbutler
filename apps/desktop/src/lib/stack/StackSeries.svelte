@@ -34,7 +34,7 @@
 		<StackingBranchHeader
 			commits={currentSeries.patches}
 			name={currentSeries.branchName}
-			upstreamName={currentSeries.name}
+			upstreamName={currentSeries.upstreamReference}
 		/>
 		<StackingCommitList
 			remoteOnlyPatches={currentSeries.upstreamPatches}
