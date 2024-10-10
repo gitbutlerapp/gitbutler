@@ -122,6 +122,7 @@
 						<Button
 							bind:el={meatballButtonEl}
 							style="ghost"
+							size="tag"
 							icon="kebab"
 							onclick={() => {
 								contextMenu?.toggle();
@@ -150,7 +151,6 @@
 			height: auto;
 		}
 	}
-
 	.header.card {
 		border-bottom-right-radius: 0px;
 		border-bottom-left-radius: 0px;
@@ -205,7 +205,7 @@
 	.header__info-wrapper {
 		display: flex;
 		gap: 2px;
-		padding: 10px;
+		padding: 12px;
 	}
 	.header__info {
 		flex: 1;
@@ -218,7 +218,7 @@
 	.button-group {
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		gap: 6px;
 	}
 
 	.draggable {

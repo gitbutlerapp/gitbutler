@@ -180,7 +180,6 @@
 
 <Modal
 	width="small"
-	title="Delete branch"
 	bind:this={deleteBranchModal}
 	onSubmit={async (close) => {
 		try {
@@ -193,10 +192,12 @@
 	}}
 >
 	{#snippet children(branch)}
-		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
+		Are you sure you want to unapply and drop changes in branch <strong>{branch.name}</strong>?
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="error" kind="solid" type="submit" loading={isDeleting}>Delete</Button>
+		<Button style="error" kind="solid" type="submit" loading={isDeleting}
+			>Unapply and drop changes</Button
+		>
 	{/snippet}
 </Modal>
