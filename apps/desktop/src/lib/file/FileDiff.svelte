@@ -57,7 +57,7 @@
 	const KB = 1024;
 	const MB = 1024 ** 2;
 	const GB = 1024 ** 3;
-	
+
 	function formatFileSize(bytes: number): string {
 		if (bytes < KB) return bytes + ' B';
 		else if (bytes < MB) return (bytes / KB).toFixed(1) + ' KB';
@@ -85,14 +85,13 @@
 			errorMessage = undefined;
 		} catch (error) {
 			console.error(error);
-			errorMessage = "untracked file";
+			errorMessage = 'untracked file';
 		}
 	}
 
 	$effect(() => {
 		fetchBlobInfo();
 	});
-
 </script>
 
 <div class="hunks">
