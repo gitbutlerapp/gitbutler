@@ -47,10 +47,10 @@
 		if (topPatch.remoteCommitId !== topPatch.id) return true;
 		return false;
 	});
-	const branchColorType = $derived<CommitStatus | 'localAndShadow'>(
+	const branchType = $derived<CommitStatus | 'localAndShadow'>(
 		hasShadow ? 'localAndShadow' : topPatch?.status ?? 'local'
 	);
-	const lineColor = $derived(getColorFromBranchType(branchColorType));
+	const lineColor = $derived(getColorFromBranchType(branchType));
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
@@ -85,7 +85,13 @@
 
 <div class="branch-header">
 	<div class="branch-info">
-		<StackingStatusIcon icon="tick-small" iconColor="#fff" color={lineColor} gap={false} lineTop />
+		<StackingStatusIcon
+			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
+			iconColor="#fff"
+			color={lineColor}
+			gap={false}
+			lineTop
+		/>
 		<div class="text-14 text-bold branch-info__name">
 			<span class="remote-name">{$baseBranch.remoteName ?? 'origin'}/</span>
 			<BranchLabel {name} onChange={(name) => editTitle(name)} />
