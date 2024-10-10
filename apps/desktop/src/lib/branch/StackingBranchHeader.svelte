@@ -69,7 +69,9 @@
 	}
 
 	function editTitle(title: string) {
-		branchController.updateBranchName(branch.id, title);
+		if (currentSeries?.name && title !== currentSeries.name) {
+			branchController.updateSeriesName(branch.id, currentSeries.name, title);
+		}
 	}
 
 	function editDescription(_description: string) {
