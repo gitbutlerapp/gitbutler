@@ -1,15 +1,15 @@
 pub mod commands {
+    use crate::error::{Error, UnmarkedError};
     use anyhow::Result;
     use gitbutler_branch_actions::RemoteBranchFile;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
     use gitbutler_repo::RepoCommands;
+    use std::collections::HashMap;
     use std::path::Path;
     use std::sync::atomic::AtomicBool;
     use tauri::State;
     use tracing::instrument;
-
-    use crate::error::{Error, UnmarkedError};
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
@@ -75,6 +75,22 @@ pub mod commands {
         project_id: ProjectId,
         relative_path: &Path,
     ) -> Result<String, Error> {
+        let project = projects.get(project_id)?;
+
+        Ok(project
+            .read_file_from_workspace(relative_path)?
+            .get("content")
+            .unwrap()
+            .to_string())
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects))]
+    pub fn get_blob_info(
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        relative_path: &Path,
+    ) -> Result<HashMap<String, String>, Error> {
         let project = projects.get(project_id)?;
 
         Ok(project.read_file_from_workspace(relative_path)?)

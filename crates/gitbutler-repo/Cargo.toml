@@ -40,6 +40,7 @@ gitbutler-stack.workspace = true
 uuid.workspace = true
 itertools = "0.13"
 toml.workspace = true
+base64 = "0.22.1"
 
 [[test]]
 name = "repo"
