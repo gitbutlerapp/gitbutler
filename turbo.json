@@ -2,10 +2,11 @@
 	"$schema": "https://turborepo.org/schema.json",
 	"tasks": {
 		"package": {
+			"dependsOn": ["^package"],
 			"outputs": ["dist/**"]
 		},
 		"build": {
-			"dependsOn": ["^package"],
+			"dependsOn": ["package"],
 			"passThroughEnv": ["SENTRY_AUTH_TOKEN", "GITHUB_TOKEN"],
 			"env": ["SENTRY_RELEASE"],
 			"outputs": [
@@ -17,20 +18,19 @@
 			]
 		},
 		"dev": {
-			"dependsOn": ["@gitbutler/ui#package"],
+			"dependsOn": ["package"],
 			"cache": false,
 			"persistent": true
 		},
 		"check": {
-			"dependsOn": ["@gitbutler/ui#package"]
+			"dependsOn": ["package"]
 		},
 		"playwright:install": {},
 		"test": {
-			"dependsOn": ["@gitbutler/ui#package", "playwright:install"]
+			"dependsOn": ["package", "playwright:install"]
 		},
 		"//#globallint": {
-			// Root rules require dependencies to manually be listed https://github.com/vercel/turbo/discussions/7481
-			"dependsOn": ["@gitbutler/ui#package"]
+			"dependsOn": ["@gitbutler/ui#package", "@gitbutler/shared#package"]
 		}
 	}
 }
