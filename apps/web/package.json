@@ -23,6 +23,7 @@
 		"vite": "catalog:"
 	},
 	"dependencies": {
+		"@rails/actioncable": "^7.2.100",
 		"@sentry/sveltekit": "^8.9.2",
 		"highlight.js": "^11.10.0",
 		"marked": "^10.0.0",

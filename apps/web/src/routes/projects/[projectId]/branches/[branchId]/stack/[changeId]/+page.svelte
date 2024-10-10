@@ -1,6 +1,7 @@
 <script lang="ts">
 	import DiffPatch from '$lib/components/DiffPatch.svelte';
 	import DiffPatchArray from '$lib/components/DiffPatchArray.svelte';
+	import { createConsumer } from '@rails/actioncable';
 	import { marked } from 'marked';
 	import { onMount } from 'svelte';
 	import Gravatar from 'svelte-gravatar';
@@ -13,11 +14,14 @@
 	let events: any = [];
 	let key: any = '';
 	let uuid: any = '';
+	let consumer;
 
 	export let data: any;
 
 	onMount(() => {
 		key = localStorage.getItem('gb_access_token');
+
+		listenToChat(key);
 
 		let projectId = data.projectId;
 		let branchId = data.branchId;
@@ -45,6 +49,21 @@
 			state = 'unauthorized';
 		}
 	});
+
+	function listenToChat(token: string) {
+		// connect to actioncable to subscribe to chat events
+		let wsHost = env.PUBLIC_APP_HOST.replace('http', 'ws') + 'cable';
+		consumer = createConsumer(wsHost + '?token=' + token);
+		consumer.subscriptions.create(
+			{ channel: 'ChatChannel', change_id: data.changeId, project_id: data.projectId },
+			{
+				received(data: any) {
+					// todo: update chat window with new message
+					console.log('received', data);
+				}
+			}
+		);
+	}
 
 	function scrollToBottom() {
 		let chatWindow = document.querySelector<HTMLElement>('.chatWindow');
