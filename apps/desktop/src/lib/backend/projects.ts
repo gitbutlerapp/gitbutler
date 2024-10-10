@@ -5,7 +5,7 @@ import * as toasts from '$lib/utils/toasts';
 import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
-import type { HttpClient } from './httpClient';
+import type { HttpClient } from '@gitbutler/shared/httpClient';
 import { goto } from '$app/navigation';
 
 export type KeyType = 'gitCredentialsHelper' | 'local' | 'systemExecutable';

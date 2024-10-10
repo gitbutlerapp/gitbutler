@@ -18,9 +18,9 @@ import {
 import { buildFailureFromAny, isFailure, ok, type Result } from '$lib/result';
 import { splitMessage } from '$lib/utils/commitMessage';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
-import type { HttpClient } from '$lib/backend/httpClient';
 import type { SecretsService } from '$lib/secrets/secretsService';
 import type { Hunk } from '$lib/vbranches/types';
+import type { HttpClient } from '@gitbutler/shared/httpClient';
 
 const maxDiffLengthLimitForAPI = 5000;
 const prDescriptionTokenLimit = 4096;
