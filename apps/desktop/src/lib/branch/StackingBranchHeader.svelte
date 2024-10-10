@@ -155,17 +155,25 @@
 			</div>
 		</div>
 	{/if}
+	<PrDetailsModal
+		bind:this={prDetailsModal}
+		type="preview-series"
+		{upstreamName}
+		{name}
+		{commits}
+	/>
 </div>
-
-<PrDetailsModal bind:this={prDetailsModal} type="preview-series" {upstreamName} {name} {commits} />
 
 <style lang="postcss">
 	.branch-header {
 		display: flex;
-		border-bottom: 1px solid var(--clr-border-2);
 		display: flex;
 		flex-direction: column;
 		overflow: hidden;
+
+		&:not(:last-child) {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
 	}
 
 	.branch-info {
