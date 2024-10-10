@@ -1,3 +1,4 @@
+import { splitPromptMessages } from './anthropicUtils';
 import {
 	SHORT_DEFAULT_COMMIT_TEMPLATE,
 	SHORT_DEFAULT_BRANCH_TEMPLATE,
@@ -11,28 +12,10 @@ import {
 } from '$lib/ai/types';
 import { andThenAsync, ok, wrapAsync, type Result } from '$lib/result';
 import Anthropic from '@anthropic-ai/sdk';
-import type { MessageParam, RawMessageStreamEvent } from '@anthropic-ai/sdk/resources/messages.mjs';
+import type { RawMessageStreamEvent } from '@anthropic-ai/sdk/resources/messages.mjs';
 import type { Stream } from '@anthropic-ai/sdk/streaming.mjs';
 
 const DEFAULT_MAX_TOKENS = 1024;
-
-function splitPromptMessages(prompt: Prompt): [MessageParam[], string | undefined] {
-	const messages: MessageParam[] = [];
-	let system: string | undefined = undefined;
-	for (const message of prompt) {
-		if (message.role === 'system') {
-			system = message.content;
-			continue;
-		}
-
-		messages.push({
-			role: message.role,
-			content: message.content
-		});
-	}
-
-	return [messages, system];
-}
 
 export class AnthropicAIClient implements AIClient {
 	defaultCommitTemplate = SHORT_DEFAULT_COMMIT_TEMPLATE;
