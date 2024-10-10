@@ -402,6 +402,10 @@
 		&:not(.is-last) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
+
+		&.is-last {
+			border-radius: 0 0 var(--radius-m) var(--radius-m);
+		}
 	}
 
 	.commit-card {
