@@ -1,67 +1,63 @@
 {
+  description = "Flake template";
+
   inputs = {
-    unstablePkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    flake-utils.url = "github:numtide/flake-utils";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    fp.url = "github:hercules-ci/flake-parts";
+    devshell = {
+      url = "github:numtide/devshell";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
-      inputs = {
-        nixpkgs.follows = "unstablePkgs";
-      };
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
-  outputs = { self, unstablePkgs, flake-utils, rust-overlay }:
-    flake-utils.lib.eachDefaultSystem
-      (system:
-        let
-          overlays = [ (import rust-overlay) ];
-          unstable = import unstablePkgs {
-            inherit system overlays;
-          };
 
-          rustToolchain = unstable.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+  outputs = inputs: inputs.fp.lib.mkFlake { inherit inputs; } {
+    systems = inputs.nixpkgs.lib.systems.flakeExposed;
 
-          common = with unstable; [
-            gtk3
-            glib
-            glib-networking
-            dbus
-            openssl_3
-            librsvg
-            gettext
-            libiconv
-            libsoup
-            libsoup_3
-            webkitgtk
-            nodejs_20
-            corepack_20
+    perSystem = { system, config, pkgs, lib, ... }:
+      {
+        _module.args.pkgs = import inputs.nixpkgs {
+          inherit system;
+          overlays = with inputs; [
+            devshell.overlays.default
+            rust-overlay.overlays.default
           ];
+        };
 
-          # runtime Deps
-          libraries = with unstable;[
+        devShells.default = with pkgs; let
+          nativeLibs = [
+            at-spi2-atk
             cairo
-            pango
-            harfbuzz
             gdk-pixbuf
-          ] ++ common;
-
-          # compile-time deps
-          packages = with unstable; [
-            curl
-            wget
-            pkg-config
-            rustToolchain
-          ] ++ common;
+            glib
+            gtk3
+            harfbuzz
+            libsoup
+            pango
+            webkitgtk
+          ];
         in
-        {
-          devShells.default = unstable.mkShell {
-            nativeBuildInputs = packages;
-            buildInputs = libraries;
-            shellHook = ''
-              export LD_LIBRARY_PATH=${unstable.lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH
-              export XDG_DATA_DIRS=${unstable.gsettings-desktop-schemas}/share/gsettings-schemas/${unstable.gsettings-desktop-schemas.name}:${unstable.gtk3}/share/gsettings-schemas/${unstable.gtk3.name}:$XDG_DATA_DIRS
-              export GIO_MODULE_DIR="${unstable.glib-networking}/lib/gio/modules/"
-            '';
+        devshell.mkShell {
+          imports = [ "${inputs.devshell}/extra/language/c.nix" ];
+
+          language.c = {
+            compiler = stdenv.cc;
+            includes = nativeLibs;
+            libraries = map (nl: nl.dev) nativeLibs;
           };
-        }
-      );
+
+          packages = [
+            (rust-bin.fromRustupToolchainFile ./rust-toolchain.toml)
+            cmake
+            corepack_20
+            gnumake
+            nodejs_20
+            pkg-config
+          ];
+        };
+      };
+  };
 }
