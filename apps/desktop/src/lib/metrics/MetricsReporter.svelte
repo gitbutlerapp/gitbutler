@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { ProjectMetrics, type ProjectMetricsReport } from './projectMetrics';
-	import { persisted } from '$lib/persisted/persisted';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import posthog from 'posthog-js';
 	import { onMount } from 'svelte';
 

@@ -1,4 +1,4 @@
-import { persisted, type Persisted } from '$lib/persisted/persisted';
+import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 
 const PR_DEFAULT_ACTION_KEY_NAME = 'projectDefaultPrAction';
 

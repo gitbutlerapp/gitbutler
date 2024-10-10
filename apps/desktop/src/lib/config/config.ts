@@ -1,4 +1,4 @@
-import { persisted, type Persisted } from '$lib/persisted/persisted';
+import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 
 export function projectHttpsWarningBannerDismissed(projectId: string): Persisted<boolean> {
 	const key = 'projectHttpsWarningBannerDismissed_';
