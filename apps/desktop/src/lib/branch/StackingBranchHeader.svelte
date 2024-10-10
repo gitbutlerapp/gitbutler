@@ -95,17 +95,19 @@
 		<div class="text-14 text-bold branch-info__name">
 			<span class="remote-name">{$baseBranch.remoteName ?? 'origin'}/</span>
 			<BranchLabel {name} onChange={(name) => editTitle(name)} />
-			<Button
-				size="tag"
-				icon="open-link"
-				style="ghost"
-				onclick={(e: MouseEvent) => {
-					const url = gitHostBranch?.url;
-					if (url) openExternalUrl(url);
-					e.preventDefault();
-					e.stopPropagation();
-				}}
-			></Button>
+			{#if gitHostBranch}
+				<Button
+					size="tag"
+					icon="open-link"
+					style="ghost"
+					onclick={(e: MouseEvent) => {
+						const url = gitHostBranch?.url;
+						if (url) openExternalUrl(url);
+						e.preventDefault();
+						e.stopPropagation();
+					}}
+				></Button>
+			{/if}
 		</div>
 		<div class="branch-info__btns">
 			<Button
@@ -135,22 +137,24 @@
 			/>
 		</div>
 	{/if}
-	<div class="branch-action">
-		<div class="branch-action__line" style:--bg-color={lineColor}></div>
-		<div class="branch-action__body">
-			{#if $pr}
-				<StackingPullRequestCard pr={$pr} {prMonitor} sourceBranch={$pr.sourceBranch} />
-			{:else}
-				<Button
-					style="ghost"
-					wide
-					outline
-					disabled={commits.length === 0 || !$gitHost || !$prService}
-					onclick={handleOpenPR}>Create pull request</Button
-				>
-			{/if}
+	{#if gitHostBranch}
+		<div class="branch-action">
+			<div class="branch-action__line" style:--bg-color={lineColor}></div>
+			<div class="branch-action__body">
+				{#if $pr}
+					<StackingPullRequestCard pr={$pr} {prMonitor} sourceBranch={$pr.sourceBranch} />
+				{:else}
+					<Button
+						style="ghost"
+						wide
+						outline
+						disabled={commits.length === 0 || !$gitHost || !$prService}
+						onclick={handleOpenPR}>Create pull request</Button
+					>
+				{/if}
+			</div>
 		</div>
-	</div>
+	{/if}
 </div>
 
 <PrDetailsModal bind:this={prDetailsModal} type="preview-series" {upstreamName} {name} {commits} />
