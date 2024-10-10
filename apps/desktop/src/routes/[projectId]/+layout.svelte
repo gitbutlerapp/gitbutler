@@ -11,6 +11,7 @@
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
+	import { showHistoryView } from '$lib/config/config';
 	import { featureTopics } from '$lib/config/uiFeatureFlags';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostFactory';
@@ -22,7 +23,6 @@
 	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import { ModeService } from '$lib/modes/service';
 	import Navigation from '$lib/navigation/Navigation.svelte';
-	import { persisted } from '$lib/persisted/persisted';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import CreateIssueModal from '$lib/topics/CreateIssueModal.svelte';
 	import CreateTopicModal from '$lib/topics/CreateTopicModal.svelte';
@@ -82,7 +82,6 @@
 
 	let intervalId: any;
 
-	const showHistoryView = persisted(false, 'showHistoryView');
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
 	const gitHostFactory = $derived(new DefaultGitHostFactory(octokit));
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
@@ -180,10 +179,7 @@
 
 <!-- forces components to be recreated when projectId changes -->
 {#key projectId}
-	<ProjectSettingsMenuAction
-		showHistory={$showHistoryView}
-		onHistoryShow={(show) => ($showHistoryView = show)}
-	/>
+	<ProjectSettingsMenuAction />
 	<FileMenuAction />
 
 	{#if !project}

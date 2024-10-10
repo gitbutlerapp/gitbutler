@@ -3,9 +3,9 @@
 	import FullviewLoading from './FullviewLoading.svelte';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
 	import BranchLane from '$lib/branch/BranchLane.svelte';
+	import { showHistoryView } from '$lib/config/config';
 	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { cloneElement } from '$lib/dragging/draggable';
-	import { persisted } from '$lib/persisted/persisted';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { throttle } from '$lib/utils/misc';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -17,7 +17,6 @@
 	const branchController = getContext(BranchController);
 	const error = vbranchService.error;
 	const branches = vbranchService.branches;
-	const showHistoryView = persisted(false, 'showHistoryView');
 
 	let dragged: HTMLDivElement | undefined;
 	let dropZone: HTMLDivElement;
@@ -66,8 +65,14 @@
 	}, 200);
 
 	const handleKeyDown = createKeybind({
-		's t a c k': async () => {
+		's t a c k': () => {
 			$stackingFeature = !$stackingFeature;
+		},
+		'$mod+Shift+H': () => {
+			$showHistoryView = !$showHistoryView;
+		},
+		'$mod+z': () => {
+			$showHistoryView = !$showHistoryView;
 		}
 	});
 </script>
