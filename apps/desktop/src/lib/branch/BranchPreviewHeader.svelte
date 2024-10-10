@@ -148,7 +148,6 @@
 
 <Modal
 	width="small"
-	title="Delete branch"
 	bind:this={deleteBranchModal}
 	onSubmit={async (close) => {
 		try {
