@@ -46,3 +46,5 @@ export function persistedCommitMessage(projectId: string, branchId: string): Per
 }
 
 export const showStackingCardDetails = persisted(false, 'showStackingCardDetails');
+
+export const showHistoryView = persisted(false, 'showHistoryView');
