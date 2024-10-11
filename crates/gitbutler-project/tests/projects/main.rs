@@ -25,6 +25,19 @@ mod add {
         use super::*;
 
         #[test]
+        fn submodule() {
+            let (controller, _tmp) = new();
+            let root = gitbutler_testsupport::gix_testtools::scripted_fixture_read_only(
+                "various-repositories.sh",
+            )
+            .unwrap()
+            .join("with-submodule")
+            .join("submodule");
+            let err = controller.add(root).unwrap_err();
+            assert_eq!(err.to_string(), "TBD");
+        }
+
+        #[test]
         fn missing() {
             let (controller, _tmp) = new();
             let tmp = tempfile::tempdir().unwrap();
