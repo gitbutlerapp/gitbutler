@@ -13,3 +13,8 @@ git clone simple with-submodule
   git submodule add ../submodule
   git commit -m "add submodule"
 )
+
+git clone --bare simple non-bare-without-worktree
+(cd non-bare-without-worktree
+  git config core.bare false
+)
