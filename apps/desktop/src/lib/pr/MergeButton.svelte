@@ -2,8 +2,8 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { MergeMethod } from '$lib/gitHost/interface/types';
-	import { persisted, type Persisted } from '$lib/persisted/persisted';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
+	import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 	import { createEventDispatcher } from 'svelte';
 
 	export let projectId: string;
