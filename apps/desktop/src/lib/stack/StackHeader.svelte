@@ -9,7 +9,7 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { Persisted } from '$lib/persisted/persisted';
+	import type { Persisted } from '@gitbutler/shared/persisted';
 
 	interface Props {
 		uncommittedChanges?: number;

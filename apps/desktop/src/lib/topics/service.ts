@@ -1,4 +1,4 @@
-import { persisted } from '$lib/persisted/persisted';
+import { persisted } from '@gitbutler/shared/persisted';
 import { get, type Readable } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';
 import type { GitHostIssueService } from '$lib/gitHost/interface/gitHostIssueService';

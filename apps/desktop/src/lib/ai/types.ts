@@ -1,6 +1,6 @@
 import { isStr } from '$lib/utils/string';
-import type { Persisted } from '$lib/persisted/persisted';
 import type { Result } from '$lib/result';
+import type { Persisted } from '@gitbutler/shared/persisted';
 
 export enum ModelKind {
 	OpenAI = 'openai',
