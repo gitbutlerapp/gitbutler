@@ -2,7 +2,7 @@ import DemoFileListItem from './DemoFileListItem.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
-	title: 'Files / FileListItem',
+	title: 'List items / FileListItem',
 	component: DemoFileListItem
 } satisfies Meta<DemoFileListItem>;
 
