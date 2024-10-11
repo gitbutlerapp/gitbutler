@@ -214,6 +214,58 @@ jobs:
           path: tauri-aux-artifacts/
           if-no-files-found: error
 
+  build-tauri-arm64:
+    needs: build-sveltekit
+    runs-on: ubuntu-latest
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_JUNON }}
+      - name: Init Node Environment
+        uses: ./.github/actions/init-env-node
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          target: aarch64-unknown-linux-gnu
+          override: true
+      - name: Install cross
+        run: cargo install cross
+      - name: Consume input variables
+        shell: bash
+        if: ${{ !github.event.workflow_run }}
+        run: |
+          echo "channel=${{ github.event.inputs.channel || 'nightly' }}" >> $GITHUB_ENV
+          echo "bump=${{ github.event.inputs.bump || 'patch' }}" >> $GITHUB_ENV
+      - name: Calculate next version
+        shell: bash
+        run: |
+          CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
+          NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
+          echo "version=$NEXT_VERSION" >> $GITHUB_ENV
+          mkdir -p release && echo "$NEXT_VERSION" > release/version
+      - uses: actions/download-artifact@v4
+        with:
+          name: sveltekit-build
+          path: ./apps/desktop/build/
+      - name: Cross-compile for ARM64
+        run: |
+          cd apps/desktop/src-tauri
+          cross build --release --target  aarch64-unknown-linux-gnu
+      - name: Package ARM64 build
+        run: |
+          mkdir -p release/aarch64-unknown-linux-gnu
+          cp target/aarch64-unknown-linux-gnu/release/gitbutler release/aarch64-unknown-linux-gnu/
+          tar -czf release/gitbutler-${{ env.version }}-aarch64-unknown-linux-gnu.tar.gz -C release/aarch64-unknown-linux-gnu gitbutler
+      - name: Upload ARM64 Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: '${{ env.channel }}-aarch64-linux-${{ github.run_number }}'
+          path: release/
+          if-no-files-found: error
+
   sign-tauri:
     needs: build-tauri
     runs-on: [self-hosted, evcodesignd]
