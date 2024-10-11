@@ -21,6 +21,8 @@
 
 <style lang="postcss">
 	.commit-line {
-		border-right: 2px var(--border-style) var(--border-color);
+		width: 2px;
+		margin: 0 22px;
+		background: var(--border-color);
 	}
 </style>

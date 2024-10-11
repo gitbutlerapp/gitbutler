@@ -56,7 +56,7 @@
 		& .stack__status--bar {
 			width: 2px;
 			height: 10px;
-			margin: 0 22px 0 22px;
+			margin: 0 22px;
 			background: var(--bg-color);
 		}
 	}

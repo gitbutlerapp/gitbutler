@@ -90,7 +90,7 @@
 	}
 
 	.generic-commit-dot {
-		transform: translateX(5px);
+		transform: translateX(4px);
 
 		&.remote {
 			fill: var(--clr-commit-remote);

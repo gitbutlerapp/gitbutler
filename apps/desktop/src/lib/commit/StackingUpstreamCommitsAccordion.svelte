@@ -93,8 +93,9 @@
 		}
 
 		& .accordion-row__line {
-			margin: 0 10px 0 22.5px;
-			border-right: 2px solid var(--clr-commit-upstream);
+			width: 2px;
+			margin: 0 22px;
+			background-color: var(--clr-commit-upstream);
 
 			&.dots {
 				place-items: center;
