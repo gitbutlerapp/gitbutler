@@ -10,6 +10,7 @@
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import StackingPullRequestCard from '$lib/pr/StackingPullRequestCard.svelte';
+	import { slugify } from '$lib/utils/string';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { DetailedCommit, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
@@ -40,7 +41,7 @@
 	let meatballButtonEl = $state<HTMLDivElement>();
 
 	// TODO: Simplify figuring out if shadow color is needed
-	const currentSeries = $derived(branch.series?.find((series) => series.name === upstreamName));
+	const currentSeries = $derived(branch.series?.find((series) => series.name === name));
 	const topPatch = $derived(currentSeries?.patches[0]);
 	const hasShadow = $derived.by(() => {
 		if (!topPatch || !topPatch.remoteCommitId) return false;
@@ -70,7 +71,7 @@
 
 	function editTitle(title: string) {
 		if (currentSeries?.name && title !== currentSeries.name) {
-			branchController.updateSeriesName(branch.id, currentSeries.name, title);
+			branchController.updateSeriesName(branch.id, currentSeries.name, slugify(title));
 		}
 	}
 
