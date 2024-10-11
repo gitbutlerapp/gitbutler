@@ -17,6 +17,7 @@ pub(crate) fn move_commit(
     target_branch_id: StackId,
     commit_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
+    source_branch_id: StackId,
 ) -> Result<()> {
     ctx.assure_resolved()?;
     let vb_state = ctx.project().virtual_branches();
@@ -33,15 +34,16 @@ pub(crate) fn move_commit(
 
     let (ref mut source_branch, source_status) = applied_statuses
         .iter_mut()
-        .find(|(b, _)| b.head() == commit_id)
-        .ok_or_else(|| anyhow!("commit {commit_id} to be moved could not be found"))?;
+        .find(|(b, _)| b.id == source_branch_id)
+        .ok_or_else(|| anyhow!("the source branch could not be found"))?;
 
+    let is_head_commit = commit_id == source_branch.head();
     let source_branch_non_comitted_files = source_status;
 
     let source_commit = ctx
         .repository()
         .find_commit(commit_id)
-        .context("failed to find commit")?;
+        .with_context(|| format!("commit {commit_id} to be moved could not be found"))?;
 
     if source_commit.is_conflicted() {
         bail!("Can not move conflicted commits");
@@ -79,8 +81,17 @@ pub(crate) fn move_commit(
         LogUntil::Commit(merge_base.id()),
     )?;
     ancestor_commits.push(merge_base);
-
     let ancestor_commits = ancestor_commits;
+
+    let mut child_commits = None;
+    if !is_head_commit {
+        child_commits = Some(
+            ctx.repository()
+                .log(source_branch.head(), LogUntil::Commit(commit_id))
+                .unwrap(),
+        );
+    }
+    let child_commits = child_commits;
 
     let is_ancestor_locked =
         check_source_lock_to_commits(ctx.repository(), &ancestor_commits, &branch_head_diff);
@@ -91,6 +102,15 @@ pub(crate) fn move_commit(
 
     if is_ancestor_locked {
         bail!("the source branch contains hunks locked to the target commit ancestors")
+    }
+
+    if let Some(child_commits) = child_commits.as_ref() {
+        let is_parent_locked =
+            check_source_lock_to_commits(ctx.repository(), child_commits, &branch_head_diff);
+
+        if is_parent_locked {
+            bail!("the source branch contains hunks locked to the target commit children")
+        }
     }
 
     // move files ownerships from source branch to the destination branch
@@ -121,9 +141,22 @@ pub(crate) fn move_commit(
         &[source_commit.id()],
     )?;
 
-    // reset the source branch to the parent commit
+    // if the source commit has children, move them to the source commit's parent
+
+    let mut new_source_head_oid = source_branch_head_parent.id();
+    if let Some(child_commits) = child_commits.as_ref() {
+        let ids_to_rebase: Vec<git2::Oid> = child_commits.iter().map(|c| c.id()).collect();
+        new_source_head_oid = cherry_rebase_group(
+            ctx.repository(),
+            source_branch_head_parent.id(),
+            &ids_to_rebase,
+        )?;
+    }
+
+    // reset the source branch to the newer parent commit
     // and update the destination branch head
-    source_branch.set_stack_head(ctx, source_branch_head_parent.id(), None)?;
+    source_branch.set_stack_head(ctx, new_source_head_oid, None)?;
+    vb_state.set_branch(source_branch.clone())?;
 
     destination_branch.set_stack_head(ctx, new_destination_head_oid, None)?;
 

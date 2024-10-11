@@ -476,6 +476,7 @@ pub fn move_commit(
     project: &Project,
     target_branch_id: StackId,
     commit_oid: git2::Oid,
+    source_branch_id: StackId,
 ) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Moving a commit requires open workspace mode")?;
@@ -484,8 +485,14 @@ pub fn move_commit(
         SnapshotDetails::new(OperationKind::MoveCommit),
         guard.write_permission(),
     );
-    move_commits::move_commit(&ctx, target_branch_id, commit_oid, guard.write_permission())
-        .map_err(Into::into)
+    move_commits::move_commit(
+        &ctx,
+        target_branch_id,
+        commit_oid,
+        guard.write_permission(),
+        source_branch_id,
+    )
+    .map_err(Into::into)
 }
 
 #[instrument(level = tracing::Level::DEBUG, skip(project), err(Debug))]
