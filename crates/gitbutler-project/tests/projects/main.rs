@@ -26,7 +26,6 @@ mod add {
         use std::path::PathBuf;
 
         #[test]
-        #[ignore = "Needs fix in gitoxide so it doesn't assume the parent-dir is the worktree (Git also doesn't do that)"]
         fn non_bare_without_worktree() {
             let (controller, _tmp) = new();
             let root = repo_path_at("non-bare-without-worktree");
