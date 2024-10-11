@@ -1,19 +1,18 @@
-import { get, writable } from 'svelte/store';
+import { persisted } from '@gitbutler/shared/persisted';
+import { type Readable } from 'svelte/store';
 
 export class AuthService {
-	token = writable<string | undefined>(undefined);
+	#token = persisted<string | undefined>(undefined, 'AuthService--token');
 
-	constructor() {}
-
-	getToken() {
-		return get(this.token);
+	get token(): Readable<string | undefined> {
+		return this.#token;
 	}
 
 	setToken(data: string) {
-		this.token.set(data);
+		this.#token.set(data);
 	}
 
 	clearToken() {
-		this.token.set('');
+		this.#token.set(undefined);
 	}
 }
