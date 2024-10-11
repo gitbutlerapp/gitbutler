@@ -53,10 +53,10 @@
 				<Link href="https://docs.gitbutler.com/stacking" target="_blank">Read more</Link>
 			</p>
 		</div>
-		<Spacer />
+		<Spacer margin={0} />
 	{/if}
 	<section class="card__action" class:showDetails={!$showStackingCardDetails}>
-		<StackingStatusIcon icon="plus-small" />
+		<StackingStatusIcon icon="plus-small" lineTop={false} />
 		<Button grow style="neutral" {loading} onclick={() => createRefModal.show()}>
 			Add a branch to the stack
 		</Button>
@@ -86,7 +86,7 @@
 	}
 
 	.card__body {
-		padding: 16px 16px 0 16px;
+		padding: 16px;
 	}
 
 	.card__close {
@@ -105,13 +105,8 @@
 	.card__action {
 		width: 100%;
 		display: flex;
-		justify-content: around;
-		align-items: flex-start;
-		padding: 0 13px;
-		gap: 1rem;
-
-		&.showDetails {
-			margin-top: 16px;
-		}
+		justify-content: flex-start;
+		align-items: center;
+		padding-right: 13px;
 	}
 </style>
