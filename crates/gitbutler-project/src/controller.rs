@@ -72,7 +72,7 @@ impl Controller {
         let project = Project {
             id: ProjectId::generate(),
             title,
-            path: path.to_path_buf(),
+            path: gix::path::realpath(path)?,
             api: None,
             ..Default::default()
         };

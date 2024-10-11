@@ -49,25 +49,24 @@ impl RepoCommands for Project {
 
     fn read_file_from_workspace(&self, relative_path: &Path) -> Result<String> {
         let ctx = CommandContext::open(self)?;
-        if self
-            .path
-            .join(relative_path)
-            .canonicalize()?
-            .as_path()
-            .starts_with(self.path.clone())
-        {
-            let tree = ctx.repository().head()?.peel_to_tree()?;
-            let entry = tree.get_path(relative_path)?;
-            let blob = ctx.repository().find_blob(entry.id())?;
+        let path_in_worktree = gix::path::realpath(self.path.join(relative_path))?;
+        if !path_in_worktree.starts_with(self.path.clone()) {
+            anyhow::bail!(
+                "Path to read from at '{}' isn't in the worktree directory '{}'",
+                relative_path.display(),
+                self.path.display()
+            );
+        }
 
-            if !blob.is_binary() {
-                let content = std::str::from_utf8(blob.content())?;
-                Ok(content.to_string())
-            } else {
-                anyhow::bail!("File is binary");
-            }
+        let tree = ctx.repository().head()?.peel_to_tree()?;
+        let entry = tree.get_path(relative_path)?;
+        let blob = ctx.repository().find_blob(entry.id())?;
+
+        if !blob.is_binary() {
+            let content = std::str::from_utf8(blob.content())?;
+            Ok(content.to_string())
         } else {
-            anyhow::bail!("Invalid workspace file");
+            anyhow::bail!("File is binary");
         }
     }
 }
