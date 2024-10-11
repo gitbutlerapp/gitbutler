@@ -234,8 +234,9 @@
 	}
 
 	.branch-action__line {
-		margin: 0 22px 0 22.5px;
-		border-left: 2px solid var(--bg-color, var(--clr-border-3));
+		width: 2px;
+		margin: 0 22px;
+		background-color: var(--bg-color, var(--clr-border-3));
 	}
 
 	.branch-emptystate {
