@@ -556,7 +556,64 @@ fn target_commit_locked_to_ancestors() {
 
     assert_eq!(
         result.unwrap_err().to_string(),
-        "the source branch contains hunks locked to the target commit ancestors"
+        "the target commit contains hunks locked to its ancestors"
+    );
+}
+
+#[test]
+fn target_commit_locked_to_descendants() {
+    let Test {
+        repository,
+        project,
+        ..
+    } = &Test::default();
+
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
+
+    std::fs::write(repository.path().join("a.txt"), "This is a").unwrap();
+
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    assert_eq!(branches.len(), 1);
+
+    let source_branch_id = branches[0].id;
+
+    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None, false)
+        .unwrap();
+
+    std::fs::write(repository.path().join("b.txt"), "This is b").unwrap();
+
+    let commit_oid = gitbutler_branch_actions::create_commit(
+        project,
+        source_branch_id,
+        "Add b and update b",
+        None,
+        false,
+    )
+    .unwrap();
+
+    std::fs::write(repository.path().join("b.txt"), "This is b and an update").unwrap();
+
+    gitbutler_branch_actions::create_commit(project, source_branch_id, "Update b", None, false)
+        .unwrap();
+
+    let target_branch_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
+
+    let result = gitbutler_branch_actions::move_commit(
+        project,
+        target_branch_id,
+        commit_oid,
+        source_branch_id,
+    );
+
+    assert_eq!(
+        result.unwrap_err().to_string(),
+        "the target commit contains hunks locked to its descendants"
     );
 }
 
