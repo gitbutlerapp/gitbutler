@@ -452,7 +452,6 @@ impl StackExt for Stack {
         )
     }
 
-    // todo: remote commits are not being populated yet
     fn list_series(&self, ctx: &CommandContext) -> Result<Vec<Series>> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
