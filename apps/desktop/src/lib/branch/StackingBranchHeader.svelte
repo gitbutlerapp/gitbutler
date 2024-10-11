@@ -89,7 +89,6 @@
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 			iconColor="#fff"
 			color={lineColor}
-			gap={false}
 			lineTop
 		/>
 		<div class="text-14 text-bold branch-info__name">
