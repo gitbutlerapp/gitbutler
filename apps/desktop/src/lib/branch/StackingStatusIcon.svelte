@@ -8,19 +8,30 @@
 		iconColor?: string;
 		color?: string;
 		lineTop?: boolean;
+		lineBottom?: boolean;
 	}
 
-	const { icon, iconColor, color = FALLBACK_COLOR, lineTop = false }: Props = $props();
+	const {
+		icon,
+		iconColor,
+		color = FALLBACK_COLOR,
+		lineTop = true,
+		lineBottom = true
+	}: Props = $props();
 </script>
 
 <div class="stack__status gap">
-	{#if lineTop}
-		<div class="stack__status--bar" style:--bg-color={color}></div>
-	{/if}
+	<div
+		class="stack__status--bar"
+		style:--bg-color={lineTop ? color : 'var(--clr-transparent)'}
+	></div>
 	<div class="stack__status--icon" style:--bg-color={color} style:--icon-color={iconColor}>
 		<Icon name={icon} />
 	</div>
-	<div class="stack__status--bar" style:--bg-color={color}></div>
+	<div
+		class="stack__status--bar"
+		style:--bg-color={lineBottom ? color : 'var(--clr-transparent)'}
+	></div>
 </div>
 
 <style>
@@ -30,6 +41,7 @@
 		justify-content: center;
 		align-items: center;
 		gap: 0.25rem;
+		--clr-transparent: transparent;
 
 		& .stack__status--icon {
 			display: flex;
@@ -42,8 +54,10 @@
 			color: var(--icon-color, var(--clr-text-1));
 		}
 		& .stack__status--bar {
+			width: 2px;
 			height: 10px;
-			border-right: 2px solid var(--bg-color, var(--clr-border-3));
+			margin: 0 22px 0 22px;
+			background: var(--bg-color);
 		}
 	}
 </style>

@@ -16,6 +16,7 @@
 	import { DetailedCommit, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 
 	interface Props {
 		name: string;
@@ -90,7 +91,7 @@
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 			iconColor="#fff"
 			color={lineColor}
-			lineTop
+			lineBottom={commits.length > 0}
 		/>
 		<div class="text-14 text-bold branch-info__name">
 			<span class="remote-name">{$baseBranch.remoteName ?? 'origin'}/</span>
@@ -155,6 +156,18 @@
 			</div>
 		</div>
 	{/if}
+	{#if commits.length === 0}
+		<div class="branch-emptystate">
+			<EmptyStatePlaceholder bottomMargin={10}>
+				{#snippet title()}
+					This is an empty series
+				{/snippet}
+				{#snippet caption()}
+					All your commits will land here
+				{/snippet}
+			</EmptyStatePlaceholder>
+		</div>
+	{/if}
 	<PrDetailsModal
 		bind:this={prDetailsModal}
 		type="preview-series"
@@ -177,7 +190,7 @@
 	}
 
 	.branch-info {
-		padding: 0 13px;
+		padding-right: 13px;
 		display: flex;
 		justify-content: flex-start;
 		align-items: center;
@@ -185,8 +198,7 @@
 		& .branch-info__name {
 			display: flex;
 			align-items: stretch;
-			justify-content: start;
-			padding: 8px 16px;
+			justify-content: flex-start;
 			min-width: 0;
 			flex-grow: 1;
 		}
@@ -224,5 +236,14 @@
 	.branch-action__line {
 		margin: 0 22px 0 22.5px;
 		border-left: 2px solid var(--bg-color, var(--clr-border-3));
+	}
+
+	.branch-emptystate {
+		width: 100%;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+
+		border-top: 2px solid var(--bg-color, var(--clr-border-3));
 	}
 </style>
