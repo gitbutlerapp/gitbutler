@@ -56,7 +56,7 @@
 		<Spacer />
 	{/if}
 	<section class="card__action" class:showDetails={!$showStackingCardDetails}>
-		<StackingStatusIcon icon="plus-small" gap={true} />
+		<StackingStatusIcon icon="plus-small" />
 		<Button grow style="neutral" {loading} onclick={() => createRefModal.show()}>
 			Add a branch to the stack
 		</Button>

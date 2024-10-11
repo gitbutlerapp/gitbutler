@@ -7,14 +7,13 @@
 		icon: 'plus-small' | 'tick-small' | 'remote-branch-small';
 		iconColor?: string;
 		color?: string;
-		gap?: boolean;
 		lineTop?: boolean;
 	}
 
-	const { icon, iconColor, color = FALLBACK_COLOR, gap = false, lineTop = false }: Props = $props();
+	const { icon, iconColor, color = FALLBACK_COLOR, lineTop = false }: Props = $props();
 </script>
 
-<div class="stack__status gap" class:gap>
+<div class="stack__status gap">
 	{#if lineTop}
 		<div class="stack__status--bar" style:--bg-color={color}></div>
 	{/if}
@@ -30,10 +29,7 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-
-		&.gap {
-			gap: 0.25rem;
-		}
+		gap: 0.25rem;
 
 		& .stack__status--icon {
 			display: flex;
@@ -41,7 +37,7 @@
 			justify-content: center;
 			width: 21px;
 			height: 28px;
-			border-radius: 30%;
+			border-radius: var(--radius-m);
 			background-color: var(--bg-color);
 			color: var(--icon-color, var(--clr-text-1));
 		}
