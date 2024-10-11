@@ -222,7 +222,7 @@
 	}
 
 	.branch-action__line {
-		margin: 0 22px 0 22.5px;
+		margin: 0 23px 0 23px;
 		border-left: 2px solid var(--bg-color, var(--clr-border-3));
 	}
 </style>
