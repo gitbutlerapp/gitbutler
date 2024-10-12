@@ -4,6 +4,7 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Context;
 use anyhow::Result;
+use git2::Commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
@@ -134,6 +135,23 @@ pub trait StackExt {
     /// This operation will compute the current list of local and remote commits that belong to each series.
     /// The first entry is the newest in the Stack (i.e the top of the stack).
     fn list_series(&self, ctx: &CommandContext) -> Result<Vec<Series>>;
+
+    /// Updates all heads in the stack that point to the `from` commit to point to the `to` commit.
+    /// If there is nothing pointing to the `from` commit, this operation is a no-op.
+    /// If the `from` and `to` commits have the same change_id, this operation is also a no-op.
+    ///
+    /// In the case that the `from` commit is the head of the stack, this operation delegates to `set_stack_head`.
+    ///
+    /// Every time a commit/patch is moved / removed / updated, this method needs to be invoked to maintain the integrity of the stack.
+    /// Typically in this case the `to` Commit would be `from`'s parent.
+    ///
+    /// The `to` commit must be between the Stack head and it's merge base otherwise this operation will error out.
+    fn replace_head(
+        &mut self,
+        ctx: &CommandContext,
+        from: &Commit<'_>,
+        to: &Commit<'_>,
+    ) -> Result<()>;
 }
 
 /// Request to update a PatchReference.
@@ -434,7 +452,6 @@ impl StackExt for Stack {
         )
     }
 
-    // todo: remote commits are not being populated yet
     fn list_series(&self, ctx: &CommandContext) -> Result<Vec<Series>> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
@@ -490,6 +507,67 @@ impl StackExt for Stack {
             previous_head = head_commit;
         }
         Ok(all_series)
+    }
+
+    fn replace_head(
+        &mut self,
+        ctx: &CommandContext,
+        from: &Commit<'_>,
+        to: &Commit<'_>,
+    ) -> Result<()> {
+        if !self.initialized() {
+            return Err(anyhow!("Stack has not been initialized"));
+        }
+        // find all heads matching the 'from' target (there can be multiple heads pointing to the same commit)
+        let matching_heads = self
+            .heads
+            .iter()
+            .filter(|h| match from.change_id() {
+                Some(change_id) => h.target == CommitOrChangeId::ChangeId(change_id.clone()),
+                None => h.target == CommitOrChangeId::CommitId(from.id().to_string()),
+            })
+            .cloned()
+            .collect_vec();
+
+        if from.change_id() == to.change_id() {
+            // there is nothing to do
+            return Ok(());
+        }
+
+        let state = branch_state(ctx);
+        let mut updated_heads: Vec<PatchReference> = vec![];
+
+        for head in matching_heads {
+            if self.heads.last().cloned() == Some(head.clone()) {
+                // the head is the stack head - update it accordingly
+                self.set_stack_head(ctx, to.id(), None)?;
+            } else {
+                // new head target from the 'to' commit
+                let new_target = match to.change_id() {
+                    Some(change_id) => CommitOrChangeId::ChangeId(change_id.to_string()),
+                    None => CommitOrChangeId::CommitId(to.id().to_string()),
+                };
+                let mut new_head = head.clone();
+                new_head.target = new_target;
+                // validate the updated head
+                validate_target(&new_head, ctx, self.head(), &state)?;
+                // add it to the list of updated heads
+                updated_heads.push(new_head);
+            }
+        }
+
+        if !updated_heads.is_empty() {
+            for updated_head in updated_heads {
+                if let Some(head) = self.heads.iter_mut().find(|h| h.name == updated_head.name) {
+                    // find set the corresponding head in the mutable self
+                    *head = updated_head;
+                }
+            }
+            self.updated_timestamp_ms = gitbutler_time::time::now_ms();
+            // update the persistent state
+            state.set_branch(self.clone())?;
+        }
+        Ok(())
     }
 }
 
