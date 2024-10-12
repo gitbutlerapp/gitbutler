@@ -27,6 +27,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import { getTimeAndAuthor } from '@gitbutler/ui/utils/getTimeAndAuthor';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { type Snippet } from 'svelte';
 
@@ -112,12 +113,6 @@
 		}
 
 		commitMessageModal.close();
-	}
-
-	function getTimeAndAuthor() {
-		const timeAgo = getTimeAgo(commit.createdAt);
-		const author = type === 'localAndRemote' || type === 'remote' ? commit.author.name : 'you';
-		return `${timeAgo} by ${author}`;
 	}
 
 	const commitShortSha = commit.id.substring(0, 7);
@@ -381,7 +376,8 @@
 							</button>
 						{/if}
 						<span class="commit__subtitle-divider">•</span>
-						<span>{getTimeAndAuthor()}</span>
+
+						<span>{getTimeAndAuthor(commit.createdAt, commit.author.name)}</span>
 					</div>
 				{/if}
 			</div>

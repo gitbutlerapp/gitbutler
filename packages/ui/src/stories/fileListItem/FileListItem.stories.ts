@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from '@storybook/svelte';
 const meta = {
 	title: 'List items / FileListItem',
 	component: DemoFileListItem
-} satisfies Meta<DemoFileListItem>;
+} satisfies Meta<typeof DemoFileListItem>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
