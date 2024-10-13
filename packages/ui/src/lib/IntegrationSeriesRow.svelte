@@ -103,6 +103,10 @@
 			white-space: nowrap;
 		}
 
+		.select {
+			max-width: 130px;
+		}
+
 		/* MODIFIERS */
 		&.clear {
 			background-color: var(--clr-bg-1);

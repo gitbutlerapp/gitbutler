@@ -1,11 +1,12 @@
 <script lang="ts">
 	import Icon from '$lib/Icon.svelte';
 	import { clickOutside } from '$lib/utils/clickOutside';
+	import { pxToRem } from '$lib/utils/pxToRem';
 	import type iconsJson from '$lib/data/icons.json';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		width?: 'default' | 'medium-large' | 'large' | 'small' | 'xsmall';
+		width?: 'default' | 'medium-large' | 'large' | 'small' | 'xsmall' | number;
 		title?: string;
 		icon?: keyof typeof iconsJson;
 		noPadding?: boolean;
@@ -63,6 +64,7 @@
 	class:large={width === 'large'}
 	class:small={width === 'small'}
 	class:xsmall={width === 'xsmall'}
+	style:width={typeof width === 'number' ? pxToRem(width) : undefined}
 >
 	{#if open}
 		<form
@@ -116,6 +118,9 @@
 		border-radius: var(--radius-l);
 		background-color: var(--clr-bg-1);
 		box-shadow: var(--fx-shadow-l);
+
+		/* fix for the native dialog "inherit" issue */
+		text-align: left;
 
 		animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
 

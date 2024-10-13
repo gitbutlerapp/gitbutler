@@ -3,8 +3,8 @@
 	export interface Props {
 		title: string;
 		sha: string;
-		author?: string;
 		date: Date;
+		author?: string;
 		onCopy?: () => void;
 		onUrlOpen?: () => void;
 	}
@@ -24,12 +24,12 @@
 			{title}
 		</span>
 		<div class="details text-11">
-			<button class="details-btn" onclick={onCopy}>
-				<span>{sha}</span>
+			<button class="details-btn copy-btn" onclick={onCopy}>
+				<span>{sha.substring(0, 7)}</span>
 				<Icon name="copy-small" />
 			</button>
 			<span class="details-divider">•</span>
-			<button class="details-btn" onclick={onUrlOpen}>
+			<button class="details-btn link-btn" onclick={onUrlOpen}>
 				<span>Open</span>
 				<Icon name="open-link" />
 			</button>
@@ -56,6 +56,11 @@
 			flex-direction: column;
 			gap: 6px;
 			overflow: hidden;
+
+			/* Fix because of using native dialog element */
+			& span {
+				text-align: left;
+			}
 		}
 
 		.title {
@@ -72,10 +77,33 @@
 			overflow: hidden;
 		}
 
-		.details-copy-btn {
-			text-decoration: underline;
-			text-decoration-style: dotted;
-			text-underline-offset: 3px;
+		.details-btn {
+			display: flex;
+			align-items: center;
+			transition: color var(--transition-fast);
+
+			& span {
+				margin-right: 4px;
+			}
+
+			&:hover {
+				color: var(--clr-text-1);
+			}
+		}
+
+		.copy-btn {
+			& span {
+				text-decoration: underline;
+				text-decoration-style: dotted;
+				text-underline-offset: 3px;
+			}
+		}
+
+		.link-btn {
+			& span {
+				text-decoration: underline;
+				text-underline-offset: 3px;
+			}
 		}
 
 		.details-divider {
