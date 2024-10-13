@@ -54,15 +54,34 @@ pub(crate) fn reorder_commit(
 
     let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
 
-    let ReorderResult { tree, head } = inner_reorder_commit(
+    let original_commits = repository.l(branch.head(), LogUntil::Commit(merge_base))?;
+    let ReorderResult {
+        tree,
+        head,
+        reordered_commits,
+    } = inner_reorder_commit(
         repository,
         merge_base,
         subject_commit_oid,
         offset,
-        &repository.l(branch.head(), LogUntil::Commit(merge_base))?,
+        &original_commits,
         &repository.find_tree(branch.tree)?,
     )?;
 
+    let mut old_oid = None;
+    for (idx, oid) in reordered_commits.iter().enumerate() {
+        if *oid == subject_commit_oid {
+            old_oid = reordered_commits.get(idx + 1);
+            break;
+        }
+    }
+
+    let subject_commit = repository.find_commit(subject_commit_oid)?;
+    if let Some(old_oid) = old_oid {
+        let old_commit = repository.find_commit(*old_oid)?;
+        branch.replace_head(ctx, &old_commit, &subject_commit)?;
+    }
+    branch.replace_head(ctx, &subject_commit, &subject_commit.parent(0)?)?;
     branch.set_stack_head(ctx, head, Some(tree))?;
 
     checkout_branch_trees(ctx, perm)?;
@@ -76,6 +95,7 @@ pub(crate) fn reorder_commit(
 struct ReorderResult {
     tree: git2::Oid,
     head: git2::Oid,
+    reordered_commits: Vec<git2::Oid>,
 }
 
 /// Commit reordering implemented with libgit2 primatives
@@ -112,6 +132,7 @@ fn inner_reorder_commit(
         return Ok(ReorderResult {
             tree: branch_tree.id(),
             head: branch_commits[0],
+            reordered_commits: vec![],
         });
     };
 
@@ -139,6 +160,7 @@ fn inner_reorder_commit(
     Ok(ReorderResult {
         head: new_head_oid,
         tree: new_tree_oid,
+        reordered_commits,
     })
 }
 
