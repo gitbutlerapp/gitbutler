@@ -31,6 +31,9 @@ pub(crate) fn undo_commit(
 
     branch.set_stack_head(ctx, new_head_commit, None)?;
 
+    let removed_commit = ctx.repository().find_commit(commit_oid)?;
+    branch.replace_head(ctx, &removed_commit, &removed_commit.parent(0)?)?;
+
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
 
