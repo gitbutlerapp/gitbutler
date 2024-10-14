@@ -23,9 +23,7 @@
 		</span>
 
 		<span class="name-label-badge text-11 text-semibold">
-			{#if type === 'clear'}
-				<span>Clear</span>
-			{:else if type === 'conflicted'}
+			{#if type === 'conflicted'}
 				<span>Conflicted</span>
 			{:else if type === 'integrated'}
 				<span>Integrated</span>
