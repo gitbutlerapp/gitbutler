@@ -85,7 +85,7 @@
 			</div>
 		{/if}
 		<Button
-			style={$expanded ? 'neutral' : 'ghost'}
+			style="pop"
 			kind="solid"
 			outline={!$expanded}
 			grow
