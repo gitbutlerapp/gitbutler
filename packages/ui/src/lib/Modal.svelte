@@ -6,7 +6,7 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		width?: 'default' | 'medium-large' | 'large' | 'small' | 'xsmall' | number;
+		width?: 'medium' | 'large' | 'small' | 'xsmall' | number;
 		title?: string;
 		icon?: keyof typeof iconsJson;
 		noPadding?: boolean;
@@ -18,7 +18,7 @@
 	}
 
 	const {
-		width = 'default',
+		width = 'medium',
 		title,
 		icon,
 		onClose,
@@ -59,8 +59,7 @@
 	tabindex="0"
 	onkeydown={onKeyDown}
 	bind:this={dialogElement}
-	class:default={width === 'default'}
-	class:medium-large={width === 'medium-large'}
+	class:medium={width === 'medium'}
 	class:large={width === 'large'}
 	class:small={width === 'small'}
 	class:xsmall={width === 'xsmall'}
@@ -125,12 +124,8 @@
 		animation: dialog-zoom 0.25s cubic-bezier(0.34, 1.35, 0.7, 1);
 
 		/* MODIFIERS */
-		&.default {
+		&.medium {
 			width: 580px;
-		}
-
-		&.medium-large {
-			width: 640px;
 		}
 
 		&.large {
