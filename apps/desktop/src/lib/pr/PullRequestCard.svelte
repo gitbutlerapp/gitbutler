@@ -182,6 +182,7 @@
 				size="tag"
 				clickable={false}
 				style={prStatusInfo.style}
+				tooltip="PR status"
 				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
 			>
 				{prStatusInfo.text}
@@ -214,6 +215,7 @@
 				size="tag"
 				style="ghost"
 				outline
+				tooltip="Open in browser"
 				onclick={() => {
 					openExternalUrl($pr.htmlUrl);
 				}}
