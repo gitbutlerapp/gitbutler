@@ -22,7 +22,6 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
-	import { User } from '$lib/stores/user';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
@@ -44,7 +43,6 @@
 	const fileIdSelection = getContext(FileIdSelection);
 	const branchStore = getContextStore(VirtualBranch);
 	const project = getContext(Project);
-	const user = getContextStore(User);
 
 	const branch = $derived($branchStore);
 
@@ -76,7 +74,6 @@
 		const prompt = promptService.selectedBranchPrompt(project.id);
 		const messageResult = await aiService.summarizeBranch({
 			hunks,
-			userToken: $user?.access_token,
 			branchTemplate: prompt
 		});
 

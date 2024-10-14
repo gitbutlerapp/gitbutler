@@ -30,7 +30,6 @@ export class ButlerAIClient implements AIClient {
 
 	constructor(
 		private cloud: HttpClient,
-		private userToken: string,
 		private modelKind: ModelKind
 	) {}
 
@@ -44,8 +43,7 @@ export class ButlerAIClient implements AIClient {
 						system,
 						max_tokens: 400,
 						model_kind: this.modelKind
-					},
-					token: this.userToken
+					}
 				})
 		);
 

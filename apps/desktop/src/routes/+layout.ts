@@ -9,6 +9,7 @@ import { Tauri } from '$lib/backend/tauri';
 import { UpdaterService } from '$lib/backend/updater';
 import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
+import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { UserService } from '$lib/stores/user';
 import { HttpClient } from '@gitbutler/shared/httpClient';
 import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
@@ -32,22 +33,26 @@ export const load: LayoutLoad = async () => {
 	// https://github.com/sveltejs/kit/issues/905
 	const defaultPath = await (await import('@tauri-apps/api/path')).homeDir();
 
-	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL);
+	const tokenMemoryService = new TokenMemoryService();
+	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
 	const authService = new AuthService();
-	const projectService = new ProjectService(defaultPath, httpClient);
 	const updaterService = new UpdaterService(new Tauri());
 	const promptService = new PromptService();
-	const userService = new UserService(httpClient);
+
+	const userService = new UserService(httpClient, tokenMemoryService);
+
+	const projectService = new ProjectService(defaultPath, httpClient);
 
 	const gitConfig = new GitConfigService();
 	const secretsService = new RustSecretService(gitConfig);
-	const aiService = new AIService(gitConfig, secretsService, httpClient);
+	const aiService = new AIService(gitConfig, secretsService, httpClient, tokenMemoryService);
 	const remotesService = new RemotesService();
 	const aiPromptService = new AIPromptService();
 	const lineManagerFactory = new LineManagerFactory();
 	const stackingLineManagerFactory = new StackingLineManagerFactory();
 
 	return {
+		tokenMemoryService,
 		authService,
 		cloud: httpClient,
 		projectService,

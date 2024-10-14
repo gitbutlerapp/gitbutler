@@ -134,8 +134,7 @@
 		// Content Type must be unset for the right form-data border to be set automatically
 		return await httpClient.put('feedback', {
 			body: formData,
-			headers: { 'Content-Type': undefined },
-			token
+			headers: { 'Content-Type': undefined }
 		});
 	}
 

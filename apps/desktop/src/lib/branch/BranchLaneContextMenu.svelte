@@ -8,7 +8,6 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
-	import { User } from '$lib/stores/user';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -25,7 +24,6 @@
 
 	let { contextMenuEl = $bindable(), target, onCollapse, onGenerateBranchName }: Props = $props();
 
-	const user = getContextStore(User);
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
 	const branchStore = getContextStore(VirtualBranch);
@@ -48,15 +46,15 @@
 	});
 
 	$effect(() => {
-		setAIConfigurationValid($user);
+		setAIConfigurationValid();
 	});
 
 	async function toggleAllowRebasing() {
 		branchController.updateBranchAllowRebasing(branch.id, !allowRebasing);
 	}
 
-	async function setAIConfigurationValid(user: User | undefined) {
-		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);
+	async function setAIConfigurationValid() {
+		aiConfigurationValid = await aiService.validateConfiguration();
 	}
 
 	function saveAndUnapply() {

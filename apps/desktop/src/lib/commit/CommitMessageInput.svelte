@@ -12,7 +12,6 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
-	import { User } from '$lib/stores/user';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { isWhiteSpaceString } from '$lib/utils/string';
@@ -34,7 +33,6 @@
 	export let commit: (() => void) | undefined = undefined;
 	export let cancel: () => void;
 
-	const user = getContextStore(User);
 	const selectedOwnership = getContextStore(SelectedOwnership);
 	const aiService = getContext(AIService);
 	const branch = getContextStore(VirtualBranch);
@@ -91,7 +89,6 @@
 			hunks,
 			useEmojiStyle: $commitGenerationUseEmojis,
 			useBriefStyle: $commitGenerationExtraConcise,
-			userToken: $user?.access_token,
 			commitTemplate: prompt
 		});
 
@@ -121,7 +118,7 @@
 	}
 
 	onMount(async () => {
-		aiConfigurationValid = await aiService.validateConfiguration($user?.access_token);
+		aiConfigurationValid = await aiService.validateConfiguration();
 	});
 
 	function handleDescriptionKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {

@@ -17,8 +17,10 @@ import {
 } from '$lib/ai/types';
 import { buildFailureFromAny, isFailure, ok, type Result } from '$lib/result';
 import { splitMessage } from '$lib/utils/commitMessage';
+import { get } from 'svelte/store';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 import type { SecretsService } from '$lib/secrets/secretsService';
+import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import type { Hunk } from '$lib/vbranches/types';
 import type { HttpClient } from '@gitbutler/shared/httpClient';
 
@@ -92,7 +94,8 @@ export class AIService {
 	constructor(
 		private gitConfig: GitConfigService,
 		private secretsService: SecretsService,
-		private cloud: HttpClient
+		private cloud: HttpClient,
+		private tokenMemoryService: TokenMemoryService
 	) {}
 
 	async getModelKind() {
@@ -187,14 +190,14 @@ export class AIService {
 		return openAIActiveAndUsingButlerAPI || anthropicActiveAndUsingButlerAPI;
 	}
 
-	async validateConfiguration(userToken?: string): Promise<boolean> {
+	async validateConfiguration(): Promise<boolean> {
 		const modelKind = await this.getModelKind();
 		const openAIKey = await this.getOpenAIKey();
 		const anthropicKey = await this.getAnthropicKey();
 		const ollamaEndpoint = await this.getOllamaEndpoint();
 		const ollamaModelName = await this.getOllamaModelName();
 
-		if (await this.usingGitButlerAPI()) return !!userToken;
+		if (await this.usingGitButlerAPI()) return !!get(this.tokenMemoryService.token);
 
 		const openAIActiveAndKeyProvided = modelKind === ModelKind.OpenAI && !!openAIKey;
 		const anthropicActiveAndKeyProvided = modelKind === ModelKind.Anthropic && !!anthropicKey;
@@ -209,16 +212,19 @@ export class AIService {
 	// This optionally returns a summarizer. There are a few conditions for how this may occur
 	// Firstly, if the user has opted to use the GB API and isn't logged in, it will return undefined
 	// Secondly, if the user has opted to bring their own key but hasn't provided one, it will return undefined
-	async buildClient(userToken?: string): Promise<Result<AIClient, Error>> {
+	async buildClient(): Promise<Result<AIClient, Error>> {
 		const modelKind = await this.getModelKind();
 
 		if (await this.usingGitButlerAPI()) {
-			if (!userToken) {
+			// TODO(CTO): Once @estib has landed the new auth, it would be good to
+			// about a good way of checking whether the user is authenticated.
+			if (!get(this.tokenMemoryService.token)) {
 				return buildFailureFromAny(
 					"When using GitButler's API to summarize code, you must be logged in"
 				);
 			}
-			return ok(new ButlerAIClient(this.cloud, userToken, modelKind));
+
+			return ok(new ButlerAIClient(this.cloud, modelKind));
 		}
 
 		if (modelKind === ModelKind.Ollama) {
@@ -261,10 +267,9 @@ export class AIService {
 		useEmojiStyle = false,
 		useBriefStyle = false,
 		commitTemplate,
-		userToken,
 		onToken
 	}: SummarizeCommitOpts): Promise<Result<string, Error>> {
-		const aiClientResult = await this.buildClient(userToken);
+		const aiClientResult = await this.buildClient();
 		if (isFailure(aiClientResult)) return aiClientResult;
 		const aiClient = aiClientResult.value;
 
@@ -309,10 +314,9 @@ export class AIService {
 	async summarizeBranch({
 		hunks,
 		branchTemplate,
-		userToken,
 		onToken
 	}: SummarizeBranchOpts): Promise<Result<string, Error>> {
-		const aiClientResult = await this.buildClient(userToken);
+		const aiClientResult = await this.buildClient();
 		if (isFailure(aiClientResult)) return aiClientResult;
 		const aiClient = aiClientResult.value;
 
@@ -343,10 +347,9 @@ export class AIService {
 		directive,
 		prTemplate,
 		prBodyTemplate,
-		userToken,
 		onToken
 	}: SummarizePROpts): Promise<Result<string, Error>> {
-		const aiClientResult = await this.buildClient(userToken);
+		const aiClientResult = await this.buildClient();
 		if (isFailure(aiClientResult)) return aiClientResult;
 		const aiClient = aiClientResult.value;
 		const defaultPRTemplate = prTemplate ?? aiClient.defaultPRTemplate;

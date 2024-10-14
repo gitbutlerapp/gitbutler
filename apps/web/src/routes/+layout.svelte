@@ -3,9 +3,11 @@
 	import { AuthService } from '$lib/auth/authService';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import { UserService } from '$lib/user/userService';
+	import { HttpClient } from '@gitbutler/shared/httpClient';
 	import { setContext, type Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
+	import { env } from '$env/dynamic/public';
 
 	interface Props {
 		children: Snippet;
@@ -13,8 +15,14 @@
 
 	const { children }: Props = $props();
 
-	setContext(AuthService, $page.data.authService);
-	setContext(UserService, $page.data.userService);
+	const authService = new AuthService();
+	setContext(AuthService, authService);
+
+	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.token);
+	setContext(HttpClient, httpClient);
+
+	const userService = new UserService(httpClient);
+	setContext(UserService, userService);
 
 	$effect(() => {
 		if ($page.url.searchParams.get('gb_access_token')) {
