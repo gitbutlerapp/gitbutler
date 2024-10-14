@@ -187,6 +187,7 @@
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
 				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
+				tooltip="PR status"
 			>
 				{prStatusInfo.text}
 			</Button>
@@ -217,6 +218,7 @@
 				size="tag"
 				style="ghost"
 				outline
+				tooltip="Open in browser"
 				onclick={() => {
 					openExternalUrl(pr.htmlUrl);
 				}}
