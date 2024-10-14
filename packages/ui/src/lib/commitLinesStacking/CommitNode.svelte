@@ -29,7 +29,7 @@
 		</Tooltip>
 	{:else if type === 'localAndShadow'}
 		<div class="local-shadow-commit-dot">
-			<Tooltip text={commitNode.commit?.remoteCommitId ?? 'Diverged'}>
+			<Tooltip text={commitNode.commit?.remoteCommitId?.substring(0, 7) ?? 'Diverged'}>
 				<svg
 					class="shadow-dot"
 					width="10"
