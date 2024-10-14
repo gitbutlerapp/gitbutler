@@ -314,6 +314,9 @@ importers:
       '@fontsource/fira-mono':
         specifier: ^4.5.10
         version: 4.5.10
+      '@gitbutler/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@gitbutler/ui':
         specifier: workspace:*
         version: link:../../packages/ui

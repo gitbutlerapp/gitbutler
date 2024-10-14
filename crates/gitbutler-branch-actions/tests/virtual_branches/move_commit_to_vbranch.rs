@@ -34,7 +34,8 @@ fn no_diffs() {
         gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
             .unwrap();
 
-    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid).unwrap();
+    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
+        .unwrap();
 
     let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
@@ -104,7 +105,8 @@ fn multiple_commits() {
         .unwrap();
 
     // Move the top commit from the source branch to the destination branch
-    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid).unwrap();
+    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
+        .unwrap();
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
@@ -203,7 +205,8 @@ fn multiple_commits_with_diffs() {
     assert_eq!(destination_branch.files.len(), 1);
 
     // Move the top commit from the source branch to the destination branch
-    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid).unwrap();
+    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
+        .unwrap();
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
@@ -279,7 +282,8 @@ fn diffs_on_source_branch() {
         gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
             .unwrap();
 
-    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid).unwrap();
+    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
+        .unwrap();
 
     let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
@@ -350,7 +354,8 @@ fn diffs_on_target_branch() {
     )
     .unwrap();
 
-    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid).unwrap();
+    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
+        .unwrap();
 
     let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
@@ -470,7 +475,8 @@ fn diffs_on_both_branches() {
         "@@ -0,0 +1 @@\n+yet another content\n\\ No newline at end of file\n"
     );
 
-    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid).unwrap();
+    gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
+        .unwrap();
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
@@ -541,11 +547,73 @@ fn target_commit_locked_to_ancestors() {
         gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
             .unwrap();
 
-    let result = gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid);
+    let result = gitbutler_branch_actions::move_commit(
+        project,
+        target_branch_id,
+        commit_oid,
+        source_branch_id,
+    );
 
     assert_eq!(
         result.unwrap_err().to_string(),
-        "the source branch contains hunks locked to the target commit ancestors"
+        "the target commit contains hunks locked to its ancestors"
+    );
+}
+
+#[test]
+fn target_commit_locked_to_descendants() {
+    let Test {
+        repository,
+        project,
+        ..
+    } = &Test::default();
+
+    gitbutler_branch_actions::set_base_branch(
+        project,
+        &"refs/remotes/origin/master".parse().unwrap(),
+    )
+    .unwrap();
+
+    std::fs::write(repository.path().join("a.txt"), "This is a").unwrap();
+
+    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    assert_eq!(branches.len(), 1);
+
+    let source_branch_id = branches[0].id;
+
+    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None, false)
+        .unwrap();
+
+    std::fs::write(repository.path().join("b.txt"), "This is b").unwrap();
+
+    let commit_oid = gitbutler_branch_actions::create_commit(
+        project,
+        source_branch_id,
+        "Add b and update b",
+        None,
+        false,
+    )
+    .unwrap();
+
+    std::fs::write(repository.path().join("b.txt"), "This is b and an update").unwrap();
+
+    gitbutler_branch_actions::create_commit(project, source_branch_id, "Update b", None, false)
+        .unwrap();
+
+    let target_branch_id =
+        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+            .unwrap();
+
+    let result = gitbutler_branch_actions::move_commit(
+        project,
+        target_branch_id,
+        commit_oid,
+        source_branch_id,
+    );
+
+    assert_eq!(
+        result.unwrap_err().to_string(),
+        "the target commit contains hunks locked to its descendants"
     );
 }
 
@@ -581,9 +649,14 @@ fn locked_hunks_on_source_branch() {
             .unwrap();
 
     assert_eq!(
-        gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid)
-            .unwrap_err()
-            .to_string(),
+        gitbutler_branch_actions::move_commit(
+            project,
+            target_branch_id,
+            commit_oid,
+            source_branch_id
+        )
+        .unwrap_err()
+        .to_string(),
         "the source branch contains hunks locked to the target commit"
     );
 }
@@ -621,7 +694,8 @@ fn no_commit() {
         gitbutler_branch_actions::move_commit(
             project,
             target_branch_id,
-            git2::Oid::from_str(commit_id_hex).unwrap()
+            git2::Oid::from_str(commit_id_hex).unwrap(),
+            source_branch_id,
         )
         .unwrap_err()
         .to_string(),
@@ -656,7 +730,7 @@ fn no_branch() {
 
     let id = StackId::generate();
     assert_eq!(
-        gitbutler_branch_actions::move_commit(project, id, commit_oid)
+        gitbutler_branch_actions::move_commit(project, id, commit_oid, source_branch_id)
             .unwrap_err()
             .to_string(),
         format!("branch {id} is not among applied branches")

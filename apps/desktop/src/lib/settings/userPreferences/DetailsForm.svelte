@@ -8,8 +8,8 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const project = getContext(Project);

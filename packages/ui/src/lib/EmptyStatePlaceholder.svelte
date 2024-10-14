@@ -1,6 +1,6 @@
 <script lang="ts" module>
 	export interface Props {
-		image: string;
+		image?: string;
 		width?: number;
 		bottomMargin?: number;
 		topBottomPadding?: number;
@@ -14,7 +14,7 @@
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import type { Snippet } from 'svelte';
 	const {
-		image = '',
+		image,
 		width = 256,
 		bottomMargin = 0,
 		topBottomPadding = 48,
@@ -31,9 +31,11 @@
 		style:margin-bottom={pxToRem(bottomMargin)}
 		style:padding={`${pxToRem(topBottomPadding)} ${pxToRem(leftRightPadding)}`}
 	>
-		<div class="empty-state__image">
-			{@html image}
-		</div>
+		{#if image}
+			<div class="empty-state__image">
+				{@html image}
+			</div>
+		{/if}
 
 		<div class="empty-state__content">
 			{#if title}

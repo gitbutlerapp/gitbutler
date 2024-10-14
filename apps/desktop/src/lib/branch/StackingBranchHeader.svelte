@@ -10,11 +10,13 @@
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import StackingPullRequestCard from '$lib/pr/StackingPullRequestCard.svelte';
-	import { getContext, getContextStore } from '$lib/utils/context';
+	import { slugify } from '$lib/utils/string';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { DetailedCommit, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 
 	interface Props {
 		name: string;
@@ -40,7 +42,7 @@
 	let meatballButtonEl = $state<HTMLDivElement>();
 
 	// TODO: Simplify figuring out if shadow color is needed
-	const currentSeries = $derived(branch.series?.find((series) => series.name === upstreamName));
+	const currentSeries = $derived(branch.series?.find((series) => series.name === name));
 	const topPatch = $derived(currentSeries?.patches[0]);
 	const hasShadow = $derived.by(() => {
 		if (!topPatch || !topPatch.remoteCommitId) return false;
@@ -70,7 +72,7 @@
 
 	function editTitle(title: string) {
 		if (currentSeries?.name && title !== currentSeries.name) {
-			branchController.updateSeriesName(branch.id, currentSeries.name, title);
+			branchController.updateSeriesName(branch.id, currentSeries.name, slugify(title));
 		}
 	}
 
@@ -89,12 +91,13 @@
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 			iconColor="#fff"
 			color={lineColor}
-			gap={false}
-			lineTop
+			lineBottom={commits.length > 0}
 		/>
 		<div class="text-14 text-bold branch-info__name">
-			<span class="remote-name">{$baseBranch.remoteName ?? 'origin'}/</span>
-			<BranchLabel {name} onChange={(name) => editTitle(name)} />
+			<span class:no-upstream={!gitHostBranch} class="remote-name">
+				{$baseBranch.remoteName ?? 'origin'}/
+			</span>
+			<BranchLabel {name} onChange={(name) => editTitle(name)} disabled={!!gitHostBranch} />
 			{#if gitHostBranch}
 				<Button
 					size="tag"
@@ -111,7 +114,6 @@
 		</div>
 		<div class="branch-info__btns">
 			<Button
-				size="tag"
 				icon="kebab"
 				style="ghost"
 				bind:el={meatballButtonEl}
@@ -155,6 +157,18 @@
 			</div>
 		</div>
 	{/if}
+	{#if commits.length === 0}
+		<div class="branch-emptystate">
+			<EmptyStatePlaceholder bottomMargin={10}>
+				{#snippet title()}
+					This is an empty series
+				{/snippet}
+				{#snippet caption()}
+					All your commits will land here
+				{/snippet}
+			</EmptyStatePlaceholder>
+		</div>
+	{/if}
 	<PrDetailsModal
 		bind:this={prDetailsModal}
 		type="preview-series"
@@ -177,7 +191,7 @@
 	}
 
 	.branch-info {
-		padding: 0 13px;
+		padding-right: 13px;
 		display: flex;
 		justify-content: flex-start;
 		align-items: center;
@@ -185,8 +199,7 @@
 		& .branch-info__name {
 			display: flex;
 			align-items: stretch;
-			justify-content: start;
-			padding: 8px 16px;
+			justify-content: flex-start;
 			min-width: 0;
 			flex-grow: 1;
 		}
@@ -199,6 +212,11 @@
 		.remote-name {
 			margin-top: 3px;
 			color: var(--clr-scale-ntrl-60);
+
+			&.no-upstream {
+				width: 0px;
+				margin-right: -5px;
+			}
 		}
 	}
 
@@ -217,12 +235,22 @@
 
 		.branch-action__body {
 			width: 100%;
-			padding: 4px 12px 12px 0px;
+			padding: 0 12px 12px 0;
 		}
 	}
 
 	.branch-action__line {
-		margin: 0 22px 0 22.5px;
-		border-left: 2px solid var(--bg-color, var(--clr-border-3));
+		width: 2px;
+		margin: 0 22px;
+		background-color: var(--bg-color, var(--clr-border-3));
+	}
+
+	.branch-emptystate {
+		width: 100%;
+		display: flex;
+		justify-content: center;
+		align-items: center;
+
+		border-top: 2px solid var(--bg-color, var(--clr-border-3));
 	}
 </style>

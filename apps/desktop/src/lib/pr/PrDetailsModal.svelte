@@ -25,13 +25,13 @@
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import BorderlessTextarea from '@gitbutler/ui/BorderlessTextarea.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -129,7 +129,12 @@
 
 	// Fetch PR template content
 	$effect(() => {
-		if ($prService && pullRequestTemplateBody === undefined && prTemplatePath) {
+		if (
+			modal?.imports.open &&
+			$prService &&
+			pullRequestTemplateBody === undefined &&
+			prTemplatePath
+		) {
 			$prService.pullRequestTemplateContent(prTemplatePath, project.id).then((template) => {
 				pullRequestTemplateBody = template;
 			});
@@ -253,6 +258,7 @@
 
 		inputBody = descriptionResult.value;
 		aiIsLoading = false;
+		aiDescriptionDirective = undefined;
 		await tick();
 	}
 
@@ -358,7 +364,7 @@
 						placeholder="PR title"
 						value={actualTitle}
 						readonly={!isEditing || isPreviewOnly}
-						on:change={(e) => {
+						on:input={(e) => {
 							inputTitle = e.detail;
 						}}
 					/>

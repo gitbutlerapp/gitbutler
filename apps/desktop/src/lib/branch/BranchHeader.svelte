@@ -8,12 +8,12 @@
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { Persisted } from '$lib/persisted/persisted';
+	import type { Persisted } from '@gitbutler/shared/persisted';
 
 	interface Props {
 		uncommittedChanges?: number;

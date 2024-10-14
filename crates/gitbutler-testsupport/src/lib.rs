@@ -1,6 +1,11 @@
 #![forbid(rust_2018_idioms)]
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
+/// Direct access to lower-level utilities for cases where this is enough.
+///
+/// Prefer to use [`read_only`] and [`writable`] otherwise.
+pub use gix_testtools;
+
 mod test_project;
 pub use test_project::TestProject;
 

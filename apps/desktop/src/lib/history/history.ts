@@ -15,7 +15,7 @@ export class HistoryService {
 			// Clear store when component last subscriber unsubscribes.
 			set([]);
 			this.cursor = undefined;
-			this.isAllLoaded.set(true);
+			this.isAllLoaded.set(false);
 		};
 	});
 

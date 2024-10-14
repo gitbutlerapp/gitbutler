@@ -45,7 +45,16 @@ impl Controller {
                     bail!("can only work in main worktrees");
                 };
             }
-            Ok(_repo) => {}
+            Ok(repo) => {
+                match repo.work_dir() {
+                    None => bail!("Cannot add non-bare repositories without a workdir"),
+                    Some(wd) => {
+                        if !wd.join(".git").is_dir() {
+                            bail!("A git-repository without a `.git` directory cannot currently be added");
+                        }
+                    }
+                }
+            }
             Err(err) => {
                 return Err(anyhow::Error::from(err))
                     .context(error::Context::new("must be a Git repository"));
@@ -63,7 +72,7 @@ impl Controller {
         let project = Project {
             id: ProjectId::generate(),
             title,
-            path: path.to_path_buf(),
+            path: gix::path::realpath(path)?,
             api: None,
             ..Default::default()
         };

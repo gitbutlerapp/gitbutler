@@ -228,6 +228,7 @@ impl BranchManager<'_> {
             branch.allow_rebasing = self.ctx.project().ok_with_force_push.into();
             branch.in_workspace = true;
 
+            branch.initialize(self.ctx)?;
             branch
         } else {
             let upstream_head = upstream_branch.is_some().then_some(head_commit.id());

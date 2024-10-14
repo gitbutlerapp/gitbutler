@@ -9,7 +9,7 @@
 	import ProjectNameLabel from '$lib/shared/ProjectNameLabel.svelte';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import { getContext, getContextStore } from '$lib/utils/context';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 
 	const project = getContext(Project);

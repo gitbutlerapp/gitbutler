@@ -8,8 +8,8 @@ import {
 	getEntryWorkspaceStatus,
 	type SidebarEntrySubject
 } from '$lib/navigation/types';
-import { persisted, type Persisted } from '$lib/persisted/persisted';
 import { debouncedDerive } from '$lib/utils/debounce';
+import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 import { Transform, Type, plainToInstance } from 'class-transformer';
 import Fuse from 'fuse.js';
 import { derived, readable, writable, type Readable, type Writable } from 'svelte/store';

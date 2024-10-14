@@ -52,3 +52,7 @@ pre {
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
+
+.no-select {
+	user-select: none;
+}

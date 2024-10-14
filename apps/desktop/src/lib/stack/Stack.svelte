@@ -11,23 +11,24 @@
 	import StackingNewStackCard from '$lib/branch/StackingNewStackCard.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { showError } from '$lib/notifications/toasts';
-	import { persisted } from '$lib/persisted/persisted';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import { User } from '$lib/stores/user';
-	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import lscache from 'lscache';
@@ -214,14 +215,16 @@
 						{/if}
 						<Spacer dotted />
 						<div class="lane-branches">
-							<StackingNewStackCard />
+							{#if $stackingFeatureMultipleSeries}
+								<StackingNewStackCard />
+							{/if}
 							<StackSeries {branch} />
 						</div>
 					</div>
 				</div>
 				<div class="lane-branches__action" class:scroll-end-visible={scrollEndVisible}>
 					<Button
-						style="pop"
+						style="neutral"
 						kind="solid"
 						wide
 						loading={isPushingCommits}

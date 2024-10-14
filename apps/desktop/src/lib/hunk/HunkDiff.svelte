@@ -2,7 +2,6 @@
 	import { type Row, Operation, type DiffRows } from './types';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { create } from '$lib/utils/codeHighlight';
-	import { maybeGetContextStore } from '$lib/utils/context';
 	import {
 		type ContentSection,
 		SectionType,
@@ -11,6 +10,7 @@
 	} from '$lib/utils/fileSections';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { type Hunk } from '$lib/vbranches/types';
+	import { maybeGetContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';

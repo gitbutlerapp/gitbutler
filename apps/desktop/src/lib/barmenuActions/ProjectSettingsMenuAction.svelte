@@ -1,24 +1,16 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
+	import { showHistoryView } from '$lib/config/config';
 	import { editor } from '$lib/editorLink/editorLink';
-	import { getContext } from '$lib/utils/context';
 	import * as events from '$lib/utils/events';
-	import { createKeybind } from '$lib/utils/hotkeys';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
 	const project = getContext(Project);
-
-	interface Props {
-		showHistory: boolean;
-		onHistoryShow: (show: boolean) => void;
-	}
-
-	const { showHistory, onHistoryShow }: Props = $props();
-	let showHistoryState = $state(showHistory);
 
 	onMount(() => {
 		const unsubscribeSettings = listen<string>('menu://project/settings/clicked', () => {
@@ -34,12 +26,12 @@
 		);
 
 		const unsubscribeHistory = listen<string>('menu://project/history/clicked', () => {
-			showHistoryState = true;
+			$showHistoryView = true;
 		});
 
 		const unsubscribeHistoryButton = unsubscribe(
 			events.on('openHistory', () => {
-				showHistoryState = true;
+				$showHistoryView = true;
 			})
 		);
 
@@ -50,20 +42,4 @@
 			unsubscribeHistoryButton();
 		};
 	});
-
-	const handleKeyDown = createKeybind({
-		'$mod+Shift+H': () => {
-			showHistoryState = !showHistoryState;
-		}
-	});
-
-	$effect(() => {
-		onHistoryShow(showHistoryState);
-	});
-
-	$effect(() => {
-		showHistoryState = showHistory;
-	});
 </script>
-
-<svelte:window on:keydown={handleKeyDown} />

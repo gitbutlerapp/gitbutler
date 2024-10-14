@@ -9,11 +9,9 @@
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { createGitHostPrMonitorStore } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { createGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
-	import { persisted } from '$lib/persisted/persisted';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import Stack from '$lib/stack/Stack.svelte';
-	import { getContext, getContextStoreBySymbol, createContextStore } from '$lib/utils/context';
 	import {
 		createIntegratedCommitsContextStore,
 		createLocalCommitsContextStore,
@@ -23,6 +21,12 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { RemoteFile, VirtualBranch } from '$lib/vbranches/types';
+	import {
+		getContext,
+		getContextStoreBySymbol,
+		createContextStore
+	} from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import lscache from 'lscache';
 	import { setContext } from 'svelte';
 	import { quintOut } from 'svelte/easing';

@@ -11,15 +11,12 @@ class BranchDragActions {
 
 	acceptMoveCommit(data: any) {
 		return (
-			data instanceof DraggableCommit &&
-			data.branchId !== this.branch.id &&
-			data.isHeadCommit &&
-			!data.commit.conflicted
+			data instanceof DraggableCommit && data.branchId !== this.branch.id && !data.commit.conflicted
 		);
 	}
 
 	onMoveCommit(data: DraggableCommit) {
-		this.branchController.moveCommit(this.branch.id, data.commit.id);
+		this.branchController.moveCommit(this.branch.id, data.commit.id, data.commit.branchId);
 	}
 
 	acceptBranchDrop(data: any) {

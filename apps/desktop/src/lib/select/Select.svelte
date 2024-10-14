@@ -39,7 +39,7 @@
 		wide,
 		options = [],
 		value,
-		placeholder,
+		placeholder = 'Select an option...',
 		maxHeight,
 		searchable,
 		itemSnippet,
@@ -161,7 +161,7 @@
 		type="select"
 		reversedDirection
 		icon="select-chevron"
-		value={options.find((item) => item.value === value)?.label || 'Select an option...'}
+		value={options.find((item) => item.value === value)?.label}
 		disabled={disabled || loading}
 		on:mousedown={toggleList}
 		on:keydown={(ev) => handleKeyDown(ev)}

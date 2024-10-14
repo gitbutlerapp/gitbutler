@@ -13,7 +13,7 @@ use gitbutler_repo::{GixRepositoryExt, RepositoryExt as _};
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Stack as GitButlerBranch, StackId, Target};
 use gix::object::tree::diff::Action;
-use gix::prelude::ObjectIdExt;
+use gix::prelude::{ObjectIdExt, TreeDiffChangeExt};
 use gix::reference::Category;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -598,7 +598,9 @@ pub fn get_branch_listing_details(
             };
             base_tree
                 .changes()?
-                .track_rewrites(None)
+                .options(|opts| {
+                    opts.track_rewrites(None);
+                })
                 // NOTE: `stats(head_tree)` is also possible, but we have a separate thread for that.
                 .for_each_to_obtain_tree(&head_tree, move |change| -> anyhow::Result<Action> {
                     change_tx.send(change.detach()).ok();

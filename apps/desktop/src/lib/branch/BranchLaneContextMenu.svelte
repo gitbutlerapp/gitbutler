@@ -6,12 +6,13 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
@@ -124,16 +125,18 @@
 		/>
 	</ContextMenuSection>
 
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Set remote branch name"
-			on:click={() => {
-				newRemoteName = branch.upstreamName || normalizedBranchName || '';
-				renameRemoteModal.show(branch);
-				contextMenuEl?.close();
-			}}
-		/>
-	</ContextMenuSection>
+	{#if !$stackingFeature}
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Set remote branch name"
+				on:click={() => {
+					newRemoteName = branch.upstreamName || normalizedBranchName || '';
+					renameRemoteModal.show(branch);
+					contextMenuEl?.close();
+				}}
+			/>
+		</ContextMenuSection>
+	{/if}
 
 	<ContextMenuSection>
 		<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
@@ -180,7 +183,6 @@
 
 <Modal
 	width="small"
-	title="Delete branch"
 	bind:this={deleteBranchModal}
 	onSubmit={async (close) => {
 		try {
@@ -193,10 +195,12 @@
 	}}
 >
 	{#snippet children(branch)}
-		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
+		All changes will be lost for <strong>{branch.name}</strong>. Are you sure you want to continue?
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="error" kind="solid" type="submit" loading={isDeleting}>Delete</Button>
+		<Button style="error" kind="solid" type="submit" loading={isDeleting}
+			>Unapply and drop changes</Button
+		>
 	{/snippet}
 </Modal>

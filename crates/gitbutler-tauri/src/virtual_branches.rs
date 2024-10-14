@@ -517,10 +517,16 @@ pub mod commands {
         project_id: ProjectId,
         commit_oid: String,
         target_branch_id: StackId,
+        source_branch_id: StackId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::move_commit(&project, target_branch_id, commit_oid)?;
+        gitbutler_branch_actions::move_commit(
+            &project,
+            target_branch_id,
+            commit_oid,
+            source_branch_id,
+        )?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }

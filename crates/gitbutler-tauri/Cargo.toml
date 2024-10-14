@@ -88,6 +88,7 @@ features = [
     "window-maximize",
     "window-start-dragging",
     "window-unmaximize",
+    "shell-open",
 ]
 
 [lints.clippy]

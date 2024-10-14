@@ -7,10 +7,10 @@
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
-	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 	import { createTimeAgoStore } from '@gitbutler/ui/utils/timeAgo';
@@ -182,6 +182,7 @@
 				size="tag"
 				clickable={false}
 				style={prStatusInfo.style}
+				tooltip="PR status"
 				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
 			>
 				{prStatusInfo.text}
@@ -214,6 +215,7 @@
 				size="tag"
 				style="ghost"
 				outline
+				tooltip="Open in browser"
 				onclick={() => {
 					openExternalUrl($pr.htmlUrl);
 				}}

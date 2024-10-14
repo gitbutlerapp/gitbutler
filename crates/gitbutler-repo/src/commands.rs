@@ -50,16 +50,19 @@ impl RepoCommands for Project {
 
     fn read_file_from_workspace(&self, relative_path: &Path) -> Result<HashMap<String, String>> {
         let ctx = CommandContext::open(self)?;
-        if self
-            .path
-            .join(relative_path)
-            .canonicalize()?
-            .as_path()
-            .starts_with(self.path.clone())
-        {
-            let tree = ctx.repository().head()?.peel_to_tree()?;
-            let entry = tree.get_path(relative_path)?;
-            let blob = ctx.repository().find_blob(entry.id())?;
+        let path_in_worktree = gix::path::realpath(self.path.join(relative_path))?;
+        if !path_in_worktree.starts_with(self.path.clone()) {
+            anyhow::bail!(
+                "Path to read from at '{}' isn't in the worktree directory '{}'",
+                relative_path.display(),
+                self.path.display()
+            );
+        }
+
+        let tree = ctx.repository().head()?.peel_to_tree()?;
+        let entry = tree.get_path(relative_path)?;
+        let blob = ctx.repository().find_blob(entry.id())?;
+
 
             let mut file_info = HashMap::new();
 
@@ -102,8 +105,5 @@ impl RepoCommands for Project {
             }
 
             Ok(file_info)
-        } else {
-            anyhow::bail!("Invalid workspace file");
-        }
     }
 }

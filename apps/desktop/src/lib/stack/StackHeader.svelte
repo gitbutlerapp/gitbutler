@@ -4,12 +4,12 @@
 	import BranchLaneContextMenu from '$lib/branch/BranchLaneContextMenu.svelte';
 	import DefaultTargetButton from '$lib/branch/DefaultTargetButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { Persisted } from '$lib/persisted/persisted';
+	import type { Persisted } from '@gitbutler/shared/persisted';
 
 	interface Props {
 		uncommittedChanges?: number;
@@ -122,6 +122,7 @@
 						<Button
 							bind:el={meatballButtonEl}
 							style="ghost"
+							size="tag"
 							icon="kebab"
 							onclick={() => {
 								contextMenu?.toggle();
@@ -150,7 +151,6 @@
 			height: auto;
 		}
 	}
-
 	.header.card {
 		border-bottom-right-radius: 0px;
 		border-bottom-left-radius: 0px;
@@ -205,7 +205,7 @@
 	.header__info-wrapper {
 		display: flex;
 		gap: 2px;
-		padding: 10px;
+		padding: 12px;
 	}
 	.header__info {
 		flex: 1;
@@ -218,7 +218,7 @@
 	.button-group {
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		gap: 6px;
 	}
 
 	.draggable {

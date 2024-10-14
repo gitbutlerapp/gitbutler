@@ -4,7 +4,7 @@
  *
  * @module appSettings
  */
-import { persisted, type Persisted } from '$lib/persisted/persisted';
+import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 
 export function featureBaseBranchSwitching(): Persisted<boolean> {
 	const key = 'featureBaseBranchSwitching';
@@ -12,6 +12,8 @@ export function featureBaseBranchSwitching(): Persisted<boolean> {
 }
 
 export const stackingFeature = persisted(false, 'stackingFeature');
+
+export const stackingFeatureMultipleSeries = persisted(false, 'stackingFeatureMultipleSeries');
 
 export function featureTopics(): Persisted<boolean> {
 	const key = 'feature--topics';
