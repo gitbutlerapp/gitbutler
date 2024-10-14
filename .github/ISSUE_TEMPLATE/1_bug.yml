@@ -16,7 +16,7 @@ body:
       label: Operating System
       description: What OS are you using GitButler on?
       options:
-        - Mac OS X
+        - MacOS
         - Windows
         - Linux
       default: 0
@@ -39,7 +39,7 @@ body:
   - type: textarea
     attributes:
       label: Describe the issue
-      description: Describe us what the issue is and what have you tried so far to fix it. Add any extra useful information in this section. Feel free to use screenshots over a picture of your code) or a video explanation.
+      description: Describe for us what the issue is and what you have tried so far to fix it. Add any extra useful information in this section. Feel free to use screenshots over a picture of your code) or a video explanation.
     validations:
       required: true
   - type: textarea
