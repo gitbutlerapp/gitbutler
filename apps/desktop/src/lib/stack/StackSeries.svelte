@@ -36,14 +36,16 @@
 			name={currentSeries.branchName}
 			upstreamName={currentSeries.upstreamReference ? currentSeries.name : undefined}
 		/>
-		<StackingCommitList
-			remoteOnlyPatches={currentSeries.upstreamPatches}
-			patches={currentSeries.patches}
-			isUnapplied={false}
-			{reorderDropzoneManager}
-			{localCommitsConflicted}
-			{localAndRemoteCommitsConflicted}
-		/>
+		{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
+			<StackingCommitList
+				remoteOnlyPatches={currentSeries.upstreamPatches}
+				patches={currentSeries.patches}
+				isUnapplied={false}
+				{reorderDropzoneManager}
+				{localCommitsConflicted}
+				{localAndRemoteCommitsConflicted}
+			/>
+		{/if}
 	</div>
 {/each}
 
