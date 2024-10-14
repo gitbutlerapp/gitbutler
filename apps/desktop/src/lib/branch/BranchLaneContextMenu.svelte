@@ -6,6 +6,7 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
@@ -124,16 +125,18 @@
 		/>
 	</ContextMenuSection>
 
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Set remote branch name"
-			on:click={() => {
-				newRemoteName = branch.upstreamName || normalizedBranchName || '';
-				renameRemoteModal.show(branch);
-				contextMenuEl?.close();
-			}}
-		/>
-	</ContextMenuSection>
+	{#if !$stackingFeature}
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Set remote branch name"
+				on:click={() => {
+					newRemoteName = branch.upstreamName || normalizedBranchName || '';
+					renameRemoteModal.show(branch);
+					contextMenuEl?.close();
+				}}
+			/>
+		</ContextMenuSection>
+	{/if}
 
 	<ContextMenuSection>
 		<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
