@@ -2,10 +2,12 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { editor } from '$lib/editorLink/editorLink';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from '@gitbutler/shared/context';
+	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		target: HTMLElement | undefined;
@@ -17,6 +19,7 @@
 	let { target, filePath, projectPath, readonly }: Props = $props();
 
 	const branchController = getContext(BranchController);
+	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
 	let contextMenu: ReturnType<typeof ContextMenu>;
 
@@ -43,10 +46,12 @@
 			{/if}
 			{#if item.lineNumber}
 				<ContextMenuItem
-					label="Open in VSCode"
+					label="Open in Editor"
 					on:click={() => {
 						projectPath &&
-							openExternalUrl(`${$editor}://file${projectPath}/${filePath}:${item.lineNumber}`);
+							openExternalUrl(
+								`${$userSettings.defaultCodeEditor}://file${projectPath}/${filePath}:${item.lineNumber}`
+							);
 						contextMenu.close();
 					}}
 				/>

@@ -22,6 +22,7 @@ export interface Settings {
 	diffFont: string;
 	diffLigatures: boolean;
 	inlineUnifiedDiffs: boolean;
+	defaultCodeEditor: string;
 }
 
 const defaults: Settings = {
@@ -39,7 +40,8 @@ const defaults: Settings = {
 	tabSize: 4,
 	diffFont: 'Geist Mono, Menlo, monospace',
 	diffLigatures: false,
-	inlineUnifiedDiffs: false
+	inlineUnifiedDiffs: false,
+	defaultCodeEditor: 'vscode'
 };
 
 export function loadUserSettings(): Writable<Settings> {

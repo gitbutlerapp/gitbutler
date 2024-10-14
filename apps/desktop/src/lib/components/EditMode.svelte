@@ -2,7 +2,9 @@
 	import { Project } from '$lib/backend/projects';
 	import { CommitService } from '$lib/commits/service';
 	import { conflictEntryHint, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
-	import { editor } from '$lib/editorLink/editorLink';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+
 	import FileContextMenu from '$lib/file/FileContextMenu.svelte';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
@@ -17,6 +19,7 @@
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import { join } from '@tauri-apps/api/path';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
+	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		editModeMetadata: EditModeMetadata;
@@ -28,6 +31,7 @@
 	const remoteCommitService = getContext(CommitService);
 	const uncommitedFileWatcher = getContext(UncommitedFilesWatcher);
 	const modeService = getContext(ModeService);
+	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
 	const uncommitedFiles = uncommitedFileWatcher.uncommitedFiles;
 
@@ -162,7 +166,7 @@
 	async function openAllConflictedFiles() {
 		for (const file of conflictedFiles) {
 			const absPath = await join(project.vscodePath, file.path);
-			openExternalUrl(`${$editor}://file${absPath}`);
+			openExternalUrl(`${$userSettings.defaultCodeEditor}://file${absPath}`);
 		}
 	}
 </script>
@@ -173,8 +177,8 @@
 			{editModeMetadata.commitOid.slice(0, 7)}
 		</span>
 		<InfoButton title="Edit Mode">
-			Edit Mode lets you modify an existing commit in isolation or resolve conflicts. Any changes
-			made, including new files, will be added to the selected commit.
+			Edit Mode lets you modify an existing commit in isolation or resolve conflicts. Any
+			changes made, including new files, will be added to the selected commit.
 		</InfoButton>
 	</h2>
 
