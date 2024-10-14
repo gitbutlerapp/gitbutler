@@ -16,7 +16,7 @@ body:
       label: Operating System
       description: What OS are you using GitButler on?
       options:
-        - MacOS
+        - macOS
         - Windows
         - Linux
       default: 0
