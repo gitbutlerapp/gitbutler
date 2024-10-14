@@ -3,7 +3,7 @@ import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
 	title: 'Inputs / Checkbox',
-	component: DemoCheckbox
+	component: DemoCheckbox as any
 } satisfies Meta<typeof DemoCheckbox>;
 
 export default meta;
