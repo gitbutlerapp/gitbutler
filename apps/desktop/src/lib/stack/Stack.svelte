@@ -11,6 +11,7 @@
 	import StackingNewStackCard from '$lib/branch/StackingNewStackCard.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
@@ -214,7 +215,9 @@
 						{/if}
 						<Spacer dotted />
 						<div class="lane-branches">
-							<StackingNewStackCard />
+							{#if $stackingFeatureMultipleSeries}
+								<StackingNewStackCard />
+							{/if}
 							<StackSeries {branch} />
 						</div>
 					</div>
