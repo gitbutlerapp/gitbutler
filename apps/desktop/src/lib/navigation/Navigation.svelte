@@ -107,7 +107,6 @@
 		style:width={$defaultTrayWidthRem && !$isNavCollapsed ? $defaultTrayWidthRem + 'rem' : null}
 		bind:this={viewport}
 		role="menu"
-		tabindex="0"
 	>
 		<!-- condition prevents split second UI shift -->
 		{#if $platformName || env.PUBLIC_TESTING}
