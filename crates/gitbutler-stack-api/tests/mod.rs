@@ -2,6 +2,7 @@ use anyhow::Result;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
+use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::{LogUntil, RepositoryExt as _};
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_stack_api::{PatchReferenceUpdate, StackExt, TargetUpdate};
@@ -1007,6 +1008,77 @@ fn replace_head_top_of_stack_multiple() -> Result<()> {
         test_ctx.branch,
         test_ctx.handle.get_branch(test_ctx.branch.id)?
     );
+    Ok(())
+}
+
+#[test]
+fn set_legacy_refname() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let remote_branch: RemoteRefname = "refs/remotes/origin/my-branch".parse().unwrap();
+    test_ctx.branch.upstream = Some(remote_branch.clone());
+    test_ctx
+        .branch
+        .set_legacy_compatible_stack_reference(&ctx)?;
+    // reference name was updated
+    assert_eq!(test_ctx.branch.heads[0].name, "my-branch");
+    Ok(())
+}
+
+#[test]
+fn set_legacy_refname_no_upstream_set() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let initial_state = test_ctx.branch.clone();
+    test_ctx
+        .branch
+        .set_legacy_compatible_stack_reference(&ctx)?;
+    // no changes
+    assert_eq!(initial_state, test_ctx.branch);
+    Ok(())
+}
+
+#[test]
+fn set_legacy_refname_multiple_heads() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let remote_branch: RemoteRefname = "refs/remotes/origin/my-branch".parse().unwrap();
+    test_ctx.branch.upstream = Some(remote_branch.clone());
+    let extra_head = PatchReference {
+        name: "extra_head".into(),
+        target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
+        description: None,
+    };
+    // an extra head just beneath the top of the stack
+    test_ctx.branch.add_series(&ctx, extra_head, None)?;
+    let initial_state = test_ctx.branch.clone();
+    test_ctx
+        .branch
+        .set_legacy_compatible_stack_reference(&ctx)?;
+    // no changes
+    assert_eq!(initial_state, test_ctx.branch);
+    Ok(())
+}
+
+#[test]
+fn set_legacy_refname_pushed() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    let remote_branch: RemoteRefname = "refs/remotes/origin/my-branch".parse().unwrap();
+    test_ctx.branch.upstream = Some(remote_branch.clone());
+
+    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let mut target = state.get_default_target()?;
+    target.push_remote_name = Some("origin".into());
+    state.set_default_target(target)?;
+    test_ctx.branch.push_series(&ctx, "virtual".into(), false)?;
+    let initial_state = test_ctx.branch.clone();
+
+    test_ctx
+        .branch
+        .set_legacy_compatible_stack_reference(&ctx)?;
+    // no changes
+    assert_eq!(initial_state, test_ctx.branch);
     Ok(())
 }
 

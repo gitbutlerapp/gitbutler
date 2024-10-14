@@ -292,7 +292,7 @@ pub fn list_virtual_branches_cached(
 
     let branches_span =
         tracing::debug_span!("handle branches", num_branches = status.branches.len()).entered();
-    for (branch, mut files) in status.branches {
+    for (mut branch, mut files) in status.branches {
         let repo = ctx.repository();
         update_conflict_markers(ctx, files.clone())?;
 
@@ -423,7 +423,7 @@ pub fn list_virtual_branches_cached(
         // TODO: Error out here once this API is stable
         let series = match stack_series(
             ctx,
-            &branch,
+            &mut branch,
             &default_target,
             &check_commit,
             remote_commit_data,
@@ -481,7 +481,7 @@ pub fn list_virtual_branches_cached(
 /// Newest first, oldest last in the list
 fn stack_series(
     ctx: &CommandContext,
-    branch: &Stack,
+    branch: &mut Stack,
     default_target: &Target,
     check_commit: &IsCommitIntegrated,
     remote_commit_data: HashMap<CommitData, git2::Oid>,
@@ -562,6 +562,12 @@ fn stack_series(
         });
     }
     api_series.reverse();
+
+    // This is done for compatibility with the legacy flow.
+    // After a couple of weeks we can get rid of this.
+    if let Err(e) = branch.set_legacy_compatible_stack_reference(ctx) {
+        tracing::warn!("failed to set legacy compatible stack reference: {:?}", e);
+    }
 
     Ok((api_series, requires_force))
 }
