@@ -34,7 +34,6 @@
 
 	let open = $state(false);
 	let item = $state<any>();
-	let dialogElement = $state<HTMLDivElement>();
 	let isClosing = $state(false);
 
 	function handleKeyDown(event: KeyboardEvent) {
@@ -51,6 +50,7 @@
 	export function show(newItem?: any) {
 		item = newItem;
 		open = true;
+
 		window.addEventListener('keydown', handleKeyDown);
 	}
 
@@ -72,12 +72,7 @@
 </script>
 
 {#if open}
-	<div
-		use:portal={'body'}
-		class="modal-container {isClosing ? 'closing' : 'open'}"
-		class:open
-		bind:this={dialogElement}
-	>
+	<div use:portal={'body'} class="modal-container {isClosing ? 'closing' : 'open'}" class:open>
 		<div
 			use:focusTrap
 			use:clickOutside={{
