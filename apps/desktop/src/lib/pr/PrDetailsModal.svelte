@@ -253,6 +253,7 @@
 
 		inputBody = descriptionResult.value;
 		aiIsLoading = false;
+		aiDescriptionDirective = undefined;
 		await tick();
 	}
 
