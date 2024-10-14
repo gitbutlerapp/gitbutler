@@ -112,7 +112,6 @@
 		</div>
 		<div class="branch-info__btns">
 			<Button
-				size="tag"
 				icon="kebab"
 				style="ghost"
 				bind:el={meatballButtonEl}
@@ -229,7 +228,7 @@
 
 		.branch-action__body {
 			width: 100%;
-			padding: 4px 12px 12px 0px;
+			padding: 0 12px 12px 0;
 		}
 	}
 
