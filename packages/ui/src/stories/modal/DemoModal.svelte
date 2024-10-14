@@ -24,5 +24,8 @@
 
 	{#snippet controls(close)}
 		<Button onclick={() => close()}>Close</Button>
+		<Button style="pop" kind="solid" type="submit" onclick={() => console.log('Submit clicked')}
+			>Submit</Button
+		>
 	{/snippet}
 </Modal>
