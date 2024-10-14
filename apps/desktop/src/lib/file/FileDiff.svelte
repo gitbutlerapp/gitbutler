@@ -4,11 +4,18 @@
 	import HunkViewer from '$lib/hunk/HunkViewer.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
-	import { getContext } from '$lib/utils/context';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
+	import { getContext } from '@gitbutler/shared/context';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
+
+	interface FileInfo {
+		content: string;
+		name?: string;
+		mimeType?: string;
+		size?: number;
+	}
 
 	interface Props {
 		filePath: string;
@@ -65,27 +72,22 @@
 		else return (bytes / GB).toFixed(1) + ' GB';
 	}
 
-	let blobSize: number = $state(0);
-	let blobName: string | undefined = $state(undefined);
-	let blobContent: string | undefined = $state(undefined);
-	let imageMimeType: string | undefined = $state(undefined);
-	let errorMessage: string | undefined = $state(undefined);
+	let fileInfo: FileInfo = $state({
+		content: '',
+		name: undefined,
+		mimeType: undefined,
+		size: 0
+	});
 
 	async function fetchBlobInfo() {
 		try {
-			const blobInfo: Record<string, string> = await invoke('get_blob_info', {
+			const fetchedFileInfo: FileInfo = await invoke('get_blob_info', {
 				relativePath: filePath,
 				projectId: project.id
 			});
-
-			blobContent = blobInfo.content;
-			blobName = blobInfo.name;
-			imageMimeType = blobInfo.mimeType;
-			blobSize = parseInt(blobInfo.size || '0', 10);
-			errorMessage = undefined;
+			fileInfo = fetchedFileInfo;
 		} catch (error) {
 			console.error(error);
-			errorMessage = 'untracked file';
 		}
 	}
 
@@ -95,13 +97,11 @@
 </script>
 
 <div class="hunks">
-	{#if errorMessage}
-		<p>{errorMessage}</p>
-	{:else if isBinary}
-		{#if imageMimeType && blobContent}
-			<img src="data:{imageMimeType};base64,{blobContent}" alt={blobName} />
+	{#if isBinary}
+		{#if fileInfo.mimeType && fileInfo.content}
+			<img src="data:{fileInfo.mimeType};base64,{fileInfo.content}" alt={fileInfo.name} />
 		{/if}
-		<p>Size: {formatFileSize(blobSize)}</p>
+		<p>Size: {formatFileSize(fileInfo.size || 0)}</p>
 	{:else if isLarge}
 		Diff too large to be shown
 	{:else if sections.length > 50 && !alwaysShow}

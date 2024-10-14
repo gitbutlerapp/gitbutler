@@ -4,8 +4,7 @@ pub mod commands {
     use gitbutler_branch_actions::RemoteBranchFile;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
-    use gitbutler_repo::RepoCommands;
-    use std::collections::HashMap;
+    use gitbutler_repo::{FileInfo, RepoCommands};
     use std::path::Path;
     use std::sync::atomic::AtomicBool;
     use tauri::State;
@@ -76,12 +75,9 @@ pub mod commands {
         relative_path: &Path,
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
+        let file_info = project.read_file_from_workspace(relative_path)?;
 
-        Ok(project
-            .read_file_from_workspace(relative_path)?
-            .get("content")
-            .unwrap()
-            .to_string())
+        Ok(file_info.content)
     }
 
     #[tauri::command(async)]
@@ -90,7 +86,7 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         relative_path: &Path,
-    ) -> Result<HashMap<String, String>, Error> {
+    ) -> Result<FileInfo, Error> {
         let project = projects.get(project_id)?;
 
         Ok(project.read_file_from_workspace(relative_path)?)
