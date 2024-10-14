@@ -352,7 +352,7 @@ where
     Fut: std::future::Future<Output = Option<String>>,
     Extra: Send + Clone,
 {
-    let mut args = vec!["push", "--quiet"];
+    let mut args = vec!["push", "--quiet", "--no-verify"];
 
     let refspec = refspec.to_string();
 
