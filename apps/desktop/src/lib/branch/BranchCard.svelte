@@ -223,7 +223,7 @@
 
 						{#snippet pushButton({ disabled }: { disabled: boolean })}
 							<Button
-								style="pop"
+								style="neutral"
 								kind="solid"
 								wide
 								loading={isPushingCommits}

@@ -224,7 +224,7 @@
 				</div>
 				<div class="lane-branches__action" class:scroll-end-visible={scrollEndVisible}>
 					<Button
-						style="pop"
+						style="neutral"
 						kind="solid"
 						wide
 						loading={isPushingCommits}
