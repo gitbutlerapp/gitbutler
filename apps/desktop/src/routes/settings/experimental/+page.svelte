@@ -3,6 +3,7 @@
 	import {
 		featureBaseBranchSwitching,
 		stackingFeature,
+		stackingFeatureMultipleSeries,
 		featureTopics
 	} from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
@@ -32,15 +33,30 @@
 		</svelte:fragment>
 	</SectionCard>
 	<SectionCard labelFor="stackingFeature" orientation="row">
-		<svelte:fragment slot="title">Branch stacking</svelte:fragment>
+		<svelte:fragment slot="title">Branch stacking UI</svelte:fragment>
 		<svelte:fragment slot="caption">
-			Allows for branch / pull request stacking. The user interface for this is still very crude.
+			Enables the new user interface for managing lanes / stacks of branches.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle
 				id="stackingFeature"
 				checked={$stackingFeature}
 				on:click={() => ($stackingFeature = !$stackingFeature)}
+			/>
+		</svelte:fragment>
+	</SectionCard>
+	<SectionCard labelFor="stackingFeatureMultipleSeries" orientation="row">
+		<svelte:fragment slot="title">Branch stacking multiple series</svelte:fragment>
+		<svelte:fragment slot="caption">
+			Enables the user to use the new stacking user interface to create multiple series (branches)
+			per lane.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle
+				id="stackingFeatureMultipleSeries"
+				disabled={!$stackingFeature}
+				checked={$stackingFeatureMultipleSeries}
+				on:click={() => ($stackingFeatureMultipleSeries = !$stackingFeatureMultipleSeries)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
