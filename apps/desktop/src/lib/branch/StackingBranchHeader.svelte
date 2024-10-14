@@ -95,7 +95,7 @@
 		/>
 		<div class="text-14 text-bold branch-info__name">
 			<span class="remote-name">{$baseBranch.remoteName ?? 'origin'}/</span>
-			<BranchLabel {name} onChange={(name) => editTitle(name)} />
+			<BranchLabel {name} onChange={(name) => editTitle(name)} disabled={!!gitHostBranch} />
 			{#if gitHostBranch}
 				<Button
 					size="tag"
