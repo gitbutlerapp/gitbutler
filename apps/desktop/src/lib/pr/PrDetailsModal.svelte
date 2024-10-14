@@ -23,7 +23,6 @@
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
-	import { User } from '$lib/stores/user';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { sleep } from '$lib/utils/sleep';
@@ -64,7 +63,6 @@
 
 	let props: Props = $props();
 
-	const user = getContextStore(User);
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
 	const branchStore = getContextStore(VirtualBranch);
@@ -143,7 +141,7 @@
 
 	$effect(() => {
 		if (modal?.imports.open) {
-			aiService.validateConfiguration($user?.access_token).then((valid) => {
+			aiService.validateConfiguration().then((valid) => {
 				aiConfigurationValid = valid;
 			});
 		}
@@ -240,7 +238,6 @@
 			directive: aiDescriptionDirective,
 			commitMessages: commits.map((c) => c.description),
 			prBodyTemplate: pullRequestTemplateBody,
-			userToken: $user.access_token,
 			onToken: async (t) => {
 				if (firstToken) {
 					inputBody = '';

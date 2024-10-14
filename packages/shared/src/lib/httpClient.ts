@@ -1,3 +1,5 @@
+import { get, type Readable } from 'svelte/store';
+
 export const DEFAULT_HEADERS = {
 	'Content-Type': 'application/json'
 };
@@ -7,7 +9,6 @@ export type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type RequestOptions = {
 	headers?: Record<string, string | undefined>;
 	body?: FormData | object;
-	token?: string;
 };
 
 export class HttpClient {
@@ -15,7 +16,8 @@ export class HttpClient {
 
 	constructor(
 		public fetch = window.fetch,
-		publicApiBaseUrl: string
+		publicApiBaseUrl: string,
+		private token: Readable<string | undefined>
 	) {
 		this.apiUrl = new URL('/api/', publicApiBaseUrl);
 	}
@@ -40,7 +42,8 @@ export class HttpClient {
 			});
 		}
 
-		if (opts.token) butlerHeaders.set('X-Auth-Token', opts.token);
+		const token = get(this.token);
+		if (token) butlerHeaders.set('X-Auth-Token', token);
 
 		const response = await this.fetch(this.getApiUrl(path), {
 			method: opts.method,

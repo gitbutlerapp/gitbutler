@@ -22,7 +22,7 @@
 	async function saveProject() {
 		const api =
 			$user && project.api
-				? await projectService.updateCloudProject($user?.access_token, project.api.repository_id, {
+				? await projectService.updateCloudProject(project.api.repository_id, {
 						name: project.title,
 						description: project.description
 					})
@@ -36,7 +36,7 @@
 		try {
 			const cloudProject =
 				project.api ??
-				(await projectService.createCloudProject($user.access_token, {
+				(await projectService.createCloudProject({
 					name: project.title,
 					description: project.description,
 					uid: project.id
@@ -54,7 +54,7 @@
 		try {
 			const cloudProject =
 				project.api ??
-				(await projectService.createCloudProject($user.access_token, {
+				(await projectService.createCloudProject({
 					name: project.title,
 					description: project.description,
 					uid: project.id
