@@ -16,6 +16,13 @@
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import type { ContentSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
+	import Select from '$lib/select/Select.svelte';
+	import SelectItem from '$lib/select/SelectItem.svelte';
+
+	const editorOptions = [
+		{ label: 'VSCode', value: 'vscode' },
+		{ label: 'Zed', value: 'zed' }
+	];
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
@@ -61,7 +68,26 @@
 		<svelte:fragment slot="title">Theme</svelte:fragment>
 		<ThemeSelector {userSettings} />
 	</SectionCard>
-
+	<SectionCard labelFor="defaultCodeEditor" orientation="row">
+		<svelte:fragment slot="title">Default Code Editor</svelte:fragment>
+		<svelte:fragment slot="caption">Select your preferred default code editor.</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Select
+				value={$userSettings.defaultCodeEditor}
+				options={editorOptions}
+				onselect={(value) => {
+					userSettings.update((s) => ({ ...s, defaultCodeEditor: value }));
+					console.log('userSettings', $userSettings.defaultCodeEditor);
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem selected={item.value === $userSettings.defaultCodeEditor} {highlighted}>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		</svelte:fragment>
+	</SectionCard>
 	<div class="stack-v">
 		<SectionCard centerAlign roundedBottom={false}>
 			<svelte:fragment slot="title">Diff preview</svelte:fragment>
@@ -220,19 +246,4 @@
 			</svelte:fragment>
 		</SectionCard>
 	</form>
-
-	<SectionCard labelFor="branchLaneContents" orientation="row">
-		<svelte:fragment slot="title">Auto-highlight Branch Lane Contents</svelte:fragment>
-		<svelte:fragment slot="caption">
-			An experimental UI toggle to highlight the contents of the branch lane input fields when
-			clicking into them.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle
-				id="branchLaneContents"
-				checked={$autoSelectBranchNameFeature}
-				on:click={() => ($autoSelectBranchNameFeature = !$autoSelectBranchNameFeature)}
-			/>
-		</svelte:fragment>
-	</SectionCard>
 </SettingsPage>
