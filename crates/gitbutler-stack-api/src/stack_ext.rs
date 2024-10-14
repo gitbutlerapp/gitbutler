@@ -152,6 +152,8 @@ pub trait StackExt {
         from: &Commit<'_>,
         to: &Commit<'_>,
     ) -> Result<()>;
+
+    fn set_legacy_compatible_stack_reference(&mut self, ctx: &CommandContext) -> Result<()>;
 }
 
 /// Request to update a PatchReference.
@@ -233,7 +235,11 @@ impl StackExt for Stack {
             } else {
                 CommitOrChangeId::CommitId(commit.id().to_string())
             },
-            name: normalize_branch_name(&self.name)?,
+            name: if let Some(refname) = self.upstream.as_ref() {
+                refname.branch().to_string()
+            } else {
+                normalize_branch_name(&self.name)?
+            },
             description: None,
         };
         let state = branch_state(ctx);
@@ -256,7 +262,7 @@ impl StackExt for Stack {
             let prefix = rand::random::<u32>().to_string();
             reference.name = format!("{}-{}", &reference.name, prefix);
         }
-        validate_name(&reference, ctx, &state)?;
+        validate_name(&reference, ctx, &state, self.upstream.clone())?;
         self.heads = vec![reference];
         state.set_branch(self.clone())
     }
@@ -279,7 +285,7 @@ impl StackExt for Stack {
         };
         let state = branch_state(ctx);
         let patches = stack_patches(ctx, &state, self.head(), true)?;
-        validate_name(&new_head, ctx, &state)?;
+        validate_name(&new_head, ctx, &state, None)?;
         validate_target(&new_head, ctx, self.head(), &state)?;
         let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches)?;
         self.heads = updated_heads;
@@ -406,7 +412,7 @@ impl StackExt for Stack {
                     }
                 }
                 head.name = name;
-                validate_name(head, ctx, &state)?;
+                validate_name(head, ctx, &state, self.upstream.clone())?;
             }
         }
 
@@ -569,6 +575,41 @@ impl StackExt for Stack {
         }
         Ok(())
     }
+
+    fn set_legacy_compatible_stack_reference(&mut self, ctx: &CommandContext) -> Result<()> {
+        // self.upstream is only set if this is a branch that was created & manipulated by the legacy flow
+        let legacy_refname = match self.upstream.clone().map(|r| r.branch().to_owned()) {
+            Some(legacy_refname) => legacy_refname,
+            None => return Ok(()), // noop
+        };
+        // update the reference only if there is exactly one series in the stack
+        if self.heads.len() != 1 {
+            return Ok(()); // noop
+        }
+        let head = match self.heads.first() {
+            Some(head) => head,
+            None => return Ok(()), // noop
+        };
+        if legacy_refname == head.name {
+            return Ok(()); // noop
+        }
+        let default_target = branch_state(ctx).get_default_target()?;
+        let update = PatchReferenceUpdate {
+            name: Some(legacy_refname),
+            ..Default::default()
+        };
+        if let Some(remote_name) = default_target.push_remote_name.as_ref() {
+            // modify the stack reference only if it has not been pushed yet
+            if !head.pushed(remote_name, ctx).unwrap_or_default() {
+                // set the stack reference to the legacy refname
+                self.update_series(ctx, head.name.clone(), &update)?;
+            }
+        } else {
+            // if there is no push remote, just update the stack reference
+            self.update_series(ctx, head.name.clone(), &update)?;
+        }
+        Ok(())
+    }
 }
 
 /// Validates that the commit in the reference target
@@ -651,7 +692,9 @@ fn validate_name(
     reference: &PatchReference,
     ctx: &CommandContext,
     state: &VirtualBranchesHandle,
+    legacy_branch_ref: Option<RemoteRefname>,
 ) -> Result<()> {
+    let legacy_branch_ref = legacy_branch_ref.map(|r| r.branch().to_string());
     if reference.name.starts_with("refs/heads") {
         return Err(anyhow!("Stack head name cannot start with 'refs/heads'"));
     }
@@ -659,19 +702,25 @@ fn validate_name(
     name_partial(reference.name.as_str().into()).context("Invalid branch name")?;
     // assert that there is no local git reference with this name
     if reference_exists(ctx, &reference.name)? {
-        return Err(anyhow!(
-            "A git reference with the name {} exists",
-            &reference.name
-        ));
+        // Allow the reference overlap if it is the same as the legacy branch ref
+        if legacy_branch_ref != Some(reference.name.clone()) {
+            return Err(anyhow!(
+                "A git reference with the name {} exists",
+                &reference.name
+            ));
+        }
     }
     let default_target = state.get_default_target()?;
     // assert that there is no remote git reference with this name
     if let Some(remote_name) = default_target.push_remote_name {
         if reference_exists(ctx, &reference.remote_reference(remote_name.as_str())?)? {
-            return Err(anyhow!(
-                "A git reference with the name {} exists",
-                &reference.name
-            ));
+            // Allow the reference overlap if it is the same as the legacy branch ref
+            if legacy_branch_ref != Some(reference.name.clone()) {
+                return Err(anyhow!(
+                    "A git reference with the name {} exists",
+                    &reference.name
+                ));
+            }
         }
     }
     // assert that there are no existing patch references with this name
