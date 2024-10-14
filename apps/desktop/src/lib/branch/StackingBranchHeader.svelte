@@ -94,7 +94,9 @@
 			lineBottom={commits.length > 0}
 		/>
 		<div class="text-14 text-bold branch-info__name">
-			<span class="remote-name">{$baseBranch.remoteName ?? 'origin'}/</span>
+			<span class:no-upstream={!gitHostBranch} class="remote-name">
+				{$baseBranch.remoteName ?? 'origin'}/
+			</span>
 			<BranchLabel {name} onChange={(name) => editTitle(name)} disabled={!!gitHostBranch} />
 			{#if gitHostBranch}
 				<Button
@@ -210,6 +212,11 @@
 		.remote-name {
 			margin-top: 3px;
 			color: var(--clr-scale-ntrl-60);
+
+			&.no-upstream {
+				width: 0px;
+				margin-right: -5px;
+			}
 		}
 	}
 
