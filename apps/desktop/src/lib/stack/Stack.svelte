@@ -111,6 +111,7 @@
 	let canPush = $derived.by(() => {
 		if (branchUpstreamPatches.length > 0) return true;
 		if (branchPatches.find((p) => p.status !== 'localAndRemote')) return true;
+		if (branchPatches.some((p) => p.remoteCommitId !== p.id)) return true;
 		return false;
 	});
 
