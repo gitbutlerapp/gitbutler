@@ -472,6 +472,9 @@ pub fn fetch_from_remotes(project: &Project, askpass: Option<String>) -> Result<
             error: fetch_errors.join("\n"),
         }
     };
+    let state = ctx.project().virtual_branches();
+
+    state.garbage_collect(ctx.repository())?;
 
     Ok(project_data_last_fetched)
 }
