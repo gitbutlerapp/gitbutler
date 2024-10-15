@@ -3,6 +3,7 @@ let trapFocusList: HTMLElement[] = [];
 function getFocusableElements(node: HTMLElement): HTMLElement[] {
 	return Array.from(
 		node.querySelectorAll<HTMLElement>(
+			// List inspired by https://github.com/nico3333fr/van11y-accessible-modal-tooltip-aria/blob/master/src/van11y-accessible-modal-tooltip-aria.es6.js#L47C17-L47C17
 			'a, button, input, textarea, select, details,[tabindex]:not([tabindex="-1"]):not([tabindex="0"])'
 		)
 	);
@@ -27,7 +28,6 @@ if (typeof window !== 'undefined') {
 			return;
 		}
 
-		// List inspired by https://github.com/nico3333fr/van11y-accessible-modal-tooltip-aria/blob/master/src/van11y-accessible-modal-tooltip-aria.es6.js#L47C17-L47C17
 		const focusable = getFocusableElements(parentNode);
 		const first = focusable[0];
 		const last = focusable[focusable.length - 1];
@@ -44,13 +44,18 @@ if (typeof window !== 'undefined') {
 	document.addEventListener('keydown', trapFocusListener);
 }
 
-export function focusTrap(node: HTMLElement, focusOnFirst = true) {
+export function focusTrap(node: HTMLElement, focusOnFirst = true, focusOnElement?: HTMLElement) {
 	// focus on the first focusable element
-	if (focusOnFirst) {
+	if (focusOnFirst && !focusOnElement) {
 		const focusable = getFocusableElements(node);
 		if (focusable.length) {
 			focusable[0].focus();
 		}
+	}
+
+	// focus on the specified element
+	if (focusOnElement) {
+		focusOnElement.focus();
 	}
 
 	trapFocusList.push(node);
