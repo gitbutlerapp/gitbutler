@@ -7,6 +7,7 @@
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import {
 		ReorderDropzoneManager,
+		ReorderDropzoneManagerFactory,
 		type ReorderDropzone
 	} from '$lib/dragging/reorderDropzoneManager';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
@@ -48,6 +49,7 @@
 	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
+	// const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 	const gitHost = getGitHost();
 
 	const LineSpacer = {
@@ -72,6 +74,8 @@
 	const hasRemoteCommits = $derived(remoteOnlyPatches.length > 0);
 
 	let isIntegratingCommits = $state(false);
+
+	// const reorderDropzoneManager = $derived(reorderDropzoneManagerFactory.build($branch, patches));
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!$branch || !$baseBranch) {
@@ -138,7 +142,7 @@
 			<div class="commits-group">
 				<InsertEmptyCommitAction isFirst onclick={() => insertBlankCommit($branch.head, 'above')} />
 
-				{@render reorderDropzone(reorderDropzoneManager.topDropzone)}
+				{@render reorderDropzone(reorderDropzoneManager.topDropzone(seriesName))}
 
 				{#each patches as commit, idx (commit.id)}
 					<StackingCommitDragItem {commit}>
