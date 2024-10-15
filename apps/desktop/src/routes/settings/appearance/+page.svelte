@@ -246,4 +246,19 @@
 			</svelte:fragment>
 		</SectionCard>
 	</form>
+
+	<SectionCard labelFor="branchLaneContents" orientation="row">
+		<svelte:fragment slot="title">Auto-highlight Branch Lane Contents</svelte:fragment>
+		<svelte:fragment slot="caption">
+			An experimental UI toggle to highlight the contents of the branch lane input fields when
+			clicking into them.
+		</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Toggle
+				id="branchLaneContents"
+				checked={$autoSelectBranchNameFeature}
+				on:click={() => ($autoSelectBranchNameFeature = !$autoSelectBranchNameFeature)}
+			/>
+		</svelte:fragment>
+	</SectionCard>
 </SettingsPage>
