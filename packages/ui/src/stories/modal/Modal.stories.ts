@@ -1,22 +1,21 @@
 import DemoModal from './DemoModal.svelte';
-import iconsJson from '$lib/data/icons.json';
-import type { Meta, StoryObj } from '@storybook/svelte';
+import type { StoryObj } from '@storybook/svelte';
 
 const meta = {
 	title: 'Overlays / Modal',
-	component: DemoModal,
+	component: DemoModal as any,
 	argTypes: {
 		width: {
 			control: 'select',
 			options: ['default', 'small', 'large']
 		},
 		title: { control: 'text' },
-		icon: {
+		type: {
 			control: 'select',
-			options: [undefined, ...Object.keys(iconsJson)]
+			options: ['info', 'success', 'warning', 'error']
 		}
 	}
-} satisfies Meta<DemoModal>;
+};
 
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -25,6 +24,7 @@ export const DefaultStory: Story = {
 	name: 'Modal',
 	args: {
 		width: 'small',
+		type: 'info',
 		title: 'This is a fantastic modal :D'
 	}
 };
