@@ -12,6 +12,7 @@
 	import TextBox from '../shared/TextBox.svelte';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
+	import { portal } from '@gitbutler/ui/utils/portal';
 	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
 
@@ -171,6 +172,7 @@
 			role="presentation"
 			class="overlay-wrapper"
 			onclick={clickOutside}
+			use:portal={'body'}
 			use:resizeObserver={() => {
 				getInputBoundingRect();
 				setMaxHeight();
@@ -231,7 +233,7 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		/* background-color: rgba(0, 0, 0, 0.1); */
+		/* background-color: rgba(0, 0, 0, 0.1);  */
 	}
 
 	.options {

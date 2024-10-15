@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Icon from '$lib/Icon.svelte';
-	import { clickOutside } from '$lib/utils/clickOutside';
 	import { focusTrap } from '$lib/utils/focusTrap';
 	import { portal } from '$lib/utils/portal';
 	import { pxToRem } from '$lib/utils/pxToRem';
@@ -72,15 +71,26 @@
 </script>
 
 {#if open}
-	<div use:portal={'body'} class="modal-container {isClosing ? 'closing' : 'open'}" class:open>
+	<div
+		role="presentation"
+		use:portal={'body'}
+		class="modal-container {isClosing ? 'closing' : 'open'}"
+		class:open
+		onclick={(e) => {
+			console.log(e.target);
+			e.stopPropagation();
+
+			if (e.target === e.currentTarget) {
+				close();
+			}
+
+			// close();
+		}}
+		onkeydown={onKeyDown}
+	>
 		<div
 			use:focusTrap
-			use:clickOutside={{
-				handler: close
-			}}
 			class="modal-content"
-			role="presentation"
-			onkeydown={onKeyDown}
 			class:medium={width === 'medium'}
 			class:large={width === 'large'}
 			class:small={width === 'small'}
