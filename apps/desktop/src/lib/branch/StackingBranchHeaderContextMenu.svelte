@@ -17,6 +17,7 @@
 		target?: HTMLElement;
 		headName: string;
 		seriesCount: number;
+		disableTitleEdit: boolean;
 		addDescription: () => void;
 		onGenerateBranchName: () => void;
 	}
@@ -25,6 +26,7 @@
 		contextMenuEl = $bindable(),
 		target,
 		seriesCount,
+		disableTitleEdit,
 		headName,
 		addDescription,
 		onGenerateBranchName
@@ -69,7 +71,7 @@
 				onGenerateBranchName();
 				contextMenuEl?.close();
 			}}
-			disabled={!($aiGenEnabled && aiConfigurationValid)}
+			disabled={!($aiGenEnabled && aiConfigurationValid) || disableTitleEdit}
 		/>
 		<ContextMenuItem
 			label="Rename"

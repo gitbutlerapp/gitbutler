@@ -164,6 +164,7 @@
 				seriesCount={branch.series?.length ?? 0}
 				{addDescription}
 				onGenerateBranchName={generateBranchName}
+				disableTitleEdit={!!gitHostBranch}
 			/>
 		</div>
 	</div>
