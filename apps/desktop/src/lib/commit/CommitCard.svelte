@@ -9,7 +9,6 @@
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
 	import { ModeService } from '$lib/modes/service';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -92,9 +91,6 @@
 	let commitMessageValid = false;
 	let description = '';
 
-	let createRefModal: Modal;
-	let createRefName = $baseBranch.remoteName + '/';
-
 	let conflictResolutionConfirmationModal: ReturnType<typeof Modal> | undefined;
 
 	function openCommitMessageModal(e: Event) {
@@ -166,29 +162,6 @@
 		<Button style="neutral" type="submit" kind="solid" grow disabled={!commitMessageValid}>
 			Submit
 		</Button>
-	{/snippet}
-</Modal>
-
-<Modal bind:this={createRefModal} width="small">
-	{#snippet children(commit)}
-		<TextBox label="Remote branch name" id="newRemoteName" bind:value={createRefName} focus />
-		<Button
-			style="pop"
-			kind="solid"
-			onclick={() => {
-				branchController.createChangeReference(
-					branch?.id || '',
-					'refs/remotes/' + createRefName,
-					commit.changeId
-				);
-				createRefModal.close();
-			}}
-		>
-			Ok
-		</Button>
-	{/snippet}
-	{#snippet controls(close)}
-		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
 	{/snippet}
 </Modal>
 

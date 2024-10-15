@@ -104,9 +104,10 @@ pub(crate) fn move_commit(
     if let Some(commits_to_check) = descendant_commits.as_mut() {
         // we append the source commit so that we can create the diff between
         // the source commit and its first descendant
+        let mut commits_to_check = commits_to_check.clone();
         commits_to_check.push(source_commit.clone());
         let is_descendant_locked =
-            check_source_lock_to_commits(ctx.repository(), commits_to_check, &source_commit_diff);
+            check_source_lock_to_commits(ctx.repository(), &commits_to_check, &source_commit_diff);
 
         if is_descendant_locked {
             bail!("the target commit contains hunks locked to its descendants")

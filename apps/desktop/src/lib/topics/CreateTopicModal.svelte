@@ -62,7 +62,7 @@
 
 <svelte:window on:keydown={handleKeyDown} />
 
-<Modal bind:this={modal}>
+<Modal bind:this={modal} onSubmit={submit}>
 	<h2 class="text-18 text-bold">Create an topic</h2>
 
 	<div class="input">
@@ -93,7 +93,7 @@
 
 	{#snippet controls()}
 		<Button onclick={() => modal?.close()}>Cancel</Button>
-		<Button kind="solid" style="pop" onclick={submit} loading={submitProgress === 'loading'}
+		<Button kind="solid" style="pop" type="submit" loading={submitProgress === 'loading'}
 			>{topic ? 'Update' : 'Create'}</Button
 		>
 	{/snippet}

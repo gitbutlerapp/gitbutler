@@ -277,7 +277,7 @@ export class BranchController {
 			await invoke<void>('reset_files', {
 				projectId: this.projectId,
 				branchId,
-				files: files.flatMap((f) => f.path)
+				files: files?.flatMap((f) => f.path) ?? []
 			});
 		} catch (err) {
 			showError('Failed to unapply file changes', err);

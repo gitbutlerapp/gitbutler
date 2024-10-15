@@ -20,7 +20,7 @@
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		target?: HTMLElement;
 		onCollapse: () => void;
-		onGenerateBranchName: () => void;
+		onGenerateBranchName?: () => void;
 	}
 
 	let { contextMenuEl = $bindable(), target, onCollapse, onGenerateBranchName }: Props = $props();
@@ -91,8 +91,12 @@
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Unapply"
-			on:click={() => {
-				saveAndUnapply();
+			on:click={async () => {
+				if (commits.length === 0 && branch.files?.length === 0) {
+					await branchController.unapplyWithoutSaving(branch.id);
+				} else {
+					saveAndUnapply();
+				}
 				contextMenuEl?.close();
 			}}
 		/>
@@ -113,14 +117,16 @@
 			}}
 		/>
 
-		<ContextMenuItem
-			label="Generate branch name"
-			on:click={() => {
-				onGenerateBranchName();
-				contextMenuEl?.close();
-			}}
-			disabled={!($aiGenEnabled && aiConfigurationValid) || branch.files?.length === 0}
-		/>
+		{#if !$stackingFeature}
+			<ContextMenuItem
+				label="Generate branch name"
+				on:click={() => {
+					onGenerateBranchName?.();
+					contextMenuEl?.close();
+				}}
+				disabled={!($aiGenEnabled && aiConfigurationValid) || branch.files?.length === 0}
+			/>
+		{/if}
 	</ContextMenuSection>
 
 	{#if !$stackingFeature}
@@ -146,7 +152,7 @@
 
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Create branch to the left"
+			label={`Create ${$stackingFeature ? 'stack' : 'branch'} to the left`}
 			on:click={() => {
 				branchController.createBranch({ order: branch.order });
 				contextMenuEl?.close();
@@ -154,7 +160,7 @@
 		/>
 
 		<ContextMenuItem
-			label="Create branch to the right"
+			label={`Create ${$stackingFeature ? 'stack' : 'branch'} to the right`}
 			on:click={() => {
 				branchController.createBranch({ order: branch.order + 1 });
 				contextMenuEl?.close();

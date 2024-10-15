@@ -2,22 +2,17 @@
 	import StackHeader from './StackHeader.svelte';
 	import StackSeries from './StackSeries.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
-	import { PromptService } from '$lib/ai/promptService';
-	import { AIService } from '$lib/ai/service';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import StackingNewStackCard from '$lib/branch/StackingNewStackCard.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
-	import { projectAiGenEnabled } from '$lib/config/config';
 	import { stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
-	import { showError } from '$lib/notifications/toasts';
-	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
@@ -46,11 +41,6 @@
 
 	const branch = $derived($branchStore);
 
-	const aiGenEnabled = projectAiGenEnabled(project.id);
-
-	const aiService = getContext(AIService);
-	const promptService = getContext(PromptService);
-
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
@@ -66,32 +56,6 @@
 		}
 	});
 
-	async function generateBranchName() {
-		if (!aiGenEnabled) return;
-
-		const hunks = branch.files.flatMap((f) => f.hunks);
-
-		const prompt = promptService.selectedBranchPrompt(project.id);
-		const messageResult = await aiService.summarizeBranch({
-			hunks,
-			branchTemplate: prompt
-		});
-
-		if (isFailure(messageResult)) {
-			console.error(messageResult.failure);
-			showError('Failed to generate branch name', messageResult.failure);
-
-			return;
-		}
-
-		const message = messageResult.value;
-
-		if (message && message !== branch.name) {
-			branch.name = message;
-			branchController.updateBranchName(branch.id, branch.name);
-		}
-	}
-
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey + branch.id);
 	});
@@ -105,9 +69,24 @@
 		$localAndRemoteCommits.some((commit) => commit.conflicted)
 	);
 
+	const branchUpstreamPatches = $derived(branch.series.flatMap((s) => s.upstreamPatches));
+	const branchPatches = $derived(branch.series.flatMap((s) => s.patches));
+
+	let canPush = $derived.by(() => {
+		if (branchUpstreamPatches.length > 0) return true;
+		if (branchPatches.some((p) => p.status !== 'localAndRemote')) return true;
+		if (branchPatches.some((p) => p.remoteCommitId !== p.id)) return true;
+		return false;
+	});
+
 	const listingService = getGitHostListingService();
 	const prMonitor = getGitHostPrMonitor();
 	const checksMonitor = getGitHostChecksMonitor();
+
+	const stackBranches = $derived(branch.series.map((s) => s.name));
+	const hostedListingServiceStore = getGitHostListingService();
+	const prStore = $derived($hostedListingServiceStore?.prs);
+	const stackPrs = $derived($prStore?.filter((pr) => stackBranches.includes(pr.sourceBranch)));
 
 	async function push() {
 		isPushingCommits = true;
@@ -126,11 +105,7 @@
 
 {#if $isLaneCollapsed}
 	<div class="collapsed-lane-container">
-		<StackHeader
-			uncommittedChanges={branch.files.length}
-			onGenerateBranchName={generateBranchName}
-			{isLaneCollapsed}
-		/>
+		<StackHeader uncommittedChanges={branch.files.length} {isLaneCollapsed} />
 		<div class="collapsed-lane-divider" data-remove-from-draggable></div>
 	</div>
 {:else}
@@ -150,7 +125,7 @@
 					class="branch-card__contents"
 					data-tauri-drag-region
 				>
-					<StackHeader {isLaneCollapsed} onGenerateBranchName={generateBranchName} />
+					<StackHeader {isLaneCollapsed} stackPrs={stackPrs?.length ?? 0} />
 					<div class="card-stacking">
 						{#if branch.files?.length > 0}
 							<div class="branch-card__files card">
@@ -219,21 +194,23 @@
 						</div>
 					</div>
 				</div>
-				<div class="lane-branches__action" class:scroll-end-visible={scrollEndVisible}>
-					<Button
-						style="neutral"
-						kind="solid"
-						wide
-						loading={isPushingCommits}
-						disabled={localCommitsConflicted || localAndRemoteCommitsConflicted}
-						tooltip={localCommitsConflicted
-							? 'In order to push, please resolve any conflicted commits.'
-							: undefined}
-						onclick={push}
-					>
-						{branch.requiresForce ? 'Force push' : 'Push'}
-					</Button>
-				</div>
+				{#if canPush}
+					<div class="lane-branches__action" class:scroll-end-visible={scrollEndVisible}>
+						<Button
+							style="neutral"
+							kind="solid"
+							wide
+							loading={isPushingCommits}
+							disabled={localCommitsConflicted || localAndRemoteCommitsConflicted}
+							tooltip={localCommitsConflicted
+								? 'In order to push, please resolve any conflicted commits.'
+								: undefined}
+							onclick={push}
+						>
+							{branch.requiresForce ? 'Force push' : 'Push'}
+						</Button>
+					</div>
+				{/if}
 			</ScrollableContainer>
 			<div class="divider-line">
 				{#if rsViewport}
@@ -279,8 +256,9 @@
 	.lane-branches__action {
 		z-index: var(--z-lifted);
 		position: sticky;
-		padding: 14px;
+		padding: 12px;
 		bottom: 0px;
+		transition: background-color var(--transition-fast);
 
 		&:not(.scroll-end-visible) {
 			background-color: var(--clr-bg-1);
@@ -341,6 +319,7 @@
 		color: var(--clr-scale-ntrl-60);
 		justify-content: center;
 		cursor: default; /* was defaulting to text cursor */
+		border-top-width: 0px;
 	}
 
 	/* COLLAPSED LANE */

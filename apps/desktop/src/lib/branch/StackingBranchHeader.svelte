@@ -2,14 +2,20 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import StackingStatusIcon from './StackingStatusIcon.svelte';
 	import { getColorFromBranchType } from './stackingUtils';
+	import { PromptService } from '$lib/ai/promptService';
+	import { AIService } from '$lib/ai/service';
+	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import StackingBranchHeaderContextMenu from '$lib/branch/StackingBranchHeaderContextMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
+	import { showError } from '$lib/notifications/toasts';
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import StackingPullRequestCard from '$lib/pr/StackingPullRequestCard.svelte';
+	import { isFailure } from '$lib/result';
 	import { slugify } from '$lib/utils/string';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -28,14 +34,19 @@
 
 	let descriptionVisible = $state(false);
 
+	const project = getContext(Project);
+	const aiService = getContext(AIService);
+	const promptService = getContext(PromptService);
 	const branchStore = getContextStore(VirtualBranch);
-	const branch = $derived($branchStore);
 
+	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const prService = getGitHostPrService();
 	const gitHost = getGitHost();
+
 	const gitHostBranch = $derived(upstreamName ? $gitHost?.branch(upstreamName) : undefined);
+	const branch = $derived($branchStore);
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
@@ -83,6 +94,31 @@
 	function addDescription() {
 		descriptionVisible = true;
 	}
+
+	async function generateBranchName() {
+		if (!aiGenEnabled || !currentSeries) return;
+
+		const hunks = currentSeries.patches.flatMap((p) => p.files.flatMap((f) => f.hunks));
+
+		const prompt = promptService.selectedBranchPrompt(project.id);
+		const messageResult = await aiService.summarizeBranch({
+			hunks,
+			branchTemplate: prompt
+		});
+
+		if (isFailure(messageResult)) {
+			console.error(messageResult.failure);
+			showError('Failed to generate branch name', messageResult.failure);
+
+			return;
+		}
+
+		const message = messageResult.value;
+
+		if (message && message !== currentSeries.name) {
+			branchController.updateSeriesName(branch.id, currentSeries.name, slugify(message));
+		}
+	}
 </script>
 
 <div class="branch-header">
@@ -95,7 +131,7 @@
 		/>
 		<div class="text-14 text-bold branch-info__name">
 			<span class:no-upstream={!gitHostBranch} class="remote-name">
-				{$baseBranch.remoteName ?? 'origin'}/
+				{$baseBranch.remoteName ? `${$baseBranch.remoteName} /` : 'origin /'}
 			</span>
 			<BranchLabel {name} onChange={(name) => editTitle(name)} disabled={!!gitHostBranch} />
 			{#if gitHostBranch}
@@ -127,6 +163,8 @@
 				headName={name}
 				seriesCount={branch.series?.length ?? 0}
 				{addDescription}
+				onGenerateBranchName={generateBranchName}
+				disableTitleEdit={!!gitHostBranch}
 			/>
 		</div>
 	</div>
@@ -211,10 +249,18 @@
 
 		.remote-name {
 			margin-top: 3px;
+			min-width: max-content;
 			color: var(--clr-scale-ntrl-60);
 
 			&.no-upstream {
-				width: 0px;
+				/**
+				 * Element is requird to still be there, so we can use
+				 * it to wiggle 5px to the left to align the BranchLabel 
+				 * Input/Label component.
+				 */
+				visibility: hidden;
+				max-width: 0px;
+				max-height: 0px;
 				margin-right: -5px;
 			}
 		}
@@ -240,7 +286,7 @@
 	}
 
 	.branch-action__line {
-		width: 2px;
+		min-width: 2px;
 		margin: 0 22px;
 		background-color: var(--bg-color, var(--clr-border-3));
 	}
