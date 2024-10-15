@@ -15,6 +15,7 @@
 		name?: string;
 		mimeType?: string;
 		size?: number;
+		status: 'normal' | 'deleted';
 	}
 
 	interface Props {
@@ -76,14 +77,16 @@
 		content: '',
 		name: undefined,
 		mimeType: undefined,
-		size: 0
+		size: 0,
+		status: 'normal'
 	});
 
 	async function fetchBlobInfo() {
 		try {
 			const fetchedFileInfo: FileInfo = await invoke('get_blob_info', {
 				relativePath: filePath,
-				projectId: project.id
+				projectId: project.id,
+				commitId
 			});
 			fileInfo = fetchedFileInfo;
 		} catch (error) {
@@ -101,7 +104,11 @@
 		{#if fileInfo.mimeType && fileInfo.content}
 			<img src="data:{fileInfo.mimeType};base64,{fileInfo.content}" alt={fileInfo.name} />
 		{/if}
-		<p>Size: {formatFileSize(fileInfo.size || 0)}</p>
+		{#if fileInfo.status === 'deleted'}
+			<p>File has been deleted</p>
+		{:else}
+			<p>Size: {formatFileSize(fileInfo.size || 0)}</p>
+		{/if}
 	{:else if isLarge}
 		Diff too large to be shown
 	{:else if sections.length > 50 && !alwaysShow}

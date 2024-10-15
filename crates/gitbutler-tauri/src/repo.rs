@@ -1,6 +1,7 @@
 pub mod commands {
     use crate::error::{Error, UnmarkedError};
     use anyhow::Result;
+    use git2::Oid;
     use gitbutler_branch_actions::RemoteBranchFile;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
@@ -75,7 +76,7 @@ pub mod commands {
         relative_path: &Path,
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
-        let file_info = project.read_file_from_workspace(relative_path)?;
+        let file_info = project.read_file_from_workspace(None, relative_path)?;
 
         Ok(file_info.content)
     }
@@ -86,9 +87,13 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         relative_path: &Path,
+        commit_id: Option<String>,
     ) -> Result<FileInfo, Error> {
         let project = projects.get(project_id)?;
+        let commit_oid = commit_id
+            .map(|id| Oid::from_str(&id).map_err(|e| anyhow::anyhow!(e)))
+            .transpose()?;
 
-        Ok(project.read_file_from_workspace(relative_path)?)
+        Ok(project.read_file_from_workspace(commit_oid, relative_path)?)
     }
 }
