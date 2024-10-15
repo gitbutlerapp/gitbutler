@@ -191,16 +191,19 @@
 		overflow: hidden;
 		padding: 16px;
 		line-height: 160%;
-		color: var(--clr-text-2);
 
 		&.no-padding {
 			padding: 0;
 		}
 	}
 
-	.modal__body > :global(code),
-	.modal__body > :global(pre) {
+	.modal__body :global(code),
+	.modal__body :global(pre) {
 		word-wrap: break-word;
+	}
+
+	.modal__body :global(p) {
+		color: var(--clr-text-2);
 	}
 
 	.modal__footer {
