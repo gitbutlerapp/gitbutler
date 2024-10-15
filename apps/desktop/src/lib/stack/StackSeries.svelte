@@ -18,9 +18,10 @@
 		branch.series.flatMap((s) => s.patches).some((patch) => patch.conflicted)
 	);
 
+	console.log('stackSeries.commits', { local: branch.localCommits, remote: branch.remoteCommits });
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 	const reorderDropzoneManager = $derived(
-		reorderDropzoneManagerFactory.build(branch, [...branch.localCommits, ...branch.remoteCommits])
+		reorderDropzoneManagerFactory.build({ branch, series: branch.series })
 	);
 </script>
 

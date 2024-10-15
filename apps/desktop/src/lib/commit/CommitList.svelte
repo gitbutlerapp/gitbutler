@@ -99,7 +99,10 @@
 	const hasRemoteCommits = $derived(remoteCommits.length > 0);
 
 	const reorderDropzoneManager = $derived(
-		reorderDropzoneManagerFactory.build($branch, [...localCommits, ...localAndRemoteCommits])
+		reorderDropzoneManagerFactory.build({
+			branch: $branch,
+			commits: [...localCommits, ...localAndRemoteCommits]
+		})
 	);
 
 	let isIntegratingCommits = $state(false);
