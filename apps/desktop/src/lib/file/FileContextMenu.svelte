@@ -33,6 +33,16 @@
 		});
 	}
 
+	function confirmDiscard(item: any) {
+		if (!branchId) {
+			console.error('Branch ID is not set');
+			toasts.error('Failed to discard changes');
+			return;
+		}
+		branchController.unapplyFiles(branchId, item.files);
+		close();
+	}
+
 	export function open(e: MouseEvent, item: any) {
 		contextMenu.open(e, item);
 	}
@@ -104,7 +114,12 @@
 	{/snippet}
 </ContextMenu>
 
-<Modal width="small" title="Discard changes" bind:this={confirmationModal}>
+<Modal
+	width="small"
+	title="Discard changes"
+	bind:this={confirmationModal}
+	onSubmit={confirmDiscard}
+>
 	{#snippet children(item)}
 		<div>
 			Discarding changes to the following files:
@@ -117,21 +132,7 @@
 	{/snippet}
 	{#snippet controls(close, item)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button
-			style="error"
-			kind="solid"
-			onclick={() => {
-				if (!branchId) {
-					console.error('Branch ID is not set');
-					toasts.error('Failed to discard changes');
-					return;
-				}
-				branchController.unapplyFiles(branchId, item.files);
-				close();
-			}}
-		>
-			Confirm
-		</Button>
+		<Button style="error" kind="solid" type="submit" onclick={confirmDiscard(item)}>Confirm</Button>
 	{/snippet}
 </Modal>
 

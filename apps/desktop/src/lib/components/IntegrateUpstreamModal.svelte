@@ -130,8 +130,7 @@
 	};
 </script>
 
-<Modal bind:this={modal} {onClose} width={560} noPadding>
-	<!-- <ScrollableContainer maxHeight="50vh"> -->
+<Modal bind:this={modal} {onClose} width={560} noPadding onSubmit={integrate}>
 	<ScrollableContainer maxHeight={'70vh'}>
 		{#if $base}
 			<div class="section">
@@ -245,7 +244,7 @@
 			<Button onclick={() => modal?.close()} style="ghost" outline>Cancel</Button>
 			<Button
 				wide
-				onclick={integrate}
+				type="submit"
 				style="pop"
 				kind="solid"
 				disabled={isDivergedResolved}

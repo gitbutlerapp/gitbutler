@@ -465,6 +465,7 @@
 						kind="solid"
 						disabled={isLoading || aiIsLoading}
 						{isLoading}
+						type="submit"
 						onclick={async () => await handleCreatePR(close)}
 						>{isDraft ? 'Create draft pull request' : 'Create pull request'}</Button
 					>

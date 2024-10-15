@@ -29,18 +29,18 @@
 <CreateIssueModal bind:this={createIssueModal} {topic} />
 <CreateTopicModal bind:this={createTopicModal} {topic} />
 
-<Modal bind:this={deleteModal} width="small">
+<Modal
+	bind:this={deleteModal}
+	width="small"
+	onSubmit={() => {
+		topicService.remove(topic);
+		deleteModal?.close();
+	}}
+>
 	<p>Are you sure you want to delete this topic?</p>
 	{#snippet controls()}
 		<Button onclick={() => deleteModal?.close()}>Cancel</Button>
-		<Button
-			onclick={() => {
-				topicService.remove(topic);
-				deleteModal?.close();
-			}}
-			kind="solid"
-			style="error">Delete</Button
-		>
+		<Button type="submit" kind="solid" style="error">Delete</Button>
 	{/snippet}
 </Modal>
 
