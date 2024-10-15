@@ -7,7 +7,8 @@
 	import {
 		SETTINGS,
 		type Settings,
-		type ScrollbarVisilitySettings
+		type ScrollbarVisilitySettings,
+		type CodeEditorSettings
 	} from '$lib/settings/userSettings';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
@@ -19,10 +20,14 @@
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 
-	const editorOptions = [
-		{ label: 'VSCode', value: 'vscode' },
-		{ label: 'Zed', value: 'zed' }
+	const editorOptions: CodeEditorSettings[] = [
+		{ schemeIdentifer: 'vscode', displayName: 'VSCode' },
+		{ schemeIdentifer: 'zed', displayName: 'Zed' }
 	];
+	const editorOptionsForSelect = editorOptions.map((option) => ({
+		label: option.displayName,
+		value: option.schemeIdentifer
+	}));
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
@@ -73,15 +78,20 @@
 		<svelte:fragment slot="caption">Select your preferred default code editor.</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Select
-				value={$userSettings.defaultCodeEditor}
-				options={editorOptions}
+				value={$userSettings.defaultCodeEditor.schemeIdentifer}
+				options={editorOptionsForSelect}
 				onselect={(value) => {
-					userSettings.update((s) => ({ ...s, defaultCodeEditor: value }));
-					console.log('userSettings', $userSettings.defaultCodeEditor);
+					const selected = editorOptions.find((option) => option.schemeIdentifer === value);
+					if (selected) {
+						userSettings.update((s) => ({ ...s, defaultCodeEditor: selected }));
+					}
 				}}
 			>
 				{#snippet itemSnippet({ item, highlighted })}
-					<SelectItem selected={item.value === $userSettings.defaultCodeEditor} {highlighted}>
+					<SelectItem
+						selected={item.value === $userSettings.defaultCodeEditor.schemeIdentifer}
+						{highlighted}
+					>
 						{item.label}
 					</SelectItem>
 				{/snippet}
