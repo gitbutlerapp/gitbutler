@@ -14,16 +14,10 @@
 	interface Props {
 		uncommittedChanges?: number;
 		isLaneCollapsed: Persisted<boolean>;
-		onGenerateBranchName: () => void;
 		stackPrs?: number;
 	}
 
-	const {
-		uncommittedChanges = 0,
-		isLaneCollapsed,
-		onGenerateBranchName,
-		stackPrs = 0
-	}: Props = $props();
+	const { uncommittedChanges = 0, isLaneCollapsed, stackPrs = 0 }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const branchStore = getContextStore(VirtualBranch);
@@ -130,7 +124,6 @@
 							bind:contextMenuEl={contextMenu}
 							target={meatballButtonEl}
 							onCollapse={collapseLane}
-							{onGenerateBranchName}
 						/>
 					</div>
 					<div class="header__info-row">
