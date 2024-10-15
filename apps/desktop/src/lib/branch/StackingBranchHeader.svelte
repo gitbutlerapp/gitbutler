@@ -240,7 +240,7 @@
 	}
 
 	.branch-action__line {
-		width: 2px;
+		min-width: 2px;
 		margin: 0 22px;
 		background-color: var(--bg-color, var(--clr-border-3));
 	}

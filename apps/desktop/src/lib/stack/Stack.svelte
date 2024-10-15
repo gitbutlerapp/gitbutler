@@ -105,6 +105,15 @@
 		$localAndRemoteCommits.some((commit) => commit.conflicted)
 	);
 
+	const branchUpstreamPatches = $derived(branch.series.flatMap((s) => s.upstreamPatches));
+	const branchPatches = $derived(branch.series.flatMap((s) => s.patches));
+
+	let canPush = $derived.by(() => {
+		if (branchUpstreamPatches.length > 0) return true;
+		if (branchPatches.find((p) => p.status !== 'localAndRemote')) return true;
+		return false;
+	});
+
 	const listingService = getGitHostListingService();
 	const prMonitor = getGitHostPrMonitor();
 	const checksMonitor = getGitHostChecksMonitor();
@@ -228,21 +237,23 @@
 						</div>
 					</div>
 				</div>
-				<div class="lane-branches__action" class:scroll-end-visible={scrollEndVisible}>
-					<Button
-						style="neutral"
-						kind="solid"
-						wide
-						loading={isPushingCommits}
-						disabled={localCommitsConflicted || localAndRemoteCommitsConflicted}
-						tooltip={localCommitsConflicted
-							? 'In order to push, please resolve any conflicted commits.'
-							: undefined}
-						onclick={push}
-					>
-						{branch.requiresForce ? 'Force push' : 'Push'}
-					</Button>
-				</div>
+				{#if canPush}
+					<div class="lane-branches__action" class:scroll-end-visible={scrollEndVisible}>
+						<Button
+							style="neutral"
+							kind="solid"
+							wide
+							loading={isPushingCommits}
+							disabled={localCommitsConflicted || localAndRemoteCommitsConflicted}
+							tooltip={localCommitsConflicted
+								? 'In order to push, please resolve any conflicted commits.'
+								: undefined}
+							onclick={push}
+						>
+							{branch.requiresForce ? 'Force push' : 'Push'}
+						</Button>
+					</div>
+				{/if}
 			</ScrollableContainer>
 			<div class="divider-line">
 				{#if rsViewport}
