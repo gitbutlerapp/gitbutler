@@ -55,7 +55,7 @@
 		id = undefined,
 		loading = false,
 		tabindex,
-		type,
+		type = 'button',
 		shrinkable = false,
 		reversedDirection = false,
 		width,
