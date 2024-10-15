@@ -2,15 +2,14 @@
 	import { Project } from '$lib/backend/projects';
 	import { CommitService } from '$lib/commits/service';
 	import { conflictEntryHint, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
-
 	import FileContextMenu from '$lib/file/FileContextMenu.svelte';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { Commit, type RemoteFile } from '$lib/vbranches/types';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';

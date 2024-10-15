@@ -2,15 +2,15 @@
 	import { listen } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
 	import { showHistoryView } from '$lib/config/config';
-	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
 	import type { Writable } from 'svelte/store';
+	import { goto } from '$app/navigation';
 
 	const project = getContext(Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);

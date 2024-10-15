@@ -3,6 +3,8 @@
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
 	import HunkDiff from '$lib/hunk/HunkDiff.svelte';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
+	import Select from '$lib/select/Select.svelte';
+	import SelectItem from '$lib/select/SelectItem.svelte';
 	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
 	import {
 		SETTINGS,
@@ -17,8 +19,6 @@
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import type { ContentSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
-	import Select from '$lib/select/Select.svelte';
-	import SelectItem from '$lib/select/SelectItem.svelte';
 
 	const editorOptions: CodeEditorSettings[] = [
 		{ schemeIdentifer: 'vscode', displayName: 'VSCode' },
