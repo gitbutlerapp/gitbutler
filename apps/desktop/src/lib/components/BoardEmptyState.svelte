@@ -2,8 +2,8 @@
 	import zenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
