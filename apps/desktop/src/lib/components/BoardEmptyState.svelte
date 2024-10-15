@@ -19,7 +19,7 @@
 
 	async function openInEditor() {
 		openExternalUrl(
-			`${$userSettings.defaultCodeEditor}://file${project.vscodePath}/?windowId=_blank`
+			`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${project.vscodePath}/?windowId=_blank`
 		);
 	}
 </script>
@@ -70,7 +70,7 @@
 							<div class="empty-board__suggestions__link__icon">
 								<Icon name="vscode" />
 							</div>
-							<span class="text-12">Open in Editor</span>
+							<span class="text-12">`Open in {$userSettings.defaultCodeEditor.displayName}`</span>
 						</button>
 					</div>
 				</div>

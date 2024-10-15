@@ -87,14 +87,16 @@
 					/>
 				{/if}
 				<ContextMenuItem
-					label="Open in Editor"
+					label="Open in {$userSettings.defaultCodeEditor.displayName}"
 					disabled={isDeleted(item)}
 					on:click={async () => {
 						try {
 							if (!project) return;
 							for (let file of item.files) {
 								const absPath = await join(project.vscodePath, file.path);
-								openExternalUrl(`${$userSettings.defaultCodeEditor}://file${absPath}`);
+								openExternalUrl(
+									`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${absPath}`
+								);
 							}
 							contextMenu.close();
 						} catch {

@@ -23,7 +23,7 @@
 		const unsubscribeopenInEditor = listen<string>(
 			'menu://project/open-in-vscode/clicked',
 			async () => {
-				const path = `${$userSettings.defaultCodeEditor}://file${project.vscodePath}?windowId=_blank`;
+				const path = `${$userSettings.defaultCodeEditor.schemeIdentifer}://file${project.vscodePath}?windowId=_blank`;
 				openExternalUrl(path);
 			}
 		);

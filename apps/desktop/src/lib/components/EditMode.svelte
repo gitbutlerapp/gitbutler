@@ -166,7 +166,7 @@
 	async function openAllConflictedFiles() {
 		for (const file of conflictedFiles) {
 			const absPath = await join(project.vscodePath, file.path);
-			openExternalUrl(`${$userSettings.defaultCodeEditor}://file${absPath}`);
+			openExternalUrl(`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${absPath}`);
 		}
 	}
 </script>
@@ -177,8 +177,8 @@
 			{editModeMetadata.commitOid.slice(0, 7)}
 		</span>
 		<InfoButton title="Edit Mode">
-			Edit Mode lets you modify an existing commit in isolation or resolve conflicts. Any
-			changes made, including new files, will be added to the selected commit.
+			Edit Mode lets you modify an existing commit in isolation or resolve conflicts. Any changes
+			made, including new files, will be added to the selected commit.
 		</InfoButton>
 	</h2>
 

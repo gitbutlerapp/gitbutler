@@ -46,11 +46,11 @@
 			{/if}
 			{#if item.lineNumber}
 				<ContextMenuItem
-					label="Open in Editor"
+					label="Open in {$userSettings.defaultCodeEditor.displayName}"
 					on:click={() => {
 						projectPath &&
 							openExternalUrl(
-								`${$userSettings.defaultCodeEditor}://file${projectPath}/${filePath}:${item.lineNumber}`
+								`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${projectPath}/${filePath}:${item.lineNumber}`
 							);
 						contextMenu.close();
 					}}
