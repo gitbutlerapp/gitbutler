@@ -1,5 +1,12 @@
-<script lang="ts" module>
-	export interface Props {
+<script lang="ts">
+	import Icon from '$lib/Icon.svelte';
+	import { focusTrap } from '$lib/utils/focusTrap';
+	import { portal } from '$lib/utils/portal';
+	import { pxToRem } from '$lib/utils/pxToRem';
+	import { onDestroy } from 'svelte';
+	import type { Snippet } from 'svelte';
+
+	interface Props {
 		width?: 'medium' | 'large' | 'small' | 'xsmall' | number;
 		type?: 'info' | 'warning' | 'error' | 'success';
 		title?: string;
@@ -10,15 +17,6 @@
 		children: Snippet<[item: any, close: () => void]>;
 		controls?: Snippet<[close: () => void, item: any]>;
 	}
-</script>
-
-<script lang="ts">
-	import Icon from '$lib/Icon.svelte';
-	import { focusTrap } from '$lib/utils/focusTrap';
-	import { portal } from '$lib/utils/portal';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import { onDestroy } from 'svelte';
-	import type { Snippet } from 'svelte';
 
 	const {
 		width = 'medium',

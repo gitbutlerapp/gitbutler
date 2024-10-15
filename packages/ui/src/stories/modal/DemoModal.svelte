@@ -1,15 +1,10 @@
 <script lang="ts">
 	import Button from '$lib/Button.svelte';
-	import Modal, { type Props as ModalProps } from '$lib/Modal.svelte';
-	import { type SvelteComponent, type Snippet } from 'svelte';
+	import Modal from '$lib/Modal.svelte';
 
-	const { ...args }: ModalProps = $props();
+	const { ...args }: typeof Modal = $props();
 
-	let modal: SvelteComponent<ModalProps>;
-
-	$effect(() => {
-		modal?.show();
-	});
+	let modal: Modal;
 </script>
 
 <Button
@@ -17,13 +12,7 @@
 		modal?.show();
 	}}>Show</Button
 >
-<Modal
-	bind:this={modal}
-	type={args.type}
-	title={args.title}
-	width={args.width}
-	onSubmit={() => console.log('submitted')}
->
+<Modal bind:this={modal} {...args} onSubmit={() => console.log('submitted')}>
 	A branch with the same name already exists. Do you want to merge this branch into the current
 	branch?
 
