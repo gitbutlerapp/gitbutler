@@ -64,7 +64,7 @@
 			}}
 		/>
 		<ContextMenuItem
-			label="Generate branch name"
+			label="Generate series name"
 			on:click={() => {
 				onGenerateBranchName();
 				contextMenuEl?.close();

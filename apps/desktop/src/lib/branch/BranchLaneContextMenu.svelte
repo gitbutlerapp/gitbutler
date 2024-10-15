@@ -148,7 +148,7 @@
 
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Create branch to the left"
+			label={`Create ${$stackingFeature ? 'stack' : 'branch'} to the left`}
 			on:click={() => {
 				branchController.createBranch({ order: branch.order });
 				contextMenuEl?.close();
@@ -156,7 +156,7 @@
 		/>
 
 		<ContextMenuItem
-			label="Create branch to the right"
+			label={`Create ${$stackingFeature ? 'stack' : 'branch'} to the right`}
 			on:click={() => {
 				branchController.createBranch({ order: branch.order + 1 });
 				contextMenuEl?.close();
