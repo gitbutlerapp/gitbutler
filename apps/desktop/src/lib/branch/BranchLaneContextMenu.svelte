@@ -91,8 +91,12 @@
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Unapply"
-			on:click={() => {
-				saveAndUnapply();
+			on:click={async () => {
+				if (commits.length === 0 && branch.files?.length === 0) {
+					await branchController.unapplyWithoutSaving(branch.id);
+				} else {
+					saveAndUnapply();
+				}
 				contextMenuEl?.close();
 			}}
 		/>
