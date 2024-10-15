@@ -18,7 +18,7 @@ fn init_success() -> Result<()> {
     assert!(result.is_ok());
     assert!(branch.initialized());
     assert_eq!(branch.heads.len(), 1);
-    assert_eq!(branch.heads[0].name, "virtual"); // matches the stack name
+    assert_eq!(branch.heads[0].name, "branch-1"); // matches the stack name
     assert_eq!(
         branch.heads[0].target,
         CommitOrChangeId::ChangeId(
@@ -126,7 +126,7 @@ fn add_multiple_series() -> Result<()> {
     test_ctx.branch.initialize(&ctx)?;
 
     assert_eq!(test_ctx.branch.heads.len(), 1);
-    assert_eq!(head_names(&test_ctx), vec!["virtual"]); // defalts to stack name
+    assert_eq!(head_names(&test_ctx), vec!["branch-1"]); // defalts to stack name
     let default_head = test_ctx.branch.heads[0].clone();
 
     let head_4 = PatchReference {
@@ -138,7 +138,7 @@ fn add_multiple_series() -> Result<()> {
         .branch
         .add_series(&ctx, head_4, Some(default_head.name.clone()));
     assert!(result.is_ok());
-    assert_eq!(head_names(&test_ctx), vec!["virtual", "head_4"]);
+    assert_eq!(head_names(&test_ctx), vec!["branch-1", "head_4"]);
 
     let head_2 = PatchReference {
         name: "head_2".into(),
@@ -147,7 +147,7 @@ fn add_multiple_series() -> Result<()> {
     };
     let result = test_ctx.branch.add_series(&ctx, head_2, None);
     assert!(result.is_ok());
-    assert_eq!(head_names(&test_ctx), vec!["head_2", "virtual", "head_4"]);
+    assert_eq!(head_names(&test_ctx), vec!["head_2", "branch-1", "head_4"]);
 
     let head_1 = PatchReference {
         name: "head_1".into(),
@@ -159,7 +159,7 @@ fn add_multiple_series() -> Result<()> {
     assert!(result.is_ok());
     assert_eq!(
         head_names(&test_ctx),
-        vec!["head_1", "head_2", "virtual", "head_4"]
+        vec!["head_1", "head_2", "branch-1", "head_4"]
     );
     Ok(())
 }
@@ -352,7 +352,7 @@ fn remove_series_with_multiple_last_heads() -> Result<()> {
     test_ctx.branch.initialize(&ctx)?;
 
     assert_eq!(test_ctx.branch.heads.len(), 1);
-    assert_eq!(head_names(&test_ctx), vec!["virtual"]); // defalts to stack name
+    assert_eq!(head_names(&test_ctx), vec!["branch-1"]); // defalts to stack name
     let default_head = test_ctx.branch.heads[0].clone();
 
     let to_stay = PatchReference {
@@ -362,7 +362,7 @@ fn remove_series_with_multiple_last_heads() -> Result<()> {
     };
     let result = test_ctx.branch.add_series(&ctx, to_stay.clone(), None);
     assert!(result.is_ok());
-    assert_eq!(head_names(&test_ctx), vec!["to_stay", "virtual"]);
+    assert_eq!(head_names(&test_ctx), vec!["to_stay", "branch-1"]);
 
     let result = test_ctx
         .branch
@@ -383,7 +383,7 @@ fn remove_series_no_orphan_commits() -> Result<()> {
     test_ctx.branch.initialize(&ctx)?;
 
     assert_eq!(test_ctx.branch.heads.len(), 1);
-    assert_eq!(head_names(&test_ctx), vec!["virtual"]); // defalts to stack name
+    assert_eq!(head_names(&test_ctx), vec!["branch-1"]); // defalts to stack name
     let default_head = test_ctx.branch.heads[0].clone(); // references the newest commit
 
     let to_stay = PatchReference {
@@ -393,7 +393,7 @@ fn remove_series_no_orphan_commits() -> Result<()> {
     }; // references the oldest commit
     let result = test_ctx.branch.add_series(&ctx, to_stay.clone(), None);
     assert!(result.is_ok());
-    assert_eq!(head_names(&test_ctx), vec!["to_stay", "virtual"]);
+    assert_eq!(head_names(&test_ctx), vec!["to_stay", "branch-1"]);
 
     let result = test_ctx
         .branch
@@ -416,7 +416,7 @@ fn update_series_noop_does_nothing() -> Result<()> {
     let noop_update = PatchReferenceUpdate::default();
     let result = test_ctx
         .branch
-        .update_series(&ctx, "virtual".into(), &noop_update);
+        .update_series(&ctx, "branch-1".into(), &noop_update);
     assert!(result.is_ok());
     assert_eq!(test_ctx.branch.heads, heads_before);
     Ok(())
@@ -434,7 +434,7 @@ fn update_series_name_fails_validation() -> Result<()> {
     };
     let result = test_ctx
         .branch
-        .update_series(&ctx, "virtual".into(), &update);
+        .update_series(&ctx, "branch-1".into(), &update);
     assert_eq!(result.err().unwrap().to_string(), "Invalid branch name");
     Ok(())
 }
@@ -451,7 +451,7 @@ fn update_series_name_success() -> Result<()> {
     };
     let result = test_ctx
         .branch
-        .update_series(&ctx, "virtual".into(), &update);
+        .update_series(&ctx, "branch-1".into(), &update);
     assert!(result.is_ok());
     assert_eq!(test_ctx.branch.heads[0].name, "new-name");
     // Assert persisted
@@ -474,7 +474,7 @@ fn update_series_set_description() -> Result<()> {
     };
     let result = test_ctx
         .branch
-        .update_series(&ctx, "virtual".into(), &update);
+        .update_series(&ctx, "branch-1".into(), &update);
     assert!(result.is_ok());
     assert_eq!(
         test_ctx.branch.heads[0].description,
@@ -504,7 +504,7 @@ fn update_series_target_fails_commit_not_in_stack() -> Result<()> {
     };
     let result = test_ctx
         .branch
-        .update_series(&ctx, "virtual".into(), &update);
+        .update_series(&ctx, "branch-1".into(), &update);
     assert_eq!(
         result.err().unwrap().to_string(),
         format!(
@@ -532,7 +532,7 @@ fn update_series_target_orphan_commit_fails() -> Result<()> {
     };
     let result = test_ctx
         .branch
-        .update_series(&ctx, "virtual".into(), &update);
+        .update_series(&ctx, "branch-1".into(), &update);
 
     assert_eq!(
         result.err().unwrap().to_string(),
@@ -583,7 +583,7 @@ fn push_series_no_remote() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     test_ctx.branch.initialize(&ctx)?;
-    let result = test_ctx.branch.push_series(&ctx, "virtual".into(), false);
+    let result = test_ctx.branch.push_series(&ctx, "branch-1".into(), false);
     assert_eq!(
         result.err().unwrap().to_string(),
         "No remote has been configured for the target branch"
@@ -602,7 +602,7 @@ fn push_series_success() -> Result<()> {
     target.push_remote_name = Some("origin".into());
     state.set_default_target(target)?;
 
-    let result = test_ctx.branch.push_series(&ctx, "virtual".into(), false);
+    let result = test_ctx.branch.push_series(&ctx, "branch-1".into(), false);
     assert!(result.is_ok());
     Ok(())
 }
@@ -618,11 +618,11 @@ fn update_name_after_push() -> Result<()> {
     target.push_remote_name = Some("origin".into());
     state.set_default_target(target)?;
 
-    let result = test_ctx.branch.push_series(&ctx, "virtual".into(), false);
+    let result = test_ctx.branch.push_series(&ctx, "branch-1".into(), false);
     assert!(result.is_ok());
     let result = test_ctx.branch.update_series(
         &ctx,
-        "virtual".into(),
+        "branch-1".into(),
         &PatchReferenceUpdate {
             name: Some("new-name".into()),
             ..Default::default()
@@ -646,7 +646,7 @@ fn list_series_default_head() -> Result<()> {
     let result = result.unwrap();
     // the number of series matches the number of heads
     assert_eq!(result.len(), test_ctx.branch.heads.len());
-    assert_eq!(result[0].head.name, "virtual");
+    assert_eq!(result[0].head.name, "branch-1");
     let expected_patches = test_ctx
         .commits
         .iter()
@@ -686,7 +686,7 @@ fn list_series_two_heads_same_commit() -> Result<()> {
     assert_eq!(result[0].local_commits, expected_patches);
     assert_eq!(result[0].head.name, "head_before");
     assert_eq!(result[1].local_commits, vec![]);
-    assert_eq!(result[1].head.name, "virtual");
+    assert_eq!(result[1].head.name, "branch-1");
     Ok(())
 }
 
@@ -718,7 +718,7 @@ fn list_series_two_heads_different_commit() -> Result<()> {
     assert_eq!(result[0].head.name, "head_before");
     assert_eq!(expected_patches.len(), 2);
     assert_eq!(result[1].local_commits, expected_patches); // the other two patches are in the second series
-    assert_eq!(result[1].head.name, "virtual");
+    assert_eq!(result[1].head.name, "branch-1");
 
     Ok(())
 }
@@ -1071,7 +1071,9 @@ fn set_legacy_refname_pushed() -> Result<()> {
     let mut target = state.get_default_target()?;
     target.push_remote_name = Some("origin".into());
     state.set_default_target(target)?;
-    test_ctx.branch.push_series(&ctx, "virtual".into(), false)?;
+    test_ctx
+        .branch
+        .push_series(&ctx, "branch-1".into(), false)?;
     let initial_state = test_ctx.branch.clone();
 
     test_ctx
