@@ -95,7 +95,7 @@
 		/>
 		<div class="text-14 text-bold branch-info__name">
 			<span class:no-upstream={!gitHostBranch} class="remote-name">
-				{$baseBranch.remoteName ?? 'origin'}/
+				{$baseBranch.remoteName ? `${$baseBranch.remoteName} /` : 'origin /'}
 			</span>
 			<BranchLabel {name} onChange={(name) => editTitle(name)} disabled={!!gitHostBranch} />
 			{#if gitHostBranch}
@@ -211,10 +211,18 @@
 
 		.remote-name {
 			margin-top: 3px;
+			min-width: max-content;
 			color: var(--clr-scale-ntrl-60);
 
 			&.no-upstream {
-				width: 0px;
+				/**
+				 * Element is requird to still be there, so we can use
+				 * it to wiggle 5px to the left to align the BranchLabel 
+				 * Input/Label component.
+				 */
+				visibility: hidden;
+				max-width: 0px;
+				max-height: 0px;
 				margin-right: -5px;
 			}
 		}
