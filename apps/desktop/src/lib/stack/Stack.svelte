@@ -279,8 +279,9 @@
 	.lane-branches__action {
 		z-index: var(--z-lifted);
 		position: sticky;
-		padding: 14px;
+		padding: 12px;
 		bottom: 0px;
+		transition: background-color var(--transition-fast);
 
 		&:not(.scroll-end-visible) {
 			background-color: var(--clr-bg-1);
