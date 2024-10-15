@@ -17,9 +17,11 @@
 		modal?.show();
 	}}>Show</Button
 >
-<Modal bind:this={modal} {...args}>
-	A branch with the same name already exists. Do you want to merge this branch into the current
-	branch?
+<Modal bind:this={modal} type={args.type} title={args.title} width={args.width}>
+	<p>
+		A branch with the same name already exists. Do you want to merge this branch into the current
+		branch?
+	</p>
 
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={() => close()}>Cancel</Button>
