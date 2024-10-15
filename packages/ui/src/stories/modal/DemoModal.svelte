@@ -17,7 +17,13 @@
 		modal?.show();
 	}}>Show</Button
 >
-<Modal bind:this={modal} type={args.type} title={args.title} width={args.width}>
+<Modal
+	bind:this={modal}
+	type={args.type}
+	title={args.title}
+	width={args.width}
+	onSubmit={() => console.log('submitted')}
+>
 	<p>
 		A branch with the same name already exists. Do you want to merge this branch into the current
 		branch?
@@ -25,7 +31,7 @@
 
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={() => close()}>Cancel</Button>
-		<Button style="pop" kind="solid" type="submit" onclick={() => console.log('Submit clicked')}
+		<Button style="pop" kind="solid" type="submit" onclick={() => console.log('clicked')}
 			>Merge</Button
 		>
 	{/snippet}
