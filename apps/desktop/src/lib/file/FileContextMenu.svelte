@@ -3,17 +3,19 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { editor } from '$lib/editorLink/editorLink';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { isAnyFile, LocalFile } from '$lib/vbranches/types';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import { join } from '@tauri-apps/api/path';
+	import type { Writable } from 'svelte/store';
 
 	export let branchId: string | undefined;
 	export let target: HTMLElement | undefined;
@@ -21,6 +23,7 @@
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
+	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
 	let confirmationModal: Modal;
 	let contextMenu: ReturnType<typeof ContextMenu>;
@@ -94,19 +97,21 @@
 					/>
 				{/if}
 				<ContextMenuItem
-					label="Open in VSCode"
+					label="Open in {$userSettings.defaultCodeEditor.displayName}"
 					disabled={isDeleted(item)}
 					on:click={async () => {
 						try {
 							if (!project) return;
 							for (let file of item.files) {
 								const absPath = await join(project.vscodePath, file.path);
-								openExternalUrl(`${$editor}://file${absPath}`);
+								openExternalUrl(
+									`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${absPath}`
+								);
 							}
 							contextMenu.close();
 						} catch {
-							console.error('Failed to open in VSCode');
-							toasts.error('Failed to open in VSCode');
+							console.error('Failed to open in editor');
+							toasts.error('Failed to open in editor');
 						}
 					}}
 				/>

@@ -2,13 +2,14 @@
 	import { Project } from '$lib/backend/projects';
 	import { CommitService } from '$lib/commits/service';
 	import { conflictEntryHint, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
-	import { editor } from '$lib/editorLink/editorLink';
 	import FileContextMenu from '$lib/file/FileContextMenu.svelte';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { Commit, type RemoteFile } from '$lib/vbranches/types';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -17,6 +18,7 @@
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import { join } from '@tauri-apps/api/path';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
+	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		editModeMetadata: EditModeMetadata;
@@ -28,6 +30,7 @@
 	const remoteCommitService = getContext(CommitService);
 	const uncommitedFileWatcher = getContext(UncommitedFilesWatcher);
 	const modeService = getContext(ModeService);
+	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
 	const uncommitedFiles = uncommitedFileWatcher.uncommitedFiles;
 
@@ -162,7 +165,7 @@
 	async function openAllConflictedFiles() {
 		for (const file of conflictedFiles) {
 			const absPath = await join(project.vscodePath, file.path);
-			openExternalUrl(`${$editor}://file${absPath}`);
+			openExternalUrl(`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${absPath}`);
 		}
 	}
 </script>
