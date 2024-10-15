@@ -77,14 +77,11 @@
 		class="modal-container {isClosing ? 'closing' : 'open'}"
 		class:open
 		onclick={(e) => {
-			console.log(e.target);
 			e.stopPropagation();
 
 			if (e.target === e.currentTarget) {
 				close();
 			}
-
-			// close();
 		}}
 		onkeydown={onKeyDown}
 	>
