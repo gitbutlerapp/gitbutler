@@ -238,29 +238,24 @@ impl StackExt for Stack {
             name: if let Some(refname) = self.upstream.as_ref() {
                 refname.branch().to_string()
             } else {
-                normalize_branch_name(&self.name)?
+                normalize_branch_name("branch")?
             },
             description: None,
         };
         let state = branch_state(ctx);
-        let remote_reference_exists = state
-            .get_default_target()?
-            .push_remote_name
-            .and_then(|remote| {
-                reference
-                    .remote_reference(remote.as_str())
-                    .and_then(|reference| reference_exists(ctx, &reference))
-                    .ok()
-            })
-            .unwrap_or(false);
 
-        if reference_exists(ctx, &reference.name)?
+        while reference_exists(ctx, &reference.name)?
             || patch_reference_exists(&state, &reference.name)?
-            || remote_reference_exists
+            || remote_reference_exists(ctx, &state, &reference)?
         {
-            // TODO: do something better here
-            let prefix = rand::random::<u32>().to_string();
-            reference.name = format!("{}-{}", &reference.name, prefix);
+            // keep incrementing the suffix until the name is unique
+            let split = reference.name.split('-');
+            let left = split.clone().take(split.clone().count() - 1).join("-");
+            reference.name = split
+                .last()
+                .and_then(|last| last.parse::<u32>().ok())
+                .map(|last| format!("{}-{}", left, last + 1)) //take everything except last, and append last + 1
+                .unwrap_or_else(|| format!("{}-1", reference.name));
         }
         validate_name(&reference, ctx, &state, self.upstream.clone())?;
         self.heads = vec![reference];
@@ -794,4 +789,21 @@ fn patch_reference_exists(state: &VirtualBranchesHandle, name: &str) -> Result<b
         .iter()
         .flat_map(|b| b.heads.iter())
         .any(|r| r.name == name))
+}
+
+fn remote_reference_exists(
+    ctx: &CommandContext,
+    state: &VirtualBranchesHandle,
+    reference: &PatchReference,
+) -> Result<bool> {
+    Ok(state
+        .get_default_target()?
+        .push_remote_name
+        .and_then(|remote| {
+            reference
+                .remote_reference(remote.as_str())
+                .and_then(|reference| reference_exists(ctx, &reference))
+                .ok()
+        })
+        .unwrap_or(false))
 }
