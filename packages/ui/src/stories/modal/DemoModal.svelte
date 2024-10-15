@@ -24,10 +24,8 @@
 	width={args.width}
 	onSubmit={() => console.log('submitted')}
 >
-	<p>
-		A branch with the same name already exists. Do you want to merge this branch into the current
-		branch?
-	</p>
+	A branch with the same name already exists. Do you want to merge this branch into the current
+	branch?
 
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={() => close()}>Cancel</Button>
