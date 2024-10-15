@@ -128,7 +128,7 @@
 					<StackHeader {isLaneCollapsed} stackPrs={stackPrs?.length ?? 0} />
 					<div class="card-stacking">
 						{#if branch.files?.length > 0}
-							<div class="branch-card__files card">
+							<div class="branch-card__files">
 								<Dropzones>
 									<BranchFiles
 										isUnapplied={false}
@@ -163,7 +163,7 @@
 							</div>
 						{:else if branch.commits.length === 0}
 							<Dropzones>
-								<div class="new-branch card">
+								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
 										{#snippet title()}
 											This is a new branch
@@ -176,7 +176,7 @@
 							</Dropzones>
 						{:else}
 							<Dropzones>
-								<div class="no-changes card">
+								<div class="no-changes">
 									<EmptyStatePlaceholder image={noChangesSvg} width={180}>
 										{#snippet caption()}
 											No uncommitted changes on this branch
@@ -327,10 +327,13 @@
 		flex-direction: column;
 	}
 
-	.branch-card__files.card,
-	.no-changes.card,
-	.new-branch.card {
+	.branch-card__files,
+	.no-changes,
+	.new-branch {
 		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
+		border: 1px solid var(--clr-border-2);
+		border-top-width: 0;
+		background: var(--clr-bg-1);
 	}
 
 	.branch-card__files {
