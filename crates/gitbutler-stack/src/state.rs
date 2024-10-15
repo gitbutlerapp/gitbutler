@@ -4,6 +4,7 @@ use std::{
 };
 
 use anyhow::{anyhow, Result};
+use git2::Repository;
 use gitbutler_error::error::Code;
 use gitbutler_fs::read_toml_file_or_default;
 // use gitbutler_project::Project;
@@ -229,6 +230,46 @@ impl VirtualBranchesHandle {
         let mut virtual_branches = self.read_file()?;
         virtual_branches.branches.remove(branch_id);
         self.write_file(&virtual_branches)?;
+        Ok(())
+    }
+
+    /// Garbage collects branches that are not in the workspace and hold no changes:
+    ///   1. They do not have a WIP commit
+    ///   2. They have no regular commits
+    ///
+    /// Also collects branches with a head oid pointing to a commit that can't be found in the repo
+    pub fn garbage_collect(&self, repo: &Repository) -> Result<()> {
+        let target = self.get_default_target()?;
+        let branches_not_in_workspace = self
+            .list_all_branches()?
+            .into_iter()
+            .filter(|b| !b.in_workspace)
+            .collect_vec();
+        let mut to_remove: Vec<StackId> = vec![];
+        for branch in branches_not_in_workspace {
+            if branch.not_in_workspace_wip_change_id.is_some() {
+                continue; // Skip branches that have a WIP commit
+            }
+            if repo.find_commit(branch.head()).is_err() {
+                // if the head commit cant be found, we can GC the branch
+                to_remove.push(branch.id);
+            } else {
+                // if there are no commits between the head and the merge base,
+                // i.e. the head is the merge base, we can GC the branch
+                if branch.head() == repo.merge_base(branch.head(), target.sha)? {
+                    to_remove.push(branch.id);
+                }
+            }
+        }
+        if !to_remove.is_empty() {
+            let mut virtual_branches = self.read_file()?;
+            for branch_id in to_remove {
+                virtual_branches.branches.remove(&branch_id);
+            }
+            // Perform all removals in one go (Windows doesn't like multiple writes in quick succession)
+            self.write_file(&virtual_branches)?;
+        }
+
         Ok(())
     }
 }
