@@ -2,16 +2,17 @@
 	import iconsJson from '$lib/data/icons.json';
 	import Button from '$lib/Button.svelte';
 	import Modal from '$lib/Modal.svelte';
+	import { type SvelteComponent } from 'svelte';
 
 	interface Props {
-		width?: 'default' | 'small' | 'large';
+		width?: 'small' | 'large' | 'medium' | 'xsmall' | number;
 		title?: string;
 		icon?: keyof typeof iconsJson;
 	}
 
 	const { ...args }: Props = $props();
 
-	let modal = $state<Modal>();
+	let modal: SvelteComponent<Props>;
 </script>
 
 <Button
