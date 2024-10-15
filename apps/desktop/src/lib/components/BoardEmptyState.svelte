@@ -6,11 +6,7 @@
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import {
-		getContext,
-		getContextStore,
-		getContextStoreBySymbol
-	} from '@gitbutler/shared/context';
+	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import type { Writable } from 'svelte/store';
 
@@ -21,7 +17,7 @@
 
 	const project = getContext(Project);
 
-	async function openInVSCode() {
+	async function openInEditor() {
 		openExternalUrl(
 			`${$userSettings.defaultCodeEditor}://file${project.vscodePath}/?windowId=_blank`
 		);
@@ -58,8 +54,7 @@
 						</div>
 						<button
 							class="empty-board__suggestions__link"
-							on:click={async () =>
-								await openExternalUrl('https://docs.gitbutler.com')}
+							on:click={async () => await openExternalUrl('https://docs.gitbutler.com')}
 						>
 							<div class="empty-board__suggestions__link__icon">
 								<Icon name="docs" />
@@ -69,8 +64,8 @@
 						</button>
 						<button
 							class="empty-board__suggestions__link"
-							on:keypress={async () => await openInVSCode()}
-							on:click={async () => await openInVSCode()}
+							on:keypress={async () => await openInEditor()}
+							on:click={async () => await openInEditor()}
 						>
 							<div class="empty-board__suggestions__link__icon">
 								<Icon name="vscode" />

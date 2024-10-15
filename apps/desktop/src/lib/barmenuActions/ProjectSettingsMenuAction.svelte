@@ -20,7 +20,7 @@
 			goto(`/${project.id}/settings/`);
 		});
 
-		const unsubscribeOpenInVSCode = listen<string>(
+		const unsubscribeopenInEditor = listen<string>(
 			'menu://project/open-in-vscode/clicked',
 			async () => {
 				const path = `${$userSettings.defaultCodeEditor}://file${project.vscodePath}?windowId=_blank`;
@@ -40,7 +40,7 @@
 
 		return () => {
 			unsubscribeSettings();
-			unsubscribeOpenInVSCode();
+			unsubscribeopenInEditor();
 			unsubscribeHistory();
 			unsubscribeHistoryButton();
 		};
