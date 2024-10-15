@@ -54,5 +54,9 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-1);
+
+		&:last-child {
+			margin-bottom: 12px;
+		}
 	}
 </style>
