@@ -87,7 +87,7 @@
 					/>
 				{/if}
 				<ContextMenuItem
-					label="Open in VSCode"
+					label="Open in Editor"
 					disabled={isDeleted(item)}
 					on:click={async () => {
 						try {
