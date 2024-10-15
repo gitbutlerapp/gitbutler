@@ -12,6 +12,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import { join } from '@tauri-apps/api/path';
 
 	export let branchId: string | undefined;
@@ -116,19 +117,27 @@
 
 <Modal
 	width="small"
+	type="warning"
 	title="Discard changes"
 	bind:this={confirmationModal}
 	onSubmit={confirmDiscard}
 >
 	{#snippet children(item)}
-		<div>
-			Discarding changes to the following files:
+		{#if item.files.length < 10}
+			<p class="discard-caption">
+				Are you sure you want to discard the changes<br />to the following files:
+			</p>
 			<ul class="file-list">
 				{#each item.files as file}
-					<li><code class="code-string">{file.path}</code></li>
+					<FileListItem filePath={file.path} fileStatus={file.status} clickable={false} />
+					<!-- <li><code class="code-string">{file.path}</code></li> -->
 				{/each}
 			</ul>
-		</div>
+		{:else}
+			Discard the changes to all <span class="text-bold">
+				{item.files.length} files
+			</span>?
+		{/if}
 	{/snippet}
 	{#snippet controls(close, item)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
@@ -137,12 +146,14 @@
 </Modal>
 
 <style lang="postcss">
-	.file-list {
-		list-style: disc;
-		padding-left: 20px;
-		padding-top: 6px;
+	.discard-caption {
+		color: var(--clr-text-2);
 	}
-	.file-list li {
-		padding: 2px;
+	.file-list {
+		padding: 4px 0;
+		border-radius: var(--radius-m);
+		overflow: hidden;
+		border: 1px solid var(--clr-border-2);
+		margin-top: 12px;
 	}
 </style>
