@@ -109,6 +109,11 @@
 	const prMonitor = getGitHostPrMonitor();
 	const checksMonitor = getGitHostChecksMonitor();
 
+	const stackBranches = $derived(branch.series.map((s) => s.name));
+	const hostedListingServiceStore = getGitHostListingService();
+	const prStore = $derived($hostedListingServiceStore?.prs);
+	const stackPrs = $derived($prStore?.filter((pr) => stackBranches.includes(pr.sourceBranch)));
+
 	async function push() {
 		isPushingCommits = true;
 		try {
@@ -150,7 +155,11 @@
 					class="branch-card__contents"
 					data-tauri-drag-region
 				>
-					<StackHeader {isLaneCollapsed} onGenerateBranchName={generateBranchName} />
+					<StackHeader
+						{isLaneCollapsed}
+						onGenerateBranchName={generateBranchName}
+						stackPrs={stackPrs?.length ?? 0}
+					/>
 					<div class="card-stacking">
 						{#if branch.files?.length > 0}
 							<div class="branch-card__files card">
@@ -341,6 +350,7 @@
 		color: var(--clr-scale-ntrl-60);
 		justify-content: center;
 		cursor: default; /* was defaulting to text cursor */
+		border-top-width: 0px;
 	}
 
 	/* COLLAPSED LANE */
