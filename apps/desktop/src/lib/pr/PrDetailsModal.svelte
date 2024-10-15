@@ -322,7 +322,7 @@
 	const isPreviewOnly = props.type === 'display';
 </script>
 
-<Modal bind:this={modal} width="default" noPadding {onClose} onKeyDown={handleModalKeydown}>
+<Modal bind:this={modal} width={580} noPadding {onClose} onKeyDown={handleModalKeydown}>
 	<div class="pr-header">
 		{#if !isPreviewOnly}
 			<h3 class="text-14 text-semibold pr-title">
