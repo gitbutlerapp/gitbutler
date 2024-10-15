@@ -202,10 +202,6 @@
 		word-wrap: break-word;
 	}
 
-	.modal__body :global(p) {
-		color: var(--clr-text-2);
-	}
-
 	.modal__footer {
 		display: flex;
 		width: 100%;
