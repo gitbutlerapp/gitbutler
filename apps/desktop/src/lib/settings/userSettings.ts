@@ -4,6 +4,10 @@ const SETTINGS_KEY = 'settings-json';
 export const SETTINGS = Symbol('Settings');
 
 export type ScrollbarVisilitySettings = 'scroll' | 'hover' | 'always';
+export type CodeEditorSettings = {
+	schemeIdentifer: string;
+	displayName: string;
+};
 
 export interface Settings {
 	aiSummariesEnabled?: boolean;
@@ -22,7 +26,7 @@ export interface Settings {
 	diffFont: string;
 	diffLigatures: boolean;
 	inlineUnifiedDiffs: boolean;
-	defaultCodeEditor: string;
+	defaultCodeEditor: CodeEditorSettings;
 }
 
 const defaults: Settings = {
@@ -41,7 +45,7 @@ const defaults: Settings = {
 	diffFont: 'Geist Mono, Menlo, monospace',
 	diffLigatures: false,
 	inlineUnifiedDiffs: false,
-	defaultCodeEditor: 'vscode'
+	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' }
 };
 
 export function loadUserSettings(): Writable<Settings> {
