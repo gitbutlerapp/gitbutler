@@ -84,10 +84,17 @@ fn multiple_commits() {
 
     std::fs::write(repository.path().join("b.txt"), "This is b").unwrap();
 
-    // Create as second commit on the source branch, to be moved
+    // Create a second commit on the source branch, to be moved
     let commit_oid =
         gitbutler_branch_actions::create_commit(project, source_branch_id, "Add b", None, false)
             .unwrap();
+
+    std::fs::write(repository.path().join("c.txt"), "This is c").unwrap();
+
+    // Create a third commit on the source branch
+
+    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add c", None, false)
+        .unwrap();
 
     let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
         project,
@@ -98,10 +105,10 @@ fn multiple_commits() {
     )
     .unwrap();
 
-    std::fs::write(repository.path().join("c.txt"), "This is c").unwrap();
+    std::fs::write(repository.path().join("d.txt"), "This is d").unwrap();
 
     // Create a commit on the destination branch
-    gitbutler_branch_actions::create_commit(project, target_branch_id, "Add c", None, false)
+    gitbutler_branch_actions::create_commit(project, target_branch_id, "Add d", None, false)
         .unwrap();
 
     // Move the top commit from the source branch to the destination branch
@@ -121,12 +128,20 @@ fn multiple_commits() {
             .into_iter()
             .map(|c| c.description.to_str_lossy().into_owned())
             .collect::<Vec<_>>(),
-        vec!["Add b", "Add c"]
+        vec!["Add b", "Add d"]
     );
 
-    assert_eq!(source_branch.commits.len(), 1);
+    assert_eq!(source_branch.commits.len(), 2);
     assert_eq!(source_branch.files.len(), 0);
-    assert_eq!(source_branch.commits[0].description.to_str_lossy(), "Add a");
+    assert_eq!(
+        source_branch
+            .commits
+            .clone()
+            .into_iter()
+            .map(|c| c.description.to_str_lossy().into_owned())
+            .collect::<Vec<_>>(),
+        vec!["Add c", "Add a"]
+    );
 }
 
 #[test]
