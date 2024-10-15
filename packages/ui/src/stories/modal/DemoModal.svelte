@@ -1,18 +1,15 @@
 <script lang="ts">
-	import iconsJson from '$lib/data/icons.json';
 	import Button from '$lib/Button.svelte';
-	import Modal from '$lib/Modal.svelte';
-	import { type SvelteComponent } from 'svelte';
+	import Modal, { type Props as ModalProps } from '$lib/Modal.svelte';
+	import { type SvelteComponent, type Snippet } from 'svelte';
 
-	interface Props {
-		width?: 'small' | 'large' | 'medium' | 'xsmall' | number;
-		title?: string;
-		icon?: keyof typeof iconsJson;
-	}
+	const { ...args }: ModalProps = $props();
 
-	const { ...args }: Props = $props();
+	let modal: SvelteComponent<ModalProps>;
 
-	let modal: SvelteComponent<Props>;
+	$effect(() => {
+		modal?.show();
+	});
 </script>
 
 <Button
@@ -21,12 +18,13 @@
 	}}>Show</Button
 >
 <Modal bind:this={modal} {...args}>
-	<p>Wonderful modal content</p>
+	A branch with the same name already exists. Do you want to merge this branch into the current
+	branch?
 
 	{#snippet controls(close)}
-		<Button onclick={() => close()}>Close</Button>
+		<Button style="ghost" outline onclick={() => close()}>Cancel</Button>
 		<Button style="pop" kind="solid" type="submit" onclick={() => console.log('Submit clicked')}
-			>Submit</Button
+			>Merge</Button
 		>
 	{/snippet}
 </Modal>

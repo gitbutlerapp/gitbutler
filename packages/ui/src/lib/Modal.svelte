@@ -1,16 +1,8 @@
-<script lang="ts">
-	import Icon from '$lib/Icon.svelte';
-	import { focusTrap } from '$lib/utils/focusTrap';
-	import { portal } from '$lib/utils/portal';
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import { onDestroy } from 'svelte';
-	import type iconsJson from '$lib/data/icons.json';
-	import type { Snippet } from 'svelte';
-
-	interface Props {
+<script lang="ts" module>
+	export interface Props {
 		width?: 'medium' | 'large' | 'small' | 'xsmall' | number;
+		type?: 'info' | 'warning' | 'error' | 'success';
 		title?: string;
-		icon?: keyof typeof iconsJson;
 		noPadding?: boolean;
 		onClose?: () => void;
 		onSubmit?: (close: () => void) => void;
@@ -18,11 +10,20 @@
 		children: Snippet<[item: any, close: () => void]>;
 		controls?: Snippet<[close: () => void, item: any]>;
 	}
+</script>
+
+<script lang="ts">
+	import Icon from '$lib/Icon.svelte';
+	import { focusTrap } from '$lib/utils/focusTrap';
+	import { portal } from '$lib/utils/portal';
+	import { pxToRem } from '$lib/utils/pxToRem';
+	import { onDestroy } from 'svelte';
+	import type { Snippet } from 'svelte';
 
 	const {
 		width = 'medium',
 		title,
-		icon,
+		type = 'info',
 		onClose,
 		children,
 		controls,
@@ -102,9 +103,18 @@
 			>
 				{#if title}
 					<div class="modal__header">
-						{#if icon}
-							<Icon name={icon} />
+						{#if type === 'warning'}
+							<Icon name="warning" color="warning" />
 						{/if}
+
+						{#if type === 'error'}
+							<Icon name="error" color="error" />
+						{/if}
+
+						{#if type === 'success'}
+							<Icon name="success" color="success" />
+						{/if}
+
 						<h2 class="text-14 text-semibold">
 							{title}
 						</h2>
@@ -112,7 +122,9 @@
 				{/if}
 
 				<div class="modal__body custom-scrollbar text-13 text-body" class:no-padding={noPadding}>
-					{@render children(item, close)}
+					{#if children}
+						{@render children(item, close)}
+					{/if}
 				</div>
 
 				{#if controls}
@@ -171,15 +183,15 @@
 
 	.modal__header {
 		display: flex;
-		padding: 16px;
+		padding: 16px 16px 0;
 		gap: 8px;
-		border-bottom: 1px solid var(--clr-border-2);
 	}
 
 	.modal__body {
 		overflow: hidden;
 		padding: 16px;
 		line-height: 160%;
+		color: var(--clr-text-2);
 
 		&.no-padding {
 			padding: 0;
