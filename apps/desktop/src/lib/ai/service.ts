@@ -335,9 +335,10 @@ export class AIService {
 
 		const messageResult = await aiClient.evaluate(prompt, { onToken });
 		if (isFailure(messageResult)) return messageResult;
+
 		const message = messageResult.value;
 
-		return ok(message.replaceAll(' ', '-').replaceAll('\n', '-'));
+		return ok(message?.replaceAll(' ', '-').replaceAll('\n', '-') ?? '');
 	}
 
 	async describePR({

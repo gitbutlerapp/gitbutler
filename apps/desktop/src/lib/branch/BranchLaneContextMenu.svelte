@@ -20,7 +20,7 @@
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		target?: HTMLElement;
 		onCollapse: () => void;
-		onGenerateBranchName: () => void;
+		onGenerateBranchName?: () => void;
 	}
 
 	let { contextMenuEl = $bindable(), target, onCollapse, onGenerateBranchName }: Props = $props();
@@ -113,14 +113,16 @@
 			}}
 		/>
 
-		<ContextMenuItem
-			label="Generate branch name"
-			on:click={() => {
-				onGenerateBranchName();
-				contextMenuEl?.close();
-			}}
-			disabled={!($aiGenEnabled && aiConfigurationValid) || branch.files?.length === 0}
-		/>
+		{#if !$stackingFeature}
+			<ContextMenuItem
+				label="Generate branch name"
+				on:click={() => {
+					onGenerateBranchName?.();
+					contextMenuEl?.close();
+				}}
+				disabled={!($aiGenEnabled && aiConfigurationValid) || branch.files?.length === 0}
+			/>
+		{/if}
 	</ContextMenuSection>
 
 	{#if !$stackingFeature}
