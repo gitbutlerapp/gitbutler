@@ -11,7 +11,7 @@ export function parseGitHubDetailedPullRequest(
 		number: data.number,
 		title: data.title,
 		body: data.body ?? undefined,
-		sourceBranch: data.base?.ref,
+		sourceBranch: data.head?.ref,
 		draft: data.draft,
 		htmlUrl: data.html_url,
 		createdAt: new Date(data.created_at),
