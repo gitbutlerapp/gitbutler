@@ -124,6 +124,7 @@
 							bind:contextMenuEl={contextMenu}
 							target={meatballButtonEl}
 							onCollapse={collapseLane}
+							hasPr={false}
 						/>
 					</div>
 					<div class="header__info-row">

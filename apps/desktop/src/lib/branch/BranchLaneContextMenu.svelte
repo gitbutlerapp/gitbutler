@@ -17,13 +17,24 @@
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
 	interface Props {
+		hasPr: boolean;
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		target?: HTMLElement;
 		onCollapse: () => void;
 		onGenerateBranchName?: () => void;
+		openPrDetailsModal?: () => void;
+		reloadPR?: () => void;
 	}
 
-	let { contextMenuEl = $bindable(), target, onCollapse, onGenerateBranchName }: Props = $props();
+	let {
+		contextMenuEl = $bindable(),
+		target,
+		onCollapse,
+		onGenerateBranchName,
+		hasPr,
+		openPrDetailsModal,
+		reloadPR
+	}: Props = $props();
 
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
@@ -149,6 +160,25 @@
 			</Tooltip>
 		</ContextMenuItem>
 	</ContextMenuSection>
+
+	{#if !$stackingFeature && hasPr}
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="PR details"
+				on:click={() => {
+					openPrDetailsModal?.();
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Refetch PR status"
+				on:click={() => {
+					reloadPR?.();
+					contextMenuEl?.close();
+				}}
+			/>
+		</ContextMenuSection>
+	{/if}
 
 	<ContextMenuSection>
 		<ContextMenuItem

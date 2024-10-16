@@ -74,6 +74,13 @@
 
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 	const pr = $derived(prMonitor?.pr);
+	const checksMonitor = $derived(
+		$pr?.sourceBranch ? $gitHost?.checksMonitor($pr.sourceBranch) : undefined
+	);
+
+	async function handleReloadPR() {
+		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
+	}
 
 	function handleOpenPR() {
 		prDetailsModal?.show();
@@ -167,6 +174,9 @@
 				{addDescription}
 				onGenerateBranchName={generateBranchName}
 				disableTitleEdit={!!gitHostBranch}
+				hasPr={!!$pr}
+				openPrDetailsModal={handleOpenPR}
+				reloadPR={handleReloadPR}
 			/>
 		</div>
 	</div>
@@ -209,13 +219,18 @@
 			</EmptyStatePlaceholder>
 		</div>
 	{/if}
-	<PrDetailsModal
-		bind:this={prDetailsModal}
-		type="preview-series"
-		{upstreamName}
-		name={currentSeries.name}
-		commits={currentSeries.patches}
-	/>
+
+	{#if $pr}
+		<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
+	{:else}
+		<PrDetailsModal
+			bind:this={prDetailsModal}
+			type="preview-series"
+			{upstreamName}
+			name={currentSeries.name}
+			commits={currentSeries.patches}
+		/>
+	{/if}
 </div>
 
 <style lang="postcss">
@@ -257,7 +272,7 @@
 			&.no-upstream {
 				/**
 				 * Element is requird to still be there, so we can use
-				 * it to wiggle 5px to the left to align the BranchLabel 
+				 * it to wiggle 5px to the left to align the BranchLabel
 				 * Input/Label component.
 				 */
 				visibility: hidden;
