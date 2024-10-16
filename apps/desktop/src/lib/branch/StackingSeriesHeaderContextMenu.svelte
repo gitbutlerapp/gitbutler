@@ -20,7 +20,7 @@
 		hasGitHostBranch: boolean;
 		hasPr: boolean;
 		description: string;
-		toggleDescription: () => void;
+		toggleDescription: () => Promise<void>;
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
 		reloadPR: () => void;
