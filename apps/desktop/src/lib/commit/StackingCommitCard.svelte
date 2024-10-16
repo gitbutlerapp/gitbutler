@@ -413,6 +413,7 @@
 		position: relative;
 		flex-direction: column;
 		flex: 1;
+		overflow: hidden;
 	}
 
 	.commit__conflicted {

@@ -27,7 +27,6 @@
 	);
 </script>
 
-<!-- TODO: Add connecting line on background between NewStackCard above and branches below -->
 {#each branch.series as currentSeries, idx (currentSeries.name)}
 	{#if idx !== 0}
 		<StackSeriesDividerLine {currentSeries} />
@@ -39,6 +38,7 @@
 				remoteOnlyPatches={currentSeries.upstreamPatches}
 				patches={currentSeries.patches}
 				isUnapplied={false}
+				isBottom={idx === branch.series.length - 1}
 				{reorderDropzoneManager}
 				{localCommitsConflicted}
 				{localAndRemoteCommitsConflicted}

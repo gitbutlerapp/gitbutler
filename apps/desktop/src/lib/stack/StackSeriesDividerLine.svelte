@@ -18,9 +18,8 @@
 <style>
 	.stack-line {
 		width: 2px;
-		height: 11px;
-		margin: 0 23px;
+		height: 10px;
+		margin: 0 22px 0 23px;
 		background-color: var(--bg-color, var(--clr-border-3));
-		transform: translateY(1px);
 	}
 </style>
