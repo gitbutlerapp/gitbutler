@@ -18,7 +18,8 @@
 		headName: string;
 		seriesCount: number;
 		disableTitleEdit: boolean;
-		addDescription: () => void;
+		description: string;
+		toggleDescription: () => Promise<void>;
 		onGenerateBranchName: () => void;
 	}
 
@@ -28,7 +29,8 @@
 		seriesCount,
 		disableTitleEdit,
 		headName,
-		addDescription,
+		description,
+		toggleDescription,
 		onGenerateBranchName
 	}: Props = $props();
 
@@ -43,6 +45,7 @@
 	let newHeadName: string = $state(headName);
 	let isDeleting = $state(false);
 	let aiConfigurationValid = $state(false);
+	let showDescription = $state(!!description);
 
 	$effect(() => {
 		setAIConfigurationValid();
@@ -58,10 +61,10 @@
 <ContextMenu bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
 		<ContextMenuItem
-			disabled
-			label="Add description"
-			on:click={() => {
-				addDescription();
+			label={`${!showDescription ? 'Add' : 'Remove'} description`}
+			on:click={async () => {
+				await toggleDescription();
+				showDescription = !showDescription;
 				contextMenuEl?.close();
 			}}
 		/>
