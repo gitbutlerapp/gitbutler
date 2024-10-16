@@ -466,7 +466,7 @@ impl StackExt for Stack {
             let head_commit =
                 commit_by_oid_or_change_id(&head.target, ctx, self.head(), &default_target)?.id();
             let local_patches = repo
-                .log(head_commit, LogUntil::Commit(previous_head))?
+                .log(head_commit, LogUntil::Commit(previous_head), false)?
                 .iter()
                 .rev() // oldest commit first
                 .map(|c| match c.change_id() {
