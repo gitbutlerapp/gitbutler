@@ -317,7 +317,7 @@ pub fn gitbutler_merge_commits<'repository>(
             .find_tree(tree_oid)
             .context("failed to find tree")?,
         &[&target_commit, &incoming_commit],
-        commit_headers,
+        Some(commit_headers),
     )
     .context("failed to create commit")?;
 
