@@ -512,7 +512,12 @@ fn stack_series(
                         .get(&change_id)
                         .cloned()
                 })
-                .or(copied_from_remote_id);
+                .or(copied_from_remote_id)
+                .or(if series.remote(&patch) {
+                    Some(commit.id())
+                } else {
+                    None
+                });
             if remote_commit_id.map_or(false, |id| commit.id() != id) {
                 requires_force = true;
             }

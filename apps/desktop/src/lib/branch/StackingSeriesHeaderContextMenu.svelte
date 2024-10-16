@@ -21,6 +21,9 @@
 		description: string;
 		toggleDescription: () => Promise<void>;
 		onGenerateBranchName: () => void;
+		openPrDetailsModal: () => void;
+		reloadPR: () => void;
+		hasPr: boolean;
 	}
 
 	let {
@@ -32,6 +35,9 @@
 		description,
 		toggleDescription,
 		onGenerateBranchName
+		openPrDetailsModal,
+		reloadPR
+		hasPr,
 	}: Props = $props();
 
 	const project = getContext(Project);
@@ -92,6 +98,24 @@
 			}}
 		/>
 	</ContextMenuSection>
+	{#if hasPr}
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="PR details"
+				on:click={() => {
+					openPrDetailsModal();
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Refetch PR status"
+				on:click={() => {
+					reloadPR();
+					contextMenuEl?.close();
+				}}
+			/>
+		</ContextMenuSection>
+	{/if}
 </ContextMenu>
 
 <Modal

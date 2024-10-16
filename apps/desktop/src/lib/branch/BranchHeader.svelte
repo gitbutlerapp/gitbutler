@@ -5,6 +5,7 @@
 	import DefaultTargetButton from './DefaultTargetButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
@@ -27,6 +28,7 @@
 	const prService = getGitHostPrService();
 	const branchStore = getContextStore(VirtualBranch);
 	const prMonitor = getGitHostPrMonitor();
+	const checksMonitor = getGitHostChecksMonitor();
 	const gitHost = getGitHost();
 
 	const branch = $derived($branchStore);
@@ -54,6 +56,10 @@
 	const hasIntegratedCommits = $derived(branch.commits?.some((b) => b.isIntegrated));
 
 	let headerInfoHeight = $state(0);
+
+	async function handleReloadPR() {
+		await Promise.allSettled([$prMonitor?.refresh(), $checksMonitor?.update()]);
+	}
 
 	function handleOpenPR() {
 		prDetailsModal?.show();
@@ -184,6 +190,9 @@
 							target={meatballButtonEl}
 							onCollapse={collapseLane}
 							{onGenerateBranchName}
+							hasPr={!!$pr}
+							openPrDetailsModal={handleOpenPR}
+							reloadPR={handleReloadPR}
 						/>
 					</div>
 				</div>
@@ -193,7 +202,11 @@
 	</div>
 {/if}
 
-<PrDetailsModal bind:this={prDetailsModal} type="preview" />
+{#if $pr}
+	<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
+{:else}
+	<PrDetailsModal bind:this={prDetailsModal} type="preview" />
+{/if}
 
 <style>
 	.header__wrapper {
