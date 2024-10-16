@@ -19,7 +19,8 @@
 		seriesCount: number;
 		hasGitHostBranch: boolean;
 		hasPr: boolean;
-		addDescription: () => void;
+		description: string;
+		toggleDescription: () => void;
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
 		reloadPR: () => void;
@@ -34,7 +35,8 @@
 		hasGitHostBranch,
 		headName,
 		hasPr,
-		addDescription,
+		description,
+		toggleDescription,
 		onGenerateBranchName,
 		openPrDetailsModal,
 		reloadPR,
@@ -53,6 +55,7 @@
 	let newHeadName: string = $state(headName);
 	let isDeleting = $state(false);
 	let aiConfigurationValid = $state(false);
+	let showDescription = $state(!!description);
 
 	$effect(() => {
 		setAIConfigurationValid();
@@ -68,10 +71,10 @@
 <ContextMenu bind:this={contextMenuEl} {target} {onopen} {onclose}>
 	<ContextMenuSection>
 		<ContextMenuItem
-			disabled
-			label="Add description"
-			onclick={() => {
-				addDescription();
+			label={`${!showDescription ? 'Add' : 'Remove'} description`}
+			onclick={async () => {
+				await toggleDescription();
+				showDescription = !showDescription;
 				contextMenuEl?.close();
 			}}
 		/>

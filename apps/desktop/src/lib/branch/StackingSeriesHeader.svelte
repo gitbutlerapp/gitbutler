@@ -7,6 +7,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import StackingSeriesDescription from '$lib/branch/StackingSeriesDescription.svelte';
 	import StackingSeriesHeaderContextMenu from '$lib/branch/StackingSeriesHeaderContextMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -34,7 +35,7 @@
 
 	const { currentSeries, isTopSeries }: Props = $props();
 
-	let descriptionVisible = $state(false);
+	let descriptionVisible = $state(!!currentSeries.description);
 
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
@@ -94,12 +95,15 @@
 		}
 	}
 
-	function editDescription(_description: string) {
-		// branchController.updateBranchDescription(branch.id, description);
+	async function editDescription(description: string) {
+		await branchController.updateSeriesDescription(branch.id, currentSeries.name, description);
 	}
 
-	function addDescription() {
-		descriptionVisible = true;
+	async function toggleDescription() {
+		descriptionVisible = !descriptionVisible;
+		if (!descriptionVisible) {
+			await branchController.updateSeriesDescription(branch.id, currentSeries.name, '');
+		}
 	}
 
 	async function generateBranchName() {
@@ -189,10 +193,9 @@
 			<span class:no-upstream={!gitHostBranch} class="remote-name">
 				{$baseBranch.remoteName ? `${$baseBranch.remoteName} /` : 'origin /'}
 			</span>
-			<BranchLabel
-				name={currentSeries.name}
-				onChange={(name) => editTitle(name)}
-				disabled={!!gitHostBranch}
+			<StackingSeriesDescription
+				value={currentSeries.description ?? ''}
+				onChange={editDescription}
 			/>
 		</div>
 	</div>
@@ -287,6 +290,7 @@
 
 	.branch-info__description {
 		width: 100%;
+		margin-top: -5px;
 		display: flex;
 		justify-content: flex-start;
 		align-items: stretch;
