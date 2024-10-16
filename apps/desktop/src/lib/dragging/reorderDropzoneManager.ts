@@ -23,11 +23,13 @@ export class ReorderDropzone {
 		if (data.branchId !== this.branch.id) return;
 
 		const offset = this.entry.distanceToOtherCommit(data.commit.id);
+
 		console.log('REORDERING.COMMIT', {
 			branchId: this.branch.id,
 			commitId: data.commit.id,
 			offset
 		});
+
 		this.branchController.reorderCommit(this.branch.id, data.commit.id, offset);
 	}
 }
@@ -40,39 +42,20 @@ export class ReorderDropzoneManager {
 	constructor({
 		branchController,
 		branch,
-		commits,
-		series
+		commitIds
 	}: {
 		branchController: BranchController;
 		branch: VirtualBranch;
-		commits?: DetailedCommit[];
-		series?: PatchSeries[];
+		commitIds: string[];
 	}) {
 		this.branchController = branchController;
 		this.branch = branch;
 
-		console.log('constructor.commits', commits);
-		// let indexerInstance: Indexer;
-		// if (commits) {
-		// 	indexerInstance = new Indexer(commits);
-		// } else if (series) {
-		// 	const commitsArray = series.flatMap((s) => s.patches);
-		// 	console.log('commitsArray', commitsArray);
-		// 	indexerInstance = new Indexer(commitsArray);
-		// }
-		// this.indexer = indexerInstance;
-
-		this.indexer = new Indexer(commits ? commits : series);
+		this.indexer = new Indexer(commitIds);
 	}
 
-	topDropzone(seriesReference: number) {
-		// let entry: Entry;
-		// if (seriesName) {
-		// 	entry = this.indexer.get(`${seriesName}-top`);
-		// } else {
-		// 	entry = this.indexer.get('top');
-		// }
-		const entry = this.indexer.get(`top-${seriesReference}`);
+	topDropzone(key: string) {
+		const entry = this.indexer.get(key);
 
 		return new ReorderDropzone(this.branchController, this.branch, entry);
 	}
@@ -87,57 +70,37 @@ export class ReorderDropzoneManager {
 export class ReorderDropzoneManagerFactory {
 	constructor(private branchController: BranchController) {}
 
-	build({
-		branch,
-		commits,
-		series
-	}: {
-		branch: VirtualBranch;
-		commits?: DetailedCommit[];
-		series?: PatchSeries[];
-	}) {
+	build({ branch, commitIds }: { branch: VirtualBranch; commitIds: string[] }) {
 		return new ReorderDropzoneManager({
 			branchController: this.branchController,
 			branch,
-			commits,
-			series
+			commitIds
 		});
 	}
 }
 
 // Private classes used to calculate distances between commits
 class Indexer {
+	// private dropzoneIndexes = new Map<string, number>();
 	private dropzoneIndexes = new Map<string, number>();
-	private commitIndexes = new Map<string, number>();
 
-	constructor(commitGroups: DetailedCommit[] | PatchSeries[]) {
-		// dropzoneIndexes.set('top', 0);
-		// commits.forEach((commit, index) => {
-		// 	this.dropzoneIndexes.set(commit.id, index + 1);
-		// 	this.commitIndexes.set(commit.id, index);
-		// });
-		//
+	constructor(commitIds: string[]) {
 		let computedPatchIndex = 0;
-		commitGroups.map((series, seriesIndex) => {
-			console.log('PATCHES', series);
-			console.log('topIndex', this.dropzoneIndexes.size === 0 ? 0 : this.dropzoneIndexes.size); // + 1);
-			this.dropzoneIndexes.set(
-				`top-${series.name}`,
-				this.dropzoneIndexes.size === 0 ? 0 : this.dropzoneIndexes.size // + 1
-			);
 
-			series.patches.map((patch: DetailedCommit) => {
-				computedPatchIndex += 1;
-				this.dropzoneIndexes.set(patch.id, computedPatchIndex + seriesIndex); // + 1); // (seriesIndex + 1));
-				this.commitIndexes.set(patch.id, computedPatchIndex);
-			});
+		commitIds.map((patchId: string) => {
+			computedPatchIndex += 1;
+			// this.dropzoneIndexes.set(patchId, computedPatchIndex + 1); // + 1); // (seriesIndex + 1));
+			this.dropzoneIndexes.set(patchId, computedPatchIndex);
 		});
+
+		// console.log('Indexer.dropzoneIndexes', this.dropzoneIndexes);
+		console.log('Indexer.dropzoneIndexes', this.dropzoneIndexes);
 	}
 
 	get(key: string) {
 		const index = this.getIndex(key);
 
-		return new Entry(this.commitIndexes, index ?? 0);
+		return new Entry(this.dropzoneIndexes, index ?? 0);
 	}
 
 	private getIndex(key: string) {
@@ -175,15 +138,8 @@ class Entry {
 		const commitIndex = this.commitIndex(commitId);
 		if (commitIndex === undefined) return 0;
 
-		// console.log('commitIndex', commitIndex);
 		const offset = this.index - commitIndex;
 		console.log('distanceToOtherCommit', { offset, targetIndex: this.index, myIndex: commitIndex });
-		// console.log('distanceToOtherCommit.offset', {
-		// 	thisIndex: this.index,
-		// 	commitId,
-		// 	commitIndex,
-		// 	offset
-		// });
 
 		return offset;
 		// if (offset > 0) {
@@ -195,9 +151,6 @@ class Entry {
 
 	private commitIndex(commitId: string) {
 		const index = this.commitIndexes.get(commitId);
-		// console.log('this.commitIndex.myIndex', commitId);
-		// console.log('this.commitIndex.indexes', this.commitIndexes);
-		// console.log('this.commitIndex.myIndex', index);
 
 		// TODO: Handle updated commitIds after rebasing in `commitIndexes`
 		// Reordering works, but it throws errors for old commitIds that it can't find
