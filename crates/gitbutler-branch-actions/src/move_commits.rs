@@ -76,18 +76,21 @@ pub(crate) fn move_commit(
         gitbutler_diff::diff_files_into_hunks(source_commit_diff).collect();
     let is_source_locked = check_source_lock(source_branch_non_comitted_files, &source_commit_diff);
 
-    let mut ancestor_commits = ctx
-        .repository()
-        .log(source_commit_parent.id(), LogUntil::Commit(merge_base.id()))?;
+    let mut ancestor_commits = ctx.repository().log(
+        source_commit_parent.id(),
+        LogUntil::Commit(merge_base.id()),
+        false,
+    )?;
     ancestor_commits.push(merge_base);
     let ancestor_commits = ancestor_commits;
 
     let mut descendant_commits = None;
     if !is_head_commit {
-        descendant_commits = Some(
-            ctx.repository()
-                .log(source_branch.head(), LogUntil::Commit(commit_id))?,
-        );
+        descendant_commits = Some(ctx.repository().log(
+            source_branch.head(),
+            LogUntil::Commit(commit_id),
+            false,
+        )?);
     }
 
     let is_ancestor_locked =

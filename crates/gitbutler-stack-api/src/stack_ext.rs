@@ -466,7 +466,7 @@ impl StackExt for Stack {
             let head_commit =
                 commit_by_oid_or_change_id(&head.target, ctx, self.head(), &default_target)?.id();
             let local_patches = repo
-                .log(head_commit, LogUntil::Commit(previous_head))?
+                .log(head_commit, LogUntil::Commit(previous_head), false)?
                 .iter()
                 .rev() // oldest commit first
                 .map(|c| match c.change_id() {
@@ -483,7 +483,7 @@ impl StackExt for Stack {
                         .find_reference(&head.remote_reference(remote_name)?)?
                         .peel_to_commit()?;
                     let merge_base = repo.merge_base(head_commit.id(), default_target.sha)?;
-                    repo.log(head_commit.id(), LogUntil::Commit(merge_base))?
+                    repo.log(head_commit.id(), LogUntil::Commit(merge_base), false)?
                         .iter()
                         .rev()
                         .for_each(|c| {
@@ -627,7 +627,7 @@ fn validate_target(
         .merge_base(stack_head, default_target.sha)?;
     let mut stack_commits = ctx
         .repository()
-        .log(stack_head, LogUntil::Commit(merge_base))?
+        .log(stack_head, LogUntil::Commit(merge_base), false)?
         .iter()
         .map(|c| c.id())
         .collect_vec();
@@ -664,7 +664,7 @@ fn stack_patches(
         .merge_base(stack_head, default_target.sha)?;
     let mut patches = ctx
         .repository()
-        .log(stack_head, LogUntil::Commit(merge_base))?
+        .log(stack_head, LogUntil::Commit(merge_base), false)?
         .iter()
         .map(|c| match c.change_id() {
             Some(change_id) => CommitOrChangeId::ChangeId(change_id.to_string()),
@@ -744,7 +744,7 @@ fn commit_by_branch_id_and_change_id<'a>(
         vec![ctx.repository().find_commit(stack_head)?]
     } else {
         ctx.repository()
-            .log(stack_head, LogUntil::Commit(merge_base))?
+            .log(stack_head, LogUntil::Commit(merge_base), false)?
     };
     let commit = commits
         .iter()

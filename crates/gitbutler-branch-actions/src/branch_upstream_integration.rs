@@ -149,11 +149,16 @@ fn order_commits_for_rebasing(
     let merge_base =
         repository.merge_base_octopussy(&[target_branch_head, branch_head, remote_head])?;
 
-    let target_branch_commits = repository.l(target_branch_head, LogUntil::Commit(merge_base))?;
-    let local_branch_commits = repository.l(branch_head, LogUntil::Commit(merge_base))?;
+    let target_branch_commits =
+        repository.l(target_branch_head, LogUntil::Commit(merge_base), false)?;
+    let local_branch_commits = repository.l(branch_head, LogUntil::Commit(merge_base), false)?;
 
     let remote_local_merge_base = repository.merge_base(branch_head, remote_head)?;
-    let remote_commits = repository.l(remote_head, LogUntil::Commit(remote_local_merge_base))?;
+    let remote_commits = repository.l(
+        remote_head,
+        LogUntil::Commit(remote_local_merge_base),
+        false,
+    )?;
 
     let (integrated_commits, filtered_remote_commits) =
         remote_commits.into_iter().partition(|remote_commit| {
@@ -225,7 +230,7 @@ mod test {
             assert_eq!(
                 test_repository
                     .repository
-                    .l(head, LogUntil::Commit(base_commit.id()))
+                    .l(head, LogUntil::Commit(base_commit.id()), false)
                     .unwrap(),
                 vec![remote_y.id(), remote_x.id(), local_b.id(), local_a.id()],
             );
@@ -279,7 +284,7 @@ mod test {
 
             let commits = test_repository
                 .repository
-                .log(head, LogUntil::Commit(base_commit.id()))
+                .log(head, LogUntil::Commit(base_commit.id()), false)
                 .unwrap();
 
             assert_eq!(commits.len(), 4);
@@ -358,7 +363,7 @@ mod test {
 
             let commits = test_repository
                 .repository
-                .log(head, LogUntil::Commit(base_commit.id()))
+                .log(head, LogUntil::Commit(base_commit.id()), false)
                 .unwrap();
 
             assert_eq!(commits.len(), 4);
@@ -450,7 +455,7 @@ mod test {
 
             let commits = test_repository
                 .repository
-                .log(head, LogUntil::Commit(base_commit.id()))
+                .log(head, LogUntil::Commit(base_commit.id()), false)
                 .unwrap();
 
             assert_eq!(commits.len(), 3);

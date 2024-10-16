@@ -329,7 +329,8 @@ impl BranchManager<'_> {
         // Do we need to rebase the branch on top of the default target?
         if merge_base != default_target.sha {
             let new_head = if branch.allow_rebasing {
-                let commits_to_rebase = repo.l(branch.head(), LogUntil::Commit(merge_base))?;
+                let commits_to_rebase =
+                    repo.l(branch.head(), LogUntil::Commit(merge_base), false)?;
 
                 let head_oid = cherry_rebase_group(repo, default_target.sha, &commits_to_rebase)?;
 

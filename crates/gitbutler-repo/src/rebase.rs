@@ -27,9 +27,9 @@ pub fn cherry_rebase(
     from_commit_oid: git2::Oid,
 ) -> Result<Option<git2::Oid>> {
     // get a list of the commits to rebase
-    let ids_to_rebase = ctx
-        .repository()
-        .l(from_commit_oid, LogUntil::Commit(to_commit_oid))?;
+    let ids_to_rebase =
+        ctx.repository()
+            .l(from_commit_oid, LogUntil::Commit(to_commit_oid), false)?;
 
     if ids_to_rebase.is_empty() {
         return Ok(None);
@@ -458,7 +458,7 @@ mod test {
 
             let commits: Vec<git2::Commit> = test_repository
                 .repository
-                .log(commit.id(), LogUntil::End)
+                .log(commit.id(), LogUntil::End, false)
                 .unwrap();
 
             assert!(commits.into_iter().all(|commit| !commit.is_conflicted()));
@@ -596,7 +596,7 @@ mod test {
 
             let commits: Vec<git2::Commit> = test_repository
                 .repository
-                .log(commit.id(), LogUntil::Commit(d.id()))
+                .log(commit.id(), LogUntil::Commit(d.id()), false)
                 .unwrap();
 
             assert!(commits.iter().all(|commit| commit.is_conflicted()));

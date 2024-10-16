@@ -330,7 +330,11 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
 
     let commits = ctx
         .repository()
-        .log(head_commit.id(), LogUntil::Commit(default_target.sha))
+        .log(
+            head_commit.id(),
+            LogUntil::Commit(default_target.sha),
+            false,
+        )
         .context("failed to get log")?;
 
     let workspace_index = commits

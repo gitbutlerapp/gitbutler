@@ -321,14 +321,14 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
     let (number_commits_ahead, number_commits_behind) = repo.graph_ahead_behind(target.sha, oid)?;
 
     let diverged_ahead = repo
-        .log(target.sha, LogUntil::Take(number_commits_ahead))
+        .log(target.sha, LogUntil::Take(number_commits_ahead), false)
         .context("failed to get fork point")?
         .iter()
         .map(|commit| commit.id())
         .collect::<Vec<_>>();
 
     let diverged_behind = repo
-        .log(oid, LogUntil::Take(number_commits_behind))
+        .log(oid, LogUntil::Take(number_commits_behind), false)
         .context("failed to get fork point")?
         .iter()
         .map(|commit| commit.id())
@@ -339,7 +339,7 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
 
     // gather a list of commits between oid and target.sha
     let upstream_commits = repo
-        .log(oid, LogUntil::Commit(target.sha))
+        .log(oid, LogUntil::Commit(target.sha), false)
         .context("failed to get upstream commits")?
         .iter()
         .map(commit_to_remote_commit)
@@ -347,7 +347,7 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
 
     // get some recent commits
     let recent_commits = repo
-        .log(target.sha, LogUntil::Take(20))
+        .log(target.sha, LogUntil::Take(20), false)
         .context("failed to get recent commits")?
         .iter()
         .map(commit_to_remote_commit)

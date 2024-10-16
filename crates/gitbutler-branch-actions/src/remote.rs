@@ -169,7 +169,7 @@ pub(crate) fn branch_to_remote_branch_data(
         .map(|sha| {
             let ahead = ctx
                 .repository()
-                .log(sha, LogUntil::Commit(base))
+                .log(sha, LogUntil::Commit(base), false)
                 .context("failed to get ahead commits")?;
 
             let name = Refname::try_from(branch).context("could not get branch name")?;
