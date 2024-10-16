@@ -105,6 +105,9 @@
 			<img
 				class="hunk-image"
 				src="data:{fileInfo.mimeType};base64,{fileInfo.content}"
+				oncontextmenu={(e) => {
+					e.preventDefault();
+				}}
 				alt={fileInfo.name}
 			/>
 		{/if}
@@ -132,16 +135,16 @@
 						<div class="indicators text-11 text-semibold">
 							{#if isHunkLocked}
 								<InfoMessage filled outlined={false} style="warning" icon="locked">
-									<svelte:fragment slot="content"
-										>{getLockText(section.hunk.lockedTo, commits)}</svelte:fragment
-									>
+									<svelte:fragment slot="content">
+										{getLockText(section.hunk.lockedTo, commits)}
+									</svelte:fragment>
 								</InfoMessage>
 							{/if}
 							{#if section.hunk.poisoned}
 								<InfoMessage filled outlined={false}>
-									<svelte:fragment slot="content"
-										>Can not manage this hunk because it depends on changes from multiple branches</svelte:fragment
-									>
+									<svelte:fragment slot="content">
+										Can not manage this hunk because it depends on changes from multiple branches
+									</svelte:fragment>
 								</InfoMessage>
 							{/if}
 						</div>
