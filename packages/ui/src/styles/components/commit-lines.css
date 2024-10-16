@@ -3,61 +3,63 @@
 	width: 100%;
 	height: 100%;
 
-	--border-color: var(--clr-commit-shadow);
-	--border-style: solid;
+	--background-color: var(--clr-commit-shadow);
 
 	&.none {
-		--border-color: transparent;
+		--background-color: transparent;
 	}
 
 	&.remote {
-		--border-color: var(--clr-commit-remote);
+		--background-color: var(--clr-commit-remote);
 	}
 
 	&.local {
-		--border-color: var(--clr-commit-local);
+		--background-color: var(--clr-commit-local);
 	}
 
 	&.local-and-remote {
-		--border-color: var(--clr-commit-remote);
+		--background-color: var(--clr-commit-remote);
 	}
 
 	&.local-shadow {
-		--border-color: var(--clr-commit-local);
+		--background-color: var(--clr-commit-local);
 	}
 
 	&.shadow {
-		--border-color: var(--clr-commit-shadow);
+		--background-color: var(--clr-commit-shadow);
 	}
 
 	&.upstream {
-		--border-color: var(--clr-commit-upstream);
+		--background-color: var(--clr-commit-upstream);
 	}
 
 	&.integrated {
-		--border-color: var(--clr-commit-shadow);
+		--background-color: var(--clr-commit-shadow);
 
 		&.stacked {
-			--border-color: var(--clr-commit-integrated);
+			--background-color: var(--clr-commit-integrated);
 		}
 	}
 
-	&.dashed {
-		--border-style: none;
+	&:before {
+		content: '';
+		position: absolute;
+		top: 0;
+		right: 0;
+		width: 2px;
+		height: 100%;
+		background: var(--background-color);
+	}
 
+	&.dashed {
 		&:before {
-			content: '';
-			position: absolute;
-			top: 0;
-			right: 0;
-			width: 2px;
 			height: calc(100% + 1px);
 			background: repeating-linear-gradient(
 				0,
 				transparent,
 				transparent 2px,
-				var(--border-color) 2px,
-				var(--border-color) 4px
+				var(--background-color) 2px,
+				var(--background-color) 4px
 			);
 		}
 	}

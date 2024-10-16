@@ -58,16 +58,6 @@ function generateLineData({
 		...integratedBranchGroups.map(({ commit, line }) => [commit.id, line])
 	] as [string, LineData][]);
 
-	// Ensure bottom line is dashed
-	[...data].reverse().find(([key, value]) => {
-		if (!key.includes('-spacer')) {
-			value.bottom.style = 'dashed';
-			data.set(key, value);
-			return true;
-		}
-		return false;
-	});
-
 	return { data };
 }
 

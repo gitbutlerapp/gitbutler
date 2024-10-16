@@ -29,6 +29,7 @@
 		localCommitsConflicted: boolean;
 		localAndRemoteCommitsConflicted: boolean;
 		reorderDropzoneManager: ReorderDropzoneManager;
+		isBottom?: boolean;
 	}
 	const {
 		remoteOnlyPatches,
@@ -36,7 +37,8 @@
 		isUnapplied,
 		pushButton,
 		localAndRemoteCommitsConflicted,
-		reorderDropzoneManager
+		reorderDropzoneManager,
+		isBottom = false
 	}: Props = $props();
 
 	const branch = getContextStore(VirtualBranch);
@@ -148,7 +150,10 @@
 							commitUrl={$gitHost?.commitUrl(commit.id)}
 						>
 							{#snippet lines()}
-								<Line line={lineManager.get(commit.id)} isBottom={idx === patches.length - 1} />
+								<Line
+									line={lineManager.get(commit.id)}
+									isBottom={isBottom && idx === patches.length - 1}
+								/>
 							{/snippet}
 						</StackingCommitCard>
 					</StackingCommitDragItem>

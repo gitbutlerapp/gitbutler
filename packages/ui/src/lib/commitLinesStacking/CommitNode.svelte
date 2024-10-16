@@ -85,7 +85,7 @@
 	}
 
 	.local-commit-dot {
-		transform: translateX(4px);
+		transform: translateX(3px);
 		fill: var(--clr-commit-local);
 	}
 

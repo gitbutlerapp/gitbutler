@@ -223,6 +223,7 @@
 		display: flex;
 		display: flex;
 		flex-direction: column;
+		overflow: hidden;
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
