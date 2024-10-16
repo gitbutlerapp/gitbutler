@@ -499,10 +499,29 @@ impl StackExt for Stack {
                         });
                 }
             };
+
+            // compute the commits that are only in the upstream
+            let local_patches_including_merge = repo
+                .log(head_commit, LogUntil::Commit(previous_head), true)?
+                .iter()
+                .rev() // oldest commit first
+                .map(|c| match c.change_id() {
+                    Some(change_id) => CommitOrChangeId::ChangeId(change_id.to_string()),
+                    None => CommitOrChangeId::CommitId(c.id().to_string()),
+                })
+                .collect_vec();
+            let mut upstream_only = vec![];
+            for patch in remote_patches.iter() {
+                if !local_patches_including_merge.contains(patch) {
+                    upstream_only.push(patch.clone());
+                }
+            }
+
             all_series.push(Series {
                 head: head.clone(),
                 local_commits: local_patches,
                 remote_commits: remote_patches,
+                upstream_only_commits: upstream_only,
                 remote_commit_ids_by_change_id,
             });
             previous_head = head_commit;
