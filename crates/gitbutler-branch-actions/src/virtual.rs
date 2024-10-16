@@ -542,7 +542,7 @@ fn stack_series(
                 .repository()
                 .find_reference(&upstream_reference)?
                 .peel_to_commit()?;
-            for patch in series.upstream_only(&stack_series) {
+            for patch in series.upstream_only_commits {
                 if let Ok(commit) =
                     commit_by_oid_or_change_id(&patch, ctx, remote_head.id(), default_target)
                 {
