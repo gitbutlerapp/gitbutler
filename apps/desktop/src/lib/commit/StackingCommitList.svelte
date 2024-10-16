@@ -148,7 +148,7 @@
 							commitUrl={$gitHost?.commitUrl(commit.id)}
 						>
 							{#snippet lines()}
-								<Line line={lineManager.get(commit.id)} />
+								<Line line={lineManager.get(commit.id)} isBottom={idx === patches.length - 1} />
 							{/snippet}
 						</StackingCommitCard>
 					</StackingCommitDragItem>

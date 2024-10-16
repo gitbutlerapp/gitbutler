@@ -1,5 +1,6 @@
 <script lang="ts">
-	import StackingBranchHeader from '$lib/branch/StackingBranchHeader.svelte';
+	import StackSeriesDividerLine from './StackSeriesDividerLine.svelte';
+	import StackingSeriesHeader from '$lib/branch/StackingSeriesHeader.svelte';
 	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
@@ -27,9 +28,12 @@
 </script>
 
 <!-- TODO: Add connecting line on background between NewStackCard above and branches below -->
-{#each branch.series as currentSeries (currentSeries.name)}
+{#each branch.series as currentSeries, idx (currentSeries.name)}
+	{#if idx !== 0}
+		<StackSeriesDividerLine {currentSeries} />
+	{/if}
 	<div class="branch-group">
-		<StackingBranchHeader {currentSeries} />
+		<StackingSeriesHeader {currentSeries} />
 		{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
 			<StackingCommitList
 				remoteOnlyPatches={currentSeries.upstreamPatches}
