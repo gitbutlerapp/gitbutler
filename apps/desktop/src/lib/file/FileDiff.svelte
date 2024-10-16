@@ -102,12 +102,16 @@
 <div class="hunks">
 	{#if isBinary}
 		{#if fileInfo.mimeType && fileInfo.content}
-			<img src="data:{fileInfo.mimeType};base64,{fileInfo.content}" alt={fileInfo.name} />
+			<img
+				class="hunk-image"
+				src="data:{fileInfo.mimeType};base64,{fileInfo.content}"
+				alt={fileInfo.name}
+			/>
 		{/if}
 		{#if fileInfo.status === 'deleted'}
 			<p>File has been deleted</p>
 		{:else}
-			<p>Size: {formatFileSize(fileInfo.size || 0)}</p>
+			<p class="hunk-label__size">{formatFileSize(fileInfo.size || 0)}</p>
 		{/if}
 	{:else if isLarge}
 		Diff too large to be shown
@@ -169,6 +173,18 @@
 		padding: 14px;
 		gap: 16px;
 	}
+
+	.hunk-image {
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+	}
+
+	.hunk-label__size {
+		align-self: flex-start;
+		font-size: 12px;
+		color: var(--clr-text-3);
+	}
+
 	.hunk-wrapper {
 		display: flex;
 		flex-direction: column;
