@@ -17,6 +17,7 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
+	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
@@ -100,7 +101,7 @@
 		}
 	}
 
-	let scrollEndVisible = $state(false);
+	let scrollEndVisible = $state(true);
 </script>
 
 {#if $isLaneCollapsed}
@@ -117,7 +118,6 @@
 					top: 12,
 					bottom: 12
 				}}
-				onscrollEnd={(visible) => (scrollEndVisible = visible)}
 			>
 				<div
 					bind:this={rsViewport}
@@ -128,7 +128,7 @@
 					<StackHeader {isLaneCollapsed} stackPrs={stackPrs?.length ?? 0} />
 					<div class="card-stacking">
 						{#if branch.files?.length > 0}
-							<div class="branch-card__files card">
+							<div class="branch-card__files">
 								<Dropzones>
 									<BranchFiles
 										isUnapplied={false}
@@ -163,7 +163,7 @@
 							</div>
 						{:else if branch.commits.length === 0}
 							<Dropzones>
-								<div class="new-branch card">
+								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
 										{#snippet title()}
 											This is a new branch
@@ -176,7 +176,7 @@
 							</Dropzones>
 						{:else}
 							<Dropzones>
-								<div class="no-changes card">
+								<div class="no-changes">
 									<EmptyStatePlaceholder image={noChangesSvg} width={180}>
 										{#snippet caption()}
 											No uncommitted changes on this branch
@@ -195,7 +195,26 @@
 					</div>
 				</div>
 				{#if canPush}
-					<div class="lane-branches__action" class:scroll-end-visible={scrollEndVisible}>
+					<div
+						class="lane-branches__action"
+						class:scroll-end-visible={scrollEndVisible}
+						use:intersectionObserver={{
+							callback: (entry) => {
+								if (entry?.isIntersecting) {
+									console.log('visible');
+									scrollEndVisible = false;
+								} else {
+									console.log('not visible');
+									scrollEndVisible = true;
+								}
+							},
+							options: {
+								root: null,
+								rootMargin: `-100% 0px 0px 0px`,
+								threshold: 0
+							}
+						}}
+					>
 						<Button
 							style="neutral"
 							kind="solid"
@@ -250,19 +269,38 @@
 	.lane-branches {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
+		gap: 8px;
 	}
 
 	.lane-branches__action {
+		position: relative;
 		z-index: var(--z-lifted);
 		position: sticky;
-		padding: 12px;
-		bottom: 0px;
+		padding: 0 12px 12px;
+		margin-bottom: 1px;
+		bottom: 0;
 		transition: background-color var(--transition-fast);
 
-		&:not(.scroll-end-visible) {
+		&:after {
+			content: '';
+			display: block;
+			position: absolute;
+			bottom: 0;
+			left: 0;
+			height: calc(100% + 12px);
+			width: 100%;
+			z-index: -1;
 			background-color: var(--clr-bg-1);
 			border-top: 1px solid var(--clr-border-2);
+			/* transition props */
+			transform: translateY(0);
+			/* background-color: cadetblue; */
+			opacity: 0;
+			transition: opacity var(--transition-fast);
+		}
+
+		&:not(.scroll-end-visible):after {
+			opacity: 1;
 		}
 	}
 
@@ -289,10 +327,13 @@
 		flex-direction: column;
 	}
 
-	.branch-card__files.card,
-	.no-changes.card,
-	.new-branch.card {
+	.branch-card__files,
+	.no-changes,
+	.new-branch {
 		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
+		border: 1px solid var(--clr-border-2);
+		border-top-width: 0;
+		background: var(--clr-bg-1);
 	}
 
 	.branch-card__files {
