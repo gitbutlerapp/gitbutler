@@ -1103,13 +1103,13 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let branch = branches.iter().find(|b| b.name == "virtual").unwrap();
     let other_branch = branches.iter().find(|b| b.name != "virtual").unwrap();
     let target = handle.get_default_target()?;
-    let mut branch_commits = ctx
-        .repository()
-        .log(branch.head(), LogUntil::Commit(target.sha))?;
+    let mut branch_commits =
+        ctx.repository()
+            .log(branch.head(), LogUntil::Commit(target.sha), false)?;
     branch_commits.reverse();
-    let mut other_commits = ctx
-        .repository()
-        .log(other_branch.head(), LogUntil::Commit(target.sha))?;
+    let mut other_commits =
+        ctx.repository()
+            .log(other_branch.head(), LogUntil::Commit(target.sha), false)?;
     other_commits.reverse();
     Ok(TestContext {
         branch: branch.clone(),

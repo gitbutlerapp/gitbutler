@@ -56,8 +56,11 @@ fn inner_undo_commit(
         return Ok(commit_to_remove.parent(0)?.id());
     };
 
-    let commits_to_rebase =
-        repository.l(branch_head_commit, LogUntil::Commit(commit_to_remove.id()))?;
+    let commits_to_rebase = repository.l(
+        branch_head_commit,
+        LogUntil::Commit(commit_to_remove.id()),
+        false,
+    )?;
 
     let new_head = cherry_rebase_group(
         repository,

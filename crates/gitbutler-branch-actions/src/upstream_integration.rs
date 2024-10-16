@@ -377,7 +377,7 @@ pub(crate) fn resolve_upstream_integration(
             Ok(new_head.id())
         }
         BaseBranchResolutionApproach::Rebase => {
-            let commits = repo.l(old_target_id, LogUntil::Commit(fork_point))?;
+            let commits = repo.l(old_target_id, LogUntil::Commit(fork_point), false)?;
             let new_head = cherry_rebase_group(repo, new_target_id, &commits)?;
 
             Ok(new_head)
@@ -457,8 +457,11 @@ fn compute_resolutions(
                     };
 
                     // Rebase virtual branches' commits
-                    let virtual_branch_commits =
-                        repository.l(virtual_branch.head(), LogUntil::Commit(lower_bound))?;
+                    let virtual_branch_commits = repository.l(
+                        virtual_branch.head(),
+                        LogUntil::Commit(lower_bound),
+                        false,
+                    )?;
 
                     let new_head =
                         cherry_rebase_group(repository, new_target.id(), &virtual_branch_commits)?;
@@ -757,7 +760,11 @@ mod test {
 
         let commits_to_rebase = test_repository
             .repository
-            .l(old_target.id(), LogUntil::Commit(initial_commit.id()))
+            .l(
+                old_target.id(),
+                LogUntil::Commit(initial_commit.id()),
+                false,
+            )
             .unwrap();
         let head_after_rebase = cherry_rebase_group(
             &test_repository.repository,
@@ -828,7 +835,11 @@ mod test {
 
         let commits_to_rebase = test_repository
             .repository
-            .l(old_target.id(), LogUntil::Commit(initial_commit.id()))
+            .l(
+                old_target.id(),
+                LogUntil::Commit(initial_commit.id()),
+                false,
+            )
             .unwrap();
         let head_after_rebase = cherry_rebase_group(
             &test_repository.repository,

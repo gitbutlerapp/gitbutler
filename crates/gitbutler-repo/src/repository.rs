@@ -124,7 +124,7 @@ impl RepoActionsExt for CommandContext {
 
     // returns the number of commits between the first oid to the second oid
     fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32> {
-        let oids = self.repository().l(from, LogUntil::Commit(to))?;
+        let oids = self.repository().l(from, LogUntil::Commit(to), false)?;
         Ok(oids.len().try_into()?)
     }
 

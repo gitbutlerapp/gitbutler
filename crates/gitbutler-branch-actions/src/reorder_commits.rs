@@ -54,7 +54,7 @@ pub(crate) fn reorder_commit(
 
     let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
 
-    let original_commits = repository.l(branch.head(), LogUntil::Commit(merge_base))?;
+    let original_commits = repository.l(branch.head(), LogUntil::Commit(merge_base), false)?;
     let ReorderResult {
         tree,
         head,
@@ -441,7 +441,7 @@ mod test {
 
             let commits: Vec<git2::Commit> = test_repository
                 .repository
-                .log(result.head, LogUntil::Commit(merge_base.id()))
+                .log(result.head, LogUntil::Commit(merge_base.id()), false)
                 .unwrap();
 
             assert_eq!(
@@ -482,7 +482,7 @@ mod test {
 
             let commits: Vec<git2::Commit> = test_repository
                 .repository
-                .log(result.head, LogUntil::Commit(merge_base.id()))
+                .log(result.head, LogUntil::Commit(merge_base.id()), false)
                 .unwrap();
 
             assert_eq!(commits.len(), 3);
