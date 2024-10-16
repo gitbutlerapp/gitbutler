@@ -95,7 +95,7 @@
 		branchController.undoCommit(branch.id, commit.id);
 	}
 
-	let isUndoable = commit instanceof DetailedCommit;
+	let isUndoable = commit instanceof DetailedCommit && type !== 'remote';
 
 	let commitMessageModal: Modal;
 	let commitMessageValid = $state(false);
