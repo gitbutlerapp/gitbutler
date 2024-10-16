@@ -17,9 +17,14 @@
 	import { join } from '@tauri-apps/api/path';
 	import type { Writable } from 'svelte/store';
 
-	export let branchId: string | undefined;
-	export let target: HTMLElement | undefined;
-	export let isUnapplied;
+	interface Props {
+		isUnapplied: boolean;
+		branchId?: string;
+		target?: HTMLElement;
+		isBinary?: boolean;
+	}
+
+	const { branchId, target, isUnapplied, isBinary = false }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
@@ -57,7 +62,7 @@
 		<ContextMenuSection>
 			{#if item.files && item.files.length > 0}
 				{@const files = item.files}
-				{#if files[0] instanceof LocalFile && !isUnapplied}
+				{#if files[0] instanceof LocalFile && !isUnapplied && !isBinary}
 					<ContextMenuItem
 						label="Discard changes"
 						on:click={() => {

@@ -127,6 +127,7 @@
 	target={draggableEl}
 	{isUnapplied}
 	branchId={$branch?.id}
+	isBinary={file.binary}
 />
 
 <FileListItem
