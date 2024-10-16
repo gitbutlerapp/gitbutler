@@ -21,10 +21,23 @@
 		$localAndRemoteCommits.some((commit) => commit.conflicted)
 	);
 
-	console.log('stackSeries.commits', { local: branch.localCommits, remote: branch.remoteCommits });
+	const commitIds = $derived(
+		branch.series
+			.map((series) => {
+				let patches = [`above-${series.patches[0]?.id}`];
+				patches.push(...series.patches.map((patch) => patch.id));
+				return patches;
+			})
+			.flat()
+	);
+
+	console.log('stackSeries.commits', commitIds);
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 	const reorderDropzoneManager = $derived(
-		reorderDropzoneManagerFactory.build({ branch, series: branch.series })
+		reorderDropzoneManagerFactory.build({
+			branch,
+			commitIds
+		})
 	);
 </script>
 
