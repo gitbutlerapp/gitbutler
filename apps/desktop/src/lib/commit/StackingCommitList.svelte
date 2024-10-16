@@ -7,7 +7,6 @@
 	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import {
 		ReorderDropzoneManager,
-		ReorderDropzoneManagerFactory,
 		type ReorderDropzone
 	} from '$lib/dragging/reorderDropzoneManager';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
@@ -74,8 +73,6 @@
 	const hasRemoteCommits = $derived(remoteOnlyPatches.length > 0);
 
 	let isIntegratingCommits = $state(false);
-
-	// const reorderDropzoneManager = $derived(reorderDropzoneManagerFactory.build($branch, patches));
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!$branch || !$baseBranch) {
