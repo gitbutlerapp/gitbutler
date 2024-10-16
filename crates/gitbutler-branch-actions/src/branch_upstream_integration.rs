@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
@@ -6,7 +6,7 @@ use gitbutler_repo::{
     LogUntil, RepositoryExt as _,
 };
 use gitbutler_stack::StackId;
-use gitbutler_stack_api::StackExt;
+use gitbutler_stack_api::{commit_by_oid_or_change_id, StackExt};
 
 use crate::{
     branch_trees::{
@@ -14,6 +14,107 @@ use crate::{
     },
     conflicts, VirtualBranchesExt as _,
 };
+
+pub fn integrate_upstream_commits_for_series(
+    ctx: &CommandContext,
+    branch_id: StackId,
+    perm: &mut WorktreeWritePermission,
+    series_name: String,
+) -> Result<()> {
+    conflicts::is_conflicting(ctx, None)?;
+
+    let repository = ctx.repository();
+    let vb_state = ctx.project().virtual_branches();
+
+    let branch = vb_state.get_branch_in_workspace(branch_id)?;
+    let all_series = branch.list_series(ctx)?;
+
+    let default_target = vb_state.get_default_target()?;
+    let remote = default_target.clone().push_remote_name.ok_or(anyhow!(
+        "No remote has been configured for the target branch"
+    ))?;
+
+    let series = all_series
+        .iter()
+        .find(|series| series.head.name == series_name)
+        .ok_or(anyhow!("Series not found"))?;
+    let upstream_reference = series.head.remote_reference(remote.as_str())?;
+    let remote_head = ctx
+        .repository()
+        .find_reference(&upstream_reference)?
+        .peel_to_commit()?;
+    let stack_merge_base = ctx
+        .repository()
+        .merge_base(branch.head(), default_target.sha)?;
+    let upstream_to_local_merge_base = ctx
+        .repository()
+        .merge_base(branch.head(), remote_head.id())?;
+
+    // Rebasing will be performed if configured.
+    // If the series to integrate is not the latest one, it will also do a rebase.
+    let new_stack_head = if branch.allow_rebasing || Some(series) != all_series.first() {
+        // commits to rebase
+        let mut ordered_commits_to_rebase = vec![];
+        for series in all_series.clone() {
+            // if this is the series that is getting the upstream commits, they are added first
+            if series.head.name == series_name {
+                for id in series.upstream_only_commits.iter() {
+                    let commit = commit_by_oid_or_change_id(
+                        id,
+                        ctx,
+                        remote_head.id(),
+                        upstream_to_local_merge_base,
+                    )?;
+                    ordered_commits_to_rebase.push(commit.id());
+                }
+            }
+            // now add the existing local commits to the rebase list
+            for id in series.local_commits.iter() {
+                let commit = commit_by_oid_or_change_id(id, ctx, branch.head(), stack_merge_base)?;
+                ordered_commits_to_rebase.push(commit.id());
+            }
+        }
+        cherry_rebase_group(
+            repository,
+            upstream_to_local_merge_base,
+            &ordered_commits_to_rebase,
+        )?
+    } else {
+        // If rebase is not allowed AND this is the latest series - create a merge commit on top
+        let series_head_commit = commit_by_oid_or_change_id(
+            &series.head.target,
+            ctx,
+            branch.head(),
+            upstream_to_local_merge_base,
+        )?;
+        let merge_commit = gitbutler_merge_commits(
+            repository,
+            series_head_commit,
+            remote_head.clone(),
+            &series.head.name, // for error messages only
+            &series
+                .head
+                .remote_reference(&default_target.sha.to_string())?, // for error messages only
+        )?;
+        // the new merge commit is now the stack and series head
+        merge_commit.id()
+    };
+
+    // Find what the new head and branch tree should be
+    let BranchHeadAndTree { head, tree } = compute_updated_branch_head_for_commits(
+        repository,
+        branch.head(),
+        branch.tree,
+        new_stack_head,
+    )?;
+
+    let mut branch = branch.clone();
+
+    branch.set_stack_head(ctx, head, Some(tree))?;
+    checkout_branch_trees(ctx, perm)?;
+    crate::integration::update_workspace_commit(&vb_state, ctx)?;
+    Ok(())
+}
 
 /// Integrates upstream work from a remote branch.
 ///

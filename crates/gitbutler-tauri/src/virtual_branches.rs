@@ -116,9 +116,10 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch: StackId,
+        series_name: Option<String>,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        gitbutler_branch_actions::integrate_upstream_commits(&project, branch)?;
+        gitbutler_branch_actions::integrate_upstream_commits(&project, branch, series_name)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
