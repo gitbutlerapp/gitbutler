@@ -15,7 +15,6 @@
 		name?: string;
 		mimeType?: string;
 		size?: number;
-		status: 'normal' | 'deleted';
 	}
 
 	interface Props {
@@ -77,8 +76,7 @@
 		content: '',
 		name: undefined,
 		mimeType: undefined,
-		size: 0,
-		status: 'normal'
+		size: 0
 	});
 
 	async function fetchBlobInfo() {
@@ -104,7 +102,7 @@
 		{#if fileInfo.mimeType && fileInfo.content}
 			<img src="data:{fileInfo.mimeType};base64,{fileInfo.content}" alt={fileInfo.name} />
 		{/if}
-		{#if fileInfo.status === 'deleted'}
+		{#if fileInfo.size === undefined}
 			<p>File has been deleted</p>
 		{:else}
 			<p>Size: {formatFileSize(fileInfo.size || 0)}</p>
