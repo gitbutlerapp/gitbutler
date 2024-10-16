@@ -1,6 +1,5 @@
 <script lang="ts">
 	import MergeButton from './MergeButton.svelte';
-	import PrDetailsModal from './PrDetailsModal.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
@@ -13,8 +12,6 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
-	import { createTimeAgoStore } from '@gitbutler/ui/utils/timeAgo';
-	import type { ChecksStatus } from '$lib/gitHost/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
@@ -34,8 +31,6 @@
 	const vbranchService = getContext(VirtualBranchService);
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
-
-	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 
 	const gitHostListingService = getGitHostListingService();
 	const prStore = $derived($gitHostListingService?.prs);
@@ -61,26 +56,13 @@
 
 	let isMerging = $state(false);
 
-	const lastFetch = $derived(prMonitor?.lastFetch);
-	const timeAgo = $derived($lastFetch ? createTimeAgoStore($lastFetch) : undefined);
-
 	const mrLoading = $derived(prMonitor?.loading);
 	const checksLoading = $derived($checksMonitor?.loading);
 
 	const checksError = $derived($checksMonitor?.error);
 	const detailsError = $derived(prMonitor?.error);
 
-	function getChecksCount(status: ChecksStatus): string {
-		if (!status) return 'Running checks';
-
-		const finished = status.finished || 0;
-		const skipped = status.skipped || 0;
-		const total = (status.totalCount || 0) - skipped;
-
-		return `Checks completed ${finished}/${total}`;
-	}
-
-	const checksTagInfo: StatusInfo | undefined = $derived.by(() => {
+	const checksTagInfo: StatusInfo = $derived.by(() => {
 		if ($checksError || $detailsError) {
 			return { style: 'error', icon: 'warning-small', text: 'Failed to load' };
 		}
@@ -93,12 +75,14 @@
 						? 'success-small'
 						: 'error-small'
 					: 'spinner';
-			const text = $checks.completed ? 'Checks' : getChecksCount($checks);
+			const text = $checks.completed ? 'Checks' : 'Checks running';
 			return { style, icon, text };
 		}
 		if ($checksLoading) {
 			return { style: 'neutral', icon: 'spinner', text: 'Checks' };
 		}
+
+		return { style: 'neutral', icon: undefined, text: 'No PR checks' };
 	});
 
 	const prStatusInfo: StatusInfo = $derived.by(() => {
@@ -179,11 +163,12 @@
 		</div>
 		<div class="pr-tags">
 			<Button
+				reversedDirection
 				size="tag"
 				clickable={false}
 				style={prStatusInfo.style}
 				tooltip="PR status"
-				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
+				kind={'soft'}
 			>
 				{prStatusInfo.text}
 			</Button>
@@ -200,17 +185,6 @@
 				</Button>
 			{/if}
 			<Button
-				size="tag"
-				style="ghost"
-				outline
-				icon="description-small"
-				onclick={() => {
-					prDetailsModal?.show();
-				}}
-			>
-				PR details
-			</Button>
-			<Button
 				icon="open-link"
 				size="tag"
 				style="ghost"
@@ -218,20 +192,8 @@
 				tooltip="Open in browser"
 				onclick={() => {
 					openExternalUrl($pr.htmlUrl);
-				}}
-			/>
-			<Button
-				icon="update-small"
-				size="tag"
-				style="ghost"
-				outline
-				loading={$mrLoading}
-				tooltip={$timeAgo ? 'Updated ' + $timeAgo : ''}
-				onclick={async () => {
-					$checksMonitor?.update();
-					prMonitor?.refresh();
-				}}
-			/>
+				}}>View PR</Button
+			>
 		</div>
 
 		<!--
@@ -285,10 +247,6 @@
 			</div>
 		{/if}
 	</div>
-{/if}
-
-{#if $pr}
-	<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
 {/if}
 
 <style lang="postcss">

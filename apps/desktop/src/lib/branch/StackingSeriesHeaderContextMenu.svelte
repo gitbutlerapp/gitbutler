@@ -18,8 +18,11 @@
 		headName: string;
 		seriesCount: number;
 		disableTitleEdit: boolean;
+		hasPr: boolean;
 		addDescription: () => void;
 		onGenerateBranchName: () => void;
+		openPrDetailsModal: () => void;
+		reloadPR: () => void;
 	}
 
 	let {
@@ -28,8 +31,11 @@
 		seriesCount,
 		disableTitleEdit,
 		headName,
+		hasPr,
 		addDescription,
-		onGenerateBranchName
+		onGenerateBranchName,
+		openPrDetailsModal,
+		reloadPR
 	}: Props = $props();
 
 	const project = getContext(Project);
@@ -89,6 +95,24 @@
 			}}
 		/>
 	</ContextMenuSection>
+	{#if hasPr}
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="PR details"
+				on:click={() => {
+					openPrDetailsModal();
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Refetch PR status"
+				on:click={() => {
+					reloadPR();
+					contextMenuEl?.close();
+				}}
+			/>
+		</ContextMenuSection>
+	{/if}
 </ContextMenu>
 
 <Modal

@@ -269,7 +269,7 @@
 				}
 				break;
 			case KeyName.Enter:
-				if (isEditing || isLoading || aiIsLoading) break;
+				if (isLoading || aiIsLoading) break;
 				if (e.metaKey || e.ctrlKey) {
 					e.stopPropagation();
 					e.preventDefault();
