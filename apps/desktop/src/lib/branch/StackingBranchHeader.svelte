@@ -19,18 +19,16 @@
 	import { slugify } from '$lib/utils/string';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { DetailedCommit, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
+	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 
 	interface Props {
-		name: string;
-		upstreamName?: string;
-		commits: DetailedCommit[];
+		currentSeries: PatchSeries;
 	}
 
-	const { name, upstreamName, commits }: Props = $props();
+	const { currentSeries }: Props = $props();
 
 	let descriptionVisible = $state(false);
 
@@ -45,6 +43,7 @@
 	const prService = getGitHostPrService();
 	const gitHost = getGitHost();
 
+	const upstreamName = $derived(currentSeries.upstreamReference ? currentSeries.name : undefined);
 	const gitHostBranch = $derived(upstreamName ? $gitHost?.branch(upstreamName) : undefined);
 	const branch = $derived($branchStore);
 
@@ -53,7 +52,6 @@
 	let meatballButtonEl = $state<HTMLDivElement>();
 
 	// TODO: Simplify figuring out if shadow color is needed
-	const currentSeries = $derived(branch.series?.find((series) => series.name === name));
 	const topPatch = $derived(currentSeries?.patches[0]);
 	const hasShadow = $derived.by(() => {
 		if (!topPatch || !topPatch.remoteCommitId) return false;
@@ -127,13 +125,17 @@
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 			iconColor="#fff"
 			color={lineColor}
-			lineBottom={commits.length > 0}
+			lineBottom={currentSeries.patches.length > 0}
 		/>
 		<div class="text-14 text-bold branch-info__name">
 			<span class:no-upstream={!gitHostBranch} class="remote-name">
 				{$baseBranch.remoteName ? `${$baseBranch.remoteName} /` : 'origin /'}
 			</span>
-			<BranchLabel {name} onChange={(name) => editTitle(name)} disabled={!!gitHostBranch} />
+			<BranchLabel
+				name={currentSeries.name}
+				onChange={(name) => editTitle(name)}
+				disabled={!!gitHostBranch}
+			/>
 			{#if gitHostBranch}
 				<Button
 					size="tag"
@@ -160,7 +162,7 @@
 			<StackingBranchHeaderContextMenu
 				bind:contextMenuEl={contextMenu}
 				target={meatballButtonEl}
-				headName={name}
+				headName={currentSeries.name}
 				seriesCount={branch.series?.length ?? 0}
 				{addDescription}
 				onGenerateBranchName={generateBranchName}
@@ -188,14 +190,14 @@
 						style="ghost"
 						wide
 						outline
-						disabled={commits.length === 0 || !$gitHost || !$prService}
+						disabled={currentSeries.patches.length === 0 || !$gitHost || !$prService}
 						onclick={handleOpenPR}>Create pull request</Button
 					>
 				{/if}
 			</div>
 		</div>
 	{/if}
-	{#if commits.length === 0}
+	{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
 		<div class="branch-emptystate">
 			<EmptyStatePlaceholder bottomMargin={10}>
 				{#snippet title()}
@@ -211,8 +213,8 @@
 		bind:this={prDetailsModal}
 		type="preview-series"
 		{upstreamName}
-		{name}
-		{commits}
+		name={currentSeries.name}
+		commits={currentSeries.patches}
 	/>
 </div>
 
