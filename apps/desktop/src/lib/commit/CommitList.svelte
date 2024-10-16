@@ -99,7 +99,7 @@
 
 	const reorderDropzoneManager = $derived(
 		reorderDropzoneManagerFactory.build({
-			branch: $branch,
+			branches: [$branch.id],
 			commitIds: [
 				'top',
 				...localCommits.map((commit) => commit.id),

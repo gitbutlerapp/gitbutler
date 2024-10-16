@@ -21,24 +21,20 @@
 		$localAndRemoteCommits.some((commit) => commit.conflicted)
 	);
 
-	const commitIds = $derived(
-		branch.series
+	const commits = $derived.by(() => {
+		console.log('stackSeries.branchSeries', branch.series);
+		return branch.series
 			.map((series) => {
-				let patches = [`above-${series.patches[0]?.id}`];
-				patches.push(...series.patches.map((patch) => patch.id));
+				let patches = [`above-${series.patches[0]?.id}|${series.name}`];
+				patches.push(...series.patches.map((patch) => `${patch.id}|${series.name}`));
 				return patches;
 			})
-			.flat()
-	);
+			.flat();
+	});
 
-	console.log('stackSeries.commits', commitIds);
+	console.log('stackSeries.commits', commits);
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
-	const reorderDropzoneManager = $derived(
-		reorderDropzoneManagerFactory.build({
-			branch,
-			commitIds
-		})
-	);
+	const reorderDropzoneManager = $derived(reorderDropzoneManagerFactory.build(commits));
 </script>
 
 {#each branch.series as currentSeries, idx (currentSeries.name)}

@@ -1,99 +1,104 @@
 import { DraggableCommit } from '$lib/dragging/draggables';
 import type { BranchController } from '$lib/vbranches/branchController';
-import type { VirtualBranch, DetailedCommit, PatchSeries } from '$lib/vbranches/types';
+// import type { VirtualBranch, DetailedCommit, PatchSeries } from '$lib/vbranches/types';
 
 // Exported for type access only
 export class ReorderDropzone {
 	constructor(
 		private branchController: BranchController,
-		private branch: VirtualBranch,
+		private seriesName: string,
 		private entry: Entry
 	) {}
 
 	accepts(data: any) {
+		console.log('accepts.data', data);
 		if (!(data instanceof DraggableCommit)) return false;
-		if (data.branchId !== this.branch.id) return false;
+		if (data.branchId !== this.seriesName) return false;
 		if (this.entry.distanceToOtherCommit(data.commit.id) === 0) return false;
 
 		return true;
 	}
 
 	onDrop(data: any) {
+		console.log('drop.data', data);
 		if (!(data instanceof DraggableCommit)) return;
-		if (data.branchId !== this.branch.id) return;
+		if (data.branchId !== this.seriesName) return;
 
 		const offset = this.entry.distanceToOtherCommit(data.commit.id);
 
 		console.log('REORDERING.COMMIT', {
-			branchId: this.branch.id,
+			seriesName: this.seriesName,
 			commitId: data.commit.id,
 			offset
 		});
 
-		this.branchController.reorderCommit(this.branch.id, data.commit.id, offset);
+		// TODO: Can we get a branchId (seriesId) onto the PatchSeries?
+		// The branchId is always the same for a whole lane/stack, so when dropping,
+		// even if you have hte index correclty, you can't know really which series
+		// your supposed to be landing in
+		this.branchController.reorderCommit(this.seriesName, data.commit.id, offset);
 	}
 }
 
 export class ReorderDropzoneManager {
 	private indexer: Indexer;
 	private branchController: BranchController;
-	private branch: VirtualBranch;
+	// private branchIds: string[];
 
 	constructor({
 		branchController,
-		branch,
-		commitIds
+		commits
 	}: {
 		branchController: BranchController;
-		branch: VirtualBranch;
-		commitIds: string[];
+		commits: string[];
 	}) {
 		this.branchController = branchController;
-		this.branch = branch;
+		// this.branchIds = branchIds;
 
-		this.indexer = new Indexer(commitIds);
+		this.indexer = new Indexer(commits);
 	}
 
 	topDropzone(key: string) {
 		const entry = this.indexer.get(key);
+		// console.log('topDropzone', { key, entry });
 
-		return new ReorderDropzone(this.branchController, this.branch, entry);
+		const [_commitId, seriesName] = key.split('|');
+		return new ReorderDropzone(this.branchController, seriesName!, entry);
 	}
 
-	dropzoneBelowCommit(commitId: string) {
-		const entry = this.indexer.get(commitId);
+	dropzoneBelowCommit(key: string) {
+		const entry = this.indexer.get(key);
+		// console.log('topDropzone', { commitId, entry });
+		//
+		const [_commitId, seriesName] = key.split('|');
 
-		return new ReorderDropzone(this.branchController, this.branch, entry);
+		return new ReorderDropzone(this.branchController, seriesName!, entry);
 	}
 }
 
 export class ReorderDropzoneManagerFactory {
 	constructor(private branchController: BranchController) {}
 
-	build({ branch, commitIds }: { branch: VirtualBranch; commitIds: string[] }) {
+	build(commits: string[]) {
 		return new ReorderDropzoneManager({
 			branchController: this.branchController,
-			branch,
-			commitIds
+			commits
 		});
 	}
 }
 
 // Private classes used to calculate distances between commits
 class Indexer {
-	// private dropzoneIndexes = new Map<string, number>();
 	private dropzoneIndexes = new Map<string, number>();
 
-	constructor(commitIds: string[]) {
+	constructor(commits: string[]) {
 		let computedPatchIndex = 0;
 
-		commitIds.map((patchId: string) => {
+		commits.map((patchId: string) => {
 			computedPatchIndex += 1;
-			// this.dropzoneIndexes.set(patchId, computedPatchIndex + 1); // + 1); // (seriesIndex + 1));
 			this.dropzoneIndexes.set(patchId, computedPatchIndex);
 		});
 
-		// console.log('Indexer.dropzoneIndexes', this.dropzoneIndexes);
 		console.log('Indexer.dropzoneIndexes', this.dropzoneIndexes);
 	}
 
