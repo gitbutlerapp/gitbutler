@@ -20,29 +20,31 @@
 <button class="accordion" onclick={toggle}>
 	{#if count !== 1}
 		<div class="accordion-row header">
-			<div class="accordion-row__line dots">
-				{#if !isOpen}
-					{#each new Array(count) as _, idx}
-						<svg
-							width="14"
-							height="14"
-							viewBox="0 0 14 14"
-							class="upstream-dot"
-							style="--dot: {idx + 1}; --dotCount: {count + 1};"
-							fill="none"
-							xmlns="http://www.w3.org/2000/svg"
-						>
-							<rect
-								x="1.76782"
-								y="1.76764"
-								width="10.535"
-								height="10.535"
-								rx="3"
-								stroke-width="2"
-							/>
-						</svg>
-					{/each}
-				{/if}
+			<div class="accordion-row__line">
+				<div class="dots">
+					{#if !isOpen}
+						{#each new Array(count) as _, idx}
+							<svg
+								width="14"
+								height="14"
+								viewBox="0 0 14 14"
+								class="upstream-dot"
+								style="--dot: {idx + 1}"
+								fill="none"
+								xmlns="http://www.w3.org/2000/svg"
+							>
+								<rect
+									x="1.76782"
+									y="1.76764"
+									width="10.535"
+									height="10.535"
+									rx="3"
+									stroke-width="2"
+								/>
+							</svg>
+						{/each}
+					{/if}
+				</div>
 			</div>
 			<div class="accordion-row__right">
 				<h5 class="text-13 text-body text-semibold title">Upstream commits</h5>
@@ -93,18 +95,26 @@
 		}
 
 		& .accordion-row__line {
-			margin: 0 10px 0 22.5px;
-			border-right: 2px solid var(--clr-commit-upstream);
-
-			&.dots {
-				place-items: center;
-			}
+			position: relative;
+			width: 2px;
+			margin: 0 22px;
+			background-color: var(--clr-commit-upstream);
+			--dots-y-shift: -6px;
 
 			& .upstream-dot {
-				position: absolute;
+				/* position: absolute; */
 				fill: var(--clr-commit-upstream);
 				stroke: var(--clr-theme-warn-bg);
-				transform: translateX(-6px) translateY(calc(var(--dot) * 7px)) rotate(45deg);
+				transform: rotate(45deg);
+				margin-top: var(--dots-y-shift);
+			}
+
+			& .dots {
+				position: absolute;
+
+				top: calc(50% - (var(--dots-y-shift) / 2));
+				left: 50%;
+				transform: translate(-50%, -50%);
 			}
 		}
 

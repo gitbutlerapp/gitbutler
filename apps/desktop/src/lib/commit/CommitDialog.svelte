@@ -1,13 +1,14 @@
 <script lang="ts">
 	import CommitMessageInput from './CommitMessageInput.svelte';
 	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { slideFade } from '@gitbutler/ui/utils/transitions';
+	import { tick } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	export let projectId: string;
@@ -46,7 +47,9 @@
 		$expanded = false;
 	}
 
-	export function focus() {
+	export async function focus() {
+		$expanded = true;
+		await tick();
 		commitMessageInput.focus();
 	}
 </script>
@@ -85,7 +88,7 @@
 			</div>
 		{/if}
 		<Button
-			style={$expanded ? 'neutral' : 'ghost'}
+			style="pop"
 			kind="solid"
 			outline={!$expanded}
 			grow
@@ -97,8 +100,7 @@
 				if ($expanded) {
 					commit();
 				} else {
-					$expanded = true;
-					commitMessageInput.focus();
+					focus();
 				}
 			}}
 		>

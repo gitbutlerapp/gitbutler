@@ -12,13 +12,14 @@
 
 	let { children, minTriggerCount, role, ontrigger, onkeydown }: Props = $props();
 
-	let lazyContainerEl: HTMLDivElement;
+	let lazyContainerEl: HTMLDivElement | undefined;
 
 	const mutuationObserver = new MutationObserver(attachIntersectionObserver);
 	$effect(() => {
 		if (lazyContainerEl) {
 			mutuationObserver.disconnect();
 			mutuationObserver.observe(lazyContainerEl, { childList: true });
+			attachIntersectionObserver();
 		}
 	});
 	const intersectionObserver = new IntersectionObserver((entries) => {
@@ -33,11 +34,15 @@
 	function attachIntersectionObserver() {
 		// unattach all intersection observers
 		intersectionObserver.disconnect();
+		if (!lazyContainerEl) return;
 
 		const containerChildren = lazyContainerEl.children;
 		if (containerChildren.length < minTriggerCount) return;
 
-		intersectionObserver.observe(containerChildren[containerChildren.length - 1] as HTMLElement);
+		const lastChild = containerChildren[containerChildren.length - 1];
+		if (!lastChild) return;
+
+		intersectionObserver.observe(lastChild);
 	}
 
 	onMount(() => {

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
-	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 
 	interface Props {
 		name: string;
@@ -61,7 +61,7 @@
 	.branch-name-input {
 		min-width: 44px;
 		height: 20px;
-		padding: 2px 4px;
+		padding: 2px 3px;
 		border: 1px solid transparent;
 	}
 	.branch-name-measure-el {

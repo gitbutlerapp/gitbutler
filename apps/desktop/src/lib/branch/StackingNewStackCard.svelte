@@ -4,10 +4,10 @@
 	import Link from '$lib/shared/Link.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -53,10 +53,10 @@
 				<Link href="https://docs.gitbutler.com/stacking" target="_blank">Read more</Link>
 			</p>
 		</div>
-		<Spacer />
+		<Spacer margin={0} />
 	{/if}
 	<section class="card__action" class:showDetails={!$showStackingCardDetails}>
-		<StackingStatusIcon icon="plus-small" gap={true} />
+		<StackingStatusIcon icon="plus-small" lineTop={false} />
 		<Button grow style="neutral" {loading} onclick={() => createRefModal.show()}>
 			Add a branch to the stack
 		</Button>
@@ -73,8 +73,8 @@
 		<TextBox placeholder="New branch name" id="newRemoteName" bind:value={createRefName} focus />
 	{/snippet}
 	{#snippet controls(close)}
-		<Button style="pop" kind="solid">Ok</Button>
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
+		<Button style="pop" type="submit" kind="solid">Ok</Button>
 	{/snippet}
 </Modal>
 
@@ -83,10 +83,11 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
+		margin-bottom: 6px;
 	}
 
 	.card__body {
-		padding: 16px 16px 0 16px;
+		padding: 16px;
 	}
 
 	.card__close {
@@ -105,13 +106,8 @@
 	.card__action {
 		width: 100%;
 		display: flex;
-		justify-content: around;
-		align-items: flex-start;
-		padding: 0 13px;
-		gap: 1rem;
-
-		&.showDetails {
-			margin-top: 16px;
-		}
+		justify-content: flex-start;
+		align-items: center;
+		padding-right: 13px;
 	}
 </style>

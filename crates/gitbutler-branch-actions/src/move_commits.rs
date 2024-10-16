@@ -17,6 +17,7 @@ pub(crate) fn move_commit(
     target_branch_id: StackId,
     commit_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
+    source_branch_id: StackId,
 ) -> Result<()> {
     ctx.assure_resolved()?;
     let vb_state = ctx.project().virtual_branches();
@@ -33,31 +34,32 @@ pub(crate) fn move_commit(
 
     let (ref mut source_branch, source_status) = applied_statuses
         .iter_mut()
-        .find(|(b, _)| b.head() == commit_id)
-        .ok_or_else(|| anyhow!("commit {commit_id} to be moved could not be found"))?;
+        .find(|(b, _)| b.id == source_branch_id)
+        .ok_or_else(|| anyhow!("the source branch could not be found"))?;
 
+    let is_head_commit = commit_id == source_branch.head();
     let source_branch_non_comitted_files = source_status;
 
     let source_commit = ctx
         .repository()
         .find_commit(commit_id)
-        .context("failed to find commit")?;
+        .with_context(|| format!("commit {commit_id} to be moved could not be found"))?;
 
     if source_commit.is_conflicted() {
         bail!("Can not move conflicted commits");
     }
 
-    let source_branch_head_parent = source_commit
+    let source_commit_parent = source_commit
         .parent(0)
         .context("failed to get parent commit")?;
-    let source_branch_head_tree = source_commit.tree().context("failed to get commit tree")?;
-    let source_branch_head_parent_tree = source_branch_head_parent
+    let source_commit_tree = source_commit.tree().context("failed to get commit tree")?;
+    let source_commit_parent_tree = source_commit_parent
         .tree()
         .context("failed to get parent tree")?;
-    let branch_head_diff = gitbutler_diff::trees(
+    let source_commit_diff = gitbutler_diff::trees(
         ctx.repository(),
-        &source_branch_head_parent_tree,
-        &source_branch_head_tree,
+        &source_commit_parent_tree,
+        &source_commit_tree,
     )?;
 
     let default_target = vb_state.get_default_target()?;
@@ -70,32 +72,51 @@ pub(crate) fn move_commit(
         .find_commit(merge_base)
         .context("failed to find merge base")?;
 
-    let branch_head_diff: HashMap<_, _> =
-        gitbutler_diff::diff_files_into_hunks(branch_head_diff).collect();
-    let is_source_locked = check_source_lock(source_branch_non_comitted_files, &branch_head_diff);
+    let source_commit_diff: HashMap<_, _> =
+        gitbutler_diff::diff_files_into_hunks(source_commit_diff).collect();
+    let is_source_locked = check_source_lock(source_branch_non_comitted_files, &source_commit_diff);
 
-    let mut ancestor_commits = ctx.repository().log(
-        source_branch_head_parent.id(),
-        LogUntil::Commit(merge_base.id()),
-    )?;
+    let mut ancestor_commits = ctx
+        .repository()
+        .log(source_commit_parent.id(), LogUntil::Commit(merge_base.id()))?;
     ancestor_commits.push(merge_base);
-
     let ancestor_commits = ancestor_commits;
 
+    let mut descendant_commits = None;
+    if !is_head_commit {
+        descendant_commits = Some(
+            ctx.repository()
+                .log(source_branch.head(), LogUntil::Commit(commit_id))?,
+        );
+    }
+
     let is_ancestor_locked =
-        check_source_lock_to_ancestors(ctx.repository(), ancestor_commits, &branch_head_diff);
+        check_source_lock_to_commits(ctx.repository(), &ancestor_commits, &source_commit_diff);
 
     if is_source_locked {
         bail!("the source branch contains hunks locked to the target commit")
     }
 
     if is_ancestor_locked {
-        bail!("the source branch contains hunks locked to the target commit ancestors")
+        bail!("the target commit contains hunks locked to its ancestors")
+    }
+
+    if let Some(commits_to_check) = descendant_commits.as_mut() {
+        // we append the source commit so that we can create the diff between
+        // the source commit and its first descendant
+        let mut commits_to_check = commits_to_check.clone();
+        commits_to_check.push(source_commit.clone());
+        let is_descendant_locked =
+            check_source_lock_to_commits(ctx.repository(), &commits_to_check, &source_commit_diff);
+
+        if is_descendant_locked {
+            bail!("the target commit contains hunks locked to its descendants")
+        }
     }
 
     // move files ownerships from source branch to the destination branch
 
-    let ownerships_to_transfer = branch_head_diff
+    let ownerships_to_transfer = source_commit_diff
         .iter()
         .map(|(file_path, hunks)| {
             (
@@ -121,9 +142,19 @@ pub(crate) fn move_commit(
         &[source_commit.id()],
     )?;
 
-    // reset the source branch to the parent commit
+    // if the source commit has children, move them to the source commit's parent
+
+    let mut new_source_head_oid = source_commit_parent.id();
+    if let Some(child_commits) = descendant_commits.as_ref() {
+        let ids_to_rebase: Vec<git2::Oid> = child_commits.iter().map(|c| c.id()).collect();
+        new_source_head_oid =
+            cherry_rebase_group(ctx.repository(), source_commit_parent.id(), &ids_to_rebase)?;
+    }
+
+    // reset the source branch to the newer parent commit
     // and update the destination branch head
-    source_branch.set_stack_head(ctx, source_branch_head_parent.id(), None)?;
+    source_branch.set_stack_head(ctx, new_source_head_oid, None)?;
+    vb_state.set_branch(source_branch.clone())?;
 
     destination_branch.set_stack_head(ctx, new_destination_head_oid, None)?;
 
@@ -143,13 +174,13 @@ fn check_source_lock(
     let is_source_locked = source_branch_non_comitted_files.iter().any(|file| {
         source_commit_diff
             .get(&file.path)
-            .map_or(false, |head_diff_hunks| {
+            .map_or(false, |source_diff_hunks| {
                 file.hunks.iter().any(|hunk| {
                     let hunk: gitbutler_diff::GitHunk = hunk.clone().into();
-                    head_diff_hunks.iter().any(|head_hunk| {
+                    source_diff_hunks.iter().any(|source_hunk| {
                         lines_overlap(
-                            head_hunk.new_start,
-                            head_hunk.new_start + head_hunk.new_lines,
+                            source_hunk.new_start,
+                            source_hunk.new_start + source_hunk.new_lines,
                             hunk.new_start,
                             hunk.new_start + hunk.new_lines,
                         )
@@ -160,29 +191,35 @@ fn check_source_lock(
     is_source_locked
 }
 
-/// determines if the source commit is locked to any of its ancestors
-fn check_source_lock_to_ancestors(
+/// determines if the source commit is locked to any commits
+///
+/// The commits are used to calculate the diffs between them in the following way:
+/// - Let A be the source commit and B, C its ancestors.
+/// - `source_commit_diff` is the diff between A and B
+/// - `commits` is a list of commits [B, C]
+/// - This function calculates the  diff between B and C check it against the hunks in `source_commit_diff`
+fn check_source_lock_to_commits(
     repository: &git2::Repository,
-    ancestor_commits: Vec<git2::Commit>,
+    commits: &Vec<git2::Commit>,
     source_commit_diff: &HashMap<std::path::PathBuf, Vec<gitbutler_diff::GitHunk>>,
 ) -> bool {
-    let mut previous: Option<git2::Commit> = None;
+    let mut previous: Option<&git2::Commit> = None;
 
-    for ancestor_commit in ancestor_commits {
+    for commit in commits {
         if previous.is_none() {
-            previous = Some(ancestor_commit);
+            previous = Some(commit);
             continue;
         }
 
         let previous_commit = previous.take().unwrap();
 
-        let old_tree = ancestor_commit.tree().unwrap();
+        let old_tree = commit.tree().unwrap();
         let new_tree = previous_commit.tree().unwrap();
 
         let diff = gitbutler_diff::trees(repository, &old_tree, &new_tree);
 
         if diff.is_err() {
-            previous = Some(ancestor_commit);
+            previous = Some(commit);
             continue;
         }
 
@@ -210,7 +247,7 @@ fn check_source_lock_to_ancestors(
             return true;
         }
 
-        previous = Some(ancestor_commit);
+        previous = Some(commit);
     }
 
     false

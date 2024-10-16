@@ -277,7 +277,7 @@ export class BranchController {
 			await invoke<void>('reset_files', {
 				projectId: this.projectId,
 				branchId,
-				files: files.flatMap((f) => f.path)
+				files: files?.flatMap((f) => f.path) ?? []
 			});
 		} catch (err) {
 			showError('Failed to unapply file changes', err);
@@ -534,12 +534,13 @@ export class BranchController {
 		}
 	}
 
-	async moveCommit(targetBranchId: string, commitOid: string) {
+	async moveCommit(targetBranchId: string, commitOid: string, sourceBranchId: string) {
 		try {
 			await invoke<void>('move_commit', {
 				projectId: this.projectId,
 				targetBranchId,
-				commitOid
+				commitOid,
+				sourceBranchId
 			});
 		} catch (err: any) {
 			// TODO: Probably we wanna have error code checking in a more generic way

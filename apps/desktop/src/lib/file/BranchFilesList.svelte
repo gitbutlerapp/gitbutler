@@ -1,11 +1,11 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
-	import FileListItem from './FileListItem.svelte';
+	import FileListItemSmart from './FileListItem.svelte';
+	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import LazyloadContainer from '$lib/shared/LazyloadContainer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { chunk } from '$lib/utils/array';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { updateSelection } from '$lib/utils/selection';
@@ -13,8 +13,10 @@
 	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import { SelectedOwnership, updateOwnership } from '$lib/vbranches/ownership';
+	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import type { AnyFile } from '$lib/vbranches/types';
+	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import type { AnyFile, ConflictEntries } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	const MERGE_DIFF_COMMAND = 'git diff-tree --cc ';
@@ -27,6 +29,7 @@
 		readonly?: boolean;
 		commitDialogExpanded?: Writable<boolean>;
 		focusCommitDialog?: () => void;
+		conflictedFiles?: ConflictEntries;
 	}
 
 	const {
@@ -36,7 +39,8 @@
 		allowMultiple = false,
 		readonly = false,
 		commitDialogExpanded,
-		focusCommitDialog
+		focusCommitDialog,
+		conflictedFiles
 	}: Props = $props();
 
 	const fileIdSelection = getContext(FileIdSelection);
@@ -103,7 +107,7 @@
 </script>
 
 {#if !$commit?.isMergeCommit()}
-	<BranchFilesHeader title="Changed files" {files} {showCheckboxes} />
+	<BranchFilesHeader title="Changed files" {files} {showCheckboxes} {conflictedFiles} />
 {:else}
 	<div class="merge-commit-error">
 		<p class="info">
@@ -125,6 +129,12 @@
 {#if displayedFiles.length > 0}
 	<!-- Maximum amount for initial render is 100 files
 	`minTriggerCount` set to 80 in order to start the loading a bit earlier. -->
+
+	{#if conflictedFiles}
+		{#each conflictedFiles.entries.entries() as [key, value]}
+			<FileListItem filePath={key} conflicted={true} conflictHint={conflictEntryHint(value)} />
+		{/each}
+	{/if}
 	<LazyloadContainer
 		minTriggerCount={80}
 		ontrigger={() => {
@@ -135,7 +145,7 @@
 		onkeydown={handleKeyDown}
 	>
 		{#each displayedFiles as file (file.id)}
-			<FileListItem
+			<FileListItemSmart
 				{file}
 				{readonly}
 				{isUnapplied}

@@ -12,7 +12,8 @@
 	import TextBox from '../shared/TextBox.svelte';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
-	import { resizeObserver } from '$lib/utils/resizeObserver';
+	import { portal } from '@gitbutler/ui/utils/portal';
+	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
 
 	interface SelectProps {
@@ -39,7 +40,7 @@
 		wide,
 		options = [],
 		value,
-		placeholder,
+		placeholder = 'Select an option...',
 		maxHeight,
 		searchable,
 		itemSnippet,
@@ -161,7 +162,7 @@
 		type="select"
 		reversedDirection
 		icon="select-chevron"
-		value={options.find((item) => item.value === value)?.label || 'Select an option...'}
+		value={options.find((item) => item.value === value)?.label}
 		disabled={disabled || loading}
 		on:mousedown={toggleList}
 		on:keydown={(ev) => handleKeyDown(ev)}
@@ -171,6 +172,7 @@
 			role="presentation"
 			class="overlay-wrapper"
 			onclick={clickOutside}
+			use:portal={'body'}
 			use:resizeObserver={() => {
 				getInputBoundingRect();
 				setMaxHeight();
@@ -231,7 +233,7 @@
 		left: 0;
 		width: 100%;
 		height: 100%;
-		/* background-color: rgba(0, 0, 0, 0.1); */
+		/* background-color: rgba(0, 0, 0, 0.1);  */
 	}
 
 	.options {

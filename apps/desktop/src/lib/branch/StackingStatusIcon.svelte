@@ -4,24 +4,34 @@
 	const FALLBACK_COLOR = 'var(--clr-scale-ntrl-80)';
 
 	interface Props {
-		icon: 'plus-small' | 'tick-small' | 'virtual-branch-small';
+		icon: 'plus-small' | 'tick-small' | 'remote-branch-small';
 		iconColor?: string;
 		color?: string;
-		gap?: boolean;
 		lineTop?: boolean;
+		lineBottom?: boolean;
 	}
 
-	const { icon, iconColor, color = FALLBACK_COLOR, gap = false, lineTop = false }: Props = $props();
+	const {
+		icon,
+		iconColor,
+		color = FALLBACK_COLOR,
+		lineTop = true,
+		lineBottom = true
+	}: Props = $props();
 </script>
 
-<div class="stack__status gap" class:gap>
-	{#if lineTop}
-		<div class="stack__status--bar" style:--bg-color={color}></div>
-	{/if}
+<div class="stack__status gap">
+	<div
+		class="stack__status--bar"
+		style:--bg-color={lineTop ? color : 'var(--clr-transparent)'}
+	></div>
 	<div class="stack__status--icon" style:--bg-color={color} style:--icon-color={iconColor}>
 		<Icon name={icon} />
 	</div>
-	<div class="stack__status--bar" style:--bg-color={color}></div>
+	<div
+		class="stack__status--bar"
+		style:--bg-color={lineBottom ? color : 'var(--clr-transparent)'}
+	></div>
 </div>
 
 <style>
@@ -30,10 +40,8 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-
-		&.gap {
-			gap: 0.25rem;
-		}
+		gap: 0.25rem;
+		--clr-transparent: transparent;
 
 		& .stack__status--icon {
 			display: flex;
@@ -41,13 +49,15 @@
 			justify-content: center;
 			width: 21px;
 			height: 28px;
-			border-radius: 30%;
+			border-radius: var(--radius-m);
 			background-color: var(--bg-color);
 			color: var(--icon-color, var(--clr-text-1));
 		}
 		& .stack__status--bar {
+			width: 2px;
 			height: 10px;
-			border-right: 2px solid var(--bg-color, var(--clr-border-3));
+			margin: 0 22px;
+			background: var(--bg-color);
 		}
 	}
 </style>

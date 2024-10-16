@@ -136,6 +136,9 @@ importers:
       '@codemirror/legacy-modes':
         specifier: ^6.4.0
         version: 6.4.0
+      '@gitbutler/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@gitbutler/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -308,6 +311,9 @@ importers:
       '@fontsource/fira-mono':
         specifier: ^4.5.10
         version: 4.5.10
+      '@gitbutler/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@gitbutler/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -332,6 +338,81 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 5.2.13(@types/node@22.7.5)
+
+  packages/shared:
+    devDependencies:
+      '@csstools/postcss-bundler':
+        specifier: ^1.0.15
+        version: 1.0.15(postcss@8.4.39)
+      '@gitbutler/ui':
+        specifier: workspace:*
+        version: link:../ui
+      '@sveltejs/adapter-static':
+        specifier: catalog:svelte
+        version: 3.0.4(@sveltejs/kit@2.5.25(@sveltejs/vite-plugin-svelte@4.0.0-next.6(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0)))(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0)))
+      '@sveltejs/kit':
+        specifier: catalog:svelte
+        version: 2.5.25(@sveltejs/vite-plugin-svelte@4.0.0-next.6(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0)))(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0))
+      '@sveltejs/package':
+        specifier: ^2.3.2
+        version: 2.3.2(svelte@5.0.0-next.243)(typescript@5.4.5)
+      '@sveltejs/vite-plugin-svelte':
+        specifier: catalog:svelte
+        version: 4.0.0-next.6(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0))
+      '@terrazzo/cli':
+        specifier: ^0.0.11
+        version: 0.0.11
+      '@terrazzo/plugin-css':
+        specifier: ^0.0.9
+        version: 0.0.9(@terrazzo/cli@0.0.11)
+      '@types/postcss-pxtorem':
+        specifier: ^6.0.3
+        version: 6.0.3
+      '@vitest/browser':
+        specifier: ^2.0.5
+        version: 2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
+      autoprefixer:
+        specifier: ^10.4.19
+        version: 10.4.19(postcss@8.4.39)
+      cpy-cli:
+        specifier: ^5.0.0
+        version: 5.0.0
+      date-fns:
+        specifier: ^2.30.0
+        version: 2.30.0
+      playwright:
+        specifier: ^1.46.1
+        version: 1.46.1
+      postcss:
+        specifier: ^8.4.38
+        version: 8.4.39
+      postcss-cli:
+        specifier: ^11.0.0
+        version: 11.0.0(postcss@8.4.39)
+      postcss-minify:
+        specifier: ^1.1.0
+        version: 1.1.0(postcss@8.4.39)
+      postcss-nesting:
+        specifier: ^12.1.5
+        version: 12.1.5(postcss@8.4.39)
+      postcss-pxtorem:
+        specifier: ^6.1.0
+        version: 6.1.0(postcss@8.4.39)
+      rimraf:
+        specifier: ^6.0.1
+        version: 6.0.1
+      svelte:
+        specifier: catalog:svelte
+        version: 5.0.0-next.243
+      svelte-check:
+        specifier: catalog:svelte
+        version: 4.0.1(svelte@5.0.0-next.243)(typescript@5.4.5)
+      vite:
+        specifier: 'catalog:'
+        version: 5.2.13(@types/node@22.3.0)
+      vitest:
+        specifier: ^2.0.5
+        version: 2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)
 
   packages/ui:
     devDependencies:

@@ -15,7 +15,6 @@
 		branchDetails?: { commitCount: number; linesAdded: number; linesRemoved: number };
 		remotes?: string[];
 		local?: boolean;
-
 		authorAvatars: Snippet;
 	}
 
@@ -30,7 +29,6 @@
 		branchDetails,
 		remotes = [],
 		local = false,
-
 		authorAvatars
 	}: Props = $props();
 

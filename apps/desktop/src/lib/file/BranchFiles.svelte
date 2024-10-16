@@ -1,8 +1,8 @@
 <script lang="ts">
 	import BranchFilesList from './BranchFilesList.svelte';
-	import { getContext } from '$lib/utils/context';
 	import { createCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
+	import { getContext } from '@gitbutler/shared/context';
 	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 

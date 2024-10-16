@@ -2,6 +2,7 @@ import { invoke, listen } from '$lib/backend/ipc';
 import { RemoteFile } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { derived, writable } from 'svelte/store';
+import type { ConflictEntryPresence } from '$lib/conflictEntryPresence';
 
 export interface EditModeMetadata {
 	commitOid: string;
@@ -64,10 +65,13 @@ export class ModeService {
 	}
 
 	async getInitialIndexState() {
-		return plainToInstance(
-			RemoteFile,
-			await invoke<unknown[]>('edit_initial_index_state', { projectId: this.projectId })
-		);
+		const rawOutput = await invoke<unknown[][]>('edit_initial_index_state', {
+			projectId: this.projectId
+		});
+
+		return rawOutput.map((entry) => {
+			return [plainToInstance(RemoteFile, entry[0]), entry[1] as ConflictEntryPresence | undefined];
+		}) as [RemoteFile, ConflictEntryPresence | undefined][];
 	}
 }
 

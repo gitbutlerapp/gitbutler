@@ -1,5 +1,6 @@
-import type { Persisted } from '$lib/persisted/persisted';
+import { isStr } from '$lib/utils/string';
 import type { Result } from '$lib/result';
+import type { Persisted } from '@gitbutler/shared/persisted';
 
 export enum ModelKind {
 	OpenAI = 'openai',
@@ -28,6 +29,12 @@ export enum MessageRole {
 	System = 'system',
 	User = 'user',
 	Assistant = 'assistant'
+}
+
+export function isMessageRole(role: unknown): role is MessageRole {
+	if (!isStr(role)) return false;
+	const roles = Object.values(MessageRole);
+	return roles.includes(role as MessageRole);
 }
 
 export interface PromptMessage {

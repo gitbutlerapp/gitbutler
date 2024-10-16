@@ -1,4 +1,4 @@
-import { buildContextStore } from '$lib/utils/context';
+import { buildContextStore } from '@gitbutler/shared/context';
 import type { GitHostIssueService } from '$lib/gitHost/interface/gitHostIssueService';
 import type { GitHostBranch } from './gitHostBranch';
 import type { GitHostChecksMonitor } from './gitHostChecksMonitor';

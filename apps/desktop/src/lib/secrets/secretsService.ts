@@ -1,6 +1,6 @@
 import { AISecretHandle } from '$lib/ai/service';
 import { invoke } from '$lib/backend/ipc';
-import { buildContext } from '$lib/utils/context';
+import { buildContext } from '@gitbutler/shared/context';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 
 const MIGRATION_HANDLES = [

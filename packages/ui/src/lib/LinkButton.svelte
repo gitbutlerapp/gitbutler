@@ -9,7 +9,7 @@
 		children: Snippet;
 	}
 
-	const { icon, onclick, children }: Props = $props();
+	const { icon = 'open-link', onclick, children }: Props = $props();
 </script>
 
 <button

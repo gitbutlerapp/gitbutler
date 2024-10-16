@@ -44,7 +44,7 @@
 	{disabled}
 	tabindex={isSelected || unfocusable ? -1 : 0}
 	aria-selected={isSelected}
-	onmousedown={() => {
+	onclick={() => {
 		if (index !== $selectedSegmentIndex) {
 			context.setSelected({
 				index,

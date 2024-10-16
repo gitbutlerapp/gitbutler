@@ -8,8 +8,8 @@
 	import SnapshotCard from '$lib/history/SnapshotCard.svelte';
 	import { HistoryService, createdOnDay } from '$lib/history/history';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
-	import { getContext } from '$lib/utils/context';
 	import { RemoteFile } from '$lib/vbranches/types';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -75,6 +75,8 @@
 		| { entryId: string; diffs: { [key: string]: SnapshotDiff } }
 		| undefined = undefined;
 	let selectedFile: { entryId: string; path: string } | undefined = undefined;
+
+	$: withinRestoreItems = findRestorationRanges($snapshots);
 </script>
 
 <svelte:window
@@ -129,11 +131,13 @@
 			<!-- EMPTY STATE -->
 			{#if $snapshots.length === 0 && !$loading}
 				<EmptyStatePlaceholder image={emptyFolderSvg} bottomMargin={48}>
-					<svelte:fragment slot="title">No snapshots yet</svelte:fragment>
-					<svelte:fragment slot="caption">
+					{#snippet title()}
+						No snapshots yet
+					{/snippet}
+					{#snippet caption()}
 						Gitbutler saves your work, including file changes, so your progress is always secure.
 						Adjust snapshot settings in project settings.
-					</svelte:fragment>
+					{/snippet}
 				</EmptyStatePlaceholder>
 			{/if}
 
@@ -150,12 +154,10 @@
 						<LazyloadContainer
 							minTriggerCount={30}
 							ontrigger={() => {
-								console.log('load more snapshots…');
 								onLastInView();
 							}}
 						>
 							{#each $snapshots as entry, idx (entry.id)}
-								{@const withinRestoreItems = findRestorationRanges($snapshots)}
 								{#if idx === 0 || createdOnDay(entry.createdAt) !== createdOnDay($snapshots[idx - 1]?.createdAt ?? new Date())}
 									<div class="sideview__date-header">
 										<h4 class="text-13 text-semibold">

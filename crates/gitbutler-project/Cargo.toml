@@ -23,10 +23,6 @@ resolve-path = "0.1.0"
 # for locking
 fslock = "0.2.1"
 
-[[test]]
-name="project"
-path = "tests/mod.rs"
-
 [dev-dependencies]
 gitbutler-testsupport.workspace = true
 tempfile = "3.13"

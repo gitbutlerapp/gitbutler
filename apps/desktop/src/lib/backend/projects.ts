@@ -1,11 +1,11 @@
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
-import { persisted } from '$lib/persisted/persisted';
 import * as toasts from '$lib/utils/toasts';
+import { persisted } from '@gitbutler/shared/persisted';
 import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
 import { get, writable } from 'svelte/store';
-import type { HttpClient } from './httpClient';
+import type { HttpClient } from '@gitbutler/shared/httpClient';
 import { goto } from '$app/navigation';
 
 export type KeyType = 'gitCredentialsHelper' | 'local' | 'systemExecutable';
@@ -180,22 +180,17 @@ export class ProjectService {
 		this.persistedId.set(projectId);
 	}
 
-	async createCloudProject(
-		token: string,
-		params: {
-			name: string;
-			description?: string;
-			uid?: string;
-		}
-	): Promise<CloudProject> {
+	async createCloudProject(params: {
+		name: string;
+		description?: string;
+		uid?: string;
+	}): Promise<CloudProject> {
 		return await this.httpClient.post('projects.json', {
-			body: params,
-			token
+			body: params
 		});
 	}
 
 	async updateCloudProject(
-		token: string,
 		repositoryId: string,
 		params: {
 			name: string;
@@ -203,14 +198,11 @@ export class ProjectService {
 		}
 	): Promise<CloudProject> {
 		return await this.httpClient.put(`projects/${repositoryId}.json`, {
-			body: params,
-			token
+			body: params
 		});
 	}
 
-	async getCloudProject(token: string, repositoryId: string): Promise<CloudProject> {
-		return await this.httpClient.get(`projects/${repositoryId}.json`, {
-			token
-		});
+	async getCloudProject(repositoryId: string): Promise<CloudProject> {
+		return await this.httpClient.get(`projects/${repositoryId}.json`);
 	}
 }

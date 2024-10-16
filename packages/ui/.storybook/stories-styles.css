@@ -1,3 +1,7 @@
+body {
+	color: var(--clr-text-1);
+}
+
 .sbdocs {
 	hr {
 		margin: 50px 0 30px;

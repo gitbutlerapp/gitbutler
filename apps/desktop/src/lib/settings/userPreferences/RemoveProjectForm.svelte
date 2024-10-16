@@ -3,8 +3,8 @@
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import { getContext } from '@gitbutler/shared/context';
 	import { goto } from '$app/navigation';
 
 	const projectService = getContext(ProjectService);

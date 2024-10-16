@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { AuthService } from '$lib/auth/authService';
 	import { UserService } from '$lib/user/userService';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 
 	const authService = getContext(AuthService);
 	const userService = getContext(UserService);

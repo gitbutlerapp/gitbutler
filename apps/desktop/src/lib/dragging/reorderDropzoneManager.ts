@@ -59,7 +59,7 @@ export class ReorderDropzoneManagerFactory {
 	}
 }
 
-// Private classes used to calculate distances between commtis
+// Private classes used to calculate distances between commits
 class Indexer {
 	private dropzoneIndexes = new Map<string, number>();
 	private commitIndexes = new Map<string, number>();
@@ -105,6 +105,7 @@ class Entry {
 	 */
 	distanceToOtherCommit(commitId: string) {
 		const commitIndex = this.commitIndex(commitId);
+		if (!commitIndex) return 0;
 
 		const offset = this.index - commitIndex;
 
@@ -118,9 +119,12 @@ class Entry {
 	private commitIndex(commitId: string) {
 		const index = this.commitIndexes.get(commitId);
 
-		if (index === undefined) {
-			throw new Error(`Commit ${commitId} not found in commitIndexes`);
-		}
+		// TODO: Handle updated commitIds after rebasing in `commitIndexes`
+		// Reordering works, but it throws errors for old commitIds that it can't find
+		// anymore after rebasing, for example.
+		// if (index === undefined) {
+		// 	throw new Error(`Commit ${commitId} not found in commitIndexes`);
+		// }
 
 		return index;
 	}

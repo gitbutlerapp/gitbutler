@@ -2,21 +2,25 @@
 	import zenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { editor } from '$lib/editorLink/editorLink';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { getContext, getContextStore } from '$lib/utils/context';
+	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import type { Writable } from 'svelte/store';
 
 	const gitHost = getGitHost();
 	const baseBranch = getContextStore(BaseBranch);
 	const branchController = getContext(BranchController);
+	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
 	const project = getContext(Project);
 
-	async function openInVSCode() {
-		openExternalUrl(`${$editor}://file${project.vscodePath}/?windowId=_blank`);
+	async function openInEditor() {
+		openExternalUrl(
+			`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${project.vscodePath}/?windowId=_blank`
+		);
 	}
 </script>
 
@@ -60,13 +64,13 @@
 						</button>
 						<button
 							class="empty-board__suggestions__link"
-							on:keypress={async () => await openInVSCode()}
-							on:click={async () => await openInVSCode()}
+							on:keypress={async () => await openInEditor()}
+							on:click={async () => await openInEditor()}
 						>
 							<div class="empty-board__suggestions__link__icon">
 								<Icon name="vscode" />
 							</div>
-							<span class="text-12">Open in VSCode</span>
+							<span class="text-12">`Open in {$userSettings.defaultCodeEditor.displayName}`</span>
 						</button>
 					</div>
 				</div>

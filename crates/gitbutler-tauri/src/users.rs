@@ -41,7 +41,7 @@ pub mod commands {
         name: Option<String>,
         given_name: Option<String>,
         family_name: Option<String>,
-        email: String,
+        email: Option<String>,
         picture: String,
         locale: Option<String>,
         created_at: String,

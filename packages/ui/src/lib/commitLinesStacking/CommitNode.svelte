@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Tooltip from '$lib/Tooltip.svelte';
-	import { isDefined } from '$lib/utils/typeguards';
+	import { camelCaseToTitleCase } from '$lib/utils/string';
 	import type { CellType, CommitNodeData } from '$lib/commitLinesStacking/types';
 
 	interface Props {
@@ -10,32 +10,12 @@
 
 	const { commitNode, type }: Props = $props();
 
-	const hoverText = $derived(
-		[
-			commitNode.commit?.author?.name,
-			commitNode.commit?.title,
-			commitNode.commit?.id.substring(0, 7)
-		]
-			.filter(isDefined)
-			.join('\n')
-	);
-
-	const hoverTextShadow = $derived.by(() => {
-		return commitNode.type === 'LocalShadow'
-			? [
-					commitNode.commit?.relatedRemoteCommit?.author?.name,
-					commitNode.commit?.relatedRemoteCommit?.title,
-					commitNode.commit?.relatedRemoteCommit?.id.substring(0, 7)
-				]
-					.filter(isDefined)
-					.join('\n')
-			: undefined;
-	});
+	const tooltipText = $derived(camelCaseToTitleCase(commitNode.type ?? 'local'));
 </script>
 
 <div class="container">
-	{#if type === 'Local'}
-		<Tooltip text={hoverText}>
+	{#if type === 'local'}
+		<Tooltip text={tooltipText}>
 			<svg
 				class="local-commit-dot"
 				width="10"
@@ -47,9 +27,9 @@
 				<rect width="10" height="10" rx="5" />
 			</svg>
 		</Tooltip>
-	{:else if type === 'LocalShadow'}
+	{:else if type === 'localAndShadow'}
 		<div class="local-shadow-commit-dot">
-			<Tooltip text={hoverTextShadow}>
+			<Tooltip text={commitNode.commit?.remoteCommitId?.substring(0, 7) ?? 'Diverged'}>
 				<svg
 					class="shadow-dot"
 					width="10"
@@ -62,7 +42,7 @@
 					/>
 				</svg>
 			</Tooltip>
-			<Tooltip text={hoverText}>
+			<Tooltip text="Diverged">
 				<svg
 					class="local-dot"
 					width="11"
@@ -79,12 +59,12 @@
 			</Tooltip>
 		</div>
 	{:else}
-		<Tooltip text={hoverText}>
+		<Tooltip text={tooltipText}>
 			<svg
 				class="generic-commit-dot"
-				class:remote={type === 'LocalRemote'}
-				class:upstream={type === 'Upstream'}
-				class:integrated={type === 'Integrated'}
+				class:remote={type === 'localAndRemote'}
+				class:upstream={type === 'remote'}
+				class:integrated={type === 'integrated'}
 				width="11"
 				height="12"
 				viewBox="0 0 11 12"
@@ -105,12 +85,12 @@
 	}
 
 	.local-commit-dot {
-		transform: translateX(4px);
+		transform: translateX(3px);
 		fill: var(--clr-commit-local);
 	}
 
 	.generic-commit-dot {
-		transform: translateX(5px);
+		transform: translateX(4px);
 
 		&.remote {
 			fill: var(--clr-commit-remote);

@@ -1,8 +1,11 @@
 import 'reflect-metadata';
+import { stackingFeature } from '$lib/config/uiFeatureFlags';
+import { emptyConflictEntryPresence, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '$lib/utils/string';
 import { isDefined, notNull } from '@gitbutler/ui/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
+import { get } from 'svelte/store';
 import type { PullRequest } from '$lib/gitHost/interface/types';
 
 export type ChangeType =
@@ -84,10 +87,6 @@ export class LocalFile {
 			.filter(notNull)
 			.filter(isDefined);
 	}
-
-	get looksConflicted(): boolean {
-		return fileLooksConflicted(this);
-	}
 }
 
 export class SkippedFile {
@@ -164,11 +163,40 @@ export class VirtualBranch {
 
 		return this.upstreamName || this.name;
 	}
+
+	get ancestorMostConflictedCommit(): DetailedCommit | undefined {
+		if (this.commits.length === 0) return undefined;
+		for (let i = this.commits.length - 1; i >= 0; i--) {
+			const commit = this.commits[i];
+			if (commit?.conflicted) return commit;
+		}
+	}
 }
 
 // Used for dependency injection
 export const BRANCH = Symbol('branch');
-export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
+export type CommitStatus = 'local' | 'localAndRemote' | 'localAndShadow' | 'integrated' | 'remote';
+
+export class ConflictEntries {
+	public entries: Map<string, ConflictEntryPresence> = new Map();
+	constructor(ancestorEntries: string[], ourEntries: string[], theirEntries: string[]) {
+		ancestorEntries.forEach((entry) => {
+			const entryPresence = this.entries.get(entry) || emptyConflictEntryPresence();
+			entryPresence.ancestor = true;
+			this.entries.set(entry, entryPresence);
+		});
+		ourEntries.forEach((entry) => {
+			const entryPresence = this.entries.get(entry) || emptyConflictEntryPresence();
+			entryPresence.ours = true;
+			this.entries.set(entry, entryPresence);
+		});
+		theirEntries.forEach((entry) => {
+			const entryPresence = this.entries.get(entry) || emptyConflictEntryPresence();
+			entryPresence.theirs = true;
+			this.entries.set(entry, entryPresence);
+		});
+	}
+}
 
 export class DetailedCommit {
 	id!: string;
@@ -192,13 +220,41 @@ export class DetailedCommit {
 	// author, commit and message.
 	copiedFromRemoteId?: string;
 
+	/**
+	 *
+	 * Represents the remote commit id of this patch.
+	 * This field is set if:
+	 *   - The commit has been pushed
+	 *   - The commit has been copied from a remote commit (when applying a remote branch)
+	 *
+	 * The `remoteCommitId` may be the same as the `id` or it may be different if the commit has been rebased or updated.
+	 *
+	 * Note: This makes both the `isRemote` and `copiedFromRemoteId` fields redundant, but they are kept for compatibility.
+	 */
+	remoteCommitId?: string;
+
 	prev?: DetailedCommit;
 	next?: DetailedCommit;
 
+	@Transform(
+		(obj) =>
+			new ConflictEntries(obj.value.ancestorEntries, obj.value.ourEntries, obj.value.theirEntries)
+	)
+	conflictedFiles!: ConflictEntries;
+
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
-		if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id))
-			return 'localAndRemote';
+		if (get(stackingFeature)) {
+			if (this.remoteCommitId) {
+				if (this.remoteCommitId !== this.id) {
+					return 'localAndShadow';
+				}
+				return 'localAndRemote';
+			}
+		} else {
+			if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id))
+				return 'localAndRemote';
+		}
 		return 'local';
 	}
 
@@ -248,6 +304,10 @@ export class Commit {
 
 	isMergeCommit() {
 		return this.parentIds.length > 1;
+	}
+
+	get conflictedFiles() {
+		return new ConflictEntries([], [], []);
 	}
 }
 
@@ -312,22 +372,6 @@ export class RemoteFile {
 	get locked(): boolean {
 		return false;
 	}
-
-	get looksConflicted(): boolean {
-		return fileLooksConflicted(this);
-	}
-}
-
-function fileLooksConflicted(file: AnyFile) {
-	const hasStartingMarker = file.hunks.some((hunk) =>
-		hunk.diff.split('\n').some((line) => line.startsWith('>>>>>>> theirs', 1))
-	);
-
-	const hasEndingMarker = file.hunks.some((hunk) =>
-		hunk.diff.split('\n').some((line) => line.startsWith('<<<<<<< ours', 1))
-	);
-
-	return hasStartingMarker && hasEndingMarker;
 }
 
 export interface Author {

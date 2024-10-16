@@ -21,19 +21,17 @@
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
-	import BorderlessTextarea from '$lib/shared/BorderlessTextarea.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
-	import { User } from '$lib/stores/user';
-	import { autoHeight } from '$lib/utils/autoHeight';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import BorderlessTextarea from '@gitbutler/ui/BorderlessTextarea.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
@@ -65,7 +63,6 @@
 
 	let props: Props = $props();
 
-	const user = getContextStore(User);
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
 	const branchStore = getContextStore(VirtualBranch);
@@ -89,8 +86,6 @@
 	let isDraft = $state<boolean>($preferredPRAction === PRAction.CreateDraft);
 
 	let modal = $state<ReturnType<typeof Modal>>();
-	// let inputTitleElem = $state<HTMLInputElement | null>(null);
-	let bodyTextArea = $state<HTMLTextAreaElement | null>(null);
 	let isEditing = $state<boolean>(true);
 	let isLoading = $state<boolean>(false);
 	let pullRequestTemplateBody = $state<string | undefined>(undefined);
@@ -132,7 +127,12 @@
 
 	// Fetch PR template content
 	$effect(() => {
-		if ($prService && pullRequestTemplateBody === undefined && prTemplatePath) {
+		if (
+			modal?.imports.open &&
+			$prService &&
+			pullRequestTemplateBody === undefined &&
+			prTemplatePath
+		) {
 			$prService.pullRequestTemplateContent(prTemplatePath, project.id).then((template) => {
 				pullRequestTemplateBody = template;
 			});
@@ -141,15 +141,11 @@
 
 	$effect(() => {
 		if (modal?.imports.open) {
-			aiService.validateConfiguration($user?.access_token).then((valid) => {
+			aiService.validateConfiguration().then((valid) => {
 				aiConfigurationValid = valid;
 			});
 		}
 	});
-
-	function updateFieldsHeight() {
-		if (bodyTextArea) autoHeight(bodyTextArea);
-	}
 
 	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
 		if (!$gitHost) {
@@ -242,14 +238,12 @@
 			directive: aiDescriptionDirective,
 			commitMessages: commits.map((c) => c.description),
 			prBodyTemplate: pullRequestTemplateBody,
-			userToken: $user.access_token,
-			onToken: (t) => {
+			onToken: async (t) => {
 				if (firstToken) {
+					inputBody = '';
 					firstToken = false;
 				}
 				inputBody += t;
-				inputBody = '';
-				updateFieldsHeight();
 			}
 		});
 
@@ -261,9 +255,8 @@
 
 		inputBody = descriptionResult.value;
 		aiIsLoading = false;
+		aiDescriptionDirective = undefined;
 		await tick();
-
-		updateFieldsHeight();
 	}
 
 	function handleModalKeydown(e: KeyboardEvent) {
@@ -329,7 +322,7 @@
 	const isPreviewOnly = props.type === 'display';
 </script>
 
-<Modal bind:this={modal} width="default" noPadding {onClose} onKeyDown={handleModalKeydown}>
+<Modal bind:this={modal} width={580} noPadding {onClose} onKeyDown={handleModalKeydown}>
 	<div class="pr-header">
 		{#if !isPreviewOnly}
 			<h3 class="text-14 text-semibold pr-title">
@@ -368,7 +361,7 @@
 						placeholder="PR title"
 						value={actualTitle}
 						readonly={!isEditing || isPreviewOnly}
-						on:change={(e) => {
+						on:input={(e) => {
 							inputTitle = e.detail;
 						}}
 					/>
@@ -380,8 +373,9 @@
 							autofocus
 							padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
 							placeholder="Add description…"
-							oninput={(e) => {
-								inputBody = e.currentTarget.value;
+							oninput={(e: InputEvent) => {
+								const target = e.target as HTMLTextAreaElement;
+								inputBody = target.value;
 							}}
 						/>
 
@@ -395,8 +389,9 @@
 										padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
 										placeholder={aiService.prSummaryMainDirective}
 										onkeydown={onMetaEnter(handleAIButtonPressed)}
-										oninput={(e) => {
-											aiDescriptionDirective = e.currentTarget.value;
+										oninput={(e: InputEvent) => {
+											const target = e.target as HTMLTextAreaElement;
+											aiDescriptionDirective = target.value;
 										}}
 									/>
 									<div class="pr-ai__actions">
@@ -470,6 +465,7 @@
 						kind="solid"
 						disabled={isLoading || aiIsLoading}
 						{isLoading}
+						type="submit"
 						onclick={async () => await handleCreatePR(close)}
 						>{isDraft ? 'Create draft pull request' : 'Create pull request'}</Button
 					>

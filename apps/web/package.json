@@ -14,6 +14,7 @@
 	"devDependencies": {
 		"@fontsource/fira-mono": "^4.5.10",
 		"@gitbutler/ui": "workspace:*",
+		"@gitbutler/shared": "workspace:*",
 		"@neoconfetti/svelte": "^1.0.0",
 		"@sveltejs/adapter-auto": "^3.0.0",
 		"@sveltejs/kit": "catalog:svelte",

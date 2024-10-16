@@ -4,20 +4,20 @@
 	import BranchLaneContextMenu from '$lib/branch/BranchLaneContextMenu.svelte';
 	import DefaultTargetButton from '$lib/branch/DefaultTargetButton.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import type { Persisted } from '$lib/persisted/persisted';
+	import type { Persisted } from '@gitbutler/shared/persisted';
 
 	interface Props {
 		uncommittedChanges?: number;
 		isLaneCollapsed: Persisted<boolean>;
-		onGenerateBranchName: () => void;
+		stackPrs?: number;
 	}
 
-	const { uncommittedChanges = 0, isLaneCollapsed, onGenerateBranchName }: Props = $props();
+	const { uncommittedChanges = 0, isLaneCollapsed, stackPrs = 0 }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const branchStore = getContextStore(VirtualBranch);
@@ -104,24 +104,17 @@
 			class:header_target-branch-animation={isTargetBranchAnimated && branch.selectedForChanges}
 		>
 			<div class="header__info-wrapper">
-				<div class="draggable" data-drag-handle>
+				<div data-drag-handle>
 					<Icon name="draggable" />
 				</div>
 
 				<div class="header__info">
-					<BranchLabel name={branch.name} onChange={(name) => handleBranchNameChange(name)} />
-					<span class="button-group">
-						<DefaultTargetButton
-							size="tag"
-							selectedForChanges={branch.selectedForChanges}
-							onclick={async () => {
-								isTargetBranchAnimated = true;
-								await branchController.setSelectedForChanges(branch.id);
-							}}
-						/>
+					<div class="header__info-row spread">
+						<BranchLabel name={branch.name} onChange={(name) => handleBranchNameChange(name)} />
 						<Button
 							bind:el={meatballButtonEl}
 							style="ghost"
+							size="tag"
 							icon="kebab"
 							onclick={() => {
 								contextMenu?.toggle();
@@ -131,9 +124,38 @@
 							bind:contextMenuEl={contextMenu}
 							target={meatballButtonEl}
 							onCollapse={collapseLane}
-							{onGenerateBranchName}
 						/>
-					</span>
+					</div>
+					<div class="header__info-row">
+						<span class="button-group">
+							<DefaultTargetButton
+								size="tag"
+								selectedForChanges={branch.selectedForChanges}
+								onclick={async () => {
+									isTargetBranchAnimated = true;
+									await branchController.setSelectedForChanges(branch.id);
+								}}
+							/>
+							<Button
+								style="neutral"
+								icon="remote-branch-small"
+								size="tag"
+								clickable={false}
+								tooltip="Series"
+							>
+								{branch.series.length ?? 0}
+							</Button>
+							<Button
+								style="neutral"
+								icon="pr-small"
+								size="tag"
+								clickable={false}
+								tooltip="Pull Requests"
+							>
+								{stackPrs}
+							</Button>
+						</span>
+					</div>
 				</div>
 			</div>
 		</div>
@@ -146,15 +168,12 @@
 		z-index: var(--z-lifted);
 		top: 12px;
 		padding-bottom: unset !important;
-		& .draggable {
-			height: auto;
-		}
+		position: sticky;
 	}
-
 	.header.card {
 		border-bottom-right-radius: 0px;
 		border-bottom-left-radius: 0px;
-		border-bottom-width: 0px;
+		border-bottom-width: 1px;
 	}
 	.header {
 		z-index: var(--z-lifted);
@@ -205,20 +224,31 @@
 	.header__info-wrapper {
 		display: flex;
 		gap: 2px;
-		padding: 10px;
+		padding: 12px;
 	}
 	.header__info {
 		flex: 1;
 		display: flex;
+		flex-direction: column;
 		overflow: hidden;
-		justify-content: space-between;
-		align-items: center;
+		justify-content: center;
+		align-items: start;
 		gap: 10px;
+	}
+	.header__info-row {
+		width: 100%;
+		display: flex;
+		justify-content: start;
+		align-items: center;
+
+		&.spread {
+			justify-content: space-between;
+		}
 	}
 	.button-group {
 		display: flex;
 		align-items: center;
-		gap: 10px;
+		gap: 6px;
 	}
 
 	.draggable {

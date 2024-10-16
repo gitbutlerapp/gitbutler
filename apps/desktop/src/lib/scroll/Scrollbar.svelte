@@ -9,7 +9,7 @@
 
 <script lang="ts">
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContextStoreBySymbol } from '$lib/utils/context';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	interface Props {

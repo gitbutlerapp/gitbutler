@@ -8,8 +8,8 @@
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { UserService } from '$lib/stores/user';
-	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { goto } from '$app/navigation';
@@ -30,7 +30,7 @@
 
 	$: if ($user && !loaded) {
 		loaded = true;
-		userService.getUser($user?.access_token).then((cloudUser) => {
+		userService.getUser().then((cloudUser) => {
 			cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
 			userService.setUser(cloudUser);
 		});
@@ -46,7 +46,7 @@
 		const picture = formData.get('picture') as File | undefined;
 
 		try {
-			const updatedUser = await userService.updateUser($user.access_token, {
+			const updatedUser = await userService.updateUser({
 				name: newName,
 				picture: picture
 			});

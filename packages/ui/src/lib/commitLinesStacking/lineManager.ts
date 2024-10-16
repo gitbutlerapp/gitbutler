@@ -22,27 +22,33 @@ function generateLineData({
 	const integratedBranchGroups = mapToCommitLineGroupPair(integratedCommits);
 
 	remoteBranchGroups.forEach(({ commit, line }) => {
-		line.top.type = 'Upstream';
-		line.bottom.type = 'Upstream';
-		line.commitNode = { type: 'Upstream', commit };
+		line.top.type = 'remote';
+		line.bottom.type = 'remote';
+		line.commitNode = { type: 'remote', commit };
 	});
 
 	localBranchGroups.forEach(({ commit, line }) => {
-		line.top.type = 'Local';
-		line.bottom.type = 'Local';
-		line.commitNode = { type: 'Local', commit };
+		line.top.type = 'local';
+		line.bottom.type = 'local';
+		line.commitNode = { type: 'local', commit };
 	});
 
 	localAndRemoteBranchGroups.forEach(({ commit, line }) => {
-		line.top.type = 'LocalRemote';
-		line.bottom.type = 'LocalRemote';
-		line.commitNode = { type: 'LocalRemote', commit };
+		if (line.commitNode.commit.remoteCommitId !== line.commitNode.commit.id) {
+			line.commitNode = { type: 'localAndShadow', commit };
+			line.top.type = 'localAndShadow';
+			line.bottom.type = 'localAndShadow';
+		} else {
+			line.commitNode = { type: 'localAndRemote', commit };
+			line.top.type = 'localAndRemote';
+			line.bottom.type = 'localAndRemote';
+		}
 	});
 
 	integratedBranchGroups.forEach(({ commit, line }) => {
-		line.top.type = 'Integrated';
-		line.bottom.type = 'Integrated';
-		line.commitNode = { type: 'Integrated', commit };
+		line.top.type = 'integrated';
+		line.bottom.type = 'integrated';
+		line.commitNode = { type: 'integrated', commit };
 	});
 
 	const data = new Map<string, LineData>([
@@ -51,16 +57,6 @@ function generateLineData({
 		...localAndRemoteBranchGroups.map(({ commit, line }) => [commit.id, line]),
 		...integratedBranchGroups.map(({ commit, line }) => [commit.id, line])
 	] as [string, LineData][]);
-
-	// Ensure bottom line is dashed
-	[...data].reverse().find(([key, value]) => {
-		if (!key.includes('-spacer')) {
-			value.bottom.style = 'dashed';
-			data.set(key, value);
-			return true;
-		}
-		return false;
-	});
 
 	return { data };
 }
@@ -71,22 +67,15 @@ function mapToCommitLineGroupPair(commits: CommitData[]) {
 	const groupings = commits.map((commit) => ({
 		commit,
 		line: {
-			top: { type: 'Local' as CellType, style: 'solid' as Style },
-			bottom: { type: 'Local' as CellType, style: 'solid' as Style },
-			commitNode: { type: 'Local' as CellType, commit }
+			top: { type: 'local' as CellType, style: 'solid' as Style },
+			bottom: { type: 'local' as CellType, style: 'solid' as Style },
+			commitNode: { type: 'local' as CellType, commit }
 		}
 	}));
 
 	return groupings;
 }
 
-/**
- * The Line Manager assumes that the groups of commits will be in the following order:
- * 1. Remote Commits (Commits you don't have in your branch)
- * 2. Local Commits (Commits that you have changed locally)
- * 3. LocalAndRemote Commits (Commits that exist locally and on the remote and have the same hash)
- * 4. Integrated Commits (Commits that exist locally and perhaps on the remote that are in the trunk)
- */
 export class LineManager {
 	private data: Map<string, LineData>;
 

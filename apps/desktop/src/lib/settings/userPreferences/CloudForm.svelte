@@ -8,7 +8,7 @@
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
@@ -23,10 +23,7 @@
 	onMount(async () => {
 		if (!project?.api) return;
 		if (!$user) return;
-		const cloudProject = await projectService.getCloudProject(
-			$user.access_token,
-			project.api.repository_id
-		);
+		const cloudProject = await projectService.getCloudProject(project.api.repository_id);
 		if (cloudProject === project.api) return;
 		project.api = { ...cloudProject, sync: project.api.sync, sync_code: project.api.sync_code };
 		projectService.updateProject(project);

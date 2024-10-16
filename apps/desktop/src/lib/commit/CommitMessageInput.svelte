@@ -12,18 +12,17 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
-	import { User } from '$lib/stores/user';
-	import { autoHeight } from '$lib/utils/autoHeight';
 	import { splitMessage } from '$lib/utils/commitMessage';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { KeyName } from '$lib/utils/hotkeys';
-	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { isWhiteSpaceString } from '$lib/utils/string';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import { autoHeight } from '@gitbutler/ui/utils/autoHeight';
+	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { createEventDispatcher, onMount, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
 
@@ -34,7 +33,6 @@
 	export let commit: (() => void) | undefined = undefined;
 	export let cancel: () => void;
 
-	const user = getContextStore(User);
 	const selectedOwnership = getContextStore(SelectedOwnership);
 	const aiService = getContext(AIService);
 	const branch = getContextStore(VirtualBranch);
@@ -52,8 +50,8 @@
 	let aiLoading = false;
 	let aiConfigurationValid = false;
 
-	let titleTextArea: HTMLTextAreaElement;
-	let descriptionTextArea: HTMLTextAreaElement;
+	let titleTextArea: HTMLTextAreaElement | undefined;
+	let descriptionTextArea: HTMLTextAreaElement | undefined;
 
 	$: ({ title, description } = splitMessage(commitMessage));
 	$: valid = !!title;
@@ -91,7 +89,6 @@
 			hunks,
 			useEmojiStyle: $commitGenerationUseEmojis,
 			useBriefStyle: $commitGenerationExtraConcise,
-			userToken: $user?.access_token,
 			commitTemplate: prompt
 		});
 
@@ -121,7 +118,7 @@
 	}
 
 	onMount(async () => {
-		aiConfigurationValid = await aiService.validateConfiguration($user?.access_token);
+		aiConfigurationValid = await aiService.validateConfiguration();
 	});
 
 	function handleDescriptionKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
@@ -138,7 +135,7 @@
 		if (e.key === KeyName.Delete && value.length === 0) {
 			e.preventDefault();
 			if (titleTextArea) {
-				titleTextArea?.focus();
+				titleTextArea.focus();
 				titleTextArea.selectionStart = titleTextArea.textLength;
 			}
 			autoHeight(e.currentTarget);
@@ -178,9 +175,11 @@
 					: `${toMove}\n${description}`;
 				commitMessage = concatMessage(toKeep, newDescription);
 				tick().then(() => {
-					descriptionTextArea?.focus();
-					descriptionTextArea.setSelectionRange(0, 0);
-					autoHeight(descriptionTextArea);
+					if (descriptionTextArea) {
+						descriptionTextArea.focus();
+						descriptionTextArea.setSelectionRange(0, 0);
+						autoHeight(descriptionTextArea);
+					}
 				});
 			}
 

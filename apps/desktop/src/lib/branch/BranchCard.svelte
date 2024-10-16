@@ -16,13 +16,10 @@
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import { showError } from '$lib/notifications/toasts';
-	import { persisted } from '$lib/persisted/persisted';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
-	import { User } from '$lib/stores/user';
-	import { getContext, getContextStore, getContextStoreBySymbol } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import {
 		getIntegratedCommits,
@@ -32,6 +29,8 @@
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import lscache from 'lscache';
@@ -47,7 +46,6 @@
 	const fileIdSelection = getContext(FileIdSelection);
 	const branchStore = getContextStore(VirtualBranch);
 	const project = getContext(Project);
-	const user = getContextStore(User);
 
 	const branch = $derived($branchStore);
 
@@ -80,7 +78,6 @@
 		const prompt = promptService.selectedBranchPrompt(project.id);
 		const messageResult = await aiService.summarizeBranch({
 			hunks,
-			userToken: $user?.access_token,
 			branchTemplate: prompt
 		});
 
@@ -200,10 +197,12 @@
 							<Dropzones>
 								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
-										<svelte:fragment slot="title">This is a new branch</svelte:fragment>
-										<svelte:fragment slot="caption">
+										{#snippet title()}
+											This is a new branch
+										{/snippet}
+										{#snippet caption()}
 											You can drag and drop files or parts of files here.
-										</svelte:fragment>
+										{/snippet}
 									</EmptyStatePlaceholder>
 								</div>
 							</Dropzones>
@@ -211,9 +210,9 @@
 							<Dropzones>
 								<div class="no-changes">
 									<EmptyStatePlaceholder image={noChangesSvg} width={180}>
-										<svelte:fragment slot="caption"
-											>No uncommitted changes on this branch</svelte:fragment
-										>
+										{#snippet caption()}
+											No uncommitted changes on this branch
+										{/snippet}
 									</EmptyStatePlaceholder>
 								</div>
 							</Dropzones>
@@ -221,7 +220,7 @@
 
 						{#snippet pushButton({ disabled }: { disabled: boolean })}
 							<Button
-								style="pop"
+								style="neutral"
 								kind="solid"
 								wide
 								loading={isPushingCommits}

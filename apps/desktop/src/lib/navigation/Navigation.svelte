@@ -10,11 +10,11 @@
 	import { ModeService } from '$lib/modes/service';
 	import EditButton from '$lib/navigation/EditButton.svelte';
 	import TopicsButton from '$lib/navigation/TopicsButton.svelte';
-	import { persisted } from '$lib/persisted/persisted';
 	import { platformName } from '$lib/platform/platform';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { getContext, getContextStoreBySymbol } from '$lib/utils/context';
 	import { createKeybind } from '$lib/utils/hotkeys';
+	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import { env } from '$env/dynamic/public';
 
 	const minResizerWidth = 280;
@@ -107,7 +107,6 @@
 		style:width={$defaultTrayWidthRem && !$isNavCollapsed ? $defaultTrayWidthRem + 'rem' : null}
 		bind:this={viewport}
 		role="menu"
-		tabindex="0"
 	>
 		<!-- condition prevents split second UI shift -->
 		{#if $platformName || env.PUBLIC_TESTING}

@@ -1,5 +1,6 @@
 use std::fs;
 
+use crate::init_opts;
 use gitbutler_oxidize::git2_to_gix_object_id;
 use gix_testtools::bstr::ByteSlice as _;
 use tempfile::{tempdir, TempDir};
@@ -13,7 +14,7 @@ pub struct TestingRepository {
 impl TestingRepository {
     pub fn open() -> Self {
         let tempdir = tempdir().unwrap();
-        let repository = git2::Repository::init(tempdir.path()).unwrap();
+        let repository = git2::Repository::init_opts(tempdir.path(), &init_opts()).unwrap();
 
         let config = repository.config().unwrap();
         match config.open_level(git2::ConfigLevel::Local) {

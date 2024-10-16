@@ -12,10 +12,10 @@
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { getContext } from '$lib/utils/context';
-	import { getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Commit, DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import { getContext } from '@gitbutler/shared/context';
+	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
 	import { LineManagerFactory, LineSpacer } from '@gitbutler/ui/commitLines/lineManager';
@@ -189,10 +189,7 @@
 		<!-- LOCAL COMMITS -->
 		{#if localCommits.length > 0}
 			<div class="commits-group">
-				<InsertEmptyCommitAction
-					isFirst
-					on:click={() => insertBlankCommit($branch.head, 'above')}
-				/>
+				<InsertEmptyCommitAction isFirst onclick={() => insertBlankCommit($branch.head, 'above')} />
 				{@render reorderDropzone(
 					reorderDropzoneManager.topDropzone,
 					getReorderDropzoneOffset({ isFirst: true })
@@ -222,7 +219,7 @@
 
 					<InsertEmptyCommitAction
 						isLast={idx + 1 === localCommits.length}
-						on:click={() => insertBlankCommit(commit.id, 'below')}
+						onclick={() => insertBlankCommit(commit.id, 'below')}
 					/>
 				{/each}
 				{#if pushButton}
@@ -264,7 +261,7 @@
 					)}
 					<InsertEmptyCommitAction
 						isLast={idx + 1 === localAndRemoteCommits.length}
-						on:click={() => insertBlankCommit(commit.id, 'below')}
+						onclick={() => insertBlankCommit(commit.id, 'below')}
 					/>
 				{/each}
 

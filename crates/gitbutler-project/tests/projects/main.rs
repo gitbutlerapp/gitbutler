@@ -23,6 +23,29 @@ mod add {
 
     mod error {
         use super::*;
+        use std::path::PathBuf;
+
+        #[test]
+        fn non_bare_without_worktree() {
+            let (controller, _tmp) = new();
+            let root = repo_path_at("non-bare-without-worktree");
+            let err = controller.add(root).unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                "Cannot add non-bare repositories without a workdir"
+            );
+        }
+
+        #[test]
+        fn submodule() {
+            let (controller, _tmp) = new();
+            let root = repo_path_at("with-submodule").join("submodule");
+            let err = controller.add(root).unwrap_err();
+            assert_eq!(
+                err.to_string(),
+                "A git-repository without a `.git` directory cannot currently be added"
+            );
+        }
 
         #[test]
         fn missing() {
@@ -112,6 +135,14 @@ mod add {
                 &[],
             )
             .unwrap()
+        }
+
+        fn repo_path_at(name: &str) -> PathBuf {
+            gitbutler_testsupport::gix_testtools::scripted_fixture_read_only(
+                "various-repositories.sh",
+            )
+            .unwrap()
+            .join(name)
         }
     }
 }

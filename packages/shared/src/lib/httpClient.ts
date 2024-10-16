@@ -1,7 +1,5 @@
-import { wrapAsync } from '$lib/result';
-import { PUBLIC_API_BASE_URL } from '$env/static/public';
+import { get, type Readable } from 'svelte/store';
 
-export const API_URL = new URL('/api/', PUBLIC_API_BASE_URL);
 export const DEFAULT_HEADERS = {
 	'Content-Type': 'application/json'
 };
@@ -11,11 +9,22 @@ export type RequestMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 type RequestOptions = {
 	headers?: Record<string, string | undefined>;
 	body?: FormData | object;
-	token?: string;
 };
 
 export class HttpClient {
-	constructor(public fetch = window.fetch) {}
+	readonly apiUrl: URL;
+
+	constructor(
+		public fetch = window.fetch,
+		publicApiBaseUrl: string,
+		private token: Readable<string | undefined>
+	) {
+		this.apiUrl = new URL('/api/', publicApiBaseUrl);
+	}
+
+	private getApiUrl(path: string) {
+		return new URL(path, this.apiUrl);
+	}
 
 	private async request<T>(
 		path: string,
@@ -33,9 +42,10 @@ export class HttpClient {
 			});
 		}
 
-		if (opts.token) butlerHeaders.set('X-Auth-Token', opts.token);
+		const token = get(this.token);
+		if (token) butlerHeaders.set('X-Auth-Token', token);
 
-		const response = await this.fetch(getApiUrl(path), {
+		const response = await this.fetch(this.getApiUrl(path), {
 			method: opts.method,
 			headers: butlerHeaders,
 			body: formatBody(opts.body)
@@ -48,45 +58,21 @@ export class HttpClient {
 		return await this.request<T>(path, { ...opts, method: 'GET' });
 	}
 
-	async getSafe<T>(path: string, opts?: Omit<RequestOptions, 'body'>) {
-		return await wrapAsync<T, Error>(async () => await this.get<T>(path, opts));
-	}
-
 	async post<T>(path: string, opts?: RequestOptions) {
 		return await this.request<T>(path, { ...opts, method: 'POST' });
-	}
-
-	async postSafe<T>(path: string, opts?: RequestOptions) {
-		return await wrapAsync<T, Error>(async () => await this.post<T>(path, opts));
 	}
 
 	async put<T>(path: string, opts?: RequestOptions) {
 		return await this.request<T>(path, { ...opts, method: 'PUT' });
 	}
 
-	async putSafe<T>(path: string, opts?: RequestOptions) {
-		return await wrapAsync<T, Error>(async () => await this.put<T>(path, opts));
-	}
-
 	async patch<T>(path: string, opts?: RequestOptions) {
 		return await this.request<T>(path, { ...opts, method: 'PATCH' });
-	}
-
-	async patchSafe<T>(path: string, opts?: RequestOptions) {
-		return await wrapAsync<T, Error>(async () => await this.patch<T>(path, opts));
 	}
 
 	async delete<T>(path: string, opts?: RequestOptions) {
 		return await this.request<T>(path, { ...opts, method: 'DELETE' });
 	}
-
-	async deleteSafe<T>(path: string, opts?: RequestOptions) {
-		return await wrapAsync<T, Error>(async () => await this.delete<T>(path, opts));
-	}
-}
-
-function getApiUrl(path: string) {
-	return new URL(path, API_URL);
 }
 
 async function parseResponseJSON(response: Response) {

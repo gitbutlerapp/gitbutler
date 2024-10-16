@@ -1,11 +1,14 @@
 <script lang="ts">
+	import { AIService } from '$lib/ai/service';
+	import { Project } from '$lib/backend/projects';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 
@@ -13,18 +16,41 @@
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		target?: HTMLElement;
 		headName: string;
+		seriesCount: number;
+		disableTitleEdit: boolean;
 		addDescription: () => void;
+		onGenerateBranchName: () => void;
 	}
 
-	let { contextMenuEl = $bindable(), target, headName, addDescription }: Props = $props();
+	let {
+		contextMenuEl = $bindable(),
+		target,
+		seriesCount,
+		disableTitleEdit,
+		headName,
+		addDescription,
+		onGenerateBranchName
+	}: Props = $props();
 
+	const project = getContext(Project);
+	const aiService = getContext(AIService);
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
+	const aiGenEnabled = projectAiGenEnabled(project.id);
 
 	let deleteSeriesModal: Modal;
 	let renameSeriesModal: Modal;
 	let newHeadName: string = $state(headName);
 	let isDeleting = $state(false);
+	let aiConfigurationValid = $state(false);
+
+	$effect(() => {
+		setAIConfigurationValid();
+	});
+
+	async function setAIConfigurationValid() {
+		aiConfigurationValid = await aiService.validateConfiguration();
+	}
 
 	const branch = $derived($branchStore);
 </script>
@@ -40,6 +66,14 @@
 			}}
 		/>
 		<ContextMenuItem
+			label="Generate series name"
+			on:click={() => {
+				onGenerateBranchName();
+				contextMenuEl?.close();
+			}}
+			disabled={!($aiGenEnabled && aiConfigurationValid) || disableTitleEdit}
+		/>
+		<ContextMenuItem
 			label="Rename"
 			on:click={async () => {
 				renameSeriesModal.show(branch);
@@ -48,6 +82,7 @@
 		/>
 		<ContextMenuItem
 			label="Delete"
+			disabled={seriesCount <= 1}
 			on:click={() => {
 				deleteSeriesModal.show(branch);
 				contextMenuEl?.close();

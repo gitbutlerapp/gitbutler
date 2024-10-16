@@ -3,8 +3,8 @@
 	import TextArea from '$lib/shared/TextArea.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import { TopicService, type Topic } from '$lib/topics/service';
-	import { getContext } from '$lib/utils/context';
 	import { createKeybind } from '$lib/utils/hotkeys';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 
@@ -75,7 +75,7 @@
 <svelte:window on:keydown={handleKeyDown} />
 
 {#if issueService}
-	<Modal bind:this={modal}>
+	<Modal bind:this={modal} onSubmit={submit}>
 		<h2 class="text-18 text-bold">Create an issue</h2>
 
 		<div class="input">
@@ -115,7 +115,7 @@
 
 		{#snippet controls()}
 			<Button onclick={() => modal?.close()}>Cancel</Button>
-			<Button kind="solid" style="pop" onclick={submit} loading={submitProgress === 'loading'}
+			<Button kind="solid" style="pop" type="submit" loading={submitProgress === 'loading'}
 				>Submit</Button
 			>
 		{/snippet}

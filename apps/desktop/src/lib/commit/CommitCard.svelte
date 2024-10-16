@@ -9,9 +9,7 @@
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
 	import { ModeService } from '$lib/modes/service';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import { getContext, getContextStore, maybeGetContext } from '$lib/utils/context';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
@@ -23,10 +21,12 @@
 		VirtualBranch,
 		type CommitStatus
 	} from '$lib/vbranches/types';
+	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import { getTimeAndAuthor } from '@gitbutler/ui/utils/getTimeAndAuthor';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { type Snippet } from 'svelte';
 
@@ -54,6 +54,9 @@
 	let contextMenu: ReturnType<typeof CommitContextMenu> | undefined;
 	let files: RemoteFile[] = [];
 	let showDetails = false;
+
+	$: conflicted = commit.conflicted;
+	$: isAncestorMostConflicted = branch?.ancestorMostConflictedCommit?.id === commit.id;
 
 	async function loadFiles() {
 		files = await listRemoteCommitFiles(project.id, commit.id);
@@ -88,8 +91,7 @@
 	let commitMessageValid = false;
 	let description = '';
 
-	let createRefModal: Modal;
-	let createRefName = $baseBranch.remoteName + '/';
+	let conflictResolutionConfirmationModal: ReturnType<typeof Modal> | undefined;
 
 	function openCommitMessageModal(e: Event) {
 		e.stopPropagation();
@@ -107,12 +109,6 @@
 		}
 
 		commitMessageModal.close();
-	}
-
-	function getTimeAndAuthor() {
-		const timeAgo = getTimeAgo(commit.createdAt);
-		const author = type === 'localAndRemote' || type === 'remote' ? commit.author.name : 'you';
-		return `${timeAgo} by ${author}`;
 	}
 
 	const commitShortSha = commit.id.substring(0, 7);
@@ -138,11 +134,16 @@
 
 	async function editPatch() {
 		if (!canEdit()) return;
-
 		modeService!.enterEditMode(commit.id, branch!.refname);
 	}
 
-	$: conflicted = commit.conflicted;
+	async function handleEditPatch() {
+		if (conflicted && !isAncestorMostConflicted) {
+			conflictResolutionConfirmationModal?.show();
+			return;
+		}
+		await editPatch();
+	}
 </script>
 
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
@@ -164,26 +165,17 @@
 	{/snippet}
 </Modal>
 
-<Modal bind:this={createRefModal} width="small">
-	{#snippet children(commit)}
-		<TextBox label="Remote branch name" id="newRemoteName" bind:value={createRefName} focus />
-		<Button
-			style="pop"
-			kind="solid"
-			onclick={() => {
-				branchController.createChangeReference(
-					branch?.id || '',
-					'refs/remotes/' + createRefName,
-					commit.changeId
-				);
-				createRefModal.close();
-			}}
-		>
-			Ok
-		</Button>
+<Modal bind:this={conflictResolutionConfirmationModal} width="small" onSubmit={editPatch}>
+	{#snippet children()}
+		<div>
+			<p>It's generally better to start resolving conflicts from the bottom up.</p>
+			<br />
+			<p>Are you sure you want to resolve conflicts for this commit?</p>
+		</div>
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
+		<Button style="pop" outline type="submit">Yes</Button>
 	{/snippet}
 </Modal>
 
@@ -357,7 +349,8 @@
 							</button>
 						{/if}
 						<span class="commit__subtitle-divider">•</span>
-						<span>{getTimeAndAuthor()}</span>
+
+						<span>{getTimeAndAuthor(commit.createdAt, commit.author.name)}</span>
 					</div>
 				{/if}
 			</div>
@@ -385,7 +378,7 @@
 												currentCommitMessage.set(commit.description);
 												e.stopPropagation();
 												undoCommit(commit);
-											}}>Undo</Button
+											}}>Uncommit</Button
 										>
 									{/if}
 									<Button
@@ -397,7 +390,7 @@
 									>
 								{/if}
 								{#if canEdit()}
-									<Button size="tag" style="ghost" outline onclick={editPatch}>
+									<Button size="tag" style="ghost" outline onclick={handleEditPatch}>
 										{#if conflicted}
 											Resolve conflicts
 										{:else}
@@ -416,6 +409,7 @@
 						{files}
 						{isUnapplied}
 						readonly={type === 'remote' || isUnapplied}
+						conflictedFiles={commit.conflictedFiles}
 					/>
 				</div>
 			{/if}

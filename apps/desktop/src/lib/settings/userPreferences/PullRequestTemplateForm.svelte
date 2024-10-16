@@ -10,7 +10,7 @@
 	import Link from '$lib/shared/Link.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
-	import { getContext } from '$lib/utils/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 
 	const projectService = getContext(ProjectService);
@@ -102,15 +102,15 @@
 					</Select>
 				{:else}
 					<EmptyStatePlaceholder image={notFoundSvg} topBottomPadding={20}>
-						<svelte:fragment slot="caption"
-							>No templates found in the project
+						{#snippet caption()}
+							No templates found in the project
 							<span class="text-11">
 								<Link
 									href="https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/creating-a-pull-request-template-for-your-repository"
 									>How to create a template</Link
 								></span
 							>
-						</svelte:fragment>
+						{/snippet}
 					</EmptyStatePlaceholder>
 				{/if}
 			</SectionCard>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Checkbox, { type CheckboxProps } from '$lib/Checkbox.svelte';
+	import Checkbox, { type Props as CheckboxProps } from '$lib/Checkbox.svelte';
 
 	const props: CheckboxProps = $props();
 </script>

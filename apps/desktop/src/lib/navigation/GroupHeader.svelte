@@ -23,8 +23,8 @@
 		},
 		options: {
 			root: null,
-			rootMargin: '-1px 0px 90% 0px',
-			threshold: 1
+			rootMargin: '-100% 0px 0px 0px',
+			threshold: 0
 		}
 	}}
 >
@@ -41,16 +41,7 @@
 		background-color: var(--clr-bg-1);
 	}
 
-	/* .group-header h3 {
-		transition: transform var(--transition-fast);
-	} */
-
 	.group-header.intersected {
-		/* background-color: aquamarine; */
 		border-bottom: 1px solid var(--clr-border-2);
 	}
-
-	/* .group-header.intersected h3 {
-		transform: scale(0.9);
-	} */
 </style>

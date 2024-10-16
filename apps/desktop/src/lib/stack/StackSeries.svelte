@@ -1,18 +1,13 @@
 <script lang="ts">
-	import StackingBranchHeader from '$lib/branch/StackingBranchHeader.svelte';
+	import StackSeriesDividerLine from './StackSeriesDividerLine.svelte';
+	import StackingSeriesHeader from '$lib/branch/StackingSeriesHeader.svelte';
 	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
-	import { getContext } from '$lib/utils/context';
-	import {
-		getLocalAndRemoteCommits,
-		getLocalCommits,
-		getRemoteCommits
-	} from '$lib/vbranches/contexts';
+	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
+	import { getContext } from '@gitbutler/shared/context';
 	import type { VirtualBranch } from '$lib/vbranches/types';
-	// import type { Series } from './types';
 
 	interface Props {
-		// series: Series[];
 		branch: VirtualBranch;
 	}
 
@@ -20,7 +15,6 @@
 
 	const localCommits = getLocalCommits();
 	const localAndRemoteCommits = getLocalAndRemoteCommits();
-	const remoteCommits = getRemoteCommits();
 
 	const localCommitsConflicted = $derived($localCommits.some((commit) => commit.conflicted));
 	const localAndRemoteCommitsConflicted = $derived(
@@ -33,24 +27,23 @@
 	);
 </script>
 
-<!-- TODO: Add connecting line on background between NewStackCard above and branches below -->
-{#each branch.series as currentSeries (currentSeries.name)}
+{#each branch.series as currentSeries, idx (currentSeries.name)}
+	{#if idx !== 0}
+		<StackSeriesDividerLine {currentSeries} />
+	{/if}
 	<div class="branch-group">
-		<StackingBranchHeader
-			commits={currentSeries.patches}
-			name={currentSeries.branchName}
-			upstreamName={currentSeries.name}
-		/>
-		<StackingCommitList
-			localCommits={currentSeries.localCommits}
-			localAndRemoteCommits={currentSeries.remoteCommits}
-			integratedCommits={currentSeries.integratedCommits}
-			remoteCommits={$remoteCommits}
-			isUnapplied={false}
-			{reorderDropzoneManager}
-			{localCommitsConflicted}
-			{localAndRemoteCommitsConflicted}
-		/>
+		<StackingSeriesHeader {currentSeries} />
+		{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
+			<StackingCommitList
+				remoteOnlyPatches={currentSeries.upstreamPatches}
+				patches={currentSeries.patches}
+				isUnapplied={false}
+				isBottom={idx === branch.series.length - 1}
+				{reorderDropzoneManager}
+				{localCommitsConflicted}
+				{localAndRemoteCommitsConflicted}
+			/>
+		{/if}
 	</div>
 {/each}
 
@@ -59,6 +52,9 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-1);
-		overflow: hidden;
+
+		&:last-child {
+			margin-bottom: 12px;
+		}
 	}
 </style>

@@ -8,8 +8,8 @@
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const project = getContext(Project);
@@ -22,7 +22,7 @@
 	async function saveProject() {
 		const api =
 			$user && project.api
-				? await projectService.updateCloudProject($user?.access_token, project.api.repository_id, {
+				? await projectService.updateCloudProject(project.api.repository_id, {
 						name: project.title,
 						description: project.description
 					})
@@ -36,7 +36,7 @@
 		try {
 			const cloudProject =
 				project.api ??
-				(await projectService.createCloudProject($user.access_token, {
+				(await projectService.createCloudProject({
 					name: project.title,
 					description: project.description,
 					uid: project.id
@@ -54,7 +54,7 @@
 		try {
 			const cloudProject =
 				project.api ??
-				(await projectService.createCloudProject($user.access_token, {
+				(await projectService.createCloudProject({
 					name: project.title,
 					description: project.description,
 					uid: project.id

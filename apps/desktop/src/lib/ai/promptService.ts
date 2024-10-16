@@ -4,7 +4,7 @@ import {
 	LONG_DEFAULT_COMMIT_TEMPLATE,
 	SHORT_DEFAULT_COMMIT_TEMPLATE
 } from '$lib/ai/prompts';
-import { persisted, type Persisted } from '$lib/persisted/persisted';
+import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 import { get } from 'svelte/store';
 import type { Prompt, Prompts, UserPrompt } from '$lib/ai/types';
 

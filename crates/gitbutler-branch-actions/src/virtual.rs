@@ -292,7 +292,7 @@ pub fn list_virtual_branches_cached(
 
     let branches_span =
         tracing::debug_span!("handle branches", num_branches = status.branches.len()).entered();
-    for (branch, mut files) in status.branches {
+    for (mut branch, mut files) in status.branches {
         let repo = ctx.repository();
         update_conflict_markers(ctx, files.clone())?;
 
@@ -380,6 +380,7 @@ pub fn list_virtual_branches_cached(
                         is_integrated,
                         is_remote,
                         copied_from_remote_id,
+                        None, // remote_commit_id is only used inside PatchSeries
                     )
                 })
                 .collect::<Result<Vec<_>>>()?
@@ -410,7 +411,7 @@ pub fn list_virtual_branches_cached(
                 .cmp(path_claim_positions.get(&b.path).unwrap_or(&usize::MAX))
         });
 
-        let requires_force = is_requires_force(ctx, &branch)?;
+        let mut requires_force = is_requires_force(ctx, &branch)?;
 
         let fork_point = commits
             .last()
@@ -420,8 +421,19 @@ pub fn list_virtual_branches_cached(
         let refname = branch.refname()?.into();
 
         // TODO: Error out here once this API is stable
-        let series = match stack_series(ctx, &branch, &default_target, &check_commit) {
-            Ok(series) => series,
+        let series = match stack_series(
+            ctx,
+            &mut branch,
+            &default_target,
+            &check_commit,
+            remote_commit_data,
+        ) {
+            Ok((series, force)) => {
+                if series.iter().any(|s| s.upstream_reference.is_some()) {
+                    requires_force = force; // derive force requirement from the series
+                }
+                series
+            }
             Err(e) => {
                 tracing::warn!("failed to compute stack series: {:?}", e);
                 vec![]
@@ -469,10 +481,12 @@ pub fn list_virtual_branches_cached(
 /// Newest first, oldest last in the list
 fn stack_series(
     ctx: &CommandContext,
-    branch: &Stack,
+    branch: &mut Stack,
     default_target: &Target,
     check_commit: &IsCommitIntegrated,
-) -> Result<Vec<PatchSeries>> {
+    remote_commit_data: HashMap<CommitData, git2::Oid>,
+) -> Result<(Vec<PatchSeries>, bool)> {
+    let mut requires_force = false;
     let mut api_series: Vec<PatchSeries> = vec![];
     let stack_series = branch.list_series(ctx)?;
     for series in stack_series.clone() {
@@ -487,30 +501,56 @@ fn stack_series(
         for patch in series.clone().local_commits {
             let commit = commit_by_oid_or_change_id(&patch, ctx, branch.head(), default_target)?;
             let is_integrated = check_commit.is_integrated(&commit)?;
+            let copied_from_remote_id = CommitData::try_from(&commit)
+                .ok()
+                .and_then(|data| remote_commit_data.get(&data).copied());
+            let remote_commit_id = commit
+                .change_id()
+                .and_then(|change_id| {
+                    series
+                        .remote_commit_ids_by_change_id
+                        .get(&change_id)
+                        .cloned()
+                })
+                .or(copied_from_remote_id);
+            if remote_commit_id.map_or(false, |id| commit.id() != id) {
+                requires_force = true;
+            }
             let vcommit = commit_to_vbranch_commit(
                 ctx,
                 branch,
                 &commit,
                 is_integrated,
                 series.remote(&patch),
-                None,
+                copied_from_remote_id,
+                remote_commit_id,
             )?;
             patches.push(vcommit);
         }
         patches.reverse();
         let mut upstream_patches = vec![];
-        for patch in series.upstream_only(&stack_series) {
-            let commit = commit_by_oid_or_change_id(&patch, ctx, branch.head(), default_target)?;
-            let is_integrated = check_commit.is_integrated(&commit)?;
-            let vcommit = commit_to_vbranch_commit(
-                ctx,
-                branch,
-                &commit,
-                is_integrated,
-                true, // per definition
-                None,
-            )?;
-            upstream_patches.push(vcommit);
+        if let Some(upstream_reference) = upstream_reference.clone() {
+            let remote_head = ctx
+                .repository()
+                .find_reference(&upstream_reference)?
+                .peel_to_commit()?;
+            for patch in series.upstream_only(&stack_series) {
+                if let Ok(commit) =
+                    commit_by_oid_or_change_id(&patch, ctx, remote_head.id(), default_target)
+                {
+                    let is_integrated = check_commit.is_integrated(&commit)?;
+                    let vcommit = commit_to_vbranch_commit(
+                        ctx,
+                        branch,
+                        &commit,
+                        is_integrated,
+                        true, // per definition
+                        None, // per definition
+                        Some(commit.id()),
+                    )?;
+                    upstream_patches.push(vcommit);
+                };
+            }
         }
         upstream_patches.reverse();
         api_series.push(PatchSeries {
@@ -523,7 +563,13 @@ fn stack_series(
     }
     api_series.reverse();
 
-    Ok(api_series)
+    // This is done for compatibility with the legacy flow.
+    // After a couple of weeks we can get rid of this.
+    if let Err(e) = branch.set_legacy_compatible_stack_reference(ctx) {
+        tracing::warn!("failed to set legacy compatible stack reference: {:?}", e);
+    }
+
+    Ok((api_series, requires_force))
 }
 
 /// The commit-data we can use for comparison to see which remote-commit was used to craete

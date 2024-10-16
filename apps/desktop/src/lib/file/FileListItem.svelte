@@ -4,7 +4,6 @@
 	import { draggableChips } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
 	import { itemsSatisfy } from '$lib/utils/array';
-	import { getContext, maybeGetContextStore } from '$lib/utils/context';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getCommitStore } from '$lib/vbranches/contexts';
@@ -12,6 +11,7 @@
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import { VirtualBranch, type AnyFile, LocalFile } from '$lib/vbranches/types';
+	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import { onDestroy } from 'svelte';
 	import type { Writable } from 'svelte/store';
@@ -127,6 +127,7 @@
 	target={draggableEl}
 	{isUnapplied}
 	branchId={$branch?.id}
+	isBinary={file.binary}
 />
 
 <FileListItem

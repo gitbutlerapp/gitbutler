@@ -12,6 +12,7 @@
 		"dev:web": "turbo run --filter @gitbutler/web dev --no-daemon",
 		"dev:desktop": "pnpm tauri dev",
 		"dev:internal-tauri": "turbo watch --filter @gitbutler/desktop dev",
+		"package": "turbo run package",
 		"test": "turbo run test --no-daemon",
 		"test:watch": "pnpm --filter @gitbutler/desktop run test:watch",
 		"test:e2e": "pnpm --filter @gitbutler/desktop run test:e2e",

@@ -7,10 +7,10 @@
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
-	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 	import { createTimeAgoStore } from '@gitbutler/ui/utils/timeAgo';
@@ -187,6 +187,7 @@
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
 				kind={prStatusInfo.text !== 'Open' && prStatusInfo.text !== 'Status' ? 'solid' : 'soft'}
+				tooltip="PR status"
 			>
 				{prStatusInfo.text}
 			</Button>
@@ -206,16 +207,22 @@
 				style="ghost"
 				outline
 				icon="description-small"
-				onclick={(e: MouseEvent) => {
-					if (e.ctrlKey || e.metaKey) {
-						openExternalUrl(pr.htmlUrl);
-						return;
-					}
+				onclick={() => {
 					prDetailsModal?.show();
 				}}
 			>
 				PR details
 			</Button>
+			<Button
+				icon="open-link"
+				size="tag"
+				style="ghost"
+				outline
+				tooltip="Open in browser"
+				onclick={() => {
+					openExternalUrl(pr.htmlUrl);
+				}}
+			/>
 			<Button
 				icon="update-small"
 				size="tag"
@@ -312,11 +319,5 @@
 		flex-direction: column;
 		gap: 8px;
 		padding: 0 14px 12px 14px;
-	}
-
-	.floating-button {
-		position: absolute;
-		right: 6px;
-		top: 6px;
 	}
 </style>

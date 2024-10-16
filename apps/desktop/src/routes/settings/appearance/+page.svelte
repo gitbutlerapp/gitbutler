@@ -3,19 +3,31 @@
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
 	import HunkDiff from '$lib/hunk/HunkDiff.svelte';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
+	import Select from '$lib/select/Select.svelte';
+	import SelectItem from '$lib/select/SelectItem.svelte';
 	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
 	import {
 		SETTINGS,
 		type Settings,
-		type ScrollbarVisilitySettings
+		type ScrollbarVisilitySettings,
+		type CodeEditorSettings
 	} from '$lib/settings/userSettings';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
-	import { getContextStoreBySymbol } from '$lib/utils/context';
 	import { type Hunk } from '$lib/vbranches/types';
+	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import type { ContentSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
+
+	const editorOptions: CodeEditorSettings[] = [
+		{ schemeIdentifer: 'vscode', displayName: 'VSCode' },
+		{ schemeIdentifer: 'zed', displayName: 'Zed' }
+	];
+	const editorOptionsForSelect = editorOptions.map((option) => ({
+		label: option.displayName,
+		value: option.schemeIdentifer
+	}));
 
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
@@ -61,7 +73,31 @@
 		<svelte:fragment slot="title">Theme</svelte:fragment>
 		<ThemeSelector {userSettings} />
 	</SectionCard>
-
+	<SectionCard labelFor="defaultCodeEditor" orientation="row">
+		<svelte:fragment slot="title">Default Code Editor</svelte:fragment>
+		<svelte:fragment slot="caption">Select your preferred default code editor.</svelte:fragment>
+		<svelte:fragment slot="actions">
+			<Select
+				value={$userSettings.defaultCodeEditor.schemeIdentifer}
+				options={editorOptionsForSelect}
+				onselect={(value) => {
+					const selected = editorOptions.find((option) => option.schemeIdentifer === value);
+					if (selected) {
+						userSettings.update((s) => ({ ...s, defaultCodeEditor: selected }));
+					}
+				}}
+			>
+				{#snippet itemSnippet({ item, highlighted })}
+					<SelectItem
+						selected={item.value === $userSettings.defaultCodeEditor.schemeIdentifer}
+						{highlighted}
+					>
+						{item.label}
+					</SelectItem>
+				{/snippet}
+			</Select>
+		</svelte:fragment>
+	</SectionCard>
 	<div class="stack-v">
 		<SectionCard centerAlign roundedBottom={false}>
 			<svelte:fragment slot="title">Diff preview</svelte:fragment>

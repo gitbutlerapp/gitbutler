@@ -7,8 +7,8 @@
 	import { showError } from '$lib/notifications/toasts';
 	import ProjectNameLabel from '$lib/shared/ProjectNameLabel.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
-	import { getContext } from '$lib/utils/context';
 	import * as toasts from '$lib/utils/toasts';
+	import { getContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
 

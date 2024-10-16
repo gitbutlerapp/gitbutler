@@ -1,10 +1,27 @@
+<script lang="ts" module>
+	export interface Props {
+		image?: string;
+		width?: number;
+		bottomMargin?: number;
+		topBottomPadding?: number;
+		leftRightPadding?: number;
+		title?: Snippet;
+		caption?: Snippet;
+	}
+</script>
+
 <script lang="ts">
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	export let image: string;
-	export let width: number = 256;
-	export let bottomMargin: number = 0;
-	export let topBottomPadding: number = 48;
-	export let leftRightPadding: number = 0;
+	import type { Snippet } from 'svelte';
+	const {
+		image,
+		width = 256,
+		bottomMargin = 0,
+		topBottomPadding = 48,
+		leftRightPadding = 0,
+		title,
+		caption
+	}: Props = $props();
 </script>
 
 <div class="empty-state-container">
@@ -14,19 +31,21 @@
 		style:margin-bottom={pxToRem(bottomMargin)}
 		style:padding={`${pxToRem(topBottomPadding)} ${pxToRem(leftRightPadding)}`}
 	>
-		<div class="empty-state__image">
-			{@html image}
-		</div>
+		{#if image}
+			<div class="empty-state__image">
+				{@html image}
+			</div>
+		{/if}
 
 		<div class="empty-state__content">
-			{#if $$slots.title}
+			{#if title}
 				<h2 class="empty-state__title text-15 text-body text-semibold">
-					<slot name="title" />
+					{@render title()}
 				</h2>
 			{/if}
-			{#if $$slots.caption}
+			{#if caption}
 				<p class="empty-state__caption text-13 text-body">
-					<slot name="caption" />
+					{@render caption()}
 				</p>
 			{/if}
 		</div>

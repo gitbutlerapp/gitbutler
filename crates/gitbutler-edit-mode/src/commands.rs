@@ -9,6 +9,8 @@ use gitbutler_oplog::{
 use gitbutler_project::{access::WriteWorkspaceGuard, Project};
 use gitbutler_reference::ReferenceName;
 
+use crate::ConflictEntryPresence;
+
 pub fn enter_edit_mode(
     project: &Project,
     commit_oid: git2::Oid,
@@ -61,7 +63,9 @@ pub fn abort_and_return_to_workspace(project: &Project) -> Result<()> {
     crate::abort_and_return_to_workspace(&ctx, guard.write_permission())
 }
 
-pub fn starting_index_state(project: &Project) -> Result<Vec<RemoteBranchFile>> {
+pub fn starting_index_state(
+    project: &Project,
+) -> Result<Vec<(RemoteBranchFile, Option<ConflictEntryPresence>)>> {
     let (ctx, guard) = open_with_permission(project)?;
 
     assure_edit_mode(&ctx)?;

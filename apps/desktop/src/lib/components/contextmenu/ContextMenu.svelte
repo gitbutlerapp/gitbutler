@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
 	import { createKeybind } from '$lib/utils/hotkeys';
-	import { resizeObserver } from '$lib/utils/resizeObserver';
 	import { portal } from '@gitbutler/ui/utils/portal';
+	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
 
 	interface Props {

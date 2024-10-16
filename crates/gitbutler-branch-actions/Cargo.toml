@@ -43,6 +43,7 @@ gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 urlencoding = "2.1.3"
 reqwest = { version = "0.12.8", features = ["json"] }
+toml.workspace = true
 
 [dev-dependencies]
 once_cell = "1.20"

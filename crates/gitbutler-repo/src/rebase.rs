@@ -1,6 +1,9 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    path::{Path, PathBuf},
+};
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result};
 use bstr::ByteSlice;
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
 use gitbutler_command_context::CommandContext;
@@ -8,6 +11,7 @@ use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{LogUntil, RepositoryExt as _};
 
@@ -161,12 +165,7 @@ fn commit_conflicted_cherry_result<'repository>(
     let resolved_tree_id = cherrypick_index.write_tree_to(repository)?;
 
     // convert files into a string and save as a blob
-    let conflicted_files_string = conflicted_files
-        .iter()
-        .map(|path| path.to_str())
-        .collect::<Option<Vec<_>>>()
-        .ok_or(anyhow!("Failed to get paths as strings"))?
-        .join("\n");
+    let conflicted_files_string = toml::to_string(&conflicted_files)?;
     let conflicted_files_blob = repository.blob(conflicted_files_string.as_bytes())?;
 
     // create a treewriter
@@ -196,14 +195,9 @@ fn commit_conflicted_cherry_result<'repository>(
     let commit_headers =
         commit_headers
             .or_else(|| Some(Default::default()))
-            .map(|commit_headers| {
-                let conflicted_file_count = conflicted_files.len().try_into().expect(
-                    "If you have more than 2^64 conflicting files, we've got bigger problems",
-                );
-                CommitHeadersV2 {
-                    conflicted: Some(conflicted_file_count),
-                    ..commit_headers
-                }
+            .map(|commit_headers| CommitHeadersV2 {
+                conflicted: Some(conflicted_files.total_entries() as u64),
+                ..commit_headers
             });
 
     let commit_oid = crate::RepositoryExt::commit_with_signature(
@@ -261,12 +255,7 @@ pub fn gitbutler_merge_commits<'repository>(
         let resolved_tree_id = merged_index.write_tree_to(repository)?;
 
         // convert files into a string and save as a blob
-        let conflicted_files_string = conflicted_files
-            .iter()
-            .map(|path| path.to_str())
-            .collect::<Option<Vec<_>>>()
-            .ok_or(anyhow!("Failed to get paths as strings"))?
-            .join("\n");
+        let conflicted_files_string = toml::to_string(&conflicted_files)?;
         let conflicted_files_blob = repository.blob(conflicted_files_string.as_bytes())?;
 
         // create a treewriter
@@ -295,7 +284,7 @@ pub fn gitbutler_merge_commits<'repository>(
 
         tree_oid = tree_writer.write().context("failed to write tree")?;
     } else {
-        conflicted_files = vec![];
+        conflicted_files = Default::default();
         tree_oid = merged_index.write_tree_to(repository)?;
     }
 
@@ -303,10 +292,7 @@ pub fn gitbutler_merge_commits<'repository>(
         .gitbutler_headers()
         .or_else(|| Some(Default::default()))
         .map(|commit_headers| {
-            let conflicted_file_count = conflicted_files
-                .len()
-                .try_into()
-                .expect("If you have more than 2^64 conflicting files, we've got bigger problems");
+            let conflicted_file_count = conflicted_files.total_entries() as u64;
 
             if conflicted_file_count > 0 {
                 CommitHeadersV2 {
@@ -343,6 +329,33 @@ pub fn gitbutler_merge_commits<'repository>(
     Ok(repository.find_commit(commit_oid)?)
 }
 
+#[derive(Default, Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+pub struct ConflictEntries {
+    ancestor_entries: Vec<PathBuf>,
+    our_entries: Vec<PathBuf>,
+    their_entries: Vec<PathBuf>,
+}
+
+impl ConflictEntries {
+    pub fn has_entries(&self) -> bool {
+        !self.ancestor_entries.is_empty()
+            || !self.our_entries.is_empty()
+            || !self.their_entries.is_empty()
+    }
+
+    pub fn total_entries(&self) -> usize {
+        let set = self
+            .ancestor_entries
+            .iter()
+            .chain(self.our_entries.iter())
+            .chain(self.their_entries.iter())
+            .collect::<HashSet<_>>();
+
+        set.len()
+    }
+}
+
 /// Automatically resolves an index with a preferences for the "our" side
 ///
 /// Within our rebasing and merging logic, "their" is the commit that is getting
@@ -354,13 +367,15 @@ pub fn gitbutler_merge_commits<'repository>(
 fn resolve_index(
     repository: &git2::Repository,
     index: &mut git2::Index,
-) -> Result<Vec<PathBuf>, anyhow::Error> {
+) -> Result<ConflictEntries, anyhow::Error> {
     fn bytes_to_path(path: &[u8]) -> Result<PathBuf> {
         let path = std::str::from_utf8(path)?;
         Ok(Path::new(path).to_owned())
     }
 
-    let mut conflicted_files = vec![];
+    let mut ancestor_entries = vec![];
+    let mut our_entries = vec![];
+    let mut their_entries = vec![];
 
     // Set the index on an in-memory repository
     let in_memory_repository = repository.in_memory_repo()?;
@@ -375,6 +390,8 @@ fn resolve_index(
         if let Some(ancestor) = &conflict.ancestor {
             let path = bytes_to_path(&ancestor.path)?;
             index.remove_path(&path)?;
+
+            ancestor_entries.push(path);
         }
 
         if let (Some(their), None) = (&conflict.their, &conflict.our) {
@@ -382,7 +399,7 @@ fn resolve_index(
             let their_path = bytes_to_path(&their.path)?;
             index.remove_path(&their_path)?;
 
-            conflicted_files.push(their_path);
+            their_entries.push(their_path);
         } else if let (None, Some(our)) = (&conflict.their, &mut conflict.our) {
             // Our (the commit we're rebasing onto)'s gets kept
             let blob = repository.find_blob(our.id)?;
@@ -390,7 +407,8 @@ fn resolve_index(
             index.add_frombuffer(our, blob.content())?;
 
             let our_path = bytes_to_path(&our.path)?;
-            conflicted_files.push(our_path);
+
+            our_entries.push(our_path);
         } else if let (Some(their), Some(our)) = (&conflict.their, &mut conflict.our) {
             // We keep our (the commit we're rebasing onto)'s side of the
             // conflict
@@ -402,11 +420,17 @@ fn resolve_index(
             index.add_frombuffer(our, blob.content())?;
 
             let our_path = bytes_to_path(&our.path)?;
-            conflicted_files.push(our_path);
+
+            their_entries.push(their_path);
+            our_entries.push(our_path);
         }
     }
 
-    Ok(conflicted_files)
+    Ok(ConflictEntries {
+        ancestor_entries,
+        our_entries,
+        their_entries,
+    })
 }
 
 #[cfg(test)]

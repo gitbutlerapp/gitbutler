@@ -6,12 +6,12 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import TextBox from '$lib/shared/TextBox.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
-	import { User } from '$lib/stores/user';
-	import { getContext, getContextStore } from '$lib/utils/context';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
@@ -20,12 +20,11 @@
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		target?: HTMLElement;
 		onCollapse: () => void;
-		onGenerateBranchName: () => void;
+		onGenerateBranchName?: () => void;
 	}
 
 	let { contextMenuEl = $bindable(), target, onCollapse, onGenerateBranchName }: Props = $props();
 
-	const user = getContextStore(User);
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
 	const branchStore = getContextStore(VirtualBranch);
@@ -48,15 +47,15 @@
 	});
 
 	$effect(() => {
-		setAIConfigurationValid($user);
+		setAIConfigurationValid();
 	});
 
 	async function toggleAllowRebasing() {
 		branchController.updateBranchAllowRebasing(branch.id, !allowRebasing);
 	}
 
-	async function setAIConfigurationValid(user: User | undefined) {
-		aiConfigurationValid = await aiService.validateConfiguration(user?.access_token);
+	async function setAIConfigurationValid() {
+		aiConfigurationValid = await aiService.validateConfiguration();
 	}
 
 	function saveAndUnapply() {
@@ -92,8 +91,12 @@
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Unapply"
-			on:click={() => {
-				saveAndUnapply();
+			on:click={async () => {
+				if (commits.length === 0 && branch.files?.length === 0) {
+					await branchController.unapplyWithoutSaving(branch.id);
+				} else {
+					saveAndUnapply();
+				}
 				contextMenuEl?.close();
 			}}
 		/>
@@ -114,26 +117,30 @@
 			}}
 		/>
 
-		<ContextMenuItem
-			label="Generate branch name"
-			on:click={() => {
-				onGenerateBranchName();
-				contextMenuEl?.close();
-			}}
-			disabled={!($aiGenEnabled && aiConfigurationValid) || branch.files?.length === 0}
-		/>
+		{#if !$stackingFeature}
+			<ContextMenuItem
+				label="Generate branch name"
+				on:click={() => {
+					onGenerateBranchName?.();
+					contextMenuEl?.close();
+				}}
+				disabled={!($aiGenEnabled && aiConfigurationValid) || branch.files?.length === 0}
+			/>
+		{/if}
 	</ContextMenuSection>
 
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Set remote branch name"
-			on:click={() => {
-				newRemoteName = branch.upstreamName || normalizedBranchName || '';
-				renameRemoteModal.show(branch);
-				contextMenuEl?.close();
-			}}
-		/>
-	</ContextMenuSection>
+	{#if !$stackingFeature}
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Set remote branch name"
+				on:click={() => {
+					newRemoteName = branch.upstreamName || normalizedBranchName || '';
+					renameRemoteModal.show(branch);
+					contextMenuEl?.close();
+				}}
+			/>
+		</ContextMenuSection>
+	{/if}
 
 	<ContextMenuSection>
 		<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
@@ -145,7 +152,7 @@
 
 	<ContextMenuSection>
 		<ContextMenuItem
-			label="Create branch to the left"
+			label={`Create ${$stackingFeature ? 'stack' : 'branch'} to the left`}
 			on:click={() => {
 				branchController.createBranch({ order: branch.order });
 				contextMenuEl?.close();
@@ -153,7 +160,7 @@
 		/>
 
 		<ContextMenuItem
-			label="Create branch to the right"
+			label={`Create ${$stackingFeature ? 'stack' : 'branch'} to the right`}
 			on:click={() => {
 				branchController.createBranch({ order: branch.order + 1 });
 				contextMenuEl?.close();
@@ -180,7 +187,6 @@
 
 <Modal
 	width="small"
-	title="Delete branch"
 	bind:this={deleteBranchModal}
 	onSubmit={async (close) => {
 		try {
@@ -193,10 +199,12 @@
 	}}
 >
 	{#snippet children(branch)}
-		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
+		All changes will be lost for <strong>{branch.name}</strong>. Are you sure you want to continue?
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="error" kind="solid" type="submit" loading={isDeleting}>Delete</Button>
+		<Button style="error" kind="solid" type="submit" loading={isDeleting}
+			>Unapply and drop changes</Button
+		>
 	{/snippet}
 </Modal>

@@ -228,15 +228,19 @@ pub fn update_branch_order(
     Ok(())
 }
 
+/// Unapplies a virtual branch and deletes the branch entry from the virtual branch state.
 pub fn unapply_without_saving_virtual_branch(project: &Project, branch_id: StackId) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx)
         .context("Deleting a branch order requires open workspace mode")?;
     let branch_manager = ctx.branch_manager();
     let mut guard = project.exclusive_worktree_access();
-    let default_target = ctx.project().virtual_branches().get_default_target()?;
+    let state = ctx.project().virtual_branches();
+    let default_target = state.get_default_target()?;
     let target_commit = ctx.repository().find_commit(default_target.sha)?;
-    branch_manager.unapply_without_saving(branch_id, guard.write_permission(), &target_commit)
+    // NB: unapply_without_saving is also called from save_and_unapply
+    branch_manager.unapply_without_saving(branch_id, guard.write_permission(), &target_commit)?;
+    state.delete_branch_entry(&branch_id)
 }
 
 pub fn unapply_ownership(project: &Project, ownership: &BranchOwnershipClaims) -> Result<()> {
@@ -468,6 +472,9 @@ pub fn fetch_from_remotes(project: &Project, askpass: Option<String>) -> Result<
             error: fetch_errors.join("\n"),
         }
     };
+    let state = ctx.project().virtual_branches();
+
+    state.garbage_collect(ctx.repository())?;
 
     Ok(project_data_last_fetched)
 }
@@ -476,6 +483,7 @@ pub fn move_commit(
     project: &Project,
     target_branch_id: StackId,
     commit_oid: git2::Oid,
+    source_branch_id: StackId,
 ) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Moving a commit requires open workspace mode")?;
@@ -484,8 +492,14 @@ pub fn move_commit(
         SnapshotDetails::new(OperationKind::MoveCommit),
         guard.write_permission(),
     );
-    move_commits::move_commit(&ctx, target_branch_id, commit_oid, guard.write_permission())
-        .map_err(Into::into)
+    move_commits::move_commit(
+        &ctx,
+        target_branch_id,
+        commit_oid,
+        guard.write_permission(),
+        source_branch_id,
+    )
+    .map_err(Into::into)
 }
 
 #[instrument(level = tracing::Level::DEBUG, skip(project), err(Debug))]

@@ -107,6 +107,10 @@ export class VirtualBranchService {
 			this.projectMetrics.setMetric('locked_hunk_count', lockedHunks.length);
 			this.projectMetrics.setMetric('file_count', files.length);
 			this.projectMetrics.setMetric('virtual_branch_count', branches.length);
+			this.projectMetrics.setMetric(
+				'max_stack_count',
+				Math.max(...branches.map((b) => b.series.length))
+			);
 		} catch (err: unknown) {
 			console.error(err);
 		}
