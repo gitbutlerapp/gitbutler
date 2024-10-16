@@ -175,7 +175,7 @@ export class VirtualBranch {
 
 // Used for dependency injection
 export const BRANCH = Symbol('branch');
-export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
+export type CommitStatus = 'local' | 'localAndRemote' | 'localAndShadow' | 'integrated' | 'remote';
 
 export class ConflictEntries {
 	public entries: Map<string, ConflictEntryPresence> = new Map();
@@ -245,7 +245,12 @@ export class DetailedCommit {
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
 		if (get(stackingFeature)) {
-			if (this.remoteCommitId) return 'localAndRemote';
+			if (this.remoteCommitId) {
+				if (this.remoteCommitId !== this.id) {
+					return 'localAndShadow';
+				}
+				return 'localAndRemote';
+			}
 		} else {
 			if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id))
 				return 'localAndRemote';

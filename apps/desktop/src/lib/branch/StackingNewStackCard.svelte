@@ -83,6 +83,7 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
+		margin-bottom: 6px;
 	}
 
 	.card__body {
