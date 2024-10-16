@@ -15,7 +15,6 @@ use gitbutler_repo::LogUntil;
 use gitbutler_repo::RepoActionsExt;
 use gitbutler_repo::RepositoryExt;
 use gitbutler_stack::Stack;
-use gitbutler_stack::Target;
 use gitbutler_stack::VirtualBranchesHandle;
 use gix::validate::reference::name_partial;
 use itertools::Itertools;
@@ -281,7 +280,7 @@ impl StackExt for Stack {
         let state = branch_state(ctx);
         let patches = stack_patches(ctx, &state, self.head(), true)?;
         validate_name(&new_head, ctx, &state, None)?;
-        validate_target(&new_head, ctx, self.head(), &state)?;
+        validate_target(&new_head, ctx.repository(), self.head(), &state)?;
         let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches)?;
         self.heads = updated_heads;
         state.set_branch(self.clone())
@@ -345,7 +344,7 @@ impl StackExt for Stack {
             .last_mut()
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
         head.target = patch.clone();
-        validate_target(head, ctx, stack_head, &state)?;
+        validate_target(head, ctx.repository(), stack_head, &state)?;
         state.set_branch(self.clone())
     }
 
@@ -374,7 +373,7 @@ impl StackExt for Stack {
                 .find(|h| h.name == branch_name)
                 .ok_or_else(|| anyhow!("Series with name {} not found", branch_name))?;
             new_head.target = target_update.target.clone();
-            validate_target(&new_head, ctx, self.head(), &state)?;
+            validate_target(&new_head, ctx.repository(), self.head(), &state)?;
             let preceding_head = update
                 .target_update
                 .clone()
@@ -433,8 +432,15 @@ impl StackExt for Stack {
         }
         let (_, reference) = get_head(&self.heads, &branch_name)?;
         let default_target = branch_state(ctx).get_default_target()?;
-        let commit =
-            commit_by_oid_or_change_id(&reference.target, ctx, self.head(), &default_target)?;
+        let merge_base = ctx
+            .repository()
+            .merge_base(self.head(), default_target.sha)?;
+        let commit = commit_by_oid_or_change_id(
+            &reference.target,
+            ctx.repository(),
+            self.head(),
+            merge_base,
+        )?;
         let remote_name = branch_state(ctx)
             .get_default_target()?
             .push_remote_name
@@ -461,10 +467,11 @@ impl StackExt for Stack {
         let mut all_series: Vec<Series> = vec![];
         let repo = ctx.repository();
         let default_target = state.get_default_target()?;
+        let merge_base = repo.merge_base(self.head(), default_target.sha)?;
         let mut previous_head = repo.merge_base(self.head(), default_target.sha)?;
         for head in self.heads.clone() {
             let head_commit =
-                commit_by_oid_or_change_id(&head.target, ctx, self.head(), &default_target)?.id();
+                commit_by_oid_or_change_id(&head.target, repo, self.head(), merge_base)?.id();
             let local_patches = repo
                 .log(head_commit, LogUntil::Commit(previous_head), false)?
                 .iter()
@@ -570,7 +577,7 @@ impl StackExt for Stack {
                 let mut new_head = head.clone();
                 new_head.target = new_target;
                 // validate the updated head
-                validate_target(&new_head, ctx, self.head(), &state)?;
+                validate_target(&new_head, ctx.repository(), self.head(), &state)?;
                 // add it to the list of updated heads
                 updated_heads.push(new_head);
             }
@@ -634,18 +641,16 @@ impl StackExt for Stack {
 /// In other words, change IDs are enforeced to be preferred over commit IDs when available.
 fn validate_target(
     reference: &PatchReference,
-    ctx: &CommandContext,
+    repo: &git2::Repository,
     stack_head: git2::Oid,
     state: &VirtualBranchesHandle,
 ) -> Result<()> {
     let default_target = state.get_default_target()?;
-    let commit = commit_by_oid_or_change_id(&reference.target, ctx, stack_head, &default_target)?;
+    let merge_base = repo.merge_base(stack_head, default_target.sha)?;
+    let commit = commit_by_oid_or_change_id(&reference.target, repo, stack_head, merge_base)?;
 
-    let merge_base = ctx
-        .repository()
-        .merge_base(stack_head, default_target.sha)?;
-    let mut stack_commits = ctx
-        .repository()
+    let merge_base = repo.merge_base(stack_head, default_target.sha)?;
+    let mut stack_commits = repo
         .log(stack_head, LogUntil::Commit(merge_base), false)?
         .iter()
         .map(|c| c.id())
@@ -751,28 +756,24 @@ fn validate_name(
 /// Given a branch id and a change id, returns the commit associated with the change id.
 // TODO: We need a more efficient way of getting a commit by change id.
 fn commit_by_branch_id_and_change_id<'a>(
-    ctx: &'a CommandContext,
+    repo: &'a git2::Repository,
     stack_head: git2::Oid, // branch.head
-    target_sha: git2::Oid, // default_target.sha
+    merge_base: git2::Oid,
     change_id: &str,
 ) -> Result<git2::Commit<'a>> {
-    // Find the commit with the change id
-    let merge_base = ctx.repository().merge_base(stack_head, target_sha)?;
-
     let commits = if stack_head == merge_base {
-        vec![ctx.repository().find_commit(stack_head)?]
+        vec![repo.find_commit(stack_head)?]
     } else {
-        ctx.repository()
-            .log(stack_head, LogUntil::Commit(merge_base), false)?
+        repo.log(stack_head, LogUntil::Commit(merge_base), false)?
     };
     let commit = commits
         .iter()
         .map(|c| c.id())
         .find(|c| {
-            let commit = ctx.repository().find_commit(*c).expect("Commit not found");
+            let commit = repo.find_commit(*c).expect("Commit not found");
             commit.change_id().as_deref() == Some(change_id)
         })
-        .and_then(|c| ctx.repository().find_commit(c).ok())
+        .and_then(|c| repo.find_commit(c).ok())
         .ok_or_else(|| anyhow!("Commit with change id {} not found", change_id))?;
     Ok(commit)
 }
@@ -783,16 +784,14 @@ fn branch_state(ctx: &CommandContext) -> VirtualBranchesHandle {
 
 pub fn commit_by_oid_or_change_id<'a>(
     reference_target: &'a CommitOrChangeId,
-    ctx: &'a CommandContext,
+    repo: &'a git2::Repository,
     stack_head: git2::Oid,
-    default_target: &Target,
+    merge_base: git2::Oid,
 ) -> Result<git2::Commit<'a>> {
     Ok(match reference_target {
-        CommitOrChangeId::CommitId(commit_id) => {
-            ctx.repository().find_commit(commit_id.parse()?)?
-        }
+        CommitOrChangeId::CommitId(commit_id) => repo.find_commit(commit_id.parse()?)?,
         CommitOrChangeId::ChangeId(change_id) => {
-            commit_by_branch_id_and_change_id(ctx, stack_head, default_target.sha, change_id)?
+            commit_by_branch_id_and_change_id(repo, stack_head, merge_base, change_id)?
         }
     })
 }
