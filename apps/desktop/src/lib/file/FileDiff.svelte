@@ -1,11 +1,22 @@
 <script lang="ts">
+	import { invoke } from '$lib/backend/ipc';
+	import { Project } from '$lib/backend/projects';
 	import HunkViewer from '$lib/hunk/HunkViewer.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
+	import { getContext } from '@gitbutler/shared/context';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
+
+	interface FileInfo {
+		content: string;
+		name?: string;
+		mimeType?: string;
+		size?: number;
+		status: 'normal' | 'deleted';
+	}
 
 	interface Props {
 		filePath: string;
@@ -32,6 +43,7 @@
 	}: Props = $props();
 
 	let alwaysShow = $state(false);
+	const project = getContext(Project);
 	const localCommits = isFileLocked ? getLocalCommits() : undefined;
 	const remoteCommits = isFileLocked ? getLocalAndRemoteCommits() : undefined;
 
@@ -49,11 +61,54 @@
 	}
 	const maxLineNumber = $derived(sections.at(-1)?.maxLineNumber);
 	const minWidth = $derived(getGutterMinWidth(maxLineNumber));
+
+	const KB = 1024;
+	const MB = 1024 ** 2;
+	const GB = 1024 ** 3;
+
+	function formatFileSize(bytes: number): string {
+		if (bytes < KB) return bytes + ' B';
+		else if (bytes < MB) return (bytes / KB).toFixed(1) + ' KB';
+		else if (bytes < GB) return (bytes / MB).toFixed(1) + ' MB';
+		else return (bytes / GB).toFixed(1) + ' GB';
+	}
+
+	let fileInfo: FileInfo = $state({
+		content: '',
+		name: undefined,
+		mimeType: undefined,
+		size: 0,
+		status: 'normal'
+	});
+
+	async function fetchBlobInfo() {
+		try {
+			const fetchedFileInfo: FileInfo = await invoke('get_blob_info', {
+				relativePath: filePath,
+				projectId: project.id,
+				commitId
+			});
+			fileInfo = fetchedFileInfo;
+		} catch (error) {
+			console.error(error);
+		}
+	}
+
+	$effect(() => {
+		fetchBlobInfo();
+	});
 </script>
 
 <div class="hunks">
 	{#if isBinary}
-		Binary content not shown
+		{#if fileInfo.mimeType && fileInfo.content}
+			<img src="data:{fileInfo.mimeType};base64,{fileInfo.content}" alt={fileInfo.name} />
+		{/if}
+		{#if fileInfo.status === 'deleted'}
+			<p>File has been deleted</p>
+		{:else}
+			<p>Size: {formatFileSize(fileInfo.size || 0)}</p>
+		{/if}
 	{:else if isLarge}
 		Diff too large to be shown
 	{:else if sections.length > 50 && !alwaysShow}
@@ -124,5 +179,14 @@
 		display: flex;
 		align-items: center;
 		gap: 2px;
+	}
+	img {
+		max-width: 100%;
+		height: auto;
+	}
+	p {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 	}
 </style>

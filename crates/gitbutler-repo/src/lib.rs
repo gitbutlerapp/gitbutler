@@ -4,7 +4,7 @@ mod repository;
 pub use repository::{LogUntil, RepoActionsExt};
 
 mod commands;
-pub use commands::RepoCommands;
+pub use commands::{FileInfo, RepoCommands};
 
 mod repository_ext;
 pub use repository_ext::{GixRepositoryExt, RepositoryExt};
