@@ -35,7 +35,7 @@
 	}
 
 	.line-top {
-		height: 16px;
+		height: 14px;
 		width: 100%;
 	}
 
