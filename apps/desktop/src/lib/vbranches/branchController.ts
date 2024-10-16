@@ -181,6 +181,19 @@ export class BranchController {
 		}
 	}
 
+	async updateSeriesDescription(branchId: string, headName: string, description: string) {
+		try {
+			await invoke<void>('update_series_description', {
+				projectId: this.projectId,
+				branchId,
+				headName,
+				description
+			});
+		} catch (err) {
+			showError('Failed to update series description', err);
+		}
+	}
+
 	/*
 	 * Creates a new GitButler change reference associated with a branch.
 	 * @param branchId
