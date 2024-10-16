@@ -89,6 +89,11 @@
 				commitId
 			});
 			fileInfo = fetchedFileInfo;
+
+			// If file.size > 5mb; don't render it
+			if (fileInfo.size && fileInfo.size > 5 * 1024 * 1024) {
+				isLarge = true;
+			}
 		} catch (error) {
 			console.error(error);
 		}
@@ -100,7 +105,9 @@
 </script>
 
 <div class="hunks">
-	{#if isBinary}
+	{#if isLarge}
+		Change too large to be shown
+	{:else if isBinary}
 		{#if fileInfo.mimeType && fileInfo.content}
 			<img
 				class="hunk-image"
@@ -116,8 +123,6 @@
 		{:else}
 			<p class="hunk-label__size">{formatFileSize(fileInfo.size || 0)}</p>
 		{/if}
-	{:else if isLarge}
-		Diff too large to be shown
 	{:else if sections.length > 50 && !alwaysShow}
 		<LargeDiffMessage
 			showFrame
