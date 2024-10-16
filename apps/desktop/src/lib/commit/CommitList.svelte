@@ -100,7 +100,11 @@
 	const reorderDropzoneManager = $derived(
 		reorderDropzoneManagerFactory.build({
 			branch: $branch,
-			commits: [...localCommits, ...localAndRemoteCommits]
+			commitIds: [
+				'top',
+				...localCommits.map((commit) => commit.id),
+				...localAndRemoteCommits.map((commit) => commit.id)
+			]
 		})
 	);
 
@@ -193,7 +197,7 @@
 			<div class="commits-group">
 				<InsertEmptyCommitAction isFirst onclick={() => insertBlankCommit($branch.head, 'above')} />
 				{@render reorderDropzone(
-					reorderDropzoneManager.topDropzone,
+					reorderDropzoneManager.topDropzone('above'),
 					getReorderDropzoneOffset({ isFirst: true })
 				)}
 				{#each localCommits as commit, idx (commit.id)}
