@@ -1,27 +1,98 @@
 use crate::{Config, RepositoryExt};
-use anyhow::Result;
-use base64::{engine::general_purpose, Engine as _};
+use anyhow::{bail, Result};
+use base64::engine::Engine as _;
 use git2::Oid;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use infer::MatcherType;
 use serde::Serialize;
 use std::path::Path;
+use tracing::warn;
 
-#[derive(Debug, Serialize)]
+#[derive(Default, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+// TODO: turn this whole struct into an enum, it's : everything is an option style tells us that.
 pub struct FileInfo {
-    pub content: String,
-    pub name: Option<String>,
+    /// If `None`, this means the file was deleted or has no meaningful content.
+    /// If `Some` and `size` is `Some`, then the `content` is base64 encoded, and
+    /// `size` is its decoded size.
+    pub content: Option<String>,
+    /// The basename as derived from the relative filepath.
+    pub file_name: String,
+    /// The size of the content in bytes, which is always set unless the file is deleted.
     pub size: Option<usize>,
+    /// If `None`, it's considered a text file. Otherwise, it's a binary file with the given
+    /// inferred mimetype.
     pub mime_type: Option<String>,
-    pub status: FileStatus,
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub enum FileStatus {
-    Normal,
-    Deleted,
+impl FileInfo {
+    pub fn deleted() -> Self {
+        Self::default()
+    }
+
+    pub fn from_content(path_in_worktree: &Path, content: &[u8]) -> Self {
+        if Self::is_binary(content) {
+            FileInfo::image_or_empty(path_in_worktree, content)
+        } else {
+            FileInfo::utf8_text_or_binary(path_in_worktree, content)
+        }
+    }
+
+    /// Create a new instance for if content is text.
+    /// Note that UTF8 is assumed, or else the file will be considered binary.
+    pub fn utf8_text_or_binary(path_in_worktree: &Path, content: &[u8]) -> Self {
+        FileInfo {
+            content: std::str::from_utf8(content).map(ToOwned::to_owned).ok(),
+            file_name: Self::file_name_str(path_in_worktree),
+            size: Some(content.len()),
+            mime_type: None,
+        }
+    }
+
+    /// No content is provided, just the path and the size, denoting a binary file.
+    pub fn binary(path_in_worktree: &Path, len: u64) -> Self {
+        FileInfo {
+            content: None,
+            file_name: Self::file_name_str(path_in_worktree),
+            size: Some(len as usize),
+            mime_type: None,
+        }
+    }
+
+    /// Create an instance from `path_in_worktree` and what looks like binary `content`.
+    /// If the content type can be inferred *and* is an image, the `content` field of the returned instance
+    /// will be set as base64 encoded string.
+    pub fn image_or_empty(path_in_worktree: &Path, content: &[u8]) -> Self {
+        let mut file_info = FileInfo {
+            content: None,
+            file_name: Self::file_name_str(path_in_worktree),
+            size: Some(content.len()),
+            mime_type: None,
+        };
+
+        let kind = infer::get(content);
+        if let Some(mime_type) = kind.and_then(|kind| {
+            (kind.matcher_type() == MatcherType::Image).then_some(kind.mime_type())
+        }) {
+            let base64_content = base64::engine::general_purpose::STANDARD.encode(content);
+            file_info.content = Some(base64_content);
+            file_info.mime_type = Some(mime_type.to_owned())
+        }
+        file_info
+    }
+
+    fn file_name_str(path: &Path) -> String {
+        path.file_name()
+            .unwrap_or_default()
+            .to_string_lossy()
+            .into_owned()
+    }
+
+    fn is_binary(content: &[u8]) -> bool {
+        let partial_content = &content[..content.len().min(8000)];
+        gix::filter::plumbing::eol::Stats::from_bytes(partial_content).is_binary()
+    }
 }
 
 pub trait RepoCommands {
@@ -30,18 +101,24 @@ pub trait RepoCommands {
     fn get_local_config(&self, key: &str) -> Result<Option<String>>;
     fn set_local_config(&self, key: &str, value: &str) -> Result<()>;
     fn check_signing_settings(&self) -> Result<bool>;
+    /// Read `probably_relative_path` in the following order:
+    ///
+    /// * worktree
+    /// * index
+    /// * `HEAD^{tree}`
+    ///
+    /// This order makes sense if you imagine that deleted files are shown, like in a `git status`,
+    /// so we want to know what's deleted.
+    ///
+    /// If `probably_relative_path` is absolute, we will assure it's in the worktree.
+    /// If `treeish` is given, it will only be read from the given tree.
+    ///
+    /// If nothing could be found at `probably_relative_path`, the returned structure indicates this,
+    /// but it's no error.
     fn read_file_from_workspace(
         &self,
-        commit_id: Option<Oid>,
-        relative_path: &Path,
-    ) -> Result<FileInfo>;
-    fn read_file_from_tree(&self, oid: Option<Oid>, relative_path: &Path) -> Result<FileInfo>;
-    fn read_file_from_worktree(&self, path_in_worktree: &Path) -> Result<FileInfo>;
-    fn process_binary_file(
-        &self,
-        path_in_worktree: &Path,
-        content: &[u8],
-        size: usize,
+        treeish: Option<Oid>,
+        probably_relative_path: &Path,
     ) -> Result<FileInfo>;
 }
 
@@ -80,126 +157,84 @@ impl RepoCommands for Project {
 
     fn read_file_from_workspace(
         &self,
-        commit_id: Option<Oid>,
-        relative_path: &Path,
+        treeish: Option<Oid>,
+        probably_relative_path: &Path,
     ) -> Result<FileInfo> {
         let ctx = CommandContext::open(self)?;
         let repo = ctx.repository();
-        let path_in_worktree = gix::path::realpath(self.path.join(relative_path))?;
-        if !path_in_worktree.starts_with(self.path.clone()) {
-            anyhow::bail!(
-                "Path to read from at '{}' isn't in the worktree directory '{}'",
-                relative_path.display(),
-                self.path.display()
-            );
+
+        if let Some(treeish) = treeish {
+            if !probably_relative_path.is_relative() {
+                bail!(
+                    "Refusing to read '{}' from tree as it's not relative to the worktree",
+                    probably_relative_path.display(),
+                );
+            }
+            return read_file_from_tree(repo, Some(treeish), probably_relative_path);
         }
 
-        if let Some(commit_oid) = commit_id {
-            return self.read_file_from_tree(Some(commit_oid), relative_path);
-        }
-
-        // Check Worktree & Index
-        let status = repo.status_file(relative_path)?;
-        let is_deleted = status.is_wt_deleted() || status.is_index_deleted();
-
-        if is_deleted {
-            return Ok(FileInfo {
-                content: String::new(),
-                name: None,
-                size: None,
-                mime_type: None,
-                status: FileStatus::Deleted,
-            });
-        }
-
-        if status.is_wt_new() || status.is_wt_modified() {
-            return self.read_file_from_worktree(&path_in_worktree);
-        }
-
-        // Check HEAD
-        self.read_file_from_tree(None, relative_path)
-    }
-
-    fn read_file_from_tree(
-        &self,
-        commit_oid: Option<Oid>,
-        relative_path: &Path,
-    ) -> Result<FileInfo> {
-        let ctx = CommandContext::open(self)?;
-        let repo = ctx.repository();
-        let tree_id = if let Some(id) = commit_oid {
-            let commit = repo.find_commit(id)?;
-            commit.tree_id()
+        let (path_in_worktree, relative_path) = if probably_relative_path.is_relative() {
+            (
+                gix::path::realpath(self.path.join(probably_relative_path))?,
+                probably_relative_path.to_owned(),
+            )
         } else {
-            repo.head()?.peel_to_tree()?.id()
+            let Ok(relative_path) = probably_relative_path.strip_prefix(&self.path) else {
+                bail!(
+                    "Path to read from at '{}' isn't in the worktree directory '{}'",
+                    probably_relative_path.display(),
+                    self.path.display()
+                );
+            };
+            (probably_relative_path.to_owned(), relative_path.to_owned())
         };
-        let tree = repo.find_tree(tree_id)?;
-        match tree.get_path(relative_path) {
-            Ok(entry) => {
-                let blob = repo.find_blob(entry.id())?;
 
-                if blob.is_binary() {
-                    self.process_binary_file(relative_path, blob.content(), blob.size())
-                } else {
-                    Ok(FileInfo {
-                        content: std::str::from_utf8(blob.content())?.to_string(),
-                        name: Some(
-                            relative_path
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .into_owned(),
-                        ),
-                        size: Some(blob.size()),
-                        mime_type: None,
-                        status: FileStatus::Normal,
-                    })
+        Ok(match path_in_worktree.symlink_metadata() {
+            Ok(md) if md.is_file() => {
+                let content = std::fs::read(path_in_worktree)?;
+                FileInfo::from_content(&relative_path, &content)
+            }
+            Ok(md) if md.is_symlink() => {
+                let content = std::fs::read_link(&path_in_worktree)?;
+                FileInfo::utf8_text_or_binary(&relative_path, &gix::path::into_bstr(content))
+            }
+            Ok(unsupported) => {
+                warn!(
+                    ?relative_path,
+                    "Path can't be read as its type isn't supported, default to binary",
+                );
+                FileInfo::binary(&relative_path, unsupported.len())
+            }
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                match repo.index()?.get_path(&relative_path, 0) {
+                    Some(entry) => {
+                        let blob = repo.find_blob(entry.id)?;
+                        FileInfo::from_content(&relative_path, blob.content())
+                    }
+                    None => read_file_from_tree(repo, None, &relative_path)?,
                 }
             }
-            Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(FileInfo {
-                content: String::new(),
-                name: None,
-                size: None,
-                mime_type: None,
-                status: FileStatus::Deleted,
-            }),
-            Err(e) => Err(e.into()),
+            Err(err) => return Err(err.into()),
+        })
+    }
+}
+
+fn read_file_from_tree(
+    repo: &git2::Repository,
+    treeish: Option<Oid>,
+    relative_path: &Path,
+) -> Result<FileInfo> {
+    let tree = if let Some(id) = treeish {
+        repo.find_object(id, None)?.peel_to_tree()?
+    } else {
+        repo.head()?.peel_to_tree()?
+    };
+    Ok(match tree.get_path(relative_path) {
+        Ok(entry) => {
+            let blob = repo.find_blob(entry.id())?;
+            FileInfo::from_content(relative_path, blob.content())
         }
-    }
-
-    fn read_file_from_worktree(&self, path_in_worktree: &Path) -> Result<FileInfo> {
-        let content = std::fs::read(path_in_worktree)?;
-        self.process_binary_file(path_in_worktree, &content, content.len())
-    }
-
-    fn process_binary_file(
-        &self,
-        path_in_worktree: &Path,
-        content: &[u8],
-        size: usize,
-    ) -> Result<FileInfo> {
-        let file_name = path_in_worktree
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .into_owned();
-
-        let mut file_info = FileInfo {
-            content: String::new(),
-            name: Some(file_name),
-            size: Some(size),
-            mime_type: None,
-            status: FileStatus::Normal,
-        };
-
-        if let Some(kind) = infer::get(content) {
-            if infer::is_image(content) {
-                let encoded_content = general_purpose::STANDARD.encode(content);
-                file_info.content = encoded_content;
-                file_info.mime_type = Some(kind.mime_type().to_string());
-            }
-        }
-
-        Ok(file_info)
-    }
+        Err(e) if e.code() == git2::ErrorCode::NotFound => FileInfo::deleted(),
+        Err(e) => return Err(e.into()),
+    })
 }
