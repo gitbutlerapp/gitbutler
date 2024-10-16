@@ -8,6 +8,7 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { slideFade } from '@gitbutler/ui/utils/transitions';
+	import { tick } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	export let projectId: string;
@@ -46,7 +47,9 @@
 		$expanded = false;
 	}
 
-	export function focus() {
+	export async function focus() {
+		$expanded = true;
+		await tick();
 		commitMessageInput.focus();
 	}
 </script>
@@ -97,8 +100,7 @@
 				if ($expanded) {
 					commit();
 				} else {
-					$expanded = true;
-					commitMessageInput.focus();
+					focus();
 				}
 			}}
 		>
