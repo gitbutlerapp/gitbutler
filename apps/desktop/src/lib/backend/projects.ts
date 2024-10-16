@@ -4,7 +4,7 @@ import * as toasts from '$lib/utils/toasts';
 import { persisted } from '@gitbutler/shared/persisted';
 import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
-import { get, writable } from 'svelte/store';
+import { derived, get, writable, type Readable } from 'svelte/store';
 import type { HttpClient } from '@gitbutler/shared/httpClient';
 import { goto } from '$app/navigation';
 
@@ -79,6 +79,18 @@ export class ProjectService {
 
 	async getProject(projectId: string, noValidation?: boolean) {
 		return plainToInstance(Project, await invoke('get_project', { id: projectId, noValidation }));
+	}
+
+	#projectStores = new Map<string, Readable<Project | undefined>>();
+	getProjectStore(projectId: string) {
+		let store = this.#projectStores.get(projectId);
+		if (store) return store;
+
+		store = derived(this.projects, (projects) => {
+			return projects.find((p) => p.id === projectId);
+		});
+		this.#projectStores.set(projectId, store);
+		return store;
 	}
 
 	async updateProject(project: Project) {

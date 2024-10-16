@@ -10,6 +10,7 @@
 	import { User } from '$lib/stores/user';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { onMount } from 'svelte';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const project = getContext(Project);
@@ -18,18 +19,6 @@
 
 	let title = project?.title;
 	let description = project?.description;
-
-	async function saveProject() {
-		const api =
-			$user && project.api
-				? await projectService.updateCloudProject(project.api.repository_id, {
-						name: project.title,
-						description: project.description
-					})
-				: undefined;
-		project.api = api ? { ...api, sync: false, sync_code: undefined } : undefined;
-		projectService.updateProject(project);
-	}
 
 	async function onSyncChange(sync: boolean) {
 		if (!$user) return;
@@ -66,6 +55,16 @@
 			toasts.error('Failed to update project sync status');
 		}
 	}
+
+	// This is some janky bullshit, but it works well enough for now
+	onMount(async () => {
+		if (!project?.api) return;
+		if (!$user) return;
+		console.log(project);
+		const cloudProject = await projectService.getCloudProject(project.api.repository_id);
+		project.api = { ...cloudProject, sync: project.api.sync, sync_code: project.api.sync_code };
+		projectService.updateProject(project);
+	});
 </script>
 
 <SectionCard>
@@ -81,7 +80,7 @@
 					required
 					on:change={(e) => {
 						project.title = e.detail;
-						saveProject();
+						projectService.updateProject(project);
 					}}
 				/>
 				<TextArea
@@ -91,7 +90,7 @@
 					bind:value={description}
 					on:change={() => {
 						project.description = description;
-						saveProject();
+						projectService.updateProject(project);
 					}}
 					maxHeight={300}
 				/>
@@ -114,7 +113,7 @@
 				<Toggle
 					id="historySync"
 					checked={project.api?.sync || false}
-					on:click={async (e) => await onSyncChange(!!e.detail)}
+					on:click={async () => await onSyncChange(!project.api?.sync)}
 				/>
 			</svelte:fragment>
 		</SectionCard>
@@ -126,7 +125,7 @@
 				<Toggle
 					id="branchesySync"
 					checked={project.api?.sync_code || false}
-					on:click={async (e) => await onSyncCodeChange(!!e.detail)}
+					on:click={async () => await onSyncCodeChange(!project.api?.sync_code)}
 				/>
 			</svelte:fragment>
 		</SectionCard>

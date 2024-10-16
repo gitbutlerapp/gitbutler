@@ -5,7 +5,7 @@
 	import TargetCard from './TargetCard.svelte';
 	import WorkspaceButton from './WorkspaceButton.svelte';
 	import Resizer from '../shared/Resizer.svelte';
-	import { Project } from '$lib/backend/projects';
+	import { Project, ProjectService } from '$lib/backend/projects';
 	import { featureTopics } from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/modes/service';
 	import EditButton from '$lib/navigation/EditButton.svelte';
@@ -16,11 +16,14 @@
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { env } from '$env/dynamic/public';
+	import CloudSeriesButton from '$lib/navigation/CloudSeriesButton.svelte';
 
 	const minResizerWidth = 280;
 	const minResizerRatio = 150;
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const project = getContext(Project);
+	const projectService = getContext(ProjectService);
+	const project$ = projectService.getProjectStore(project.id);
 	const defaultTrayWidthRem = persisted<number | undefined>(
 		undefined,
 		'defaulTrayWidth_ ' + project.id
@@ -125,6 +128,10 @@
 
 					{#if $topicsEnabled}
 						<TopicsButton href={`/${project.id}/topics`} isNavCollapsed={$isNavCollapsed} />
+					{/if}
+
+					{#if $project$?.api?.sync}
+						<CloudSeriesButton href={`/${$project$.id}/series`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 				</div>
 			</div>

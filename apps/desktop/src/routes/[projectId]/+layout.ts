@@ -14,7 +14,12 @@ import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 import { BranchController } from '$lib/vbranches/branchController';
 import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+import {
+	PatchStacksApiService,
+	CloudPatchStacksService
+} from '@gitbutler/shared/cloud/stacks/service';
 import { error } from '@sveltejs/kit';
+import { derived } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';
 import type { LayoutLoad } from './$types';
 
@@ -22,11 +27,7 @@ export const prerender = false;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async ({ params, parent }) => {
-	// prettier-ignore
-	const {
-        authService,
-        projectService,
-    } = await parent();
+	const { authService, projectService, cloud } = await parent();
 
 	const projectId = params.projectId;
 	projectService.setLastOpenedProject(projectId);
@@ -84,6 +85,11 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	const uncommitedFileWatcher = new UncommitedFilesWatcher(project);
 	const upstreamIntegrationService = new UpstreamIntegrationService(project, vbranchService);
+	const repositoryId = derived(projectService.getProjectStore(projectId), (project) => {
+		return project?.api?.repository_id;
+	});
+	const patchStacksApiService = new PatchStacksApiService(cloud);
+	const cloudPatchStacksService = new CloudPatchStacksService(repositoryId, patchStacksApiService);
 
 	return {
 		authService,
@@ -99,6 +105,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		modeService,
 		fetchSignal,
 		upstreamIntegrationService,
+		cloudPatchStacksService,
 
 		// These observables are provided for convenience
 		branchDragActionsFactory,

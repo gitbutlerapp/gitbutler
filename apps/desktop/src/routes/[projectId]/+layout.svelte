@@ -33,6 +33,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	import { CloudPatchStacksService } from '@gitbutler/shared/cloud/stacks/service';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import { derived as storeDerived } from 'svelte/store';
 	import type { LayoutData } from './$types';
@@ -78,6 +79,7 @@
 		setContext(ModeService, data.modeService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
 		setContext(UpstreamIntegrationService, data.upstreamIntegrationService);
+		setContext(CloudPatchStacksService, data.cloudPatchStacksService);
 	});
 
 	let intervalId: any;
