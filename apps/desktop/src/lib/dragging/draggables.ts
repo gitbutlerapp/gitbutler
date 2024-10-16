@@ -21,6 +21,10 @@ export class DraggableHunk {
 		public readonly lockedTo: HunkLock[],
 		public readonly commitId: string | undefined
 	) {}
+
+	get isCommitted(): boolean {
+		return !!this.commitId;
+	}
 }
 
 export class DraggableFile {
@@ -34,6 +38,10 @@ export class DraggableFile {
 	get files(): AnyFile[] {
 		if (this.selection && this.selection.length > 0) return this.selection;
 		return [this.file];
+	}
+
+	get isCommitted(): boolean {
+		return !!this.commit;
 	}
 }
 
