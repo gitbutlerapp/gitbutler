@@ -1,7 +1,6 @@
 <script lang="ts">
 	import Button from '$lib/Button.svelte';
 	import Modal from '$lib/Modal.svelte';
-	import iconsJson from '$lib/data/icons.json';
 
 	const { ...args }: typeof Modal = $props();
 
