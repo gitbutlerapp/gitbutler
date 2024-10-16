@@ -288,24 +288,19 @@ pub fn gitbutler_merge_commits<'repository>(
         tree_oid = merged_index.write_tree_to(repository)?;
     }
 
-    let commit_headers = incoming_commit
-        .gitbutler_headers()
-        .or_else(|| Some(Default::default()))
-        .map(|commit_headers| {
-            let conflicted_file_count = conflicted_files.total_entries() as u64;
+    let conflicted_file_count = conflicted_files.total_entries() as u64;
 
-            if conflicted_file_count > 0 {
-                CommitHeadersV2 {
-                    conflicted: Some(conflicted_file_count),
-                    ..commit_headers
-                }
-            } else {
-                CommitHeadersV2 {
-                    conflicted: None,
-                    ..commit_headers
-                }
-            }
-        });
+    let commit_headers = if conflicted_file_count > 0 {
+        CommitHeadersV2 {
+            conflicted: Some(conflicted_file_count),
+            ..Default::default()
+        }
+    } else {
+        CommitHeadersV2 {
+            conflicted: None,
+            ..Default::default()
+        }
+    };
 
     let (author, committer) = repository.signatures()?;
 
