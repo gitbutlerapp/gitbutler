@@ -37,6 +37,7 @@
 			<StackingCommitList
 				remoteOnlyPatches={currentSeries.upstreamPatches}
 				patches={currentSeries.patches}
+				seriesName={currentSeries.name}
 				isUnapplied={false}
 				isBottom={idx === branch.series.length - 1}
 				{reorderDropzoneManager}

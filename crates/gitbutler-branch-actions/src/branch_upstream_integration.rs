@@ -23,7 +23,7 @@ pub fn integrate_upstream_commits_for_series(
 ) -> Result<()> {
     conflicts::is_conflicting(ctx, None)?;
 
-    let repository = ctx.repository();
+    let repo = ctx.repository();
     let vb_state = ctx.project().virtual_branches();
 
     let branch = vb_state.get_branch_in_workspace(branch_id)?;
@@ -39,16 +39,9 @@ pub fn integrate_upstream_commits_for_series(
         .find(|series| series.head.name == series_name)
         .ok_or(anyhow!("Series not found"))?;
     let upstream_reference = series.head.remote_reference(remote.as_str())?;
-    let remote_head = ctx
-        .repository()
-        .find_reference(&upstream_reference)?
-        .peel_to_commit()?;
-    let stack_merge_base = ctx
-        .repository()
-        .merge_base(branch.head(), default_target.sha)?;
-    let upstream_to_local_merge_base = ctx
-        .repository()
-        .merge_base(branch.head(), remote_head.id())?;
+    let remote_head = repo.find_reference(&upstream_reference)?.peel_to_commit()?;
+    let stack_merge_base = repo.merge_base(branch.head(), default_target.sha)?;
+    let upstream_to_local_merge_base = repo.merge_base(branch.head(), remote_head.id())?;
 
     // Rebasing will be performed if configured.
     // If the series to integrate is not the latest one, it will also do a rebase.
@@ -61,7 +54,7 @@ pub fn integrate_upstream_commits_for_series(
                 for id in series.upstream_only_commits.iter() {
                     let commit = commit_by_oid_or_change_id(
                         id,
-                        ctx,
+                        repo,
                         remote_head.id(),
                         upstream_to_local_merge_base,
                     )?;
@@ -70,12 +63,12 @@ pub fn integrate_upstream_commits_for_series(
             }
             // now add the existing local commits to the rebase list
             for id in series.local_commits.iter() {
-                let commit = commit_by_oid_or_change_id(id, ctx, branch.head(), stack_merge_base)?;
+                let commit = commit_by_oid_or_change_id(id, repo, branch.head(), stack_merge_base)?;
                 ordered_commits_to_rebase.push(commit.id());
             }
         }
         cherry_rebase_group(
-            repository,
+            repo,
             upstream_to_local_merge_base,
             &ordered_commits_to_rebase,
         )?
@@ -83,12 +76,12 @@ pub fn integrate_upstream_commits_for_series(
         // If rebase is not allowed AND this is the latest series - create a merge commit on top
         let series_head_commit = commit_by_oid_or_change_id(
             &series.head.target,
-            ctx,
+            repo,
             branch.head(),
             upstream_to_local_merge_base,
         )?;
         let merge_commit = gitbutler_merge_commits(
-            repository,
+            repo,
             series_head_commit,
             remote_head.clone(),
             &series.head.name, // for error messages only
@@ -101,12 +94,8 @@ pub fn integrate_upstream_commits_for_series(
     };
 
     // Find what the new head and branch tree should be
-    let BranchHeadAndTree { head, tree } = compute_updated_branch_head_for_commits(
-        repository,
-        branch.head(),
-        branch.tree,
-        new_stack_head,
-    )?;
+    let BranchHeadAndTree { head, tree } =
+        compute_updated_branch_head_for_commits(repo, branch.head(), branch.tree, new_stack_head)?;
 
     let mut branch = branch.clone();
 

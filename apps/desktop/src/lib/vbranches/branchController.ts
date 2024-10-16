@@ -87,6 +87,18 @@ export class BranchController {
 		}
 	}
 
+	async mergeUpstreamForSeries(branch: string, seriesName: string) {
+		try {
+			await invoke<void>('integrate_upstream_commits', {
+				projectId: this.projectId,
+				branch,
+				seriesName
+			});
+		} catch (err) {
+			showError('Failed to merge upstream branch', err);
+		}
+	}
+
 	async updateBranchName(branchId: string, name: string) {
 		try {
 			await invoke<void>('update_virtual_branch', {
