@@ -6,7 +6,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import StackingBranchHeaderContextMenu from '$lib/branch/StackingBranchHeaderContextMenu.svelte';
+	import StackingSeriesHeaderContextMenu from '$lib/branch/StackingSeriesHeaderContextMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
@@ -159,7 +159,7 @@
 					contextMenu?.toggle();
 				}}
 			></Button>
-			<StackingBranchHeaderContextMenu
+			<StackingSeriesHeaderContextMenu
 				bind:contextMenuEl={contextMenu}
 				target={meatballButtonEl}
 				headName={currentSeries.name}
@@ -223,7 +223,6 @@
 		display: flex;
 		display: flex;
 		flex-direction: column;
-		overflow: hidden;
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
