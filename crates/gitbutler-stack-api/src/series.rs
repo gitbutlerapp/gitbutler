@@ -20,6 +20,9 @@ pub struct Series {
     /// If the branch/series have never been pushed, this list will be empty.
     /// Topologically ordered, the first entry is the newest in the series.
     pub remote_commits: Vec<CommitOrChangeId>,
+    /// The list of patches that are only in the upstream (remote) and not in the local commits,
+    /// as determined by the commit ID or change ID.
+    pub upstream_only_commits: Vec<CommitOrChangeId>,
     /// The commit IDs of the remote commits that are part of this series, grouped by change id.
     /// Since we dont have a change_id to commit_id index, this is used to determine
     pub remote_commit_ids_by_change_id: HashMap<String, git2::Oid>,
@@ -29,20 +32,5 @@ impl Series {
     /// Returns `true` if the provided patch is part of the remote commits in this series (i.e. has been pushed).
     pub fn remote(&self, patch: &CommitOrChangeId) -> bool {
         self.remote_commits.contains(patch)
-    }
-    /// Returns a list of patches that are only in the upstream (remote) and not in the local commits,
-    /// as determined by the commit ID or change ID.
-    /// This comparison is peformed against the full stack of series.
-    pub fn upstream_only(&self, stack_series: &[Series]) -> Vec<CommitOrChangeId> {
-        let mut upstream_only = vec![];
-        for commit in &self.remote_commits {
-            if !stack_series
-                .iter()
-                .any(|s| s.local_commits.contains(commit))
-            {
-                upstream_only.push(commit.clone());
-            }
-        }
-        upstream_only
     }
 }
