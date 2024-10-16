@@ -1,4 +1,4 @@
-import { invoke } from '$lib/backend/ipc';
+import { Code, invoke } from '$lib/backend/ipc';
 import { Branch, BranchData } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { writable } from 'svelte/store';
@@ -26,6 +26,10 @@ export class RemoteBranchService {
 			this.projectMetrics?.setMetric('normal_branch_count', remoteBranches.length);
 			this.branches.set(remoteBranches);
 		} catch (err: any) {
+			if (err.code === Code.DefaultTargetNotFound) {
+				// Swallow this error since user should be taken to project setup page
+				return;
+			}
 			this.error.set(err);
 		} finally {
 			this.branchListingService.refresh();

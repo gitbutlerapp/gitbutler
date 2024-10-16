@@ -1,7 +1,7 @@
 // Class transformers will bust a gut if this isn't imported first
 import 'reflect-metadata';
 
-import { invoke } from '$lib/backend/ipc';
+import { Code, invoke } from '$lib/backend/ipc';
 import {
 	getEntryName,
 	getEntryUpdatedDate,
@@ -33,8 +33,15 @@ export class BranchListingService {
 	}
 
 	private async list(filter: BranchListingFilter | undefined = undefined) {
-		const entries = await invoke<any[]>('list_branches', { projectId: this.projectId, filter });
-		return plainToInstance(BranchListing, entries);
+		try {
+			const entries = await invoke<any[]>('list_branches', { projectId: this.projectId, filter });
+			return plainToInstance(BranchListing, entries);
+		} catch (error: any) {
+			if (error.code === Code.DefaultTargetNotFound) {
+				// Swallow this error since user should be taken to project setup page
+				return undefined;
+			}
+		}
 	}
 
 	private branchListingDetails = new Map<string, Writable<BranchListingDetails | undefined>>();
