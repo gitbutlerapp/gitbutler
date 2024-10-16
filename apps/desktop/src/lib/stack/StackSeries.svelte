@@ -5,10 +5,8 @@
 	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { VirtualBranch } from '$lib/vbranches/types';
-	// import type { Series } from './types';
 
 	interface Props {
-		// series: Series[];
 		branch: VirtualBranch;
 	}
 
@@ -31,11 +29,7 @@
 <!-- TODO: Add connecting line on background between NewStackCard above and branches below -->
 {#each branch.series as currentSeries (currentSeries.name)}
 	<div class="branch-group">
-		<StackingBranchHeader
-			commits={currentSeries.patches}
-			name={currentSeries.branchName}
-			upstreamName={currentSeries.upstreamReference ? currentSeries.name : undefined}
-		/>
+		<StackingBranchHeader {currentSeries} />
 		{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
 			<StackingCommitList
 				remoteOnlyPatches={currentSeries.upstreamPatches}

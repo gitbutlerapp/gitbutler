@@ -201,10 +201,8 @@
 						use:intersectionObserver={{
 							callback: (entry) => {
 								if (entry?.isIntersecting) {
-									console.log('visible');
 									scrollEndVisible = false;
 								} else {
-									console.log('not visible');
 									scrollEndVisible = true;
 								}
 							},
