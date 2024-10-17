@@ -100,6 +100,7 @@
 					<StackingCommitCard
 						type="remote"
 						branch={$branch}
+						{seriesName}
 						{commit}
 						{isUnapplied}
 						last={idx === remoteOnlyPatches.length - 1}
@@ -139,13 +140,16 @@
 			<div class="commits-group">
 				<InsertEmptyCommitAction isFirst onclick={() => insertBlankCommit($branch.head, 'above')} />
 
-				{@render reorderDropzone(reorderDropzoneManager.topDropzone(seriesName))}
+				{@render reorderDropzone(
+					reorderDropzoneManager.topDropzone(`above-${patches[0]?.id}|${seriesName}`)
+				)}
 
 				{#each patches as commit, idx (commit.id)}
 					<StackingCommitDragItem {commit}>
 						<StackingCommitCard
 							type={commit.status}
 							branch={$branch}
+							{seriesName}
 							{commit}
 							{isUnapplied}
 							last={idx === patches.length - 1}
@@ -162,7 +166,7 @@
 					</StackingCommitDragItem>
 
 					{@render reorderDropzone(
-						reorderDropzoneManager.dropzoneBelowCommit(`${commit.id}|${reference}`)
+						reorderDropzoneManager.dropzoneBelowCommit(`${commit.id}|${seriesName}`)
 					)}
 
 					<InsertEmptyCommitAction
