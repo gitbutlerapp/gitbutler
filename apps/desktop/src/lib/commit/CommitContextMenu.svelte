@@ -42,10 +42,10 @@
 
 <ContextMenu bind:this={contextMenu} {target} openByMouse>
 	<ContextMenuSection>
-		<ContextMenuItem label="Copy SHA" on:click={copySha} />
+		<ContextMenuItem label="Copy SHA" onclick={copySha} />
 		{#if commitUrl}
-			<ContextMenuItem label="Open in browser" on:click={openInBrowser} />
+			<ContextMenuItem label="Open in browser" onclick={openInBrowser} />
 		{/if}
-		<ContextMenuItem label="Copy commit message" on:click={copyCommitMessage} />
+		<ContextMenuItem label="Copy commit message" onclick={copyCommitMessage} />
 	</ContextMenuSection>
 </ContextMenu>

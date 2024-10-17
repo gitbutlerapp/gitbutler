@@ -47,7 +47,7 @@
 			{#each Object.values(MergeMethod) as method}
 				<ContextMenuItem
 					label={labels[method]}
-					on:click={() => {
+					onclick={() => {
 						$action = method;
 						dropDown.close();
 					}}
