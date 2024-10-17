@@ -149,8 +149,8 @@
 		}
 	}}
 >
-	{#snippet children(branch)}
-		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
+	{#snippet children()}
+		Are you sure you want to delete <code class="code-string">{headName}</code>?
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
