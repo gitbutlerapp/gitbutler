@@ -38,6 +38,7 @@
 		type: CommitStatus;
 		lines?: Snippet | undefined;
 		filesToggleable?: boolean;
+		seriesName: string;
 	}
 
 	const {
@@ -49,7 +50,8 @@
 		last = false,
 		type,
 		lines = undefined,
-		filesToggleable = true
+		filesToggleable = true,
+		seriesName
 	}: Props = $props();
 
 	const branchController = getContext(BranchController);
@@ -203,7 +205,7 @@
 				date: getTimeAgo(commit.createdAt),
 				authorImgUrl: commit.author.gravatarUrl,
 				commitType: type,
-				data: new DraggableCommit(commit.branchId, commit, isHeadCommit),
+				data: new DraggableCommit(commit.branchId, commit, isHeadCommit, seriesName),
 				viewportId: 'board-viewport'
 			}
 		: nonDraggable()}

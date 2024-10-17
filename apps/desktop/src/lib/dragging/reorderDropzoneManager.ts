@@ -11,24 +11,22 @@ export class ReorderDropzone {
 	) {}
 
 	accepts(data: any) {
+		if (!data) return false;
 		console.log('accepts.data', data);
+		const compositeId = `${data.commit?.id}|${data.seriesName}`;
 		if (!(data instanceof DraggableCommit)) return false;
-		if (data.branchId !== this.seriesName) return false;
-		if (this.entry.distanceToOtherCommit(data.commit.id) === 0) return false;
+		if (this.entry.distanceToOtherCommit(compositeId) === 0) return false;
 
 		return true;
 	}
 
 	onDrop(data: any) {
-		console.log('drop.data', data);
 		if (!(data instanceof DraggableCommit)) return;
-		if (data.branchId !== this.seriesName) return;
-
-		const offset = this.entry.distanceToOtherCommit(data.commit.id);
+		const compositeId = `${data.commit?.id}|${data.seriesName}`;
+		const offset = this.entry.distanceToOtherCommit(compositeId);
 
 		console.log('REORDERING.COMMIT', {
-			seriesName: this.seriesName,
-			commitId: data.commit.id,
+			compositeId,
 			offset
 		});
 
@@ -36,14 +34,13 @@ export class ReorderDropzone {
 		// The branchId is always the same for a whole lane/stack, so when dropping,
 		// even if you have hte index correclty, you can't know really which series
 		// your supposed to be landing in
-		this.branchController.reorderCommit(this.seriesName, data.commit.id, offset);
+		this.branchController.reorderCommit(data.commit?.branchId, data.commit?.id, offset);
 	}
 }
 
 export class ReorderDropzoneManager {
 	private indexer: Indexer;
 	private branchController: BranchController;
-	// private branchIds: string[];
 
 	constructor({
 		branchController,
@@ -53,14 +50,12 @@ export class ReorderDropzoneManager {
 		commits: string[];
 	}) {
 		this.branchController = branchController;
-		// this.branchIds = branchIds;
 
 		this.indexer = new Indexer(commits);
 	}
 
 	topDropzone(key: string) {
 		const entry = this.indexer.get(key);
-		// console.log('topDropzone', { key, entry });
 
 		const [_commitId, seriesName] = key.split('|');
 		return new ReorderDropzone(this.branchController, seriesName!, entry);
@@ -68,8 +63,6 @@ export class ReorderDropzoneManager {
 
 	dropzoneBelowCommit(key: string) {
 		const entry = this.indexer.get(key);
-		// console.log('topDropzone', { commitId, entry });
-		//
 		const [_commitId, seriesName] = key.split('|');
 
 		return new ReorderDropzone(this.branchController, seriesName!, entry);
@@ -133,12 +126,11 @@ class Entry {
 	/**
 	 * A negative offset means the commit has been dragged up, and a positive offset means the commit has been dragged down.
 	 */
-	distanceToOtherCommit(commitId: string) {
-		const commitIndex = this.commitIndex(commitId);
+	distanceToOtherCommit(key: string) {
+		const commitIndex = this.commitIndex(key);
 		if (commitIndex === undefined) return 0;
 
 		const offset = this.index - commitIndex;
-		console.log('distanceToOtherCommit', { offset, targetIndex: this.index, myIndex: commitIndex });
 
 		return offset;
 		// if (offset > 0) {
@@ -148,8 +140,8 @@ class Entry {
 		// }
 	}
 
-	private commitIndex(commitId: string) {
-		const index = this.commitIndexes.get(commitId);
+	private commitIndex(key: string) {
+		const index = this.commitIndexes.get(key);
 
 		// TODO: Handle updated commitIds after rebasing in `commitIndexes`
 		// Reordering works, but it throws errors for old commitIds that it can't find
