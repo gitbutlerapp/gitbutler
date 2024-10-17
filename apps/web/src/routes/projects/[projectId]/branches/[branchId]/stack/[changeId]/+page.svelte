@@ -1,22 +1,33 @@
 <script lang="ts">
-	import hljs from 'highlight.js';
+	import DiffPatch from '$lib/components/DiffPatch.svelte';
+	import DiffPatchArray from '$lib/components/DiffPatchArray.svelte';
+	import { createConsumer } from '@rails/actioncable';
 	import { marked } from 'marked';
 	import { onMount } from 'svelte';
+	import Gravatar from 'svelte-gravatar';
 	import { env } from '$env/dynamic/public';
 
 	let state = 'loading';
 	let patch: any = {};
 	let stack: any = {};
+	let status: any = {};
+	let events: any = [];
 	let key: any = '';
 	let uuid: any = '';
+	let consumer;
 
 	export let data: any;
 
 	onMount(() => {
 		key = localStorage.getItem('gb_access_token');
+
+		listenToChat(key);
+
 		let projectId = data.projectId;
 		let branchId = data.branchId;
 		let changeId = data.changeId;
+
+		// scroll chatWindow to bottom
 
 		if (key) {
 			fetch(env.PUBLIC_APP_HOST + 'api/patch_stack/' + projectId + '/' + branchId, {
@@ -31,11 +42,35 @@
 					stack = data;
 					uuid = data.uuid;
 					fetchPatch(data.uuid, changeId, key);
+					getPatchStatus();
+					fetchAndUpdateChat();
 				});
 		} else {
 			state = 'unauthorized';
 		}
 	});
+
+	function listenToChat(token: string) {
+		// connect to actioncable to subscribe to chat events
+		let wsHost = env.PUBLIC_APP_HOST.replace('http', 'ws') + 'cable';
+		consumer = createConsumer(wsHost + '?token=' + token);
+		consumer.subscriptions.create(
+			{ channel: 'ChatChannel', change_id: data.changeId, project_id: data.projectId },
+			{
+				received(data: any) {
+					// todo: update chat window with new message
+					console.log('received', data);
+				}
+			}
+		);
+	}
+
+	function scrollToBottom() {
+		let chatWindow = document.querySelector<HTMLElement>('.chatWindow');
+		if (chatWindow) {
+			chatWindow.scrollTop = chatWindow.scrollHeight;
+		}
+	}
 
 	function fetchPatch(uuid: string, changeId: string, key: string) {
 		fetch(env.PUBLIC_APP_HOST + 'api/patch_stack/' + uuid + '/patch/' + changeId, {
@@ -51,8 +86,6 @@
 				state = 'loaded';
 				// wait a second
 				setTimeout(() => {
-					console.log('Highlighting code');
-					hljs.highlightAll();
 					// render markdowns
 					let markdowns = document.querySelectorAll('.markdown');
 					markdowns.forEach((markdown) => {
@@ -144,6 +177,7 @@
 				});
 		}
 	}
+
 	function moveSection(position: number, change: number) {
 		console.log('Moving section at position', position, 'by', change);
 		let ids = patch.sections.map((section: any) => section.identifier);
@@ -209,10 +243,161 @@
 			}
 		}
 	}
+
 	function updatePatch() {
 		setTimeout(() => {
 			fetchPatch(uuid, data.changeId, key);
 		}, 500);
+	}
+
+	function getPatchStatus() {
+		//GET        /api/patch_stack/:project_id/:branch_id/patch_status
+		fetch(
+			env.PUBLIC_APP_HOST +
+				'api/patch_stack/' +
+				data.projectId +
+				'/' +
+				data.branchId +
+				'/patch_status',
+			{
+				method: 'GET',
+				headers: {
+					'X-AUTH-TOKEN': key || ''
+				}
+			}
+		)
+			.then(async (response) => await response.json())
+			.then((data) => {
+				status = data;
+				console.log('patch status');
+				console.log(data);
+			});
+	}
+
+	function fetchAndUpdateChat() {
+		fetch(env.PUBLIC_APP_HOST + 'api/patch_events/' + data.projectId + '/patch/' + data.changeId, {
+			method: 'GET',
+			headers: {
+				'X-AUTH-TOKEN': key || ''
+			}
+		})
+			.then(async (response) => await response.json())
+			.then((data) => {
+				console.log(data);
+				setTimeout(() => {
+					events = data;
+					setTimeout(() => {
+						scrollToBottom();
+					}, 150); // I don't know how to DOM in Svelte, but it takes a second
+				}, 50); // I don't know how to DOM in Svelte, but it takes a second
+			});
+	}
+
+	function createChatMessage() {
+		let chatBox = document.querySelector<HTMLElement>('.chatBox');
+		if (chatBox) {
+			// check if this is an issue
+			var checkbox = document.getElementById('issue');
+			let is_issue = false;
+			if ((checkbox as HTMLInputElement).checked) {
+				is_issue = true;
+			}
+
+			let text = chatBox.querySelector('textarea')!.value;
+			let params: {
+				chat: string;
+				change_id: any;
+				range?: string;
+				diff_path?: string;
+				diff_sha?: string;
+				issue?: boolean;
+			} = {
+				chat: text,
+				change_id: data.changeId,
+				issue: is_issue
+			};
+			if (commentRange.length > 0) {
+				params.range = commentRange;
+				params.diff_path = diffPath;
+				params.diff_sha = diffSha;
+			}
+			let opts = {
+				method: 'POST',
+				headers: {
+					'X-AUTH-TOKEN': key || '',
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(params)
+			};
+			if (key) {
+				fetch(
+					env.PUBLIC_APP_HOST + 'api/chat_messages/' + data.projectId + '/branch/' + data.branchId,
+					opts
+				)
+					.then(async (response) => await response.json())
+					.then((data) => {
+						chatBox.querySelector('textarea')!.value = '';
+						fetchAndUpdateChat();
+						console.log(data);
+					});
+			}
+		}
+	}
+
+	function signOff(signoff: boolean) {
+		let opts = {
+			method: 'PATCH',
+			headers: {
+				'X-AUTH-TOKEN': key || '',
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				sign_off: signoff
+			})
+		};
+		if (key) {
+			fetch(env.PUBLIC_APP_HOST + 'api/patch_stack/' + uuid + '/patch/' + data.changeId, opts)
+				.then(async (response) => await response.json())
+				.then((data) => {
+					console.log('sign off', data);
+					getPatchStatus();
+					fetchAndUpdateChat();
+				});
+		}
+	}
+
+	function resolveIssue(uuid: string) {
+		//:project_id/chat/:chat_uuid
+		console.log('Resolving issue', uuid);
+		let opts = {
+			method: 'PATCH',
+			headers: {
+				'X-AUTH-TOKEN': key || '',
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				resolved: true
+			})
+		};
+		if (key) {
+			fetch(env.PUBLIC_APP_HOST + 'api/chat_messages/' + data.projectId + '/chat/' + uuid, opts)
+				.then(async (response) => await response.json())
+				.then((data) => {
+					console.log('resolved', data);
+					fetchAndUpdateChat();
+				});
+		}
+	}
+
+	let commentRange: string = '';
+	let diffPath: string = '';
+	let diffSha: string = '';
+
+	function rangeSelect(range: string, diff_path: string, diff_sha: string) {
+		console.log('range selected', range, diff_path, diff_sha);
+		commentRange = range;
+		diffPath = diff_path;
+		diffSha = diff_sha;
 	}
 </script>
 
@@ -221,58 +406,103 @@
 {:else if state === 'unauthorized'}
 	<p>Unauthorized</p>
 {:else}
-	<h2>Patch Stack: <a href="../stack">{stack.title}</a></h2>
-	{#each stack.patches as stackPatch}
-		<div>
-			<code
-				><a href="/projects/{data.projectId}/branches/{data.branchId}/stack/{stackPatch.change_id}"
-					>{stackPatch.change_id.substr(0, 8)}</a
-				></code
-			>:
-			{#if patch.change_id === stackPatch.change_id}
-				<strong>{stackPatch.title}</strong>
-			{:else}
-				{stackPatch.title}
-			{/if}
-		</div>
-	{/each}
-	<hr />
-
-	<h2>Patch</h2>
 	<div class="columns">
-		<div class="column">
-			<div>Title: <strong>{patch.title}</strong></div>
-			{#if patch.description}
-				<div>Desc: {patch.description}</div>
-			{/if}
-			<div>Change Id: <code>{patch.change_id}</code></div>
-			<div>Commit: <code>{patch.commit_sha}</code></div>
-		</div>
-		<div class="column">
-			<div>Patch Version: {patch.version}</div>
-			<div>Stack Position: {patch.position + 1}/{stack.stack_size}</div>
-			<div>Contributors: {patch.contributors}</div>
-			<div>
-				Additions: {patch.statistics.lines - patch.statistics.deletions}, Deletions: {patch
-					.statistics.deletions}, Files: {patch.statistics.file_count}
-			</div>
-		</div>
-	</div>
-
-	<div class="columns">
-		<div class="column outline">
-			<h3>Outline</h3>
-			<div class="sections">
-				{#each patch.sections as section}
-					{#if section.section_type === 'diff'}
-						<div><a href="#section-{section.id}">{section.new_path}</a></div>
+		<div class="column patchArea">
+			<h3>Patch Series: <a href="../stack">{stack.title}</a></h3>
+			{#each stack.patches as stackPatch}
+				<div>
+					<code
+						><a
+							rel="external"
+							href="/projects/{data.projectId}/branches/{data.branchId}/stack/{stackPatch.change_id}"
+							>{stackPatch.change_id.substr(0, 8)}</a
+						></code
+					>:
+					{#if patch.change_id === stackPatch.change_id}
+						<strong>{stackPatch.title}</strong>
 					{:else}
-						<div><a href="#section-{section.id}">{section.title}</a></div>
+						{stackPatch.title}
 					{/if}
-				{/each}
+				</div>
+			{/each}
+			<hr />
+
+			<h3>Patch</h3>
+			<div class="columns">
+				<div class="column">
+					<div>Title: <strong>{patch.title}</strong></div>
+					{#if patch.description}
+						<div>Desc: {patch.description}</div>
+					{/if}
+					<div>Change Id: <code>{patch.change_id.substr(0, 13)}</code></div>
+					<div>Commit SHA: <code>{patch.commit_sha.substr(0, 10)}</code></div>
+					<div>Patch Version: {patch.version}</div>
+					<div>Series Position: {patch.position + 1}/{stack.stack_size}</div>
+					<div>
+						Contributors:
+						{#each patch.contributors as email}
+							<Gravatar {email} size={20} />
+						{/each}
+					</div>
+					<div>
+						Additions: {patch.statistics.lines - patch.statistics.deletions}, Deletions: {patch
+							.statistics.deletions}, Files: {patch.statistics.file_count}
+					</div>
+				</div>
+				<div class="column">
+					{#if patch.review.viewed.length > 0}
+						<div>
+							<div class="title">Viewed:</div>
+							{#each patch.review.viewed as email}
+								<Gravatar {email} size={20} />
+							{/each}
+						</div>
+					{/if}
+
+					{#if patch.review.signed_off.length > 0}
+						<div>
+							<div class="title">Signed Off:</div>
+							{#each patch.review.signed_off as email}
+								<Gravatar {email} size={20} />
+							{/each}
+						</div>
+					{/if}
+
+					{#if patch.review.length > 0}
+						<div>
+							<div class="title">Rejected:</div>
+							{#each patch.review.rejected as email}
+								<Gravatar {email} size={20} />
+							{/each}
+						</div>
+					{/if}
+
+					<h3>Your sign off status</h3>
+					{#if status[data.changeId]}
+						{#if status[data.changeId].last_signoff}
+							<div class="signoff">You signed off on this patch</div>
+						{/if}
+						{#if !status[data.changeId].last_reviewed}
+							<div class="rejected">You have not reviewed this patch</div>
+						{:else if !status[data.changeId].last_signoff}
+							<div class="rejected">You have rejected this patch</div>
+						{/if}
+					{/if}
+					<div>
+						{#if status[data.changeId]}
+							{#if !status[data.changeId].last_signoff}
+								<button class="button" on:click={() => signOff(true)}>Sign Off</button>
+							{/if}
+							{#if status[data.changeId].last_signoff || !status[data.changeId].last_reviewed}
+								<button class="button" on:click={() => signOff(false)}>Reject</button>
+							{/if}
+						{/if}
+					</div>
+				</div>
 			</div>
-		</div>
-		<div class="column">
+
+			<hr />
+
 			<div class="patch">
 				{#each patch.sections as section}
 					<div id="section-{section.id}">
@@ -286,10 +516,18 @@
 									>down</button
 								>]
 							</div>
-							<div>
-								<strong>{section.new_path}</strong>
+							<div class="filePath">
+								{section.new_path}
 							</div>
-							<div><pre><code>{section.diff_patch}</code></pre></div>
+							<div>
+								<DiffPatch
+									onRangeSelect={(range, diff_path, diff_sha) =>
+										rangeSelect(range, diff_path, diff_sha)}
+									diffPath={section.new_path}
+									diffSha={section.diff_sha}
+									diff={section.diff_patch}
+								/>
+							</div>
 						{:else}
 							<div class="right">
 								<button class="action" on:click={() => addSection(section.position)}>add</button>
@@ -316,14 +554,168 @@
 				</div>
 			</div>
 		</div>
+		<div class="column chatArea">
+			<h3>Chat</h3>
+			<div class="chatWindow">
+				{#each events as event}
+					{#if event.event_type === 'chat'}
+						<div
+							class="chatEntry {event.object.issue ? 'issue' : ''} {event.object.resolved
+								? 'resolved'
+								: ''}"
+						>
+							<div class="chatHeader">
+								<div class="avatar">
+									<Gravatar email={event.object.user.email} size={20} />
+								</div>
+								<div>{event.object.created_at}</div>
+							</div>
+							{#if event.object.diff_patch_array}
+								<div>
+									<div class="diffPath">{event.object.diff_path}</div>
+									<!-- {chat.diff_sha} -->
+									<DiffPatchArray diffArray={event.object.diff_patch_array} />
+								</div>
+							{/if}
+							<div class="chatComment">{event.object.comment}</div>
+							{#if event.object.issue}
+								{#if event.object.resolved}
+									<div class="right">resolved</div>
+								{:else}
+									<button class="action" on:click={() => resolveIssue(event.object.uuid)}
+										>resolve</button
+									>
+								{/if}
+							{/if}
+						</div>
+					{/if}
+					{#if event.event_type === 'issue_status'}
+						{#if event.data.resolution}
+							<div class="issueEvent event">
+								<div class="eventDetail">
+									{event.user.email} resolved issue {event.object.uuid.substr(0, 8)}
+								</div>
+								<div class="eventDate">
+									{event.created_at}
+								</div>
+							</div>
+						{/if}
+					{/if}
+
+					{#if event.event_type === 'patch_status'}
+						{#if event.data.status}
+							<div class="signoffEvent event">
+								<div class="eventDetail">
+									{event.user.email}
+									signed off
+								</div>
+								<div class="eventDate">
+									{event.created_at}
+								</div>
+							</div>
+						{:else}
+							<div class="rejectEvent event">
+								<div class="eventDetail">
+									{event.user.email}
+									requested changes
+								</div>
+								<div class="eventDate">
+									{event.created_at}
+								</div>
+							</div>
+						{/if}
+					{/if}
+
+					{#if event.event_type === 'patch_version'}
+						<div class="versionEvent event">
+							<div class="eventDetail">
+								new patch version: v{event.object.version}
+							</div>
+							<div class="eventDate">
+								{event.created_at}
+							</div>
+						</div>
+					{/if}
+				{/each}
+			</div>
+			<div class="chatBox">
+				<div class="input">
+					<div class="messageBox">
+						<textarea></textarea>
+					</div>
+					<div class="chatOptions">
+						<div class="issueOptions">
+							<input type="checkbox" id="issue" name="issue" value="issue" />
+							<div>issue</div>
+						</div>
+						<button class="actionChat" on:click={() => createChatMessage()}>send</button>
+					</div>
+				</div>
+			</div>
+		</div>
 	</div>
 {/if}
-<link
-	rel="stylesheet"
-	href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/styles/default.min.css"
-/>
 
 <style>
+	.event {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		margin-bottom: 0.5em;
+	}
+	.eventDate {
+		color: #888;
+		font-size: small;
+	}
+
+	.issueEvent {
+		background-color: #dbecff;
+		padding: 5px;
+		border-radius: 5px;
+	}
+	.signoffEvent {
+		background-color: #e6ffed;
+		padding: 5px;
+		border-radius: 5px;
+	}
+	.rejectEvent {
+		background-color: #ffeef0;
+		padding: 5px;
+		border-radius: 5px;
+	}
+	.versionEvent {
+		padding: 5px;
+		border-bottom: 1px solid rgb(96, 43, 43);
+	}
+	.versionEvent .eventDetail {
+		color: #844;
+	}
+
+	.actionChat {
+		cursor: pointer;
+		color: #ffffff;
+		padding: 5px 10px;
+		background-color: var(--clr-theme-pop-element);
+		border-radius: 5px;
+	}
+	.issueOptions {
+		display: flex;
+		flex-direction: row;
+		gap: 5px;
+		color: #626262;
+		/* justify vertically */
+		align-items: center;
+	}
+	.chatOptions {
+		padding: 4px;
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+	}
+	.patchArea {
+		max-width: 800px;
+		overflow-x: scroll;
+	}
 	hr {
 		margin: 1rem 0;
 	}
@@ -374,5 +766,103 @@
 		background-color: #ffffff;
 		border-radius: 10px;
 		padding: 10px 20px;
+	}
+	.patch-diff {
+		font-family: monospace;
+		font-size: small;
+	}
+	h3 {
+		margin-bottom: 0.5rem;
+		font-weight: bold;
+	}
+	.button {
+		background-color: #f4f4f4;
+		border: 1px solid #ccc;
+		padding: 5px;
+	}
+	.chatArea {
+		width: 600px;
+		min-width: 600px;
+	}
+	.chatWindow {
+		border: 1px solid #ccc;
+		border-radius: 5px;
+		padding: 5px;
+		margin: 5px 0;
+		max-height: 600px;
+		height: 600px;
+		overflow-y: scroll;
+	}
+	.chatEntry {
+		border: 1px solid #ccc;
+		border-radius: 5px;
+		background-color: #f4f4f4;
+		padding: 5px;
+		margin: 5px 0;
+	}
+	.chatEntry.issue {
+		background-color: #ffeef0;
+	}
+	.chatEntry.issue.resolved {
+		background-color: #eeeeee;
+	}
+	.chatHeader {
+		display: flex;
+		flex-direction: row;
+		justify-content: space-between;
+		font-size: small;
+	}
+	.chatComment {
+		margin-top: 5px;
+		background-color: #ffffff;
+		padding: 5px;
+	}
+	.chatBox {
+		border: 1px solid #ccc;
+		border-radius: 5px;
+		background-color: #f4f4f4;
+		padding: 5px;
+		margin: 5px 0;
+	}
+	.chatBox textarea {
+		width: 100%;
+		height: 40px;
+		border-radius: 5px;
+		font-family: monospace;
+		font-size: large;
+		padding: 5px;
+	}
+	.avatar {
+		border-radius: 50%;
+		overflow: hidden;
+	}
+
+	.filePath {
+		font-family: monospace;
+		font-weight: bold;
+		font-size: 1.4em;
+		margin-bottom: 10px;
+	}
+	.signoff {
+		background-color: #e6ffed;
+		padding: 5px;
+		border-radius: 5px;
+	}
+	.rejected {
+		background-color: #ffeef0;
+		padding: 5px;
+		border-radius: 5px;
+	}
+	.title {
+		min-width: 100px;
+		display: inline-block;
+		border-right: 1px solid #eee;
+	}
+	.diffPath {
+		font-family: monospace;
+		font-weight: bold;
+		font-size: 1.1em;
+		margin-top: 10px;
+		margin-bottom: 6px;
 	}
 </style>
