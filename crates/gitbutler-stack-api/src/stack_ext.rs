@@ -509,7 +509,7 @@ impl StackExt for Stack {
 
             // compute the commits that are only in the upstream
             let local_patches_including_merge = repo
-                .log(head_commit, LogUntil::Commit(previous_head), true)?
+                .log(head_commit, LogUntil::Commit(merge_base), true)?
                 .iter()
                 .rev() // oldest commit first
                 .map(|c| match c.change_id() {
