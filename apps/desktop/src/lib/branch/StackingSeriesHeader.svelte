@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
+	import StackingAddSeriesButton from './StackingAddSeriesButton.svelte';
 	import StackingStatusIcon from './StackingStatusIcon.svelte';
 	import { getColorFromBranchType } from './stackingUtils';
 	import { PromptService } from '$lib/ai/promptService';
@@ -9,6 +10,7 @@
 	import StackingSeriesHeaderContextMenu from '$lib/branch/StackingSeriesHeaderContextMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
@@ -127,8 +129,15 @@
 </script>
 
 <div class="branch-header">
+	{#if $stackingFeatureMultipleSeries}
+		<div class="add-branch-button-hover-target">
+			<StackingAddSeriesButton parentSeriesName={currentSeries.name} />
+		</div>
+	{/if}
+
 	<div class="branch-info">
 		<StackingStatusIcon
+			lineTop={false}
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 			iconColor="#fff"
 			color={lineColor}
@@ -238,14 +247,25 @@
 		display: flex;
 		display: flex;
 		flex-direction: column;
+		align-items: center;
 		overflow: hidden;
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
+
+		&:hover {
+			& .add-branch-button-hover-target {
+				transition-delay: 0.08s;
+				pointer-events: all;
+				transform: translateY(-50%);
+				opacity: 1;
+			}
+		}
 	}
 
 	.branch-info {
+		width: 100%;
 		padding-right: 13px;
 		display: flex;
 		justify-content: flex-start;
@@ -315,5 +335,18 @@
 		align-items: center;
 
 		border-top: 2px solid var(--bg-color, var(--clr-border-3));
+	}
+
+	.add-branch-button-hover-target {
+		position: absolute;
+		transform: translateY(calc(-50% + 4px));
+		width: fit-content;
+		align-items: center;
+		opacity: 0;
+		pointer-events: none;
+		transition:
+			opacity var(--transition-fast),
+			transform var(--transition-medium);
+		transition-delay: 0.08s;
 	}
 </style>
