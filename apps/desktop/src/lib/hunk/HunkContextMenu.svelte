@@ -38,7 +38,7 @@
 			{#if item.hunk !== undefined && !readonly}
 				<ContextMenuItem
 					label="Discard"
-					on:click={() => {
+					onclick={() => {
 						branchController.unapplyHunk(item.hunk);
 						contextMenu.close();
 					}}
@@ -47,7 +47,7 @@
 			{#if item.lineNumber}
 				<ContextMenuItem
 					label="Open in {$userSettings.defaultCodeEditor.displayName}"
-					on:click={() => {
+					onclick={() => {
 						projectPath &&
 							openExternalUrl(
 								`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${projectPath}/${filePath}:${item.lineNumber}`

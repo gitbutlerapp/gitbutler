@@ -261,16 +261,20 @@
 						<ContextMenuSection>
 							<ContextMenuItem
 								label="Extra concise"
-								on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+								onclick={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
 							>
-								<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+								{#snippet control()}
+									<Checkbox small bind:checked={$commitGenerationExtraConcise} />
+								{/snippet}
 							</ContextMenuItem>
 
 							<ContextMenuItem
 								label="Use emojis 😎"
-								on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+								onclick={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
 							>
-								<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+								{#snippet control()}
+									<Checkbox small bind:checked={$commitGenerationUseEmojis} />
+								{/snippet}
 							</ContextMenuItem>
 						</ContextMenuSection>
 					{/snippet}
