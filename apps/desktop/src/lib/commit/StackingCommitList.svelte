@@ -140,9 +140,7 @@
 			<div class="commits-group">
 				<InsertEmptyCommitAction isFirst onclick={() => insertBlankCommit($branch.head, 'above')} />
 
-				{@render reorderDropzone(
-					reorderDropzoneManager.topDropzone(`above-${patches[0]?.id}|${seriesName}`)
-				)}
+				{@render reorderDropzone(reorderDropzoneManager.dropzone(`top|${seriesName}`))}
 
 				{#each patches as commit, idx (commit.id)}
 					<StackingCommitDragItem {commit}>
@@ -165,9 +163,7 @@
 						</StackingCommitCard>
 					</StackingCommitDragItem>
 
-					{@render reorderDropzone(
-						reorderDropzoneManager.dropzoneBelowCommit(`${commit.id}|${seriesName}`)
-					)}
+					{@render reorderDropzone(reorderDropzoneManager.dropzone(commit.id))}
 
 					<InsertEmptyCommitAction
 						isLast={idx + 1 === patches.length}
