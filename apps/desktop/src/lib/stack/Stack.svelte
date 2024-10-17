@@ -224,7 +224,7 @@
 								: undefined}
 							onclick={push}
 						>
-							{branch.requiresForce ? 'Force push' : 'Push'}
+							{branch.requiresForce ? 'Force push' : branch.series.length > 1 ? 'Push All' : 'Push'}
 						</Button>
 					</div>
 				{/if}
