@@ -57,8 +57,8 @@
 			>
 				<svelte:fragment slot="title">Branch stacking multiple series</svelte:fragment>
 				<svelte:fragment slot="caption">
-					Enables the user to use the new stacking user interface to create multiple series
-					(branches) per lane.
+					Experimental support for using the new stacking interface to create multiple branches per
+					lane / stack. Not all features are supported yet.
 				</svelte:fragment>
 				<svelte:fragment slot="actions">
 					<Toggle
