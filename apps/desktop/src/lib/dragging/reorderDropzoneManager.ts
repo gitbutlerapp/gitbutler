@@ -1,18 +1,18 @@
 import { DraggableCommit } from '$lib/dragging/draggables';
 import type { BranchController } from '$lib/vbranches/branchController';
-import type { VirtualBranch, DetailedCommit, PatchSeries } from '$lib/vbranches/types';
+// import type { VirtualBranch, DetailedCommit, PatchSeries } from '$lib/vbranches/types';
 
 // Exported for type access only
 export class ReorderDropzone {
 	constructor(
 		private branchController: BranchController,
-		private branch: VirtualBranch,
 		private entry: Entry
 	) {}
 
 	accepts(data: any) {
+		if (!data) return false;
+		console.log('accepts.data', data);
 		if (!(data instanceof DraggableCommit)) return false;
-		if (data.branchId !== this.branch.id) return false;
 		if (this.entry.distanceToOtherCommit(data.commit.id) === 0) return false;
 
 		return true;
@@ -20,81 +20,67 @@ export class ReorderDropzone {
 
 	onDrop(data: any) {
 		if (!(data instanceof DraggableCommit)) return;
-		if (data.branchId !== this.branch.id) return;
-
 		const offset = this.entry.distanceToOtherCommit(data.commit.id);
 
 		console.log('REORDERING.COMMIT', {
-			branchId: this.branch.id,
 			commitId: data.commit.id,
 			offset
 		});
 
-		this.branchController.reorderCommit(this.branch.id, data.commit.id, offset);
+		// TODO: Can we get a branchId (seriesId) onto the PatchSeries?
+		// The branchId is always the same for a whole lane/stack, so when dropping,
+		// even if you have hte index correclty, you can't know really which series
+		// your supposed to be landing in
+		this.branchController.reorderCommit(data.commit?.branchId, data.commit?.id, offset);
 	}
 }
 
 export class ReorderDropzoneManager {
 	private indexer: Indexer;
 	private branchController: BranchController;
-	private branch: VirtualBranch;
 
 	constructor({
 		branchController,
-		branch,
-		commitIds
+		commits
 	}: {
 		branchController: BranchController;
-		branch: VirtualBranch;
-		commitIds: string[];
+		commits: string[];
 	}) {
 		this.branchController = branchController;
-		this.branch = branch;
-
-		this.indexer = new Indexer(commitIds);
+		this.indexer = new Indexer(commits);
 	}
 
-	topDropzone(key: string) {
+	dropzone(key: string) {
 		const entry = this.indexer.get(key);
 
-		return new ReorderDropzone(this.branchController, this.branch, entry);
-	}
-
-	dropzoneBelowCommit(commitId: string) {
-		const entry = this.indexer.get(commitId);
-
-		return new ReorderDropzone(this.branchController, this.branch, entry);
+		return new ReorderDropzone(this.branchController, entry);
 	}
 }
 
 export class ReorderDropzoneManagerFactory {
 	constructor(private branchController: BranchController) {}
 
-	build({ branch, commitIds }: { branch: VirtualBranch; commitIds: string[] }) {
+	build(commits: string[]) {
 		return new ReorderDropzoneManager({
 			branchController: this.branchController,
-			branch,
-			commitIds
+			commits
 		});
 	}
 }
 
 // Private classes used to calculate distances between commits
 class Indexer {
-	// private dropzoneIndexes = new Map<string, number>();
 	private dropzoneIndexes = new Map<string, number>();
 
-	constructor(commitIds: string[]) {
+	constructor(commits: string[]) {
 		let computedPatchIndex = 0;
 
-		commitIds.map((patchId: string) => {
+		commits.map((patchId: string) => {
 			computedPatchIndex += 1;
-			// this.dropzoneIndexes.set(patchId, computedPatchIndex + 1); // + 1); // (seriesIndex + 1));
 			this.dropzoneIndexes.set(patchId, computedPatchIndex);
 		});
 
-		// console.log('Indexer.dropzoneIndexes', this.dropzoneIndexes);
-		console.log('Indexer.dropzoneIndexes', this.dropzoneIndexes);
+		console.log('indexer.dropzoneIndexes', this.dropzoneIndexes);
 	}
 
 	get(key: string) {
@@ -134,12 +120,11 @@ class Entry {
 	/**
 	 * A negative offset means the commit has been dragged up, and a positive offset means the commit has been dragged down.
 	 */
-	distanceToOtherCommit(commitId: string) {
-		const commitIndex = this.commitIndex(commitId);
+	distanceToOtherCommit(key: string) {
+		const commitIndex = this.commitIndex(key);
 		if (commitIndex === undefined) return 0;
 
 		const offset = this.index - commitIndex;
-		console.log('distanceToOtherCommit', { offset, targetIndex: this.index, myIndex: commitIndex });
 
 		return offset;
 		// if (offset > 0) {
@@ -149,8 +134,8 @@ class Entry {
 		// }
 	}
 
-	private commitIndex(commitId: string) {
-		const index = this.commitIndexes.get(commitId);
+	private commitIndex(key: string) {
+		const index = this.commitIndexes.get(key);
 
 		// TODO: Handle updated commitIds after rebasing in `commitIndexes`
 		// Reordering works, but it throws errors for old commitIds that it can't find

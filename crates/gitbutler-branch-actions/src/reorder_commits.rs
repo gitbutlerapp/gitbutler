@@ -226,7 +226,13 @@ fn ensure_offset_within_bounds(
         bail!("Offset is out of bounds");
     }
 
-    if subject_index as i32 + offset >= branch_commits.len() as i32 {
+    println!(
+        "len{:?} - {:?} ({:?})",
+        branch_commits.len(),
+        subject_index,
+        offset
+    );
+    if subject_index as i32 + offset > branch_commits.len() as i32 {
         bail!("Offset is out of bounds");
     }
 
