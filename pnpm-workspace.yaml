@@ -1,10 +1,11 @@
 packages:
   - 'apps/*'
   - 'packages/*'
-  - 'crates/*'
+  - 'crates'
 
 catalog:
   vite: 5.2.13
+  '@sentry/sveltekit': 8.9.2
 catalogs:
   svelte:
     svelte: 5.0.0-next.243
