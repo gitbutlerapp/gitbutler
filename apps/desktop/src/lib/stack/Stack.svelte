@@ -6,9 +6,7 @@
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import Dropzones from '$lib/branch/Dropzones.svelte';
-	import StackingNewStackCard from '$lib/branch/StackingNewStackCard.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
-	import { stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
@@ -187,9 +185,6 @@
 						{/if}
 						<Spacer dotted />
 						<div class="lane-branches">
-							{#if $stackingFeatureMultipleSeries}
-								<StackingNewStackCard />
-							{/if}
 							<StackSeries {branch} />
 						</div>
 					</div>

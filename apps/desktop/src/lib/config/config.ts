@@ -45,6 +45,4 @@ export function persistedCommitMessage(projectId: string, branchId: string): Per
 	return persisted('', 'projectCurrentCommitMessage_' + projectId + '_' + branchId);
 }
 
-export const showStackingCardDetails = persisted(false, 'showStackingCardDetails');
-
 export const showHistoryView = persisted(false, 'showHistoryView');
