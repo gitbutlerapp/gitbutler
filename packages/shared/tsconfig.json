@@ -11,6 +11,9 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
+		"declaration": true,
+		"composite": true,
+		"declarationMap": true,
 		"experimentalDecorators": true
 	},
 	"include": [
