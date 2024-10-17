@@ -5,6 +5,7 @@ use crate::{
     hunk::VirtualBranchHunk,
     integration::get_workspace_head,
     remote::{branch_to_remote_branch, RemoteBranch},
+    stack::stack_series,
     status::{get_applied_status, get_applied_status_cached},
     Get, VirtualBranchesExt,
 };
@@ -29,7 +30,7 @@ use gitbutler_repo::{
 use gitbutler_stack::{
     reconcile_claims, BranchOwnershipClaims, Stack, StackId, Target, VirtualBranchesHandle,
 };
-use gitbutler_stack_api::{commit_by_oid_or_change_id, StackExt};
+use gitbutler_stack_api::StackExt;
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
 use std::collections::HashSet;
@@ -480,118 +481,11 @@ pub fn list_virtual_branches_cached(
     Ok((branches, status.skipped_files))
 }
 
-/// Returns the stack series for the API.
-/// Newest first, oldest last in the list
-fn stack_series(
-    ctx: &CommandContext,
-    branch: &mut Stack,
-    default_target: &Target,
-    check_commit: &IsCommitIntegrated,
-    remote_commit_data: HashMap<CommitData, git2::Oid>,
-) -> Result<(Vec<PatchSeries>, bool)> {
-    let mut requires_force = false;
-    let mut api_series: Vec<PatchSeries> = vec![];
-    let stack_series = branch.list_series(ctx)?;
-    let merge_base = ctx
-        .repository()
-        .merge_base(branch.head(), default_target.sha)?;
-    for series in stack_series.clone() {
-        let upstream_reference = default_target.push_remote_name.as_ref().and_then(|remote| {
-            if series.head.pushed(remote.as_str(), ctx).ok()? {
-                series.head.remote_reference(remote.as_str()).ok()
-            } else {
-                None
-            }
-        });
-        let mut patches: Vec<VirtualBranchCommit> = vec![];
-        for patch in series.clone().local_commits {
-            let commit =
-                commit_by_oid_or_change_id(&patch, ctx.repository(), branch.head(), merge_base)?;
-            let is_integrated = check_commit.is_integrated(&commit)?;
-            let copied_from_remote_id = CommitData::try_from(&commit)
-                .ok()
-                .and_then(|data| remote_commit_data.get(&data).copied());
-            let remote_commit_id = commit
-                .change_id()
-                .and_then(|change_id| {
-                    series
-                        .remote_commit_ids_by_change_id
-                        .get(&change_id)
-                        .cloned()
-                })
-                .or(copied_from_remote_id)
-                .or(if series.remote(&patch) {
-                    Some(commit.id())
-                } else {
-                    None
-                });
-            if remote_commit_id.map_or(false, |id| commit.id() != id) {
-                requires_force = true;
-            }
-            let vcommit = commit_to_vbranch_commit(
-                ctx,
-                branch,
-                &commit,
-                is_integrated,
-                series.remote(&patch),
-                copied_from_remote_id,
-                remote_commit_id,
-            )?;
-            patches.push(vcommit);
-        }
-        patches.reverse();
-        let mut upstream_patches = vec![];
-        if let Some(upstream_reference) = upstream_reference.clone() {
-            let remote_head = ctx
-                .repository()
-                .find_reference(&upstream_reference)?
-                .peel_to_commit()?;
-            for patch in series.upstream_only_commits {
-                if let Ok(commit) = commit_by_oid_or_change_id(
-                    &patch,
-                    ctx.repository(),
-                    remote_head.id(),
-                    merge_base,
-                ) {
-                    let is_integrated = check_commit.is_integrated(&commit)?;
-                    let vcommit = commit_to_vbranch_commit(
-                        ctx,
-                        branch,
-                        &commit,
-                        is_integrated,
-                        true, // per definition
-                        None, // per definition
-                        Some(commit.id()),
-                    )?;
-                    upstream_patches.push(vcommit);
-                };
-            }
-        }
-        upstream_patches.reverse();
-        api_series.push(PatchSeries {
-            name: series.head.name,
-            description: series.head.description,
-            upstream_reference,
-            patches,
-            upstream_patches,
-        });
-    }
-    api_series.reverse();
-
-    // This is done for compatibility with the legacy flow.
-    // After a couple of weeks we can get rid of this.
-    if let Err(e) = branch.set_legacy_compatible_stack_reference(ctx) {
-        tracing::warn!("failed to set legacy compatible stack reference: {:?}", e);
-    }
-
-    Ok((api_series, requires_force))
-}
-
 /// The commit-data we can use for comparison to see which remote-commit was used to craete
 /// a local commit from.
 /// Note that trees can't be used for comparison as these are typically rebased.
 #[derive(Hash, Eq, PartialEq)]
-struct CommitData {
+pub(crate) struct CommitData {
     message: BString,
     author: gix::actor::Signature,
     committer: gix::actor::Signature,
@@ -1041,7 +935,7 @@ pub(crate) fn push(
     })
 }
 
-struct IsCommitIntegrated<'repo> {
+pub(crate) struct IsCommitIntegrated<'repo> {
     repo: &'repo git2::Repository,
     target_commit_id: git2::Oid,
     remote_head_id: git2::Oid,
@@ -1073,7 +967,7 @@ impl<'repo> IsCommitIntegrated<'repo> {
 }
 
 impl IsCommitIntegrated<'_> {
-    fn is_integrated(&self, commit: &git2::Commit) -> Result<bool> {
+    pub(crate) fn is_integrated(&self, commit: &git2::Commit) -> Result<bool> {
         if self.target_commit_id == commit.id() {
             // could not be integrated if heads are the same.
             return Ok(false);
