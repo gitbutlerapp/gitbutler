@@ -1,8 +1,9 @@
 use std::{
-    path::{self, PathBuf},
+    path::{self, Path, PathBuf},
     time,
 };
 
+use gitbutler_forge::{forge::ForgeType, review::available_review_templates};
 use gitbutler_id::id::Id;
 use serde::{Deserialize, Serialize};
 
@@ -102,9 +103,21 @@ pub struct Project {
 #[serde(rename_all = "camelCase")]
 pub struct GitHostSettings {
     #[serde(default)]
-    pub host_type: Option<String>,
+    pub host_type: Option<ForgeType>,
     #[serde(default)]
-    pub pull_request_template_path: Option<String>,
+    pub review_template_path: Option<String>,
+}
+
+impl GitHostSettings {
+    pub fn init(&mut self, project_path: &Path) {
+        if let Some(forge_type) = &self.host_type {
+            if self.review_template_path.is_none() {
+                self.review_template_path = available_review_templates(project_path, forge_type)
+                    .first()
+                    .cloned();
+            }
+        }
+    }
 }
 
 impl Project {

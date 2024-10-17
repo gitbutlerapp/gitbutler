@@ -4,7 +4,9 @@ pub mod commands {
     use std::path;
 
     use anyhow::Context;
-    use gitbutler_project::{self as projects, Controller, ProjectId};
+    use gitbutler_project::{
+        self as projects, Controller, GitHostSettings, ProjectId, UpdateRequest,
+    };
     use tauri::{State, Window};
     use tracing::instrument;
 
@@ -17,6 +19,26 @@ pub mod commands {
         project: projects::UpdateRequest,
     ) -> Result<projects::Project, Error> {
         Ok(projects.update(&project)?)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects), err(Debug))]
+    pub fn update_project_git_host(
+        projects: State<'_, Controller>,
+        project_id: ProjectId,
+        git_host: GitHostSettings,
+    ) -> Result<projects::Project, Error> {
+        let project = projects.get_validated(project_id)?;
+        let root_path = &project.path;
+        let mut git_host = git_host.clone();
+        git_host.init(root_path);
+
+        let request = UpdateRequest {
+            id: project_id,
+            git_host: Some(git_host),
+            ..Default::default()
+        };
+        Ok(projects.update(&request)?)
     }
 
     #[tauri::command(async)]

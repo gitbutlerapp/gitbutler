@@ -2340,6 +2340,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-forge"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-fs",
+ "serde",
+]
+
+[[package]]
 name = "gitbutler-fs"
 version = "0.0.0"
 dependencies = [
@@ -2464,6 +2473,7 @@ dependencies = [
  "fslock",
  "git2",
  "gitbutler-error",
+ "gitbutler-forge",
  "gitbutler-id",
  "gitbutler-serde",
  "gitbutler-storage",
@@ -2648,6 +2658,7 @@ dependencies = [
  "gitbutler-edit-mode",
  "gitbutler-error",
  "gitbutler-feedback",
+ "gitbutler-forge",
  "gitbutler-fs",
  "gitbutler-id",
  "gitbutler-operating-modes",
