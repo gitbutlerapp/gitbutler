@@ -109,6 +109,7 @@
 				selectable={false}
 				draggingDisabled
 				tabSize={$userSettings.tabSize}
+				wrapText={$userSettings.wrapText}
 				diffFont={$userSettings.diffFont}
 				diffLigatures={$userSettings.diffLigatures}
 				inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
@@ -183,6 +184,26 @@
 						}));
 					}}
 					placeholder={$userSettings.tabSize.toString()}
+				/>
+			</svelte:fragment>
+		</SectionCard>
+
+		<SectionCard labelFor="wrapText" orientation="row" roundedTop={false} roundedBottom={false}>
+			<svelte:fragment slot="title">Text Wrap</svelte:fragment>
+			<svelte:fragment slot="caption">
+				Wrap text in the diff view once it hits the end of the viewport.
+			</svelte:fragment>
+
+			<svelte:fragment slot="actions">
+				<Toggle
+					id="wrapText"
+					checked={$userSettings.wrapText}
+					on:click={() => {
+						userSettings.update((s) => ({
+							...s,
+							wrapText: !s.wrapText
+						}));
+					}}
 				/>
 			</svelte:fragment>
 		</SectionCard>
