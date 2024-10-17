@@ -3,6 +3,7 @@ use std::{
     time,
 };
 
+use gitbutler_forge::forge::ForgeType;
 use gitbutler_id::id::Id;
 use serde::{Deserialize, Serialize};
 
@@ -102,9 +103,9 @@ pub struct Project {
 #[serde(rename_all = "camelCase")]
 pub struct GitHostSettings {
     #[serde(default)]
-    pub host_type: Option<String>,
+    pub host_type: Option<ForgeType>,
     #[serde(default)]
-    pub pull_request_template_path: Option<String>,
+    pub review_template_path: Option<String>,
 }
 
 impl Project {
