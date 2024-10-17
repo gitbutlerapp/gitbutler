@@ -8,7 +8,7 @@
 	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { CommandService, invoke } from '$lib/backend/ipc';
-	import { ProjectService } from '$lib/backend/projects';
+	import { ProjectsService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
 	import GlobalSettingsMenuAction from '$lib/barmenuActions/GlobalSettingsMenuAction.svelte';
@@ -52,7 +52,7 @@
 	setSecretsService(data.secretsService);
 	setContext(CommandService, data.commandService);
 	setContext(UserService, data.userService);
-	setContext(ProjectService, data.projectService);
+	setContext(ProjectsService, data.projectsService);
 	setContext(UpdaterService, data.updaterService);
 	setContext(GitConfigService, data.gitConfig);
 	setContext(AIService, data.aiService);

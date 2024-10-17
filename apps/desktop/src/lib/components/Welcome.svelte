@@ -3,12 +3,12 @@
 	import WelcomeSigninAction from './WelcomeSigninAction.svelte';
 	import cloneRepoSvg from '$lib/assets/welcome/clone-repo.svg?raw';
 	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
-	import { ProjectService } from '$lib/backend/projects';
+	import { ProjectsService } from '$lib/backend/projects';
 	import IconLink from '$lib/shared/IconLink.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { goto } from '$app/navigation';
 
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 
 	let newProjectLoading = $state(false);
 	let directoryInputElement = $state<HTMLInputElement | undefined>();
@@ -17,7 +17,7 @@
 		newProjectLoading = true;
 		try {
 			const testDirectoryPath = directoryInputElement?.value;
-			await projectService.addProject(testDirectoryPath ?? '');
+			await projectsService.addProject(testDirectoryPath ?? '');
 		} finally {
 			newProjectLoading = false;
 		}

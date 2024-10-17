@@ -1,6 +1,6 @@
 <script lang="ts">
 	import notFoundSvg from '$lib/assets/empty-state/not-found.svg?raw';
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { Project, ProjectsService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { createGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
@@ -13,7 +13,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 	const project = getContext(Project);
 	const gitHost = getGitHost();
 	const prService = createGitHostPrServiceStore(undefined);
@@ -45,13 +45,13 @@
 		if (!value) {
 			project.git_host.pullRequestTemplatePath = '';
 		}
-		await projectService.updateProject(project);
+		await projectsService.updateProject(project);
 	}
 
 	async function setPullRequestTemplatePath(value: string) {
 		selectedTemplate = value;
 		project.git_host.pullRequestTemplatePath = value;
-		await projectService.updateProject(project);
+		await projectsService.updateProject(project);
 	}
 </script>
 

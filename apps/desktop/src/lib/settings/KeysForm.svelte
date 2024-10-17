@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ProjectService, type Key, type KeyType, Project } from '$lib/backend/projects';
+	import { ProjectsService, type Key, type KeyType, Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { showError } from '$lib/notifications/toasts';
@@ -15,7 +15,7 @@
 	const project = getContext(Project);
 
 	const baseBranch = getContextStore(BaseBranch);
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 
 	// Used by credential checker before target branch set
 	export let remoteName = '';
@@ -45,7 +45,7 @@
 	async function updateKey(detail: { preferred_key: Key }) {
 		try {
 			project.preferred_key = detail.preferred_key;
-			projectService.updateProject(project);
+			projectsService.updateProject(project);
 		} catch (err: any) {
 			showError('Failed to update key', err);
 		}

@@ -3,6 +3,7 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import DefaultTargetButton from './DefaultTargetButton.svelte';
+	import { ProjectService } from '$lib/backend/projects';
 	import { PatchStackCreationService } from '$lib/branch/patchStackCreationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
@@ -32,6 +33,9 @@
 	const prMonitor = getGitHostPrMonitor();
 	const checksMonitor = getGitHostChecksMonitor();
 	const gitHost = getGitHost();
+
+	const projectService = getContext(ProjectService);
+	const cloudEnabled = projectService.cloudEnabled;
 
 	const patchStackCreationService = getContext(PatchStackCreationService);
 	const cloudPatchStacksService = getContext(CloudPatchStacksService);
@@ -177,7 +181,7 @@
 
 				<div class="relative">
 					<div class="header__buttons">
-						{#if patchStackCreationService.canCreatePatchStack && !hasPatchStackForThisBranch}
+						{#if $cloudEnabled && patchStackCreationService.canCreatePatchStack && !hasPatchStackForThisBranch}
 							<Button
 								style="ghost"
 								outline

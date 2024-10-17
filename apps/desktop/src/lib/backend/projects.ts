@@ -49,7 +49,7 @@ export type CloudProject = {
 	updated_at: string;
 };
 
-export class ProjectService {
+export class ProjectsService {
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
 	readonly projects = writable<Project[]>([], (set) => {
 		this.loadAll()
@@ -216,5 +216,26 @@ export class ProjectService {
 
 	async getCloudProject(repositoryId: string): Promise<CloudProject> {
 		return await this.httpClient.get(`projects/${repositoryId}.json`);
+	}
+}
+
+/**
+ * Provides a store to an individual proejct
+ *
+ * Its preferable to use this service over the static Project context.
+ */
+export class ProjectService {
+	project: Readable<Project | undefined>;
+	cloudEnabled: Readable<boolean>;
+
+	constructor(
+		projectsService: ProjectsService,
+		readonly projectId: string
+	) {
+		this.project = projectsService.getProjectStore(projectId);
+
+		this.cloudEnabled = derived(this.project, (project) => {
+			return !!project?.api?.sync;
+		});
 	}
 }

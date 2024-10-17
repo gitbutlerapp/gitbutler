@@ -4,7 +4,7 @@ import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { AuthService } from '$lib/backend/auth';
 import { GitConfigService } from '$lib/backend/gitConfigService';
 import { CommandService } from '$lib/backend/ipc';
-import { ProjectService } from '$lib/backend/projects';
+import { ProjectsService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
 import { Tauri } from '$lib/backend/tauri';
 import { UpdaterService } from '$lib/backend/updater';
@@ -44,7 +44,7 @@ export const load: LayoutLoad = async () => {
 
 	const userService = new UserService(httpClient, tokenMemoryService);
 
-	const projectService = new ProjectService(defaultPath, httpClient);
+	const projectsService = new ProjectsService(defaultPath, httpClient);
 
 	const gitConfig = new GitConfigService();
 	const secretsService = new RustSecretService(gitConfig);
@@ -59,7 +59,7 @@ export const load: LayoutLoad = async () => {
 		tokenMemoryService,
 		authService,
 		cloud: httpClient,
-		projectService,
+		projectsService,
 		updaterService,
 		promptService,
 		userService,

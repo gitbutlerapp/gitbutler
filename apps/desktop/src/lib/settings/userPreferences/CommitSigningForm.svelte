@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { GitConfigService } from '$lib/backend/gitConfigService';
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { Project, ProjectsService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
 	import Select from '$lib/select/Select.svelte';
@@ -15,7 +15,7 @@
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
 
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 	const project = getContext(Project);
 
 	let useNewLocking = project?.use_new_locking || false;
@@ -79,7 +79,7 @@
 
 	async function setUseNewLocking(value: boolean) {
 		project.use_new_locking = value;
-		await projectService.updateProject(project);
+		await projectsService.updateProject(project);
 	}
 
 	$: setUseNewLocking(useNewLocking);

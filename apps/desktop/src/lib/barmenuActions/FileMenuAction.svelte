@@ -1,18 +1,18 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
-	import { ProjectService } from '$lib/backend/projects';
+	import { ProjectsService } from '$lib/backend/projects';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 
 	onMount(() => {
 		const unsubscribeAddLocalRepo = listen<string>(
 			'menu://file/add-local-repo/clicked',
 			async () => {
-				await projectService.addProject();
+				await projectsService.addProject();
 			}
 		);
 
@@ -28,7 +28,7 @@
 
 	const handleKeyDown = createKeybind({
 		'$mod+O': async () => {
-			await projectService.addProject();
+			await projectsService.addProject();
 		},
 		'$mod+Shift+O': async () => {
 			goto('/onboarding/clone');

@@ -1,9 +1,10 @@
 <script lang="ts">
-	import { Project } from '$lib/backend/projects';
+	import { Project, ProjectService } from '$lib/backend/projects';
 	import FileMenuAction from '$lib/barmenuActions/FileMenuAction.svelte';
 	import ProjectSettingsMenuAction from '$lib/barmenuActions/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { PatchStackCreationService } from '$lib/branch/patchStackCreationService';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
@@ -39,7 +40,6 @@
 	import { derived as storeDerived } from 'svelte/store';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
-	import { PatchStackCreationService } from '$lib/branch/patchStackCreationService';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -47,7 +47,7 @@
 		vbranchService,
 		project,
 		projectId,
-		projectService,
+		projectsService,
 		projectMetrics,
 		baseBranchService,
 		remoteBranchService,
@@ -63,7 +63,7 @@
 	const user = $derived(userService.user);
 	const accessToken = $derived($user?.github_access_token);
 	const baseError = $derived(baseBranchService.error);
-	const projectError = $derived(projectService.error);
+	const projectError = $derived(projectsService.error);
 
 	$effect.pre(() => {
 		setContext(HistoryService, data.historyService);
@@ -81,6 +81,7 @@
 		setContext(ModeService, data.modeService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
 		setContext(UpstreamIntegrationService, data.upstreamIntegrationService);
+		setContext(ProjectService, data.projectService);
 
 		// Cloud related services
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);

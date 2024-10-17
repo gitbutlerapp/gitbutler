@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ProjectService, Project } from '$lib/backend/projects';
+	import { ProjectsService, Project } from '$lib/backend/projects';
 	import OptionsGroup from '$lib/select/OptionsGroup.svelte';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
@@ -7,10 +7,10 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 	const project = maybeGetContext(Project);
 
-	const projects = $derived(projectService.projects);
+	const projects = $derived(projectsService.projects);
 
 	const mappedProjects = $derived(
 		$projects.map((project) => ({
@@ -49,7 +49,7 @@
 				on:click={async () => {
 					newProjectLoading = true;
 					try {
-						await projectService.addProject();
+						await projectsService.addProject();
 					} finally {
 						newProjectLoading = false;
 					}

@@ -3,16 +3,16 @@
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import notFoundSvg from '$lib/assets/illustrations/not-found.svg?raw';
-	import { ProjectService } from '$lib/backend/projects';
+	import { ProjectsService } from '$lib/backend/projects';
 	import InfoMessage, { type MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
-	const projectService = getContext(ProjectService);
-	const id = projectService.getLastOpenedProject();
+	const projectsService = getContext(ProjectsService);
+	const id = projectsService.getLastOpenedProject();
 	const projectPromise = id
-		? projectService.getProject(id, true)
+		? projectsService.getProject(id, true)
 		: Promise.reject('Failed to get project');
 
 	let deleteSucceeded: boolean | undefined = $state(undefined);
@@ -22,7 +22,7 @@
 		isDeleting = true;
 		deleteProject: {
 			try {
-				await projectService.deleteProject(id);
+				await projectsService.deleteProject(id);
 			} catch (e) {
 				deleteSucceeded = false;
 				break deleteProject;
@@ -33,7 +33,7 @@
 	}
 
 	async function locate(id: string) {
-		await projectService.relocateProject(id);
+		await projectsService.relocateProject(id);
 	}
 
 	interface DeletionStatus {

@@ -5,9 +5,10 @@
 	import TargetCard from './TargetCard.svelte';
 	import WorkspaceButton from './WorkspaceButton.svelte';
 	import Resizer from '../shared/Resizer.svelte';
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { ProjectService } from '$lib/backend/projects';
 	import { featureTopics } from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/modes/service';
+	import CloudSeriesButton from '$lib/navigation/CloudSeriesButton.svelte';
 	import EditButton from '$lib/navigation/EditButton.svelte';
 	import TopicsButton from '$lib/navigation/TopicsButton.svelte';
 	import { platformName } from '$lib/platform/platform';
@@ -16,24 +17,23 @@
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { env } from '$env/dynamic/public';
-	import CloudSeriesButton from '$lib/navigation/CloudSeriesButton.svelte';
 
 	const minResizerWidth = 280;
 	const minResizerRatio = 150;
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	const project = getContext(Project);
 	const projectService = getContext(ProjectService);
-	const project$ = projectService.getProjectStore(project.id);
+	const cloudEnabled = projectService.cloudEnabled;
+	const projectId = projectService.projectId;
 	const defaultTrayWidthRem = persisted<number | undefined>(
 		undefined,
-		'defaulTrayWidth_ ' + project.id
+		'defaulTrayWidth_ ' + projectId
 	);
 
 	let viewport: HTMLDivElement;
 	let isResizerHovered = false;
 	let isResizerDragging = false;
 
-	const isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + project.id);
+	const isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + projectId);
 
 	function toggleNavCollapse() {
 		$isNavCollapsed = !$isNavCollapsed;
@@ -121,17 +121,17 @@
 				<div class="domains">
 					<TargetCard isNavCollapsed={$isNavCollapsed} />
 					{#if $mode?.type === 'OpenWorkspace'}
-						<WorkspaceButton href={`/${project.id}/board`} isNavCollapsed={$isNavCollapsed} />
+						<WorkspaceButton href={`/${projectId}/board`} isNavCollapsed={$isNavCollapsed} />
 					{:else if $mode?.type === 'Edit'}
-						<EditButton href={`/${project.id}/edit`} isNavCollapsed={$isNavCollapsed} />
+						<EditButton href={`/${projectId}/edit`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 
 					{#if $topicsEnabled}
-						<TopicsButton href={`/${project.id}/topics`} isNavCollapsed={$isNavCollapsed} />
+						<TopicsButton href={`/${projectId}/topics`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 
-					{#if $project$?.api?.sync}
-						<CloudSeriesButton href={`/${$project$.id}/series`} isNavCollapsed={$isNavCollapsed} />
+					{#if $cloudEnabled}
+						<CloudSeriesButton href={`/${projectId}/series`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 				</div>
 			</div>
@@ -139,7 +139,7 @@
 			{#if !$isNavCollapsed}
 				<Branches />
 			{/if}
-			<Footer projectId={project.id} isNavCollapsed={$isNavCollapsed} />
+			<Footer {projectId} isNavCollapsed={$isNavCollapsed} />
 		{/if}
 	</div>
 </aside>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { Project, ProjectsService } from '$lib/backend/projects';
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { showError } from '$lib/notifications/toasts';
@@ -7,7 +7,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { goto } from '$app/navigation';
 
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 	const project = getContext(Project);
 
 	let isDeleting = $state(false);
@@ -15,8 +15,8 @@
 	async function onDeleteClicked() {
 		isDeleting = true;
 		try {
-			await projectService.deleteProject(project.id);
-			await projectService.reload();
+			await projectsService.deleteProject(project.id);
+			await projectsService.reload();
 			goto('/');
 			toasts.success('Project deleted');
 		} catch (err: any) {

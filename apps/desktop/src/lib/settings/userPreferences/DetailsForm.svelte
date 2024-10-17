@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { Project, ProjectsService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import Link from '$lib/shared/Link.svelte';
@@ -15,7 +15,7 @@
 
 	const project = getContext(Project);
 	const user = getContextStore(User);
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 
 	let title = project?.title;
 	let description = project?.description;
@@ -25,13 +25,13 @@
 		try {
 			const cloudProject =
 				project.api ??
-				(await projectService.createCloudProject({
+				(await projectsService.createCloudProject({
 					name: project.title,
 					description: project.description,
 					uid: project.id
 				}));
 			project.api = { ...cloudProject, sync, sync_code: project.api?.sync_code };
-			projectService.updateProject(project);
+			projectsService.updateProject(project);
 		} catch (error) {
 			console.error(`Failed to update project sync status: ${error}`);
 			toasts.error('Failed to update project sync status');
@@ -43,13 +43,13 @@
 		try {
 			const cloudProject =
 				project.api ??
-				(await projectService.createCloudProject({
+				(await projectsService.createCloudProject({
 					name: project.title,
 					description: project.description,
 					uid: project.id
 				}));
 			project.api = { ...cloudProject, sync: project.api?.sync || false, sync_code: sync_code };
-			projectService.updateProject(project);
+			projectsService.updateProject(project);
 		} catch (error) {
 			console.error(`Failed to update project sync status: ${error}`);
 			toasts.error('Failed to update project sync status');
@@ -61,9 +61,9 @@
 		if (!project?.api) return;
 		if (!$user) return;
 		console.log(project);
-		const cloudProject = await projectService.getCloudProject(project.api.repository_id);
+		const cloudProject = await projectsService.getCloudProject(project.api.repository_id);
 		project.api = { ...cloudProject, sync: project.api.sync, sync_code: project.api.sync_code };
-		projectService.updateProject(project);
+		projectsService.updateProject(project);
 	});
 </script>
 
@@ -80,7 +80,7 @@
 					required
 					on:change={(e) => {
 						project.title = e.detail;
-						projectService.updateProject(project);
+						projectsService.updateProject(project);
 					}}
 				/>
 				<TextArea
@@ -90,7 +90,7 @@
 					bind:value={description}
 					on:change={() => {
 						project.description = description;
-						projectService.updateProject(project);
+						projectsService.updateProject(project);
 					}}
 					maxHeight={300}
 				/>
