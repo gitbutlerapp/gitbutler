@@ -1,12 +1,20 @@
+use std::collections::HashMap;
+
 use anyhow::{Context, Result};
+use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_project::Project;
-use gitbutler_stack::StackId;
-use gitbutler_stack_api::{PatchReferenceUpdate, StackExt};
+use gitbutler_stack::{Stack, StackId, Target};
+use gitbutler_stack_api::{commit_by_oid_or_change_id, PatchReferenceUpdate, StackExt};
 use serde::{Deserialize, Serialize};
 
-use crate::{actions::open_with_verify, VirtualBranchesExt};
+use crate::{
+    actions::open_with_verify,
+    commit::{commit_to_vbranch_commit, VirtualBranchCommit},
+    r#virtual::{CommitData, IsCommitIntegrated, PatchSeries},
+    VirtualBranchesExt,
+};
 use gitbutler_operating_modes::assure_open_workspace_mode;
 
 /// Adds a new "series/branch" to the Stack.
@@ -138,4 +146,111 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
         stack.push_series(ctx, series.head.name, with_force)?;
     }
     Ok(())
+}
+
+/// Returns the stack series for the API.
+/// Newest first, oldest last in the list
+pub(crate) fn stack_series(
+    ctx: &CommandContext,
+    branch: &mut Stack,
+    default_target: &Target,
+    check_commit: &IsCommitIntegrated,
+    remote_commit_data: HashMap<CommitData, git2::Oid>,
+) -> Result<(Vec<PatchSeries>, bool)> {
+    let mut requires_force = false;
+    let mut api_series: Vec<PatchSeries> = vec![];
+    let stack_series = branch.list_series(ctx)?;
+    let merge_base = ctx
+        .repository()
+        .merge_base(branch.head(), default_target.sha)?;
+    for series in stack_series.clone() {
+        let upstream_reference = default_target.push_remote_name.as_ref().and_then(|remote| {
+            if series.head.pushed(remote.as_str(), ctx).ok()? {
+                series.head.remote_reference(remote.as_str()).ok()
+            } else {
+                None
+            }
+        });
+        let mut patches: Vec<VirtualBranchCommit> = vec![];
+        for patch in series.clone().local_commits {
+            let commit =
+                commit_by_oid_or_change_id(&patch, ctx.repository(), branch.head(), merge_base)?;
+            let is_integrated = check_commit.is_integrated(&commit)?;
+            let copied_from_remote_id = CommitData::try_from(&commit)
+                .ok()
+                .and_then(|data| remote_commit_data.get(&data).copied());
+            let remote_commit_id = commit
+                .change_id()
+                .and_then(|change_id| {
+                    series
+                        .remote_commit_ids_by_change_id
+                        .get(&change_id)
+                        .cloned()
+                })
+                .or(copied_from_remote_id)
+                .or(if series.remote(&patch) {
+                    Some(commit.id())
+                } else {
+                    None
+                });
+            if remote_commit_id.map_or(false, |id| commit.id() != id) {
+                requires_force = true;
+            }
+            let vcommit = commit_to_vbranch_commit(
+                ctx,
+                branch,
+                &commit,
+                is_integrated,
+                series.remote(&patch),
+                copied_from_remote_id,
+                remote_commit_id,
+            )?;
+            patches.push(vcommit);
+        }
+        patches.reverse();
+        let mut upstream_patches = vec![];
+        if let Some(upstream_reference) = upstream_reference.clone() {
+            let remote_head = ctx
+                .repository()
+                .find_reference(&upstream_reference)?
+                .peel_to_commit()?;
+            for patch in series.upstream_only_commits {
+                if let Ok(commit) = commit_by_oid_or_change_id(
+                    &patch,
+                    ctx.repository(),
+                    remote_head.id(),
+                    merge_base,
+                ) {
+                    let is_integrated = check_commit.is_integrated(&commit)?;
+                    let vcommit = commit_to_vbranch_commit(
+                        ctx,
+                        branch,
+                        &commit,
+                        is_integrated,
+                        true, // per definition
+                        None, // per definition
+                        Some(commit.id()),
+                    )?;
+                    upstream_patches.push(vcommit);
+                };
+            }
+        }
+        upstream_patches.reverse();
+        api_series.push(PatchSeries {
+            name: series.head.name,
+            description: series.head.description,
+            upstream_reference,
+            patches,
+            upstream_patches,
+        });
+    }
+    api_series.reverse();
+
+    // This is done for compatibility with the legacy flow.
+    // After a couple of weeks we can get rid of this.
+    if let Err(e) = branch.set_legacy_compatible_stack_reference(ctx) {
+        tracing::warn!("failed to set legacy compatible stack reference: {:?}", e);
+    }
+
+    Ok((api_series, requires_force))
 }
