@@ -8,9 +8,12 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import StackingSeriesHeaderContextMenu from '$lib/branch/StackingSeriesHeaderContextMenu.svelte';
+	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
+	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
+	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
@@ -61,7 +64,7 @@
 		return false;
 	});
 	const branchType = $derived<CommitStatus | 'localAndShadow'>(
-		hasShadow ? 'localAndShadow' : topPatch?.status ?? 'local'
+		hasShadow ? 'localAndShadow' : (topPatch?.status ?? 'local')
 	);
 	const lineColor = $derived(getColorFromBranchType(branchType));
 
@@ -126,6 +129,9 @@
 			branchController.updateSeriesName(branch.id, currentSeries.name, slugify(message));
 		}
 	}
+
+	const branchDragActionsFactory = getContext(BranchDragActionsFactory);
+	const actions = $derived(branchDragActionsFactory.build($branchStore));
 </script>
 
 <div class="branch-header">
@@ -218,16 +224,26 @@
 		</div>
 	{/if}
 	{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
-		<div class="branch-emptystate">
-			<EmptyStatePlaceholder bottomMargin={10}>
-				{#snippet title()}
-					This is an empty series
-				{/snippet}
-				{#snippet caption()}
-					All your commits will land here
-				{/snippet}
-			</EmptyStatePlaceholder>
-		</div>
+		<Dropzone
+			accepts={actions.acceptSeriesMoveCommit.bind(actions)}
+			ondrop={actions.onSeriesMoveDrop.bind(actions)}
+			fillHeight
+		>
+			<div class="branch-emptystate">
+				<EmptyStatePlaceholder bottomMargin={10}>
+					{#snippet title()}
+						This is an empty series
+					{/snippet}
+					{#snippet caption()}
+						All your commits will land here
+					{/snippet}
+				</EmptyStatePlaceholder>
+			</div>
+
+			{#snippet overlay({ hovered, activated })}
+				<CardOverlay {hovered} {activated} label="Move here" />
+			{/snippet}
+		</Dropzone>
 	{/if}
 
 	{#if $pr}

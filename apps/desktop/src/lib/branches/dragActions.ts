@@ -48,6 +48,16 @@ class BranchDragActions {
 			);
 		}
 	}
+
+	acceptSeriesMoveCommit(data: any) {
+		return data instanceof DraggableCommit && !data.commit.conflicted;
+	}
+
+	// TODO: Ensure this "This is an empty series" dropzone works as intended
+	onSeriesMoveDrop(data: DraggableCommit) {
+		console.log('onSeriesMoveDrop.data', data);
+		this.branchController.reorderCommit(this.branch.id, data.commit.id, -1);
+	}
 }
 
 export class BranchDragActionsFactory {
