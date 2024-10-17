@@ -148,7 +148,13 @@ export interface PatchStackUpdateParams {
 }
 
 export class PatchStacksApiService {
-	constructor(private readonly httpClient: HttpClient) {}
+	readonly canGetPatchStacks: Readable<boolean>;
+	readonly canCreatePatchStack: Readable<boolean>;
+
+	constructor(private readonly httpClient: HttpClient) {
+		this.canGetPatchStacks = httpClient.authenticationAvailable;
+		this.canCreatePatchStack = httpClient.authenticationAvailable;
+	}
 
 	async getPatchStacks(
 		repositoryId: string,
@@ -201,11 +207,16 @@ export class CloudPatchStacksService {
 		private readonly repositoryId: Readable<string | undefined>,
 		private readonly patchStacksApiService: PatchStacksApiService
 	) {
-		this.#apiPatchStacks = writableDerived<ApiPatchStack[], string | undefined>(
-			this.repositoryId,
+		const values = derived(
+			[this.patchStacksApiService.canGetPatchStacks, this.repositoryId],
+			(values) => values
+		);
+
+		this.#apiPatchStacks = writableDerived<ApiPatchStack[], [boolean, string | undefined]>(
+			values,
 			[],
-			(repositoryId, set) => {
-				if (!repositoryId) {
+			([canGetPatchStacks, repositoryId], set) => {
+				if (!repositoryId || !canGetPatchStacks) {
 					set([]);
 					return;
 				}

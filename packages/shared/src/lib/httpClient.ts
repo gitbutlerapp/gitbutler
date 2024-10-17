@@ -1,4 +1,4 @@
-import { get, type Readable } from 'svelte/store';
+import { derived, get, type Readable } from 'svelte/store';
 
 export const DEFAULT_HEADERS = {
 	'Content-Type': 'application/json'
@@ -14,12 +14,21 @@ type RequestOptions = {
 export class HttpClient {
 	readonly apiUrl: URL;
 
+	/**
+	 * Signals whether authentication is available.
+	 *
+	 * It should be noted that the authentication may be present but invalid.
+	 */
+	readonly authenticationAvailable: Readable<boolean>;
+
 	constructor(
 		public fetch = window.fetch,
 		publicApiBaseUrl: string,
 		private token: Readable<string | undefined>
 	) {
 		this.apiUrl = new URL('/api/', publicApiBaseUrl);
+
+		this.authenticationAvailable = derived(token, (token) => !!token);
 	}
 
 	private getApiUrl(path: string) {

@@ -1,4 +1,5 @@
 import { getUserErrorCode, invoke } from '$lib/backend/ipc';
+import { ProjectService, type Project } from '$lib/backend/projects';
 import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import { PatchStackCreationService } from '$lib/branch/patchStackCreationService';
 import { BranchListingService } from '$lib/branches/branchListing';
@@ -22,7 +23,6 @@ import {
 } from '@gitbutler/shared/cloud/stacks/service';
 import { error } from '@sveltejs/kit';
 import { derived } from 'svelte/store';
-import { ProjectService, type Project } from '$lib/backend/projects';
 import type { LayoutLoad } from './$types';
 
 export const prerender = false;
