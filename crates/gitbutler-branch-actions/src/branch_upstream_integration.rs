@@ -6,7 +6,7 @@ use gitbutler_repo::{
     LogUntil, RepositoryExt as _,
 };
 use gitbutler_stack::StackId;
-use gitbutler_stack_api::{commit_by_oid_or_change_id, Series, StackExt};
+use gitbutler_stack_api::{commit_by_oid_or_change_id, StackExt};
 
 use crate::{
     branch_trees::{
@@ -41,90 +41,35 @@ pub fn integrate_upstream_commits_for_series(
     let upstream_reference = subject_series.head.remote_reference(remote.as_str())?;
     let remote_head = repo.find_reference(&upstream_reference)?.peel_to_commit()?;
 
-    let new_stack_head = new_stack_head(
+    let stack_merge_base = repo.merge_base(branch.head(), default_target.sha)?;
+    let series_head = commit_by_oid_or_change_id(
+        &subject_series.head.target,
         repo,
-        branch.allow_rebasing,
-        branch.head(),
         remote_head.id(),
-        default_target.sha,
-        all_series.clone(),
-        subject_series,
+        stack_merge_base,
     )?;
-    // Find what the new head and branch tree should be
-    let BranchHeadAndTree { head, tree } =
-        compute_updated_branch_head_for_commits(repo, branch.head(), branch.tree, new_stack_head)?;
+
+    let do_rebease = branch.allow_rebasing || Some(subject_series) != all_series.first();
+    let integrate_upstream_context = IntegrateUpstreamContext {
+        repository: repo,
+        target_branch_head: default_target.sha,
+        branch_head: branch.head(),
+        branch_tree: branch.tree,
+        branch_name: &subject_series.head.name,
+        remote_head: remote_head.id(),
+        remote_branch_name: &subject_series.head.remote_reference(&remote)?,
+        prefers_merge: !do_rebease,
+    };
+
+    let (BranchHeadAndTree { head, tree }, new_series_head) =
+        integrate_upstream_context.inner_integrate_upstream_commits_for_series(series_head.id())?;
 
     let mut branch = branch.clone();
-
     branch.set_stack_head(ctx, head, Some(tree))?;
     checkout_branch_trees(ctx, perm)?;
+    branch.replace_head(ctx, &series_head, &repo.find_commit(new_series_head)?)?;
     crate::integration::update_workspace_commit(&vb_state, ctx)?;
     Ok(())
-}
-
-fn new_stack_head(
-    repo: &git2::Repository,
-    allow_rebasing: bool,
-    branch_head: git2::Oid,
-    remote_head: git2::Oid,
-    target_head: git2::Oid,
-    all_series: Vec<Series>,
-    subject_series: &Series,
-) -> Result<git2::Oid> {
-    let stack_merge_base = repo.merge_base(branch_head, target_head)?;
-    let upstream_to_local_merge_base = repo.merge_base(branch_head, remote_head)?;
-
-    // Rebasing will be performed if configured.
-    // If the series to integrate is not the latest one, it will also do a rebase.
-    let new_stack_head = if allow_rebasing || Some(subject_series) != all_series.first() {
-        // commits to rebase
-        let mut ordered_commits_to_rebase = vec![];
-        for series in all_series.clone() {
-            // if this is the series that is getting the upstream commits, they are added first
-            if series.head.name == subject_series.head.name {
-                for id in series.upstream_only_commits.iter() {
-                    let commit = commit_by_oid_or_change_id(
-                        id,
-                        repo,
-                        remote_head,
-                        upstream_to_local_merge_base,
-                    )?;
-                    ordered_commits_to_rebase.push(commit.id());
-                }
-            }
-            // now add the existing local commits to the rebase list
-            for id in series.local_commits.iter() {
-                let commit = commit_by_oid_or_change_id(id, repo, branch_head, stack_merge_base)?;
-                ordered_commits_to_rebase.push(commit.id());
-            }
-        }
-        cherry_rebase_group(
-            repo,
-            upstream_to_local_merge_base,
-            &ordered_commits_to_rebase,
-        )?
-    } else {
-        // If rebase is not allowed AND this is the latest series - create a merge commit on top
-        let series_head_commit = commit_by_oid_or_change_id(
-            &subject_series.head.target,
-            repo,
-            branch_head,
-            upstream_to_local_merge_base,
-        )?;
-        let remote_head_commit = repo.find_commit(remote_head)?;
-        let merge_commit = gitbutler_merge_commits(
-            repo,
-            series_head_commit,
-            remote_head_commit,
-            &subject_series.head.name, // for error messages only
-            &subject_series
-                .head
-                .remote_reference(&target_head.to_string())?, // for error messages only
-        )?;
-        // the new merge commit is now the stack and series head
-        merge_commit.id()
-    };
-    Ok(new_stack_head)
 }
 
 /// Integrates upstream work from a remote branch.
@@ -210,6 +155,63 @@ struct IntegrateUpstreamContext<'a, 'b> {
 }
 
 impl IntegrateUpstreamContext<'_, '_> {
+    /// Unlike the `inner_integrate_upstream_commits` method, this will do the rebase in two steps.
+    /// First it will rebase the series head and it's remote commits, then it will rebase any remaining on the stack.
+    fn inner_integrate_upstream_commits_for_series(
+        &self,
+        series_head: git2::Oid,
+    ) -> Result<(BranchHeadAndTree, git2::Oid)> {
+        let (new_stack_head, new_series_head) = if self.prefers_merge {
+            // If rebase is not allowed AND this is the latest series - create a merge commit on top
+            let series_head_commit = self.repository.find_commit(series_head)?;
+            let remote_head_commit = self.repository.find_commit(self.remote_head)?;
+            let merge_commit = gitbutler_merge_commits(
+                self.repository,
+                series_head_commit,
+                remote_head_commit,
+                self.branch_name,        // for error messages only
+                self.remote_branch_name, // for error messages only
+            )?;
+            // the are the same
+            let new_stack_head = merge_commit.id();
+            let new_series_head = merge_commit.id();
+            (new_stack_head, new_series_head)
+        } else {
+            // Get the commits to rebase for the series
+            let OrderCommitsResult {
+                merge_base,
+                ordered_commits,
+            } = order_commits_for_rebasing(
+                self.repository,
+                self.target_branch_head,
+                series_head,
+                self.remote_head,
+            )?;
+            // First rebase the series with it's remote commits
+            let new_series_head =
+                cherry_rebase_group(self.repository, merge_base, &ordered_commits)?;
+            // Get the commits that come after the series head, until the stack head
+            let remaining_ids_to_rebase =
+                self.repository
+                    .l(self.branch_head, LogUntil::Commit(series_head), false)?;
+            // Rebase the remaining commits on top of the new series head in order to get the new stack head
+            (
+                cherry_rebase_group(self.repository, new_series_head, &remaining_ids_to_rebase)?,
+                new_series_head,
+            )
+        };
+        // Find what the new head and branch tree should be
+        Ok((
+            compute_updated_branch_head_for_commits(
+                self.repository,
+                self.branch_head,
+                self.branch_tree,
+                new_stack_head,
+            )?,
+            new_series_head,
+        ))
+    }
+
     fn inner_integrate_upstream_commits(&self) -> Result<BranchHeadAndTree> {
         // Find the new branch head after integrating the upstream commits
         let new_head = if self.prefers_merge {
