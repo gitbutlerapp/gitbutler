@@ -9,3 +9,5 @@ publish = false
 anyhow = "1.0.86"
 serde = { workspace = true, features = ["std"] }
 gitbutler-command-context.workspace = true
+gitbutler-commit.workspace = true
+git2.workspace = true

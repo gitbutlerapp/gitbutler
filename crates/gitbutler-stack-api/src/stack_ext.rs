@@ -30,8 +30,8 @@ use std::collections::HashMap;
 ///
 /// An initialized Stack must:
 /// - have at least one head (branch)
-/// - include only referecences that are part of the stack
-/// - always have it's commits under a reference i.e. no orphaned commits
+/// - include only references that are part of the stack
+/// - always have its commits under a reference i.e. no orphaned commits
 pub trait StackExt {
     // TODO: When this is stable, make it error out on initialization failure
     /// Constructs and initializes a new Stack.
@@ -69,7 +69,7 @@ pub trait StackExt {
     ///
     /// When creating heads, it is possible to have multiple heads that point to the same patch/commit.
     /// If this is the case, the order can be disambiguated by specifying the `preceding_head`.
-    /// If there are multiple heads pointing to the same patch and `preceding_head` is not spcified,
+    /// If there are multiple heads pointing to the same patch and `preceding_head` is not specified,
     /// that means the new head will be first in order for that patch.
     /// The argument `preceding_head` is only used if there are multiple heads that point to the same patch, otherwise it is ignored.
     ///
@@ -81,7 +81,7 @@ pub trait StackExt {
         preceding_head_name: Option<String>,
     ) -> Result<()>;
 
-    /// A convinience method just like `add_series`, but adds a new branch on top of the stack.
+    /// A convenience method just like `add_series`, but adds a new branch on top of the stack.
     fn add_series_top_of_stack(
         &mut self,
         ctx: &CommandContext,
@@ -90,9 +90,9 @@ pub trait StackExt {
     ) -> Result<()>;
 
     /// Removes a branch from the Stack.
-    /// The very last branch (reference) cannot be removed (A Stack must always contains at least one reference)
+    /// The very last branch (reference) cannot be removed (A Stack must always contain at least one reference)
     /// If there were commits/changes that were *only* referenced by the removed branch,
-    /// those commits are moved to the branch underneath it (or more accurately, the precee)
+    /// those commits are moved to the branch underneath it (or more accurately, the preceding it)
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
     fn remove_series(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()>;
@@ -132,7 +132,7 @@ pub trait StackExt {
 
     /// Returns a list of all branches/series in the stack.
     /// This operation will compute the current list of local and remote commits that belong to each series.
-    /// The first entry is the newest in the Stack (i.e the top of the stack).
+    /// The first entry is the newest in the Stack (i.e. the top of the stack).
     fn list_series(&self, ctx: &CommandContext) -> Result<Vec<Series>>;
 
     /// Updates all heads in the stack that point to the `from` commit to point to the `to` commit.
@@ -142,9 +142,9 @@ pub trait StackExt {
     /// In the case that the `from` commit is the head of the stack, this operation delegates to `set_stack_head`.
     ///
     /// Every time a commit/patch is moved / removed / updated, this method needs to be invoked to maintain the integrity of the stack.
-    /// Typically in this case the `to` Commit would be `from`'s parent.
+    /// Typically, in this case the `to` Commit would be `from`'s parent.
     ///
-    /// The `to` commit must be between the Stack head and it's merge base otherwise this operation will error out.
+    /// The `to` commit must be between the Stack head, and it's merge base otherwise this operation will error out.
     fn replace_head(
         &mut self,
         ctx: &CommandContext,
@@ -175,12 +175,12 @@ pub struct TargetUpdate {
     pub preceding_head: Option<PatchReference>,
 }
 
-/// A Stack implementation for gitbutler_branch::Branch
+/// A Stack implementation for `gitbutler_branch::Branch`
 /// This operates via a list of PatchReferences (heads) that are an attribute of gitbutler_branch::Branch.
 /// In this context a (virtual) "Branch" is a stack of PatchReferences, each pointing to a commit (or change) within the stack.
 ///
 /// This trait provides a defined interface for interacting with a Stack, the field `heads` on `Branch` should never be modified directly
-/// outside of the trait implementation.
+/// outside the trait implementation.
 ///
 /// The heads must always be sorted in accordance with the order of the patches in the stack.
 /// The first patches are in the beginning of the list and the most recent patches are at the end of the list (top of the stack)
@@ -229,11 +229,7 @@ impl StackExt for Stack {
         }
         let commit = ctx.repository().find_commit(self.head())?;
         let mut reference = PatchReference {
-            target: if let Some(change_id) = commit.change_id() {
-                CommitOrChangeId::ChangeId(change_id.to_string())
-            } else {
-                CommitOrChangeId::CommitId(commit.id().to_string())
-            },
+            target: commit.into(),
             name: if let Some(refname) = self.upstream.as_ref() {
                 refname.branch().to_string()
             } else {
@@ -315,39 +311,6 @@ impl StackExt for Stack {
         state.set_branch(self.clone())
     }
 
-    fn set_stack_head(
-        &mut self,
-        ctx: &CommandContext,
-        commit_id: git2::Oid,
-        tree: Option<git2::Oid>,
-    ) -> Result<()> {
-        if !self.initialized() {
-            return Err(anyhow!("Stack has not been initialized"));
-        }
-        self.updated_timestamp_ms = gitbutler_time::time::now_ms();
-        #[allow(deprecated)] // this is the only place where this is allowed
-        self.set_head(commit_id);
-        if let Some(tree) = tree {
-            self.tree = tree;
-        }
-        let commit = ctx.repository().find_commit(commit_id)?;
-        let patch = if let Some(change_id) = commit.change_id() {
-            CommitOrChangeId::ChangeId(change_id.to_string())
-        } else {
-            CommitOrChangeId::CommitId(commit.id().to_string())
-        };
-
-        let state = branch_state(ctx);
-        let stack_head = self.head();
-        let head = self
-            .heads
-            .last_mut()
-            .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
-        head.target = patch.clone();
-        validate_target(head, ctx.repository(), stack_head, &state)?;
-        state.set_branch(self.clone())
-    }
-
     fn update_series(
         &mut self,
         ctx: &CommandContext,
@@ -421,6 +384,35 @@ impl StackExt for Stack {
         state.set_branch(self.clone())
     }
 
+    fn set_stack_head(
+        &mut self,
+        ctx: &CommandContext,
+        commit_id: git2::Oid,
+        tree: Option<git2::Oid>,
+    ) -> Result<()> {
+        if !self.initialized() {
+            return Err(anyhow!("Stack has not been initialized"));
+        }
+        self.updated_timestamp_ms = gitbutler_time::time::now_ms();
+        #[allow(deprecated)] // this is the only place where this is allowed
+        self.set_head(commit_id);
+        if let Some(tree) = tree {
+            self.tree = tree;
+        }
+        let commit = ctx.repository().find_commit(commit_id)?;
+        // let patch: CommitOrChangeId = commit.into();
+
+        let state = branch_state(ctx);
+        let stack_head = self.head();
+        let head = self
+            .heads
+            .last_mut()
+            .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
+        head.target = commit.into();
+        validate_target(head, ctx.repository(), stack_head, &state)?;
+        state.set_branch(self.clone())
+    }
+
     fn push_series(
         &self,
         ctx: &CommandContext,
@@ -474,12 +466,9 @@ impl StackExt for Stack {
                 commit_by_oid_or_change_id(&head.target, repo, self.head(), merge_base)?.id();
             let local_patches = repo
                 .log(head_commit, LogUntil::Commit(previous_head), false)?
-                .iter()
+                .into_iter()
                 .rev() // oldest commit first
-                .map(|c| match c.change_id() {
-                    Some(change_id) => CommitOrChangeId::ChangeId(change_id.to_string()),
-                    None => CommitOrChangeId::CommitId(c.id().to_string()),
-                })
+                .map(|c| c.into())
                 .collect_vec();
 
             let mut remote_patches: Vec<CommitOrChangeId> = vec![];
@@ -491,17 +480,14 @@ impl StackExt for Stack {
                         .peel_to_commit()?;
                     let merge_base = repo.merge_base(head_commit.id(), default_target.sha)?;
                     repo.log(head_commit.id(), LogUntil::Commit(merge_base), false)?
-                        .iter()
+                        .into_iter()
                         .rev()
                         .for_each(|c| {
-                            let commit_or_change_id = match c.change_id() {
-                                Some(change_id) => {
-                                    remote_commit_ids_by_change_id
-                                        .insert(change_id.to_string(), c.id());
-                                    CommitOrChangeId::ChangeId(change_id.to_string())
-                                }
-                                None => CommitOrChangeId::CommitId(c.id().to_string()),
-                            };
+                            if let Some(change_id) = c.change_id() {
+                                remote_commit_ids_by_change_id
+                                    .insert(change_id.to_string(), c.id());
+                            }
+                            let commit_or_change_id: CommitOrChangeId = c.into();
                             remote_patches.push(commit_or_change_id);
                         });
                 }
@@ -510,12 +496,9 @@ impl StackExt for Stack {
             // compute the commits that are only in the upstream
             let local_patches_including_merge = repo
                 .log(head_commit, LogUntil::Commit(merge_base), true)?
-                .iter()
+                .into_iter()
                 .rev() // oldest commit first
-                .map(|c| match c.change_id() {
-                    Some(change_id) => CommitOrChangeId::ChangeId(change_id.to_string()),
-                    None => CommitOrChangeId::CommitId(c.id().to_string()),
-                })
+                .map(|c| c.into())
                 .collect_vec();
             let mut upstream_only = vec![];
             for patch in remote_patches.iter() {
@@ -570,12 +553,8 @@ impl StackExt for Stack {
                 self.set_stack_head(ctx, to.id(), None)?;
             } else {
                 // new head target from the 'to' commit
-                let new_target = match to.change_id() {
-                    Some(change_id) => CommitOrChangeId::ChangeId(change_id.to_string()),
-                    None => CommitOrChangeId::CommitId(to.id().to_string()),
-                };
                 let mut new_head = head.clone();
-                new_head.target = new_target;
+                new_head.target = to.clone().into();
                 // validate the updated head
                 validate_target(&new_head, ctx.repository(), self.head(), &state)?;
                 // add it to the list of updated heads
@@ -637,8 +616,8 @@ impl StackExt for Stack {
 ///  - exists
 ///  - is between the stack (formerly vbranch) head (inclusive) and base (inclusive)
 ///
-/// If the patch reference is a commit ID, it must be the case that the the commit has no change ID associated with it.
-/// In other words, change IDs are enforeced to be preferred over commit IDs when available.
+/// If the patch reference is a commit ID, it must be the case that the commit has no change ID associated with it.
+/// In other words, change IDs are enforced to be preferred over commit IDs when available.
 fn validate_target(
     reference: &PatchReference,
     repo: &git2::Repository,
@@ -689,11 +668,8 @@ fn stack_patches(
     let mut patches = ctx
         .repository()
         .log(stack_head, LogUntil::Commit(merge_base), false)?
-        .iter()
-        .map(|c| match c.change_id() {
-            Some(change_id) => CommitOrChangeId::ChangeId(change_id.to_string()),
-            None => CommitOrChangeId::CommitId(c.id().to_string()),
-        })
+        .into_iter()
+        .map(|c| c.into())
         .collect_vec();
     if include_merge_base {
         patches.push(CommitOrChangeId::CommitId(merge_base.to_string()));
@@ -760,7 +736,7 @@ fn commit_by_branch_id_and_change_id<'a>(
     stack_head: git2::Oid, // branch.head
     merge_base: git2::Oid,
     change_id: &str,
-) -> Result<git2::Commit<'a>> {
+) -> Result<Commit<'a>> {
     let commits = if stack_head == merge_base {
         vec![repo.find_commit(stack_head)?]
     } else {
@@ -787,7 +763,7 @@ pub fn commit_by_oid_or_change_id<'a>(
     repo: &'a git2::Repository,
     stack_head: git2::Oid,
     merge_base: git2::Oid,
-) -> Result<git2::Commit<'a>> {
+) -> Result<Commit<'a>> {
     Ok(match reference_target {
         CommitOrChangeId::CommitId(commit_id) => repo.find_commit(commit_id.parse()?)?,
         CommitOrChangeId::ChangeId(change_id) => {

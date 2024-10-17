@@ -2450,7 +2450,9 @@ name = "gitbutler-patch-reference"
 version = "0.0.0"
 dependencies = [
  "anyhow",
+ "git2",
  "gitbutler-command-context",
+ "gitbutler-commit",
  "serde",
 ]
 
