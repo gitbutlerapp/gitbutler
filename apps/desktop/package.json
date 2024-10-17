@@ -38,7 +38,7 @@
 		"@lezer/highlight": "^1.2.0",
 		"@octokit/rest": "^20.1.1",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
-		"@sentry/sveltekit": "^8.9.2",
+		"@sentry/sveltekit": "catalog:",
 		"@sveltejs/adapter-static": "catalog:svelte",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
