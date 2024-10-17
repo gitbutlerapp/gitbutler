@@ -58,6 +58,7 @@ interface SummarizeCommitOpts extends BaseAIServiceOpts {
 	useEmojiStyle?: boolean;
 	useBriefStyle?: boolean;
 	commitTemplate?: Prompt;
+	branchName?: string;
 }
 
 interface SummarizeBranchOpts extends BaseAIServiceOpts {
@@ -267,7 +268,8 @@ export class AIService {
 		useEmojiStyle = false,
 		useBriefStyle = false,
 		commitTemplate,
-		onToken
+		onToken,
+		branchName
 	}: SummarizeCommitOpts): Promise<Result<string, Error>> {
 		const aiClientResult = await this.buildClient();
 		if (isFailure(aiClientResult)) return aiClientResult;
@@ -292,6 +294,10 @@ export class AIService {
 				? 'Make use of GitMoji in the title prefix.'
 				: "Don't use any emoji.";
 			content = content.replaceAll('%{emoji_style}', emojiPart);
+
+			if (branchName) {
+				content = content.replaceAll('%{branch_name}', branchName);
+			}
 
 			return {
 				role: MessageRole.User,

@@ -89,7 +89,8 @@
 			hunks,
 			useEmojiStyle: $commitGenerationUseEmojis,
 			useBriefStyle: $commitGenerationExtraConcise,
-			commitTemplate: prompt
+			commitTemplate: prompt,
+			branchName: $branch.name
 		});
 
 		if (isFailure(generatedMessageResult)) {
