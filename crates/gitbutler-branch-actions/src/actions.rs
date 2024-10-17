@@ -169,7 +169,11 @@ pub fn push_base_branch(project: &Project, with_force: bool) -> Result<()> {
     base::push(&ctx, with_force)
 }
 
-pub fn integrate_upstream_commits(project: &Project, branch_id: StackId) -> Result<()> {
+pub fn integrate_upstream_commits(
+    project: &Project,
+    branch_id: StackId,
+    series_name: Option<String>,
+) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx)
         .context("Integrating upstream commits requires open workspace mode")?;
@@ -178,11 +182,20 @@ pub fn integrate_upstream_commits(project: &Project, branch_id: StackId) -> Resu
         SnapshotDetails::new(OperationKind::MergeUpstream),
         guard.write_permission(),
     );
-    branch_upstream_integration::integrate_upstream_commits(
-        &ctx,
-        branch_id,
-        guard.write_permission(),
-    )
+    if let Some(series_name) = series_name {
+        branch_upstream_integration::integrate_upstream_commits_for_series(
+            &ctx,
+            branch_id,
+            guard.write_permission(),
+            series_name,
+        )
+    } else {
+        branch_upstream_integration::integrate_upstream_commits(
+            &ctx,
+            branch_id,
+            guard.write_permission(),
+        )
+    }
     .map_err(Into::into)
 }
 

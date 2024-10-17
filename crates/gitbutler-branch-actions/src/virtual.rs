@@ -492,6 +492,9 @@ fn stack_series(
     let mut requires_force = false;
     let mut api_series: Vec<PatchSeries> = vec![];
     let stack_series = branch.list_series(ctx)?;
+    let merge_base = ctx
+        .repository()
+        .merge_base(branch.head(), default_target.sha)?;
     for series in stack_series.clone() {
         let upstream_reference = default_target.push_remote_name.as_ref().and_then(|remote| {
             if series.head.pushed(remote.as_str(), ctx).ok()? {
@@ -502,7 +505,8 @@ fn stack_series(
         });
         let mut patches: Vec<VirtualBranchCommit> = vec![];
         for patch in series.clone().local_commits {
-            let commit = commit_by_oid_or_change_id(&patch, ctx, branch.head(), default_target)?;
+            let commit =
+                commit_by_oid_or_change_id(&patch, ctx.repository(), branch.head(), merge_base)?;
             let is_integrated = check_commit.is_integrated(&commit)?;
             let copied_from_remote_id = CommitData::try_from(&commit)
                 .ok()
@@ -543,9 +547,12 @@ fn stack_series(
                 .find_reference(&upstream_reference)?
                 .peel_to_commit()?;
             for patch in series.upstream_only_commits {
-                if let Ok(commit) =
-                    commit_by_oid_or_change_id(&patch, ctx, remote_head.id(), default_target)
-                {
+                if let Ok(commit) = commit_by_oid_or_change_id(
+                    &patch,
+                    ctx.repository(),
+                    remote_head.id(),
+                    merge_base,
+                ) {
                     let is_integrated = check_commit.is_integrated(&commit)?;
                     let vcommit = commit_to_vbranch_commit(
                         ctx,

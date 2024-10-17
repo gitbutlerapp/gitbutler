@@ -24,6 +24,7 @@
 	interface Props {
 		remoteOnlyPatches: DetailedCommit[];
 		patches: DetailedCommit[];
+		seriesName: string;
 		isUnapplied: boolean;
 		pushButton?: Snippet<[{ disabled: boolean }]>;
 		localCommitsConflicted: boolean;
@@ -34,6 +35,7 @@
 	const {
 		remoteOnlyPatches,
 		patches,
+		seriesName,
 		isUnapplied,
 		pushButton,
 		localAndRemoteCommitsConflicted,
@@ -117,7 +119,7 @@
 						onclick={async () => {
 							isIntegratingCommits = true;
 							try {
-								await branchController.mergeUpstream($branch.id);
+								await branchController.mergeUpstreamForSeries($branch.id, seriesName);
 							} catch (e) {
 								console.error(e);
 							} finally {
