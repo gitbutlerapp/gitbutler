@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { invoke } from '$lib/backend/ipc';
-	import { ProjectService } from '$lib/backend/projects';
+	import { ProjectsService } from '$lib/backend/projects';
 	import Section from '$lib/settings/Section.svelte';
 	import InfoMessage, { type MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
@@ -17,7 +17,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 
 	let loading = $state(false);
 	let errors = $state<{ label: string }[]>([]);
@@ -74,7 +74,7 @@
 			});
 
 			posthog.capture('Repository Cloned', { protocol: remoteUrl.protocol });
-			await projectService.addProject(targetDir);
+			await projectsService.addProject(targetDir);
 		} catch (e) {
 			Sentry.captureException(e);
 			posthog.capture('Repository Clone Failure', { error: String(e) });

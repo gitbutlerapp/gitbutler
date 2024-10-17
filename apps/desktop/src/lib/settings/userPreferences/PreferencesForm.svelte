@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { Project, ProjectsService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import Section from '$lib/settings/Section.svelte';
@@ -7,7 +7,7 @@
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 	const project = getContext(Project);
 
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
@@ -19,22 +19,22 @@
 
 	async function setWithForcePush(value: boolean) {
 		project.ok_with_force_push = value;
-		await projectService.updateProject(project);
+		await projectsService.updateProject(project);
 	}
 
 	async function setOmitCertificateCheck(value: boolean | undefined) {
 		project.omit_certificate_check = !!value;
-		await projectService.updateProject(project);
+		await projectsService.updateProject(project);
 	}
 
 	async function setSnapshotLinesThreshold(value: number) {
 		project.snapshot_lines_threshold = value;
-		await projectService.updateProject(project);
+		await projectsService.updateProject(project);
 	}
 
 	async function setUseNewLocking(value: boolean) {
 		project.use_new_locking = value;
-		await projectService.updateProject(project);
+		await projectsService.updateProject(project);
 	}
 
 	$: setUseNewLocking(useNewLocking);

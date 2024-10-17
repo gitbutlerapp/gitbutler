@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ProjectService } from '$lib/backend/projects';
+	import { ProjectsService } from '$lib/backend/projects';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -24,8 +24,8 @@
 
 	const { target, isNavCollapsed }: ProjectsPopupProps = $props();
 
-	const projectService = getContext(ProjectService);
-	const projects = projectService.projects;
+	const projectsService = getContext(ProjectsService);
+	const projects = projectsService.projects;
 
 	let inputBoundingRect: DOMRect | undefined = $state();
 	let optionsEl: HTMLDivElement | undefined = $state();
@@ -117,7 +117,7 @@
 								icon: selected ? 'tick' : undefined,
 								onclick: async (event: any) => {
 									if (event.altKey) {
-										await projectService.openProjectInNewWindow(project.id);
+										await projectsService.openProjectInNewWindow(project.id);
 									} else {
 										goto(`/${project.id}/`);
 									}
@@ -136,7 +136,7 @@
 					onclick: async () => {
 						newProjectLoading = true;
 						try {
-							await projectService.addProject();
+							await projectsService.addProject();
 						} finally {
 							newProjectLoading = false;
 							hide();

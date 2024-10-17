@@ -7,8 +7,8 @@
 	import { AIService } from '$lib/ai/service';
 	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
-	import { invoke } from '$lib/backend/ipc';
-	import { ProjectService } from '$lib/backend/projects';
+	import { CommandService, invoke } from '$lib/backend/ipc';
+	import { ProjectsService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
 	import GlobalSettingsMenuAction from '$lib/barmenuActions/GlobalSettingsMenuAction.svelte';
@@ -50,8 +50,9 @@
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
+	setContext(CommandService, data.commandService);
 	setContext(UserService, data.userService);
-	setContext(ProjectService, data.projectService);
+	setContext(ProjectsService, data.projectsService);
 	setContext(UpdaterService, data.updaterService);
 	setContext(GitConfigService, data.gitConfig);
 	setContext(AIService, data.aiService);

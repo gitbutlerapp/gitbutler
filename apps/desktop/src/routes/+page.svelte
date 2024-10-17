@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { ProjectService } from '$lib/backend/projects';
+	import { ProjectsService } from '$lib/backend/projects';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { derived } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 
-	const projects = projectService.projects;
+	const projects = projectsService.projects;
 
 	$: debug = $page.url.searchParams.get('debug');
 
-	const persistedId = projectService.getLastOpenedProject();
+	const persistedId = projectsService.getLastOpenedProject();
 	const redirect = derived(projects, (projects) => {
 		if (debug || !projects) return null;
 		const projectId = projects.find((p) => p.id === persistedId)?.id;
