@@ -65,7 +65,7 @@ pub trait OplogExt {
         snapshot_tree_id: git2::Oid,
         details: SnapshotDetails,
         perm: &mut WorktreeWritePermission,
-    ) -> Result<Option<git2::Oid>>;
+    ) -> Result<git2::Oid>;
 
     /// Creates a snapshot of the current state of the working directory as well as GitButler data.
     /// This is a convenience method that combines [`prepare_snapshot`](Self::prepare_snapshot) and
@@ -79,7 +79,7 @@ pub trait OplogExt {
         &self,
         details: SnapshotDetails,
         perm: &mut WorktreeWritePermission,
-    ) -> Result<Option<git2::Oid>>;
+    ) -> Result<git2::Oid>;
 
     /// Lists the snapshots that have been created for the given repository, up to the given limit,
     /// and with the most recent snapshot first, and at the end of the vec.
@@ -108,7 +108,7 @@ pub trait OplogExt {
     ///
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
     /// Returns the sha of the created revert snapshot commit or None if snapshots are disabled.
-    fn restore_snapshot(&self, snapshot_commit_id: git2::Oid) -> Result<Option<git2::Oid>>;
+    fn restore_snapshot(&self, snapshot_commit_id: git2::Oid) -> Result<git2::Oid>;
 
     /// Determines if a new snapshot should be created due to file changes being created since the last snapshot.
     /// The needs for the automatic snapshotting are:
@@ -145,7 +145,7 @@ impl OplogExt for Project {
         snapshot_tree_id: git2::Oid,
         details: SnapshotDetails,
         perm: &mut WorktreeWritePermission,
-    ) -> Result<Option<git2::Oid>> {
+    ) -> Result<git2::Oid> {
         commit_snapshot(self, snapshot_tree_id, details, perm)
     }
 
@@ -154,7 +154,7 @@ impl OplogExt for Project {
         &self,
         details: SnapshotDetails,
         perm: &mut WorktreeWritePermission,
-    ) -> Result<Option<git2::Oid>> {
+    ) -> Result<git2::Oid> {
         let tree_id = prepare_snapshot(self, perm.read_permission())?;
         commit_snapshot(self, tree_id, details, perm)
     }
@@ -258,7 +258,7 @@ impl OplogExt for Project {
         Ok(snapshots)
     }
 
-    fn restore_snapshot(&self, snapshot_commit_id: git2::Oid) -> Result<Option<git2::Oid>> {
+    fn restore_snapshot(&self, snapshot_commit_id: git2::Oid) -> Result<git2::Oid> {
         let mut guard = self.exclusive_worktree_access();
         restore_snapshot(self, snapshot_commit_id, guard.write_permission())
     }
@@ -450,7 +450,7 @@ fn commit_snapshot(
     snapshot_tree_id: git2::Oid,
     details: SnapshotDetails,
     _exclusive_access: &mut WorktreeWritePermission,
-) -> Result<Option<git2::Oid>> {
+) -> Result<git2::Oid> {
     let repo = git2::Repository::open(ctx.path.as_path())?;
     let snapshot_tree = repo.find_tree(snapshot_tree_id)?;
 
@@ -481,14 +481,14 @@ fn commit_snapshot(
     let target_commit_id = vb_state.get_default_target()?.sha;
     set_reference_to_oplog(&ctx.path, target_commit_id, snapshot_commit_id)?;
 
-    Ok(Some(snapshot_commit_id))
+    Ok(snapshot_commit_id)
 }
 
 fn restore_snapshot(
     ctx: &Project,
     snapshot_commit_id: git2::Oid,
     exclusive_access: &mut WorktreeWritePermission,
-) -> Result<Option<git2::Oid>> {
+) -> Result<git2::Oid> {
     let worktree_dir = ctx.path.as_path();
     let repo = git2::Repository::open(worktree_dir)?;
 

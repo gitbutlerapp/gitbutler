@@ -164,8 +164,11 @@ export class PatchStacksApiService {
 		repositoryId: string,
 		params: PatchStackCreationParams
 	): Promise<ApiPatchStack> {
-		return await this.httpClient.post<ApiPatchStack>(`patch_stack/${repositoryId}`, {
-			body: params
+		return await this.httpClient.post<ApiPatchStack>(`patch_stack`, {
+			body: {
+				...params,
+				project_id: repositoryId
+			}
 		});
 	}
 
@@ -188,8 +191,11 @@ const MINUTES_15 = 15 * 60 * 1000;
  * operations on a patch stack have been performed, or every 15 minutes.
  */
 export class CloudPatchStacksService {
+	/** Whether a patch stack can be created given the current internal state of the patch stack service */
+	canCreatePatchStack: Readable<boolean>;
+
 	#apiPatchStacks: Writable<ApiPatchStack[]>;
-	#patchStacks;
+	#patchStacks: Readable<CloudPatchStack[]>;
 
 	constructor(
 		private readonly repositoryId: Readable<string | undefined>,
@@ -226,11 +232,30 @@ export class CloudPatchStacksService {
 		this.#patchStacks = derived(this.#apiPatchStacks, (apiPatchStacks) => {
 			return apiPatchStacks.map((apiPatchStack) => new CloudPatchStack(apiPatchStack));
 		});
+
+		this.canCreatePatchStack = derived(this.repositoryId, (repositoryId) => !!repositoryId);
 	}
 
 	/** An unordered list of patch stacks for a given repository */
 	get patchStacks(): Readable<CloudPatchStack[]> {
 		return this.#patchStacks;
+	}
+
+	async createPatchStack(branchId: string, oplogSha: string): Promise<CloudPatchStack> {
+		const repositoryId = get(this.repositoryId);
+		if (!repositoryId) throw new Error('Repository ID is not set');
+
+		const apiPatchStack = await this.patchStacksApiService.createPatchStack(repositoryId, {
+			branch_id: branchId,
+			oplog_sha: oplogSha
+		});
+
+		// TODO(CTO): Determine whether updating like this is preferable to
+		// doing a full refresh.
+		// A full refresh will ensure consistency, but will be more expensive.
+		this.#apiPatchStacks.update((apiPatchStacks) => [...apiPatchStacks, apiPatchStack]);
+
+		return new CloudPatchStack(apiPatchStack);
 	}
 
 	/** Refresh the list of patch stacks */

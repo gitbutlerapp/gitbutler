@@ -3,6 +3,7 @@ import { AIService } from '$lib/ai/service';
 import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { AuthService } from '$lib/backend/auth';
 import { GitConfigService } from '$lib/backend/gitConfigService';
+import { CommandService } from '$lib/backend/ipc';
 import { ProjectService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
 import { Tauri } from '$lib/backend/tauri';
@@ -33,6 +34,8 @@ export const load: LayoutLoad = async () => {
 	// https://github.com/sveltejs/kit/issues/905
 	const defaultPath = await (await import('@tauri-apps/api/path')).homeDir();
 
+	const commandService = new CommandService();
+
 	const tokenMemoryService = new TokenMemoryService();
 	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
 	const authService = new AuthService();
@@ -52,6 +55,7 @@ export const load: LayoutLoad = async () => {
 	const stackingLineManagerFactory = new StackingLineManagerFactory();
 
 	return {
+		commandService,
 		tokenMemoryService,
 		authService,
 		cloud: httpClient,

@@ -3,6 +3,7 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import DefaultTargetButton from './DefaultTargetButton.svelte';
+	import { PatchStackCreationService } from '$lib/branch/patchStackCreationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
@@ -11,6 +12,7 @@
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
+	import { CloudPatchStacksService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -30,6 +32,13 @@
 	const prMonitor = getGitHostPrMonitor();
 	const checksMonitor = getGitHostChecksMonitor();
 	const gitHost = getGitHost();
+
+	const patchStackCreationService = getContext(PatchStackCreationService);
+	const cloudPatchStacksService = getContext(CloudPatchStacksService);
+	const patchStacks = cloudPatchStacksService.patchStacks;
+	const hasPatchStackForThisBranch = $derived(
+		$patchStacks.some((patchStack) => patchStack.branchId === branch.id)
+	);
 
 	const branch = $derived($branchStore);
 	const pr = $derived($prMonitor?.pr);
@@ -168,6 +177,16 @@
 
 				<div class="relative">
 					<div class="header__buttons">
+						{#if patchStackCreationService.canCreatePatchStack && !hasPatchStackForThisBranch}
+							<Button
+								style="ghost"
+								outline
+								disabled={branch.commits.length === 0}
+								onclick={() => {
+									patchStackCreationService.createPatchStack(branch.id);
+								}}>Create PS</Button
+							>
+						{/if}
 						{#if !$pr}
 							<Button
 								style="ghost"

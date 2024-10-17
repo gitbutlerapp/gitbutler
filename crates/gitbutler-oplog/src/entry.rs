@@ -156,6 +156,7 @@ pub enum OperationKind {
     MoveCommitFile,
     FileChanges,
     EnterEditMode,
+    SyncWorkspace,
     #[default]
     Unknown,
 }

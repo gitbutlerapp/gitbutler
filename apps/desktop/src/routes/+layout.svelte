@@ -7,7 +7,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
-	import { invoke } from '$lib/backend/ipc';
+	import { CommandService, invoke } from '$lib/backend/ipc';
 	import { ProjectService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
@@ -50,6 +50,7 @@
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
+	setContext(CommandService, data.commandService);
 	setContext(UserService, data.userService);
 	setContext(ProjectService, data.projectService);
 	setContext(UpdaterService, data.updaterService);

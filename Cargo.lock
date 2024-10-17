@@ -2657,6 +2657,7 @@ dependencies = [
  "gitbutler-secret",
  "gitbutler-stack",
  "gitbutler-storage",
+ "gitbutler-sync",
  "gitbutler-testsupport",
  "gitbutler-user",
  "gitbutler-watcher",

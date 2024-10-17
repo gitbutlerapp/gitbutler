@@ -7,7 +7,10 @@ use anyhow::{anyhow, Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Code;
 use gitbutler_id::id::Id;
-use gitbutler_oplog::{/*entry::SnapshotDetails,*/ OplogExt};
+use gitbutler_oplog::{
+    entry::{OperationKind, SnapshotDetails},
+    OplogExt,
+};
 use gitbutler_project as projects;
 use gitbutler_project::{CodePushState, Project};
 use gitbutler_reference::Refname;
@@ -16,10 +19,17 @@ use gitbutler_url::Url;
 use gitbutler_user as users;
 use itertools::Itertools;
 
-// pub fn take_synced_snapshot(project: &Project, user: &users::User) -> Result<git2::Oid> {
-//     let command_context = CommandContext::open(project)?;
-//     project.create_snapshot(SnapshotDetails::new(), perm)
-// }
+pub fn take_synced_snapshot(project: &Project, user: &users::User) -> Result<git2::Oid> {
+    let mut guard = project.exclusive_worktree_access();
+    let command_context = CommandContext::open(project)?;
+    let snapshot = project.create_snapshot(
+        SnapshotDetails::new(OperationKind::SyncWorkspace),
+        guard.write_permission(),
+    )?;
+    push_oplog(&command_context, user)?;
+
+    Ok(snapshot)
+}
 
 /// Pushes the repository to the GitButler remote
 pub fn push_repo(

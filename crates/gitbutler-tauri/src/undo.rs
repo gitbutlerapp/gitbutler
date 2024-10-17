@@ -5,7 +5,7 @@ use gitbutler_diff::FileDiff;
 use gitbutler_oplog::{entry::Snapshot, OplogExt};
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-// use gitbutler_user::User;
+use gitbutler_user::User;
 use tauri::State;
 use tracing::instrument;
 
@@ -52,14 +52,14 @@ pub fn snapshot_diff(
     Ok(diff)
 }
 
-// #[tauri::command(async)]
-// #[instrument(skip(projects), err(Debug))]
-// pub fn take_synced_snapshot(
-//     projects: State<'_, projects::Controller>,
-//     project_id: ProjectId,
-//     user: User,
-// ) -> Result<git2::Oid, Error> {
-//     let project = projects.get(project_id).context("failed to get project")?;
-//     let snapshot_oid = gitbutler_sync::cloud::take_synced_snapshot(&project, &user)?;
-//     Ok(snapshot_oid)
-// }
+#[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
+pub fn take_synced_snapshot(
+    projects: State<'_, projects::Controller>,
+    project_id: ProjectId,
+    user: User,
+) -> Result<String, Error> {
+    let project = projects.get(project_id).context("failed to get project")?;
+    let snapshot_oid = gitbutler_sync::cloud::take_synced_snapshot(&project, &user)?;
+    Ok(snapshot_oid.to_string())
+}

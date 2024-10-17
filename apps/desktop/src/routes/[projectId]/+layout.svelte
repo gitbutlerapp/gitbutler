@@ -20,6 +20,7 @@
 	import { createGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
+	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import { ModeService } from '$lib/modes/service';
 	import Navigation from '$lib/navigation/Navigation.svelte';
@@ -38,6 +39,7 @@
 	import { derived as storeDerived } from 'svelte/store';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
+	import { PatchStackCreationService } from '$lib/branch/patchStackCreationService';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -79,7 +81,11 @@
 		setContext(ModeService, data.modeService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
 		setContext(UpstreamIntegrationService, data.upstreamIntegrationService);
+
+		// Cloud related services
+		setContext(SyncedSnapshotService, data.syncedSnapshotService);
 		setContext(CloudPatchStacksService, data.cloudPatchStacksService);
+		setContext(PatchStackCreationService, data.patchStackCreationService);
 	});
 
 	let intervalId: any;

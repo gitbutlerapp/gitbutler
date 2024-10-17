@@ -7,6 +7,7 @@ import { CommitService } from '$lib/commits/service';
 import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { HistoryService } from '$lib/history/history';
+import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ModeService } from '$lib/modes/service';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -22,12 +23,13 @@ import { error } from '@sveltejs/kit';
 import { derived } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';
 import type { LayoutLoad } from './$types';
+import { PatchStackCreationService } from '$lib/branch/patchStackCreationService';
 
 export const prerender = false;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async ({ params, parent }) => {
-	const { authService, projectService, cloud } = await parent();
+	const { authService, projectService, cloud, commandService, userService } = await parent();
 
 	const projectId = params.projectId;
 	projectService.setLastOpenedProject(projectId);
@@ -88,8 +90,17 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const repositoryId = derived(projectService.getProjectStore(projectId), (project) => {
 		return project?.api?.repository_id;
 	});
+	const syncedSnapshotService = new SyncedSnapshotService(
+		commandService,
+		userService.user,
+		projectService.getProjectStore(projectId)
+	);
 	const patchStacksApiService = new PatchStacksApiService(cloud);
 	const cloudPatchStacksService = new CloudPatchStacksService(repositoryId, patchStacksApiService);
+	const patchStackCreationService = new PatchStackCreationService(
+		syncedSnapshotService,
+		cloudPatchStacksService
+	);
 
 	return {
 		authService,
@@ -105,13 +116,17 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		modeService,
 		fetchSignal,
 		upstreamIntegrationService,
-		cloudPatchStacksService,
 
 		// These observables are provided for convenience
 		branchDragActionsFactory,
 		commitDragActionsFactory,
 		reorderDropzoneManagerFactory,
 		branchListingService,
-		uncommitedFileWatcher
+		uncommitedFileWatcher,
+
+		// Cloud-related services
+		syncedSnapshotService,
+		cloudPatchStacksService,
+		patchStackCreationService
 	};
 };
