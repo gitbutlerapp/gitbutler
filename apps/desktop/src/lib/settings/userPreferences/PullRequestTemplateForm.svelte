@@ -1,5 +1,6 @@
 <script lang="ts">
 	import notFoundSvg from '$lib/assets/empty-state/not-found.svg?raw';
+	import { getAvailableReviewTemplates } from '$lib/backend/forge';
 	import { Project, ProjectsService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
@@ -19,14 +20,14 @@
 	const prService = createGitHostPrServiceStore(undefined);
 	$effect(() => prService.set($gitHost?.prService()));
 
-	let useTemplate = $state(!!project.git_host?.pullRequestTemplatePath);
-	let selectedTemplate = $state(project.git_host?.pullRequestTemplatePath ?? '');
+	let useTemplate = $state(!!project.git_host.reviewTemplatePath);
+	let selectedTemplate = $state(project.git_host.reviewTemplatePath ?? '');
 	let allAvailableTemplates = $state<{ label: string; value: string }[]>([]);
 	let isTemplatesAvailable = $state(false);
 
 	$effect(() => {
-		if (!project.path) return;
-		$prService?.availablePullRequestTemplates(project.path).then((availableTemplates) => {
+		getAvailableReviewTemplates(project.id).then((availableTemplates) => {
+			console.log('availableTemplates', availableTemplates);
 			if (availableTemplates) {
 				allAvailableTemplates = availableTemplates.map((availableTemplate) => {
 					const relativePath = availableTemplate.replace(`${project.path}/`, '');
@@ -43,14 +44,14 @@
 
 	async function setUsePullRequestTemplate(value: boolean) {
 		if (!value) {
-			project.git_host.pullRequestTemplatePath = '';
+			project.git_host.reviewTemplatePath = undefined;
 		}
 		await projectsService.updateProject(project);
 	}
 
 	async function setPullRequestTemplatePath(value: string) {
 		selectedTemplate = value;
-		project.git_host.pullRequestTemplatePath = value;
+		project.git_host.reviewTemplatePath = value;
 		await projectsService.updateProject(project);
 	}
 </script>

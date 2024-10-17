@@ -1,4 +1,5 @@
 import { GitLabBranch } from './gitlabBranch';
+import type { ForgeType } from '$lib/backend/forge';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
 import type { DetailedPullRequest, GitHostArguments } from '../interface/types';
@@ -17,6 +18,7 @@ export const GITLAB_SUB_DOMAIN = 'gitlab'; // For self hosted instance of Gitlab
  * https://github.com/gitbutlerapp/gitbutler/issues/2511
  */
 export class GitLab implements GitHost {
+	readonly type: ForgeType = 'gitlab';
 	private baseUrl: string;
 	private repo: RepoInfo;
 	private baseBranch: string;
@@ -50,11 +52,6 @@ export class GitLab implements GitHost {
 	}
 
 	checksMonitor(_sourceBranch: string) {
-		return undefined;
-	}
-
-	async availablePullRequestTemplates(_path?: string) {
-		// See: https://docs.gitlab.com/ee/user/project/description_templates.html
 		return undefined;
 	}
 

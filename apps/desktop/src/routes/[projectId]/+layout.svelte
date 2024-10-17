@@ -146,6 +146,8 @@
 
 		const ghListService = gitHost?.listService();
 
+		if (gitHost) projectService.setGitHostType(project, gitHost.type);
+
 		listServiceStore.set(ghListService);
 		gitHostStore.set(gitHost);
 	});

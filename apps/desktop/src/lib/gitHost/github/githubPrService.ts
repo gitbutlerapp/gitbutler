@@ -107,18 +107,4 @@ export class GitHubPrService implements GitHostPrService {
 			});
 		}
 	}
-
-	async availablePullRequestTemplates(path: string): Promise<string[] | undefined> {
-		// TODO: Find a workaround to avoid this dynamic import
-		// https://github.com/sveltejs/kit/issues/905
-		const { join } = await import('@tauri-apps/api/path');
-		const targetPath = await join(path, '.github');
-
-		const availableTemplates: string[] | undefined = await invoke(
-			'available_pull_request_templates',
-			{ rootPath: targetPath }
-		);
-
-		return availableTemplates;
-	}
 }

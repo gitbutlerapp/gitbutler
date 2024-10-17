@@ -1,4 +1,5 @@
 import { AzureBranch } from './azureBranch';
+import type { ForgeType } from '$lib/backend/forge';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
 import type { GitHostArguments } from '../interface/types';
@@ -12,6 +13,7 @@ export const AZURE_DOMAIN = 'dev.azure.com';
  * https://github.com/gitbutlerapp/gitbutler/issues/2651
  */
 export class AzureDevOps implements GitHost {
+	readonly type: ForgeType = 'azure';
 	private baseUrl: string;
 	private repo: RepoInfo;
 	private baseBranch: string;
@@ -45,11 +47,6 @@ export class AzureDevOps implements GitHost {
 	}
 
 	checksMonitor(_sourceBranch: string) {
-		return undefined;
-	}
-
-	async availablePullRequestTemplates(_path?: string) {
-		// See: https://learn.microsoft.com/en-us/azure/devops/repos/git/pull-request-templates?view=azure-devops#default-pull-request-templates
 		return undefined;
 	}
 
