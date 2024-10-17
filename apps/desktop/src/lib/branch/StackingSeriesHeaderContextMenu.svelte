@@ -66,23 +66,27 @@
 		<ContextMenuItem
 			disabled
 			label="Add description"
-			on:click={() => {
+			onclick={() => {
 				addDescription();
 				contextMenuEl?.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="Generate series name"
-			on:click={() => {
+			onclick={() => {
 				onGenerateBranchName();
 				contextMenuEl?.close();
 			}}
+			tooltip={!($aiGenEnabled && aiConfigurationValid) || disableTitleEdit
+				? 'Series name change disabled once branch has been pushed'
+				: ''}
 			disabled={!($aiGenEnabled && aiConfigurationValid) || disableTitleEdit}
 		/>
 		<ContextMenuItem
 			label="Rename"
 			disabled={disableTitleEdit}
-			on:click={async () => {
+			tooltip={disableTitleEdit ? 'Series name change disabled once branch has been pushed' : ''}
+			onclick={async () => {
 				renameSeriesModal.show(branch);
 				contextMenuEl?.close();
 			}}
@@ -90,7 +94,10 @@
 		<ContextMenuItem
 			label="Delete"
 			disabled={seriesCount <= 1}
-			on:click={() => {
+			tooltip={seriesCount <= 1
+				? 'Delete disabled if this is the only series. Please use stack delete instead.'
+				: ''}
+			onclick={() => {
 				deleteSeriesModal.show(branch);
 				contextMenuEl?.close();
 			}}
@@ -100,14 +107,14 @@
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="PR details"
-				on:click={() => {
+				onclick={() => {
 					openPrDetailsModal();
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
 				label="Refetch PR status"
-				on:click={() => {
+				onclick={() => {
 					reloadPR();
 					contextMenuEl?.close();
 				}}
