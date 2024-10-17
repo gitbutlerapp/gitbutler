@@ -31,7 +31,7 @@
 			{#each prActions as method}
 				<ContextMenuItem
 					label={PRActionLabels[method]}
-					on:click={() => {
+					onclick={() => {
 						preferredAction.set(method);
 						dropDown?.close();
 					}}
