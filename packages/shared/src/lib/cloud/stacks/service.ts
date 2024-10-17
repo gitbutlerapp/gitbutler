@@ -159,11 +159,20 @@ export class PatchStacksApiService {
 	async getPatchStacks(
 		repositoryId: string,
 		status: CloudPatchStackStatus = CloudPatchStackStatus.All
-	): Promise<ApiPatchStack[]> {
+	): Promise<ApiPatchStack[] | undefined> {
 		// TODO(CTO): Support optional filtering query param `branch_id`
-		return await this.httpClient.get<ApiPatchStack[]>(
-			`patch_stack/${repositoryId}?status=${status}`
-		);
+		try {
+			return await this.httpClient.get<ApiPatchStack[]>(
+				`patch_stack/${repositoryId}?status=${status}`
+			);
+		} catch (e) {
+			// If the internet is down, silently fail
+			if (e instanceof TypeError) {
+				return undefined;
+			} else {
+				throw e;
+			}
+		}
 	}
 
 	async createPatchStack(
@@ -190,6 +199,15 @@ export class PatchStacksApiService {
 
 const MINUTES_15 = 15 * 60 * 1000;
 
+type LoadableOptional<T> =
+	| {
+			state: 'found';
+			value: T;
+	  }
+	| {
+			state: 'uninitialized' | 'not-found';
+	  };
+
 /**
  * Provides a list of patch stacks for a given repository.
  *
@@ -200,8 +218,10 @@ export class CloudPatchStacksService {
 	/** Whether a patch stack can be created given the current internal state of the patch stack service */
 	canCreatePatchStack: Readable<boolean>;
 
-	#apiPatchStacks: Writable<ApiPatchStack[]>;
-	#patchStacks: Readable<CloudPatchStack[]>;
+	#apiPatchStacks: Writable<ApiPatchStack[] | undefined>;
+
+	/** An unordered list of patch stacks for a given repository */
+	readonly patchStacks: Readable<CloudPatchStack[] | undefined>;
 
 	constructor(
 		private readonly repositoryId: Readable<string | undefined>,
@@ -212,51 +232,52 @@ export class CloudPatchStacksService {
 			(values) => values
 		);
 
-		this.#apiPatchStacks = writableDerived<ApiPatchStack[], [boolean, string | undefined]>(
-			values,
-			[],
-			([canGetPatchStacks, repositoryId], set) => {
-				if (!repositoryId || !canGetPatchStacks) {
-					set([]);
-					return;
-				}
-
-				let canceled = false;
-
-				const callback = (() => {
-					this.patchStacksApiService.getPatchStacks(repositoryId).then((patchStacks) => {
-						if (!canceled) set(patchStacks);
-					});
-				}).bind(this);
-
-				// Automatically refresh every 15 minutes
-				callback();
-				const interval = setInterval(callback, MINUTES_15);
-
-				return () => {
-					canceled = true;
-					clearInterval(interval);
-				};
+		this.#apiPatchStacks = writableDerived<
+			ApiPatchStack[] | undefined,
+			[boolean, string | undefined]
+		>(values, undefined, ([canGetPatchStacks, repositoryId], set) => {
+			if (!repositoryId || !canGetPatchStacks) {
+				set(undefined);
+				return;
 			}
-		);
 
-		this.#patchStacks = derived(this.#apiPatchStacks, (apiPatchStacks) => {
-			return apiPatchStacks.map((apiPatchStack) => new CloudPatchStack(apiPatchStack));
+			let canceled = false;
+
+			const callback = (() => {
+				this.patchStacksApiService.getPatchStacks(repositoryId).then((patchStacks) => {
+					if (!canceled) set(patchStacks);
+				});
+			}).bind(this);
+
+			// Automatically refresh every 15 minutes
+			callback();
+			const interval = setInterval(callback, MINUTES_15);
+
+			return () => {
+				canceled = true;
+				clearInterval(interval);
+			};
 		});
 
-		this.canCreatePatchStack = derived(this.repositoryId, (repositoryId) => !!repositoryId);
-	}
+		this.patchStacks = derived(this.#apiPatchStacks, (apiPatchStacks) => {
+			return apiPatchStacks?.map((apiPatchStack) => new CloudPatchStack(apiPatchStack));
+		});
 
-	/** An unordered list of patch stacks for a given repository */
-	get patchStacks(): Readable<CloudPatchStack[]> {
-		return this.#patchStacks;
+		this.canCreatePatchStack = derived(
+			[this.repositoryId, this.patchStacksApiService.canCreatePatchStack],
+			([repositoryId, canCreatePatchStack]) => !!repositoryId && !!canCreatePatchStack
+		);
 	}
 
 	async createPatchStack(branchId: string, oplogSha: string): Promise<CloudPatchStack> {
 		const repositoryId = get(this.repositoryId);
-		if (!repositoryId) throw new Error('Repository ID is not set');
 
-		const apiPatchStack = await this.patchStacksApiService.createPatchStack(repositoryId, {
+		// Repository ID will be defined
+		if (!this.canCreatePatchStack) {
+			throw new Error('Can not create a patch stack');
+		}
+
+		const apiPatchStack = await this.patchStacksApiService.createPatchStack(repositoryId!, {
 			branch_id: branchId,
 			oplog_sha: oplogSha
 		});
@@ -264,7 +285,7 @@ export class CloudPatchStacksService {
 		// TODO(CTO): Determine whether updating like this is preferable to
 		// doing a full refresh.
 		// A full refresh will ensure consistency, but will be more expensive.
-		this.#apiPatchStacks.update((apiPatchStacks) => [...apiPatchStacks, apiPatchStack]);
+		this.#apiPatchStacks.update((apiPatchStacks) => [...(apiPatchStacks || []), apiPatchStack]);
 
 		return new CloudPatchStack(apiPatchStack);
 	}
@@ -272,11 +293,31 @@ export class CloudPatchStacksService {
 	/** Refresh the list of patch stacks */
 	async refresh(): Promise<void> {
 		const repositoryId = get(this.repositoryId);
-		if (!repositoryId) {
-			this.#apiPatchStacks.set([]);
-			return;
+		const canGetPatchStacks = get(this.patchStacksApiService.canGetPatchStacks);
+
+		if (repositoryId && canGetPatchStacks) {
+			const patchStacks = await this.patchStacksApiService.getPatchStacks(repositoryId);
+			this.#apiPatchStacks.set(patchStacks);
+		} else {
+			this.#apiPatchStacks.set(undefined);
 		}
-		const patchStacks = await this.patchStacksApiService.getPatchStacks(repositoryId);
-		this.#apiPatchStacks.set(patchStacks);
+	}
+
+	#patchStacksForBranchIds = new Map<string, Readable<LoadableOptional<CloudPatchStack>>>();
+	patchStackForBranchId(branchId: string): Readable<LoadableOptional<CloudPatchStack>> {
+		let store = this.#patchStacksForBranchIds.get(branchId);
+		if (store) return store;
+
+		store = derived(this.patchStacks, (patchStacks): LoadableOptional<CloudPatchStack> => {
+			if (!patchStacks) return { state: 'uninitialized' };
+			const patchStack = patchStacks.find((patchStack) => patchStack.branchId === branchId);
+			if (patchStack) {
+				return { state: 'found', value: patchStack };
+			} else {
+				return { state: 'not-found' };
+			}
+		});
+		this.#patchStacksForBranchIds.set(branchId, store);
+		return store;
 	}
 }

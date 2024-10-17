@@ -34,18 +34,16 @@
 	const checksMonitor = getGitHostChecksMonitor();
 	const gitHost = getGitHost();
 
+	const branch = $derived($branchStore);
+	const pr = $derived($prMonitor?.pr);
+
 	const projectService = getContext(ProjectService);
 	const cloudEnabled = projectService.cloudEnabled;
 
 	const patchStackCreationService = getContext(PatchStackCreationService);
 	const cloudPatchStacksService = getContext(CloudPatchStacksService);
-	const patchStacks = cloudPatchStacksService.patchStacks;
-	const hasPatchStackForThisBranch = $derived(
-		$patchStacks.some((patchStack) => patchStack.branchId === branch.id)
-	);
-
-	const branch = $derived($branchStore);
-	const pr = $derived($prMonitor?.pr);
+	const patchStack = $derived(cloudPatchStacksService.patchStackForBranchId(branch.id));
+	const showCreatePatchStack = $derived($patchStack.state === 'not-found');
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
@@ -181,7 +179,7 @@
 
 				<div class="relative">
 					<div class="header__buttons">
-						{#if $cloudEnabled && patchStackCreationService.canCreatePatchStack && !hasPatchStackForThisBranch}
+						{#if $cloudEnabled && patchStackCreationService.canCreatePatchStack && showCreatePatchStack}
 							<Button
 								style="ghost"
 								outline

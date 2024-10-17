@@ -11,6 +11,8 @@
 	const patchStacks = $derived(patchStacksService.patchStacks);
 </script>
 
-{#each $patchStacks as patchStack}
-	<div>{patchStack.title}</div>
-{/each}
+{#if $patchStacks}
+	{#each $patchStacks as patchStack}
+		<div>{patchStack.title}</div>
+	{/each}
+{/if}

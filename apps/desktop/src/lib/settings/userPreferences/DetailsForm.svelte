@@ -60,7 +60,6 @@
 	onMount(async () => {
 		if (!project?.api) return;
 		if (!$user) return;
-		console.log(project);
 		const cloudProject = await projectsService.getCloudProject(project.api.repository_id);
 		project.api = { ...cloudProject, sync: project.api.sync, sync_code: project.api.sync_code };
 		projectsService.updateProject(project);
