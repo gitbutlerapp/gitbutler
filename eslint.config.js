@@ -1,5 +1,4 @@
 import js from '@eslint/js';
-import tsParser from '@typescript-eslint/parser';
 import eslintConfigPrettier from 'eslint-config-prettier';
 import eslintPluginSvelte from 'eslint-plugin-svelte';
 import globals from 'globals';
@@ -8,6 +7,7 @@ import pluginImportX from 'eslint-plugin-import-x';
 // Flat config support: https://github.com/storybookjs/eslint-plugin-storybook/pull/156
 import storybook from 'eslint-plugin-storybook';
 import svelteParser from 'svelte-eslint-parser';
+import svelteConfig from './apps/desktop/svelte.config.js';
 
 export default tsEslint.config(
 	js.configs.recommended,
@@ -31,69 +31,32 @@ export default tsEslint.config(
 		}
 	},
 	{
-		files: ['**/*.svelte'],
+		files: ['**/*.svelte', '**/*.svelte.ts'],
 		languageOptions: {
 			ecmaVersion: 2021,
 			sourceType: 'module',
 			globals: {
 				...globals.node,
-				...globals.browser,
-				$state: 'readonly',
-				$derived: 'readonly',
-				$props: 'readonly',
-				$bindable: 'readonly',
-				$inspect: 'readonly',
-				$host: 'readonly',
-				$effect: 'readonly'
+				...globals.browser
 			},
 			parser: svelteParser,
 			parserOptions: {
-				parser: tsParser,
+				parser: tsEslint.parser,
+				svelteConfig,
 				extraFileExtensions: ['.svelte'],
 				svelteFeatures: {
+					runes: true,
 					experimentalGenerics: true
 				}
 			}
 		}
 	},
 	{
-		ignores: [
-			'**/.*', // dotfiles aren't ignored by default in FlatConfig
-			'.*', // dotfiles aren't ignored by default in FlatConfig
-			'**/.DS_Store',
-			'**/node_modules',
-			'**/butler/target',
-			'**/build',
-			'**/dist',
-			'.svelte-kit',
-			'**/package',
-			'**/.env',
-			'**/.env.*',
-			'!**/.env.example',
-			'**/pnpm-lock.yaml',
-			'**/package-lock.json',
-			'**/yarn.lock',
-			'.github',
-			'.vscode',
-			'src-tauri',
-			'**/eslint.config.js',
-			'**/svelte.config.js',
-			'**/.pnpm-store',
-			'**/vite.config.ts.timestamp-*',
-			'!.storybook',
-			'target/',
-			'crates/',
-			'packages/ui/storybook-static',
-			// We're having issues parsing splat syntax in svelte components
-			'packages/ui/src/stories/**/*.svelte'
-		]
-	},
-	{
 		languageOptions: {
 			parserOptions: {
 				parser: tsEslint.parser,
-				project: ['./packages/**/tsconfig.json', './apps/**/tsconfig.json'],
-				extraFileExtensions: ['.svelte']
+				projectService: true,
+				extraFileExtensions: ['.svelte', '.svelte.ts']
 			}
 		},
 		rules: {
@@ -173,5 +136,35 @@ export default tsEslint.config(
 		plugins: {
 			'import-x': pluginImportX
 		}
+	},
+	{
+		ignores: [
+			'**/.*', // dotfiles aren't ignored by default in FlatConfig
+			'.*', // dotfiles aren't ignored by default in FlatConfig
+			'**/.DS_Store',
+			'**/node_modules',
+			'**/butler/target',
+			'**/build',
+			'**/dist',
+			'.svelte-kit',
+			'**/package',
+			'**/.env',
+			'**/.env.*',
+			'!**/.env.example',
+			'**/pnpm-lock.yaml',
+			'**/package-lock.json',
+			'**/yarn.lock',
+			'.github',
+			'.vscode',
+			'**/eslint.config.js',
+			'**/svelte.config.js',
+			'**/vite.config.ts',
+			'**/.pnpm-store',
+			'**/vite.config.ts.timestamp-*',
+			'!.storybook',
+			'target/',
+			'crates/',
+			'packages/ui/storybook-static'
+		]
 	}
 );

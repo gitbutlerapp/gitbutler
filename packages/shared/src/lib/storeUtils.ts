@@ -4,7 +4,7 @@
  * application code.
  */
 
-import { writable, type Readable } from 'svelte/store';
+import { writable, type Readable, type Writable } from 'svelte/store';
 
 export function combineLatest<T>(stores: Readable<T>[], initialValue: T): Readable<T> {
 	const store = writable(initialValue, (set) => {
@@ -39,7 +39,7 @@ export function writableDerived<A, B>(
 	store: Readable<B>,
 	initialValue: A,
 	startStopNotifier: (derivedValue: B, set: (value: A) => void) => (() => void) | undefined
-) {
+): Writable<A> {
 	const derivedStore = writable(initialValue, (set) => {
 		let startStopUnsubscribe: (() => void) | undefined = undefined;
 		const unsubscribeStore = store.subscribe((value) => {
