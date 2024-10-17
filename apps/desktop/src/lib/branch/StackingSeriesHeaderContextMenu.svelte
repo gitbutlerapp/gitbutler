@@ -81,6 +81,7 @@
 		/>
 		<ContextMenuItem
 			label="Rename"
+			disabled={disableTitleEdit}
 			on:click={async () => {
 				renameSeriesModal.show(branch);
 				contextMenuEl?.close();
