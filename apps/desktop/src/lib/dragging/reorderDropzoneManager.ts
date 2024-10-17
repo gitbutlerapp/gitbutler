@@ -6,27 +6,24 @@ import type { BranchController } from '$lib/vbranches/branchController';
 export class ReorderDropzone {
 	constructor(
 		private branchController: BranchController,
-		private seriesName: string,
 		private entry: Entry
 	) {}
 
 	accepts(data: any) {
 		if (!data) return false;
 		console.log('accepts.data', data);
-		const compositeId = `${data.commit?.id}|${data.seriesName}`;
 		if (!(data instanceof DraggableCommit)) return false;
-		if (this.entry.distanceToOtherCommit(compositeId) === 0) return false;
+		if (this.entry.distanceToOtherCommit(data.commit.id) === 0) return false;
 
 		return true;
 	}
 
 	onDrop(data: any) {
 		if (!(data instanceof DraggableCommit)) return;
-		const compositeId = `${data.commit?.id}|${data.seriesName}`;
-		const offset = this.entry.distanceToOtherCommit(compositeId);
+		const offset = this.entry.distanceToOtherCommit(data.commit.id);
 
 		console.log('REORDERING.COMMIT', {
-			compositeId,
+			commitId: data.commit.id,
 			offset
 		});
 
@@ -50,22 +47,13 @@ export class ReorderDropzoneManager {
 		commits: string[];
 	}) {
 		this.branchController = branchController;
-
 		this.indexer = new Indexer(commits);
 	}
 
-	topDropzone(key: string) {
+	dropzone(key: string) {
 		const entry = this.indexer.get(key);
 
-		const [_commitId, seriesName] = key.split('|');
-		return new ReorderDropzone(this.branchController, seriesName!, entry);
-	}
-
-	dropzoneBelowCommit(key: string) {
-		const entry = this.indexer.get(key);
-		const [_commitId, seriesName] = key.split('|');
-
-		return new ReorderDropzone(this.branchController, seriesName!, entry);
+		return new ReorderDropzone(this.branchController, entry);
 	}
 }
 
@@ -92,7 +80,7 @@ class Indexer {
 			this.dropzoneIndexes.set(patchId, computedPatchIndex);
 		});
 
-		console.log('Indexer.dropzoneIndexes', this.dropzoneIndexes);
+		console.log('indexer.dropzoneIndexes', this.dropzoneIndexes);
 	}
 
 	get(key: string) {

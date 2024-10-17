@@ -98,14 +98,11 @@
 	const hasRemoteCommits = $derived(remoteCommits.length > 0);
 
 	const reorderDropzoneManager = $derived(
-		reorderDropzoneManagerFactory.build({
-			branches: [$branch.id],
-			commitIds: [
-				'top',
-				...localCommits.map((commit) => commit.id),
-				...localAndRemoteCommits.map((commit) => commit.id)
-			]
-		})
+		reorderDropzoneManagerFactory.build([
+			`top|${$branch.name}`,
+			...localCommits.map((commit) => commit.id),
+			...localAndRemoteCommits.map((commit) => commit.id)
+		])
 	);
 
 	let isIntegratingCommits = $state(false);
@@ -197,7 +194,7 @@
 			<div class="commits-group">
 				<InsertEmptyCommitAction isFirst onclick={() => insertBlankCommit($branch.head, 'above')} />
 				{@render reorderDropzone(
-					reorderDropzoneManager.topDropzone('above'),
+					reorderDropzoneManager.dropzone(`top|${$branch.name}`),
 					getReorderDropzoneOffset({ isFirst: true })
 				)}
 				{#each localCommits as commit, idx (commit.id)}
@@ -216,7 +213,7 @@
 					</CommitCard>
 
 					{@render reorderDropzone(
-						reorderDropzoneManager.dropzoneBelowCommit(commit.id),
+						reorderDropzoneManager.dropzone(commit.id),
 						getReorderDropzoneOffset({
 							isLast: idx + 1 === localCommits.length,
 							isMiddle: idx + 1 === localCommits.length
@@ -260,7 +257,7 @@
 						{/snippet}
 					</CommitCard>
 					{@render reorderDropzone(
-						reorderDropzoneManager.dropzoneBelowCommit(commit.id),
+						reorderDropzoneManager.dropzone(commit.id),
 						getReorderDropzoneOffset({
 							isMiddle: idx + 1 === localAndRemoteCommits.length
 						})

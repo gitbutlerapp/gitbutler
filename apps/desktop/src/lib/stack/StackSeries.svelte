@@ -22,17 +22,15 @@
 	);
 
 	const commits = $derived.by(() => {
-		console.log('stackSeries.branchSeries', branch.series);
 		return branch.series
 			.map((series) => {
-				let patches = [`above-${series.patches[0]?.id}|${series.name}`];
-				patches.push(...series.patches.map((patch) => `${patch.id}|${series.name}`));
+				let patches = [`top|${series.name}`];
+				patches.push(...series.patches.map((patch) => patch.id));
 				return patches;
 			})
 			.flat();
 	});
 
-	console.log('stackSeries.commits', commits);
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 	const reorderDropzoneManager = $derived(reorderDropzoneManagerFactory.build(commits));
 </script>
