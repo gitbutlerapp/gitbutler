@@ -25,7 +25,7 @@ use gitbutler_operating_modes::assure_open_workspace_mode;
 ///
 /// When creating heads, it is possible to have multiple heads that point to the same patch/commit.
 /// If this is the case, the order can be disambiguated by specifying the `preceding_head`.
-/// If there are multiple heads pointing to the same patch and `preceding_head` is not spcified,
+/// If there are multiple heads pointing to the same patch and `preceding_head` is not specified,
 /// that means the new head will be first in order for that patch.
 /// The argument `preceding_head` is only used if there are multiple heads that point to the same patch, otherwise it is ignored.
 pub fn create_series(
@@ -57,19 +57,19 @@ pub fn create_series(
 pub struct CreateSeriesRequest {
     /// Name of the new series
     name: String,
-    /// Description of the new series - can be markdown or antyhing really
+    /// Description of the new series - can be markdown or anything really
     description: Option<String>,
     /// The target patch (head) to create these series for. If let None, the new series will be at the top of the stack
     target_patch: Option<CommitOrChangeId>,
-    /// The name of the series that preceed the newly created series.
-    /// This is used to disambiguate the order whne they point to the same patch
+    /// The name of the series that preceded the newly created series.
+    /// This is used to disambiguate the order when they point to the same patch
     preceding_head: Option<String>,
 }
 
 /// Removes series grouping from the Stack. This will not touch the patches / commits contained in the series.
-/// The very last branch (reference) cannot be removed (A Stack must always contains at least one reference)
+/// The very last branch (reference) cannot be removed (A Stack must always contain at least one reference)
 /// If there were commits/changes that were *only* referenced by the removed branch,
-/// those commits are moved to the branch underneath it (or more accurately, the precee)
+/// those commits are moved to the branch underneath it (or more accurately, the preceding it)
 pub fn remove_series(project: &Project, branch_id: StackId, head_name: String) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
