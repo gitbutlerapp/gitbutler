@@ -24,6 +24,7 @@
 		selectable: boolean;
 		subsections: ContentSection[];
 		tabSize: number;
+		wrapText: boolean;
 		diffFont: string;
 		diffLigatures: boolean;
 		inlineUnifiedDiffs: boolean;
@@ -51,6 +52,7 @@
 		selectable,
 		subsections,
 		tabSize,
+		wrapText,
 		diffFont,
 		diffLigatures,
 		inlineUnifiedDiffs,
@@ -405,7 +407,7 @@
 						<td
 							{onclick}
 							class="table__textContent"
-							style="--tab-size: {tabSize};"
+							style="--tab-size: {tabSize}; --wrap: {wrapText ? 'wrap' : 'nowrap'}"
 							class:readonly
 							data-no-drag
 							class:diff-line-deletion={row.type === SectionType.RemovedLines}
@@ -585,6 +587,7 @@
 		text-align: center;
 		padding: 0 4px;
 		text-align: right;
+		vertical-align: top;
 		user-select: none;
 
 		position: sticky;
@@ -641,5 +644,6 @@
 		white-space: pre;
 		user-select: text;
 		cursor: text;
+		text-wrap: var(--wrap);
 	}
 </style>

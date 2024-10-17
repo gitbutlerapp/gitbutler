@@ -23,6 +23,7 @@ export interface Settings {
 	zoom: number;
 	scrollbarVisibilityState: ScrollbarVisilitySettings;
 	tabSize: number;
+	wrapText: boolean;
 	diffFont: string;
 	diffLigatures: boolean;
 	inlineUnifiedDiffs: boolean;
@@ -42,6 +43,7 @@ const defaults: Settings = {
 	zoom: 1,
 	scrollbarVisibilityState: 'scroll',
 	tabSize: 4,
+	wrapText: false,
 	diffFont: 'Geist Mono, Menlo, monospace',
 	diffLigatures: false,
 	inlineUnifiedDiffs: false,

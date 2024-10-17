@@ -96,6 +96,7 @@
 				{selectable}
 				{draggingDisabled}
 				tabSize={$userSettings.tabSize}
+				wrapText={$userSettings.wrapText}
 				diffFont={$userSettings.diffFont}
 				diffLigatures={$userSettings.diffLigatures}
 				inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
