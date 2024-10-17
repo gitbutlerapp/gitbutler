@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ForgeService } from '$lib/backend/forge';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import FileMenuAction from '$lib/barmenuActions/FileMenuAction.svelte';
 	import ProjectSettingsMenuAction from '$lib/barmenuActions/ProjectSettingsMenuAction.svelte';
@@ -71,6 +72,7 @@
 		setContext(BranchController, data.branchController);
 		setContext(BaseBranchService, data.baseBranchService);
 		setContext(CommitService, data.commitService);
+		setContext(ForgeService, data.forgeService);
 		setContext(BaseBranch, baseBranch);
 		setContext(Project, project);
 		setContext(BranchDragActionsFactory, data.branchDragActionsFactory);
@@ -145,6 +147,8 @@
 				: undefined;
 
 		const ghListService = gitHost?.listService();
+
+		if (gitHost) projectsService.setGitHostType(project, gitHost.type);
 
 		listServiceStore.set(ghListService);
 		gitHostStore.set(gitHost);

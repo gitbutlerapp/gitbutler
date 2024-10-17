@@ -4,6 +4,7 @@ import { GitHubListingService } from './githubListingService';
 import { GitHubPrService } from './githubPrService';
 import { GitHubIssueService } from '$lib/gitHost/github/issueService';
 import { Octokit } from '@octokit/rest';
+import type { ForgeType } from '$lib/backend/forge';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
@@ -12,6 +13,7 @@ import type { GitHostArguments } from '../interface/types';
 export const GITHUB_DOMAIN = 'github.com';
 
 export class GitHub implements GitHost {
+	readonly type: ForgeType = 'github';
 	private baseUrl: string;
 	private repo: RepoInfo;
 	private baseBranch: string;

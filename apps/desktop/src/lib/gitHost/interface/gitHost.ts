@@ -1,4 +1,5 @@
 import { buildContextStore } from '@gitbutler/shared/context';
+import type { ForgeType } from '$lib/backend/forge';
 import type { GitHostIssueService } from '$lib/gitHost/interface/gitHostIssueService';
 import type { GitHostBranch } from './gitHostBranch';
 import type { GitHostChecksMonitor } from './gitHostChecksMonitor';
@@ -6,6 +7,7 @@ import type { GitHostListingService } from './gitHostListingService';
 import type { GitHostPrService } from './gitHostPrService';
 
 export interface GitHost {
+	readonly type: ForgeType;
 	// Lists PRs for the repo.
 	listService(): GitHostListingService | undefined;
 
