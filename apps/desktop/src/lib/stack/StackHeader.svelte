@@ -114,7 +114,6 @@
 						<Button
 							bind:el={meatballButtonEl}
 							style="ghost"
-							size="tag"
 							icon="kebab"
 							onclick={() => {
 								contextMenu?.toggle();

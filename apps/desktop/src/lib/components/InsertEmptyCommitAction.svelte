@@ -48,9 +48,7 @@
 
 		&:hover {
 			& .barnch-plus-btn {
-				transition-delay: 0.08s;
 				pointer-events: all;
-				transform: translateY(-55%);
 				opacity: 1;
 			}
 		}
@@ -79,8 +77,18 @@
 	}
 
 	.barnch-plus-btn {
+		position: absolute;
 		top: 50%;
 		right: 14px;
+		width: fit-content;
+		display: flex;
+		align-items: center;
+		transform: translateY(-50%);
+		opacity: 0;
+		pointer-events: none;
+		transition:
+			opacity var(--transition-fast),
+			transform var(--transition-fast);
 	}
 
 	/* MODIFIERS */

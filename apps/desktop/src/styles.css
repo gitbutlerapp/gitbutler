@@ -1,18 +1,3 @@
-/* root */
-.barnch-plus-btn {
-	position: absolute;
-	/* right: 14px; */
-	width: fit-content;
-	display: flex;
-	align-items: center;
-	transform: translateY(-40%);
-	opacity: 0;
-	pointer-events: none;
-	transition:
-		opacity var(--transition-fast),
-		transform var(--transition-medium);
-}
-
 .link {
 	text-decoration: underline;
 

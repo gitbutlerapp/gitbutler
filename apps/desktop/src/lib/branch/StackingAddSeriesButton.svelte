@@ -89,9 +89,10 @@
 
 		&:hover {
 			background-color: var(--clr-theme-ntrl-element-hover);
+			padding: 4px;
 
 			& .add-branch-btn__label {
-				max-width: 120px;
+				max-width: 160px;
 				margin-left: 4px;
 				margin-right: 3px;
 				opacity: 1;

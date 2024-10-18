@@ -99,7 +99,7 @@
 			width: 2px;
 			margin: 0 22px;
 			background-color: var(--clr-commit-upstream);
-			--dots-y-shift: -6px;
+			--dots-y-shift: -8px;
 
 			& .upstream-dot {
 				/* position: absolute; */

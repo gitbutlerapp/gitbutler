@@ -152,10 +152,12 @@
 				onChange={(name) => editTitle(name)}
 				disabled={!!gitHostBranch}
 			/>
+		</div>
+		<div class="branch-info__btns">
 			{#if gitHostBranch}
 				<Button
-					size="tag"
 					icon="open-link"
+					tooltip="Open in browser"
 					style="ghost"
 					onclick={(e: MouseEvent) => {
 						const url = gitHostBranch?.url;
@@ -165,11 +167,10 @@
 					}}
 				></Button>
 			{/if}
-		</div>
-		<div class="branch-info__btns">
 			<Button
 				icon="kebab"
 				style="ghost"
+				tooltip="More options"
 				bind:el={meatballButtonEl}
 				onclick={() => {
 					contextMenu?.toggle();
@@ -257,7 +258,6 @@
 		&:hover {
 			& .barnch-plus-btn {
 				pointer-events: all;
-				transform: translateY(-50%);
 				opacity: 1;
 			}
 		}
@@ -280,7 +280,6 @@
 
 		& .branch-info__btns {
 			display: flex;
-			gap: 0.25rem;
 		}
 
 		.remote-name {
@@ -337,7 +336,16 @@
 	}
 
 	.barnch-plus-btn {
+		position: absolute;
 		top: 2px;
-		/* right: 14px; */
+		width: fit-content;
+		display: flex;
+		align-items: center;
+		transform: translateY(-50%);
+		opacity: 0;
+		pointer-events: none;
+		transition:
+			opacity var(--transition-fast),
+			transform var(--transition-fast);
 	}
 </style>
