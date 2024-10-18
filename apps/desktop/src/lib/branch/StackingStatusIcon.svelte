@@ -40,6 +40,7 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
+		gap: 3px;
 		--clr-transparent: transparent;
 
 		& .stack__status--icon {
