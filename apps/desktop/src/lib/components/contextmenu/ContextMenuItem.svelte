@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
@@ -9,11 +8,10 @@
 		label: string;
 		disabled?: boolean;
 		control?: Snippet;
-		tooltip?: string;
 		onclick: () => void;
 	}
 
-	const { onclick, icon = undefined, label, disabled, control, tooltip = '' }: Props = $props();
+	const { onclick, icon = undefined, label, disabled, control }: Props = $props();
 </script>
 
 <button class="menu-item" class:disabled {disabled} {onclick}>
@@ -21,11 +19,9 @@
 		<Icon name={icon} />
 	{/if}
 
-	<Tooltip text={tooltip}>
-		<span class="label text-12">
-			{label}
-		</span>
-	</Tooltip>
+	<span class="label text-12">
+		{label}
+	</span>
 	{#if control}
 		{@render control()}
 	{/if}
