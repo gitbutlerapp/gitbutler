@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { clickOutside } from '$lib/clickOutside';
 	import { createKeybind } from '$lib/utils/hotkeys';
+	import { focusTrap } from '@gitbutler/ui/utils/focusTrap';
 	import { portal } from '@gitbutler/ui/utils/portal';
 	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
@@ -42,8 +43,9 @@
 		if (newItem) {
 			item = newItem;
 		}
+
 		isVisible = true;
-		onopen && onopen();
+		onopen?.();
 
 		if (!openByMouse) {
 			setAlignByTarget();
@@ -125,6 +127,7 @@
 
 {#snippet contextMenu()}
 	<div
+		use:focusTrap
 		use:clickOutside={{
 			excludeElement: target,
 			handler: () => close()

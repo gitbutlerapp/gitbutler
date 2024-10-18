@@ -17,7 +17,7 @@
 	class:is-first={isFirst}
 	class:not-stacking={!$stackingFeature}
 >
-	<div class="hover-target">
+	<div class="barnch-plus-btn">
 		<Button
 			style="ghost"
 			outline
@@ -47,11 +47,10 @@
 		/* background-color: rgba(235, 167, 78, 0.159); */
 
 		&:hover {
-			& .hover-target {
-				transition-delay: 0.08s;
+			& .barnch-plus-btn {
 				pointer-events: all;
-				transform: translateY(-50%);
 				opacity: 1;
+				transform: translateY(-50%) scale(1);
 			}
 		}
 
@@ -78,20 +77,19 @@
 		}
 	}
 
-	.hover-target {
+	.barnch-plus-btn {
 		position: absolute;
 		top: 50%;
-		right: 24px;
-		transform: translateY(-50%);
+		right: 14px;
 		width: fit-content;
+		display: flex;
 		align-items: center;
-		transform: translateY(calc(-50% + 4px));
+		transform: translateY(-45%) scale(0.8);
 		opacity: 0;
 		pointer-events: none;
 		transition:
 			opacity var(--transition-fast),
 			transform var(--transition-medium);
-		transition-delay: 0s;
 	}
 
 	/* MODIFIERS */

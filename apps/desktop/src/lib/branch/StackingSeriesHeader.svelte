@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
+	import StackingAddSeriesButton from './StackingAddSeriesButton.svelte';
 	import StackingStatusIcon from './StackingStatusIcon.svelte';
 	import { getColorFromBranchType } from './stackingUtils';
 	import { PromptService } from '$lib/ai/promptService';
@@ -9,6 +10,7 @@
 	import StackingSeriesHeaderContextMenu from '$lib/branch/StackingSeriesHeaderContextMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
@@ -127,8 +129,15 @@
 </script>
 
 <div class="branch-header">
+	{#if $stackingFeatureMultipleSeries}
+		<div class="barnch-plus-btn">
+			<StackingAddSeriesButton parentSeriesName={currentSeries.name} />
+		</div>
+	{/if}
+
 	<div class="branch-info">
 		<StackingStatusIcon
+			lineTop={false}
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 			iconColor="#fff"
 			color={lineColor}
@@ -143,10 +152,12 @@
 				onChange={(name) => editTitle(name)}
 				disabled={!!gitHostBranch}
 			/>
+		</div>
+		<div class="branch-info__btns">
 			{#if gitHostBranch}
 				<Button
-					size="tag"
 					icon="open-link"
+					tooltip="Open in browser"
 					style="ghost"
 					onclick={(e: MouseEvent) => {
 						const url = gitHostBranch?.url;
@@ -156,11 +167,10 @@
 					}}
 				></Button>
 			{/if}
-		</div>
-		<div class="branch-info__btns">
 			<Button
 				icon="kebab"
 				style="ghost"
+				tooltip="More options"
 				bind:el={meatballButtonEl}
 				onclick={() => {
 					contextMenu?.toggle();
@@ -235,18 +245,28 @@
 
 <style lang="postcss">
 	.branch-header {
+		position: relative;
 		display: flex;
-		display: flex;
+		align-items: center;
 		flex-direction: column;
-		overflow: hidden;
+		/* overflow: hidden; */
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
+
+		&:hover {
+			& .barnch-plus-btn {
+				pointer-events: all;
+				opacity: 1;
+				transform: translateY(-50%) scale(1);
+			}
+		}
 	}
 
 	.branch-info {
-		padding-right: 13px;
+		width: 100%;
+		padding-right: 12px;
 		display: flex;
 		justify-content: flex-start;
 		align-items: center;
@@ -261,7 +281,6 @@
 
 		& .branch-info__btns {
 			display: flex;
-			gap: 0.25rem;
 		}
 
 		.remote-name {
@@ -315,5 +334,19 @@
 		align-items: center;
 
 		border-top: 2px solid var(--bg-color, var(--clr-border-3));
+	}
+
+	.barnch-plus-btn {
+		position: absolute;
+		top: 2px;
+		width: fit-content;
+		display: flex;
+		align-items: center;
+		transform: translateY(-45%) scale(0.8);
+		opacity: 0;
+		pointer-events: none;
+		transition:
+			opacity var(--transition-fast),
+			transform var(--transition-medium);
 	}
 </style>
