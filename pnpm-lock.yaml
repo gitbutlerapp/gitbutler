@@ -383,6 +383,9 @@ importers:
       date-fns:
         specifier: ^2.30.0
         version: 2.30.0
+      moment:
+        specifier: ^2.30.1
+        version: 2.30.1
       playwright:
         specifier: ^1.46.1
         version: 1.46.1

@@ -36,6 +36,7 @@
 	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { CloudPatchStacksService } from '@gitbutler/shared/cloud/stacks/service';
+	import { DesktopRoutesService, getRoutesService } from '@gitbutler/shared/sharedRoutes';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import { derived as storeDerived } from 'svelte/store';
 	import type { LayoutData } from './$types';
@@ -87,6 +88,13 @@
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
 		setContext(CloudPatchStacksService, data.cloudPatchStacksService);
 		setContext(PatchStackCreationService, data.patchStackCreationService);
+	});
+
+	const routesService = getRoutesService();
+	$effect(() => {
+		if (routesService instanceof DesktopRoutesService) {
+			routesService.currentProjectId.set(projectId);
+		}
 	});
 
 	let intervalId: any;
