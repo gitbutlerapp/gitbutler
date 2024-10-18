@@ -62,7 +62,8 @@
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"vite": "catalog:",
-		"vitest": "^2.0.5"
+		"vitest": "^2.0.5",
+		"moment": "^2.30.1"
 	},
 	"type": "module"
 }

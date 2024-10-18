@@ -28,6 +28,8 @@
 			|
 			<a href="/projects">Projects</a>
 			|
+			<a href="/repositories">Repositories</a>
+			|
 			<a href="/user">User</a>
 		{/if}
 	</div>
