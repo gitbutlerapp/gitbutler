@@ -21,6 +21,7 @@
 	import type { Writable } from 'svelte/store';
 
 	const editorOptions: CodeEditorSettings[] = [
+		{ schemeIdentifer: 'vscodium', displayName: 'VSCodium' },
 		{ schemeIdentifer: 'vscode', displayName: 'VSCode' },
 		{ schemeIdentifer: 'vscode-insiders', displayName: 'VSCode Insiders' },
 		{ schemeIdentifer: 'zed', displayName: 'Zed' }
