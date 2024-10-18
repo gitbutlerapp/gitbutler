@@ -75,7 +75,7 @@ class Indexer {
 	constructor(commits: string[]) {
 		let computedPatchIndex = 0;
 
-		commits.map((patchId: string) => {
+		commits.forEach((patchId: string) => {
 			computedPatchIndex += 1;
 			this.dropzoneIndexes.set(patchId, computedPatchIndex);
 		});
@@ -126,24 +126,14 @@ class Entry {
 
 		const offset = this.index - commitIndex;
 
-		return offset;
-		// if (offset > 0) {
-		// 	return offset - 1;
-		// } else {
-		// 	return offset;
-		// }
+		if (offset < 0) {
+			return offset + 1;
+		} else {
+			return offset;
+		}
 	}
 
 	private commitIndex(key: string) {
-		const index = this.commitIndexes.get(key);
-
-		// TODO: Handle updated commitIds after rebasing in `commitIndexes`
-		// Reordering works, but it throws errors for old commitIds that it can't find
-		// anymore after rebasing, for example.
-		// if (index === undefined) {
-		// 	throw new Error(`Commit ${commitId} not found in commitIndexes`);
-		// }
-
-		return index;
+		return this.commitIndexes.get(key);
 	}
 }
