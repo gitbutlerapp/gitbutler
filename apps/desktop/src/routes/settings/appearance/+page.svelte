@@ -22,6 +22,7 @@
 
 	const editorOptions: CodeEditorSettings[] = [
 		{ schemeIdentifer: 'vscode', displayName: 'VSCode' },
+		{ schemeIdentifer: 'vscode-insiders', displayName: 'VSCode Insiders' },
 		{ schemeIdentifer: 'zed', displayName: 'Zed' }
 	];
 	const editorOptionsForSelect = editorOptions.map((option) => ({
