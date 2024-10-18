@@ -80,7 +80,7 @@ fn get_github_directory_path(root_path: &path::Path) -> path::PathBuf {
 fn is_review_template_github(path_str: &str) -> bool {
     path_str == "PULL_REQUEST_TEMPLATE.md"
         || path_str == "pull_request_template.md"
-        || path_str.contains("PULL_REQUEST_TEMPLATE/")
+        || path_str.contains("PULL_REQUEST_TEMPLATE/") && path_str.ends_with(".md")
 }
 
 fn is_valid_review_template_path_github(path: &path::Path, root_path: &path::Path) -> bool {
@@ -147,7 +147,7 @@ mod tests {
     fn test_is_review_template_github() {
         assert!(is_review_template_github("PULL_REQUEST_TEMPLATE.md"));
         assert!(is_review_template_github("pull_request_template.md"));
-        assert!(is_review_template_github("PULL_REQUEST_TEMPLATE/"));
+        assert!(is_review_template_github("PULL_REQUEST_TEMPLATE/other.md"));
         assert!(!is_review_template_github("README.md"));
     }
 
