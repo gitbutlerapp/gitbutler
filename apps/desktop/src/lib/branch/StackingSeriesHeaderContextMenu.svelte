@@ -71,37 +71,33 @@
 				contextMenuEl?.close();
 			}}
 		/>
-		<ContextMenuItem
-			label="Generate series name"
-			onclick={() => {
-				onGenerateBranchName();
-				contextMenuEl?.close();
-			}}
-			tooltip={!($aiGenEnabled && aiConfigurationValid) || disableTitleEdit
-				? 'Series name change disabled once branch has been pushed'
-				: ''}
-			disabled={!($aiGenEnabled && aiConfigurationValid) || disableTitleEdit}
-		/>
-		<ContextMenuItem
-			label="Rename"
-			disabled={disableTitleEdit}
-			tooltip={disableTitleEdit ? 'Series name change disabled once branch has been pushed' : ''}
-			onclick={async () => {
-				renameSeriesModal.show(branch);
-				contextMenuEl?.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Delete"
-			disabled={seriesCount <= 1}
-			tooltip={seriesCount <= 1
-				? 'Delete disabled if this is the only series. Please use stack delete instead.'
-				: ''}
-			onclick={() => {
-				deleteSeriesModal.show(branch);
-				contextMenuEl?.close();
-			}}
-		/>
+		{#if $aiGenEnabled && aiConfigurationValid && !disableTitleEdit}
+			<ContextMenuItem
+				label="Generate series name"
+				onclick={() => {
+					onGenerateBranchName();
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
+		{#if !disableTitleEdit}
+			<ContextMenuItem
+				label="Rename"
+				onclick={async () => {
+					renameSeriesModal.show(branch);
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
+		{#if seriesCount > 1}
+			<ContextMenuItem
+				label="Delete"
+				onclick={() => {
+					deleteSeriesModal.show(branch);
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
 	</ContextMenuSection>
 	{#if hasPr}
 		<ContextMenuSection>
