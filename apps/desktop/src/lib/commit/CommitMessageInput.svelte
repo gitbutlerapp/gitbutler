@@ -77,7 +77,7 @@
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
 		// or the user has to manually trigger the name generation from the meatball menu
 		// This saves people this extra click
-		if ($branch.name.toLowerCase().includes('virtual branch')) {
+		if ($branch.name.toLowerCase().includes('lane')) {
 			dispatch('action', 'generate-branch-name');
 		}
 

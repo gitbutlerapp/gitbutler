@@ -116,7 +116,7 @@
 			label="Unapply and drop changes"
 			onclick={async () => {
 				if (
-					branch.name.toLowerCase().includes('virtual branch') &&
+					branch.name.toLowerCase().includes('lane') &&
 					commits.length === 0 &&
 					branch.files?.length === 0
 				) {
