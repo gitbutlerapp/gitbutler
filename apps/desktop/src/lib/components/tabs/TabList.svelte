@@ -8,14 +8,6 @@
 	const { children }: Props = $props();
 </script>
 
-<ul class="tab-list">
+<ul class="segment-control-container">
 	{@render children()}
 </ul>
-
-<style>
-	.tab-list {
-		width: 100%;
-		display: flex;
-		border-radius: var(--radius-m);
-	}
-</style>

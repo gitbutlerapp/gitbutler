@@ -338,8 +338,8 @@
 					}
 				}}
 			>
-				<Segment unfocusable id="write">Edit</Segment>
-				<Segment unfocusable id="preview">Preview</Segment>
+				<Segment id="write">Edit</Segment>
+				<Segment id="preview">Preview</Segment>
 			</SegmentControl>
 		{:else}
 			<h3 class="text-14 text-semibold pr-title">{actualTitle}</h3>
