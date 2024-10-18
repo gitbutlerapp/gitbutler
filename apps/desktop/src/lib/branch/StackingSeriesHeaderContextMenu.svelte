@@ -18,11 +18,12 @@
 		headName: string;
 		seriesCount: number;
 		disableTitleEdit: boolean;
-		hasPr: boolean;
-		addDescription: () => void;
+		description: string;
+		toggleDescription: () => Promise<void>;
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
 		reloadPR: () => void;
+		hasPr: boolean;
 	}
 
 	let {
@@ -31,11 +32,12 @@
 		seriesCount,
 		disableTitleEdit,
 		headName,
-		hasPr,
-		addDescription,
-		onGenerateBranchName,
+		description,
+		toggleDescription,
+		onGenerateBranchName
 		openPrDetailsModal,
 		reloadPR
+		hasPr,
 	}: Props = $props();
 
 	const project = getContext(Project);
@@ -49,6 +51,7 @@
 	let newHeadName: string = $state(headName);
 	let isDeleting = $state(false);
 	let aiConfigurationValid = $state(false);
+	let showDescription = $state(!!description);
 
 	$effect(() => {
 		setAIConfigurationValid();
@@ -64,10 +67,10 @@
 <ContextMenu bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
 		<ContextMenuItem
-			disabled
-			label="Add description"
-			on:click={() => {
-				addDescription();
+			label={`${!showDescription ? 'Add' : 'Remove'} description`}
+			on:click={async () => {
+				await toggleDescription();
+				showDescription = !showDescription;
 				contextMenuEl?.close();
 			}}
 		/>
