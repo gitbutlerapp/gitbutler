@@ -57,7 +57,7 @@
 			id="newRemoteName"
 			bind:value={createRefName}
 			focus
-			helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}''` : undefined}
+			helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}'` : undefined}
 		/>
 
 		<p class="text-12 text-body helper-text">
