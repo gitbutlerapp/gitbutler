@@ -26,6 +26,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
 	interface Props {
 		currentSeries: PatchSeries;
@@ -131,48 +132,55 @@
 	}
 </script>
 
+<StackingSeriesHeaderContextMenu
+	bind:contextMenuEl={contextMenu}
+	target={meatballButtonEl}
+	headName={currentSeries.name}
+	seriesCount={branch.series?.length ?? 0}
+	{addDescription}
+	onGenerateBranchName={generateBranchName}
+	disableTitleEdit={!!gitHostBranch}
+	hasPr={!!$pr}
+	openPrDetailsModal={handleOpenPR}
+	reloadPR={handleReloadPR}
+	onopen={() => (contextMenuOpened = true)}
+	onclose={() => (contextMenuOpened = false)}
+/>
+
 <div role="presentation" class="branch-header">
 	{#if $stackingFeatureMultipleSeries}
 		<div class="header-menu" class:show-header-menu={contextMenuOpened}>
 			<StackingAddSeriesButton parentSeriesName={currentSeries.name}>
-				<button class="header-menu__btn">
-					<Icon name="plus-small" />
-				</button>
+				<Tooltip text="Add dependent branch">
+					<div class="header-menu__btn">
+						<Icon name="plus-small" />
+					</div>
+				</Tooltip>
 			</StackingAddSeriesButton>
-			<button
-				class="header-menu__btn"
-				onclick={(e) => {
-					const url = gitHostBranch?.url;
-					if (url) openExternalUrl(url);
-					e.preventDefault();
-					e.stopPropagation();
-				}}
-			>
-				<Icon name="open-link" />
-			</button>
-			<button
-				class="header-menu__btn"
-				bind:this={meatballButtonEl}
-				onclick={() => {
-					contextMenu?.toggle();
-				}}
-			>
-				<Icon name="kebab" />
-				<StackingSeriesHeaderContextMenu
-					bind:contextMenuEl={contextMenu}
-					target={meatballButtonEl}
-					headName={currentSeries.name}
-					seriesCount={branch.series?.length ?? 0}
-					{addDescription}
-					onGenerateBranchName={generateBranchName}
-					disableTitleEdit={!!gitHostBranch}
-					hasPr={!!$pr}
-					openPrDetailsModal={handleOpenPR}
-					reloadPR={handleReloadPR}
-					onopen={() => (contextMenuOpened = true)}
-					onclose={() => (contextMenuOpened = false)}
-				/>
-			</button>
+			<Tooltip text="Open in browser">
+				<button
+					class="header-menu__btn"
+					onclick={(e) => {
+						const url = gitHostBranch?.url;
+						if (url) openExternalUrl(url);
+						e.preventDefault();
+						e.stopPropagation();
+					}}
+				>
+					<Icon name="open-link" />
+				</button>
+			</Tooltip>
+			<Tooltip text="More">
+				<button
+					class="header-menu__btn"
+					bind:this={meatballButtonEl}
+					onclick={() => {
+						contextMenu?.toggle();
+					}}
+				>
+					<Icon name="kebab" />
+				</button>
+			</Tooltip>
 		</div>
 	{/if}
 
@@ -363,6 +371,10 @@
 		transition:
 			opacity 0.12s ease-in-out,
 			transform 0.12s ease-in-out;
+
+		:global(span:first-child .header-menu__btn) {
+			border-left: none;
+		}
 	}
 
 	.show-header-menu {
@@ -379,10 +391,6 @@
 		color: var(--clr-text-1);
 		opacity: 0.5;
 		border-left: 1px solid var(--clr-border-2);
-
-		&:first-child {
-			border-left: none;
-		}
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);
