@@ -28,9 +28,10 @@
 
 	interface Props {
 		currentSeries: PatchSeries;
+		isTopSeries: boolean;
 	}
 
-	const { currentSeries }: Props = $props();
+	const { currentSeries, isTopSeries }: Props = $props();
 
 	let descriptionVisible = $state(false);
 
@@ -137,7 +138,7 @@
 
 	<div class="branch-info">
 		<StackingStatusIcon
-			lineTop={false}
+			lineTop={isTopSeries ? false : true}
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 			iconColor="#fff"
 			color={lineColor}
