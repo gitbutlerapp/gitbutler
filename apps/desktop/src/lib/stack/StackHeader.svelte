@@ -104,7 +104,7 @@
 			class:header_target-branch-animation={isTargetBranchAnimated && branch.selectedForChanges}
 		>
 			<div class="header__info-wrapper">
-				<div data-drag-handle>
+				<div data-drag-handle class="header__drag-handle">
 					<Icon name="draggable" />
 				</div>
 
@@ -223,8 +223,8 @@
 	}
 	.header__info-wrapper {
 		display: flex;
-		gap: 2px;
-		padding: 12px;
+		gap: 4px;
+		padding: 8px 8px 14px 10px;
 	}
 	.header__info {
 		flex: 1;
@@ -233,7 +233,19 @@
 		overflow: hidden;
 		justify-content: center;
 		align-items: start;
-		gap: 10px;
+		gap: 5px;
+	}
+	.header__drag-handle {
+		height: fit-content;
+		cursor: grab;
+		display: flex;
+		margin-top: 6px;
+		opacity: 0.4;
+		transition: opacity var(--transition-fast);
+
+		&:hover {
+			opacity: 0.8;
+		}
 	}
 	.header__info-row {
 		width: 100%;
