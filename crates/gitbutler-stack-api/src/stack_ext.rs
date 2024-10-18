@@ -228,12 +228,29 @@ impl StackExt for Stack {
             return Ok(());
         }
         let commit = ctx.repository().find_commit(self.head())?;
+
+        let (author, _committer) = ctx.repository().signatures()?;
+        // Get the author initials, splitting by any whitespace
+        let initials = author
+            .name()
+            .map(|s| {
+                format!(
+                    "{}-",
+                    s.split_whitespace()
+                        .map(|word| word.chars().next().unwrap_or(' '))
+                        .collect::<String>()
+                )
+            })
+            .unwrap_or("".to_owned())
+            .to_lowercase();
+        let branch_name = format!("{}{}-1", initials, "branch");
+
         let mut reference = PatchReference {
             target: commit.into(),
             name: if let Some(refname) = self.upstream.as_ref() {
                 refname.branch().to_string()
             } else {
-                normalize_branch_name("branch")?
+                normalize_branch_name(&branch_name)?
             },
             description: None,
         };
