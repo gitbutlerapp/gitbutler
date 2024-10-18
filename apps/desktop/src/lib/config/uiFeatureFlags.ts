@@ -11,9 +11,9 @@ export function featureBaseBranchSwitching(): Persisted<boolean> {
 	return persisted(false, key);
 }
 
-export const stackingFeature = persisted(false, 'stackingFeature');
+export const stackingFeature = persisted(true, 'stackingFeature_v2');
 
-export const stackingFeatureMultipleSeries = persisted(true, 'stackingFeatureMultipleSeries');
+export const stackingFeatureMultipleSeries = persisted(false, 'stackingFeatureMultipleSeries');
 
 export function featureTopics(): Persisted<boolean> {
 	const key = 'feature--topics';
