@@ -64,9 +64,6 @@ export function focusTrap(node: HTMLElement, params: focusParams = { focusOnFirs
 
 		if (focusable.length) {
 			focusable[0].focus();
-			window.setTimeout(() => {
-				focusable[0].focus();
-			}, 0);
 		}
 	}
 

@@ -53,9 +53,10 @@
 			background-color: var(--bg-color);
 			color: var(--icon-color, var(--clr-text-1));
 		}
+
 		& .stack__status--bar {
 			width: 2px;
-			height: 14px;
+			height: 10px;
 			margin: 0 20px;
 			background: var(--bg-color);
 		}
