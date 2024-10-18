@@ -19,13 +19,12 @@
 	);
 
 	const commits = $derived.by(() => {
-		return branch.series
-			.map((series) => {
-				let patches = [`top|${series.name}`];
-				patches.push(...series.patches.map((patch) => patch.id));
-				return patches;
-			})
-			.flat();
+		console.log('DERIVED.COMMITS.BRANCH_SERIES', branch.series);
+		return branch.series.flatMap((series) => {
+			let patches = [`top|${series.name}`];
+			patches.push(...series.patches.map((patch) => patch.id));
+			return patches;
+		});
 	});
 
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
