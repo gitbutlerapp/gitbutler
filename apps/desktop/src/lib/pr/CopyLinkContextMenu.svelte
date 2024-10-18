@@ -17,7 +17,7 @@
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Copy to Clipbaord"
-			on:click={() => {
+			onclick={() => {
 				copyToClipboard(url);
 				menu.close();
 			}}

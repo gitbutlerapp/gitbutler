@@ -3,7 +3,7 @@
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
-	import { ProjectService, Project } from '$lib/backend/projects';
+	import { ProjectsService, Project } from '$lib/backend/projects';
 	import { showError } from '$lib/notifications/toasts';
 	import ProjectNameLabel from '$lib/shared/ProjectNameLabel.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
@@ -14,7 +14,7 @@
 
 	export let error: any = undefined;
 
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 	const project = getContext(Project);
 
 	let loading = false;
@@ -24,7 +24,7 @@
 		loading = true;
 		try {
 			deleteConfirmationModal.close();
-			await projectService.deleteProject(project.id);
+			await projectsService.deleteProject(project.id);
 			toasts.success('Project deleted');
 			goto('/');
 		} catch (err: any) {
@@ -32,7 +32,7 @@
 			showError('Failed to delete project', err);
 		} finally {
 			loading = false;
-			projectService.reload();
+			projectsService.reload();
 		}
 	}
 </script>

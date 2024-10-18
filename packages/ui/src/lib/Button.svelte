@@ -12,6 +12,7 @@
 		shrinkable?: boolean;
 		reversedDirection?: boolean;
 		width?: number | undefined;
+		maxWidth?: number | undefined;
 		size?: 'tag' | 'button' | 'cta';
 		wide?: boolean;
 		grow?: boolean;
@@ -23,6 +24,7 @@
 		outline?: boolean;
 		dashed?: boolean;
 		solidBackground?: boolean;
+		borderRadius?: 'medium' | 'large';
 		// Additional elements
 		icon?: keyof typeof iconsJson | undefined;
 		tooltip?: string;
@@ -36,6 +38,7 @@
 		oncontextmenu?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		// Snippets
+		ignoreChildren?: boolean;
 		children?: Snippet;
 	}
 </script>
@@ -59,6 +62,7 @@
 		shrinkable = false,
 		reversedDirection = false,
 		width,
+		maxWidth,
 		size = 'button',
 		wide = false,
 		grow = false,
@@ -69,6 +73,7 @@
 		outline = false,
 		dashed = false,
 		solidBackground = false,
+		borderRadius = 'medium',
 		testId,
 		icon,
 		tooltip,
@@ -78,6 +83,7 @@
 		onmousedown,
 		oncontextmenu,
 		onkeydown,
+		ignoreChildren = false,
 		children
 	}: Props = $props();
 
@@ -94,7 +100,7 @@
 <Tooltip text={tooltip} align={tooltipAlign} position={tooltipPosition}>
 	<button
 		bind:this={el}
-		class="btn focus-state {style} {kind} {size}-size"
+		class="btn focus-state {style} {kind} {size}-size br-{borderRadius}"
 		class:outline
 		class:dashed
 		class:solidBackground
@@ -106,7 +112,8 @@
 		class:not-clickable={!clickable}
 		class:fixed-width={!children && !wide}
 		style:align-self={align}
-		style:width={width ? pxToRem(width) : undefined}
+		style:width={width !== undefined ? pxToRem(width) : undefined}
+		style:max-width={maxWidth !== undefined ? pxToRem(maxWidth) : undefined}
 		disabled={disabled || loading}
 		onclick={handleAction}
 		{onmousedown}
@@ -116,8 +123,9 @@
 		{id}
 		{...testId ? { 'data-testid': testId } : null}
 		tabindex={clickable ? tabindex : -1}
+		data-clickable={clickable}
 	>
-		{#if children}
+		{#if !ignoreChildren && children}
 			<span
 				class="label text-semibold"
 				class:text-12={size === 'button' || size === 'cta'}
@@ -146,7 +154,6 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: var(--radius-m);
 		border: 1px solid transparent;
 		cursor: pointer;
 		color: var(--btn-text-clr);
@@ -154,7 +161,13 @@
 		transition:
 			background var(--transition-fast),
 			opacity var(--transition-fast),
-			color var(--transition-fast);
+			color var(--transition-fast),
+			max-width var(--transition-medium);
+		-webkit-transition:
+			background var(--transition-fast),
+			opacity var(--transition-fast),
+			color var(--transition-fast),
+			max-width var(--transition-medium);
 		-webkit-transform-style: preserve-3d;
 		-webkit-backface-visibility: hidden;
 
@@ -190,15 +203,25 @@
 				text-overflow: ellipsis;
 			}
 		}
+
+		&.br-medium {
+			border-radius: var(--radius-m);
+		}
+
+		&.br-large {
+			border-radius: var(--radius-l);
+		}
 	}
 
 	.label {
+		pointer-events: none;
 		display: inline-flex;
 		white-space: nowrap;
 		padding: 0 2px;
 	}
 
 	.btn-icon {
+		pointer-events: none;
 		flex-shrink: 0;
 		display: flex;
 		opacity: var(--icon-opacity);

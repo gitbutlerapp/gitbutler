@@ -25,8 +25,6 @@
 					{#if !isOpen}
 						{#each new Array(count) as _, idx}
 							<svg
-								width="14"
-								height="14"
 								viewBox="0 0 14 14"
 								class="upstream-dot"
 								style="--dot: {idx + 1}"
@@ -59,7 +57,7 @@
 
 		<div class="accordion-row unthemed">
 			<div class="accordion-row__line"></div>
-			<div class="accordion-row__right">
+			<div class="accordion-row__actions">
 				{@render action()}
 			</div>
 		</div>
@@ -97,12 +95,13 @@
 		& .accordion-row__line {
 			position: relative;
 			width: 2px;
-			margin: 0 22px;
+			margin: 0 20px;
 			background-color: var(--clr-commit-upstream);
-			--dots-y-shift: -6px;
+			--dots-y-shift: -8px;
 
 			& .upstream-dot {
-				/* position: absolute; */
+				width: 14px;
+				height: 14px;
 				fill: var(--clr-commit-upstream);
 				stroke: var(--clr-theme-warn-bg);
 				transform: rotate(45deg);
@@ -121,9 +120,16 @@
 		& .accordion-row__right {
 			display: flex;
 			flex: 1;
-			margin: 0 8px;
+			padding-right: 14px;
 			align-items: center;
 			color: var(--clr-text-2);
+		}
+
+		& .accordion-row__actions {
+			display: flex;
+			flex-direction: column;
+			flex: 1;
+			padding: 14px 14px 14px 0;
 		}
 
 		& .title {

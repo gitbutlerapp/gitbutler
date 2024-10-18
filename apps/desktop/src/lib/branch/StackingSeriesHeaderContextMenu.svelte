@@ -66,48 +66,51 @@
 		<ContextMenuItem
 			disabled
 			label="Add description"
-			on:click={() => {
+			onclick={() => {
 				addDescription();
 				contextMenuEl?.close();
 			}}
 		/>
-		<ContextMenuItem
-			label="Generate series name"
-			on:click={() => {
-				onGenerateBranchName();
-				contextMenuEl?.close();
-			}}
-			disabled={!($aiGenEnabled && aiConfigurationValid) || disableTitleEdit}
-		/>
-		<ContextMenuItem
-			label="Rename"
-			disabled={disableTitleEdit}
-			on:click={async () => {
-				renameSeriesModal.show(branch);
-				contextMenuEl?.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Delete"
-			disabled={seriesCount <= 1}
-			on:click={() => {
-				deleteSeriesModal.show(branch);
-				contextMenuEl?.close();
-			}}
-		/>
+		{#if $aiGenEnabled && aiConfigurationValid && !disableTitleEdit}
+			<ContextMenuItem
+				label="Generate branch name"
+				onclick={() => {
+					onGenerateBranchName();
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
+		{#if !disableTitleEdit}
+			<ContextMenuItem
+				label="Rename"
+				onclick={async () => {
+					renameSeriesModal.show(branch);
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
+		{#if seriesCount > 1}
+			<ContextMenuItem
+				label="Delete"
+				onclick={() => {
+					deleteSeriesModal.show(branch);
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
 	</ContextMenuSection>
 	{#if hasPr}
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="PR details"
-				on:click={() => {
+				onclick={() => {
 					openPrDetailsModal();
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
 				label="Refetch PR status"
-				on:click={() => {
+				onclick={() => {
 					reloadPR();
 					contextMenuEl?.close();
 				}}
@@ -118,7 +121,7 @@
 
 <Modal
 	width="small"
-	title="Rename series"
+	title="Rename branch"
 	bind:this={renameSeriesModal}
 	onSubmit={(close) => {
 		if (newHeadName && newHeadName !== headName) {
@@ -137,7 +140,7 @@
 
 <Modal
 	width="small"
-	title="Delete series"
+	title="Delete branch"
 	bind:this={deleteSeriesModal}
 	onSubmit={async (close) => {
 		try {

@@ -36,21 +36,29 @@
 	<ContextMenu bind:this={contextMenu} {target}>
 		<ContextMenuSection>
 			{#if showPrCheckbox}
-				<ContextMenuItem label="Pull requests" on:click={() => ($includePrs = !$includePrs)}>
-					<Checkbox small bind:checked={$includePrs} slot="control" />
+				<ContextMenuItem label="Pull requests" onclick={() => ($includePrs = !$includePrs)}>
+					{#snippet control()}
+						<Checkbox small bind:checked={$includePrs} />
+					{/snippet}
 				</ContextMenuItem>
 			{/if}
-			<ContextMenuItem label="Branches" on:click={() => ($includeRemote = !$includeRemote)}>
-				<Checkbox small bind:checked={$includeRemote} slot="control" />
+			<ContextMenuItem label="Branches" onclick={() => ($includeRemote = !$includeRemote)}>
+				{#snippet control()}
+					<Checkbox small bind:checked={$includeRemote} />
+				{/snippet}
 			</ContextMenuItem>
 		</ContextMenuSection>
 
 		<ContextMenuSection>
-			<ContextMenuItem label="Hide bots" on:click={() => ($hideBots = !$hideBots)}>
-				<Toggle small slot="control" bind:checked={$hideBots} />
+			<ContextMenuItem label="Hide bots" onclick={() => ($hideBots = !$hideBots)}>
+				{#snippet control()}
+					<Toggle small bind:checked={$hideBots} />
+				{/snippet}
 			</ContextMenuItem>
-			<ContextMenuItem label="Hide inactive" on:click={() => ($hideInactive = !$hideInactive)}>
-				<Toggle small slot="control" bind:checked={$hideInactive} />
+			<ContextMenuItem label="Hide inactive" onclick={() => ($hideInactive = !$hideInactive)}>
+				{#snippet control()}
+					<Toggle small bind:checked={$hideInactive} />
+				{/snippet}
 			</ContextMenuItem>
 		</ContextMenuSection>
 	</ContextMenu>

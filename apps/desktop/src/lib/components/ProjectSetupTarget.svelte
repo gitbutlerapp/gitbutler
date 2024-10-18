@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ProjectNameLabel from '../shared/ProjectNameLabel.svelte';
-	import { ProjectService, Project } from '$lib/backend/projects';
+	import { ProjectsService, Project } from '$lib/backend/projects';
 	import Login from '$lib/components/Login.svelte';
 	import SetupFeature from '$lib/components/SetupFeature.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -61,10 +61,10 @@
 		dispatch('branchSelected', [branch.name, remote]);
 	}
 
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 	async function deleteProjectAndGoBack() {
-		await projectService.deleteProject(project.id);
-		await projectService.reload();
+		await projectsService.deleteProject(project.id);
+		await projectsService.reload();
 
 		if (history.length > 0) {
 			history.back();

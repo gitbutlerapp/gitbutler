@@ -265,9 +265,9 @@ fn create_branch_in_the_middle() -> Result<()> {
         .expect("failed to read branches");
     branches.sort_by_key(|b| b.order);
     assert_eq!(branches.len(), 3);
-    assert_eq!(branches[0].name, "Virtual branch");
-    assert_eq!(branches[1].name, "Virtual branch 2");
-    assert_eq!(branches[2].name, "Virtual branch 1");
+    assert_eq!(branches[0].name, "Lane");
+    assert_eq!(branches[1].name, "Lane 2");
+    assert_eq!(branches[2].name, "Lane 1");
 
     Ok(())
 }
@@ -292,7 +292,7 @@ fn create_branch_no_arguments() -> Result<()> {
         .list_branches_in_workspace()
         .expect("failed to read branches");
     assert_eq!(branches.len(), 1);
-    assert_eq!(branches[0].name, "Virtual branch");
+    assert_eq!(branches[0].name, "Lane");
     assert_eq!(branches[0].ownership, BranchOwnershipClaims::default());
     assert_eq!(branches[0].order, 0);
 

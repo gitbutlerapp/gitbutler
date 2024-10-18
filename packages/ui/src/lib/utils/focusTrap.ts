@@ -3,19 +3,30 @@ let trapFocusList: HTMLElement[] = [];
 function getFocusableElements(node: HTMLElement): HTMLElement[] {
 	return Array.from(
 		node.querySelectorAll<HTMLElement>(
-			// List inspired by https://github.com/nico3333fr/van11y-accessible-modal-tooltip-aria/blob/master/src/van11y-accessible-modal-tooltip-aria.es6.js#L47C17-L47C17
-			'a, button, input, textarea, select, details,[tabindex]:not([tabindex="-1"]):not([tabindex="0"])'
+			'a, button, input, textarea, select, details, [tabindex]:not([tabindex="-1"])'
 		)
-	);
+	).filter((element) => isFocusable(element));
+}
+
+// Helper function to determine if an element is focusable
+function isFocusable(element: HTMLElement): boolean {
+	const style = window.getComputedStyle(element);
+
+	const isVisible = style.display !== 'none' && style.visibility !== 'hidden';
+	const isEnabled = !element.hasAttribute('disabled');
+
+	return isVisible && isEnabled;
 }
 
 if (typeof window !== 'undefined') {
 	function isNext(event: KeyboardEvent): boolean {
 		return event.key === 'Tab' && !event.shiftKey;
 	}
+
 	function isPrevious(event: KeyboardEvent): boolean {
 		return event.key === 'Tab' && event.shiftKey;
 	}
+
 	function trapFocusListener(event: KeyboardEvent) {
 		if (event.target === window) {
 			return;
@@ -44,21 +55,29 @@ if (typeof window !== 'undefined') {
 	document.addEventListener('keydown', trapFocusListener);
 }
 
-export function focusTrap(node: HTMLElement, focusOnFirst = true, focusOnElement?: HTMLElement) {
+export type focusParams = { focusOnElement?: HTMLElement; focusOnFirst?: boolean };
+
+export function focusTrap(node: HTMLElement, params: focusParams = { focusOnFirst: true }) {
 	// focus on the first focusable element
-	if (focusOnFirst && !focusOnElement) {
+	if (params.focusOnFirst && !params.focusOnElement) {
 		const focusable = getFocusableElements(node);
+
 		if (focusable.length) {
 			focusable[0].focus();
+			window.setTimeout(() => {
+				focusable[0].focus();
+			}, 0);
 		}
 	}
 
 	// focus on the specified element
-	if (focusOnElement) {
-		focusOnElement.focus();
+	if (params.focusOnElement) {
+		console.log('focusOnElement', params.focusOnElement);
+		params.focusOnElement.focus();
 	}
 
 	trapFocusList.push(node);
+
 	return {
 		destroy() {
 			trapFocusList = trapFocusList.filter((element) => element !== node);

@@ -27,7 +27,7 @@ pub(crate) fn remove_head(
     // This means that if there are commits, they need to be moved to the branch underneath.
     let mut moved_another_reference = false;
     if heads.len() - 1 == idx {
-        // Getting the preceeding head  and setting it's target to the target of the head being removed
+        // Getting the preceding head  and setting its target to the target of the head being removed
         let prior_head = heads
             .get_mut(idx - 1)
             .ok_or_else(|| anyhow!("Cannot get the head before the head being removed"))?;
@@ -51,7 +51,7 @@ pub(crate) fn add_head(
     // Go over all patches in the stack from oldest to newest
     // If `new_head` or the first (bottom of the stack) head in existing_heads points to the patch, add it to the list
     // If there are multiple heads that point to the same patch, the order is disambiguated by specifying the `preceding_head`
-    // If `preceding_head` is specified, it must be in the list of existing heads and it must be a head for the same patch as the `new_head`
+    // If `preceding_head` is specified, it must be in the list of existing heads, and it must be a head for the same patch as the `new_head`
     if let Some(preceding_head) = &preceding_head {
         if preceding_head.target != new_head.target {
             return Err(anyhow!(
@@ -65,7 +65,7 @@ pub(crate) fn add_head(
         }
     }
     let mut updated_heads: Vec<PatchReference> = vec![];
-    let mut new_head = Option::Some(new_head);
+    let mut new_head = Some(new_head);
     for patch in &patches {
         loop {
             let existing_head = existing_heads.first().cloned();
@@ -107,7 +107,7 @@ pub(crate) fn add_head(
     if let Some(last_head) = updated_heads.last() {
         if let Some(last_patch) = patches.last() {
             if last_head.target != last_patch.clone() {
-                // error - invalid state - this would result in ophaned patches
+                // error - invalid state - this would result in orphaned patches
                 bail!(
                     "The newest head must point to the newest patch in the stack. The newest patch is {}, while the newest head with name {} points patch {}", last_patch, last_head.name, last_head.target
                 );

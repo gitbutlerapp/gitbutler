@@ -65,7 +65,7 @@
 				{#if files[0] instanceof LocalFile && !isUnapplied && !isBinary}
 					<ContextMenuItem
 						label="Discard changes"
-						on:click={() => {
+						onclick={() => {
 							confirmationModal.show(item);
 							contextMenu.close();
 						}}
@@ -74,7 +74,7 @@
 				{#if files.length === 1}
 					<ContextMenuItem
 						label="Copy Path"
-						on:click={async () => {
+						onclick={async () => {
 							try {
 								if (!project) return;
 								const absPath = await join(project.path, item.files[0].path);
@@ -89,7 +89,7 @@
 					/>
 					<ContextMenuItem
 						label="Copy Relative Path"
-						on:click={() => {
+						onclick={() => {
 							try {
 								if (!project) return;
 								navigator.clipboard.writeText(item.files[0].path);
@@ -104,7 +104,7 @@
 				<ContextMenuItem
 					label="Open in {$userSettings.defaultCodeEditor.displayName}"
 					disabled={isDeleted(item)}
-					on:click={async () => {
+					onclick={async () => {
 						try {
 							if (!project) return;
 							for (let file of item.files) {

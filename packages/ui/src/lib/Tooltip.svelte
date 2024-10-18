@@ -20,7 +20,6 @@
 	const { text, delay = 700, align, position, children }: Props = $props();
 
 	let targetEl: HTMLElement | undefined = $state();
-	let tooltipEl: HTMLElement | undefined = $state();
 
 	let show = $state(false);
 	let timeoutId: undefined | ReturnType<typeof setTimeout> = $state();
@@ -31,12 +30,20 @@
 		timeoutId = setTimeout(() => {
 			show = true;
 			// console.log('showing tooltip');
-		}, delay); // 500ms delay before showing the tooltip
+		}, delay);
 	}
 
 	function handleMouseLeave() {
 		clearTimeout(timeoutId);
 		show = false;
+	}
+
+	function handleClick(e: MouseEvent) {
+		// Need to prevent interference with context menu and modals
+		if ((e.target as HTMLElement)?.dataset.clickable === 'true') {
+			e.preventDefault();
+			handleMouseLeave();
+		}
 	}
 </script>
 
@@ -46,9 +53,10 @@
 	<span
 		bind:this={targetEl}
 		class="tooltip-wrap"
-		role="tooltip"
+		role="presentation"
 		onmouseenter={handleMouseEnter}
 		onmouseleave={handleMouseLeave}
+		onmousedown={handleClick}
 	>
 		{#if children}
 			{@render children()}
@@ -56,7 +64,6 @@
 
 		{#if show}
 			<div
-				bind:this={tooltipEl}
 				use:setPosition={{ targetEl, position, align }}
 				use:portal={'body'}
 				class="tooltip-container text-11 text-body"

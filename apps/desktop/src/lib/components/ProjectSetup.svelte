@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { Project, ProjectsService } from '$lib/backend/projects';
 	import { BaseBranchService, type RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';
 	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
 	import { platformName } from '$lib/platform/platform';
@@ -14,7 +14,7 @@
 	export let remoteBranches: RemoteBranchInfo[];
 
 	const project = getContext(Project);
-	const projectService = getContext(ProjectService);
+	const projectsService = getContext(ProjectsService);
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
 
@@ -29,7 +29,7 @@
 			// TODO: Refactor temporary solution to forcing Windows to use system executable
 			if ($platformName === 'win32') {
 				project.preferred_key = 'systemExecutable';
-				await projectService.updateProject(project);
+				await projectsService.updateProject(project);
 				await baseBranchService.refresh();
 			}
 			await branchController.setTarget(selectedBranch[0], selectedBranch[1]);

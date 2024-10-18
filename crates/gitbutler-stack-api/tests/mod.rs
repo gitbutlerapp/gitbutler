@@ -18,7 +18,7 @@ fn init_success() -> Result<()> {
     assert!(result.is_ok());
     assert!(branch.initialized());
     assert_eq!(branch.heads.len(), 1);
-    assert_eq!(branch.heads[0].name, "branch-1"); // matches the stack name
+    assert_eq!(branch.heads[0].name, "a-branch-2"); // matches the stack name
     assert_eq!(
         branch.heads[0].target,
         CommitOrChangeId::ChangeId(
@@ -126,7 +126,7 @@ fn add_multiple_series() -> Result<()> {
     test_ctx.branch.initialize(&ctx)?;
 
     assert_eq!(test_ctx.branch.heads.len(), 1);
-    assert_eq!(head_names(&test_ctx), vec!["branch-1"]); // defalts to stack name
+    assert_eq!(head_names(&test_ctx), vec!["a-branch-2"]); // defaults to stack name
     let default_head = test_ctx.branch.heads[0].clone();
 
     let head_4 = PatchReference {
@@ -138,7 +138,7 @@ fn add_multiple_series() -> Result<()> {
         .branch
         .add_series(&ctx, head_4, Some(default_head.name.clone()));
     assert!(result.is_ok());
-    assert_eq!(head_names(&test_ctx), vec!["branch-1", "head_4"]);
+    assert_eq!(head_names(&test_ctx), vec!["a-branch-2", "head_4"]);
 
     let head_2 = PatchReference {
         name: "head_2".into(),
@@ -147,7 +147,10 @@ fn add_multiple_series() -> Result<()> {
     };
     let result = test_ctx.branch.add_series(&ctx, head_2, None);
     assert!(result.is_ok());
-    assert_eq!(head_names(&test_ctx), vec!["head_2", "branch-1", "head_4"]);
+    assert_eq!(
+        head_names(&test_ctx),
+        vec!["head_2", "a-branch-2", "head_4"]
+    );
 
     let head_1 = PatchReference {
         name: "head_1".into(),
@@ -159,13 +162,13 @@ fn add_multiple_series() -> Result<()> {
     assert!(result.is_ok());
     assert_eq!(
         head_names(&test_ctx),
-        vec!["head_1", "head_2", "branch-1", "head_4"]
+        vec!["head_1", "head_2", "a-branch-2", "head_4"]
     );
     Ok(())
 }
 
 #[test]
-fn add_series_commitid_when_changeid_available() -> Result<()> {
+fn add_series_commit_id_when_change_id_available() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     test_ctx.branch.initialize(&ctx)?;
@@ -352,7 +355,7 @@ fn remove_series_with_multiple_last_heads() -> Result<()> {
     test_ctx.branch.initialize(&ctx)?;
 
     assert_eq!(test_ctx.branch.heads.len(), 1);
-    assert_eq!(head_names(&test_ctx), vec!["branch-1"]); // defalts to stack name
+    assert_eq!(head_names(&test_ctx), vec!["a-branch-2"]); // defaults to stack name
     let default_head = test_ctx.branch.heads[0].clone();
 
     let to_stay = PatchReference {
@@ -362,7 +365,7 @@ fn remove_series_with_multiple_last_heads() -> Result<()> {
     };
     let result = test_ctx.branch.add_series(&ctx, to_stay.clone(), None);
     assert!(result.is_ok());
-    assert_eq!(head_names(&test_ctx), vec!["to_stay", "branch-1"]);
+    assert_eq!(head_names(&test_ctx), vec!["to_stay", "a-branch-2"]);
 
     let result = test_ctx
         .branch
@@ -383,7 +386,7 @@ fn remove_series_no_orphan_commits() -> Result<()> {
     test_ctx.branch.initialize(&ctx)?;
 
     assert_eq!(test_ctx.branch.heads.len(), 1);
-    assert_eq!(head_names(&test_ctx), vec!["branch-1"]); // defalts to stack name
+    assert_eq!(head_names(&test_ctx), vec!["a-branch-2"]); // defaults to stack name
     let default_head = test_ctx.branch.heads[0].clone(); // references the newest commit
 
     let to_stay = PatchReference {
@@ -393,7 +396,7 @@ fn remove_series_no_orphan_commits() -> Result<()> {
     }; // references the oldest commit
     let result = test_ctx.branch.add_series(&ctx, to_stay.clone(), None);
     assert!(result.is_ok());
-    assert_eq!(head_names(&test_ctx), vec!["to_stay", "branch-1"]);
+    assert_eq!(head_names(&test_ctx), vec!["to_stay", "a-branch-2"]);
 
     let result = test_ctx
         .branch
@@ -416,7 +419,7 @@ fn update_series_noop_does_nothing() -> Result<()> {
     let noop_update = PatchReferenceUpdate::default();
     let result = test_ctx
         .branch
-        .update_series(&ctx, "branch-1".into(), &noop_update);
+        .update_series(&ctx, "a-branch-2".into(), &noop_update);
     assert!(result.is_ok());
     assert_eq!(test_ctx.branch.heads, heads_before);
     Ok(())
@@ -434,7 +437,7 @@ fn update_series_name_fails_validation() -> Result<()> {
     };
     let result = test_ctx
         .branch
-        .update_series(&ctx, "branch-1".into(), &update);
+        .update_series(&ctx, "a-branch-2".into(), &update);
     assert_eq!(result.err().unwrap().to_string(), "Invalid branch name");
     Ok(())
 }
@@ -451,7 +454,7 @@ fn update_series_name_success() -> Result<()> {
     };
     let result = test_ctx
         .branch
-        .update_series(&ctx, "branch-1".into(), &update);
+        .update_series(&ctx, "a-branch-2".into(), &update);
     assert!(result.is_ok());
     assert_eq!(test_ctx.branch.heads[0].name, "new-name");
     // Assert persisted
@@ -474,7 +477,7 @@ fn update_series_set_description() -> Result<()> {
     };
     let result = test_ctx
         .branch
-        .update_series(&ctx, "branch-1".into(), &update);
+        .update_series(&ctx, "a-branch-2".into(), &update);
     assert!(result.is_ok());
     assert_eq!(
         test_ctx.branch.heads[0].description,
@@ -504,7 +507,7 @@ fn update_series_target_fails_commit_not_in_stack() -> Result<()> {
     };
     let result = test_ctx
         .branch
-        .update_series(&ctx, "branch-1".into(), &update);
+        .update_series(&ctx, "a-branch-2".into(), &update);
     assert_eq!(
         result.err().unwrap().to_string(),
         format!(
@@ -532,7 +535,7 @@ fn update_series_target_orphan_commit_fails() -> Result<()> {
     };
     let result = test_ctx
         .branch
-        .update_series(&ctx, "branch-1".into(), &update);
+        .update_series(&ctx, "a-branch-2".into(), &update);
 
     assert_eq!(
         result.err().unwrap().to_string(),
@@ -583,7 +586,9 @@ fn push_series_no_remote() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     test_ctx.branch.initialize(&ctx)?;
-    let result = test_ctx.branch.push_series(&ctx, "branch-1".into(), false);
+    let result = test_ctx
+        .branch
+        .push_series(&ctx, "a-branch-2".into(), false);
     assert_eq!(
         result.err().unwrap().to_string(),
         "No remote has been configured for the target branch"
@@ -602,7 +607,9 @@ fn push_series_success() -> Result<()> {
     target.push_remote_name = Some("origin".into());
     state.set_default_target(target)?;
 
-    let result = test_ctx.branch.push_series(&ctx, "branch-1".into(), false);
+    let result = test_ctx
+        .branch
+        .push_series(&ctx, "a-branch-2".into(), false);
     assert!(result.is_ok());
     Ok(())
 }
@@ -618,11 +625,13 @@ fn update_name_after_push() -> Result<()> {
     target.push_remote_name = Some("origin".into());
     state.set_default_target(target)?;
 
-    let result = test_ctx.branch.push_series(&ctx, "branch-1".into(), false);
+    let result = test_ctx
+        .branch
+        .push_series(&ctx, "a-branch-2".into(), false);
     assert!(result.is_ok());
     let result = test_ctx.branch.update_series(
         &ctx,
-        "branch-1".into(),
+        "a-branch-2".into(),
         &PatchReferenceUpdate {
             name: Some("new-name".into()),
             ..Default::default()
@@ -643,10 +652,10 @@ fn list_series_default_head() -> Result<()> {
     test_ctx.branch.initialize(&ctx)?;
     let result = test_ctx.branch.list_series(&ctx);
     assert!(result.is_ok());
-    let result = result.unwrap();
+    let result = result?;
     // the number of series matches the number of heads
     assert_eq!(result.len(), test_ctx.branch.heads.len());
-    assert_eq!(result[0].head.name, "branch-1");
+    assert_eq!(result[0].head.name, "a-branch-2");
     let expected_patches = test_ctx
         .commits
         .iter()
@@ -672,7 +681,7 @@ fn list_series_two_heads_same_commit() -> Result<()> {
 
     let result = test_ctx.branch.list_series(&ctx);
     assert!(result.is_ok());
-    let result = result.unwrap();
+    let result = result?;
 
     // the number of series matches the number of heads
     assert_eq!(result.len(), test_ctx.branch.heads.len());
@@ -686,7 +695,7 @@ fn list_series_two_heads_same_commit() -> Result<()> {
     assert_eq!(result[0].local_commits, expected_patches);
     assert_eq!(result[0].head.name, "head_before");
     assert_eq!(result[1].local_commits, vec![]);
-    assert_eq!(result[1].head.name, "branch-1");
+    assert_eq!(result[1].head.name, "a-branch-2");
     Ok(())
 }
 
@@ -706,7 +715,7 @@ fn list_series_two_heads_different_commit() -> Result<()> {
     assert!(result.is_ok());
     let result = test_ctx.branch.list_series(&ctx);
     assert!(result.is_ok());
-    let result = result.unwrap();
+    let result = result?;
     // the number of series matches the number of heads
     assert_eq!(result.len(), test_ctx.branch.heads.len());
     let mut expected_patches = test_ctx
@@ -718,7 +727,7 @@ fn list_series_two_heads_different_commit() -> Result<()> {
     assert_eq!(result[0].head.name, "head_before");
     assert_eq!(expected_patches.len(), 2);
     assert_eq!(result[1].local_commits, expected_patches); // the other two patches are in the second series
-    assert_eq!(result[1].head.name, "branch-1");
+    assert_eq!(result[1].head.name, "a-branch-2");
 
     Ok(())
 }
@@ -769,7 +778,7 @@ fn replace_head_single() -> Result<()> {
         .branch
         .replace_head(&ctx, &test_ctx.commits[1], &test_ctx.commits[0]);
     assert!(result.is_ok());
-    // the heads is update to point to the new commit
+    // the head is updated to point to the new commit
     assert_eq!(
         test_ctx.branch.heads[0].target,
         CommitOrChangeId::ChangeId(test_ctx.commits[0].change_id().unwrap())
@@ -785,7 +794,7 @@ fn replace_head_single() -> Result<()> {
 }
 
 #[test]
-fn replace_head_single_with_mergebase() -> Result<()> {
+fn replace_head_single_with_merge_base() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     let top_of_stack = test_ctx.branch.heads.last().unwrap().target.clone();
@@ -804,8 +813,8 @@ fn replace_head_single_with_mergebase() -> Result<()> {
         .branch
         .replace_head(&ctx, &test_ctx.commits[1], &merge_base);
     assert!(result.is_ok());
-    // the heads is update to point to the new commit
-    // this time its a commit id
+    // the head is updated to point to the new commit
+    // this time it's a commit id
     assert_eq!(
         test_ctx.branch.heads[0].target,
         CommitOrChangeId::CommitId(merge_base.id().to_string())
@@ -821,7 +830,7 @@ fn replace_head_single_with_mergebase() -> Result<()> {
 }
 
 #[test]
-fn replace_head_with_inavlid_commit_error() -> Result<()> {
+fn replace_head_with_invalid_commit_error() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     let from_head = PatchReference {
@@ -891,7 +900,7 @@ fn replace_no_head_noop() -> Result<()> {
 }
 
 #[test]
-fn replace_non_member_commit_noop_noerror() -> Result<()> {
+fn replace_non_member_commit_noop_no_error() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     let stack = test_ctx.branch.clone();
@@ -915,7 +924,7 @@ fn replace_top_of_stack_single() -> Result<()> {
         .branch
         .replace_head(&ctx, &initial_head, &test_ctx.commits[1]);
     assert!(result.is_ok());
-    // the heads is update to point to the new commit
+    // the head is updated to point to the new commit
     assert_eq!(
         test_ctx.branch.heads[0].target,
         CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap())
@@ -1015,7 +1024,7 @@ fn replace_head_top_of_stack_multiple() -> Result<()> {
 fn set_legacy_refname() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
-    let remote_branch: RemoteRefname = "refs/remotes/origin/my-branch".parse().unwrap();
+    let remote_branch: RemoteRefname = "refs/remotes/origin/my-branch".parse()?;
     test_ctx.branch.upstream = Some(remote_branch.clone());
     test_ctx
         .branch
@@ -1042,7 +1051,7 @@ fn set_legacy_refname_no_upstream_set() -> Result<()> {
 fn set_legacy_refname_multiple_heads() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
-    let remote_branch: RemoteRefname = "refs/remotes/origin/my-branch".parse().unwrap();
+    let remote_branch: RemoteRefname = "refs/remotes/origin/my-branch".parse()?;
     test_ctx.branch.upstream = Some(remote_branch.clone());
     let extra_head = PatchReference {
         name: "extra_head".into(),
@@ -1064,7 +1073,7 @@ fn set_legacy_refname_multiple_heads() -> Result<()> {
 fn set_legacy_refname_pushed() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
-    let remote_branch: RemoteRefname = "refs/remotes/origin/my-branch".parse().unwrap();
+    let remote_branch: RemoteRefname = "refs/remotes/origin/my-branch".parse()?;
     test_ctx.branch.upstream = Some(remote_branch.clone());
 
     let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
@@ -1073,7 +1082,7 @@ fn set_legacy_refname_pushed() -> Result<()> {
     state.set_default_target(target)?;
     test_ctx
         .branch
-        .push_series(&ctx, "branch-1".into(), false)?;
+        .push_series(&ctx, "a-branch-2".into(), false)?;
     let initial_state = test_ctx.branch.clone();
 
     test_ctx

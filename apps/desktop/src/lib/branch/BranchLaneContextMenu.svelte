@@ -93,7 +93,7 @@
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Collapse lane"
-			on:click={() => {
+			onclick={() => {
 				onCollapse();
 				contextMenuEl?.close();
 			}}
@@ -102,7 +102,7 @@
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Unapply"
-			on:click={async () => {
+			onclick={async () => {
 				if (commits.length === 0 && branch.files?.length === 0) {
 					await branchController.unapplyWithoutSaving(branch.id);
 				} else {
@@ -114,9 +114,9 @@
 
 		<ContextMenuItem
 			label="Unapply and drop changes"
-			on:click={async () => {
+			onclick={async () => {
 				if (
-					branch.name.toLowerCase().includes('virtual branch') &&
+					branch.name.toLowerCase().includes('lane') &&
 					commits.length === 0 &&
 					branch.files?.length === 0
 				) {
@@ -131,7 +131,7 @@
 		{#if !$stackingFeature}
 			<ContextMenuItem
 				label="Generate branch name"
-				on:click={() => {
+				onclick={() => {
 					onGenerateBranchName?.();
 					contextMenuEl?.close();
 				}}
@@ -144,7 +144,7 @@
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Set remote branch name"
-				on:click={() => {
+				onclick={() => {
 					newRemoteName = branch.upstreamName || normalizedBranchName || '';
 					renameRemoteModal.show(branch);
 					contextMenuEl?.close();
@@ -154,10 +154,12 @@
 	{/if}
 
 	<ContextMenuSection>
-		<ContextMenuItem label="Allow rebasing" on:click={toggleAllowRebasing}>
-			<Tooltip slot="control" text={'Allows changing commits after push\n(force push needed)'}>
-				<Toggle small bind:checked={allowRebasing} on:click={toggleAllowRebasing} />
-			</Tooltip>
+		<ContextMenuItem label="Allow rebasing" onclick={toggleAllowRebasing}>
+			{#snippet control()}
+				<Tooltip text={'Allows changing commits after push\n(force push needed)'}>
+					<Toggle small bind:checked={allowRebasing} on:click={toggleAllowRebasing} />
+				</Tooltip>
+			{/snippet}
 		</ContextMenuItem>
 	</ContextMenuSection>
 
@@ -165,14 +167,14 @@
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="PR details"
-				on:click={() => {
+				onclick={() => {
 					openPrDetailsModal?.();
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
 				label="Refetch PR status"
-				on:click={() => {
+				onclick={() => {
 					reloadPR?.();
 					contextMenuEl?.close();
 				}}
@@ -183,7 +185,7 @@
 	<ContextMenuSection>
 		<ContextMenuItem
 			label={`Create ${$stackingFeature ? 'stack' : 'branch'} to the left`}
-			on:click={() => {
+			onclick={() => {
 				branchController.createBranch({ order: branch.order });
 				contextMenuEl?.close();
 			}}
@@ -191,7 +193,7 @@
 
 		<ContextMenuItem
 			label={`Create ${$stackingFeature ? 'stack' : 'branch'} to the right`}
-			on:click={() => {
+			onclick={() => {
 				branchController.createBranch({ order: branch.order + 1 });
 				contextMenuEl?.close();
 			}}

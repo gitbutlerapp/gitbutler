@@ -1,6 +1,5 @@
 <script lang="ts">
 	import MergeButton from './MergeButton.svelte';
-	import InfoMessage from '../shared/InfoMessage.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
@@ -104,55 +103,6 @@
 
 		return { text: 'Open', style: 'success' };
 	});
-
-	const infoProps: StatusInfo | undefined = $derived.by(() => {
-		const mergeableState = $pr?.mergeableState;
-		if (mergeableState === 'blocked' && !$checks && !$checksLoading) {
-			return {
-				icon: 'error',
-				messageStyle: 'error',
-				text: 'Merge is blocked due to pending reviews or missing dependencies. Resolve the issues before merging.'
-			};
-		}
-
-		if ($checks?.completed) {
-			if ($pr?.draft) {
-				return {
-					icon: 'warning',
-					messageStyle: 'neutral',
-					text: 'This pull request is still a work in progress. Draft pull requests cannot be merged.'
-				};
-			}
-
-			if (mergeableState === 'unstable') {
-				return {
-					icon: 'warning',
-					messageStyle: 'warning',
-					text: 'Your PR is causing instability or errors in the build or tests. Review the checks and fix the issues before merging.'
-				};
-			}
-
-			if (mergeableState === 'dirty') {
-				return {
-					icon: 'warning',
-					messageStyle: 'warning',
-					text: 'Your PR has conflicts that must be resolved before merging.'
-				};
-			}
-			if (
-				mergeableState === 'blocked' &&
-				!$checksLoading &&
-				$checks?.failed &&
-				$checks.failed > 0
-			) {
-				return {
-					icon: 'error',
-					messageStyle: 'error',
-					text: 'Merge is blocked due to failing checks. Resolve the issues before merging.'
-				};
-			}
-		}
-	});
 </script>
 
 {#if $pr}
@@ -206,14 +156,6 @@
         -->
 		{#if $pr}
 			<div class="pr-actions">
-				{#if infoProps}
-					<InfoMessage icon={infoProps.icon} filled outlined={false} style={infoProps.messageStyle}>
-						<svelte:fragment slot="content">
-							{infoProps.text}
-						</svelte:fragment>
-					</InfoMessage>
-				{/if}
-
 				<MergeButton
 					wide
 					projectId={project.id}

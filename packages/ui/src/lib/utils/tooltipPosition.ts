@@ -1,3 +1,5 @@
+import { onMount } from 'svelte';
+
 function isNoSpaceOnRight(targetEl: HTMLElement, tooltipEl: HTMLElement) {
 	if (!targetEl || !tooltipEl) return false;
 
@@ -24,17 +26,18 @@ function calculateHorizontalAlignment(
 	tooltipRect: DOMRect,
 	align: string | undefined
 ) {
-	const scrollX = window.scrollX;
-
 	switch (align) {
 		case 'start':
-			return { left: targetRect.left + scrollX, transformOriginLeft: 'left' };
+			return { left: targetRect.left + window.scrollX, transformOriginLeft: 'left' };
 		case 'end':
-			return { left: targetRect.right - tooltipRect.width + scrollX, transformOriginLeft: 'right' };
+			return {
+				left: targetRect.right - tooltipRect.width + window.scrollX,
+				transformOriginLeft: 'right'
+			};
 		case 'center':
 		default:
 			return {
-				left: targetRect.left + targetRect.width / 2 - tooltipRect.width / 2 + scrollX,
+				left: targetRect.left + targetRect.width / 2 - tooltipRect.width / 2 + window.scrollX,
 				transformOriginLeft: 'center'
 			};
 	}
@@ -90,29 +93,31 @@ export function setPosition(
 		gap?: number;
 	}
 ) {
-	const { targetEl, position, align, gap = 4 } = props;
+	onMount(() => {
+		const { targetEl, position, align, gap = 4 } = props;
 
-	if (!targetEl || !tooltipNode) return;
+		if (!targetEl || !tooltipNode) return;
 
-	const tooltipRect = tooltipNode.getBoundingClientRect();
-	const targetChild = targetEl.children[0];
-	const targetRect = targetChild.getBoundingClientRect();
+		const tooltipRect = tooltipNode.getBoundingClientRect();
+		const targetChild = targetEl.children[0];
+		const targetRect = targetChild.getBoundingClientRect();
 
-	// Determine vertical position
-	const { top, transformOriginTop } = calculateVerticalPosition(
-		targetRect,
-		tooltipRect,
-		position,
-		gap
-	);
+		// Determine vertical position
+		const { top, transformOriginTop } = calculateVerticalPosition(
+			targetRect,
+			tooltipRect,
+			position,
+			gap
+		);
 
-	// Determine horizontal alignment (either specified or auto-detected)
-	const { left, transformOriginLeft } = align
-		? calculateHorizontalAlignment(targetRect, tooltipRect, align)
-		: autoDetectHorizontalAlignment(targetEl, tooltipNode, targetRect, tooltipRect);
+		// Determine horizontal alignment (either specified or auto-detected)
+		const { left, transformOriginLeft } = align
+			? calculateHorizontalAlignment(targetRect, tooltipRect, align)
+			: autoDetectHorizontalAlignment(targetEl, tooltipNode, targetRect, tooltipRect);
 
-	// Apply calculated styles
-	tooltipNode.style.top = `${top}px`;
-	tooltipNode.style.left = `${left}px`;
-	tooltipNode.style.transformOrigin = `${transformOriginTop} ${transformOriginLeft}`;
+		// Apply calculated styles
+		tooltipNode.style.top = `${top}px`;
+		tooltipNode.style.left = `${left}px`;
+		tooltipNode.style.transformOrigin = `${transformOriginTop} ${transformOriginLeft}`;
+	});
 }

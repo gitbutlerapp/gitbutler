@@ -1,4 +1,5 @@
 import { BitBucketBranch } from './bitbucketBranch';
+import type { ForgeType } from '$lib/backend/forge';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHost } from '../interface/gitHost';
 import type { DetailedPullRequest, GitHostArguments } from '../interface/types';
@@ -16,6 +17,7 @@ export const BITBUCKET_DOMAIN = 'bitbucket.org';
  * https://github.com/gitbutlerapp/gitbutler/issues/3252
  */
 export class BitBucket implements GitHost {
+	readonly type: ForgeType = 'bitbucket';
 	private baseUrl: string;
 	private repo: RepoInfo;
 	private baseBranch: string;
@@ -49,15 +51,6 @@ export class BitBucket implements GitHost {
 	}
 
 	checksMonitor(_sourceBranch: string) {
-		return undefined;
-	}
-
-	async availablePullRequestTemplates(_path?: string) {
-		// See: https://confluence.atlassian.com/bitbucketserver/create-a-pull-request-808488431.html#Createapullrequest-templatePullrequestdescriptiontemplates
-		return undefined;
-	}
-
-	async pullRequestTemplateContent(_path?: string) {
 		return undefined;
 	}
 }

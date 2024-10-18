@@ -4,7 +4,8 @@ import * as toasts from '$lib/utils/toasts';
 import { persisted } from '@gitbutler/shared/persisted';
 import { open } from '@tauri-apps/api/dialog';
 import { plainToInstance } from 'class-transformer';
-import { get, writable } from 'svelte/store';
+import { derived, get, writable, type Readable } from 'svelte/store';
+import type { ForgeType } from './forge';
 import type { HttpClient } from '@gitbutler/shared/httpClient';
 import { goto } from '$app/navigation';
 
@@ -14,6 +15,8 @@ export type LocalKey = {
 };
 
 export type Key = Exclude<KeyType, 'local'> | LocalKey;
+
+export type HostType = { type: ForgeType };
 
 export class Project {
 	id!: string;
@@ -28,8 +31,8 @@ export class Project {
 	snapshot_lines_threshold!: number | undefined;
 	use_new_locking!: boolean;
 	git_host!: {
-		hostType: 'github' | 'gitlab' | 'bitbucket' | 'azure';
-		pullRequestTemplatePath: string;
+		hostType: HostType | undefined;
+		reviewTemplatePath: string | undefined;
 	};
 
 	// Produced just for the frontend to determine if the project is open in any window.
@@ -49,7 +52,7 @@ export type CloudProject = {
 	updated_at: string;
 };
 
-export class ProjectService {
+export class ProjectsService {
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
 	readonly projects = writable<Project[]>([], (set) => {
 		this.loadAll()
@@ -79,6 +82,18 @@ export class ProjectService {
 
 	async getProject(projectId: string, noValidation?: boolean) {
 		return plainToInstance(Project, await invoke('get_project', { id: projectId, noValidation }));
+	}
+
+	#projectStores = new Map<string, Readable<Project | undefined>>();
+	getProjectStore(projectId: string) {
+		let store = this.#projectStores.get(projectId);
+		if (store) return store;
+
+		store = derived(this.projects, (projects) => {
+			return projects.find((p) => p.id === projectId);
+		});
+		this.#projectStores.set(projectId, store);
+		return store;
 	}
 
 	async updateProject(project: Project) {
@@ -204,5 +219,34 @@ export class ProjectService {
 
 	async getCloudProject(repositoryId: string): Promise<CloudProject> {
 		return await this.httpClient.get(`projects/${repositoryId}.json`);
+	}
+
+	async setGitHostType(project: Project, type: ForgeType) {
+		if (project.git_host.hostType?.type === type) return;
+		const hostType: HostType = { type };
+		const gitHost = { hostType };
+		await invoke('update_project_git_host', { projectId: project.id, gitHost });
+		this.reload();
+	}
+}
+
+/**
+ * Provides a store to an individual proejct
+ *
+ * Its preferable to use this service over the static Project context.
+ */
+export class ProjectService {
+	project: Readable<Project | undefined>;
+	cloudEnabled: Readable<boolean>;
+
+	constructor(
+		projectsService: ProjectsService,
+		readonly projectId: string
+	) {
+		this.project = projectsService.getProjectStore(projectId);
+
+		this.cloudEnabled = derived(this.project, (project) => {
+			return !!project?.api?.sync;
+		});
 	}
 }

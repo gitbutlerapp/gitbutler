@@ -77,7 +77,7 @@
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
 		// or the user has to manually trigger the name generation from the meatball menu
 		// This saves people this extra click
-		if ($branch.name.toLowerCase().includes('virtual branch')) {
+		if ($branch.name.toLowerCase().includes('lane')) {
 			dispatch('action', 'generate-branch-name');
 		}
 
@@ -89,7 +89,8 @@
 			hunks,
 			useEmojiStyle: $commitGenerationUseEmojis,
 			useBriefStyle: $commitGenerationExtraConcise,
-			commitTemplate: prompt
+			commitTemplate: prompt,
+			branchName: $branch.name
 		});
 
 		if (isFailure(generatedMessageResult)) {
@@ -260,16 +261,20 @@
 						<ContextMenuSection>
 							<ContextMenuItem
 								label="Extra concise"
-								on:click={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
+								onclick={() => ($commitGenerationExtraConcise = !$commitGenerationExtraConcise)}
 							>
-								<Checkbox small slot="control" bind:checked={$commitGenerationExtraConcise} />
+								{#snippet control()}
+									<Checkbox small bind:checked={$commitGenerationExtraConcise} />
+								{/snippet}
 							</ContextMenuItem>
 
 							<ContextMenuItem
 								label="Use emojis 😎"
-								on:click={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
+								onclick={() => ($commitGenerationUseEmojis = !$commitGenerationUseEmojis)}
 							>
-								<Checkbox small slot="control" bind:checked={$commitGenerationUseEmojis} />
+								{#snippet control()}
+									<Checkbox small bind:checked={$commitGenerationUseEmojis} />
+								{/snippet}
 							</ContextMenuItem>
 						</ContextMenuSection>
 					{/snippet}

@@ -38,16 +38,6 @@
 	setContext<SegmentContext>('SegmentControl', context);
 </script>
 
-<div class="wrapper" class:full-width={fullWidth}>
+<div class="segment-control-container" class:full-width={fullWidth}>
 	{@render children()}
 </div>
-
-<style lang="postcss">
-	.wrapper {
-		display: inline-flex;
-	}
-
-	.wrapper.full-width {
-		width: 100%;
-	}
-</style>

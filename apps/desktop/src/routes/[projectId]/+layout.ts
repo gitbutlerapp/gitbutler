@@ -1,5 +1,8 @@
+import { ForgeService } from '$lib/backend/forge';
 import { getUserErrorCode, invoke } from '$lib/backend/ipc';
+import { ProjectService, type Project } from '$lib/backend/projects';
 import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+import { PatchStackCreationService } from '$lib/branch/patchStackCreationService';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
@@ -7,6 +10,7 @@ import { CommitService } from '$lib/commits/service';
 import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { HistoryService } from '$lib/history/history';
+import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ModeService } from '$lib/modes/service';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -14,22 +18,22 @@ import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 import { BranchController } from '$lib/vbranches/branchController';
 import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+import {
+	PatchStacksApiService,
+	CloudPatchStacksService
+} from '@gitbutler/shared/cloud/stacks/service';
 import { error } from '@sveltejs/kit';
-import type { Project } from '$lib/backend/projects';
+import { derived } from 'svelte/store';
 import type { LayoutLoad } from './$types';
 
 export const prerender = false;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async ({ params, parent }) => {
-	// prettier-ignore
-	const {
-        authService,
-        projectService,
-    } = await parent();
+	const { authService, projectsService, cloud, commandService, userService } = await parent();
 
 	const projectId = params.projectId;
-	projectService.setLastOpenedProject(projectId);
+	projectsService.setLastOpenedProject(projectId);
 
 	// Getting the project should be one of few, if not the only await expression in
 	// this function. It delays drawing the page, but currently the benefit from having this
@@ -38,7 +42,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	// and by now this is fast enough to not be an impediment.
 	let project: Project | undefined = undefined;
 	try {
-		project = await projectService.getProject(projectId);
+		project = await projectsService.getProject(projectId);
 		await invoke('set_project_active', { id: projectId });
 	} catch (err: any) {
 		const errorCode = getUserErrorCode(err);
@@ -48,6 +52,8 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		});
 	}
 
+	const projectService = new ProjectService(projectsService, projectId);
+
 	const projectMetrics = new ProjectMetrics(projectId);
 
 	const modeService = new ModeService(projectId);
@@ -56,6 +62,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const historyService = new HistoryService(projectId);
 	const baseBranchService = new BaseBranchService(projectId);
 	const commitService = new CommitService(projectId);
+	const forgeService = new ForgeService(projectId);
 
 	const branchListingService = new BranchListingService(projectId);
 	const remoteBranchService = new RemoteBranchService(
@@ -84,15 +91,31 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	const uncommitedFileWatcher = new UncommitedFilesWatcher(project);
 	const upstreamIntegrationService = new UpstreamIntegrationService(project, vbranchService);
+	const repositoryId = derived(projectsService.getProjectStore(projectId), (project) => {
+		return project?.api?.repository_id;
+	});
+	const syncedSnapshotService = new SyncedSnapshotService(
+		commandService,
+		userService.user,
+		projectsService.getProjectStore(projectId)
+	);
+	const patchStacksApiService = new PatchStacksApiService(cloud);
+	const cloudPatchStacksService = new CloudPatchStacksService(repositoryId, patchStacksApiService);
+	const patchStackCreationService = new PatchStackCreationService(
+		syncedSnapshotService,
+		cloudPatchStacksService
+	);
 
 	return {
 		authService,
 		baseBranchService,
 		commitService,
+		forgeService,
 		branchController,
 		historyService,
 		projectId,
 		project,
+		projectService,
 		remoteBranchService,
 		vbranchService,
 		projectMetrics,
@@ -105,6 +128,11 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		commitDragActionsFactory,
 		reorderDropzoneManagerFactory,
 		branchListingService,
-		uncommitedFileWatcher
+		uncommitedFileWatcher,
+
+		// Cloud-related services
+		syncedSnapshotService,
+		cloudPatchStacksService,
+		patchStackCreationService
 	};
 };

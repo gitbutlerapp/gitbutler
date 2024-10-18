@@ -1,9 +1,8 @@
 <script lang="ts">
 	import notFoundSvg from '$lib/assets/empty-state/not-found.svg?raw';
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { ForgeService } from '$lib/backend/forge';
+	import { ProjectService, ProjectsService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { createGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Section from '$lib/settings/Section.svelte';
@@ -13,26 +12,28 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 
+	const projectsService = getContext(ProjectsService);
 	const projectService = getContext(ProjectService);
-	const project = getContext(Project);
-	const gitHost = getGitHost();
-	const prService = createGitHostPrServiceStore(undefined);
-	$effect(() => prService.set($gitHost?.prService()));
+	const forgeService = getContext(ForgeService);
 
-	let useTemplate = $state(!!project.git_host?.pullRequestTemplatePath);
-	let selectedTemplate = $state(project.git_host?.pullRequestTemplatePath ?? '');
+	const projectStore = projectService.project;
+	const project = $derived($projectStore);
+	const useTemplate = $derived(!!project?.git_host.reviewTemplatePath);
+	const selectedTemplate = $derived(project?.git_host.reviewTemplatePath);
 	let allAvailableTemplates = $state<{ label: string; value: string }[]>([]);
 	let isTemplatesAvailable = $state(false);
 
 	$effect(() => {
-		if (!project.path) return;
-		$prService?.availablePullRequestTemplates(project.path).then((availableTemplates) => {
+		if (!project) {
+			return;
+		}
+
+		forgeService.getAvailableReviewTemplates().then((availableTemplates) => {
 			if (availableTemplates) {
 				allAvailableTemplates = availableTemplates.map((availableTemplate) => {
-					const relativePath = availableTemplate.replace(`${project.path}/`, '');
 					return {
-						label: relativePath,
-						value: relativePath
+						label: availableTemplate,
+						value: availableTemplate
 					};
 				});
 
@@ -42,16 +43,27 @@
 	});
 
 	async function setUsePullRequestTemplate(value: boolean) {
-		if (!value) {
-			project.git_host.pullRequestTemplatePath = '';
+		if (!project) return;
+
+		setTemplate: {
+			if (!value) {
+				project.git_host.reviewTemplatePath = undefined;
+				break setTemplate;
+			}
+
+			if (allAvailableTemplates[0]) {
+				project.git_host.reviewTemplatePath = allAvailableTemplates[0].value;
+				break setTemplate;
+			}
 		}
-		await projectService.updateProject(project);
+
+		await projectsService.updateProject(project);
 	}
 
 	async function setPullRequestTemplatePath(value: string) {
-		selectedTemplate = value;
-		project.git_host.pullRequestTemplatePath = value;
-		await projectService.updateProject(project);
+		if (!project) return;
+		project.git_host.reviewTemplatePath = value;
+		await projectsService.updateProject(project);
 	}
 </script>
 
@@ -66,7 +78,8 @@
 			<svelte:fragment slot="actions">
 				<Toggle
 					id="use-pull-request-template-boolean"
-					bind:checked={useTemplate}
+					checked={useTemplate}
+					disabled={!isTemplatesAvailable}
 					on:click={(e) => {
 						setUsePullRequestTemplate(
 							(e.target as MouseEvent['target'] & { checked: boolean }).checked

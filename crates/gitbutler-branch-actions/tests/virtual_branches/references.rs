@@ -29,14 +29,14 @@ mod create_virtual_branch {
         let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
-        assert_eq!(branches[0].name, "Virtual branch");
+        assert_eq!(branches[0].name, "Lane");
 
         let refnames = repository
             .references()
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))
             .collect::<Vec<_>>();
-        assert!(refnames.contains(&"refs/gitbutler/Virtual-branch".to_string()));
+        assert!(refnames.contains(&"refs/gitbutler/Lane".to_string()));
     }
 
     #[test]

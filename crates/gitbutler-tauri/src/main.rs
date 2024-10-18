@@ -12,8 +12,8 @@
 )]
 
 use gitbutler_tauri::{
-    askpass, commands, config, github, logs, menu, modes, open, projects, remotes, repo, secret,
-    stack, undo, users, virtual_branches, zip, App, WindowState,
+    askpass, commands, config, forge, github, logs, menu, modes, open, projects, remotes, repo,
+    secret, stack, undo, users, virtual_branches, zip, App, WindowState,
 };
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::LogTarget;
@@ -146,12 +146,12 @@ fn main() {
                     projects::commands::list_projects,
                     projects::commands::set_project_active,
                     projects::commands::open_project_in_window,
+                    projects::commands::update_project_git_host,
                     repo::commands::git_get_local_config,
                     repo::commands::git_set_local_config,
                     repo::commands::check_signing_settings,
                     repo::commands::git_clone_repository,
                     repo::commands::get_uncommited_files,
-                    repo::commands::get_pr_template_contents,
                     repo::commands::get_blob_info,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
@@ -200,13 +200,13 @@ fn main() {
                     undo::list_snapshots,
                     undo::restore_snapshot,
                     undo::snapshot_diff,
+                    undo::take_synced_snapshot,
                     config::get_gb_config,
                     config::set_gb_config,
                     menu::menu_item_set_enabled,
                     menu::get_editor_link_scheme,
                     github::commands::init_device_oauth,
                     github::commands::check_auth_status,
-                    github::commands::available_pull_request_templates,
                     askpass::commands::submit_prompt_response,
                     remotes::list_remotes,
                     remotes::add_remote,
@@ -215,7 +215,9 @@ fn main() {
                     modes::save_edit_and_return_to_workspace,
                     modes::abort_edit_and_return_to_workspace,
                     modes::edit_initial_index_state,
-                    open::open_url
+                    open::open_url,
+                    forge::commands::get_available_review_templates,
+                    forge::commands::get_review_template_contents,
                 ])
                 .menu(menu::build(tauri_context.package_info()))
                 .on_menu_event(|event| menu::handle_event(&event))

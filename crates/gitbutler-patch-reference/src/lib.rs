@@ -1,5 +1,6 @@
 use anyhow::Result;
 use gitbutler_command_context::CommandContext;
+use gitbutler_commit::commit_ext::CommitExt;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -24,7 +25,7 @@ pub struct PatchReference {
 pub enum CommitOrChangeId {
     /// A reference that points directly to a commit.
     CommitId(String),
-    /// A referrence that points to a change (patch) through which a valid commit can be derived.
+    /// A reference that points to a change (patch) through which a valid commit can be derived.
     ChangeId(String),
 }
 
@@ -33,6 +34,16 @@ impl Display for CommitOrChangeId {
         match self {
             CommitOrChangeId::CommitId(id) => write!(f, "CommitId: {}", id),
             CommitOrChangeId::ChangeId(id) => write!(f, "ChangeId: {}", id),
+        }
+    }
+}
+
+impl From<git2::Commit<'_>> for CommitOrChangeId {
+    fn from(commit: git2::Commit) -> Self {
+        if let Some(change_id) = commit.change_id() {
+            CommitOrChangeId::ChangeId(change_id.to_string())
+        } else {
+            CommitOrChangeId::CommitId(commit.id().to_string())
         }
     }
 }

@@ -9,6 +9,7 @@
 <script lang="ts">
 	import { getPreferredPRAction, PRAction } from './pr';
 	import { AIService } from '$lib/ai/service';
+	import { ForgeService } from '$lib/backend/forge';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
@@ -68,6 +69,7 @@
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
+	const forgeService = getContext(ForgeService);
 	const gitListService = getGitHostListingService();
 	const prService = getGitHostPrService();
 	const aiService = getContext(AIService);
@@ -82,7 +84,7 @@
 		props.type === 'preview-series' ? props.upstreamName : branch.upstreamName
 	);
 	const baseBranchName = $derived($baseBranch.shortName);
-	const prTemplatePath = $derived(project.git_host.pullRequestTemplatePath);
+	const prTemplatePath = $derived(project.git_host.reviewTemplatePath);
 	let isDraft = $state<boolean>($preferredPRAction === PRAction.CreateDraft);
 
 	let modal = $state<ReturnType<typeof Modal>>();
@@ -127,13 +129,8 @@
 
 	// Fetch PR template content
 	$effect(() => {
-		if (
-			modal?.imports.open &&
-			$prService &&
-			pullRequestTemplateBody === undefined &&
-			prTemplatePath
-		) {
-			$prService.pullRequestTemplateContent(prTemplatePath, project.id).then((template) => {
+		if (modal?.imports.open && pullRequestTemplateBody === undefined && prTemplatePath) {
+			forgeService.getReviewTemplateContent(prTemplatePath).then((template) => {
 				pullRequestTemplateBody = template;
 			});
 		}
@@ -338,8 +335,8 @@
 					}
 				}}
 			>
-				<Segment unfocusable id="write">Edit</Segment>
-				<Segment unfocusable id="preview">Preview</Segment>
+				<Segment id="write">Edit</Segment>
+				<Segment id="preview">Preview</Segment>
 			</SegmentControl>
 		{:else}
 			<h3 class="text-14 text-semibold pr-title">{actualTitle}</h3>

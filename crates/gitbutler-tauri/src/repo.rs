@@ -1,6 +1,6 @@
 pub mod commands {
     use crate::error::{Error, UnmarkedError};
-    use anyhow::{Context, Result};
+    use anyhow::Result;
     use git2::Oid;
     use gitbutler_branch_actions::RemoteBranchFile;
     use gitbutler_project as projects;
@@ -66,21 +66,6 @@ pub mod commands {
         let project = projects.get(id)?;
 
         Ok(gitbutler_branch_actions::get_uncommited_files(&project)?)
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(projects))]
-    pub fn get_pr_template_contents(
-        projects: State<'_, projects::Controller>,
-        project_id: ProjectId,
-        relative_path: &Path,
-    ) -> Result<String, Error> {
-        let project = projects.get(project_id)?;
-        let file_info = project.read_file_from_workspace(None, relative_path)?;
-
-        Ok(file_info
-            .content
-            .context("PR template was not valid UTF-8")?)
     }
 
     #[tauri::command(async)]
