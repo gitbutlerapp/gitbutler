@@ -82,7 +82,7 @@
 		props.type === 'preview-series' ? props.upstreamName : branch.upstreamName
 	);
 	const baseBranchName = $derived($baseBranch.shortName);
-	const prTemplatePath = $derived(project.git_host.pullRequestTemplatePath);
+	const prTemplatePath = $derived(project.git_host.reviewTemplatePath);
 	let isDraft = $state<boolean>($preferredPRAction === PRAction.CreateDraft);
 
 	let modal = $state<ReturnType<typeof Modal>>();

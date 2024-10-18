@@ -92,6 +92,7 @@ gitbutler-oxidize = { path = "crates/gitbutler-oxidize" }
 gitbutler-stack-api = { path = "crates/gitbutler-stack-api" }
 gitbutler-stack = { path = "crates/gitbutler-stack" }
 gitbutler-patch-reference = { path = "crates/gitbutler-patch-reference" }
+gitbutler-forge = { path = "crates/gitbutler-forge" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
