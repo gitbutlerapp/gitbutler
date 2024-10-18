@@ -50,6 +50,7 @@
 			& .barnch-plus-btn {
 				pointer-events: all;
 				opacity: 1;
+				transform: translateY(-50%) scale(1);
 			}
 		}
 
@@ -83,12 +84,12 @@
 		width: fit-content;
 		display: flex;
 		align-items: center;
-		transform: translateY(-50%);
+		transform: translateY(-45%) scale(0.8);
 		opacity: 0;
 		pointer-events: none;
 		transition:
 			opacity var(--transition-fast),
-			transform var(--transition-fast);
+			transform var(--transition-medium);
 	}
 
 	/* MODIFIERS */
