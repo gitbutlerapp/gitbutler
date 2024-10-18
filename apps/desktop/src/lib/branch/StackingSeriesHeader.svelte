@@ -151,13 +151,13 @@
 	{#if $stackingFeatureMultipleSeries}
 		<div class="header-menu" class:show-header-menu={contextMenuOpened}>
 			<StackingAddSeriesButton parentSeriesName={currentSeries.name}>
-				<Tooltip text="Add dependent branch">
+				<Tooltip text="Add dependent branch" position="top" delay={200}>
 					<div class="header-menu__btn">
 						<Icon name="plus-small" />
 					</div>
 				</Tooltip>
 			</StackingAddSeriesButton>
-			<Tooltip text="Open in browser">
+			<Tooltip text="Open in browser" position="top" delay={200}>
 				<button
 					class="header-menu__btn"
 					onclick={(e) => {
@@ -170,17 +170,15 @@
 					<Icon name="open-link" />
 				</button>
 			</Tooltip>
-			<Tooltip text="More">
-				<button
-					class="header-menu__btn"
-					bind:this={meatballButtonEl}
-					onclick={() => {
-						contextMenu?.toggle();
-					}}
-				>
-					<Icon name="kebab" />
-				</button>
-			</Tooltip>
+			<button
+				class="header-menu__btn"
+				bind:this={meatballButtonEl}
+				onclick={() => {
+					contextMenu?.toggle();
+				}}
+			>
+				<Icon name="kebab" />
+			</button>
 		</div>
 	{/if}
 
