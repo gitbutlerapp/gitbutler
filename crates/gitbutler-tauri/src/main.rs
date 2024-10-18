@@ -152,7 +152,6 @@ fn main() {
                     repo::commands::check_signing_settings,
                     repo::commands::git_clone_repository,
                     repo::commands::get_uncommited_files,
-                    repo::commands::get_pr_template_contents,
                     repo::commands::get_blob_info,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
@@ -218,6 +217,7 @@ fn main() {
                     modes::edit_initial_index_state,
                     open::open_url,
                     forge::commands::get_available_review_templates,
+                    forge::commands::get_review_template_contents,
                 ])
                 .menu(menu::build(tauri_context.package_info()))
                 .on_menu_event(|event| menu::handle_event(&event))
