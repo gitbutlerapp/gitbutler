@@ -1,7 +1,7 @@
 import { buildContext } from '$lib/context';
-import { get, writable } from 'svelte/store';
+import { get, writable, type Writable } from 'svelte/store';
 
-interface RoutesService {
+export interface RoutesService {
 	repositories(): string;
 	repository(repositoryId: string): string;
 	patchStack(repositoryId: string, patchStackId: string): string;
@@ -35,7 +35,7 @@ export class WebRoutesService implements RoutesService {
 }
 
 export class DesktopRoutesService implements RoutesService {
-	currentProjectId = writable<string | undefined>();
+	currentProjectId: Writable<string | undefined> = writable<string | undefined>();
 
 	constructor(private readonly webRoutesService: WebRoutesService) {}
 
