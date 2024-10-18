@@ -61,8 +61,8 @@
 		/>
 
 		<p class="text-12 text-body helper-text">
-			Creates a new branch that depends on {parentSeriesName}. The branches will have to be reviewed
-			and merged in order.
+			Creates a new branch that depends on <strong>{parentSeriesName}</strong>. The branches will
+			have to be reviewed and merged in order.
 		</p>
 	{/snippet}
 	{#snippet controls(close)}
@@ -74,7 +74,7 @@
 <style>
 	.helper-text {
 		color: var(--clr-scale-ntrl-50);
-		margin-top: 6px;
+		margin-top: 10px;
 	}
 
 	.add-branch-btn {
