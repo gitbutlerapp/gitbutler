@@ -80,6 +80,7 @@
 
 	.barnch-plus-btn {
 		top: 50%;
+		right: 14px;
 	}
 
 	/* MODIFIERS */

@@ -246,7 +246,7 @@
 	.branch-header {
 		position: relative;
 		display: flex;
-		display: flex;
+		align-items: center;
 		flex-direction: column;
 		/* overflow: hidden; */
 
@@ -338,6 +338,6 @@
 
 	.barnch-plus-btn {
 		top: 2px;
-		right: 14px;
+		/* right: 14px; */
 	}
 </style>
