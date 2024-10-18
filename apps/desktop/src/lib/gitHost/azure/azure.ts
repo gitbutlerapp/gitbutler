@@ -49,8 +49,4 @@ export class AzureDevOps implements GitHost {
 	checksMonitor(_sourceBranch: string) {
 		return undefined;
 	}
-
-	async pullRequestTemplateContent(_path?: string) {
-		return undefined;
-	}
 }
