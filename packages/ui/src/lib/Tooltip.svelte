@@ -37,6 +37,14 @@
 		clearTimeout(timeoutId);
 		show = false;
 	}
+
+	function handleClick(e: MouseEvent) {
+		// Need to prevent interference with context menu and modals
+		if ((e.target as HTMLElement)?.dataset.clickable === 'true') {
+			e.preventDefault();
+			handleMouseLeave();
+		}
+	}
 </script>
 
 {#if isTextEmpty}
@@ -45,9 +53,10 @@
 	<span
 		bind:this={targetEl}
 		class="tooltip-wrap"
-		role="tooltip"
+		role="presentation"
 		onmouseenter={handleMouseEnter}
 		onmouseleave={handleMouseLeave}
+		onmousedown={handleClick}
 	>
 		{#if children}
 			{@render children()}

@@ -123,6 +123,7 @@
 		{id}
 		{...testId ? { 'data-testid': testId } : null}
 		tabindex={clickable ? tabindex : -1}
+		data-clickable={clickable}
 	>
 		{#if !ignoreChildren && children}
 			<span
@@ -213,12 +214,14 @@
 	}
 
 	.label {
+		pointer-events: none;
 		display: inline-flex;
 		white-space: nowrap;
 		padding: 0 2px;
 	}
 
 	.btn-icon {
+		pointer-events: none;
 		flex-shrink: 0;
 		display: flex;
 		opacity: var(--icon-opacity);
