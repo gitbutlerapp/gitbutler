@@ -319,7 +319,7 @@
 
 		.branch-action__body {
 			width: 100%;
-			padding: 0 12px 12px 0;
+			padding: 0 14px 14px 0;
 		}
 	}
 
