@@ -10,6 +10,8 @@
 	}
 
 	const { avatars, maxAvatars = 3 }: Props = $props();
+
+	console.log('hi');
 </script>
 
 <AvatarGroup {avatars} {maxAvatars} />
