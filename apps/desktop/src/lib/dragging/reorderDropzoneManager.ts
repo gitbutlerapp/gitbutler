@@ -105,7 +105,7 @@ class Entry {
 	 */
 	distanceToOtherCommit(commitId: string) {
 		const commitIndex = this.commitIndex(commitId);
-		if (!commitIndex) return 0;
+		if (commitIndex === undefined) return 0;
 
 		const offset = this.index - commitIndex;
 
