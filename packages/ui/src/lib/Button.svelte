@@ -12,7 +12,6 @@
 		shrinkable?: boolean;
 		reversedDirection?: boolean;
 		width?: number | undefined;
-		maxWidth?: number | undefined;
 		size?: 'tag' | 'button' | 'cta';
 		wide?: boolean;
 		grow?: boolean;
@@ -24,7 +23,6 @@
 		outline?: boolean;
 		dashed?: boolean;
 		solidBackground?: boolean;
-		borderRadius?: 'medium' | 'large';
 		// Additional elements
 		icon?: keyof typeof iconsJson | undefined;
 		tooltip?: string;
@@ -62,7 +60,6 @@
 		shrinkable = false,
 		reversedDirection = false,
 		width,
-		maxWidth,
 		size = 'button',
 		wide = false,
 		grow = false,
@@ -73,7 +70,6 @@
 		outline = false,
 		dashed = false,
 		solidBackground = false,
-		borderRadius = 'medium',
 		testId,
 		icon,
 		tooltip,
@@ -83,7 +79,6 @@
 		onmousedown,
 		oncontextmenu,
 		onkeydown,
-		ignoreChildren = false,
 		children
 	}: Props = $props();
 
@@ -100,7 +95,7 @@
 <Tooltip text={tooltip} align={tooltipAlign} position={tooltipPosition}>
 	<button
 		bind:this={el}
-		class="btn focus-state {style} {kind} {size}-size br-{borderRadius}"
+		class="btn focus-state {style} {kind} {size}-size"
 		class:outline
 		class:dashed
 		class:solidBackground
@@ -113,7 +108,6 @@
 		class:fixed-width={!children && !wide}
 		style:align-self={align}
 		style:width={width !== undefined ? pxToRem(width) : undefined}
-		style:max-width={maxWidth !== undefined ? pxToRem(maxWidth) : undefined}
 		disabled={disabled || loading}
 		onclick={handleAction}
 		{onmousedown}
@@ -124,7 +118,7 @@
 		{...testId ? { 'data-testid': testId } : null}
 		tabindex={clickable ? tabindex : -1}
 	>
-		{#if !ignoreChildren && children}
+		{#if children}
 			<span
 				class="label text-semibold"
 				class:text-12={size === 'button' || size === 'cta'}
@@ -157,6 +151,7 @@
 		cursor: pointer;
 		color: var(--btn-text-clr);
 		background: var(--btn-bg);
+		border-radius: var(--radius-m);
 		transition:
 			background var(--transition-fast),
 			opacity var(--transition-fast),
@@ -201,14 +196,6 @@
 				overflow: hidden;
 				text-overflow: ellipsis;
 			}
-		}
-
-		&.br-medium {
-			border-radius: var(--radius-m);
-		}
-
-		&.br-large {
-			border-radius: var(--radius-l);
 		}
 	}
 

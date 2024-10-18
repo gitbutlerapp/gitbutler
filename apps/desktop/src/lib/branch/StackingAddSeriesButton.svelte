@@ -7,17 +7,18 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { type Snippet } from 'svelte';
 
 	interface Props {
 		parentSeriesName: string;
+		children: Snippet;
 	}
 
-	const { parentSeriesName }: Props = $props();
+	const { parentSeriesName, children }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const branch = getContextStore(VirtualBranch);
 
-	let isHoveringOver = $state(false);
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName: string | undefined = $state();
 	const slugifiedRefName = $derived(createRefName && slugify(createRefName));
@@ -39,32 +40,9 @@
 	}
 </script>
 
-<div
-	class="hover-target"
-	role="presentation"
-	onmouseenter={() => {
-		if (!isHoveringOver) isHoveringOver = true;
-	}}
-	onmouseleave={() => {
-		if (isHoveringOver) isHoveringOver = false;
-	}}
->
-	<Button
-		style="neutral"
-		kind="solid"
-		icon="plus-small"
-		size="tag"
-		maxWidth={isHoveringOver ? 250 : 26}
-		ignoreChildren={!isHoveringOver}
-		borderRadius="large"
-		helpShowDelay={500}
-		onclick={() => createRefModal?.show()}
-	>
-		{#if isHoveringOver}
-			New dependent branch
-		{/if}
-	</Button>
-</div>
+<button onclick={() => createRefModal?.show()}>
+	{@render children()}
+</button>
 
 <Modal
 	bind:this={createRefModal}
@@ -93,13 +71,42 @@
 	{/snippet}
 </Modal>
 
-<style>
-	.hover-target {
-		padding: 8px;
-	}
-
+<style lang="postcss">
 	.helper-text {
 		color: var(--clr-scale-ntrl-50);
 		margin-top: 6px;
+	}
+
+	.add-branch-btn {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 2px 4px;
+		height: var(--size-m);
+		/* background-color: var(--clr-theme-ntrl-element); */
+		/* color: var(--clr-theme-ntrl-on-element); */
+		border-radius: var(--radius-m);
+
+		&:hover {
+			/* background-color: var(--clr-theme-ntrl-element-hover); */
+
+			& .add-branch-btn__label {
+				max-width: 120px;
+				margin-left: 4px;
+				margin-right: 3px;
+				opacity: 1;
+			}
+		}
+	}
+
+	.add-branch-btn__label {
+		overflow: hidden;
+		white-space: nowrap;
+		max-width: 0;
+		opacity: 0;
+
+		transition:
+			max-width 0.2s,
+			opacity 0.3s;
 	}
 </style>

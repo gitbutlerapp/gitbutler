@@ -25,6 +25,7 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	interface Props {
 		currentSeries: PatchSeries;
@@ -51,7 +52,9 @@
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
-	let meatballButtonEl = $state<HTMLDivElement>();
+	let meatballButtonEl = $state<HTMLButtonElement>();
+
+	let contextMenuOpened = $state(false);
 
 	// TODO: Simplify figuring out if shadow color is needed
 	const topPatch = $derived(currentSeries?.patches[0]);
@@ -128,10 +131,48 @@
 	}
 </script>
 
-<div class="branch-header">
+<div role="presentation" class="branch-header">
 	{#if $stackingFeatureMultipleSeries}
-		<div class="add-branch-button-hover-target">
-			<StackingAddSeriesButton parentSeriesName={currentSeries.name} />
+		<div class="header-menu" class:show-header-menu={contextMenuOpened}>
+			<StackingAddSeriesButton parentSeriesName={currentSeries.name}>
+				<button class="header-menu__btn">
+					<Icon name="plus-small" />
+				</button>
+			</StackingAddSeriesButton>
+			<button
+				class="header-menu__btn"
+				onclick={(e) => {
+					const url = gitHostBranch?.url;
+					if (url) openExternalUrl(url);
+					e.preventDefault();
+					e.stopPropagation();
+				}}
+			>
+				<Icon name="open-link" />
+			</button>
+			<button
+				class="header-menu__btn"
+				bind:this={meatballButtonEl}
+				onclick={() => {
+					contextMenu?.toggle();
+				}}
+			>
+				<Icon name="kebab" />
+				<StackingSeriesHeaderContextMenu
+					bind:contextMenuEl={contextMenu}
+					target={meatballButtonEl}
+					headName={currentSeries.name}
+					seriesCount={branch.series?.length ?? 0}
+					{addDescription}
+					onGenerateBranchName={generateBranchName}
+					disableTitleEdit={!!gitHostBranch}
+					hasPr={!!$pr}
+					openPrDetailsModal={handleOpenPR}
+					reloadPR={handleReloadPR}
+					onopen={() => (contextMenuOpened = true)}
+					onclose={() => (contextMenuOpened = false)}
+				/>
+			</button>
 		</div>
 	{/if}
 
@@ -151,41 +192,6 @@
 				name={currentSeries.name}
 				onChange={(name) => editTitle(name)}
 				disabled={!!gitHostBranch}
-			/>
-			{#if gitHostBranch}
-				<Button
-					size="tag"
-					icon="open-link"
-					style="ghost"
-					onclick={(e: MouseEvent) => {
-						const url = gitHostBranch?.url;
-						if (url) openExternalUrl(url);
-						e.preventDefault();
-						e.stopPropagation();
-					}}
-				></Button>
-			{/if}
-		</div>
-		<div class="branch-info__btns">
-			<Button
-				icon="kebab"
-				style="ghost"
-				bind:el={meatballButtonEl}
-				onclick={() => {
-					contextMenu?.toggle();
-				}}
-			></Button>
-			<StackingSeriesHeaderContextMenu
-				bind:contextMenuEl={contextMenu}
-				target={meatballButtonEl}
-				headName={currentSeries.name}
-				seriesCount={branch.series?.length ?? 0}
-				{addDescription}
-				onGenerateBranchName={generateBranchName}
-				disableTitleEdit={!!gitHostBranch}
-				hasPr={!!$pr}
-				openPrDetailsModal={handleOpenPR}
-				reloadPR={handleReloadPR}
 			/>
 		</div>
 	</div>
@@ -244,21 +250,21 @@
 
 <style lang="postcss">
 	.branch-header {
-		display: flex;
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
-		overflow: hidden;
+		/* overflow: hidden; */
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 
-		&:hover {
-			& .add-branch-button-hover-target {
-				transition-delay: 0.08s;
+		&:hover,
+		&:focus-within {
+			& .header-menu {
 				pointer-events: all;
-				transform: translateY(-50%);
+				transform: translateY(-50%) scale(1);
 				opacity: 1;
 			}
 		}
@@ -337,16 +343,50 @@
 		border-top: 2px solid var(--bg-color, var(--clr-border-3));
 	}
 
-	.add-branch-button-hover-target {
+	.header-menu {
 		position: absolute;
-		transform: translateY(calc(-50% + 4px));
-		width: fit-content;
+		top: 2px;
+		right: 14px;
+		transform: translateY(-45%);
+		display: flex;
 		align-items: center;
+
+		background-color: var(--clr-bg-1);
+		border-radius: var(--radius-m);
+		border: 1px solid var(--clr-border-2);
+
+		overflow: hidden;
+
 		opacity: 0;
 		pointer-events: none;
+
 		transition:
-			opacity var(--transition-fast),
-			transform var(--transition-medium);
-		transition-delay: 0.08s;
+			opacity 0.12s ease-in-out,
+			transform 0.12s ease-in-out;
+	}
+
+	.show-header-menu {
+		pointer-events: all;
+		transform: translateY(-50%) scale(1);
+		opacity: 1;
+	}
+
+	.header-menu__btn {
+		padding: 3px 4px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		color: var(--clr-text-1);
+		opacity: 0.5;
+		border-left: 1px solid var(--clr-border-2);
+
+		&:first-child {
+			border-left: none;
+		}
+
+		&:hover {
+			background-color: var(--clr-bg-1-muted);
+			opacity: 0.8;
+		}
 	}
 </style>
