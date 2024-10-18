@@ -221,10 +221,10 @@
 		<div class="branch-emptystate">
 			<EmptyStatePlaceholder bottomMargin={10}>
 				{#snippet title()}
-					This is an empty series
+					This is an empty branch
 				{/snippet}
 				{#snippet caption()}
-					All your commits will land here
+					Create or drag and drop commits here
 				{/snippet}
 			</EmptyStatePlaceholder>
 		</div>

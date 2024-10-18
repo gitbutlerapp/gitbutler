@@ -73,7 +73,7 @@
 		/>
 		{#if $aiGenEnabled && aiConfigurationValid && !disableTitleEdit}
 			<ContextMenuItem
-				label="Generate series name"
+				label="Generate branch name"
 				onclick={() => {
 					onGenerateBranchName();
 					contextMenuEl?.close();
@@ -121,7 +121,7 @@
 
 <Modal
 	width="small"
-	title="Rename series"
+	title="Rename branch"
 	bind:this={renameSeriesModal}
 	onSubmit={(close) => {
 		if (newHeadName && newHeadName !== headName) {
@@ -140,7 +140,7 @@
 
 <Modal
 	width="small"
-	title="Delete series"
+	title="Delete branch"
 	bind:this={deleteSeriesModal}
 	onSubmit={async (close) => {
 		try {
