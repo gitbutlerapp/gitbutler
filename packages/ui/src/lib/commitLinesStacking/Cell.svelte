@@ -22,6 +22,6 @@
 <style lang="postcss">
 	.commit-line {
 		width: 2px;
-		margin: 0 22px;
+		margin: 0 20px;
 	}
 </style>

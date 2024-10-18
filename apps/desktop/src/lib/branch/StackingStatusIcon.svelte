@@ -40,14 +40,13 @@
 		flex-direction: column;
 		justify-content: center;
 		align-items: center;
-		gap: 0.25rem;
 		--clr-transparent: transparent;
 
 		& .stack__status--icon {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			width: 21px;
+			width: 20px;
 			height: 24px;
 			border-radius: var(--radius-m);
 			background-color: var(--bg-color);
@@ -55,8 +54,8 @@
 		}
 		& .stack__status--bar {
 			width: 2px;
-			height: 10px;
-			margin: 0 22px;
+			height: 14px;
+			margin: 0 20px;
 			background: var(--bg-color);
 		}
 	}

@@ -157,6 +157,7 @@
 			{#if gitHostBranch}
 				<Button
 					icon="open-link"
+					size="tag"
 					tooltip="Open in browser"
 					style="ghost"
 					onclick={(e: MouseEvent) => {
@@ -169,6 +170,7 @@
 			{/if}
 			<Button
 				icon="kebab"
+				size="tag"
 				style="ghost"
 				tooltip="More options"
 				bind:el={meatballButtonEl}
@@ -273,7 +275,7 @@
 
 		& .branch-info__name {
 			display: flex;
-			align-items: stretch;
+			align-items: center;
 			justify-content: flex-start;
 			min-width: 0;
 			flex-grow: 1;
@@ -281,10 +283,10 @@
 
 		& .branch-info__btns {
 			display: flex;
+			gap: 2px;
 		}
 
 		.remote-name {
-			margin-top: 3px;
 			min-width: max-content;
 			color: var(--clr-scale-ntrl-60);
 
@@ -317,13 +319,13 @@
 
 		.branch-action__body {
 			width: 100%;
-			padding: 0 12px 12px 0;
+			padding: 0 14px 14px 0;
 		}
 	}
 
 	.branch-action__line {
 		min-width: 2px;
-		margin: 0 22px;
+		margin: 0 20px;
 		background-color: var(--bg-color, var(--clr-border-3));
 	}
 
