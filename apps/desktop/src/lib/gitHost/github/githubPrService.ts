@@ -1,8 +1,6 @@
 import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
-import { invoke } from '$lib/backend/ipc';
-import { showToast } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
@@ -88,23 +86,5 @@ export class GitHubPrService implements GitHostPrService {
 
 	prMonitor(prNumber: number): GitHubPrMonitor {
 		return new GitHubPrMonitor(this, prNumber);
-	}
-
-	async pullRequestTemplateContent(path: string, projectId: string) {
-		try {
-			const fileContents: string | undefined = await invoke('get_pr_template_contents', {
-				relativePath: path,
-				projectId
-			});
-			return fileContents;
-		} catch (err) {
-			console.error(`Error reading pull request template at path: ${path}`, err);
-
-			showToast({
-				title: 'Failed to read pull request template',
-				message: `Could not read: \`${path}\`.`,
-				style: 'neutral'
-			});
-		}
 	}
 }

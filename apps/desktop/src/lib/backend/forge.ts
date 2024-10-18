@@ -12,4 +12,13 @@ export class ForgeService {
 
 		return templates;
 	}
+
+	async getReviewTemplateContent(templatePath: string): Promise<string> {
+		const fileContents: string = await invoke('get_review_template_contents', {
+			relativePath: templatePath,
+			projectId: this.projectId
+		});
+
+		return fileContents;
+	}
 }

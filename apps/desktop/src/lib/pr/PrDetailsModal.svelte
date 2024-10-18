@@ -9,6 +9,7 @@
 <script lang="ts">
 	import { getPreferredPRAction, PRAction } from './pr';
 	import { AIService } from '$lib/ai/service';
+	import { ForgeService } from '$lib/backend/forge';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
@@ -68,6 +69,7 @@
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
+	const forgeService = getContext(ForgeService);
 	const gitListService = getGitHostListingService();
 	const prService = getGitHostPrService();
 	const aiService = getContext(AIService);
@@ -127,13 +129,8 @@
 
 	// Fetch PR template content
 	$effect(() => {
-		if (
-			modal?.imports.open &&
-			$prService &&
-			pullRequestTemplateBody === undefined &&
-			prTemplatePath
-		) {
-			$prService.pullRequestTemplateContent(prTemplatePath, project.id).then((template) => {
+		if (modal?.imports.open && pullRequestTemplateBody === undefined && prTemplatePath) {
+			forgeService.getReviewTemplateContent(prTemplatePath).then((template) => {
 				pullRequestTemplateBody = template;
 			});
 		}
