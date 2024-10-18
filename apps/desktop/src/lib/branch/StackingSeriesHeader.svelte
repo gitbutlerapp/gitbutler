@@ -130,7 +130,7 @@
 
 <div class="branch-header">
 	{#if $stackingFeatureMultipleSeries}
-		<div class="add-branch-button-hover-target">
+		<div class="barnch-plus-btn">
 			<StackingAddSeriesButton parentSeriesName={currentSeries.name} />
 		</div>
 	{/if}
@@ -244,19 +244,18 @@
 
 <style lang="postcss">
 	.branch-header {
+		position: relative;
 		display: flex;
 		display: flex;
 		flex-direction: column;
-		align-items: center;
-		overflow: hidden;
+		/* overflow: hidden; */
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 
 		&:hover {
-			& .add-branch-button-hover-target {
-				transition-delay: 0.08s;
+			& .barnch-plus-btn {
 				pointer-events: all;
 				transform: translateY(-50%);
 				opacity: 1;
@@ -337,16 +336,8 @@
 		border-top: 2px solid var(--bg-color, var(--clr-border-3));
 	}
 
-	.add-branch-button-hover-target {
-		position: absolute;
-		transform: translateY(calc(-50% + 4px));
-		width: fit-content;
-		align-items: center;
-		opacity: 0;
-		pointer-events: none;
-		transition:
-			opacity var(--transition-fast),
-			transform var(--transition-medium);
-		transition-delay: 0.08s;
+	.barnch-plus-btn {
+		top: 2px;
+		right: 14px;
 	}
 </style>
