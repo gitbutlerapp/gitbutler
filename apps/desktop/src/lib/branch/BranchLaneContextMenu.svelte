@@ -14,6 +14,7 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
 	interface Props {
 		hasPr: boolean;
@@ -153,13 +154,11 @@
 	{/if}
 
 	<ContextMenuSection>
-		<ContextMenuItem
-			label="Allow rebasing"
-			onclick={toggleAllowRebasing}
-			tooltip="Allows changing commits after push (force push needed)"
-		>
+		<ContextMenuItem label="Allow rebasing" onclick={toggleAllowRebasing}>
 			{#snippet control()}
-				<Toggle small bind:checked={allowRebasing} on:click={toggleAllowRebasing} />
+				<Tooltip text={'Allows changing commits after push\n(force push needed)'}>
+					<Toggle small bind:checked={allowRebasing} on:click={toggleAllowRebasing} />
+				</Tooltip>
 			{/snippet}
 		</ContextMenuItem>
 	</ContextMenuSection>
