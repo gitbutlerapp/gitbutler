@@ -52,10 +52,7 @@ impl BranchManager<'_> {
                 .iter()
                 .map(|b| b.name.as_str())
                 .collect::<Vec<_>>(),
-            create
-                .name
-                .as_ref()
-                .unwrap_or(&"Virtual branch".to_string()),
+            create.name.as_ref().unwrap_or(&"Lane".to_string()),
         );
 
         _ = self
