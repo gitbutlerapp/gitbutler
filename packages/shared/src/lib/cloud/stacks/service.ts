@@ -55,7 +55,7 @@ interface ApiPatch {
 	contributors: string[];
 	statistics: ApiPatchStatstics;
 	review: ApiPatchReview;
-	review_all: ApiPatchReview[];
+	review_all: ApiPatchReview;
 }
 
 export class CloudPatch {
@@ -68,7 +68,7 @@ export class CloudPatch {
 	contributors: string[];
 	statistics: CloudPatchStatsitics;
 	review: CloudPatchReview;
-	reviewAll: CloudPatchReview[];
+	reviewAll: CloudPatchReview;
 
 	constructor(apiPatch: ApiPatch) {
 		this.changeId = apiPatch.change_id;
@@ -80,7 +80,7 @@ export class CloudPatch {
 		this.contributors = apiPatch.contributors;
 		this.statistics = new CloudPatchStatsitics(apiPatch.statistics);
 		this.review = new CloudPatchReview(apiPatch.review);
-		this.reviewAll = apiPatch.review_all.map((review) => new CloudPatchReview(review));
+		this.reviewAll = new CloudPatchReview(apiPatch.review_all);
 	}
 }
 
@@ -119,7 +119,7 @@ export class CloudPatchStack {
 	contributors: string[];
 	// TODO(CTO): Determine the best way to talk about these nested objects.
 	//              Should they be in their own reactive service?
-	// patches: Patch[];
+	patches: CloudPatch[];
 
 	constructor(apiPatchStack: ApiPatchStack) {
 		this.branchId = apiPatchStack.branch_id;
@@ -132,7 +132,7 @@ export class CloudPatchStack {
 		this.createdAt = apiPatchStack.created_at;
 		this.stackSize = apiPatchStack.stack_size || 0;
 		this.contributors = apiPatchStack.contributors;
-		// this.patches = apiPatchStack.patches?.map((patch) => new Patch(patch));
+		this.patches = apiPatchStack.patches?.map((patch) => new CloudPatch(patch));
 	}
 }
 
@@ -224,7 +224,7 @@ export class CloudPatchStacksService {
 	readonly patchStacks: Readable<CloudPatchStack[] | undefined>;
 
 	constructor(
-		private readonly repositoryId: Readable<string | undefined>,
+		readonly repositoryId: Readable<string | undefined>,
 		private readonly patchStacksApiService: PatchStacksApiService
 	) {
 		const values = derived(
@@ -303,9 +303,9 @@ export class CloudPatchStacksService {
 		}
 	}
 
-	#patchStacksForBranchIds = new Map<string, Readable<LoadableOptional<CloudPatchStack>>>();
+	#patchStacksByBranchIds = new Map<string, Readable<LoadableOptional<CloudPatchStack>>>();
 	patchStackForBranchId(branchId: string): Readable<LoadableOptional<CloudPatchStack>> {
-		let store = this.#patchStacksForBranchIds.get(branchId);
+		let store = this.#patchStacksByBranchIds.get(branchId);
 		if (store) return store;
 
 		store = derived(this.patchStacks, (patchStacks): LoadableOptional<CloudPatchStack> => {
@@ -317,7 +317,25 @@ export class CloudPatchStacksService {
 				return { state: 'not-found' };
 			}
 		});
-		this.#patchStacksForBranchIds.set(branchId, store);
+		this.#patchStacksByBranchIds.set(branchId, store);
+		return store;
+	}
+
+	#patchStacksByIds = new Map<string, Readable<LoadableOptional<CloudPatchStack>>>();
+	patchStackForId(patchStackId: string): Readable<LoadableOptional<CloudPatchStack>> {
+		let store = this.#patchStacksByIds.get(patchStackId);
+		if (store) return store;
+
+		store = derived(this.patchStacks, (patchStacks): LoadableOptional<CloudPatchStack> => {
+			if (!patchStacks) return { state: 'uninitialized' };
+			const patchStack = patchStacks.find((patchStack) => patchStack.uuid === patchStackId);
+			if (patchStack) {
+				return { state: 'found', value: patchStack };
+			} else {
+				return { state: 'not-found' };
+			}
+		});
+		this.#patchStacksByIds.set(patchStackId, store);
 		return store;
 	}
 }

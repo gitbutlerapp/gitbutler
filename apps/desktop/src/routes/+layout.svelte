@@ -35,6 +35,11 @@
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
+	import {
+		DesktopRoutesService,
+		setRoutesService,
+		WebRoutesService
+	} from '@gitbutler/shared/sharedRoutes';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLinesStacking/lineManager';
 	import { onMount, setContext, type Snippet } from 'svelte';
@@ -42,6 +47,7 @@
 	import type { LayoutData } from './$types';
 	import { dev } from '$app/environment';
 	import { goto } from '$app/navigation';
+	import { env } from '$env/dynamic/public';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -64,6 +70,10 @@
 	setContext(AIPromptService, data.aiPromptService);
 	setContext(LineManagerFactory, data.lineManagerFactory);
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
+
+	const webRoutesService = new WebRoutesService(true, env.PUBLIC_CLOUD_BASE_URL);
+	const desktopRoutesService = new DesktopRoutesService(webRoutesService);
+	setRoutesService(desktopRoutesService);
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 
