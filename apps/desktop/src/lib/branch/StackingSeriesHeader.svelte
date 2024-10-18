@@ -62,7 +62,7 @@
 		return false;
 	});
 	const branchType = $derived<CommitStatus | 'localAndShadow'>(
-		hasShadow ? 'localAndShadow' : topPatch?.status ?? 'local'
+		hasShadow ? 'localAndShadow' : (topPatch?.status ?? 'local')
 	);
 	const lineColor = $derived(getColorFromBranchType(branchType));
 
