@@ -9,7 +9,7 @@
 	"packageManager": "pnpm@9.5.0",
 	"scripts": {
 		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
-		"dev:web": "turbo run --filter @gitbutler/web dev --no-daemon",
+		"dev:web": "turbo watch --filter @gitbutler/web dev",
 		"dev:desktop": "pnpm tauri dev",
 		"dev:internal-tauri": "turbo watch --filter @gitbutler/desktop dev",
 		"package": "turbo run package",
