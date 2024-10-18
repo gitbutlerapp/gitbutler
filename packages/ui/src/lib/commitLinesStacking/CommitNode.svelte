@@ -85,12 +85,12 @@
 	}
 
 	.local-commit-dot {
-		transform: translateX(3px);
+		transform: translateX(1px);
 		fill: var(--clr-commit-local);
 	}
 
 	.generic-commit-dot {
-		transform: translateX(4px);
+		transform: translateX(2px);
 
 		&.remote {
 			fill: var(--clr-commit-remote);

@@ -97,7 +97,7 @@
 		& .accordion-row__line {
 			position: relative;
 			width: 2px;
-			margin: 0 22px;
+			margin: 0 20px;
 			background-color: var(--clr-commit-upstream);
 			--dots-y-shift: -8px;
 
