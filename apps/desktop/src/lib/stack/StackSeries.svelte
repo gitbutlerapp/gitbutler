@@ -28,11 +28,12 @@
 </script>
 
 {#each branch.series as currentSeries, idx (currentSeries.name)}
-	{#if idx !== 0}
+	{@const isTopSeries = idx === 0}
+	{#if !isTopSeries}
 		<StackSeriesDividerLine {currentSeries} />
 	{/if}
 	<div class="branch-group">
-		<StackingSeriesHeader {currentSeries} />
+		<StackingSeriesHeader {currentSeries} {isTopSeries} />
 		{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
 			<StackingCommitList
 				remoteOnlyPatches={currentSeries.upstreamPatches}
