@@ -20,7 +20,6 @@
 	const { text, delay = 700, align, position, children }: Props = $props();
 
 	let targetEl: HTMLElement | undefined = $state();
-	let tooltipEl: HTMLElement | undefined = $state();
 
 	let show = $state(false);
 	let timeoutId: undefined | ReturnType<typeof setTimeout> = $state();
@@ -31,7 +30,7 @@
 		timeoutId = setTimeout(() => {
 			show = true;
 			// console.log('showing tooltip');
-		}, delay); // 500ms delay before showing the tooltip
+		}, delay);
 	}
 
 	function handleMouseLeave() {
@@ -56,7 +55,6 @@
 
 		{#if show}
 			<div
-				bind:this={tooltipEl}
 				use:setPosition={{ targetEl, position, align }}
 				use:portal={'body'}
 				class="tooltip-container text-11 text-body"
