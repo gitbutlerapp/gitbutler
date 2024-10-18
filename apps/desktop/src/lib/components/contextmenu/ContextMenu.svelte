@@ -126,7 +126,9 @@
 <svelte:window on:keydown={handleKeyDown} />
 
 {#snippet contextMenu()}
+	<!-- svelte-ignore a11y_autofocus -->
 	<div
+		tabindex="-1"
 		use:focusTrap
 		use:clickOutside={{
 			excludeElement: target,
@@ -135,6 +137,7 @@
 		use:resizeObserver={() => {
 			if (!openByMouse) setAlignByTarget();
 		}}
+		autofocus
 		bind:offsetHeight={contextMenuHeight}
 		bind:offsetWidth={contextMenuWidth}
 		class="context-menu"
@@ -193,6 +196,7 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		box-shadow: var(--fx-shadow-s);
+		outline: none;
 
 		animation: fadeIn 0.08s ease-out forwards;
 	}
