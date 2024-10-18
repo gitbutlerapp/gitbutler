@@ -265,7 +265,7 @@
 
 	.branch-info {
 		width: 100%;
-		padding-right: 13px;
+		padding-right: 12px;
 		display: flex;
 		justify-content: flex-start;
 		align-items: center;

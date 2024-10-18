@@ -86,10 +86,10 @@
 		background-color: var(--clr-theme-ntrl-element);
 		color: var(--clr-theme-ntrl-on-element);
 		border-radius: var(--radius-m);
+		transition: background-color 0.2s;
 
 		&:hover {
 			background-color: var(--clr-theme-ntrl-element-hover);
-			padding: 4px;
 
 			& .add-branch-btn__label {
 				max-width: 160px;
