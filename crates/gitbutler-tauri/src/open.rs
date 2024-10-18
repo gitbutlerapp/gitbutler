@@ -6,7 +6,17 @@ use url::Url;
 
 pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
     let target_url = Url::parse(path).with_context(|| format!("Invalid path format: '{path}'"))?;
-    if !["http", "https", "mailto", "vscode", "vscodium", "zed"].contains(&target_url.scheme()) {
+    if ![
+        "http",
+        "https",
+        "mailto",
+        "vscode",
+        "vscodium",
+        "vscode-insiders",
+        "zed",
+    ]
+    .contains(&target_url.scheme())
+    {
         bail!("Invalid path scheme: {}", target_url.scheme());
     }
 
