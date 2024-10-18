@@ -7,9 +7,9 @@
 </script>
 
 <script lang="ts">
+	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
 	import { getPreferredPRAction, PRAction } from './pr';
 	import { AIService } from '$lib/ai/service';
-	import { ForgeService } from '$lib/backend/forge';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
@@ -35,8 +35,6 @@
 	import BorderlessTextarea from '@gitbutler/ui/BorderlessTextarea.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
-	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 	import { tick } from 'svelte';
 	import type { DetailedPullRequest, PullRequest } from '$lib/gitHost/interface/types';
 
@@ -69,7 +67,6 @@
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
-	const forgeService = getContext(ForgeService);
 	const gitListService = getGitHostListingService();
 	const prService = getGitHostPrService();
 	const aiService = getContext(AIService);
@@ -84,7 +81,6 @@
 		props.type === 'preview-series' ? props.upstreamName : branch.upstreamName
 	);
 	const baseBranchName = $derived($baseBranch.shortName);
-	const prTemplatePath = $derived(project.git_host.reviewTemplatePath);
 	let isDraft = $state<boolean>($preferredPRAction === PRAction.CreateDraft);
 
 	let modal = $state<ReturnType<typeof Modal>>();
@@ -126,15 +122,6 @@
 	let inputTitle = $state<string | undefined>(undefined);
 	const actualBody = $derived<string>(inputBody ?? defaultBody);
 	const actualTitle = $derived<string>(inputTitle ?? defaultTitle);
-
-	// Fetch PR template content
-	$effect(() => {
-		if (modal?.imports.open && pullRequestTemplateBody === undefined && prTemplatePath) {
-			forgeService.getReviewTemplateContent(prTemplatePath).then((template) => {
-				pullRequestTemplateBody = template;
-			});
-		}
-	});
 
 	$effect(() => {
 		if (modal?.imports.open) {
@@ -316,39 +303,17 @@
 		}
 	};
 
-	const isPreviewOnly = props.type === 'display';
+	const isDisplay = props.type === 'display';
 </script>
 
 <Modal bind:this={modal} width={580} noPadding {onClose} onKeyDown={handleModalKeydown}>
-	<div class="pr-header">
-		{#if !isPreviewOnly}
-			<h3 class="text-14 text-semibold pr-title">
-				{!isEditing ? actualTitle : 'Create a pull request'}
-			</h3>
-			<SegmentControl
-				defaultIndex={isPreviewOnly ? 1 : 0}
-				onselect={(id) => {
-					if (id === 'write') {
-						isEditing = true;
-					} else {
-						isEditing = false;
-					}
-				}}
-			>
-				<Segment id="write">Edit</Segment>
-				<Segment id="preview">Preview</Segment>
-			</SegmentControl>
-		{:else}
-			<h3 class="text-14 text-semibold pr-title">{actualTitle}</h3>
-		{/if}
-	</div>
-
 	<!-- HEADER -->
+	<PrDetailsModalHeader {isDisplay} {actualTitle} bind:isEditing bind:pullRequestTemplateBody />
 
 	<!-- MAIN FIELDS -->
 	<ScrollableContainer wide maxHeight="66vh" onscroll={showBorderOnScroll}>
 		<div class="pr-content">
-			{#if isPreviewOnly || !isEditing}
+			{#if isDisplay || !isEditing}
 				<div class="pr-description-preview">
 					<Markdown content={actualBody} />
 				</div>
@@ -357,7 +322,7 @@
 					<TextBox
 						placeholder="PR title"
 						value={actualTitle}
-						readonly={!isEditing || isPreviewOnly}
+						readonly={!isEditing || isDisplay}
 						on:input={(e) => {
 							inputTitle = e.detail;
 						}}
@@ -377,7 +342,7 @@
 						/>
 
 						<!-- AI GENRATION -->
-						{#if !isPreviewOnly && canUseAI && isEditing}
+						{#if !isDisplay && canUseAI && isEditing}
 							<div class="pr-ai" class:show-ai-box={showAiBox}>
 								{#if showAiBox}
 									<BorderlessTextarea
@@ -500,13 +465,6 @@
 		padding: 0 16px 16px;
 	}
 
-	.pr-header {
-		display: flex;
-		align-items: center;
-		gap: 16px;
-		padding: 16px 16px 14px;
-	}
-
 	/* FIELDS */
 
 	.pr-fields {
@@ -524,11 +482,6 @@
 	}
 
 	/* PREVIEW */
-
-	.pr-title {
-		flex: 1;
-		margin-top: 4px;
-	}
 
 	.pr-description-preview {
 		overflow-y: auto;
