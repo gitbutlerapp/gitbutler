@@ -236,6 +236,9 @@ pub(crate) fn stack_series(
             }
         }
         upstream_patches.reverse();
+        if !upstream_patches.is_empty() {
+            requires_force = true;
+        }
         api_series.push(PatchSeries {
             name: series.head.name,
             description: series.head.description,
