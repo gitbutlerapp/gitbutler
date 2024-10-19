@@ -5,9 +5,10 @@
 		name: string;
 		disabled?: boolean;
 		onChange?: (value: string) => void;
+		onBlur?: () => void;
 	}
 
-	let { name, disabled = false, onChange }: Props = $props();
+	let { name, disabled = false, onChange, onBlur }: Props = $props();
 
 	let inputEl: HTMLInputElement | undefined = $state();
 	let labelEl: HTMLSpanElement | undefined = $state();
@@ -15,7 +16,7 @@
 	let inputVisible = $state(false);
 	let inputWidth = $state('');
 
-	function handleFocusInput() {
+	export function focusInput() {
 		if (disabled) return;
 		inputVisible = true;
 		setTimeout(() => {
@@ -26,6 +27,7 @@
 	function handleBlurInput() {
 		if (name === '') name = initialName;
 		inputVisible = false;
+		onBlur?.();
 		setTimeout(() => {
 			labelEl?.focus();
 		});
@@ -48,10 +50,10 @@
 			tabindex={disabled ? undefined : 0}
 			class="branch-name-label text-14 text-bold"
 			class:disabled
-			ondblclick={handleFocusInput}
+			ondblclick={focusInput}
 			onkeydown={(e) => {
 				if (e.key === 'Enter') {
-					handleFocusInput();
+					focusInput();
 				}
 			}}
 		>
@@ -94,13 +96,8 @@
 		white-space: nowrap;
 		overflow: hidden;
 
-		/* &:hover,
-		&:focus {
-			background-color: var(--clr-bg-2);
-		} */
-
 		&:not(.disabled):hover,
-		&:not(.disabled):focus {
+		&:not(.disabled):focus-visible {
 			background-color: var(--clr-bg-2);
 		}
 	}

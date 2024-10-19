@@ -50,6 +50,7 @@
 	const gitHostBranch = $derived(upstreamName ? $gitHost?.branch(upstreamName) : undefined);
 	const branch = $derived($branchStore);
 
+	let branchNameEl = $state<ReturnType<typeof BranchLabel>>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
@@ -127,8 +128,6 @@
 			branchController.updateSeriesName(branch.id, currentSeries.name, slugify(message));
 		}
 	}
-
-	console.log('$baseBranch.remoteName', $baseBranch.remoteName);
 </script>
 
 <div class="branch-header">
@@ -153,6 +152,7 @@
 				</span>
 			{/if}
 			<BranchLabel
+				bind:this={branchNameEl}
 				name={currentSeries.name}
 				onChange={(name) => editTitle(name)}
 				disabled={!!gitHostBranch}
@@ -188,6 +188,7 @@
 				seriesCount={branch.series?.length ?? 0}
 				{addDescription}
 				onGenerateBranchName={generateBranchName}
+				onRenameBranch={() => branchNameEl?.focusInput()}
 				disableTitleEdit={!!gitHostBranch}
 				hasPr={!!$pr}
 				openPrDetailsModal={handleOpenPR}

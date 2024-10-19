@@ -45,6 +45,7 @@
 	const patchStack = $derived(cloudPatchStacksService.patchStackForBranchId(branch.id));
 	const showCreatePatchStack = $derived($patchStack.state === 'not-found');
 
+	let branchNameComponent = $state<ReturnType<typeof BranchLabel>>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
@@ -140,7 +141,11 @@
 				</div>
 
 				<div class="header__info">
-					<BranchLabel name={branch.name} onChange={(name) => handleBranchNameChange(name)} />
+					<BranchLabel
+						bind:this={branchNameComponent}
+						name={branch.name}
+						onChange={(name) => handleBranchNameChange(name)}
+					/>
 					<div class="header__remote-branch">
 						<ActiveBranchStatus
 							{hasIntegratedCommits}
@@ -211,6 +216,9 @@
 							target={meatballButtonEl}
 							onCollapse={collapseLane}
 							{onGenerateBranchName}
+							onRenameLane={() => {
+								branchNameComponent?.focusInput();
+							}}
 							hasPr={!!$pr}
 							openPrDetailsModal={handleOpenPR}
 							reloadPR={handleReloadPR}
