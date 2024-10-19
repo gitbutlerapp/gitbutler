@@ -30,9 +30,7 @@ pub fn integrate_upstream_commits_for_series(
     let all_series = branch.list_series(ctx)?;
 
     let default_target = vb_state.get_default_target()?;
-    let remote = default_target.clone().push_remote_name.ok_or(anyhow!(
-        "No remote has been configured for the target branch"
-    ))?;
+    let remote = default_target.push_remote_name();
 
     let subject_series = all_series
         .iter()

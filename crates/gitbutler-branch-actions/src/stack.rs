@@ -164,13 +164,12 @@ pub(crate) fn stack_series(
         .repository()
         .merge_base(branch.head(), default_target.sha)?;
     for series in stack_series.clone() {
-        let upstream_reference = default_target.push_remote_name.as_ref().and_then(|remote| {
-            if series.head.pushed(remote.as_str(), ctx).ok()? {
-                series.head.remote_reference(remote.as_str()).ok()
-            } else {
-                None
-            }
-        });
+        let remote = default_target.push_remote_name();
+        let upstream_reference = if series.head.pushed(remote.as_str(), ctx)? {
+            series.head.remote_reference(remote.as_str()).ok()
+        } else {
+            None
+        };
         let mut patches: Vec<VirtualBranchCommit> = vec![];
         for patch in series.clone().local_commits {
             let commit =

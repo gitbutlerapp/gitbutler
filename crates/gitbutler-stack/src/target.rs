@@ -23,6 +23,16 @@ pub struct Target {
     pub push_remote_name: Option<String>,
 }
 
+impl Target {
+    pub fn push_remote_name(&self) -> String {
+        let upstream_remote = match &self.push_remote_name {
+            Some(remote) => remote.clone(),
+            None => self.branch.remote().to_owned(),
+        };
+        upstream_remote
+    }
+}
+
 impl Serialize for Target {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
