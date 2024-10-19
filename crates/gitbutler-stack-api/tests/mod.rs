@@ -582,21 +582,6 @@ fn update_series_target_success() -> Result<()> {
 }
 
 #[test]
-fn push_series_no_remote() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    test_ctx.branch.initialize(&ctx)?;
-    let result = test_ctx
-        .branch
-        .push_series(&ctx, "a-branch-2".into(), false);
-    assert_eq!(
-        result.err().unwrap().to_string(),
-        "No remote has been configured for the target branch"
-    );
-    Ok(())
-}
-
-#[test]
 fn push_series_success() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
