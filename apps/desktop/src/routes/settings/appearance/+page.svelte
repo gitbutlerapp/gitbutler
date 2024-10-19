@@ -280,7 +280,7 @@
 	</form>
 
 	<SectionCard labelFor="branchLaneContents" orientation="row">
-		<svelte:fragment slot="title">Auto-select text on branch/lane name focus</svelte:fragment>
+		<svelte:fragment slot="title">Auto-select text on branch/lane rename</svelte:fragment>
 		<svelte:fragment slot="caption">
 			By default, the text in the branch/lane name field is not selected when the field gains focus.
 			Enable this option to automatically select the text when the input field is focused.
