@@ -65,14 +65,6 @@
 
 <ContextMenu bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
-		<ContextMenuItem
-			disabled
-			label="Add description"
-			onclick={() => {
-				addDescription();
-				contextMenuEl?.close();
-			}}
-		/>
 		{#if $aiGenEnabled && aiConfigurationValid && !disableTitleEdit}
 			<ContextMenuItem
 				label="Rename branch"
@@ -89,6 +81,14 @@
 				}}
 			/>
 		{/if}
+		<ContextMenuItem
+			disabled
+			label="Add description"
+			onclick={() => {
+				addDescription();
+				contextMenuEl?.close();
+			}}
+		/>
 		{#if !disableTitleEdit}
 			<ContextMenuItem
 				label="Rename"
