@@ -280,10 +280,10 @@
 	</form>
 
 	<SectionCard labelFor="branchLaneContents" orientation="row">
-		<svelte:fragment slot="title">Auto-highlight Branch Lane Contents</svelte:fragment>
+		<svelte:fragment slot="title">Auto-select text on branch/lane name focus</svelte:fragment>
 		<svelte:fragment slot="caption">
-			An experimental UI toggle to highlight the contents of the branch lane input fields when
-			clicking into them.
+			By default, the text in the branch/lane name field is not selected when the field gains focus.
+			Enable this option to automatically select the text when the input field is focused.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle
