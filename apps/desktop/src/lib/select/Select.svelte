@@ -219,6 +219,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
+		height: fit-content;
 	}
 
 	.select__label {
