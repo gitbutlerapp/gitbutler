@@ -75,9 +75,8 @@
 		<svelte:fragment slot="title">Theme</svelte:fragment>
 		<ThemeSelector {userSettings} />
 	</SectionCard>
-	<SectionCard labelFor="defaultCodeEditor" orientation="row">
-		<svelte:fragment slot="title">Default Code Editor</svelte:fragment>
-		<svelte:fragment slot="caption">Select your preferred default code editor.</svelte:fragment>
+	<SectionCard orientation="row" centerAlign>
+		<svelte:fragment slot="title">Default code editor</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Select
 				value={$userSettings.defaultCodeEditor.schemeIdentifer}
