@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
 	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 
 	interface Props {
@@ -10,9 +9,27 @@
 
 	let { name, disabled = false, onChange }: Props = $props();
 
-	let inputEl: HTMLInputElement;
+	let inputEl: HTMLInputElement | undefined = $state();
+	let labelEl: HTMLSpanElement | undefined = $state();
 	let initialName = name;
+	let inputVisible = $state(false);
 	let inputWidth = $state('');
+
+	function handleFocusInput() {
+		if (disabled) return;
+		inputVisible = true;
+		setTimeout(() => {
+			inputEl?.select();
+		});
+	}
+
+	function handleBlurInput() {
+		if (name === '') name = initialName;
+		inputVisible = false;
+		setTimeout(() => {
+			labelEl?.focus();
+		});
+	}
 </script>
 
 <span
@@ -23,46 +40,84 @@
 >
 	{name}
 </span>
-<input
-	type="text"
-	{disabled}
-	bind:this={inputEl}
-	bind:value={name}
-	onchange={(e) => onChange?.(e.currentTarget.value.trim())}
-	title={name}
-	class="branch-name-input text-14 text-bold"
-	ondblclick={(e) => e.stopPropagation()}
-	onclick={(e) => {
-		e.stopPropagation();
-		inputEl.focus();
-		if ($autoSelectBranchNameFeature) {
-			inputEl.select();
-		}
-	}}
-	onblur={() => {
-		if (name === '') name = initialName;
-	}}
-	onfocus={() => {
-		initialName = name;
-	}}
-	onkeydown={(e) => {
-		if (e.key === 'Enter' || e.key === 'Escape') {
-			inputEl.blur();
-		}
-	}}
-	autocomplete="off"
-	autocorrect="off"
-	spellcheck="false"
-	style:width={inputWidth}
-/>
+<div class="branch-name-label-wrap">
+	{#if !inputVisible}
+		<span
+			bind:this={labelEl}
+			role="button"
+			tabindex={disabled ? undefined : 0}
+			class="branch-name-label text-14 text-bold"
+			class:disabled
+			ondblclick={handleFocusInput}
+			onkeydown={(e) => {
+				if (e.key === 'Enter') {
+					handleFocusInput();
+				}
+			}}
+		>
+			{name}
+		</span>
+	{:else}
+		<input
+			type="text"
+			bind:this={inputEl}
+			bind:value={name}
+			onchange={(e) => onChange?.(e.currentTarget.value.trim())}
+			title={name}
+			class="branch-name-input text-14 text-bold"
+			onblur={handleBlurInput}
+			onfocus={() => {
+				initialName = name;
+			}}
+			onkeydown={(e) => {
+				if (e.key === 'Enter' || e.key === 'Escape') {
+					handleBlurInput();
+				}
+			}}
+			autocomplete="off"
+			autocorrect="off"
+			spellcheck="false"
+			style:width={inputWidth}
+		/>
+	{/if}
+</div>
 
 <style lang="postcss">
+	.branch-name-label-wrap {
+		display: flex;
+		max-width: 100%;
+		overflow: hidden;
+	}
+	.branch-name-label {
+		cursor: default;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		overflow: hidden;
+
+		/* &:hover,
+		&:focus {
+			background-color: var(--clr-bg-2);
+		} */
+
+		&:not(.disabled):hover,
+		&:not(.disabled):focus {
+			background-color: var(--clr-bg-2);
+		}
+	}
 	.branch-name-measure-el,
+	.branch-name-label,
 	.branch-name-input {
 		min-width: 44px;
 		height: 20px;
 		padding: 2px 3px;
+		border-radius: var(--radius-s);
+		color: var(--clr-scale-ntrl-0);
+		outline: none;
 		border: 1px solid transparent;
+	}
+
+	.branch-name-input {
+		width: 100%;
 	}
 	.branch-name-measure-el {
 		pointer-events: none;
@@ -75,26 +130,18 @@
 		white-space: pre;
 	}
 	.branch-name-input {
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		overflow: hidden;
-
 		max-width: 100%;
 		width: 100%;
-		border-radius: var(--radius-s);
-		color: var(--clr-scale-ntrl-0);
-		background-color: var(--clr-bg-1);
-		outline: none;
 
 		/* not readonly */
-		&:not([disabled]):hover {
+		/* &:not([disabled]):hover {
 			background-color: var(--clr-bg-2);
-		}
+		} */
 
 		&:not([disabled]):focus {
 			outline: none;
 			background-color: var(--clr-bg-2);
-			border-color: var(--clr-border-2);
+			border: 1px solid var(--clr-border-2);
 		}
 	}
 </style>
