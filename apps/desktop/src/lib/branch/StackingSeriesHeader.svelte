@@ -50,6 +50,7 @@
 	const gitHostBranch = $derived(upstreamName ? $gitHost?.branch(upstreamName) : undefined);
 	const branch = $derived($branchStore);
 
+	let branchNameEl = $state<ReturnType<typeof BranchLabel>>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
@@ -145,10 +146,13 @@
 			lineBottom={currentSeries.patches.length > 0}
 		/>
 		<div class="text-14 text-bold branch-info__name">
-			<span class:no-upstream={!gitHostBranch} class="remote-name">
-				{$baseBranch.remoteName ? `${$baseBranch.remoteName} /` : 'origin /'}
-			</span>
+			{#if gitHostBranch}
+				<span class="remote-name">
+					{$baseBranch.remoteName ? `${$baseBranch.remoteName} /` : 'origin /'}
+				</span>
+			{/if}
 			<BranchLabel
+				bind:this={branchNameEl}
 				name={currentSeries.name}
 				onChange={(name) => editTitle(name)}
 				disabled={!!gitHostBranch}
@@ -184,6 +188,7 @@
 				seriesCount={branch.series?.length ?? 0}
 				{addDescription}
 				onGenerateBranchName={generateBranchName}
+				onRenameBranch={() => branchNameEl?.focusInput()}
 				disableTitleEdit={!!gitHostBranch}
 				hasPr={!!$pr}
 				openPrDetailsModal={handleOpenPR}
@@ -276,6 +281,7 @@
 			display: flex;
 			align-items: center;
 			justify-content: flex-start;
+			overflow: hidden;
 			min-width: 0;
 			flex-grow: 1;
 		}
@@ -287,18 +293,6 @@
 		.remote-name {
 			min-width: max-content;
 			color: var(--clr-scale-ntrl-60);
-
-			&.no-upstream {
-				/**
-				 * Element is requird to still be there, so we can use
-				 * it to wiggle 5px to the left to align the BranchLabel
-				 * Input/Label component.
-				 */
-				visibility: hidden;
-				max-width: 0px;
-				max-height: 0px;
-				margin-right: -5px;
-			}
 		}
 	}
 

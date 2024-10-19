@@ -21,6 +21,7 @@
 		hasPr: boolean;
 		addDescription: () => void;
 		onGenerateBranchName: () => void;
+		onRenameBranch: () => void;
 		openPrDetailsModal: () => void;
 		reloadPR: () => void;
 	}
@@ -35,6 +36,7 @@
 		addDescription,
 		onGenerateBranchName,
 		openPrDetailsModal,
+		onRenameBranch,
 		reloadPR
 	}: Props = $props();
 
@@ -63,15 +65,14 @@
 
 <ContextMenu bind:this={contextMenuEl} {target}>
 	<ContextMenuSection>
-		<ContextMenuItem
-			disabled
-			label="Add description"
-			onclick={() => {
-				addDescription();
-				contextMenuEl?.close();
-			}}
-		/>
 		{#if $aiGenEnabled && aiConfigurationValid && !disableTitleEdit}
+			<ContextMenuItem
+				label="Rename branch"
+				onclick={() => {
+					onRenameBranch?.();
+					contextMenuEl?.close();
+				}}
+			/>
 			<ContextMenuItem
 				label="Generate branch name"
 				onclick={() => {
@@ -80,6 +81,14 @@
 				}}
 			/>
 		{/if}
+		<ContextMenuItem
+			disabled
+			label="Add description"
+			onclick={() => {
+				addDescription();
+				contextMenuEl?.close();
+			}}
+		/>
 		{#if !disableTitleEdit}
 			<ContextMenuItem
 				label="Rename"

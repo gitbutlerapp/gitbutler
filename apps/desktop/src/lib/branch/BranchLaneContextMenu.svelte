@@ -22,6 +22,7 @@
 		target?: HTMLElement;
 		onCollapse: () => void;
 		onGenerateBranchName?: () => void;
+		onRenameLane?: () => void;
 		openPrDetailsModal?: () => void;
 		reloadPR?: () => void;
 	}
@@ -31,6 +32,7 @@
 		target,
 		onCollapse,
 		onGenerateBranchName,
+		onRenameLane,
 		hasPr,
 		openPrDetailsModal,
 		reloadPR
@@ -95,6 +97,13 @@
 			label="Collapse lane"
 			onclick={() => {
 				onCollapse();
+				contextMenuEl?.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Rename lane"
+			onclick={() => {
+				onRenameLane?.();
 				contextMenuEl?.close();
 			}}
 		/>

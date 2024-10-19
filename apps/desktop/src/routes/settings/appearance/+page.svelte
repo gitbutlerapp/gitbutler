@@ -1,6 +1,5 @@
 <script lang="ts">
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
 	import HunkDiff from '$lib/hunk/HunkDiff.svelte';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import Select from '$lib/select/Select.svelte';
@@ -278,19 +277,4 @@
 			</svelte:fragment>
 		</SectionCard>
 	</form>
-
-	<SectionCard labelFor="branchLaneContents" orientation="row">
-		<svelte:fragment slot="title">Auto-highlight Branch Lane Contents</svelte:fragment>
-		<svelte:fragment slot="caption">
-			An experimental UI toggle to highlight the contents of the branch lane input fields when
-			clicking into them.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle
-				id="branchLaneContents"
-				checked={$autoSelectBranchNameFeature}
-				on:click={() => ($autoSelectBranchNameFeature = !$autoSelectBranchNameFeature)}
-			/>
-		</svelte:fragment>
-	</SectionCard>
 </SettingsPage>

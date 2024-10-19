@@ -23,6 +23,7 @@
 	const branchStore = getContextStore(VirtualBranch);
 	const branch = $derived($branchStore);
 
+	let branchNameComponent = $state<ReturnType<typeof BranchLabel>>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
 	let isTargetBranchAnimated = $state(false);
@@ -110,7 +111,11 @@
 
 				<div class="header__info">
 					<div class="header__info-row spread">
-						<BranchLabel name={branch.name} onChange={(name) => handleBranchNameChange(name)} />
+						<BranchLabel
+							bind:this={branchNameComponent}
+							name={branch.name}
+							onChange={(name) => handleBranchNameChange(name)}
+						/>
 						<Button
 							bind:el={meatballButtonEl}
 							style="ghost"
@@ -123,6 +128,9 @@
 							bind:contextMenuEl={contextMenu}
 							target={meatballButtonEl}
 							onCollapse={collapseLane}
+							onRenameLane={() => {
+								branchNameComponent?.focusInput();
+							}}
 							hasPr={false}
 						/>
 					</div>
