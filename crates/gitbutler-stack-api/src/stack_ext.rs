@@ -380,10 +380,11 @@ impl StackExt for Stack {
             if let Some(head) = head {
                 // ensure that the head has not been pushed to a remote yet
                 let default_target = branch_state(ctx).get_default_target()?;
-                if let Some(remote) = default_target.push_remote_name {
-                    if reference_exists(ctx, &head.remote_reference(remote.as_str())?)? {
-                        bail!("Cannot update the name of a head that has been pushed to a remote");
-                    }
+                if reference_exists(
+                    ctx,
+                    &head.remote_reference(&default_target.push_remote_name())?,
+                )? {
+                    bail!("Cannot update the name of a head that has been pushed to a remote");
                 }
                 head.name = name;
                 validate_name(head, ctx, &state, self.upstream.clone())?;
@@ -450,12 +451,7 @@ impl StackExt for Stack {
             self.head(),
             merge_base,
         )?;
-        let remote_name = branch_state(ctx)
-            .get_default_target()?
-            .push_remote_name
-            .ok_or(anyhow!(
-                "No remote has been configured for the target branch"
-            ))?;
+        let remote_name = branch_state(ctx).get_default_target()?.push_remote_name();
         let upstream_refname =
             RemoteRefname::from_str(&reference.remote_reference(remote_name.as_str())?)
                 .context("Failed to parse the remote reference for branch")?;
@@ -490,25 +486,23 @@ impl StackExt for Stack {
 
             let mut remote_patches: Vec<CommitOrChangeId> = vec![];
             let mut remote_commit_ids_by_change_id: HashMap<String, git2::Oid> = HashMap::new();
-            if let Some(remote_name) = default_target.push_remote_name.as_ref() {
-                if head.pushed(remote_name, ctx).unwrap_or_default() {
-                    let head_commit = repo
-                        .find_reference(&head.remote_reference(remote_name)?)?
-                        .peel_to_commit()?;
-                    let merge_base = repo.merge_base(head_commit.id(), default_target.sha)?;
-                    repo.log(head_commit.id(), LogUntil::Commit(merge_base), false)?
-                        .into_iter()
-                        .rev()
-                        .for_each(|c| {
-                            if let Some(change_id) = c.change_id() {
-                                remote_commit_ids_by_change_id
-                                    .insert(change_id.to_string(), c.id());
-                            }
-                            let commit_or_change_id: CommitOrChangeId = c.into();
-                            remote_patches.push(commit_or_change_id);
-                        });
-                }
-            };
+            let remote_name = default_target.push_remote_name();
+            if head.pushed(&remote_name, ctx).unwrap_or_default() {
+                let head_commit = repo
+                    .find_reference(&head.remote_reference(&remote_name)?)?
+                    .peel_to_commit()?;
+                let merge_base = repo.merge_base(head_commit.id(), default_target.sha)?;
+                repo.log(head_commit.id(), LogUntil::Commit(merge_base), false)?
+                    .into_iter()
+                    .rev()
+                    .for_each(|c| {
+                        if let Some(change_id) = c.change_id() {
+                            remote_commit_ids_by_change_id.insert(change_id.to_string(), c.id());
+                        }
+                        let commit_or_change_id: CommitOrChangeId = c.into();
+                        remote_patches.push(commit_or_change_id);
+                    });
+            }
 
             // compute the commits that are only in the upstream
             let local_patches_including_merge = repo
@@ -615,14 +609,12 @@ impl StackExt for Stack {
             name: Some(legacy_refname),
             ..Default::default()
         };
-        if let Some(remote_name) = default_target.push_remote_name.as_ref() {
-            // modify the stack reference only if it has not been pushed yet
-            if !head.pushed(remote_name, ctx).unwrap_or_default() {
-                // set the stack reference to the legacy refname
-                self.update_series(ctx, head.name.clone(), &update)?;
-            }
-        } else {
-            // if there is no push remote, just update the stack reference
+        // modify the stack reference only if it has not been pushed yet
+        if !head
+            .pushed(&default_target.push_remote_name(), ctx)
+            .unwrap_or_default()
+        {
+            // set the stack reference to the legacy refname
             self.update_series(ctx, head.name.clone(), &update)?;
         }
         Ok(())
@@ -724,15 +716,16 @@ fn validate_name(
     }
     let default_target = state.get_default_target()?;
     // assert that there is no remote git reference with this name
-    if let Some(remote_name) = default_target.push_remote_name {
-        if reference_exists(ctx, &reference.remote_reference(remote_name.as_str())?)? {
-            // Allow the reference overlap if it is the same as the legacy branch ref
-            if legacy_branch_ref != Some(reference.name.clone()) {
-                return Err(anyhow!(
-                    "A git reference with the name {} exists",
-                    &reference.name
-                ));
-            }
+    if reference_exists(
+        ctx,
+        &reference.remote_reference(&default_target.push_remote_name())?,
+    )? {
+        // Allow the reference overlap if it is the same as the legacy branch ref
+        if legacy_branch_ref != Some(reference.name.clone()) {
+            return Err(anyhow!(
+                "A git reference with the name {} exists",
+                &reference.name
+            ));
         }
     }
     // assert that there are no existing patch references with this name
@@ -807,14 +800,9 @@ fn remote_reference_exists(
     state: &VirtualBranchesHandle,
     reference: &PatchReference,
 ) -> Result<bool> {
-    Ok(state
-        .get_default_target()?
-        .push_remote_name
-        .and_then(|remote| {
-            reference
-                .remote_reference(remote.as_str())
-                .and_then(|reference| reference_exists(ctx, &reference))
-                .ok()
-        })
+    Ok(reference
+        .remote_reference(state.get_default_target()?.push_remote_name().as_str())
+        .and_then(|reference| reference_exists(ctx, &reference))
+        .ok()
         .unwrap_or(false))
 }
