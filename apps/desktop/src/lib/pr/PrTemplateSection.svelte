@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ForgeService } from '$lib/backend/forge';
 	import { Project } from '$lib/backend/projects';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
@@ -11,6 +12,7 @@
 	let { pullRequestTemplateBody = $bindable() }: Props = $props();
 
 	const project = getContext(Project);
+	const forgeService = getContext(ForgeService);
 
 	let allAvailableTemplates = $state<{ label: string; value: string }[]>([]);
 
@@ -21,6 +23,35 @@
 	const actualReviewTemplatePath = $derived(
 		selectedReviewTemplatePath ?? defaultReviewTemplatePath
 	);
+
+	let useReviewTemplate = $state<boolean | undefined>(undefined);
+	const defaultUseReviewTemplate = $derived(!!project.git_host.reviewTemplatePath);
+	const actualUseReviewTemplate = $derived(useReviewTemplate ?? defaultUseReviewTemplate);
+
+	// Fetch PR template content
+	$effect(() => {
+		console.log('defaultReviewTemplatePath', defaultReviewTemplatePath);
+
+		if (actualUseReviewTemplate && actualReviewTemplatePath) {
+			forgeService.getReviewTemplateContent(actualReviewTemplatePath).then((template) => {
+				pullRequestTemplateBody = template;
+			});
+		}
+	});
+
+	// Fetch available PR templates
+	$effect(() => {
+		forgeService.getAvailableReviewTemplates().then((availableTemplates) => {
+			if (availableTemplates) {
+				allAvailableTemplates = availableTemplates.map((availableTemplate) => {
+					return {
+						label: availableTemplate,
+						value: availableTemplate
+					};
+				});
+			}
+		});
+	});
 </script>
 
 <div class="pr-template__wrap">
