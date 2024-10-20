@@ -171,10 +171,14 @@ pub(crate) fn stack_series(
             None
         };
         let mut patches: Vec<VirtualBranchCommit> = vec![];
-        for patch in series.clone().local_commits {
+        let mut is_integrated = false;
+        // Reverse first instead of later, so that we catch the first integrated commit
+        for patch in series.clone().local_commits.iter().rev() {
             let commit =
-                commit_by_oid_or_change_id(&patch, ctx.repository(), branch.head(), merge_base)?;
-            let is_integrated = check_commit.is_integrated(&commit)?;
+                commit_by_oid_or_change_id(patch, ctx.repository(), branch.head(), merge_base)?;
+            if !is_integrated {
+                is_integrated = check_commit.is_integrated(&commit)?;
+            }
             let copied_from_remote_id = CommitData::try_from(&commit)
                 .ok()
                 .and_then(|data| remote_commit_data.get(&data).copied());
@@ -187,7 +191,7 @@ pub(crate) fn stack_series(
                         .cloned()
                 })
                 .or(copied_from_remote_id)
-                .or(if series.remote(&patch) {
+                .or(if series.remote(patch) {
                     Some(commit.id())
                 } else {
                     None
@@ -200,13 +204,12 @@ pub(crate) fn stack_series(
                 branch,
                 &commit,
                 is_integrated,
-                series.remote(&patch),
+                series.remote(patch),
                 copied_from_remote_id,
                 remote_commit_id,
             )?;
             patches.push(vcommit);
         }
-        patches.reverse();
         let mut upstream_patches = vec![];
         if let Some(upstream_reference) = upstream_reference.clone() {
             let remote_head = ctx
