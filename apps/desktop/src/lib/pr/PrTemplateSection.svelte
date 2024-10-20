@@ -6,40 +6,52 @@
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '@gitbutler/shared/context';
-	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
-	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
 
 	interface Props {
-		isDisplay: boolean;
-		actualTitle: string;
-		isEditing: boolean;
 		pullRequestTemplateBody: string | undefined;
 	}
 
-	let {
-		isDisplay,
-		actualTitle,
-		isEditing = $bindable(),
-		pullRequestTemplateBody = $bindable()
-	}: Props = $props();
+	let { pullRequestTemplateBody = $bindable() }: Props = $props();
 
 	const project = getContext(Project);
 	const forgeService = getContext(ForgeService);
 
 	let allAvailableTemplates = $state<{ label: string; value: string }[]>([]);
 	const multipleTemplatesAvailable = $derived(allAvailableTemplates.length > 1);
+
+	const defaultReviewTemplatePath = $derived(
+		project.git_host.reviewTemplatePath ?? allAvailableTemplates[0]?.value
+	);
 	let selectedReviewTemplatePath = $state<string | undefined>(undefined);
-	const defaultReviewTemplatePath = $derived(project.git_host.reviewTemplatePath);
 	const actualReviewTemplatePath = $derived(
 		selectedReviewTemplatePath ?? defaultReviewTemplatePath
 	);
+
+	console.log('defaultReviewTemplatePath', defaultReviewTemplatePath);
 
 	let useReviewTemplate = $state<boolean | undefined>(undefined);
 	const defaultUseReviewTemplate = $derived(!!project.git_host.reviewTemplatePath);
 	const actualUseReviewTemplate = $derived(useReviewTemplate ?? defaultUseReviewTemplate);
 
+	function handleToggleUseTemplate() {
+		const value: boolean = !actualUseReviewTemplate;
+
+		updateTemplate: {
+			if (!value) {
+				selectedReviewTemplatePath = undefined;
+				pullRequestTemplateBody = undefined;
+				break updateTemplate;
+			}
+			selectedReviewTemplatePath = defaultReviewTemplatePath;
+		}
+
+		useReviewTemplate = value;
+	}
+
 	// Fetch PR template content
 	$effect(() => {
+		console.log('defaultReviewTemplatePath', defaultReviewTemplatePath);
+
 		if (actualUseReviewTemplate && actualReviewTemplatePath) {
 			forgeService.getReviewTemplateContent(actualReviewTemplatePath).then((template) => {
 				pullRequestTemplateBody = template;
@@ -60,21 +72,6 @@
 			}
 		});
 	});
-
-	function handleToggleUseTemplate() {
-		const value: boolean = !actualUseReviewTemplate;
-
-		updateTemplate: {
-			if (!value) {
-				selectedReviewTemplatePath = undefined;
-				pullRequestTemplateBody = undefined;
-				break updateTemplate;
-			}
-			selectedReviewTemplatePath = defaultReviewTemplatePath;
-		}
-
-		useReviewTemplate = value;
-	}
 </script>
 
 <!-- SELECT OR DISPLAY THE AVAILABLE TEMPLATES -->
@@ -101,64 +98,39 @@
 	{/if}
 {/snippet} -->
 
-<!-- MAIN -->
-<div class="pr-header">
-	<div class="pr-header__row">
-		<h3 class="text-14 text-body text-semibold pr-title">Create a pull request</h3>
+<div class="pr-template__wrap">
+	<!-- <label class="pr-toggle" for="use-template">
+		<span class="text-12 pr-template__toggle__label">Use PR template</span>
+		<Toggle
+			id="use-template"
+			small
+			checked={actualUseReviewTemplate}
+			on:click={handleToggleUseTemplate}
+		/>
+	</label> -->
 
-		<SegmentControl
-			defaultIndex={isDisplay ? 1 : 0}
-			onselect={(id) => {
-				isEditing = id === 'write';
-			}}
-		>
-			<Segment id="write">Edit</Segment>
-			<Segment id="preview">Preview</Segment>
-		</SegmentControl>
-	</div>
-
-	<!-- {#if isEditing}
-		<SectionCard orientation="column">
-			<div class="pr-header__row">
-				<label class="template-toggle__wrap">
-					<Toggle
-						id="use-template"
-						small
-						checked={actualUseReviewTemplate}
-						on:click={handleToggleUseTemplate}
-					/>
-					<label class="text-12 template-toggle__label" for="use-template">Use PR template</label>
-				</label>
-			</div>
-			{#if actualUseReviewTemplate}
-				{@render templatePath()}
-			{/if}
-		</SectionCard>
-	{/if} -->
+	<Select
+		value={actualReviewTemplatePath}
+		options={allAvailableTemplates.map(({ label, value }) => ({ label, value }))}
+		placeholder="No PR templates found ¯\_(ツ)_/¯"
+		flex="1"
+		searchable
+		disabled={allAvailableTemplates.length <= 1}
+		onselect={(value) => {
+			selectedReviewTemplatePath = value;
+		}}
+	>
+		{#snippet itemSnippet({ item, highlighted })}
+			<SelectItem selected={item.value === actualReviewTemplatePath} {highlighted}>
+				{item.label}
+			</SelectItem>
+		{/snippet}
+	</Select>
 </div>
 
-<style>
-	.pr-header {
+<style lang="postcss">
+	.pr-template__wrap {
 		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		gap: 16px;
-		padding: 16px 16px 14px;
-	}
-
-	.pr-header__row {
-		width: 100%;
-		display: flex;
-		align-items: center;
-	}
-
-	.pr-title {
-		flex: 1;
-	}
-
-	.template-toggle__wrap {
-		display: flex;
-		align-items: center;
-		gap: 10px;
+		gap: 6px;
 	}
 </style>

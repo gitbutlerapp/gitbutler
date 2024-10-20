@@ -22,6 +22,7 @@
 		disabled?: boolean;
 		loading?: boolean;
 		wide?: boolean;
+		flex?: string;
 		options: SelectItem<T>[];
 		value?: T;
 		placeholder?: string;
@@ -38,6 +39,7 @@
 		disabled,
 		loading,
 		wide,
+		flex,
 		options = [],
 		value,
 		placeholder = 'Select an option...',
@@ -150,7 +152,7 @@
 	}
 </script>
 
-<div class="select-wrapper" class:wide bind:this={selectWrapperEl}>
+<div class="select-wrapper" class:wide bind:this={selectWrapperEl} style:flex>
 	{#if label}
 		<label for={id} class="select__label text-13 text-body text-semibold">{label}</label>
 	{/if}
