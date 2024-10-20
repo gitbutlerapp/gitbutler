@@ -324,13 +324,15 @@
 	<ScrollableContainer wide maxHeight="66vh" onscroll={showBorderOnScroll}>
 		<div class="pr-content">
 			{#if isDisplay || !isEditing}
-				<div class="pr-preview">
-					<h1 class="text-head-22">
+				<div class="pr-preview" class:display={isDisplay} class:preview={!isDisplay}>
+					<h1 class="text-head-22 pr-preview-title">
 						{actualTitle}
 					</h1>
-					<div class="pr-description-preview">
-						<Markdown content={actualBody} />
-					</div>
+					{#if actualBody}
+						<div class="pr-description-preview">
+							<Markdown content={actualBody} />
+						</div>
+					{/if}
 				</div>
 			{:else}
 				<div class="pr-fields">
@@ -548,8 +550,16 @@
 	.pr-preview {
 		display: flex;
 		flex-direction: column;
-		padding: 16px;
-		background-color: var(--clr-bg-1-muted);
-		border-radius: var(--radius-m);
+		gap: 16px;
+
+		&.display {
+			padding-top: 16px;
+		}
+
+		&.preview {
+			padding: 16px;
+			background-color: var(--clr-bg-1-muted);
+			border-radius: var(--radius-m);
+		}
 	}
 </style>
