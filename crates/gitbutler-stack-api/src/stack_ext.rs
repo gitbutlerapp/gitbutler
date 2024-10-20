@@ -229,28 +229,13 @@ impl StackExt for Stack {
         }
         let commit = ctx.repository().find_commit(self.head())?;
 
-        let (author, _committer) = ctx.repository().signatures()?;
-        // Get the author initials, splitting by any whitespace
-        let initials = author
-            .name()
-            .map(|s| {
-                format!(
-                    "{}-",
-                    s.split_whitespace()
-                        .map(|word| word.chars().next().unwrap_or(' '))
-                        .collect::<String>()
-                )
-            })
-            .unwrap_or("".to_owned())
-            .to_lowercase();
-        let branch_name = format!("{}{}-1", initials, "branch");
-
         let mut reference = PatchReference {
             target: commit.into(),
             name: if let Some(refname) = self.upstream.as_ref() {
                 refname.branch().to_string()
             } else {
-                normalize_branch_name(&branch_name)?
+                let (author, _committer) = ctx.repository().signatures()?;
+                generate_branch_name(author)?
             },
             description: None,
         };
@@ -805,4 +790,35 @@ fn remote_reference_exists(
         .and_then(|reference| reference_exists(ctx, &reference))
         .ok()
         .unwrap_or(false))
+}
+
+fn generate_branch_name(author: git2::Signature) -> Result<String> {
+    // Get the author initials, splitting by any whitespace
+    let initials = author
+        .name()
+        .map(|s| {
+            format!(
+                "{}-",
+                s.split_whitespace()
+                    .map(|word| word.chars().next().unwrap_or(' '))
+                    .collect::<String>()
+            )
+        })
+        .unwrap_or("".to_owned())
+        .to_lowercase();
+    let branch_name = format!("{}{}-1", initials, "branch");
+    normalize_branch_name(&branch_name)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use git2::{Signature, Time};
+
+    #[test]
+    fn gen_name() -> Result<()> {
+        let author = Signature::new("Foo Bar", "fb@example.com", &Time::new(0, 0))?;
+        assert_eq!(generate_branch_name(author)?, "fb-branch-1");
+        Ok(())
+    }
 }
