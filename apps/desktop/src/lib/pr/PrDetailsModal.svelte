@@ -316,17 +316,21 @@
 
 <Modal bind:this={modal} width={580} noPadding {onClose} onKeyDown={handleModalKeydown}>
 	<!-- HEADER -->
-	<PrDetailsModalHeader {isDisplay} bind:isEditing />
+	{#if !isDisplay}
+		<PrDetailsModalHeader {isDisplay} bind:isEditing />
+	{/if}
 
 	<!-- MAIN FIELDS -->
 	<ScrollableContainer wide maxHeight="66vh" onscroll={showBorderOnScroll}>
 		<div class="pr-content">
 			{#if isDisplay || !isEditing}
-				<h1>
-					{actualTitle}
-				</h1>
-				<div class="pr-description-preview">
-					<Markdown content={actualBody} />
+				<div class="pr-preview">
+					<h1 class="text-head-22">
+						{actualTitle}
+					</h1>
+					<div class="pr-description-preview">
+						<Markdown content={actualBody} />
+					</div>
 				</div>
 			{:else}
 				<div class="pr-fields">
@@ -418,65 +422,61 @@
 	<!-- FOOTER -->
 
 	{#snippet controls(close)}
-		<div class="pr-footer">
-			{#if props.type !== 'display'}
-				<div class="pr-footer__actions">
-					<Button style="ghost" outline onclick={close}>Cancel</Button>
+		{#if props.type !== 'display'}
+			<Button style="ghost" outline onclick={close}>Cancel</Button>
 
-					<DropDownButton
-						bind:this={createPrDropDown}
-						style="pop"
-						kind="solid"
-						disabled={isLoading || aiIsLoading}
-						loading={isLoading}
-						type="submit"
-						onclick={async () => await handleCreatePR(close)}
-					>
-						{isDraft ? 'Create pull request draft' : 'Create pull request'}
+			<DropDownButton
+				bind:this={createPrDropDown}
+				style="pop"
+				kind="solid"
+				disabled={isLoading || aiIsLoading}
+				loading={isLoading}
+				type="submit"
+				onclick={async () => await handleCreatePR(close)}
+			>
+				{isDraft ? 'Create pull request draft' : 'Create pull request'}
 
-						{#snippet contextMenuSlot()}
-							<ContextMenuSection>
-								<ContextMenuItem
-									label="Create pull request"
-									onclick={() => {
-										isDraft = false;
-										createPrDropDown?.close();
-									}}
-								/>
-								<ContextMenuItem
-									label="Create draft pull request"
-									onclick={() => {
-										isDraft = true;
-										createPrDropDown?.close();
-									}}
-								/>
-							</ContextMenuSection>
-						{/snippet}
-					</DropDownButton>
-				</div>
-			{:else}
-				<div class="pr-footer__actions">
-					<Button
-						style="ghost"
-						outline
-						icon={prLinkCopied ? 'tick-small' : 'copy-small'}
-						disabled={prLinkCopied}
-						onclick={() => {
-							handlePrLinkCopied(props.pr.htmlUrl);
-						}}>{prLinkCopied ? 'Link copied!' : 'Copy PR link'}</Button
-					>
-					<Button
-						style="ghost"
-						outline
-						icon="open-link"
-						onclick={() => {
-							openExternalUrl(props.pr.htmlUrl);
-						}}>Open in browser</Button
-					>
-				</div>
-				<Button style="ghost" outline onclick={close}>Close</Button>
-			{/if}
-		</div>
+				{#snippet contextMenuSlot()}
+					<ContextMenuSection>
+						<ContextMenuItem
+							label="Create pull request"
+							onclick={() => {
+								isDraft = false;
+								createPrDropDown?.close();
+							}}
+						/>
+						<ContextMenuItem
+							label="Create draft pull request"
+							onclick={() => {
+								isDraft = true;
+								createPrDropDown?.close();
+							}}
+						/>
+					</ContextMenuSection>
+				{/snippet}
+			</DropDownButton>
+		{:else}
+			<div class="pr-footer__actions">
+				<Button
+					style="ghost"
+					outline
+					icon={prLinkCopied ? 'tick-small' : 'copy-small'}
+					disabled={prLinkCopied}
+					onclick={() => {
+						handlePrLinkCopied(props.pr.htmlUrl);
+					}}>{prLinkCopied ? 'Link copied!' : 'Copy PR link'}</Button
+				>
+				<Button
+					style="ghost"
+					outline
+					icon="open-link"
+					onclick={() => {
+						openExternalUrl(props.pr.htmlUrl);
+					}}>Open in browser</Button
+				>
+			</div>
+			<Button style="ghost" outline onclick={close}>Close</Button>
+		{/if}
 	{/snippet}
 </Modal>
 
@@ -524,29 +524,28 @@
 	.pr-ai__actions {
 		width: 100%;
 		display: flex;
-		justify-content: flex-end;
 		gap: 6px;
-		padding: 12px;
 	}
 
 	/* FOOTER */
 
-	.pr-footer {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		width: 100%;
-	}
-
 	.pr-footer__actions {
 		width: 100%;
 		display: flex;
-		justify-content: flex-end;
 		gap: 6px;
 	}
 
 	.features-section {
 		display: flex;
 		gap: 6px;
+	}
+
+	/* PREVIEW */
+	.pr-preview {
+		display: flex;
+		flex-direction: column;
+		padding: 16px;
+		background-color: var(--clr-bg-1-muted);
+		border-radius: var(--radius-m);
 	}
 </style>
