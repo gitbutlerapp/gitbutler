@@ -316,7 +316,7 @@
 
 <Modal bind:this={modal} width={580} noPadding {onClose} onKeyDown={handleModalKeydown}>
 	<!-- HEADER -->
-	<PrDetailsModalHeader {isDisplay} {actualTitle} bind:isEditing bind:pullRequestTemplateBody />
+	<PrDetailsModalHeader {isDisplay} bind:isEditing />
 
 	<!-- MAIN FIELDS -->
 	<ScrollableContainer wide maxHeight="66vh" onscroll={showBorderOnScroll}>
