@@ -1,23 +1,31 @@
 <script lang="ts">
 	import Toggle from '$lib/shared/Toggle.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import iconsJson from '@gitbutler/ui/data/icons.json';
 
 	interface Props {
 		id?: string;
 		label: string;
 		checked: boolean;
+		icon?: keyof typeof iconsJson;
 		tooltip?: string;
 		disabled?: boolean;
 		onclick?: (e: MouseEvent) => void;
 	}
 
-	let { id, label, checked = $bindable(), tooltip, disabled, onclick }: Props = $props();
+	let { id, label, checked = $bindable(), icon, tooltip, disabled, onclick }: Props = $props();
 
 	const toggleId = id || label.toLowerCase().replace(/\s/g, '-');
 </script>
 
 <Tooltip text={tooltip}>
 	<label class="toggle-btn" class:disabled for={toggleId}>
+		{#if icon}
+			<div class="toggle-icon">
+				<Icon name={icon} />
+			</div>
+		{/if}
 		<span class="text-12 text-semibold toggle-btn__label">{label}</span>
 		<Toggle
 			id={toggleId}
@@ -45,6 +53,13 @@
 		&:hover {
 			border-color: var(--clr-border-1);
 		}
+	}
+
+	.toggle-icon {
+		display: flex;
+		opacity: 0.5;
+		margin-left: -2px;
+		margin-right: -2px;
 	}
 
 	.toggle-btn__label {

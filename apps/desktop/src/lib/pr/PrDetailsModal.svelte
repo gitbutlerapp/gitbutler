@@ -346,11 +346,13 @@
 					<!-- FEATURES -->
 					<div class="features-section">
 						<ToggleButton
+							icon="doc"
 							label="Use PR template"
 							checked={showPRTemplateSelect}
 							onclick={handleToggleUseTemplate}
 						/>
 						<ToggleButton
+							icon="ai-small"
 							label="AI generation"
 							checked={showAiBox}
 							tooltip={!aiConfigurationValid ? 'AI service is not configured' : undefined}
@@ -524,7 +526,9 @@
 	.pr-ai__actions {
 		width: 100%;
 		display: flex;
+		justify-content: flex-end;
 		gap: 6px;
+		padding: 12px;
 	}
 
 	/* FOOTER */
