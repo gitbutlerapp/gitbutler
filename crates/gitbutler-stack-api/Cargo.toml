@@ -9,6 +9,7 @@ publish = false
 anyhow = "1.0.86"
 itertools = "0.13"
 rand = "0.8.5"
+gix-utils = "0.1.12"
 serde = { workspace = true, features = ["std"] }
 git2.workspace = true
 gix.workspace = true
