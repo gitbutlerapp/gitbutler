@@ -15,7 +15,8 @@ const config = {
 	},
 	compilerOptions: {
 		css: 'injected',
-		enableSourcemap: true
+		enableSourcemap: true,
+		runes: true
 	}
 };
 
