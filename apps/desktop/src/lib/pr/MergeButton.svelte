@@ -20,7 +20,7 @@
 	const dispatch = createEventDispatcher<{ click: { method: MergeMethod } }>();
 	const action = persistedAction(projectId);
 
-	let dropDown: DropDownButton;
+	let dropDown: ReturnType<typeof DropDownButton> | undefined;
 
 	const labels = {
 		[MergeMethod.Merge]: 'Merge pull request',
@@ -49,7 +49,7 @@
 					label={labels[method]}
 					onclick={() => {
 						$action = method;
-						dropDown.close();
+						dropDown?.close();
 					}}
 				/>
 			{/each}
