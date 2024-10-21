@@ -12,7 +12,7 @@ export interface User {
 }
 
 export class UserService {
-	user = writable<User | undefined>(undefined, (set) => {
+	user: Writable<User | undefined> = writable<User | undefined>(undefined, (set) => {
 		this.fetchUser()
 			.then((data) => {
 				this.error.set(undefined);

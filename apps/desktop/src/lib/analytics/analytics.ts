@@ -25,9 +25,11 @@ export function initAnalyticsIfEnabled() {
 			appNonAnonMetricsEnabled()
 				.onDisk()
 				.then((enabled) => {
-					enabled
-						? posthog.capture('nonAnonMetricsEnabled')
-						: posthog.capture('nonAnonMetricsDisabled');
+					if (enabled) {
+						posthog.capture('nonAnonMetricsEnabled');
+					} else {
+						posthog.capture('nonAnonMetricsDisabled');
+					}
 				});
 		}
 	});
