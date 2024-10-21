@@ -135,6 +135,25 @@
 
 <StackingAddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={currentSeries.name} />
 
+<StackingSeriesHeaderContextMenu
+	bind:contextMenuEl={contextMenu}
+	target={contextMenuTrigger}
+	headName={currentSeries.name}
+	seriesCount={branch.series?.length ?? 0}
+	{addDescription}
+	onGenerateBranchName={generateBranchName}
+	disableTitleEdit={!!gitHostBranch}
+	hasPr={!!$pr}
+	openPrDetailsModal={handleOpenPR}
+	reloadPR={handleReloadPR}
+	onopen={() => {
+		contextMenuOpened = true;
+	}}
+	onclose={() => {
+		contextMenuOpened = false;
+	}}
+/>
+
 <div class="branch-header" tabindex="-1" role="article">
 	<OverflowMenuContainer class="barnch-plus-btn" isOpen={contextMenuOpened}>
 		{#if stackingFeatureMultipleSeries}
@@ -168,7 +187,7 @@
 		<StackingStatusIcon
 			lineTop={isTopSeries ? false : true}
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
-			iconColor="#fff"
+			iconColor="var(--clr-core-ntrl-100)"
 			color={lineColor}
 			lineBottom={currentSeries.patches.length > 0}
 		/>
@@ -180,48 +199,6 @@
 				name={currentSeries.name}
 				onChange={(name) => editTitle(name)}
 				disabled={!!gitHostBranch}
-			/>
-		</div>
-		<div class="branch-info__btns">
-			{#if gitHostBranch}
-				<Button
-					icon="open-link"
-					tooltip="Open in browser"
-					style="ghost"
-					onclick={(e: MouseEvent) => {
-						const url = gitHostBranch?.url;
-						if (url) openExternalUrl(url);
-						e.preventDefault();
-						e.stopPropagation();
-					}}
-				></Button>
-			{/if}
-			<!-- <Button
-				icon="kebab"
-				style="ghost"
-				tooltip="More options"
-				bind:el={contextMenuTrigger}
-				onclick={() => {
-					contextMenu?.toggle();
-				}}
-			></Button> -->
-			<StackingSeriesHeaderContextMenu
-				bind:contextMenuEl={contextMenu}
-				target={contextMenuTrigger}
-				headName={currentSeries.name}
-				seriesCount={branch.series?.length ?? 0}
-				{addDescription}
-				onGenerateBranchName={generateBranchName}
-				disableTitleEdit={!!gitHostBranch}
-				hasPr={!!$pr}
-				openPrDetailsModal={handleOpenPR}
-				reloadPR={handleReloadPR}
-				onopen={() => {
-					contextMenuOpened = true;
-				}}
-				onclose={() => {
-					contextMenuOpened = false;
-				}}
 			/>
 		</div>
 	</div>
