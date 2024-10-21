@@ -13,7 +13,6 @@
 	import CommitSigningForm from '$lib/settings/userPreferences/CommitSigningForm.svelte';
 	import DetailsForm from '$lib/settings/userPreferences/DetailsForm.svelte';
 	import PreferencesForm from '$lib/settings/userPreferences/PreferencesForm.svelte';
-	import PullRequestTemplateForm from '$lib/settings/userPreferences/PullRequestTemplateForm.svelte';
 	import RemoveProjectForm from '$lib/settings/userPreferences/RemoveProjectForm.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
 
@@ -47,8 +46,6 @@
 				{#if $baseBranchSwitching}
 					<BaseBranchSwitch />
 				{/if}
-
-				<PullRequestTemplateForm />
 				<RemoveProjectForm />
 			</Section>
 		</TabContent>

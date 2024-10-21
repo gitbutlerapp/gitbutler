@@ -6,6 +6,7 @@
 		readonly?: boolean;
 		fontSize?: number;
 		maxHeight?: string;
+		rows?: number;
 		autofocus?: boolean;
 		padding?: {
 			top: number;
@@ -32,6 +33,7 @@
 		readonly,
 		fontSize = 14,
 		maxHeight = 'none',
+		rows = 1,
 		autofocus = false,
 		padding = { top: 0, right: 0, bottom: 0, left: 0 },
 		oninput,
@@ -49,6 +51,15 @@
 			}
 		}, 0);
 	});
+
+	$effect(() => {
+		if (ref) {
+			// reference the value to trigger
+			// the effect when it changes
+			value;
+			autoHeight(ref);
+		}
+	});
 </script>
 
 <textarea
@@ -59,11 +70,10 @@
 		autoHeight(e.currentTarget as HTMLTextAreaElement);
 	}}
 	class="borderless-textarea scrollbar"
-	rows={1}
+	{rows}
 	{placeholder}
 	{readonly}
 	oninput={(e) => {
-		autoHeight(e.currentTarget);
 		oninput?.(e);
 	}}
 	onfocus={(e) => {

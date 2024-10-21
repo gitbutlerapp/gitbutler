@@ -15,6 +15,7 @@
 		loading?: boolean;
 		wide?: boolean;
 		tooltip?: string;
+		type?: 'button' | 'submit' | 'reset';
 		menuPosition?: 'top' | 'bottom';
 		children: Snippet;
 		contextMenuSlot: Snippet;
@@ -29,6 +30,7 @@
 		disabled = false,
 		loading = false,
 		wide = false,
+		type,
 		tooltip,
 		menuPosition = 'bottom',
 		children,
@@ -58,6 +60,7 @@
 				{style}
 				{icon}
 				{kind}
+				{type}
 				{outline}
 				reversedDirection
 				disabled={disabled || loading}

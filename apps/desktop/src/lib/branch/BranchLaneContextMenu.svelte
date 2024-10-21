@@ -8,12 +8,12 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
 	interface Props {
@@ -157,7 +157,7 @@
 		<ContextMenuItem label="Allow rebasing" onclick={toggleAllowRebasing}>
 			{#snippet control()}
 				<Tooltip text={'Allows changing commits after push\n(force push needed)'}>
-					<Toggle small bind:checked={allowRebasing} on:click={toggleAllowRebasing} />
+					<Toggle small bind:checked={allowRebasing} onclick={toggleAllowRebasing} />
 				</Tooltip>
 			{/snippet}
 		</ContextMenuItem>

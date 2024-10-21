@@ -7,13 +7,16 @@
 </script>
 
 <script lang="ts">
+	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
+	import PrTemplateSection from './PrTemplateSection.svelte';
 	import { getPreferredPRAction, PRAction } from './pr';
 	import { AIService } from '$lib/ai/service';
-	import { ForgeService } from '$lib/backend/forge';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Markdown from '$lib/components/Markdown.svelte';
+	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
+	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
@@ -22,8 +25,8 @@
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
+	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { sleep } from '$lib/utils/sleep';
@@ -35,8 +38,7 @@
 	import BorderlessTextarea from '@gitbutler/ui/BorderlessTextarea.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import Segment from '@gitbutler/ui/segmentControl/Segment.svelte';
-	import SegmentControl from '@gitbutler/ui/segmentControl/SegmentControl.svelte';
+	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
 	import { tick } from 'svelte';
 	import type { DetailedPullRequest, PullRequest } from '$lib/gitHost/interface/types';
 
@@ -69,7 +71,6 @@
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
-	const forgeService = getContext(ForgeService);
 	const gitListService = getGitHostListingService();
 	const prService = getGitHostPrService();
 	const aiService = getContext(AIService);
@@ -84,10 +85,12 @@
 		props.type === 'preview-series' ? props.upstreamName : branch.upstreamName
 	);
 	const baseBranchName = $derived($baseBranch.shortName);
-	const prTemplatePath = $derived(project.git_host.reviewTemplatePath);
+
+	let createPrDropDown = $state<ReturnType<typeof DropDownButton>>();
 	let isDraft = $state<boolean>($preferredPRAction === PRAction.CreateDraft);
 
 	let modal = $state<ReturnType<typeof Modal>>();
+	let templateSelector = $state<ReturnType<typeof PrTemplateSection>>();
 	let isEditing = $state<boolean>(true);
 	let isLoading = $state<boolean>(false);
 	let pullRequestTemplateBody = $state<string | undefined>(undefined);
@@ -95,6 +98,12 @@
 	let aiConfigurationValid = $state<boolean>(false);
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
 	let showAiBox = $state<boolean>(false);
+
+	async function handleToggleUseTemplate() {
+		if (!templateSelector) return;
+		const displaying = templateSelector.imports.showing;
+		await templateSelector.setUsePullRequestTemplate(!displaying);
+	}
 
 	const canUseAI = $derived.by(() => {
 		return aiConfigurationValid || $aiGenEnabled;
@@ -126,15 +135,6 @@
 	let inputTitle = $state<string | undefined>(undefined);
 	const actualBody = $derived<string>(inputBody ?? defaultBody);
 	const actualTitle = $derived<string>(inputTitle ?? defaultTitle);
-
-	// Fetch PR template content
-	$effect(() => {
-		if (modal?.imports.open && pullRequestTemplateBody === undefined && prTemplatePath) {
-			forgeService.getReviewTemplateContent(prTemplatePath).then((template) => {
-				pullRequestTemplateBody = template;
-			});
-		}
-	});
 
 	$effect(() => {
 		if (modal?.imports.open) {
@@ -214,10 +214,6 @@
 			draft: isDraft
 		});
 		close();
-	}
-
-	function handleCheckDraft() {
-		isDraft = !isDraft;
 	}
 
 	async function handleAIButtonPressed() {
@@ -316,59 +312,71 @@
 		}
 	};
 
-	const isPreviewOnly = props.type === 'display';
+	const isDisplay = props.type === 'display';
 </script>
 
 <Modal bind:this={modal} width={580} noPadding {onClose} onKeyDown={handleModalKeydown}>
-	<div class="pr-header">
-		{#if !isPreviewOnly}
-			<h3 class="text-14 text-semibold pr-title">
-				{!isEditing ? actualTitle : 'Create a pull request'}
-			</h3>
-			<SegmentControl
-				defaultIndex={isPreviewOnly ? 1 : 0}
-				onselect={(id) => {
-					if (id === 'write') {
-						isEditing = true;
-					} else {
-						isEditing = false;
-					}
-				}}
-			>
-				<Segment id="write">Edit</Segment>
-				<Segment id="preview">Preview</Segment>
-			</SegmentControl>
-		{:else}
-			<h3 class="text-14 text-semibold pr-title">{actualTitle}</h3>
-		{/if}
-	</div>
-
 	<!-- HEADER -->
+	{#if !isDisplay}
+		<PrDetailsModalHeader {isDisplay} bind:isEditing />
+	{/if}
 
 	<!-- MAIN FIELDS -->
 	<ScrollableContainer wide maxHeight="66vh" onscroll={showBorderOnScroll}>
 		<div class="pr-content">
-			{#if isPreviewOnly || !isEditing}
-				<div class="pr-description-preview">
-					<Markdown content={actualBody} />
+			{#if isDisplay || !isEditing}
+				<div class="pr-preview" class:display={isDisplay} class:preview={!isDisplay}>
+					<h1 class="text-head-22 pr-preview-title">
+						{actualTitle}
+					</h1>
+					{#if actualBody}
+						<div class="pr-description-preview">
+							<Markdown content={actualBody} />
+						</div>
+					{/if}
 				</div>
 			{:else}
 				<div class="pr-fields">
 					<TextBox
 						placeholder="PR title"
 						value={actualTitle}
-						readonly={!isEditing || isPreviewOnly}
+						readonly={!isEditing || isDisplay}
 						on:input={(e) => {
 							inputTitle = e.detail;
 						}}
 					/>
 
+					<!-- FEATURES -->
+					<div class="features-section">
+						<ToggleButton
+							icon="doc"
+							label="Use PR template"
+							checked={!!templateSelector?.imports.showing}
+							onclick={handleToggleUseTemplate}
+							disabled={!templateSelector?.imports.hasTemplates}
+						/>
+						<ToggleButton
+							icon="ai-small"
+							label="AI generation"
+							checked={showAiBox}
+							tooltip={!aiConfigurationValid ? 'AI service is not configured' : undefined}
+							disabled={!canUseAI || aiIsLoading}
+							onclick={() => {
+								showAiBox = !showAiBox;
+							}}
+						/>
+					</div>
+
+					<!-- PR TEMPLATE SELECT -->
+					<PrTemplateSection bind:this={templateSelector} bind:pullRequestTemplateBody />
+
 					<!-- DESCRIPTION FIELD -->
 					<div class="pr-description-field text-input">
 						<BorderlessTextarea
 							value={actualBody}
+							rows={2}
 							autofocus
-							padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
+							padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
 							placeholder="Add description…"
 							oninput={(e: InputEvent) => {
 								const target = e.target as HTMLTextAreaElement;
@@ -377,68 +385,38 @@
 						/>
 
 						<!-- AI GENRATION -->
-						{#if !isPreviewOnly && canUseAI && isEditing}
-							<div class="pr-ai" class:show-ai-box={showAiBox}>
-								{#if showAiBox}
-									<BorderlessTextarea
-										autofocus
-										bind:value={aiDescriptionDirective}
-										padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
-										placeholder={aiService.prSummaryMainDirective}
-										onkeydown={onMetaEnter(handleAIButtonPressed)}
-										oninput={(e: InputEvent) => {
-											const target = e.target as HTMLTextAreaElement;
-											aiDescriptionDirective = target.value;
-										}}
-									/>
-									<div class="pr-ai__actions">
-										<Button
-											style="ghost"
-											outline
-											onclick={() => {
-												showAiBox = false;
-												aiDescriptionDirective = undefined;
-											}}>Hide</Button
-										>
-										<Button
-											style="neutral"
-											kind="solid"
-											icon="ai-small"
-											tooltip={!aiConfigurationValid
-												? 'You must be logged in or have provided your own API key'
-												: !$aiGenEnabled
-													? 'You must have summary generation enabled'
-													: undefined}
-											disabled={!canUseAI || aiIsLoading}
-											isLoading={aiIsLoading}
-											onclick={handleAIButtonPressed}
-										>
-											Generate
-										</Button>
-									</div>
-								{:else}
-									<div class="pr-ai__actions">
-										<Button
-											style="ghost"
-											outline
-											icon="ai-small"
-											tooltip={!aiConfigurationValid
-												? 'You must be logged in or have provided your own API key'
-												: !$aiGenEnabled
-													? 'You must have summary generation enabled'
-													: undefined}
-											disabled={!canUseAI || aiIsLoading}
-											isLoading={aiIsLoading}
-											onclick={() => {
-												showAiBox = true;
-											}}
-										>
-											Generate description
-										</Button>
-									</div>
-								{/if}
-							</div>
-						{/if}
+						<div class="pr-ai" class:show-ai-box={showAiBox}>
+							{#if showAiBox}
+								<BorderlessTextarea
+									autofocus
+									bind:value={aiDescriptionDirective}
+									padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
+									placeholder={aiService.prSummaryMainDirective}
+									onkeydown={onMetaEnter(handleAIButtonPressed)}
+									oninput={(e: InputEvent) => {
+										const target = e.target as HTMLTextAreaElement;
+										aiDescriptionDirective = target.value;
+									}}
+								/>
+								<div class="pr-ai__actions">
+									<Button
+										style="neutral"
+										kind="solid"
+										icon="ai-small"
+										tooltip={!aiConfigurationValid
+											? 'You must be logged in or have provided your own API key'
+											: !$aiGenEnabled
+												? 'You must have summary generation enabled'
+												: undefined}
+										disabled={!canUseAI || aiIsLoading}
+										loading={aiIsLoading}
+										onclick={handleAIButtonPressed}
+									>
+										Generate description
+									</Button>
+								</div>
+							{/if}
+						</div>
 					</div>
 				</div>
 			{/if}
@@ -448,48 +426,61 @@
 	<!-- FOOTER -->
 
 	{#snippet controls(close)}
-		<div class="pr-footer">
-			{#if props.type !== 'display'}
-				<label class="draft-toggle__wrap">
-					<Toggle id="is-draft-toggle" small checked={isDraft} on:click={handleCheckDraft} />
-					<label class="text-12 draft-toggle__label" for="is-draft-toggle">Create as a draft</label>
-				</label>
+		{#if props.type !== 'display'}
+			<Button style="ghost" outline onclick={close}>Cancel</Button>
 
-				<div class="pr-footer__actions">
-					<Button style="ghost" outline onclick={close}>Cancel</Button>
-					<Button
-						style="pop"
-						kind="solid"
-						disabled={isLoading || aiIsLoading}
-						{isLoading}
-						type="submit"
-						onclick={async () => await handleCreatePR(close)}
-						>{isDraft ? 'Create draft pull request' : 'Create pull request'}</Button
-					>
-				</div>
-			{:else}
-				<div class="pr-footer__actions">
-					<Button
-						style="ghost"
-						outline
-						icon={prLinkCopied ? 'tick-small' : 'copy-small'}
-						disabled={prLinkCopied}
-						onclick={() => {
-							handlePrLinkCopied(props.pr.htmlUrl);
-						}}>{prLinkCopied ? 'Link copied!' : 'Copy PR link'}</Button
-					>
-					<Button
-						style="ghost"
-						outline
-						icon="open-link"
-						onclick={() => {
-							openExternalUrl(props.pr.htmlUrl);
-						}}>Open in browser</Button
-					>
-				</div>
-				<Button style="ghost" outline onclick={close}>Close</Button>
-			{/if}
-		</div>
+			<DropDownButton
+				bind:this={createPrDropDown}
+				style="pop"
+				kind="solid"
+				disabled={isLoading || aiIsLoading || !actualTitle}
+				loading={isLoading}
+				type="submit"
+				onclick={async () => await handleCreatePR(close)}
+			>
+				{isDraft ? 'Create pull request draft' : 'Create pull request'}
+
+				{#snippet contextMenuSlot()}
+					<ContextMenuSection>
+						<ContextMenuItem
+							label="Create pull request"
+							onclick={() => {
+								isDraft = false;
+								createPrDropDown?.close();
+							}}
+						/>
+						<ContextMenuItem
+							label="Create draft pull request"
+							onclick={() => {
+								isDraft = true;
+								createPrDropDown?.close();
+							}}
+						/>
+					</ContextMenuSection>
+				{/snippet}
+			</DropDownButton>
+		{:else}
+			<div class="pr-footer__actions">
+				<Button
+					style="ghost"
+					outline
+					icon={prLinkCopied ? 'tick-small' : 'copy-small'}
+					disabled={prLinkCopied}
+					onclick={() => {
+						handlePrLinkCopied(props.pr.htmlUrl);
+					}}>{prLinkCopied ? 'Link copied!' : 'Copy PR link'}</Button
+				>
+				<Button
+					style="ghost"
+					outline
+					icon="open-link"
+					onclick={() => {
+						openExternalUrl(props.pr.htmlUrl);
+					}}>Open in browser</Button
+				>
+			</div>
+			<Button style="ghost" outline onclick={close}>Close</Button>
+		{/if}
 	{/snippet}
 </Modal>
 
@@ -500,19 +491,12 @@
 		padding: 0 16px 16px;
 	}
 
-	.pr-header {
-		display: flex;
-		align-items: center;
-		gap: 16px;
-		padding: 16px 16px 14px;
-	}
-
 	/* FIELDS */
 
 	.pr-fields {
 		display: flex;
 		flex-direction: column;
-		gap: 10px;
+		gap: 14px;
 	}
 
 	.pr-description-field {
@@ -524,11 +508,6 @@
 	}
 
 	/* PREVIEW */
-
-	.pr-title {
-		flex: 1;
-		margin-top: 4px;
-	}
 
 	.pr-description-preview {
 		overflow-y: auto;
@@ -543,37 +522,44 @@
 	}
 
 	.show-ai-box {
-		margin-top: 12px;
 		border-top: 1px solid var(--clr-border-3);
 	}
 
 	.pr-ai__actions {
+		width: 100%;
 		display: flex;
+		justify-content: flex-end;
 		gap: 6px;
 		padding: 12px;
 	}
 
 	/* FOOTER */
 
-	.pr-footer {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		width: 100%;
-	}
-
 	.pr-footer__actions {
+		width: 100%;
 		display: flex;
 		gap: 6px;
 	}
 
-	.draft-toggle__wrap {
+	.features-section {
 		display: flex;
-		align-items: center;
-		gap: 10px;
+		gap: 6px;
 	}
 
-	.draft-toggle__label {
-		color: var(--clr-text-2);
+	/* PREVIEW */
+	.pr-preview {
+		display: flex;
+		flex-direction: column;
+		gap: 16px;
+
+		&.display {
+			padding-top: 16px;
+		}
+
+		&.preview {
+			padding: 16px;
+			background-color: var(--clr-bg-1-muted);
+			border-radius: var(--radius-m);
+		}
 	}
 </style>

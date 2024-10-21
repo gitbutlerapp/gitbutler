@@ -8,12 +8,12 @@
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import GithubIntegration from '$lib/settings/GithubIntegration.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { unique } from '$lib/utils/array';
 	import { getBestBranch, getBestRemote, getBranchRemoteFromRef } from '$lib/utils/branch';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';
 	import { goto } from '$app/navigation';
@@ -178,7 +178,7 @@
 						bind:this={aiGenCheckbox}
 						checked={$aiGenEnabled}
 						id="aiGenEnabled"
-						on:change={() => {
+						onclick={() => {
 							$aiGenEnabled = !$aiGenEnabled;
 						}}
 					/>
