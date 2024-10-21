@@ -5,16 +5,13 @@
 	import Tabs from '$lib/components/tabs/Tabs.svelte';
 	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
-	import { platformName } from '$lib/platform/platform';
-	import KeysForm from '$lib/settings/KeysForm.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import BaseBranchSwitch from '$lib/settings/userPreferences/BaseBranchSwitch.svelte';
 	import CloudForm from '$lib/settings/userPreferences/CloudForm.svelte';
-	import CommitSigningForm from '$lib/settings/userPreferences/CommitSigningForm.svelte';
 	import DetailsForm from '$lib/settings/userPreferences/DetailsForm.svelte';
+	import GitForm from '$lib/settings/userPreferences/GitForm.svelte';
 	import PreferencesForm from '$lib/settings/userPreferences/PreferencesForm.svelte';
 	import RemoveProjectForm from '$lib/settings/userPreferences/RemoveProjectForm.svelte';
-	import Spacer from '$lib/shared/Spacer.svelte';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
 </script>
@@ -29,13 +26,7 @@
 		</TabList>
 
 		<TabContent value="git">
-			<Section>
-				<CommitSigningForm />
-				{#if $platformName !== 'win32'}
-					<Spacer />
-					<KeysForm showProjectName={false} />
-				{/if}
-			</Section>
+			<GitForm />
 		</TabContent>
 		<TabContent value="ai">
 			<CloudForm />
