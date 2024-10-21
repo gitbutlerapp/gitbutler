@@ -30,7 +30,9 @@
 		setSelected: ({ index: segmentIndex, id }) => {
 			if (segmentIndex >= 0 && segmentIndex < segments.length) {
 				$selectedSegmentIndex = segmentIndex;
-				onselect && onselect(id);
+				if (onselect) {
+					onselect(id);
+				}
 			}
 		}
 	};

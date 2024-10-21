@@ -12,7 +12,7 @@ export interface CommitNodeData {
 	commit?: CommitData;
 }
 
-export interface BaseNodeData {}
+export type BaseNodeData = object;
 
 export interface LineData {
 	top: CellData;

@@ -48,10 +48,11 @@
 				<ContextMenuItem
 					label="Open in {$userSettings.defaultCodeEditor.displayName}"
 					onclick={() => {
-						projectPath &&
+						if (projectPath) {
 							openExternalUrl(
 								`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${projectPath}/${filePath}:${item.lineNumber}`
 							);
+						}
 						contextMenu?.close();
 					}}
 				/>

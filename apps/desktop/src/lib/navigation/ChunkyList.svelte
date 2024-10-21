@@ -1,3 +1,7 @@
+<script lang="ts" module>
+	type T = any;
+</script>
+
 <script lang="ts" generics="T">
 	/**
 	 * Lazily renders a list of many many items. This is intended to be used

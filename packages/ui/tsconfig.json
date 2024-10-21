@@ -11,7 +11,10 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
-		"experimentalDecorators": true
+		"experimentalDecorators": true,
+		"declaration": true,
+		"composite": true,
+		"declarationMap": true
 	},
 	"include": [
 		".svelte-kit/ambient.d.ts",
@@ -28,5 +31,12 @@
 		"tests/**/*.js",
 		"tests/**/*.ts",
 		"tests/**/*.svelte"
+	],
+	"exclude": [
+		"node_modules/**",
+		"src/service-worker.js",
+		"src/service-worker.ts",
+		"src/service-worker.d.ts",
+		"src/stories/**/*.stories.ts"
 	]
 }

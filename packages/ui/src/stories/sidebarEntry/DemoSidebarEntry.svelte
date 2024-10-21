@@ -1,6 +1,6 @@
 <script lang="ts">
-	import AvatarGroup from '$lib/avatar/AvatarGroup.svelte';
 	import SidebarEntry from '$lib/SidebarEntry.svelte';
+	import AvatarGroup from '$lib/avatar/AvatarGroup.svelte';
 
 	interface Props {
 		selected?: boolean;

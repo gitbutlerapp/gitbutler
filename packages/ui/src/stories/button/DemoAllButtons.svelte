@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { ComponentColor } from '$lib/utils/colorTypes';
 	import Button from '$lib/Button.svelte';
+	import type { ComponentColor } from '$lib/utils/colorTypes';
 
 	interface Props {
 		label: string;

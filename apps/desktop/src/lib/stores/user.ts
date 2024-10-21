@@ -37,7 +37,10 @@ export class UserService {
 		this.user.set(undefined);
 	}
 	readonly accessToken$ = derived(this.user, (user) => {
-		user?.github_access_token;
+		if (user?.github_access_token) {
+			return user.github_access_token;
+		}
+		return undefined;
 	});
 
 	constructor(

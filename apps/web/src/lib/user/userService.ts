@@ -1,5 +1,5 @@
 import { setSentryUser } from '$lib/analytics/sentry';
-import { writable } from 'svelte/store';
+import { writable, type Writable } from 'svelte/store';
 import type { HttpClient } from '@gitbutler/shared/httpClient';
 
 export interface User {
@@ -12,7 +12,7 @@ export interface User {
 }
 
 export class UserService {
-	user = writable<User | undefined>(undefined, (set) => {
+	user: Writable<User | undefined> = writable<User | undefined>(undefined, (set) => {
 		this.fetchUser()
 			.then((data) => {
 				this.error.set(undefined);

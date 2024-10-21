@@ -38,7 +38,7 @@
 
 		return item.files.some((f: unknown) => {
 			if (!isAnyFile(f)) return false;
-			computeFileStatus(f) === 'D';
+			return computeFileStatus(f) === 'D';
 		});
 	}
 
