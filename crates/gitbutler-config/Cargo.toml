@@ -7,6 +7,6 @@ publish = false
 
 [dependencies]
 git2.workspace = true
-anyhow = "1.0.86"
+anyhow = "1.0.90"
 serde = { workspace = true, features = ["std"]}
 gitbutler-project.workspace = true
