@@ -124,9 +124,6 @@
 
 	const commitShortSha = commit.id.substring(0, 7);
 
-	let dragDirection: 'up' | 'down' | undefined = $state();
-	let isDragTargeted = $state(false);
-
 	function canEdit() {
 		if (isUnapplied) return false;
 		if (!modeService) return false;
@@ -200,25 +197,6 @@
 	onkeyup={onKeyup}
 	role="button"
 	tabindex="0"
-	ondragenter={() => {
-		isDragTargeted = true;
-	}}
-	ondragleave={() => {
-		isDragTargeted = false;
-	}}
-	ondrop={() => {
-		isDragTargeted = false;
-	}}
-	ondrag={(e) => {
-		const target = e.target as HTMLElement;
-		const targetHeight = target.offsetHeight;
-		const targetTop = target.getBoundingClientRect().top;
-		const mouseY = e.clientY;
-
-		const isTop = mouseY < targetTop + targetHeight / 2;
-
-		dragDirection = isTop ? 'up' : 'down';
-	}}
 	use:draggableCommit={commit instanceof DetailedCommit && !isUnapplied && type !== 'integrated'
 		? {
 				label: commit.descriptionTitle,
@@ -231,15 +209,6 @@
 			}
 		: nonDraggable()}
 >
-	{#if dragDirection && isDragTargeted}
-		<div
-			class="pseudo-reorder-zone"
-			class:top={dragDirection === 'up'}
-			class:bottom={dragDirection === 'down'}
-			class:is-last={last}
-		></div>
-	{/if}
-
 	{#if lines}
 		<div>
 			{@render lines()}
