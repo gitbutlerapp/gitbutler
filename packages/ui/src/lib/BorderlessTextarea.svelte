@@ -56,6 +56,7 @@
 		if (ref) {
 			// reference the value to trigger
 			// the effect when it changes
+			// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 			value;
 			autoHeight(ref);
 		}
