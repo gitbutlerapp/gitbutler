@@ -1,4 +1,6 @@
 <script lang="ts" module>
+	type T = string;
+
 	export type SelectItem<T extends string = string> = {
 		label: string;
 		value: T;

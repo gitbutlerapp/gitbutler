@@ -11,7 +11,10 @@
 		"skipLibCheck": true,
 		"sourceMap": true,
 		"strict": true,
-		"experimentalDecorators": true
+		"experimentalDecorators": true,
+		"declaration": true,
+		"composite": true,
+		"declarationMap": true
 	},
 	"include": [
 		".svelte-kit/ambient.d.ts",
