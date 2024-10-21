@@ -2,9 +2,9 @@
 	import Button from '$lib/Button.svelte';
 	import Modal from '$lib/Modal.svelte';
 
-	const { ...args }: typeof Modal = $props();
+	const { ...args }: ReturnType<typeof Modal> = $props();
 
-	let modal: Modal;
+	let modal: ReturnType<typeof Modal>;
 </script>
 
 <Button
@@ -18,8 +18,8 @@
 
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={() => close()}>Cancel</Button>
-		<Button style="pop" kind="solid" type="submit" onclick={() => console.log('clicked')}
-			>Merge</Button
-		>
+		<Button style="pop" kind="solid" type="submit" onclick={() => console.log('clicked')}>
+			Merge
+		</Button>
 	{/snippet}
 </Modal>
