@@ -10,8 +10,10 @@
 <Button
 	onclick={() => {
 		modal?.show();
-	}}>Show</Button
+	}}
 >
+	Show
+</Button>
 <Modal bind:this={modal} {...args} onSubmit={() => console.log('submitted')}>
 	A branch with the same name already exists. Do you want to merge this branch into the current
 	branch?

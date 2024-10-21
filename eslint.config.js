@@ -2,8 +2,8 @@ import prettier from 'eslint-config-prettier';
 import js from '@eslint/js';
 import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
-import pluginImportX from 'eslint-plugin-import-x';
 import ts from 'typescript-eslint';
+import pluginImportX from 'eslint-plugin-import-x';
 
 export default ts.config(
 	js.configs.recommended,
@@ -16,14 +16,24 @@ export default ts.config(
 			globals: {
 				...globals.browser,
 				...globals.node
-			},
-			parserOptions: {
-				projectService: true,
-				allowDefaultProject: ['*.svelte'],
-				extraFileExtensions: ['.svelte']
 			}
 		},
 		rules: {
+			'@typescript-eslint/no-namespace': 'off',
+			'@typescript-eslint/no-empty-function': 'off',
+			'@typescript-eslint/no-explicit-any': 'off',
+			'@typescript-eslint/no-unused-vars': [
+				'error',
+				{
+					argsIgnorePattern: '^_',
+					varsIgnorePattern: '^_',
+					caughtErrorsIgnorePattern: '^_'
+				}
+			],
+			// '@typescript-eslint/return-await': ['error', 'always'],
+			// '@typescript-eslint/promise-function-async': 'error',
+			// '@typescript-eslint/await-thenable': 'error',
+
 			eqeqeq: ['error', 'always'],
 			'import-x/no-cycle': 'error',
 			'import-x/order': [
@@ -34,7 +44,6 @@ export default ts.config(
 						orderImportKind: 'asc',
 						caseInsensitive: false
 					},
-
 					groups: [
 						'index',
 						'sibling',
@@ -45,37 +54,18 @@ export default ts.config(
 						'object',
 						'type'
 					],
-
 					'newlines-between': 'never'
 				}
 			],
-
 			'import-x/no-unresolved': [
 				'error',
 				{
 					ignore: ['^\\$app', '^\\$env']
 				}
 			],
-
 			'import-x/no-relative-packages': 'error', // Don't allow packages to have relative imports between each other
 			'func-style': [2, 'declaration'],
-			'@typescript-eslint/no-namespace': 'off',
-			'@typescript-eslint/no-empty-function': 'off',
-			'@typescript-eslint/no-explicit-any': 'off',
-
-			'@typescript-eslint/no-unused-vars': [
-				'error',
-				{
-					argsIgnorePattern: '^_',
-					varsIgnorePattern: '^_',
-					caughtErrorsIgnorePattern: '^_'
-				}
-			],
-
 			'no-return-await': 'off',
-			'@typescript-eslint/return-await': ['error', 'always'],
-			'@typescript-eslint/promise-function-async': 'error',
-			'@typescript-eslint/await-thenable': 'error',
 			'svelte/no-at-html-tags': 'off'
 		},
 		settings: {
