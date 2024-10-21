@@ -80,6 +80,11 @@ class Indexer {
 	}
 
 	private getIndex(key: string) {
+		// Not 0, because 'top' will always be in the map
+		if (this.dropzoneIndexes.size === 1) {
+			return 0;
+		}
+
 		if (key === 'top') {
 			return this.dropzoneIndexes.get(key) ?? 0;
 		} else {
