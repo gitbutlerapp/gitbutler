@@ -51,6 +51,15 @@
 			}
 		}, 0);
 	});
+
+	$effect(() => {
+		if (ref) {
+			// reference the value to trigger
+			// the effect when it changes
+			value;
+			autoHeight(ref);
+		}
+	});
 </script>
 
 <textarea
@@ -65,7 +74,6 @@
 	{placeholder}
 	{readonly}
 	oninput={(e) => {
-		autoHeight(e.currentTarget);
 		oninput?.(e);
 	}}
 	onfocus={(e) => {
