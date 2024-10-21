@@ -252,7 +252,7 @@ pub fn unapply_without_saving_virtual_branch(project: &Project, branch_id: Stack
     let default_target = state.get_default_target()?;
     let target_commit = ctx.repository().find_commit(default_target.sha)?;
     // NB: unapply_without_saving is also called from save_and_unapply
-    branch_manager.unapply_without_saving(branch_id, guard.write_permission(), &target_commit)?;
+    branch_manager.unapply(branch_id, guard.write_permission(), &target_commit, true)?;
     state.delete_branch_entry(&branch_id)
 }
 
