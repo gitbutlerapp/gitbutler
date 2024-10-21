@@ -165,7 +165,7 @@
 
 <style>
 	.header__wrapper {
-		z-index: var(--z-lifted);
+		z-index: var(--z-floating);
 		top: 12px;
 		padding-bottom: unset !important;
 		position: sticky;
