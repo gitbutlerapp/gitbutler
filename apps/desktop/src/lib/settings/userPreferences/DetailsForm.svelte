@@ -6,10 +6,10 @@
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import TextArea from '$lib/shared/TextArea.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
 	import { User } from '$lib/stores/user';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { onMount } from 'svelte';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
@@ -112,7 +112,7 @@
 				<Toggle
 					id="historySync"
 					checked={project.api?.sync || false}
-					on:click={async () => await onSyncChange(!project.api?.sync)}
+					onclick={async () => await onSyncChange(!project.api?.sync)}
 				/>
 			</svelte:fragment>
 		</SectionCard>
@@ -124,7 +124,7 @@
 				<Toggle
 					id="branchesySync"
 					checked={project.api?.sync_code || false}
-					on:click={async () => await onSyncCodeChange(!project.api?.sync_code)}
+					onclick={async () => await onSyncCodeChange(!project.api?.sync_code)}
 				/>
 			</svelte:fragment>
 		</SectionCard>

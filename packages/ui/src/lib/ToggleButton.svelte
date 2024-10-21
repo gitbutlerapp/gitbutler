@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Toggle from '$lib/shared/Toggle.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
-	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-	import iconsJson from '@gitbutler/ui/data/icons.json';
+	import Icon from '$lib/Icon.svelte';
+	import Toggle from '$lib/Toggle.svelte';
+	import Tooltip from '$lib/Tooltip.svelte';
+	import iconsJson from '$lib/data/icons.json';
 
 	interface Props {
 		id?: string;
@@ -31,7 +31,7 @@
 			id={toggleId}
 			small
 			{checked}
-			on:click={(e) => {
+			onclick={(e) => {
 				onclick?.(e);
 			}}
 		/>

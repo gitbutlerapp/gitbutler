@@ -3,8 +3,8 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import Link from '$lib/shared/Link.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { onMount } from 'svelte';
 
 	const gitConfig = getContext(GitConfigService);
@@ -36,7 +36,7 @@
 			</Link>
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle id="committerSigning" checked={annotateCommits} on:click={toggleCommitterSigning} />
+			<Toggle id="committerSigning" checked={annotateCommits} onclick={toggleCommitterSigning} />
 		</svelte:fragment>
 	</SectionCard>
 </SettingsPage>

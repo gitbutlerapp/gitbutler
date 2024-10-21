@@ -14,9 +14,9 @@
 	} from '$lib/settings/userSettings';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
 	import { type Hunk } from '$lib/vbranches/types';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import type { ContentSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
@@ -153,7 +153,7 @@
 				<Toggle
 					id="allowDiffLigatures"
 					checked={$userSettings.diffLigatures}
-					on:click={() => {
+					onclick={() => {
 						userSettings.update((s) => ({
 							...s,
 							diffLigatures: !$userSettings.diffLigatures
@@ -199,7 +199,7 @@
 				<Toggle
 					id="wrapText"
 					checked={$userSettings.wrapText}
-					on:click={() => {
+					onclick={() => {
 						userSettings.update((s) => ({
 							...s,
 							wrapText: !s.wrapText
@@ -219,7 +219,7 @@
 				<Toggle
 					id="inlineUnifiedDiffs"
 					checked={$userSettings.inlineUnifiedDiffs}
-					on:click={() => {
+					onclick={() => {
 						userSettings.update((s) => ({
 							...s,
 							inlineUnifiedDiffs: !s.inlineUnifiedDiffs
@@ -288,7 +288,7 @@
 			<Toggle
 				id="branchLaneContents"
 				checked={$autoSelectBranchNameFeature}
-				on:click={() => ($autoSelectBranchNameFeature = !$autoSelectBranchNameFeature)}
+				onclick={() => ($autoSelectBranchNameFeature = !$autoSelectBranchNameFeature)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
