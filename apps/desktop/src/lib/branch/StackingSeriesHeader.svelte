@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
-	import StackingAddSeriesButton from './StackingAddSeriesButton.svelte';
+	import StackingAddSeriesModal from './StackingAddSeriesModal.svelte';
 	import StackingStatusIcon from './StackingStatusIcon.svelte';
 	import { getColorFromBranchType } from './stackingUtils';
 	import { PromptService } from '$lib/ai/promptService';
@@ -18,13 +18,14 @@
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import StackingPullRequestCard from '$lib/pr/StackingPullRequestCard.svelte';
 	import { isFailure } from '$lib/result';
+	import OverflowMenuContainer from '$lib/shared/OverflowMenu/OverflowMenuContainer.svelte';
+	import OverflowMenuItem from '$lib/shared/OverflowMenu/OverflowMenuItem.svelte';
 	import { slugify } from '$lib/utils/string';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 
 	interface Props {
 		currentSeries: PatchSeries;
@@ -50,9 +51,12 @@
 	const gitHostBranch = $derived(upstreamName ? $gitHost?.branch(upstreamName) : undefined);
 	const branch = $derived($branchStore);
 
+	let stackingAddSeriesModal = $state<ReturnType<typeof StackingAddSeriesModal>>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
-	let meatballButtonEl = $state<HTMLDivElement>();
+	let contextMenuTrigger = $state<HTMLButtonElement>();
+
+	let contextMenuOpened = $state(false);
 
 	// TODO: Simplify figuring out if shadow color is needed
 	const topPatch = $derived(currentSeries?.patches[0]);
@@ -129,12 +133,36 @@
 	}
 </script>
 
-<div class="branch-header">
-	{#if $stackingFeatureMultipleSeries}
-		<div class="barnch-plus-btn">
-			<StackingAddSeriesButton parentSeriesName={currentSeries.name} />
-		</div>
-	{/if}
+<StackingAddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={currentSeries.name} />
+
+<div class="branch-header" tabindex="-1" role="article">
+	<OverflowMenuContainer class="barnch-plus-btn" isOpen={contextMenuOpened}>
+		{#if stackingFeatureMultipleSeries}
+			<OverflowMenuItem
+				icon="plus-small"
+				tooltip="Add series"
+				onclick={() => {
+					stackingAddSeriesModal?.show();
+				}}
+			/>
+		{/if}
+		<OverflowMenuItem
+			icon="open-link"
+			tooltip="Open in browser"
+			onclick={() => {
+				const url = gitHostBranch?.url;
+				if (url) openExternalUrl(url);
+			}}
+		/>
+		<OverflowMenuItem
+			bind:el={contextMenuTrigger}
+			icon="kebab"
+			tooltip="More options"
+			onclick={() => {
+				contextMenu?.toggle();
+			}}
+		/>
+	</OverflowMenuContainer>
 
 	<div class="branch-info">
 		<StackingStatusIcon
@@ -168,18 +196,18 @@
 					}}
 				></Button>
 			{/if}
-			<Button
+			<!-- <Button
 				icon="kebab"
 				style="ghost"
 				tooltip="More options"
-				bind:el={meatballButtonEl}
+				bind:el={contextMenuTrigger}
 				onclick={() => {
 					contextMenu?.toggle();
 				}}
-			></Button>
+			></Button> -->
 			<StackingSeriesHeaderContextMenu
 				bind:contextMenuEl={contextMenu}
-				target={meatballButtonEl}
+				target={contextMenuTrigger}
 				headName={currentSeries.name}
 				seriesCount={branch.series?.length ?? 0}
 				{addDescription}
@@ -188,6 +216,12 @@
 				hasPr={!!$pr}
 				openPrDetailsModal={handleOpenPR}
 				reloadPR={handleReloadPR}
+				onopen={() => {
+					contextMenuOpened = true;
+				}}
+				onclose={() => {
+					contextMenuOpened = false;
+				}}
 			/>
 		</div>
 	</div>
@@ -218,18 +252,6 @@
 			</div>
 		</div>
 	{/if}
-	{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
-		<div class="branch-emptystate">
-			<EmptyStatePlaceholder bottomMargin={10}>
-				{#snippet title()}
-					This is an empty branch
-				{/snippet}
-				{#snippet caption()}
-					Create or drag and drop commits here
-				{/snippet}
-			</EmptyStatePlaceholder>
-		</div>
-	{/if}
 
 	{#if $pr}
 		<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
@@ -256,11 +278,10 @@
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 
-		&:hover {
-			& .barnch-plus-btn {
-				pointer-events: all;
-				opacity: 1;
-				transform: translateY(-50%) scale(1);
+		&:hover,
+		&:focus-visible {
+			& :global(.barnch-plus-btn) {
+				--show: true;
 			}
 		}
 	}

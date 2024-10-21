@@ -23,6 +23,8 @@
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
 		reloadPR: () => void;
+		onopen?: () => void;
+		onclose?: () => void;
 	}
 
 	let {
@@ -35,7 +37,9 @@
 		addDescription,
 		onGenerateBranchName,
 		openPrDetailsModal,
-		reloadPR
+		reloadPR,
+		onopen,
+		onclose
 	}: Props = $props();
 
 	const project = getContext(Project);
@@ -61,7 +65,7 @@
 	const branch = $derived($branchStore);
 </script>
 
-<ContextMenu bind:this={contextMenuEl} {target}>
+<ContextMenu bind:this={contextMenuEl} {target} {onopen} {onclose}>
 	<ContextMenuSection>
 		<ContextMenuItem
 			disabled

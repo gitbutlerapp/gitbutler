@@ -5,6 +5,7 @@
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
 	import { getContext } from '@gitbutler/shared/context';
+	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import type { VirtualBranch } from '$lib/vbranches/types';
 
 	interface Props {
@@ -34,6 +35,20 @@
 	{/if}
 	<div class="branch-group">
 		<StackingSeriesHeader {currentSeries} {isTopSeries} />
+
+		{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
+			<div class="branch-emptystate">
+				<EmptyStatePlaceholder bottomMargin={10}>
+					{#snippet title()}
+						This is an empty branch
+					{/snippet}
+					{#snippet caption()}
+						Create or drag and drop commits here
+					{/snippet}
+				</EmptyStatePlaceholder>
+			</div>
+		{/if}
+
 		{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
 			<StackingCommitList
 				remoteOnlyPatches={currentSeries.upstreamPatches}
