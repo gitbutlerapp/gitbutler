@@ -90,6 +90,7 @@
 	let isDraft = $state<boolean>($preferredPRAction === PRAction.CreateDraft);
 
 	let modal = $state<ReturnType<typeof Modal>>();
+	let templateSelector = $state<ReturnType<typeof PrTemplateSection>>();
 	let isEditing = $state<boolean>(true);
 	let isLoading = $state<boolean>(false);
 	let pullRequestTemplateBody = $state<string | undefined>(undefined);
@@ -98,10 +99,10 @@
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
 	let showAiBox = $state<boolean>(false);
 
-	let showPRTemplateSelect = $state<boolean>(false);
-
-	function handleToggleUseTemplate() {
-		showPRTemplateSelect = !showPRTemplateSelect;
+	async function handleToggleUseTemplate() {
+		if (!templateSelector) return;
+		const displaying = templateSelector.imports.showing;
+		await templateSelector.setUsePullRequestTemplate(!displaying);
 	}
 
 	const canUseAI = $derived.by(() => {
@@ -350,8 +351,9 @@
 						<ToggleButton
 							icon="doc"
 							label="Use PR template"
-							checked={showPRTemplateSelect}
+							checked={!!templateSelector?.imports.showing}
 							onclick={handleToggleUseTemplate}
+							disabled={!templateSelector?.imports.hasTemplates}
 						/>
 						<ToggleButton
 							icon="ai-small"
@@ -366,9 +368,7 @@
 					</div>
 
 					<!-- PR TEMPLATE SELECT -->
-					{#if showPRTemplateSelect}
-						<PrTemplateSection bind:pullRequestTemplateBody />
-					{/if}
+					<PrTemplateSection bind:this={templateSelector} bind:pullRequestTemplateBody />
 
 					<!-- DESCRIPTION FIELD -->
 					<div class="pr-description-field text-input">
