@@ -125,7 +125,9 @@ export default ts.config(
 			'!.storybook',
 			'target/',
 			'crates/',
-			'packages/ui/storybook-static'
+			'packages/ui/storybook-static',
+			// Storybook Meta type wrapper
+			'packages/ui/src/stories/**/*.stories.ts'
 		]
 	}
 );
