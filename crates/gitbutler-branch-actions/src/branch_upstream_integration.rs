@@ -45,7 +45,8 @@ pub fn integrate_upstream_commits_for_series(
         repo,
         remote_head.id(),
         stack_merge_base,
-    )?;
+    )?
+    .head;
 
     let do_rebease = branch.allow_rebasing || Some(subject_series) != all_series.first();
     let integrate_upstream_context = IntegrateUpstreamContext {
