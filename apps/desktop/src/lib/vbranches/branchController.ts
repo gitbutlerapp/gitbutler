@@ -1,7 +1,9 @@
 import { invoke } from '$lib/backend/ipc';
+import { stackingFeature } from '$lib/config/uiFeatureFlags';
 import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
+import { get } from 'svelte/store';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BranchPushResult, Hunk, LocalFile, StackOrder } from './types';
@@ -16,6 +18,10 @@ export class BranchController {
 		readonly remoteBranchService: RemoteBranchService,
 		readonly baseBranchService: BaseBranchService
 	) {}
+
+	stackingEnabled() {
+		return get(stackingFeature);
+	}
 
 	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
 		try {

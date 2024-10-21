@@ -70,13 +70,9 @@
 
 	let isIntegratingCommits = $state(false);
 
-	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
-		if (!$branch || !$baseBranch) {
-			console.error('Unable to insert commit');
-			return;
-		}
-		branchController.insertBlankCommit($branch.id, commitId, location === 'above' ? -1 : 1);
-	}
+	const topPatch = $derived(patches[0]);
+	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
+	const isBranchIntegrated = $derived(branchType === 'integrated');
 </script>
 
 {#snippet reorderDropzone(dropzone: ReorderDropzone)}
@@ -159,7 +155,7 @@
 						</StackingCommitCard>
 					</StackingCommitDragItem>
 
-					{@render reorderDropzone(reorderDropzoneManager.dropzone(commit.id))}
+					{@render reorderDropzone(reorderDropzoneManager.dropzone(commit.changeId))}
 
 					<InsertEmptyCommitAction
 						isLast={idx + 1 === patches.length}
