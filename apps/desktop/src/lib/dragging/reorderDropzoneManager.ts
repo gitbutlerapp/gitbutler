@@ -1,17 +1,21 @@
 import { DraggableCommit } from '$lib/dragging/draggables';
+import { SeriesOrder } from '$lib/vbranches/types';
 import type { BranchController } from '$lib/vbranches/branchController';
 // import type { VirtualBranch, DetailedCommit, PatchSeries } from '$lib/vbranches/types';
 
 // Exported for type access only
 export class ReorderDropzone {
+	private stacking = false;
+
 	constructor(
 		private branchController: BranchController,
 		private entry: Entry
-	) {}
+	) {
+		this.stacking = branchController.stackingEnabled();
+	}
 
 	accepts(data: any) {
 		if (!data) return false;
-		console.log('accepts.data', data);
 		if (!(data instanceof DraggableCommit)) return false;
 		if (this.entry.distanceToOtherCommit(data.commit.id) === 0) return false;
 
@@ -27,27 +31,30 @@ export class ReorderDropzone {
 			offset
 		});
 
-		// TODO: Can we get a branchId (seriesId) onto the PatchSeries?
-		// The branchId is always the same for a whole lane/stack, so when dropping,
-		// even if you have hte index correclty, you can't know really which series
-		// your supposed to be landing in
-		this.branchController.reorderCommit(data.commit?.branchId, data.commit?.id, offset);
+		if (this.stacking) {
+			const stackOrder = {};
+			this.branchController.reorderStackCommit(data.commit?.branchId, stackOrder);
+		} else {
+			this.branchController.reorderCommit(data.commit?.branchId, data.commit?.id, offset);
+		}
 	}
 }
 
 export class ReorderDropzoneManager {
 	private indexer: Indexer;
 	private branchController: BranchController;
+	private stacking = false;
 
 	constructor({
 		branchController,
 		commits
 	}: {
 		branchController: BranchController;
-		commits: string[];
+		commits: string[] | SeriesOrder[];
 	}) {
+		this.stacking = branchController.stackingEnabled();
 		this.branchController = branchController;
-		this.indexer = new Indexer(commits);
+		this.indexer = new Indexer(commits, this.stacking);
 	}
 
 	dropzone(key: string) {
@@ -60,7 +67,7 @@ export class ReorderDropzoneManager {
 export class ReorderDropzoneManagerFactory {
 	constructor(private branchController: BranchController) {}
 
-	build(commits: string[]) {
+	build(commits: string[] | SeriesOrder[]) {
 		return new ReorderDropzoneManager({
 			branchController: this.branchController,
 			commits
@@ -71,14 +78,32 @@ export class ReorderDropzoneManagerFactory {
 // Private classes used to calculate distances between commits
 class Indexer {
 	private dropzoneIndexes = new Map<string, number>();
+	private series = new Map<string, string[]>();
 
-	constructor(commits: string[]) {
-		let computedPatchIndex = 0;
+	constructor(input: string[] | SeriesOrder[], stacking: boolean) {
+		let commits;
+		if (stacking) {
+			console.log('STACKING', input);
 
-		commits.forEach((patchId: string) => {
-			computedPatchIndex += 1;
-			this.dropzoneIndexes.set(patchId, computedPatchIndex);
-		});
+			(input as SeriesOrder[]).forEach((series) => {
+				this.series.set(series.name, series.changeIds);
+
+				let computedPatchIndex = 0;
+				series.changeIds.forEach((changeId: string) => {
+					computedPatchIndex += 1;
+					this.dropzoneIndexes.set(changeId, computedPatchIndex);
+				});
+			});
+		} else {
+			console.log('NO_STACKING', input);
+			commits = input;
+			let computedPatchIndex = 0;
+
+			(commits as string[]).forEach((patchId) => {
+				computedPatchIndex += 1;
+				this.dropzoneIndexes.set(patchId, computedPatchIndex);
+			});
+		}
 
 		console.log('indexer.dropzoneIndexes', this.dropzoneIndexes);
 	}
