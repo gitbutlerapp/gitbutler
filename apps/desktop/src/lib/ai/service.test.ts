@@ -350,9 +350,9 @@ describe.concurrent('buildDiff', () => {
 		const expectedOutput2 = `${hunk2.filePath} - ${hunk2.diff}\n${hunk1.filePath} - ${hunk1.diff}`;
 
 		const outputMatchesExpectedValue = [expectedOutput1, expectedOutput2].includes(
-			buildDiff([hunk1, hunk1], 10000)
+			buildDiff([hunk1, hunk2], 10000)
 		);
 
-		expect(outputMatchesExpectedValue).toBeFalsy();
+		expect(outputMatchesExpectedValue).toBeTruthy();
 	});
 });
