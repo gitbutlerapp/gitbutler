@@ -465,3 +465,21 @@ export class PatchSeries {
 		return this.name?.replace('refs/remotes/origin/', '');
 	}
 }
+
+/**
+ * @desc Represents the order of series (branches) and changes (commits) in a stack.
+ * @property {SeriesOrder[]} series - The series are ordered from newest to oldest (most recent stacks go first).
+ */
+export class StackOrder {
+	series!: SeriesOrder[];
+}
+
+/**
+ * @desc Represents the order of changes (commits) in a series (branch).
+ * @property {string} name - Unique name of the series (branch). Must already exist in the stack.
+ * @property {string[]} changeIds - The changes are ordered from newest to oldest (most recent changes go first); The change ids must refer to commits that already exist in the stack.
+ */
+export class SeriesOrder {
+	name!: string;
+	changeIds!: string[];
+}
