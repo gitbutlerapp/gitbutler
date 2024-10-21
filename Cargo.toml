@@ -35,6 +35,7 @@ members = [
     "crates/gitbutler-oxidize",
     "crates/gitbutler-stack",
     "crates/gitbutler-patch-reference",
+    "crates/gitbutler-hunk-dependency",
 ]
 resolver = "2"
 
@@ -93,6 +94,7 @@ gitbutler-oxidize = { path = "crates/gitbutler-oxidize" }
 gitbutler-stack = { path = "crates/gitbutler-stack" }
 gitbutler-patch-reference = { path = "crates/gitbutler-patch-reference" }
 gitbutler-forge = { path = "crates/gitbutler-forge" }
+gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better

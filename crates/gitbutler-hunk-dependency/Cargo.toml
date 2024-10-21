@@ -1,0 +1,21 @@
+[package]
+name = "gitbutler-hunk-dependency"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[dependencies]
+anyhow = "1.0.86"
+git2.workspace = true
+gix = { workspace = true, features = [] }
+gitbutler-diff.workspace = true
+gitbutler-reference.workspace = true
+gitbutler-serde.workspace = true
+gitbutler-stack.workspace = true
+gitbutler-id.workspace = true
+itertools = "0.13"
+serde = { workspace = true, features = ["std"] }
+bstr.workspace = true
+tokio.workspace = true
+uuid = { workspace = true, features = ["v4", "fast-rng"] }
