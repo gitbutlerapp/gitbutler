@@ -35,6 +35,7 @@ build
 package
 !.env.example
 vite.config.ts.timestamp-*
+tsconfig.tsbuildinfo
 
 # Written to disk when using `act`
 .pnpm-store
