@@ -409,7 +409,7 @@
 												? 'You must have summary generation enabled'
 												: undefined}
 										disabled={!canUseAI || aiIsLoading}
-										isLoading={aiIsLoading}
+										loading={aiIsLoading}
 										onclick={handleAIButtonPressed}
 									>
 										Generate description
@@ -433,7 +433,7 @@
 				bind:this={createPrDropDown}
 				style="pop"
 				kind="solid"
-				disabled={isLoading || aiIsLoading}
+				disabled={isLoading || aiIsLoading || !actualTitle}
 				loading={isLoading}
 				type="submit"
 				onclick={async () => await handleCreatePR(close)}
