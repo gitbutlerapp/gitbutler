@@ -11,16 +11,11 @@
 	const project = getContext(Project);
 
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
-	let allowForcePushing = project?.ok_with_force_push;
+
 	let omitCertificateCheck = project?.omit_certificate_check;
 	let useNewLocking = project?.use_new_locking || false;
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
-
-	async function setWithForcePush(value: boolean) {
-		project.ok_with_force_push = value;
-		await projectsService.updateProject(project);
-	}
 
 	async function setOmitCertificateCheck(value: boolean | undefined) {
 		project.omit_certificate_check = !!value;
@@ -39,27 +34,12 @@
 
 	$: setUseNewLocking(useNewLocking);
 
-	async function handleAllowForcePushClick(event: MouseEvent) {
-		await setWithForcePush((event.target as HTMLInputElement)?.checked);
-	}
-
 	async function handleOmitCertificateCheckClick(event: MouseEvent) {
 		await setOmitCertificateCheck((event.target as HTMLInputElement)?.checked);
 	}
 </script>
 
 <Section gap={8}>
-	<SectionCard orientation="row" labelFor="allowForcePush">
-		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
-		<svelte:fragment slot="caption">
-			Force pushing allows GitButler to override branches even if they were pushed to remote.
-			GitButler will never force push to the target branch.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle id="allowForcePush" checked={allowForcePushing} onclick={handleAllowForcePushClick} />
-		</svelte:fragment>
-	</SectionCard>
-
 	<SectionCard orientation="row" labelFor="omitCertificateCheck">
 		<svelte:fragment slot="title">Ignore host certificate checks</svelte:fragment>
 		<svelte:fragment slot="caption">
