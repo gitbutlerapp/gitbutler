@@ -97,7 +97,7 @@
 
 	let isUndoable = commit instanceof DetailedCommit && type !== 'remote';
 
-	let commitMessageModal: Modal;
+	let commitMessageModal: ReturnType<typeof Modal> | undefined;
 	let commitMessageValid = $state(false);
 	let description = $state('');
 
@@ -106,7 +106,7 @@
 
 		description = commit.description;
 
-		commitMessageModal.show();
+		commitMessageModal?.show();
 	}
 
 	function submitCommitMessageModal() {
@@ -116,7 +116,7 @@
 			branchController.updateCommitMessage(branch.id, commit.id, description);
 		}
 
-		commitMessageModal.close();
+		commitMessageModal?.close();
 	}
 
 	const commitShortSha = commit.id.substring(0, 7);

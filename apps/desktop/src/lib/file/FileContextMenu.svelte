@@ -30,7 +30,7 @@
 	const project = getContext(Project);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
-	let confirmationModal: Modal;
+	let confirmationModal: ReturnType<typeof Modal> | undefined;
 	let contextMenu: ReturnType<typeof ContextMenu>;
 
 	function isDeleted(item: any): boolean {
@@ -66,7 +66,7 @@
 					<ContextMenuItem
 						label="Discard changes"
 						onclick={() => {
-							confirmationModal.show(item);
+							confirmationModal?.show(item);
 							contextMenu.close();
 						}}
 					/>

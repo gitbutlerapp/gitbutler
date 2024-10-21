@@ -87,7 +87,7 @@
 
 	let isUndoable = commit instanceof DetailedCommit;
 
-	let commitMessageModal: Modal;
+	let commitMessageModal: ReturnType<typeof Modal> | undefined;
 	let commitMessageValid = false;
 	let description = '';
 
@@ -98,7 +98,7 @@
 
 		description = commit.description;
 
-		commitMessageModal.show();
+		commitMessageModal?.show();
 	}
 
 	function submitCommitMessageModal() {
@@ -108,7 +108,7 @@
 			branchController.updateCommitMessage(branch.id, commit.id, description);
 		}
 
-		commitMessageModal.close();
+		commitMessageModal?.close();
 	}
 
 	const commitShortSha = commit.id.substring(0, 7);

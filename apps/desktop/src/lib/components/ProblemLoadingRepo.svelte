@@ -18,12 +18,12 @@
 	const project = getContext(Project);
 
 	let loading = false;
-	let deleteConfirmationModal: RemoveProjectButton;
+	let deleteConfirmationModal: ReturnType<typeof RemoveProjectButton> | undefined;
 
 	async function onDeleteClicked() {
 		loading = true;
 		try {
-			deleteConfirmationModal.close();
+			deleteConfirmationModal?.close();
 			await projectsService.deleteProject(project.id);
 			toasts.success('Project deleted');
 			goto('/');
