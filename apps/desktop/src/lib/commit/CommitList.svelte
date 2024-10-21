@@ -88,6 +88,7 @@
 	// Force the "base" commit lines to update when $branch updates.
 	let tsKey = $state<number | undefined>(undefined);
 	$effect(() => {
+		// eslint-disable-next-line @typescript-eslint/no-unused-expressions
 		$branch;
 		tsKey = Date.now();
 	});

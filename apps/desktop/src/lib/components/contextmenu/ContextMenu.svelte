@@ -34,7 +34,9 @@
 
 	export function close() {
 		isVisible = false;
-		onclose && onclose();
+		if (onclose) {
+			onclose();
+		}
 	}
 
 	export function open(e?: MouseEvent, newItem?: any) {
