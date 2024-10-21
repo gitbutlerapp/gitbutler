@@ -39,7 +39,7 @@ impl BranchManager<'_> {
         // Convert the vbranch to a real branch
         let real_branch = self.build_real_branch(&mut target_branch)?;
 
-        self.unapply_without_saving(branch_id, perm, &target_commit)?;
+        self.unapply(branch_id, perm, &target_commit, false)?;
 
         vb_state.update_ordering()?;
 
@@ -53,11 +53,12 @@ impl BranchManager<'_> {
     }
 
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
-    pub(crate) fn unapply_without_saving(
+    pub(crate) fn unapply(
         &self,
         branch_id: StackId,
         perm: &mut WorktreeWritePermission,
         target_commit: &Commit,
+        delete_vb_state: bool,
     ) -> Result<()> {
         let vb_state = self.ctx.project().virtual_branches();
         let Some(branch) = vb_state.try_branch(branch_id)? else {
@@ -128,7 +129,9 @@ impl BranchManager<'_> {
             .checkout()
             .context("failed to checkout tree")?;
 
-        self.ctx.delete_branch_reference(&branch)?;
+        if delete_vb_state {
+            self.ctx.delete_branch_reference(&branch)?;
+        }
 
         vbranch::ensure_selected_for_changes(&vb_state)
             .context("failed to ensure selected for changes")?;
