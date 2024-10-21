@@ -68,7 +68,10 @@
 	let contextMenu = $state<ReturnType<typeof CommitContextMenu>>();
 	let files = $state<RemoteFile[]>([]);
 	let showDetails = $state(false);
+	let conflictResolutionConfirmationModal = $state<ReturnType<typeof Modal>>();
 
+	const conflicted = $derived(commit.conflicted);
+	const isAncestorMostConflicted = $derived(branch?.ancestorMostConflictedCommit?.id === commit.id);
 	async function loadFiles() {
 		files = await listRemoteCommitFiles(project.id, commit.id);
 	}
@@ -138,7 +141,13 @@
 		modeService!.enterEditMode(commit.id, branch!.refname);
 	}
 
-	const conflicted = $derived(commit instanceof DetailedCommit && commit.conflicted);
+	async function handleEditPatch() {
+		if (conflicted && !isAncestorMostConflicted) {
+			conflictResolutionConfirmationModal?.show();
+			return;
+		}
+		await editPatch();
+	}
 </script>
 
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
@@ -157,6 +166,20 @@
 		<Button style="neutral" type="submit" kind="solid" grow disabled={!commitMessageValid}>
 			Submit
 		</Button>
+	{/snippet}
+</Modal>
+
+<Modal bind:this={conflictResolutionConfirmationModal} width="small" onSubmit={editPatch}>
+	{#snippet children()}
+		<div>
+			<p>It's generally better to start resolving conflicts from the bottom up.</p>
+			<br />
+			<p>Are you sure you want to resolve conflicts for this commit?</p>
+		</div>
+	{/snippet}
+	{#snippet controls(close)}
+		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
+		<Button style="pop" outline type="submit">Yes</Button>
 	{/snippet}
 </Modal>
 
@@ -353,7 +376,7 @@
 								>
 							{/if}
 							{#if canEdit()}
-								<Button size="tag" style="ghost" outline onclick={editPatch}>
+								<Button size="tag" style="ghost" outline onclick={handleEditPatch}>
 									{#if conflicted}
 										Resolve conflicts
 									{:else}
