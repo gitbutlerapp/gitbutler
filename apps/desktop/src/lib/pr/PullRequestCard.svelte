@@ -41,10 +41,11 @@
 	const prService = getGitHostPrService();
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 
-	const checksMonitor = getGitHostChecksMonitor();
 	// This PR has been loaded on demand, and contains more details than the version
 	// obtained when listing them.
 	const pr = $derived(prMonitor?.pr);
+
+	const checksMonitor = getGitHostChecksMonitor();
 	const checks = $derived($checksMonitor?.status);
 
 	// While the pr monitor is set to fetch updates by interval, we want

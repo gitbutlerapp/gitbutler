@@ -205,7 +205,7 @@
 			<div class="branch-action__line" style:--bg-color={lineColor}></div>
 			<div class="branch-action__body">
 				{#if $pr}
-					<StackingPullRequestCard pr={$pr} {prMonitor} sourceBranch={$pr.sourceBranch} />
+					<StackingPullRequestCard upstreamName={currentSeries.name} />
 				{:else}
 					<Button
 						style="ghost"
