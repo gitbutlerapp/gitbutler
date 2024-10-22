@@ -1328,7 +1328,7 @@ dependencies = [
  "hashbrown 0.14.5",
  "lock_api",
  "once_cell",
- "parking_lot_core 0.9.10",
+ "parking_lot_core",
 ]
 
 [[package]]
@@ -2396,7 +2396,7 @@ dependencies = [
  "gitbutler-notify-debouncer",
  "mock_instant",
  "notify",
- "parking_lot 0.12.3",
+ "parking_lot",
  "pretty_assertions",
  "rstest",
  "serde",
@@ -2480,7 +2480,7 @@ dependencies = [
  "gitbutler-storage",
  "gitbutler-testsupport",
  "gix",
- "parking_lot 0.12.3",
+ "parking_lot",
  "resolve-path",
  "serde",
  "serde_json",
@@ -2517,26 +2517,20 @@ dependencies = [
  "gitbutler-config",
  "gitbutler-error",
  "gitbutler-git",
- "gitbutler-id",
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
- "gitbutler-stack",
  "gitbutler-testsupport",
- "gitbutler-time",
  "gitbutler-url",
  "gitbutler-user",
  "gix",
  "infer 0.16.0",
  "itertools 0.13.0",
- "log",
  "resolve-path",
  "serde",
  "serde_json",
- "ssh2",
  "tempfile",
  "thiserror",
- "tokio",
  "toml 0.8.19",
  "tracing",
  "uuid",
@@ -2704,7 +2698,7 @@ dependencies = [
  "log",
  "once_cell",
  "open 5.3.0",
- "parking_lot 0.12.3",
+ "parking_lot",
  "pretty_assertions",
  "reqwest 0.12.8",
  "serde",
@@ -2747,7 +2741,7 @@ dependencies = [
  "gix-testtools",
  "keyring",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot",
  "serde_json",
  "tempfile",
  "uuid",
@@ -3160,7 +3154,7 @@ dependencies = [
  "gix-utils 0.1.12 (git+https://github.com/Byron/gitoxide?rev=b36d7efb9743766338ac7bb7fb2399a06fae5e60)",
  "libc",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot",
  "prodash 29.0.0",
  "sha1",
  "sha1_smol",
@@ -3259,7 +3253,7 @@ checksum = "7ddf80e16f3c19ac06ce415a38b8591993d3f73aede049cb561becb5b3a8e242"
 dependencies = [
  "gix-hash 0.14.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "hashbrown 0.14.5",
- "parking_lot 0.12.3",
+ "parking_lot",
 ]
 
 [[package]]
@@ -3269,7 +3263,7 @@ source = "git+https://github.com/Byron/gitoxide?rev=b36d7efb9743766338ac7bb7fb23
 dependencies = [
  "gix-hash 0.14.2 (git+https://github.com/Byron/gitoxide?rev=b36d7efb9743766338ac7bb7fb2399a06fae5e60)",
  "hashbrown 0.14.5",
- "parking_lot 0.12.3",
+ "parking_lot",
 ]
 
 [[package]]
@@ -3441,7 +3435,7 @@ dependencies = [
  "gix-pack",
  "gix-path 0.10.11 (git+https://github.com/Byron/gitoxide?rev=b36d7efb9743766338ac7bb7fb2399a06fae5e60)",
  "gix-quote 0.4.12 (git+https://github.com/Byron/gitoxide?rev=b36d7efb9743766338ac7bb7fb2399a06fae5e60)",
- "parking_lot 0.12.3",
+ "parking_lot",
  "tempfile",
  "thiserror",
 ]
@@ -3460,7 +3454,7 @@ dependencies = [
  "gix-path 0.10.11 (git+https://github.com/Byron/gitoxide?rev=b36d7efb9743766338ac7bb7fb2399a06fae5e60)",
  "gix-tempfile 14.0.2 (git+https://github.com/Byron/gitoxide?rev=b36d7efb9743766338ac7bb7fb2399a06fae5e60)",
  "memmap2",
- "parking_lot 0.12.3",
+ "parking_lot",
  "smallvec",
  "thiserror",
  "uluru",
@@ -3534,7 +3528,7 @@ source = "git+https://github.com/Byron/gitoxide?rev=b36d7efb9743766338ac7bb7fb23
 dependencies = [
  "gix-command",
  "gix-config-value",
- "parking_lot 0.12.3",
+ "parking_lot",
  "rustix 0.38.37",
  "thiserror",
 ]
@@ -3746,7 +3740,7 @@ dependencies = [
  "gix-fs 0.11.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot",
  "signal-hook",
  "signal-hook-registry",
  "tempfile",
@@ -3761,7 +3755,7 @@ dependencies = [
  "gix-fs 0.11.3 (git+https://github.com/Byron/gitoxide?rev=b36d7efb9743766338ac7bb7fb2399a06fae5e60)",
  "libc",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot",
  "tempfile",
 ]
 
@@ -3785,7 +3779,7 @@ dependencies = [
  "io-close",
  "is_ci",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot",
  "tar",
  "tempfile",
  "winnow 0.6.18",
@@ -4942,7 +4936,7 @@ checksum = "c0ff37bd590ca25063e35af745c343cb7a0271906fb7b37e4813e8f79f00268d"
 dependencies = [
  "bitflags 2.6.0",
  "libc",
- "redox_syscall 0.5.3",
+ "redox_syscall",
 ]
 
 [[package]]
@@ -5650,37 +5644,12 @@ checksum = "bb813b8af86854136c6922af0598d719255ecb2179515e6e7730d468f05c9cae"
 
 [[package]]
 name = "parking_lot"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7d17b78036a60663b797adeaee46f5c9dfebb86948d1255007a1d6be0271ff99"
-dependencies = [
- "instant",
- "lock_api",
- "parking_lot_core 0.8.6",
-]
-
-[[package]]
-name = "parking_lot"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1bf18183cf54e8d6059647fc3063646a1801cf30896933ec2311622cc4b9a27"
 dependencies = [
  "lock_api",
- "parking_lot_core 0.9.10",
-]
-
-[[package]]
-name = "parking_lot_core"
-version = "0.8.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60a2cfe6f0ad2bfc16aefa463b497d5c7a5ecd44a23efa72aa342d90177356dc"
-dependencies = [
- "cfg-if",
- "instant",
- "libc",
- "redox_syscall 0.2.16",
- "smallvec",
- "winapi",
+ "parking_lot_core",
 ]
 
 [[package]]
@@ -5691,7 +5660,7 @@ checksum = "1e401f977ab385c9e4e3ab30627d6f26d00e2c73eef317493c4ec6d468726cf8"
 dependencies = [
  "cfg-if",
  "libc",
- "redox_syscall 0.5.3",
+ "redox_syscall",
  "smallvec",
  "windows-targets 0.52.6",
 ]
@@ -6134,7 +6103,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a266d8d6020c61a437be704c5e618037588e1985c7dbb7bf8d265db84cffe325"
 dependencies = [
  "log",
- "parking_lot 0.12.3",
+ "parking_lot",
 ]
 
 [[package]]
@@ -6327,15 +6296,6 @@ checksum = "1465873a3dfdaa8ae7cb14b4383657caab0b3e8a0aa9ae8e04b044854c8dfce2"
 dependencies = [
  "crossbeam-deque",
  "crossbeam-utils",
-]
-
-[[package]]
-name = "redox_syscall"
-version = "0.2.16"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fb5a58c1855b4b6819d59012155603f0b22ad30cad752600aadfcb695265519a"
-dependencies = [
- "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -6954,7 +6914,7 @@ dependencies = [
  "futures",
  "log",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot",
  "scc",
  "serial_test_derive",
 ]
@@ -7180,18 +7140,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ssh2"
-version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e7fe461910559f6d5604c3731d00d2aafc4a83d1665922e280f42f9a168d5455"
-dependencies = [
- "bitflags 1.3.2",
- "libc",
- "libssh2-sys",
- "parking_lot 0.11.2",
-]
-
-[[package]]
 name = "stable_deref_trait"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7220,7 +7168,7 @@ checksum = "f91138e76242f575eb1d3b38b4f1362f10d3a43f47d182a5b359af488a02293b"
 dependencies = [
  "new_debug_unreachable",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot",
  "phf_shared 0.10.0",
  "precomputed-hash",
  "serde",
@@ -7446,7 +7394,7 @@ dependencies = [
  "ndk-sys",
  "objc",
  "once_cell",
- "parking_lot 0.12.3",
+ "parking_lot",
  "png",
  "raw-window-handle",
  "scopeguard",
@@ -7910,7 +7858,7 @@ dependencies = [
  "bytes",
  "libc",
  "mio 1.0.2",
- "parking_lot 0.12.3",
+ "parking_lot",
  "pin-project-lite",
  "signal-hook-registry",
  "socket2 0.5.7",
