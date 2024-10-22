@@ -176,7 +176,7 @@
 				seriesCount={branch.series?.length ?? 0}
 				{addDescription}
 				onGenerateBranchName={generateBranchName}
-				disableTitleEdit={!!gitHostBranch}
+				hasGitHostBranch={!!gitHostBranch}
 				hasPr={!!$pr}
 				openPrDetailsModal={handleOpenPR}
 				reloadPR={handleReloadPR}

@@ -626,11 +626,8 @@ fn update_name_after_push() -> Result<()> {
             ..Default::default()
         },
     );
-    assert!(result.is_err());
-    assert_eq!(
-        result.err().unwrap().to_string(),
-        "Cannot update the name of a head that has been pushed to a remote"
-    );
+
+    assert!(result.is_ok());
     Ok(())
 }
 
