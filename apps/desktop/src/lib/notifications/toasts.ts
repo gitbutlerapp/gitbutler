@@ -1,4 +1,4 @@
-import { isStr } from '$lib/utils/string';
+import { isStr } from '@gitbutler/ui/utils/string';
 import { writable, type Writable } from 'svelte/store';
 import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 

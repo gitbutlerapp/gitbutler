@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { stackingFeature } from '$lib/config/uiFeatureFlags';
 import { emptyConflictEntryPresence, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import { splitMessage } from '$lib/utils/commitMessage';
-import { hashCode } from '$lib/utils/string';
+import { hashCode } from '@gitbutler/ui/utils/string';
 import { isDefined, notNull } from '@gitbutler/ui/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
 import { get } from 'svelte/store';
