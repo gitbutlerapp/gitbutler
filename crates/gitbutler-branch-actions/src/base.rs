@@ -6,9 +6,9 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt};
+use gitbutler_repo::{LogUntil, RepositoryExt};
+use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle};
-use gitbutler_stack_api::StackExt;
 use serde::Serialize;
 
 use crate::{

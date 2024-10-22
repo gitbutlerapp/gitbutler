@@ -4,10 +4,10 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
-    LogUntil, RepoActionsExt as _, RepositoryExt as _,
+    LogUntil, RepositoryExt as _,
 };
+use gitbutler_repo_actions::RepoActionsExt as _;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
-use gitbutler_stack_api::StackExt;
 use serde::{Deserialize, Serialize};
 
 use crate::{

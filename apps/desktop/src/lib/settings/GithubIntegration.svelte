@@ -27,13 +27,13 @@
 	let loading = false;
 	let userCode = '';
 	let deviceCode = '';
-	let gitHubOauthModal: Modal;
+	let gitHubOauthModal: ReturnType<typeof Modal> | undefined;
 
 	function gitHubStartOauth() {
 		initDeviceOauth().then((verification) => {
 			userCode = verification.user_code;
 			deviceCode = verification.device_code;
-			gitHubOauthModal.show();
+			gitHubOauthModal?.show();
 		});
 	}
 
@@ -52,7 +52,7 @@
 			console.error(err);
 			toasts.error('GitHub authentication failed');
 		} finally {
-			gitHubOauthModal.close();
+			gitHubOauthModal?.close();
 			loading = false;
 		}
 	}

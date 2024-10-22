@@ -2,9 +2,9 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import type { Writable, Readable } from 'svelte/store';
 
 	export let filtersActive: Readable<boolean>;

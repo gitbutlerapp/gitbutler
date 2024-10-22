@@ -2,7 +2,7 @@
 	import MergeButton from './MergeButton.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import * as toasts from '$lib/utils/toasts';
@@ -11,18 +11,14 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
-	import type { GitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
-	import type { DetailedPullRequest } from '$lib/gitHost/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	interface Props {
-		pr: DetailedPullRequest;
-		prMonitor?: GitHostPrMonitor;
-		sourceBranch: string;
+		upstreamName: string;
 	}
 
-	const { pr, prMonitor, sourceBranch }: Props = $props();
+	const { upstreamName }: Props = $props();
 
 	type StatusInfo = {
 		text: string;
@@ -35,28 +31,36 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 
-	const gitHost = getGitHost();
 	const gitHostListingService = getGitHostListingService();
 
-	const prService = getGitHostPrService();
+	const prStore = $derived($gitHostListingService?.prs);
+	const prs = $derived(prStore ? $prStore : undefined);
 
-	const checksMonitor = $derived(sourceBranch ? $gitHost?.checksMonitor(sourceBranch) : undefined);
+	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
+	const prNumber = $derived(listedPr?.number);
+
+	const prService = getGitHostPrService();
+	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
+
 	// This PR has been loaded on demand, and contains more details than the version
 	// obtained when listing them.
-	const checks = $derived(checksMonitor?.status);
+	const pr = $derived(prMonitor?.pr);
+
+	const checksMonitor = getGitHostChecksMonitor();
+	const checks = $derived($checksMonitor?.status);
 
 	// While the pr monitor is set to fetch updates by interval, we want
 	// frequent updates while checks are running.
-	// $effect(() => {
-	// 	if ($checks) prMonitor?.refresh();
-	// });
+	$effect(() => {
+		if ($checks) prMonitor?.refresh();
+	});
 
 	let isMerging = $state(false);
 
 	const mrLoading = $derived(prMonitor?.loading);
-	const checksLoading = $derived(checksMonitor?.loading);
+	const checksLoading = $derived($checksMonitor?.loading);
 
-	const checksError = $derived(checksMonitor?.error);
+	const checksError = $derived($checksMonitor?.error);
 	const detailsError = $derived(prMonitor?.error);
 
 	const checksTagInfo: StatusInfo = $derived.by(() => {
@@ -87,19 +91,19 @@
 	});
 
 	const prStatusInfo: StatusInfo = $derived.by(() => {
-		if (!pr) {
+		if (!$pr) {
 			return { text: 'Status', icon: 'spinner', style: 'neutral' };
 		}
 
-		if (pr?.mergedAt) {
+		if ($pr?.mergedAt) {
 			return { text: 'Merged', icon: 'merged-pr-small', style: 'purple' };
 		}
 
-		if (pr?.closedAt) {
+		if ($pr?.closedAt) {
 			return { text: 'Closed', icon: 'closed-pr-small', style: 'error' };
 		}
 
-		if (pr?.draft) {
+		if ($pr?.draft) {
 			return { text: 'Draft', icon: 'draft-pr-small', style: 'neutral' };
 		}
 
@@ -110,8 +114,8 @@
 {#if pr}
 	<div class="pr-header">
 		<div class="text-13 text-semibold pr-header-title">
-			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
-			<span>{pr.title}</span>
+			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
+			<span>{$pr?.title}</span>
 		</div>
 		<div class="pr-header-tags">
 			<Button
@@ -125,7 +129,7 @@
 			>
 				{prStatusInfo.text}
 			</Button>
-			{#if !pr.closedAt && checksTagInfo}
+			{#if !$pr?.closedAt && checksTagInfo}
 				<Button
 					size="tag"
 					clickable={false}
@@ -136,16 +140,20 @@
 					{checksTagInfo.text}
 				</Button>
 			{/if}
-			<Button
-				icon="open-link"
-				size="tag"
-				style="ghost"
-				outline
-				tooltip="Open in browser"
-				onclick={() => {
-					openExternalUrl(pr.htmlUrl);
-				}}>View PR</Button
-			>
+			{#if $pr?.htmlUrl}
+				<Button
+					icon="open-link"
+					size="tag"
+					style="ghost"
+					outline
+					tooltip="Open in browser"
+					onclick={() => {
+						openExternalUrl($pr.htmlUrl);
+					}}
+				>
+					View PR
+				</Button>
+			{/if}
 		</div>
 
 		<!--
@@ -163,16 +171,16 @@
 					projectId={project.id}
 					disabled={$mrLoading ||
 						$checksLoading ||
-						pr.draft ||
-						!pr.mergeable ||
-						['dirty', 'unknown', 'blocked', 'behind'].includes(pr.mergeableState)}
+						$pr?.draft ||
+						!$pr?.mergeable ||
+						['dirty', 'unknown', 'blocked', 'behind'].includes($pr?.mergeableState)}
 					loading={isMerging}
 					on:click={async (e) => {
-						if (!pr) return;
+						if (!$pr) return;
 						isMerging = true;
 						const method = e.detail.method;
 						try {
-							await $prService?.merge(method, pr.number);
+							await $prService?.merge(method, $pr.number);
 							await baseBranchService.fetchFromRemotes();
 							await Promise.all([
 								prMonitor?.refresh(),

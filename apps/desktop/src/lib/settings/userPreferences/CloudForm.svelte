@@ -6,10 +6,10 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import Section from '$lib/settings/Section.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { goto } from '$app/navigation';
 
 	const userService = getContext(UserService);
@@ -44,7 +44,7 @@
 				<Toggle
 					id="aiGenEnabled"
 					checked={$aiGenEnabled}
-					on:click={() => {
+					onclick={() => {
 						$aiGenEnabled = !$aiGenEnabled;
 					}}
 				/>

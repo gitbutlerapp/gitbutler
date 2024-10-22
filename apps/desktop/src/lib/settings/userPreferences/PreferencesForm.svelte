@@ -4,8 +4,8 @@
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import Section from '$lib/settings/Section.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
 	const projectsService = getContext(ProjectsService);
 	const project = getContext(Project);
@@ -56,11 +56,7 @@
 			GitButler will never force push to the target branch.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle
-				id="allowForcePush"
-				checked={allowForcePushing}
-				on:click={handleAllowForcePushClick}
-			/>
+			<Toggle id="allowForcePush" checked={allowForcePushing} onclick={handleAllowForcePushClick} />
 		</svelte:fragment>
 	</SectionCard>
 
@@ -73,7 +69,7 @@
 			<Toggle
 				id="omitCertificateCheck"
 				checked={omitCertificateCheck}
-				on:click={handleOmitCertificateCheckClick}
+				onclick={handleOmitCertificateCheckClick}
 			/>
 		</svelte:fragment>
 	</SectionCard>

@@ -9,9 +9,9 @@
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import Link from '$lib/shared/Link.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
 
@@ -110,7 +110,7 @@
 			GitButler will sign commits as per your git configuration.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
-			<Toggle id="signCommits" checked={signCommits} on:click={handleSignCommitsClick} />
+			<Toggle id="signCommits" checked={signCommits} onclick={handleSignCommitsClick} />
 		</svelte:fragment>
 	</SectionCard>
 	{#if signCommits}

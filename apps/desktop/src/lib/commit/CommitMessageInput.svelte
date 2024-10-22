@@ -14,7 +14,6 @@
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
-	import { isWhiteSpaceString } from '$lib/utils/string';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -23,6 +22,7 @@
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { autoHeight } from '@gitbutler/ui/utils/autoHeight';
 	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
+	import { isWhiteSpaceString } from '@gitbutler/ui/utils/string';
 	import { createEventDispatcher, onMount, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
 

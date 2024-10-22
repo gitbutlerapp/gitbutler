@@ -6,10 +6,10 @@
 
 	const { target, url }: { target: HTMLElement | undefined; url: string } = $props();
 
-	let menu: ReturnType<typeof ContextMenu>;
+	let menu: ReturnType<typeof ContextMenu> | undefined;
 
 	export function openByMouse(e: MouseEvent) {
-		menu.open(e);
+		menu?.open(e);
 	}
 </script>
 
@@ -19,7 +19,7 @@
 			label="Copy to Clipbaord"
 			onclick={() => {
 				copyToClipboard(url);
-				menu.close();
+				menu?.close();
 			}}
 		/>
 	</ContextMenuSection>

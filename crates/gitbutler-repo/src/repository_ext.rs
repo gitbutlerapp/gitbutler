@@ -4,11 +4,11 @@ use std::os::unix::fs::PermissionsExt;
 use std::os::windows::process::CommandExt;
 use std::{io::Write, path::Path, process::Stdio, str};
 
-use crate::{Config, LogUntil};
+use crate::Config;
+use crate::SignaturePurpose;
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::BString;
 use git2::{BlameOptions, StatusOptions, Tree};
-use gitbutler_branch::SignaturePurpose;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
@@ -603,9 +603,9 @@ impl RepositoryExt for git2::Repository {
             repo.committer()
                 .transpose()?
                 .map(gix_to_git2_signature)
-                .unwrap_or_else(|| gitbutler_branch::signature(SignaturePurpose::Committer))
+                .unwrap_or_else(|| crate::signature(SignaturePurpose::Committer))
         } else {
-            gitbutler_branch::signature(SignaturePurpose::Committer)
+            crate::signature(SignaturePurpose::Committer)
         }?;
 
         Ok((author, committer))
@@ -703,4 +703,20 @@ impl GixRepositoryExt for gix::Repository {
         self.object_cache_size_if_unset(bytes);
         Ok(self)
     }
+}
+
+type OidFilter = dyn Fn(&git2::Commit) -> Result<bool>;
+
+/// Generally, all traversals will use no particular ordering, it's implementation defined in `git2`.
+pub enum LogUntil {
+    /// Traverse until one sees (or gets commits older than) the given commit.
+    /// Do not return that commit or anything older than that.
+    Commit(git2::Oid),
+    /// Traverse the given `n` commits.
+    Take(usize),
+    /// Traverse all commits until the given condition returns `false` for a commit.
+    /// Note that this commit-id will also be returned.
+    When(Box<OidFilter>),
+    /// Traverse the whole graph until it is exhausted.
+    End,
 }

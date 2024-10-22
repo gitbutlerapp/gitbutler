@@ -21,14 +21,14 @@
 	const branchController = getContext(BranchController);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
 
-	let contextMenu: ReturnType<typeof ContextMenu>;
+	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
 
 	export function open(e: MouseEvent, item: any) {
-		contextMenu.open(e, item);
+		contextMenu?.open(e, item);
 	}
 
 	export function close() {
-		contextMenu.close();
+		contextMenu?.close();
 	}
 </script>
 
@@ -40,7 +40,7 @@
 					label="Discard"
 					onclick={() => {
 						branchController.unapplyHunk(item.hunk);
-						contextMenu.close();
+						contextMenu?.close();
 					}}
 				/>
 			{/if}
@@ -52,7 +52,7 @@
 							openExternalUrl(
 								`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${projectPath}/${filePath}:${item.lineNumber}`
 							);
-						contextMenu.close();
+						contextMenu?.close();
 					}}
 				/>
 			{/if}

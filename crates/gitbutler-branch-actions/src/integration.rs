@@ -3,16 +3,16 @@ use std::{path::PathBuf, vec};
 use anyhow::{anyhow, Context, Result};
 use bstr::ByteSlice;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_branch::{self, SignaturePurpose, GITBUTLER_WORKSPACE_REFERENCE};
+use gitbutler_branch::{self, GITBUTLER_WORKSPACE_REFERENCE};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_repo::SignaturePurpose;
 use gitbutler_repo::{LogUntil, RepositoryExt};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
-use gitbutler_stack_api::StackExt;
 use tracing::instrument;
 
 use crate::{branch_manager::BranchManagerExt, conflicts, VirtualBranchesExt};
@@ -67,8 +67,8 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
         }
     }
 
-    let committer = gitbutler_branch::signature(SignaturePurpose::Committer)?;
-    let author = gitbutler_branch::signature(SignaturePurpose::Author)?;
+    let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
+    let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
     let mut heads: Vec<git2::Commit<'_>> = virtual_branches
         .iter()
         .filter(|b| b.head() != target.sha)
@@ -206,8 +206,8 @@ pub fn update_workspace_commit(
     message.push_str("For more information about what we're doing here, check out our docs:\n");
     message.push_str("https://docs.gitbutler.com/features/virtual-branches/integration-branch\n");
 
-    let committer = gitbutler_branch::signature(SignaturePurpose::Committer)?;
-    let author = gitbutler_branch::signature(SignaturePurpose::Author)?;
+    let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
+    let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
 
     // It would be nice if we could pass an `update_ref` parameter to this function, but that
     // requires committing to the tip of the branch, and we're mostly replacing the tip.

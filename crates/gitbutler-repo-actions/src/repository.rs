@@ -8,7 +8,8 @@ use gitbutler_project::AuthKey;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_stack::{Stack, StackId};
 
-use crate::{askpass, credentials, RepositoryExt};
+use crate::askpass;
+use gitbutler_repo::{credentials, LogUntil, RepositoryExt};
 pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()>;
     fn push(
@@ -315,22 +316,6 @@ impl RepoActionsExt for CommandContext {
 
         Err(anyhow!("authentication failed")).context(Code::ProjectGitAuth)
     }
-}
-
-type OidFilter = dyn Fn(&git2::Commit) -> Result<bool>;
-
-/// Generally, all traversals will use no particular ordering, it's implementation defined in `git2`.
-pub enum LogUntil {
-    /// Traverse until one sees (or gets commits older than) the given commit.
-    /// Do not return that commit or anything older than that.
-    Commit(git2::Oid),
-    /// Traverse the given `n` commits.
-    Take(usize),
-    /// Traverse all commits until the given condition returns `false` for a commit.
-    /// Note that this commit-id will also be returned.
-    When(Box<OidFilter>),
-    /// Traverse the whole graph until it is exhausted.
-    End,
 }
 
 async fn handle_git_prompt_push(

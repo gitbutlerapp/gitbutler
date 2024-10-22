@@ -8,10 +8,12 @@ publish = false
 [dependencies]
 git2.workspace = true
 gix = { workspace = true, features = [] }
+gix-utils = "0.1.12"
 itertools = "0.13"
 anyhow = "1.0.86"
 serde = { workspace = true, features = ["std"] }
 toml.workspace = true
+tracing.workspace = true
 gitbutler-patch-reference.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-id.workspace = true
@@ -20,7 +22,16 @@ gitbutler-time.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-error.workspace = true
 gitbutler-fs.workspace = true
+gitbutler-command-context.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-commit.workspace = true
 
 [[test]]
-name = "branch"
+name = "stack"
 path = "tests/mod.rs"
+
+[dev-dependencies]
+gitbutler-git = { workspace = true, features = ["test-askpass-path"] } # Runtime test dependency
+gitbutler-testsupport.workspace = true
+gitbutler-repo-actions.workspace = true
+tempfile = "3.13"

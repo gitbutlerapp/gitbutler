@@ -27,7 +27,7 @@
 	const user = getContextStore(User);
 
 	export function show() {
-		modal.show();
+		modal?.show();
 	}
 
 	async function gitIndexLength() {
@@ -36,7 +36,7 @@
 		});
 	}
 
-	let modal: Modal;
+	let modal: ReturnType<typeof Modal> | undefined;
 
 	let messageInputValue = '';
 	let emailInputValue = '';
@@ -140,7 +140,7 @@
 
 	function close() {
 		reset();
-		modal.close();
+		modal?.close();
 	}
 
 	onMount(() => {

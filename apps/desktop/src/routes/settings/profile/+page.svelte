@@ -26,7 +26,7 @@
 
 	$: userPicture = $user?.picture;
 
-	let deleteConfirmationModal: Modal;
+	let deleteConfirmationModal: ReturnType<typeof Modal> | undefined;
 
 	$: if ($user && !loaded) {
 		loaded = true;
@@ -84,7 +84,7 @@
 			console.error(err);
 			showError('Failed to delete project', err);
 		} finally {
-			deleteConfirmationModal.close();
+			deleteConfirmationModal?.close();
 			isDeleting = false;
 		}
 	}
@@ -145,7 +145,7 @@
 			Your code remains safe. it only clears the configuration.
 		</svelte:fragment>
 
-		<Button style="error" kind="soft" onclick={() => deleteConfirmationModal.show()}>
+		<Button style="error" kind="soft" onclick={() => deleteConfirmationModal?.show()}>
 			Remove projects…
 		</Button>
 

@@ -1,5 +1,5 @@
 import { isMessageRole, type Prompt } from './types';
-import { isStr } from '$lib/utils/string';
+import { isStr } from '@gitbutler/ui/utils/string';
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages.mjs';
 
 export function splitPromptMessages(prompt: Prompt): [MessageParam[], string | undefined] {

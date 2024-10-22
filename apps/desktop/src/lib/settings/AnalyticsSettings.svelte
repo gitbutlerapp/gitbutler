@@ -6,7 +6,7 @@
 		appNonAnonMetricsEnabled
 	} from '$lib/config/appSettings';
 	import Link from '$lib/shared/Link.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
 	const errorReportingEnabled = appErrorReportingEnabled();
 	const metricsEnabled = appMetricsEnabled();
@@ -46,7 +46,7 @@
 			<Toggle
 				id="errorReportingToggle"
 				checked={$errorReportingEnabled}
-				on:click={() => ($errorReportingEnabled = !$errorReportingEnabled)}
+				onclick={() => ($errorReportingEnabled = !$errorReportingEnabled)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
@@ -58,7 +58,7 @@
 			<Toggle
 				id="metricsEnabledToggle"
 				checked={$metricsEnabled}
-				on:click={() => ($metricsEnabled = !$metricsEnabled)}
+				onclick={() => ($metricsEnabled = !$metricsEnabled)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
@@ -72,7 +72,7 @@
 			<Toggle
 				id="nonAnonMetricsEnabledToggle"
 				checked={$nonAnonMetricsEnabled}
-				on:click={() => ($nonAnonMetricsEnabled = !$nonAnonMetricsEnabled)}
+				onclick={() => ($nonAnonMetricsEnabled = !$nonAnonMetricsEnabled)}
 			/>
 		</svelte:fragment>
 	</SectionCard>

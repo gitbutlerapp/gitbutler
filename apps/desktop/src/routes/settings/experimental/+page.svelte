@@ -7,7 +7,7 @@
 		featureTopics
 	} from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
 	const baseBranchSwitching = featureBaseBranchSwitching();
 	const topicsEnabled = featureTopics();
@@ -30,7 +30,7 @@
 				<Toggle
 					id="baseBranchSwitching"
 					checked={$baseBranchSwitching}
-					on:click={() => ($baseBranchSwitching = !$baseBranchSwitching)}
+					onclick={() => ($baseBranchSwitching = !$baseBranchSwitching)}
 				/>
 			</svelte:fragment>
 		</SectionCard>
@@ -45,7 +45,7 @@
 					<Toggle
 						id="stackingFeature"
 						checked={$stackingFeature}
-						on:click={() => ($stackingFeature = !$stackingFeature)}
+						onclick={() => ($stackingFeature = !$stackingFeature)}
 					/>
 				</svelte:fragment>
 			</SectionCard>
@@ -64,7 +64,7 @@
 					<Toggle
 						id="stackingFeatureMultipleSeries"
 						checked={$stackingFeatureMultipleSeries}
-						on:click={() => ($stackingFeatureMultipleSeries = !$stackingFeatureMultipleSeries)}
+						onclick={() => ($stackingFeatureMultipleSeries = !$stackingFeatureMultipleSeries)}
 					/>
 				</svelte:fragment>
 			</SectionCard>
@@ -79,7 +79,7 @@
 				<Toggle
 					id="topics"
 					checked={$topicsEnabled}
-					on:click={() => ($topicsEnabled = !$topicsEnabled)}
+					onclick={() => ($topicsEnabled = !$topicsEnabled)}
 				/>
 			</svelte:fragment>
 		</SectionCard>

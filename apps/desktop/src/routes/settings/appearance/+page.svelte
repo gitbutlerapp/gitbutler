@@ -14,9 +14,9 @@
 	} from '$lib/settings/userSettings';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import Toggle from '$lib/shared/Toggle.svelte';
 	import { type Hunk } from '$lib/vbranches/types';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import type { ContentSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
 
@@ -75,9 +75,8 @@
 		<svelte:fragment slot="title">Theme</svelte:fragment>
 		<ThemeSelector {userSettings} />
 	</SectionCard>
-	<SectionCard labelFor="defaultCodeEditor" orientation="row">
-		<svelte:fragment slot="title">Default Code Editor</svelte:fragment>
-		<svelte:fragment slot="caption">Select your preferred default code editor.</svelte:fragment>
+	<SectionCard orientation="row" centerAlign>
+		<svelte:fragment slot="title">Default code editor</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Select
 				value={$userSettings.defaultCodeEditor.schemeIdentifer}
@@ -154,7 +153,7 @@
 				<Toggle
 					id="allowDiffLigatures"
 					checked={$userSettings.diffLigatures}
-					on:click={() => {
+					onclick={() => {
 						userSettings.update((s) => ({
 							...s,
 							diffLigatures: !$userSettings.diffLigatures
@@ -200,7 +199,7 @@
 				<Toggle
 					id="wrapText"
 					checked={$userSettings.wrapText}
-					on:click={() => {
+					onclick={() => {
 						userSettings.update((s) => ({
 							...s,
 							wrapText: !s.wrapText
@@ -220,7 +219,7 @@
 				<Toggle
 					id="inlineUnifiedDiffs"
 					checked={$userSettings.inlineUnifiedDiffs}
-					on:click={() => {
+					onclick={() => {
 						userSettings.update((s) => ({
 							...s,
 							inlineUnifiedDiffs: !s.inlineUnifiedDiffs
@@ -281,16 +280,15 @@
 	</form>
 
 	<SectionCard labelFor="branchLaneContents" orientation="row">
-		<svelte:fragment slot="title">Auto-highlight Branch Lane Contents</svelte:fragment>
+		<svelte:fragment slot="title">Auto-select text on branch/lane rename</svelte:fragment>
 		<svelte:fragment slot="caption">
-			An experimental UI toggle to highlight the contents of the branch lane input fields when
-			clicking into them.
+			Enable this option to automatically select the text when the input is focused.
 		</svelte:fragment>
 		<svelte:fragment slot="actions">
 			<Toggle
 				id="branchLaneContents"
 				checked={$autoSelectBranchNameFeature}
-				on:click={() => ($autoSelectBranchNameFeature = !$autoSelectBranchNameFeature)}
+				onclick={() => ($autoSelectBranchNameFeature = !$autoSelectBranchNameFeature)}
 			/>
 		</svelte:fragment>
 	</SectionCard>
