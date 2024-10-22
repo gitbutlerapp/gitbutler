@@ -6,7 +6,7 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [dependencies]
-anyhow = "1.0.86"
+anyhow = "1.0.90"
 tracing.workspace = true
 serde = { workspace = true, features = ["std"]}
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }

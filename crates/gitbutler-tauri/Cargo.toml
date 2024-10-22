@@ -22,7 +22,7 @@ tempfile = "3.13"
 gitbutler-testsupport.workspace = true
 
 [dependencies]
-anyhow = "1.0.86"
+anyhow = "1.0.90"
 backtrace = { version = "0.3.74", optional = true }
 console-subscriber = "0.4.0"
 dirs = "5.0.1"
@@ -79,7 +79,7 @@ open = "5"
 url = "2.5.2"
 
 [dependencies.tauri]
-version = "1.8.0"
+version = "1.8.1"
 features = [
     "http-all",
     "os-all",
