@@ -7,7 +7,7 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_project::Project;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{commit_by_oid_or_change_id, CommitsForId, PatchReferenceUpdate, StackExt};
+use gitbutler_stack::{commit_by_oid_or_change_id, CommitsForId, PatchReferenceUpdate};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 

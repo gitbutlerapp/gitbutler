@@ -5,8 +5,8 @@ use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
     LogUntil, RepositoryExt as _,
 };
+use gitbutler_stack::commit_by_oid_or_change_id;
 use gitbutler_stack::StackId;
-use gitbutler_stack::{commit_by_oid_or_change_id, StackExt};
 
 use crate::{
     branch_trees::{

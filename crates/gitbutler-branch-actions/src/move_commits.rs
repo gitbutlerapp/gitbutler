@@ -7,7 +7,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt};
-use gitbutler_stack::StackExt;
 use gitbutler_stack::{OwnershipClaim, StackId};
 use std::collections::HashMap;
 
