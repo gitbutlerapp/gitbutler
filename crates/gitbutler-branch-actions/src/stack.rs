@@ -6,6 +6,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_project::Project;
+use gitbutler_repo::RepoActionsExt;
 use gitbutler_stack::{Stack, StackId, Target};
 use gitbutler_stack_api::{
     commit_by_oid_or_change_id, CommitsForId, PatchReferenceUpdate, StackExt,
@@ -146,7 +147,14 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
             // Nothing to push for this one
             continue;
         }
-        stack.push_series(ctx, series.head.name, with_force)?;
+        let push_details = stack.push_details(ctx, series.head.name)?;
+        ctx.push(
+            push_details.head,
+            &push_details.remote_refname,
+            with_force,
+            None,
+            Some(Some(stack.id)),
+        )?
     }
     Ok(())
 }

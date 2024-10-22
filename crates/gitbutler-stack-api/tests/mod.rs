@@ -3,7 +3,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_reference::RemoteRefname;
-use gitbutler_repo::{LogUntil, RepositoryExt as _};
+use gitbutler_repo::{LogUntil, RepoActionsExt, RepositoryExt as _};
 use gitbutler_stack::VirtualBranchesHandle;
 use gitbutler_stack_api::{PatchReferenceUpdate, StackExt, TargetUpdate};
 use itertools::Itertools;
@@ -592,9 +592,7 @@ fn push_series_success() -> Result<()> {
     target.push_remote_name = Some("origin".into());
     state.set_default_target(target)?;
 
-    let result = test_ctx
-        .branch
-        .push_series(&ctx, "a-branch-2".into(), false);
+    let result = test_ctx.branch.push_details(&ctx, "a-branch-2".into());
     assert!(result.is_ok());
     Ok(())
 }
@@ -610,9 +608,14 @@ fn update_name_after_push() -> Result<()> {
     target.push_remote_name = Some("origin".into());
     state.set_default_target(target)?;
 
-    let result = test_ctx
-        .branch
-        .push_series(&ctx, "a-branch-2".into(), false);
+    let push_details = test_ctx.branch.push_details(&ctx, "a-branch-2".into())?;
+    let result = ctx.push(
+        push_details.head,
+        &push_details.remote_refname,
+        false,
+        None,
+        Some(Some(test_ctx.branch.id)),
+    );
     assert!(result.is_ok());
     let result = test_ctx.branch.update_series(
         &ctx,
@@ -1065,9 +1068,14 @@ fn set_legacy_refname_pushed() -> Result<()> {
     let mut target = state.get_default_target()?;
     target.push_remote_name = Some("origin".into());
     state.set_default_target(target)?;
-    test_ctx
-        .branch
-        .push_series(&ctx, "a-branch-2".into(), false)?;
+    let push_details = test_ctx.branch.push_details(&ctx, "a-branch-2".into())?;
+    ctx.push(
+        push_details.head,
+        &push_details.remote_refname,
+        false,
+        None,
+        Some(Some(test_ctx.branch.id)),
+    )?;
     let initial_state = test_ctx.branch.clone();
 
     test_ctx
