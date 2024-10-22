@@ -25,8 +25,8 @@ use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission}
 use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::{rebase::cherry_rebase, RepositoryExt};
 use gitbutler_repo::{signature, SignaturePurpose};
+use gitbutler_stack::StackExt;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
-use gitbutler_stack_api::StackExt;
 use serde::Serialize;
 
 pub mod commands;

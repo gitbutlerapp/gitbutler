@@ -8,8 +8,8 @@ use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{LogUntil, RepositoryExt};
 use gitbutler_repo_actions::RepoActionsExt;
+use gitbutler_stack::StackExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle};
-use gitbutler_stack_api::StackExt;
 use serde::Serialize;
 
 use crate::{

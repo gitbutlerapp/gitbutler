@@ -20,8 +20,8 @@ use gitbutler_branch_actions::{
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
+use gitbutler_stack::StackExt;
 use gitbutler_stack::{BranchOwnershipClaims, Target, VirtualBranchesHandle};
-use gitbutler_stack_api::StackExt;
 use gitbutler_testsupport::{commit_all, virtual_branches::set_test_target, Case, Suite};
 use pretty_assertions::assert_eq;
 

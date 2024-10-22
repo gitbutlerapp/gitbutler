@@ -2192,7 +2192,6 @@ dependencies = [
  "gitbutler-repo-actions",
  "gitbutler-serde",
  "gitbutler-stack",
- "gitbutler-stack-api",
  "gitbutler-testsupport",
  "gitbutler-time",
  "gitbutler-url",
@@ -2316,7 +2315,6 @@ dependencies = [
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-stack",
- "gitbutler-stack-api",
  "gitbutler-time",
  "serde",
 ]
@@ -2584,43 +2582,26 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "git2",
+ "gitbutler-command-context",
+ "gitbutler-commit",
  "gitbutler-diff",
  "gitbutler-error",
  "gitbutler-fs",
- "gitbutler-id",
- "gitbutler-patch-reference",
- "gitbutler-reference",
- "gitbutler-serde",
- "gitbutler-time",
- "gix",
- "itertools 0.13.0",
- "serde",
- "toml 0.8.19",
-]
-
-[[package]]
-name = "gitbutler-stack-api"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "git2",
- "gitbutler-branch",
- "gitbutler-command-context",
- "gitbutler-commit",
  "gitbutler-git",
+ "gitbutler-id",
  "gitbutler-patch-reference",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-repo-actions",
- "gitbutler-stack",
+ "gitbutler-serde",
  "gitbutler-testsupport",
  "gitbutler-time",
  "gix",
  "gix-utils 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "itertools 0.13.0",
- "rand 0.8.5",
  "serde",
  "tempfile",
+ "toml 0.8.19",
  "tracing",
 ]
 

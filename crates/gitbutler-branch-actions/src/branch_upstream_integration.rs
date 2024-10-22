@@ -6,7 +6,7 @@ use gitbutler_repo::{
     LogUntil, RepositoryExt as _,
 };
 use gitbutler_stack::StackId;
-use gitbutler_stack_api::{commit_by_oid_or_change_id, StackExt};
+use gitbutler_stack::{commit_by_oid_or_change_id, StackExt};
 
 use crate::{
     branch_trees::{
