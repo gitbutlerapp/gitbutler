@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { slugify } from '$lib/utils/string';
+	import { slugify } from '@gitbutler/ui/utils/string';
 
 	interface Props {
 		depth: number;

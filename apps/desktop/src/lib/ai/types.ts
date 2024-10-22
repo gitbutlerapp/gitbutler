@@ -1,4 +1,4 @@
-import { isStr } from '$lib/utils/string';
+import { isStr } from '@gitbutler/ui/utils/string';
 import type { Result } from '$lib/result';
 import type { Persisted } from '@gitbutler/shared/persisted';
 
