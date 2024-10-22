@@ -8,9 +8,7 @@
 	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
-	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
@@ -74,8 +72,6 @@
 	});
 
 	const listingService = getGitHostListingService();
-	const prMonitor = getGitHostPrMonitor();
-	const checksMonitor = getGitHostChecksMonitor();
 	const hostedListingServiceStore = getGitHostListingService();
 
 	const stackBranches = $derived(branch.series.map((s) => s.name));
@@ -87,8 +83,7 @@
 		try {
 			await branchController.pushBranch(branch.id, branch.requiresForce, true);
 			$listingService?.refresh();
-			$prMonitor?.refresh();
-			$checksMonitor?.update();
+			// TODO: Refresh prMonitor and checksMonitor upon push
 		} finally {
 			isPushingCommits = false;
 		}

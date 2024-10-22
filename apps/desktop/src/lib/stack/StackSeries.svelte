@@ -1,4 +1,5 @@
 <script lang="ts">
+	import StackCurrentSeries from './StackCurrentSeries.svelte';
 	import StackSeriesDividerLine from './StackSeriesDividerLine.svelte';
 	import StackingSeriesHeader from '$lib/branch/StackingSeriesHeader.svelte';
 	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
@@ -27,7 +28,7 @@
 	{#if !isTopSeries}
 		<StackSeriesDividerLine {currentSeries} />
 	{/if}
-	<div class="branch-group">
+	<StackCurrentSeries {currentSeries}>
 		<StackingSeriesHeader {currentSeries} {isTopSeries} />
 		{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
 			<StackingCommitList
@@ -40,17 +41,5 @@
 				{hasConflicts}
 			/>
 		{/if}
-	</div>
+	</StackCurrentSeries>
 {/each}
-
-<style>
-	.branch-group {
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-m);
-		background: var(--clr-bg-1);
-
-		&:last-child {
-			margin-bottom: 12px;
-		}
-	}
-</style>
