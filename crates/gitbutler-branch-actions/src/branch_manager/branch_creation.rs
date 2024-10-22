@@ -192,8 +192,12 @@ impl BranchManager<'_> {
         let merge_base_tree = repo.find_commit(merge_base_oid)?.tree()?;
 
         // do a diff between the head of this branch and the target base
-        let diff =
-            gitbutler_diff::trees(self.ctx.repository(), &merge_base_tree, &head_commit_tree)?;
+        let diff = gitbutler_diff::trees(
+            self.ctx.repository(),
+            &merge_base_tree,
+            &head_commit_tree,
+            true,
+        )?;
 
         // assign ownership to the branch
         let ownership = diff.iter().fold(

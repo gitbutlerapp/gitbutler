@@ -2,7 +2,7 @@ use crate::{
     author::Author,
     file::{list_virtual_commit_files, VirtualBranchFile},
 };
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use bstr::ByteSlice as _;
 use gitbutler_cherry_pick::ConflictedTreeKey;
 use gitbutler_command_context::CommandContext;
@@ -68,7 +68,7 @@ pub(crate) fn commit_to_vbranch_commit(
     let timestamp = u128::try_from(commit.time().seconds())?;
     let message = commit.message_bstr().to_owned();
 
-    let files = list_virtual_commit_files(ctx, commit).context("failed to list commit files")?;
+    let files = list_virtual_commit_files(ctx, commit, true)?;
     let files = large_files_abridged(files);
 
     let parent_ids: Vec<git2::Oid> = commit

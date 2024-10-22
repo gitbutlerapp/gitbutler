@@ -166,14 +166,19 @@ pub fn trees(
     repo: &git2::Repository,
     old_tree: &git2::Tree,
     new_tree: &git2::Tree,
+    include_context: bool,
 ) -> Result<DiffByPathMap> {
     let mut diff_opts = git2::DiffOptions::new();
+    let context_lines = match include_context {
+        true => 3,
+        false => 0,
+    };
     diff_opts
         .recurse_untracked_dirs(true)
         .include_untracked(true)
         .show_binary(true)
         .ignore_submodules(true)
-        .context_lines(3)
+        .context_lines(context_lines)
         .show_untracked_content(true);
 
     let diff = repo.diff_tree_to_tree(Some(old_tree), Some(new_tree), Some(&mut diff_opts))?;
