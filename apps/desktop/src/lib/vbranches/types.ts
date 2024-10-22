@@ -453,6 +453,10 @@ export class PatchSeries {
 		return this.patches.filter((c) => c.status === 'localAndRemote');
 	}
 
+	get shadowCommits() {
+		return this.patches.filter((c) => c.status === 'localAndShadow');
+	}
+
 	get integratedCommits() {
 		return this.patches.filter((c) => c.status === 'integrated');
 	}
