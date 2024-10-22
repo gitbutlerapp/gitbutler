@@ -9,7 +9,7 @@ use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::VirtualBranchesHandle;
-use gitbutler_stack::{PatchReferenceUpdate, StackExt, TargetUpdate};
+use gitbutler_stack::{PatchReferenceUpdate, TargetUpdate};
 use itertools::Itertools;
 use tempfile::TempDir;
 

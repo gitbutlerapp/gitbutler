@@ -15,7 +15,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_stack::StackExt;
 use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim, Stack, StackId};
 use tracing::instrument;
 

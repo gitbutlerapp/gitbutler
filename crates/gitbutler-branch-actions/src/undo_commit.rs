@@ -2,7 +2,6 @@ use anyhow::{bail, Context as _, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt as _};
-use gitbutler_stack::StackExt;
 use gitbutler_stack::{Stack, StackId};
 
 use crate::VirtualBranchesExt as _;
