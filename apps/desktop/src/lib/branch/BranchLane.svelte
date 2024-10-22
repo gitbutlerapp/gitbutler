@@ -4,11 +4,6 @@
 	import { projectLaneCollapsed } from '$lib/config/config';
 	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import FileCard from '$lib/file/FileCard.svelte';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { createGitHostChecksMonitorStore } from '$lib/gitHost/interface/gitHostChecksMonitor';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import { createGitHostPrMonitorStore } from '$lib/gitHost/interface/gitHostPrMonitor';
-	import { createGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import Stack from '$lib/stack/Stack.svelte';
@@ -34,34 +29,6 @@
 	import { slide } from 'svelte/transition';
 
 	const { branch }: { branch: VirtualBranch } = $props();
-
-	const gitHost = getGitHost();
-
-	// BRANCH SERVICE
-	const prService = createGitHostPrServiceStore(undefined);
-	$effect(() => prService.set($gitHost?.prService()));
-
-	// Pretty cumbersome way of getting the PR number, would be great if we can
-	// make it more concise somehow.
-	const hostedListingServiceStore = getGitHostListingService();
-	const prStore = $derived($hostedListingServiceStore?.prs);
-	const prs = $derived(prStore ? $prStore : undefined);
-
-	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === branch.upstream?.givenName));
-	const sourceBranch = $derived(listedPr?.sourceBranch);
-	const prNumber = $derived(listedPr?.number);
-
-	if (!$stackingFeature) {
-		const gitHostPrMonitorStore = createGitHostPrMonitorStore(undefined);
-		const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
-		$effect(() => gitHostPrMonitorStore.set(prMonitor));
-
-		const gitHostChecksMonitorStore = createGitHostChecksMonitorStore(undefined);
-		const checksMonitor = $derived(
-			sourceBranch ? $gitHost?.checksMonitor(sourceBranch) : undefined
-		);
-		$effect(() => gitHostChecksMonitorStore.set(checksMonitor));
-	}
 
 	// BRANCH
 	const branchStore = createContextStore(VirtualBranch, branch);

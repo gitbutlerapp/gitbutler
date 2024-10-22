@@ -12,9 +12,11 @@
 	import CommitList from '$lib/commit/CommitList.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
-	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
+	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { createGitHostChecksMonitorStore } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
+	import { createGitHostPrMonitorStore } from '$lib/gitHost/interface/gitHostPrMonitor';
+	import { createGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
 	import { showError } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
@@ -42,6 +44,28 @@
 		commitBoxOpen
 	}: { isLaneCollapsed: Writable<boolean>; commitBoxOpen: Writable<boolean> } = $props();
 
+	const gitHost = getGitHost();
+
+	const prService = createGitHostPrServiceStore(undefined);
+	$effect(() => prService.set($gitHost?.prService()));
+
+	const hostedListingServiceStore = getGitHostListingService();
+
+	const prStore = $derived($hostedListingServiceStore?.prs);
+	const prs = $derived(prStore ? $prStore : undefined);
+
+	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === branch.upstream?.givenName));
+	const sourceBranch = $derived(listedPr?.sourceBranch);
+	const prNumber = $derived(listedPr?.number);
+
+	const gitHostPrMonitorStore = createGitHostPrMonitorStore(undefined);
+	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
+	$effect(() => gitHostPrMonitorStore.set(prMonitor));
+
+	const gitHostChecksMonitorStore = createGitHostChecksMonitorStore(undefined);
+	const checksMonitor = $derived(sourceBranch ? $gitHost?.checksMonitor(sourceBranch) : undefined);
+	$effect(() => gitHostChecksMonitorStore.set(checksMonitor));
+
 	const branchController = getContext(BranchController);
 	const fileIdSelection = getContext(FileIdSelection);
 	const branchStore = getContextStore(VirtualBranch);
@@ -61,7 +85,6 @@
 	let laneWidth: number | undefined = $state();
 
 	let commitDialog = $state<CommitDialog>();
-	let scrollViewport: HTMLElement | undefined = $state();
 	let rsViewport: HTMLElement | undefined = $state();
 
 	$effect(() => {
@@ -112,16 +135,14 @@
 	);
 
 	const listingService = getGitHostListingService();
-	const prMonitor = getGitHostPrMonitor();
-	const checksMonitor = getGitHostChecksMonitor();
 
 	async function push() {
 		isPushingCommits = true;
 		try {
 			await branchController.pushBranch(branch.id, branch.requiresForce);
 			$listingService?.refresh();
-			$prMonitor?.refresh();
-			$checksMonitor?.update();
+			prMonitor?.refresh();
+			checksMonitor?.update();
 		} finally {
 			isPushingCommits = false;
 		}
@@ -139,7 +160,7 @@
 		<div class="collapsed-lane-divider" data-remove-from-draggable></div>
 	</div>
 {:else}
-	<div class="resizer-wrapper" bind:this={scrollViewport}>
+	<div class="resizer-wrapper">
 		<div class="branch-card hide-native-scrollbar" class:target-branch={branch.selectedForChanges}>
 			<ScrollableContainer
 				wide

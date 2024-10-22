@@ -143,8 +143,10 @@
 				tooltip="Open in browser"
 				onclick={() => {
 					openExternalUrl($pr.htmlUrl);
-				}}>View PR</Button
+				}}
 			>
+				View PR
+			</Button>
 		</div>
 
 		<!--
