@@ -54,16 +54,8 @@
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
 
-	// TODO: Simplify figuring out if shadow color is needed
 	const topPatch = $derived(currentSeries?.patches[0]);
-	const hasShadow = $derived.by(() => {
-		if (!topPatch || !topPatch.remoteCommitId) return false;
-		if (topPatch.remoteCommitId !== topPatch.id) return true;
-		return false;
-	});
-	const branchType = $derived<CommitStatus | 'localAndShadow'>(
-		hasShadow ? 'localAndShadow' : topPatch?.status ?? 'local'
-	);
+	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
 	const lineColor = $derived(getColorFromBranchType(branchType));
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can

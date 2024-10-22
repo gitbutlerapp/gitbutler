@@ -13,7 +13,7 @@
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import { DetailedCommit, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -79,6 +79,10 @@
 		}
 		branchController.insertBlankCommit($branch.id, commitId, location === 'above' ? -1 : 1);
 	}
+
+	const topPatch = $derived(patches[0]);
+	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
+	const isBranchIntegrated = $derived(branchType === 'integrated');
 </script>
 
 {#snippet reorderDropzone(dropzone: ReorderDropzone)}
@@ -168,7 +172,7 @@
 				{/each}
 			</div>
 		{/if}
-		{#if remoteOnlyPatches.length > 0 && patches.length === 0 && pushButton}
+		{#if remoteOnlyPatches.length > 0 && patches.length === 0 && !isBranchIntegrated && pushButton}
 			<CommitAction>
 				{#snippet lines()}
 					<Line line={lineManager.get(LineSpacer.LocalAndRemote)} />
