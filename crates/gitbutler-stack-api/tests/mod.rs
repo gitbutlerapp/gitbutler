@@ -291,7 +291,7 @@ fn add_series_target_change_id_doesnt_exist() -> Result<()> {
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert_eq!(
         result.err().unwrap().to_string(),
-        "Commit with change id does-not-exist not found"
+        "No commit with change id does-not-exist found",
     );
     Ok(())
 }
