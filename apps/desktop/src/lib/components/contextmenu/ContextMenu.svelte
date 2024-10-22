@@ -35,6 +35,8 @@
 	let menuPosition = $state({ x: 0, y: 0 });
 
 	export function close() {
+		if (!isVisible) return;
+
 		isVisible = false;
 		onclose && onclose();
 	}
@@ -133,8 +135,10 @@
 		tabindex="-1"
 		use:focusTrap
 		use:clickOutside={{
-			excludeElement: target,
-			handler: () => close()
+			handler: () => {
+				console.log('click outside');
+				close();
+			}
 		}}
 		use:resizeObserver={() => {
 			if (!openByMouse) setAlignByTarget();
