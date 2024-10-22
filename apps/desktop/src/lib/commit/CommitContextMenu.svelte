@@ -1,5 +1,4 @@
 <script lang="ts">
-	// import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
