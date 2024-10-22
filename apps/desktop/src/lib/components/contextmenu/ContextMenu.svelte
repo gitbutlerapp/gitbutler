@@ -135,10 +135,7 @@
 		tabindex="-1"
 		use:focusTrap
 		use:clickOutside={{
-			handler: () => {
-				console.log('click outside');
-				close();
-			}
+			handler: () => close()
 		}}
 		use:resizeObserver={() => {
 			if (!openByMouse) setAlignByTarget();

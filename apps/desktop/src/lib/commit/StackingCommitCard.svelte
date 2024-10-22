@@ -202,7 +202,13 @@
 
 {#if draggableCommitElement}
 	<ContextMenu bind:this={contextMenu} target={draggableCommitElement} openByMouse>
-		<CommitContextMenu {commit} {commitUrl} />
+		<CommitContextMenu
+			parent={contextMenu}
+			baseBranch={$baseBranch}
+			{branch}
+			{commit}
+			commitUrl={showOpenInBrowser ? commitUrl : undefined}
+		/>
 	</ContextMenu>
 {/if}
 
@@ -213,7 +219,13 @@
 		onopen={() => (isKebabContextMenuOpen = true)}
 		onclose={() => (isKebabContextMenuOpen = false)}
 	>
-		<CommitContextMenu {commit} commitUrl={showOpenInBrowser ? commitUrl : undefined} />
+		<CommitContextMenu
+			parent={kebabContextMenu}
+			baseBranch={$baseBranch}
+			{branch}
+			{commit}
+			commitUrl={showOpenInBrowser ? commitUrl : undefined}
+		/>
 	</ContextMenu>
 {/if}
 

@@ -4,6 +4,7 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
@@ -50,8 +51,8 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
-	let draggableCommitElement: HTMLElement | null = null;
-	let contextMenu: ReturnType<typeof CommitContextMenu> | undefined;
+	let draggableCommitElement: HTMLElement;
+	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
 	let files: RemoteFile[] = [];
 	let showDetails = false;
 
@@ -179,12 +180,9 @@
 	{/snippet}
 </Modal>
 
-<CommitContextMenu
-	bind:this={contextMenu}
-	targetElement={draggableCommitElement}
-	{commit}
-	{commitUrl}
-/>
+<ContextMenu bind:this={contextMenu} target={draggableCommitElement} openByMouse>
+	<CommitContextMenu baseBranch={$baseBranch} {branch} parent={contextMenu} {commit} {commitUrl} />
+</ContextMenu>
 
 <div
 	class="commit-row"
@@ -220,6 +218,7 @@
 				role="button"
 				tabindex="0"
 				on:contextmenu={(e) => {
+					e.preventDefault();
 					contextMenu?.open(e);
 				}}
 				on:dragenter={() => {
