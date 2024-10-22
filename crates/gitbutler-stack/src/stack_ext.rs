@@ -1,5 +1,7 @@
 use std::str::FromStr;
 
+use crate::Stack;
+use crate::VirtualBranchesHandle;
 use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Context;
@@ -13,8 +15,6 @@ use gitbutler_reference::Refname;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::LogUntil;
 use gitbutler_repo::RepositoryExt;
-use gitbutler_stack::Stack;
-use gitbutler_stack::VirtualBranchesHandle;
 use gix::validate::reference::name_partial;
 use gix_utils::str::decompose;
 use itertools::Itertools;

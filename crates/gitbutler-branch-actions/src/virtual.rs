@@ -28,10 +28,10 @@ use gitbutler_repo::{
     LogUntil, RepositoryExt,
 };
 use gitbutler_repo_actions::RepoActionsExt;
+use gitbutler_stack::StackExt;
 use gitbutler_stack::{
     reconcile_claims, BranchOwnershipClaims, Stack, StackId, Target, VirtualBranchesHandle,
 };
-use gitbutler_stack_api::StackExt;
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
 use std::collections::HashSet;

@@ -33,7 +33,6 @@ members = [
     "crates/gitbutler-edit-mode",
     "crates/gitbutler-cherry-pick",
     "crates/gitbutler-oxidize",
-    "crates/gitbutler-stack-api",
     "crates/gitbutler-stack",
     "crates/gitbutler-patch-reference",
 ]
@@ -91,7 +90,6 @@ gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
 gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
 gitbutler-cherry-pick = { path = "crates/gitbutler-cherry-pick" }
 gitbutler-oxidize = { path = "crates/gitbutler-oxidize" }
-gitbutler-stack-api = { path = "crates/gitbutler-stack-api" }
 gitbutler-stack = { path = "crates/gitbutler-stack" }
 gitbutler-patch-reference = { path = "crates/gitbutler-patch-reference" }
 gitbutler-forge = { path = "crates/gitbutler-forge" }

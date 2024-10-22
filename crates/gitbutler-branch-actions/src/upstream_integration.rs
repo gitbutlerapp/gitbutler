@@ -7,8 +7,8 @@ use gitbutler_repo::{
     LogUntil, RepositoryExt as _,
 };
 use gitbutler_repo_actions::RepoActionsExt as _;
+use gitbutler_stack::StackExt;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
-use gitbutler_stack_api::StackExt;
 use serde::{Deserialize, Serialize};
 
 use crate::{
