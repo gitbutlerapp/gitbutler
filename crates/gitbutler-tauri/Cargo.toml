@@ -55,6 +55,7 @@ gitbutler-watcher.workspace = true
 gitbutler-branch-actions.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-repo.workspace = true
+gitbutler-repo-actions.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-feedback.workspace = true
 gitbutler-fs.workspace = true

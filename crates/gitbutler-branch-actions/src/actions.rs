@@ -26,7 +26,8 @@ use gitbutler_oplog::{
 };
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
-use gitbutler_repo::{RepoActionsExt, RepositoryExt};
+use gitbutler_repo::RepositoryExt;
+use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, StackId};
 use std::path::PathBuf;
 use tracing::instrument;

@@ -30,4 +30,5 @@ path = "tests/mod.rs"
 [dev-dependencies]
 gitbutler-git = { workspace = true, features = ["test-askpass-path"] }
 gitbutler-testsupport.workspace = true
+gitbutler-repo-actions.workspace = true
 tempfile = "3.13"

@@ -1,6 +1,6 @@
 pub mod commands {
     use gitbutler_id::id::Id;
-    use gitbutler_repo::askpass::{self, AskpassRequest};
+    use gitbutler_repo_actions::askpass::{self, AskpassRequest};
 
     #[tauri::command(async)]
     #[tracing::instrument(skip(response))]
