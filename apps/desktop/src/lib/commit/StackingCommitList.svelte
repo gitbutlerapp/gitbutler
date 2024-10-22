@@ -136,7 +136,7 @@
 		<!-- REMAINING LOCAL, LOCALANDREMOTE, AND INTEGRATED COMMITS -->
 		{#if patches.length > 0}
 			<div class="commits-group">
-				<InsertEmptyCommitAction isFirst onclick={() => insertBlankCommit($branch.head, 'above')} />
+				<!-- <InsertEmptyCommitAction isFirst onclick={() => insertBlankCommit($branch.head, 'above')} /> -->
 
 				{@render reorderDropzone(reorderDropzoneManager.topDropzone)}
 
@@ -161,11 +161,11 @@
 					</StackingCommitDragItem>
 
 					{@render reorderDropzone(reorderDropzoneManager.dropzoneBelowCommit(commit.id))}
-
+					<!-- 
 					<InsertEmptyCommitAction
 						isLast={idx + 1 === patches.length}
 						onclick={() => insertBlankCommit(commit.id, 'below')}
-					/>
+					/> -->
 				{/each}
 			</div>
 		{/if}

@@ -7,6 +7,7 @@
 	import { type Snippet } from 'svelte';
 
 	interface Props {
+		el?: HTMLElement;
 		target?: HTMLElement;
 		openByMouse?: boolean;
 		verticalAlign?: 'top' | 'bottom';
@@ -16,7 +17,8 @@
 		onopen?: () => void;
 	}
 
-	const {
+	let {
+		el = $bindable(),
 		target,
 		openByMouse,
 		verticalAlign = 'bottom',
@@ -138,6 +140,7 @@
 			if (!openByMouse) setAlignByTarget();
 		}}
 		autofocus
+		bind:this={el}
 		bind:offsetHeight={contextMenuHeight}
 		bind:offsetWidth={contextMenuWidth}
 		class="context-menu"

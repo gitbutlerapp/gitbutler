@@ -154,25 +154,27 @@
 	}}
 />
 
-<div class="branch-header" tabindex="-1" role="article">
-	<OverflowMenuContainer class="barnch-plus-btn" isOpen={contextMenuOpened}>
+<div role="article" class="branch-header">
+	<OverflowMenuContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
 		{#if stackingFeatureMultipleSeries}
 			<OverflowMenuItem
 				icon="plus-small"
-				tooltip="Add series"
+				tooltip="Add dependent branch"
 				onclick={() => {
 					stackingAddSeriesModal?.show();
 				}}
 			/>
 		{/if}
-		<OverflowMenuItem
-			icon="open-link"
-			tooltip="Open in browser"
-			onclick={() => {
-				const url = gitHostBranch?.url;
-				if (url) openExternalUrl(url);
-			}}
-		/>
+		{#if gitHostBranch}
+			<OverflowMenuItem
+				icon="open-link"
+				tooltip="Open in browser"
+				onclick={() => {
+					const url = gitHostBranch?.url;
+					if (url) openExternalUrl(url);
+				}}
+			/>
+		{/if}
 		<OverflowMenuItem
 			bind:el={contextMenuTrigger}
 			icon="kebab"
@@ -249,15 +251,14 @@
 		display: flex;
 		align-items: center;
 		flex-direction: column;
-		/* overflow: hidden; */
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 
 		&:hover,
-		&:focus-visible {
-			& :global(.barnch-plus-btn) {
+		&:focus-within {
+			& :global(.branch-actions-menu) {
 				--show: true;
 			}
 		}
@@ -276,10 +277,6 @@
 			justify-content: flex-start;
 			min-width: 0;
 			flex-grow: 1;
-		}
-
-		& .branch-info__btns {
-			display: flex;
 		}
 
 		.remote-name {
@@ -323,28 +320,5 @@
 		min-width: 2px;
 		margin: 0 20px;
 		background-color: var(--bg-color, var(--clr-border-3));
-	}
-
-	.branch-emptystate {
-		width: 100%;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-
-		border-top: 2px solid var(--bg-color, var(--clr-border-3));
-	}
-
-	.barnch-plus-btn {
-		position: absolute;
-		top: 2px;
-		width: fit-content;
-		display: flex;
-		align-items: center;
-		transform: translateY(-45%) scale(0.8);
-		opacity: 0;
-		pointer-events: none;
-		transition:
-			opacity var(--transition-fast),
-			transform var(--transition-medium);
 	}
 </style>

@@ -3,11 +3,14 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
 	import { ModeService } from '$lib/modes/service';
+	import OverflowMenuContainer from '$lib/shared/OverflowMenu/OverflowMenuContainer.svelte';
+	import OverflowMenuItem from '$lib/shared/OverflowMenu/OverflowMenuItem.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -64,8 +67,11 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
+	let kebabMenuTrigger = $state<HTMLButtonElement>();
 	let draggableCommitElement = $state<HTMLElement>();
-	let contextMenu = $state<ReturnType<typeof CommitContextMenu>>();
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let isKebabContextMenuOpen = $state(false);
 	let files = $state<RemoteFile[]>([]);
 	let showDetails = $state(false);
 
@@ -73,8 +79,7 @@
 		files = await listRemoteCommitFiles(project.id, commit.id);
 	}
 
-	function toggleFiles(e?: MouseEvent) {
-		e?.stopPropagation();
+	function toggleFiles() {
 		if (!filesToggleable) return;
 		showDetails = !showDetails;
 
@@ -139,7 +144,27 @@
 	}
 
 	const conflicted = $derived(commit instanceof DetailedCommit && commit.conflicted);
+
+	const showOpenInBrowser = $derived(commitUrl && (type === 'remote' || type === 'localAndRemote'));
 </script>
+
+<!-- {#snippet commitContextMenuSnippet({
+	target,
+	openByMouse
+}: {
+	target: HTMLElement | undefined;
+	openByMouse: boolean;
+})}
+	{#if draggableCommitElement && target}
+		<CommitContextMenu
+			bind:this={contextMenu}
+			targetElement={target}
+			{commit}
+			{commitUrl}
+			{openByMouse}
+		/>
+	{/if}
+{/snippet} -->
 
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
 	{#snippet children(_, close)}
@@ -160,20 +185,46 @@
 	{/snippet}
 </Modal>
 
-{#if draggableCommitElement}
+<!-- {#if draggableCommitElement && contextMenuTrigger}
 	<CommitContextMenu
 		bind:this={contextMenu}
-		targetElement={draggableCommitElement}
+		targetElement={contextMenuTrigger}
 		{commit}
 		{commitUrl}
+		openByMouse={openContextMenuByMouse}
 	/>
+{/if} -->
+
+<!-- {@render commitContextMenuSnippet({
+	target: kebabMenuTrigger,
+	openByMouse: false
+})} -->
+
+{#if draggableCommitElement}
+	<ContextMenu bind:this={contextMenu} target={draggableCommitElement} openByMouse>
+		<CommitContextMenu {commit} {commitUrl} />
+	</ContextMenu>
+{/if}
+
+{#if kebabMenuTrigger}
+	<ContextMenu
+		bind:this={kebabContextMenu}
+		target={kebabMenuTrigger}
+		onopen={() => (isKebabContextMenuOpen = true)}
+		onclose={() => (isKebabContextMenuOpen = false)}
+	>
+		<CommitContextMenu {commit} commitUrl={showOpenInBrowser ? commitUrl : undefined} />
+	</ContextMenu>
 {/if}
 
 <div
 	class="commit-row"
 	class:is-commit-open={showDetails}
 	class:is-last={last}
-	onclick={toggleFiles}
+	onclick={(e) => {
+		e.preventDefault();
+		toggleFiles();
+	}}
 	onkeyup={onKeyup}
 	role="button"
 	tabindex="0"
@@ -223,6 +274,17 @@
 		</div>
 	{/if}
 
+	<OverflowMenuContainer class="commit-actions-menu" thin stayOpen={isKebabContextMenuOpen}>
+		<OverflowMenuItem
+			bind:el={kebabMenuTrigger}
+			icon="kebab"
+			tooltip="More options"
+			onclick={(e) => {
+				kebabContextMenu?.open(e);
+			}}
+		/>
+	</OverflowMenuContainer>
+
 	<div class="commit-card" class:is-last={last}>
 		<!-- GENERAL INFO -->
 		<div
@@ -231,17 +293,10 @@
 			role="button"
 			tabindex="-1"
 			oncontextmenu={(e) => {
+				e.preventDefault();
 				contextMenu?.open(e);
 			}}
 		>
-			{#if !isUnapplied}
-				{#if type === 'local' || type === 'localAndRemote'}
-					<div class="commit__drag-icon">
-						<Icon name="draggable-narrow" />
-					</div>
-				{/if}
-			{/if}
-
 			{#if isUndoable && !commit.descriptionTitle}
 				<span class="text-13 text-body text-semibold commit__empty-title">empty commit message</span
 				>
@@ -295,7 +350,7 @@
 						</div>
 					</button>
 
-					{#if showDetails && commitUrl}
+					{#if showDetails && showOpenInBrowser}
 						<span class="commit__subtitle-divider">•</span>
 
 						<button
@@ -386,11 +441,16 @@
 		gap: 10px;
 		width: 100%;
 		background-color: var(--clr-bg-1);
-
 		transition: background-color var(--transition-fast);
 
 		&:focus {
 			outline: none;
+		}
+
+		&:hover {
+			& :global(.commit-actions-menu) {
+				--show: true;
+			}
 		}
 
 		&:not(.is-commit-open) {

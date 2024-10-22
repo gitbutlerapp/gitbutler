@@ -3,29 +3,27 @@
 
 	interface Props {
 		class?: string;
-		isOpen?: boolean;
-		children: Snippet;
+		stayOpen?: boolean;
+		thin?: boolean;
+		children: Snippet<[thin: boolean]>;
 	}
 
-	const { class: className = '', isOpen, children }: Props = $props();
+	const { class: className = '', stayOpen, thin = false, children }: Props = $props();
 </script>
 
-<div class="overflow-actions {className}" class:show={isOpen}>
-	{@render children()}
+<div role="group" class="overflow-actions {className}" class:show={stayOpen}>
+	{@render children(thin)}
 </div>
 
 <style lang="postcss">
 	.overflow-actions {
 		--show: initial;
-		display: flex;
+
+		z-index: var(--z-lifted);
 		position: absolute;
 		top: -9px;
-		right: 14px;
-		background-color: var(--clr-bg-1);
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
-		overflow: hidden;
-		/* animated props */
+		right: 10px;
+		display: flex;
 		pointer-events: var(--show, none);
 		opacity: var(--show, 0);
 		transform: var(--show, translateY(2px));
@@ -34,8 +32,15 @@
 			opacity var(--transition-fast),
 			transform var(--transition-medium);
 
-		:global(span:first-child .header-menu__btn) {
-			border-left: none;
+		:global(:first-child .overflow-actions-btn) {
+			border-top-left-radius: var(--radius-m);
+			border-bottom-left-radius: var(--radius-m);
+		}
+
+		:global(:last-child .overflow-actions-btn) {
+			border-top-right-radius: var(--radius-m);
+			border-bottom-right-radius: var(--radius-m);
+			border-right: 1px solid var(--clr-border-2);
 		}
 	}
 

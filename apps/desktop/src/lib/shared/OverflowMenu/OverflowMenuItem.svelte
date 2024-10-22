@@ -7,41 +7,64 @@
 		el?: HTMLButtonElement;
 		icon: keyof typeof iconsJson;
 		tooltip: string;
-		onclick: () => void;
+		thin?: boolean;
+		onclick: (e: MouseEvent) => void;
 	}
 
-	let { el = $bindable(), icon, tooltip, onclick }: Props = $props();
+	let { el = $bindable(), icon, tooltip, thin, onclick }: Props = $props();
 </script>
 
 <Tooltip text={tooltip} position="top" delay={200}>
 	<button
 		bind:this={el}
 		data-clickable="true"
-		class="overflow-actions-btn"
+		class="overflow-actions-btn focus-state"
+		class:thin
 		onclick={(e) => {
 			e.preventDefault();
 			e.stopPropagation();
-
-			onclick();
+			onclick(e);
 		}}
 	>
-		<Icon name={icon} />
+		<div class="overflow-actions-btn__icon">
+			<Icon name={icon} />
+		</div>
 	</button>
 </Tooltip>
 
 <style lang="postcss">
 	.overflow-actions-btn {
-		padding: 3px 4px;
+		padding: 3px 5px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
 		color: var(--clr-text-1);
-		opacity: 0.5;
+
+		background-color: var(--clr-bg-1);
 		border-left: 1px solid var(--clr-border-2);
+		border-top: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-2);
+		transition:
+			background-color var(--transition-fast),
+			opacity var(--transition-fast);
 
 		&:hover {
 			background-color: var(--clr-bg-1-muted);
-			opacity: 0.8;
+
+			.overflow-actions-btn__icon {
+				opacity: 1;
+			}
 		}
+	}
+
+	.overflow-actions-btn.thin {
+		padding: 0px 4px;
+		background-color: red;
+	}
+
+	.overflow-actions-btn__icon {
+		pointer-events: none;
+		display: flex;
+		opacity: 0.5;
 	}
 </style>
