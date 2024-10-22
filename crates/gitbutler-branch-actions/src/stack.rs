@@ -215,6 +215,9 @@ pub(crate) fn stack_series(
             )?;
             patches.push(vcommit);
         }
+        // There should be no duplicates, but dedup because the UI cant handle duplicates
+        patches.dedup_by(|a, b| a.id == b.id);
+
         let mut upstream_patches = vec![];
         if let Some(upstream_reference) = upstream_reference.clone() {
             let remote_head = ctx
@@ -244,6 +247,9 @@ pub(crate) fn stack_series(
             }
         }
         upstream_patches.reverse();
+        // There should be no duplicates, but dedup because the UI cant handle duplicates
+        upstream_patches.dedup_by(|a, b| a.id == b.id);
+
         if !upstream_patches.is_empty() {
             requires_force = true;
         }
