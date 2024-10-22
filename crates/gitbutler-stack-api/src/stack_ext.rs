@@ -12,7 +12,6 @@ use gitbutler_reference::normalize_branch_name;
 use gitbutler_reference::Refname;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::LogUntil;
-use gitbutler_repo::RepoActionsExt;
 use gitbutler_repo::RepositoryExt;
 use gitbutler_stack::Stack;
 use gitbutler_stack::VirtualBranchesHandle;
@@ -122,14 +121,9 @@ pub trait StackExt {
         tree: Option<git2::Oid>,
     ) -> Result<()>;
 
-    /// Pushes the reference (branch) to the Stack remote as derived from the default target.
+    /// Prepares push details according to the series to be pushed (picking out the correct sha and remote refname)
     /// This operation will error out if the target has no push remote configured.
-    fn push_series(
-        &self,
-        ctx: &CommandContext,
-        branch_name: String,
-        with_force: bool,
-    ) -> Result<()>;
+    fn push_details(&self, ctx: &CommandContext, branch_name: String) -> Result<PushDetails>;
 
     /// Returns a list of all branches/series in the stack.
     /// This operation will compute the current list of local and remote commits that belong to each series.
@@ -174,6 +168,15 @@ pub struct TargetUpdate {
     /// If there are multiple heads that point to the same patch, the order can be disambiguated by specifying the `preceding_head`.
     /// Leaving this field empty will make the new head first in relation to other references pointing to this commit.
     pub preceding_head: Option<PatchReference>,
+}
+
+/// Push details to be supplied to `RepoActionsExt`'s `push` method.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PushDetails {
+    /// The commit that is being pushed.
+    pub head: git2::Oid,
+    /// A remote refname to push to.
+    pub remote_refname: RemoteRefname,
 }
 
 /// A Stack implementation for `gitbutler_branch::Branch`
@@ -417,12 +420,7 @@ impl StackExt for Stack {
         state.set_branch(self.clone())
     }
 
-    fn push_series(
-        &self,
-        ctx: &CommandContext,
-        branch_name: String,
-        with_force: bool,
-    ) -> Result<()> {
+    fn push_details(&self, ctx: &CommandContext, branch_name: String) -> Result<PushDetails> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
@@ -442,13 +440,10 @@ impl StackExt for Stack {
         let upstream_refname =
             RemoteRefname::from_str(&reference.remote_reference(remote_name.as_str())?)
                 .context("Failed to parse the remote reference for branch")?;
-        ctx.push(
-            commit.id(),
-            &upstream_refname,
-            with_force,
-            None,
-            Some(Some(self.id)),
-        )
+        Ok(PushDetails {
+            head: commit.id(),
+            remote_refname: upstream_refname,
+        })
     }
 
     fn list_series(&self, ctx: &CommandContext) -> Result<Vec<Series>> {
