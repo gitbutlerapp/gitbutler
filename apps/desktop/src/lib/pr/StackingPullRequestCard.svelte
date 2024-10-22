@@ -32,7 +32,6 @@
 	const project = getContext(Project);
 
 	const gitHostListingService = getGitHostListingService();
-
 	const prStore = $derived($gitHostListingService?.prs);
 	const prs = $derived(prStore ? $prStore : undefined);
 
@@ -52,7 +51,9 @@
 	// While the pr monitor is set to fetch updates by interval, we want
 	// frequent updates while checks are running.
 	$effect(() => {
-		if ($checks) prMonitor?.refresh();
+		if ($checks) {
+			prMonitor?.refresh();
+		}
 	});
 
 	let isMerging = $state(false);
@@ -111,7 +112,7 @@
 	});
 </script>
 
-{#if pr}
+{#if $pr}
 	<div class="pr-header">
 		<div class="text-13 text-semibold pr-header-title">
 			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
@@ -164,7 +165,7 @@
         determining "no checks will run for this PR" such that we can show the merge button
         immediately.
         -->
-		{#if pr}
+		{#if $pr}
 			<div class="pr-header-actions">
 				<MergeButton
 					wide

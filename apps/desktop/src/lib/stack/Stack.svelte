@@ -74,8 +74,6 @@
 	});
 
 	const listingService = getGitHostListingService();
-	const prMonitor = getGitHostPrMonitor();
-	const checksMonitor = getGitHostChecksMonitor();
 	const hostedListingServiceStore = getGitHostListingService();
 
 	const stackBranches = $derived(branch.series.map((s) => s.name));
@@ -87,8 +85,7 @@
 		try {
 			await branchController.pushBranch(branch.id, branch.requiresForce, true);
 			$listingService?.refresh();
-			$prMonitor?.refresh();
-			$checksMonitor?.update();
+			// TODO: Refresh prMonitor and checksMonitor upon push
 		} finally {
 			isPushingCommits = false;
 		}

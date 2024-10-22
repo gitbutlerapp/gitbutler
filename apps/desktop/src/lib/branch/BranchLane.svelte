@@ -51,13 +51,17 @@
 	const sourceBranch = $derived(listedPr?.sourceBranch);
 	const prNumber = $derived(listedPr?.number);
 
-	const gitHostPrMonitorStore = createGitHostPrMonitorStore(undefined);
-	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
-	$effect(() => gitHostPrMonitorStore.set(prMonitor));
+	if (!$stackingFeature) {
+		const gitHostPrMonitorStore = createGitHostPrMonitorStore(undefined);
+		const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
+		$effect(() => gitHostPrMonitorStore.set(prMonitor));
 
-	const gitHostChecksMonitorStore = createGitHostChecksMonitorStore(undefined);
-	const checksMonitor = $derived(sourceBranch ? $gitHost?.checksMonitor(sourceBranch) : undefined);
-	$effect(() => gitHostChecksMonitorStore.set(checksMonitor));
+		const gitHostChecksMonitorStore = createGitHostChecksMonitorStore(undefined);
+		const checksMonitor = $derived(
+			sourceBranch ? $gitHost?.checksMonitor(sourceBranch) : undefined
+		);
+		$effect(() => gitHostChecksMonitorStore.set(checksMonitor));
+	}
 
 	// BRANCH
 	const branchStore = createContextStore(VirtualBranch, branch);
