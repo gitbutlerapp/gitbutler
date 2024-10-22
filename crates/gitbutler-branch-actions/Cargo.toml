@@ -13,6 +13,7 @@ gix = { workspace = true, features = ["blob-diff", "revision"] }
 tokio.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-repo.workspace = true
+gitbutler-repo-actions.workspace = true
 gitbutler-user.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true

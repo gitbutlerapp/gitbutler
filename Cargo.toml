@@ -10,6 +10,7 @@ members = [
     "crates/gitbutler-sync",
     "crates/gitbutler-oplog",
     "crates/gitbutler-repo",
+    "crates/gitbutler-repo-actions",
     "crates/gitbutler-command-context",
     "crates/gitbutler-feedback",
     "crates/gitbutler-config",
@@ -68,6 +69,7 @@ gitbutler-branch-actions = { path = "crates/gitbutler-branch-actions" }
 gitbutler-sync = { path = "crates/gitbutler-sync" }
 gitbutler-oplog = { path = "crates/gitbutler-oplog" }
 gitbutler-repo = { path = "crates/gitbutler-repo" }
+gitbutler-repo-actions = { path = "crates/gitbutler-repo-actions" }
 gitbutler-command-context = { path = "crates/gitbutler-command-context" }
 gitbutler-feedback = { path = "crates/gitbutler-feedback" }
 gitbutler-config = { path = "crates/gitbutler-config" }

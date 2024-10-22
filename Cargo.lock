@@ -2189,6 +2189,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
+ "gitbutler-repo-actions",
  "gitbutler-serde",
  "gitbutler-stack",
  "gitbutler-stack-api",
@@ -2542,6 +2543,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-repo-actions"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-command-context",
+ "gitbutler-commit",
+ "gitbutler-error",
+ "gitbutler-git",
+ "gitbutler-id",
+ "gitbutler-project",
+ "gitbutler-reference",
+ "gitbutler-repo",
+ "gitbutler-stack",
+ "gitbutler-time",
+ "log",
+ "serde",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "gitbutler-secret"
 version = "0.0.0"
 dependencies = [
@@ -2595,6 +2618,7 @@ dependencies = [
  "gitbutler-patch-reference",
  "gitbutler-reference",
  "gitbutler-repo",
+ "gitbutler-repo-actions",
  "gitbutler-stack",
  "gitbutler-testsupport",
  "gitbutler-time",
@@ -2668,6 +2692,7 @@ dependencies = [
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
+ "gitbutler-repo-actions",
  "gitbutler-secret",
  "gitbutler-stack",
  "gitbutler-storage",
