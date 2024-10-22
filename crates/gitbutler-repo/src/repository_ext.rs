@@ -5,10 +5,10 @@ use std::os::windows::process::CommandExt;
 use std::{io::Write, path::Path, process::Stdio, str};
 
 use crate::Config;
+use crate::SignaturePurpose;
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::BString;
 use git2::{BlameOptions, StatusOptions, Tree};
-use gitbutler_branch::SignaturePurpose;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
@@ -603,9 +603,9 @@ impl RepositoryExt for git2::Repository {
             repo.committer()
                 .transpose()?
                 .map(gix_to_git2_signature)
-                .unwrap_or_else(|| gitbutler_branch::signature(SignaturePurpose::Committer))
+                .unwrap_or_else(|| crate::signature(SignaturePurpose::Committer))
         } else {
-            gitbutler_branch::signature(SignaturePurpose::Committer)
+            crate::signature(SignaturePurpose::Committer)
         }?;
 
         Ok((author, committer))

@@ -2510,7 +2510,6 @@ dependencies = [
  "base64 0.22.1",
  "bstr",
  "git2",
- "gitbutler-branch",
  "gitbutler-cherry-pick",
  "gitbutler-command-context",
  "gitbutler-commit",

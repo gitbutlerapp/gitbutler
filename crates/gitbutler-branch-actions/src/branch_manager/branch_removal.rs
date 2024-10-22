@@ -2,12 +2,13 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result};
 use git2::Commit;
-use gitbutler_branch::{BranchExt, SignaturePurpose};
+use gitbutler_branch::BranchExt;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, ReferenceName, Refname};
 use gitbutler_repo::RepositoryExt;
+use gitbutler_repo::SignaturePurpose;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{Stack, StackId};
 use tracing::instrument;
@@ -189,8 +190,8 @@ impl BranchManager<'_> {
         message.push_str("\n\n");
 
         // Commit wip commit
-        let committer = gitbutler_branch::signature(SignaturePurpose::Committer)?;
-        let author = gitbutler_branch::signature(SignaturePurpose::Author)?;
+        let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
+        let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
         let parent = branch.get().peel_to_commit()?;
 
         let commit_headers = CommitHeadersV2::new();

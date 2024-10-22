@@ -8,7 +8,6 @@ use std::{
 
 use anyhow::{anyhow, bail, Context, Result};
 use git2::{DiffOptions, FileMode};
-use gitbutler_branch::SignaturePurpose;
 use gitbutler_command_context::RepositoryExtLite;
 use gitbutler_diff::{hunks_by_filepath, FileDiff};
 use gitbutler_project::{
@@ -16,6 +15,7 @@ use gitbutler_project::{
     Project,
 };
 use gitbutler_repo::RepositoryExt;
+use gitbutler_repo::SignaturePurpose;
 use gitbutler_stack::{Stack, VirtualBranchesHandle, VirtualBranchesState};
 use tracing::instrument;
 
@@ -460,8 +460,8 @@ fn commit_snapshot(
         .and_then(|head_id| repo.find_commit(head_id).ok());
 
     // Construct a new commit
-    let committer = gitbutler_branch::signature(SignaturePurpose::Committer)?;
-    let author = gitbutler_branch::signature(SignaturePurpose::Author)?;
+    let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
+    let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
     let parents = oplog_head_commit
         .as_ref()
         .map(|head| vec![head])
