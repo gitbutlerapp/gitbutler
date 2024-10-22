@@ -3,6 +3,7 @@
 		title: string;
 		body: string;
 		draft: boolean;
+		seriesName?: string;
 	}
 </script>
 
@@ -98,6 +99,8 @@
 	let aiConfigurationValid = $state<boolean>(false);
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
 	let showAiBox = $state<boolean>(false);
+	let pushAndCreate = $state(false);
+	let seriesName = $state('');
 
 	async function handleToggleUseTemplate() {
 		if (!templateSelector) return;
@@ -144,7 +147,7 @@
 		}
 	});
 
-	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
+	export async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
 		if (!$gitHost) {
 			error('Pull request service not available');
 			return;
@@ -154,13 +157,17 @@
 		try {
 			let upstreamBranchName = upstreamName;
 
-			if (commits.some((c) => !c.isRemote)) {
+			if (pushAndCreate || commits.some((c) => !c.isRemote)) {
 				const firstPush = !branch.upstream;
 				const pushResult = await branchController.pushBranch(
 					branch.id,
 					branch.requiresForce,
 					props.type === 'preview-series'
 				);
+
+				if (pushAndCreate) {
+					upstreamBranchName = seriesName;
+				}
 
 				if (pushResult) {
 					upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
@@ -302,7 +309,9 @@
 		}, 2000);
 	}
 
-	export function show() {
+	export function show({ pushAndCreatePr = false, name = '' }) {
+		pushAndCreate = pushAndCreatePr;
+		seriesName = name;
 		modal?.show();
 	}
 
@@ -438,7 +447,9 @@
 				type="submit"
 				onclick={async () => await handleCreatePR(close)}
 			>
-				{isDraft ? 'Create pull request draft' : 'Create pull request'}
+				{isDraft
+					? 'Create pull request draft'
+					: `${pushAndCreate ? 'Push and ' : ''}Create pull request`}
 
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
