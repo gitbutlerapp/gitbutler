@@ -28,6 +28,7 @@ pub struct UpdateRequest {
     pub use_diff_context: Option<bool>,
     pub snapshot_lines_threshold: Option<usize>,
     pub git_host: Option<GitHostSettings>,
+    pub use_new_locking: Option<bool>,
 }
 
 impl Storage {
@@ -126,6 +127,10 @@ impl Storage {
 
         if let Some(git_host) = &update_request.git_host {
             project.git_host = git_host.clone();
+        }
+
+        if let Some(use_new_locking) = &update_request.use_new_locking {
+            project.use_new_locking = *use_new_locking;
         }
 
         self.inner

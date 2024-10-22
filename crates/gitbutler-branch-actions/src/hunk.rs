@@ -6,8 +6,8 @@ use std::{
 };
 
 use gitbutler_diff::{GitHunk, Hunk, HunkHash};
+use gitbutler_hunk_dependency::locks::HunkLock;
 use gitbutler_serde::BStringForFrontend;
-use gitbutler_stack::StackId;
 use itertools::Itertools;
 use md5::Digest;
 use serde::Serialize;
@@ -40,17 +40,6 @@ pub struct VirtualBranchHunk {
     pub change_type: gitbutler_diff::ChangeType,
     /// Indicates that the hunk depends on multiple branches. In this case the hunk cant be moved or comitted.
     pub poisoned: bool,
-}
-
-// A hunk is locked when it depends on changes in commits that are in your
-// workspace. A hunk can be locked to more than one branch if it overlaps
-// with more than one committed hunk.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize, Copy)]
-#[serde(rename_all = "camelCase")]
-pub struct HunkLock {
-    pub branch_id: StackId,
-    #[serde(with = "gitbutler_serde::oid")]
-    pub commit_id: git2::Oid,
 }
 
 /// Lifecycle
