@@ -3,7 +3,7 @@
 	import { createGitHostChecksMonitorStore } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { createGitHostPrMonitorStore } from '$lib/gitHost/interface/gitHostPrMonitor';
-	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
+	import { createGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
 	import type { PatchSeries } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
@@ -16,7 +16,8 @@
 
 	// Setup PR Store and Monitor on a per-series basis
 	const gitHost = getGitHost();
-	const prService = getGitHostPrService();
+	const prService = createGitHostPrServiceStore(undefined);
+	$effect(() => prService.set($gitHost?.prService()));
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
