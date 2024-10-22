@@ -721,6 +721,7 @@ pub(crate) fn reset_branch(
             .find_commit(old_head)?
             .tree()
             .map_err(anyhow::Error::from)?,
+        true,
     )?;
 
     // Assign the new hunks to the branch we're working on.
@@ -1150,7 +1151,7 @@ pub(crate) fn move_commit_file(
         // and then apply the rest to the parent tree of the "from" commit to
         // create the new "from" commit without the changes we're moving
         let from_commit_diffs =
-            gitbutler_diff::trees(ctx.repository(), &from_parent_tree, &from_tree)
+            gitbutler_diff::trees(ctx.repository(), &from_parent_tree, &from_tree, true)
                 .context("failed to diff trees")?;
 
         // filter from_commit_diffs to HashMap<filepath, Vec<GitHunk>> only for hunks NOT in target_ownership
