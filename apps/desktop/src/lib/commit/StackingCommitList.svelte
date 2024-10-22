@@ -27,8 +27,7 @@
 		seriesName: string;
 		isUnapplied: boolean;
 		pushButton?: Snippet<[{ disabled: boolean }]>;
-		localCommitsConflicted: boolean;
-		localAndRemoteCommitsConflicted: boolean;
+		hasConflicts: boolean;
 		reorderDropzoneManager: ReorderDropzoneManager;
 		isBottom?: boolean;
 	}
@@ -38,7 +37,7 @@
 		seriesName,
 		isUnapplied,
 		pushButton,
-		localAndRemoteCommitsConflicted,
+		hasConflicts,
 		reorderDropzoneManager,
 		isBottom = false
 	}: Props = $props();
@@ -175,7 +174,7 @@
 					<Line line={lineManager.get(LineSpacer.LocalAndRemote)} />
 				{/snippet}
 				{#snippet action()}
-					{@render pushButton({ disabled: localAndRemoteCommitsConflicted })}
+					{@render pushButton({ disabled: hasConflicts })}
 				{/snippet}
 			</CommitAction>
 		{/if}
