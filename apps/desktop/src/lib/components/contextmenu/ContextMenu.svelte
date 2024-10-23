@@ -34,21 +34,6 @@
 	let menuPosition = $state({ x: 0, y: 0 });
 	let savedMouseEvent: MouseEvent | undefined;
 
-	export function close() {
-		if (!isVisible) return;
-
-		isVisible = false;
-		onclose && onclose();
-	}
-
-	export function toggle(e?: MouseEvent, newItem?: any) {
-		if (!isVisible) {
-			open(e, newItem);
-		} else {
-			close();
-		}
-	}
-
 	function setVerticalAlign(targetBoundingRect: DOMRect) {
 		if (verticalAlign === 'top') {
 			return targetBoundingRect?.top ? targetBoundingRect.top - contextMenuHeight : 0;
@@ -163,11 +148,30 @@
 		}
 	}
 
+	export function close() {
+		if (!isVisible) return;
+
+		isVisible = false;
+		onclose && onclose();
+	}
+
+	export function toggle(e?: MouseEvent, newItem?: any) {
+		if (!isVisible) {
+			open(e, newItem);
+		} else {
+			close();
+		}
+	}
+
 	$effect(() => {
-		if (isVisible && openByMouse) {
-			if (contextMenuHeight > 0 && contextMenuWidth > 0) {
-				setAlignByMouse(savedMouseEvent);
+		if (isVisible) {
+			if (openByMouse) {
+				if (contextMenuHeight > 0 && contextMenuWidth > 0) {
+					setAlignByMouse(savedMouseEvent);
+				}
 			}
+		} else {
+			savedMouseEvent = undefined;
 		}
 	});
 

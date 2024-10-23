@@ -289,6 +289,7 @@
 	<OverflowMenuContainer class="commit-actions-menu" thin stayOpen={isKebabContextMenuOpen}>
 		<OverflowMenuItem
 			bind:el={kebabMenuTrigger}
+			activated={isKebabContextMenuOpen}
 			icon="kebab"
 			tooltip="More options"
 			onclick={(e) => {

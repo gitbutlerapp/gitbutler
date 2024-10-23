@@ -8,10 +8,11 @@
 		icon: keyof typeof iconsJson;
 		tooltip: string;
 		thin?: boolean;
+		activated?: boolean;
 		onclick: (e: MouseEvent) => void;
 	}
 
-	let { el = $bindable(), icon, tooltip, thin, onclick }: Props = $props();
+	let { el = $bindable(), icon, tooltip, thin, activated, onclick }: Props = $props();
 </script>
 
 <Tooltip text={tooltip} position="top" delay={200}>
@@ -20,6 +21,7 @@
 		data-clickable="true"
 		class="overflow-actions-btn focus-state"
 		class:thin
+		class:activated
 		onclick={(e) => {
 			e.preventDefault();
 			e.stopPropagation();
@@ -48,7 +50,8 @@
 			background-color var(--transition-fast),
 			opacity var(--transition-fast);
 
-		&:hover {
+		&:hover,
+		&.activated {
 			background-color: var(--clr-bg-1-muted);
 
 			.overflow-actions-btn__icon {

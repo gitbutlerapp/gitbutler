@@ -1,11 +1,12 @@
 <script lang="ts" module>
 	export interface Props {
+		id?: string | undefined;
 		el?: HTMLElement;
 		// Interaction props
 		disabled?: boolean;
 		clickable?: boolean;
-		id?: string | undefined;
 		loading?: boolean;
+		activated?: boolean;
 		tabindex?: number | undefined;
 		type?: 'submit' | 'reset' | 'button' | undefined;
 		// Layout props
@@ -57,6 +58,7 @@
 		clickable = true,
 		id = undefined,
 		loading = false,
+		activated = false,
 		tabindex,
 		type = 'button',
 		shrinkable = false,
@@ -111,6 +113,7 @@
 		class:is-dropdown={dropdownChild}
 		class:not-clickable={!clickable}
 		class:fixed-width={!children && !wide}
+		class:activated
 		style:align-self={align}
 		style:width={width !== undefined ? pxToRem(width) : undefined}
 		style:max-width={maxWidth !== undefined ? pxToRem(maxWidth) : undefined}
@@ -236,7 +239,8 @@
 		--btn-text-clr: var(--clr-theme-ntrl-on-soft);
 		--btn-bg: transparent;
 
-		&:not(.not-clickable, &:disabled):hover {
+		&:not(.not-clickable, &:disabled):hover,
+		&.activated {
 			--icon-opacity: 0.6;
 			--btn-bg: var(--clr-bg-1-muted);
 		}
@@ -261,7 +265,8 @@
 			--btn-bg: var(--clr-theme-ntrl-soft);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover,
+			&.activated {
 				--icon-opacity: 0.6;
 				--btn-bg: var(--clr-theme-ntrl-soft-hover);
 			}
@@ -285,7 +290,8 @@
 			--btn-text-clr: var(--clr-theme-pop-on-soft);
 			--btn-bg: var(--clr-theme-pop-soft);
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover,
+			&.activated {
 				--icon-opacity: 0.7;
 				--btn-bg: var(--clr-theme-pop-soft-hover);
 			}
@@ -295,7 +301,8 @@
 			--btn-text-clr: var(--clr-theme-pop-on-element);
 			--btn-bg: var(--clr-theme-pop-element);
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover,
+			&.activated {
 				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-pop-element-hover);
 			}
@@ -308,7 +315,8 @@
 			--btn-text-clr: var(--clr-theme-succ-on-soft);
 			--btn-bg: var(--clr-theme-succ-soft);
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover,
+			&.activated {
 				--icon-opacity: 0.7;
 				--btn-bg: var(--clr-theme-succ-soft-hover);
 			}
@@ -318,7 +326,8 @@
 			--btn-text-clr: var(--clr-theme-succ-on-element);
 			--btn-bg: var(--clr-theme-succ-element);
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover,
+			&.activated {
 				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-succ-element-hover);
 			}
@@ -331,7 +340,8 @@
 			--btn-text-clr: var(--clr-theme-err-on-soft);
 			--btn-bg: var(--clr-theme-err-soft);
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover,
+			&.activated {
 				--icon-opacity: 0.7;
 				--btn-bg: var(--clr-theme-err-soft-hover);
 			}
@@ -341,7 +351,8 @@
 			--btn-text-clr: var(--clr-theme-err-on-element);
 			--btn-bg: var(--clr-theme-err-element);
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover,
+			&.activated {
 				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-err-element-hover);
 			}
@@ -354,7 +365,8 @@
 			--btn-text-clr: var(--clr-theme-warn-on-soft);
 			--btn-bg: var(--clr-theme-warn-soft);
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover,
+			&.activated {
 				--icon-opacity: 0.7;
 				--btn-bg: var(--clr-theme-warn-soft-hover);
 			}
@@ -364,7 +376,8 @@
 			--btn-text-clr: var(--clr-theme-warn-on-element);
 			--btn-bg: var(--clr-theme-warn-element);
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover,
+			&.activated {
 				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-warn-element-hover);
 			}
@@ -377,7 +390,8 @@
 			--btn-text-clr: var(--clr-theme-purp-on-soft);
 			--btn-bg: var(--clr-theme-purp-soft);
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover,
+			&.activated {
 				--icon-opacity: 0.7;
 				--btn-bg: var(--clr-theme-purp-soft-hover);
 			}
@@ -387,7 +401,8 @@
 			--btn-text-clr: var(--clr-theme-purp-on-element);
 			--btn-bg: var(--clr-theme-purp-element);
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
+			&:not(.not-clickable, &:disabled):hover,
+			&.activated {
 				--icon-opacity: 0.9;
 				--btn-bg: var(--clr-theme-purp-element-hover);
 			}

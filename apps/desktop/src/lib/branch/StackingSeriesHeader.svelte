@@ -177,6 +177,7 @@
 		{/if}
 		<OverflowMenuItem
 			bind:el={contextMenuTrigger}
+			activated={contextMenuOpened}
 			icon="kebab"
 			tooltip="More options"
 			onclick={() => {
