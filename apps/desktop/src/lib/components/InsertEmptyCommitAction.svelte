@@ -80,7 +80,7 @@
 	.barnch-plus-btn {
 		position: absolute;
 		top: 50%;
-		right: 14px;
+		right: 24px;
 		width: fit-content;
 		display: flex;
 		align-items: center;
