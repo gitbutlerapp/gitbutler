@@ -27,6 +27,7 @@
 			e.stopPropagation();
 			onclick(e);
 		}}
+		oncontextmenu={(e) => e.preventDefault()}
 	>
 		<div class="overflow-actions-btn__icon">
 			<Icon name={icon} />
