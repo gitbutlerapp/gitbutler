@@ -17,9 +17,9 @@
 	}
 </script>
 
-<button class="accordion" onclick={toggle}>
+<div class="accordion">
 	{#if count !== 1}
-		<div class="accordion-row header">
+		<button class="accordion-row header" onclick={toggle}>
 			<div class="accordion-row__line">
 				<div class="dots">
 					{#if !isOpen}
@@ -48,7 +48,7 @@
 				<h5 class="text-13 text-body text-semibold title">Upstream commits</h5>
 				<Icon name={isOpen ? 'chevron-up' : 'chevron-down'} />
 			</div>
-		</div>
+		</button>
 	{/if}
 	{#if isOpen}
 		<div class="accordion-children">
@@ -62,7 +62,7 @@
 			</div>
 		</div>
 	{/if}
-</button>
+</div>
 
 <style>
 	.accordion {
