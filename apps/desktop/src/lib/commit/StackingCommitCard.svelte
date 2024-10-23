@@ -9,8 +9,8 @@
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
 	import { ModeService } from '$lib/modes/service';
-	import OverflowMenuContainer from '$lib/shared/OverflowMenu/OverflowMenuContainer.svelte';
-	import OverflowMenuItem from '$lib/shared/OverflowMenu/OverflowMenuItem.svelte';
+	import PopoverActionsContainer from '$lib/shared/popoverActions/PopoverActionsContainer.svelte';
+	import PopoverActionsItem from '$lib/shared/popoverActions/PopoverActionsItem.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -255,8 +255,8 @@
 		</div>
 	{/if}
 
-	<OverflowMenuContainer class="commit-actions-menu" thin stayOpen={isKebabContextMenuOpen}>
-		<OverflowMenuItem
+	<PopoverActionsContainer class="commit-actions-menu" thin stayOpen={isKebabContextMenuOpen}>
+		<PopoverActionsItem
 			bind:el={kebabMenuTrigger}
 			activated={isKebabContextMenuOpen}
 			icon="kebab"
@@ -266,7 +266,7 @@
 				kebabContextMenu?.open(e);
 			}}
 		/>
-	</OverflowMenuContainer>
+	</PopoverActionsContainer>
 
 	<div class="commit-card" class:is-last={last}>
 		<!-- GENERAL INFO -->

@@ -18,8 +18,8 @@
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import StackingPullRequestCard from '$lib/pr/StackingPullRequestCard.svelte';
 	import { isFailure } from '$lib/result';
-	import OverflowMenuContainer from '$lib/shared/OverflowMenu/OverflowMenuContainer.svelte';
-	import OverflowMenuItem from '$lib/shared/OverflowMenu/OverflowMenuItem.svelte';
+	import PopoverActionsContainer from '$lib/shared/popoverActions/PopoverActionsContainer.svelte';
+	import PopoverActionsItem from '$lib/shared/popoverActions/PopoverActionsItem.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
@@ -143,9 +143,9 @@
 />
 
 <div role="article" class="branch-header" oncontextmenu={(e) => e.preventDefault()}>
-	<OverflowMenuContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
+	<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
 		{#if stackingFeatureMultipleSeries}
-			<OverflowMenuItem
+			<PopoverActionsItem
 				icon="plus-small"
 				tooltip="Add dependent branch"
 				onclick={() => {
@@ -154,7 +154,7 @@
 			/>
 		{/if}
 		{#if gitHostBranch}
-			<OverflowMenuItem
+			<PopoverActionsItem
 				icon="open-link"
 				tooltip="Open in browser"
 				onclick={() => {
@@ -163,7 +163,7 @@
 				}}
 			/>
 		{/if}
-		<OverflowMenuItem
+		<PopoverActionsItem
 			bind:el={kebabContextMenuTrigger}
 			activated={contextMenuOpened}
 			icon="kebab"
@@ -172,7 +172,7 @@
 				kebabContextMenu?.toggle();
 			}}
 		/>
-	</OverflowMenuContainer>
+	</PopoverActionsContainer>
 
 	<div class="branch-info">
 		<StackingStatusIcon
