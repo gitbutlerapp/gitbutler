@@ -117,6 +117,13 @@
 					contextMenuEl?.close();
 				}}
 			/>
+			<ContextMenuItem
+				label="Copy PR link"
+				onclick={() => {
+					reloadPR?.();
+					contextMenuEl?.close();
+				}}
+			/>
 		</ContextMenuSection>
 	{/if}
 </ContextMenu>

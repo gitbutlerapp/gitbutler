@@ -52,9 +52,9 @@
 	const branch = $derived($branchStore);
 
 	let stackingAddSeriesModal = $state<ReturnType<typeof StackingAddSeriesModal>>();
-	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
-	let contextMenuTrigger = $state<HTMLButtonElement>();
+	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
 
 	let contextMenuOpened = $state(false);
 
@@ -128,8 +128,8 @@
 <StackingAddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={currentSeries.name} />
 
 <StackingSeriesHeaderContextMenu
-	bind:contextMenuEl={contextMenu}
-	target={contextMenuTrigger}
+	bind:contextMenuEl={kebabContextMenu}
+	target={kebabContextMenuTrigger}
 	headName={currentSeries.name}
 	seriesCount={branch.series?.length ?? 0}
 	{addDescription}
@@ -142,7 +142,7 @@
 	onclose={() => (contextMenuOpened = false)}
 />
 
-<div role="article" class="branch-header">
+<div role="article" class="branch-header" oncontextmenu={(e) => e.preventDefault()}>
 	<OverflowMenuContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
 		{#if stackingFeatureMultipleSeries}
 			<OverflowMenuItem
@@ -164,12 +164,12 @@
 			/>
 		{/if}
 		<OverflowMenuItem
-			bind:el={contextMenuTrigger}
+			bind:el={kebabContextMenuTrigger}
 			activated={contextMenuOpened}
 			icon="kebab"
 			tooltip="More options"
 			onclick={() => {
-				contextMenu?.toggle();
+				kebabContextMenu?.toggle();
 			}}
 		/>
 	</OverflowMenuContainer>
