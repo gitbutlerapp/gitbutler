@@ -81,7 +81,7 @@
 	}
 
 	function handleOpenPR(pushAndCreatePr: boolean = false) {
-		prDetailsModal?.show({ pushAndCreatePr, name: currentSeries.name });
+		prDetailsModal?.show(pushAndCreatePr);
 	}
 
 	function editTitle(title: string) {
