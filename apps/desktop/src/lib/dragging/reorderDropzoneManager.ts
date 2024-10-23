@@ -76,7 +76,7 @@ class Indexer {
 	get(key: string) {
 		const index = this.getIndex(key);
 
-		return new Entry(this.commitIndexes, index);
+		return new Entry(this.commitIndexes, index ?? 0);
 	}
 
 	private getIndex(key: string) {
@@ -90,9 +90,11 @@ class Indexer {
 		} else {
 			const index = this.dropzoneIndexes.get(key);
 
-			if (index === undefined) {
-				throw new Error(`Commit ${key} not found in dropzoneIndexes`);
-			}
+			// TODO: Improve reactivity of dropzoneIndexes
+			// Handle integrated state and dont error
+			// if (index === undefined) {
+			// 	throw new Error(`Commit ${key} not found in dropzoneIndexes`);
+			// }
 
 			return index;
 		}
