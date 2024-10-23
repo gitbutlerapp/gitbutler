@@ -80,8 +80,8 @@
 		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
 	}
 
-	function handleOpenPR(pushAndCreatePr: boolean = false) {
-		prDetailsModal?.show(pushAndCreatePr);
+	function handleOpenPR(pushBeforeCreate: boolean = false) {
+		prDetailsModal?.show(pushBeforeCreate);
 	}
 
 	function editTitle(title: string) {
