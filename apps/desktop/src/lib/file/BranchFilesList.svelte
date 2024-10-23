@@ -126,7 +126,7 @@
 	</div>
 {/if}
 
-{#if displayedFiles.length > 0}
+{#if displayedFiles.length > 0 || (conflictedFiles?.entries.size || 0) > 0}
 	<!-- Maximum amount for initial render is 100 files
 	`minTriggerCount` set to 80 in order to start the loading a bit earlier. -->
 
