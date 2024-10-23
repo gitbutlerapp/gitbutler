@@ -15,9 +15,21 @@
 		branch: VirtualBranch | undefined;
 		commit: DetailedCommit | Commit;
 		commitUrl: string | undefined;
+		onUncommitClick: (event: MouseEvent) => void;
+		onEditMessageClick: (event: MouseEvent) => void;
+		onPatchEditClick: (event: MouseEvent) => void;
 	}
 
-	const { parent, baseBranch, branch, commit, commitUrl }: Props = $props();
+	const {
+		parent,
+		baseBranch,
+		branch,
+		commit,
+		commitUrl,
+		onUncommitClick,
+		onEditMessageClick,
+		onPatchEditClick
+	}: Props = $props();
 
 	const branchController = getContext(BranchController);
 
@@ -30,6 +42,29 @@
 	}
 </script>
 
+<ContextMenuSection>
+	<ContextMenuItem
+		label="Uncommit"
+		onclick={(e: MouseEvent) => {
+			onUncommitClick(e);
+			parent.close();
+		}}
+	/>
+	<ContextMenuItem
+		label="Edit commit message"
+		onclick={(e: MouseEvent) => {
+			onEditMessageClick(e);
+			parent.close();
+		}}
+	/>
+	<ContextMenuItem
+		label="Edit patch"
+		onclick={(e: MouseEvent) => {
+			onPatchEditClick(e);
+			parent.close();
+		}}
+	/>
+</ContextMenuSection>
 <ContextMenuSection>
 	{#if commitUrl}
 		<ContextMenuItem

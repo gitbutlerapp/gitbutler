@@ -46,7 +46,6 @@
 			return targetBoundingRect?.left ? targetBoundingRect.left : 0;
 		}
 
-		console.log('left', targetBoundingRect.left, targetBoundingRect.width, contextMenuWidth);
 		return targetBoundingRect?.left
 			? targetBoundingRect.left + targetBoundingRect.width - contextMenuWidth
 			: 0;
@@ -73,7 +72,6 @@
 
 		// Check if the menu exceeds the window's bottom edge
 		const exceedsBottom = newMenuPosition.y + contextMenuHeight > window.innerHeight;
-		console.log('e', newMenuPosition.y, window.innerHeight, contextMenuHeight);
 		if (exceedsBottom) {
 			newMenuPosition.y = window.innerHeight - contextMenuHeight - menuOffset;
 		}

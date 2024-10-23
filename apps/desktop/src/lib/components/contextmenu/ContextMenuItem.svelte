@@ -8,7 +8,7 @@
 		label: string;
 		disabled?: boolean;
 		control?: Snippet;
-		onclick: () => void;
+		onclick: (e: MouseEvent) => void;
 	}
 
 	const { onclick, icon = undefined, label, disabled, control }: Props = $props();

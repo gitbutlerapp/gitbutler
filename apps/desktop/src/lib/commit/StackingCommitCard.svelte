@@ -109,11 +109,9 @@
 	let commitMessageValid = $state(false);
 	let description = $state('');
 
-	function openCommitMessageModal(e: Event) {
+	function openCommitMessageModal(e: MouseEvent) {
 		e.stopPropagation();
-
 		description = commit.description;
-
 		commitMessageModal?.show();
 	}
 
@@ -129,6 +127,12 @@
 
 	const commitShortSha = commit.id.substring(0, 7);
 
+	function handleUncommit(e: MouseEvent) {
+		e.stopPropagation();
+		currentCommitMessage.set(commit.description);
+		undoCommit(commit);
+	}
+
 	function canEdit() {
 		if (isUnapplied) return false;
 		if (!modeService) return false;
@@ -139,7 +143,6 @@
 
 	async function editPatch() {
 		if (!canEdit()) return;
-
 		modeService!.enterEditMode(commit.id, branch!.refname);
 	}
 
@@ -187,15 +190,24 @@
 	{/snippet}
 </Modal>
 
-{#if draggableCommitElement}
-	<ContextMenu bind:this={contextMenu} target={draggableCommitElement} openByMouse>
+{#snippet commitContextMenuSnippet(parent: ReturnType<typeof ContextMenu>)}
+	{#if contextMenu}
 		<CommitContextMenu
-			parent={contextMenu}
+			{parent}
 			baseBranch={$baseBranch}
 			{branch}
 			{commit}
 			commitUrl={showOpenInBrowser ? commitUrl : undefined}
+			onUncommitClick={handleUncommit}
+			onEditMessageClick={openCommitMessageModal}
+			onPatchEditClick={handleEditPatch}
 		/>
+	{/if}
+{/snippet}
+
+{#if draggableCommitElement}
+	<ContextMenu bind:this={contextMenu} target={draggableCommitElement} openByMouse>
+		{@render commitContextMenuSnippet(contextMenu)}
 	</ContextMenu>
 {/if}
 
@@ -206,13 +218,7 @@
 		onopen={() => (isKebabContextMenuOpen = true)}
 		onclose={() => (isKebabContextMenuOpen = false)}
 	>
-		<CommitContextMenu
-			parent={kebabContextMenu}
-			baseBranch={$baseBranch}
-			{branch}
-			{commit}
-			commitUrl={showOpenInBrowser ? commitUrl : undefined}
-		/>
+		{@render commitContextMenuSnippet(kebabContextMenu)}
 	</ContextMenu>
 {/if}
 
@@ -366,9 +372,7 @@
 										outline
 										icon="undo-small"
 										onclick={(e: MouseEvent) => {
-											currentCommitMessage.set(commit.description);
-											e.stopPropagation();
-											undoCommit(commit);
+											handleUncommit(e);
 										}}>Uncommit</Button
 									>
 								{/if}
@@ -377,7 +381,9 @@
 									style="ghost"
 									outline
 									icon="edit-small"
-									onclick={openCommitMessageModal}>Edit message</Button
+									onclick={(e: MouseEvent) => {
+										openCommitMessageModal(e);
+									}}>Edit message</Button
 								>
 							{/if}
 							{#if canEdit()}
