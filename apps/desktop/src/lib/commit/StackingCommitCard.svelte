@@ -230,6 +230,10 @@
 		e.preventDefault();
 		toggleFiles();
 	}}
+	oncontextmenu={(e) => {
+		e.preventDefault();
+		contextMenu?.open(e);
+	}}
 	onkeyup={onKeyup}
 	role="button"
 	tabindex="0"
@@ -266,16 +270,7 @@
 
 	<div class="commit-card" class:is-last={last}>
 		<!-- GENERAL INFO -->
-		<div
-			bind:this={draggableCommitElement}
-			class="commit__header"
-			role="button"
-			tabindex="-1"
-			oncontextmenu={(e) => {
-				e.preventDefault();
-				contextMenu?.open(e);
-			}}
-		>
+		<div bind:this={draggableCommitElement} class="commit__header" role="button" tabindex="-1">
 			{#if isUndoable && !commit.descriptionTitle}
 				<span class="text-13 text-body text-semibold commit__empty-title">empty commit message</span
 				>
