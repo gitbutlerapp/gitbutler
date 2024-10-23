@@ -14,6 +14,7 @@ static mut GLOBAL_ASKPASS_BROKER: Option<AskpassBroker> = None;
 /// before any other function from this module is called. **Calls to [`get_broker`] before [`init`] will panic.**
 ///
 /// This function is **NOT** thread safe.
+#[allow(static_mut_refs)]
 pub unsafe fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 'static) {
     GLOBAL_ASKPASS_BROKER.replace(AskpassBroker::init(submit_prompt));
 }
@@ -22,6 +23,7 @@ pub unsafe fn init(submit_prompt: impl Fn(PromptEvent<Context>) + Send + Sync + 
 ///
 /// # Panics
 /// Will panic if [`init`] was not called before this function.
+#[allow(static_mut_refs)]
 pub fn get_broker() -> &'static AskpassBroker {
     unsafe {
         GLOBAL_ASKPASS_BROKER
