@@ -745,7 +745,7 @@ fn stack_patches(
 /// Validates the name of the stack head.
 /// The name must be:
 ///  - unique within all stacks
-///  - not the same as any existing git reference
+///  - not the same as any existing local git reference (it is permitted for the name to match an existing remote reference)
 ///  - not including the `refs/heads/` prefix
 fn validate_name(
     reference: &PatchReference,
@@ -761,20 +761,6 @@ fn validate_name(
     name_partial(reference.name.as_str().into()).context("Invalid branch name")?;
     // assert that there is no local git reference with this name
     if reference_exists(ctx, &reference.name)? {
-        // Allow the reference overlap if it is the same as the legacy branch ref
-        if legacy_branch_ref != Some(reference.name.clone()) {
-            return Err(anyhow!(
-                "A git reference with the name {} exists",
-                &reference.name
-            ));
-        }
-    }
-    let default_target = state.get_default_target()?;
-    // assert that there is no remote git reference with this name
-    if reference_exists(
-        ctx,
-        &reference.remote_reference(&default_target.push_remote_name())?,
-    )? {
         // Allow the reference overlap if it is the same as the legacy branch ref
         if legacy_branch_ref != Some(reference.name.clone()) {
             return Err(anyhow!(
