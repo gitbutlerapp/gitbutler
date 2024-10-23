@@ -1,5 +1,6 @@
 {
   inputs = {
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
     unstablePkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     rust-overlay = {
@@ -9,7 +10,7 @@
       };
     };
   };
-  outputs = { self, unstablePkgs, flake-utils, rust-overlay }:
+  outputs = { self, unstablePkgs, nixpkgs, flake-utils, rust-overlay }:
     flake-utils.lib.eachDefaultSystem
       (system:
         let
@@ -17,10 +18,13 @@
           unstable = import unstablePkgs {
             inherit system overlays;
           };
+          pkgs = import nixpkgs {
+            inherit system overlays;
+          };
 
           rustToolchain = unstable.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
 
-          common = with unstable; [
+          common = with pkgs; [
             gtk3
             glib
             glib-networking
@@ -37,7 +41,7 @@
           ];
 
           # runtime Deps
-          libraries = with unstable;[
+          libraries = with pkgs; [
             cairo
             pango
             harfbuzz
@@ -45,7 +49,7 @@
           ] ++ common;
 
           # compile-time deps
-          packages = with unstable; [
+          packages = with pkgs; [
             curl
             wget
             pkg-config
