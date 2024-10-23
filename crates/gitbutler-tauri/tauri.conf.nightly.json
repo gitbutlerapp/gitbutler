@@ -38,7 +38,7 @@
 			"csp": {
 				"default-src": "'self'",
 				"img-src": "'self' asset: https://asset.localhost data: tauri://localhost https://avatars.githubusercontent.com https://*.gitbutler.com  https://gitbutler-public.s3.amazonaws.com https://*.gravatar.com https://io.wp.com https://i0.wp.com https://i1.wp.com https://i2.wp.com https://i3.wp.com https://github.com https://*.googleusercontent.com",
-				"connect-src": "'self' https://eu.posthog.com https://eu.i.posthog.com https://app.gitbutler.com https://o4504644069687296.ingest.sentry.io ws://localhost:7703 https://github.com https://api.github.com https://api.openai.com",
+				"connect-src": "'self' https://eu.posthog.com https://eu.i.posthog.com https://app.gitbutler.com https://o4504644069687296.ingest.sentry.io ws://localhost:7703 https://github.com https://api.github.com https://api.openai.com https://api.anthropic.com/v1/messages",
 				"script-src": "'self' https://eu.posthog.com https://eu.i.posthog.com",
 				"style-src": "'self' 'unsafe-inline'"
 			}

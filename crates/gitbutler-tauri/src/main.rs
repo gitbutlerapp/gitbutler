@@ -77,7 +77,7 @@ fn main() {
                     // SAFETY(qix-): This is safe because we're initializing the askpass broker here,
                     // SAFETY(qix-): before any other threads would ever access it.
                     unsafe {
-                        gitbutler_repo::askpass::init({
+                        gitbutler_repo_actions::askpass::init({
                             let handle = app_handle.clone();
                             move |event| {
                                 handle

@@ -17,7 +17,7 @@
 		target?: HTMLElement;
 		headName: string;
 		seriesCount: number;
-		disableTitleEdit: boolean;
+		hasGitHostBranch: boolean;
 		hasPr: boolean;
 		addDescription: () => void;
 		onGenerateBranchName: () => void;
@@ -31,7 +31,7 @@
 		contextMenuEl = $bindable(),
 		target,
 		seriesCount,
-		disableTitleEdit,
+		hasGitHostBranch,
 		headName,
 		hasPr,
 		addDescription,
@@ -75,7 +75,7 @@
 				contextMenuEl?.close();
 			}}
 		/>
-		{#if $aiGenEnabled && aiConfigurationValid && !disableTitleEdit}
+		{#if $aiGenEnabled && aiConfigurationValid && !hasGitHostBranch}
 			<ContextMenuItem
 				label="Generate branch name"
 				onclick={() => {
@@ -84,15 +84,13 @@
 				}}
 			/>
 		{/if}
-		{#if !disableTitleEdit}
-			<ContextMenuItem
-				label="Rename"
-				onclick={async () => {
-					renameSeriesModal.show(branch);
-					contextMenuEl?.close();
-				}}
-			/>
-		{/if}
+		<ContextMenuItem
+			label="Rename"
+			onclick={async () => {
+				renameSeriesModal.show(branch);
+				contextMenuEl?.close();
+			}}
+		/>
 		{#if seriesCount > 1}
 			<ContextMenuItem
 				label="Delete"
@@ -125,7 +123,8 @@
 
 <Modal
 	width="small"
-	title="Rename branch"
+	title={hasGitHostBranch ? 'Branch has already been pushed' : 'Rename branch'}
+	type={hasGitHostBranch ? 'warning' : 'info'}
 	bind:this={renameSeriesModal}
 	onSubmit={(close) => {
 		if (newHeadName && newHeadName !== headName) {
@@ -135,6 +134,13 @@
 	}}
 >
 	<TextBox placeholder="New name" id="newSeriesName" bind:value={newHeadName} focus />
+
+	{#if hasGitHostBranch}
+		<div class="text-12 text-light helper-text">
+			Renaming a branch that has already been pushed will create a new branch at the remote. The old
+			one will remain untouched but will be disassociated from this branch.
+		</div>
+	{/if}
 
 	{#snippet controls(close)}
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
@@ -164,3 +170,11 @@
 		<Button style="error" kind="solid" type="submit" loading={isDeleting}>Delete</Button>
 	{/snippet}
 </Modal>
+
+<style>
+	.helper-text {
+		margin-top: 1rem;
+		color: var(--clr-scale-ntrl-50);
+		line-height: 1.5;
+	}
+</style>

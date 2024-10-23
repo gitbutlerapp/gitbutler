@@ -69,6 +69,7 @@ pub(crate) fn commit_to_vbranch_commit(
     let message = commit.message_bstr().to_owned();
 
     let files = list_virtual_commit_files(ctx, commit).context("failed to list commit files")?;
+    let files = large_files_abridged(files);
 
     let parent_ids: Vec<git2::Oid> = commit
         .parents()
@@ -114,4 +115,17 @@ pub(crate) fn commit_to_vbranch_commit(
     };
 
     Ok(commit)
+}
+
+fn large_files_abridged(mut files: Vec<VirtualBranchFile>) -> Vec<VirtualBranchFile> {
+    for file in &mut files {
+        // Diffs larger than 500kb are considered large
+        if file.hunks.iter().any(|hunk| hunk.diff.len() > 500_000) {
+            file.large = true;
+            file.hunks.iter_mut().for_each(|hunk| {
+                hunk.diff.drain(..);
+            });
+        }
+    }
+    files
 }

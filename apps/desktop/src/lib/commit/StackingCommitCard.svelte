@@ -74,7 +74,10 @@
 	let isKebabContextMenuOpen = $state(false);
 	let files = $state<RemoteFile[]>([]);
 	let showDetails = $state(false);
+	let conflictResolutionConfirmationModal = $state<ReturnType<typeof Modal>>();
 
+	const conflicted = $derived(commit.conflicted);
+	const isAncestorMostConflicted = $derived(branch?.ancestorMostConflictedCommit?.id === commit.id);
 	async function loadFiles() {
 		files = await listRemoteCommitFiles(project.id, commit.id);
 	}
@@ -126,9 +129,6 @@
 
 	const commitShortSha = commit.id.substring(0, 7);
 
-	let dragDirection: 'up' | 'down' | undefined = $state();
-	let isDragTargeted = $state(false);
-
 	function canEdit() {
 		if (isUnapplied) return false;
 		if (!modeService) return false;
@@ -143,7 +143,13 @@
 		modeService!.enterEditMode(commit.id, branch!.refname);
 	}
 
-	const conflicted = $derived(commit instanceof DetailedCommit && commit.conflicted);
+	async function handleEditPatch() {
+		if (conflicted && !isAncestorMostConflicted) {
+			conflictResolutionConfirmationModal?.show();
+			return;
+		}
+		await editPatch();
+	}
 
 	const showOpenInBrowser = $derived(commitUrl && (type === 'remote' || type === 'localAndRemote'));
 </script>
@@ -164,6 +170,20 @@
 		<Button style="neutral" type="submit" kind="solid" grow disabled={!commitMessageValid}>
 			Submit
 		</Button>
+	{/snippet}
+</Modal>
+
+<Modal bind:this={conflictResolutionConfirmationModal} width="small" onSubmit={editPatch}>
+	{#snippet children()}
+		<div>
+			<p>It's generally better to start resolving conflicts from the bottom up.</p>
+			<br />
+			<p>Are you sure you want to resolve conflicts for this commit?</p>
+		</div>
+	{/snippet}
+	{#snippet controls(close)}
+		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
+		<Button style="pop" outline type="submit">Yes</Button>
 	{/snippet}
 </Modal>
 
@@ -207,25 +227,6 @@
 	onkeyup={onKeyup}
 	role="button"
 	tabindex="0"
-	ondragenter={() => {
-		isDragTargeted = true;
-	}}
-	ondragleave={() => {
-		isDragTargeted = false;
-	}}
-	ondrop={() => {
-		isDragTargeted = false;
-	}}
-	ondrag={(e) => {
-		const target = e.target as HTMLElement;
-		const targetHeight = target.offsetHeight;
-		const targetTop = target.getBoundingClientRect().top;
-		const mouseY = e.clientY;
-
-		const isTop = mouseY < targetTop + targetHeight / 2;
-
-		dragDirection = isTop ? 'up' : 'down';
-	}}
 	use:draggableCommit={commit instanceof DetailedCommit && !isUnapplied && type !== 'integrated'
 		? {
 				label: commit.descriptionTitle,
@@ -238,15 +239,6 @@
 			}
 		: nonDraggable()}
 >
-	{#if dragDirection && isDragTargeted}
-		<div
-			class="pseudo-reorder-zone"
-			class:top={dragDirection === 'up'}
-			class:bottom={dragDirection === 'down'}
-			class:is-last={last}
-		></div>
-	{/if}
-
 	{#if lines}
 		<div>
 			{@render lines()}
@@ -389,7 +381,7 @@
 								>
 							{/if}
 							{#if canEdit()}
-								<Button size="tag" style="ghost" outline onclick={editPatch}>
+								<Button size="tag" style="ghost" outline onclick={handleEditPatch}>
 									{#if conflicted}
 										Resolve conflicts
 									{:else}

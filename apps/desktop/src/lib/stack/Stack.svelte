@@ -17,7 +17,6 @@
 	import Spacer from '$lib/shared/Spacer.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -37,7 +36,6 @@
 	const fileIdSelection = getContext(FileIdSelection);
 	const branchStore = getContextStore(VirtualBranch);
 	const project = getContext(Project);
-
 	const branch = $derived($branchStore);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
@@ -59,15 +57,12 @@
 		laneWidth = lscache.get(laneWidthKey + branch.id);
 	});
 
-	const localCommits = getLocalCommits();
-	const localAndRemoteCommits = getLocalAndRemoteCommits();
-
+	let scrollEndVisible = $state(true);
 	let isPushingCommits = $state(false);
-	const localCommitsConflicted = $derived($localCommits.some((commit) => commit.conflicted));
-	const localAndRemoteCommitsConflicted = $derived(
-		$localAndRemoteCommits.some((commit) => commit.conflicted)
-	);
 
+	const hasConflicts = $derived(
+		branch.series.flatMap((s) => s.patches).some((patch) => patch.conflicted)
+	);
 	const branchUpstreamPatches = $derived(branch.series.flatMap((s) => s.upstreamPatches));
 	const branchPatches = $derived(branch.series.flatMap((s) => s.patches));
 
@@ -81,9 +76,9 @@
 	const listingService = getGitHostListingService();
 	const prMonitor = getGitHostPrMonitor();
 	const checksMonitor = getGitHostChecksMonitor();
+	const hostedListingServiceStore = getGitHostListingService();
 
 	const stackBranches = $derived(branch.series.map((s) => s.name));
-	const hostedListingServiceStore = getGitHostListingService();
 	const prStore = $derived($hostedListingServiceStore?.prs);
 	const stackPrs = $derived($prStore?.filter((pr) => stackBranches.includes(pr.sourceBranch)));
 
@@ -98,8 +93,6 @@
 			isPushingCommits = false;
 		}
 	}
-
-	let scrollEndVisible = $state(true);
 </script>
 
 {#if $isLaneCollapsed}
@@ -213,8 +206,8 @@
 							kind="solid"
 							wide
 							loading={isPushingCommits}
-							disabled={localCommitsConflicted || localAndRemoteCommitsConflicted}
-							tooltip={localCommitsConflicted
+							disabled={hasConflicts}
+							tooltip={hasConflicts
 								? 'In order to push, please resolve any conflicted commits.'
 								: undefined}
 							onclick={push}

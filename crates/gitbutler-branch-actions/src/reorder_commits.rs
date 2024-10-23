@@ -3,7 +3,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt as _};
 use gitbutler_stack::StackId;
-use gitbutler_stack_api::StackExt;
 
 use crate::{
     branch_trees::{

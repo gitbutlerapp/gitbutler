@@ -1,12 +1,12 @@
 <script lang="ts">
 	import TextBox from '$lib/shared/TextBox.svelte';
-	import { slugify } from '$lib/utils/string';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import { slugify } from '@gitbutler/ui/utils/string';
 
 	interface Props {
 		parentSeriesName: string;

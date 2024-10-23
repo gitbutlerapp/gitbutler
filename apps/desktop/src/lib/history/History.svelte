@@ -81,7 +81,9 @@
 
 <svelte:window
 	on:keydown={(e) => {
-		e.key === 'Escape' && dispatch('hide');
+		if (e.key === 'Escape') {
+			dispatch('hide');
+		}
 	}}
 />
 
@@ -231,7 +233,7 @@
 
 <style lang="postcss">
 	.sideview-container {
-		z-index: var(--z-floating);
+		z-index: var(--z-modal);
 		position: fixed;
 		top: 0;
 		right: 0;

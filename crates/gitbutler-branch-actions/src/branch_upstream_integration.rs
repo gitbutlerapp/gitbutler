@@ -5,8 +5,8 @@ use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
     LogUntil, RepositoryExt as _,
 };
+use gitbutler_stack::commit_by_oid_or_change_id;
 use gitbutler_stack::StackId;
-use gitbutler_stack_api::{commit_by_oid_or_change_id, StackExt};
 
 use crate::{
     branch_trees::{
@@ -45,7 +45,8 @@ pub fn integrate_upstream_commits_for_series(
         repo,
         remote_head.id(),
         stack_merge_base,
-    )?;
+    )?
+    .head;
 
     let do_rebease = branch.allow_rebasing || Some(subject_series) != all_series.first();
     let integrate_upstream_context = IntegrateUpstreamContext {

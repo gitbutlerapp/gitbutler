@@ -13,6 +13,7 @@ gix = { workspace = true, features = ["blob-diff", "revision"] }
 tokio.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-repo.workspace = true
+gitbutler-repo-actions.workspace = true
 gitbutler-user.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
@@ -28,7 +29,6 @@ gitbutler-operating-modes.workspace = true
 gitbutler-cherry-pick.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-stack.workspace = true
-gitbutler-stack-api.workspace = true
 gitbutler-patch-reference.workspace = true
 serde = { workspace = true, features = ["std"] }
 bstr.workspace = true

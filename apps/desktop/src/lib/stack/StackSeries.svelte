@@ -3,7 +3,6 @@
 	import StackingSeriesHeader from '$lib/branch/StackingSeriesHeader.svelte';
 	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
-	import { getLocalAndRemoteCommits, getLocalCommits } from '$lib/vbranches/contexts';
 	import { getContext } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import type { VirtualBranch } from '$lib/vbranches/types';
@@ -14,12 +13,8 @@
 
 	const { branch }: Props = $props();
 
-	const localCommits = getLocalCommits();
-	const localAndRemoteCommits = getLocalAndRemoteCommits();
-
-	const localCommitsConflicted = $derived($localCommits.some((commit) => commit.conflicted));
-	const localAndRemoteCommitsConflicted = $derived(
-		$localAndRemoteCommits.some((commit) => commit.conflicted)
+	const hasConflicts = $derived(
+		branch.series.flatMap((s) => s.patches).some((patch) => patch.conflicted)
 	);
 
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
@@ -57,8 +52,7 @@
 				isUnapplied={false}
 				isBottom={idx === branch.series.length - 1}
 				{reorderDropzoneManager}
-				{localCommitsConflicted}
-				{localAndRemoteCommitsConflicted}
+				{hasConflicts}
 			/>
 		{/if}
 	</div>

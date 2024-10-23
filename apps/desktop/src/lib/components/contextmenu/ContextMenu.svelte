@@ -152,7 +152,7 @@
 		if (!isVisible) return;
 
 		isVisible = false;
-		onclose && onclose();
+		onclose?.();
 	}
 
 	export function toggle(e?: MouseEvent, newItem?: any) {

@@ -10,10 +10,10 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
-    LogUntil, RepoActionsExt, RepositoryExt,
+    LogUntil, RepositoryExt,
 };
+use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
-use gitbutler_stack_api::StackExt;
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use tracing::instrument;
 

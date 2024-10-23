@@ -10,33 +10,21 @@ git2.workspace = true
 gix = { workspace = true, features = ["status", "tree-editor"] }
 anyhow = "1.0.86"
 bstr.workspace = true
-tokio = { workspace = true, features = [
-    "rt-multi-thread",
-    "rt",
-    "macros",
-    "sync",
-] }
-gitbutler-git.workspace = true
 tracing.workspace = true
 tempfile = "3.13"
 serde = { workspace = true, features = ["std"] }
-log = "^0.4"
 thiserror.workspace = true
 resolve-path = "0.1.0"
-ssh2 = { version = "0.9.4", features = ["vendored-openssl"] }
 gitbutler-command-context.workspace = true
 gitbutler-config.workspace = true
 gitbutler-project.workspace = true
-gitbutler-branch.workspace = true
+# gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-error.workspace = true
-gitbutler-id.workspace = true
-gitbutler-time.workspace = true
 gitbutler-commit.workspace = true
 gitbutler-url.workspace = true
 gitbutler-cherry-pick.workspace = true
 gitbutler-oxidize.workspace = true
-gitbutler-stack.workspace = true
 uuid.workspace = true
 itertools = "0.13"
 toml.workspace = true

@@ -22,7 +22,7 @@
 <style lang="postcss">
 	.container {
 		--dropzone-overlap: calc(var(--dropzone-height) / 2);
-		--dropzone-height: 16px;
+		--dropzone-height: 24px;
 
 		position: absolute;
 		top: var(--y-offset);
@@ -55,7 +55,7 @@
 
 	.indicator {
 		width: 100%;
-		height: 2px;
+		height: 3px;
 		margin-top: 1px;
 		transition: opacity 0.1s;
 		background-color: transparent;

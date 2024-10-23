@@ -6,7 +6,8 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_reference::RemoteRefname;
-use gitbutler_repo::{RepoActionsExt, RepositoryExt};
+use gitbutler_repo::RepositoryExt;
+use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::StackId;
 
 #[derive(Clone)]

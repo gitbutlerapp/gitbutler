@@ -10,6 +10,7 @@ members = [
     "crates/gitbutler-sync",
     "crates/gitbutler-oplog",
     "crates/gitbutler-repo",
+    "crates/gitbutler-repo-actions",
     "crates/gitbutler-command-context",
     "crates/gitbutler-feedback",
     "crates/gitbutler-config",
@@ -32,7 +33,6 @@ members = [
     "crates/gitbutler-edit-mode",
     "crates/gitbutler-cherry-pick",
     "crates/gitbutler-oxidize",
-    "crates/gitbutler-stack-api",
     "crates/gitbutler-stack",
     "crates/gitbutler-patch-reference",
 ]
@@ -68,6 +68,7 @@ gitbutler-branch-actions = { path = "crates/gitbutler-branch-actions" }
 gitbutler-sync = { path = "crates/gitbutler-sync" }
 gitbutler-oplog = { path = "crates/gitbutler-oplog" }
 gitbutler-repo = { path = "crates/gitbutler-repo" }
+gitbutler-repo-actions = { path = "crates/gitbutler-repo-actions" }
 gitbutler-command-context = { path = "crates/gitbutler-command-context" }
 gitbutler-feedback = { path = "crates/gitbutler-feedback" }
 gitbutler-config = { path = "crates/gitbutler-config" }
@@ -89,7 +90,6 @@ gitbutler-operating-modes = { path = "crates/gitbutler-operating-modes" }
 gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
 gitbutler-cherry-pick = { path = "crates/gitbutler-cherry-pick" }
 gitbutler-oxidize = { path = "crates/gitbutler-oxidize" }
-gitbutler-stack-api = { path = "crates/gitbutler-stack-api" }
 gitbutler-stack = { path = "crates/gitbutler-stack" }
 gitbutler-patch-reference = { path = "crates/gitbutler-patch-reference" }
 gitbutler-forge = { path = "crates/gitbutler-forge" }

@@ -20,12 +20,12 @@
 	import { isFailure } from '$lib/result';
 	import OverflowMenuContainer from '$lib/shared/OverflowMenu/OverflowMenuContainer.svelte';
 	import OverflowMenuItem from '$lib/shared/OverflowMenu/OverflowMenuItem.svelte';
-	import { slugify } from '$lib/utils/string';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import { slugify } from '@gitbutler/ui/utils/string';
 
 	interface Props {
 		currentSeries: PatchSeries;
@@ -58,16 +58,8 @@
 
 	let contextMenuOpened = $state(false);
 
-	// TODO: Simplify figuring out if shadow color is needed
 	const topPatch = $derived(currentSeries?.patches[0]);
-	const hasShadow = $derived.by(() => {
-		if (!topPatch || !topPatch.remoteCommitId) return false;
-		if (topPatch.remoteCommitId !== topPatch.id) return true;
-		return false;
-	});
-	const branchType = $derived<CommitStatus | 'localAndShadow'>(
-		hasShadow ? 'localAndShadow' : topPatch?.status ?? 'local'
-	);
+	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
 	const lineColor = $derived(getColorFromBranchType(branchType));
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
@@ -142,7 +134,7 @@
 	seriesCount={branch.series?.length ?? 0}
 	{addDescription}
 	onGenerateBranchName={generateBranchName}
-	disableTitleEdit={!!gitHostBranch}
+	hasGitHostBranch={!!gitHostBranch}
 	hasPr={!!$pr}
 	openPrDetailsModal={handleOpenPR}
 	reloadPR={handleReloadPR}
@@ -215,7 +207,7 @@
 			<div class="branch-action__line" style:--bg-color={lineColor}></div>
 			<div class="branch-action__body">
 				{#if $pr}
-					<StackingPullRequestCard pr={$pr} {prMonitor} sourceBranch={$pr.sourceBranch} />
+					<StackingPullRequestCard upstreamName={currentSeries.name} />
 				{:else}
 					<Button
 						style="ghost"
