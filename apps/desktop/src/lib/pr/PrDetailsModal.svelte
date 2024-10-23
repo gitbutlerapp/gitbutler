@@ -57,7 +57,6 @@
 
 	interface PreviewSeriesProps {
 		type: 'preview-series';
-		upstreamName?: string;
 		currentSeries: PatchSeries;
 	}
 
@@ -114,6 +113,7 @@
 	});
 	const defaultTitle: string = $derived.by(() => {
 		if (props.type === 'display') return props.pr.title;
+
 		// In case of a single commit, use the commit summary for the title
 		if (commits.length === 1) {
 			const commit = commits[0];
@@ -125,7 +125,10 @@
 
 	const defaultBody: string = $derived.by(() => {
 		if (props.type === 'display') return props.pr.body ?? '';
+		if (props.type === 'preview-series' && props.currentSeries.description)
+			return props.currentSeries.description;
 		if (pullRequestTemplateBody) return pullRequestTemplateBody;
+
 		// In case of a single commit, use the commit description for the body
 		if (commits.length === 1) {
 			const commit = commits[0];
