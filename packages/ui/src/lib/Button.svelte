@@ -71,7 +71,7 @@
 		align = 'auto',
 		dropdownChild = false,
 		style = 'neutral',
-		kind = 'soft',
+		kind = 'solid',
 		outline = false,
 		dashed = false,
 		solidBackground = false,
