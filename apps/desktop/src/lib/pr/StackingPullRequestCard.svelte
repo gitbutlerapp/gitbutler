@@ -2,9 +2,13 @@
 	import MergeButton from './MergeButton.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
+	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
+	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
@@ -26,6 +30,11 @@
 		style?: ComponentColor;
 		messageStyle?: MessageStyle;
 	};
+
+	let checksContextMenuEl = $state<ReturnType<typeof ContextMenu>>();
+	let prContextMenuEl = $state<ReturnType<typeof ContextMenu>>();
+	let checksContextMenuTarget = $state<HTMLElement>();
+	let prContextMenuTarget = $state<HTMLElement>();
 
 	const vbranchService = getContext(VirtualBranchService);
 	const baseBranchService = getContext(BaseBranchService);
@@ -131,29 +140,69 @@
 				{prStatusInfo.text}
 			</Button>
 			{#if !$pr?.closedAt && checksTagInfo}
-				<Button
-					size="tag"
-					clickable={false}
-					icon={checksTagInfo.icon}
-					style={checksTagInfo.style}
-					kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
-				>
-					{checksTagInfo.text}
-				</Button>
+				<div bind:this={checksContextMenuTarget}>
+					<Button
+						size="tag"
+						clickable={false}
+						icon={checksTagInfo.icon}
+						style={checksTagInfo.style}
+						kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
+						oncontextmenu={(e: MouseEvent) => {
+							e.preventDefault();
+							checksContextMenuEl?.open();
+						}}
+					>
+						{checksTagInfo.text}
+					</Button>
+				</div>
+
+				<ContextMenu bind:this={checksContextMenuEl} target={checksContextMenuTarget}>
+					<ContextMenuSection>
+						<ContextMenuItem
+							label="Open checks"
+							onclick={() => {
+								openExternalUrl(`${$pr.htmlUrl}/checks`);
+							}}
+						/>
+						<ContextMenuItem
+							label="Copy Checks"
+							onclick={() => {
+								copyToClipboard(`${$pr.htmlUrl}/checks`);
+							}}
+						/>
+					</ContextMenuSection>
+				</ContextMenu>
 			{/if}
 			{#if $pr?.htmlUrl}
-				<Button
-					icon="open-link"
-					size="tag"
-					style="ghost"
-					outline
-					tooltip="Open in browser"
-					onclick={() => {
-						openExternalUrl($pr.htmlUrl);
-					}}
-				>
-					View PR
-				</Button>
+				<div bind:this={prContextMenuTarget}>
+					<Button
+						icon="open-link"
+						size="tag"
+						style="ghost"
+						outline
+						tooltip="Open in browser"
+						onclick={() => {
+							openExternalUrl($pr.htmlUrl);
+						}}
+						oncontextmenu={(e: MouseEvent) => {
+							e.preventDefault();
+							prContextMenuEl?.open();
+						}}
+					>
+						View PR
+					</Button>
+				</div>
+
+				<ContextMenu bind:this={prContextMenuEl} target={prContextMenuTarget}>
+					<ContextMenuSection>
+						<ContextMenuItem
+							label="Copy PR Link"
+							onclick={() => {
+								copyToClipboard($pr.htmlUrl);
+							}}
+						/>
+					</ContextMenuSection>
+				</ContextMenu>
 			{/if}
 		</div>
 
@@ -222,6 +271,7 @@
 		display: flex;
 		gap: 4px;
 		padding: 0 14px 12px 14px;
+		align-items: baseline;
 	}
 
 	.pr-header-actions {
