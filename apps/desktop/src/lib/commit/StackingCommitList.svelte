@@ -3,8 +3,6 @@
 	import StackingCommitCard from './StackingCommitCard.svelte';
 	import StackingCommitDragItem from './StackingCommitDragItem.svelte';
 	import StackingUpstreamCommitsAccordion from './StackingUpstreamCommitsAccordion.svelte';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import InsertEmptyCommitAction from '$lib/components/InsertEmptyCommitAction.svelte';
 	import {
 		ReorderDropzoneManager,
 		type ReorderDropzone
@@ -43,7 +41,6 @@
 	}: Props = $props();
 
 	const branch = getContextStore(VirtualBranch);
-	const baseBranch = getContextStore(BaseBranch);
 	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
@@ -71,14 +68,6 @@
 	const hasRemoteCommits = $derived(remoteOnlyPatches.length > 0);
 
 	let isIntegratingCommits = $state(false);
-
-	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
-		if (!$branch || !$baseBranch) {
-			console.error('Unable to insert commit');
-			return;
-		}
-		branchController.insertBlankCommit($branch.id, commitId, location === 'above' ? -1 : 1);
-	}
 
 	const topPatch = $derived(patches[0]);
 	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
