@@ -28,20 +28,20 @@ An example of working on two branches at the same time, while pending upstream c
 You cannot use both GitButler virtual branches and normal Git branching commands at the same time, you will have to "commit" to one approach or the other.
 </Callout>
 
-The reason is that stock Git can only handle one branch at a time, it does not have tooling to use or understand multiple, so most commands having to do with the index or HEAD or branching (commit, branch, checkout, etc) may behave unexpectedly. Most importantly, do not use normal Git commit tooling or other GUIs.
+The reason is that stock Git can only handle one branch at a time, it does not have tooling to use or understand multiple, so most commands having to do with the index or HEAD or branching (commit, branch, checkout, etc) may behave unexpectedly. 
 
 <Callout type="info">
 To understand why and how to get out of this, please read our [integration branch](/features/virtual-branches/integration-branch) docs.
 </Callout>
 
-## Base Branch
+## Target Branch
 With virtual branches, you are not working off of local main or master branches. Everything that you do is on a virtual branch, automatically.
 
-Similar to GitHub, where you specify a default branch to use to merge your Pull Requests into by default, GitButler requires a "Base Branch". This is understood to be whatever your concept of "production" is. Typically what represents deployed, production code that cannot or should not be rolled back. Generally this would be something like origin/master or origin/main.
+Similar to GitHub, where you specify a default branch to use to merge your Pull Requests into by default, GitButler requires a "Target Branch". This is understood to be whatever your concept of "production" is. Typically what represents deployed, production code that cannot or should not be rolled back. Generally this would be something like `origin/master` or `origin/main`.
 
-Once a base branch is specified, everything in your working directory that differs from it is branched code and must belong to a virtual branch.
+Once a target branch is specified, everything in your working directory that differs from it is branched code and must belong to a virtual branch.
 
-This means that you don't have to create a new branch when you want to start working, you simply start working and then change the branch name later. There is no local "main" or "master" because it doesn't make sense. Everything is a branch, with work that is meant to eventually be integrated into your base branch.
+This means that you don't have to create a new branch when you want to start working, you simply start working and then change the branch name later. There is no local "main" or "master" because it doesn't make sense. Everything is a branch, with work that is meant to eventually be integrated into your target branch.
 
 ## Virtual Branches
 You can easily work in a single branch at a time, but GitButler can handle several virtual branches at the same time. If you have 3 different changes in one file, you can drag each of the changes to a different virtual branch lane and commit and push them independently.
@@ -53,41 +53,47 @@ Each time you commit on a virtual branch, GitButler calculates what that branch 
 ## Applying and Unapplying Branches
 Since there isn't just a single branch you can be on, you don't "switch" branches, which implies replacement. You simply "apply" branches, which takes whatever changes they represent and adds them to your working directory. If you don't want those changes in your working directory anymore, you can "unapply" them, which removes only those changes.
 
-Each of these actions is as simple as checking or unchecking a box next to the branch name.
-
 <ImageSection subtitle="Click 'unapply' for any branch to stash it and remove it's changes from the working directory" width={375} height={190} className="mx-auto" src="/img/docs/virtual-branches-02.jpeg" alt="Virtual Branch Apply / Unapply" />
 
-Click "unapply" for any branch to stash it and remove it's changes from the working directory
 To delete a virtual branch, you simply unapply it, then left click on it and choose "delete".
 
 ## Merging Upstream
-Eventually you will have work merged into the branch you chose as your base branch, which will need to be reconciled with all your virtual branches to keep them up to date with where they will eventually need to merge into.
+Eventually you will have work merged into the branch you chose as your target branch, which will need to be reconciled with all your virtual branches to keep them up to date with where they will eventually need to merge to.
 
-<ImageSection subtitle="Click 'Merge into common base' to integrate upstream changes into your virtual branches." width={700} height={600} className="mx-auto" src="/img/docs/virtual-branches-03.jpeg" alt="Branch Commit List" />
+<ImageSection subtitle="Click 'Merge into common base' to integrate upstream changes into your virtual branches." width={700} height={600} className="mx-auto" src="/img/docs/merge-upstream.png" alt="Branch Commit List" />
 
-Click "Merge into common base" to integrate upstream changes into your virtual branches.
-Upstream work will automatically be shown in your sidebar in the "Trunk" section. When you click "Merge into common base" (or the "Update" button next to your "Applied Branches" section), we will attempt to integrate that work with your existing virtual branches. Each branch, applied or unapplied, will try to be updated with the new work.
+Upstream work will automatically be shown in your sidebar in the "Target" section. When you click "Merge into common base" (or the "Update" button next to your "Workspace" section), we will attempt to integrate that work with your existing virtual branches. Each branch, applied or unapplied, will try to be updated with the new work.
 
-<Callout>
-We will attempt to rebase any commits in your virtual branches on top of new work (similar to running a git pull --rebase on each branch). However, if you already have commits in your branch, we have to create a merge commit to get them up to date.
-</Callout>
+<ImageSection subtitle="Click 'Update workspace' to integrate upstream changes into your virtual branches." width={700} height={600} className="mx-auto" src="/img/docs/merge-upstream-incoming.png" alt="Update Workspace" />
 
-If we cannot update a branch because of merge conflicts, we will unapply the branch automatically and leave it in an unmerged state. You can identify these branches with the blue dot next to them in your branch listing.
+For each virtual branch you have, we will show you if the incoming upstream work has conflicts with each branch. If there are conflicts, you can choose to stash the branch or go ahead and rebase with conflicts, which you can fix later.
 
 If a virtual branch is entirely integrated into upstream, it will be removed and deleted when those changes are integrated. So you can just keep a virtual branch applied locally until it is integrated and it will go away automatically.
 
 ## Conflicting Branches
-You cannot have conflicting branches applied at the same time. Any virtual branch that conflicts with branches that are currently applied will be noted you cannot apply them until you have unapplied the branch or branches they conflict with.
+If you do rebase work that has conflicts, the commit will be marked as being in a conflicted state and you can check it out and fix it whenever you wish.
 
-## Merge Conflicts
-If a virtual branch does have a conflict with your upstream branch and is in a blue dot state, you can fix it by applying it. Applying a conflicting branch will first un-apply all existing virtual branches, then put the merge conflict markers into your working directory and mark conflicted files for you.
+<ImageSection 
+  subtitle="When your commits have conflicts" 
+  width={700}
+  height={600}
+  className="mx-auto"
+  src="/img/docs/conflicts-commits.png"
+  alt="Conflicts with commits"
+/>
 
+This is different from how you might have dealt with conflicts in Git before. If there is conflicting work in a commit, GitButler will ignore the parts that conflict and keep rebasing. In other words, rebases _always_ work. Then you can focus resolving each conflicted commit, one at a time.
 
-<ImageSection subtitle="Files in a conflicted state" width={375} height={350} className="mx-auto" src="/img/docs/virtual-branches-04.jpeg" alt="Virtual Branch Apply / Unapply" />
+<ImageSection
+  subtitle="Resolving a conflict"
+  width={700}
+  height={600}
+  className="mx-auto"
+  src="/img/docs/conflicts-resolve.png"
+  alt="Conflicts with commits"
+/>
 
-You will need to resolve each file that is marked, then click "Resolve" under each one. Once all files are resolved, you need to commit to create the merge commit that resolves it. Now it is up to date and can be unapplied or applied again easily.
-
-While you are in a conflicted state, you cannot apply or unapply any other branches.
+This will check out the conflicts into your working directory and you can let us know when you're done resolving it and we'll rebase everything above it.
 
 ## The End
 That is our general overview of how Virtual Branches works. We've found that it's way easier and faster than constantly switching back and forth between branches, managing branches all the time, and all the other overhead that comes with branching in Git, while still being able to easily create pull requests and integrate features.

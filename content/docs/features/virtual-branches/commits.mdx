@@ -134,3 +134,22 @@ You can also arbitrarily change the order of your commits by dragging and droppi
   alt="Moving Commits"
   src="/img/docs/commits-09.gif"
 />
+
+## Edit Mode
+
+The other way that you can modify a commit is to go into "Edit Mode". When you click on a commit, there is a button that says "Edit patch". If you click this, GitButler will check out that commit by itself into your working directory (automatically stashing everything else temporarily).
+
+The screen will go into "Edit mode", indicating that you're in a special state where you're focusing on this one commit.
+
+<ImageSection
+  subtitle="Editing a commit"
+  width={700}
+  height={600}
+  className="mx-auto"
+  alt="Editing a commit"
+  src="/img/docs/conflicts-edit-mode.png"
+/>
+
+Then you can change whatever you want and when you click "Save and exit", it will amend the commit you were editing and rebase anything on top of it.
+
+This is useful for things like getting feedback on a series and being able to go into the appropriate commit, make the changes and continue, as opposed to squashing work.

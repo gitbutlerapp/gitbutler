@@ -6,7 +6,7 @@ import ImageSection from "@/components/ImageSection"
 
 How do you manage your virtual branches?
 
-The main interface for Virtual Branches are a series of branch lanes. Each lane represents a scope of work that is different than what your current base branch (ie, `origin/master`) looks like. Work that is not yet in production.
+The main interface for Virtual Branches are a series of branch lanes. Each lane represents a scope of work that is different than what your current target branch (ie, `origin/master`) looks like. Work that is not yet in production.
 
 This could be a local virtual branch that you're working on, or it could be a virtual branch that was created from a remote branch.
 
@@ -27,17 +27,17 @@ An example of working on two branches at the same time, while pending upstream c
 
 The sidebar on the left shows you the stashed virtual branches that you have and the "other" branches that you have available (legacy git branches, remote branches and PRs). All of these branches can be converted into virtual branches by clicking them and then clicking the "Apply" button on the branch view.
 
-### Trunk
+### Target
 
-The "Trunk" is the view of the base branch that you've set. It will show you essentially a `git log` of `origin/master` or whatever you set as your base branch, and it will show you if there are any commits upstream that you have not integrated locally yet. We will automatically check for new upstream changes every few minutes, but you can also click the update button to check immediately.
+The "Target" is the view of the target branch that you've set. It will show you essentially a `git log` of `origin/master` or whatever you set as your target branch, and it will show you if there are any commits upstream that you have not integrated locally yet. We will automatically check for new upstream changes every few minutes, but you can also click the update button to check immediately.
 
 <ImageSection
   width={700}
   height={600}
   className="mx-auto"
   alt="Virtual Branches Example"
-  src="/img/docs/branch-lanes-02.webp"
-  subtitle="A screenshot showcasing the Trunk view."
+  src="/img/docs/merge-upstream.png"
+  subtitle="A screenshot showcasing the Target view."
 />
 
 ### Workspace
@@ -72,7 +72,7 @@ You can inspect any file change by clicking on the file path. GitButler will exp
   subtitle="Inspecting our file change"
 />
 
-Once you have committed work, you will see it at the bottom as a list of commits under a tag that indicates that they are local. If you hit the "Push" button, it will attempt to push these commits to the same remote server that your base branch is on.
+Once you have committed work, you will see it at the bottom as a list of commits under a tag that indicates that they are local. If you hit the "Push" button, it will attempt to push these commits to the same remote server that your target branch is on.
 
 If you have authenticated to GitHub, you also have the option to create a Pull Request for that branch automatically.
 

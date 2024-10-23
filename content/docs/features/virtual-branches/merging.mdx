@@ -1,47 +1,46 @@
 ---
-title: Merging
+title: Rebasing and Conflicts
 ---
 
 import ImageSection from "@/components/ImageSection"
 
-Conflicts happen sometimes, what to do when we get there?
+By default, GitButler rebases the work on your virtual branches when you update your target branch (upstream) work.
 
-So, let's talk a little bit more about merging. Merging in GitButler is a little different than in Git because by default, all applied virtual branches are actually merged in your working directory, as though you had run a `git merge` or `git pull` command.
+Often this works just fine and the commits are simply rebased. Occasionally, you will have conflicts with upstream work. 
 
-However, it doesn't need to actually make the merge commit and tie those contexts together forever. It can simply do the merge, give you the result and keep track of what you do to it. This allows you to unmerge and remerge at will, as long as the branches merge cleanly.
+In this case, GitButler will not do what Git normally does, which is to stop at each conflicted commit and make you fix it before moving on. Instead, it will apply the changes that it can and store the commit as a "conflicted" commit and continue the rebasing process.
 
-The other interesting thing is that you cannot get two branches into a conflicting state while they are both applied, because all code in your working directory has to be owned by something. If you come across a part that overlaps, you have to choose which branch owns it or else unapply one of them.
-
-## Merge Conflicts
-
-You also cannot (currently) apply two virtual branches that conflict with each other. That means that the only way to merge two branches that have conflicts is to land one upstream in your base branch first, then integrate that so that it's your base and then pull those conflicting changes into your working directory and solve them.
-
-In other words, branches can only conflict with upstream changes and you can only resolve one upstream conflicted branch at a time. This is something we will work on changing, but it is a limitation currently.
-
-When you do have an upstream conflicting branch, you can choose to apply it, which will unapply all other branches and apply this one with conflict markers into your files. Your only branch lane will look something like this:
+When you go to update from upstream, GitButler will show you all the branches that it will rebase and will let you know if any of them will have conflicts:
 
 <ImageSection
+  subtitle="One branch has a conflict with the upstream work"
   width={700}
   height={600}
   className="mx-auto"
-  alt="Viewing Remote Branches"
-  src="/img/docs/merging-01.avif"
-  subtitle="A virtual branch in a conflicted state."
+  src="/img/docs/conflicts-incoming.png"
+  alt="Conflicts with commits"
 />
 
-While the branch is in this state, you cannot apply other branches or unapply this one. (We are working on a way to abort this state, but right now you cannot).
-
-You need to resolve each issue, then hit the "Resolve" button next to each file once they are resolved. This is similar to running `git add` on resolved files in a conflicted merge state in stock Git.
-
-Once all the files are marked as resolved, you need to commit the resolved merge. This will write a merge commit with both parents so that you have an updated merge base.
+In this case, when you perform the rebase, that branch will then contain "conflicted" commits. They will be marked in the UI as conflicted and you can click on them to get a "resolve conflict" button to start the resolution process.
 
 <ImageSection
+  subtitle="Resolving a conflict"
   width={700}
   height={600}
   className="mx-auto"
-  alt="Viewing Remote Branches"
-  src="/img/docs/merging-02.avif"
-  subtitle="Now you need to commit your resolution."
+  src="/img/docs/conflicts-conflicted.png"
+  alt="Conflicts with commits"
 />
 
-Once the resolution is committed, you can unapply and apply branches again.
+When you click that, GitButler will remove the other virtual branches and other work from your working directory and check out just this commit with it's conflict markers. It will show you a special "edit mode" screen, where you are directly editing this commit.
+
+<ImageSection
+  subtitle="Resolving a conflict"
+  width={700}
+  height={600}
+  className="mx-auto"
+  src="/img/docs/conflicts-edit.png"
+  alt="Conflicts with commits"
+/>
+
+If you want to cancel this conflict resolution, you can just hit 'Cancel' and it will go back to your normal state. If you have fixed all the issues, you can click "Save and Exit" and it will commit the conflict resolution and if needed, rebase any further commits on that branch on top of your new work.
