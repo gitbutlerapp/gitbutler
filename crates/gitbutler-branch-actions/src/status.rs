@@ -1,10 +1,13 @@
+use std::collections::HashSet;
 use std::{collections::HashMap, path::PathBuf, vec};
 
+use crate::file::list_virtual_commit_files;
 use crate::integration::get_workspace_head;
+use crate::BranchStatus;
 use crate::{
     conflicts::RepoConflictsExt,
     file::{virtual_hunks_into_virtual_files, VirtualBranchFile},
-    hunk::{file_hunks_from_diffs, HunkLock, VirtualBranchHunk},
+    hunk::{file_hunks_from_diffs, VirtualBranchHunk},
     BranchManagerExt, VirtualBranchesExt,
 };
 use anyhow::{bail, Context, Result};
@@ -13,9 +16,15 @@ use gitbutler_branch::BranchCreateRequest;
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
+use gitbutler_hunk_dependency::{
+    compute_hunk_locks, HunkDependencyOptions, HunkLock, InputCommit, InputDiff, InputFile,
+    InputStack,
+};
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_repo::{LogUntil, RepositoryExt as _};
 use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim, Stack, StackId};
+use itertools::Itertools;
 use tracing::instrument;
 
 /// Represents the uncommitted status of the applied virtual branches in the workspace.
@@ -47,15 +56,12 @@ pub fn get_applied_status_cached(
     worktree_changes: Option<gitbutler_diff::DiffByPathMap>,
 ) -> Result<VirtualBranchesStatus> {
     assure_open_workspace_mode(ctx).context("ng applied status requires open workspace mode")?;
+    let workspace_head = get_workspace_head(ctx)?;
     let mut virtual_branches = ctx
         .project()
         .virtual_branches()
         .list_branches_in_workspace()?;
     let base_file_diffs = worktree_changes.map(Ok).unwrap_or_else(|| {
-        // TODO(ST): Ideally, we can avoid calling `get_workspace_head()` as everyone who modifies
-        //           any of its inputs will update the intragration commit right away.
-        //           It's for another day though - right now the integration commit may be slightly stale.
-        let workspace_head = get_workspace_head(ctx)?;
         gitbutler_diff::workdir(ctx.repository(), workspace_head.to_owned())
             .context("failed to diff workdir")
     })?;
@@ -90,11 +96,20 @@ pub fn get_applied_status_cached(
             .collect();
 
     let vb_state = ctx.project().virtual_branches();
-    let base_tree = ctx
-        .repository()
-        .find_commit(vb_state.get_default_target()?.sha)?
-        .tree()?;
-    let locks = compute_locks(ctx.repository(), &base_diffs, &virtual_branches, base_tree)?;
+    let default_target = vb_state.get_default_target()?;
+
+    let locks = if ctx.project().use_new_locking {
+        compute_locks(
+            ctx,
+            &workspace_head,
+            &default_target.sha,
+            &base_diffs,
+            &virtual_branches,
+        )?
+    } else {
+        let base_tree = ctx.repository().find_commit(default_target.sha)?.tree()?;
+        compute_old_locks(ctx.repository(), &base_diffs, &virtual_branches, base_tree)?
+    };
 
     for branch in &mut virtual_branches {
         if let Err(e) = branch.initialize(ctx) {
@@ -245,6 +260,80 @@ pub fn get_applied_status_cached(
 }
 
 fn compute_locks(
+    ctx: &CommandContext,
+    workspace_head: &git2::Oid,
+    target_sha: &git2::Oid,
+    base_diffs: &BranchStatus,
+    stacks: &Vec<Stack>,
+) -> Result<HashMap<HunkHash, Vec<HunkLock>>> {
+    let repo = ctx.repository();
+    let base_commit = repo.find_commit(*target_sha)?;
+    let workspace_commit = repo.find_commit(*workspace_head)?;
+
+    let diff = &ctx.repository().diff_tree_to_tree(
+        Some(&base_commit.tree()?),
+        Some(&workspace_commit.tree()?),
+        None,
+    )?;
+
+    let files_touched_by_commits = diff
+        .deltas()
+        .filter_map(|d| d.new_file().path())
+        .map(|c| c.to_path_buf())
+        .unique()
+        .sorted()
+        .collect::<HashSet<_>>();
+    let files_touched_by_diffs = base_diffs.keys().cloned().collect::<HashSet<_>>();
+
+    let touched_by_both = files_touched_by_commits
+        .intersection(&files_touched_by_diffs)
+        .cloned()
+        .collect_vec();
+
+    let mut stacks_input: Vec<InputStack> = vec![];
+    for stack in stacks {
+        let mut commits_input: Vec<InputCommit> = vec![];
+        let commit_ids = repo.l(stack.head(), LogUntil::Commit(*target_sha), false)?;
+        for commit_id in commit_ids {
+            let mut files_input: Vec<InputFile> = vec![];
+            let commit = repo.find_commit(commit_id)?;
+            let files = list_virtual_commit_files(ctx, &commit, false)?;
+            for file in files {
+                if touched_by_both.contains(&file.path) {
+                    let value = InputFile {
+                        path: file.path,
+                        diffs: file
+                            .hunks
+                            .iter()
+                            .map(|hunk| InputDiff {
+                                old_start: hunk.old_start,
+                                old_lines: hunk.old_lines,
+                                new_start: hunk.start,
+                                new_lines: hunk.end - hunk.start,
+                            })
+                            .collect::<Vec<_>>(),
+                    };
+                    files_input.push(value);
+                }
+            }
+            commits_input.push(InputCommit {
+                commit_id,
+                files: files_input,
+            });
+        }
+        stacks_input.push(InputStack {
+            stack_id: stack.id,
+            commits: commits_input,
+        });
+    }
+
+    compute_hunk_locks(HunkDependencyOptions {
+        workdir: base_diffs,
+        stacks: stacks_input,
+    })
+}
+
+fn compute_old_locks(
     repository: &git2::Repository,
     unstaged_hunks_by_path: &HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>,
     virtual_branches: &[Stack],

@@ -33,7 +33,7 @@
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import BorderlessTextarea from '@gitbutler/ui/BorderlessTextarea.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -57,9 +57,8 @@
 
 	interface PreviewSeriesProps {
 		type: 'preview-series';
-		name: string;
 		upstreamName?: string;
-		commits: DetailedCommit[];
+		currentSeries: PatchSeries;
 	}
 
 	type Props = DisplayProps | PreviewProps | PreviewSeriesProps;
@@ -79,10 +78,14 @@
 	const preferredPRAction = getPreferredPRAction();
 
 	const branch = $derived($branchStore);
-	const branchName = $derived(props.type === 'preview-series' ? props.name : branch.name);
-	const commits = $derived(props.type === 'preview-series' ? props.commits : branch.commits);
+	const branchName = $derived(
+		props.type === 'preview-series' ? props.currentSeries.name : branch.name
+	);
+	const commits = $derived(
+		props.type === 'preview-series' ? props.currentSeries.patches : branch.commits
+	);
 	const upstreamName = $derived(
-		props.type === 'preview-series' ? props.upstreamName : branch.upstreamName
+		props.type === 'preview-series' ? props.currentSeries.name : branch.upstreamName
 	);
 	const baseBranchName = $derived($baseBranch.shortName);
 
@@ -98,6 +101,7 @@
 	let aiConfigurationValid = $state<boolean>(false);
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
 	let showAiBox = $state<boolean>(false);
+	let pushBeforeCreate = $state(false);
 
 	async function handleToggleUseTemplate() {
 		if (!templateSelector) return;
@@ -144,7 +148,7 @@
 		}
 	});
 
-	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
+	export async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
 		if (!$gitHost) {
 			error('Pull request service not available');
 			return;
@@ -154,7 +158,7 @@
 		try {
 			let upstreamBranchName = upstreamName;
 
-			if (commits.some((c) => !c.isRemote)) {
+			if (pushBeforeCreate || commits.some((c) => !c.isRemote)) {
 				const firstPush = !branch.upstream;
 				const pushResult = await branchController.pushBranch(
 					branch.id,
@@ -302,7 +306,11 @@
 		}, 2000);
 	}
 
-	export function show() {
+	/**
+	 * @param {boolean} pushAndCreate - Whether or not the commits need pushed before opening a PR
+	 */
+	export function show(pushAndCreate = false) {
+		pushBeforeCreate = pushAndCreate;
 		modal?.show();
 	}
 
@@ -438,7 +446,8 @@
 				type="submit"
 				onclick={async () => await handleCreatePR(close)}
 			>
-				{isDraft ? 'Create pull request draft' : 'Create pull request'}
+				{pushBeforeCreate ? 'Push and ' : ''}
+				{isDraft ? 'Create pull request draft' : `Create pull request`}
 
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>

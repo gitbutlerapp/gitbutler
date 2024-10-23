@@ -59,6 +59,7 @@ pub(crate) fn move_commit(
         ctx.repository(),
         &source_commit_parent_tree,
         &source_commit_tree,
+        true,
     )?;
 
     let default_target = vb_state.get_default_target()?;
@@ -218,7 +219,7 @@ fn check_source_lock_to_commits(
         let old_tree = commit.tree().unwrap();
         let new_tree = previous_commit.tree().unwrap();
 
-        let diff = gitbutler_diff::trees(repository, &old_tree, &new_tree);
+        let diff = gitbutler_diff::trees(repository, &old_tree, &new_tree, true);
 
         if diff.is_err() {
             previous = Some(commit);

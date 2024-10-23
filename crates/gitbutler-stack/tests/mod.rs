@@ -644,12 +644,10 @@ fn list_series_default_head() -> Result<()> {
     // the number of series matches the number of heads
     assert_eq!(result.len(), test_ctx.branch.heads.len());
     assert_eq!(result[0].head.name, "a-branch-2");
-    let expected_patches = test_ctx
-        .commits
-        .iter()
-        .map(|c| CommitOrChangeId::ChangeId(c.change_id().unwrap()))
-        .collect_vec();
-    assert_eq!(result[0].local_commits, expected_patches);
+    assert_eq!(
+        result[0].local_commits.iter().map(|c| c.id()).collect_vec(),
+        test_ctx.commits.iter().map(|c| c.id()).collect_vec()
+    );
     Ok(())
 }
 
@@ -674,15 +672,15 @@ fn list_series_two_heads_same_commit() -> Result<()> {
     // the number of series matches the number of heads
     assert_eq!(result.len(), test_ctx.branch.heads.len());
 
-    let expected_patches = test_ctx
-        .commits
-        .iter()
-        .map(|c| CommitOrChangeId::ChangeId(c.change_id().unwrap()))
-        .collect_vec();
-    // Expect the commits to be part of the `head_before`
-    assert_eq!(result[0].local_commits, expected_patches);
+    assert_eq!(
+        result[0].local_commits.iter().map(|c| c.id()).collect_vec(),
+        test_ctx.commits.iter().map(|c| c.id()).collect_vec()
+    );
     assert_eq!(result[0].head.name, "head_before");
-    assert_eq!(result[1].local_commits, vec![]);
+    assert_eq!(
+        result[1].local_commits.iter().map(|c| c.id()).collect_vec(),
+        vec![]
+    );
     assert_eq!(result[1].head.name, "a-branch-2");
     Ok(())
 }
@@ -706,15 +704,17 @@ fn list_series_two_heads_different_commit() -> Result<()> {
     let result = result?;
     // the number of series matches the number of heads
     assert_eq!(result.len(), test_ctx.branch.heads.len());
-    let mut expected_patches = test_ctx
-        .commits
-        .iter()
-        .map(|c| CommitOrChangeId::ChangeId(c.change_id().unwrap()))
-        .collect_vec();
-    assert_eq!(result[0].local_commits, vec![expected_patches.remove(0)]); // the first patch is in the first series
+    let mut expected_patches = test_ctx.commits.iter().map(|c| c.id()).collect_vec();
+    assert_eq!(
+        result[0].local_commits.iter().map(|c| c.id()).collect_vec(),
+        vec![expected_patches.remove(0)]
+    );
     assert_eq!(result[0].head.name, "head_before");
     assert_eq!(expected_patches.len(), 2);
-    assert_eq!(result[1].local_commits, expected_patches); // the other two patches are in the second series
+    assert_eq!(
+        result[1].local_commits.iter().map(|c| c.id()).collect_vec(),
+        expected_patches
+    ); // the other two patches are in the second series
     assert_eq!(result[1].head.name, "a-branch-2");
 
     Ok(())

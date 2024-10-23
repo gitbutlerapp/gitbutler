@@ -94,7 +94,7 @@ pub fn parse(input: &BStr) -> Result<Url, Error> {
         }
         let input_starts_with_file_protocol = input.starts_with(b"file://");
         if input_starts_with_file_protocol {
-            let wanted = &[b'/'];
+            let wanted = b"/";
             if !wanted.iter().any(|w| path.contains(w)) {
                 return Err(Error::MissingRepositoryPath);
             }

@@ -61,6 +61,9 @@
 	const topPatch = $derived(currentSeries?.patches[0]);
 	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
 	const lineColor = $derived(getColorFromBranchType(branchType));
+	const hasNoCommits = $derived(
+		currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0
+	);
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
@@ -81,8 +84,8 @@
 		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
 	}
 
-	function handleOpenPR() {
-		prDetailsModal?.show();
+	function handleOpenPR(pushBeforeCreate: boolean = false) {
+		prDetailsModal?.show(pushBeforeCreate);
 	}
 
 	function editTitle(title: string) {
@@ -202,7 +205,7 @@
 			/>
 		</div>
 	{/if}
-	{#if gitHostBranch && $prService}
+	{#if $prService && !hasNoCommits}
 		<div class="branch-action">
 			<div class="branch-action__line" style:--bg-color={lineColor}></div>
 			<div class="branch-action__body">
@@ -214,8 +217,10 @@
 						wide
 						outline
 						disabled={currentSeries.patches.length === 0 || !$gitHost || !$prService}
-						onclick={handleOpenPR}>Create pull request</Button
+						onclick={() => handleOpenPR(!gitHostBranch)}
 					>
+						Create pull request
+					</Button>
 				{/if}
 			</div>
 		</div>
@@ -224,13 +229,7 @@
 	{#if $pr}
 		<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
 	{:else}
-		<PrDetailsModal
-			bind:this={prDetailsModal}
-			type="preview-series"
-			{upstreamName}
-			name={currentSeries.name}
-			commits={currentSeries.patches}
-		/>
+		<PrDetailsModal bind:this={prDetailsModal} type="preview-series" {currentSeries} />
 	{/if}
 </div>
 

@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 
-use anyhow::anyhow;
 use anyhow::{Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_project::Project;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{commit_by_oid_or_change_id, CommitsForId, PatchReferenceUpdate};
+use gitbutler_stack::PatchReferenceUpdate;
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
@@ -169,9 +168,6 @@ pub(crate) fn stack_series(
     let mut requires_force = false;
     let mut api_series: Vec<PatchSeries> = vec![];
     let stack_series = branch.list_series(ctx)?;
-    let merge_base = ctx
-        .repository()
-        .merge_base(branch.head(), default_target.sha)?;
     for series in stack_series.clone() {
         let remote = default_target.push_remote_name();
         let upstream_reference = if series.head.pushed(remote.as_str(), ctx)? {
@@ -182,15 +178,11 @@ pub(crate) fn stack_series(
         let mut patches: Vec<VirtualBranchCommit> = vec![];
         let mut is_integrated = false;
         // Reverse first instead of later, so that we catch the first integrated commit
-        for patch in series.clone().local_commits.iter().rev() {
-            let commit = first_non_duplicate(
-                &patches,
-                commit_by_oid_or_change_id(patch, ctx.repository(), branch.head(), merge_base)?,
-            )?;
+        for commit in series.clone().local_commits.iter().rev() {
             if !is_integrated {
-                is_integrated = check_commit.is_integrated(&commit)?;
+                is_integrated = check_commit.is_integrated(commit)?;
             }
-            let copied_from_remote_id = CommitData::try_from(&commit)
+            let copied_from_remote_id = CommitData::try_from(commit)
                 .ok()
                 .and_then(|data| remote_commit_data.get(&data).copied());
             let remote_commit_id = commit
@@ -202,7 +194,7 @@ pub(crate) fn stack_series(
                         .cloned()
                 })
                 .or(copied_from_remote_id)
-                .or(if series.remote(patch) {
+                .or(if series.remote(commit) {
                     Some(commit.id())
                 } else {
                     None
@@ -213,9 +205,9 @@ pub(crate) fn stack_series(
             let vcommit = commit_to_vbranch_commit(
                 ctx,
                 branch,
-                &commit,
+                commit,
                 is_integrated,
-                series.remote(patch),
+                series.remote(commit),
                 copied_from_remote_id,
                 remote_commit_id,
             )?;
@@ -225,32 +217,18 @@ pub(crate) fn stack_series(
         patches.dedup_by(|a, b| a.id == b.id);
 
         let mut upstream_patches = vec![];
-        if let Some(upstream_reference) = upstream_reference.clone() {
-            let remote_head = ctx
-                .repository()
-                .find_reference(&upstream_reference)?
-                .peel_to_commit()?;
-            for patch in series.upstream_only_commits {
-                if let Ok(commit) = commit_by_oid_or_change_id(
-                    &patch,
-                    ctx.repository(),
-                    remote_head.id(),
-                    merge_base,
-                ) {
-                    let commit = first_non_duplicate(&upstream_patches, commit)?;
-                    let is_integrated = check_commit.is_integrated(&commit)?;
-                    let vcommit = commit_to_vbranch_commit(
-                        ctx,
-                        branch,
-                        &commit,
-                        is_integrated,
-                        true, // per definition
-                        None, // per definition
-                        Some(commit.id()),
-                    )?;
-                    upstream_patches.push(vcommit);
-                };
-            }
+        for commit in series.upstream_only_commits {
+            let is_integrated = check_commit.is_integrated(&commit)?;
+            let vcommit = commit_to_vbranch_commit(
+                ctx,
+                branch,
+                &commit,
+                is_integrated,
+                true, // per definition
+                None, // per definition
+                Some(commit.id()),
+            )?;
+            upstream_patches.push(vcommit);
         }
         upstream_patches.reverse();
         // There should be no duplicates, but dedup because the UI cant handle duplicates
@@ -276,26 +254,4 @@ pub(crate) fn stack_series(
     }
 
     Ok((api_series, requires_force))
-}
-
-fn first_non_duplicate<'a>(
-    vb_commits: &[VirtualBranchCommit],
-    commits_for_id: CommitsForId<'a>,
-) -> Result<git2::Commit<'a>> {
-    dbg!(&commits_for_id);
-    if vb_commits.is_empty() {
-        // Nothing to compare against - pick the first one
-        return Ok(commits_for_id.head);
-    }
-    if !vb_commits.iter().any(|c| c.id == commits_for_id.head.id()) {
-        // The head commit is not a duplicate - pick that
-        Ok(commits_for_id.head)
-    } else {
-        // Iterate the rest of the commits and pick the first one that is not a duplicate
-        commits_for_id
-            .tail
-            .into_iter()
-            .find(|cfi| !vb_commits.iter().any(|c| c.id == cfi.id()))
-            .ok_or_else(|| anyhow!("No non-duplicate commit found"))
-    }
 }

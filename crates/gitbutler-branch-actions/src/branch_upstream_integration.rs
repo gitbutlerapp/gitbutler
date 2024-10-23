@@ -48,7 +48,9 @@ pub fn integrate_upstream_commits_for_series(
     )?
     .head;
 
-    let do_rebease = branch.allow_rebasing || Some(subject_series) != all_series.first();
+    let do_rebease = branch.allow_rebasing
+        || Some(subject_series.head.name.clone())
+            != all_series.first().map(|s| s.head.name.clone());
     let integrate_upstream_context = IntegrateUpstreamContext {
         repository: repo,
         target_branch_head: default_target.sha,

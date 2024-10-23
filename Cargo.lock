@@ -2181,6 +2181,7 @@ dependencies = [
  "gitbutler-error",
  "gitbutler-fs",
  "gitbutler-git",
+ "gitbutler-hunk-dependency",
  "gitbutler-id",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
@@ -2374,6 +2375,25 @@ dependencies = [
  "tokio",
  "uuid",
  "windows 0.58.0",
+]
+
+[[package]]
+name = "gitbutler-hunk-dependency"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "git2",
+ "gitbutler-diff",
+ "gitbutler-id",
+ "gitbutler-reference",
+ "gitbutler-serde",
+ "gitbutler-stack",
+ "gix",
+ "itertools 0.13.0",
+ "serde",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

@@ -30,9 +30,11 @@ impl Default for Test {
         let projects = projects::Controller::from_path(data_dir.path());
 
         let test_project = TestProject::default();
-        let project = projects
+        let mut project = projects
             .add(test_project.path())
             .expect("failed to add project");
+        // TODO: Remove after transition is complete.
+        project.use_new_locking = true;
 
         Self {
             repository: test_project,
@@ -62,6 +64,7 @@ mod init;
 mod insert_blank_commit;
 mod list;
 mod list_details;
+mod locking;
 mod move_commit_file;
 mod move_commit_to_vbranch;
 mod oplog;
