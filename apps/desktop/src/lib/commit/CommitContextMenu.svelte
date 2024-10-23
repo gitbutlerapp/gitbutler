@@ -35,8 +35,6 @@
 
 	const branchController = getContext(BranchController);
 
-	console.log(commit);
-
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!branch || !baseBranch) {
 			console.error('Unable to insert commit');
