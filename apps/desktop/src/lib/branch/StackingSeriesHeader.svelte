@@ -146,12 +146,8 @@
 	hasPr={!!$pr}
 	openPrDetailsModal={handleOpenPR}
 	reloadPR={handleReloadPR}
-	onopen={() => {
-		contextMenuOpened = true;
-	}}
-	onclose={() => {
-		contextMenuOpened = false;
-	}}
+	onopen={() => (contextMenuOpened = true)}
+	onclose={() => (contextMenuOpened = false)}
 />
 
 <div role="article" class="branch-header">
