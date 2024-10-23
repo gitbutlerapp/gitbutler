@@ -197,6 +197,7 @@
 			baseBranch={$baseBranch}
 			{branch}
 			{commit}
+			isRemote={type === 'remote'}
 			commitUrl={showOpenInBrowser ? commitUrl : undefined}
 			onUncommitClick={handleUncommit}
 			onEditMessageClick={openCommitMessageModal}

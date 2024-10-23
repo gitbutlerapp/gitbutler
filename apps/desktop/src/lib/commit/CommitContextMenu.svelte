@@ -15,6 +15,7 @@
 		branch: VirtualBranch | undefined;
 		commit: DetailedCommit | Commit;
 		commitUrl: string | undefined;
+		isRemote: boolean;
 		onUncommitClick: (event: MouseEvent) => void;
 		onEditMessageClick: (event: MouseEvent) => void;
 		onPatchEditClick: (event: MouseEvent) => void;
@@ -26,12 +27,15 @@
 		branch,
 		commit,
 		commitUrl,
+		isRemote,
 		onUncommitClick,
 		onEditMessageClick,
 		onPatchEditClick
 	}: Props = $props();
 
 	const branchController = getContext(BranchController);
+
+	console.log(commit);
 
 	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
 		if (!branch || !baseBranch) {
@@ -42,29 +46,31 @@
 	}
 </script>
 
-<ContextMenuSection>
-	<ContextMenuItem
-		label="Uncommit"
-		onclick={(e: MouseEvent) => {
-			onUncommitClick(e);
-			parent.close();
-		}}
-	/>
-	<ContextMenuItem
-		label="Edit commit message"
-		onclick={(e: MouseEvent) => {
-			onEditMessageClick(e);
-			parent.close();
-		}}
-	/>
-	<ContextMenuItem
-		label="Edit patch"
-		onclick={(e: MouseEvent) => {
-			onPatchEditClick(e);
-			parent.close();
-		}}
-	/>
-</ContextMenuSection>
+{#if !isRemote}
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Uncommit"
+			onclick={(e: MouseEvent) => {
+				onUncommitClick(e);
+				parent.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Edit commit message"
+			onclick={(e: MouseEvent) => {
+				onEditMessageClick(e);
+				parent.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Edit patch"
+			onclick={(e: MouseEvent) => {
+				onPatchEditClick(e);
+				parent.close();
+			}}
+		/>
+	</ContextMenuSection>
+{/if}
 <ContextMenuSection>
 	{#if commitUrl}
 		<ContextMenuItem
@@ -90,7 +96,7 @@
 		}}
 	/>
 </ContextMenuSection>
-{#if 'branchId' in commit}
+{#if 'branchId' in commit && !isRemote}
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Add empty commit above"
