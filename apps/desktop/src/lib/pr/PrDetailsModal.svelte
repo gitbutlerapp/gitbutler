@@ -33,7 +33,7 @@
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import BorderlessTextarea from '@gitbutler/ui/BorderlessTextarea.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -57,9 +57,8 @@
 
 	interface PreviewSeriesProps {
 		type: 'preview-series';
-		name: string;
 		upstreamName?: string;
-		commits: DetailedCommit[];
+		currentSeries: PatchSeries;
 	}
 
 	type Props = DisplayProps | PreviewProps | PreviewSeriesProps;
@@ -79,10 +78,14 @@
 	const preferredPRAction = getPreferredPRAction();
 
 	const branch = $derived($branchStore);
-	const branchName = $derived(props.type === 'preview-series' ? props.name : branch.name);
-	const commits = $derived(props.type === 'preview-series' ? props.commits : branch.commits);
+	const branchName = $derived(
+		props.type === 'preview-series' ? props.currentSeries.name : branch.name
+	);
+	const commits = $derived(
+		props.type === 'preview-series' ? props.currentSeries.patches : branch.commits
+	);
 	const upstreamName = $derived(
-		props.type === 'preview-series' ? props.upstreamName : branch.upstreamName
+		props.type === 'preview-series' ? props.currentSeries.name : branch.upstreamName
 	);
 	const baseBranchName = $derived($baseBranch.shortName);
 

@@ -231,13 +231,7 @@
 	{#if $pr}
 		<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
 	{:else}
-		<PrDetailsModal
-			bind:this={prDetailsModal}
-			type="preview-series"
-			{upstreamName}
-			name={currentSeries.name}
-			commits={currentSeries.patches}
-		/>
+		<PrDetailsModal bind:this={prDetailsModal} type="preview-series" {currentSeries} />
 	{/if}
 </div>
 
