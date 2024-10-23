@@ -31,3 +31,28 @@ impl<'repo> CommitExt for git2::Commit<'repo> {
             .unwrap_or(false)
     }
 }
+
+fn contains<'a, I>(iter: I, item: &git2::Commit<'a>) -> bool
+where
+    I: IntoIterator<Item = git2::Commit<'a>>,
+{
+    iter.into_iter().any(|iter_item| {
+        // Return true if the commits match by commit id, or alternatively if both have a change id and they match.
+        if iter_item.id() == item.id() {
+            return true;
+        }
+        matches!((iter_item.change_id(), item.change_id()), (Some(iter_item_id), Some(iter_id)) if iter_item_id == iter_id)
+    })
+}
+
+pub trait CommitVecExt {
+    /// Returns `true` if the provided commit is part of the commits in this series.
+    /// Compares the commits by commit id first and also by change ID
+    fn contains_by_commit_or_change_id(&self, commit: &git2::Commit) -> bool;
+}
+
+impl CommitVecExt for Vec<git2::Commit<'_>> {
+    fn contains_by_commit_or_change_id(&self, commit: &git2::Commit) -> bool {
+        contains(self.iter().cloned(), commit)
+    }
+}

@@ -8,6 +8,7 @@ use anyhow::Result;
 use git2::Commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_commit::commit_ext::CommitVecExt;
 use gitbutler_id::id::Id;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
@@ -458,7 +459,7 @@ impl Stack {
     /// Returns a list of all branches/series in the stack.
     /// This operation will compute the current list of local and remote commits that belong to each series.
     /// The first entry is the newest in the Stack (i.e. the top of the stack).
-    pub fn list_series(&self, ctx: &CommandContext) -> Result<Vec<Series>> {
+    pub fn list_series<'a>(&self, ctx: &'a CommandContext) -> Result<Vec<Series<'a>>> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
@@ -477,20 +478,13 @@ impl Stack {
             let mut local_patches = vec![];
             for commit in repo
                 .log(head_commit, LogUntil::Commit(previous_head), false)?
-                .iter()
+                .into_iter()
                 .rev()
             {
-                let id: CommitOrChangeId = commit.clone().into();
-                if local_patches.contains(&id) {
-                    // Duplication - use the commit id instead
-                    local_patches.push(CommitOrChangeId::CommitId(commit.id().to_string()));
-                } else {
-                    local_patches.push(id);
-                }
+                local_patches.push(commit);
             }
-            dbg!(&local_patches);
 
-            let mut remote_patches: Vec<CommitOrChangeId> = vec![];
+            let mut remote_patches: Vec<Commit<'_>> = vec![];
             let mut remote_commit_ids_by_change_id: HashMap<String, git2::Oid> = HashMap::new();
             let remote_name = default_target.push_remote_name();
             if head.pushed(&remote_name, ctx).unwrap_or_default() {
@@ -505,8 +499,7 @@ impl Stack {
                         if let Some(change_id) = c.change_id() {
                             remote_commit_ids_by_change_id.insert(change_id.to_string(), c.id());
                         }
-                        let commit_or_change_id: CommitOrChangeId = c.into();
-                        remote_patches.push(commit_or_change_id);
+                        remote_patches.push(c);
                     });
             }
 
@@ -515,11 +508,10 @@ impl Stack {
                 .log(head_commit, LogUntil::Commit(merge_base), true)?
                 .into_iter()
                 .rev() // oldest commit first
-                .map(|c| c.into())
                 .collect_vec();
             let mut upstream_only = vec![];
             for patch in remote_patches.iter() {
-                if !local_patches_including_merge.contains(patch) {
+                if !local_patches_including_merge.contains_by_commit_or_change_id(patch) {
                     upstream_only.push(patch.clone());
                 }
             }
