@@ -42,14 +42,14 @@
 		min-height: 20px;
 		padding: 2px 4px;
 		border: 1px solid transparent;
-	}
-	.label-input {
+
 		text-overflow: ellipsis;
 		width: 100%;
 		border-radius: var(--radius-s);
 		color: var(--clr-scale-ntrl-0);
 		background-color: var(--clr-bg-1);
 		outline: none;
+
 		/* not readonly */
 		&:not([disabled]):hover {
 			background-color: var(--clr-bg-2);
@@ -74,9 +74,8 @@
 	}
 
 	.branch-description {
-		margin-bottom: 16px;
+		margin-bottom: 10px;
 		margin-right: 16px;
-		margin-left: -5px;
 	}
 	.branch-description::placeholder {
 		color: var(--clr-scale-ntrl-60);
