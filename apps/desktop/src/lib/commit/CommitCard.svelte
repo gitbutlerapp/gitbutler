@@ -181,7 +181,16 @@
 </Modal>
 
 <ContextMenu bind:this={contextMenu} target={draggableCommitElement} openByMouse>
-	<CommitContextMenu baseBranch={$baseBranch} {branch} parent={contextMenu} {commit} {commitUrl} />
+	<CommitContextMenu
+		baseBranch={$baseBranch}
+		{branch}
+		parent={contextMenu}
+		{commit}
+		{commitUrl}
+		onUncommitClick={() => undoCommit(commit)}
+		onEditMessageClick={openCommitMessageModal}
+		onPatchEditClick={handleEditPatch}
+	/>
 </ContextMenu>
 
 <div

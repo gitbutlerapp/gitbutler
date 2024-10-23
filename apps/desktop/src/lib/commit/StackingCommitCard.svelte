@@ -470,14 +470,14 @@
 		gap: 6px;
 		padding: 14px 14px 14px 0;
 
-		&:hover {
+		/* &:hover {
 			& .commit__drag-icon {
 				opacity: 1;
 			}
-		}
+		} */
 	}
 
-	.commit__drag-icon {
+	/* .commit__drag-icon {
 		pointer-events: none;
 		position: absolute;
 		display: flex;
@@ -487,7 +487,7 @@
 
 		opacity: 0;
 		transition: opacity var(--transition-fast);
-	}
+	} */
 
 	.commit__title {
 		flex: 1;
@@ -610,26 +610,5 @@
 			margin-left: 2px;
 			transform: scale3d(1, 1, 1);
 		}
-	}
-
-	/* PSUEDO DROPZONE */
-	.pseudo-reorder-zone {
-		z-index: var(--z-lifted);
-		position: absolute;
-		height: 2px;
-		width: 100%;
-		background-color: var(--clr-theme-pop-element);
-	}
-
-	.pseudo-reorder-zone.top {
-		top: -1px;
-	}
-
-	.pseudo-reorder-zone.bottom {
-		bottom: -1px;
-	}
-
-	.pseudo-reorder-zone.bottom.is-last {
-		bottom: -6px;
 	}
 </style>
