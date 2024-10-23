@@ -144,7 +144,7 @@
 
 <div role="article" class="branch-header" oncontextmenu={(e) => e.preventDefault()}>
 	<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
-		{#if stackingFeatureMultipleSeries}
+		{#if $stackingFeatureMultipleSeries}
 			<PopoverActionsItem
 				icon="plus-small"
 				tooltip="Add dependent branch"
