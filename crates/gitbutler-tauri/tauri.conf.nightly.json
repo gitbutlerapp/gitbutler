@@ -32,6 +32,11 @@
 					"libwebkit2gtk-4.0-dev",
 					"libgtk-3-dev"
 				]
+			},
+			"windows": {
+				"wix": {
+					"template": "templates/installer.wxs"
+				}
 			}
 		},
 		"security": {
