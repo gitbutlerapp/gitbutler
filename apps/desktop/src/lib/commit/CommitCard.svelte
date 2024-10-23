@@ -184,6 +184,7 @@
 	<CommitContextMenu
 		baseBranch={$baseBranch}
 		{branch}
+		isRemote={type === 'remote'}
 		parent={contextMenu}
 		{commit}
 		{commitUrl}
