@@ -162,12 +162,14 @@
 							label="Open checks"
 							onclick={() => {
 								openExternalUrl(`${$pr.htmlUrl}/checks`);
+								checksContextMenuEl?.close();
 							}}
 						/>
 						<ContextMenuItem
 							label="Copy Checks"
 							onclick={() => {
 								copyToClipboard(`${$pr.htmlUrl}/checks`);
+								checksContextMenuEl?.close();
 							}}
 						/>
 					</ContextMenuSection>
@@ -199,6 +201,7 @@
 							label="Copy PR Link"
 							onclick={() => {
 								copyToClipboard($pr.htmlUrl);
+								prContextMenuEl?.close();
 							}}
 						/>
 					</ContextMenuSection>
