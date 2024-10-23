@@ -13,7 +13,7 @@ pub trait CommitExt {
     fn is_conflicted(&self) -> bool;
 }
 
-impl<'repo> CommitExt for git2::Commit<'repo> {
+impl CommitExt for git2::Commit<'_> {
     fn message_bstr(&self) -> &BStr {
         self.message_bytes().as_ref()
     }

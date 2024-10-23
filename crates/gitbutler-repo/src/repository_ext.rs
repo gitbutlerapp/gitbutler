@@ -67,9 +67,10 @@ pub trait RepositoryExt {
     /// Returns the computed signature.
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString>;
 
-    fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder;
+    fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index)
+        -> CheckoutIndexBuilder<'a>;
     fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()>;
-    fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler;
+    fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a>;
     fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
     /// Based on the index, add all data similar to `git add .` and create a tree from it, which is returned.
     fn create_wd_tree(&self) -> Result<Tree>;
@@ -124,7 +125,10 @@ impl RepositoryExt for git2::Repository {
         Ok(repo)
     }
 
-    fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index) -> CheckoutIndexBuilder {
+    fn checkout_index_builder<'a>(
+        &'a self,
+        index: &'a mut git2::Index,
+    ) -> CheckoutIndexBuilder<'a> {
         CheckoutIndexBuilder {
             index,
             repo: self,
@@ -142,7 +146,7 @@ impl RepositoryExt for git2::Repository {
 
         Ok(())
     }
-    fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler {
+    fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a> {
         CheckoutTreeBuidler {
             tree,
             repo: self,

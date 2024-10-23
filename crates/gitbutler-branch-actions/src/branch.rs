@@ -150,7 +150,7 @@ fn matches_all(branch: &BranchListing, filter: BranchListingFilter) -> bool {
     if let Some(local) = filter.local {
         conditions.push((branch.has_local || branch.virtual_branch.is_some()) && local);
     }
-    return conditions.iter().all(|&x| x);
+    conditions.iter().all(|&x| x)
 }
 
 fn combine_branches(

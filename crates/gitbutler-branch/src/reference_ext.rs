@@ -31,7 +31,7 @@ pub trait ReferenceExtGix {
     fn identity(&self, remotes: &BTreeSet<Cow<'_, BStr>>) -> Result<BranchIdentity>;
 }
 
-impl<'repo> ReferenceExt for git2::Reference<'repo> {
+impl ReferenceExt for git2::Reference<'_> {
     fn given_name(&self, remotes: &git2::string_array::StringArray) -> Result<String> {
         if self.is_remote() {
             let shorthand_name = self
