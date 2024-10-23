@@ -177,14 +177,14 @@
 				}}
 			/>
 			<ContextMenuItem
-				label="Refetch PR status"
+				label="Copy PR link"
 				onclick={() => {
 					reloadPR?.();
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
-				label="Copy PR link"
+				label="Refetch PR status"
 				onclick={() => {
 					reloadPR?.();
 					contextMenuEl?.close();
