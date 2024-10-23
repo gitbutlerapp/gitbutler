@@ -148,24 +148,6 @@
 	const showOpenInBrowser = $derived(commitUrl && (type === 'remote' || type === 'localAndRemote'));
 </script>
 
-<!-- {#snippet commitContextMenuSnippet({
-	target,
-	openByMouse
-}: {
-	target: HTMLElement | undefined;
-	openByMouse: boolean;
-})}
-	{#if draggableCommitElement && target}
-		<CommitContextMenu
-			bind:this={contextMenu}
-			targetElement={target}
-			{commit}
-			{commitUrl}
-			{openByMouse}
-		/>
-	{/if}
-{/snippet} -->
-
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
 	{#snippet children(_, close)}
 		<CommitMessageInput
@@ -184,21 +166,6 @@
 		</Button>
 	{/snippet}
 </Modal>
-
-<!-- {#if draggableCommitElement && contextMenuTrigger}
-	<CommitContextMenu
-		bind:this={contextMenu}
-		targetElement={contextMenuTrigger}
-		{commit}
-		{commitUrl}
-		openByMouse={openContextMenuByMouse}
-	/>
-{/if} -->
-
-<!-- {@render commitContextMenuSnippet({
-	target: kebabMenuTrigger,
-	openByMouse: false
-})} -->
 
 {#if draggableCommitElement}
 	<ContextMenu bind:this={contextMenu} target={draggableCommitElement} openByMouse>
@@ -292,6 +259,7 @@
 			activated={isKebabContextMenuOpen}
 			icon="kebab"
 			tooltip="More options"
+			thin
 			onclick={(e) => {
 				kebabContextMenu?.open(e);
 			}}

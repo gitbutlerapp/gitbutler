@@ -3,7 +3,6 @@
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { focusTrap } from '@gitbutler/ui/utils/focusTrap';
 	import { portal } from '@gitbutler/ui/utils/portal';
-	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
 
 	interface Props {
@@ -47,6 +46,7 @@
 			return targetBoundingRect?.left ? targetBoundingRect.left : 0;
 		}
 
+		console.log('left', targetBoundingRect.left, targetBoundingRect.width, contextMenuWidth);
 		return targetBoundingRect?.left
 			? targetBoundingRect.left + targetBoundingRect.width - contextMenuWidth
 			: 0;
@@ -165,9 +165,13 @@
 
 	$effect(() => {
 		if (isVisible) {
-			if (openByMouse) {
-				if (contextMenuHeight > 0 && contextMenuWidth > 0) {
+			if (contextMenuHeight > 0 && contextMenuWidth > 0) {
+				el?.focus();
+
+				if (openByMouse) {
 					setAlignByMouse(savedMouseEvent);
+				} else {
+					setAlignByTarget();
 				}
 			}
 		} else {
@@ -206,7 +210,6 @@
 <svelte:window on:keydown={handleKeyDown} />
 
 {#snippet contextMenu()}
-	<!-- svelte-ignore a11y_autofocus -->
 	<div
 		bind:this={el}
 		tabindex="-1"
@@ -214,10 +217,6 @@
 		use:clickOutside={{
 			handler: () => close()
 		}}
-		use:resizeObserver={() => {
-			if (!openByMouse) setAlignByTarget();
-		}}
-		autofocus
 		bind:clientHeight={contextMenuHeight}
 		bind:clientWidth={contextMenuWidth}
 		class="context-menu"
@@ -260,7 +259,7 @@
 	}
 
 	.top-oriented {
-		margin-top: -4px;
+		margin-top: -6px;
 	}
 
 	.bottom-oriented {

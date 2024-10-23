@@ -61,8 +61,7 @@
 	}
 
 	.overflow-actions-btn.thin {
-		padding: 0px 4px;
-		background-color: red;
+		padding: 1px 4px;
 	}
 
 	.overflow-actions-btn__icon {
