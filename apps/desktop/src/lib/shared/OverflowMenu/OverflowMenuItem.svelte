@@ -56,7 +56,7 @@
 			background-color: var(--clr-bg-1-muted);
 
 			.overflow-actions-btn__icon {
-				opacity: 1;
+				opacity: 0.8;
 			}
 		}
 	}
