@@ -73,7 +73,7 @@
 	}
 
 	function handleOpenPR() {
-		prDetailsModal?.show();
+		prDetailsModal?.show(false);
 	}
 </script>
 
