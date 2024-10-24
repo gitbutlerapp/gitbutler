@@ -14,7 +14,6 @@ apps/desktop/e2e/videos/*.mp4
 .env
 .env.*
 node_modules
-.direnv/
 
 # Logs
 logs
