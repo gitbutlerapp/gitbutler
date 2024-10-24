@@ -353,8 +353,7 @@ impl GroupBranch<'_> {
     /// Determines if the branch is a remote branch by ref name
     fn is_remote_branch(&self, ref_name: &RemoteRefname) -> bool {
         if let GroupBranch::Remote(branch) = self {
-            let branch_name = branch.name().as_bstr();
-            ref_name == branch_name
+            ref_name == branch.name()
         } else {
             false
         }
