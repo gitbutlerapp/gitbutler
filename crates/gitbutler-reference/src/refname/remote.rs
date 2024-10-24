@@ -1,5 +1,6 @@
 use std::{fmt, str::FromStr};
 
+use gix::bstr::BStr;
 use serde::{Deserialize, Serialize};
 
 use super::error::Error;
@@ -96,5 +97,11 @@ impl TryFrom<&git2::Branch<'_>> for Refname {
         }
 
         refname.parse()
+    }
+}
+
+impl PartialEq<BStr> for Refname {
+    fn eq(&self, other: &BStr) -> bool {
+        format!("refs/remotes/{}/{}", self.remote, self.branch) == *other
     }
 }
