@@ -383,7 +383,7 @@
 						<Textarea
 							unstyled
 							value={actualBody}
-							rows={2}
+							minRows={4}
 							autofocus
 							padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
 							placeholder="Add description…"
