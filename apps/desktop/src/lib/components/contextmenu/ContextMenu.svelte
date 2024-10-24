@@ -215,7 +215,7 @@
 		tabindex="-1"
 		use:focusTrap
 		use:clickOutside={{
-			excludeElement: target,
+			excludeElement: !openByMouse ? target : undefined,
 			handler: () => close()
 		}}
 		bind:clientHeight={contextMenuHeight}
