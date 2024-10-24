@@ -9,6 +9,7 @@ use gitbutler_diff::DiffByPathMap;
 use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
+use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::{GixRepositoryExt, RepositoryExt as _};
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Stack as GitButlerBranch, StackId, Target};
@@ -164,10 +165,15 @@ fn combine_branches(
     // Group branches by identity
     let mut groups: HashMap<BranchIdentity, Vec<GroupBranch>> = HashMap::new();
     for branch in group_branches {
+        // Skip the target branch, like 'main' or 'master'
+        if branch.is_remote_branch(&target_branch.branch) {
+            continue;
+        }
+
         let Some(identity) = branch.identity(&remotes) else {
             continue;
         };
-        // Skip branches that should not be listed, e.g. the target 'main' or the gitbutler technical branches like 'gitbutler/workspace'
+        // Skip branches that should not be listed, e.g. the gitbutler technical branches like 'gitbutler/workspace'
         if !should_list_git_branch(&identity) {
             continue;
         }
@@ -342,6 +348,17 @@ impl GroupBranch<'_> {
             }
         }
         .map(BranchIdentity::from)
+    }
+
+    /// Determines if the branch is a remote branch by ref name
+    fn is_remote_branch(&self, ref_name: &RemoteRefname) -> bool {
+        if let GroupBranch::Remote(branch) = self {
+            let remote_branch = ref_name.to_string();
+            let branch_name = branch.name().as_bstr();
+            remote_branch == branch_name
+        } else {
+            false
+        }
     }
 }
 
