@@ -1,7 +1,6 @@
 import { DraggableCommit } from '$lib/dragging/draggables';
 import { SeriesOrder } from '$lib/vbranches/types';
 import type { BranchController } from '$lib/vbranches/branchController';
-// import type { VirtualBranch, DetailedCommit, PatchSeries } from '$lib/vbranches/types';
 
 // Exported for type access only
 export class ReorderDropzone {
@@ -15,10 +14,11 @@ export class ReorderDropzone {
 	}
 
 	accepts(data: any) {
-		console.log('accepts.data', data);
 		if (!data) return false;
 		if (!(data instanceof DraggableCommit)) return false;
-		// if (this.entry.distanceToOtherCommit(data.commit.id) === 0) return false;
+		if (!this.stacking) {
+			if (this.entry.distanceToOtherCommit(data.commit.id) === 0) return false;
+		}
 
 		return true;
 	}
@@ -33,9 +33,20 @@ export class ReorderDropzone {
 		});
 
 		if (this.stacking) {
+			const series = [];
+			for (const [name, commitIds] of (this.entry.indexMap as Map<string, string[]>).entries()) {
+				series.push({
+					name,
+					commitIds: commitIds.reverse()
+				});
+			}
+
 			const stackOrder = {
-				series: []
+				series: series.reverse()
 			};
+
+			console.log('onDrop.stackOrder', stackOrder);
+
 			this.branchController.reorderStackCommit(data.commit?.branchId, stackOrder);
 		} else {
 			this.branchController.reorderCommit(data.commit?.branchId, data.commit?.id, offset);
@@ -145,7 +156,7 @@ class Indexer {
 
 class Entry {
 	constructor(
-		private indexMap: Map<string, number | string[]>,
+		public indexMap: Map<string, number | string[]>,
 		private index: number
 	) {}
 
