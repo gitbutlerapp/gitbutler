@@ -90,6 +90,7 @@
 		/>
 
 		<button
+			type="button"
 			class="folding-button"
 			class:resizer-hovered={isResizerHovered || isResizerDragging}
 			on:mousedown={toggleNavCollapse}

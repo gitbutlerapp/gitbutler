@@ -26,7 +26,7 @@
 			<Icon name="search" />
 		</i>
 	{:else}
-		<button class="icon" onclick={resetFilter}>
+		<button type="button" class="icon" onclick={resetFilter}>
 			<Icon name="clear-input" />
 		</button>
 	{/if}

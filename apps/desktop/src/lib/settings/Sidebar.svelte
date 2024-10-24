@@ -45,6 +45,7 @@
 			<ul class="profile-sidebar__menu">
 				<li>
 					<button
+						type="button"
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'profile'}
 						on:mousedown={() => onMenuClick('profile')}
@@ -55,6 +56,7 @@
 				</li>
 				<li>
 					<button
+						type="button"
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'appearance'}
 						on:mousedown={() => onMenuClick('appearance')}
@@ -65,6 +67,7 @@
 				</li>
 				<li>
 					<button
+						type="button"
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'git'}
 						on:mousedown={() => onMenuClick('git')}
@@ -76,6 +79,7 @@
 
 				<li>
 					<button
+						type="button"
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'integrations'}
 						on:mousedown={() => onMenuClick('integrations')}
@@ -86,6 +90,7 @@
 				</li>
 				<li>
 					<button
+						type="button"
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'ai'}
 						on:mousedown={() => onMenuClick('ai')}
@@ -96,6 +101,7 @@
 				</li>
 				<li>
 					<button
+						type="button"
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'telemetry'}
 						on:mousedown={() => onMenuClick('telemetry')}
@@ -106,6 +112,7 @@
 				</li>
 				<li>
 					<button
+						type="button"
 						class="profile-sidebar__menu-item"
 						class:item_selected={currentSection === 'experimental'}
 						on:mousedown={() => onMenuClick('experimental')}
@@ -121,6 +128,7 @@
 	<section class="profile-sidebar__bottom">
 		<div class="social-banners">
 			<button
+				type="button"
 				class="social-banner"
 				on:click={async () =>
 					await openExternalUrl('mailto:hello@gitbutler.com?subject=Feedback or question!')}
@@ -129,6 +137,7 @@
 				<Icon name="mail" />
 			</button>
 			<button
+				type="button"
 				class="social-banner"
 				on:click={async () => await openExternalUrl('https://discord.gg/MmFkmaJ42D')}
 			>

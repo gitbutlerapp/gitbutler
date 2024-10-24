@@ -14,7 +14,7 @@
 	const { onclick, icon = undefined, label, disabled, control }: Props = $props();
 </script>
 
-<button class="menu-item" class:disabled {disabled} {onclick}>
+<button type="button" class="menu-item" class:disabled {disabled} {onclick}>
 	{#if icon}
 		<Icon name={icon} />
 	{/if}

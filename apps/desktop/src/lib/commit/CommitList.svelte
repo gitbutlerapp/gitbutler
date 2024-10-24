@@ -321,6 +321,7 @@
 					<span class="text-11 base-row__text">
 						Base commit
 						<button
+							type="button"
 							class="base-row__commit-link"
 							onclick={async () => await goto(`/${project.id}/base`)}
 						>

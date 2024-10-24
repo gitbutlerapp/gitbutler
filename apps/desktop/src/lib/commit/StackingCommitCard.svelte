@@ -317,6 +317,7 @@
 					<span class="commit__subtitle-divider">•</span>
 
 					<button
+						type="button"
 						class="commit__subtitle-btn commit__subtitle-btn_dashed"
 						onclick={(e) => {
 							e.stopPropagation();
@@ -334,6 +335,7 @@
 						<span class="commit__subtitle-divider">•</span>
 
 						<button
+							type="button"
 							class="commit__subtitle-btn"
 							onclick={(e) => {
 								e.stopPropagation();

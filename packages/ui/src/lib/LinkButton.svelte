@@ -13,6 +13,7 @@
 </script>
 
 <button
+	type="button"
 	class="link-button"
 	onclick={(e) => {
 		e.stopPropagation();

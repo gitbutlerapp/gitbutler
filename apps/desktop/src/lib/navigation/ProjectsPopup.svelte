@@ -64,6 +64,7 @@
 
 {#snippet itemSnippet(props: ItemSnippetProps)}
 	<button
+		type="button"
 		disabled={props.selected}
 		class="list-item"
 		class:selected={props.selected}

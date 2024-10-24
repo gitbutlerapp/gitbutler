@@ -215,6 +215,7 @@
 				<div class="files-attacment">
 					{#each entry.filesChanged as filePath}
 						<button
+							type="button"
 							class="files-attacment__file"
 							class:file-selected={selectedFile?.path === filePath &&
 								selectedFile?.entryId === entry.id}

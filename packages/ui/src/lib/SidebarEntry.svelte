@@ -55,7 +55,13 @@
 	});
 </script>
 
-<button class="branch" class:selected onmousedown={onMouseDown} bind:this={intersectionTarget}>
+<button
+	type="button"
+	class="branch"
+	class:selected
+	onmousedown={onMouseDown}
+	bind:this={intersectionTarget}
+>
 	<h4 class="text-13 text-semibold branch-name">
 		{title}
 	</h4>

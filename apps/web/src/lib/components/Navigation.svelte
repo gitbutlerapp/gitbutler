@@ -35,6 +35,7 @@
 	</div>
 	<div class="nav__right">
 		<button
+			type="button"
 			class="nav__right--button"
 			onclick={() => {
 				if ($token) {

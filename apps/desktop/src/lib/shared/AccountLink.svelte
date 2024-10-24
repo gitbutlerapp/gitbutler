@@ -11,6 +11,7 @@
 </script>
 
 <button
+	type="button"
 	class="btn"
 	class:pop
 	on:click={async () => await goto('/settings/')}

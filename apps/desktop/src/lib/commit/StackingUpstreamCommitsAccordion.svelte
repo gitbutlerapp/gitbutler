@@ -19,7 +19,7 @@
 
 <div class="accordion">
 	{#if count !== 1}
-		<button class="accordion-row header" onclick={toggle}>
+		<button type="button" class="accordion-row header" onclick={toggle}>
 			<div class="accordion-row__line">
 				<div class="dots">
 					{#if !isOpen}

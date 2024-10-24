@@ -36,6 +36,7 @@
 </script>
 
 <button
+	type="button"
 	bind:this={elRef}
 	{id}
 	class="segment-control-item"

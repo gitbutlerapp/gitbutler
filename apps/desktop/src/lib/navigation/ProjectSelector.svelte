@@ -6,22 +6,27 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
-	export let isNavCollapsed: boolean;
+	interface Props {
+		isNavCollapsed: boolean;
+	}
 
-	let buttonTrigger: HTMLButtonElement;
+	let { isNavCollapsed }: Props = $props();
+
 	const project = getContext(Project);
 
-	let popup: ProjectsPopup;
+	let buttonTrigger = $state<HTMLButtonElement>();
+	let popup = $state<ReturnType<typeof ProjectsPopup>>();
 </script>
 
 <div class="wrapper">
 	<Tooltip text={isNavCollapsed ? project?.title : ''} align="start">
 		<button
+			type="button"
 			bind:this={buttonTrigger}
 			class="text-input button"
-			on:mousedown={(e) => {
+			onmousedown={(e) => {
 				e.preventDefault();
-				popup.toggle();
+				popup?.toggle();
 			}}
 		>
 			<ProjectAvatar name={project?.title} />

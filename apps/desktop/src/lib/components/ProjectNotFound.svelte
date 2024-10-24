@@ -61,7 +61,9 @@
 						Sorry, we can't find the project you're looking for.
 						<br />
 						It might have been removed or doesn't exist.
-						<button class="check-again-btn" onclick={() => location.reload()}>Click here</button>
+						<button type="button" class="check-again-btn" onclick={() => location.reload()}
+							>Click here</button
+						>
 						to check again.
 						<br />
 						The current project path: <span class="code-string">{project.path}</span>
