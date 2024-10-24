@@ -44,6 +44,7 @@
 	</div>
 	{#if foldable}
 		<button
+			type="button"
 			class="toggle-btn"
 			on:click={() => {
 				isOpen = !isOpen;

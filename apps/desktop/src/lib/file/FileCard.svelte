@@ -51,6 +51,7 @@
 	{#if conflicted}
 		<div class="file-card__resolved-btn">
 			<button
+				type="button"
 				class="font-bold text-white"
 				onclick={async () => await branchController.markResolved(file.path)}
 			>

@@ -35,6 +35,10 @@ describe.concurrent('branch slugify with valid characters', () => {
 	test('numbers are fine', () => {
 		expect(slugify('my/branch1')).toEqual('my/branch1');
 	});
+
+	test('underscores are fine', () => {
+		expect(slugify('my_branch')).toEqual('my_branch');
+	});
 });
 
 describe.concurrent('branch slugify with replaced characters', () => {

@@ -46,8 +46,8 @@ fn one_vbranch_in_workspace_single_commit() -> anyhow::Result<()> {
 #[test]
 fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
     let ctx = project_ctx("complex-repo")?;
-    let list = branch_details(&ctx, ["feature", "main", "non-virtual-feature"])?;
-    assert_eq!(list.len(), 3);
+    let list = branch_details(&ctx, ["feature", "non-virtual-feature"])?;
+    assert_eq!(list.len(), 2);
     assert_eq!(
         list[0],
         BranchListingDetails {
@@ -62,20 +62,6 @@ fn many_commits_in_all_branch_types() -> anyhow::Result<()> {
     );
     assert_eq!(
         list[1],
-        BranchListingDetails {
-            name: "main".into(),
-            lines_added: 15,
-            lines_removed: 0,
-            number_of_files: 1,
-            number_of_commits: 10 + 5,
-            authors: vec![default_author()],
-        },
-        "…while virtual branches use the 'target' stored when the workspace was last updated.\
-        That way the 'update' of the workspace performs the calculation to put it back on top of \
-        the local tracking branch."
-    );
-    assert_eq!(
-        list[2],
         BranchListingDetails {
             name: "non-virtual-feature".into(),
             lines_added: 50,

@@ -53,6 +53,7 @@
 							<span class="text-12">Create a new branch</span>
 						</div>
 						<button
+							type="button"
 							class="empty-board__suggestions__link"
 							on:click={async () => await openExternalUrl('https://docs.gitbutler.com')}
 						>
@@ -63,6 +64,7 @@
 							<span class="text-12">GitButler Docs</span>
 						</button>
 						<button
+							type="button"
 							class="empty-board__suggestions__link"
 							on:keypress={async () => await openInEditor()}
 							on:click={async () => await openInEditor()}

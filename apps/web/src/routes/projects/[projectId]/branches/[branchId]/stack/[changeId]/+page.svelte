@@ -278,12 +278,18 @@
 					<div id="section-{section.id}">
 						{#if section.section_type === 'diff'}
 							<div class="right">
-								<button class="action" on:click={() => addSection(section.position)}>add</button>
-								[<button class="action" on:click={() => moveSection(section.position, -1)}
-									>up</button
+								<button type="button" class="action" on:click={() => addSection(section.position)}
+									>add</button
 								>
-								<button class="action" on:click={() => moveSection(section.position, 1)}
-									>down</button
+								[<button
+									type="button"
+									class="action"
+									on:click={() => moveSection(section.position, -1)}>up</button
+								>
+								<button
+									type="button"
+									class="action"
+									on:click={() => moveSection(section.position, 1)}>down</button
 								>]
 							</div>
 							<div>
@@ -292,27 +298,40 @@
 							<div><pre><code>{section.diff_patch}</code></pre></div>
 						{:else}
 							<div class="right">
-								<button class="action" on:click={() => addSection(section.position)}>add</button>
-								[
-								<button class="action" on:click={() => editSection(section.code)}>edit</button>] [
-								<button class="action" on:click={() => deleteSection(section.code)}>del</button>] [
-								<button class="action" on:click={() => moveSection(section.position, -1)}>up</button
+								<button type="button" class="action" on:click={() => addSection(section.position)}
+									>add</button
 								>
-								<button class="action" on:click={() => moveSection(section.position, 1)}
-									>down</button
+								[
+								<button type="button" class="action" on:click={() => editSection(section.code)}
+									>edit</button
+								>] [
+								<button type="button" class="action" on:click={() => deleteSection(section.code)}
+									>del</button
+								>] [
+								<button
+									type="button"
+									class="action"
+									on:click={() => moveSection(section.position, -1)}>up</button
+								>
+								<button
+									type="button"
+									class="action"
+									on:click={() => moveSection(section.position, 1)}>down</button
 								>
 								]
 							</div>
 							<div class="editor edit-{section.code}">
 								<textarea class="editing">{section.data.text}</textarea>
-								<button on:click={() => saveSection(section.code)}>Save</button>
+								<button type="button" on:click={() => saveSection(section.code)}>Save</button>
 							</div>
 							<div class="markdown display-{section.code}">{section.data.text}</div>
 						{/if}
 					</div>
 				{/each}
 				<div class="right">
-					<button class="action" on:click={() => addSection(patch.sections.length)}>add</button>
+					<button type="button" class="action" on:click={() => addSection(patch.sections.length)}
+						>add</button
+					>
 				</div>
 			</div>
 		</div>

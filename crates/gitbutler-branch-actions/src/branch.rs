@@ -9,6 +9,7 @@ use gitbutler_diff::DiffByPathMap;
 use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
+use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::{GixRepositoryExt, RepositoryExt as _};
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Stack as GitButlerBranch, StackId, Target};
@@ -164,10 +165,15 @@ fn combine_branches(
     // Group branches by identity
     let mut groups: HashMap<BranchIdentity, Vec<GroupBranch>> = HashMap::new();
     for branch in group_branches {
+        // Skip the target branch, like 'main' or 'master'
+        if branch.is_remote_branch(&target_branch.branch) {
+            continue;
+        }
+
         let Some(identity) = branch.identity(&remotes) else {
             continue;
         };
-        // Skip branches that should not be listed, e.g. the target 'main' or the gitbutler technical branches like 'gitbutler/workspace'
+        // Skip branches that should not be listed, e.g. the gitbutler technical branches like 'gitbutler/workspace'
         if !should_list_git_branch(&identity) {
             continue;
         }
@@ -343,6 +349,16 @@ impl GroupBranch<'_> {
         }
         .map(BranchIdentity::from)
     }
+
+    /// Determines if the branch is a remote branch by ref name
+    fn is_remote_branch(&self, ref_name: &RemoteRefname) -> bool {
+        if let GroupBranch::Remote(branch) = self {
+            let branch_name = branch.name().as_bstr();
+            ref_name == branch_name
+        } else {
+            false
+        }
+    }
 }
 
 /// Determines if a branch should be listed in the UI.
@@ -462,18 +478,12 @@ pub fn get_branch_listing_details(
             .virtual_branches()
             .get_default_target()
             .context("failed to get default target")?;
-        let local_branch = repo.find_reference(target.branch.branch())?;
-        let local_tracking_ref_name = local_branch
-            .remote_tracking_ref_name(gix::remote::Direction::Fetch)
-            .with_context(|| {
-                format!(
-                    "Branch {} did not have a remote tracking branch",
-                    local_branch.name().as_bstr()
-                )
-            })??;
-        let mut local_tracking_ref = repo.find_reference(local_tracking_ref_name.as_ref())?;
+        let target_branch_name = format!("{}/{}", &target.branch.remote(), &target.branch.branch());
+        let target_branch_name = target_branch_name.as_str();
+        let mut target_branch = repo.find_reference(target_branch_name)?;
+
         (
-            gix_to_git2_oid(local_tracking_ref.peel_to_commit()?.id),
+            gix_to_git2_oid(target_branch.peel_to_commit()?.id),
             target.sha,
         )
     };

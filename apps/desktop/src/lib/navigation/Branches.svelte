@@ -110,7 +110,12 @@
 			</div>
 
 			<div class="search-container" class:show-search={searching}>
-				<button tabindex={searching ? -1 : 0} class="search-button" onclick={toggleSearch}>
+				<button
+					type="button"
+					tabindex={searching ? -1 : 0}
+					class="search-button"
+					onclick={toggleSearch}
+				>
 					<Icon name={searching ? 'cross' : 'search'} />
 				</button>
 

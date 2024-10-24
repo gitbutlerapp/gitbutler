@@ -28,6 +28,7 @@
 </script>
 
 <button
+	type="button"
 	class="action__wrapper"
 	class:loading
 	class:row

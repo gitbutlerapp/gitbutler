@@ -13,7 +13,7 @@
 	const { href, icon, children }: Props = $props();
 </script>
 
-<button class="link" onclick={async () => await openExternalUrl(href)}>
+<button type="button" class="link" onclick={async () => await openExternalUrl(href)}>
 	<Icon name={icon} />
 	<span class="text-12">
 		{@render children()}

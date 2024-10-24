@@ -12,12 +12,13 @@
 	interface Props {
 		text?: string;
 		delay?: number;
+		disabled?: boolean;
 		align?: TooltipAlign;
 		position?: TooltipPosition;
 		children: Snippet;
 	}
 
-	const { text, delay = 700, align, position, children }: Props = $props();
+	const { text, delay = 700, disabled, align, position, children }: Props = $props();
 
 	let targetEl: HTMLElement | undefined = $state();
 
@@ -27,6 +28,7 @@
 	const isTextEmpty = $derived(!text || text === '');
 
 	function handleMouseEnter() {
+		if (disabled) return;
 		timeoutId = setTimeout(() => {
 			show = true;
 			// console.log('showing tooltip');

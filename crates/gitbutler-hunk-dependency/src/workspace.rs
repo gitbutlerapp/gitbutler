@@ -39,6 +39,7 @@ impl WorkspaceRanges {
         let paths = stacks
             .iter()
             .flat_map(StackRanges::unique_paths)
+            .unique()
             .collect_vec();
 
         Ok(WorkspaceRanges {
@@ -75,7 +76,7 @@ fn combine_path_ranges(path: &Path, stacks: &[StackRanges]) -> Vec<HunkRange> {
         .collect_vec();
 
     // Tracks the cumulative lines added/removed.
-    let mut line_shift: i32 = 0;
+    let mut line_shifts = vec![0i32; filtered_paths.len()];
 
     // Next hunk to consider for each branch containing path.
     let mut hunk_indexes: Vec<usize> = vec![0; filtered_paths.len()];
@@ -101,21 +102,30 @@ fn combine_path_ranges(path: &Path, stacks: &[StackRanges]) -> Vec<HunkRange> {
         if next_index.is_none() {
             break; // No more items to process.
         }
-        let next_index = next_index.unwrap();
 
+        let next_index = next_index.unwrap();
         let hunk_index = hunk_indexes[next_index];
-        hunk_indexes[next_index] += 1;
 
         // Get the path with the lowest next start line.
         let path_dep = &filtered_paths[next_index];
-
         let hunk_dep = &path_dep.hunks[hunk_index];
 
         result.push(HunkRange {
-            start: hunk_dep.start.saturating_add_signed(line_shift),
+            start: hunk_dep
+                .start
+                .saturating_add_signed(line_shifts[next_index]),
             ..hunk_dep.clone()
         });
-        line_shift += hunk_dep.line_shift;
+
+        // Advance the path specific hunk pointer.
+        hunk_indexes[next_index] += 1;
+
+        // Increment shift for all stacks except the one this hunk belongs to.
+        for (i, shift) in line_shifts.iter_mut().enumerate() {
+            if i != next_index {
+                *shift += hunk_dep.line_shift;
+            }
+        }
     }
     result
 }
@@ -167,24 +177,43 @@ mod tests {
                     commit_id: commit2_id,
                     files: vec![InputFile {
                         path: path.to_owned(),
-                        diffs: vec![InputDiff::try_from(
-                            "@@ -1,5 +1,3 @@
+                        diffs: vec![
+                            InputDiff::try_from(
+                                "@@ -1,5 +1,3 @@
 -1
 -2
 3
 5
 6
 ",
-                        )?],
+                            )?,
+                            InputDiff::try_from(
+                                "@@ -10,6 +8,7 @@
+10
+11
+12
++13
+14
+15
+16
+",
+                            )?,
+                        ],
                     }],
                 }],
             },
         ])?;
 
-        let dependencies = workspace_ranges.intersection(&path, 2, 1);
-        assert_eq!(dependencies.len(), 1);
-        assert_eq!(dependencies[0].commit_id, commit1_id);
-        assert_eq!(dependencies[0].stack_id, stack1_id);
+        let dependencies_1 = workspace_ranges.intersection(&path, 2, 1);
+        assert_eq!(dependencies_1.len(), 1);
+        assert_eq!(dependencies_1[0].commit_id, commit1_id);
+        assert_eq!(dependencies_1[0].stack_id, stack1_id);
+
+        let dependencies_2 = workspace_ranges.intersection(&path, 12, 1);
+        assert_eq!(dependencies_2.len(), 1);
+        assert_eq!(dependencies_2[0].commit_id, commit2_id);
+        assert_eq!(dependencies_2[0].stack_id, stack2_id);
+
         Ok(())
     }
 }

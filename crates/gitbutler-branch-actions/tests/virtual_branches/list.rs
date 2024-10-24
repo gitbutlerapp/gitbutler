@@ -102,13 +102,13 @@ fn one_feature_branch_and_one_vbranch_in_workspace_one_commit() -> Result<()> {
         &list[0],
         ExpectedBranchListing {
             identity: "main".into(),
-            remotes: vec!["origin"],
+            remotes: vec![],
             virtual_branch_given_name: Some("main"),
             virtual_branch_in_workspace: true,
             has_local: true,
         },
         "virtual branches can have the name of the target, even though it's probably not going to work when pushing. \
-        The remotes of the local `refs/heads/main` are shown."
+        The remotes of the local `refs/heads/main` are not shown"
     );
 
     Ok(())
@@ -125,12 +125,12 @@ fn one_branch_in_workspace_multiple_remotes() -> Result<()> {
         &list[0],
         ExpectedBranchListing {
             identity: "main".into(),
-            remotes: vec!["origin", "other-remote"],
+            remotes: vec!["other-remote"],
             virtual_branch_given_name: Some("main"),
             virtual_branch_in_workspace: true,
             has_local: true,
         },
-        "multiple remotes are detected",
+        "only the seconf remote is detected",
     );
     Ok(())
 }

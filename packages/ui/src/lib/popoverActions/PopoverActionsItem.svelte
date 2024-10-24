@@ -15,8 +15,9 @@
 	let { el = $bindable(), icon, tooltip, thin, activated, onclick }: Props = $props();
 </script>
 
-<Tooltip text={tooltip} position="top" delay={200}>
+<Tooltip disabled={activated} text={tooltip} position="top" delay={200}>
 	<button
+		type="button"
 		bind:this={el}
 		data-clickable="true"
 		class="overflow-actions-btn focus-state"

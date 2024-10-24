@@ -42,12 +42,14 @@
 	}
 
 	function setHorizontalAlign(targetBoundingRect: DOMRect) {
+		const correction = 2;
+
 		if (horizontalAlign === 'left') {
 			return targetBoundingRect?.left ? targetBoundingRect.left : 0;
 		}
 
 		return targetBoundingRect?.left
-			? targetBoundingRect.left + targetBoundingRect.width - contextMenuWidth
+			? targetBoundingRect.left + targetBoundingRect.width - contextMenuWidth - correction
 			: 0;
 	}
 
@@ -56,12 +58,12 @@
 
 		let newMenuPosition = { x: e.clientX, y: e.clientY };
 
-		const menuOffset = 20;
+		const menuWindowEdgesOffset = 20;
 
 		// Check if the menu exceeds the window's right edge
 		const exceedsRight = newMenuPosition.x + contextMenuWidth > window.innerWidth;
 		if (exceedsRight) {
-			newMenuPosition.x = window.innerWidth - contextMenuWidth - menuOffset;
+			newMenuPosition.x = window.innerWidth - contextMenuWidth - menuWindowEdgesOffset;
 		}
 
 		// Check if the menu exceeds the window's left edge
@@ -73,7 +75,7 @@
 		// Check if the menu exceeds the window's bottom edge
 		const exceedsBottom = newMenuPosition.y + contextMenuHeight > window.innerHeight;
 		if (exceedsBottom) {
-			newMenuPosition.y = window.innerHeight - contextMenuHeight - menuOffset;
+			newMenuPosition.y = window.innerHeight - contextMenuHeight - menuWindowEdgesOffset;
 		}
 
 		// Check if the menu exceeds the window's top edge
@@ -213,6 +215,7 @@
 		tabindex="-1"
 		use:focusTrap
 		use:clickOutside={{
+			excludeElement: !openByMouse ? target : undefined,
 			handler: () => close()
 		}}
 		bind:clientHeight={contextMenuHeight}
@@ -231,29 +234,13 @@
 
 {#if isVisible}
 	<div class="portal-wrap" use:portal={'body'}>
-		{#if openByMouse}
-			{@render contextMenu()}
-		{:else}
-			<div class="overlay-wrapper">
-				{@render contextMenu()}
-			</div>
-		{/if}
+		{@render contextMenu()}
 	</div>
 {/if}
 
 <style lang="postcss">
 	.portal-wrap {
 		display: contents;
-	}
-
-	.overlay-wrapper {
-		z-index: var(--z-blocker);
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		/* background-color: rgba(0, 0, 0, 0.1); */
 	}
 
 	.top-oriented {

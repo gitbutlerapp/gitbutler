@@ -14,6 +14,7 @@
 </script>
 
 <button
+	type="button"
 	{disabled}
 	class="button"
 	class:selected

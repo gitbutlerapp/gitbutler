@@ -24,12 +24,12 @@
 			{title}
 		</span>
 		<div class="details text-11">
-			<button class="details-btn copy-btn" onclick={onCopy}>
+			<button type="button" class="details-btn copy-btn" onclick={onCopy}>
 				<span>{sha.substring(0, 7)}</span>
 				<Icon name="copy-small" />
 			</button>
 			<span class="details-divider">•</span>
-			<button class="details-btn link-btn" onclick={onUrlOpen}>
+			<button type="button" class="details-btn link-btn" onclick={onUrlOpen}>
 				<span>Open</span>
 				<Icon name="open-link" />
 			</button>

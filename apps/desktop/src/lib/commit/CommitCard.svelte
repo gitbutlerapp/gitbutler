@@ -331,6 +331,7 @@
 						{/if}
 
 						<button
+							type="button"
 							class="commit__subtitle-btn commit__subtitle-btn_dashed"
 							on:click|stopPropagation={() => copyToClipboard(commit.id)}
 						>
@@ -345,6 +346,7 @@
 							<span class="commit__subtitle-divider">•</span>
 
 							<button
+								type="button"
 								class="commit__subtitle-btn"
 								on:click|stopPropagation={() => {
 									if (commitUrl) openExternalUrl(commitUrl);
