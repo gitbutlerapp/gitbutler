@@ -1,5 +1,4 @@
 <script lang="ts">
-	import TextBox from '../shared/TextBox.svelte';
 	import { invoke, listen } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
 	import { User } from '$lib/stores/user';
@@ -10,6 +9,7 @@
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
@@ -166,7 +166,7 @@
 		</p>
 
 		{#if !$user}
-			<TextBox
+			<Textbox
 				label="Email"
 				placeholder="Provide an email so that we can get back to you"
 				type="email"

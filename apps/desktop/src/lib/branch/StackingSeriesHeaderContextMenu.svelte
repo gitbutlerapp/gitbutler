@@ -5,12 +5,12 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
 	interface Props {
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
@@ -140,7 +140,7 @@
 		close();
 	}}
 >
-	<TextBox placeholder="New name" id="newSeriesName" bind:value={newHeadName} focus />
+	<Textbox placeholder="New name" id="newSeriesName" bind:value={newHeadName} focus />
 
 	{#if hasGitHostBranch}
 		<div class="text-12 text-light helper-text">

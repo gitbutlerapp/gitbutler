@@ -8,9 +8,9 @@
 	import Section from '$lib/settings/Section.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import Link from '$lib/shared/Link.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { invoke } from '@tauri-apps/api/tauri';
 	import { onMount } from 'svelte';
@@ -131,7 +131,7 @@
 				{/snippet}
 			</Select>
 
-			<TextBox
+			<Textbox
 				label="Signing key"
 				bind:value={signingKey}
 				required
@@ -139,7 +139,7 @@
 				placeholder="ex: /Users/bob/.ssh/id_rsa.pub"
 			/>
 
-			<TextBox
+			<Textbox
 				label="Signing program (optional)"
 				bind:value={signingProgram}
 				on:change={updateSigningInfo}

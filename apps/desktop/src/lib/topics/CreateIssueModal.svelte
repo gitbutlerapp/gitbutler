@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { TopicService, type Topic } from '$lib/topics/service';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
 	interface Props {
 		registerKeypress?: boolean;
@@ -80,7 +80,7 @@
 
 		<div class="input">
 			<p class="text-14 label">Title</p>
-			<TextBox bind:value={title} />
+			<Textbox bind:value={title} />
 		</div>
 
 		<div class="input">

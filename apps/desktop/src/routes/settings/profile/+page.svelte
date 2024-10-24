@@ -6,12 +6,12 @@
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import Spacer from '$lib/shared/Spacer.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { UserService } from '$lib/stores/user';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { goto } from '$app/navigation';
 
 	const userService = getContext(UserService);
@@ -113,8 +113,8 @@
 
 				<div id="contact-info" class="contact-info">
 					<div class="contact-info__fields">
-						<TextBox label="Full name" bind:value={newName} required />
-						<TextBox label="Email" bind:value={$user.email} readonly />
+						<Textbox label="Full name" bind:value={newName} required />
+						<Textbox label="Email" bind:value={$user.email} readonly />
 					</div>
 
 					<Button type="submit" style="pop" kind="solid" loading={saving}>Update profile</Button>

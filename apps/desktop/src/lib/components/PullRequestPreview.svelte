@@ -5,7 +5,6 @@
 	import Markdown from '$lib/components/Markdown.svelte';
 	import { RemotesService } from '$lib/remotes/service';
 	import Link from '$lib/shared/Link.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import * as toasts from '$lib/utils/toasts';
 	import { remoteUrlIsHttp } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -13,6 +12,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { get } from 'svelte/store';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
 	import { goto } from '$app/navigation';
@@ -85,7 +85,7 @@
 	<p class="text-15 fork-notice">
 		In order to apply a branch from a fork, GitButler must first add a remote.
 	</p>
-	<TextBox label="Choose a remote name" bind:value={remoteName}></TextBox>
+	<Textbox label="Choose a remote name" bind:value={remoteName}></Textbox>
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={() => closeModal(close)}>Cancel</Button>
 		<Button style="pop" kind="solid" type="submit" grow {loading}>Confirm</Button>

@@ -4,11 +4,11 @@
 	import Section from '$lib/settings/Section.svelte';
 	import Link from '$lib/shared/Link.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { User } from '$lib/stores/user';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { onMount } from 'svelte';
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
@@ -69,9 +69,9 @@
 <SectionCard>
 	<form>
 		<fieldset class="fields-wrapper">
-			<TextBox label="Project path" readonly id="path" value={project?.path} />
+			<Textbox label="Project path" readonly id="path" value={project?.path} />
 			<section class="description-wrapper">
-				<TextBox
+				<Textbox
 					label="Project name"
 					id="name"
 					placeholder="Project name can't be empty"

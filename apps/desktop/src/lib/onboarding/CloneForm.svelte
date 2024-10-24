@@ -4,11 +4,11 @@
 	import Section from '$lib/settings/Section.svelte';
 	import InfoMessage, { type MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import Spacer from '$lib/shared/Spacer.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import * as Sentry from '@sentry/sveltekit';
 	import { open } from '@tauri-apps/api/dialog';
 	import { documentDir } from '@tauri-apps/api/path';
@@ -99,11 +99,11 @@
 <Section>
 	<div class="clone__field repositoryUrl">
 		<div class="text-13 text-semibold clone__field--label">Clone URL</div>
-		<TextBox bind:value={repositoryUrl} />
+		<Textbox bind:value={repositoryUrl} />
 	</div>
 	<div class="clone__field repositoryTargetPath">
 		<div class="text-13 text-semibold clone__field--label">Where to clone</div>
-		<TextBox bind:value={targetDirPath} placeholder={'/Users/tipsy/Documents'} />
+		<Textbox bind:value={targetDirPath} placeholder={'/Users/tipsy/Documents'} />
 		<Button style="ghost" outline kind="solid" disabled={loading} onclick={handleCloneTargetSelect}>
 			Choose..
 		</Button>

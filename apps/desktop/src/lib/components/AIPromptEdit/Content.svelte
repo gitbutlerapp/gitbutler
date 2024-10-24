@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { MessageRole, type UserPrompt } from '$lib/ai/types';
 	import DialogBubble from '$lib/components/AIPromptEdit/DialogBubble.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	export let displayMode: 'readOnly' | 'writable' = 'writable';
@@ -112,7 +112,7 @@
 				<Icon name={expanded ? 'chevron-up' : 'chevron-down'} />
 			</div>
 		{:else}
-			<TextBox bind:value={promptName} wide on:click={(e) => e.stopPropagation()} />
+			<Textbox bind:value={promptName} wide on:click={(e) => e.stopPropagation()} />
 		{/if}
 	</div>
 

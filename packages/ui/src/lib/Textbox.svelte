@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/clickOutside';
+	import { clickOutside } from '$lib/utils/clickOutside';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { createEventDispatcher, onMount } from 'svelte';

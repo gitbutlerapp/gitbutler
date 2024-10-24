@@ -13,9 +13,9 @@
 		type CodeEditorSettings
 	} from '$lib/settings/userSettings';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { type Hunk } from '$lib/vbranches/types';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import type { ContentSection } from '$lib/utils/fileSections';
 	import type { Writable } from 'svelte/store';
@@ -128,7 +128,7 @@
 				>Sets the font for the diff view. The first font name is the default, others are fallbacks.
 			</svelte:fragment>
 			<svelte:fragment slot="actions">
-				<TextBox
+				<Textbox
 					wide
 					bind:value={$userSettings.diffFont}
 					required
@@ -170,7 +170,7 @@
 			</svelte:fragment>
 
 			<svelte:fragment slot="actions">
-				<TextBox
+				<Textbox
 					type="number"
 					width={100}
 					textAlign="center"

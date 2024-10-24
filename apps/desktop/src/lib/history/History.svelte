@@ -3,7 +3,6 @@
 	import LazyloadContainer from '../shared/LazyloadContainer.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
 	import { Project } from '$lib/backend/projects';
-	import { clickOutside } from '$lib/clickOutside';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import SnapshotCard from '$lib/history/SnapshotCard.svelte';
 	import { HistoryService, createdOnDay } from '$lib/history/history';
@@ -13,6 +12,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
 	import { plainToInstance } from 'class-transformer';
 	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';

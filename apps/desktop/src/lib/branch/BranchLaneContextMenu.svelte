@@ -7,12 +7,12 @@
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { stackingFeature } from '$lib/config/uiFeatureFlags';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
@@ -220,7 +220,7 @@
 		close();
 	}}
 >
-	<TextBox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
+	<Textbox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
 
 	{#snippet controls(close)}
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
