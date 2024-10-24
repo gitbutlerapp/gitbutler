@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
-	import StackingAddSeriesButton from './StackingAddSeriesButton.svelte';
+	import StackingAddSeriesModal from './StackingAddSeriesModal.svelte';
 	import StackingStatusIcon from './StackingStatusIcon.svelte';
 	import { getColorFromBranchType } from './stackingUtils';
 	import { PromptService } from '$lib/ai/promptService';
@@ -23,7 +23,8 @@
 	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
+	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
+	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { slugify } from '@gitbutler/ui/utils/string';
 
 	interface Props {
@@ -50,9 +51,12 @@
 	const gitHostBranch = $derived(upstreamName ? $gitHost?.branch(upstreamName) : undefined);
 	const branch = $derived($branchStore);
 
-	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let stackingAddSeriesModal = $state<ReturnType<typeof StackingAddSeriesModal>>();
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
-	let meatballButtonEl = $state<HTMLDivElement>();
+	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
+
+	let contextMenuOpened = $state(false);
 
 	const topPatch = $derived(currentSeries?.patches[0]);
 	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
@@ -124,18 +128,60 @@
 	}
 </script>
 
-<div class="branch-header">
-	{#if $stackingFeatureMultipleSeries}
-		<div class="barnch-plus-btn">
-			<StackingAddSeriesButton parentSeriesName={currentSeries.name} />
-		</div>
-	{/if}
+<StackingAddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={currentSeries.name} />
+
+<StackingSeriesHeaderContextMenu
+	bind:contextMenuEl={kebabContextMenu}
+	target={kebabContextMenuTrigger}
+	headName={currentSeries.name}
+	seriesCount={branch.series?.length ?? 0}
+	{addDescription}
+	onGenerateBranchName={generateBranchName}
+	hasGitHostBranch={!!gitHostBranch}
+	hasPr={!!$pr}
+	openPrDetailsModal={handleOpenPR}
+	reloadPR={handleReloadPR}
+	onopen={() => (contextMenuOpened = true)}
+	onclose={() => (contextMenuOpened = false)}
+/>
+
+<div role="article" class="branch-header" oncontextmenu={(e) => e.preventDefault()}>
+	<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
+		{#if $stackingFeatureMultipleSeries}
+			<PopoverActionsItem
+				icon="plus-small"
+				tooltip="Add dependent branch"
+				onclick={() => {
+					stackingAddSeriesModal?.show();
+				}}
+			/>
+		{/if}
+		{#if gitHostBranch}
+			<PopoverActionsItem
+				icon="open-link"
+				tooltip="Open in browser"
+				onclick={() => {
+					const url = gitHostBranch?.url;
+					if (url) openExternalUrl(url);
+				}}
+			/>
+		{/if}
+		<PopoverActionsItem
+			bind:el={kebabContextMenuTrigger}
+			activated={contextMenuOpened}
+			icon="kebab"
+			tooltip="More options"
+			onclick={() => {
+				kebabContextMenu?.toggle();
+			}}
+		/>
+	</PopoverActionsContainer>
 
 	<div class="branch-info">
 		<StackingStatusIcon
 			lineTop={isTopSeries ? false : true}
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
-			iconColor="#fff"
+			iconColor="var(--clr-core-ntrl-100)"
 			color={lineColor}
 			lineBottom={currentSeries.patches.length > 0}
 		/>
@@ -147,42 +193,6 @@
 				name={currentSeries.name}
 				onChange={(name) => editTitle(name)}
 				disabled={!!gitHostBranch}
-			/>
-		</div>
-		<div class="branch-info__btns">
-			{#if gitHostBranch}
-				<Button
-					icon="open-link"
-					tooltip="Open in browser"
-					style="ghost"
-					onclick={(e: MouseEvent) => {
-						const url = gitHostBranch?.url;
-						if (url) openExternalUrl(url);
-						e.preventDefault();
-						e.stopPropagation();
-					}}
-				></Button>
-			{/if}
-			<Button
-				icon="kebab"
-				style="ghost"
-				tooltip="More options"
-				bind:el={meatballButtonEl}
-				onclick={() => {
-					contextMenu?.toggle();
-				}}
-			></Button>
-			<StackingSeriesHeaderContextMenu
-				bind:contextMenuEl={contextMenu}
-				target={meatballButtonEl}
-				headName={currentSeries.name}
-				seriesCount={branch.series?.length ?? 0}
-				{addDescription}
-				onGenerateBranchName={generateBranchName}
-				hasGitHostBranch={!!gitHostBranch}
-				hasPr={!!$pr}
-				openPrDetailsModal={handleOpenPR}
-				reloadPR={handleReloadPR}
 			/>
 		</div>
 	</div>
@@ -215,18 +225,6 @@
 			</div>
 		</div>
 	{/if}
-	{#if hasNoCommits}
-		<div class="branch-emptystate">
-			<EmptyStatePlaceholder bottomMargin={10}>
-				{#snippet title()}
-					This is an empty branch
-				{/snippet}
-				{#snippet caption()}
-					Create or drag and drop commits here
-				{/snippet}
-			</EmptyStatePlaceholder>
-		</div>
-	{/if}
 
 	{#if $pr}
 		<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
@@ -241,17 +239,15 @@
 		display: flex;
 		align-items: center;
 		flex-direction: column;
-		/* overflow: hidden; */
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 
-		&:hover {
-			& .barnch-plus-btn {
-				pointer-events: all;
-				opacity: 1;
-				transform: translateY(-50%) scale(1);
+		&:hover,
+		&:focus-within {
+			& :global(.branch-actions-menu) {
+				--show: true;
 			}
 		}
 	}
@@ -269,10 +265,6 @@
 			justify-content: flex-start;
 			min-width: 0;
 			flex-grow: 1;
-		}
-
-		& .branch-info__btns {
-			display: flex;
 		}
 
 		.remote-name {
@@ -316,28 +308,5 @@
 		min-width: 2px;
 		margin: 0 20px;
 		background-color: var(--bg-color, var(--clr-border-3));
-	}
-
-	.branch-emptystate {
-		width: 100%;
-		display: flex;
-		justify-content: center;
-		align-items: center;
-
-		border-top: 2px solid var(--bg-color, var(--clr-border-3));
-	}
-
-	.barnch-plus-btn {
-		position: absolute;
-		top: 2px;
-		width: fit-content;
-		display: flex;
-		align-items: center;
-		transform: translateY(-45%) scale(0.8);
-		opacity: 0;
-		pointer-events: none;
-		transition:
-			opacity var(--transition-fast),
-			transform var(--transition-medium);
 	}
 </style>

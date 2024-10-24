@@ -24,6 +24,7 @@
 	const branch = $derived($branchStore);
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let isContextMenuOpen = $state(false);
 	let meatballButtonEl = $state<HTMLDivElement>();
 	let isTargetBranchAnimated = $state(false);
 
@@ -113,6 +114,7 @@
 						<BranchLabel name={branch.name} onChange={(name) => handleBranchNameChange(name)} />
 						<Button
 							bind:el={meatballButtonEl}
+							activated={isContextMenuOpen}
 							style="ghost"
 							icon="kebab"
 							onclick={() => {
@@ -124,6 +126,8 @@
 							target={meatballButtonEl}
 							onCollapse={collapseLane}
 							hasPr={false}
+							onopen={() => (isContextMenuOpen = true)}
+							onclose={() => (isContextMenuOpen = false)}
 						/>
 					</div>
 					<div class="header__info-row">
@@ -138,6 +142,7 @@
 							/>
 							<Button
 								style="neutral"
+								kind="soft"
 								icon="remote-branch-small"
 								size="tag"
 								clickable={false}
@@ -147,6 +152,7 @@
 							</Button>
 							<Button
 								style="neutral"
+								kind="soft"
 								icon="pr-small"
 								size="tag"
 								clickable={false}

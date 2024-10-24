@@ -56,6 +56,7 @@
 			size="tag"
 			icon="virtual-branch-small"
 			style="neutral"
+			kind="soft"
 			tooltip="Changes are in your working directory"
 			reversedDirection>Virtual</Button
 		>
@@ -65,6 +66,7 @@
 			clickable={false}
 			size="tag"
 			style="neutral"
+			kind="soft"
 			shrinkable
 			disabled
 			tooltip={'Branch name that will be used when pushing.\nChange it from the lane menu'}

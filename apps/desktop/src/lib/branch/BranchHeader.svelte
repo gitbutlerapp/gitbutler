@@ -46,6 +46,7 @@
 	const showCreatePatchStack = $derived($patchStack.state === 'not-found');
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let isContexMenuOpen = $state(false);
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let meatballButtonEl = $state<HTMLDivElement>();
 	let isTargetBranchAnimated = $state(false);
@@ -155,6 +156,7 @@
 									clickable={false}
 									icon="locked-small"
 									style="warning"
+									kind="soft"
 									tooltip="Applying this branch will add merge conflict markers that you will have to resolve"
 								>
 									Conflict
@@ -202,6 +204,7 @@
 							style="ghost"
 							outline
 							icon="kebab"
+							activated={isContexMenuOpen}
 							onclick={() => {
 								contextMenu?.toggle();
 							}}
@@ -214,6 +217,8 @@
 							hasPr={!!$pr}
 							openPrDetailsModal={handleOpenPR}
 							reloadPR={handleReloadPR}
+							onopen={() => (isContexMenuOpen = true)}
+							onclose={() => (isContexMenuOpen = false)}
 						/>
 					</div>
 				</div>

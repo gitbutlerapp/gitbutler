@@ -32,6 +32,9 @@
 	title={name}
 	class="branch-name-input text-14 text-bold"
 	ondblclick={(e) => e.stopPropagation()}
+	oncontextmenu={(e) => {
+		e.stopPropagation();
+	}}
 	onclick={(e) => {
 		e.stopPropagation();
 		inputEl.focus();

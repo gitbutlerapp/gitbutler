@@ -1,51 +1,114 @@
 <script lang="ts">
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
-	import type { Commit, DetailedCommit } from '$lib/vbranches/types';
+	import { BranchController } from '$lib/vbranches/branchController';
+	import { VirtualBranch, type Commit, type DetailedCommit } from '$lib/vbranches/types';
+	import { getContext } from '@gitbutler/shared/context';
 
 	interface Props {
-		targetElement: HTMLElement | null;
+		parent: ReturnType<typeof ContextMenu>;
+		baseBranch: BaseBranch;
+		branch: VirtualBranch | undefined;
 		commit: DetailedCommit | Commit;
 		commitUrl: string | undefined;
+		isRemote: boolean;
+		onUncommitClick: (event: MouseEvent) => void;
+		onEditMessageClick: (event: MouseEvent) => void;
+		onPatchEditClick: (event: MouseEvent) => void;
 	}
 
-	const { targetElement, commit, commitUrl }: Props = $props();
+	const {
+		parent,
+		baseBranch,
+		branch,
+		commit,
+		commitUrl,
+		isRemote,
+		onUncommitClick,
+		onEditMessageClick,
+		onPatchEditClick
+	}: Props = $props();
 
-	const target = $derived(targetElement ?? undefined);
+	const branchController = getContext(BranchController);
 
-	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-
-	export function open(e: MouseEvent) {
-		e.preventDefault();
-		e.stopPropagation();
-		contextMenu?.open(e);
-	}
-
-	function copySha() {
-		copyToClipboard(commit.id);
-		contextMenu?.close();
-	}
-
-	function openInBrowser() {
-		if (commitUrl) openExternalUrl(commitUrl);
-		contextMenu?.close();
-	}
-
-	function copyCommitMessage() {
-		copyToClipboard(commit.description);
-		contextMenu?.close();
+	function insertBlankCommit(commitId: string, location: 'above' | 'below' = 'below') {
+		if (!branch || !baseBranch) {
+			console.error('Unable to insert commit');
+			return;
+		}
+		branchController.insertBlankCommit(branch.id, commitId, location === 'above' ? -1 : 1);
 	}
 </script>
 
-<ContextMenu bind:this={contextMenu} {target} openByMouse>
+{#if !isRemote}
 	<ContextMenuSection>
-		<ContextMenuItem label="Copy SHA" onclick={copySha} />
-		{#if commitUrl}
-			<ContextMenuItem label="Open in browser" onclick={openInBrowser} />
-		{/if}
-		<ContextMenuItem label="Copy commit message" onclick={copyCommitMessage} />
+		<ContextMenuItem
+			label="Uncommit"
+			onclick={(e: MouseEvent) => {
+				onUncommitClick(e);
+				parent.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Edit commit message"
+			onclick={(e: MouseEvent) => {
+				onEditMessageClick(e);
+				parent.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Edit patch"
+			onclick={(e: MouseEvent) => {
+				onPatchEditClick(e);
+				parent.close();
+			}}
+		/>
 	</ContextMenuSection>
-</ContextMenu>
+{/if}
+<ContextMenuSection>
+	{#if commitUrl}
+		<ContextMenuItem
+			label="Open in browser"
+			onclick={async () => {
+				await openExternalUrl(commitUrl);
+				parent.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Copy commit link"
+			onclick={() => {
+				copyToClipboard(commitUrl);
+				parent.close();
+			}}
+		/>
+	{/if}
+	<ContextMenuItem
+		label="Copy commit message"
+		onclick={() => {
+			copyToClipboard(commit.description);
+			parent.close();
+		}}
+	/>
+</ContextMenuSection>
+{#if 'branchId' in commit && !isRemote}
+	<ContextMenuSection>
+		<ContextMenuItem
+			label="Add empty commit above"
+			onclick={() => {
+				insertBlankCommit(commit.id, 'above');
+				parent.close();
+			}}
+		/>
+		<ContextMenuItem
+			label="Add empty commit below"
+			onclick={() => {
+				insertBlankCommit(commit.id, 'below');
+				parent.close();
+			}}
+		/>
+	</ContextMenuSection>
+{/if}

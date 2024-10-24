@@ -4,6 +4,7 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
@@ -50,8 +51,8 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
-	let draggableCommitElement: HTMLElement | null = null;
-	let contextMenu: ReturnType<typeof CommitContextMenu> | undefined;
+	let draggableCommitElement: HTMLElement;
+	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
 	let files: RemoteFile[] = [];
 	let showDetails = false;
 
@@ -175,16 +176,23 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" outline type="submit">Yes</Button>
+		<Button style="pop" type="submit">Yes</Button>
 	{/snippet}
 </Modal>
 
-<CommitContextMenu
-	bind:this={contextMenu}
-	targetElement={draggableCommitElement}
-	{commit}
-	{commitUrl}
-/>
+<ContextMenu bind:this={contextMenu} target={draggableCommitElement} openByMouse>
+	<CommitContextMenu
+		baseBranch={$baseBranch}
+		{branch}
+		isRemote={type === 'remote'}
+		parent={contextMenu}
+		{commit}
+		{commitUrl}
+		onUncommitClick={() => undoCommit(commit)}
+		onEditMessageClick={openCommitMessageModal}
+		onPatchEditClick={handleEditPatch}
+	/>
+</ContextMenu>
 
 <div
 	class="commit-row"
@@ -220,6 +228,7 @@
 				role="button"
 				tabindex="0"
 				on:contextmenu={(e) => {
+					e.preventDefault();
 					contextMenu?.open(e);
 				}}
 				on:dragenter={() => {

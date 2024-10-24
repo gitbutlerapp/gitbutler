@@ -3,7 +3,6 @@
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { focusTrap } from '@gitbutler/ui/utils/focusTrap';
 	import { portal } from '@gitbutler/ui/utils/portal';
-	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
 
 	interface Props {
@@ -16,7 +15,7 @@
 		onopen?: () => void;
 	}
 
-	const {
+	let {
 		target,
 		openByMouse,
 		verticalAlign = 'bottom',
@@ -26,48 +25,13 @@
 		onopen
 	}: Props = $props();
 
+	let el: HTMLElement | undefined = $state();
 	let item = $state<any>();
 	let contextMenuHeight = $state(0);
 	let contextMenuWidth = $state(0);
 	let isVisible = $state(false);
 	let menuPosition = $state({ x: 0, y: 0 });
-
-	export function close() {
-		isVisible = false;
-		if (onclose) {
-			onclose();
-		}
-	}
-
-	export function open(e?: MouseEvent, newItem?: any) {
-		if (!target) return;
-
-		if (newItem) {
-			item = newItem;
-		}
-
-		isVisible = true;
-		onopen?.();
-
-		if (!openByMouse) {
-			setAlignByTarget();
-		}
-
-		if (openByMouse && e) {
-			menuPosition = {
-				x: e.clientX,
-				y: e.clientY
-			};
-		}
-	}
-
-	export function toggle(e?: MouseEvent, newItem?: any) {
-		if (!isVisible) {
-			open(e, newItem);
-		} else {
-			close();
-		}
-	}
+	let savedMouseEvent: MouseEvent | undefined;
 
 	function setVerticalAlign(targetBoundingRect: DOMRect) {
 		if (verticalAlign === 'top') {
@@ -87,15 +51,131 @@
 			: 0;
 	}
 
+	function setAlignByMouse(e?: MouseEvent) {
+		if (!e) return;
+
+		let newMenuPosition = { x: e.clientX, y: e.clientY };
+
+		const menuOffset = 20;
+
+		// Check if the menu exceeds the window's right edge
+		const exceedsRight = newMenuPosition.x + contextMenuWidth > window.innerWidth;
+		if (exceedsRight) {
+			newMenuPosition.x = window.innerWidth - contextMenuWidth - menuOffset;
+		}
+
+		// Check if the menu exceeds the window's left edge
+		const exceedsLeft = newMenuPosition.x < 0;
+		if (exceedsLeft) {
+			newMenuPosition.x = 0;
+		}
+
+		// Check if the menu exceeds the window's bottom edge
+		const exceedsBottom = newMenuPosition.y + contextMenuHeight > window.innerHeight;
+		if (exceedsBottom) {
+			newMenuPosition.y = window.innerHeight - contextMenuHeight - menuOffset;
+		}
+
+		// Check if the menu exceeds the window's top edge
+		const exceedsTop = newMenuPosition.y < 0;
+		if (exceedsTop) {
+			newMenuPosition.y = 0;
+		}
+
+		// Apply the new position
+		menuPosition = newMenuPosition;
+	}
+
 	function setAlignByTarget() {
-		if (target) {
-			const targetBoundingRect = target.getBoundingClientRect();
-			menuPosition = {
-				x: setHorizontalAlign(targetBoundingRect),
-				y: setVerticalAlign(targetBoundingRect)
-			};
+		if (!target) return;
+
+		const targetBoundingRect = target.getBoundingClientRect();
+		let newMenuPosition = {
+			x: setHorizontalAlign(targetBoundingRect),
+			y: setVerticalAlign(targetBoundingRect)
+		};
+
+		// Check if the menu goes beyond the window's right edge
+		const exceedsRight = newMenuPosition.x + contextMenuWidth > window.innerWidth;
+		if (exceedsRight) {
+			horizontalAlign = horizontalAlign === 'right' ? 'left' : 'right';
+			newMenuPosition.x = setHorizontalAlign(targetBoundingRect);
+		}
+
+		// Check if the menu goes beyond the window's left edge
+		const exceedsLeft = newMenuPosition.x < 0;
+		if (exceedsLeft) {
+			horizontalAlign = 'right';
+			newMenuPosition.x = setHorizontalAlign(targetBoundingRect);
+		}
+
+		// Check if the menu goes beyond the window's bottom edge
+		const exceedsBottom = newMenuPosition.y + contextMenuHeight > window.innerHeight;
+		if (exceedsBottom) {
+			verticalAlign = verticalAlign === 'bottom' ? 'top' : 'bottom';
+			newMenuPosition.y = setVerticalAlign(targetBoundingRect);
+		}
+
+		// Check if the menu goes beyond the window's top edge
+		const exceedsTop = newMenuPosition.y < 0;
+		if (exceedsTop) {
+			verticalAlign = 'bottom';
+			newMenuPosition.y = setVerticalAlign(targetBoundingRect);
+		}
+
+		// Apply the new position
+		menuPosition = newMenuPosition;
+	}
+
+	export function open(e?: MouseEvent, newItem?: any) {
+		if (!target) return;
+
+		if (newItem) {
+			item = newItem;
+		}
+
+		isVisible = true;
+		onopen?.();
+
+		if (!openByMouse) {
+			setAlignByTarget();
+		}
+
+		if (openByMouse && e) {
+			savedMouseEvent = e;
 		}
 	}
+
+	export function close() {
+		if (!isVisible) return;
+
+		isVisible = false;
+		onclose?.();
+	}
+
+	export function toggle(e?: MouseEvent, newItem?: any) {
+		if (!isVisible) {
+			open(e, newItem);
+		} else {
+			close();
+		}
+	}
+
+	$effect(() => {
+		if (isVisible) {
+			if (contextMenuHeight > 0 && contextMenuWidth > 0) {
+				el?.focus();
+
+				if (openByMouse) {
+					setAlignByMouse(savedMouseEvent);
+				} else {
+					setAlignByTarget();
+				}
+			}
+		} else {
+			savedMouseEvent = undefined;
+		}
+	});
 
 	function setTransformOrigin() {
 		if (!openByMouse) {
@@ -128,20 +208,15 @@
 <svelte:window on:keydown={handleKeyDown} />
 
 {#snippet contextMenu()}
-	<!-- svelte-ignore a11y_autofocus -->
 	<div
+		bind:this={el}
 		tabindex="-1"
 		use:focusTrap
 		use:clickOutside={{
-			excludeElement: target,
 			handler: () => close()
 		}}
-		use:resizeObserver={() => {
-			if (!openByMouse) setAlignByTarget();
-		}}
-		autofocus
-		bind:offsetHeight={contextMenuHeight}
-		bind:offsetWidth={contextMenuWidth}
+		bind:clientHeight={contextMenuHeight}
+		bind:clientWidth={contextMenuWidth}
 		class="context-menu"
 		class:top-oriented={verticalAlign === 'top'}
 		class:bottom-oriented={verticalAlign === 'bottom'}
@@ -182,7 +257,7 @@
 	}
 
 	.top-oriented {
-		margin-top: -4px;
+		margin-top: -6px;
 	}
 
 	.bottom-oriented {

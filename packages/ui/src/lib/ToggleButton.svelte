@@ -63,6 +63,6 @@
 	}
 
 	.toggle-btn__label {
-		color: var(--clr-text-2);
+		color: var(--clr-text-1);
 	}
 </style>

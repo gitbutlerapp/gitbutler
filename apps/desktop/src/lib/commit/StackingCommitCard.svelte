@@ -3,6 +3,7 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import CommitMessageInput from '$lib/commit/CommitMessageInput.svelte';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
@@ -25,6 +26,8 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
+	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { type Snippet } from 'svelte';
 
@@ -64,8 +67,11 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
+	let kebabMenuTrigger = $state<HTMLButtonElement>();
 	let draggableCommitElement = $state<HTMLElement>();
-	let contextMenu = $state<ReturnType<typeof CommitContextMenu>>();
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let isKebabContextMenuOpen = $state(false);
 	let files = $state<RemoteFile[]>([]);
 	let showDetails = $state(false);
 	let conflictResolutionConfirmationModal = $state<ReturnType<typeof Modal>>();
@@ -76,8 +82,7 @@
 		files = await listRemoteCommitFiles(project.id, commit.id);
 	}
 
-	function toggleFiles(e?: MouseEvent) {
-		e?.stopPropagation();
+	function toggleFiles() {
 		if (!filesToggleable) return;
 		showDetails = !showDetails;
 
@@ -104,11 +109,9 @@
 	let commitMessageValid = $state(false);
 	let description = $state('');
 
-	function openCommitMessageModal(e: Event) {
+	function openCommitMessageModal(e: MouseEvent) {
 		e.stopPropagation();
-
 		description = commit.description;
-
 		commitMessageModal?.show();
 	}
 
@@ -124,6 +127,12 @@
 
 	const commitShortSha = commit.id.substring(0, 7);
 
+	function handleUncommit(e: MouseEvent) {
+		e.stopPropagation();
+		currentCommitMessage.set(commit.description);
+		undoCommit(commit);
+	}
+
 	function canEdit() {
 		if (isUnapplied) return false;
 		if (!modeService) return false;
@@ -134,7 +143,6 @@
 
 	async function editPatch() {
 		if (!canEdit()) return;
-
 		modeService!.enterEditMode(commit.id, branch!.refname);
 	}
 
@@ -145,6 +153,8 @@
 		}
 		await editPatch();
 	}
+
+	const showOpenInBrowser = $derived(commitUrl && (type === 'remote' || type === 'localAndRemote'));
 </script>
 
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
@@ -180,20 +190,51 @@
 	{/snippet}
 </Modal>
 
+{#snippet commitContextMenuSnippet(parent: ReturnType<typeof ContextMenu>)}
+	{#if contextMenu}
+		<CommitContextMenu
+			{parent}
+			baseBranch={$baseBranch}
+			{branch}
+			{commit}
+			isRemote={type === 'remote'}
+			commitUrl={showOpenInBrowser ? commitUrl : undefined}
+			onUncommitClick={handleUncommit}
+			onEditMessageClick={openCommitMessageModal}
+			onPatchEditClick={handleEditPatch}
+		/>
+	{/if}
+{/snippet}
+
 {#if draggableCommitElement}
-	<CommitContextMenu
-		bind:this={contextMenu}
-		targetElement={draggableCommitElement}
-		{commit}
-		{commitUrl}
-	/>
+	<ContextMenu bind:this={contextMenu} target={draggableCommitElement} openByMouse>
+		{@render commitContextMenuSnippet(contextMenu)}
+	</ContextMenu>
+{/if}
+
+{#if kebabMenuTrigger}
+	<ContextMenu
+		bind:this={kebabContextMenu}
+		target={kebabMenuTrigger}
+		onopen={() => (isKebabContextMenuOpen = true)}
+		onclose={() => (isKebabContextMenuOpen = false)}
+	>
+		{@render commitContextMenuSnippet(kebabContextMenu)}
+	</ContextMenu>
 {/if}
 
 <div
 	class="commit-row"
 	class:is-commit-open={showDetails}
 	class:is-last={last}
-	onclick={toggleFiles}
+	onclick={(e) => {
+		e.preventDefault();
+		toggleFiles();
+	}}
+	oncontextmenu={(e) => {
+		e.preventDefault();
+		contextMenu?.open(e);
+	}}
 	onkeyup={onKeyup}
 	role="button"
 	tabindex="0"
@@ -215,25 +256,22 @@
 		</div>
 	{/if}
 
+	<PopoverActionsContainer class="commit-actions-menu" thin stayOpen={isKebabContextMenuOpen}>
+		<PopoverActionsItem
+			bind:el={kebabMenuTrigger}
+			activated={isKebabContextMenuOpen}
+			icon="kebab"
+			tooltip="More options"
+			thin
+			onclick={(e) => {
+				kebabContextMenu?.open(e);
+			}}
+		/>
+	</PopoverActionsContainer>
+
 	<div class="commit-card" class:is-last={last}>
 		<!-- GENERAL INFO -->
-		<div
-			bind:this={draggableCommitElement}
-			class="commit__header"
-			role="button"
-			tabindex="-1"
-			oncontextmenu={(e) => {
-				contextMenu?.open(e);
-			}}
-		>
-			{#if !isUnapplied}
-				{#if type === 'local' || type === 'localAndRemote'}
-					<div class="commit__drag-icon">
-						<Icon name="draggable-narrow" />
-					</div>
-				{/if}
-			{/if}
-
+		<div bind:this={draggableCommitElement} class="commit__header" role="button" tabindex="-1">
 			{#if isUndoable && !commit.descriptionTitle}
 				<span class="text-13 text-body text-semibold commit__empty-title">empty commit message</span
 				>
@@ -287,7 +325,7 @@
 						</div>
 					</button>
 
-					{#if showDetails && commitUrl}
+					{#if showDetails && showOpenInBrowser}
 						<span class="commit__subtitle-divider">•</span>
 
 						<button
@@ -330,9 +368,7 @@
 										outline
 										icon="undo-small"
 										onclick={(e: MouseEvent) => {
-											currentCommitMessage.set(commit.description);
-											e.stopPropagation();
-											undoCommit(commit);
+											handleUncommit(e);
 										}}>Uncommit</Button
 									>
 								{/if}
@@ -341,7 +377,9 @@
 									style="ghost"
 									outline
 									icon="edit-small"
-									onclick={openCommitMessageModal}>Edit message</Button
+									onclick={(e: MouseEvent) => {
+										openCommitMessageModal(e);
+									}}>Edit message</Button
 								>
 							{/if}
 							{#if canEdit()}
@@ -378,11 +416,16 @@
 		gap: 10px;
 		width: 100%;
 		background-color: var(--clr-bg-1);
-
 		transition: background-color var(--transition-fast);
 
 		&:focus {
 			outline: none;
+		}
+
+		&:hover {
+			& :global(.commit-actions-menu) {
+				--show: true;
+			}
 		}
 
 		&:not(.is-commit-open) {
@@ -423,14 +466,14 @@
 		gap: 6px;
 		padding: 14px 14px 14px 0;
 
-		&:hover {
+		/* &:hover {
 			& .commit__drag-icon {
 				opacity: 1;
 			}
-		}
+		} */
 	}
 
-	.commit__drag-icon {
+	/* .commit__drag-icon {
 		pointer-events: none;
 		position: absolute;
 		display: flex;
@@ -440,7 +483,7 @@
 
 		opacity: 0;
 		transition: opacity var(--transition-fast);
-	}
+	} */
 
 	.commit__title {
 		flex: 1;
@@ -563,26 +606,5 @@
 			margin-left: 2px;
 			transform: scale3d(1, 1, 1);
 		}
-	}
-
-	/* PSUEDO DROPZONE */
-	.pseudo-reorder-zone {
-		z-index: var(--z-lifted);
-		position: absolute;
-		height: 2px;
-		width: 100%;
-		background-color: var(--clr-theme-pop-element);
-	}
-
-	.pseudo-reorder-zone.top {
-		top: -1px;
-	}
-
-	.pseudo-reorder-zone.bottom {
-		bottom: -1px;
-	}
-
-	.pseudo-reorder-zone.bottom.is-last {
-		bottom: -6px;
 	}
 </style>

@@ -5,7 +5,6 @@
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import { slugify } from '@gitbutler/ui/utils/string';
 
@@ -37,12 +36,11 @@
 	function onModalClose() {
 		createRefName = undefined;
 	}
-</script>
 
-<button class="add-branch-btn text-12" onclick={() => createRefModal?.show()}>
-	<span class="add-branch-btn__label"> New dependent branch </span>
-	<Icon name="plus-small" />
-</button>
+	export function show() {
+		createRefModal?.show();
+	}
+</script>
 
 <Modal
 	bind:this={createRefModal}
@@ -75,39 +73,5 @@
 	.helper-text {
 		color: var(--clr-scale-ntrl-50);
 		margin-top: 10px;
-	}
-
-	.add-branch-btn {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 2px 4px;
-		height: var(--size-m);
-		background-color: var(--clr-theme-ntrl-element);
-		color: var(--clr-theme-ntrl-on-element);
-		border-radius: var(--radius-m);
-		transition: background-color 0.2s;
-
-		&:hover {
-			background-color: var(--clr-theme-ntrl-element-hover);
-
-			& .add-branch-btn__label {
-				max-width: 160px;
-				margin-left: 4px;
-				margin-right: 3px;
-				opacity: 1;
-			}
-		}
-	}
-
-	.add-branch-btn__label {
-		overflow: hidden;
-		white-space: nowrap;
-		max-width: 0;
-		opacity: 0;
-
-		transition:
-			max-width 0.2s,
-			opacity 0.3s;
 	}
 </style>

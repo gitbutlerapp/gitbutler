@@ -24,6 +24,8 @@
 		onGenerateBranchName?: () => void;
 		openPrDetailsModal?: () => void;
 		reloadPR?: () => void;
+		onopen?: () => void;
+		onclose?: () => void;
 	}
 
 	let {
@@ -33,7 +35,9 @@
 		onGenerateBranchName,
 		hasPr,
 		openPrDetailsModal,
-		reloadPR
+		reloadPR,
+		onopen,
+		onclose
 	}: Props = $props();
 
 	const project = getContext(Project);
@@ -89,7 +93,7 @@
 	});
 </script>
 
-<ContextMenu bind:this={contextMenuEl} {target}>
+<ContextMenu bind:this={contextMenuEl} {target} {onopen} {onclose}>
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Collapse lane"
@@ -169,6 +173,13 @@
 				label="PR details"
 				onclick={() => {
 					openPrDetailsModal?.();
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Copy PR link"
+				onclick={() => {
+					reloadPR?.();
 					contextMenuEl?.close();
 				}}
 			/>
