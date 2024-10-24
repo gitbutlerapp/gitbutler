@@ -1,13 +1,19 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use git2::Oid;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_stack::{Series, StackId};
+use gitbutler_repo::rebase::cherry_rebase_group;
+use gitbutler_stack::{PatchReferenceUpdate, Series, StackId, TargetUpdate};
 
 use itertools::Itertools;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-use crate::VirtualBranchesExt;
+use crate::{
+    branch_trees::{
+        checkout_branch_trees, compute_updated_branch_head_for_commits, BranchHeadAndTree,
+    },
+    VirtualBranchesExt,
+};
 
 /// This API allows the client to reorder commits in a stack.
 /// Commits may be moved within the same series or between different series.
@@ -24,17 +30,59 @@ pub fn reorder_stack(
     ctx: &CommandContext,
     branch_id: StackId,
     stack_order: StackOrder,
-    _perm: &mut WorktreeWritePermission,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let state = ctx.project().virtual_branches();
-    let stack = state.get_branch(branch_id)?;
+    let repo = ctx.repository();
+    let mut stack = state.get_branch(branch_id)?;
     let all_series = stack.list_series(ctx)?;
     stack_order.validate(series_order(&all_series))?;
+
+    let default_target = state.get_default_target()?;
+    let default_target_commit = repo
+        .find_reference(&default_target.branch.to_string())?
+        .peel_to_commit()?;
+    let old_head = repo.find_commit(stack.head())?;
+    let merge_base = repo.merge_base(default_target_commit.id(), stack.head())?;
+
+    let ids_to_rebase = stack_order
+        .series
+        .iter()
+        .flat_map(|s| s.commit_ids.iter())
+        .cloned()
+        .collect_vec();
+    let new_head = cherry_rebase_group(repo, merge_base, &ids_to_rebase)?;
+    // Calculate the new head and tree
+    let BranchHeadAndTree {
+        head: new_head_oid,
+        tree: new_tree_oid,
+    } = compute_updated_branch_head_for_commits(repo, old_head.id(), old_head.tree_id(), new_head)?;
+
+    // Set the series heads accordingly
+    for (idx, series) in stack_order.series.iter().enumerate() {
+        let new_series_head_oid = series_head(&stack_order.series, merge_base);
+        let new_series_head = repo.find_commit(new_series_head_oid)?;
+        let preceding_head_name = stack_order.series.get(idx + 1).map(|s| s.name.clone());
+        let update = PatchReferenceUpdate {
+            target_update: Some(TargetUpdate {
+                target: new_series_head.into(),
+                preceding_head_name,
+            }),
+            ..Default::default()
+        };
+        stack.update_series(ctx, series.name.clone(), &update)?;
+    }
+
+    stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
+    checkout_branch_trees(ctx, perm)?;
+    crate::integration::update_workspace_commit(&state, ctx)
+        .context("failed to update gitbutler workspace")?;
+
     Ok(())
 }
 
 /// Represents the order of series (branches) and changes (commits) in a stack.
-#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StackOrder {
     /// The series are ordered from newest to oldest (most recent stacks go first)
@@ -42,7 +90,7 @@ pub struct StackOrder {
 }
 
 /// Represents the order of changes (commits) in a series (branch).
-#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
+#[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct SeriesOrder {
     /// Unique name of the series (branch). Must already exist in the stack.
     name: String,
@@ -51,6 +99,19 @@ pub struct SeriesOrder {
     /// The changes are ordered from newest to oldest (most recent changes go first)
     #[serde(with = "gitbutler_serde::oid_vec")]
     commit_ids: Vec<Oid>,
+}
+
+fn series_head(all_series: &Vec<SeriesOrder>, default_commit: Oid) -> Oid {
+    // The head is either:
+    //  - the first commit in the series
+    //  - the first commit in the next series
+    //  - the merge base
+    for series in all_series {
+        if let Some(commit) = series.commit_ids.first() {
+            return *commit;
+        }
+    }
+    default_commit
 }
 
 impl StackOrder {
