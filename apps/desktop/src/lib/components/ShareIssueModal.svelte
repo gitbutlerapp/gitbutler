@@ -1,5 +1,4 @@
 <script lang="ts">
-	import TextArea from '../shared/TextArea.svelte';
 	import TextBox from '../shared/TextBox.svelte';
 	import { invoke, listen } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
@@ -10,6 +9,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import { getVersion } from '@tauri-apps/api/app';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
@@ -179,15 +179,15 @@
 			/>
 		{/if}
 
-		<TextArea
+		<Textarea
 			label="Comments"
 			placeholder="Provide any steps necessary to reproduce the problem."
 			autocomplete="off"
 			autocorrect="off"
 			spellcheck
 			id="comments"
-			rows={6}
-			maxHeight={400}
+			minRows={6}
+			maxRows={10}
 			bind:value={messageInputValue}
 		/>
 

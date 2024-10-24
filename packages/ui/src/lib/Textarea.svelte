@@ -1,5 +1,8 @@
 <script lang="ts" module>
 	export interface Props {
+		id?: string;
+		textBoxEl?: HTMLDivElement;
+		label?: string;
 		value: string | undefined;
 		placeholder?: string;
 		disabled?: boolean;
@@ -24,7 +27,7 @@
 			this: void,
 			e: FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement }
 		) => void;
-		onkeydown?: (e: KeyboardEvent) => void;
+		onkeydown?: (e: KeyboardEvent & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
 	}
 </script>
 
@@ -32,11 +35,14 @@
 	import { pxToRem } from '$lib/utils/pxToRem';
 
 	let {
+		id,
+		textBoxEl = $bindable(),
+		label,
 		value = $bindable(),
 		placeholder,
 		disabled,
 		fontSize = 13,
-		minRows = 2,
+		minRows = 1,
 		maxRows = 100,
 		autofocus,
 		padding = { top: 12, right: 12, bottom: 12, left: 12 },
@@ -51,40 +57,38 @@
 		onkeydown
 	}: Props = $props();
 
-	let textBox: HTMLDivElement | undefined = $state();
-
 	$effect(() => {
 		if (autofocus) {
-			textBox?.focus();
+			textBoxEl?.focus();
 		}
 	});
 
 	$effect(() => {
-		if (textBox) {
+		if (textBoxEl) {
 			if (!disabled) {
-				textBox.setAttribute('contenteditable', 'true');
+				textBoxEl.setAttribute('contenteditable', 'true');
 			} else {
-				textBox.removeAttribute('contenteditable');
+				textBoxEl.removeAttribute('contenteditable');
 			}
-
-			// if (value === '') {
-			// 	textBox.classList.add('textarea-placeholder');
-			// } else {
-			// 	textBox.classList.remove('textarea-placeholder');
-			// }
 		}
 	});
 </script>
 
 <div
-	class="unstyled-textarea-container"
+	class="textarea-container"
 	style:--placeholder-text={`"${placeholder || placeholder !== '' ? placeholder : ' '}"`}
 	style:--font-size={pxToRem(fontSize)}
 	style:--min-rows={minRows}
 	style:--max-rows={maxRows}
 >
+	{#if label}
+		<label class="textarea-label text-13 text-semibold" for={id}>
+			{label}
+		</label>
+	{/if}
 	<div
-		bind:this={textBox}
+		bind:this={textBoxEl}
+		{id}
 		role="textbox"
 		aria-multiline="true"
 		tabindex={disabled ? -1 : 0}
@@ -103,11 +107,12 @@
 
 			oninput?.(eventMock);
 		}}
-		onkeydown={(e) => {
-			onkeydown?.(e);
+		onkeydown={(e: KeyboardEvent) => {
+			const eventMock = e as KeyboardEvent & { currentTarget: EventTarget & HTMLTextAreaElement };
+			onkeydown?.(eventMock);
 		}}
 		class:disabled
-		class="borderless-textarea scrollbar"
+		class="textarea scrollbar"
 		class:text-input={!unstyled}
 		class:textarea-placeholder={value === ''}
 		style:padding-top={pxToRem(padding.top)}
@@ -128,11 +133,13 @@
 </div>
 
 <style lang="postcss">
-	.unstyled-textarea-container {
-		display: contents;
+	.textarea-container {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
 	}
 
-	.borderless-textarea {
+	.textarea {
 		font-family: var(--base-font-family);
 		line-height: var(--body-line-height);
 		font-weight: var(--base-font-weight);
@@ -164,5 +171,9 @@
 				position: relative;
 			}
 		}
+	}
+
+	.textarea-label {
+		color: var(--clr-text-2);
 	}
 </style>

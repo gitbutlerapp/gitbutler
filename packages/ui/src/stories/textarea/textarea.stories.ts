@@ -1,4 +1,4 @@
-import Textarea from './Textarea.svelte';
+import Textarea from './textareaDemo.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
@@ -12,6 +12,7 @@ type Story = StoryObj<typeof meta>;
 export const CheckboxStory: Story = {
 	name: 'Textarea',
 	args: {
+		label: '',
 		value: 'Hello, World!',
 		placeholder: 'Type here...',
 		minRows: 1,

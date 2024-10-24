@@ -10,10 +10,25 @@
 		changableValue =
 			'If this is a WIP PR and you have todos left, feel free to uncomment this and turn this PR into a draft, see https://github.blog/2019-02-14-introducing-draft-pull-requests/';
 	}
+
+	function handleDescriptionKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
+		if (e.key === 'Escape') {
+			console.log('keyboard', e.key);
+			e.preventDefault();
+			return;
+		}
+
+		if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+			console.log('keyboard', e.key);
+			e.preventDefault();
+			return;
+		}
+	}
 </script>
 
 <div class="wrapper">
 	<Textarea
+		label={props.label}
 		value={!changableValue ? props.value : changableValue}
 		placeholder={props.placeholder}
 		minRows={props.minRows}
@@ -27,8 +42,9 @@
 		borderless={props.borderless}
 		unstyled={props.unstyled}
 		oninput={(e) => {
-			console.log(e.currentTarget.value);
+			console.log('input', e);
 		}}
+		onkeydown={handleDescriptionKeyDown}
 		onfocus={(e) => {
 			console.log('focus', e);
 		}}
