@@ -155,6 +155,7 @@
 	headName={currentSeries.name}
 	seriesCount={branch.series?.length ?? 0}
 	{toggleDescription}
+	description={currentSeries.description ?? ''}
 	onGenerateBranchName={generateBranchName}
 	hasForgeBranch={!!forgeBranch}
 	prUrl={$pr?.htmlUrl}
@@ -204,7 +205,7 @@
 				icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 				iconColor="var(--clr-core-ntrl-100)"
 				color={lineColor}
-				lineBottom={currentSeries.patches.length > 0}
+				lineBottom={currentSeries.patches.length > 0 || branch.series.length > 1}
 			/>
 			<div class="text-14 text-bold branch-info__name">
 				<span class:no-upstream={!forgeBranch} class="remote-name">
@@ -240,59 +241,47 @@
 					/>
 				</div>
 			</div>
-			{#if descriptionVisible}
-				<div class="branch-info__description">
-					<div class="branch-action__line" style:--bg-color={lineColor}></div>
-					<BranchLabel
-						name={branch.description}
-						onChange={(description) => editDescription(description)}
-					/>
-				</div>
-			{/if}
-			{#if ($prService && !hasNoCommits) || showCreateCloudBranch}
-				<div class="branch-action">
-					<div class="branch-action__line" style:--bg-color={lineColor}></div>
-					<div class="branch-action__body">
-						{#if $prService && !hasNoCommits}
-							{#if $pr}
-								<StackingPullRequestCard
-									upstreamName={currentSeries.name}
-									reloadPR={handleReloadPR}
-									pr={$pr}
-									{checksMonitor}
-								/>
-							{:else}
-								<Button
-									style="ghost"
-									wide
-									outline
-									disabled={currentSeries.patches.length === 0 || !forge || !$prService}
-									onclick={() => handleOpenPR(!forgeBranch)}
-								>
-									Create pull request
-								</Button>
-							{/if}
-						{/if}
-
-						{#if showCreateCloudBranch}
+		{/if}
+		{#if ($prService && !hasNoCommits) || showCreateCloudBranch}
+			<div class="branch-action">
+				<div class="branch-action__line" style:--bg-color={lineColor}></div>
+				<div class="branch-action__body">
+					{#if $prService && !hasNoCommits}
+						{#if $pr}
+							<StackingPullRequestCard
+								upstreamName={currentSeries.name}
+								reloadPR={handleReloadPR}
+								pr={$pr}
+								{checksMonitor}
+							/>
+						{:else}
 							<Button
 								style="ghost"
+								wide
 								outline
-								disabled={currentSeries.patches.length === 0 || !$forge || !$prService}
-								onclick={() => {
-									cloudBranchCreationService.createBranch(branch.id);
-								}}>Publish Branch</Button
+								disabled={currentSeries.patches.length === 0 || !forge || !$prService}
+								onclick={() => handleOpenPR(!forgeBranch)}
 							>
+								Create pull request
+							</Button>
 						{/if}
-					</div>
-				</div>
-			{/if}
+					{/if}
 
-			{#if $pr}
-				<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
-			{:else}
-				<PrDetailsModal bind:this={prDetailsModal} type="preview-series" {currentSeries} />
-			{/if}
+					{#if showCreateCloudBranch}
+						<Button
+							style="ghost"
+							wide
+							outline
+							disabled={currentSeries.patches.length === 0 || !$forge || !$prService}
+							onclick={() => {
+								cloudBranchCreationService.createBranch(branch.id);
+							}}
+						>
+							Create pull request
+						</Button>
+					{/if}
+				</div>
+			</div>
 		{/if}
 	</Dropzones>
 </div>
