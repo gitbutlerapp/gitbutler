@@ -61,9 +61,6 @@
 	const topPatch = $derived(currentSeries?.patches[0]);
 	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
 	const lineColor = $derived(getColorFromBranchType(branchType));
-	const hasNoCommits = $derived(
-		currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0
-	);
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
@@ -84,8 +81,8 @@
 		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
 	}
 
-	function handleOpenPR(pushBeforeCreate: boolean = false) {
-		prDetailsModal?.show(pushBeforeCreate);
+	function handleOpenPR() {
+		prDetailsModal?.show();
 	}
 
 	function editTitle(title: string) {
@@ -205,7 +202,7 @@
 			/>
 		</div>
 	{/if}
-	{#if $prService && !hasNoCommits}
+	{#if gitHostBranch && $prService}
 		<div class="branch-action">
 			<div class="branch-action__line" style:--bg-color={lineColor}></div>
 			<div class="branch-action__body">
@@ -217,12 +214,22 @@
 						wide
 						outline
 						disabled={currentSeries.patches.length === 0 || !$gitHost || !$prService}
-						onclick={() => handleOpenPR(!gitHostBranch)}
+						onclick={handleOpenPR}>Create pull request</Button
 					>
-						Create pull request
-					</Button>
 				{/if}
 			</div>
+		</div>
+	{/if}
+	{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
+		<div class="branch-emptystate">
+			<EmptyStatePlaceholder bottomMargin={10}>
+				{#snippet title()}
+					This is an empty branch
+				{/snippet}
+				{#snippet caption()}
+					Create or drag and drop commits here
+				{/snippet}
+			</EmptyStatePlaceholder>
 		</div>
 	{/if}
 

@@ -101,7 +101,6 @@
 	let aiConfigurationValid = $state<boolean>(false);
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
 	let showAiBox = $state<boolean>(false);
-	let pushBeforeCreate = $state(false);
 
 	async function handleToggleUseTemplate() {
 		if (!templateSelector) return;
@@ -148,7 +147,7 @@
 		}
 	});
 
-	export async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
+	async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
 		if (!$gitHost) {
 			error('Pull request service not available');
 			return;
@@ -158,7 +157,7 @@
 		try {
 			let upstreamBranchName = upstreamName;
 
-			if (pushBeforeCreate || commits.some((c) => !c.isRemote)) {
+			if (commits.some((c) => !c.isRemote)) {
 				const firstPush = !branch.upstream;
 				const pushResult = await branchController.pushBranch(
 					branch.id,
@@ -306,11 +305,7 @@
 		}, 2000);
 	}
 
-	/**
-	 * @param {boolean} pushAndCreate - Whether or not the commits need pushed before opening a PR
-	 */
-	export function show(pushAndCreate = false) {
-		pushBeforeCreate = pushAndCreate;
+	export function show() {
 		modal?.show();
 	}
 
@@ -446,8 +441,7 @@
 				type="submit"
 				onclick={async () => await handleCreatePR(close)}
 			>
-				{pushBeforeCreate ? 'Push and ' : ''}
-				{isDraft ? 'Create pull request draft' : `Create pull request`}
+				{isDraft ? 'Create pull request draft' : 'Create pull request'}
 
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
