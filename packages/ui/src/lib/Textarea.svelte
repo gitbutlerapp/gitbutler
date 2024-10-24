@@ -57,6 +57,14 @@
 		onkeydown
 	}: Props = $props();
 
+	function getSelectionRange() {
+		const selection = window.getSelection();
+		if (selection) {
+			const range = selection.getRangeAt(0);
+			return range;
+		}
+	}
+
 	$effect(() => {
 		if (autofocus) {
 			textBoxEl?.focus();
@@ -108,7 +116,23 @@
 			oninput?.(eventMock);
 		}}
 		onkeydown={(e: KeyboardEvent) => {
-			const eventMock = e as KeyboardEvent & { currentTarget: EventTarget & HTMLTextAreaElement };
+			const selection = getSelectionRange();
+
+			const eventMock = {
+				key: e.key,
+				code: e.code,
+				altKey: e.altKey,
+				metaKey: e.metaKey,
+				ctrlKey: e.ctrlKey,
+				shiftKey: e.shiftKey,
+				location: e.location,
+				currentTarget: {
+					value: (e.currentTarget as HTMLDivElement).innerText,
+					selectionStart: selection?.startOffset,
+					selectionEnd: selection?.endOffset
+				}
+			} as unknown as KeyboardEvent & { currentTarget: EventTarget & HTMLTextAreaElement };
+
 			onkeydown?.(eventMock);
 		}}
 		class:disabled
