@@ -226,6 +226,7 @@
 <div
 	class="commit-row"
 	class:is-commit-open={showDetails}
+	class:commit-card-activated={isKebabContextMenuOpen}
 	class:is-last={last}
 	onclick={(e) => {
 		e.preventDefault();
@@ -264,7 +265,7 @@
 			tooltip="More options"
 			thin
 			onclick={(e) => {
-				kebabContextMenu?.open(e);
+				kebabContextMenu?.toggle(e);
 			}}
 		/>
 	</PopoverActionsContainer>
@@ -272,6 +273,10 @@
 	<div class="commit-card" class:is-last={last}>
 		<!-- GENERAL INFO -->
 		<div bind:this={draggableCommitElement} class="commit__header" role="button" tabindex="-1">
+			<div class="commit__drag-icon">
+				<Icon name="draggable" />
+			</div>
+
 			{#if isUndoable && !commit.descriptionTitle}
 				<span class="text-13 text-body text-semibold commit__empty-title">empty commit message</span
 				>
@@ -431,6 +436,10 @@
 		&:not(.is-commit-open) {
 			&:hover {
 				background-color: var(--clr-bg-1-muted);
+
+				& .commit__drag-icon {
+					opacity: 1;
+				}
 			}
 		}
 
@@ -441,6 +450,10 @@
 		&.is-last {
 			border-radius: 0 0 var(--radius-m) var(--radius-m);
 		}
+	}
+
+	.commit-card-activated {
+		background-color: var(--clr-bg-1-muted);
 	}
 
 	.commit-card {
@@ -455,35 +468,29 @@
 		display: flex;
 		align-items: center;
 		gap: 4px;
-
 		color: var(--clr-core-err-40);
 	}
 
 	/* HEADER */
 	.commit__header {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
 		padding: 14px 14px 14px 0;
-
-		/* &:hover {
-			& .commit__drag-icon {
-				opacity: 1;
-			}
-		} */
 	}
 
-	/* .commit__drag-icon {
-		pointer-events: none;
+	.commit__drag-icon {
+		cursor: grab;
 		position: absolute;
 		display: flex;
-		top: 4px;
-		right: 2px;
+		bottom: 10px;
+		right: 6px;
 		color: var(--clr-text-3);
 
 		opacity: 0;
 		transition: opacity var(--transition-fast);
-	} */
+	}
 
 	.commit__title {
 		flex: 1;
