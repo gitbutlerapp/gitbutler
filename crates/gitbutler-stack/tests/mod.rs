@@ -505,7 +505,7 @@ fn update_series_target_fails_commit_not_in_stack() -> Result<()> {
         name: None,
         target_update: Some(TargetUpdate {
             target: CommitOrChangeId::CommitId(other_commit_id.clone()),
-            preceding_head: None,
+            preceding_head_name: None,
         }),
         description: None,
     };
@@ -533,7 +533,7 @@ fn update_series_target_orphan_commit_fails() -> Result<()> {
         name: Some("new-lol".into()),
         target_update: Some(TargetUpdate {
             target: CommitOrChangeId::ChangeId(first_commit_change_id.clone()),
-            preceding_head: None,
+            preceding_head_name: None,
         }),
         description: None,
     };
@@ -568,7 +568,7 @@ fn update_series_target_success() -> Result<()> {
         name: None,
         target_update: Some(TargetUpdate {
             target: commit_1_change_id.clone(),
-            preceding_head: None,
+            preceding_head_name: None,
         }),
         description: None,
     };
