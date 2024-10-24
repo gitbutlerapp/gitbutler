@@ -388,7 +388,7 @@
 							padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
 							placeholder="Add description…"
 							oninput={(e: InputEvent) => {
-								const target = e.target as HTMLTextAreaElement;
+								const target = e.currentTarget as HTMLTextAreaElement;
 								inputBody = target.value;
 							}}
 						/>
@@ -404,7 +404,7 @@
 									placeholder={aiService.prSummaryMainDirective}
 									onkeydown={onMetaEnter(handleAIButtonPressed)}
 									oninput={(e: InputEvent) => {
-										const target = e.target as HTMLTextAreaElement;
+										const target = e.currentTarget as HTMLTextAreaElement;
 										aiDescriptionDirective = target.value;
 									}}
 								/>
