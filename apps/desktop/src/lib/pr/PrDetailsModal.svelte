@@ -35,9 +35,9 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
-	import BorderlessTextarea from '@gitbutler/ui/BorderlessTextarea.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
 	import { tick } from 'svelte';
 	import type { DetailedPullRequest, PullRequest } from '$lib/gitHost/interface/types';
@@ -380,7 +380,8 @@
 
 					<!-- DESCRIPTION FIELD -->
 					<div class="pr-description-field text-input">
-						<BorderlessTextarea
+						<Textarea
+							unstyled
 							value={actualBody}
 							rows={2}
 							autofocus
@@ -395,7 +396,8 @@
 						<!-- AI GENRATION -->
 						<div class="pr-ai" class:show-ai-box={showAiBox}>
 							{#if showAiBox}
-								<BorderlessTextarea
+								<Textarea
+									unstyled
 									autofocus
 									bind:value={aiDescriptionDirective}
 									padding={{ top: 12, right: 12, bottom: 0, left: 12 }}

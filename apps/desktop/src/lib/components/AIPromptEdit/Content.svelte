@@ -120,7 +120,8 @@
 		<div class="content" class:default-mode={prompt.id === 'default'} class:editing={isInEditing}>
 			{#each promptMessages as promptMessage, index}
 				<DialogBubble
-					bind:promptMessage
+					bind:promptMessage={promptMessage.content}
+					role={promptMessage.role}
 					editing={isInEditing}
 					isLast={index + 1 === promptMessages.length || promptMessages.length === 1}
 					disableRemove={promptMessages.length === 1}

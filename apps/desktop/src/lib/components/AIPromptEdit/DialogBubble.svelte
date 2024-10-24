@@ -3,48 +3,44 @@
 	import Markdown from '$lib/components/Markdown.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { autoHeight } from '@gitbutler/ui/utils/autoHeight';
 	import { createEventDispatcher } from 'svelte';
 
-	export let disableRemove = false;
-	export let isError = false;
-	export let isLast = false;
-	export let autofocus = false;
-	export let editing = false;
-	export let promptMessage: { role: MessageRole; content: string };
+	interface Props {
+		role: MessageRole;
+		disableRemove?: boolean;
+		isError?: boolean;
+		isLast?: boolean;
+		editing?: boolean;
+		promptMessage: string;
+	}
+
+	let {
+		role,
+		disableRemove = false,
+		isError = false,
+		isLast = false,
+		editing = false,
+		promptMessage = $bindable()
+	}: Props = $props();
 
 	const dispatcher = createEventDispatcher<{
 		removeLastExample: void;
 		addExample: void;
 		input: string;
 	}>();
-	let textareaElement: HTMLTextAreaElement | undefined;
 
-	function focusTextareaOnMount(
-		textareaElement: HTMLTextAreaElement | undefined,
-		autofocus: boolean,
-		editing: boolean
-	) {
-		if (textareaElement && autofocus && editing) {
-			textareaElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-			textareaElement.focus();
-		}
-	}
-
-	$: focusTextareaOnMount(textareaElement, autofocus, editing);
-
-	$: if (textareaElement) autoHeight(textareaElement);
+	let textareaElement: HTMLDivElement | undefined = $state();
 </script>
 
 <div
 	class="bubble-wrap"
 	class:editing
-	class:bubble-wrap_user={promptMessage.role === MessageRole.User}
-	class:bubble-wrap_assistant={promptMessage.role === MessageRole.Assistant}
+	class:bubble-wrap_user={role === MessageRole.User}
+	class:bubble-wrap_assistant={role === MessageRole.Assistant}
 >
 	<div class="bubble">
 		<div class="bubble__header text-13 text-bold">
-			{#if promptMessage.role === MessageRole.User}
+			{#if role === MessageRole.User}
 				<Icon name="profile" />
 				<span>User</span>
 			{:else}
@@ -54,24 +50,20 @@
 		</div>
 
 		{#if editing}
-			<textarea
+			<div
+				contenteditable
 				bind:this={textareaElement}
-				bind:value={promptMessage.content}
+				bind:innerText={promptMessage}
 				class="textarea scrollbar text-13 text-body"
 				class:is-error={isError}
-				rows={1}
-				on:input={(e) => {
-					autoHeight(e.currentTarget);
-
-					dispatcher('input', e.currentTarget.value);
+				oninput={(e: Event) => {
+					const target = e.target as HTMLDivElement;
+					dispatcher('input', target.innerText);
 				}}
-				on:change={(e) => {
-					autoHeight(e.currentTarget);
-				}}
-			></textarea>
+			></div>
 		{:else}
 			<div class="bubble-message scrollbar text-13 text-body">
-				<Markdown content={promptMessage.content} />
+				<Markdown content={promptMessage} />
 			</div>
 		{/if}
 	</div>
@@ -165,6 +157,7 @@
 	}
 
 	.textarea {
+		white-space: pre-wrap;
 		width: 100%;
 		resize: none;
 		background: none;
