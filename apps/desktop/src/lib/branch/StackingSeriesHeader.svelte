@@ -139,7 +139,8 @@
 	target={kebabContextMenuTrigger}
 	headName={currentSeries.name}
 	seriesCount={branch.series?.length ?? 0}
-	{addDescription}
+	{toggleDescription}
+	description={currentSeries.description ?? ''}
 	onGenerateBranchName={generateBranchName}
 	hasGitHostBranch={!!gitHostBranch}
 	hasPr={!!$pr}
@@ -193,17 +194,18 @@
 			<span class:no-upstream={!gitHostBranch} class="remote-name">
 				{$baseBranch.remoteName ? `${$baseBranch.remoteName} /` : 'origin /'}
 			</span>
-			<StackingSeriesDescription
-				value={currentSeries.description ?? ''}
-				onChange={editDescription}
+			<BranchLabel
+				name={currentSeries.name}
+				onChange={(name) => editTitle(name)}
+				disabled={!!gitHostBranch}
 			/>
 		</div>
 	</div>
 	{#if descriptionVisible}
 		<div class="branch-info__description">
 			<div class="branch-action__line" style:--bg-color={lineColor}></div>
-			<BranchLabel
-				name={branch.description}
+			<StackingSeriesDescription
+				value={currentSeries.description ?? ''}
 				onChange={(description) => editDescription(description)}
 			/>
 		</div>
