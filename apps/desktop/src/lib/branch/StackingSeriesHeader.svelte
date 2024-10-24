@@ -18,13 +18,13 @@
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import StackingPullRequestCard from '$lib/pr/StackingPullRequestCard.svelte';
 	import { isFailure } from '$lib/result';
-	import PopoverActionsContainer from '$lib/shared/popoverActions/PopoverActionsContainer.svelte';
-	import PopoverActionsItem from '$lib/shared/popoverActions/PopoverActionsItem.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
+	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { slugify } from '@gitbutler/ui/utils/string';
 
 	interface Props {

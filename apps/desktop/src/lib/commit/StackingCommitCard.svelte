@@ -9,8 +9,6 @@
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
 	import { ModeService } from '$lib/modes/service';
-	import PopoverActionsContainer from '$lib/shared/popoverActions/PopoverActionsContainer.svelte';
-	import PopoverActionsItem from '$lib/shared/popoverActions/PopoverActionsItem.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -28,6 +26,8 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
+	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { type Snippet } from 'svelte';
 
