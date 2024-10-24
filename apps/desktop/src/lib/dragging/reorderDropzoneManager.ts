@@ -15,9 +15,10 @@ export class ReorderDropzone {
 	}
 
 	accepts(data: any) {
+		console.log('accepts.data', data);
 		if (!data) return false;
 		if (!(data instanceof DraggableCommit)) return false;
-		if (this.entry.distanceToOtherCommit(data.commit.id) === 0) return false;
+		// if (this.entry.distanceToOtherCommit(data.commit.id) === 0) return false;
 
 		return true;
 	}
@@ -28,11 +29,13 @@ export class ReorderDropzone {
 
 		console.log('REORDERING.COMMIT', {
 			commitId: data.commit.id,
-			offset
+			entry: this.entry
 		});
 
 		if (this.stacking) {
-			const stackOrder = {};
+			const stackOrder = {
+				series: []
+			};
 			this.branchController.reorderStackCommit(data.commit?.branchId, stackOrder);
 		} else {
 			this.branchController.reorderCommit(data.commit?.branchId, data.commit?.id, offset);
@@ -79,13 +82,14 @@ export class ReorderDropzoneManagerFactory {
 class Indexer {
 	private dropzoneIndexes = new Map<string, number>();
 	private series = new Map<string, string[]>();
+	private stacking: boolean;
 
-	constructor(input: string[] | SeriesOrder[], stacking: boolean) {
-		let commits;
+	constructor(commits: string[] | SeriesOrder[], stacking: boolean) {
+		this.stacking = stacking;
 		if (stacking) {
-			console.log('STACKING', input);
+			console.log('STACKING', commits);
 
-			(input as SeriesOrder[]).forEach((series) => {
+			(commits as SeriesOrder[]).forEach((series) => {
 				this.series.set(series.name, series.commitIds);
 
 				let computedPatchIndex = 0;
@@ -95,8 +99,7 @@ class Indexer {
 				});
 			});
 		} else {
-			console.log('NO_STACKING', input);
-			commits = input;
+			console.log('NO_STACKING', commits);
 			let computedPatchIndex = 0;
 
 			(commits as string[]).forEach((patchId) => {
@@ -111,7 +114,11 @@ class Indexer {
 	get(key: string) {
 		const index = this.getIndex(key);
 
-		return new Entry(this.dropzoneIndexes, index ?? 0);
+		if (this.stacking) {
+			return new Entry(this.series, index ?? 0);
+		} else {
+			return new Entry(this.dropzoneIndexes, index ?? 0);
+		}
 	}
 
 	private getIndex(key: string) {
@@ -138,7 +145,7 @@ class Indexer {
 
 class Entry {
 	constructor(
-		private commitIndexes: Map<string, number>,
+		private indexMap: Map<string, number | string[]>,
 		private index: number
 	) {}
 
@@ -149,16 +156,20 @@ class Entry {
 		const commitIndex = this.commitIndex(key);
 		if (commitIndex === undefined) return 0;
 
-		const offset = this.index - commitIndex;
+		if (typeof commitIndex === 'number') {
+			const offset = this.index - commitIndex;
 
-		if (offset < 0) {
-			return offset + 1;
+			if (offset < 0) {
+				return offset + 1;
+			} else {
+				return offset;
+			}
 		} else {
-			return offset;
+			return 0;
 		}
 	}
 
 	private commitIndex(key: string) {
-		return this.commitIndexes.get(key);
+		return this.indexMap.get(key);
 	}
 }
