@@ -462,18 +462,12 @@ pub fn get_branch_listing_details(
             .virtual_branches()
             .get_default_target()
             .context("failed to get default target")?;
-        let local_branch = repo.find_reference(target.branch.branch())?;
-        let local_tracking_ref_name = local_branch
-            .remote_tracking_ref_name(gix::remote::Direction::Fetch)
-            .with_context(|| {
-                format!(
-                    "Branch {} did not have a remote tracking branch",
-                    local_branch.name().as_bstr()
-                )
-            })??;
-        let mut local_tracking_ref = repo.find_reference(local_tracking_ref_name.as_ref())?;
+        let target_branch_name = format!("{}/{}", &target.branch.remote(), &target.branch.branch());
+        let target_branch_name = target_branch_name.as_str();
+        let mut target_branch = repo.find_reference(target_branch_name)?;
+
         (
-            gix_to_git2_oid(local_tracking_ref.peel_to_commit()?.id),
+            gix_to_git2_oid(target_branch.peel_to_commit()?.id),
             target.sha,
         )
     };
