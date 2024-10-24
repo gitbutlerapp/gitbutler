@@ -175,7 +175,7 @@
 				autocomplete={false}
 				autocorrect={false}
 				spellcheck
-				focus
+				autofocus
 			/>
 		{/if}
 

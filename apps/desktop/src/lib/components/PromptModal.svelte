@@ -64,7 +64,7 @@
 			<code>{$prompt?.prompt}</code>
 		{/if}
 	</div>
-	<Textbox focus type="password" bind:value disabled={!!$error || loading} />
+	<Textbox autofocus type="password" bind:value disabled={!!$error || loading} />
 
 	{#snippet controls()}
 		<Button style="ghost" type="reset" outline disabled={loading} onclick={cancel}>Cancel</Button>

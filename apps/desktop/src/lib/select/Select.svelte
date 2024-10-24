@@ -128,14 +128,14 @@
 		}
 	}
 
-	function handleKeyDown(e: CustomEvent<KeyboardEvent>) {
+	function handleKeyDown(e: KeyboardEvent) {
 		if (!listOpen) {
 			return;
 		}
-		e.detail.stopPropagation();
-		e.detail.preventDefault();
+		e.stopPropagation();
+		e.preventDefault();
 
-		const { key } = e.detail;
+		const { key } = e;
 
 		switch (key) {
 			case KeyName.Escape:
@@ -168,8 +168,8 @@
 		icon="select-chevron"
 		value={options.find((item) => item.value === value)?.label}
 		disabled={disabled || loading}
-		on:mousedown={toggleList}
-		on:keydown={(ev) => handleKeyDown(ev)}
+		onmousedown={toggleList}
+		onkeydown={(ev) => handleKeyDown(ev)}
 	/>
 	{#if listOpen}
 		<div

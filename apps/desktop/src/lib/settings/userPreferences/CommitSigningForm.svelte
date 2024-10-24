@@ -135,14 +135,14 @@
 				label="Signing key"
 				bind:value={signingKey}
 				required
-				on:change={updateSigningInfo}
+				onchange={updateSigningInfo}
 				placeholder="ex: /Users/bob/.ssh/id_rsa.pub"
 			/>
 
 			<Textbox
 				label="Signing program (optional)"
 				bind:value={signingProgram}
-				on:change={updateSigningInfo}
+				onchange={updateSigningInfo}
 				placeholder="ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign"
 			/>
 

@@ -220,7 +220,7 @@
 		close();
 	}}
 >
-	<Textbox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} focus />
+	<Textbox label="Remote branch name" id="newRemoteName" bind:value={newRemoteName} autofocus />
 
 	{#snippet controls(close)}
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>

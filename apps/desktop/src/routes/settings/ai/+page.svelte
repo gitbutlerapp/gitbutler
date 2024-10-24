@@ -327,8 +327,8 @@
 				textAlign="center"
 				value={diffLengthLimit?.toString()}
 				minVal={100}
-				on:input={(e) => {
-					diffLengthLimit = parseInt(e.detail);
+				oninput={(val: string) => {
+					diffLengthLimit = parseInt(val);
 				}}
 				placeholder="5000"
 			/>

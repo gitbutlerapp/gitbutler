@@ -80,8 +80,8 @@
 				minVal={5}
 				maxVal={1000}
 				showCountActions
-				on:change={(e) => {
-					setSnapshotLinesThreshold(parseInt(e.detail));
+				onchange={(val: string) => {
+					setSnapshotLinesThreshold(parseInt(val));
 				}}
 			/>
 		</svelte:fragment>

@@ -27,11 +27,11 @@
 			{prompt?.prompt}
 		</span>
 		<Textbox
-			focus
+			autofocus
 			type="password"
 			bind:value
-			on:keydown={(e) => {
-				if (e.detail.key === 'Enter') submit();
+			onkeydown={(e) => {
+				if (e.key === 'Enter') submit();
 			}}
 		/>
 		<div class="passbox__actions">

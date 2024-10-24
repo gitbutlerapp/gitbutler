@@ -112,7 +112,7 @@
 				<Icon name={expanded ? 'chevron-up' : 'chevron-down'} />
 			</div>
 		{:else}
-			<Textbox bind:value={promptName} wide on:click={(e) => e.stopPropagation()} />
+			<Textbox bind:value={promptName} wide onclick={(e) => e.stopPropagation()} />
 		{/if}
 	</div>
 

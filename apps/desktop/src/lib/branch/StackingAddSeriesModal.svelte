@@ -54,7 +54,7 @@
 			label="Branch name"
 			id="newRemoteName"
 			bind:value={createRefName}
-			focus
+			autofocus
 			helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}'` : undefined}
 		/>
 

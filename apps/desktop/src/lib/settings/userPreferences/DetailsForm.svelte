@@ -77,8 +77,8 @@
 					placeholder="Project name can't be empty"
 					bind:value={title}
 					required
-					on:change={(e) => {
-						project.title = e.detail;
+					onchange={(val: string) => {
+						project.title = val;
 						projectsService.updateProject(project);
 					}}
 				/>
@@ -88,7 +88,7 @@
 					maxRows={6}
 					placeholder="Project description"
 					bind:value={description}
-					on:change={() => {
+					onchange={() => {
 						project.description = description;
 						projectsService.updateProject(project);
 					}}

@@ -132,10 +132,10 @@
 					wide
 					bind:value={$userSettings.diffFont}
 					required
-					on:change={(e) => {
+					onchange={(val: string) => {
 						userSettings.update((s) => ({
 							...s,
-							diffFont: e.detail
+							diffFont: val
 						}));
 					}}
 				/>
@@ -178,10 +178,10 @@
 					minVal={1}
 					maxVal={8}
 					showCountActions
-					on:change={(e) => {
+					onchange={(val: string) => {
 						userSettings.update((s) => ({
 							...s,
-							tabSize: parseInt(e.detail) || $userSettings.tabSize
+							tabSize: parseInt(val) || $userSettings.tabSize
 						}));
 					}}
 					placeholder={$userSettings.tabSize.toString()}

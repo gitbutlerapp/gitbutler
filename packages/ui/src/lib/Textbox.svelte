@@ -2,50 +2,96 @@
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { createEventDispatcher, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
-	export let element: HTMLElement | undefined = undefined;
-	export let id: string | undefined = undefined; // Required to make label clickable
-	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let value: string | undefined = undefined;
-	export let width: number | undefined = undefined;
-	export let textAlign: 'left' | 'center' | 'right' = 'left';
-	export let placeholder: string | undefined = undefined;
-	export let helperText: string | undefined = undefined;
-	export let label: string | undefined = undefined;
-	export let reversedDirection: boolean = false;
-	export let wide: boolean = false;
-	export let minVal: number | undefined = undefined;
-	export let maxVal: number | undefined = undefined;
-	export let showCountActions = false;
-	export let disabled = false;
-	export let readonly = false;
-	export let required = false;
-	export let noselect = false;
-	export let selectall = false;
-	export let spellcheck = false;
-	export let autocorrect = false;
-	export let autocomplete = false;
-	export let focus = false;
-	// eslint-disable-next-line func-style
-	export let onClickOutside = () => {};
+	interface Props {
+		element?: HTMLElement;
+		id?: string;
+		type?: inputType;
+		icon?: keyof typeof iconsJson;
+		value?: string;
+		width?: number;
+		textAlign?: 'left' | 'center' | 'right';
+		placeholder?: string;
+		helperText?: string;
+		label?: string;
+		reversedDirection?: boolean;
+		wide?: boolean;
+		minVal?: number;
+		maxVal?: number;
+		showCountActions?: boolean;
+		disabled?: boolean;
+		readonly?: boolean;
+		required?: boolean;
+		noselect?: boolean;
+		selectall?: boolean;
+		spellcheck?: boolean;
+		autocorrect?: boolean;
+		autocomplete?: boolean;
+		autofocus?: boolean;
+		onclick?: (e: MouseEvent & { currentTarget: EventTarget & HTMLInputElement }) => void;
+		onmousedown?: (e: MouseEvent & { currentTarget: EventTarget & HTMLInputElement }) => void;
+		oninput?: (val: string) => void;
+		onchange?: (val: string) => void;
+		onkeydown?: (e: KeyboardEvent & { currentTarget: EventTarget & HTMLInputElement }) => void;
+	}
 
-	export let type: 'text' | 'password' | 'select' | 'number' | 'email' = 'text';
+	let {
+		element = $bindable(),
+		id,
+		type = 'text',
+		icon,
+		value = $bindable(),
+		width,
+		textAlign = 'left',
+		placeholder,
+		helperText,
+		label,
+		reversedDirection,
+		wide,
+		minVal,
+		maxVal,
+		showCountActions,
+		disabled,
+		readonly,
+		required,
+		noselect,
+		selectall,
+		spellcheck,
+		autocorrect,
+		autocomplete,
+		autofocus,
+		onclick,
+		onmousedown,
+		oninput,
+		onchange,
+		onkeydown
+	}: Props = $props();
 
-	const dispatch = createEventDispatcher<{
-		input: string;
-		change: string;
-		keydown: KeyboardEvent;
-	}>();
-
-	let showPassword = false;
-	let isInputValid = true;
+	let showPassword = $state(false);
+	let isInputValid = $state(true);
 	let htmlInput: HTMLInputElement;
+
+	export function onClickOutside() {
+		htmlInput.blur();
+	}
+
+	type inputType =
+		| 'text'
+		| 'password'
+		| 'number'
+		| 'select'
+		| 'email'
+		| 'tel'
+		| 'url'
+		| 'search'
+		| 'date'
+		| 'time';
 
 	onMount(() => {
 		if (selectall) htmlInput.select();
-		else if (focus) htmlInput.focus();
+		else if (autofocus) htmlInput.focus();
 	});
 </script>
 
@@ -93,25 +139,27 @@
 			style:text-align={textAlign}
 			bind:value
 			bind:this={htmlInput}
-			on:click
-			on:mousedown
-			on:input={(e) => {
-				dispatch('input', e.currentTarget.value);
-
+			{onclick}
+			{onmousedown}
+			oninput={(e) => {
+				oninput?.(e.currentTarget.value);
 				isInputValid = e.currentTarget.checkValidity();
 			}}
-			on:change={(e) => dispatch('change', e.currentTarget.value)}
-			on:keydown={(e) => dispatch('keydown', e)}
+			onchange={(e) => {
+				onchange?.(e.currentTarget.value);
+			}}
+			{onkeydown}
 		/>
 
 		{#if type === 'number' && showCountActions}
 			<div class="textbox__count-actions">
 				<button
 					class="textbox__count-btn"
-					on:click={() => {
+					onclick={() => {
 						htmlInput.stepDown();
-						dispatch('input', htmlInput.value);
-						dispatch('change', htmlInput.value);
+
+						oninput?.(htmlInput.value);
+						onchange?.(htmlInput.value);
 
 						isInputValid = htmlInput.checkValidity();
 					}}
@@ -120,10 +168,11 @@
 				</button>
 				<button
 					class="textbox__count-btn"
-					on:click={() => {
+					onclick={() => {
 						htmlInput.stepUp();
-						dispatch('input', htmlInput.value);
-						dispatch('change', htmlInput.value);
+
+						oninput?.(htmlInput.value);
+						onchange?.(htmlInput.value);
 
 						isInputValid = htmlInput.checkValidity();
 					}}
@@ -136,7 +185,7 @@
 		{#if type === 'password'}
 			<button
 				class="textbox__show-hide-icon"
-				on:click={() => {
+				onclick={() => {
 					showPassword = !showPassword;
 					htmlInput.focus();
 				}}

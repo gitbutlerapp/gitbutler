@@ -140,7 +140,7 @@
 		close();
 	}}
 >
-	<Textbox placeholder="New name" id="newSeriesName" bind:value={newHeadName} focus />
+	<Textbox placeholder="New name" id="newSeriesName" bind:value={newHeadName} autofocus />
 
 	{#if hasGitHostBranch}
 		<div class="text-12 text-light helper-text">
