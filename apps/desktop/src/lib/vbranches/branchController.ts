@@ -1,10 +1,12 @@
 import { invoke } from '$lib/backend/ipc';
+import { stackingFeature } from '$lib/config/uiFeatureFlags';
 import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
+import { get } from 'svelte/store';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { BranchPushResult, Hunk, LocalFile } from './types';
+import type { BranchPushResult, Hunk, LocalFile, StackOrder } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
 export type CommitIdOrChangeId = { CommitId: string } | { ChangeId: string };
@@ -16,6 +18,10 @@ export class BranchController {
 		readonly remoteBranchService: RemoteBranchService,
 		readonly baseBranchService: BaseBranchService
 	) {}
+
+	stackingEnabled() {
+		return get(stackingFeature);
+	}
 
 	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
 		try {
@@ -151,6 +157,18 @@ export class BranchController {
 			});
 		} catch (err) {
 			showError('Failed to update remote name', err);
+		}
+	}
+
+	async reorderStackCommit(branchId: string, stackOrder: StackOrder) {
+		try {
+			await invoke<void>('reorder_stack', {
+				projectId: this.projectId,
+				branchId,
+				stackOrder
+			});
+		} catch (err) {
+			showError('Failed to reorder stack commit', err);
 		}
 	}
 

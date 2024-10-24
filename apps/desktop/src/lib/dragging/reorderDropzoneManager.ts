@@ -1,82 +1,135 @@
 import { DraggableCommit } from '$lib/dragging/draggables';
+import { SeriesOrder } from '$lib/vbranches/types';
 import type { BranchController } from '$lib/vbranches/branchController';
-import type { VirtualBranch, DetailedCommit } from '$lib/vbranches/types';
 
 // Exported for type access only
 export class ReorderDropzone {
+	private stacking = false;
+
 	constructor(
 		private branchController: BranchController,
-		private branch: VirtualBranch,
 		private entry: Entry
-	) {}
+	) {
+		this.stacking = branchController.stackingEnabled();
+	}
 
 	accepts(data: any) {
+		if (!data) return false;
 		if (!(data instanceof DraggableCommit)) return false;
-		if (data.branchId !== this.branch.id) return false;
-		if (this.entry.distanceToOtherCommit(data.commit.id) === 0) return false;
+		if (!this.stacking) {
+			if (this.entry.distanceToOtherCommit(data.commit.id) === 0) return false;
+		}
 
 		return true;
 	}
 
 	onDrop(data: any) {
 		if (!(data instanceof DraggableCommit)) return;
-		if (data.branchId !== this.branch.id) return;
-
 		const offset = this.entry.distanceToOtherCommit(data.commit.id);
-		this.branchController.reorderCommit(this.branch.id, data.commit.id, offset);
+
+		console.log('REORDERING.COMMIT', {
+			commitId: data.commit.id,
+			entry: this.entry
+		});
+
+		if (this.stacking) {
+			const series = [];
+			for (const [name, commitIds] of (this.entry.indexMap as Map<string, string[]>).entries()) {
+				series.push({
+					name,
+					commitIds: commitIds.reverse()
+				});
+			}
+
+			const stackOrder = {
+				series: series.reverse()
+			};
+
+			console.log('onDrop.stackOrder', stackOrder);
+
+			this.branchController.reorderStackCommit(data.commit?.branchId, stackOrder);
+		} else {
+			this.branchController.reorderCommit(data.commit?.branchId, data.commit?.id, offset);
+		}
 	}
 }
 
 export class ReorderDropzoneManager {
 	private indexer: Indexer;
+	private branchController: BranchController;
+	private stacking = false;
 
-	constructor(
-		private branchController: BranchController,
-		private branch: VirtualBranch,
-		commits: DetailedCommit[]
-	) {
-		this.indexer = new Indexer(commits);
+	constructor({
+		branchController,
+		commits
+	}: {
+		branchController: BranchController;
+		commits: string[] | SeriesOrder[];
+	}) {
+		this.stacking = branchController.stackingEnabled();
+		this.branchController = branchController;
+		this.indexer = new Indexer(commits, this.stacking);
 	}
 
-	get topDropzone() {
-		const entry = this.indexer.get('top');
+	dropzone(key: string) {
+		const entry = this.indexer.get(key);
 
-		return new ReorderDropzone(this.branchController, this.branch, entry);
-	}
-
-	dropzoneBelowCommit(commitId: string) {
-		const entry = this.indexer.get(commitId);
-
-		return new ReorderDropzone(this.branchController, this.branch, entry);
+		return new ReorderDropzone(this.branchController, entry);
 	}
 }
 
 export class ReorderDropzoneManagerFactory {
 	constructor(private branchController: BranchController) {}
 
-	build(branch: VirtualBranch, commits: DetailedCommit[]) {
-		return new ReorderDropzoneManager(this.branchController, branch, commits);
+	build(commits: string[] | SeriesOrder[]) {
+		return new ReorderDropzoneManager({
+			branchController: this.branchController,
+			commits
+		});
 	}
 }
 
 // Private classes used to calculate distances between commits
 class Indexer {
 	private dropzoneIndexes = new Map<string, number>();
-	private commitIndexes = new Map<string, number>();
+	private series = new Map<string, string[]>();
+	private stacking: boolean;
 
-	constructor(commits: DetailedCommit[]) {
-		this.dropzoneIndexes.set('top', 0);
+	constructor(commits: string[] | SeriesOrder[], stacking: boolean) {
+		this.stacking = stacking;
+		if (stacking) {
+			console.log('STACKING', commits);
 
-		commits.forEach((commit, index) => {
-			this.dropzoneIndexes.set(commit.id, index + 1);
-			this.commitIndexes.set(commit.id, index);
-		});
+			(commits as SeriesOrder[]).forEach((series) => {
+				this.series.set(series.name, series.commitIds);
+
+				let computedPatchIndex = 0;
+				series.commitIds.forEach((changeId: string) => {
+					computedPatchIndex += 1;
+					this.dropzoneIndexes.set(changeId, computedPatchIndex);
+				});
+			});
+		} else {
+			console.log('NO_STACKING', commits);
+			let computedPatchIndex = 0;
+
+			(commits as string[]).forEach((patchId) => {
+				computedPatchIndex += 1;
+				this.dropzoneIndexes.set(patchId, computedPatchIndex);
+			});
+		}
+
+		console.log('indexer.dropzoneIndexes', this.dropzoneIndexes);
 	}
 
 	get(key: string) {
 		const index = this.getIndex(key);
 
-		return new Entry(this.commitIndexes, index ?? 0);
+		if (this.stacking) {
+			return new Entry(this.series, index ?? 0);
+		} else {
+			return new Entry(this.dropzoneIndexes, index ?? 0);
+		}
 	}
 
 	private getIndex(key: string) {
@@ -103,36 +156,31 @@ class Indexer {
 
 class Entry {
 	constructor(
-		private commitIndexes: Map<string, number>,
+		public indexMap: Map<string, number | string[]>,
 		private index: number
 	) {}
 
 	/**
 	 * A negative offset means the commit has been dragged up, and a positive offset means the commit has been dragged down.
 	 */
-	distanceToOtherCommit(commitId: string) {
-		const commitIndex = this.commitIndex(commitId);
+	distanceToOtherCommit(key: string) {
+		const commitIndex = this.commitIndex(key);
 		if (commitIndex === undefined) return 0;
 
-		const offset = this.index - commitIndex;
+		if (typeof commitIndex === 'number') {
+			const offset = this.index - commitIndex;
 
-		if (offset > 0) {
-			return offset - 1;
+			if (offset < 0) {
+				return offset + 1;
+			} else {
+				return offset;
+			}
 		} else {
-			return offset;
+			return 0;
 		}
 	}
 
-	private commitIndex(commitId: string) {
-		const index = this.commitIndexes.get(commitId);
-
-		// TODO: Handle updated commitIds after rebasing in `commitIndexes`
-		// Reordering works, but it throws errors for old commitIds that it can't find
-		// anymore after rebasing, for example.
-		// if (index === undefined) {
-		// 	throw new Error(`Commit ${commitId} not found in commitIndexes`);
-		// }
-
-		return index;
+	private commitIndex(key: string) {
+		return this.indexMap.get(key);
 	}
 }

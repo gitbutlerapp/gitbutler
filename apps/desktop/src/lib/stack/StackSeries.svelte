@@ -18,10 +18,24 @@
 		branch.series.flatMap((s) => s.patches).some((patch) => patch.conflicted)
 	);
 
+	const commits = $derived.by(() => {
+		console.log('DERIVED.COMMITS.BRANCH_SERIES', branch.series);
+		// return branch.series.flatMap((series) => {
+		// 	let patches = [`top|${series.name}`];
+		// 	patches.push(...series.patches.map((patch) => patch.changeId));
+		// 	return patches;
+		// });
+
+		return branch.series.map((series) => {
+			return {
+				name: series.name,
+				commitIds: series.patches.map((p) => p.id)
+			};
+		});
+	});
+
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
-	const reorderDropzoneManager = $derived(
-		reorderDropzoneManagerFactory.build(branch, [...branch.localCommits, ...branch.remoteCommits])
-	);
+	const reorderDropzoneManager = $derived(reorderDropzoneManagerFactory.build(commits));
 </script>
 
 {#each branch.series as currentSeries, idx (currentSeries.name)}
