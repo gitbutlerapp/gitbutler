@@ -45,7 +45,7 @@
 				</div>
 			</div>
 			<div class="accordion-row__right">
-				<h5 class="text-13 text-body text-semibold title">Upstream commits</h5>
+				<h5 class="text-13 text-body text-semibold title">Upstream sdf commits</h5>
 				<Icon name={isOpen ? 'chevron-up' : 'chevron-down'} />
 			</div>
 		</button>

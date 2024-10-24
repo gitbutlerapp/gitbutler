@@ -142,6 +142,7 @@
 							/>
 							<Button
 								style="neutral"
+								kind="soft"
 								icon="remote-branch-small"
 								size="tag"
 								clickable={false}
@@ -151,6 +152,7 @@
 							</Button>
 							<Button
 								style="neutral"
+								kind="soft"
 								icon="pr-small"
 								size="tag"
 								clickable={false}

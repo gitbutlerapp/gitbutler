@@ -156,6 +156,7 @@
 									clickable={false}
 									icon="locked-small"
 									style="warning"
+									kind="soft"
 									tooltip="Applying this branch will add merge conflict markers that you will have to resolve"
 								>
 									Conflict

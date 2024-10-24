@@ -176,7 +176,7 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" outline type="submit">Yes</Button>
+		<Button style="pop" type="submit">Yes</Button>
 	{/snippet}
 </Modal>
 
