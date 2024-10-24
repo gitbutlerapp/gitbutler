@@ -3,6 +3,7 @@
 	import Markdown from '$lib/components/Markdown.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	interface Props {
@@ -28,8 +29,6 @@
 		addExample: void;
 		input: string;
 	}>();
-
-	let textareaElement: HTMLDivElement | undefined = $state();
 </script>
 
 <div
@@ -50,17 +49,16 @@
 		</div>
 
 		{#if editing}
-			<div
-				contenteditable
-				bind:this={textareaElement}
-				bind:innerText={promptMessage}
-				class="textarea scrollbar text-13 text-body"
-				class:is-error={isError}
-				oninput={(e: Event) => {
-					const target = e.target as HTMLDivElement;
-					dispatcher('input', target.innerText);
-				}}
-			></div>
+			<div class="textarea" class:is-error={isError}>
+				<Textarea
+					unstyled
+					bind:value={promptMessage}
+					oninput={(e: Event) => {
+						const target = e.currentTarget as HTMLTextAreaElement;
+						dispatcher('input', target.value);
+					}}
+				></Textarea>
+			</div>
 		{:else}
 			<div class="bubble-message scrollbar text-13 text-body">
 				<Markdown content={promptMessage} />
@@ -157,13 +155,7 @@
 	}
 
 	.textarea {
-		white-space: pre-wrap;
 		width: 100%;
-		resize: none;
-		background: none;
-		border: none;
-		outline: none;
-		padding: 12px;
 		background-color: var(--clr-bg-1);
 		border: 1px solid var(--clr-border-2);
 		border-radius: 0 0 var(--radius-l) var(--radius-l);
