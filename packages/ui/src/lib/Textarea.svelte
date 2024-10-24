@@ -167,6 +167,7 @@
 		font-family: var(--base-font-family);
 		line-height: var(--body-line-height);
 		font-weight: var(--base-font-weight);
+		white-space: pre-wrap;
 		cursor: text;
 
 		resize: none;

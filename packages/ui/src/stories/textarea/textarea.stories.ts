@@ -13,7 +13,13 @@ export const CheckboxStory: Story = {
 	name: 'Textarea',
 	args: {
 		label: '',
-		value: 'Hello, World!',
+		value: `## ☕️ Reasoning
+
+
+## 🧢 Changesd
+
+
+## 📌 Todos`,
 		placeholder: 'Type here...',
 		minRows: 1,
 		maxRows: 5,
