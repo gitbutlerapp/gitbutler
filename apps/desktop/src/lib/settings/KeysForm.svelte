@@ -8,8 +8,8 @@
 	import Link from '$lib/shared/Link.svelte';
 	import ProjectNameLabel from '$lib/shared/ProjectNameLabel.svelte';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { onMount } from 'svelte';
 
 	const project = getContext(Project);
@@ -125,7 +125,7 @@
 		{#if selectedType === 'local'}
 			<SectionCard topDivider roundedTop={false} roundedBottom={false} orientation="row">
 				<div class="inputs-group">
-					<TextBox
+					<Textbox
 						label="Path to private key"
 						placeholder="for example: ~/.ssh/id_rsa"
 						bind:value={privateKeyPath}

@@ -1,9 +1,9 @@
 <script lang="ts">
-	import TextBox from '../shared/TextBox.svelte';
 	import { PromptService } from '$lib/backend/prompt';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
 	const promptService = getContext(PromptService);
 	const [prompt, error] = promptService.reactToPrompt({ timeoutMs: 30000 });
@@ -64,7 +64,7 @@
 			<code>{$prompt?.prompt}</code>
 		{/if}
 	</div>
-	<TextBox focus type="password" bind:value disabled={!!$error || loading} />
+	<Textbox autofocus type="password" bind:value disabled={!!$error || loading} />
 
 	{#snippet controls()}
 		<Button style="ghost" type="reset" outline disabled={loading} onclick={cancel}>Cancel</Button>

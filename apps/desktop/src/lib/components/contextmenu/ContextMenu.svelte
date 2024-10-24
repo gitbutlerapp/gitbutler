@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { clickOutside } from '$lib/clickOutside';
 	import { createKeybind } from '$lib/utils/hotkeys';
+	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
 	import { focusTrap } from '@gitbutler/ui/utils/focusTrap';
 	import { portal } from '@gitbutler/ui/utils/portal';
 	import { type Snippet } from 'svelte';

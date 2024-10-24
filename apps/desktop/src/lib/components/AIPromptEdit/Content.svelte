@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { MessageRole, type UserPrompt } from '$lib/ai/types';
 	import DialogBubble from '$lib/components/AIPromptEdit/DialogBubble.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { createEventDispatcher } from 'svelte';
 
 	export let displayMode: 'readOnly' | 'writable' = 'writable';
@@ -112,7 +112,7 @@
 				<Icon name={expanded ? 'chevron-up' : 'chevron-down'} />
 			</div>
 		{:else}
-			<TextBox bind:value={promptName} wide on:click={(e) => e.stopPropagation()} />
+			<Textbox bind:value={promptName} wide onclick={(e) => e.stopPropagation()} />
 		{/if}
 	</div>
 
@@ -120,7 +120,8 @@
 		<div class="content" class:default-mode={prompt.id === 'default'} class:editing={isInEditing}>
 			{#each promptMessages as promptMessage, index}
 				<DialogBubble
-					bind:promptMessage
+					bind:promptMessage={promptMessage.content}
+					role={promptMessage.role}
 					editing={isInEditing}
 					isLast={index + 1 === promptMessages.length || promptMessages.length === 1}
 					disableRemove={promptMessages.length === 1}

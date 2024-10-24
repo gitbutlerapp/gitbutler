@@ -20,12 +20,14 @@
 		outline: none;
 	}
 
-	&:invalid {
+	&:invalid,
+	&.invalid {
 		border-color: var(--clr-theme-err-element);
 	}
 
-	&:disabled {
-		color: var(--clr-scale-ntrl-60);
+	&:disabled,
+	&.disabled {
+		color: var(--clr-text-2);
 		border-color: var(--clr-scale-ntrl-70);
 		background-color: var(--clr-bg-2);
 	}

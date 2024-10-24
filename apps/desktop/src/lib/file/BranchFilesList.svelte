@@ -3,7 +3,6 @@
 	import FileListItemSmart from './FileListItem.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import LazyloadContainer from '$lib/shared/LazyloadContainer.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { chunk } from '$lib/utils/array';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { KeyName } from '$lib/utils/hotkeys';
@@ -15,6 +14,7 @@
 	import { SelectedOwnership, updateOwnership } from '$lib/vbranches/ownership';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { AnyFile, ConflictEntries } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
@@ -115,7 +115,7 @@
 			GitHub, or run the following command in your project directory:
 		</p>
 		<div class="command">
-			<TextBox value={MERGE_DIFF_COMMAND + $commit.id.slice(0, 7)} wide readonly />
+			<Textbox value={MERGE_DIFF_COMMAND + $commit.id.slice(0, 7)} wide readonly />
 			<Button
 				icon="copy"
 				style="ghost"

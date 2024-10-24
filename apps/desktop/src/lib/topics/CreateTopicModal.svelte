@@ -1,12 +1,12 @@
 <script lang="ts">
-	import TextArea from '$lib/shared/TextArea.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { TopicService, type Topic } from '$lib/topics/service';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textarea from '@gitbutler/ui/Textarea.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 
 	interface Props {
 		registerKeypress?: boolean;
@@ -67,7 +67,7 @@
 
 	<div class="input">
 		<p class="text-14 label">Title</p>
-		<TextBox bind:value={title} />
+		<Textbox bind:value={title} />
 	</div>
 
 	<div class="details">
@@ -86,7 +86,7 @@
 		<div class="details__expanded" class:hidden={!detailsExpanded}>
 			<div class="input">
 				<p class="text-14 label">Body</p>
-				<TextArea bind:value={body} />
+				<Textarea bind:value={body} minRows={4} />
 			</div>
 		</div>
 	</div>

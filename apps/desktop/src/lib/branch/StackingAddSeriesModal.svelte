@@ -1,11 +1,11 @@
 <script lang="ts">
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { slugify } from '@gitbutler/ui/utils/string';
 
 	interface Props {
@@ -50,11 +50,11 @@
 	onClose={onModalClose}
 >
 	{#snippet children()}
-		<TextBox
+		<Textbox
 			label="Branch name"
 			id="newRemoteName"
 			bind:value={createRefName}
-			focus
+			autofocus
 			helperText={generatedNameDiverges ? `Will be created as '${slugifiedRefName}'` : undefined}
 		/>
 

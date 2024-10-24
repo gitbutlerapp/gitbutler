@@ -1,7 +1,7 @@
 <script lang="ts">
-	import TextBox from '../shared/TextBox.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import type { SystemPromptHandle } from '$lib/backend/prompt';
 
 	export let prompt: SystemPromptHandle | undefined;
@@ -26,12 +26,12 @@
 		<span class="text-body-11 text-body passbox__helper-text">
 			{prompt?.prompt}
 		</span>
-		<TextBox
-			focus
+		<Textbox
+			autofocus
 			type="password"
 			bind:value
-			on:keydown={(e) => {
-				if (e.detail.key === 'Enter') submit();
+			onkeydown={(e) => {
+				if (e.key === 'Enter') submit();
 			}}
 		/>
 		<div class="passbox__actions">

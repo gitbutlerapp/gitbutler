@@ -26,7 +26,6 @@
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { sleep } from '$lib/utils/sleep';
@@ -35,9 +34,10 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
-	import BorderlessTextarea from '@gitbutler/ui/BorderlessTextarea.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Textarea from '@gitbutler/ui/Textarea.svelte';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
 	import { tick } from 'svelte';
 	import type { DetailedPullRequest, PullRequest } from '$lib/gitHost/interface/types';
@@ -345,12 +345,12 @@
 				</div>
 			{:else}
 				<div class="pr-fields">
-					<TextBox
+					<Textbox
 						placeholder="PR title"
 						value={actualTitle}
 						readonly={!isEditing || isDisplay}
-						on:input={(e) => {
-							inputTitle = e.detail;
+						oninput={(value: string) => {
+							inputTitle = value;
 						}}
 					/>
 
@@ -380,14 +380,15 @@
 
 					<!-- DESCRIPTION FIELD -->
 					<div class="pr-description-field text-input">
-						<BorderlessTextarea
+						<Textarea
+							unstyled
 							value={actualBody}
-							rows={2}
+							minRows={4}
 							autofocus
 							padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
 							placeholder="Add description…"
 							oninput={(e: InputEvent) => {
-								const target = e.target as HTMLTextAreaElement;
+								const target = e.currentTarget as HTMLTextAreaElement;
 								inputBody = target.value;
 							}}
 						/>
@@ -395,14 +396,15 @@
 						<!-- AI GENRATION -->
 						<div class="pr-ai" class:show-ai-box={showAiBox}>
 							{#if showAiBox}
-								<BorderlessTextarea
+								<Textarea
+									unstyled
 									autofocus
 									bind:value={aiDescriptionDirective}
 									padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
 									placeholder={aiService.prSummaryMainDirective}
 									onkeydown={onMetaEnter(handleAIButtonPressed)}
 									oninput={(e: InputEvent) => {
-										const target = e.target as HTMLTextAreaElement;
+										const target = e.currentTarget as HTMLTextAreaElement;
 										aiDescriptionDirective = target.value;
 									}}
 								/>

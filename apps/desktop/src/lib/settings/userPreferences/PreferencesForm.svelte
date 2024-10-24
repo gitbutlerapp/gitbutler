@@ -3,8 +3,8 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import Section from '$lib/settings/Section.svelte';
-	import TextBox from '$lib/shared/TextBox.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
 	const projectsService = getContext(ProjectsService);
@@ -72,7 +72,7 @@
 		</svelte:fragment>
 
 		<svelte:fragment slot="actions">
-			<TextBox
+			<Textbox
 				type="number"
 				width={100}
 				textAlign="center"
@@ -80,8 +80,8 @@
 				minVal={5}
 				maxVal={1000}
 				showCountActions
-				on:change={(e) => {
-					setSnapshotLinesThreshold(parseInt(e.detail));
+				onchange={(value: string) => {
+					setSnapshotLinesThreshold(parseInt(value));
 				}}
 			/>
 		</svelte:fragment>

@@ -11,9 +11,9 @@
 <script lang="ts" generics="T extends string">
 	import OptionsGroup from './OptionsGroup.svelte';
 	import SearchItem from './SearchItem.svelte';
-	import TextBox from '../shared/TextBox.svelte';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { KeyName } from '$lib/utils/hotkeys';
+	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { portal } from '@gitbutler/ui/utils/portal';
 	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
@@ -128,14 +128,14 @@
 		}
 	}
 
-	function handleKeyDown(e: CustomEvent<KeyboardEvent>) {
+	function handleKeyDown(e: KeyboardEvent) {
 		if (!listOpen) {
 			return;
 		}
-		e.detail.stopPropagation();
-		e.detail.preventDefault();
+		e.stopPropagation();
+		e.preventDefault();
 
-		const { key } = e.detail;
+		const { key } = e;
 
 		switch (key) {
 			case KeyName.Escape:
@@ -158,7 +158,7 @@
 	{#if label}
 		<label for={id} class="select__label text-13 text-body text-semibold">{label}</label>
 	{/if}
-	<TextBox
+	<Textbox
 		{id}
 		{placeholder}
 		noselect
@@ -168,8 +168,8 @@
 		icon="select-chevron"
 		value={options.find((item) => item.value === value)?.label}
 		disabled={disabled || loading}
-		on:mousedown={toggleList}
-		on:keydown={(ev) => handleKeyDown(ev)}
+		onmousedown={toggleList}
+		onkeydown={(ev) => handleKeyDown(ev)}
 	/>
 	{#if listOpen}
 		<div
