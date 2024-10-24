@@ -1,9 +1,7 @@
-use std::{fmt, str::FromStr};
-
-use gix::bstr::BStr;
-use serde::{Deserialize, Serialize};
-
 use super::error::Error;
+use gix::refs::FullNameRef;
+use serde::{Deserialize, Serialize};
+use std::{fmt, str::FromStr};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct Refname {
@@ -100,8 +98,17 @@ impl TryFrom<&git2::Branch<'_>> for Refname {
     }
 }
 
-impl PartialEq<BStr> for Refname {
-    fn eq(&self, other: &BStr) -> bool {
-        format!("refs/remotes/{}/{}", self.remote, self.branch) == *other
+impl PartialEq<FullNameRef> for Refname {
+    fn eq(&self, other: &FullNameRef) -> bool {
+        let Some((category, shortname)) = other.category_and_short_name() else {
+            return false;
+        };
+        if !matches!(category, gix::reference::Category::RemoteBranch) {
+            return false;
+        }
+        shortname
+            .strip_prefix(self.remote.as_bytes())
+            .and_then(|rest| rest.strip_suffix(self.branch.as_bytes()))
+            .map_or(false, |rest| rest == b"/")
     }
 }

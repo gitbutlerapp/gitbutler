@@ -5,6 +5,10 @@ edition = "2021"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
+[lib]
+doctest = false
+
+
 [dependencies]
 anyhow.workspace = true
 git2.workspace = true
