@@ -29,7 +29,7 @@
 		return branch.series.map((series) => {
 			return {
 				name: series.name,
-				changeIds: series.patches.map((p) => p.changeId)
+				commitIds: series.patches.map((p) => p.id)
 			};
 		});
 	});
