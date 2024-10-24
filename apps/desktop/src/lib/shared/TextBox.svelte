@@ -107,6 +107,7 @@
 		{#if type === 'number' && showCountActions}
 			<div class="textbox__count-actions">
 				<button
+					type="button"
 					class="textbox__count-btn"
 					on:click={() => {
 						htmlInput.stepDown();
@@ -119,6 +120,7 @@
 					<Icon name="minus-small" />
 				</button>
 				<button
+					type="button"
 					class="textbox__count-btn"
 					on:click={() => {
 						htmlInput.stepUp();
@@ -135,6 +137,7 @@
 
 		{#if type === 'password'}
 			<button
+				type="button"
 				class="textbox__show-hide-icon"
 				on:click={() => {
 					showPassword = !showPassword;

@@ -70,6 +70,7 @@
 					<div class="right-side__meta">
 						<div class="right-side__links">
 							<button
+								type="button"
 								class="right-side__link"
 								onclick={async () => await openExternalUrl('https://docs.gitbutler.com/')}
 							>
@@ -77,6 +78,7 @@
 								<span class="text-14 text-semibold">GitButler docs</span>
 							</button>
 							<button
+								type="button"
 								class="right-side__link"
 								onclick={async () => await openExternalUrl('https://discord.com/invite/MmFkmaJ42D')}
 							>

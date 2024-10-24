@@ -3,6 +3,7 @@
 </script>
 
 <button
+	type="button"
 	class="banner"
 	on:click={async () => await openExternalUrl('https://docs.gitbutler.com/community/supporters')}
 >

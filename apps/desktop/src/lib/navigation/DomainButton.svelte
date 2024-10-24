@@ -23,6 +23,7 @@
 
 <Tooltip text={isNavCollapsed ? tooltipLabel : ''} align="start">
 	<button
+		type="button"
 		{onmousedown}
 		class="domain-button text-14 text-semibold"
 		class:selected={isSelected}

@@ -17,6 +17,7 @@
 
 <Tooltip disabled={activated} text={tooltip} position="top" delay={200}>
 	<button
+		type="button"
 		bind:this={el}
 		data-clickable="true"
 		class="overflow-actions-btn focus-state"

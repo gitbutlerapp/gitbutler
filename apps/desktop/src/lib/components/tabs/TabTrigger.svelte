@@ -20,6 +20,7 @@
 </script>
 
 <button
+	type="button"
 	role="tab"
 	tabindex={isActive ? -1 : 0}
 	aria-selected={isActive}

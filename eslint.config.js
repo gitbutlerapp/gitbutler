@@ -66,7 +66,15 @@ export default ts.config(
 			'import-x/no-relative-packages': 'error', // Don't allow packages to have relative imports between each other
 			'func-style': [2, 'declaration'],
 			'no-return-await': 'off',
-			'svelte/no-at-html-tags': 'off'
+			'svelte/no-at-html-tags': 'off',
+			'svelte/button-has-type': [
+				'error',
+				{
+					button: true,
+					submit: true,
+					reset: true
+				}
+			]
 		},
 		settings: {
 			'import-x/extensions': ['.ts'],

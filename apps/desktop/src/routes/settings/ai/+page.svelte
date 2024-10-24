@@ -342,6 +342,7 @@
 		<svelte:fragment slot="description">
 			GitButler's AI assistant generates commit messages and branch names. Use default prompts or
 			create your own. Assign prompts in the <button
+				type="button"
 				class="link"
 				on:click={() => console.log('got to project settings')}>project settings</button
 			>.
