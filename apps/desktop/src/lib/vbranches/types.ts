@@ -477,9 +477,9 @@ export class StackOrder {
 /**
  * @desc Represents the order of changes (commits) in a series (branch).
  * @property {string} name - Unique name of the series (branch). Must already exist in the stack.
- * @property {string[]} changeIds - The changes are ordered from newest to oldest (most recent changes go first); The change ids must refer to commits that already exist in the stack.
+ * @property {string[]} commitIds - This is the desired commit order for the series. Because the commits will be rabased, naturally, the the commit ids will be different afte updating. The changes are ordered from newest to oldest (most recent changes go first)
  */
 export class SeriesOrder {
 	name!: string;
-	changeIds!: string[];
+	commitIds!: string[];
 }

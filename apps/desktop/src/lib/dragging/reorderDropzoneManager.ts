@@ -86,10 +86,10 @@ class Indexer {
 			console.log('STACKING', input);
 
 			(input as SeriesOrder[]).forEach((series) => {
-				this.series.set(series.name, series.changeIds);
+				this.series.set(series.name, series.commitIds);
 
 				let computedPatchIndex = 0;
-				series.changeIds.forEach((changeId: string) => {
+				series.commitIds.forEach((changeId: string) => {
 					computedPatchIndex += 1;
 					this.dropzoneIndexes.set(changeId, computedPatchIndex);
 				});

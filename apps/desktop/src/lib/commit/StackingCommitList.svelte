@@ -155,9 +155,9 @@
 						</StackingCommitCard>
 					</StackingCommitDragItem>
 
-					{@render reorderDropzone(reorderDropzoneManager.dropzone(commit.changeId))}
+					{@render reorderDropzone(reorderDropzoneManager.dropzone(commit.id))}
 
-					<InsertEmptyCommitAction
+					<!-- <InsertEmptyCommitAction
 						isLast={idx + 1 === patches.length}
 						onclick={() => insertBlankCommit(commit.id, 'below')}
 					/> -->
