@@ -328,7 +328,7 @@
 				value={diffLengthLimit?.toString()}
 				minVal={100}
 				oninput={(value: string) => {
-					diffLengthLimit = parseInt(val);
+					diffLengthLimit = parseInt(value);
 				}}
 				placeholder="5000"
 			/>

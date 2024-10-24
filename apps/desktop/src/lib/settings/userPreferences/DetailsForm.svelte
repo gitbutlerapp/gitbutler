@@ -78,7 +78,7 @@
 					bind:value={title}
 					required
 					onchange={(value: string) => {
-						project.title = val;
+						project.title = value;
 						projectsService.updateProject(project);
 					}}
 				/>

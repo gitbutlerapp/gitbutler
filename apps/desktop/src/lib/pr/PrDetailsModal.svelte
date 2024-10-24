@@ -350,7 +350,7 @@
 						value={actualTitle}
 						readonly={!isEditing || isDisplay}
 						oninput={(value: string) => {
-							inputTitle = val;
+							inputTitle = value;
 						}}
 					/>
 

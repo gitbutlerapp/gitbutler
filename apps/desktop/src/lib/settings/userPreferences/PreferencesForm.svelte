@@ -81,7 +81,7 @@
 				maxVal={1000}
 				showCountActions
 				onchange={(value: string) => {
-					setSnapshotLinesThreshold(parseInt(val));
+					setSnapshotLinesThreshold(parseInt(value));
 				}}
 			/>
 		</svelte:fragment>

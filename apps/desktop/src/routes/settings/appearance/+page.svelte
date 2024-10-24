@@ -135,7 +135,7 @@
 					onchange={(value: string) => {
 						userSettings.update((s) => ({
 							...s,
-							diffFont: val
+							diffFont: value
 						}));
 					}}
 				/>
@@ -181,7 +181,7 @@
 					onchange={(value: string) => {
 						userSettings.update((s) => ({
 							...s,
-							tabSize: parseInt(val) || $userSettings.tabSize
+							tabSize: parseInt(value) || $userSettings.tabSize
 						}));
 					}}
 					placeholder={$userSettings.tabSize.toString()}
