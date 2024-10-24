@@ -10,7 +10,7 @@ git2.workspace = true
 gix = { workspace = true, features = [] }
 gix-utils = "0.1.12"
 itertools = "0.13"
-anyhow = "1.0.86"
+anyhow = "1.0.91"
 serde = { workspace = true, features = ["std"] }
 toml.workspace = true
 tracing.workspace = true
