@@ -19,7 +19,7 @@
 		"act:test:e2e": "act -j test -W .github/workflows/test-e2e.yml -P catthehacker/ubuntu:act-22.04",
 		"build": "turbo run build --no-daemon",
 		"build:desktop": "turbo run --filter @gitbutler/desktop build --no-daemon",
-		"build:test": "pnpm exec tauri build --config crates/gitbutler-tauri/tauri.conf.test.json",
+		"build:test": "pnpm exec tauri build --config crates/gitbutler-tauri/tauri.conf.test.json -- --profile dev",
 		"check": "turbo run check --no-daemon",
 		"tauri": "tauri",
 		"lint": "turbo run //#globallint --no-daemon",
@@ -31,8 +31,8 @@
 	},
 	"devDependencies": {
 		"@eslint/js": "^9.5.0",
-		"@tauri-apps/cli": "^1.6.2",
 		"@types/eslint": "9.6.0",
+		"@tauri-apps/cli": "^2.0.1",
 		"@types/eslint__js": "^8.42.3",
 		"@types/node": "^22.3.0",
 		"@typescript-eslint/parser": "^7.13.1",

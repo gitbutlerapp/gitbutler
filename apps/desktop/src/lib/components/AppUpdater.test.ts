@@ -3,6 +3,7 @@ import { Tauri } from '$lib/backend/tauri';
 import { UpdaterService } from '$lib/backend/updater';
 import { render, screen } from '@testing-library/svelte';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
+import type { Update } from '@tauri-apps/plugin-updater';
 
 describe('AppUpdater', () => {
 	let tauri: Tauri;
@@ -15,8 +16,6 @@ describe('AppUpdater', () => {
 		updater = new UpdaterService(tauri);
 		context = new Map([[UpdaterService, updater]]);
 		vi.spyOn(tauri, 'listen').mockReturnValue(async () => {});
-		vi.spyOn(tauri, 'onUpdaterEvent').mockReturnValue(Promise.resolve(() => {}));
-		vi.spyOn(tauri, 'currentVersion').mockReturnValue(Promise.resolve('0.1'));
 	});
 
 	afterEach(() => {
@@ -26,8 +25,8 @@ describe('AppUpdater', () => {
 
 	test('should be hidden if no update', async () => {
 		vi.spyOn(tauri, 'checkUpdate').mockReturnValue(
-			Promise.resolve({
-				shouldUpdate: false
+			mockUpdate({
+				version: '1'
 			})
 		);
 
@@ -40,13 +39,10 @@ describe('AppUpdater', () => {
 
 	test('should display download button', async () => {
 		vi.spyOn(tauri, 'checkUpdate').mockReturnValue(
-			Promise.resolve({
-				shouldUpdate: true,
-				manifest: {
-					version: '1',
-					body: 'release notes',
-					date: '2024-01-01'
-				}
+			mockUpdate({
+				available: true,
+				version: '1',
+				body: 'release notes'
 			})
 		);
 
@@ -59,8 +55,8 @@ describe('AppUpdater', () => {
 
 	test('should display up-to-date on manaul check', async () => {
 		vi.spyOn(tauri, 'checkUpdate').mockReturnValue(
-			Promise.resolve({
-				shouldUpdate: false
+			mockUpdate({
+				available: false
 			})
 		);
 		render(AppUpdater, { context });
@@ -73,21 +69,28 @@ describe('AppUpdater', () => {
 
 	test('should display restart button on install complete', async () => {
 		vi.spyOn(tauri, 'checkUpdate').mockReturnValue(
-			Promise.resolve({
-				shouldUpdate: true,
-				manifest: { version: '1', body: 'release notes', date: '2024-01-01' }
+			mockUpdate({
+				available: true,
+				version: '2',
+				body: 'release notes'
 			})
 		);
-		vi.spyOn(tauri, 'onUpdaterEvent').mockImplementation(async (handler) => {
-			handler({ status: 'DONE' });
-			return () => {};
-		});
 
 		render(AppUpdater, { context });
-		updater.checkForUpdate(true);
-		await vi.advanceTimersToNextTimerAsync();
+		await updater.checkForUpdate(true);
+		await vi.runOnlyPendingTimersAsync();
+		await updater.downloadAndInstall();
+		await vi.runOnlyPendingTimersAsync();
 
 		const button = screen.getByTestId('restart-app');
 		expect(button).toBeVisible();
 	});
 });
+
+async function mockUpdate(update: Partial<Update>): Promise<Update> {
+	return await Promise.resolve({
+		download: () => {},
+		install: () => {},
+		...update
+	} as Update);
+}

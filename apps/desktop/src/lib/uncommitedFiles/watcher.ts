@@ -1,7 +1,7 @@
 import { listen } from '$lib/backend/ipc';
 import { parseRemoteFiles } from '$lib/vbranches/remoteCommits';
 import { RemoteFile } from '$lib/vbranches/types';
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 import { plainToInstance } from 'class-transformer';
 import { readable, type Readable } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';

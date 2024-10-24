@@ -1,5 +1,5 @@
 import { persisted } from '@gitbutler/shared/persisted';
-import { get, type Readable } from 'svelte/store';
+import { get, type Readable, type Writable } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';
 import type { GitHostIssueService } from '$lib/gitHost/interface/gitHostIssueService';
 
@@ -12,15 +12,13 @@ export type Topic = {
 };
 
 export class TopicService {
-	topics = persisted<Topic[]>([], this.localStorageKey);
+	topics: Writable<Topic[]>;
 
 	constructor(
 		private project: Project,
 		private issueService: Readable<GitHostIssueService | undefined>
-	) {}
-
-	private get localStorageKey(): string {
-		return `TopicService--${this.project.id}`;
+	) {
+		this.topics = persisted<Topic[]>([], `TopicService--${this.project.id}`);
 	}
 
 	create(title: string, body: string, hasIssue: boolean = false): Topic {

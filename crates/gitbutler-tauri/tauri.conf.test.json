@@ -1,51 +1,7 @@
 {
+	"productName": "GitButler Test",
+	"identifier": "com.gitbutler.app.test",
 	"build": {
-		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode development",
-		"distDir": "../../apps/desktop/build"
-	},
-	"package": {
-		"productName": "GitButler Dev"
-	},
-	"tauri": {
-		"allowlist": {
-			"fs": {
-				"readFile": true,
-				"scope": ["$APPCACHE/archives/*", "$RESOURCE/_up_/scripts/*"]
-			},
-			"dialog": {
-				"open": true
-			},
-			"os": {
-				"all": true
-			},
-			"protocol": {
-				"asset": true,
-				"assetScope": ["$APPCACHE/images/*"]
-			},
-			"process": {
-				"relaunch": true
-			},
-			"window": {
-				"startDragging": true,
-				"maximize": true,
-				"unmaximize": true
-			},
-			"path": {
-				"all": true
-			},
-			"http": {
-				"all": true,
-				"request": true,
-				"scope": [
-					"https://api.anthropic.com/v1/messages",
-					"http://127.0.0.1:11434/api/chat",
-					"http://127.0.0.1:11434/api/generate",
-					"http://127.0.0.1:11434/api/embeddings"
-				]
-			}
-		},
-		"bundle": {
-			"active": false
-		}
+		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode development && cargo build -p gitbutler-git"
 	}
 }

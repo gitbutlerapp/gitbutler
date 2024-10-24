@@ -4,13 +4,10 @@ import {
 	SHORT_DEFAULT_BRANCH_TEMPLATE,
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
-import {
-	type AIClient,
-	type AIEvalOptions,
-	type AnthropicModelName,
-	type Prompt
-} from '$lib/ai/types';
-import { andThenAsync, ok, wrapAsync, type Result } from '$lib/result';
+import { type AIEvalOptions } from '$lib/ai/types';
+import { type AIClient, type AnthropicModelName, type Prompt } from '$lib/ai/types';
+import { andThenAsync, wrapAsync } from '$lib/result';
+import { ok, type Result } from '$lib/result';
 import Anthropic from '@anthropic-ai/sdk';
 import type { RawMessageStreamEvent } from '@anthropic-ai/sdk/resources/messages.mjs';
 import type { Stream } from '@anthropic-ai/sdk/streaming.mjs';

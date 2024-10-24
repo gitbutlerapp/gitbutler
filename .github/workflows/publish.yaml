@@ -36,7 +36,7 @@ jobs:
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
     steps:
       - name: Trigger Sentry Cron - In Progress
-        if: ${{ github.event_name == 'schedule' }}
+        if: ${{ github.event_name == "schedule" }}
         shell: bash
         run: curl "${{ secrets.SENTRY_CRONS }}?status=in_progress"
       - uses: actions/checkout@v4
@@ -52,12 +52,12 @@ jobs:
           fi
 
           echo "vitemode=$VITEMODE" >> $GITHUB_ENV
-          echo "channel=${{ github.event.inputs.channel || 'nightly' }}" >> $GITHUB_ENV
-          echo "bump=${{ github.event.inputs.bump || 'patch' }}" >> $GITHUB_ENV
+          echo "channel=${{ github.event.inputs.channel || "nightly" }}" >> $GITHUB_ENV
+          echo "bump=${{ github.event.inputs.bump || "patch" }}" >> $GITHUB_ENV
       - name: Calculate next version
         shell: bash
         run: |
-          CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
+          CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r ".version")"
           NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
           echo "version=$NEXT_VERSION" >> $GITHUB_ENV
           mkdir -p release && echo "$NEXT_VERSION" > release/version
@@ -98,27 +98,27 @@ jobs:
     steps:
       # Because GitHub broke perl installations sometime in 2022 on Windows.
       - name: perl -V (before re-install)
-        if: runner.os == 'Windows'
+        if: runner.os == "Windows"
         run: which perl && perl -V
       - name: Setup perl
-        if: runner.os == 'Windows'
+        if: runner.os == "Windows"
         uses: shogo82148/actions-setup-perl@v1
         with:
           perl-version: '5.38'
           distribution: strawberry
       - name: Set git to use LF
-        if: runner.os == 'Windows'
+        if: runner.os == "Windows"
         run: |
           git config --global core.autocrlf false
           git config --global core.eol lf
       - name: perl -V
-        if: runner.os == 'Windows'
+        if: runner.os == "Windows"
         run: which perl && perl -V
       - name: Ensure we have a working Perl toolchain
-        if: runner.os == 'Windows'
+        if: runner.os == "Windows"
         run: cpanm ExtUtils::Manifest App::cpanminus Locale::Maketext::Simple
       - name: Set Perl environment variables
-        if: runner.os == 'Windows'
+        if: runner.os == "Windows"
         run: |
           echo "PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           echo "OPENSSL_SRC_PERL=$((where.exe perl)[0])" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -133,19 +133,19 @@ jobs:
         shell: bash
         if: ${{ !github.event.workflow_run }}
         run: |
-          echo "channel=${{ github.event.inputs.channel || 'nightly' }}" >> $GITHUB_ENV
-          echo "bump=${{ github.event.inputs.bump || 'patch' }}" >> $GITHUB_ENV
+          echo "channel=${{ github.event.inputs.channel || "nightly" }}" >> $GITHUB_ENV
+          echo "bump=${{ github.event.inputs.bump || "patch" }}" >> $GITHUB_ENV
 
       - name: Calculate next version
         shell: bash
         run: |
-          CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r '.version')"
+          CURRENT_VERSION="$(curl --silent "https://app.gitbutler.com/releases/${{ env.channel }}" | jq -r ".version")"
           NEXT_VERSION=$(./scripts/next.sh "${CURRENT_VERSION}" "${{ env.bump }}")
           echo "version=$NEXT_VERSION" >> $GITHUB_ENV
           mkdir -p release && echo "$NEXT_VERSION" > release/version
 
       - name: Import GPG key
-        if: runner.os == 'Linux'
+        if: runner.os == "Linux"
         uses: crazy-max/ghaction-import-gpg@v6
         with:
           gpg_private_key: ${{ secrets.APPIMAGE_PRIVATE_KEY }}
@@ -153,10 +153,11 @@ jobs:
 
       - name: Install linux dependencies
         shell: bash
-        if: runner.os == 'Linux'
+        if: runner.os == "Linux"
         run: |
           sudo apt update;
           sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
             build-essential \
             curl \
             wget \
@@ -186,11 +187,10 @@ jobs:
             --dist                       "./release" \
             --version                    "${{ env.version }}"
         env:
-          TAURI_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
-          TAURI_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_KEY_PASSWORD }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_PROVIDER_SHORT_NAME }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
@@ -205,7 +205,7 @@ jobs:
           if-no-files-found: error
 
       - name: Prepare Windows Aux Binary Artifacts
-        if: runner.os == 'Windows'
+        if: runner.os == "Windows"
         shell: bash
         run: |
           rm -rf tauri-aux-artifacts
@@ -214,7 +214,7 @@ jobs:
 
       - name: Upload Windows Aux Binary Artifacts
         uses: actions/upload-artifact@v4
-        if: runner.os == 'Windows'
+        if: runner.os == "Windows"
         with:
           name: '${{ env.channel }}-windows-aux-${{ github.run_number }}'
           path: tauri-aux-artifacts/
@@ -283,7 +283,7 @@ jobs:
         run: |
           rm -rf release-s3
           mkdir -p release-s3
-          rsync -avE --prune-empty-dirs --include-from='.github/workflows/publish.include.txt' --exclude='*' release/ release-s3/
+          rsync -avE --prune-empty-dirs --include-from=".github/workflows/publish.include.txt" --exclude="*" release/ release-s3/
           bash scripts/normalize-spaces.sh ./release-s3
       - uses: shallwefootball/s3-upload-action@master
         name: Upload To S3
@@ -299,12 +299,12 @@ jobs:
       - name: Notify GitButler API of new release
         shell: bash
         run: |
-          curl 'https://app.gitbutler.com/api/releases' \
+          curl "https://app.gitbutler.com/api/releases" \
             --fail \
             --request POST \
-            --header 'Content-Type: application/json' \
-            --header 'X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}' \
-            --data '{"channel":"${{ needs.build-tauri.outputs.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}'
+            --header "Content-Type: application/json" \
+            --header "X-Auth-Token: ${{ secrets.BOT_AUTH_TOKEN }}" \
+            --data "{"channel":"${{ needs.build-tauri.outputs.channel }}","version":"${{ env.version }}-${{ github.run_number }}","sha":"${{ github.sha }}"}"
 
   create-git-tag:
     needs: [publish-tauri, build-tauri]
@@ -338,6 +338,6 @@ jobs:
           fi
           create_tag "$TAG_NAME"
       - name: Trigger Sentry Cron - Complete
-        if: ${{ github.event_name == 'schedule' }}
+        if: ${{ github.event_name == "schedule" }}
         shell: bash
         run: curl "${{ secrets.SENTRY_CRONS }}?status=ok"
