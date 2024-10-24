@@ -155,7 +155,7 @@
 						</StackingCommitCard>
 					</StackingCommitDragItem>
 
-					{@render reorderDropzone(reorderDropzoneManager.dropzone(commit.id))}
+					{@render reorderDropzone(reorderDropzoneManager.dropzone(commit.id, seriesName))}
 
 					<!-- <InsertEmptyCommitAction
 						isLast={idx + 1 === patches.length}

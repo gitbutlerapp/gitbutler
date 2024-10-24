@@ -19,7 +19,6 @@
 	);
 
 	const commits = $derived.by(() => {
-		console.log('DERIVED.COMMITS.BRANCH_SERIES', branch.series);
 		// return branch.series.flatMap((series) => {
 		// 	let patches = [`top|${series.name}`];
 		// 	patches.push(...series.patches.map((patch) => patch.changeId));
