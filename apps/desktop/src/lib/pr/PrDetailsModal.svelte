@@ -349,7 +349,7 @@
 						placeholder="PR title"
 						value={actualTitle}
 						readonly={!isEditing || isDisplay}
-						oninput={(val: string) => {
+						oninput={(value: string) => {
 							inputTitle = val;
 						}}
 					/>

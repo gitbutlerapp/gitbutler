@@ -132,7 +132,7 @@
 					wide
 					bind:value={$userSettings.diffFont}
 					required
-					onchange={(val: string) => {
+					onchange={(value: string) => {
 						userSettings.update((s) => ({
 							...s,
 							diffFont: val
@@ -178,7 +178,7 @@
 					minVal={1}
 					maxVal={8}
 					showCountActions
-					onchange={(val: string) => {
+					onchange={(value: string) => {
 						userSettings.update((s) => ({
 							...s,
 							tabSize: parseInt(val) || $userSettings.tabSize

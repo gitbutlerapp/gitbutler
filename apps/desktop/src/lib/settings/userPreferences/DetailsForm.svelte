@@ -77,7 +77,7 @@
 					placeholder="Project name can't be empty"
 					bind:value={title}
 					required
-					onchange={(val: string) => {
+					onchange={(value: string) => {
 						project.title = val;
 						projectsService.updateProject(project);
 					}}

@@ -102,7 +102,7 @@
 		tabindex={disabled ? -1 : 0}
 		contenteditable
 		bind:innerText={value}
-		onfocus={(e: FocusEvent) => {
+		onfocus={(e: Event) => {
 			if (e.currentTarget) {
 				onfocus?.(e as FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement });
 			}

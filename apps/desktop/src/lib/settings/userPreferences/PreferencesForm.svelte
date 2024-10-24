@@ -80,7 +80,7 @@
 				minVal={5}
 				maxVal={1000}
 				showCountActions
-				onchange={(val: string) => {
+				onchange={(value: string) => {
 					setSnapshotLinesThreshold(parseInt(val));
 				}}
 			/>
