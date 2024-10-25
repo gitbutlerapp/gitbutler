@@ -210,7 +210,7 @@
 			<div class="branch-action__line" style:--bg-color={lineColor}></div>
 			<div class="branch-action__body">
 				{#if $pr}
-					<StackingPullRequestCard upstreamName={currentSeries.name} />
+					<StackingPullRequestCard upstreamName={currentSeries.name} reloadPR={handleReloadPR} />
 				{:else}
 					<Button
 						style="ghost"
