@@ -7,21 +7,20 @@ use itertools::Itertools;
 
 use crate::{HunkRange, InputCommit, InputStack, StackRanges};
 
-#[derive(Debug, Default, PartialEq, Clone)]
+#[derive(Debug)]
 pub struct WorkspaceRanges {
     paths: HashMap<PathBuf, Vec<HunkRange>>,
 }
 
-/// Provides blame-like functionality for looking up what commit(s) have
-/// touched a specific line number range for a given path.
+/// Provides blame-like functionality for looking up what commit(s) have touched a specific line
+/// number range for a given path.
 ///
-/// First it combines changes per branch sequentially by commit, allowing
-/// for dependent changes where one commit introduces changes that overwrites
-/// previous changes.
+/// First it combines changes per branch sequentially by commit, allowing for dependent changes
+/// where one commit introduces changes that overwrites previous changes.
 ///
-/// It then combines the changes per branch into a single vector with line
-/// numbers that should match the workspace commit. These per branch changes
-/// are assumed and required to be independent without overlap.
+/// It then combines the changes per branch into a single vector with line numbers that should
+/// match the workspace commit. These per branch changes are assumed and required to be
+/// independent without overlap.
 impl WorkspaceRanges {
     pub fn create(input_stacks: Vec<InputStack>) -> anyhow::Result<WorkspaceRanges> {
         let mut stacks = vec![];
@@ -51,12 +50,11 @@ impl WorkspaceRanges {
     }
 
     /// Finds commits that intersect with a given path and range combination.
-    pub fn intersection(&self, path: &Path, start: u32, lines: u32) -> Vec<HunkRange> {
+    pub fn intersection(&self, path: &Path, start: u32, lines: u32) -> Vec<&HunkRange> {
         if let Some(stack_hunks) = self.paths.get(path) {
             return stack_hunks
                 .iter()
                 .filter(|hunk| hunk.intersects(start, lines))
-                .map(|x| x.to_owned())
                 .collect_vec();
         }
         vec![]
@@ -114,7 +112,7 @@ fn combine_path_ranges(path: &Path, stacks: &[StackRanges]) -> Vec<HunkRange> {
             start: hunk_dep
                 .start
                 .saturating_add_signed(line_shifts[next_index]),
-            ..hunk_dep.clone()
+            ..*hunk_dep
         });
 
         // Advance the path specific hunk pointer.

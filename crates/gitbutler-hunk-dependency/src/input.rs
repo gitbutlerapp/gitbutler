@@ -3,24 +3,27 @@ use std::path::PathBuf;
 use anyhow::{anyhow, Context};
 use gitbutler_stack::StackId;
 
+#[derive(Debug, Clone)]
 pub struct InputStack {
     pub stack_id: StackId,
     pub commits: Vec<InputCommit>,
 }
 
+#[derive(Debug, Clone)]
 pub struct InputCommit {
     pub commit_id: git2::Oid,
     pub files: Vec<InputFile>,
 }
 
+#[derive(Debug, Clone)]
 pub struct InputFile {
     pub path: PathBuf,
     pub diffs: Vec<InputDiff>,
 }
 
-/// Please note that the From conversions and parsing of diffs exists to facilitate
-/// testing, in the client code we get the line numbers from elsewhere.
-#[derive(Debug, PartialEq, Clone)]
+/// Please note that the From conversions and parsing of diffs exists to facilitate testing, in
+/// the client code we get the line numbers from elsewhere.
+#[derive(Debug, Clone)]
 pub struct InputDiff {
     pub old_start: u32,
     pub old_lines: u32,

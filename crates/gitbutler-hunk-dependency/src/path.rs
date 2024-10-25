@@ -5,22 +5,18 @@ use gitbutler_stack::StackId;
 
 use crate::{HunkRange, InputDiff};
 
-/// Adds sequential diffs from sequential commits for a specific path, and
-/// shifts line numbers with additions and deletions. It is expected that
-/// diffs are added one commit at a time, each time merging the already added
-/// diffs with the new ones being added.
+/// Adds sequential diffs from sequential commits for a specific path, and shifts line numbers
+/// with additions and deletions. It is expected that diffs are added one commit at a time,
+/// each time merging the already added diffs with the new ones being added.
 ///
-/// When combining old and new diffs we process them in turn of their start
-/// line, lowest first. With each addition it is possible that we conflict
-/// with previous ranges (we only know start line is higher, line count can
-/// be very different), but it is important to note that old ranges will
-/// not conflict with old ranges, and new ranges cannot conflict with new
-/// ranges.
+/// When combining old and new diffs we process them in turn of their start line, lowest first.
+/// With each addition it is possible that we conflict with previous ranges (we only know start
+/// line is higher, line count can be very different), but it is important to note that old
+/// ranges will not conflict with old ranges, and new ranges cannot conflict with new ranges.
 ///
-/// Therefore, a) if we are processing a new diff we know it overwrites
-/// anything it conflicts with, b) when processing an old diff we e.g.
-/// omit it if has been overwritten.
-#[derive(Debug, Default, PartialEq, Clone)]
+/// Therefore, a) if we are processing a new diff we know it overwrites anything it conflicts
+/// with, b) when processing an old diff we e.g. omit it if has been overwritten.
+#[derive(Debug, Default)]
 pub struct PathRanges {
     pub hunks: Vec<HunkRange>,
     commit_ids: HashSet<git2::Oid>,
@@ -46,8 +42,8 @@ impl PathRanges {
         let [mut i, mut j] = [0, 0];
 
         while i < diffs.len() || j < self.hunks.len() {
-            // If the old start is smaller than existing new_start, or if only have
-            // new diffs left to process.
+            // If the old start is smaller than existing new_start, or if only have new diffs
+            // left to process.
             let mut hunks = if (i < diffs.len()
                 && j < self.hunks.len()
                 && diffs[i].old_start < self.hunks[j].start)
@@ -73,9 +69,9 @@ impl PathRanges {
         Ok(())
     }
 
-    pub fn intersection(&mut self, start: u32, lines: u32) -> Vec<&mut HunkRange> {
+    pub fn intersection(&self, start: u32, lines: u32) -> Vec<&HunkRange> {
         self.hunks
-            .iter_mut()
+            .iter()
             .filter(|hunk| hunk.intersects(start, lines))
             .collect()
     }
@@ -103,7 +99,7 @@ fn add_new(
     if last_hunk.start + last_hunk.lines < new_diff.old_start {
         // Diffs do not overlap so we return them in order.
         Ok(vec![
-            last_hunk.clone(),
+            last_hunk,
             HunkRange {
                 commit_id,
                 stack_id,
@@ -113,8 +109,8 @@ fn add_new(
             },
         ])
     } else if last_hunk.contains(new_diff.old_start, new_diff.old_lines) {
-        // Since the diff being added is from the current commit it overwrites the
-        // preceding one, but we need to split it in two and retain the tail.
+        // Since the diff being added is from the current commit it overwrites the preceding one,
+        // but we need to split it in two and retain the tail.
         Ok(vec![
             HunkRange {
                 commit_id: last_hunk.commit_id,
@@ -164,13 +160,13 @@ fn add_new(
 /// Determines how existing diff given the previous one.
 fn add_existing(hunk: &HunkRange, last_hunk: Option<HunkRange>, shift: i32) -> Vec<HunkRange> {
     if last_hunk.is_none() {
-        return vec![hunk.clone()];
+        return vec![*hunk];
     };
     let last_hunk = last_hunk.unwrap();
 
     if hunk.start.saturating_add_signed(shift) > last_hunk.start + last_hunk.lines {
         vec![
-            last_hunk.clone(),
+            last_hunk,
             HunkRange {
                 commit_id: hunk.commit_id,
                 stack_id: hunk.stack_id,
@@ -180,10 +176,10 @@ fn add_existing(hunk: &HunkRange, last_hunk: Option<HunkRange>, shift: i32) -> V
             },
         ]
     } else if last_hunk.contains(hunk.start.saturating_add_signed(shift), hunk.lines) {
-        vec![last_hunk.clone()]
+        vec![last_hunk]
     } else {
         vec![
-            last_hunk.clone(),
+            last_hunk,
             HunkRange {
                 commit_id: hunk.commit_id,
                 stack_id: hunk.stack_id,
