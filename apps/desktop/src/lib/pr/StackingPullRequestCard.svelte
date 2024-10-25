@@ -20,9 +20,10 @@
 
 	interface Props {
 		upstreamName: string;
+		reloadPR?: () => void;
 	}
 
-	const { upstreamName }: Props = $props();
+	const { upstreamName, reloadPR }: Props = $props();
 
 	type StatusInfo = {
 		text: string;
@@ -133,6 +134,13 @@
 				label="Copy PR link"
 				onclick={() => {
 					copyToClipboard($pr.htmlUrl);
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Refetch PR status"
+				onclick={() => {
+					reloadPR?.();
 					contextMenuEl?.close();
 				}}
 			/>
