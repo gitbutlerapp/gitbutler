@@ -5,12 +5,12 @@
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
-	import Spacer from '$lib/shared/Spacer.svelte';
 	import { UserService } from '$lib/stores/user';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { goto } from '$app/navigation';
 

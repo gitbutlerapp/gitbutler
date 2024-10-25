@@ -5,8 +5,8 @@
 	import { Project, ProjectsService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { platformName } from '$lib/platform/platform';
-	import Spacer from '$lib/shared/Spacer.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
 	const project = getContext(Project);

@@ -12,9 +12,9 @@
 	import Section from '$lib/settings/Section.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
-	import Spacer from '$lib/shared/Spacer.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '@gitbutler/shared/context';
+	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { onMount, tick } from 'svelte';
 
