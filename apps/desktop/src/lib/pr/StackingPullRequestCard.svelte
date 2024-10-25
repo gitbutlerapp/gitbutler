@@ -93,7 +93,7 @@
 			return { style, icon, text };
 		}
 		if ($checksLoading) {
-			return { style: 'neutral', icon: 'spinner', text: ' Checks' };
+			return { style: 'neutral', icon: 'spinner', text: 'Checks' };
 		}
 
 		return { style: 'neutral', icon: undefined, text: 'No PR checks' };
@@ -145,23 +145,25 @@
 				}}
 			/>
 		</ContextMenuSection>
-		{#if checksTagInfo && checksTagInfo.text !== 'No PR checks' && checksTagInfo.text === 'Checks'}
-			<ContextMenuSection>
-				<ContextMenuItem
-					label="Open checks"
-					onclick={() => {
-						openExternalUrl(`${$pr.htmlUrl}/checks`);
-						contextMenuEl?.close();
-					}}
-				/>
-				<ContextMenuItem
-					label="Copy checks"
-					onclick={() => {
-						copyToClipboard(`${$pr.htmlUrl}/checks`);
-						contextMenuEl?.close();
-					}}
-				/>
-			</ContextMenuSection>
+		{#if checksTagInfo}
+			{#if checksTagInfo.text !== 'No PR checks' && checksTagInfo.text !== 'Checks'}
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="Open checks"
+						onclick={() => {
+							openExternalUrl(`${$pr.htmlUrl}/checks`);
+							contextMenuEl?.close();
+						}}
+					/>
+					<ContextMenuItem
+						label="Copy checks"
+						onclick={() => {
+							copyToClipboard(`${$pr.htmlUrl}/checks`);
+							contextMenuEl?.close();
+						}}
+					/>
+				</ContextMenuSection>
+			{/if}
 		{/if}
 	</ContextMenu>
 
