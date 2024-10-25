@@ -3,7 +3,7 @@ use git2::Oid;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::rebase::cherry_rebase_group;
-use gitbutler_stack::{PatchReferenceUpdate, Series, StackId, TargetUpdate};
+use gitbutler_stack::{Series, StackId};
 
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -29,14 +29,28 @@ use crate::{
 pub fn reorder_stack(
     ctx: &CommandContext,
     branch_id: StackId,
-    stack_order: StackOrder,
+    new_order: StackOrder,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let state = ctx.project().virtual_branches();
     let repo = ctx.repository();
     let mut stack = state.get_branch(branch_id)?;
     let all_series = stack.list_series(ctx)?;
-    stack_order.validate(series_order(&all_series))?;
+    let current_order = series_order(&all_series);
+    new_order.validate(current_order.clone())?;
+
+    let mut update_pairs = vec![];
+    for (current_series, new_series) in current_order.series.iter().zip(new_order.series.iter()) {
+        for (current_oid, new_oid) in current_series
+            .commit_ids
+            .iter()
+            .zip(new_series.commit_ids.iter())
+        {
+            if current_oid != new_oid {
+                update_pairs.push((current_oid, new_oid))
+            }
+        }
+    }
 
     let default_target = state.get_default_target()?;
     let default_target_commit = repo
@@ -45,7 +59,7 @@ pub fn reorder_stack(
     let old_head = repo.find_commit(stack.head())?;
     let merge_base = repo.merge_base(default_target_commit.id(), stack.head())?;
 
-    let ids_to_rebase = stack_order
+    let ids_to_rebase = new_order
         .series
         .iter()
         .flat_map(|s| s.commit_ids.iter())
@@ -59,18 +73,10 @@ pub fn reorder_stack(
     } = compute_updated_branch_head_for_commits(repo, old_head.id(), old_head.tree_id(), new_head)?;
 
     // Set the series heads accordingly
-    for (idx, series) in stack_order.series.iter().enumerate() {
-        let new_series_head_oid = series_head(&stack_order.series, merge_base);
-        let new_series_head = repo.find_commit(new_series_head_oid)?;
-        let preceding_head_name = stack_order.series.get(idx + 1).map(|s| s.name.clone());
-        let update = PatchReferenceUpdate {
-            target_update: Some(TargetUpdate {
-                target: new_series_head.into(),
-                preceding_head_name,
-            }),
-            ..Default::default()
-        };
-        stack.update_series(ctx, series.name.clone(), &update)?;
+    for (current_oid, new_oid) in update_pairs {
+        let from_commit = repo.find_commit(*current_oid)?;
+        let to_commit = repo.find_commit(*new_oid)?;
+        stack.replace_head(ctx, &from_commit, &to_commit)?;
     }
 
     stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
@@ -99,19 +105,6 @@ pub struct SeriesOrder {
     /// The changes are ordered from newest to oldest (most recent changes go first)
     #[serde(with = "gitbutler_serde::oid_vec")]
     pub commit_ids: Vec<Oid>,
-}
-
-fn series_head(all_series: &Vec<SeriesOrder>, default_commit: Oid) -> Oid {
-    // The head is either:
-    //  - the first commit in the series
-    //  - the first commit in the next series
-    //  - the merge base
-    for series in all_series {
-        if let Some(commit) = series.commit_ids.first() {
-            return *commit;
-        }
-    }
-    default_commit
 }
 
 impl StackOrder {
@@ -181,7 +174,7 @@ impl StackOrder {
     }
 }
 
-fn series_order(all_series: &[Series<'_>]) -> StackOrder {
+pub fn series_order(all_series: &[Series<'_>]) -> StackOrder {
     let series_order: Vec<SeriesOrder> = all_series
         .iter()
         .rev()

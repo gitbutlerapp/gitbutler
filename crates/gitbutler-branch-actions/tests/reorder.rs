@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use anyhow::Result;
-use gitbutler_branch_actions::{reorder_stack, SeriesOrder, StackOrder};
+use gitbutler_branch_actions::{list_virtual_branches, reorder_stack, SeriesOrder, StackOrder};
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
+use itertools::Itertools;
 use tempfile::TempDir;
 
 #[test]
@@ -36,6 +37,117 @@ fn noop_reorder_errors() -> Result<()> {
         "The new order is the same as the current order"
     );
     Ok(())
+}
+
+#[test]
+fn reorder_in_top_series() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let order = StackOrder {
+        series: vec![
+            SeriesOrder {
+                name: "top-series".to_string(),
+                commit_ids: vec![
+                    test_ctx.top_commits["commit 6"],
+                    test_ctx.top_commits["commit 4"], // currently 5
+                    test_ctx.top_commits["commit 5"], // currently 4
+                ],
+            },
+            SeriesOrder {
+                name: "a-branch-2".to_string(),
+                commit_ids: vec![
+                    test_ctx.bottom_commits["commit 3"],
+                    test_ctx.bottom_commits["commit 2"],
+                    test_ctx.bottom_commits["commit 1"],
+                ],
+            },
+        ],
+    };
+    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    let commits = commit_messages(&ctx);
+
+    // Verify the commit messages and ids in the second (top) series - top-series
+    assert_eq!(
+        commits[0].iter().map(|(_, msg)| msg).collect_vec(),
+        vec!["commit 6", "commit 4", "commit 5"]
+    );
+    assert_ne!(commits[0][0].0, order.series[0].commit_ids[0]);
+    assert_ne!(commits[0][1].0, order.series[0].commit_ids[1]);
+    assert_ne!(commits[0][2].0, order.series[0].commit_ids[2]);
+
+    // Verify the commit messages and ids in the first (bottom) series
+    assert_eq!(
+        commits[1].iter().map(|(_, msg)| msg).collect_vec(),
+        vec!["commit 3", "commit 2", "commit 1"]
+    );
+    assert_eq!(
+        commits[1].iter().map(|(id, _)| *id).collect_vec(),
+        order.series[1].commit_ids
+    );
+    Ok(())
+}
+
+#[test]
+fn reorder_in_top_series_head() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let order = StackOrder {
+        series: vec![
+            SeriesOrder {
+                name: "top-series".to_string(),
+                commit_ids: vec![
+                    test_ctx.top_commits["commit 5"], // currently 6
+                    test_ctx.top_commits["commit 6"], // currently 5
+                    test_ctx.top_commits["commit 4"],
+                ],
+            },
+            SeriesOrder {
+                name: "a-branch-2".to_string(),
+                commit_ids: vec![
+                    test_ctx.bottom_commits["commit 3"],
+                    test_ctx.bottom_commits["commit 2"],
+                    test_ctx.bottom_commits["commit 1"],
+                ],
+            },
+        ],
+    };
+    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    let commits = commit_messages(&ctx);
+
+    // Verify the commit messages and ids in the second (top) series - top-series
+    assert_eq!(
+        commits[0].iter().map(|(_, msg)| msg).collect_vec(),
+        vec!["commit 5", "commit 6", "commit 4"]
+    );
+    assert_ne!(commits[0][0].0, order.series[0].commit_ids[0]);
+    assert_ne!(commits[0][1].0, order.series[0].commit_ids[1]);
+    assert_eq!(commits[0][2].0, order.series[0].commit_ids[2]); // not rebased from here down
+
+    // Verify the commit messages and ids in the first (bottom) series
+    assert_eq!(
+        commits[1].iter().map(|(_, msg)| msg).collect_vec(),
+        vec!["commit 3", "commit 2", "commit 1"]
+    );
+    assert_eq!(
+        commits[1].iter().map(|(id, _)| *id).collect_vec(),
+        order.series[1].commit_ids
+    );
+    Ok(())
+}
+
+fn commit_messages(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String)>> {
+    let (vbranches, _) = list_virtual_branches(ctx.project()).unwrap();
+    let vbranch = vbranches.iter().find(|vb| vb.name == "my_stack").unwrap();
+    let mut out = vec![];
+    for series in vbranch.series.clone() {
+        let messages = series
+            .patches
+            .iter()
+            .map(|p| (p.id, p.description.to_string()))
+            .collect_vec();
+        out.push(messages)
+    }
+    out
 }
 
 fn command_ctx(name: &str) -> Result<(CommandContext, TempDir)> {
