@@ -40,12 +40,7 @@
 
 	.divider.dotted {
 		opacity: 0.2;
-		background: repeating-linear-gradient(
-			90deg,
-			transparent,
-			transparent 2px,
-			var(--clr-scale-ntrl-0) 2px,
-			var(--clr-scale-ntrl-0) 4px
-		);
+		background-image: linear-gradient(to right, var(--clr-scale-ntrl-0) 50%, transparent 50%);
+		background-size: 4px 1px;
 	}
 </style>
