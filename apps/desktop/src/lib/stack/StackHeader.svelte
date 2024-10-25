@@ -125,7 +125,6 @@
 							bind:contextMenuEl={contextMenu}
 							target={meatballButtonEl}
 							onCollapse={collapseLane}
-							hasPr={false}
 							onopen={() => (isContextMenuOpen = true)}
 							onclose={() => (isContextMenuOpen = false)}
 						/>

@@ -7,6 +7,7 @@
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { stackingFeature } from '$lib/config/uiFeatureFlags';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -17,7 +18,7 @@
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
 	interface Props {
-		hasPr: boolean;
+		prUrl?: string;
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
 		target?: HTMLElement;
 		onCollapse: () => void;
@@ -33,7 +34,7 @@
 		target,
 		onCollapse,
 		onGenerateBranchName,
-		hasPr,
+		prUrl,
 		openPrDetailsModal,
 		reloadPR,
 		onopen,
@@ -167,7 +168,7 @@
 		</ContextMenuItem>
 	</ContextMenuSection>
 
-	{#if !$stackingFeature && hasPr}
+	{#if !$stackingFeature && prUrl}
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="PR details"
@@ -179,7 +180,7 @@
 			<ContextMenuItem
 				label="Copy PR link"
 				onclick={() => {
-					reloadPR?.();
+					copyToClipboard(prUrl);
 					contextMenuEl?.close();
 				}}
 			/>

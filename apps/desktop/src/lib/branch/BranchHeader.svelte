@@ -214,7 +214,7 @@
 							target={meatballButtonEl}
 							onCollapse={collapseLane}
 							{onGenerateBranchName}
-							hasPr={!!$pr}
+							prUrl={$pr?.htmlUrl}
 							openPrDetailsModal={handleOpenPR}
 							reloadPR={handleReloadPR}
 							onopen={() => (isContexMenuOpen = true)}

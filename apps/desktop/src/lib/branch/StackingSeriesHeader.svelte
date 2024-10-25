@@ -138,7 +138,7 @@
 	{addDescription}
 	onGenerateBranchName={generateBranchName}
 	hasGitHostBranch={!!gitHostBranch}
-	hasPr={!!$pr}
+	prUrl={$pr?.htmlUrl}
 	openPrDetailsModal={handleOpenPR}
 	reloadPR={handleReloadPR}
 	onopen={() => (contextMenuOpened = true)}
