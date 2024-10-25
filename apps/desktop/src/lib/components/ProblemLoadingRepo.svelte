@@ -6,10 +6,10 @@
 	import { ProjectsService, Project } from '$lib/backend/projects';
 	import { showError } from '$lib/notifications/toasts';
 	import ProjectNameLabel from '$lib/shared/ProjectNameLabel.svelte';
-	import Spacer from '$lib/shared/Spacer.svelte';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import { goto } from '$app/navigation';
 
 	export let error: any = undefined;

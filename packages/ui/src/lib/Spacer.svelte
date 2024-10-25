@@ -1,13 +1,15 @@
-<script lang="ts">
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-
-	interface SpacerProps {
+<script lang="ts" module>
+	export interface Props {
 		margin?: number;
 		noLine?: boolean;
 		dotted?: boolean;
 	}
+</script>
 
-	const { margin = 12, noLine = false, dotted = false }: SpacerProps = $props();
+<script lang="ts">
+	import { pxToRem } from '$lib/utils/pxToRem';
+
+	const { margin = 12, noLine = false, dotted = false }: Props = $props();
 
 	function getMargins() {
 		if (margin === undefined) {

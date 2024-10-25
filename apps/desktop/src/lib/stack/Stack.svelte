@@ -12,7 +12,6 @@
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
-	import Spacer from '$lib/shared/Spacer.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
@@ -21,6 +20,7 @@
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
+	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
 	import type { Writable } from 'svelte/store';
