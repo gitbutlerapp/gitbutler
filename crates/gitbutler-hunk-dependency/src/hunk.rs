@@ -1,6 +1,8 @@
 use gitbutler_stack::StackId;
 
-#[derive(Debug, PartialEq, Clone)]
+/// A struct for tracking what stack and commit a hunk belongs to as its line numbers shift with
+/// new changes come in from other commits and/or stacks.
+#[derive(Debug, Clone, Copy)]
 pub struct HunkRange {
     pub stack_id: StackId,
     pub commit_id: git2::Oid,

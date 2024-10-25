@@ -8,11 +8,13 @@ use itertools::Itertools;
 
 use crate::{HunkRange, InputDiff, PathRanges};
 
-#[derive(Debug, Default, PartialEq, Clone)]
+#[derive(Debug, Default)]
 pub struct StackRanges {
     pub paths: HashMap<PathBuf, PathRanges>,
 }
 
+/// A struct for collecting hunk ranges by path, before they get merged into a single dimension
+/// representing the workspace view.
 impl StackRanges {
     pub fn add(
         &mut self,
@@ -39,7 +41,7 @@ impl StackRanges {
             .collect::<HashSet<PathBuf>>()
     }
 
-    pub fn intersection(&mut self, path: &PathBuf, start: u32, lines: u32) -> Vec<&mut HunkRange> {
+    pub fn intersection(&mut self, path: &PathBuf, start: u32, lines: u32) -> Vec<&HunkRange> {
         if let Some(deps_path) = self.paths.get_mut(path) {
             return deps_path.intersection(start, lines);
         }
