@@ -50,14 +50,17 @@ impl WorkspaceRanges {
     }
 
     /// Finds commits that intersect with a given path and range combination.
-    pub fn intersection(&self, path: &Path, start: u32, lines: u32) -> Vec<&HunkRange> {
-        if let Some(stack_hunks) = self.paths.get(path) {
-            return stack_hunks
+    pub fn intersection(&self, path: &Path, start: u32, lines: u32) -> Option<Vec<&HunkRange>> {
+        if let Some(hunk_range) = self.paths.get(path) {
+            let intersection = hunk_range
                 .iter()
                 .filter(|hunk| hunk.intersects(start, lines))
                 .collect_vec();
+            if !intersection.is_empty() {
+                return Some(intersection);
+            }
         }
-        vec![]
+        None
     }
 }
 
@@ -202,12 +205,12 @@ mod tests {
             },
         ])?;
 
-        let dependencies_1 = workspace_ranges.intersection(&path, 2, 1);
+        let dependencies_1 = workspace_ranges.intersection(&path, 2, 1).unwrap();
         assert_eq!(dependencies_1.len(), 1);
         assert_eq!(dependencies_1[0].commit_id, commit1_id);
         assert_eq!(dependencies_1[0].stack_id, stack1_id);
 
-        let dependencies_2 = workspace_ranges.intersection(&path, 12, 1);
+        let dependencies_2 = workspace_ranges.intersection(&path, 12, 1).unwrap();
         assert_eq!(dependencies_2.len(), 1);
         assert_eq!(dependencies_2[0].commit_id, commit2_id);
         assert_eq!(dependencies_2[0].stack_id, stack2_id);
