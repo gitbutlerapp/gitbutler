@@ -86,19 +86,19 @@ pub fn reorder_stack(
 #[serde(rename_all = "camelCase")]
 pub struct StackOrder {
     /// The series are ordered from newest to oldest (most recent stacks go first)
-    series: Vec<SeriesOrder>,
+    pub series: Vec<SeriesOrder>,
 }
 
 /// Represents the order of changes (commits) in a series (branch).
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct SeriesOrder {
     /// Unique name of the series (branch). Must already exist in the stack.
-    name: String,
+    pub name: String,
     /// This is the desired commit order for the series. Because the commits will be rabased,
     /// naturally, the the commit ids will be different afte updating.
     /// The changes are ordered from newest to oldest (most recent changes go first)
     #[serde(with = "gitbutler_serde::oid_vec")]
-    commit_ids: Vec<Oid>,
+    pub commit_ids: Vec<Oid>,
 }
 
 fn series_head(all_series: &Vec<SeriesOrder>, default_commit: Oid) -> Oid {
@@ -184,10 +184,12 @@ impl StackOrder {
 fn series_order(all_series: &[Series<'_>]) -> StackOrder {
     let series_order: Vec<SeriesOrder> = all_series
         .iter()
+        .rev()
         .map(|series| {
             let commit_ids = series
                 .local_commits
                 .iter()
+                .rev()
                 .map(|commit| commit.id())
                 .collect();
             SeriesOrder {
