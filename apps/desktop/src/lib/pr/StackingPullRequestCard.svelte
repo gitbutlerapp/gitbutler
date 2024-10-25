@@ -31,10 +31,8 @@
 		messageStyle?: MessageStyle;
 	};
 
-	let checksContextMenuEl = $state<ReturnType<typeof ContextMenu>>();
-	let prContextMenuEl = $state<ReturnType<typeof ContextMenu>>();
-	let checksContextMenuTarget = $state<HTMLElement>();
-	let prContextMenuTarget = $state<HTMLElement>();
+	let contextMenuEl = $state<ReturnType<typeof ContextMenu>>();
+	let contextMenuTarget = $state<HTMLElement>();
 
 	const vbranchService = getContext(VirtualBranchService);
 	const baseBranchService = getContext(BaseBranchService);
@@ -122,7 +120,52 @@
 </script>
 
 {#if $pr}
-	<div class="pr-header">
+	<ContextMenu bind:this={contextMenuEl} target={contextMenuTarget} openByMouse>
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Open PR in browser"
+				onclick={() => {
+					openExternalUrl($pr.htmlUrl);
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Copy PR link"
+				onclick={() => {
+					copyToClipboard($pr.htmlUrl);
+					contextMenuEl?.close();
+				}}
+			/>
+		</ContextMenuSection>
+		{#if checksTagInfo && checksTagInfo.text !== 'No PR checks' && checksTagInfo.text === 'Checks'}
+			<ContextMenuSection>
+				<ContextMenuItem
+					label="Open checks"
+					onclick={() => {
+						openExternalUrl(`${$pr.htmlUrl}/checks`);
+						contextMenuEl?.close();
+					}}
+				/>
+				<ContextMenuItem
+					label="Copy checks"
+					onclick={() => {
+						copyToClipboard(`${$pr.htmlUrl}/checks`);
+						contextMenuEl?.close();
+					}}
+				/>
+			</ContextMenuSection>
+		{/if}
+	</ContextMenu>
+
+	<div
+		bind:this={contextMenuTarget}
+		role="article"
+		class="pr-header"
+		oncontextmenu={(e: MouseEvent) => {
+			e.preventDefault();
+			contextMenuEl?.open(e);
+		}}
+	>
 		<div class="text-13 text-semibold pr-header-title">
 			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
 			<span>{$pr?.title}</span>
@@ -140,72 +183,29 @@
 				{prStatusInfo.text}
 			</Button>
 			{#if !$pr?.closedAt && checksTagInfo}
-				<div bind:this={checksContextMenuTarget}>
-					<Button
-						size="tag"
-						clickable={false}
-						icon={checksTagInfo.icon}
-						style={checksTagInfo.style}
-						kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
-						oncontextmenu={(e: MouseEvent) => {
-							e.preventDefault();
-							checksContextMenuEl?.open();
-						}}
-					>
-						{checksTagInfo.text}
-					</Button>
-				</div>
-
-				<ContextMenu bind:this={checksContextMenuEl} target={checksContextMenuTarget}>
-					<ContextMenuSection>
-						<ContextMenuItem
-							label="Open checks"
-							onclick={() => {
-								openExternalUrl(`${$pr.htmlUrl}/checks`);
-								checksContextMenuEl?.close();
-							}}
-						/>
-						<ContextMenuItem
-							label="Copy Checks"
-							onclick={() => {
-								copyToClipboard(`${$pr.htmlUrl}/checks`);
-								checksContextMenuEl?.close();
-							}}
-						/>
-					</ContextMenuSection>
-				</ContextMenu>
+				<Button
+					size="tag"
+					clickable={false}
+					icon={checksTagInfo.icon}
+					style={checksTagInfo.style}
+					kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
+				>
+					{checksTagInfo.text}
+				</Button>
 			{/if}
 			{#if $pr?.htmlUrl}
-				<div bind:this={prContextMenuTarget}>
-					<Button
-						icon="open-link"
-						size="tag"
-						style="ghost"
-						outline
-						tooltip="Open in browser"
-						onclick={() => {
-							openExternalUrl($pr.htmlUrl);
-						}}
-						oncontextmenu={(e: MouseEvent) => {
-							e.preventDefault();
-							prContextMenuEl?.open();
-						}}
-					>
-						View PR
-					</Button>
-				</div>
-
-				<ContextMenu bind:this={prContextMenuEl} target={prContextMenuTarget}>
-					<ContextMenuSection>
-						<ContextMenuItem
-							label="Copy PR Link"
-							onclick={() => {
-								copyToClipboard($pr.htmlUrl);
-								prContextMenuEl?.close();
-							}}
-						/>
-					</ContextMenuSection>
-				</ContextMenu>
+				<Button
+					icon="open-link"
+					size="tag"
+					style="ghost"
+					outline
+					tooltip="Open in browser"
+					onclick={() => {
+						openExternalUrl($pr.htmlUrl);
+					}}
+				>
+					View PR
+				</Button>
 			{/if}
 		</div>
 
