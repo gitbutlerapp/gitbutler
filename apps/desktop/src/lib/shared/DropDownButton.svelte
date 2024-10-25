@@ -42,6 +42,11 @@
 	let iconEl = $state<HTMLElement>();
 	let visible = $state(false);
 
+	function preventContextMenu(e: MouseEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+	}
+
 	export function show() {
 		visible = true;
 		contextMenu?.open();
@@ -66,6 +71,7 @@
 				disabled={disabled || loading}
 				dropdownChild
 				{onclick}
+				oncontextmenu={preventContextMenu}
 			>
 				{@render children()}
 			</Button>
@@ -82,6 +88,7 @@
 					visible = !visible;
 					contextMenu?.toggle();
 				}}
+				oncontextmenu={preventContextMenu}
 			/>
 		</div>
 		<ContextMenu
