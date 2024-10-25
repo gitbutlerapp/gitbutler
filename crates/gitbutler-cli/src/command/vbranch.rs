@@ -89,6 +89,13 @@ fn set_default_branch(project: &Project, branch: &Stack) -> Result<()> {
     )
 }
 
+pub fn series(project: Project, stack_name: String, new_series_name: String) -> Result<()> {
+    let mut stack = branch_by_name(&project, &stack_name)?;
+    let ctx = CommandContext::open(&project)?;
+    stack.add_series_top_of_stack(&ctx, new_series_name, None)?;
+    Ok(())
+}
+
 pub fn commit(project: Project, branch_name: String, message: String) -> Result<()> {
     let branch = branch_by_name(&project, &branch_name)?;
     let (info, skipped) = gitbutler_branch_actions::list_virtual_branches(&project)?;

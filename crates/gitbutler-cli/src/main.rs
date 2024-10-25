@@ -31,6 +31,9 @@ fn main() -> Result<()> {
                 Some(vbranch::SubCommands::Commit { message, name }) => {
                     command::vbranch::commit(project, name, message)
                 }
+                Some(vbranch::SubCommands::Series { name, series_name }) => {
+                    command::vbranch::series(project, name, series_name)
+                }
                 Some(vbranch::SubCommands::Create { set_default, name }) => {
                     command::vbranch::create(project, name, set_default)
                 }
