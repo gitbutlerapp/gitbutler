@@ -20,9 +20,10 @@
 
 	interface Props {
 		upstreamName: string;
+		reloadPR?: () => void;
 	}
 
-	const { upstreamName }: Props = $props();
+	const { upstreamName, reloadPR }: Props = $props();
 
 	type StatusInfo = {
 		text: string;
@@ -92,7 +93,7 @@
 			return { style, icon, text };
 		}
 		if ($checksLoading) {
-			return { style: 'neutral', icon: 'spinner', text: ' Checks' };
+			return { style: 'neutral', icon: 'spinner', text: 'Checks' };
 		}
 
 		return { style: 'neutral', icon: undefined, text: 'No PR checks' };
@@ -136,24 +137,35 @@
 					contextMenuEl?.close();
 				}}
 			/>
+			<ContextMenuItem
+				label="Refetch PR status"
+				onclick={() => {
+					reloadPR?.();
+					contextMenuEl?.close();
+				}}
+			/>
 		</ContextMenuSection>
-		{#if checksTagInfo && checksTagInfo.text !== 'No PR checks' && checksTagInfo.text === 'Checks'}
-			<ContextMenuSection>
-				<ContextMenuItem
-					label="Open checks"
-					onclick={() => {
-						openExternalUrl(`${$pr.htmlUrl}/checks`);
-						contextMenuEl?.close();
-					}}
-				/>
-				<ContextMenuItem
-					label="Copy checks"
-					onclick={() => {
-						copyToClipboard(`${$pr.htmlUrl}/checks`);
-						contextMenuEl?.close();
-					}}
-				/>
-			</ContextMenuSection>
+		{#if checksTagInfo}
+			{#if checksTagInfo.text !== 'No PR checks' && checksTagInfo.text !== 'Checks'}
+				<ContextMenuSection>
+					<ContextMenuItem
+						label="Open checks"
+						onclick={() => {
+							// NOTE: The `/checks` path only valid for GitHub git host
+							openExternalUrl(`${$pr.htmlUrl}/checks`);
+							contextMenuEl?.close();
+						}}
+					/>
+					<ContextMenuItem
+						label="Copy checks"
+						onclick={() => {
+							// NOTE: The `/checks` path only valid for GitHub git host
+							copyToClipboard(`${$pr.htmlUrl}/checks`);
+							contextMenuEl?.close();
+						}}
+					/>
+				</ContextMenuSection>
+			{/if}
 		{/if}
 	</ContextMenu>
 
