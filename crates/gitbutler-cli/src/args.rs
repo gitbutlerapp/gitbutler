@@ -60,6 +60,14 @@ pub mod vbranch {
             /// The name of the virtual to commit all staged and unstaged changes to.
             name: String,
         },
+        /// Create a new series on top of the stack.
+        Series {
+            /// The name of the series to create on top of the stack.
+            #[clap(short = 's', long)]
+            series_name: String,
+            /// The name of the stack to create new series for.
+            name: String,
+        },
         /// Create a new virtual branch
         Create {
             /// Also make this branch the default branch, so it is considered the owner of new edits.
