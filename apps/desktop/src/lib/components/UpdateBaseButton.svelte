@@ -14,7 +14,7 @@
 		return hasUpstreamCommits && !diverged;
 	});
 
-	let modal = $state<IntegrateUpstreamModal>();
+	let modal = $state<ReturnType<typeof IntegrateUpstreamModal>>();
 
 	function openModal() {
 		modal?.show();

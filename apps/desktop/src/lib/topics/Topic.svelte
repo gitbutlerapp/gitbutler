@@ -22,8 +22,8 @@
 
 	let expanded = $state(false);
 
-	let createIssueModal = $state<CreateIssueModal>();
-	let createTopicModal = $state<CreateIssueModal>();
+	let createIssueModal = $state<ReturnType<typeof CreateIssueModal>>();
+	let createTopicModal = $state<ReturnType<typeof CreateIssueModal>>();
 </script>
 
 <CreateIssueModal bind:this={createIssueModal} {topic} />
