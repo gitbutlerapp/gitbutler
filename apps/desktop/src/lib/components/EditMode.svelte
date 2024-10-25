@@ -41,7 +41,7 @@
 	let commit = $state<Commit | undefined>(undefined);
 
 	let filesList = $state<HTMLDivElement | undefined>(undefined);
-	let contextMenu = $state<FileContextMenu | undefined>(undefined);
+	let contextMenu = $state<ReturnType<typeof FileContextMenu> | undefined>(undefined);
 
 	$effect(() => {
 		modeService.getInitialIndexState().then((files) => {

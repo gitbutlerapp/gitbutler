@@ -63,7 +63,7 @@
 	let resetBaseStrategy = $state<ResetBaseStrategy | undefined>(undefined);
 	let confirmResetModal = $state<Modal>();
 	const confirmResetModalOpen = $derived(!!confirmResetModal?.imports.open);
-	let integrateUpstreamModal = $state<IntegrateUpstreamModal>();
+	let integrateUpstreamModal = $state<ReturnType<typeof IntegrateUpstreamModal>>();
 	const integrateUpstreamModalOpen = $derived(!!integrateUpstreamModal?.imports.open);
 
 	const pushButtonTooltip = $derived.by(() => {

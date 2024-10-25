@@ -19,8 +19,8 @@
 		return clonedTopics;
 	});
 
-	let createTopicModal = $state<CreateTopicModal>();
-	let createIssueModal = $state<CreateIssueModal>();
+	let createTopicModal = $state<ReturnType<typeof CreateTopicModal>>();
+	let createIssueModal = $state<ReturnType<typeof CreateIssueModal>>();
 </script>
 
 <CreateTopicModal bind:this={createTopicModal} />
