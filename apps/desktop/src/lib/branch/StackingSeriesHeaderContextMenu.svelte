@@ -5,6 +5,7 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -18,7 +19,7 @@
 		headName: string;
 		seriesCount: number;
 		hasGitHostBranch: boolean;
-		hasPr: boolean;
+		prUrl?: string;
 		addDescription: () => void;
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
@@ -33,7 +34,7 @@
 		seriesCount,
 		hasGitHostBranch,
 		headName,
-		hasPr,
+		prUrl,
 		addDescription,
 		onGenerateBranchName,
 		openPrDetailsModal,
@@ -101,7 +102,7 @@
 			/>
 		{/if}
 	</ContextMenuSection>
-	{#if hasPr}
+	{#if prUrl}
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="PR details"
@@ -113,7 +114,8 @@
 			<ContextMenuItem
 				label="Copy PR link"
 				onclick={() => {
-					reloadPR?.();
+					console.log(prUrl);
+					copyToClipboard(prUrl);
 					contextMenuEl?.close();
 				}}
 			/>
