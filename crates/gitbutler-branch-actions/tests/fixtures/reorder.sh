@@ -12,9 +12,12 @@ git init remote
 export GITBUTLER_CLI_DATA_DIR=../user/gitbutler/app-data
 git clone remote multiple-commits
 (cd multiple-commits
+  git config user.name "Author"
+  git config user.email "author@example.com"
+
   git branch existing-branch
   $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
-  
+
   $CLI branch create --set-default other_stack
   echo change0 >> other_file
   $CLI branch commit other_stack -m "commit 0"

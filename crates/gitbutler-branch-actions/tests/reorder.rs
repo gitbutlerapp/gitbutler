@@ -183,7 +183,7 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let branches = handle.list_all_branches()?;
     let stack = branches.iter().find(|b| b.name == "my_stack").unwrap();
 
-    let all_series = stack.list_series(&ctx)?;
+    let all_series = stack.list_series(ctx)?;
 
     let top_commits: HashMap<String, git2::Oid> = all_series[1]
         .local_commits
