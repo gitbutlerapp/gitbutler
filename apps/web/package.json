@@ -10,14 +10,14 @@
 		"prepare": "svelte-kit sync",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
-		"test:e2e:playwright": "playwright test"
+		"test:e2e:web": "playwright test"
 	},
 	"devDependencies": {
 		"@fontsource/fira-mono": "^4.5.10",
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/ui": "workspace:*",
 		"@neoconfetti/svelte": "^1.0.0",
-		"@playwright/test": "^1.47.0",
+		"@playwright/test": "1.47.0",
 		"@sveltejs/adapter-auto": "^3.0.0",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",

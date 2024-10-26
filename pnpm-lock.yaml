@@ -324,8 +324,8 @@ importers:
         specifier: ^1.0.0
         version: 1.0.0
       '@playwright/test':
-        specifier: ^1.47.0
-        version: 1.48.2
+        specifier: 1.47.0
+        version: 1.47.0
       '@sveltejs/adapter-auto':
         specifier: ^3.0.0
         version: 3.2.2(@sveltejs/kit@2.5.25(@sveltejs/vite-plugin-svelte@4.0.0-next.6(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0)))(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0)))
@@ -439,7 +439,7 @@ importers:
         version: 8.3.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.3.3)
       '@storybook/experimental-addon-test':
         specifier: ^8.3.0
-        version: 8.3.3(@vitest/browser@2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))
+        version: 8.3.3(@vitest/browser@2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))
       '@storybook/svelte':
         specifier: ^8.3.0
         version: 8.3.3(storybook@8.3.3)(svelte@5.0.0-next.243)
@@ -469,7 +469,7 @@ importers:
         version: 6.0.3
       '@vitest/browser':
         specifier: ^2.0.5
-        version: 2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
+        version: 2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.19(postcss@8.4.39)
@@ -480,8 +480,8 @@ importers:
         specifier: ^1.11.13
         version: 1.11.13
       playwright:
-        specifier: ^1.46.1
-        version: 1.46.1
+        specifier: 1.47.0
+        version: 1.47.0
       postcss:
         specifier: ^8.4.38
         version: 8.4.39
@@ -1306,8 +1306,8 @@ packages:
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
 
-  '@playwright/test@1.48.2':
-    resolution: {integrity: sha512-54w1xCWfXuax7dz4W2M9uw0gDyh+ti/0K/MxcCUxChFh37kkdxPdfZDw5QBbuPUJHr1CiHJ1hXgSs+GgeQc5Zw==}
+  '@playwright/test@1.47.0':
+    resolution: {integrity: sha512-SgAdlSwYVpToI4e/IH19IHHWvoijAYH5hu2MWSXptRypLSnzj51PcGD+rsOXFayde4P9ZLi+loXVwArg6IUkCA==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -4766,8 +4766,8 @@ packages:
     resolution: {integrity: sha512-HRDzbaKjC+AOWVXxAU/x54COGeIv9eb+6CkDSQoNTt4XyWoIJvuPsXizxu/Fr23EiekbtZwmh1IcIG/l/a10GQ==}
     engines: {node: '>=8'}
 
-  playwright-core@1.46.1:
-    resolution: {integrity: sha512-h9LqIQaAv+CYvWzsZ+h3RsrqCStkBHlgo6/TJlFst3cOTlLghBQlJwPOZKQJTKNaD3QIB7aAVQ+gfWbN3NXB7A==}
+  playwright-core@1.47.0:
+    resolution: {integrity: sha512-1DyHT8OqkcfCkYUD9zzUTfg7EfTd+6a8MkD/NWOvjo0u/SCNd5YmY/lJwFvUZOxJbWNds+ei7ic2+R/cRz/PDg==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -4776,8 +4776,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright@1.46.1:
-    resolution: {integrity: sha512-oPcr1yqoXLCkgKtD5eNUPLiN40rYEM39odNpIb6VE6S7/15gJmA1NzVv6zJYusV0e7tzvkU/utBFNa/Kpxmwng==}
+  playwright@1.47.0:
+    resolution: {integrity: sha512-jOWiRq2pdNAX/mwLiwFYnPHpEZ4rM+fRSQpRHwEwZlP2PUANvL3+aJOF/bvISMhFD30rqMxUB4RJx9aQbfh4Ww==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -7090,9 +7090,9 @@ snapshots:
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
-  '@playwright/test@1.48.2':
+  '@playwright/test@1.47.0':
     dependencies:
-      playwright: 1.48.2
+      playwright: 1.47.0
 
   '@polka/url@1.0.0-next.25': {}
 
@@ -7549,10 +7549,10 @@ snapshots:
     dependencies:
       type-fest: 2.19.0
 
-  '@storybook/experimental-addon-test@8.3.3(@vitest/browser@2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))':
+  '@storybook/experimental-addon-test@8.3.3(@vitest/browser@2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))':
     dependencies:
       '@storybook/csf': 0.1.11
-      '@vitest/browser': 2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
+      '@vitest/browser': 2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
       storybook: 8.3.3
       vitest: 2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)
 
@@ -8255,7 +8255,7 @@ snapshots:
 
   '@ungap/structured-clone@1.2.0': {}
 
-  '@vitest/browser@2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)':
+  '@vitest/browser@2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)':
     dependencies:
       '@testing-library/dom': 10.4.0
       '@testing-library/user-event': 14.5.2(@testing-library/dom@10.4.0)
@@ -8266,7 +8266,7 @@ snapshots:
       vitest: 2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)
       ws: 8.18.0
     optionalDependencies:
-      playwright: 1.46.1
+      playwright: 1.47.0
       webdriverio: 8.40.2
     transitivePeerDependencies:
       - bufferutil
@@ -11197,13 +11197,14 @@ snapshots:
     dependencies:
       find-up: 4.1.0
 
-  playwright-core@1.46.1: {}
+  playwright-core@1.47.0: {}
 
-  playwright-core@1.48.2: {}
+  playwright-core@1.48.2:
+    optional: true
 
-  playwright@1.46.1:
+  playwright@1.47.0:
     dependencies:
-      playwright-core: 1.46.1
+      playwright-core: 1.47.0
     optionalDependencies:
       fsevents: 2.3.2
 
@@ -11212,6 +11213,7 @@ snapshots:
       playwright-core: 1.48.2
     optionalDependencies:
       fsevents: 2.3.2
+    optional: true
 
   polished@4.3.1:
     dependencies:
@@ -12386,7 +12388,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.3.0
-      '@vitest/browser': 2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
+      '@vitest/browser': 2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
       '@vitest/ui': 2.0.5(vitest@2.0.5)
       happy-dom: 14.12.3
       jsdom: 24.1.1
