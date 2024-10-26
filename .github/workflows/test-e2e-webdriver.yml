@@ -1,4 +1,4 @@
-name: E2E Tests
+name: E2E Tests Webdriver
 on:
   pull_request:
     branches: [master]
@@ -11,7 +11,7 @@ on:
 
 jobs:
   test:
-    name: Run WebdriverIO Tests
+    name: Run Tests
     runs-on: ubuntu-latest
     env:
       CARGO_TERM_COLOR: always
