@@ -1,8 +1,11 @@
 <script lang="ts">
-	import moment from 'moment';
+	import dayjs from 'dayjs';
+	import relativeTime from 'dayjs/plugin/relativeTime';
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
-	// load moment
+
+	dayjs.extend(relativeTime);
+
 	let state = 'loading';
 	let stackData: any = {};
 
@@ -33,15 +36,11 @@
 					console.log(data);
 					stackData = data;
 					state = 'loaded';
-					// moment all the .dtime elements
-					// wait a second
-					setTimeout(() => {
-						let dtime = document.querySelectorAll('.dtime');
-						dtime.forEach((element) => {
-							console.log(element.innerHTML);
-							element.innerHTML = moment(element.innerHTML).fromNow();
-						});
-					}, 100);
+					let dtime = document.querySelectorAll('.dtime');
+					dtime.forEach((element) => {
+						console.log(element.innerHTML);
+						element.innerHTML = dayjs(element.innerHTML).fromNow();
+					});
 				});
 		} else {
 			state = 'unauthorized';

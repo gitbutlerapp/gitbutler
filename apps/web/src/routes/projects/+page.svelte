@@ -1,7 +1,10 @@
 <script lang="ts">
-	import moment from 'moment';
+	import dayjs from 'dayjs';
+	import relativeTime from 'dayjs/plugin/relativeTime';
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
+
+	dayjs.extend(relativeTime);
 
 	let state = 'loading';
 	let projects: any = {};
@@ -24,7 +27,7 @@
 						let dtime = document.querySelectorAll('.dtime');
 						dtime.forEach((element) => {
 							console.log(element.innerHTML);
-							element.innerHTML = moment(element.innerHTML).fromNow();
+							element.innerHTML = dayjs(element.innerHTML).fromNow();
 						});
 					}, 100);
 				});
