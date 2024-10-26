@@ -1,8 +1,9 @@
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-24.05";
-    unstablePkgs.url = "github:nixos/nixpkgs/nixos-unstable";
+    unstablePkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
+    nix-playwright-browsers.url = "github:voidus/nix-playwright-browsers";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs = {
@@ -10,7 +11,7 @@
       };
     };
   };
-  outputs = { self, unstablePkgs, nixpkgs, flake-utils, rust-overlay }:
+  outputs = { self, unstablePkgs, nixpkgs, flake-utils, rust-overlay, nix-playwright-browsers }:
     flake-utils.lib.eachDefaultSystem
       (system:
         let
@@ -19,7 +20,8 @@
             inherit system overlays;
           };
           pkgs = import nixpkgs {
-            inherit system overlays;
+            system = system;
+            overlays = [ nix-playwright-browsers.overlays.${system}.default];
           };
 
           rustToolchain = unstable.pkgsBuildHost.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
@@ -38,6 +40,7 @@
             webkitgtk
             nodejs_20
             corepack_20
+            pkgs.playwright-browsers_v1_47_0
           ];
 
           # runtime Deps
@@ -61,9 +64,12 @@
             nativeBuildInputs = packages;
             buildInputs = libraries;
             shellHook = ''
-              export LD_LIBRARY_PATH=${unstable.lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH
-              export XDG_DATA_DIRS=${unstable.gsettings-desktop-schemas}/share/gsettings-schemas/${unstable.gsettings-desktop-schemas.name}:${unstable.gtk3}/share/gsettings-schemas/${unstable.gtk3.name}:$XDG_DATA_DIRS
-              export GIO_MODULE_DIR="${unstable.glib-networking}/lib/gio/modules/"
+              LD_LIBRARY_PATH=${unstable.lib.makeLibraryPath libraries}:$LD_LIBRARY_PATH
+              XDG_DATA_DIRS=${unstable.gsettings-desktop-schemas}/share/gsettings-schemas/${unstable.gsettings-desktop-schemas.name}:${unstable.gtk3}/share/gsettings-schemas/${unstable.gtk3.name}:$XDG_DATA_DIRS
+              GIO_MODULE_DIR=${unstable.glib-networking}/lib/gio/modules/
+              PLAYWRIGHT_BROWSERS_PATH=${pkgs.playwright-browsers_v1_47_0}
+              PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+              PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS=true
             '';
           };
         }
