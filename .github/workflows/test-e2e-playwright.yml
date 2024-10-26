@@ -1,7 +1,7 @@
 name: E2E Tests Playwright
 on:
   pull_request:
-    branches: [ master ]
+    branches: [master]
   workflow_dispatch:
     inputs:
       sha:
@@ -15,21 +15,32 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-    - uses: actions/checkout@v4
-      if: ${{ github.event_name != 'workflow_dispatch' }}
-    - uses: actions/checkout@v4
-      if: ${{ github.event_name == 'workflow_dispatch' }}
-      with:
-        ref: ${{ github.event.inputs.sha }}
-    - name: Setup node environment
-      uses: ./.github/actions/init-env-node
-    - name: Install Playwright Browsers
-      run: cd apps/web && pnpm exec playwright install --with-deps
-    - name: Run Playwright tests
-      run: pnpm exec turbo run test:e2e:playwright
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: playwright-report
-        path: playwright-report/
-        retention-days: 30
+      - uses: actions/checkout@v4
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+      - uses: actions/checkout@v4
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        with:
+          ref: ${{ github.event.inputs.sha }}
+      - name: Setup node environment
+        uses: ./.github/actions/init-env-node
+
+      - id: get_playwright_version
+        uses: eviden-actions/get-playwright-version@v1
+      - name: Cache playwright binaries
+        uses: actions/cache@v3
+        id: playwright-cache
+        with:
+          path: |
+            ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.get_playwright_version.outputs.playwright-version }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: cd apps/web && pnpm exec playwright install --with-deps
+
+      - name: Run Playwright tests
+        run: pnpm exec turbo run test:e2e:web
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
