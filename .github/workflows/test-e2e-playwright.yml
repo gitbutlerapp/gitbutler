@@ -1,0 +1,35 @@
+name: E2E Tests Playwright
+on:
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+    inputs:
+      sha:
+        type: string
+        required: false
+        description: Target SHA
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+    - uses: actions/checkout@v4
+      if: ${{ github.event_name != 'workflow_dispatch' }}
+    - uses: actions/checkout@v4
+      if: ${{ github.event_name == 'workflow_dispatch' }}
+      with:
+        ref: ${{ github.event.inputs.sha }}
+    - name: Setup node environment
+      uses: ./.github/actions/init-env-node
+    - name: Install Playwright Browsers
+      run: cd apps/web && pnpm exec playwright install --with-deps
+    - name: Run Playwright tests
+      run: pnpm exec turbo run test:e2e:playwright
+    - uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: playwright-report
+        path: playwright-report/
+        retention-days: 30

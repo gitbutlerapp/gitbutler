@@ -15,6 +15,7 @@
 		"package": "turbo run package",
 		"test": "turbo run test --no-daemon",
 		"test:watch": "pnpm --filter @gitbutler/desktop run test:watch",
+		"test:e2e:web": "turbo run test:e2e:web",
 		"test:e2e": "pnpm --filter @gitbutler/desktop run test:e2e",
 		"act:test:e2e": "act -j test -W .github/workflows/test-e2e.yml -P catthehacker/ubuntu:act-22.04",
 		"build": "turbo run build --no-daemon",

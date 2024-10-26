@@ -29,6 +29,9 @@
 		"test": {
 			"dependsOn": ["package", "playwright:install"]
 		},
+		"test:e2e:web": {
+			"dependsOn": ["package"]
+		},
 		"//#globallint": {
 			"dependsOn": ["@gitbutler/ui#package", "@gitbutler/shared#package"]
 		}

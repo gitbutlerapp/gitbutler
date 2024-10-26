@@ -10,7 +10,7 @@
 		"prepare": "svelte-kit sync",
 		"check": "svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-check --tsconfig ./tsconfig.json --watch",
-		"test:e2e": "playwright test"
+		"test:e2e:playwright": "playwright test"
 	},
 	"devDependencies": {
 		"@fontsource/fira-mono": "^4.5.10",
