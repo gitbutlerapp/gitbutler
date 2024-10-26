@@ -323,6 +323,9 @@ importers:
       '@neoconfetti/svelte':
         specifier: ^1.0.0
         version: 1.0.0
+      '@playwright/test':
+        specifier: ^1.47.0
+        version: 1.48.2
       '@sveltejs/adapter-auto':
         specifier: ^3.0.0
         version: 3.2.2(@sveltejs/kit@2.5.25(@sveltejs/vite-plugin-svelte@4.0.0-next.6(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0)))(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0)))
@@ -332,6 +335,9 @@ importers:
       '@sveltejs/vite-plugin-svelte':
         specifier: catalog:svelte
         version: 4.0.0-next.6(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0))
+      '@types/node':
+        specifier: ^22.3.0
+        version: 22.3.0
       svelte:
         specifier: catalog:svelte
         version: 5.0.0-next.243
@@ -373,7 +379,7 @@ importers:
         version: 6.0.3
       '@vitest/browser':
         specifier: ^2.0.5
-        version: 2.0.5(playwright@1.46.1)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
+        version: 2.0.5(playwright@1.48.2)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.19(postcss@8.4.39)
@@ -1299,6 +1305,11 @@ packages:
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
+
+  '@playwright/test@1.48.2':
+    resolution: {integrity: sha512-54w1xCWfXuax7dz4W2M9uw0gDyh+ti/0K/MxcCUxChFh37kkdxPdfZDw5QBbuPUJHr1CiHJ1hXgSs+GgeQc5Zw==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   '@polka/url@1.0.0-next.25':
     resolution: {integrity: sha512-j7P6Rgr3mmtdkeDGTe0E/aYyWEWVtc5yFXtHCRHs28/jptDEWfaVOc5T7cblqy1XKPPfCxJc/8DwQ5YgLOZOVQ==}
@@ -4760,8 +4771,18 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
+  playwright-core@1.48.2:
+    resolution: {integrity: sha512-sjjw+qrLFlriJo64du+EK0kJgZzoQPsabGF4lBvsid+3CNIZIYLgnMj9V6JY5VhM2Peh20DJWIVpVljLLnlawA==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   playwright@1.46.1:
     resolution: {integrity: sha512-oPcr1yqoXLCkgKtD5eNUPLiN40rYEM39odNpIb6VE6S7/15gJmA1NzVv6zJYusV0e7tzvkU/utBFNa/Kpxmwng==}
+    engines: {node: '>=18'}
+    hasBin: true
+
+  playwright@1.48.2:
+    resolution: {integrity: sha512-NjYvYgp4BPmiwfe31j4gHLa3J7bD2WiBz8Lk2RoSsmX38SVIARZ18VYjxLjAcDsAhA+F4iSEXTSGgjua0rrlgQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -7069,6 +7090,10 @@ snapshots:
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
+  '@playwright/test@1.48.2':
+    dependencies:
+      playwright: 1.48.2
+
   '@polka/url@1.0.0-next.25': {}
 
   '@prisma/instrumentation@5.15.0':
@@ -8242,6 +8267,25 @@ snapshots:
       ws: 8.18.0
     optionalDependencies:
       playwright: 1.46.1
+      webdriverio: 8.40.2
+    transitivePeerDependencies:
+      - bufferutil
+      - graphql
+      - typescript
+      - utf-8-validate
+
+  '@vitest/browser@2.0.5(playwright@1.48.2)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)':
+    dependencies:
+      '@testing-library/dom': 10.4.0
+      '@testing-library/user-event': 14.5.2(@testing-library/dom@10.4.0)
+      '@vitest/utils': 2.0.5
+      magic-string: 0.30.10
+      msw: 2.4.1(typescript@5.4.5)
+      sirv: 2.0.4
+      vitest: 2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)
+      ws: 8.18.0
+    optionalDependencies:
+      playwright: 1.48.2
       webdriverio: 8.40.2
     transitivePeerDependencies:
       - bufferutil
@@ -11155,9 +11199,17 @@ snapshots:
 
   playwright-core@1.46.1: {}
 
+  playwright-core@1.48.2: {}
+
   playwright@1.46.1:
     dependencies:
       playwright-core: 1.46.1
+    optionalDependencies:
+      fsevents: 2.3.2
+
+  playwright@1.48.2:
+    dependencies:
+      playwright-core: 1.48.2
     optionalDependencies:
       fsevents: 2.3.2
 
