@@ -1,6 +1,7 @@
 use super::r#virtual as vbranch;
 use crate::branch_upstream_integration;
 use crate::move_commits;
+use crate::reorder::{self, StackOrder};
 use crate::reorder_commits;
 use crate::upstream_integration::{
     self, BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
@@ -347,6 +348,17 @@ pub fn insert_blank_commit(
         guard.write_permission(),
     );
     vbranch::insert_blank_commit(&ctx, branch_id, commit_oid, offset).map_err(Into::into)
+}
+
+pub fn reorder_stack(project: &Project, stack_id: StackId, stack_order: StackOrder) -> Result<()> {
+    let ctx = open_with_verify(project)?;
+    assure_open_workspace_mode(&ctx).context("Reordering a commit requires open workspace mode")?;
+    let mut guard = project.exclusive_worktree_access();
+    let _ = ctx.project().create_snapshot(
+        SnapshotDetails::new(OperationKind::ReorderCommit),
+        guard.write_permission(),
+    );
+    reorder::reorder_stack(&ctx, stack_id, stack_order, guard.write_permission())
 }
 
 pub fn reorder_commit(

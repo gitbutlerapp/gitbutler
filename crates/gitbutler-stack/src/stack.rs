@@ -353,10 +353,18 @@ impl Stack {
                 .ok_or_else(|| anyhow!("Series with name {} not found", branch_name))?;
             new_head.target = target_update.target.clone();
             validate_target(&new_head, ctx.repository(), self.head(), &state)?;
-            let preceding_head = update
+            let preceding_head = if let Some(preceding_head_name) = update
                 .target_update
                 .clone()
-                .and_then(|update| update.preceding_head);
+                .and_then(|update| update.preceding_head_name)
+            {
+                let (_, preceding_head) = get_head(&self.heads, &preceding_head_name)
+                    .context("The specified preceding_head could not be found")?;
+                Some(preceding_head)
+            } else {
+                None
+            };
+
             // drop the old head and add the new one
             let (idx, _) = get_head(&updated_heads, &branch_name)?;
             updated_heads.remove(idx);
@@ -646,7 +654,7 @@ pub struct TargetUpdate {
     pub target: CommitOrChangeId,
     /// If there are multiple heads that point to the same patch, the order can be disambiguated by specifying the `preceding_head`.
     /// Leaving this field empty will make the new head first in relation to other references pointing to this commit.
-    pub preceding_head: Option<PatchReference>,
+    pub preceding_head_name: Option<String>,
 }
 
 /// Push details to be supplied to `RepoActionsExt`'s `push` method.

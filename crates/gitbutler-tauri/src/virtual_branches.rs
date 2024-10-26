@@ -7,7 +7,7 @@ pub mod commands {
     };
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranch,
-        RemoteBranchData, RemoteBranchFile, RemoteCommit, VirtualBranches,
+        RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranches,
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
@@ -397,6 +397,20 @@ pub mod commands {
         Ok(())
     }
 
+    #[tauri::command(async)]
+    #[instrument(skip(projects, windows), err(Debug))]
+    pub fn reorder_stack(
+        windows: State<'_, WindowState>,
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        branch_id: StackId,
+        stack_order: StackOrder,
+    ) -> Result<(), Error> {
+        let project = projects.get(project_id)?;
+        gitbutler_branch_actions::reorder_stack(&project, branch_id, stack_order)?;
+        emit_vbranches(&windows, project_id);
+        Ok(())
+    }
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
     pub fn reorder_commit(
