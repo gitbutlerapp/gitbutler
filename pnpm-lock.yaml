@@ -383,9 +383,6 @@ importers:
       dayjs:
         specifier: ^1.11.13
         version: 1.11.13
-      playwright:
-        specifier: ^1.46.1
-        version: 1.46.1
       postcss:
         specifier: ^8.4.38
         version: 8.4.39
@@ -9611,7 +9608,7 @@ snapshots:
   esrap@1.2.2:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.0
-      '@types/estree': 1.0.5
+      '@types/estree': 1.0.6
 
   esrecurse@4.3.0:
     dependencies:
@@ -10380,7 +10377,7 @@ snapshots:
 
   is-reference@3.0.2:
     dependencies:
-      '@types/estree': 1.0.5
+      '@types/estree': 1.0.6
 
   is-regex@1.1.4:
     dependencies:
@@ -11949,7 +11946,7 @@ snapshots:
     dependencies:
       '@ampproject/remapping': 2.3.0
       '@jridgewell/sourcemap-codec': 1.5.0
-      '@types/estree': 1.0.5
+      '@types/estree': 1.0.6
       acorn: 8.12.1
       acorn-typescript: 1.4.13(acorn@8.12.1)
       aria-query: 5.3.0
