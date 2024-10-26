@@ -16,6 +16,9 @@ export default ts.config(
 			globals: {
 				...globals.browser,
 				...globals.node
+			},
+			parserOptions: {
+				projectService: true
 			}
 		},
 		rules: {
@@ -30,9 +33,9 @@ export default ts.config(
 					caughtErrorsIgnorePattern: '^_'
 				}
 			],
-			// '@typescript-eslint/return-await': ['error', 'always'],
-			// '@typescript-eslint/promise-function-async': 'error',
-			// '@typescript-eslint/await-thenable': 'error',
+			'@typescript-eslint/return-await': ['error', 'always'],
+			'@typescript-eslint/promise-function-async': 'error',
+			'@typescript-eslint/await-thenable': 'error',
 
 			eqeqeq: ['error', 'always'],
 			'import-x/no-cycle': 'error',
@@ -98,6 +101,10 @@ export default ts.config(
 		plugins: {
 			'import-x': pluginImportX
 		}
+	},
+	{
+		files: ['**/*.svelte'],
+		...ts.configs.disableTypeChecked
 	},
 	{
 		files: ['**/*.svelte'],
