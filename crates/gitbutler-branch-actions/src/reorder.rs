@@ -39,25 +39,31 @@ pub fn reorder_stack(
     let current_order = series_order(&all_series);
     new_order.validate(current_order.clone())?;
 
-    let mut update_pairs = vec![];
-    for (current_series, new_series) in current_order.series.iter().zip(new_order.series.iter()) {
-        for (current_oid, new_oid) in current_series
-            .commit_ids
-            .iter()
-            .zip(new_series.commit_ids.iter())
-        {
-            if current_oid != new_oid {
-                update_pairs.push((current_oid, new_oid))
-            }
-        }
-    }
-
     let default_target = state.get_default_target()?;
     let default_target_commit = repo
         .find_reference(&default_target.branch.to_string())?
         .peel_to_commit()?;
     let old_head = repo.find_commit(stack.head())?;
     let merge_base = repo.merge_base(default_target_commit.id(), stack.head())?;
+
+    let mut update_pairs = vec![];
+    let mut previous = merge_base;
+    for series in new_order.series.iter().rev() {
+        let new_head = series.commit_ids.first();
+        let current = all_series
+            .iter()
+            .find(|s| s.head.name == series.name)
+            .unwrap();
+        let old_head = current.local_commits.last().unwrap();
+
+        let new_head_oid = if let Some(new_head) = new_head {
+            *new_head
+        } else {
+            previous
+        };
+        update_pairs.push((old_head.id(), new_head_oid));
+        previous = new_head_oid
+    }
 
     let ids_to_rebase = new_order
         .series
@@ -74,8 +80,13 @@ pub fn reorder_stack(
 
     // Set the series heads accordingly
     for (current_oid, new_oid) in update_pairs {
-        let from_commit = repo.find_commit(*current_oid)?;
-        let to_commit = repo.find_commit(*new_oid)?;
+        let from_commit = repo.find_commit(current_oid)?;
+        let to_commit = repo.find_commit(new_oid)?;
+        // println!(
+        //     "Replacing {} with {}",
+        //     from_commit.message().unwrap(),
+        //     to_commit.message().unwrap()
+        // );
         stack.replace_head(ctx, &from_commit, &to_commit)?;
     }
 

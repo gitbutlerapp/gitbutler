@@ -129,6 +129,41 @@ fn reorder_between_series() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn reorder_series_head_to_another_series() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let order = order(vec![
+        vec![
+            test_ctx.top_commits["commit 6"],
+            test_ctx.top_commits["commit 5"],
+            test_ctx.bottom_commits["commit 3"],
+            test_ctx.top_commits["commit 4"],
+        ],
+        vec![
+            test_ctx.bottom_commits["commit 2"],
+            test_ctx.bottom_commits["commit 1"],
+        ],
+    ]);
+    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    let commits = vb_commits(&ctx);
+
+    // Verify the commit messages and ids in the second (top) series - top-series
+    assert_eq!(
+        commits[0].msgs(),
+        vec!["commit 6", "commit 5", "commit 3", "commit 4"]
+    );
+    for i in 0..3 {
+        assert_ne!(commits[0].ids()[i], order.series[0].commit_ids[i]); // all in the top series are rebased
+    }
+
+    // Verify the commit messages and ids in the first (bottom) series
+    assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]);
+    assert_eq!(commits[1].ids()[0], order.series[1].commit_ids[0]);
+    assert_eq!(commits[1].ids()[1], order.series[1].commit_ids[1]);
+    Ok(())
+}
+
 fn order(series: Vec<Vec<Oid>>) -> StackOrder {
     StackOrder {
         series: vec![
