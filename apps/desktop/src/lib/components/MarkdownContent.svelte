@@ -1,6 +1,4 @@
 <script lang="ts">
-	/* eslint svelte/valid-compile: "off" */
-	/* - Required because spreading in prop destructuring still throws eslint errors */
 	import { renderers } from '$lib/utils/markdownRenderers';
 	import type { Tokens, Token } from 'marked';
 	import type { Component } from 'svelte';
