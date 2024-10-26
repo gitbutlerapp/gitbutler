@@ -2,7 +2,10 @@
 	import { CloudPatchStacksService } from '$lib/cloud/stacks/service';
 	import { getContext } from '$lib/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import moment from 'moment';
+	import dayjs from 'dayjs';
+	import relativeTime from 'dayjs/plugin/relativeTime';
+
+	dayjs.extend(relativeTime);
 
 	interface Props {
 		patchStackId: string;
@@ -27,7 +30,7 @@
 			<div class="card__content">
 				<p>Version: {patchStack.version}</p>
 				<p>Status: {patchStack.status}</p>
-				<p>Created at: {moment(patchStack.createdAt).fromNow()}</p>
+				<p>Created at: {dayjs(patchStack.createdAt).fromNow()}</p>
 			</div>
 		</div>
 

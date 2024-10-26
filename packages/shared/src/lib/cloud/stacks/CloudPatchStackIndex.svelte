@@ -3,9 +3,12 @@
 	import { getContext } from '$lib/context';
 	import { getRoutesService } from '$lib/sharedRoutes';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import moment from 'moment';
+	import dayjs from 'dayjs';
+	import relativeTime from 'dayjs/plugin/relativeTime';
 	import { get } from 'svelte/store';
 	import { goto } from '$app/navigation';
+
+	dayjs.extend(relativeTime);
 
 	/**
 	 * Expects the following contexts:
@@ -26,7 +29,7 @@
 					<p class="text-15 text-bold">{patchStack.title}</p>
 					<p>Version: v{patchStack.version}</p>
 					<p>Status: {patchStack.status}</p>
-					<p>Created: {moment(patchStack.createdAt).fromNow()}</p>
+					<p>Created: {dayjs(patchStack.createdAt).fromNow()}</p>
 				</div>
 				<Button
 					style="pop"

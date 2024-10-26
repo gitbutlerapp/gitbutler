@@ -1,8 +1,11 @@
-import { formatDistanceToNowStrict } from 'date-fns';
+import dayjs from 'dayjs';
+import relativeTime from 'dayjs/plugin/relativeTime';
 import { writable, type Readable } from 'svelte/store';
 
+dayjs.extend(relativeTime);
+
 function customFormatDistance(date: Date, addSuffix: boolean): string {
-	const distance = formatDistanceToNowStrict(date, { addSuffix });
+	const distance = dayjs(date).fromNow(!addSuffix);
 	return distance.replace(
 		/\b(seconds?|minutes?|hours?|days?|months?|years?)\b/g,
 		(match) => unitShorthandMap[match] ?? ''
@@ -29,7 +32,7 @@ export function getTimeAgo(date: Date, addSuffix: boolean = true): string {
 	if (seconds < 10) {
 		return 'just now';
 	} else if (seconds < 60) {
-		return `< 1 min ${addSuffix ? ' ago' : ''}`;
+		return `< 1 min${addSuffix ? ' ago' : ''}`;
 	} else {
 		return customFormatDistance(date, addSuffix);
 	}
