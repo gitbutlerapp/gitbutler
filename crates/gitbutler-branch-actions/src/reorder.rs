@@ -65,11 +65,15 @@ pub fn reorder_stack(
     stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
 
     let mut new_heads: HashMap<String, Commit<'_>> = HashMap::new();
-    for series in new_order.series.iter() {
-        if let Some(commit_id) = series.commit_ids.first() {
-            let commit = repo.find_commit(*commit_id)?;
-            new_heads.insert(series.name.clone(), commit);
-        }
+    let mut previous = merge_base;
+    for series in new_order.series.iter().rev() {
+        let commit = if let Some(commit_id) = series.commit_ids.first() {
+            repo.find_commit(*commit_id)?
+        } else {
+            repo.find_commit(previous)?
+        };
+        previous = commit.id();
+        new_heads.insert(series.name.clone(), commit);
     }
     // Set the series heads accordingly in one go
     stack.set_all_heads(ctx, new_heads)?;
@@ -159,8 +163,19 @@ impl StackOrder {
                 bail!("Commit '{}' does not exist in the stack", commit_id);
             }
         }
+
         // Ensure the new order is not a noop
-        if new_order_commit_ids == current_order_commit_ids {
+        if self
+            .series
+            .iter()
+            .map(|s| s.commit_ids.clone())
+            .collect_vec()
+            == current_order
+                .series
+                .iter()
+                .map(|s| s.commit_ids.clone())
+                .collect_vec()
+        {
             bail!("The new order is the same as the current order");
         }
 

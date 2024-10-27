@@ -201,6 +201,79 @@ fn reorder_stack_head_to_another_series() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn reorder_stack_making_top_empty_series() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits-small")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let order = order(vec![
+        vec![],
+        vec![
+            test_ctx.top_commits["commit 2"], // from the top series
+            test_ctx.bottom_commits["commit 1"],
+        ],
+    ]);
+    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    let commits = vb_commits(&ctx);
+
+    // Verify the commit messages and ids in the second (top) series - top-series
+    assert!(commits[0].msgs().is_empty());
+    assert!(commits[0].ids().is_empty());
+
+    // Verify the commit messages and ids in the first (bottom) series
+    assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]);
+    assert_eq!(commits[1].ids(), order.series[1].commit_ids); // nothing was rebased
+    Ok(())
+}
+
+#[test]
+fn reorder_stack_making_bottom_empty_series() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits-small")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let order = order(vec![
+        vec![
+            test_ctx.top_commits["commit 2"],
+            test_ctx.bottom_commits["commit 1"], // from the bottom series
+        ],
+        vec![],
+    ]);
+    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    let commits = vb_commits(&ctx);
+
+    // Verify the commit messages and ids in the second (top) series - top-series
+    assert_eq!(commits[0].msgs(), vec!["commit 2", "commit 1"]);
+    assert_eq!(commits[0].ids(), order.series[0].commit_ids); // nothing was rebased
+
+    // Verify the commit messages and ids in the first (bottom) series
+    assert!(commits[1].msgs().is_empty());
+    assert!(commits[1].ids().is_empty());
+
+    Ok(())
+}
+
+#[test]
+fn reorder_stack_into_empty_top() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits-empty-top")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let order = order(vec![
+        vec![
+            test_ctx.bottom_commits["commit 1"], // from the bottom series
+        ],
+        vec![],
+    ]);
+    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    let commits = vb_commits(&ctx);
+
+    // Verify the commit messages and ids in the second (top) series - top-series
+    assert_eq!(commits[0].msgs(), vec!["commit 1"]);
+    assert_eq!(commits[0].ids(), order.series[0].commit_ids); // nothing was rebased
+
+    // Verify the commit messages and ids in the first (bottom) series
+    assert!(commits[1].msgs().is_empty());
+    assert!(commits[1].ids().is_empty());
+
+    Ok(())
+}
+
 fn order(series: Vec<Vec<Oid>>) -> StackOrder {
     StackOrder {
         series: vec![
