@@ -1,3 +1,4 @@
+#![warn(clippy::indexing_slicing)]
 mod file_ownership;
 mod ownership;
 mod stack;
