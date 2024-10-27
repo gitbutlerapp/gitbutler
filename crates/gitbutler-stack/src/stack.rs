@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::str::FromStr;
 
 use anyhow::anyhow;
@@ -600,6 +601,32 @@ impl Stack {
             // update the persistent state
             state.set_branch(self.clone())?;
         }
+        Ok(())
+    }
+
+    /// Sets the stack heads to the provided commits.
+    /// This is useful multiple heads are updated and the intermediate states are not valid while the final state is.
+    pub fn set_all_heads(
+        &mut self,
+        ctx: &CommandContext,
+        new_heads: HashMap<String, Commit<'_>>,
+    ) -> Result<()> {
+        let state = branch_state(ctx);
+
+        // same heads, just differente commits
+        if self.heads.iter().map(|h| &h.name).collect::<HashSet<_>>()
+            != new_heads.keys().collect::<HashSet<_>>()
+        {
+            return Err(anyhow!("The new head names do not match the current heads"));
+        }
+        let stack_head = self.head();
+        for head in self.heads.iter_mut() {
+            validate_target(head, ctx.repository(), stack_head, &state)?;
+            if let Some(commit) = new_heads.get(&head.name).cloned() {
+                head.target = commit.clone().into();
+            }
+        }
+        state.set_branch(self.clone())?;
         Ok(())
     }
 

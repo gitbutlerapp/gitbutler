@@ -1,5 +1,7 @@
+use std::collections::HashMap;
+
 use anyhow::{bail, Context, Result};
-use git2::Oid;
+use git2::{Commit, Oid};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::rebase::cherry_rebase_group;
@@ -46,25 +48,6 @@ pub fn reorder_stack(
     let old_head = repo.find_commit(stack.head())?;
     let merge_base = repo.merge_base(default_target_commit.id(), stack.head())?;
 
-    let mut update_pairs = vec![];
-    let mut previous = merge_base;
-    for series in new_order.series.iter().rev() {
-        let new_head = series.commit_ids.first();
-        let current = all_series
-            .iter()
-            .find(|s| s.head.name == series.name)
-            .unwrap();
-        let old_head = current.local_commits.last().unwrap();
-
-        let new_head_oid = if let Some(new_head) = new_head {
-            *new_head
-        } else {
-            previous
-        };
-        update_pairs.push((old_head.id(), new_head_oid));
-        previous = new_head_oid
-    }
-
     let ids_to_rebase = new_order
         .series
         .iter()
@@ -78,19 +61,19 @@ pub fn reorder_stack(
         tree: new_tree_oid,
     } = compute_updated_branch_head_for_commits(repo, old_head.id(), old_head.tree_id(), new_head)?;
 
-    // Set the series heads accordingly
-    for (current_oid, new_oid) in update_pairs {
-        let from_commit = repo.find_commit(current_oid)?;
-        let to_commit = repo.find_commit(new_oid)?;
-        // println!(
-        //     "Replacing {} with {}",
-        //     from_commit.message().unwrap(),
-        //     to_commit.message().unwrap()
-        // );
-        stack.replace_head(ctx, &from_commit, &to_commit)?;
-    }
-
+    // Ensure the stack head is set to the new oid after rebasing
     stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
+
+    let mut new_heads: HashMap<String, Commit<'_>> = HashMap::new();
+    for series in new_order.series.iter() {
+        if let Some(commit_id) = series.commit_ids.first() {
+            let commit = repo.find_commit(*commit_id)?;
+            new_heads.insert(series.name.clone(), commit);
+        }
+    }
+    // Set the series heads accordingly in one go
+    stack.set_all_heads(ctx, new_heads)?;
+
     checkout_branch_trees(ctx, perm)?;
     crate::integration::update_workspace_commit(&state, ctx)
         .context("failed to update gitbutler workspace")?;
