@@ -1,13 +1,14 @@
 <script lang="ts">
-	import CloudPatchStackShow from '@gitbutler/shared/cloud/stacks/CloudPatchStackShow.svelte';
+	import CloudBranchShow from '@gitbutler/shared/cloud/stacks/CloudBranchShow.svelte';
 	import { page } from '$app/stores';
 
-	const patchStackId = $derived($page.params.patchStackId);
+	const cloudBranchId = $derived($page.params.cloudBranchId);
+	$inspect(cloudBranchId);
 </script>
 
 <div class="patch-stack-container">
-	{#if patchStackId}
-		<CloudPatchStackShow {patchStackId} />
+	{#if cloudBranchId}
+		<CloudBranchShow {cloudBranchId} />
 	{/if}
 </div>
 

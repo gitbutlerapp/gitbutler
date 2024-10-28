@@ -98,7 +98,7 @@ pub fn get_applied_status_cached(
     let vb_state = ctx.project().virtual_branches();
     let default_target = vb_state.get_default_target()?;
 
-    let locks = if ctx.project().use_new_locking {
+    let locks = if ctx.project().use_experimental_locking {
         compute_locks(
             ctx,
             &workspace_head,

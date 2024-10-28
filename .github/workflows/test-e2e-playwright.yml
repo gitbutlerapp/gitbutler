@@ -27,7 +27,7 @@ jobs:
       - id: get_playwright_version
         uses: eviden-actions/get-playwright-version@v1
       - name: Cache playwright binaries
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: playwright-cache
         with:
           path: |

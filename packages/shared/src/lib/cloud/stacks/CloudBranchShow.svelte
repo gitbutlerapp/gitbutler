@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloudPatchStacksService } from '$lib/cloud/stacks/service';
+	import { CloudBranchesService } from '$lib/cloud/stacks/service';
 	import { getContext } from '$lib/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import dayjs from 'dayjs';
@@ -8,29 +8,29 @@
 	dayjs.extend(relativeTime);
 
 	interface Props {
-		patchStackId: string;
+		cloudBranchId: string;
 	}
 
-	const { patchStackId }: Props = $props();
+	const { cloudBranchId }: Props = $props();
 
-	const cloudPatchStacksService = getContext(CloudPatchStacksService);
-	const optionalPatchStack = $derived(cloudPatchStacksService.patchStackForId(patchStackId));
+	const cloudBranchesService = getContext(CloudBranchesService);
+	const optionalBranch = $derived(cloudBranchesService.branchForId(cloudBranchId));
 </script>
 
-{#if $optionalPatchStack.state === 'uninitialized'}
+{#if $optionalBranch.state === 'uninitialized'}
 	<p>Loading...</p>
-{:else if $optionalPatchStack.state === 'not-found'}
+{:else if $optionalBranch.state === 'not-found'}
 	<p>Error: Stack not found</p>
-{:else if $optionalPatchStack.state === 'found'}
-	{@const patchStack = $optionalPatchStack.value}
+{:else if $optionalBranch.state === 'found'}
+	{@const cloudBranch = $optionalBranch.value}
 
-	<h1 class="text-head-24 padding-bottom">{patchStack.title}</h1>
+	<h1 class="text-head-24 padding-bottom">{cloudBranch.title}</h1>
 	<div class="two-by-two padding-bottom">
 		<div class="card">
 			<div class="card__content">
-				<p>Version: {patchStack.version}</p>
-				<p>Status: {patchStack.status}</p>
-				<p>Created at: {dayjs(patchStack.createdAt).fromNow()}</p>
+				<p>Version: {cloudBranch.version}</p>
+				<p>Status: {cloudBranch.status}</p>
+				<p>Created at: {dayjs(cloudBranch.createdAt).fromNow()}</p>
 			</div>
 		</div>
 
@@ -38,7 +38,7 @@
 			<p class="card__header text-15 text-bold">Contributors:</p>
 			<div class="card__content">
 				<ul>
-					{#each patchStack.contributors as contributor}
+					{#each cloudBranch.contributors as contributor}
 						<li>{contributor}</li>
 					{/each}
 				</ul>
@@ -46,10 +46,10 @@
 		</div>
 	</div>
 
-	<h2 class="text-head-20 padding-bottom">Patches: ({patchStack.patches.length})</h2>
+	<h2 class="text-head-20 padding-bottom">Patches: ({cloudBranch.patches.length})</h2>
 
 	<div class="card">
-		{#each patchStack.patches as patch}
+		{#each cloudBranch.patches as patch}
 			<div class="line-item">
 				<div>
 					<p class="text-15 text-bold">{patch.title || 'Unnamed'}</p>

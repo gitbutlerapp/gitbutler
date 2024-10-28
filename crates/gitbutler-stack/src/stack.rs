@@ -437,6 +437,24 @@ impl Stack {
         state.set_branch(self.clone())
     }
 
+    /// Removes any heads that are refering to commits that are no longer between the stack head and the merge base
+    pub fn prune_integrated_heads(&mut self, ctx: &CommandContext) -> Result<()> {
+        if !self.initialized() {
+            return Err(anyhow!("Stack has not been initialized"));
+        }
+        self.updated_timestamp_ms = gitbutler_time::time::now_ms();
+        let state = branch_state(ctx);
+        let commit_ids = stack_patches(ctx, &state, self.head(), true)?;
+        let new_heads = self
+            .heads
+            .iter()
+            .filter(|h| commit_ids.contains(&h.target))
+            .cloned()
+            .collect_vec();
+        self.heads = new_heads;
+        state.set_branch(self.clone())
+    }
+
     /// Prepares push details according to the series to be pushed (picking out the correct sha and remote refname)
     /// This operation will error out if the target has no push remote configured.
     pub fn push_details(&self, ctx: &CommandContext, branch_name: String) -> Result<PushDetails> {
@@ -480,9 +498,19 @@ impl Stack {
         let mut previous_head = repo.merge_base(self.head(), default_target.sha)?;
         for head in self.heads.clone() {
             let head_commit =
-                commit_by_oid_or_change_id(&head.target, repo, self.head(), merge_base)?
-                    .head
-                    .id();
+                match commit_by_oid_or_change_id(&head.target, repo, self.head(), merge_base) {
+                    Ok(commits_for_id) => commits_for_id.head.id(),
+                    Err(e) => {
+                        // The series may have been integrated
+                        tracing::warn!(
+                            "Failed to find commit with commit_or_change_id: {} for head: {}, {}",
+                            head.target,
+                            head.name,
+                            e
+                        );
+                        continue;
+                    }
+                };
 
             let mut local_patches = vec![];
             for commit in repo

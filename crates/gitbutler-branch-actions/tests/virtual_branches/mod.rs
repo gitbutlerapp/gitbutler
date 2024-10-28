@@ -34,7 +34,7 @@ impl Default for Test {
             .add(test_project.path())
             .expect("failed to add project");
         // TODO: Remove after transition is complete.
-        project.use_new_locking = true;
+        project.use_experimental_locking = true;
 
         Self {
             repository: test_project,
