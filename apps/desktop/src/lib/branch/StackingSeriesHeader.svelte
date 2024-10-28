@@ -199,7 +199,7 @@
 			/>
 		</div>
 		{#if seqenceAmount > 1}
-			<Tooltip text="Branch {sequanceId} of {seqenceAmount}">
+			<Tooltip text="Sequance {sequanceId} of {seqenceAmount}">
 				<span class="text-10 text-semibold branch-info__sequance">
 					{sequanceId}/{seqenceAmount}
 				</span>
