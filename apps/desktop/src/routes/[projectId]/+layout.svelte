@@ -15,6 +15,7 @@
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import { showHistoryView } from '$lib/config/config';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
+	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import { createForgeStore } from '$lib/forge/interface/forge';
@@ -74,6 +75,7 @@
 		setContext(BranchDragActionsFactory, data.branchDragActionsFactory);
 		setContext(CommitDragActionsFactory, data.commitDragActionsFactory);
 		setContext(ReorderDropzoneManagerFactory, data.reorderDropzoneManagerFactory);
+		setContext(StackingReorderDropzoneManagerFactory, data.stackingReorderDropzoneManagerFactory);
 		setContext(RemoteBranchService, data.remoteBranchService);
 		setContext(BranchListingService, data.branchListingService);
 		setContext(ModeService, data.modeService);
