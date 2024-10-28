@@ -201,7 +201,7 @@
 		/>
 		<div class="text-14 text-bold branch-info__name">
 			<span class:no-upstream={!gitHostBranch} class="remote-name">
-				{$baseBranch.remoteName ? `${$baseBranch.remoteName} /` : 'origin /'}
+				{$baseBranch.pushRemoteName ? `${$baseBranch.pushRemoteName} /` : 'origin /'}
 			</span>
 			<BranchLabel
 				name={currentSeries.name}
