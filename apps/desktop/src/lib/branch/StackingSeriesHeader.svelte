@@ -298,8 +298,9 @@
 	.branch-info__sequance {
 		padding: 2px;
 		border-radius: var(--radius-m);
-		background: var(--clr-bg-2);
-		color: var(--clr-text-2);
+		background: var(--clr-bg-3);
+		color: var(--clr-text-1);
+		opacity: 0.4;
 	}
 
 	.branch-info__description {
