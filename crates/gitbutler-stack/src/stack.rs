@@ -437,6 +437,32 @@ impl Stack {
         state.set_branch(self.clone())
     }
 
+    /// Removes any heads that are refering to commits that are no longer between the stack head and the merge base
+    pub fn prune_integrated_heads(&mut self, ctx: &CommandContext) -> Result<()> {
+        if !self.initialized() {
+            return Err(anyhow!("Stack has not been initialized"));
+        }
+        self.updated_timestamp_ms = gitbutler_time::time::now_ms();
+        let repo = ctx.repository();
+        let state = branch_state(ctx);
+        let default_target = state.get_default_target()?;
+        let merge_base = repo.find_commit(repo.merge_base(self.head(), default_target.sha)?)?;
+        let mut commit_ids: Vec<CommitOrChangeId> = repo
+            .log(self.head(), LogUntil::Commit(merge_base.id()), false)?
+            .into_iter()
+            .map(|c| c.into())
+            .collect_vec();
+        commit_ids.insert(0, merge_base.into());
+        let new_heads = self
+            .heads
+            .iter()
+            .filter(|h| commit_ids.contains(&h.target))
+            .cloned()
+            .collect_vec();
+        self.heads = new_heads;
+        state.set_branch(self.clone())
+    }
+
     /// Prepares push details according to the series to be pushed (picking out the correct sha and remote refname)
     /// This operation will error out if the target has no push remote configured.
     pub fn push_details(&self, ctx: &CommandContext, branch_name: String) -> Result<PushDetails> {
