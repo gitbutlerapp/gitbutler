@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 
 	const FALLBACK_COLOR = 'var(--clr-scale-ntrl-80)';
 
@@ -30,16 +31,18 @@
 		style:--bg-color={lineTop ? color : 'var(--clr-transparent)'}
 	></div>
 
-	<div class="stack__status--icon" style:--bg-color={color} style:--icon-color={iconColor}>
-		{#if seqenceAmount > 1}
-			<span
-				class="text-10 text-bold stack__status--sequence-label"
-				class:small-sequance-label={seqenceAmount >= 10}>{sequanceId}/{seqenceAmount}</span
-			>
-		{:else}
-			<Icon name={icon} />
-		{/if}
-	</div>
+	<Tooltip text={seqenceAmount > 1 ? 'Sequence number' : ''}>
+		<div class="stack__status--icon" style:--bg-color={color} style:--icon-color={iconColor}>
+			{#if seqenceAmount > 1}
+				<span
+					class="text-10 text-bold stack__status--sequence-label"
+					class:small-sequance-label={seqenceAmount >= 10}>{sequanceId}/{seqenceAmount}</span
+				>
+			{:else}
+				<Icon name={icon} />
+			{/if}
+		</div>
+	</Tooltip>
 	<div
 		class="stack__status--bar"
 		style:--bg-color={lineBottom ? color : 'var(--clr-transparent)'}
@@ -60,8 +63,8 @@
 			align-items: center;
 			justify-content: center;
 			/* width: 20px; */
-			height: 22px;
-			padding: 0 2px;
+			/* height: 22px; */
+			padding: 4px 2px;
 			border-radius: var(--radius-m);
 			background-color: var(--bg-color);
 			color: var(--icon-color, var(--clr-text-1));
@@ -75,7 +78,7 @@
 		}
 
 		& .stack__status--sequence-label {
-			padding: 0 3px;
+			padding: 1px 3px 2px;
 			text-align: center;
 			line-height: 1;
 		}
