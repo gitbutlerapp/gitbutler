@@ -1,10 +1,10 @@
 <script lang="ts">
-	import CloudPatchStackIndex from '@gitbutler/shared/cloud/stacks/CloudPatchStackIndex.svelte';
+	import CloudBranchIndex from '@gitbutler/shared/cloud/stacks/CloudBranchIndex.svelte';
 </script>
 
 <div class="series-container">
 	<h2 class="text-head-24 heading">Your patch stacks:</h2>
-	<CloudPatchStackIndex />
+	<CloudBranchIndex />
 </div>
 
 <style lang="postcss">
