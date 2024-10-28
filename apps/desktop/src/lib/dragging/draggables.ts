@@ -49,7 +49,8 @@ export class DraggableCommit {
 	constructor(
 		public readonly branchId: string,
 		public readonly commit: DetailedCommit,
-		public readonly isHeadCommit: boolean
+		public readonly isHeadCommit: boolean,
+		public readonly seriesName?: string
 	) {}
 }
 
