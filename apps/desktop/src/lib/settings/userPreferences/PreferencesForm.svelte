@@ -13,7 +13,7 @@
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
 
 	let omitCertificateCheck = project?.omit_certificate_check;
-	let useNewLocking = project?.use_new_locking || false;
+	let useNewLocking = project?.use_experimental_locking || false;
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
 
@@ -28,7 +28,7 @@
 	}
 
 	async function setUseNewLocking(value: boolean) {
-		project.use_new_locking = value;
+		project.use_experimental_locking = value;
 		await projectsService.updateProject(project);
 	}
 
