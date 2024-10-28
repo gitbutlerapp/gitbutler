@@ -3,7 +3,7 @@
 </script>
 
 <div class="series-container">
-	<h2 class="text-head-24 heading">Your patch stacks:</h2>
+	<h2 class="text-head-24 heading">Your branches:</h2>
 	<CloudBranchIndex />
 </div>
 

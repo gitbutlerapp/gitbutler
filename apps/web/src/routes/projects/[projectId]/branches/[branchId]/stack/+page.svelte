@@ -47,7 +47,7 @@
 {:else}
 	<div><a href="/projects/{data.projectId}">project</a></div>
 
-	<h1>Patch Stack</h1>
+	<h1>Branch</h1>
 	<div class="columns">
 		<div class="column">
 			Title: <strong>{stackData.title}</strong><br />
