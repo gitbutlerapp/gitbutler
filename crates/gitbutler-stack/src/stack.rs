@@ -443,16 +443,8 @@ impl Stack {
             return Err(anyhow!("Stack has not been initialized"));
         }
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
-        let repo = ctx.repository();
         let state = branch_state(ctx);
-        let default_target = state.get_default_target()?;
-        let merge_base = repo.find_commit(repo.merge_base(self.head(), default_target.sha)?)?;
-        let mut commit_ids: Vec<CommitOrChangeId> = repo
-            .log(self.head(), LogUntil::Commit(merge_base.id()), false)?
-            .into_iter()
-            .map(|c| c.into())
-            .collect_vec();
-        commit_ids.insert(0, merge_base.into());
+        let commit_ids = stack_patches(ctx, &state, self.head(), true)?;
         let new_heads = self
             .heads
             .iter()
