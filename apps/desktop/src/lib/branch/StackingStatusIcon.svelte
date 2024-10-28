@@ -92,7 +92,7 @@
 		& .stack__status--bar {
 			width: 2px;
 			height: 9px;
-			margin: 0 20px;
+			margin: var(--lines-inner-margin);
 			background: var(--bg-color);
 		}
 

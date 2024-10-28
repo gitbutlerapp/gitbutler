@@ -311,7 +311,7 @@
 
 	.branch-action__line {
 		min-width: 2px;
-		margin: 0 20px;
+		margin: var(--lines-inner-margin);
 		background-color: var(--bg-color, var(--clr-border-3));
 	}
 </style>
