@@ -11,11 +11,9 @@ use crate::{
     BranchManagerExt, VirtualBranchesExt,
 };
 use anyhow::{bail, Context, Result};
-use git2::Tree;
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
-use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
+use gitbutler_diff::{diff_files_into_hunks, Hunk, HunkHash};
 use gitbutler_hunk_dependency::{
     compute_hunk_locks, HunkDependencyOptions, HunkLock, InputCommit, InputDiff, InputFile,
     InputStack,
@@ -98,18 +96,13 @@ pub fn get_applied_status_cached(
     let vb_state = ctx.project().virtual_branches();
     let default_target = vb_state.get_default_target()?;
 
-    let locks = if ctx.project().use_new_locking {
-        compute_locks(
-            ctx,
-            &workspace_head,
-            &default_target.sha,
-            &base_diffs,
-            &virtual_branches,
-        )?
-    } else {
-        let base_tree = ctx.repository().find_commit(default_target.sha)?.tree()?;
-        compute_old_locks(ctx.repository(), &base_diffs, &virtual_branches, base_tree)?
-    };
+    let locks = compute_locks(
+        ctx,
+        &workspace_head,
+        &default_target.sha,
+        &base_diffs,
+        &virtual_branches,
+    )?;
 
     for branch in &mut virtual_branches {
         if let Err(e) = branch.initialize(ctx) {
@@ -331,89 +324,4 @@ fn compute_locks(
         workdir: base_diffs,
         stacks: stacks_input,
     })
-}
-
-fn compute_old_locks(
-    repository: &git2::Repository,
-    unstaged_hunks_by_path: &HashMap<PathBuf, Vec<gitbutler_diff::GitHunk>>,
-    virtual_branches: &[Stack],
-    base_tree: Tree,
-) -> Result<HashMap<HunkHash, Vec<HunkLock>>> {
-    let mut diff_opts = git2::DiffOptions::new();
-    let opts = diff_opts
-        .show_binary(true)
-        .ignore_submodules(true)
-        .context_lines(3);
-
-    let branch_path_diffs = virtual_branches
-        .iter()
-        .filter_map(|branch| {
-            let commit = repository.find_commit(branch.head()).ok()?;
-            let tree = repository
-                .find_real_tree(&commit, Default::default())
-                .ok()?;
-            let diff = repository
-                .diff_tree_to_tree(Some(&base_tree), Some(&tree), Some(opts))
-                .ok()?;
-            let hunks_by_filepath =
-                gitbutler_diff::hunks_by_filepath(Some(repository), &diff).ok()?;
-
-            Some((branch, hunks_by_filepath))
-        })
-        .collect::<Vec<_>>();
-
-    let mut workspace_hunks_by_path =
-        HashMap::<PathBuf, Vec<(gitbutler_diff::GitHunk, &Stack)>>::new();
-
-    for (branch, hunks_by_filepath) in branch_path_diffs {
-        for (path, hunks) in hunks_by_filepath {
-            workspace_hunks_by_path.entry(path).or_default().extend(
-                hunks
-                    .hunks
-                    .iter()
-                    .map(|hunk| (hunk.clone(), branch))
-                    .collect::<Vec<_>>(),
-            );
-        }
-    }
-
-    let locked_hunks = unstaged_hunks_by_path
-        .iter()
-        .filter_map(|(path, hunks)| {
-            let workspace_hunks = workspace_hunks_by_path.get(path)?;
-
-            let (unapplied_hunk, branches) = hunks.iter().find_map(|unapplied_hunk| {
-                // Find all branches that have a hunk that intersects with the unapplied hunk
-                let locked_to = workspace_hunks
-                    .iter()
-                    .filter_map(|(workspace_hunk, branch)| {
-                        if GitHunk::workspace_intersects_unapplied(workspace_hunk, unapplied_hunk) {
-                            Some(*branch)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<Vec<_>>();
-                if locked_to.is_empty() {
-                    None
-                } else {
-                    Some((unapplied_hunk, locked_to))
-                }
-            })?;
-
-            let hash = Hunk::hash_diff(&unapplied_hunk.diff_lines);
-            let locks = branches
-                .iter()
-                .map(|b| HunkLock {
-                    branch_id: b.id,
-                    commit_id: b.head(),
-                })
-                .collect::<Vec<_>>();
-
-            // For now we're returning an array of locks to align with the original type, even though this implementation doesn't give multiple locks for the same hunk
-            Some((hash, locks))
-        })
-        .collect::<HashMap<_, _>>();
-
-    Ok(locked_hunks)
 }

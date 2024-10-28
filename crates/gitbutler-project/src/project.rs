@@ -97,9 +97,6 @@ pub struct Project {
     pub snapshot_lines_threshold: Option<usize>,
     #[serde(default)]
     pub git_host: GitHostSettings,
-    // Experimental flag for new hunk dependency algorithm
-    #[serde(default)]
-    pub use_new_locking: bool,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]

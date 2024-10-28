@@ -13,7 +13,6 @@
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
 
 	let omitCertificateCheck = project?.omit_certificate_check;
-	let useNewLocking = project?.use_new_locking || false;
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
 
@@ -26,13 +25,6 @@
 		project.snapshot_lines_threshold = value;
 		await projectsService.updateProject(project);
 	}
-
-	async function setUseNewLocking(value: boolean) {
-		project.use_new_locking = value;
-		await projectsService.updateProject(project);
-	}
-
-	$: setUseNewLocking(useNewLocking);
 
 	async function handleOmitCertificateCheckClick(event: MouseEvent) {
 		await setOmitCertificateCheck((event.target as HTMLInputElement)?.checked);
@@ -84,17 +76,6 @@
 					setSnapshotLinesThreshold(parseInt(value));
 				}}
 			/>
-		</svelte:fragment>
-	</SectionCard>
-
-	<SectionCard labelFor="useNewLocking" orientation="row">
-		<svelte:fragment slot="title">Use new experimental hunk locking algorithm</svelte:fragment>
-		<svelte:fragment slot="caption">
-			This new hunk locking algorithm is still in the testing phase but should more accurately catch
-			locks and subsequently cause fewer errors.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
-			<Toggle id="useNewLocking" bind:checked={useNewLocking} />
 		</svelte:fragment>
 	</SectionCard>
 </Section>
