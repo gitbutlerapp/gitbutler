@@ -220,13 +220,7 @@
 		width: 100%;
 		height: 2px;
 		border: none;
-		background: repeating-linear-gradient(
-			to right,
-			var(--fill-color),
-			var(--fill-color) 1px,
-			transparent 1px,
-			transparent 4px
-		);
+		background-image: linear-gradient(to right, var(--fill-color) 50%, transparent 50%);
 		background-size: 4px 4px;
 		opacity: 0.5;
 	}

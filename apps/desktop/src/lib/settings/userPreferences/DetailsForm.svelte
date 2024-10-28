@@ -3,10 +3,10 @@
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import Link from '$lib/shared/Link.svelte';
-	import Spacer from '$lib/shared/Spacer.svelte';
 	import { User } from '$lib/stores/user';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';

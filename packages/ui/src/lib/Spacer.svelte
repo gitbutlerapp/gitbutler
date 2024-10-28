@@ -1,13 +1,15 @@
-<script lang="ts">
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-
-	interface SpacerProps {
+<script lang="ts" module>
+	export interface Props {
 		margin?: number;
 		noLine?: boolean;
 		dotted?: boolean;
 	}
+</script>
 
-	const { margin = 12, noLine = false, dotted = false }: SpacerProps = $props();
+<script lang="ts">
+	import { pxToRem } from '$lib/utils/pxToRem';
+
+	const { margin = 12, noLine = false, dotted = false }: Props = $props();
 
 	function getMargins() {
 		if (margin === undefined) {
@@ -38,12 +40,7 @@
 
 	.divider.dotted {
 		opacity: 0.2;
-		background: repeating-linear-gradient(
-			90deg,
-			transparent,
-			transparent 2px,
-			var(--clr-scale-ntrl-0) 2px,
-			var(--clr-scale-ntrl-0) 4px
-		);
+		background-image: linear-gradient(to right, var(--clr-scale-ntrl-0) 50%, transparent 50%);
+		background-size: 4px 1px;
 	}
 </style>
