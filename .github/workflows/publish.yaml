@@ -157,6 +157,7 @@ jobs:
         run: |
           sudo apt update;
           sudo apt install -y \
+            libwebkit2gtk-4.1-0 \
             build-essential \
             curl \
             wget \
@@ -166,13 +167,13 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev;
 
-          sudo apt install -y \
-            libwebkit2gtk-4.1-0=2.36.0-2ubuntu1 \
-            libwebkit2gtk-4.1-dev=2.36.0-2ubuntu1 \
-            libjavascriptcoregtk-4.1-0=2.36.0-2ubuntu1 \
-            libjavascriptcoregtk-4.1-dev=2.36.0-2ubuntu1 \
-            gir1.2-javascriptcoregtk-4.1=2.36.0-2ubuntu1 \
-            gir1.2-webkit2-4.1=2.36.0-2ubuntu1;
+          # sudo apt install -y \
+          #   libwebkit2gtk-4.1-0=2.36.0-2ubuntu1 \
+          #   libwebkit2gtk-4.1-dev=2.36.0-2ubuntu1 \
+          #   libjavascriptcoregtk-4.1-0=2.36.0-2ubuntu1 \
+          #   libjavascriptcoregtk-4.1-dev=2.36.0-2ubuntu1 \
+          #   gir1.2-javascriptcoregtk-4.1=2.36.0-2ubuntu1 \
+          #   gir1.2-webkit2-4.1=2.36.0-2ubuntu1;
 
       - uses: actions/download-artifact@v4
         with:
