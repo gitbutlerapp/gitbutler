@@ -30,11 +30,11 @@
 	interface Props {
 		currentSeries: PatchSeries;
 		isTopSeries: boolean;
-		sequanceId: number;
+		sequenceId: number;
 		seqenceAmount: number;
 	}
 
-	const { currentSeries, isTopSeries, sequanceId, seqenceAmount }: Props = $props();
+	const { currentSeries, isTopSeries, sequenceId, seqenceAmount }: Props = $props();
 
 	let descriptionVisible = $state(false);
 
@@ -186,7 +186,7 @@
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 			iconColor="var(--clr-core-ntrl-100)"
 			color={lineColor}
-			{sequanceId}
+			{sequenceId}
 			{seqenceAmount}
 			lineBottom={currentSeries.patches.length > 0 || branch.series.length > 1}
 		/>

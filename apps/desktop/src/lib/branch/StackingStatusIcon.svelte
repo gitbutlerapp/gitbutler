@@ -11,7 +11,7 @@
 		color?: string;
 		lineTop?: boolean;
 		lineBottom?: boolean;
-		sequanceId: number;
+		sequenceId: number;
 		seqenceAmount: number;
 		branchType: CommitStatus;
 	}
@@ -22,7 +22,7 @@
 		color = FALLBACK_COLOR,
 		lineTop = true,
 		lineBottom = true,
-		sequanceId,
+		sequenceId,
 		seqenceAmount,
 		branchType
 	}: Props = $props();
@@ -39,7 +39,7 @@
 	}
 </script>
 
-<div class="stack__status gap" class:small-sequance-label={seqenceAmount >= 10}>
+<div class="stack__status gap" class:small-sequence-label={seqenceAmount >= 10}>
 	<div
 		class="stack__status--bar"
 		style:--bg-color={lineTop ? color : 'var(--clr-transparent)'}
@@ -47,13 +47,13 @@
 
 	<Tooltip
 		text={seqenceAmount > 1
-			? `${branchNameType()} ${sequanceId} of ${seqenceAmount}`
+			? `${branchNameType()} ${sequenceId} of ${seqenceAmount}`
 			: branchNameType()}
 	>
 		<div class="stack__status--icon" style:--bg-color={color} style:--icon-color={iconColor}>
 			{#if seqenceAmount > 1}
 				<span class="text-9 text-semibold stack__status--sequence-label"
-					>{sequanceId}/{seqenceAmount}</span
+					>{sequenceId}/{seqenceAmount}</span
 				>
 			{:else}
 				<Icon name={icon} />
@@ -103,7 +103,7 @@
 
 		/* MODIFIER */
 
-		&.small-sequance-label {
+		&.small-sequence-label {
 			margin-right: 4px;
 
 			& .stack__status--icon {
