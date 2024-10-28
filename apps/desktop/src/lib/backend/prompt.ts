@@ -25,11 +25,39 @@ type FilterParams = {
 
 export type SystemPromptHandle = {
 	prompt: string;
-	respond: (response: string | null) => void;
+	respond: (response: string | null) => Promise<void>;
 };
 
 type PromptHandler = (prompt: SystemPrompt, signal: AbortSignal) => Promise<string | null>;
 type FilterEventEntry = [filter: FilterParams, handler: PromptHandler];
+
+/**
+ * Handle the abort signal for a prompt handler.
+ *
+ * This is required to be able to await the handling of a prompt.
+ */
+async function handleAbortSignal(
+	signal: AbortSignal,
+	promptStore: Writable<SystemPromptHandle | undefined>,
+	errorStore: Writable<any>
+): Promise<void> {
+	const signalHandler = new Promise<void>((resolve) => {
+		signal.addEventListener('abort', () => {
+			promptStore.set(undefined);
+			switch (signal.reason) {
+				case 'timeout':
+					errorStore.set('Timed out waiting for response');
+					break;
+				default:
+					errorStore.set(undefined);
+					break;
+			}
+			resolve();
+		});
+	});
+
+	await signalHandler;
+}
 
 /**
  * This service is used for handling CLI prompts from the back end.
@@ -127,20 +155,9 @@ export class PromptService {
 
 			promptStore.set({
 				prompt: prompt.prompt,
-				respond: (response: string | null) => {
+				respond: async (response: string | null) => {
 					resolver(response);
-				}
-			});
-
-			signal.addEventListener('abort', () => {
-				promptStore.set(undefined);
-				switch (signal.reason) {
-					case 'timeout':
-						errorStore.set('Timed out waiting for response');
-						break;
-					default:
-						errorStore.set(undefined);
-						break;
+					await handleAbortSignal(signal, promptStore, errorStore);
 				}
 			});
 

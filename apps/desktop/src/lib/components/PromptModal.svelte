@@ -8,23 +8,22 @@
 	const promptService = getContext(PromptService);
 	const [prompt, error] = promptService.reactToPrompt({ timeoutMs: 30000 });
 
-	let value = '';
-	let modal: Modal;
-	let loading = false;
+	let value = $state<string>('');
+	let modal = $state<ReturnType<typeof Modal>>();
+	let loading = $state(false);
 
-	$: if ($prompt) {
-		modal?.show();
-	}
-
-	$: if (!$prompt && !$error) {
-		modal?.close();
-	}
+	$effect(() => {
+		if ($prompt && modal?.imports.open === false && !loading) {
+			modal?.show();
+		}
+	});
 
 	async function submit() {
 		if (!$prompt) return;
 		loading = true;
 		try {
-			$prompt.respond(value);
+			await modal?.close();
+			await $prompt.respond(value);
 		} catch (err) {
 			console.error(err);
 		} finally {
@@ -35,12 +34,17 @@
 
 	async function cancel() {
 		try {
-			if ($prompt) $prompt.respond(null);
+			if ($prompt) await $prompt.respond(null);
 		} catch (err) {
 			console.error(err);
 		} finally {
 			clear();
 		}
+	}
+
+	async function handleCancelButton() {
+		await modal?.close();
+		await cancel();
 	}
 
 	function clear() {
@@ -53,9 +57,9 @@
 <Modal
 	bind:this={modal}
 	width="small"
-	title="Git fetch requires input"
-	onClose={async () => await cancel()}
-	onSubmit={async () => await submit()}
+	title="Git needs input"
+	onClickOutside={cancel}
+	onSubmit={submit}
 >
 	<div class="message">
 		{#if $error}
@@ -67,7 +71,9 @@
 	<Textbox autofocus type="password" bind:value disabled={!!$error || loading} />
 
 	{#snippet controls()}
-		<Button style="ghost" type="reset" outline disabled={loading} onclick={cancel}>Cancel</Button>
+		<Button style="ghost" type="reset" outline disabled={loading} onclick={handleCancelButton}
+			>Cancel</Button
+		>
 		<Button style="pop" type="submit" kind="solid" grow disabled={!!$error || loading} {loading}>
 			Submit
 		</Button>
