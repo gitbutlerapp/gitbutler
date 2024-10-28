@@ -39,7 +39,7 @@
 	}
 </script>
 
-<div class="stack__status gap">
+<div class="stack__status gap" class:small-sequance-label={seqenceAmount >= 10}>
 	<div
 		class="stack__status--bar"
 		style:--bg-color={lineTop ? color : 'var(--clr-transparent)'}
@@ -52,9 +52,8 @@
 	>
 		<div class="stack__status--icon" style:--bg-color={color} style:--icon-color={iconColor}>
 			{#if seqenceAmount > 1}
-				<span
-					class="text-9 text-bold stack__status--sequence-label"
-					class:small-sequance-label={seqenceAmount >= 10}>{sequanceId}/{seqenceAmount}</span
+				<span class="text-9 text-bold stack__status--sequence-label"
+					>{sequanceId}/{seqenceAmount}</span
 				>
 			{:else}
 				<Icon name={icon} />
@@ -80,9 +79,8 @@
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			min-width: 20px;
+			min-width: 22px;
 			max-width: 24px;
-			/* height: 22px; */
 			padding: 4px 2px;
 			border-radius: var(--radius-m);
 			background-color: var(--bg-color);
@@ -102,8 +100,19 @@
 			line-height: 1;
 		}
 
-		& .small-sequance-label {
-			font-size: 8px;
+		/* MODIFIER */
+
+		&.small-sequance-label {
+			margin-right: 6px;
+
+			& .stack__status--icon {
+				margin-left: 4px;
+				max-width: none;
+			}
+
+			& .stack__status--sequence-label {
+				font-size: 9px;
+			}
 		}
 	}
 </style>
