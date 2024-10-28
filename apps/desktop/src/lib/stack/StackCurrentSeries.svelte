@@ -47,7 +47,7 @@
 
 <style>
 	.branch-group {
-		--lines-inner-margin: 0 20px;
+		--lines-inner-margin: 0 22px 0 20px;
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-1);

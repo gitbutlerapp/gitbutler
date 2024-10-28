@@ -52,7 +52,7 @@
 	>
 		<div class="stack__status--icon" style:--bg-color={color} style:--icon-color={iconColor}>
 			{#if seqenceAmount > 1}
-				<span class="text-9 text-bold stack__status--sequence-label"
+				<span class="text-9 text-semibold stack__status--sequence-label"
 					>{sequanceId}/{seqenceAmount}</span
 				>
 			{:else}
@@ -79,9 +79,10 @@
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			min-width: 22px;
+			margin-left: -2px;
+			min-width: 20px;
 			max-width: 24px;
-			padding: 4px 2px;
+			padding: 3px 2px;
 			border-radius: var(--radius-m);
 			background-color: var(--bg-color);
 			color: var(--icon-color, var(--clr-text-1));
@@ -103,15 +104,16 @@
 		/* MODIFIER */
 
 		&.small-sequance-label {
-			margin-right: 6px;
+			margin-right: 4px;
 
 			& .stack__status--icon {
 				margin-left: 4px;
 				max-width: none;
+				width: 30px;
 			}
 
 			& .stack__status--sequence-label {
-				font-size: 9px;
+				padding: 3px;
 			}
 		}
 	}
