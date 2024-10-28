@@ -23,6 +23,7 @@
 	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { slugify } from '@gitbutler/ui/utils/string';
@@ -185,8 +186,6 @@
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 			iconColor="var(--clr-core-ntrl-100)"
 			color={lineColor}
-			{sequanceId}
-			{seqenceAmount}
 			lineBottom={currentSeries.patches.length > 0 || branch.series.length > 1}
 		/>
 		<div class="text-14 text-bold branch-info__name">
@@ -199,6 +198,13 @@
 				disabled={!!gitHostBranch}
 			/>
 		</div>
+		{#if seqenceAmount > 1}
+			<Tooltip text="Branch {sequanceId} of {seqenceAmount}">
+				<span class="text-10 text-semibold branch-info__sequance">
+					{sequanceId}/{seqenceAmount}
+				</span>
+			</Tooltip>
+		{/if}
 	</div>
 	{#if descriptionVisible}
 		<div class="branch-info__description">
@@ -263,14 +269,6 @@
 		justify-content: flex-start;
 		align-items: center;
 
-		& .branch-info__name {
-			display: flex;
-			align-items: center;
-			justify-content: flex-start;
-			min-width: 0;
-			flex-grow: 1;
-		}
-
 		.remote-name {
 			min-width: max-content;
 			color: var(--clr-scale-ntrl-60);
@@ -287,6 +285,21 @@
 				margin-right: -5px;
 			}
 		}
+	}
+
+	.branch-info__name {
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		min-width: 0;
+		flex-grow: 1;
+	}
+
+	.branch-info__sequance {
+		padding: 2px;
+		border-radius: var(--radius-m);
+		background: var(--clr-bg-2);
+		color: var(--clr-text-2);
 	}
 
 	.branch-info__description {
