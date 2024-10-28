@@ -3,27 +3,22 @@
 	import StackSeriesDividerLine from './StackSeriesDividerLine.svelte';
 	import StackingSeriesHeader from '$lib/branch/StackingSeriesHeader.svelte';
 	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
-	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
-	import { getContext } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
+	import type { StackingReorderDropzoneManager } from '$lib/dragging/stackingReorderDropzoneManager';
 	import type { VirtualBranch } from '$lib/vbranches/types';
 
 	interface Props {
 		branch: VirtualBranch;
+		stackingReorderDropzoneManager: StackingReorderDropzoneManager;
 	}
 
-	const { branch }: Props = $props();
+	const { branch, stackingReorderDropzoneManager }: Props = $props();
 
 	const hasConflicts = $derived(
 		branch.series.flatMap((s) => s.patches).some((patch) => patch.conflicted)
 	);
 
 	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
-
-	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
-	const reorderDropzoneManager = $derived(
-		reorderDropzoneManagerFactory.build(branch, [...branch.localCommits, ...branch.remoteCommits])
-	);
 </script>
 
 {#each nonArchivedSeries as currentSeries, idx (currentSeries.name)}
@@ -54,7 +49,7 @@
 				seriesName={currentSeries.name}
 				isUnapplied={false}
 				isBottom={idx === branch.series.length - 1}
-				{reorderDropzoneManager}
+				{stackingReorderDropzoneManager}
 				{hasConflicts}
 			/>
 		{/if}
