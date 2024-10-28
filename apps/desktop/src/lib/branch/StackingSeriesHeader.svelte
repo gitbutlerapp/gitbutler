@@ -30,9 +30,11 @@
 	interface Props {
 		currentSeries: PatchSeries;
 		isTopSeries: boolean;
+		sequanceId: number;
+		seqenceAmount: number;
 	}
 
-	const { currentSeries, isTopSeries }: Props = $props();
+	const { currentSeries, isTopSeries, sequanceId, seqenceAmount }: Props = $props();
 
 	let descriptionVisible = $state(false);
 
@@ -183,7 +185,9 @@
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 			iconColor="var(--clr-core-ntrl-100)"
 			color={lineColor}
-			lineBottom={currentSeries.patches.length > 0}
+			{sequanceId}
+			{seqenceAmount}
+			lineBottom={currentSeries.patches.length > 0 || branch.series.length > 1}
 		/>
 		<div class="text-14 text-bold branch-info__name">
 			<span class:no-upstream={!gitHostBranch} class="remote-name">

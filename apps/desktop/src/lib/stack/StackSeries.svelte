@@ -30,7 +30,12 @@
 		<StackSeriesDividerLine {currentSeries} />
 	{/if}
 	<StackCurrentSeries {currentSeries}>
-		<StackingSeriesHeader {currentSeries} {isTopSeries} />
+		<StackingSeriesHeader
+			{currentSeries}
+			{isTopSeries}
+			sequanceId={branch.series.length - idx}
+			seqenceAmount={branch.series.length}
+		/>
 
 		{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
 			<div class="branch-emptystate">
