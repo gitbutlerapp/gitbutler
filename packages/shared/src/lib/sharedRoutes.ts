@@ -4,7 +4,7 @@ import { get, writable, type Writable } from 'svelte/store';
 export interface RoutesService {
 	repositories(): string;
 	repository(repositoryId: string): string;
-	patchStack(repositoryId: string, patchStackId: string): string;
+	cloudBranch(repositoryId: string, cloudBranchId: string): string;
 }
 
 export class WebRoutesService implements RoutesService {
@@ -21,8 +21,8 @@ export class WebRoutesService implements RoutesService {
 		return this.externalizePath(`/repositories/${repositoryId}`);
 	}
 
-	patchStack(repositoryId: string, patchStackId: string): string {
-		return this.externalizePath(`/repositories/${repositoryId}/patchStacks/${patchStackId}`);
+	cloudBranch(repositoryId: string, cloudBranchId: string): string {
+		return this.externalizePath(`/repositories/${repositoryId}/branches/${cloudBranchId}`);
 	}
 
 	private externalizePath(path: string) {
@@ -51,12 +51,12 @@ export class DesktopRoutesService implements RoutesService {
 		return this.webRoutesService.repository(repositoryId);
 	}
 
-	patchStack(repositoryId: string, patchStackId: string): string {
+	cloudBranch(repositoryId: string, cloudBranchId: string): string {
 		const projectId = get(this.currentProjectId);
 		if (projectId) {
-			return `/${projectId}/series/patchStacks/${patchStackId}`;
+			return `/${projectId}/series/branches/${cloudBranchId}`;
 		}
-		return this.webRoutesService.patchStack(repositoryId, patchStackId);
+		return this.webRoutesService.cloudBranch(repositoryId, cloudBranchId);
 	}
 }
 

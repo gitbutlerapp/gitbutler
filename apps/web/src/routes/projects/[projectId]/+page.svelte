@@ -94,7 +94,7 @@
 	<div>{project.name}</div>
 	<div class="columns">
 		<div class="column">
-			<h2>Patch Stacks</h2>
+			<h2>Branches</h2>
 			{#each patchStacks as stack}
 				<div>
 					{stack.title}<br />

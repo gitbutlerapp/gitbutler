@@ -2,7 +2,7 @@ import { ForgeService } from '$lib/backend/forge';
 import { getUserErrorCode, invoke } from '$lib/backend/ipc';
 import { ProjectService, type Project } from '$lib/backend/projects';
 import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-import { PatchStackCreationService } from '$lib/branch/patchStackCreationService';
+import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
@@ -18,10 +18,7 @@ import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 import { BranchController } from '$lib/vbranches/branchController';
 import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-import {
-	PatchStacksApiService,
-	CloudPatchStacksService
-} from '@gitbutler/shared/cloud/stacks/service';
+import { BranchesApiService, CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 import { error } from '@sveltejs/kit';
 import { derived } from 'svelte/store';
 import type { LayoutLoad } from './$types';
@@ -99,11 +96,11 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		userService.user,
 		projectsService.getProjectStore(projectId)
 	);
-	const patchStacksApiService = new PatchStacksApiService(cloud);
-	const cloudPatchStacksService = new CloudPatchStacksService(repositoryId, patchStacksApiService);
-	const patchStackCreationService = new PatchStackCreationService(
+	const branchesApiService = new BranchesApiService(cloud);
+	const cloudBranchesService = new CloudBranchesService(repositoryId, branchesApiService);
+	const cloudBranchCreationService = new CloudBranchCreationService(
 		syncedSnapshotService,
-		cloudPatchStacksService
+		cloudBranchesService
 	);
 
 	return {
@@ -132,7 +129,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 		// Cloud-related services
 		syncedSnapshotService,
-		cloudPatchStacksService,
-		patchStackCreationService
+		cloudBranchesService,
+		cloudBranchCreationService
 	};
 };

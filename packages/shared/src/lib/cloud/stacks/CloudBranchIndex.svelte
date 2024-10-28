@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { CloudPatchStacksService } from '$lib/cloud/stacks/service';
+	import { CloudBranchesService } from '$lib/cloud/stacks/service';
 	import { getContext } from '$lib/context';
 	import { getRoutesService } from '$lib/sharedRoutes';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -12,32 +12,32 @@
 
 	/**
 	 * Expects the following contexts:
-	 * - CloudPatchStacksService
+	 * - CloudBranchesService
 	 * - RoutesService
 	 */
 
-	const patchStacksService = getContext(CloudPatchStacksService);
+	const cloudBranchesService = getContext(CloudBranchesService);
 	const routesService = getRoutesService();
-	const patchStacks = $derived(patchStacksService.patchStacks);
+	const cloudBranches = $derived(cloudBranchesService.branches);
 </script>
 
-{#if $patchStacks}
+{#if $cloudBranches}
 	<div class="card">
-		{#each $patchStacks as patchStack}
+		{#each $cloudBranches as cloudBranch}
 			<div class="line-item">
 				<div>
-					<p class="text-15 text-bold">{patchStack.title}</p>
-					<p>Version: v{patchStack.version}</p>
-					<p>Status: {patchStack.status}</p>
-					<p>Created: {dayjs(patchStack.createdAt).fromNow()}</p>
+					<p class="text-15 text-bold">{cloudBranch.title}</p>
+					<p>Version: v{cloudBranch.version}</p>
+					<p>Status: {cloudBranch.status}</p>
+					<p>Created: {dayjs(cloudBranch.createdAt).fromNow()}</p>
 				</div>
 				<Button
 					style="pop"
 					kind="solid"
 					onclick={() => {
-						const repositoryId = get(patchStacksService.repositoryId);
+						const repositoryId = get(cloudBranchesService.repositoryId);
 						if (repositoryId) {
-							goto(routesService.patchStack(repositoryId, patchStack.uuid));
+							goto(routesService.cloudBranch(repositoryId, cloudBranch.uuid));
 						}
 					}}>Visit</Button
 				>

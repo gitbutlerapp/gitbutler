@@ -84,7 +84,7 @@ export class CloudPatch {
 	}
 }
 
-export const enum CloudPatchStackStatus {
+export const enum CloudBranchStatus {
 	Active = 'active',
 	Inactive = 'inactive',
 	Closed = 'closed',
@@ -92,13 +92,13 @@ export const enum CloudPatchStackStatus {
 	All = 'all'
 }
 
-interface ApiPatchStack {
+interface ApiBranch {
 	branch_id: string;
 	oplog_sha?: string;
 	uuid: string;
 	title?: string;
 	description?: string;
-	status?: CloudPatchStackStatus;
+	status?: CloudBranchStatus;
 	version?: number;
 	created_at: string;
 	stack_size?: number;
@@ -106,13 +106,13 @@ interface ApiPatchStack {
 	patches: ApiPatch[];
 }
 
-export class CloudPatchStack {
+export class CloudBranch {
 	branchId: string;
 	oplogSha?: string;
 	uuid: string;
 	title?: string;
 	description?: string;
-	status?: CloudPatchStackStatus;
+	status?: CloudBranchStatus;
 	version: number;
 	createdAt: string;
 	stackSize: number;
@@ -121,50 +121,48 @@ export class CloudPatchStack {
 	//              Should they be in their own reactive service?
 	patches: CloudPatch[];
 
-	constructor(apiPatchStack: ApiPatchStack) {
-		this.branchId = apiPatchStack.branch_id;
-		this.oplogSha = apiPatchStack.oplog_sha;
-		this.uuid = apiPatchStack.uuid;
-		this.title = apiPatchStack.title;
-		this.description = apiPatchStack.description;
-		this.status = apiPatchStack.status;
-		this.version = apiPatchStack.version || 0;
-		this.createdAt = apiPatchStack.created_at;
-		this.stackSize = apiPatchStack.stack_size || 0;
-		this.contributors = apiPatchStack.contributors;
-		this.patches = apiPatchStack.patches?.map((patch) => new CloudPatch(patch));
+	constructor(apiBranch: ApiBranch) {
+		this.branchId = apiBranch.branch_id;
+		this.oplogSha = apiBranch.oplog_sha;
+		this.uuid = apiBranch.uuid;
+		this.title = apiBranch.title;
+		this.description = apiBranch.description;
+		this.status = apiBranch.status;
+		this.version = apiBranch.version || 0;
+		this.createdAt = apiBranch.created_at;
+		this.stackSize = apiBranch.stack_size || 0;
+		this.contributors = apiBranch.contributors;
+		this.patches = apiBranch.patches?.map((patch) => new CloudPatch(patch));
 	}
 }
 
-export interface PatchStackCreationParams {
+export interface BranchCreationParams {
 	branch_id: string;
 	oplog_sha: string;
 }
 
-export interface PatchStackUpdateParams {
+export interface BranchUpdateParams {
 	status: 'active' | 'closed';
 	title: string;
 	description: string;
 }
 
-export class PatchStacksApiService {
-	readonly canGetPatchStacks: Readable<boolean>;
-	readonly canCreatePatchStack: Readable<boolean>;
+export class BranchesApiService {
+	readonly canGetBranches: Readable<boolean>;
+	readonly canCreateBranch: Readable<boolean>;
 
 	constructor(private readonly httpClient: HttpClient) {
-		this.canGetPatchStacks = httpClient.authenticationAvailable;
-		this.canCreatePatchStack = httpClient.authenticationAvailable;
+		this.canGetBranches = httpClient.authenticationAvailable;
+		this.canCreateBranch = httpClient.authenticationAvailable;
 	}
 
-	async getPatchStacks(
+	async getBranches(
 		repositoryId: string,
-		status: CloudPatchStackStatus = CloudPatchStackStatus.All
-	): Promise<ApiPatchStack[] | undefined> {
+		status: CloudBranchStatus = CloudBranchStatus.All
+	): Promise<ApiBranch[] | undefined> {
 		// TODO(CTO): Support optional filtering query param `branch_id`
 		try {
-			return await this.httpClient.get<ApiPatchStack[]>(
-				`patch_stack/${repositoryId}?status=${status}`
-			);
+			return await this.httpClient.get<ApiBranch[]>(`patch_stack/${repositoryId}?status=${status}`);
 		} catch (e) {
 			// If the internet is down, silently fail
 			if (e instanceof TypeError) {
@@ -175,11 +173,8 @@ export class PatchStacksApiService {
 		}
 	}
 
-	async createPatchStack(
-		repositoryId: string,
-		params: PatchStackCreationParams
-	): Promise<ApiPatchStack> {
-		return await this.httpClient.post<ApiPatchStack>(`patch_stack`, {
+	async createBranch(repositoryId: string, params: BranchCreationParams): Promise<ApiBranch> {
+		return await this.httpClient.post<ApiBranch>(`patch_stack`, {
 			body: {
 				...params,
 				project_id: repositoryId
@@ -187,11 +182,8 @@ export class PatchStacksApiService {
 		});
 	}
 
-	async updatePatchStack(
-		patchStackUuid: string,
-		params: PatchStackUpdateParams
-	): Promise<ApiPatchStack> {
-		return await this.httpClient.put<ApiPatchStack>(`patch_stack/${patchStackUuid}`, {
+	async updateBranch(cloudBranchUuid: string, params: BranchUpdateParams): Promise<ApiBranch> {
+		return await this.httpClient.put<ApiBranch>(`patch_stack/${cloudBranchUuid}`, {
 			body: params
 		});
 	}
@@ -214,70 +206,71 @@ type LoadableOptional<T> =
  * The list of patch stacks is kept up-to-date automatically, whenever
  * operations on a patch stack have been performed, or every 15 minutes.
  */
-export class CloudPatchStacksService {
+export class CloudBranchesService {
 	/** Whether a patch stack can be created given the current internal state of the patch stack service */
-	canCreatePatchStack: Readable<boolean>;
+	canCreateBranch: Readable<boolean>;
 
-	#apiPatchStacks: Writable<ApiPatchStack[] | undefined>;
+	#apiBranches: Writable<ApiBranch[] | undefined>;
 
 	/** An unordered list of patch stacks for a given repository */
-	readonly patchStacks: Readable<CloudPatchStack[] | undefined>;
+	readonly branches: Readable<CloudBranch[] | undefined>;
 
 	constructor(
 		readonly repositoryId: Readable<string | undefined>,
-		private readonly patchStacksApiService: PatchStacksApiService
+		private readonly branchesApiService: BranchesApiService
 	) {
 		const values = derived(
-			[this.patchStacksApiService.canGetPatchStacks, this.repositoryId],
+			[this.branchesApiService.canGetBranches, this.repositoryId],
 			(values) => values
 		);
 
-		this.#apiPatchStacks = writableDerived<
-			ApiPatchStack[] | undefined,
-			[boolean, string | undefined]
-		>(values, undefined, ([canGetPatchStacks, repositoryId], set) => {
-			if (!repositoryId || !canGetPatchStacks) {
-				set(undefined);
-				return;
+		this.#apiBranches = writableDerived<ApiBranch[] | undefined, [boolean, string | undefined]>(
+			values,
+			undefined,
+			([canGetBranches, repositoryId], set) => {
+				if (!repositoryId || !canGetBranches) {
+					set(undefined);
+					return;
+				}
+
+				let canceled = false;
+
+				const callback = (() => {
+					this.branchesApiService.getBranches(repositoryId).then((cloudBranches) => {
+						if (!canceled) set(cloudBranches);
+					});
+				}).bind(this);
+
+				// Automatically refresh every 15 minutes
+				callback();
+				const interval = setInterval(callback, MINUTES_15);
+
+				return () => {
+					canceled = true;
+					clearInterval(interval);
+				};
 			}
+		);
 
-			let canceled = false;
-
-			const callback = (() => {
-				this.patchStacksApiService.getPatchStacks(repositoryId).then((patchStacks) => {
-					if (!canceled) set(patchStacks);
-				});
-			}).bind(this);
-
-			// Automatically refresh every 15 minutes
-			callback();
-			const interval = setInterval(callback, MINUTES_15);
-
-			return () => {
-				canceled = true;
-				clearInterval(interval);
-			};
+		this.branches = derived(this.#apiBranches, (apiBranches) => {
+			return apiBranches?.map((apiBranch) => new CloudBranch(apiBranch));
 		});
 
-		this.patchStacks = derived(this.#apiPatchStacks, (apiPatchStacks) => {
-			return apiPatchStacks?.map((apiPatchStack) => new CloudPatchStack(apiPatchStack));
-		});
-
-		this.canCreatePatchStack = derived(
-			[this.repositoryId, this.patchStacksApiService.canCreatePatchStack],
-			([repositoryId, canCreatePatchStack]) => !!repositoryId && !!canCreatePatchStack
+		this.canCreateBranch = derived(
+			[this.repositoryId, this.branchesApiService.canCreateBranch],
+			([repositoryId, canCreateBranch]) => !!repositoryId && !!canCreateBranch
 		);
 	}
 
-	async createPatchStack(branchId: string, oplogSha: string): Promise<CloudPatchStack> {
+	async createBranch(branchId: string, oplogSha: string): Promise<CloudBranch> {
 		const repositoryId = get(this.repositoryId);
 
 		// Repository ID will be defined
-		if (!this.canCreatePatchStack) {
+		if (!this.canCreateBranch) {
 			throw new Error('Can not create a patch stack');
 		}
 
-		const apiPatchStack = await this.patchStacksApiService.createPatchStack(repositoryId!, {
+		const apiBranch = await this.branchesApiService.createBranch(repositoryId!, {
 			branch_id: branchId,
 			oplog_sha: oplogSha
 		});
@@ -285,57 +278,58 @@ export class CloudPatchStacksService {
 		// TODO(CTO): Determine whether updating like this is preferable to
 		// doing a full refresh.
 		// A full refresh will ensure consistency, but will be more expensive.
-		this.#apiPatchStacks.update((apiPatchStacks) => [...(apiPatchStacks || []), apiPatchStack]);
+		this.#apiBranches.update((apiBranches) => [...(apiBranches || []), apiBranch]);
 
-		return new CloudPatchStack(apiPatchStack);
+		return new CloudBranch(apiBranch);
 	}
 
 	/** Refresh the list of patch stacks */
 	async refresh(): Promise<void> {
 		const repositoryId = get(this.repositoryId);
-		const canGetPatchStacks = get(this.patchStacksApiService.canGetPatchStacks);
+		const canGetBranches = get(this.branchesApiService.canGetBranches);
 
-		if (repositoryId && canGetPatchStacks) {
-			const patchStacks = await this.patchStacksApiService.getPatchStacks(repositoryId);
-			this.#apiPatchStacks.set(patchStacks);
+		if (repositoryId && canGetBranches) {
+			const branches = await this.branchesApiService.getBranches(repositoryId);
+			this.#apiBranches.set(branches);
 		} else {
-			this.#apiPatchStacks.set(undefined);
+			this.#apiBranches.set(undefined);
 		}
 	}
 
-	#patchStacksByBranchIds = new Map<string, Readable<LoadableOptional<CloudPatchStack>>>();
-	patchStackForBranchId(branchId: string): Readable<LoadableOptional<CloudPatchStack>> {
-		let store = this.#patchStacksByBranchIds.get(branchId);
+	#branchesByBranchIds = new Map<string, Readable<LoadableOptional<CloudBranch>>>();
+	/** Finds a cloud branch for a given client branch ID */
+	branchForBranchId(branchId: string): Readable<LoadableOptional<CloudBranch>> {
+		let store = this.#branchesByBranchIds.get(branchId);
 		if (store) return store;
 
-		store = derived(this.patchStacks, (patchStacks): LoadableOptional<CloudPatchStack> => {
-			if (!patchStacks) return { state: 'uninitialized' };
-			const patchStack = patchStacks.find((patchStack) => patchStack.branchId === branchId);
-			if (patchStack) {
-				return { state: 'found', value: patchStack };
+		store = derived(this.branches, (branches): LoadableOptional<CloudBranch> => {
+			if (!branches) return { state: 'uninitialized' };
+			const branch = branches.find((cloudBranch) => cloudBranch.branchId === branchId);
+			if (branch) {
+				return { state: 'found', value: branch };
 			} else {
 				return { state: 'not-found' };
 			}
 		});
-		this.#patchStacksByBranchIds.set(branchId, store);
+		this.#branchesByBranchIds.set(branchId, store);
 		return store;
 	}
 
-	#patchStacksByIds = new Map<string, Readable<LoadableOptional<CloudPatchStack>>>();
-	patchStackForId(patchStackId: string): Readable<LoadableOptional<CloudPatchStack>> {
-		let store = this.#patchStacksByIds.get(patchStackId);
+	#branchesByIds = new Map<string, Readable<LoadableOptional<CloudBranch>>>();
+	branchForId(cloudBranchId: string): Readable<LoadableOptional<CloudBranch>> {
+		let store = this.#branchesByIds.get(cloudBranchId);
 		if (store) return store;
 
-		store = derived(this.patchStacks, (patchStacks): LoadableOptional<CloudPatchStack> => {
-			if (!patchStacks) return { state: 'uninitialized' };
-			const patchStack = patchStacks.find((patchStack) => patchStack.uuid === patchStackId);
-			if (patchStack) {
-				return { state: 'found', value: patchStack };
+		store = derived(this.branches, (branches): LoadableOptional<CloudBranch> => {
+			if (!branches) return { state: 'uninitialized' };
+			const branch = branches.find((cloudBranch) => cloudBranch.uuid === cloudBranchId);
+			if (branch) {
+				return { state: 'found', value: branch };
 			} else {
 				return { state: 'not-found' };
 			}
 		});
-		this.#patchStacksByIds.set(patchStackId, store);
+		this.#branchesByIds.set(cloudBranchId, store);
 		return store;
 	}
 }
