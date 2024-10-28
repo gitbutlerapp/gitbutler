@@ -54,6 +54,46 @@ export interface ApiPatch {
 	review_all: ApiPatchReview;
 }
 
+export type ApiDiffSection = {
+	id: number;
+	section_type: 'diff';
+	identifier?: string;
+	title?: string;
+	position?: number;
+
+	diff_sha: string;
+	base_file_sha: string;
+	new_file_sha: string;
+	old_path?: string;
+	old_size?: number;
+	new_path?: string;
+	new_size?: number;
+	hunks?: number;
+	lines?: number;
+	deletions?: number;
+	diff_patch?: string;
+};
+
+export type ApiTextSection = {
+	id: number;
+	section_type: 'text';
+	identifier?: string;
+	title?: string;
+	position?: number;
+
+	version?: number;
+	type?: string;
+	code?: string;
+	plain_text?: string;
+	data?: unknown;
+};
+
+export type ApiSection = ApiDiffSection | ApiTextSection;
+
+export interface ApiPatchWithFiles extends ApiPatch {
+	sections: ApiSection[];
+}
+
 export class CloudPatch {
 	changeId: string;
 	commitSha: string;
@@ -77,6 +117,97 @@ export class CloudPatch {
 		this.statistics = new CloudPatchStatsitics(apiPatch.statistics);
 		this.review = new CloudPatchReview(apiPatch.review);
 		this.reviewAll = new CloudPatchReview(apiPatch.review_all);
+	}
+}
+
+interface CloudSection {
+	id: number;
+	sectionType: string;
+	identifier?: string;
+	title?: string;
+	position?: number;
+}
+
+class CloudTextSection implements CloudSection {
+	id: number;
+	sectionType: 'text' = 'text' as const;
+	identifier?: string | undefined;
+	title?: string | undefined;
+	position?: number | undefined;
+
+	version?: number;
+	type?: string;
+	code?: string;
+	plainText?: string;
+	data?: unknown;
+
+	constructor(apiTextSection: ApiTextSection) {
+		this.id = apiTextSection.id;
+		this.identifier = apiTextSection.identifier;
+		this.title = apiTextSection.title;
+		this.position = apiTextSection.position;
+		this.version = apiTextSection.version;
+		this.type = apiTextSection.type;
+		this.code = apiTextSection.code;
+		this.plainText = apiTextSection.plain_text;
+		this.data = apiTextSection.data;
+	}
+}
+class CloudDiffSection implements CloudSection {
+	id: number;
+	sectionType: 'diff' = 'diff' as const;
+	identifier?: string | undefined;
+	title?: string | undefined;
+	position?: number | undefined;
+
+	diffSha: string;
+	baseFileSha: string;
+	newFileSha: string;
+	oldPath?: string;
+	oldSize?: number;
+	newPath?: string;
+	newSize?: number;
+	hunks: number;
+	lines?: number;
+	deletions?: number;
+	diffPatch?: string;
+
+	constructor(apiDiffSection: ApiDiffSection) {
+		this.id = apiDiffSection.id;
+		this.identifier = apiDiffSection.identifier;
+		this.title = apiDiffSection.title;
+		this.position = apiDiffSection.position;
+
+		this.diffSha = apiDiffSection.diff_sha;
+		this.baseFileSha = apiDiffSection.base_file_sha;
+		this.newFileSha = apiDiffSection.new_file_sha;
+		this.oldPath = apiDiffSection.old_path;
+		this.oldSize = apiDiffSection.old_size;
+		this.newPath = apiDiffSection.new_path;
+		this.newSize = apiDiffSection.new_size;
+		this.hunks = apiDiffSection.hunks || 0;
+		this.lines = apiDiffSection.lines;
+		this.deletions = apiDiffSection.deletions;
+		this.diffPatch = apiDiffSection.diff_patch;
+	}
+}
+
+export class CloudPatchWithFiles extends CloudPatch {
+	sections: (CloudDiffSection | CloudTextSection)[];
+
+	constructor(apiPatchWithFiles: ApiPatchWithFiles) {
+		super(apiPatchWithFiles);
+
+		this.sections = apiPatchWithFiles.sections.map((section) => {
+			if (section.section_type === 'diff') {
+				return new CloudDiffSection(section);
+			} else if (section.section_type === 'text') {
+				return new CloudTextSection(section);
+			} else {
+				// In case the api gets updated
+				throw new Error(`Encountered unexpected section type ${(section as any).section_type}`);
+			}
+		});
 	}
 }
 
