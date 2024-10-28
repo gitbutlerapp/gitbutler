@@ -11,7 +11,17 @@
 		type?: 'info' | 'warning' | 'error' | 'success';
 		title?: string;
 		noPadding?: boolean;
+		/**
+		 * Callback to be called when the modal is closed.
+		 *
+		 * Whether closing by clicking outside the modal, subtmitting the form or calling the `close` function.
+		 * This is called after the closing animation is finished.
+		 */
 		onClose?: () => void;
+		/**
+		 * Callback to be called when the modal is closed by clicking outside the modal.
+		 */
+		onClickOutside?: () => void;
 		onSubmit?: (close: () => void) => void;
 		onKeyDown?: (e: KeyboardEvent) => void;
 		children: Snippet<[item: any, close: () => void]>;
@@ -23,6 +33,7 @@
 		title,
 		type = 'info',
 		onClose,
+		onClickOutside,
 		children,
 		controls,
 		onSubmit,
@@ -33,6 +44,7 @@
 	let open = $state(false);
 	let item = $state<any>();
 	let isClosing = $state(false);
+	let closingPromise: Promise<void> | undefined = undefined;
 
 	function handleKeyDown(event: KeyboardEvent) {
 		if (event.key === 'Escape') {
@@ -52,14 +64,23 @@
 		window.addEventListener('keydown', handleKeyDown);
 	}
 
-	export function close() {
+	export function close(): Promise<void> {
+		if (!open) return Promise.resolve();
+		if (isClosing && closingPromise) return closingPromise;
+
 		isClosing = true;
-		setTimeout(() => {
-			item = undefined;
-			open = false;
-			isClosing = false;
-			onClose?.();
-		}, 100); // This should match the duration of the closing animation
+		closingPromise = new Promise((resolve) => {
+			setTimeout(() => {
+				item = undefined;
+				open = false;
+				isClosing = false;
+				onClose?.();
+				closingPromise = undefined;
+				resolve();
+			}, 100); // This should match the duration of the closing animation
+		});
+
+		return closingPromise;
 	}
 
 	export const imports = {
@@ -79,6 +100,7 @@
 			e.stopPropagation();
 
 			if (e.target === e.currentTarget) {
+				onClickOutside?.();
 				close();
 			}
 		}}
