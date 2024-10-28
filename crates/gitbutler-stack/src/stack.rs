@@ -480,9 +480,19 @@ impl Stack {
         let mut previous_head = repo.merge_base(self.head(), default_target.sha)?;
         for head in self.heads.clone() {
             let head_commit =
-                commit_by_oid_or_change_id(&head.target, repo, self.head(), merge_base)?
-                    .head
-                    .id();
+                match commit_by_oid_or_change_id(&head.target, repo, self.head(), merge_base) {
+                    Ok(commits_for_id) => commits_for_id.head.id(),
+                    Err(e) => {
+                        // The series may have been integrated
+                        tracing::warn!(
+                            "Failed to find commit with commit_or_change_id: {} for head: {}, {}",
+                            head.target,
+                            head.name,
+                            e
+                        );
+                        continue;
+                    }
+                };
 
             let mut local_patches = vec![];
             for commit in repo
