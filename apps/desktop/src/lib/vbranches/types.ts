@@ -487,3 +487,21 @@ export interface GitHubIdentifier {
  * Represents identifiers for the series at possible forges, eg. GitHub PR numbers.
  */
 export type ForgeIdentifier = { type: 'GitHub'; subject: GitHubIdentifier };
+
+/**
+ * @desc Represents the order of series (branches) and changes (commits) in a stack.
+ * @property {SeriesOrder[]} series - The series are ordered from newest to oldest (most recent stacks go first).
+ */
+export class StackOrder {
+	series!: SeriesOrder[];
+}
+
+/**
+ * @desc Represents the order of changes (commits) in a series (branch).
+ * @property {string} name - Unique name of the series (branch). Must already exist in the stack.
+ * @property {string[]} commitIds - This is the desired commit order for the series. Because the commits will be rabased, naturally, the the commit ids will be different afte updating. The changes are ordered from newest to oldest (most recent changes go first)
+ */
+export class SeriesOrder {
+	name!: string;
+	commitIds!: string[];
+}
