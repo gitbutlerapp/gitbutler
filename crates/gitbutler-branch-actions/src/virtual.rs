@@ -947,7 +947,7 @@ pub(crate) struct IsCommitIntegrated<'repo> {
 }
 
 impl<'repo> IsCommitIntegrated<'repo> {
-    fn new(ctx: &'repo CommandContext, target: &Target) -> anyhow::Result<Self> {
+    pub(crate) fn new(ctx: &'repo CommandContext, target: &Target) -> anyhow::Result<Self> {
         let remote_branch = ctx
             .repository()
             .maybe_find_branch_by_refname(&target.branch.clone().into())?

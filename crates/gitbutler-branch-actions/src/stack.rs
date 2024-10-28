@@ -6,7 +6,7 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_project::Project;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::PatchReferenceUpdate;
+use gitbutler_stack::{PatchReferenceUpdate, Series};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
@@ -130,18 +130,25 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
     let stack = state.get_branch(branch_id)?;
 
     let repo = ctx.repository();
-    let merge_base =
-        repo.find_commit(repo.merge_base(stack.head(), state.get_default_target()?.sha)?)?;
+    let default_target = state.get_default_target()?;
+    let merge_base = repo.find_commit(repo.merge_base(stack.head(), default_target.sha)?)?;
     let merge_base = if let Some(change_id) = merge_base.change_id() {
         CommitOrChangeId::ChangeId(change_id)
     } else {
         CommitOrChangeId::CommitId(merge_base.id().to_string())
     };
 
+    // First fetch, because we dont want to push integrated series
+    ctx.fetch(&default_target.push_remote_name(), None)?;
+    let check_commit = IsCommitIntegrated::new(ctx, &default_target)?;
     let stack_series = stack.list_series(ctx)?;
     for series in stack_series {
         if series.head.target == merge_base {
             // Nothing to push for this one
+            continue;
+        }
+        if series_integrated(&check_commit, &series)? {
+            // Already integrated, nothing to push
             continue;
         }
         let push_details = stack.push_details(ctx, series.head.name)?;
@@ -154,6 +161,16 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
         )?
     }
     Ok(())
+}
+
+fn series_integrated(check_commit: &IsCommitIntegrated, series: &Series) -> Result<bool> {
+    let mut is_integrated = false;
+    for commit in series.clone().local_commits.iter().rev() {
+        if !is_integrated {
+            is_integrated = check_commit.is_integrated(commit)?;
+        }
+    }
+    Ok(is_integrated)
 }
 
 /// Returns the stack series for the API.
