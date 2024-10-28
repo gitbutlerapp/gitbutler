@@ -181,6 +181,7 @@
 
 	<div class="branch-info">
 		<StackingStatusIcon
+			{branchType}
 			lineTop={isTopSeries ? false : true}
 			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 			iconColor="var(--clr-core-ntrl-100)"
