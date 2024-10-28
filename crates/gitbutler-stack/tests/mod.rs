@@ -168,6 +168,11 @@ fn add_multiple_series() -> Result<()> {
         head_names(&test_ctx),
         vec!["head_1", "head_2", "a-branch-2", "head_4"]
     );
+
+    // prune is noop
+    let before_prune = test_ctx.branch.heads.clone();
+    test_ctx.branch.prune_integrated_heads(&ctx)?;
+    assert_eq!(before_prune, test_ctx.branch.heads);
     Ok(())
 }
 
@@ -1083,6 +1088,78 @@ fn set_legacy_refname_pushed() -> Result<()> {
         .set_legacy_compatible_stack_reference(&ctx)?;
     // no changes
     assert_eq!(initial_state, test_ctx.branch);
+    Ok(())
+}
+
+#[test]
+fn prune_heads_noop() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.initialize(&ctx)?;
+    let initial_state = test_ctx.branch.heads.clone();
+    test_ctx.branch.prune_integrated_heads(&ctx)?;
+    assert_eq!(initial_state, test_ctx.branch.heads);
+    // Assert persisted
+    assert_eq!(
+        test_ctx.branch,
+        test_ctx.handle.get_branch(test_ctx.branch.id)?
+    );
+    Ok(())
+}
+
+#[test]
+fn prune_heads_success() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.initialize(&ctx)?;
+    let initial_state = test_ctx.branch.heads.clone();
+    // adding a commit that is not in the stack
+    test_ctx.branch.heads.insert(
+        0,
+        PatchReference {
+            target: test_ctx.other_commits.first().cloned().unwrap().into(),
+            name: "foo".to_string(),
+            description: None,
+        },
+    );
+    assert_eq!(test_ctx.branch.heads.len(), 2);
+    test_ctx.branch.prune_integrated_heads(&ctx)?;
+    assert_eq!(test_ctx.branch.heads.len(), 1);
+    assert_eq!(initial_state, test_ctx.branch.heads);
+    // Assert persisted
+    assert_eq!(
+        test_ctx.branch,
+        test_ctx.handle.get_branch(test_ctx.branch.id)?
+    );
+    Ok(())
+}
+
+#[test]
+fn does_not_prune_head_on_merge_base() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.initialize(&ctx)?;
+    let merge_base = ctx.repository().find_commit(
+        ctx.repository()
+            .merge_base(test_ctx.branch.head(), test_ctx.default_target.sha)?,
+    )?;
+    test_ctx.branch.add_series(
+        &ctx,
+        PatchReference {
+            target: merge_base.into(),
+            name: "bottom".to_string(),
+            description: None,
+        },
+        None,
+    )?;
+    let initial_state = test_ctx.branch.heads.clone();
+    test_ctx.branch.prune_integrated_heads(&ctx)?;
+    assert_eq!(initial_state, test_ctx.branch.heads);
+    // Assert persisted
+    assert_eq!(
+        test_ctx.branch,
+        test_ctx.handle.get_branch(test_ctx.branch.id)?
+    );
     Ok(())
 }
 
