@@ -55,7 +55,7 @@
 		}
 	});
 
-	let contextMenu: FileContextMenu;
+	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
 
 	let draggableEl: HTMLDivElement | undefined = $state();
 	let checked = $state(false);
@@ -178,9 +178,9 @@
 	ondragstart={handleDragStart}
 	oncontextmenu={(e) => {
 		if (fileIdSelection.has(file.id, $commit?.id)) {
-			contextMenu.open(e, { files: draggableFiles });
+			contextMenu?.open(e, { files: draggableFiles });
 		} else {
-			contextMenu.open(e, { files: [file] });
+			contextMenu?.open(e, { files: [file] });
 		}
 	}}
 />
