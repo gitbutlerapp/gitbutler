@@ -1,4 +1,5 @@
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
+use gitbutler_patch_reference::ForgeIdentifier;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
@@ -75,6 +76,24 @@ pub fn update_series_description(
         branch_id,
         head_name,
         description,
+    )?;
+    emit_vbranches(&windows, project_id);
+    Ok(())
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects, windows), err(Debug))]
+pub fn update_series_forge_ids(
+    windows: State<'_, WindowState>,
+    projects: State<'_, projects::Controller>,
+    project_id: ProjectId,
+    stack_id: StackId,
+    head_name: String,
+    forge_ids: Vec<ForgeIdentifier>,
+) -> Result<(), Error> {
+    let project = projects.get(project_id)?;
+    gitbutler_branch_actions::stack::update_series_forge_ids(
+        &project, stack_id, head_name, forge_ids,
     )?;
     emit_vbranches(&windows, project_id);
     Ok(())
