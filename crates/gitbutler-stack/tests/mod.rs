@@ -1197,7 +1197,7 @@ fn set_forge_identifiers_success() -> Result<()> {
     test_ctx.branch.initialize(&ctx)?;
     let result = test_ctx.branch.set_forge_ids(
         &ctx,
-        "a-branch-2".to_string(),
+        "a-branch-2",
         vec![ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })],
     );
     assert!(result.is_ok());
@@ -1220,7 +1220,7 @@ fn set_forge_identifiers_series_not_found_fails() -> Result<()> {
     test_ctx.branch.initialize(&ctx)?;
     let result = test_ctx.branch.set_forge_ids(
         &ctx,
-        "does-not-exist".to_string(),
+        "does-not-exist",
         vec![ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })],
     );
     assert_eq!(

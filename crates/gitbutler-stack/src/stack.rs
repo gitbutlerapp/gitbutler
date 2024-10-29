@@ -666,7 +666,7 @@ impl Stack {
     pub fn set_forge_ids(
         &mut self,
         ctx: &CommandContext,
-        series_name: String,
+        series_name: &str,
         new_forge_ids: Vec<ForgeIdentifier>,
     ) -> Result<()> {
         if !self.initialized() {
@@ -716,6 +716,10 @@ impl Stack {
             self.update_series(ctx, head.name.clone(), &update)?;
         }
         Ok(())
+    }
+
+    pub fn heads(&self) -> Vec<String> {
+        self.heads.iter().map(|h| h.name.clone()).collect()
     }
 }
 

@@ -140,7 +140,7 @@ pub fn update_series_forge_ids(
     let ctx = &open_with_verify(project)?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
-    stack.set_forge_ids(ctx, head_name, forge_ids)
+    stack.set_forge_ids(ctx, &head_name, forge_ids)
 }
 
 /// Pushes all series in the stack to the remote.

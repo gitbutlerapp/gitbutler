@@ -6,6 +6,7 @@ use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
+use gitbutler_patch_reference::ForgeIdentifier;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -122,6 +123,7 @@ impl BranchManager<'_> {
         &self,
         target: &Refname,
         upstream_branch: Option<RemoteRefname>,
+        forge_id: Option<ForgeIdentifier>,
         perm: &mut WorktreeWritePermission,
     ) -> Result<StackId> {
         // only set upstream if it's not the default target
@@ -247,6 +249,9 @@ impl BranchManager<'_> {
             )
         };
 
+        if let (Some(forge_id), Some(head)) = (forge_id, branch.heads().last()) {
+            branch.set_forge_ids(self.ctx, head, vec![forge_id])?;
+        }
         branch.set_stack_head(self.ctx, head_commit.id(), Some(head_commit_tree.id()))?;
         self.ctx.add_branch_reference(&branch)?;
 

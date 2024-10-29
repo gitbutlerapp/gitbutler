@@ -10,6 +10,7 @@ pub mod commands {
         RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranches,
     };
     use gitbutler_command_context::CommandContext;
+    use gitbutler_patch_reference::ForgeIdentifier;
     use gitbutler_project as projects;
     use gitbutler_project::{FetchResult, ProjectId};
     use gitbutler_reference::{normalize_branch_name as normalize_name, Refname, RemoteRefname};
@@ -101,10 +102,12 @@ pub mod commands {
         project_id: ProjectId,
         branch: Refname,
         remote: Option<RemoteRefname>,
+        forge_id: Option<ForgeIdentifier>,
     ) -> Result<StackId, Error> {
         let project = projects.get(project_id)?;
-        let branch_id =
-            gitbutler_branch_actions::create_virtual_branch_from_branch(&project, &branch, remote)?;
+        let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
+            &project, &branch, remote, forge_id,
+        )?;
         emit_vbranches(&windows, project_id);
         Ok(branch_id)
     }
