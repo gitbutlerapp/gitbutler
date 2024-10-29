@@ -94,7 +94,7 @@ body {
 }
 
 .locked-file-animation {
-	--locked-color: oklch(from var(--clr-scale-warn-50) l c h / 0.2);
+	--locked-color: color-mix(in srgb, var(--clr-scale-warn-50), transparent 80%);
 	border: 1px solid var(--clr-bg-1);
 	animation: locked-file-animation 1.4s ease-out forwards;
 }

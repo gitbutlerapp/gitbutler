@@ -324,7 +324,7 @@
 		}
 
 		&::placeholder {
-			color: oklch(from var(--clr-scale-ntrl-30) l c h / 0.4);
+			color: var(--clr-text-3);
 		}
 	}
 

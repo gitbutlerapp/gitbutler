@@ -60,7 +60,7 @@
 
 			&:hover {
 				color: var(--clr-scale-pop-10);
-				background: oklch(from var(--clr-scale-pop-70) calc(l - 0.03) c h);
+				background-color: color-mix(in srgb, var(--clr-scale-pop-60), transparent 60%);
 			}
 		}
 

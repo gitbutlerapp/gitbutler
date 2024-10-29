@@ -91,7 +91,7 @@
 			transform: scale(1.01);
 
 			.animated-rectangle rect {
-				fill: oklch(from var(--clr-scale-pop-50) l c h / 0.16);
+				fill: color-mix(in srgb, var(--clr-scale-pop-50), transparent 84%);
 			}
 
 			.dropzone-label {
@@ -152,7 +152,7 @@
 		height: 100%;
 
 		& rect {
-			fill: oklch(from var(--clr-scale-pop-50) l c h / 0.1);
+			fill: color-mix(in srgb, var(--clr-scale-pop-50), transparent 90%);
 			stroke: var(--clr-scale-pop-50);
 
 			stroke-width: 2px;

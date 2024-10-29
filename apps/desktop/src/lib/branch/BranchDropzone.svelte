@@ -168,7 +168,7 @@
 		left: 35px;
 		width: 77px;
 		height: 83px;
-		background-color: oklch(from var(--clr-scale-ntrl-60) l c h / 0.2);
+		background-color: color-mix(in srgb, var(--clr-scale-ntrl-60), transparent 80%);
 		border-radius: 12px;
 	}
 
@@ -214,8 +214,8 @@
 	/* DRAGZONE MODIEFIERS */
 	.activated {
 		&.new-virtual-branch {
-			background-color: oklch(from var(--clr-scale-pop-70) l c h / 0.1);
-			border: 1px dashed oklch(from var(--clr-scale-pop-40) l c h / 0.8);
+			background-color: color-mix(in srgb, var(--clr-scale-pop-70), transparent 90%);
+			border: 1px dashed color-mix(in srgb, var(--clr-scale-pop-40), transparent 20%);
 			color: var(--clr-scale-pop-50);
 		}
 

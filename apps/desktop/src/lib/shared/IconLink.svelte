@@ -36,7 +36,7 @@
 
 		&:hover {
 			color: var(--clr-text-1);
-			background-color: oklch(from var(--clr-scale-ntrl-0) l c h / 0.05);
+			background-color: color-mix(in srgb, var(--clr-scale-ntrl-0), transparent 50%);
 		}
 	}
 </style>
