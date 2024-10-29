@@ -445,6 +445,12 @@ export class PatchSeries {
 	@Type(() => DetailedCommit)
 	upstreamPatches!: DetailedCommit[];
 
+	/**
+	 * A list of identifiers for the review unit at possible forges (eg. Pull Request).
+	 * The list is empty if there is no review units, eg. no Pull Request has been created.
+	 */
+	forgeIds!: ForgeIdentifier[];
+
 	get localCommits() {
 		return this.patches.filter((c) => c.status === 'local');
 	}
@@ -465,3 +471,14 @@ export class PatchSeries {
 		return this.name?.replace('refs/remotes/origin/', '');
 	}
 }
+
+/**
+ * Represents a GitHub Pull Request identifier.
+ */
+export interface GitHubIdentifier {
+	prNumber: number;
+}
+/**
+ * Represents identifiers for the series at possible forges, eg. GitHub PR numbers.
+ */
+export type ForgeIdentifier = { type: 'GitHub'; subject: GitHubIdentifier };

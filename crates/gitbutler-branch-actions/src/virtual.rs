@@ -21,6 +21,7 @@ use gitbutler_diff::{trees, GitHunk, Hunk};
 use gitbutler_error::error::Code;
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_oxidize::git2_signature_to_gix_signature;
+use gitbutler_patch_reference::ForgeIdentifier;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -96,6 +97,9 @@ pub struct PatchSeries {
     pub patches: Vec<VirtualBranchCommit>,
     /// List of patches that only exist on the upstream branch
     pub upstream_patches: Vec<VirtualBranchCommit>,
+    /// A list of identifiers for the review unit at possible forges (eg. Pull Request).
+    /// The list is empty if there is no review units, eg. no Pull Request has been created.
+    pub forge_ids: Vec<ForgeIdentifier>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]

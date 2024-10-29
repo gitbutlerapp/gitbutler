@@ -261,6 +261,7 @@ pub(crate) fn stack_series(
             upstream_reference,
             patches,
             upstream_patches,
+            forge_ids: series.head.forge_ids,
         });
     }
     api_series.reverse();
