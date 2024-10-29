@@ -45,6 +45,7 @@ pub fn create_series(
                 target: target_patch,
                 name: req.name,
                 description: req.description,
+                forge_ids: Default::default(),
             },
             req.preceding_head,
         )

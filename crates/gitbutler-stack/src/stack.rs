@@ -229,6 +229,7 @@ impl Stack {
                 generate_branch_name(author)?
             },
             description: None,
+            forge_ids: Default::default(),
         };
         let state = branch_state(ctx);
 
@@ -302,6 +303,7 @@ impl Stack {
             target: current_top_head.target.clone(),
             name,
             description,
+            forge_ids: Default::default(),
         };
         self.add_series(ctx, new_head, Some(current_top_head.name.clone()))
     }
