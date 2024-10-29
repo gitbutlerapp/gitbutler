@@ -232,10 +232,7 @@ impl Stack {
         };
         let state = branch_state(ctx);
 
-        while reference_exists(ctx, &reference.name)?
-            || patch_reference_exists(&state, &reference.name)?
-            || remote_reference_exists(ctx, &state, &reference)?
-        {
+        while patch_reference_exists(&state, &reference.name)? {
             // keep incrementing the suffix until the name is unique
             let split = reference.name.split('-');
             let left = split.clone().take(split.clone().count() - 1).join("-");
@@ -245,7 +242,7 @@ impl Stack {
                 .map(|last| format!("{}-{}", left, last + 1)) //take everything except last, and append last + 1
                 .unwrap_or_else(|| format!("{}-1", reference.name));
         }
-        validate_name(&reference, ctx, &state, self.upstream.clone())?;
+        validate_name(&reference, &state)?;
         self.heads = vec![reference];
         state.set_branch(self.clone())
     }
@@ -281,7 +278,7 @@ impl Stack {
         };
         let state = branch_state(ctx);
         let patches = stack_patches(ctx, &state, self.head(), true)?;
-        validate_name(&new_head, ctx, &state, None)?;
+        validate_name(&new_head, &state)?;
         validate_target(&new_head, ctx.repository(), self.head(), &state)?;
         let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches)?;
         self.heads = updated_heads;
@@ -387,7 +384,7 @@ impl Stack {
                 .find(|h: &&mut PatchReference| h.name == branch_name);
             if let Some(head) = head {
                 head.name = name;
-                validate_name(head, ctx, &state, self.upstream.clone())?;
+                validate_name(head, &state)?;
             }
         }
 
@@ -802,28 +799,12 @@ fn stack_patches(
 ///  - unique within all stacks
 ///  - not the same as any existing local git reference (it is permitted for the name to match an existing remote reference)
 ///  - not including the `refs/heads/` prefix
-fn validate_name(
-    reference: &PatchReference,
-    ctx: &CommandContext,
-    state: &VirtualBranchesHandle,
-    legacy_branch_ref: Option<RemoteRefname>,
-) -> Result<()> {
-    let legacy_branch_ref = legacy_branch_ref.map(|r| r.branch().to_string());
+fn validate_name(reference: &PatchReference, state: &VirtualBranchesHandle) -> Result<()> {
     if reference.name.starts_with("refs/heads") {
         return Err(anyhow!("Stack head name cannot start with 'refs/heads'"));
     }
     // assert that the name is a valid branch name
     name_partial(reference.name.as_str().into()).context("Invalid branch name")?;
-    // assert that there is no local git reference with this name
-    if reference_exists(ctx, &reference.name)? {
-        // Allow the reference overlap if it is the same as the legacy branch ref
-        if legacy_branch_ref != Some(reference.name.clone()) {
-            return Err(anyhow!(
-                "A git reference with the name {} exists",
-                &reference.name
-            ));
-        }
-    }
     // assert that there are no existing patch references with this name
     if patch_reference_exists(state, &reference.name)? {
         return Err(anyhow!(
@@ -902,29 +883,12 @@ pub struct CommitsForId<'a> {
     pub tail: Vec<Commit<'a>>,
 }
 
-fn reference_exists(ctx: &CommandContext, name: &str) -> Result<bool> {
-    let gix_repo = ctx.gix_repository()?;
-    Ok(gix_repo.find_reference(name_partial(name.into())?).is_ok())
-}
-
 fn patch_reference_exists(state: &VirtualBranchesHandle, name: &str) -> Result<bool> {
     Ok(state
-        .list_all_branches()?
+        .list_branches_in_workspace()?
         .iter()
         .flat_map(|b| b.heads.iter())
         .any(|r| r.name == name))
-}
-
-fn remote_reference_exists(
-    ctx: &CommandContext,
-    state: &VirtualBranchesHandle,
-    reference: &PatchReference,
-) -> Result<bool> {
-    Ok(reference
-        .remote_reference(state.get_default_target()?.push_remote_name().as_str())
-        .and_then(|reference| reference_exists(ctx, &reference))
-        .ok()
-        .unwrap_or(false))
 }
 
 fn generate_branch_name(author: git2::Signature) -> Result<String> {

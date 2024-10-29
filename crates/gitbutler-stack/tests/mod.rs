@@ -233,20 +233,17 @@ fn add_series_duplicate_name_fails() -> Result<()> {
 }
 
 #[test]
-fn add_series_matching_git_ref_fails() -> Result<()> {
+fn add_series_matching_git_ref_is_ok() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     test_ctx.branch.initialize(&ctx)?;
     let reference = PatchReference {
         name: "existing-branch".into(),
-        target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
+        target: test_ctx.commits[0].clone().into(),
         description: None,
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
-    assert_eq!(
-        result.err().unwrap().to_string(),
-        "A git reference with the name existing-branch exists"
-    );
+    assert!(result.is_ok()); // allow this
     Ok(())
 }
 
