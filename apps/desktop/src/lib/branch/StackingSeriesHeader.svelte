@@ -268,11 +268,6 @@
 		</div>
 	{/if}
 
-	<div class="branch-action">
-		<div class="branch-action__line" style:--bg-color={lineColor}></div>
-		<div class="branch-action__body"></div>
-	</div>
-
 	{#if $pr}
 		<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
 	{:else}
