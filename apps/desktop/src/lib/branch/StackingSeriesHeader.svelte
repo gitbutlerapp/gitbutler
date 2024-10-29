@@ -33,11 +33,11 @@
 	interface Props {
 		currentSeries: PatchSeries;
 		isTopSeries: boolean;
-		sequanceId: number;
+		sequenceId: number;
 		seqenceAmount: number;
 	}
 
-	const { currentSeries, isTopSeries, sequanceId, seqenceAmount }: Props = $props();
+	const { currentSeries, isTopSeries, sequenceId, seqenceAmount }: Props = $props();
 
 	let descriptionVisible = $state(false);
 
@@ -213,9 +213,9 @@
 			/>
 		</div>
 		{#if seqenceAmount > 1}
-			<Tooltip text="Sequance {sequanceId} of {seqenceAmount}">
-				<span class="text-10 text-semibold branch-info__sequance">
-					{sequanceId}/{seqenceAmount}
+			<Tooltip text="Sequence {sequenceId} of {seqenceAmount}">
+				<span class="text-10 text-semibold branch-info__sequence">
+					{sequenceId}/{seqenceAmount}
 				</span>
 			</Tooltip>
 		{/if}
@@ -327,7 +327,7 @@
 		flex-grow: 1;
 	}
 
-	.branch-info__sequance {
+	.branch-info__sequence {
 		padding: 2px;
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-3);

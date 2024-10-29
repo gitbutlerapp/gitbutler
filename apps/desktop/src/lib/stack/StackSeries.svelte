@@ -33,7 +33,7 @@
 		<StackingSeriesHeader
 			{currentSeries}
 			{isTopSeries}
-			sequanceId={branch.series.length - idx}
+			sequenceId={branch.series.length - idx}
 			seqenceAmount={branch.series.length}
 		/>
 
