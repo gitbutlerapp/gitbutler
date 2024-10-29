@@ -5,7 +5,7 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
@@ -23,7 +23,11 @@
 		const unsubscribeopenInEditor = listen<string>(
 			'menu://project/open-in-vscode/clicked',
 			async () => {
-				const path = `${$userSettings.defaultCodeEditor.schemeIdentifer}://file${project.vscodePath}?windowId=_blank`;
+				const path = getEditorUri({
+					schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+					path: [project.vscodePath],
+					searchParams: { windowId: '_blank' }
+				});
 				openExternalUrl(path);
 			}
 		);

@@ -7,7 +7,7 @@
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { Commit, type RemoteFile } from '$lib/vbranches/types';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
@@ -16,7 +16,6 @@
 	import InfoButton from '@gitbutler/ui/InfoButton.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
-	import { join } from '@tauri-apps/api/path';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
 	import type { Writable } from 'svelte/store';
 
@@ -164,8 +163,11 @@
 
 	async function openAllConflictedFiles() {
 		for (const file of conflictedFiles) {
-			const absPath = await join(project.vscodePath, file.path);
-			openExternalUrl(`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${absPath}`);
+			const path = getEditorUri({
+				schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+				path: [project.vscodePath, file.path]
+			});
+			openExternalUrl(path);
 		}
 	}
 </script>
