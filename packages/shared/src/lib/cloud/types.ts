@@ -220,6 +220,10 @@ export class CloudPatchWithFiles extends CloudPatch {
 			}
 		});
 	}
+
+	foo() {
+		console.log('moo');
+	}
 }
 
 export const enum CloudBranchStatus {

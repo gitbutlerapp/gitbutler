@@ -83,11 +83,13 @@ export class CloudPatchService {
 			this.#apiPatch,
 			(patch): LoadableOptional<CloudPatchWithFiles> => {
 				if (patch.state === 'found') {
+					console.log('found', patch);
 					return {
 						state: 'found',
 						value: new CloudPatchWithFiles(patch.value)
 					};
 				} else {
+					console.log('notfound', patch);
 					return patch;
 				}
 			},
