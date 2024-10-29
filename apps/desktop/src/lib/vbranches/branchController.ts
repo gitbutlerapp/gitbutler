@@ -409,12 +409,17 @@ export class BranchController {
 	 * have a local branch, this should be the branch.
 	 * @param remote Optionally sets another branch as the upstream.
 	 */
-	async createvBranchFromBranch(branch: string, remote: string | undefined = undefined) {
+	async createvBranchFromBranch(
+		branch: string,
+		remote: string | undefined = undefined,
+		forgeId: ForgeIdentifier | undefined = undefined
+	) {
 		try {
 			await invoke<string>('create_virtual_branch_from_branch', {
 				projectId: this.projectId,
 				branch,
-				remote
+				remote,
+				forgeId
 			});
 		} catch (err) {
 			showError('Failed to create virtual branch', err);
