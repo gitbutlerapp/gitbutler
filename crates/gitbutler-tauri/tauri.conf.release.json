@@ -15,28 +15,18 @@
 				"icons/icon.icns",
 				"icons/icon.ico"
 			],
-			"externalBin": [
-				"gitbutler-git-setsid",
-				"gitbutler-git-askpass"
-			],
+			"externalBin": ["gitbutler-git-setsid", "gitbutler-git-askpass"],
 			"windows": {
-				"certificateThumbprint": null
-			},
-			"rpm": {
-				"depends": [
-					"webkit2gtk4.0-devel"
-				]
-			},
-			"deb": {
-				"depends": [
-					"libwebkit2gtk-4.0-dev",
-					"libgtk-3-dev"
-				]
-			},
-			"windows": {
+				"certificateThumbprint": null,
 				"wix": {
 					"template": "templates/installer.wxs"
 				}
+			},
+			"rpm": {
+				"depends": ["webkit2gtk4.0-devel"]
+			},
+			"deb": {
+				"depends": ["libwebkit2gtk-4.0-dev", "libgtk-3-dev"]
 			}
 		},
 		"security": {
