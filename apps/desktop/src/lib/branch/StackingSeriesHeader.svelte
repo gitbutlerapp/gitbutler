@@ -1,5 +1,6 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
+	import Dropzones from './Dropzones.svelte';
 	import StackingAddSeriesModal from './StackingAddSeriesModal.svelte';
 	import StackingStatusIcon from './StackingStatusIcon.svelte';
 	import { getColorFromBranchType } from './stackingUtils';
@@ -160,114 +161,116 @@
 />
 
 <div role="article" class="branch-header" oncontextmenu={(e) => e.preventDefault()}>
-	<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
-		{#if $stackingFeatureMultipleSeries}
+	<Dropzones type="commit">
+		<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
+			{#if $stackingFeatureMultipleSeries}
+				<PopoverActionsItem
+					icon="plus-small"
+					tooltip="Add dependent branch"
+					onclick={() => {
+						stackingAddSeriesModal?.show();
+					}}
+				/>
+			{/if}
+			{#if gitHostBranch}
+				<PopoverActionsItem
+					icon="open-link"
+					tooltip="Open in browser"
+					onclick={() => {
+						const url = gitHostBranch?.url;
+						if (url) openExternalUrl(url);
+					}}
+				/>
+			{/if}
 			<PopoverActionsItem
-				icon="plus-small"
-				tooltip="Add dependent branch"
+				bind:el={kebabContextMenuTrigger}
+				activated={contextMenuOpened}
+				icon="kebab"
+				tooltip="More options"
 				onclick={() => {
-					stackingAddSeriesModal?.show();
+					kebabContextMenu?.toggle();
 				}}
 			/>
-		{/if}
-		{#if gitHostBranch}
-			<PopoverActionsItem
-				icon="open-link"
-				tooltip="Open in browser"
-				onclick={() => {
-					const url = gitHostBranch?.url;
-					if (url) openExternalUrl(url);
-				}}
-			/>
-		{/if}
-		<PopoverActionsItem
-			bind:el={kebabContextMenuTrigger}
-			activated={contextMenuOpened}
-			icon="kebab"
-			tooltip="More options"
-			onclick={() => {
-				kebabContextMenu?.toggle();
-			}}
-		/>
-	</PopoverActionsContainer>
+		</PopoverActionsContainer>
 
-	<div class="branch-info">
-		<StackingStatusIcon
-			lineTop={isTopSeries ? false : true}
-			icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
-			iconColor="var(--clr-core-ntrl-100)"
-			color={lineColor}
-			lineBottom={currentSeries.patches.length > 0 || branch.series.length > 1}
-		/>
-		<div class="text-14 text-bold branch-info__name">
-			<span class:no-upstream={!gitHostBranch} class="remote-name">
-				{$baseBranch.pushRemoteName ? `${$baseBranch.pushRemoteName} /` : 'origin /'}
-			</span>
-			<BranchLabel
-				name={currentSeries.name}
-				onChange={(name) => editTitle(name)}
-				disabled={!!gitHostBranch}
+		<div class="branch-info">
+			<StackingStatusIcon
+				lineTop={isTopSeries ? false : true}
+				icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
+				iconColor="var(--clr-core-ntrl-100)"
+				color={lineColor}
+				lineBottom={currentSeries.patches.length > 0 || branch.series.length > 1}
 			/>
-		</div>
-	</div>
-	{#if descriptionVisible}
-		<div class="branch-info__description">
-			<div class="branch-action__line" style:--bg-color={lineColor}></div>
-			<BranchLabel
-				name={branch.description}
-				onChange={(description) => editDescription(description)}
-			/>
-		</div>
-	{/if}
-	{#if ($prService && !hasNoCommits) || showCreateCloudBranch}
-		<div class="branch-action">
-			<div class="branch-action__line" style:--bg-color={lineColor}></div>
-			<div class="branch-action__body">
-				{#if $prService && !hasNoCommits}
-					{#if $pr}
-						<StackingPullRequestCard
-							upstreamName={currentSeries.name}
-							reloadPR={handleReloadPR}
-							pr={$pr}
-							{checksMonitor}
-						/>
-					{:else}
-						<Button
-							style="ghost"
-							wide
-							outline
-							disabled={currentSeries.patches.length === 0 || !$gitHost || !$prService}
-							onclick={() => handleOpenPR(!gitHostBranch)}
-						>
-							Create pull request
-						</Button>
-					{/if}
-				{/if}
-
-				{#if showCreateCloudBranch}
-					<Button
-						style="ghost"
-						outline
-						disabled={branch.commits.length === 0}
-						onclick={() => {
-							cloudBranchCreationService.createBranch(branch.id);
-						}}>Publish Branch</Button
-					>
-				{/if}
+			<div class="text-14 text-bold branch-info__name">
+				<span class:no-upstream={!gitHostBranch} class="remote-name">
+					{$baseBranch.pushRemoteName ? `${$baseBranch.pushRemoteName} /` : 'origin /'}
+				</span>
+				<BranchLabel
+					name={currentSeries.name}
+					onChange={(name) => editTitle(name)}
+					disabled={!!gitHostBranch}
+				/>
 			</div>
 		</div>
-	{/if}
+		{#if descriptionVisible}
+			<div class="branch-info__description">
+				<div class="branch-action__line" style:--bg-color={lineColor}></div>
+				<BranchLabel
+					name={branch.description}
+					onChange={(description) => editDescription(description)}
+				/>
+			</div>
+		{/if}
+		{#if ($prService && !hasNoCommits) || showCreateCloudBranch}
+			<div class="branch-action">
+				<div class="branch-action__line" style:--bg-color={lineColor}></div>
+				<div class="branch-action__body">
+					{#if $prService && !hasNoCommits}
+						{#if $pr}
+							<StackingPullRequestCard
+								upstreamName={currentSeries.name}
+								reloadPR={handleReloadPR}
+								pr={$pr}
+								{checksMonitor}
+							/>
+						{:else}
+							<Button
+								style="ghost"
+								wide
+								outline
+								disabled={currentSeries.patches.length === 0 || !$gitHost || !$prService}
+								onclick={() => handleOpenPR(!gitHostBranch)}
+							>
+								Create pull request
+							</Button>
+						{/if}
+					{/if}
 
-	<div class="branch-action">
-		<div class="branch-action__line" style:--bg-color={lineColor}></div>
-		<div class="branch-action__body"></div>
-	</div>
+					{#if showCreateCloudBranch}
+						<Button
+							style="ghost"
+							outline
+							disabled={branch.commits.length === 0}
+							onclick={() => {
+								cloudBranchCreationService.createBranch(branch.id);
+							}}>Publish Branch</Button
+						>
+					{/if}
+				</div>
+			</div>
+		{/if}
 
-	{#if $pr}
-		<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
-	{:else}
-		<PrDetailsModal bind:this={prDetailsModal} type="preview-series" {currentSeries} />
-	{/if}
+		<div class="branch-action">
+			<div class="branch-action__line" style:--bg-color={lineColor}></div>
+			<div class="branch-action__body"></div>
+		</div>
+
+		{#if $pr}
+			<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
+		{:else}
+			<PrDetailsModal bind:this={prDetailsModal} type="preview-series" {currentSeries} />
+		{/if}
+	</Dropzones>
 </div>
 
 <style lang="postcss">

@@ -115,7 +115,7 @@
 					<div class="card-stacking">
 						{#if branch.files?.length > 0}
 							<div class="branch-card__files">
-								<Dropzones>
+								<Dropzones type="file">
 									<BranchFiles
 										isUnapplied={false}
 										files={branch.files}
@@ -148,7 +148,7 @@
 								/>
 							</div>
 						{:else if branch.commits.length === 0}
-							<Dropzones>
+							<Dropzones type="file">
 								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
 										{#snippet title()}
@@ -161,7 +161,7 @@
 								</div>
 							</Dropzones>
 						{:else}
-							<Dropzones>
+							<Dropzones type="file">
 								<div class="no-changes">
 									<EmptyStatePlaceholder image={noChangesSvg} width={180}>
 										{#snippet caption()}
