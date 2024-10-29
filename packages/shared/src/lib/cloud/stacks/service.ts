@@ -1,4 +1,10 @@
-import { CloudBranchStatus, type ApiBranch, CloudBranch } from '$lib/cloud/types';
+import {
+	CloudBranchStatus,
+	type ApiBranch,
+	CloudBranch,
+	MINUTES_15,
+	type LoadableOptional
+} from '$lib/cloud/types';
 import { writableDerived } from '$lib/storeUtils';
 import { derived, get, type Readable, type Writable } from 'svelte/store';
 import type { HttpClient } from '$lib/httpClient';
@@ -55,17 +61,6 @@ export class BranchesApiService {
 		});
 	}
 }
-
-const MINUTES_15 = 15 * 60 * 1000;
-
-type LoadableOptional<T> =
-	| {
-			state: 'found';
-			value: T;
-	  }
-	| {
-			state: 'uninitialized' | 'not-found';
-	  };
 
 /**
  * Provides a list of patch stacks for a given repository.

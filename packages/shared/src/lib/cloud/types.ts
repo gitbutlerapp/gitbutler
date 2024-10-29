@@ -1,3 +1,14 @@
+export const MINUTES_15 = 15 * 60 * 1000;
+
+export type LoadableOptional<T> =
+	| {
+			state: 'found';
+			value: T;
+	  }
+	| {
+			state: 'uninitialized' | 'not-found';
+	  };
+
 export interface ApiPatchStatstics {
 	file_count: number;
 	section_count: number;
