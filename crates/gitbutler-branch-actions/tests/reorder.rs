@@ -202,6 +202,38 @@ fn reorder_stack_head_to_another_series() -> Result<()> {
 }
 
 #[test]
+fn reorder_shift_last_in_series_to_previous() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let order = order(vec![
+        vec![
+            test_ctx.top_commits["commit 6"],
+            test_ctx.top_commits["commit 5"],
+        ],
+        vec![
+            test_ctx.top_commits["commit 4"], // from the top series
+            test_ctx.bottom_commits["commit 3"],
+            test_ctx.bottom_commits["commit 2"],
+            test_ctx.bottom_commits["commit 1"],
+        ],
+    ]);
+    reorder_stack(ctx.project(), test_ctx.stack.id, order.clone())?;
+    let commits = vb_commits(&ctx);
+
+    // Verify the commit messages and ids in the second (top) series - top-series
+    assert_eq!(commits[0].msgs(), vec!["commit 6", "commit 5"]);
+    assert_eq!(commits[0].ids(), order.series[0].commit_ids); // nothing was rebased
+
+    // Verify the commit messages and ids in the first (bottom) series
+    assert_eq!(
+        commits[1].msgs(),
+        vec!["commit 4", "commit 3", "commit 2", "commit 1"]
+    );
+    assert_eq!(commits[1].ids(), order.series[1].commit_ids); // nothing was rebased
+    Ok(())
+}
+
+#[test]
 fn reorder_stack_making_top_empty_series() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits-small")?;
     let test_ctx = test_ctx(&ctx)?;

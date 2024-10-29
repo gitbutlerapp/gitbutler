@@ -1,8 +1,5 @@
 <script lang="ts">
-	import {
-		CloudPatchStacksService,
-		PatchStacksApiService
-	} from '@gitbutler/shared/cloud/stacks/service';
+	import { CloudBranchesService, BranchesApiService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
 	import { setContext, type Snippet } from 'svelte';
@@ -16,9 +13,9 @@
 
 	const httpClient = getContext(HttpClient);
 
-	const patchStacksApiService = new PatchStacksApiService(httpClient);
-	const cloudPatchStacksService = new CloudPatchStacksService(repositoryId, patchStacksApiService);
-	setContext(CloudPatchStacksService, cloudPatchStacksService);
+	const cloudBranchesApiService = new BranchesApiService(httpClient);
+	const cloudBranchesService = new CloudBranchesService(repositoryId, cloudBranchesApiService);
+	setContext(CloudBranchesService, cloudBranchesService);
 </script>
 
 {@render children()}

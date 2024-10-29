@@ -5,9 +5,10 @@
 	import { getColorFromBranchType } from './stackingUtils';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
-	import { Project } from '$lib/backend/projects';
+	import { Project, ProjectService } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import StackingSeriesHeaderContextMenu from '$lib/branch/StackingSeriesHeaderContextMenu.svelte';
+	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
@@ -21,6 +22,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
+	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
@@ -81,6 +83,18 @@
 	const pr = $derived(prMonitor?.pr);
 	const checksMonitor = $derived(
 		$pr?.sourceBranch ? $gitHost?.checksMonitor($pr.sourceBranch) : undefined
+	);
+
+	const projectService = getContext(ProjectService);
+	const cloudEnabled = projectService.cloudEnabled;
+
+	const cloudBranchCreationService = getContext(CloudBranchCreationService);
+	const cloudBranchesService = getContext(CloudBranchesService);
+	const cloudBranch = $derived(cloudBranchesService.branchForBranchId(branch.id));
+	const showCreateCloudBranch = $derived(
+		$cloudEnabled &&
+			cloudBranchCreationService.canCreateBranch &&
+			$cloudBranch.state === 'not-found'
 	);
 
 	async function handleReloadPR() {
@@ -190,7 +204,7 @@
 		/>
 		<div class="text-14 text-bold branch-info__name">
 			<span class:no-upstream={!gitHostBranch} class="remote-name">
-				{$baseBranch.remoteName ? `${$baseBranch.remoteName} /` : 'origin /'}
+				{$baseBranch.pushRemoteName ? `${$baseBranch.pushRemoteName} /` : 'origin /'}
 			</span>
 			<BranchLabel
 				name={currentSeries.name}
@@ -215,26 +229,49 @@
 			/>
 		</div>
 	{/if}
-	{#if $prService && !hasNoCommits}
+	{#if ($prService && !hasNoCommits) || showCreateCloudBranch}
 		<div class="branch-action">
 			<div class="branch-action__line" style:--bg-color={lineColor}></div>
 			<div class="branch-action__body">
-				{#if $pr}
-					<StackingPullRequestCard upstreamName={currentSeries.name} reloadPR={handleReloadPR} />
-				{:else}
+				{#if $prService && !hasNoCommits}
+					{#if $pr}
+						<StackingPullRequestCard
+							upstreamName={currentSeries.name}
+							reloadPR={handleReloadPR}
+							pr={$pr}
+							{checksMonitor}
+						/>
+					{:else}
+						<Button
+							style="ghost"
+							wide
+							outline
+							disabled={currentSeries.patches.length === 0 || !$gitHost || !$prService}
+							onclick={() => handleOpenPR(!gitHostBranch)}
+						>
+							Create pull request
+						</Button>
+					{/if}
+				{/if}
+
+				{#if showCreateCloudBranch}
 					<Button
 						style="ghost"
-						wide
 						outline
-						disabled={currentSeries.patches.length === 0 || !$gitHost || !$prService}
-						onclick={() => handleOpenPR(!gitHostBranch)}
+						disabled={branch.commits.length === 0}
+						onclick={() => {
+							cloudBranchCreationService.createBranch(branch.id);
+						}}>Publish Branch</Button
 					>
-						Create pull request
-					</Button>
 				{/if}
 			</div>
 		</div>
 	{/if}
+
+	<div class="branch-action">
+		<div class="branch-action__line" style:--bg-color={lineColor}></div>
+		<div class="branch-action__body"></div>
+	</div>
 
 	{#if $pr}
 		<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />

@@ -29,7 +29,7 @@ export class Project {
 	omit_certificate_check: boolean | undefined;
 	use_diff_context: boolean | undefined;
 	snapshot_lines_threshold!: number | undefined;
-	use_new_locking!: boolean;
+	use_experimental_locking!: boolean;
 	git_host!: {
 		hostType: HostType | undefined;
 		reviewTemplatePath: string | undefined;

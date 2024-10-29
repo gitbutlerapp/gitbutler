@@ -37,6 +37,7 @@ pub fn compute_hunk_locks(
     options: HunkDependencyOptions,
 ) -> anyhow::Result<HashMap<HunkHash, Vec<HunkLock>>> {
     let HunkDependencyOptions { workdir, stacks } = options;
+
     // Transforms stack specific line numbers to workspace line numbers.
     let ranges = WorkspaceRanges::create(stacks)?;
 
@@ -44,18 +45,18 @@ pub fn compute_hunk_locks(
         .iter()
         .flat_map(|(path, workspace_hunks)| {
             workspace_hunks.iter().filter_map(|hunk| {
-                let locks = ranges
+                ranges
                     .intersection(path, hunk.old_start, hunk.old_lines)
-                    .iter()
-                    .map(|dependency| HunkLock {
-                        commit_id: dependency.commit_id,
-                        branch_id: dependency.stack_id,
+                    .map(|intersection| {
+                        intersection
+                            .iter()
+                            .map(|dependency| HunkLock {
+                                commit_id: dependency.commit_id,
+                                branch_id: dependency.stack_id,
+                            })
+                            .collect_vec()
                     })
-                    .collect_vec();
-                if locks.is_empty() {
-                    return None;
-                }
-                Some((Hunk::hash_diff(&hunk.diff_lines), locks))
+                    .map(|locks| (Hunk::hash_diff(&hunk.diff_lines), locks))
             })
         })
         .collect())

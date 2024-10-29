@@ -13,6 +13,7 @@
 	}
 
 	function login() {
+		console.log(env.PUBLIC_APP_HOST);
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login`;
 	}
 </script>

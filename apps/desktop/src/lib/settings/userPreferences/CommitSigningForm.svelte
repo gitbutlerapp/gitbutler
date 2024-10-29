@@ -18,7 +18,7 @@
 	const projectsService = getContext(ProjectsService);
 	const project = getContext(Project);
 
-	let useNewLocking = project?.use_new_locking || false;
+	let useNewLocking = project?.use_experimental_locking || false;
 	let signCommits = false;
 
 	const gitConfig = getContext(GitConfigService);
@@ -78,7 +78,7 @@
 	}
 
 	async function setUseNewLocking(value: boolean) {
-		project.use_new_locking = value;
+		project.use_experimental_locking = value;
 		await projectsService.updateProject(project);
 	}
 

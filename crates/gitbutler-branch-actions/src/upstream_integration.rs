@@ -322,6 +322,7 @@ pub(crate) fn integrate_upstream(
             };
 
             branch.set_stack_head(command_context, *head, Some(*tree))?;
+            branch.prune_integrated_heads(command_context)?;
         }
 
         // checkout_branch_trees won't checkout anything if there are no

@@ -221,7 +221,7 @@
 {:else if state === 'unauthorized'}
 	<p>Unauthorized</p>
 {:else}
-	<h2>Patch Stack: <a href="../stack">{stack.title}</a></h2>
+	<h2>Branch: <a href="../stack">{stack.title}</a></h2>
 	{#each stack.patches as stackPatch}
 		<div>
 			<code

@@ -5,7 +5,7 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
+	import { type GitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
 	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
 	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
 	import { copyToClipboard } from '$lib/utils/clipboard';
@@ -15,15 +15,18 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
+	import type { DetailedPullRequest } from '$lib/gitHost/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	interface Props {
 		upstreamName: string;
+		pr: DetailedPullRequest;
+		checksMonitor?: GitHostChecksMonitor;
 		reloadPR?: () => void;
 	}
 
-	const { upstreamName, reloadPR }: Props = $props();
+	const { upstreamName, reloadPR, pr, checksMonitor }: Props = $props();
 
 	type StatusInfo = {
 		text: string;
@@ -49,12 +52,7 @@
 	const prService = getGitHostPrService();
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 
-	// This PR has been loaded on demand, and contains more details than the version
-	// obtained when listing them.
-	const pr = $derived(prMonitor?.pr);
-
-	const checksMonitor = getGitHostChecksMonitor();
-	const checks = $derived($checksMonitor?.status);
+	const checks = $derived(checksMonitor?.status);
 
 	// While the pr monitor is set to fetch updates by interval, we want
 	// frequent updates while checks are running.
@@ -67,9 +65,9 @@
 	let isMerging = $state(false);
 
 	const mrLoading = $derived(prMonitor?.loading);
-	const checksLoading = $derived($checksMonitor?.loading);
+	const checksLoading = $derived(checksMonitor?.loading);
 
-	const checksError = $derived($checksMonitor?.error);
+	const checksError = $derived(checksMonitor?.error);
 	const detailsError = $derived(prMonitor?.error);
 
 	const checksTagInfo: StatusInfo = $derived.by(() => {
@@ -100,19 +98,19 @@
 	});
 
 	const prStatusInfo: StatusInfo = $derived.by(() => {
-		if (!$pr) {
+		if (!pr) {
 			return { text: 'Status', icon: 'spinner', style: 'neutral' };
 		}
 
-		if ($pr?.mergedAt) {
+		if (pr?.mergedAt) {
 			return { text: 'Merged', icon: 'merged-pr-small', style: 'purple' };
 		}
 
-		if ($pr?.closedAt) {
+		if (pr?.closedAt) {
 			return { text: 'Closed', icon: 'closed-pr-small', style: 'error' };
 		}
 
-		if ($pr?.draft) {
+		if (pr?.draft) {
 			return { text: 'Draft', icon: 'draft-pr-small', style: 'neutral' };
 		}
 
@@ -120,20 +118,20 @@
 	});
 </script>
 
-{#if $pr}
+{#if pr}
 	<ContextMenu bind:this={contextMenuEl} target={contextMenuTarget} openByMouse>
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Open PR in browser"
 				onclick={() => {
-					openExternalUrl($pr.htmlUrl);
+					openExternalUrl(pr.htmlUrl);
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
 				label="Copy PR link"
 				onclick={() => {
-					copyToClipboard($pr.htmlUrl);
+					copyToClipboard(pr.htmlUrl);
 					contextMenuEl?.close();
 				}}
 			/>
@@ -151,14 +149,14 @@
 					<ContextMenuItem
 						label="Open checks"
 						onclick={() => {
-							openExternalUrl(`${$pr.htmlUrl}/checks`);
+							openExternalUrl(`${pr.htmlUrl}/checks`);
 							contextMenuEl?.close();
 						}}
 					/>
 					<ContextMenuItem
 						label="Copy checks"
 						onclick={() => {
-							copyToClipboard(`${$pr.htmlUrl}/checks`);
+							copyToClipboard(`${pr.htmlUrl}/checks`);
 							contextMenuEl?.close();
 						}}
 					/>
@@ -177,8 +175,8 @@
 		}}
 	>
 		<div class="text-13 text-semibold pr-header-title">
-			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
-			<span>{$pr?.title}</span>
+			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
+			<span>{pr?.title}</span>
 		</div>
 		<div class="pr-header-tags">
 			<Button
@@ -192,7 +190,7 @@
 			>
 				{prStatusInfo.text}
 			</Button>
-			{#if !$pr?.closedAt && checksTagInfo}
+			{#if !pr?.closedAt && checksTagInfo}
 				<Button
 					size="tag"
 					clickable={false}
@@ -203,7 +201,7 @@
 					{checksTagInfo.text}
 				</Button>
 			{/if}
-			{#if $pr?.htmlUrl}
+			{#if pr?.htmlUrl}
 				<Button
 					icon="open-link"
 					size="tag"
@@ -211,7 +209,7 @@
 					outline
 					tooltip="Open in browser"
 					onclick={() => {
-						openExternalUrl($pr.htmlUrl);
+						openExternalUrl(pr.htmlUrl);
 					}}
 				>
 					View PR
@@ -227,23 +225,23 @@
         determining "no checks will run for this PR" such that we can show the merge button
         immediately.
         -->
-		{#if $pr}
+		{#if pr}
 			<div class="pr-header-actions">
 				<MergeButton
 					wide
 					projectId={project.id}
 					disabled={$mrLoading ||
 						$checksLoading ||
-						$pr?.draft ||
-						!$pr?.mergeable ||
-						['dirty', 'unknown', 'blocked', 'behind'].includes($pr?.mergeableState)}
+						pr?.draft ||
+						!pr?.mergeable ||
+						['dirty', 'unknown', 'blocked', 'behind'].includes(pr?.mergeableState)}
 					loading={isMerging}
 					on:click={async (e) => {
-						if (!$pr) return;
+						if (!pr) return;
 						isMerging = true;
 						const method = e.detail.method;
 						try {
-							await $prService?.merge(method, $pr.number);
+							await $prService?.merge(method, pr.number);
 							await baseBranchService.fetchFromRemotes();
 							await Promise.all([
 								prMonitor?.refresh(),

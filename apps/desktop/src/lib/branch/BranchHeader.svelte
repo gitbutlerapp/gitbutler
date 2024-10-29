@@ -4,7 +4,7 @@
 	import BranchLaneContextMenu from './BranchLaneContextMenu.svelte';
 	import DefaultTargetButton from './DefaultTargetButton.svelte';
 	import { ProjectService } from '$lib/backend/projects';
-	import { PatchStackCreationService } from '$lib/branch/patchStackCreationService';
+	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
@@ -13,7 +13,7 @@
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
-	import { CloudPatchStacksService } from '@gitbutler/shared/cloud/stacks/service';
+	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -40,10 +40,10 @@
 	const projectService = getContext(ProjectService);
 	const cloudEnabled = projectService.cloudEnabled;
 
-	const patchStackCreationService = getContext(PatchStackCreationService);
-	const cloudPatchStacksService = getContext(CloudPatchStacksService);
-	const patchStack = $derived(cloudPatchStacksService.patchStackForBranchId(branch.id));
-	const showCreatePatchStack = $derived($patchStack.state === 'not-found');
+	const cloudBranchCreationService = getContext(CloudBranchCreationService);
+	const cloudBranchesService = getContext(CloudBranchesService);
+	const cloudBranch = $derived(cloudBranchesService.branchForBranchId(branch.id));
+	const showCreateCloudBranch = $derived($cloudBranch.state === 'not-found');
 
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let isContexMenuOpen = $state(false);
@@ -181,13 +181,13 @@
 
 				<div class="relative">
 					<div class="header__buttons">
-						{#if $cloudEnabled && patchStackCreationService.canCreatePatchStack && showCreatePatchStack}
+						{#if $cloudEnabled && cloudBranchCreationService.canCreateBranch && showCreateCloudBranch}
 							<Button
 								style="ghost"
 								outline
 								disabled={branch.commits.length === 0}
 								onclick={() => {
-									patchStackCreationService.createPatchStack(branch.id);
+									cloudBranchCreationService.createBranch(branch.id);
 								}}>Create PS</Button
 							>
 						{/if}

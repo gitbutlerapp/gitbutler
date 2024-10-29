@@ -5,7 +5,7 @@
 	import ProjectSettingsMenuAction from '$lib/barmenuActions/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { PatchStackCreationService } from '$lib/branch/patchStackCreationService';
+	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
@@ -36,7 +36,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import { CloudPatchStacksService } from '@gitbutler/shared/cloud/stacks/service';
+	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { DesktopRoutesService, getRoutesService } from '@gitbutler/shared/sharedRoutes';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import { derived as storeDerived } from 'svelte/store';
@@ -88,8 +88,8 @@
 
 		// Cloud related services
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
-		setContext(CloudPatchStacksService, data.cloudPatchStacksService);
-		setContext(PatchStackCreationService, data.patchStackCreationService);
+		setContext(CloudBranchesService, data.cloudBranchesService);
+		setContext(CloudBranchCreationService, data.cloudBranchCreationService);
 	});
 
 	const routesService = getRoutesService();
