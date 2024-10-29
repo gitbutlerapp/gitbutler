@@ -36,7 +36,7 @@
 
 	const { currentSeries, isTopSeries }: Props = $props();
 
-	let descriptionVisible = $state(false);
+	let descriptionVisible = $state(!!currentSeries.description);
 
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
@@ -109,12 +109,15 @@
 		}
 	}
 
-	function editDescription(_description: string) {
-		// branchController.updateBranchDescription(branch.id, description);
+	async function editDescription(description: string) {
+		await branchController.updateSeriesDescription(branch.id, currentSeries.name, description);
 	}
 
-	function addDescription() {
-		descriptionVisible = true;
+	async function toggleDescription() {
+		descriptionVisible = !descriptionVisible;
+		if (!descriptionVisible) {
+			await branchController.updateSeriesDescription(branch.id, currentSeries.name, '');
+		}
 	}
 
 	async function generateBranchName() {
@@ -151,7 +154,7 @@
 	target={kebabContextMenuTrigger}
 	headName={currentSeries.name}
 	seriesCount={branch.series?.length ?? 0}
-	{addDescription}
+	{toggleDescription}
 	onGenerateBranchName={generateBranchName}
 	hasForgeBranch={!!forgeBranch}
 	prUrl={$pr?.htmlUrl}
@@ -201,7 +204,7 @@
 				icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 				iconColor="var(--clr-core-ntrl-100)"
 				color={lineColor}
-				lineBottom={currentSeries.patches.length > 0 || branch.series.length > 1}
+				lineBottom={currentSeries.patches.length > 0}
 			/>
 			<div class="text-14 text-bold branch-info__name">
 				<span class:no-upstream={!forgeBranch} class="remote-name">
@@ -226,51 +229,70 @@
 					name={branch.description}
 					onChange={(description) => editDescription(description)}
 				/>
-			</div>
-		{/if}
-		{#if ($prService && !hasNoCommits) || showCreateCloudBranch}
-			<div class="branch-action">
-				<div class="branch-action__line" style:--bg-color={lineColor}></div>
-				<div class="branch-action__body">
-					{#if $prService && !hasNoCommits}
-						{#if $pr}
-							<StackingPullRequestCard
-								upstreamName={currentSeries.name}
-								reloadPR={handleReloadPR}
-								pr={$pr}
-								{checksMonitor}
-							/>
-						{:else}
-							<Button
-								style="ghost"
-								wide
-								outline
-								disabled={currentSeries.patches.length === 0 || !$forge || !$prService}
-								onclick={() => handleOpenPR(!forgeBranch)}
-							>
-								Create pull request
-							</Button>
-						{/if}
-					{/if}
-
-					{#if showCreateCloudBranch}
-						<Button
-							style="ghost"
-							outline
-							disabled={branch.commits.length === 0}
-							onclick={() => {
-								cloudBranchCreationService.createBranch(branch.id);
-							}}>Publish Branch</Button
-						>
-					{/if}
+				<div class="text-14 text-bold branch-info__name">
+					<span class:no-upstream={!forgeBranch} class="remote-name">
+						{$baseBranch.pushRemoteName ? `${$baseBranch.pushRemoteName} /` : 'origin /'}
+					</span>
+					<BranchLabel
+						name={currentSeries.name}
+						onChange={(name) => editTitle(name)}
+						disabled={!!forgeBranch}
+					/>
 				</div>
 			</div>
-		{/if}
+			{#if descriptionVisible}
+				<div class="branch-info__description">
+					<div class="branch-action__line" style:--bg-color={lineColor}></div>
+					<BranchLabel
+						name={branch.description}
+						onChange={(description) => editDescription(description)}
+					/>
+				</div>
+			{/if}
+			{#if ($prService && !hasNoCommits) || showCreateCloudBranch}
+				<div class="branch-action">
+					<div class="branch-action__line" style:--bg-color={lineColor}></div>
+					<div class="branch-action__body">
+						{#if $prService && !hasNoCommits}
+							{#if $pr}
+								<StackingPullRequestCard
+									upstreamName={currentSeries.name}
+									reloadPR={handleReloadPR}
+									pr={$pr}
+									{checksMonitor}
+								/>
+							{:else}
+								<Button
+									style="ghost"
+									wide
+									outline
+									disabled={currentSeries.patches.length === 0 || !forge || !$prService}
+									onclick={() => handleOpenPR(!forgeBranch)}
+								>
+									Create pull request
+								</Button>
+							{/if}
+						{/if}
 
-		{#if $pr}
-			<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
-		{:else}
-			<PrDetailsModal bind:this={prDetailsModal} type="preview-series" {currentSeries} />
+						{#if showCreateCloudBranch}
+							<Button
+								style="ghost"
+								outline
+								disabled={currentSeries.patches.length === 0 || !$forge || !$prService}
+								onclick={() => {
+									cloudBranchCreationService.createBranch(branch.id);
+								}}>Publish Branch</Button
+							>
+						{/if}
+					</div>
+				</div>
+			{/if}
+
+			{#if $pr}
+				<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
+			{:else}
+				<PrDetailsModal bind:this={prDetailsModal} type="preview-series" {currentSeries} />
+			{/if}
 		{/if}
 	</Dropzones>
 </div>
@@ -329,6 +351,7 @@
 
 	.branch-info__description {
 		width: 100%;
+		margin-top: -5px;
 		display: flex;
 		justify-content: flex-start;
 		align-items: stretch;
