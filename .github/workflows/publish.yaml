@@ -86,7 +86,7 @@ jobs:
         platform:
           - macos-13 # [macOs, x64]
           - macos-latest # [macOs, ARM64]
-          - ubuntu-22.04 # [linux, x64]
+          - ubuntu-24.04 # [linux, x64]
           - windows-latest # [windows, x64]
 
     runs-on: ${{ matrix.platform }}
@@ -157,22 +157,22 @@ jobs:
         run: |
           sudo apt update;
           sudo apt install -y \
-            libwebkit2gtk-4.1-dev \
             build-essential \
             curl \
             wget \
             file \
             libssl-dev \
             libgtk-3-dev \
-            libayatana-appindicator3-dev \
+            libappindicator3-dev \
             librsvg2-dev;
+
           sudo apt install -y \
-            libwebkit2gtk-4.0-37=2.36.0-2ubuntu1 \
-            libwebkit2gtk-4.0-dev=2.36.0-2ubuntu1 \
-            libjavascriptcoregtk-4.0-18=2.36.0-2ubuntu1 \
-            libjavascriptcoregtk-4.0-dev=2.36.0-2ubuntu1 \
-            gir1.2-javascriptcoregtk-4.0=2.36.0-2ubuntu1 \
-            gir1.2-webkit2-4.0=2.36.0-2ubuntu1;
+            libwebkit2gtk-4.1-0=2.44.0-2 \
+            libwebkit2gtk-4.1-dev=2.44.0-2 \
+            libjavascriptcoregtk-4.1-0=2.44.0-2 \
+            libjavascriptcoregtk-4.1-dev=2.44.0-2 \
+            gir1.2-javascriptcoregtk-4.1=2.44.0-2 \
+            gir1.2-webkit2-4.1=2.44.0-2;
 
       - uses: actions/download-artifact@v4
         with:
@@ -262,7 +262,7 @@ jobs:
         platform:
           - macos-13 # [macOs, x64]
           - macos-latest # [macOs, ARM64]
-          - ubuntu-22.04 # [linux, x64]
+          - ubuntu-24.04 # [linux, x64]
           - windows-latest # [windows, x64]
     steps:
       - uses: actions/checkout@v4
