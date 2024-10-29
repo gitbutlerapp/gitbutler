@@ -492,8 +492,9 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
+    #[instrument(skip(projects, windows), err(Debug))]
     pub fn fetch_from_remotes(
+        windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         action: Option<String>,
@@ -520,6 +521,7 @@ pub mod commands {
             return Err(anyhow!(error).into());
         }
 
+        emit_vbranches(&windows, project_id);
         let base_branch = gitbutler_branch_actions::get_base_branch_data(&project)?;
         Ok(base_branch)
     }
