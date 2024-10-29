@@ -4,7 +4,9 @@ pub mod ownership;
 use anyhow::Result;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
+use gitbutler_patch_reference::{
+    CommitOrChangeId, ForgeIdentifier, GitHubIdentifier, PatchReference,
+};
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
@@ -1188,6 +1190,48 @@ fn does_not_prune_head_on_merge_base() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn set_forge_identifiers_success() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.initialize(&ctx)?;
+    let result = test_ctx.branch.set_forge_ids(
+        &ctx,
+        "a-branch-2".to_string(),
+        vec![ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })],
+    );
+    assert!(result.is_ok());
+    assert_eq!(
+        test_ctx.branch.heads[0].forge_ids,
+        vec![ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })]
+    );
+    // Assert persisted
+    assert_eq!(
+        test_ctx.branch,
+        test_ctx.handle.get_branch(test_ctx.branch.id)?
+    );
+    Ok(())
+}
+
+#[test]
+fn set_forge_identifiers_series_not_found_fails() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.initialize(&ctx)?;
+    let result = test_ctx.branch.set_forge_ids(
+        &ctx,
+        "does-not-exist".to_string(),
+        vec![ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })],
+    );
+    assert_eq!(
+        result.err().unwrap().to_string(),
+        format!(
+            "Series does-not-exist does not exist on stack {}",
+            test_ctx.branch.name
+        )
+    );
+    Ok(())
+}
 fn command_ctx(name: &str) -> Result<(CommandContext, TempDir)> {
     gitbutler_testsupport::writable::fixture("stacking.sh", name)
 }
