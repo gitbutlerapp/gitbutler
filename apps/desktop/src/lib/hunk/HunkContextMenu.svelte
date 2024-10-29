@@ -3,7 +3,7 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
@@ -49,9 +49,12 @@
 					label="Open in {$userSettings.defaultCodeEditor.displayName}"
 					onclick={() => {
 						if (projectPath) {
-							openExternalUrl(
-								`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${projectPath}/${filePath}:${item.lineNumber}`
-							);
+							const path = getEditorUri({
+								schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+								path: [projectPath, filePath],
+								line: item.lineNumber
+							});
+							openExternalUrl(path);
 						}
 						contextMenu?.close();
 					}}

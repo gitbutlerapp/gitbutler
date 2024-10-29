@@ -6,7 +6,7 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import * as toasts from '$lib/utils/toasts';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { isAnyFile, LocalFile } from '$lib/vbranches/types';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -108,10 +108,11 @@
 						try {
 							if (!project) return;
 							for (let file of item.files) {
-								const absPath = await join(project.vscodePath, file.path);
-								openExternalUrl(
-									`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${absPath}`
-								);
+								const path = getEditorUri({
+									schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+									path: [project.vscodePath, file.path]
+								});
+								openExternalUrl(path);
 							}
 							contextMenu.close();
 						} catch {

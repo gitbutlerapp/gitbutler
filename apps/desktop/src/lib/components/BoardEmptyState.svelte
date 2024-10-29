@@ -4,7 +4,7 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { getGitHost } from '$lib/gitHost/interface/gitHost';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { openExternalUrl } from '$lib/utils/url';
+	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -18,9 +18,12 @@
 	const project = getContext(Project);
 
 	async function openInEditor() {
-		openExternalUrl(
-			`${$userSettings.defaultCodeEditor.schemeIdentifer}://file${project.vscodePath}/?windowId=_blank`
-		);
+		const path = getEditorUri({
+			schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
+			path: [project.vscodePath],
+			searchParams: { windowId: '_blank' }
+		});
+		openExternalUrl(path);
 	}
 </script>
 
