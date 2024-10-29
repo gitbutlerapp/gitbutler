@@ -21,7 +21,8 @@
 		hasForgeBranch: boolean;
 		prUrl?: string;
 		branchType: CommitStatus;
-		addDescription: () => void;
+		description: string;
+		toggleDescription: () => Promise<void>;
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
 		reloadPR: () => void;
@@ -37,7 +38,8 @@
 		headName,
 		prUrl,
 		branchType,
-		addDescription,
+		description,
+		toggleDescription,
 		onGenerateBranchName,
 		openPrDetailsModal,
 		reloadPR,
@@ -56,6 +58,7 @@
 	let newHeadName: string = $state(headName);
 	let isDeleting = $state(false);
 	let aiConfigurationValid = $state(false);
+	let showDescription = $state(!!description);
 
 	$effect(() => {
 		setAIConfigurationValid();
@@ -75,10 +78,10 @@
 <ContextMenu bind:this={contextMenuEl} {target} {onopen} {onclose}>
 	<ContextMenuSection>
 		<ContextMenuItem
-			disabled
-			label="Add description"
-			onclick={() => {
-				addDescription();
+			label={`${!showDescription ? 'Add' : 'Remove'} description`}
+			onclick={async () => {
+				await toggleDescription();
+				showDescription = !showDescription;
 				contextMenuEl?.close();
 			}}
 		/>
