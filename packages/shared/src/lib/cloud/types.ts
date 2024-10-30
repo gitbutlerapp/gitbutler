@@ -34,15 +34,16 @@ export class CloudPatchStatsitics {
 }
 
 export interface ApiPatchReview {
-	viewed: boolean;
-	signed_off: boolean;
-	rejected: boolean;
+	viewed: string[];
+	signed_off: string[];
+	rejected: string[];
 }
 
+/** Lists of emails of people who have viewed or reviewed */
 export class CloudPatchReview {
-	readonly viewed: boolean;
-	readonly signedOff: boolean;
-	readonly rejected: boolean;
+	readonly viewed: string[];
+	readonly signedOff: string[];
+	readonly rejected: string[];
 
 	constructor(apiPatchReview: ApiPatchReview) {
 		this.viewed = apiPatchReview.viewed;

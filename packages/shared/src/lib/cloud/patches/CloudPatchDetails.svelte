@@ -36,17 +36,17 @@
 		<div class="card">
 			<p class="card__header text-15 text-bold">Reviews:</p>
 			<div class="card__content">
-				<p>Viewings: {patch.review.viewed}</p>
-				<p>Sign offs: {patch.review.signedOff}</p>
-				<p>Rejections: {patch.review.rejected}</p>
+				<p>Viewings: {patch.review.viewed.join(', ')}</p>
+				<p>Sign offs: {patch.review.signedOff.join(', ')}</p>
+				<p>Rejections: {patch.review.rejected.join(', ')}</p>
 			</div>
 		</div>
 		<div class="card">
 			<p class="card__header text-15 text-bold">Reviews (all revisions):</p>
 			<div class="card__content">
-				<p>Viewings: {patch.reviewAll.viewed}</p>
-				<p>Sign offs: {patch.reviewAll.signedOff}</p>
-				<p>Rejections: {patch.reviewAll.rejected}</p>
+				<p>Viewings: {patch.reviewAll.viewed.join(', ')}</p>
+				<p>Sign offs: {patch.reviewAll.signedOff.join(', ')}</p>
+				<p>Rejections: {patch.reviewAll.rejected.join(', ')}</p>
 			</div>
 		</div>
 	</div>
