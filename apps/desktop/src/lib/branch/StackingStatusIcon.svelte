@@ -29,13 +29,14 @@
 		<Icon name={icon} />
 	</div>
 	<div
-		class="stack__status--bar"
+		class="stack__status--bar last"
 		style:--bg-color={lineBottom ? color : 'var(--clr-transparent)'}
 	></div>
 </div>
 
 <style>
 	.stack__status {
+		align-self: stretch;
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
@@ -59,6 +60,10 @@
 			height: 10px;
 			margin: 0 20px;
 			background: var(--bg-color);
+
+			&.last {
+				flex: 1;
+			}
 		}
 	}
 </style>
