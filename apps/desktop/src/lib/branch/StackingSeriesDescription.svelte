@@ -6,10 +6,16 @@
 		disabled?: boolean;
 		onEmpty?: () => void;
 		onBlur?: (value: string | undefined | null) => void;
-		textAreaEl?: HTMLDivElement;
+		textAreaEl?: HTMLTextAreaElement;
 	}
 
-	let { value, disabled = false, onBlur, onEmpty, textAreaEl = $bindable() }: Props = $props();
+	let {
+		value = $bindable(),
+		disabled = false,
+		onBlur,
+		onEmpty,
+		textAreaEl = $bindable()
+	}: Props = $props();
 </script>
 
 <div class="branch-description-input">
@@ -23,11 +29,12 @@
 		placeholder="Series description"
 		unstyled
 		padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
-		onblur={() => {
-			if (textAreaEl?.textContent === '') {
+		onblur={(e: FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
+			onBlur?.(e.currentTarget.value.trim() || null);
+
+			if (e.currentTarget.value === '') {
 				onEmpty?.();
 			}
-			onBlur?.(textAreaEl?.textContent);
 		}}
 		onkeydown={(e: KeyboardEvent & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 			if (e.key === 'Escape') {
@@ -50,6 +57,7 @@
 		padding: 0 2px;
 		border: 1px solid transparent;
 		border-radius: var(--radius-s);
+		margin-bottom: -5px;
 
 		width: 100%;
 		transition:

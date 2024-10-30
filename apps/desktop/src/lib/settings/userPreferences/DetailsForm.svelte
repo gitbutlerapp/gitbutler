@@ -17,8 +17,8 @@
 	const user = getContextStore(User);
 	const projectsService = getContext(ProjectsService);
 
-	let title = project?.title;
-	let description = project?.description;
+	let title = $state(project?.title);
+	let description = $state(project?.description);
 
 	async function onSyncChange(sync: boolean) {
 		if (!$user) return;
@@ -64,6 +64,12 @@
 		project.api = { ...cloudProject, sync: project.api.sync, sync_code: project.api.sync_code };
 		projectsService.updateProject(project);
 	});
+
+	$effect(() => {
+		if (description) {
+			console.log('description', description);
+		}
+	});
 </script>
 
 <SectionCard>
@@ -88,11 +94,11 @@
 					maxRows={6}
 					placeholder="Project description"
 					bind:value={description}
-					onchange={() => {
-						project.description = description;
+					oninput={(e: Event) => {
+						const target = e.currentTarget as HTMLTextAreaElement;
+						project.description = target.value;
 						projectsService.updateProject(project);
 					}}
-					maxHeight={300}
 				/>
 			</section>
 		</fieldset>

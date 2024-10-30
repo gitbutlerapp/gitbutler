@@ -4,7 +4,7 @@
 
 	const props: TextareaProps = $props();
 
-	let changableValue = $state('');
+	let changableValue = $state(props.value);
 
 	function fillTheForm() {
 		changableValue = `## ☕️ Reasoning
@@ -34,7 +34,7 @@
 <div class="wrapper">
 	<Textarea
 		label={props.label}
-		value={!changableValue ? props.value : changableValue}
+		value={changableValue}
 		placeholder={props.placeholder}
 		minRows={props.minRows}
 		maxRows={props.maxRows}
