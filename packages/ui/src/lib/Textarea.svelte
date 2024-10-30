@@ -1,4 +1,5 @@
 <script lang="ts" module>
+	import { clickOutside } from './utils/clickOutside';
 	export interface Props {
 		id?: string;
 		textBoxEl?: HTMLDivElement;
@@ -106,6 +107,7 @@
 	{/if}
 	<div
 		bind:this={textBoxEl}
+		use:clickOutside={{ handler: () => textBoxEl?.blur() }}
 		{id}
 		role="textbox"
 		aria-multiline="true"
@@ -172,52 +174,51 @@
 </div>
 
 <style lang="postcss">
-	.textarea-container {
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-	}
-
-	.textarea {
-		font-family: var(--base-font-family);
-		line-height: var(--body-line-height);
-		font-weight: var(--base-font-weight);
-		white-space: pre-wrap;
-		cursor: text;
-
-		resize: none;
-		outline: none;
-		width: 100%;
-		padding: 0;
-		margin: 0;
-		font-size: var(--font-size);
-		min-height: calc(var(--font-size) * 1.5 * var(--min-rows));
-		max-height: calc(var(--font-size) * 1.5 * var(--max-rows));
-		overflow-y: auto; /* Enable scrolling when max height is reached */
-		border-color: transparent;
-		transition:
-			border-color var(--transition-fast),
-			background-color var(--transition-fast);
-
-		&.disabled {
-			cursor: default;
+	@layer textarea {
+		.textarea-container {
+			display: flex;
+			flex-direction: column;
+			gap: 6px;
 		}
 
-		&.textarea-placeholder {
-			display: block;
+		.textarea {
+			font-family: var(--base-font-family);
+			line-height: var(--body-line-height);
+			font-weight: var(--base-font-weight);
 			white-space: pre-wrap;
+			cursor: text;
+			resize: none;
+			outline: none;
+			width: 100%;
+			font-size: var(--font-size);
+			min-height: calc(var(--font-size) * 1.5 * var(--min-rows));
+			max-height: calc(var(--font-size) * 1.5 * var(--max-rows));
+			overflow-y: auto; /* Enable scrolling when max height is reached */
+			border-color: transparent;
+			transition:
+				border-color var(--transition-fast),
+				background-color var(--transition-fast);
 
-			&:before {
-				content: var(--placeholder-text);
-				color: var(--clr-text-3);
-				cursor: text;
-				pointer-events: none;
-				position: relative;
+			&.disabled {
+				cursor: default;
+			}
+
+			&.textarea-placeholder {
+				display: block;
+				white-space: pre-wrap;
+
+				&:before {
+					content: var(--placeholder-text);
+					color: var(--clr-text-3);
+					cursor: text;
+					pointer-events: none;
+					position: relative;
+				}
 			}
 		}
-	}
 
-	.textarea-label {
-		color: var(--clr-text-2);
+		.textarea-label {
+			color: var(--clr-text-2);
+		}
 	}
 </style>

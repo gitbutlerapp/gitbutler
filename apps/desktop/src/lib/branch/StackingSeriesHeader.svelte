@@ -167,7 +167,7 @@
 	{branchType}
 />
 
-<div role="article" class="branch-header" oncontextmenu={(e) => e.preventDefault()}>
+<div role="article" class="branch-header" tabindex="-1" oncontextmenu={(e) => e.preventDefault()}>
 	<Dropzones type="commit">
 		<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
 			{#if $stackingFeatureMultipleSeries}
@@ -313,29 +313,25 @@
 		justify-content: flex-start;
 		align-items: center;
 
-		& .branch-info__name {
-			display: flex;
-			align-items: center;
-			justify-content: flex-start;
-			min-width: 0;
-			flex-grow: 1;
-		}
-
 		.remote-name {
 			min-width: max-content;
 			color: var(--clr-scale-ntrl-60);
+		}
+	}
 
-			&.no-upstream {
-				/**
-				 * Element is requird to still be there, so we can use
-				 * it to wiggle 5px to the left to align the BranchLabel
-				 * Input/Label component.
-				 */
-				visibility: hidden;
-				max-width: 0px;
-				max-height: 0px;
-				/* margin-right: -5px; */
-			}
+	.branch-info__name {
+		display: flex;
+		align-items: center;
+		justify-content: flex-start;
+		min-width: 0;
+		flex-grow: 1;
+	}
+
+	.branch-info__label {
+		display: inline-flex;
+
+		&.label-shifted {
+			margin-left: -2px;
 		}
 	}
 
@@ -344,17 +340,8 @@
 		width: 100%;
 		display: flex;
 		flex-direction: column;
-		gap: 4px;
+		gap: 6px;
 		padding: 14px 0;
-	}
-
-	.branch-info__description-section {
-		width: 100%;
-		margin-top: -5px;
-		padding-right: 14px;
-		display: flex;
-		justify-content: flex-start;
-		align-items: stretch;
 	}
 
 	.branch-action {
@@ -371,44 +358,7 @@
 
 	.branch-action__line {
 		min-width: 2px;
-		margin: 0 20px;
+		margin: 0 22px 0 20px;
 		background-color: var(--bg-color, var(--clr-border-3));
-	}
-
-	/* Branch Label and description */
-	:global(.branch-name-input, .branch-description-input) {
-		max-width: 100%;
-		width: 100%;
-		border-radius: var(--radius-m);
-		color: var(--clr-text-1);
-		background-color: var(--clr-bg-1);
-		outline: none;
-	}
-
-	:global(
-			.branch-name-input:not([disabled]):hover,
-			.branch-description-input:not([disabled]):hover
-		) {
-		background-color: var(--clr-bg-2);
-	}
-
-	:global(
-			.branch-name-input:not([disabled]):focus,
-			.branch-description-input:not([disabled]):focus
-		) {
-		outline: none;
-		background-color: var(--clr-bg-2);
-		border-color: var(--clr-border-2);
-	}
-
-	:global(.branch-name-input) {
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		overflow: hidden;
-	}
-
-	:global(.branch-description-input) {
-		margin-top: -5px;
-		color: var(--clr-text-2);
 	}
 </style>
