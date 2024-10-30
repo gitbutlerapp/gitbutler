@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 tracing.workspace = true
-anyhow = "1.0.86"
+anyhow = "1.0.91"
 git2.workspace = true
 gix = { workspace = true, features = ["blob-diff", "revision"] }
 tokio.workspace = true
@@ -43,7 +43,7 @@ itertools = "0.13"
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 urlencoding = "2.1.3"
-reqwest = { version = "0.12.8", features = ["json"] }
+reqwest = { version = "0.12.9", features = ["json"] }
 toml.workspace = true
 
 [dev-dependencies]
