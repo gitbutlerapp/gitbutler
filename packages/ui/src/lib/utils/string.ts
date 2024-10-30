@@ -44,7 +44,7 @@ export function slugify(input: string) {
 		.normalize('NFKD')
 		.replace(/[\u0300-\u036f]/g, '')
 		.trim()
-		.replace(/[^A-Za-z0-9_/ -]/g, '')
+		.replace(/[^A-Za-z0-9._/ -]/g, '')
 		.replace(/\s+/g, '-')
 		.replace(/-+/g, '-');
 }
