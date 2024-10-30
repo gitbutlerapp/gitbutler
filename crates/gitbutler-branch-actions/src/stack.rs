@@ -46,6 +46,7 @@ pub fn create_series(
                 name: req.name,
                 description: req.description,
                 forge_id: Default::default(),
+                archived: Default::default(),
             },
             req.preceding_head,
         )

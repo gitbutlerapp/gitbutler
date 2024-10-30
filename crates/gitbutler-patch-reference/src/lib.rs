@@ -21,6 +21,10 @@ pub struct PatchReference {
     /// None if is no review unit, eg. no Pull Request has been created.
     #[serde(default)]
     pub forge_id: Option<ForgeIdentifier>,
+    /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
+    /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
+    #[serde(default)]
+    pub archived: bool,
 }
 
 /// Represents identifiers for the series at possible forges, eg. GitHub PR numbers.

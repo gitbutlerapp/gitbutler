@@ -231,6 +231,7 @@ impl Stack {
             },
             description: None,
             forge_id: Default::default(),
+            archived: Default::default(),
         };
         let state = branch_state(ctx);
 
@@ -305,6 +306,7 @@ impl Stack {
             name,
             description,
             forge_id: Default::default(),
+            archived: Default::default(),
         };
         self.add_series(ctx, new_head, Some(current_top_head.name.clone()))
     }
@@ -438,20 +440,18 @@ impl Stack {
     }
 
     /// Removes any heads that are refering to commits that are no longer between the stack head and the merge base
-    pub fn prune_integrated_heads(&mut self, ctx: &CommandContext) -> Result<()> {
+    pub fn archive_integrated_heads(&mut self, ctx: &CommandContext) -> Result<()> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         let state = branch_state(ctx);
         let commit_ids = stack_patches(ctx, &state, self.head(), true)?;
-        let new_heads = self
-            .heads
-            .iter()
-            .filter(|h| commit_ids.contains(&h.target))
-            .cloned()
-            .collect_vec();
-        self.heads = new_heads;
+        for head in self.heads.iter_mut() {
+            if !commit_ids.contains(&head.target) {
+                head.archived = true;
+            }
+        }
         state.set_branch(self.clone())
     }
 
