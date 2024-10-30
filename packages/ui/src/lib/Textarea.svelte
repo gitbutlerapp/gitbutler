@@ -10,6 +10,8 @@
 		minRows?: number;
 		maxRows?: number;
 		autofocus?: boolean;
+		class?: string;
+		flex: string;
 		padding?: {
 			top: number;
 			right: number;
@@ -24,6 +26,10 @@
 		unstyled?: boolean;
 		oninput?: (e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
 		onfocus?: (
+			this: void,
+			e: FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement }
+		) => void;
+		onblur?: (
 			this: void,
 			e: FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement }
 		) => void;
@@ -45,6 +51,8 @@
 		minRows = 1,
 		maxRows = 100,
 		autofocus,
+		class: className = '',
+		flex,
 		padding = { top: 12, right: 12, bottom: 12, left: 12 },
 		borderless,
 		borderTop = true,
@@ -54,6 +62,7 @@
 		unstyled,
 		oninput,
 		onfocus,
+		onblur,
 		onkeydown
 	}: Props = $props();
 
@@ -88,6 +97,7 @@
 	style:--font-size={pxToRem(fontSize)}
 	style:--min-rows={minRows}
 	style:--max-rows={maxRows}
+	style:flex
 >
 	{#if label}
 		<label class="textarea-label text-13 text-semibold" for={id}>
@@ -105,6 +115,11 @@
 		onfocus={(e: Event) => {
 			if (e.currentTarget) {
 				onfocus?.(e as FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement });
+			}
+		}}
+		onblur={(e: Event) => {
+			if (e.currentTarget) {
+				onblur?.(e as FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement });
 			}
 		}}
 		oninput={(e: Event) => {
@@ -135,18 +150,18 @@
 
 			onkeydown?.(eventMock);
 		}}
+		class="textarea scrollbar {className}"
 		class:disabled
-		class="textarea scrollbar"
 		class:text-input={!unstyled}
 		class:textarea-placeholder={value === ''}
 		style:padding-top={pxToRem(padding.top)}
 		style:padding-right={pxToRem(padding.right)}
 		style:padding-bottom={pxToRem(padding.bottom)}
 		style:padding-left={pxToRem(padding.left)}
-		style:border-top-width={borderTop && !borderless && !unstyled ? '1px' : '0'}
-		style:border-right-width={borderRight && !borderless && !unstyled ? '1px' : '0'}
-		style:border-bottom-width={borderBottom && !borderless && !unstyled ? '1px' : '0'}
-		style:border-left-width={borderLeft && !borderless && !unstyled ? '1px' : '0'}
+		style:border-top-width={borderTop && !borderless ? '1px' : '0'}
+		style:border-right-width={borderRight && !borderless ? '1px' : '0'}
+		style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
+		style:border-left-width={borderLeft && !borderless ? '1px' : '0'}
 		style:border-top-right-radius={!borderTop || !borderRight ? '0' : undefined}
 		style:border-top-left-radius={!borderTop || !borderLeft ? '0' : undefined}
 		style:border-bottom-right-radius={!borderBottom || !borderRight ? '0' : undefined}
@@ -179,6 +194,10 @@
 		min-height: calc(var(--font-size) * 1.5 * var(--min-rows));
 		max-height: calc(var(--font-size) * 1.5 * var(--max-rows));
 		overflow-y: auto; /* Enable scrolling when max height is reached */
+		border-color: transparent;
+		transition:
+			border-color var(--transition-fast),
+			background-color var(--transition-fast);
 
 		&.disabled {
 			cursor: default;

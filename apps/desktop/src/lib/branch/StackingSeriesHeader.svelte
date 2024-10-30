@@ -115,6 +115,7 @@
 
 	async function toggleDescription() {
 		descriptionVisible = !descriptionVisible;
+
 		if (!descriptionVisible) {
 			await branchController.updateSeriesDescription(branch.id, currentSeries.name, '');
 		}
@@ -307,7 +308,7 @@
 
 	.branch-info {
 		width: 100%;
-		padding-right: 12px;
+		padding-right: 14px;
 		display: flex;
 		justify-content: flex-start;
 		align-items: center;
@@ -333,14 +334,24 @@
 				visibility: hidden;
 				max-width: 0px;
 				max-height: 0px;
-				margin-right: -5px;
+				/* margin-right: -5px; */
 			}
 		}
 	}
 
-	.branch-info__description {
+	.branch-info__content {
+		flex: 1;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+		padding: 14px 0;
+	}
+
+	.branch-info__description-section {
 		width: 100%;
 		margin-top: -5px;
+		padding-right: 14px;
 		display: flex;
 		justify-content: flex-start;
 		align-items: stretch;
@@ -362,5 +373,42 @@
 		min-width: 2px;
 		margin: 0 20px;
 		background-color: var(--bg-color, var(--clr-border-3));
+	}
+
+	/* Branch Label and description */
+	:global(.branch-name-input, .branch-description-input) {
+		max-width: 100%;
+		width: 100%;
+		border-radius: var(--radius-m);
+		color: var(--clr-text-1);
+		background-color: var(--clr-bg-1);
+		outline: none;
+	}
+
+	:global(
+			.branch-name-input:not([disabled]):hover,
+			.branch-description-input:not([disabled]):hover
+		) {
+		background-color: var(--clr-bg-2);
+	}
+
+	:global(
+			.branch-name-input:not([disabled]):focus,
+			.branch-description-input:not([disabled]):focus
+		) {
+		outline: none;
+		background-color: var(--clr-bg-2);
+		border-color: var(--clr-border-2);
+	}
+
+	:global(.branch-name-input) {
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		overflow: hidden;
+	}
+
+	:global(.branch-description-input) {
+		margin-top: -5px;
+		color: var(--clr-text-2);
 	}
 </style>

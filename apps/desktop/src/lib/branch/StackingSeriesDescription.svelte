@@ -1,18 +1,45 @@
 <script lang="ts">
-	import ComboLabelInput from '$lib/shared/ComboLabelInput.svelte';
+	import Textarea from '@gitbutler/ui/Textarea.svelte';
+
 	interface Props {
+		autofocus?: boolean;
+		class: string;
 		value: string;
 		disabled?: boolean;
-		onChange?: (value: string) => Promise<void>;
+		oninput?: (e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
+		onEmpty?: () => void;
 	}
-	let { value, disabled = false, onChange }: Props = $props();
+	const {
+		autofocus,
+		value,
+		class: className = '',
+		disabled = false,
+		oninput,
+		onEmpty
+	}: Props = $props();
+
+	let textareaEl: HTMLDivElement | undefined = $state();
 </script>
 
-<ComboLabelInput
-	class="branch-description text-12"
-	placeholder="Series description"
-	multiline
+<Textarea
+	bind:textBoxEl={textareaEl}
+	{autofocus}
+	class="text-12 text-body {className}"
 	{value}
 	{disabled}
-	{onChange}
+	{oninput}
+	flex="1"
+	fontSize={12}
+	placeholder="Series description"
+	unstyled
+	padding={{ top: 2, right: 4, bottom: 2, left: 4 }}
+	onkeydown={(e: KeyboardEvent & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
+		if (e.key === 'Escape') {
+			textareaEl?.blur();
+
+			if (value === '') {
+				onEmpty?.();
+			}
+		}
+	}}
 />
