@@ -253,7 +253,7 @@
 			directive: aiDescriptionDirective,
 			commitMessages: commits.map((c) => c.description),
 			prBodyTemplate: templateBody,
-			onToken: async (t) => {
+			onToken: (t) => {
 				if (firstToken) {
 					inputBody = '';
 					firstToken = false;

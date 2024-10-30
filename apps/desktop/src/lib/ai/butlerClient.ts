@@ -4,8 +4,9 @@ import {
 	SHORT_DEFAULT_COMMIT_TEMPLATE,
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
-import { ModelKind, type AIClient, type Prompt } from '$lib/ai/types';
-import { map, wrapAsync, type Result } from '$lib/result';
+import { ModelKind, type AIClient, type AIEvalOptions, type Prompt } from '$lib/ai/types';
+import { andThenAsync, ok, wrapAsync, type Result } from '$lib/result';
+import { stringStreamGenerator } from '$lib/utils/promise';
 import type { HttpClient } from '@gitbutler/shared/httpClient';
 
 function splitPromptMessagesIfNecessary(
@@ -33,20 +34,33 @@ export class ButlerAIClient implements AIClient {
 		private modelKind: ModelKind
 	) {}
 
-	async evaluate(prompt: Prompt): Promise<Result<string, Error>> {
+	async evaluate(prompt: Prompt, options?: AIEvalOptions): Promise<Result<string, Error>> {
 		const [messages, system] = splitPromptMessagesIfNecessary(this.modelKind, prompt);
-		const response = await wrapAsync<{ message: string }, Error>(
+		const response = await wrapAsync<Response, Error>(
 			async () =>
-				await this.cloud.post<{ message: string }>('evaluate_prompt/predict.json', {
+				await this.cloud.postRaw('ai/stream', {
 					body: {
 						messages,
 						system,
-						max_tokens: 400,
+						max_tokens: 3600,
 						model_kind: this.modelKind
 					}
 				})
 		);
 
-		return map(response, ({ message }) => message);
+		return await andThenAsync(response, async (r) => {
+			const reader = r.body?.getReader();
+			if (!reader) {
+				return ok('');
+			}
+
+			const buffer: string[] = [];
+			for await (const chunk of stringStreamGenerator(reader)) {
+				options?.onToken?.(chunk);
+				buffer.push(chunk);
+			}
+
+			return ok(buffer.join(''));
+		});
 	}
 }
