@@ -100,6 +100,9 @@ pub struct PatchSeries {
     /// A list of identifiers for the review unit at possible forges (eg. Pull Request).
     /// The list is empty if there is no review units, eg. no Pull Request has been created.
     pub forge_id: Option<ForgeIdentifier>,
+    /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
+    /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
+    pub archived: bool,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]

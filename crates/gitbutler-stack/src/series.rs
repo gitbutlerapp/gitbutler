@@ -28,6 +28,9 @@ pub struct Series<'a> {
     /// The commit IDs of the remote commits that are part of this series, grouped by change id.
     /// Since we don't have a change_id to commit_id index, this is used to determine
     pub remote_commit_ids_by_change_id: HashMap<String, git2::Oid>,
+    /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
+    /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
+    pub archived: bool,
 }
 
 impl Series<'_> {

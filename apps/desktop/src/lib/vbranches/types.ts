@@ -450,6 +450,11 @@ export class PatchSeries {
 	 * The list is empty if there is no review units, eg. no Pull Request has been created.
 	 */
 	forgeId?: ForgeIdentifier | undefined;
+	/**
+	 * Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
+	 * This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
+	 */
+	archived!: boolean;
 
 	get localCommits() {
 		return this.patches.filter((c) => c.status === 'local');

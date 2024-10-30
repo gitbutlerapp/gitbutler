@@ -18,13 +18,15 @@
 		branch.series.flatMap((s) => s.patches).some((patch) => patch.conflicted)
 	);
 
+	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
+
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
 	const reorderDropzoneManager = $derived(
 		reorderDropzoneManagerFactory.build(branch, [...branch.localCommits, ...branch.remoteCommits])
 	);
 </script>
 
-{#each branch.series as currentSeries, idx (currentSeries.name)}
+{#each nonArchivedSeries as currentSeries, idx (currentSeries.name)}
 	{@const isTopSeries = idx === 0}
 	{#if !isTopSeries}
 		<StackSeriesDividerLine {currentSeries} />

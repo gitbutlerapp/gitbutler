@@ -284,6 +284,7 @@ pub(crate) fn stack_series(
             patches,
             upstream_patches,
             forge_id: series.head.forge_id,
+            archived: series.head.archived,
         });
     }
     api_series.reverse();
