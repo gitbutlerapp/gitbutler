@@ -12,7 +12,7 @@
 		maxRows?: number;
 		autofocus?: boolean;
 		class?: string;
-		flex: string;
+		flex?: string;
 		padding?: {
 			top: number;
 			right: number;
