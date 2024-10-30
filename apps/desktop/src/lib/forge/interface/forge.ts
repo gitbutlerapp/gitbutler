@@ -1,10 +1,10 @@
 import { buildContextStore } from '@gitbutler/shared/context';
 import type { ForgeType } from '$lib/backend/forge';
-import type { GitHostIssueService } from '$lib/gitHost/interface/gitHostIssueService';
-import type { GitHostBranch } from './gitHostBranch';
-import type { GitHostChecksMonitor } from './gitHostChecksMonitor';
-import type { GitHostListingService } from './gitHostListingService';
-import type { GitHostPrService } from './gitHostPrService';
+import type { GitHostIssueService } from '$lib/forge/interface/forgeIssueService';
+import type { GitHostBranch } from './forgeBranch';
+import type { GitHostChecksMonitor } from './forgeChecksMonitor';
+import type { GitHostListingService } from './forgeListingService';
+import type { GitHostPrService } from './forgePrService';
 
 export interface GitHost {
 	readonly type: ForgeType;

@@ -16,10 +16,10 @@
 	import { showHistoryView } from '$lib/config/config';
 	import { featureTopics } from '$lib/config/uiFeatureFlags';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
-	import { DefaultGitHostFactory } from '$lib/gitHost/gitHostFactory';
-	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
-	import { createGitHostStore } from '$lib/gitHost/interface/gitHost';
-	import { createGitHostListingServiceStore } from '$lib/gitHost/interface/gitHostListingService';
+	import { DefaultGitHostFactory } from '$lib/forge/forgeFactory';
+	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
+	import { createGitHostStore } from '$lib/forge/interface/forge';
+	import { createGitHostListingServiceStore } from '$lib/forge/interface/forgeListingService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';

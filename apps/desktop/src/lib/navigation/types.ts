@@ -1,5 +1,5 @@
 import type { BranchListing } from '$lib/branches/branchListing';
-import type { PullRequest } from '$lib/gitHost/interface/types';
+import type { PullRequest } from '$lib/forge/interface/types';
 
 export type SidebarEntrySubject =
 	| {

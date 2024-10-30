@@ -13,8 +13,8 @@ import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 import { Transform, Type, plainToInstance } from 'class-transformer';
 import Fuse from 'fuse.js';
 import { derived, readable, writable, type Readable, type Writable } from 'svelte/store';
-import type { GitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-import type { PullRequest } from '$lib/gitHost/interface/types';
+import type { GitHostListingService } from '$lib/forge/interface/forgeListingService';
+import type { PullRequest } from '$lib/forge/interface/types';
 
 export class BranchListingService {
 	private branchListingsWritable = writable<BranchListing[]>([]);

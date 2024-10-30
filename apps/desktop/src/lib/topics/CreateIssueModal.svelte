@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { getGitHost } from '$lib/forge/interface/forge';
 	import { TopicService, type Topic } from '$lib/topics/service';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { getContext } from '@gitbutler/shared/context';

@@ -8,7 +8,7 @@
 	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';

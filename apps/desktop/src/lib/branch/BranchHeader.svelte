@@ -6,10 +6,10 @@
 	import { ProjectService } from '$lib/backend/projects';
 	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
-	import { getGitHostPrMonitor } from '$lib/gitHost/interface/gitHostPrMonitor';
-	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
+	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getGitHostChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
+	import { getGitHostPrMonitor } from '$lib/forge/interface/forgePrMonitor';
+	import { getGitHostPrService } from '$lib/forge/interface/forgePrService';
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { getGitHost } from '$lib/forge/interface/forge';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContextStore } from '@gitbutler/shared/context';

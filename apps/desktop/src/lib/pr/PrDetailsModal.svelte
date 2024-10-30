@@ -18,10 +18,10 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { mapErrorToToast } from '$lib/gitHost/github/errorMap';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
+	import { mapErrorToToast } from '$lib/forge/github/errorMap';
+	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
+	import { getGitHostPrService } from '$lib/forge/interface/forgePrService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
@@ -40,7 +40,7 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
 	import { tick } from 'svelte';
-	import type { DetailedPullRequest, PullRequest } from '$lib/gitHost/interface/types';
+	import type { DetailedPullRequest, PullRequest } from '$lib/forge/interface/types';
 
 	interface BaseProps {
 		type: 'display' | 'preview' | 'preview-series';

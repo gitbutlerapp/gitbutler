@@ -2,7 +2,7 @@ import { GitHub } from './github';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { test, describe, vi, beforeEach, afterEach, expect } from 'vitest';
-import type { GitHostListingService } from '../interface/gitHostListingService';
+import type { GitHostListingService } from '../interface/forgeListingService';
 
 type Labels = RestEndpointMethodTypes['pulls']['list']['response']['data'][0]['labels'];
 type PrListResponse = RestEndpointMethodTypes['pulls']['list']['response'];

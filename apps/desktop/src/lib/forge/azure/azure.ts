@@ -1,7 +1,7 @@
 import { AzureBranch } from './azureBranch';
 import type { ForgeType } from '$lib/backend/forge';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHost } from '../interface/gitHost';
+import type { GitHost } from '../interface/forge';
 import type { GitHostArguments } from '../interface/types';
 
 export const AZURE_DOMAIN = 'dev.azure.com';

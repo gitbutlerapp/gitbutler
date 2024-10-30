@@ -3,7 +3,7 @@
 	import { BranchListingService } from '$lib/branches/branchListing';
 	import BranchPreview from '$lib/components/BranchPreview.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { groupBy } from '$lib/utils/groupBy';
 	import { error } from '$lib/utils/toasts';

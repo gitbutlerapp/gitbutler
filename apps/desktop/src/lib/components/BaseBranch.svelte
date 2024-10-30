@@ -4,7 +4,7 @@
 	import CommitAction from '$lib/commit/CommitAction.svelte';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { getGitHost } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/modes/service';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import { groupByCondition } from '$lib/utils/array';

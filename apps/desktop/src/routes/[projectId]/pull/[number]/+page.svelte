@@ -6,8 +6,8 @@
 	// It may also display details about a cooresponding pr if they exist
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import type { PullRequest } from '$lib/gitHost/interface/types';
+	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
+	import type { PullRequest } from '$lib/forge/interface/types';
 	import type { Readable } from 'svelte/store';
 	import { page } from '$app/stores';
 

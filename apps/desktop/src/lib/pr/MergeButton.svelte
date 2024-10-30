@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { MergeMethod } from '$lib/gitHost/interface/types';
+	import { MergeMethod } from '$lib/forge/interface/types';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 	import { createEventDispatcher } from 'svelte';

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import { getGitHubUserServiceStore } from '$lib/gitHost/github/githubUserService';
+	import { getGitHubUserServiceStore } from '$lib/forge/github/githubUserService';
 	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import * as toasts from '$lib/utils/toasts';

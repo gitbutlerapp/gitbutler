@@ -4,7 +4,7 @@ import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
-import type { GitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
+import type { GitHostPrService } from '$lib/forge/interface/forgePrService';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type {
 	CreatePullRequestArgs,

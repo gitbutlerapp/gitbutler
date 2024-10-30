@@ -6,7 +6,7 @@
 		BranchListingService,
 		type BranchListing
 	} from '$lib/branches/branchListing';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
+	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
 	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';

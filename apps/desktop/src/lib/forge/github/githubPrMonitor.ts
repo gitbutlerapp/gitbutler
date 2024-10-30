@@ -1,8 +1,8 @@
-import { type DetailedPullRequest } from '$lib/gitHost/interface/types';
+import { type DetailedPullRequest } from '$lib/forge/interface/types';
 import { sleep } from '$lib/utils/sleep';
 import { derived, writable } from 'svelte/store';
 import type { GitHubPrService } from './githubPrService';
-import type { GitHostPrMonitor } from '../interface/gitHostPrMonitor';
+import type { GitHostPrMonitor } from '../interface/forgePrMonitor';
 
 export const PR_SERVICE_INTERVAL = 20 * 60 * 1000;
 

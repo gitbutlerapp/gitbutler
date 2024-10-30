@@ -1,4 +1,4 @@
-import type { GitHostIssueService } from '$lib/gitHost/interface/gitHostIssueService';
+import type { GitHostIssueService } from '$lib/forge/interface/forgeIssueService';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Octokit } from '@octokit/rest';
 

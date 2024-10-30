@@ -6,7 +6,7 @@
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { getGitHost } from '$lib/forge/interface/forge';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -18,7 +18,7 @@
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
 	import { writable } from 'svelte/store';
-	import type { PullRequest } from '$lib/gitHost/interface/types';
+	import type { PullRequest } from '$lib/forge/interface/types';
 
 	export let localBranch: Branch | undefined = undefined;
 	export let remoteBranch: Branch | undefined = undefined;
