@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CloudPatchDetails from '@gitbutler/shared/cloud/patches/CloudPatchDetails.svelte';
+	import CloudPatchSections from '@gitbutler/shared/cloud/patches/CloudPatchSections.svelte';
 	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getRoutesService } from '@gitbutler/shared/sharedRoutes';
@@ -27,6 +28,9 @@
 	<div>
 		<CloudPatchDetails />
 	</div>
+	<div>
+		<CloudPatchSections />
+	</div>
 </div>
 
 <style lang="postcss">
@@ -38,7 +42,10 @@
 		width: 100%;
 
 		margin: 24px auto;
+		margin-bottom: 0;
 
 		gap: 16px;
+
+		overflow: auto;
 	}
 </style>

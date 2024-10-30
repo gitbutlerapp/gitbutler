@@ -4,8 +4,6 @@
 
 	const cloudPatchService = getContext(CloudPatchService);
 	const optionalPatch = cloudPatchService.patch;
-
-	$inspect(optionalPatch);
 </script>
 
 {#if $optionalPatch.state === 'uninitialized'}
@@ -44,7 +42,7 @@
 			</div>
 		</div>
 		<div class="card">
-			<p class="card__header text-15 text-bold">Reviews (all versions):</p>
+			<p class="card__header text-15 text-bold">Reviews (all revisions):</p>
 			<div class="card__content">
 				<p>Viewings: {patch.reviewAll.viewed}</p>
 				<p>Sign offs: {patch.reviewAll.signedOff}</p>

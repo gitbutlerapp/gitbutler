@@ -139,7 +139,7 @@ interface CloudSection {
 	position?: number;
 }
 
-class CloudTextSection implements CloudSection {
+export class CloudTextSection implements CloudSection {
 	id: number;
 	sectionType: 'text' = 'text' as const;
 	identifier?: string | undefined;
@@ -164,7 +164,7 @@ class CloudTextSection implements CloudSection {
 		this.data = apiTextSection.data;
 	}
 }
-class CloudDiffSection implements CloudSection {
+export class CloudDiffSection implements CloudSection {
 	id: number;
 	sectionType: 'diff' = 'diff' as const;
 	identifier?: string | undefined;
