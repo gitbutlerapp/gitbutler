@@ -38,13 +38,14 @@ pub fn create_series(
     let ctx = &open_with_verify(project)?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
+    let normalized_head_name = normalize_branch_name(&req.name)?;
     // If target_patch is None, create a new head that points to the top of the stack (most recent patch)
     if let Some(target_patch) = req.target_patch {
         stack.add_series(
             ctx,
             PatchReference {
                 target: target_patch,
-                name: req.name,
+                name: normalized_head_name,
                 description: req.description,
                 forge_id: Default::default(),
                 archived: Default::default(),
