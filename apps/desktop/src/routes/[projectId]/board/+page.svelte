@@ -3,7 +3,7 @@
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Board from '$lib/components/Board.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
-	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getForge } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/modes/service';
 	import { showToast } from '$lib/notifications/toasts';
 	import Scrollbar from '$lib/scroll/Scrollbar.svelte';
@@ -11,7 +11,7 @@
 	import { goto } from '$app/navigation';
 
 	const project = getContext(Project);
-	const gitHost = getGitHost();
+	const forge = getForge();
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
@@ -23,7 +23,7 @@
 	function shouldShowHttpsWarning() {
 		if (httpsWarningBannerDismissed) return false;
 		if (!$baseBranch?.remoteUrl.startsWith('https')) return false;
-		if ($baseBranch?.remoteUrl.includes('github.com') && !!$gitHost) return false;
+		if ($baseBranch?.remoteUrl.includes('github.com') && !!$forge) return false;
 		return true;
 	}
 

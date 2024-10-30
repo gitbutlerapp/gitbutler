@@ -4,7 +4,7 @@
 	import CommitAction from '$lib/commit/CommitAction.svelte';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
-	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getForge } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/modes/service';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import { groupByCondition } from '$lib/utils/array';
@@ -52,7 +52,7 @@
 
 	const baseBranchService = getContext(BaseBranchService);
 	const modeService = getContext(ModeService);
-	const gitHost = getGitHost();
+	const forge = getForge();
 	const lineManagerFactory = getContext(LineManagerFactory);
 
 	const mode = $derived(modeService.mode);
@@ -215,7 +215,7 @@
 					first={index === 0}
 					last={index === base.upstreamCommits.length - 1}
 					isUnapplied={true}
-					commitUrl={$gitHost?.commitUrl(commit.id)}
+					commitUrl={$forge?.commitUrl(commit.id)}
 					type="remote"
 				>
 					{#snippet lines(topHeightPx)}
@@ -259,7 +259,7 @@
 					first={index === 0}
 					last={index === commitsAhead.length - 1}
 					isUnapplied={true}
-					commitUrl={$gitHost?.commitUrl(commit.id)}
+					commitUrl={$forge?.commitUrl(commit.id)}
 					type="local"
 				>
 					{#snippet lines(topHeightPx)}
@@ -318,7 +318,7 @@
 				first={index === 0}
 				last={index === localAndRemoteCommits.length - 1}
 				isUnapplied={true}
-				commitUrl={$gitHost?.commitUrl(commit.id)}
+				commitUrl={$forge?.commitUrl(commit.id)}
 				type="localAndRemote"
 			>
 				{#snippet lines(topHeightPx)}

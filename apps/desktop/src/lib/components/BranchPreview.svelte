@@ -6,7 +6,7 @@
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
-	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getForge } from '$lib/forge/interface/forge';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
@@ -26,7 +26,7 @@
 
 	const project = getContext(Project);
 	const remoteBranchService = getContext(RemoteBranchService);
-	const gitHost = getGitHost();
+	const forge = getForge();
 
 	const fileIdSelection = new FileIdSelection(project.id, writable([]));
 	setContext(FileIdSelection, fileIdSelection);
@@ -123,7 +123,7 @@
 									first={index === 0}
 									last={index === remoteCommits.length - 1}
 									{commit}
-									commitUrl={$gitHost?.commitUrl(commit.id)}
+									commitUrl={$forge?.commitUrl(commit.id)}
 									type="remote"
 								>
 									{#snippet lines(topHeightPx)}
@@ -139,7 +139,7 @@
 									first={index === 0}
 									last={index === localCommits.length - 1}
 									{commit}
-									commitUrl={$gitHost?.commitUrl(commit.id)}
+									commitUrl={$forge?.commitUrl(commit.id)}
 									type="local"
 								>
 									{#snippet lines(topHeightPx)}
@@ -155,7 +155,7 @@
 									first={index === 0}
 									last={index === localAndRemoteCommits.length - 1}
 									{commit}
-									commitUrl={$gitHost?.commitUrl(commit.id)}
+									commitUrl={$forge?.commitUrl(commit.id)}
 									type="localAndRemote"
 								>
 									{#snippet lines(topHeightPx)}

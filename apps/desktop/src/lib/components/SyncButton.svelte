@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchListingService } from '$lib/branches/branchListing';
-	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
+	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -12,7 +12,7 @@
 	const baseBranch = baseBranchService.base;
 	const branchListingService = getContext(BranchListingService);
 
-	const listingService = getGitHostListingService();
+	const listingService = getForgeListingService();
 
 	let loading = $state(false);
 </script>

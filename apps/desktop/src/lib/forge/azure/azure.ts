@@ -1,8 +1,8 @@
 import { AzureBranch } from './azureBranch';
 import type { ForgeType } from '$lib/backend/forge';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHost } from '../interface/forge';
-import type { GitHostArguments } from '../interface/types';
+import type { Forge } from '../interface/forge';
+import type { ForgeArguments } from '../interface/types';
 
 export const AZURE_DOMAIN = 'dev.azure.com';
 
@@ -12,14 +12,14 @@ export const AZURE_DOMAIN = 'dev.azure.com';
  * Follow this issue to stay in the loop:
  * https://github.com/gitbutlerapp/gitbutler/issues/2651
  */
-export class AzureDevOps implements GitHost {
+export class AzureDevOps implements Forge {
 	readonly type: ForgeType = 'azure';
 	private baseUrl: string;
 	private repo: RepoInfo;
 	private baseBranch: string;
 	private forkStr?: string;
 
-	constructor({ repo, baseBranch, forkStr }: GitHostArguments) {
+	constructor({ repo, baseBranch, forkStr }: ForgeArguments) {
 		this.baseUrl = `https://${AZURE_DOMAIN}/${repo.organization}/${repo.owner}/_git/${repo.name}`;
 		this.repo = repo;
 		this.baseBranch = baseBranch;

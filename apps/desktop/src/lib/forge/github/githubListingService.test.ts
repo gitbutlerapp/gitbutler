@@ -2,7 +2,7 @@ import { GitHub } from './github';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { test, describe, vi, beforeEach, afterEach, expect } from 'vitest';
-import type { GitHostListingService } from '../interface/forgeListingService';
+import type { ForgeListingService } from '../interface/forgeListingService';
 
 type Labels = RestEndpointMethodTypes['pulls']['list']['response']['data'][0]['labels'];
 type PrListResponse = RestEndpointMethodTypes['pulls']['list']['response'];
@@ -16,7 +16,7 @@ describe.concurrent('GitHubListingService', () => {
 
 	let octokit: Octokit;
 	let gh: GitHub;
-	let service: GitHostListingService | undefined;
+	let service: ForgeListingService | undefined;
 	let projectMetrics: ProjectMetrics;
 
 	beforeEach(() => {

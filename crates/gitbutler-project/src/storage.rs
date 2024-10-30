@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiProject, AuthKey, CodePushState, FetchResult, GitHostSettings, Project, ProjectId};
+use crate::{ApiProject, AuthKey, CodePushState, FetchResult, ForgeSettings, Project, ProjectId};
 
 const PROJECTS_FILE: &str = "projects.json";
 
@@ -27,7 +27,7 @@ pub struct UpdateRequest {
     pub omit_certificate_check: Option<bool>,
     pub use_diff_context: Option<bool>,
     pub snapshot_lines_threshold: Option<usize>,
-    pub git_host: Option<GitHostSettings>,
+    pub git_host: Option<ForgeSettings>,
     pub use_experimental_locking: Option<bool>,
 }
 

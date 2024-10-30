@@ -7,12 +7,12 @@ import { Octokit } from '@octokit/rest';
 import type { ForgeType } from '$lib/backend/forge';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHost } from '../interface/forge';
-import type { GitHostArguments } from '../interface/types';
+import type { Forge } from '../interface/forge';
+import type { ForgeArguments } from '../interface/types';
 
 export const GITHUB_DOMAIN = 'github.com';
 
-export class GitHub implements GitHost {
+export class GitHub implements Forge {
 	readonly type: ForgeType = 'github';
 	private baseUrl: string;
 	private repo: RepoInfo;
@@ -27,7 +27,7 @@ export class GitHub implements GitHost {
 		forkStr,
 		octokit,
 		projectMetrics
-	}: GitHostArguments & {
+	}: ForgeArguments & {
 		octokit?: Octokit;
 		projectMetrics?: ProjectMetrics;
 	}) {

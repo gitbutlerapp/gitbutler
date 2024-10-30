@@ -72,7 +72,7 @@ export type CheckSuite = {
 	status: 'queued' | 'in_progress' | 'completed' | 'waiting' | 'requested' | 'pending' | null;
 };
 
-export type GitHostArguments = {
+export type ForgeArguments = {
 	repo: RepoInfo;
 	baseBranch: string;
 	forkStr?: string;

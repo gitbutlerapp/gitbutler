@@ -2,9 +2,9 @@
 	import MergeButton from './MergeButton.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { getGitHostChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
-	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
-	import { getGitHostPrService } from '$lib/forge/interface/forgePrService';
+	import { getForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
+	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
@@ -31,21 +31,21 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 
-	const gitHostListingService = getGitHostListingService();
-	const prStore = $derived($gitHostListingService?.prs);
+	const forgeListingService = getForgeListingService();
+	const prStore = $derived($forgeListingService?.prs);
 	const prs = $derived(prStore ? $prStore : undefined);
 
 	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
 	const prNumber = $derived(listedPr?.number);
 
-	const prService = getGitHostPrService();
+	const prService = getForgePrService();
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 
 	// This PR has been loaded on demand, and contains more details than the version
 	// obtained when listing them.
 	const pr = $derived(prMonitor?.pr);
 
-	const checksMonitor = getGitHostChecksMonitor();
+	const checksMonitor = getForgeChecksMonitor();
 	const checks = $derived($checksMonitor?.status);
 
 	// While the pr monitor is set to fetch updates by interval, we want
@@ -177,7 +177,7 @@
 							await baseBranchService.fetchFromRemotes();
 							await Promise.all([
 								prMonitor?.refresh(),
-								$gitHostListingService?.refresh(),
+								$forgeListingService?.refresh(),
 								vbranchService.refresh(),
 								baseBranchService.refresh()
 							]);

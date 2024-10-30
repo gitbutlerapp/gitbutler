@@ -1,15 +1,15 @@
 import { GitHub } from './github';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
-import type { GitHostPrMonitor } from '../interface/forgePrMonitor';
-import type { GitHostPrService } from '../interface/forgePrService';
+import type { ForgePrMonitor } from '../interface/forgePrMonitor';
+import type { ForgePrService } from '../interface/forgePrService';
 
 // TODO: Rewrite this proof-of-concept into something valuable.
 describe.concurrent('GitHubPrMonitor', () => {
 	let octokit: Octokit;
 	let gh: GitHub;
-	let service: GitHostPrService | undefined;
-	let monitor: GitHostPrMonitor | undefined;
+	let service: ForgePrService | undefined;
+	let monitor: ForgePrMonitor | undefined;
 
 	beforeEach(() => {
 		vi.useFakeTimers();

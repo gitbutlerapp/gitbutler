@@ -6,7 +6,7 @@ mod storage;
 
 pub use controller::Controller;
 pub use project::{
-    ApiProject, AuthKey, CodePushState, FetchResult, GitHostSettings, Project, ProjectId,
+    ApiProject, AuthKey, CodePushState, FetchResult, ForgeSettings, Project, ProjectId,
 };
 pub use storage::UpdateRequest;
 

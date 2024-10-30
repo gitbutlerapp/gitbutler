@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getForge } from '$lib/forge/interface/forge';
 	import { TopicService, type Topic } from '$lib/topics/service';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { getContext } from '@gitbutler/shared/context';
@@ -15,8 +15,8 @@
 
 	const { registerKeypress = false, topic }: Props = $props();
 
-	const gitHost = getGitHost();
-	const issueService = $derived($gitHost?.issueService());
+	const forge = getForge();
+	const issueService = $derived($forge?.issueService());
 	const topicService = getContext(TopicService);
 
 	let modal = $state<Modal>();

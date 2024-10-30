@@ -1,7 +1,7 @@
 import { persisted } from '@gitbutler/shared/persisted';
 import { get, type Readable, type Writable } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';
-import type { GitHostIssueService } from '$lib/forge/interface/forgeIssueService';
+import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
 
 export type Topic = {
 	title: string;
@@ -16,7 +16,7 @@ export class TopicService {
 
 	constructor(
 		private project: Project,
-		private issueService: Readable<GitHostIssueService | undefined>
+		private issueService: Readable<ForgeIssueService | undefined>
 	) {
 		this.topics = persisted<Topic[]>([], `TopicService--${this.project.id}`);
 	}

@@ -1,3 +1,3 @@
-export interface GitHostBranch {
+export interface ForgeBranch {
 	url: string;
 }

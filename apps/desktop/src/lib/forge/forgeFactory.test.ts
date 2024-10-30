@@ -1,12 +1,12 @@
-import { DefaultGitHostFactory } from './forgeFactory';
+import { DefaultForgeFactory } from './forgeFactory';
 import { GitHub } from './github/github';
 import { GitLab } from './gitlab/gitlab';
 import { Octokit } from '@octokit/rest';
 import { expect, test, describe } from 'vitest';
 
-describe.concurrent('DefaultgitHostFactory', () => {
+describe.concurrent('DefaultforgeFactory', () => {
 	test('Create GitHub service', async () => {
-		const monitorFactory = new DefaultGitHostFactory(new Octokit());
+		const monitorFactory = new DefaultForgeFactory(new Octokit());
 		expect(
 			monitorFactory.build(
 				{
@@ -20,7 +20,7 @@ describe.concurrent('DefaultgitHostFactory', () => {
 	});
 
 	test('Create self hosted Gitlab service', async () => {
-		const monitorFactory = new DefaultGitHostFactory(new Octokit());
+		const monitorFactory = new DefaultForgeFactory(new Octokit());
 		expect(
 			monitorFactory.build(
 				{
@@ -34,7 +34,7 @@ describe.concurrent('DefaultgitHostFactory', () => {
 	});
 
 	test('Create Gitlab service', async () => {
-		const monitorFactory = new DefaultGitHostFactory(new Octokit());
+		const monitorFactory = new DefaultForgeFactory(new Octokit());
 		expect(
 			monitorFactory.build(
 				{

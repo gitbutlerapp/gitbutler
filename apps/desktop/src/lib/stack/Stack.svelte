@@ -8,7 +8,7 @@
 	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
-	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
+	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
@@ -71,8 +71,8 @@
 		return false;
 	});
 
-	const listingService = getGitHostListingService();
-	const hostedListingServiceStore = getGitHostListingService();
+	const listingService = getForgeListingService();
+	const hostedListingServiceStore = getForgeListingService();
 
 	const stackBranches = $derived(branch.series.map((s) => s.name));
 	const prStore = $derived($hostedListingServiceStore?.prs);

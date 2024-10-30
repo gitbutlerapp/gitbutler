@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getForge } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/modes/service';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -24,10 +24,10 @@
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
-	const gitHost = getGitHost();
+	const forge = getForge();
 	const modeSerivce = getContext(ModeService);
 	const mode = modeSerivce.mode;
-	$: gitHostBranch = upstream ? $gitHost?.branch(upstream) : undefined;
+	$: forgeBranch = upstream ? $forge?.branch(upstream) : undefined;
 
 	let isApplying = false;
 	let isDeleting = false;
@@ -52,7 +52,7 @@
 						</Button>
 					</Tooltip>
 
-					{#if gitHostBranch}
+					{#if forgeBranch}
 						<Button
 							size="tag"
 							icon="open-link"
@@ -60,7 +60,7 @@
 							outline
 							shrinkable
 							onclick={(e: MouseEvent) => {
-								const url = gitHostBranch.url;
+								const url = forgeBranch.url;
 								if (url) openExternalUrl(url);
 								e.preventDefault();
 								e.stopPropagation();

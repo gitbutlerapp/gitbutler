@@ -5,9 +5,9 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { type GitHostChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
-	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
-	import { getGitHostPrService } from '$lib/forge/interface/forgePrService';
+	import { type ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
+	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -22,7 +22,7 @@
 	interface Props {
 		upstreamName: string;
 		pr: DetailedPullRequest;
-		checksMonitor?: GitHostChecksMonitor;
+		checksMonitor?: ForgeChecksMonitor;
 		reloadPR?: () => void;
 	}
 
@@ -42,14 +42,14 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 
-	const gitHostListingService = getGitHostListingService();
-	const prStore = $derived($gitHostListingService?.prs);
+	const forgeListingService = getForgeListingService();
+	const prStore = $derived($forgeListingService?.prs);
 	const prs = $derived(prStore ? $prStore : undefined);
 
 	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
 	const prNumber = $derived(listedPr?.number);
 
-	const prService = getGitHostPrService();
+	const prService = getForgePrService();
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 
 	const checks = $derived(checksMonitor?.status);
@@ -245,7 +245,7 @@
 							await baseBranchService.fetchFromRemotes();
 							await Promise.all([
 								prMonitor?.refresh(),
-								$gitHostListingService?.refresh(),
+								$forgeListingService?.refresh(),
 								vbranchService.refresh(),
 								baseBranchService.refresh()
 							]);

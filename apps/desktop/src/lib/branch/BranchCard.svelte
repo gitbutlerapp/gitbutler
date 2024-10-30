@@ -12,11 +12,11 @@
 	import CommitList from '$lib/commit/CommitList.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
-	import { getGitHost } from '$lib/forge/interface/forge';
-	import { createGitHostChecksMonitorStore } from '$lib/forge/interface/forgeChecksMonitor';
-	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
-	import { createGitHostPrMonitorStore } from '$lib/forge/interface/forgePrMonitor';
-	import { createGitHostPrServiceStore } from '$lib/forge/interface/forgePrService';
+	import { getForge } from '$lib/forge/interface/forge';
+	import { createForgeChecksMonitorStore } from '$lib/forge/interface/forgeChecksMonitor';
+	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { createForgePrMonitorStore } from '$lib/forge/interface/forgePrMonitor';
+	import { createForgePrServiceStore } from '$lib/forge/interface/forgePrService';
 	import { showError } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
@@ -44,12 +44,12 @@
 		commitBoxOpen
 	}: { isLaneCollapsed: Writable<boolean>; commitBoxOpen: Writable<boolean> } = $props();
 
-	const gitHost = getGitHost();
+	const forge = getForge();
 
-	const prService = createGitHostPrServiceStore(undefined);
-	$effect(() => prService.set($gitHost?.prService()));
+	const prService = createForgePrServiceStore(undefined);
+	$effect(() => prService.set($forge?.prService()));
 
-	const hostedListingServiceStore = getGitHostListingService();
+	const hostedListingServiceStore = getForgeListingService();
 
 	const prStore = $derived($hostedListingServiceStore?.prs);
 	const prs = $derived(prStore ? $prStore : undefined);
@@ -58,13 +58,13 @@
 	const sourceBranch = $derived(listedPr?.sourceBranch);
 	const prNumber = $derived(listedPr?.number);
 
-	const gitHostPrMonitorStore = createGitHostPrMonitorStore(undefined);
+	const forgePrMonitorStore = createForgePrMonitorStore(undefined);
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
-	$effect(() => gitHostPrMonitorStore.set(prMonitor));
+	$effect(() => forgePrMonitorStore.set(prMonitor));
 
-	const gitHostChecksMonitorStore = createGitHostChecksMonitorStore(undefined);
-	const checksMonitor = $derived(sourceBranch ? $gitHost?.checksMonitor(sourceBranch) : undefined);
-	$effect(() => gitHostChecksMonitorStore.set(checksMonitor));
+	const forgeChecksMonitorStore = createForgeChecksMonitorStore(undefined);
+	const checksMonitor = $derived(sourceBranch ? $forge?.checksMonitor(sourceBranch) : undefined);
+	$effect(() => forgeChecksMonitorStore.set(checksMonitor));
 
 	const branchController = getContext(BranchController);
 	const fileIdSelection = getContext(FileIdSelection);
@@ -134,7 +134,7 @@
 		$localAndRemoteCommits.some((commit) => commit.conflicted)
 	);
 
-	const listingService = getGitHostListingService();
+	const listingService = getForgeListingService();
 
 	async function push() {
 		isPushingCommits = true;

@@ -4,7 +4,7 @@ import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
 import { sleep } from '$lib/utils/sleep';
 import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
-import type { GitHostPrService } from '$lib/forge/interface/forgePrService';
+import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type {
 	CreatePullRequestArgs,
@@ -14,7 +14,7 @@ import type {
 } from '../interface/types';
 import type { Octokit } from '@octokit/rest';
 
-export class GitHubPrService implements GitHostPrService {
+export class GitHubPrService implements ForgePrService {
 	loading = writable(false);
 
 	constructor(

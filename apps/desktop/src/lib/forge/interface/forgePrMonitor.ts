@@ -2,7 +2,7 @@ import { buildContextStore } from '@gitbutler/shared/context';
 import type { DetailedPullRequest } from './types';
 import type { Readable } from 'svelte/store';
 
-export interface GitHostPrMonitor {
+export interface ForgePrMonitor {
 	pr: Readable<DetailedPullRequest | undefined>;
 	loading?: Readable<boolean>;
 	error: Readable<any>;
@@ -10,6 +10,6 @@ export interface GitHostPrMonitor {
 	refresh(): Promise<void>;
 }
 
-export const [getGitHostPrMonitor, createGitHostPrMonitorStore] = buildContextStore<
-	GitHostPrMonitor | undefined
+export const [getForgePrMonitor, createForgePrMonitorStore] = buildContextStore<
+	ForgePrMonitor | undefined
 >('prMonitor');

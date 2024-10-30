@@ -6,10 +6,10 @@
 	import { ProjectService } from '$lib/backend/projects';
 	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import { getGitHost } from '$lib/forge/interface/forge';
-	import { getGitHostChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
-	import { getGitHostPrMonitor } from '$lib/forge/interface/forgePrMonitor';
-	import { getGitHostPrService } from '$lib/forge/interface/forgePrService';
+	import { getForge } from '$lib/forge/interface/forge';
+	import { getForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
+	import { getForgePrMonitor } from '$lib/forge/interface/forgePrMonitor';
+	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
@@ -28,11 +28,11 @@
 	const { uncommittedChanges = 0, isLaneCollapsed, onGenerateBranchName }: Props = $props();
 
 	const branchController = getContext(BranchController);
-	const prService = getGitHostPrService();
+	const prService = getForgePrService();
 	const branchStore = getContextStore(VirtualBranch);
-	const prMonitor = getGitHostPrMonitor();
-	const checksMonitor = getGitHostChecksMonitor();
-	const gitHost = getGitHost();
+	const prMonitor = getForgePrMonitor();
+	const checksMonitor = getForgeChecksMonitor();
+	const forge = getForge();
 
 	const branch = $derived($branchStore);
 	const pr = $derived($prMonitor?.pr);
@@ -195,7 +195,7 @@
 							<Button
 								style="ghost"
 								outline
-								disabled={branch.commits.length === 0 || !$gitHost || !$prService}
+								disabled={branch.commits.length === 0 || !$forge || !$prService}
 								onclick={handleOpenPR}>Create PR</Button
 							>
 						{/if}
