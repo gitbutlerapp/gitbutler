@@ -1,3 +1,4 @@
+use crate::gravatar::gravatar_url_from_email;
 use crate::{RemoteBranchFile, VirtualBranchesExt};
 use anyhow::{bail, Context, Result};
 use bstr::{BStr, ByteSlice};
@@ -421,26 +422,48 @@ pub struct BranchListing {
 
 /// Represents a "commit author" or "signature", based on the data from the git history
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "camelCase")]
 pub struct Author {
     /// The name of the author as configured in the git config
     pub name: Option<BStringForFrontend>,
     /// The email of the author as configured in the git config
     pub email: Option<BStringForFrontend>,
+
+    pub gravatar_url: Option<BStringForFrontend>,
 }
 
 impl From<git2::Signature<'_>> for Author {
     fn from(value: git2::Signature) -> Self {
         let name = value.name().map(str::to_string).map(Into::into);
         let email = value.email().map(str::to_string).map(Into::into);
-        Author { name, email }
+
+        let gravatar_url = match value.email() {
+            Some(email) => gravatar_url_from_email(email)
+                .map(|url| url.as_ref().into())
+                .ok(),
+            None => None,
+        };
+
+        Author {
+            name,
+            email,
+            gravatar_url,
+        }
     }
 }
 
 impl From<gix::actor::SignatureRef<'_>> for Author {
     fn from(value: gix::actor::SignatureRef<'_>) -> Self {
+        let gravatar_url = {
+            gravatar_url_from_email(&value.email.to_str_lossy())
+                .map(|url| url.as_ref().into())
+                .ok()
+        };
+
         Author {
             name: Some(value.name.to_owned().into()),
             email: Some(value.email.to_owned().into()),
+            gravatar_url,
         }
     }
 }
