@@ -181,11 +181,17 @@ export class BranchController {
 		}
 	}
 
-	async updateSeriesDescription(branchId: string, headName: string, description: string) {
+	/**
+	 * Updates the series description.
+	 * @param stackId The stack Id (vbranch.id) which contains the series.
+	 * @param headName The target series.
+	 * @param description The description to set on the series.
+	 */
+	async updateSeriesDescription(stackId: string, headName: string, description: string) {
 		try {
 			await invoke<void>('update_series_description', {
 				projectId: this.projectId,
-				branchId,
+				branchId: stackId,
 				headName,
 				description
 			});
@@ -194,7 +200,7 @@ export class BranchController {
 		}
 	}
 
-	/*
+	/**
 	 * Creates a new GitButler change reference associated with a branch.
 	 * @param branchId
 	 * @param reference in the format refs/remotes/origin/my-branch (must be remote)
@@ -213,7 +219,7 @@ export class BranchController {
 		}
 	}
 
-	/*
+	/**
 	 * Pushes a change reference to (converted to a git reference to a commit) to the remote
 	 * @param branchId
 	 * @param reference in the format refs/remotes/origin/my-branch (must be remote, must already exist)
@@ -232,7 +238,7 @@ export class BranchController {
 		}
 	}
 
-	/*
+	/**
 	 * Updates a change reference to point to a new change
 	 * @param branchId
 	 * @param reference in the format refs/remotes/origin/my-branch (must be remote, must already exist)
