@@ -58,7 +58,6 @@
 	let newHeadName: string = $state(headName);
 	let isDeleting = $state(false);
 	let aiConfigurationValid = $state(false);
-	let showDescription = $state(!!description);
 
 	$effect(() => {
 		setAIConfigurationValid();
@@ -78,10 +77,9 @@
 <ContextMenu bind:this={contextMenuEl} {target} {onopen} {onclose}>
 	<ContextMenuSection>
 		<ContextMenuItem
-			label={`${!showDescription ? 'Add' : 'Remove'} description`}
+			label={`${!description ? 'Add' : 'Remove'} description`}
 			onclick={async () => {
 				await toggleDescription();
-				showDescription = !showDescription;
 				contextMenuEl?.close();
 			}}
 		/>
@@ -124,7 +122,6 @@
 			<ContextMenuItem
 				label="Copy PR link"
 				onclick={() => {
-					console.log(prUrl);
 					copyToClipboard(prUrl);
 					contextMenuEl?.close();
 				}}
