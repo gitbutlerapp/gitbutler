@@ -1,7 +1,8 @@
 <script lang="ts" module>
+	import { clickOutside } from './utils/clickOutside';
 	export interface Props {
 		id?: string;
-		textBoxEl?: HTMLTextAreaElement;
+		textBoxEl?: HTMLDivElement;
 		label?: string;
 		value?: string;
 		placeholder?: string;
@@ -27,7 +28,6 @@
 		borderLeft?: boolean;
 		unstyled?: boolean;
 		oninput?: (e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
-		onchange?: (e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
 		onfocus?: (
 			this: void,
 			e: FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement }
@@ -64,13 +64,20 @@
 		borderLeft = true,
 		unstyled,
 		oninput,
-		onchange,
 		onfocus,
 		onblur,
 		onkeydown
 	}: Props = $props();
 
-	let textBoxValue = $state(value);
+	let isEmpty = $state(value === '');
+
+	function getSelectionRange() {
+		const selection = window.getSelection();
+		if (selection) {
+			const range = selection.getRangeAt(0);
+			return range;
+		}
+	}
 
 	$effect(() => {
 		if (autofocus) {
@@ -79,16 +86,22 @@
 	});
 
 	$effect(() => {
-		if (value !== undefined) {
-			textBoxValue = value;
+		if (textBoxEl) {
+			if (!disabled) {
+				textBoxEl.setAttribute('contenteditable', 'plaintext-only');
+			} else {
+				textBoxEl.removeAttribute('contenteditable');
+			}
 		}
 	});
 
-	let maxHeight = fontSize * 1.5 * maxRows + padding.top + padding.bottom;
-	let minHeight = fontSize * 1.5 * minRows + padding.top + padding.bottom;
-
-	let measureElHeight = $state(0);
-	let textBoxElHeight = $state(0);
+	$effect(() => {
+		if (value === ' ' || value === '') {
+			isEmpty = true;
+		} else {
+			isEmpty = false;
+		}
+	});
 </script>
 
 <div
@@ -105,52 +118,73 @@
 	style:flex
 >
 	{#if label}
-		<label class="textarea-label text-13 text-semibold text-body" for={id}>
+		<label class="textarea-label text-13 text-semibold" for={id}>
 			{label}
 		</label>
 	{/if}
-	<pre
-		class="textarea-measure-el"
-		aria-hidden="true"
-		bind:clientHeight={measureElHeight}
-		style="min-height: {pxToRem(minHeight)}; max-height: {pxToRem(maxHeight)}">{textBoxValue +
-			'\n'}</pre>
-	<div class="textarea-wrapper">
-		<textarea
-			bind:this={textBoxEl}
-			name={id}
-			{id}
-			bind:clientHeight={textBoxElHeight}
-			class="textarea scrollbar {className}"
-			class:disabled
-			class:text-input={!unstyled}
-			class:textarea-unstyled={unstyled}
-			style:height={pxToRem(measureElHeight)}
-			class:hide-scrollbar={measureElHeight < maxHeight}
-			style:border-top-width={borderTop && !borderless ? '1px' : '0'}
-			style:border-right-width={borderRight && !borderless ? '1px' : '0'}
-			style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
-			style:border-left-width={borderLeft && !borderless ? '1px' : '0'}
-			style:border-top-right-radius={!borderTop || !borderRight ? '0' : undefined}
-			style:border-top-left-radius={!borderTop || !borderLeft ? '0' : undefined}
-			style:border-bottom-right-radius={!borderBottom || !borderRight ? '0' : undefined}
-			style:border-bottom-left-radius={!borderBottom || !borderLeft ? '0' : undefined}
-			{placeholder}
-			{value}
-			{disabled}
-			oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
-				textBoxValue = e.currentTarget.value;
-				oninput?.(e);
-			}}
-			onchange={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
-				textBoxValue = e.currentTarget.value;
-				onchange?.(e);
-			}}
-			{onblur}
-			{onkeydown}
-			{onfocus}
-			rows={minRows}
-		></textarea>
+	<div
+		bind:this={textBoxEl}
+		use:clickOutside={{ handler: () => textBoxEl?.blur() }}
+		{id}
+		role="textbox"
+		aria-multiline="true"
+		tabindex={disabled ? -1 : 0}
+		contenteditable="plaintext-only"
+		onfocus={(e: Event) => {
+			if (e.currentTarget) {
+				onfocus?.(e as FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement });
+			}
+		}}
+		onblur={(e: Event) => {
+			if (e.currentTarget) {
+				onblur?.(e as FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement });
+			}
+		}}
+		oninput={(e: Event) => {
+			const innerText = (e.target as HTMLDivElement).innerText;
+			const eventMock = { currentTarget: { value: innerText } } as Event & {
+				currentTarget: EventTarget & HTMLTextAreaElement;
+			};
+
+			isEmpty = innerText === '';
+
+			oninput?.(eventMock);
+		}}
+		onkeydown={(e: KeyboardEvent) => {
+			const selection = getSelectionRange();
+
+			const eventMock = {
+				key: e.key,
+				code: e.code,
+				altKey: e.altKey,
+				metaKey: e.metaKey,
+				ctrlKey: e.ctrlKey,
+				shiftKey: e.shiftKey,
+				location: e.location,
+				currentTarget: {
+					value: (e.currentTarget as HTMLDivElement).innerText,
+					selectionStart: selection?.startOffset,
+					selectionEnd: selection?.endOffset
+				}
+			} as unknown as KeyboardEvent & { currentTarget: EventTarget & HTMLTextAreaElement };
+
+			onkeydown?.(eventMock);
+		}}
+		class="textarea scrollbar {className}"
+		class:disabled
+		class:text-input={!unstyled}
+		class:textarea-unstyled={unstyled}
+		class:textarea-placeholder={isEmpty}
+		style:border-top-width={borderTop && !borderless ? '1px' : '0'}
+		style:border-right-width={borderRight && !borderless ? '1px' : '0'}
+		style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
+		style:border-left-width={borderLeft && !borderless ? '1px' : '0'}
+		style:border-top-right-radius={!borderTop || !borderRight ? '0' : undefined}
+		style:border-top-left-radius={!borderTop || !borderLeft ? '0' : undefined}
+		style:border-bottom-right-radius={!borderBottom || !borderRight ? '0' : undefined}
+		style:border-bottom-left-radius={!borderBottom || !borderLeft ? '0' : undefined}
+	>
+		{value}
 	</div>
 </div>
 
@@ -166,25 +200,10 @@
 		.textarea-unstyled {
 			outline: none;
 			border: none;
-			background: none;
 		}
 	}
 
-	.textarea-wrapper {
-		position: relative;
-		display: flex;
-	}
-
-	.textarea-measure-el {
-		position: absolute;
-		background-color: rgba(0, 0, 0, 0.1);
-		pointer-events: none;
-		height: fit-content;
-		visibility: hidden;
-	}
-
-	.textarea,
-	.textarea-measure-el {
+	.textarea {
 		font-family: var(--base-font-family);
 		line-height: var(--body-line-height);
 		font-weight: var(--base-font-weight);
@@ -194,7 +213,14 @@
 
 		width: 100%;
 		font-size: var(--font-size);
-
+		min-height: calc(
+			var(--font-size) * var(--line-height-ratio) * var(--min-rows) + var(--padding-top) +
+				var(--padding-bottom)
+		);
+		max-height: calc(
+			var(--font-size) * var(--line-height-ratio) * var(--max-rows) + var(--padding-top) +
+				var(--padding-bottom)
+		);
 		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
 		overflow-y: auto; /* Enable scrolling when max height is reached */
 		overflow-x: hidden;
@@ -205,12 +231,6 @@
 
 		&.disabled {
 			cursor: default;
-		}
-
-		&.hide-scrollbar {
-			&::-webkit-scrollbar {
-				display: none;
-			}
 		}
 
 		&.textarea-placeholder {

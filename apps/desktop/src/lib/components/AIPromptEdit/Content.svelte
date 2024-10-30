@@ -6,25 +6,33 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { createEventDispatcher } from 'svelte';
 
-	export let displayMode: 'readOnly' | 'writable' = 'writable';
-	export let prompt: UserPrompt;
+	interface Props {
+		prompt: UserPrompt;
+		displayMode: 'readOnly' | 'writable';
+	}
 
-	let expanded = false;
-	let editing = false;
-	let promptMessages = structuredClone(prompt.prompt);
-	let promptName = structuredClone(prompt.name);
-	let initialName = promptName;
+	let { prompt = $bindable(), displayMode = 'writable' }: Props = $props();
+
+	let expanded = $state(false);
+	let editing = $state(false);
+	let promptMessages = $state(structuredClone(prompt.prompt));
+	let promptName = $state(structuredClone(prompt.name));
+	let initialName = $derived(promptName);
+	let isInEditing = $state(false) as boolean;
+	let errorMessages = $state([]) as number[];
 
 	// Ensure the prompt messages have a default user prompt
-	if (promptMessages.length === 0) {
-		promptMessages = [
-			...promptMessages,
-			{
-				role: MessageRole.User,
-				content: ''
-			}
-		];
-	}
+	$effect(() => {
+		if (promptMessages.length === 0) {
+			promptMessages = [
+				...promptMessages,
+				{
+					role: MessageRole.User,
+					content: ''
+				}
+			];
+		}
+	});
 
 	function addExample() {
 		promptMessages = [
@@ -51,8 +59,6 @@
 		dispatcher('deletePrompt', { prompt });
 	}
 
-	let errorMessages = [] as number[];
-
 	function save() {
 		errorMessages = checkForEmptyMessages();
 
@@ -75,7 +81,9 @@
 		editing = false;
 	}
 
-	$: isInEditing = displayMode === 'writable' && editing;
+	$effect(() => {
+		isInEditing = displayMode === 'writable' && editing;
+	});
 
 	function toggleExpand() {
 		if (isInEditing) return;
@@ -102,8 +110,8 @@
 		role="button"
 		class="header"
 		class:editing={isInEditing}
-		on:click={toggleExpand}
-		on:keydown={(e) => e.key === 'Enter' && toggleExpand()}
+		onclick={toggleExpand}
+		onkeydown={(e) => e.key === 'Enter' && toggleExpand()}
 	>
 		{#if !isInEditing}
 			<Icon name="doc" />
@@ -120,14 +128,25 @@
 		<div class="content" class:default-mode={prompt.id === 'default'} class:editing={isInEditing}>
 			{#each promptMessages as promptMessage, index}
 				<DialogBubble
-					bind:promptMessage={promptMessage.content}
+					promptMessage={promptMessage.content}
 					role={promptMessage.role}
 					editing={isInEditing}
 					isLast={index + 1 === promptMessages.length || promptMessages.length === 1}
 					disableRemove={promptMessages.length === 1}
-					on:addExample={addExample}
-					on:removeLastExample={removeLastExample}
-					on:input={() => {
+					onAddExample={addExample}
+					onRemoveLastExample={removeLastExample}
+					onInput={(value: string) => {
+						promptMessages = promptMessages.map((message, i) => {
+							if (i === index) {
+								return {
+									...message,
+									content: value
+								};
+							}
+
+							return message;
+						});
+
 						errorMessages = errorMessages.filter((errorIndex) => errorIndex !== index);
 					}}
 					isError={errorMessages.includes(index)}

@@ -60,7 +60,7 @@
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let stackingContextMenu = $state<ReturnType<typeof StackingSeriesHeaderContextMenu>>();
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
-	let seriesDescriptionEl = $state<HTMLDivElement>();
+	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
 
 	let contextMenuOpened = $state(false);
 

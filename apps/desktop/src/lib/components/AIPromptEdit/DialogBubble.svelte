@@ -4,7 +4,6 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
-	import { createEventDispatcher } from 'svelte';
 
 	interface Props {
 		role: MessageRole;
@@ -13,6 +12,9 @@
 		isLast?: boolean;
 		editing?: boolean;
 		promptMessage: string;
+		onRemoveLastExample: () => void;
+		onAddExample: () => void;
+		onInput: (value: string) => void;
 	}
 
 	let {
@@ -21,14 +23,11 @@
 		isError = false,
 		isLast = false,
 		editing = false,
-		promptMessage = $bindable()
+		promptMessage = $bindable(),
+		onRemoveLastExample,
+		onAddExample,
+		onInput
 	}: Props = $props();
-
-	const dispatcher = createEventDispatcher<{
-		removeLastExample: void;
-		addExample: void;
-		input: string;
-	}>();
 </script>
 
 <div
@@ -55,7 +54,7 @@
 					bind:value={promptMessage}
 					oninput={(e: Event) => {
 						const target = e.currentTarget as HTMLTextAreaElement;
-						dispatcher('input', target.value);
+						onInput(target.value);
 					}}
 				></Textarea>
 			</div>
@@ -69,18 +68,11 @@
 	{#if isLast && editing}
 		<div class="bubble-actions">
 			{#if !disableRemove}
-				<Button
-					icon="bin-small"
-					kind="soft"
-					style="error"
-					onclick={() => dispatcher('removeLastExample')}
-				>
+				<Button icon="bin-small" kind="soft" style="error" onclick={() => onRemoveLastExample()}>
 					Remove example
 				</Button>
 			{/if}
-			<Button style="ghost" outline grow onclick={() => dispatcher('addExample')}>
-				Add new example
-			</Button>
+			<Button style="ghost" outline grow onclick={() => onAddExample()}>Add new example</Button>
 		</div>
 	{/if}
 </div>
