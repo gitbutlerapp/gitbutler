@@ -13,14 +13,12 @@
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { getForge } from '$lib/forge/interface/forge';
-	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
@@ -58,6 +56,7 @@
 	interface PreviewSeriesProps {
 		type: 'preview-series';
 		currentSeries: PatchSeries;
+		stackId: string;
 	}
 
 	type Props = DisplayProps | PreviewProps | PreviewSeriesProps;
@@ -68,8 +67,6 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
-	const baseBranchService = getContext(BaseBranchService);
-	const gitListService = getForgeListingService();
 	const prService = getForgePrService();
 	const aiService = getContext(AIService);
 	const aiGenEnabled = projectAiGenEnabled(project.id);
@@ -194,13 +191,19 @@
 				return;
 			}
 
-			await $prService.createPr({
+			const pr = await $prService.createPr({
 				title: params.title,
 				body: params.body,
 				draft: params.draft,
 				baseBranchName,
 				upstreamName: upstreamBranchName
 			});
+			if (props.type === 'preview-series') {
+				await branchController.updateSeriesForgeId(props.stackId, props.currentSeries.name, {
+					type: 'GitHub',
+					subject: { prNumber: pr.number }
+				});
+			}
 		} catch (err: any) {
 			console.error(err);
 			const toast = mapErrorToToast(err);
@@ -209,8 +212,6 @@
 		} finally {
 			isLoading = false;
 		}
-		await $gitListService?.refresh();
-		baseBranchService.fetchFromRemotes();
 	}
 
 	async function handleCreatePR(close: () => void) {

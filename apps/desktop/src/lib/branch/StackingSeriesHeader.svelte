@@ -78,7 +78,7 @@
 	const prs = $derived(prStore ? $prStore : undefined);
 
 	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
-	const prNumber = $derived(listedPr?.number);
+	const prNumber = $derived(currentSeries.forgeId?.subject.prNumber || listedPr?.number);
 
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 	const pr = $derived(prMonitor?.pr);
@@ -288,7 +288,12 @@
 		{#if $pr}
 			<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
 		{:else}
-			<PrDetailsModal bind:this={prDetailsModal} type="preview-series" {currentSeries} />
+			<PrDetailsModal
+				bind:this={prDetailsModal}
+				type="preview-series"
+				{currentSeries}
+				stackId={branch.id}
+			/>
 		{/if}
 	</Dropzones>
 </div>
