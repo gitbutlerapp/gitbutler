@@ -33,6 +33,7 @@
 		try {
 			await branchController.commitBranch(
 				$branch.id,
+				$branch.name,
 				message.trim(),
 				$selectedOwnership.toString(),
 				$runCommitHooks

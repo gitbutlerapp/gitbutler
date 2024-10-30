@@ -63,6 +63,18 @@ export class BranchListingService {
 		return store;
 	}
 
+	/**
+	 * Refresh the information for a particular branch.
+	 *
+	 * Will only fetch the information if the branch is already being tracked.
+	 */
+	refreshBranchListingDetails(branchName: string) {
+		if (!this.branchListingDetails.has(branchName)) {
+			return;
+		}
+		this.updateBranchListing(branchName);
+	}
+
 	private accumulatedBranchListings: string[] = [];
 	private updateBranchListingTimeout: ReturnType<typeof setTimeout> | undefined;
 	// Accumulates multiple update calls
@@ -341,6 +353,8 @@ export class Author {
 	name?: string | undefined;
 	/** The email of the author as configured in the git config */
 	email?: string | undefined;
+	/** The gravatar id of the author */
+	gravatarUrl?: string | undefined;
 }
 
 /** Represents a fat struct with all the data associated with a branch */

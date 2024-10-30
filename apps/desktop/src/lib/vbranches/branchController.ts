@@ -3,6 +3,7 @@ import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+import type { BranchListingService } from '$lib/branches/branchListing';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BranchPushResult, ForgeIdentifier, Hunk, LocalFile, StackOrder } from './types';
 import type { VirtualBranchService } from './virtualBranch';
@@ -14,7 +15,8 @@ export class BranchController {
 		readonly projectId: string,
 		readonly vbranchService: VirtualBranchService,
 		readonly remoteBranchService: RemoteBranchService,
-		readonly baseBranchService: BaseBranchService
+		readonly baseBranchService: BaseBranchService,
+		private readonly branchListingService: BranchListingService
 	) {}
 
 	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
@@ -51,7 +53,8 @@ export class BranchController {
 	}
 
 	async commitBranch(
-		branch: string,
+		branchId: string,
+		branchName: string,
 		message: string,
 		ownership: string | undefined = undefined,
 		runHooks = false
@@ -59,11 +62,12 @@ export class BranchController {
 		try {
 			await invoke<void>('commit_virtual_branch', {
 				projectId: this.projectId,
-				branch,
+				branch: branchId,
 				message,
 				ownership,
 				runHooks: runHooks
 			});
+			this.branchListingService.refreshBranchListingDetails(branchName);
 			posthog.capture('Commit Successful');
 		} catch (err: any) {
 			if (err.code === 'errors.commit.signing_failed') {
@@ -543,13 +547,14 @@ export class BranchController {
 		}
 	}
 
-	async undoCommit(branchId: string, commitOid: string) {
+	async undoCommit(branchId: string, branchName: string, commitOid: string) {
 		try {
 			await invoke<void>('undo_commit', {
 				projectId: this.projectId,
 				branchId,
 				commitOid
 			});
+			this.branchListingService.refreshBranchListingDetails(branchName);
 		} catch (err: any) {
 			showError('Failed to amend commit', err);
 		}

@@ -100,7 +100,7 @@
 				branchListingDetails.authors.map(async (author) => {
 					return {
 						name: author.name || unknownName,
-						srcUrl: await gravatarUrlFromEmail(author.email || unknownEmail)
+						srcUrl: author.gravatarUrl ?? (await gravatarUrlFromEmail(author.email || unknownEmail))
 					};
 				})
 			);
