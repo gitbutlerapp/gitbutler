@@ -2,6 +2,7 @@ use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
+use itertools::Itertools;
 
 pub(crate) fn get_head(heads: &[PatchReference], name: &str) -> Result<(usize, PatchReference)> {
     let (idx, head) = heads
@@ -43,7 +44,7 @@ pub(crate) fn remove_head(
 /// If there are multiple heads pointing to the same patch, it uses `preceding_head` to disambiguate the order.
 // TODO: when there is a patch reference for a commit ID and a patch reference for a change ID, recognize if they are equivalent (i.e. point to the same commit)
 pub(crate) fn add_head(
-    mut existing_heads: Vec<PatchReference>,
+    existing_heads: Vec<PatchReference>,
     new_head: PatchReference,
     preceding_head: Option<PatchReference>,
     patches: Vec<CommitOrChangeId>,
@@ -64,7 +65,18 @@ pub(crate) fn add_head(
             ));
         }
     }
+    let archived_heads = existing_heads
+        .iter()
+        .filter(|h| !patches.contains(&h.target))
+        .cloned()
+        .collect_vec();
+    let mut existing_heads = existing_heads
+        .iter()
+        .filter(|h| patches.contains(&h.target))
+        .cloned()
+        .collect_vec();
     let mut updated_heads: Vec<PatchReference> = vec![];
+    updated_heads.extend(archived_heads); // add any heads that are below the merge base (archived)
     let mut new_head = Some(new_head);
     for patch in &patches {
         loop {
@@ -123,4 +135,47 @@ pub(crate) fn add_head(
         bail!("Error while adding head - there must be at least one head in an initialized stack");
     }
     Ok(updated_heads)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[test]
+    fn add_head_with_archived_bottom_head() -> Result<()> {
+        let head_1_archived = PatchReference {
+            target: CommitOrChangeId::ChangeId("328447a2-08aa-4c4d-a1bc-08d5cd82bcd4".to_string()),
+            name: "kv-branch-3".to_string(),
+            description: None,
+            forge_id: None,
+            archived: true,
+        };
+        let head_2 = PatchReference {
+            target: CommitOrChangeId::ChangeId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
+            name: "more-on-top".to_string(),
+            description: None,
+            forge_id: None,
+            archived: false,
+        };
+        let existing_heads = vec![head_1_archived.clone(), head_2.clone()];
+        let new_head = PatchReference {
+            target: CommitOrChangeId::ChangeId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
+            name: "abcd".to_string(),
+            description: None,
+            forge_id: None,
+            archived: false,
+        };
+        let patches = vec![
+            CommitOrChangeId::ChangeId("92a89ae608d77ff75c1ce52ea9dccc0bccd577e9".to_string()),
+            CommitOrChangeId::ChangeId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
+        ];
+
+        let updated_heads = add_head(
+            existing_heads,
+            new_head.clone(),
+            Some(head_2.clone()),
+            patches,
+        )?;
+        assert_eq!(updated_heads, vec![head_1_archived, head_2, new_head]);
+        Ok(())
+    }
 }
