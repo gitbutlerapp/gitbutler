@@ -1,4 +1,4 @@
-import type { GitHostBranch } from '../interface/gitHostBranch';
+import type { GitHostBranch } from '../interface/forgeBranch';
 
 export class GitLabBranch implements GitHostBranch {
 	readonly url: string;

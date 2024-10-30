@@ -3,7 +3,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
-	import type { PullRequest } from '$lib/gitHost/interface/types';
+	import type { PullRequest } from '$lib/forge/interface/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
 	import { Project } from '$lib/backend/projects';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { getGitHost } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/modes/service';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -11,7 +11,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-	import type { PullRequest } from '$lib/gitHost/interface/types';
+	import type { PullRequest } from '$lib/forge/interface/types';
 	import type { Branch, ForgeIdentifier } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 

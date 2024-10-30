@@ -1,7 +1,7 @@
 import { GitLabBranch } from './gitlabBranch';
 import type { ForgeType } from '$lib/backend/forge';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHost } from '../interface/gitHost';
+import type { GitHost } from '../interface/forge';
 import type { DetailedPullRequest, GitHostArguments } from '../interface/types';
 
 export type PrAction = 'creating_pr';

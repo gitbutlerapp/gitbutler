@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Markdown from '$lib/components/Markdown.svelte';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { getGitHost } from '$lib/forge/interface/forge';
 	import CreateIssueModal from '$lib/topics/CreateIssueModal.svelte';
 	import CreateTopicModal from '$lib/topics/CreateTopicModal.svelte';
 	import { TopicService, type Topic } from '$lib/topics/service';

@@ -13,9 +13,9 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
+	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
+	import { getGitHostPrService } from '$lib/forge/interface/forgePrService';
 	import { showError } from '$lib/notifications/toasts';
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import StackingPullRequestCard from '$lib/pr/StackingPullRequestCard.svelte';

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { getGitHost } from '$lib/forge/interface/forge';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';

@@ -2,9 +2,9 @@
 	import MergeButton from './MergeButton.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { getGitHostChecksMonitor } from '$lib/gitHost/interface/gitHostChecksMonitor';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import { getGitHostPrService } from '$lib/gitHost/interface/gitHostPrService';
+	import { getGitHostChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
+	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
+	import { getGitHostPrService } from '$lib/forge/interface/forgePrService';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';

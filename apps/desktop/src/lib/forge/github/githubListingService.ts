@@ -3,7 +3,7 @@ import { ghResponseToInstance } from './types';
 import { writable } from 'svelte/store';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHostListingService } from '../interface/gitHostListingService';
+import type { GitHostListingService } from '../interface/forgeListingService';
 import type { PullRequest } from '../interface/types';
 import type { Octokit } from '@octokit/rest';
 

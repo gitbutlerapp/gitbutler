@@ -12,11 +12,11 @@
 	import CommitList from '$lib/commit/CommitList.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
-	import { createGitHostChecksMonitorStore } from '$lib/gitHost/interface/gitHostChecksMonitor';
-	import { getGitHostListingService } from '$lib/gitHost/interface/gitHostListingService';
-	import { createGitHostPrMonitorStore } from '$lib/gitHost/interface/gitHostPrMonitor';
-	import { createGitHostPrServiceStore } from '$lib/gitHost/interface/gitHostPrService';
+	import { getGitHost } from '$lib/forge/interface/forge';
+	import { createGitHostChecksMonitorStore } from '$lib/forge/interface/forgeChecksMonitor';
+	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
+	import { createGitHostPrMonitorStore } from '$lib/forge/interface/forgePrMonitor';
+	import { createGitHostPrServiceStore } from '$lib/forge/interface/forgePrService';
 	import { showError } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';

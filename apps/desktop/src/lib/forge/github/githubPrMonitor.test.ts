@@ -1,8 +1,8 @@
 import { GitHub } from './github';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
-import type { GitHostPrMonitor } from '../interface/gitHostPrMonitor';
-import type { GitHostPrService } from '../interface/gitHostPrService';
+import type { GitHostPrMonitor } from '../interface/forgePrMonitor';
+import type { GitHostPrService } from '../interface/forgePrService';
 
 // TODO: Rewrite this proof-of-concept into something valuable.
 describe.concurrent('GitHubPrMonitor', () => {

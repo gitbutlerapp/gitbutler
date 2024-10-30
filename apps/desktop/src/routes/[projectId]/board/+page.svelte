@@ -3,7 +3,7 @@
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Board from '$lib/components/Board.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { getGitHost } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/modes/service';
 	import { showToast } from '$lib/notifications/toasts';
 	import Scrollbar from '$lib/scroll/Scrollbar.svelte';

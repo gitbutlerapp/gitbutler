@@ -2,7 +2,7 @@
 	import zenSvg from '$lib/assets/dzen-pc.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { getGitHost } from '$lib/gitHost/interface/gitHost';
+	import { getGitHost } from '$lib/forge/interface/forge';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';

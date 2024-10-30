@@ -1,4 +1,4 @@
-import { DefaultGitHostFactory } from './gitHostFactory';
+import { DefaultGitHostFactory } from './forgeFactory';
 import { GitHub } from './github/github';
 import { GitLab } from './gitlab/gitlab';
 import { Octokit } from '@octokit/rest';

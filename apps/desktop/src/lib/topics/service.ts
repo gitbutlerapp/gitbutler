@@ -1,7 +1,7 @@
 import { persisted } from '@gitbutler/shared/persisted';
 import { get, type Readable, type Writable } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';
-import type { GitHostIssueService } from '$lib/gitHost/interface/gitHostIssueService';
+import type { GitHostIssueService } from '$lib/forge/interface/forgeIssueService';
 
 export type Topic = {
 	title: string;

@@ -26,8 +26,8 @@
 	import {
 		createGitHubUserServiceStore as createGitHubUserServiceStore,
 		GitHubUserService
-	} from '$lib/gitHost/github/githubUserService';
-	import { octokitFromAccessToken } from '$lib/gitHost/github/octokit';
+	} from '$lib/forge/github/githubUserService';
+	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { RemotesService } from '$lib/remotes/service';
 	import { setSecretsService } from '$lib/secrets/secretsService';

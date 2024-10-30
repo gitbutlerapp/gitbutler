@@ -1,12 +1,12 @@
 import { scurveBackoff } from '$lib/backoff/scurve';
-import { DEFAULT_HEADERS } from '$lib/gitHost/github/headers';
-import { parseGitHubCheckSuites } from '$lib/gitHost/github/types';
+import { DEFAULT_HEADERS } from '$lib/forge/github/headers';
+import { parseGitHubCheckSuites } from '$lib/forge/github/types';
 import { sleep } from '$lib/utils/sleep';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { writable } from 'svelte/store';
-import type { CheckSuites, ChecksStatus } from '$lib/gitHost/interface/types';
+import type { CheckSuites, ChecksStatus } from '$lib/forge/interface/types';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHostChecksMonitor } from '../interface/gitHostChecksMonitor';
+import type { GitHostChecksMonitor } from '../interface/forgeChecksMonitor';
 
 export const MIN_COMPLETED_AGE = 20000;
 

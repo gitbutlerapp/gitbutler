@@ -14,7 +14,7 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { get } from 'svelte/store';
-	import type { PullRequest } from '$lib/gitHost/interface/types';
+	import type { PullRequest } from '$lib/forge/interface/types';
 	import { goto } from '$app/navigation';
 
 	export let pullrequest: PullRequest;

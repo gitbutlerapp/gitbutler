@@ -3,7 +3,7 @@ import { MIN_COMPLETED_AGE } from './githubChecksMonitor';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { get } from 'svelte/store';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
-import type { GitHostChecksMonitor } from '../interface/gitHostChecksMonitor';
+import type { GitHostChecksMonitor } from '../interface/forgeChecksMonitor';
 
 type ChecksResponse = RestEndpointMethodTypes['checks']['listForRef']['response'];
 type CheckRuns = RestEndpointMethodTypes['checks']['listForRef']['response']['data']['check_runs'];

@@ -6,7 +6,7 @@ import { hashCode } from '@gitbutler/ui/utils/string';
 import { isDefined, notNull } from '@gitbutler/ui/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
 import { get } from 'svelte/store';
-import type { PullRequest } from '$lib/gitHost/interface/types';
+import type { PullRequest } from '$lib/forge/interface/types';
 
 export type ChangeType =
 	/// Entry does not exist in old version
