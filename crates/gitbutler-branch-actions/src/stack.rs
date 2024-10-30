@@ -5,6 +5,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_patch_reference::{CommitOrChangeId, ForgeIdentifier, PatchReference};
 use gitbutler_project::Project;
+use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{PatchReferenceUpdate, Series};
 use gitbutler_stack::{Stack, StackId, Target};
@@ -92,11 +93,12 @@ pub fn update_series_name(
     let ctx = &open_with_verify(project)?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
+    let normalized_head_name = normalize_branch_name(&new_head_name)?;
     stack.update_series(
         ctx,
         head_name,
         &PatchReferenceUpdate {
-            name: Some(new_head_name),
+            name: Some(normalized_head_name),
             ..Default::default()
         },
     )
