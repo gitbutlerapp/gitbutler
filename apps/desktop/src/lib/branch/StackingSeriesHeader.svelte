@@ -28,6 +28,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
+	import { tick } from 'svelte';
 
 	interface Props {
 		currentSeries: PatchSeries;
@@ -58,6 +59,7 @@
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let stackingContextMenu = $state<ReturnType<typeof StackingSeriesHeaderContextMenu>>();
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
+	let seriesDescriptionEl = $state<HTMLDivElement>();
 
 	let contextMenuOpened = $state(false);
 
@@ -109,8 +111,10 @@
 		}
 	}
 
-	async function editDescription(description: string) {
-		await branchController.updateSeriesDescription(branch.id, currentSeries.name, description);
+	async function editDescription(description: string | undefined | null) {
+		if (description) {
+			await branchController.updateSeriesDescription(branch.id, currentSeries.name, description);
+		}
 	}
 
 	async function toggleDescription() {
@@ -118,6 +122,9 @@
 
 		if (!descriptionVisible) {
 			await branchController.updateSeriesDescription(branch.id, currentSeries.name, '');
+		} else {
+			await tick();
+			seriesDescriptionEl?.focus();
 		}
 	}
 
@@ -133,7 +140,6 @@
 		});
 
 		if (isFailure(messageResult)) {
-			console.error(messageResult.failure);
 			showError('Failed to generate branch name', messageResult.failure);
 
 			return;
@@ -325,23 +331,6 @@
 		justify-content: flex-start;
 		min-width: 0;
 		flex-grow: 1;
-	}
-
-	.branch-info__label {
-		display: inline-flex;
-
-		&.label-shifted {
-			margin-left: -2px;
-		}
-	}
-
-	.branch-info__content {
-		flex: 1;
-		width: 100%;
-		display: flex;
-		flex-direction: column;
-		gap: 6px;
-		padding: 14px 0;
 	}
 
 	.branch-action {

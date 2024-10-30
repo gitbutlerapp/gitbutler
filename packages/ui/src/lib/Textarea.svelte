@@ -4,7 +4,7 @@
 		id?: string;
 		textBoxEl?: HTMLDivElement;
 		label?: string;
-		value: string | undefined;
+		value?: string;
 		placeholder?: string;
 		disabled?: boolean;
 		fontSize?: number;
@@ -90,8 +90,6 @@
 			}
 		}
 	});
-
-	console.log('placeholder', placeholder);
 </script>
 
 <div
@@ -115,7 +113,6 @@
 		aria-multiline="true"
 		tabindex={disabled ? -1 : 0}
 		contenteditable="plaintext-only"
-		bind:innerText={value}
 		onfocus={(e: Event) => {
 			if (e.currentTarget) {
 				onfocus?.(e as FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement });

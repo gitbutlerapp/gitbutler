@@ -2,34 +2,36 @@
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 
 	interface Props {
-		autofocus?: boolean;
-
-		value: string;
+		value?: string;
 		disabled?: boolean;
-		oninput?: (e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
 		onEmpty?: () => void;
+		onBlur?: (value: string | undefined | null) => void;
+		textAreaEl?: HTMLDivElement;
 	}
-	const { autofocus, value, disabled = false, oninput, onEmpty }: Props = $props();
 
-	let textareaEl: HTMLDivElement | undefined = $state();
+	let { value, disabled = false, onBlur, onEmpty, textAreaEl = $bindable() }: Props = $props();
 </script>
 
 <div class="branch-description-input">
 	<Textarea
-		bind:textBoxEl={textareaEl}
-		{autofocus}
+		bind:textBoxEl={textAreaEl}
 		class="text-12 text-body"
 		{value}
 		{disabled}
-		{oninput}
 		flex="1"
 		fontSize={12}
 		placeholder="Series description"
 		unstyled
 		padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
+		onblur={() => {
+			if (textAreaEl?.textContent === '') {
+				onEmpty?.();
+			}
+			onBlur?.(textAreaEl?.textContent);
+		}}
 		onkeydown={(e: KeyboardEvent & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 			if (e.key === 'Escape') {
-				textareaEl?.blur();
+				textAreaEl?.blur();
 
 				if (value === '') {
 					onEmpty?.();
