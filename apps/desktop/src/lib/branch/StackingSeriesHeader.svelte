@@ -28,7 +28,6 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
-	import { slugify } from '@gitbutler/ui/utils/string';
 
 	interface Props {
 		currentSeries: PatchSeries;
@@ -105,7 +104,7 @@
 
 	function editTitle(title: string) {
 		if (currentSeries?.name && title !== currentSeries.name) {
-			branchController.updateSeriesName(branch.id, currentSeries.name, slugify(title));
+			branchController.updateSeriesName(branch.id, currentSeries.name, title);
 		}
 	}
 
@@ -138,7 +137,7 @@
 		const message = messageResult.value;
 
 		if (message && message !== currentSeries.name) {
-			branchController.updateSeriesName(branch.id, currentSeries.name, slugify(message));
+			branchController.updateSeriesName(branch.id, currentSeries.name, message);
 		}
 	}
 </script>
