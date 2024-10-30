@@ -7,7 +7,7 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -20,6 +20,7 @@
 		seriesCount: number;
 		hasGitHostBranch: boolean;
 		prUrl?: string;
+		branchType: CommitStatus;
 		addDescription: () => void;
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
@@ -35,6 +36,7 @@
 		hasGitHostBranch,
 		headName,
 		prUrl,
+		branchType,
 		addDescription,
 		onGenerateBranchName,
 		openPrDetailsModal,
@@ -91,6 +93,7 @@
 		{/if}
 		<ContextMenuItem
 			label="Rename"
+			disabled={branchType === 'integrated'}
 			onclick={async () => {
 				renameSeriesModal.show(branch);
 				contextMenuEl?.close();
