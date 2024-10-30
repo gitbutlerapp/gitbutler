@@ -15,7 +15,7 @@
 	const routesService = getRoutesService();
 </script>
 
-<div class="patch-container">
+<div class="page">
 	<div class="back-button">
 		<Button
 			onclick={() => {
@@ -25,26 +25,44 @@
 			}}>Back to branch</Button
 		>
 	</div>
-	<div>
-		<CloudPatchDetails />
-	</div>
-	<div>
-		<CloudPatchSections />
+	<div class="two-by-two">
+		<div class="patch-container">
+			<div>
+				<CloudPatchDetails />
+			</div>
+			<div>
+				<CloudPatchSections />
+			</div>
+		</div>
+		<div>
+			<p>I'm chat</p>
+		</div>
 	</div>
 </div>
 
 <style lang="postcss">
-	.patch-container {
-		display: flex;
-		flex-direction: column;
+	.page {
+		display: grid;
+		grid-template-rows: 1fr auto;
 
-		width: 100%;
-
-		margin: 24px auto;
-		margin-bottom: 0;
-
+		height: 100%;
 		gap: 16px;
 
+		margin: 24px;
+		margin-bottom: 0;
+	}
+
+	.two-by-two {
+		overflow: hidden;
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 16px;
+	}
+
+	.patch-container {
+		flex-grow: 1;
 		overflow: auto;
+
+		height: 100%;
 	}
 </style>

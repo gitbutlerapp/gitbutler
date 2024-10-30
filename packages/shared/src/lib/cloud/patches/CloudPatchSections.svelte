@@ -14,7 +14,7 @@
 {:else if $optionalPatch.state === 'found'}
 	{@const patch = $optionalPatch.value}
 
-	<h1 class="text-head-24 padding-bottom">{patch.title}</h1>
+	<h1 class="text-head-24 padding-bottom">Files:</h1>
 
 	{#each patch.sections as section}
 		{#if section.sectionType === 'diff'}
