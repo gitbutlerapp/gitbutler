@@ -449,7 +449,7 @@ export class PatchSeries {
 	 * A list of identifiers for the review unit at possible forges (eg. Pull Request).
 	 * The list is empty if there is no review units, eg. no Pull Request has been created.
 	 */
-	forgeIds!: ForgeIdentifier[];
+	forgeId?: ForgeIdentifier | undefined;
 
 	get localCommits() {
 		return this.patches.filter((c) => c.status === 'local');

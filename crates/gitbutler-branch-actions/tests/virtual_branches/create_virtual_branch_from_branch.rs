@@ -102,8 +102,8 @@ fn integration() {
             .unwrap();
 
         assert_eq!(
-            branch.series.first().unwrap().forge_ids.first().unwrap(),
-            &ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })
+            branch.series.first().unwrap().forge_id,
+            Some(ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 }))
         );
 
         assert!(branch.commits[0].is_remote);

@@ -89,11 +89,11 @@ pub fn update_series_forge_ids(
     project_id: ProjectId,
     stack_id: StackId,
     head_name: String,
-    forge_ids: Vec<ForgeIdentifier>,
+    forge_id: Option<ForgeIdentifier>,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
     gitbutler_branch_actions::stack::update_series_forge_ids(
-        &project, stack_id, head_name, forge_ids,
+        &project, stack_id, head_name, forge_id,
     )?;
     emit_vbranches(&windows, project_id);
     Ok(())

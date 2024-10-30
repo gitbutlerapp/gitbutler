@@ -99,7 +99,7 @@ pub struct PatchSeries {
     pub upstream_patches: Vec<VirtualBranchCommit>,
     /// A list of identifiers for the review unit at possible forges (eg. Pull Request).
     /// The list is empty if there is no review units, eg. no Pull Request has been created.
-    pub forge_ids: Vec<ForgeIdentifier>,
+    pub forge_id: Option<ForgeIdentifier>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]

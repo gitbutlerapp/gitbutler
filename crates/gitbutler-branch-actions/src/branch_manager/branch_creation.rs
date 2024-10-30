@@ -250,7 +250,7 @@ impl BranchManager<'_> {
         };
 
         if let (Some(forge_id), Some(head)) = (forge_id, branch.heads().last()) {
-            branch.set_forge_ids(self.ctx, head, vec![forge_id])?;
+            branch.set_forge_id(self.ctx, head, Some(forge_id))?;
         }
         branch.set_stack_head(self.ctx, head_commit.id(), Some(head_commit_tree.id()))?;
         self.ctx.add_branch_reference(&branch)?;

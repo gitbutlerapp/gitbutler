@@ -155,19 +155,23 @@ export class BranchController {
 	}
 
 	/**
-	 * Updates the forge identifierd for a branch/series.
+	 * Updates the forge identifier for a branch/series.
 	 * This is useful for storing for example the Pull Request Number for a branch.
 	 * @param stackId The stack ID to update.
 	 * @param headName The branch name to update.
-	 * @param forgeIds New forge ids to be set for the branch (overrides current state).
+	 * @param forgeId New forge id to be set for the branch (overrides current state). Setting to undefined will remove the forge id.
 	 */
-	async updateSeriesForgeIds(stackId: string, headName: string, forgeIds: ForgeIdentifier[]) {
+	async updateSeriesForgeId(
+		stackId: string,
+		headName: string,
+		forgeId: ForgeIdentifier | undefined
+	) {
 		try {
 			await invoke<void>('update_series_forge_ids', {
 				projectId: this.projectId,
 				stackId,
 				headName,
-				forgeIds
+				forgeId
 			});
 		} catch (err) {
 			showError('Failed to update branch forge ids', err);

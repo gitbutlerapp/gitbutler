@@ -230,7 +230,7 @@ impl Stack {
                 generate_branch_name(author)?
             },
             description: None,
-            forge_ids: Default::default(),
+            forge_id: Default::default(),
         };
         let state = branch_state(ctx);
 
@@ -304,7 +304,7 @@ impl Stack {
             target: current_top_head.target.clone(),
             name,
             description,
-            forge_ids: Default::default(),
+            forge_id: Default::default(),
         };
         self.add_series(ctx, new_head, Some(current_top_head.name.clone()))
     }
@@ -658,23 +658,24 @@ impl Stack {
         Ok(())
     }
 
-    /// Sets the forge identifiers for a given series/branch. Existing values are overwritten.
+    /// Sets the forge identifier for a given series/branch.
+    /// Existing value is overwritten - passing `None` sets the forge identifier to `None`.
     ///
     /// # Errors
     /// If the series does not exist, this method will return an error.
     /// If the stack has not been initialized, this method will return an error.
-    pub fn set_forge_ids(
+    pub fn set_forge_id(
         &mut self,
         ctx: &CommandContext,
         series_name: &str,
-        new_forge_ids: Vec<ForgeIdentifier>,
+        new_forge_id: Option<ForgeIdentifier>,
     ) -> Result<()> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
         match self.heads.iter_mut().find(|r| r.name == series_name) {
             Some(head) => {
-                head.forge_ids = new_forge_ids;
+                head.forge_id = new_forge_id;
                 branch_state(ctx).set_branch(self.clone())
             }
             None => bail!(

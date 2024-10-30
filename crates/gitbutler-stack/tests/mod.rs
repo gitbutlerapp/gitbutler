@@ -60,7 +60,7 @@ fn add_series_success() -> Result<()> {
         name: "asdf".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
         description: Some("my description".into()),
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, reference, None);
     assert!(result.is_ok());
@@ -115,7 +115,7 @@ fn add_series_top_base() -> Result<()> {
         name: "asdf".into(),
         target: CommitOrChangeId::CommitId(merge_base.id().to_string()),
         description: Some("my description".into()),
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, reference, None);
     println!("{:?}", result);
@@ -141,7 +141,7 @@ fn add_multiple_series() -> Result<()> {
         name: "head_4".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx
         .branch
@@ -153,7 +153,7 @@ fn add_multiple_series() -> Result<()> {
         name: "head_2".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, head_2, None);
     assert!(result.is_ok());
@@ -166,7 +166,7 @@ fn add_multiple_series() -> Result<()> {
         name: "head_1".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits.first().unwrap().change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
 
     let result = test_ctx.branch.add_series(&ctx, head_1, None);
@@ -192,7 +192,7 @@ fn add_series_commit_id_when_change_id_available() -> Result<()> {
         name: "asdf".into(),
         target: CommitOrChangeId::CommitId(test_ctx.commits[1].id().to_string()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, reference, None);
     assert_eq!(
@@ -214,7 +214,7 @@ fn add_series_invalid_name_fails() -> Result<()> {
         name: "name with spaces".into(),
         target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, reference, None);
     assert_eq!(result.err().unwrap().to_string(), "Invalid branch name");
@@ -230,7 +230,7 @@ fn add_series_duplicate_name_fails() -> Result<()> {
         name: "asdf".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert!(result.is_ok());
@@ -251,7 +251,7 @@ fn add_series_matching_git_ref_is_ok() -> Result<()> {
         name: "existing-branch".into(),
         target: test_ctx.commits[0].clone().into(),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert!(result.is_ok()); // allow this
@@ -267,7 +267,7 @@ fn add_series_including_refs_head_fails() -> Result<()> {
         name: "refs/heads/my-branch".into(),
         target: CommitOrChangeId::CommitId(test_ctx.commits[0].id().to_string()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert_eq!(
@@ -286,7 +286,7 @@ fn add_series_target_commit_doesnt_exist() -> Result<()> {
         name: "my-branch".into(),
         target: CommitOrChangeId::CommitId("30696678319e0fa3a20e54f22d47fc8cf1ceaade".into()), // does not exist
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert!(result
@@ -306,7 +306,7 @@ fn add_series_target_change_id_doesnt_exist() -> Result<()> {
         name: "my-branch".into(),
         target: CommitOrChangeId::ChangeId("does-not-exist".into()), // does not exist
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert_eq!(
@@ -326,7 +326,7 @@ fn add_series_target_commit_not_in_stack() -> Result<()> {
         name: "my-branch".into(),
         target: CommitOrChangeId::CommitId(other_commit_id.clone()), // does not exist
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, reference.clone(), None);
     assert_eq!(
@@ -383,7 +383,7 @@ fn remove_series_with_multiple_last_heads() -> Result<()> {
         name: "to_stay".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, to_stay.clone(), None);
     assert!(result.is_ok());
@@ -415,7 +415,7 @@ fn remove_series_no_orphan_commits() -> Result<()> {
         name: "to_stay".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits.first().unwrap().change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     }; // references the oldest commit
     let result = test_ctx.branch.add_series(&ctx, to_stay.clone(), None);
     assert!(result.is_ok());
@@ -578,7 +578,7 @@ fn update_series_target_success() -> Result<()> {
         name: "series_1".into(),
         target: commit_0_change_id.clone(),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let result = test_ctx.branch.add_series(&ctx, series_1, None);
     assert!(result.is_ok());
@@ -680,7 +680,7 @@ fn list_series_two_heads_same_commit() -> Result<()> {
         name: "head_before".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits.last().unwrap().change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     // add `head_before` before the initial head
     let result = test_ctx.branch.add_series(&ctx, head_before, None);
@@ -716,7 +716,7 @@ fn list_series_two_heads_different_commit() -> Result<()> {
         // point to the first commit
         target: CommitOrChangeId::ChangeId(test_ctx.commits.first().unwrap().change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     // add `head_before` before the initial head
     let result = test_ctx.branch.add_series(&ctx, head_before, None);
@@ -781,7 +781,7 @@ fn replace_head_single() -> Result<()> {
         name: "from_head".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     test_ctx.branch.add_series(&ctx, from_head, None)?;
     // replace with previous head
@@ -813,7 +813,7 @@ fn replace_head_single_with_merge_base() -> Result<()> {
         name: "from_head".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     test_ctx.branch.add_series(&ctx, from_head, None)?;
     // replace with merge base
@@ -849,7 +849,7 @@ fn replace_head_with_invalid_commit_error() -> Result<()> {
         name: "from_head".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     test_ctx.branch.add_series(&ctx, from_head, None)?;
     let stack = test_ctx.branch.clone();
@@ -876,7 +876,7 @@ fn replace_head_with_same_noop() -> Result<()> {
         name: "from_head".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     test_ctx.branch.add_series(&ctx, from_head, None)?;
     let stack = test_ctx.branch.clone();
@@ -962,13 +962,13 @@ fn replace_head_multiple() -> Result<()> {
         name: "from_head_1".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     let from_head_2 = PatchReference {
         name: "from_head_2".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     // both references point to the same commit
     test_ctx.branch.add_series(&ctx, from_head_1, None)?;
@@ -1008,7 +1008,7 @@ fn replace_head_top_of_stack_multiple() -> Result<()> {
         name: "extra_head".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     // an extra head just beneath the top of the stack
     test_ctx.branch.add_series(&ctx, extra_head, None)?;
@@ -1074,7 +1074,7 @@ fn set_legacy_refname_multiple_heads() -> Result<()> {
         name: "extra_head".into(),
         target: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
         description: None,
-        forge_ids: Default::default(),
+        forge_id: Default::default(),
     };
     // an extra head just beneath the top of the stack
     test_ctx.branch.add_series(&ctx, extra_head, None)?;
@@ -1145,7 +1145,7 @@ fn prune_heads_success() -> Result<()> {
             target: test_ctx.other_commits.first().cloned().unwrap().into(),
             name: "foo".to_string(),
             description: None,
-            forge_ids: Default::default(),
+            forge_id: Default::default(),
         },
     );
     assert_eq!(test_ctx.branch.heads.len(), 2);
@@ -1175,7 +1175,7 @@ fn does_not_prune_head_on_merge_base() -> Result<()> {
             target: merge_base.into(),
             name: "bottom".to_string(),
             description: None,
-            forge_ids: Default::default(),
+            forge_id: Default::default(),
         },
         None,
     )?;
@@ -1195,15 +1195,15 @@ fn set_forge_identifiers_success() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     test_ctx.branch.initialize(&ctx)?;
-    let result = test_ctx.branch.set_forge_ids(
+    let result = test_ctx.branch.set_forge_id(
         &ctx,
         "a-branch-2",
-        vec![ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })],
+        Some(ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })),
     );
     assert!(result.is_ok());
     assert_eq!(
-        test_ctx.branch.heads[0].forge_ids,
-        vec![ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })]
+        test_ctx.branch.heads[0].forge_id,
+        Some(ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 }))
     );
     // Assert persisted
     assert_eq!(
@@ -1218,10 +1218,10 @@ fn set_forge_identifiers_series_not_found_fails() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
     test_ctx.branch.initialize(&ctx)?;
-    let result = test_ctx.branch.set_forge_ids(
+    let result = test_ctx.branch.set_forge_id(
         &ctx,
         "does-not-exist",
-        vec![ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })],
+        Some(ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })),
     );
     assert_eq!(
         result.err().unwrap().to_string(),

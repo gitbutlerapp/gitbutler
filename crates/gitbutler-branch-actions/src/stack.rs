@@ -45,7 +45,7 @@ pub fn create_series(
                 target: target_patch,
                 name: req.name,
                 description: req.description,
-                forge_ids: Default::default(),
+                forge_id: Default::default(),
             },
             req.preceding_head,
         )
@@ -135,12 +135,12 @@ pub fn update_series_forge_ids(
     project: &Project,
     stack_id: StackId,
     head_name: String,
-    forge_ids: Vec<ForgeIdentifier>,
+    forge_id: Option<ForgeIdentifier>,
 ) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
-    stack.set_forge_ids(ctx, &head_name, forge_ids)
+    stack.set_forge_id(ctx, &head_name, forge_id)
 }
 
 /// Pushes all series in the stack to the remote.
@@ -282,7 +282,7 @@ pub(crate) fn stack_series(
             upstream_reference,
             patches,
             upstream_patches,
-            forge_ids: series.head.forge_ids,
+            forge_id: series.head.forge_id,
         });
     }
     api_series.reverse();

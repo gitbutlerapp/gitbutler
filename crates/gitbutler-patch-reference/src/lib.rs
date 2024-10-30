@@ -17,10 +17,10 @@ pub struct PatchReference {
     pub name: String,
     /// Optional description of the series. This could be markdown or anything our hearts desire.
     pub description: Option<String>,
-    /// A list of identifiers for the review unit at possible forges (eg. Pull Request).
-    /// The list is empty if there is no review units, eg. no Pull Request has been created.
+    /// An identifier for a review unit at a forge (eg. GitHub Pull Request number).
+    /// None if is no review unit, eg. no Pull Request has been created.
     #[serde(default)]
-    pub forge_ids: Vec<ForgeIdentifier>,
+    pub forge_id: Option<ForgeIdentifier>,
 }
 
 /// Represents identifiers for the series at possible forges, eg. GitHub PR numbers.
