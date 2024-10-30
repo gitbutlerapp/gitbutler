@@ -159,6 +159,7 @@
 	reloadPR={handleReloadPR}
 	onopen={() => (contextMenuOpened = true)}
 	onclose={() => (contextMenuOpened = false)}
+	{branchType}
 />
 
 <div role="article" class="branch-header" oncontextmenu={(e) => e.preventDefault()}>
@@ -211,7 +212,9 @@
 					onChange={(name) => editTitle(name)}
 					readonly={!!gitHostBranch}
 					onDblClick={() => {
-						stackingContextMenu?.showSeriesRenameModal?.();
+						if (branchType !== 'integrated') {
+							stackingContextMenu?.showSeriesRenameModal?.();
+						}
 					}}
 				/>
 			</div>
