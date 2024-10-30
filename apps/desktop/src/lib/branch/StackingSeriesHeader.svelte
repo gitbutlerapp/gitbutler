@@ -217,9 +217,11 @@
 			/>
 			<div class="branch-info__content">
 				<div class="text-14 text-bold branch-info__name">
-					<span class:no-upstream={!forgeBranch} class="remote-name">
-						{$baseBranch.pushRemoteName ? `${$baseBranch.pushRemoteName} /` : 'origin /'}
-					</span>
+					{#if forgeBranch}
+						<span class="remote-name">
+							{$baseBranch.pushRemoteName ? `${$baseBranch.pushRemoteName} /` : 'origin /'}
+						</span>
+					{/if}
 					<BranchLabel
 						name={currentSeries.name}
 						onChange={(name) => editTitle(name)}
@@ -319,6 +321,7 @@
 
 		.remote-name {
 			min-width: max-content;
+			padding: 0 0 0 2px;
 			color: var(--clr-scale-ntrl-60);
 		}
 	}
@@ -332,12 +335,14 @@
 	}
 
 	.branch-info__content {
+		overflow: hidden;
 		flex: 1;
 		width: 100%;
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
 		padding: 14px 0;
+		margin-left: -2px;
 	}
 
 	.branch-action {

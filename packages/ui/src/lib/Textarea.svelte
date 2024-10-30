@@ -11,6 +11,8 @@
 		minRows?: number;
 		maxRows?: number;
 		autofocus?: boolean;
+		spellcheck?: boolean;
+		autoComplete?: string;
 		class?: string;
 		flex?: string;
 		padding?: {
@@ -67,6 +69,8 @@
 		onkeydown
 	}: Props = $props();
 
+	let isEmpty = $state(value === '');
+
 	function getSelectionRange() {
 		const selection = window.getSelection();
 		if (selection) {
@@ -90,6 +94,14 @@
 			}
 		}
 	});
+
+	$effect(() => {
+		if (value === ' ' || value === '') {
+			isEmpty = true;
+		} else {
+			isEmpty = false;
+		}
+	});
 </script>
 
 <div
@@ -98,6 +110,11 @@
 	style:--font-size={pxToRem(fontSize)}
 	style:--min-rows={minRows}
 	style:--max-rows={maxRows}
+	style:--padding-top={pxToRem(padding.top)}
+	style:--padding-right={pxToRem(padding.right)}
+	style:--padding-bottom={pxToRem(padding.bottom)}
+	style:--padding-left={pxToRem(padding.left)}
+	style:--line-height-ratio={1.6}
 	style:flex
 >
 	{#if label}
@@ -129,6 +146,8 @@
 				currentTarget: EventTarget & HTMLTextAreaElement;
 			};
 
+			isEmpty = innerText === '';
+
 			oninput?.(eventMock);
 		}}
 		onkeydown={(e: KeyboardEvent) => {
@@ -154,11 +173,8 @@
 		class="textarea scrollbar {className}"
 		class:disabled
 		class:text-input={!unstyled}
-		class:textarea-placeholder={value === ''}
-		style:padding-top={pxToRem(padding.top)}
-		style:padding-right={pxToRem(padding.right)}
-		style:padding-bottom={pxToRem(padding.bottom)}
-		style:padding-left={pxToRem(padding.left)}
+		class:textarea-unstyled={unstyled}
+		class:textarea-placeholder={isEmpty}
 		style:border-top-width={borderTop && !borderless ? '1px' : '0'}
 		style:border-right-width={borderRight && !borderless ? '1px' : '0'}
 		style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
@@ -173,54 +189,65 @@
 </div>
 
 <style lang="postcss">
-	@layer textarea {
-		.textarea-container {
-			display: flex;
-			flex-direction: column;
-			gap: 6px;
-			overflow-x: hidden;
-		}
+	.textarea-container {
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		overflow-x: hidden;
+	}
 
-		.textarea {
-			font-family: var(--base-font-family);
-			line-height: var(--body-line-height);
-			font-weight: var(--base-font-weight);
-			white-space: pre-wrap;
-			cursor: text;
-			resize: none;
+	@layer components {
+		.textarea-unstyled {
 			outline: none;
-			width: 100%;
-			font-size: var(--font-size);
-			min-height: calc(var(--font-size) * 1.5 * var(--min-rows));
-			max-height: calc(var(--font-size) * 1.5 * var(--max-rows));
-			overflow-y: auto; /* Enable scrolling when max height is reached */
-			overflow-x: hidden;
-			word-wrap: break-word;
-			border-color: transparent;
-			transition:
-				border-color var(--transition-fast),
-				background-color var(--transition-fast);
+			border: none;
+		}
+	}
 
-			&.disabled {
-				cursor: default;
-			}
+	.textarea {
+		font-family: var(--base-font-family);
+		line-height: var(--body-line-height);
+		font-weight: var(--base-font-weight);
+		white-space: pre-wrap;
+		cursor: text;
+		resize: none;
 
-			&.textarea-placeholder {
-				display: block;
-				white-space: pre-wrap;
+		width: 100%;
+		font-size: var(--font-size);
+		min-height: calc(
+			var(--font-size) * var(--line-height-ratio) * var(--min-rows) + var(--padding-top) +
+				var(--padding-bottom)
+		);
+		max-height: calc(
+			var(--font-size) * var(--line-height-ratio) * var(--max-rows) + var(--padding-top) +
+				var(--padding-bottom)
+		);
+		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
+		overflow-y: auto; /* Enable scrolling when max height is reached */
+		overflow-x: hidden;
+		word-wrap: break-word;
+		transition:
+			border-color var(--transition-fast),
+			background-color var(--transition-fast);
 
-				&:before {
-					content: var(--placeholder-text);
-					color: var(--clr-text-3);
-					cursor: text;
-					pointer-events: none;
-					position: relative;
-				}
-			}
+		&.disabled {
+			cursor: default;
 		}
 
-		.textarea-label {
-			color: var(--clr-text-2);
+		&.textarea-placeholder {
+			display: block;
+			white-space: pre-wrap;
+
+			&:before {
+				content: var(--placeholder-text);
+				color: var(--clr-text-3);
+				cursor: text;
+				pointer-events: none;
+				position: absolute;
+			}
 		}
+	}
+
+	.textarea-label {
+		color: var(--clr-text-2);
 	}
 </style>
