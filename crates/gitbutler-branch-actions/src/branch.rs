@@ -571,6 +571,7 @@ pub fn get_branch_listing_details(
                                 let revwalk = repo
                                     .rev_walk(Some(branch_head))
                                     .with_pruned(Some(base))
+                                    .sorting(gix::revision::walk::Sorting::BreadthFirst)
                                     .all()?;
                                 for commit_info in revwalk {
                                     let commit_info = commit_info?;
