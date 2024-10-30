@@ -294,7 +294,13 @@ pub fn amend(
         SnapshotDetails::new(OperationKind::AmendCommit),
         guard.write_permission(),
     );
-    vbranch::amend(&ctx, branch_id, commit_oid, ownership)
+    vbranch::amend(
+        &ctx,
+        branch_id,
+        commit_oid,
+        ownership,
+        guard.write_permission(),
+    )
 }
 
 pub fn move_commit_file(

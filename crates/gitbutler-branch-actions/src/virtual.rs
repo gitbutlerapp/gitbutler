@@ -1315,6 +1315,7 @@ pub(crate) fn amend(
     branch_id: StackId,
     commit_oid: git2::Oid,
     target_ownership: &BranchOwnershipClaims,
+    _perm: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
     ctx.assure_resolved()?;
     let vb_state = ctx.project().virtual_branches();
