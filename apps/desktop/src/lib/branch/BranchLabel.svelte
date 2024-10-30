@@ -5,10 +5,12 @@
 	interface Props {
 		name: string;
 		disabled?: boolean;
+		readonly?: boolean;
 		onChange?: (value: string) => void;
+		onDblClick?: () => void;
 	}
 
-	let { name, disabled = false, onChange }: Props = $props();
+	let { name, disabled = false, readonly = false, onChange, onDblClick }: Props = $props();
 
 	let inputEl: HTMLInputElement;
 	let initialName = name;
@@ -26,12 +28,18 @@
 <input
 	type="text"
 	{disabled}
+	{readonly}
 	bind:this={inputEl}
 	bind:value={name}
 	onchange={(e) => onChange?.(e.currentTarget.value.trim())}
 	title={name}
 	class="branch-name-input text-14 text-bold"
-	ondblclick={(e) => e.stopPropagation()}
+	ondblclick={(e) => {
+		e.stopPropagation();
+		if (readonly) {
+			onDblClick?.();
+		}
+	}}
 	oncontextmenu={(e) => {
 		e.stopPropagation();
 	}}
@@ -90,14 +98,18 @@
 		outline: none;
 
 		/* not readonly */
-		&:not([disabled]):hover {
+		&:not([readonly]):not([disabled]):hover {
 			background-color: var(--clr-bg-2);
 		}
 
-		&:not([disabled]):focus {
+		&:not([readonly]):not([disabled]):focus {
 			outline: none;
 			background-color: var(--clr-bg-2);
 			border-color: var(--clr-border-2);
 		}
+	}
+	.branch-name-input[readonly] {
+		pointer: normal;
+		user-select: none;
 	}
 </style>
