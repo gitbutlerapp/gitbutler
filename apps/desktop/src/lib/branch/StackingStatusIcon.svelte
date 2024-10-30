@@ -40,7 +40,6 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: center;
-		align-items: center;
 		gap: 3px;
 		--clr-transparent: transparent;
 
@@ -53,12 +52,13 @@
 			border-radius: var(--radius-m);
 			background-color: var(--bg-color);
 			color: var(--icon-color, var(--clr-text-1));
+			margin-left: 11px;
 		}
 
 		& .stack__status--bar {
 			width: 2px;
 			height: 10px;
-			margin: 0 20px;
+			margin: 0 22px 0 20px;
 			background: var(--bg-color);
 
 			&.last {

@@ -21,7 +21,7 @@
 	use:resizeObserver={(e) => {
 		inputWidth = `${Math.round(e.frame.width)}px`;
 	}}
-	class="branch-name-measure-el branch-name-input text-14 text-bold"
+	class="branch-name-measure-el text-14 text-bold"
 >
 	{name}
 </span>
@@ -76,7 +76,31 @@
 		color: black;
 		position: fixed;
 		display: inline-block;
+		visibility: hidden;
 		white-space: pre;
 		width: fit-content;
+	}
+	.branch-name-input {
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		overflow: hidden;
+
+		max-width: 100%;
+		width: 100%;
+		border-radius: var(--radius-s);
+		color: var(--clr-scale-ntrl-0);
+		background-color: var(--clr-bg-1);
+		outline: none;
+
+		/* not readonly */
+		&:not([disabled]):hover {
+			background-color: var(--clr-bg-2);
+		}
+
+		&:not([disabled]):focus {
+			outline: none;
+			background-color: var(--clr-bg-2);
+			border-color: var(--clr-border-2);
+		}
 	}
 </style>

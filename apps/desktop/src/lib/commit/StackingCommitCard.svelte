@@ -420,7 +420,7 @@
 	.commit-row {
 		position: relative;
 		display: flex;
-		gap: 10px;
+		gap: 12px;
 		width: 100%;
 		background-color: var(--clr-bg-1);
 		transition: background-color var(--transition-fast);
