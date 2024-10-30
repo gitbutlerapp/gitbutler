@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use anyhow::{Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
+use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_patch_reference::{CommitOrChangeId, ForgeIdentifier, PatchReference};
 use gitbutler_project::Project;
 use gitbutler_reference::normalize_branch_name;
@@ -36,6 +38,10 @@ pub fn create_series(
     req: CreateSeriesRequest,
 ) -> Result<()> {
     let ctx = &open_with_verify(project)?;
+    let mut guard = project.exclusive_worktree_access();
+    let _ = ctx
+        .project()
+        .snapshot_create_dependent_branch(&req.name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
@@ -77,6 +83,10 @@ pub struct CreateSeriesRequest {
 /// those commits are moved to the branch underneath it (or more accurately, the preceding it)
 pub fn remove_series(project: &Project, branch_id: StackId, head_name: String) -> Result<()> {
     let ctx = &open_with_verify(project)?;
+    let mut guard = project.exclusive_worktree_access();
+    let _ = ctx
+        .project()
+        .snapshot_remove_dependent_branch(&head_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
     stack.remove_series(ctx, head_name)
@@ -92,6 +102,10 @@ pub fn update_series_name(
     new_head_name: String,
 ) -> Result<()> {
     let ctx = &open_with_verify(project)?;
+    let mut guard = project.exclusive_worktree_access();
+    let _ = ctx
+        .project()
+        .snapshot_update_dependent_branch_name(&head_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
     let normalized_head_name = normalize_branch_name(&new_head_name)?;
@@ -114,6 +128,11 @@ pub fn update_series_description(
     description: Option<String>,
 ) -> Result<()> {
     let ctx = &open_with_verify(project)?;
+    let mut guard = project.exclusive_worktree_access();
+    let _ = ctx.project().create_snapshot(
+        SnapshotDetails::new(OperationKind::UpdateDependentBranchDescription),
+        guard.write_permission(),
+    );
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
     stack.update_series(
@@ -142,6 +161,11 @@ pub fn update_series_forge_ids(
     forge_id: Option<ForgeIdentifier>,
 ) -> Result<()> {
     let ctx = &open_with_verify(project)?;
+    let mut guard = project.exclusive_worktree_access();
+    let _ = ctx.project().create_snapshot(
+        SnapshotDetails::new(OperationKind::UpdateDependentBranchDescription),
+        guard.write_permission(),
+    );
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
     stack.set_forge_id(ctx, &head_name, forge_id)

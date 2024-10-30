@@ -55,6 +55,21 @@ pub trait SnapshotExt {
         error: Option<&anyhow::Error>,
         perm: &mut WorktreeWritePermission,
     ) -> anyhow::Result<()>;
+    fn snapshot_create_dependent_branch(
+        &self,
+        branch_name: &str,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()>;
+    fn snapshot_remove_dependent_branch(
+        &self,
+        branch_name: &str,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()>;
+    fn snapshot_update_dependent_branch_name(
+        &self,
+        new_branch_name: &str,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()>;
 }
 
 /// Snapshot functionality
@@ -238,6 +253,51 @@ impl SnapshotExt for Project {
             SnapshotDetails::new(OperationKind::GenericBranchUpdate)
         };
         self.commit_snapshot(snapshot_tree, details, perm)?;
+        Ok(())
+    }
+    fn snapshot_create_dependent_branch(
+        &self,
+        branch_name: &str,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()> {
+        let details =
+            SnapshotDetails::new(OperationKind::CreateDependentBranch).with_trailers(vec![
+                Trailer {
+                    key: "name".to_string(),
+                    value: branch_name.to_string(),
+                },
+            ]);
+        self.create_snapshot(details, perm)?;
+        Ok(())
+    }
+    fn snapshot_remove_dependent_branch(
+        &self,
+        branch_name: &str,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()> {
+        let details =
+            SnapshotDetails::new(OperationKind::RemoveDependentBranch).with_trailers(vec![
+                Trailer {
+                    key: "name".to_string(),
+                    value: branch_name.to_string(),
+                },
+            ]);
+        self.create_snapshot(details, perm)?;
+        Ok(())
+    }
+    fn snapshot_update_dependent_branch_name(
+        &self,
+        new_branch_name: &str,
+        perm: &mut WorktreeWritePermission,
+    ) -> anyhow::Result<()> {
+        let details =
+            SnapshotDetails::new(OperationKind::UpdateDependentBranchName).with_trailers(vec![
+                Trailer {
+                    key: "name".to_string(),
+                    value: new_branch_name.to_string(),
+                },
+            ]);
+        self.create_snapshot(details, perm)?;
         Ok(())
     }
 }

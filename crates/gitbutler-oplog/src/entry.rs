@@ -157,6 +157,11 @@ pub enum OperationKind {
     FileChanges,
     EnterEditMode,
     SyncWorkspace,
+    CreateDependentBranch,
+    RemoveDependentBranch,
+    UpdateDependentBranchName,
+    UpdateDependentBranchDescription,
+    UpdateDependentBranchForgeId,
     #[default]
     Unknown,
 }
