@@ -18,7 +18,7 @@
 		target?: HTMLElement;
 		headName: string;
 		seriesCount: number;
-		hasGitHostBranch: boolean;
+		hasForgeBranch: boolean;
 		prUrl?: string;
 		branchType: CommitStatus;
 		addDescription: () => void;
@@ -33,7 +33,7 @@
 		contextMenuEl = $bindable(),
 		target,
 		seriesCount,
-		hasGitHostBranch,
+		hasForgeBranch,
 		headName,
 		prUrl,
 		branchType,
@@ -82,7 +82,7 @@
 				contextMenuEl?.close();
 			}}
 		/>
-		{#if $aiGenEnabled && aiConfigurationValid && !hasGitHostBranch}
+		{#if $aiGenEnabled && aiConfigurationValid && !hasForgeBranch}
 			<ContextMenuItem
 				label="Generate branch name"
 				onclick={() => {
@@ -139,8 +139,8 @@
 
 <Modal
 	width="small"
-	title={hasGitHostBranch ? 'Branch has already been pushed' : 'Rename branch'}
-	type={hasGitHostBranch ? 'warning' : 'info'}
+	title={hasForgeBranch ? 'Branch has already been pushed' : 'Rename branch'}
+	type={hasForgeBranch ? 'warning' : 'info'}
 	bind:this={renameSeriesModal}
 	onSubmit={(close) => {
 		if (newHeadName && newHeadName !== headName) {
@@ -151,7 +151,7 @@
 >
 	<Textbox placeholder="New name" id="newSeriesName" bind:value={newHeadName} autofocus />
 
-	{#if hasGitHostBranch}
+	{#if hasForgeBranch}
 		<div class="text-12 text-light helper-text">
 			Renaming a branch that has already been pushed will create a new branch at the remote. The old
 			one will remain untouched but will be disassociated from this branch.

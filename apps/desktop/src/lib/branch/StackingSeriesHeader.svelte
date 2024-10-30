@@ -13,9 +13,9 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
-	import { getGitHost } from '$lib/forge/interface/forge';
-	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
-	import { getGitHostPrService } from '$lib/forge/interface/forgePrService';
+	import { getForge } from '$lib/forge/interface/forge';
+	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { showError } from '$lib/notifications/toasts';
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import StackingPullRequestCard from '$lib/pr/StackingPullRequestCard.svelte';
@@ -46,11 +46,11 @@
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
-	const prService = getGitHostPrService();
-	const gitHost = getGitHost();
+	const prService = getForgePrService();
+	const forge = getForge();
 
 	const upstreamName = $derived(currentSeries.upstreamReference ? currentSeries.name : undefined);
-	const gitHostBranch = $derived(upstreamName ? $gitHost?.branch(upstreamName) : undefined);
+	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
 	const branch = $derived($branchStore);
 
 	let stackingAddSeriesModal = $state<ReturnType<typeof StackingAddSeriesModal>>();
@@ -70,7 +70,7 @@
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
-	const hostedListingServiceStore = getGitHostListingService();
+	const hostedListingServiceStore = getForgeListingService();
 	const prStore = $derived($hostedListingServiceStore?.prs);
 	const prs = $derived(prStore ? $prStore : undefined);
 
@@ -80,7 +80,7 @@
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 	const pr = $derived(prMonitor?.pr);
 	const checksMonitor = $derived(
-		$pr?.sourceBranch ? $gitHost?.checksMonitor($pr.sourceBranch) : undefined
+		$pr?.sourceBranch ? $forge?.checksMonitor($pr.sourceBranch) : undefined
 	);
 
 	const projectService = getContext(ProjectService);
@@ -153,7 +153,7 @@
 	seriesCount={branch.series?.length ?? 0}
 	{addDescription}
 	onGenerateBranchName={generateBranchName}
-	hasGitHostBranch={!!gitHostBranch}
+	hasForgeBranch={!!forgeBranch}
 	prUrl={$pr?.htmlUrl}
 	openPrDetailsModal={handleOpenPR}
 	reloadPR={handleReloadPR}
@@ -174,12 +174,12 @@
 					}}
 				/>
 			{/if}
-			{#if gitHostBranch}
+			{#if forgeBranch}
 				<PopoverActionsItem
 					icon="open-link"
 					tooltip="Open in browser"
 					onclick={() => {
-						const url = gitHostBranch?.url;
+						const url = forgeBranch?.url;
 						if (url) openExternalUrl(url);
 					}}
 				/>
@@ -204,13 +204,13 @@
 				lineBottom={currentSeries.patches.length > 0 || branch.series.length > 1}
 			/>
 			<div class="text-14 text-bold branch-info__name">
-				<span class:no-upstream={!gitHostBranch} class="remote-name">
+				<span class:no-upstream={!forgeBranch} class="remote-name">
 					{$baseBranch.pushRemoteName ? `${$baseBranch.pushRemoteName} /` : 'origin /'}
 				</span>
 				<BranchLabel
 					name={currentSeries.name}
 					onChange={(name) => editTitle(name)}
-					readonly={!!gitHostBranch}
+					readonly={!!forgeBranch}
 					onDblClick={() => {
 						if (branchType !== 'integrated') {
 							stackingContextMenu?.showSeriesRenameModal?.();
@@ -245,8 +245,8 @@
 								style="ghost"
 								wide
 								outline
-								disabled={currentSeries.patches.length === 0 || !$gitHost || !$prService}
-								onclick={() => handleOpenPR(!gitHostBranch)}
+								disabled={currentSeries.patches.length === 0 || !$forge || !$prService}
+								onclick={() => handleOpenPR(!forgeBranch)}
 							>
 								Create pull request
 							</Button>

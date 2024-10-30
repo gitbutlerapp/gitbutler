@@ -19,9 +19,9 @@
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
-	import { getGitHost } from '$lib/forge/interface/forge';
-	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
-	import { getGitHostPrService } from '$lib/forge/interface/forgePrService';
+	import { getForge } from '$lib/forge/interface/forge';
+	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
@@ -70,11 +70,11 @@
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
-	const gitListService = getGitHostListingService();
-	const prService = getGitHostPrService();
+	const gitListService = getForgeListingService();
+	const prService = getForgePrService();
 	const aiService = getContext(AIService);
 	const aiGenEnabled = projectAiGenEnabled(project.id);
-	const gitHost = getGitHost();
+	const forge = getForge();
 	const preferredPRAction = getPreferredPRAction();
 
 	const branch = $derived($branchStore);
@@ -149,7 +149,7 @@
 	});
 
 	export async function createPr(params: CreatePrParams): Promise<PullRequest | undefined> {
-		if (!$gitHost) {
+		if (!$forge) {
 			error('Pull request service not available');
 			return;
 		}

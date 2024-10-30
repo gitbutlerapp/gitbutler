@@ -11,7 +11,7 @@
 	} from '$lib/dragging/reorderDropzoneManager';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
-	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getForge } from '$lib/forge/interface/forge';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { Commit, DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
@@ -50,7 +50,7 @@
 	const lineManagerFactory = getContext(LineManagerFactory);
 
 	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
-	const gitHost = getGitHost();
+	const forge = getForge();
 
 	const mappedRemoteCommits = $derived(
 		remoteCommits.length > 0
@@ -152,7 +152,7 @@
 						{isUnapplied}
 						first={idx === 0}
 						last={idx === remoteCommits.length - 1}
-						commitUrl={$gitHost?.commitUrl(commit.id)}
+						commitUrl={$forge?.commitUrl(commit.id)}
 						isHeadCommit={commit.id === headCommit?.id}
 					>
 						{#snippet lines(topHeightPx)}
@@ -247,7 +247,7 @@
 						branch={$branch}
 						last={idx === localAndRemoteCommits.length - 1}
 						isHeadCommit={commit.id === headCommit?.id}
-						commitUrl={$gitHost?.commitUrl(commit.id)}
+						commitUrl={$forge?.commitUrl(commit.id)}
 					>
 						{#snippet lines(topHeightPx)}
 							<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
@@ -290,7 +290,7 @@
 						branch={$branch}
 						isHeadCommit={commit.id === headCommit?.id}
 						last={idx === integratedCommits.length - 1}
-						commitUrl={$gitHost?.commitUrl(commit.id)}
+						commitUrl={$forge?.commitUrl(commit.id)}
 					>
 						{#snippet lines(topHeightPx)}
 							<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />

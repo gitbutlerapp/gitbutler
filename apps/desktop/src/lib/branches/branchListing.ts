@@ -13,7 +13,7 @@ import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 import { Transform, Type, plainToInstance } from 'class-transformer';
 import Fuse from 'fuse.js';
 import { derived, readable, writable, type Readable, type Writable } from 'svelte/store';
-import type { GitHostListingService } from '$lib/forge/interface/forgeListingService';
+import type { ForgeListingService } from '$lib/forge/interface/forgeListingService';
 import type { PullRequest } from '$lib/forge/interface/types';
 
 export class BranchListingService {
@@ -113,7 +113,7 @@ export class CombinedBranchListingService {
 
 	constructor(
 		branchListingService: BranchListingService,
-		gitHostListingService: Readable<GitHostListingService | undefined>,
+		forgeListingService: Readable<ForgeListingService | undefined>,
 		projectId: string
 	) {
 		this.selectedOption = persisted<'all' | 'pullRequest' | 'local'>(
@@ -121,10 +121,10 @@ export class CombinedBranchListingService {
 			`branches-selectedOption-${projectId}`
 		);
 		this.pullRequests = readable([] as PullRequest[], (set) => {
-			const unsubscribeListingService = gitHostListingService.subscribe((gitHostListingService) => {
-				if (!gitHostListingService) return;
+			const unsubscribeListingService = forgeListingService.subscribe((forgeListingService) => {
+				if (!forgeListingService) return;
 
-				const unsubscribePullRequests = gitHostListingService.prs.subscribe((prs) => {
+				const unsubscribePullRequests = forgeListingService.prs.subscribe((prs) => {
 					set(prs);
 				});
 
@@ -135,9 +135,9 @@ export class CombinedBranchListingService {
 		});
 
 		this.pullRequestsListed = derived(
-			gitHostListingService,
-			(gitHostListingService) => {
-				return !!gitHostListingService;
+			forgeListingService,
+			(forgeListingService) => {
+				return !!forgeListingService;
 			},
 			false
 		);

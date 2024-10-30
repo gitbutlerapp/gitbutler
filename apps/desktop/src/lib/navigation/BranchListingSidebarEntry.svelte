@@ -6,7 +6,7 @@
 		BranchListingService,
 		type BranchListing
 	} from '$lib/branches/branchListing';
-	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
+	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
@@ -28,8 +28,8 @@
 	const project = getContext(Project);
 	const gitConfigService = getContext(GitConfigService);
 
-	const gitHostListingService = getGitHostListingService();
-	const prs = $derived($gitHostListingService?.prs);
+	const forgeListingService = getForgeListingService();
+	const prs = $derived($forgeListingService?.prs);
 	const pr = $derived($prs?.find((pr) => pr.sourceBranch === branchListing.name));
 
 	let branchListingDetails = $state<Readable<BranchListingDetails | undefined>>();

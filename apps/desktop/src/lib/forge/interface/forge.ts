@@ -1,31 +1,29 @@
 import { buildContextStore } from '@gitbutler/shared/context';
 import type { ForgeType } from '$lib/backend/forge';
-import type { GitHostIssueService } from '$lib/forge/interface/forgeIssueService';
-import type { GitHostBranch } from './forgeBranch';
-import type { GitHostChecksMonitor } from './forgeChecksMonitor';
-import type { GitHostListingService } from './forgeListingService';
-import type { GitHostPrService } from './forgePrService';
+import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
+import type { ForgeBranch } from './forgeBranch';
+import type { ForgeChecksMonitor } from './forgeChecksMonitor';
+import type { ForgeListingService } from './forgeListingService';
+import type { ForgePrService } from './forgePrService';
 
-export interface GitHost {
+export interface Forge {
 	readonly type: ForgeType;
 	// Lists PRs for the repo.
-	listService(): GitHostListingService | undefined;
+	listService(): ForgeListingService | undefined;
 
-	issueService(): GitHostIssueService | undefined;
+	issueService(): ForgeIssueService | undefined;
 
 	// Detailed information about a specific PR.
-	prService(): GitHostPrService | undefined;
+	prService(): ForgePrService | undefined;
 
 	// Results from CI check-runs.
-	checksMonitor(branchName: string): GitHostChecksMonitor | undefined;
+	checksMonitor(branchName: string): ForgeChecksMonitor | undefined;
 
 	// Host specific branch information.
-	branch(name: string): GitHostBranch | undefined;
+	branch(name: string): ForgeBranch | undefined;
 
 	// Web URL for a commit.
 	commitUrl(id: string): string;
 }
 
-export const [getGitHost, createGitHostStore] = buildContextStore<GitHost | undefined>(
-	'githubService'
-);
+export const [getForge, createForgeStore] = buildContextStore<Forge | undefined>('githubService');

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getForge } from '$lib/forge/interface/forge';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import CreateIssueModal from '$lib/topics/CreateIssueModal.svelte';
 	import CreateTopicModal from '$lib/topics/CreateTopicModal.svelte';
@@ -10,7 +10,7 @@
 
 	const topicService = getContext(TopicService);
 	const topics = topicService.topics;
-	const gitHost = getGitHost();
+	const forge = getForge();
 
 	const sortedTopics = $derived.by(() => {
 		const clonedTopics = structuredClone($topics);
@@ -31,7 +31,7 @@
 		<div class="topic__actions">
 			<Button kind="solid" style="pop" onclick={() => createTopicModal?.open()}>Create Topic</Button
 			>
-			{#if $gitHost?.issueService()}
+			{#if $forge?.issueService()}
 				<Button style="pop" onclick={() => createIssueModal?.open()}>Create Issue</Button>
 			{/if}
 		</div>

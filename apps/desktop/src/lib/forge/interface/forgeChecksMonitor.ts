@@ -2,7 +2,7 @@ import { buildContextStore } from '@gitbutler/shared/context';
 import type { ChecksStatus } from './types';
 import type { Readable } from 'svelte/store';
 
-export interface GitHostChecksMonitor {
+export interface ForgeChecksMonitor {
 	status: Readable<ChecksStatus | undefined | null>;
 	loading?: Readable<boolean>;
 	error: Readable<any>;
@@ -11,6 +11,6 @@ export interface GitHostChecksMonitor {
 	stop(): void;
 }
 
-export const [getGitHostChecksMonitor, createGitHostChecksMonitorStore] = buildContextStore<
-	GitHostChecksMonitor | undefined
+export const [getForgeChecksMonitor, createForgeChecksMonitorStore] = buildContextStore<
+	ForgeChecksMonitor | undefined
 >('checksMonitor');

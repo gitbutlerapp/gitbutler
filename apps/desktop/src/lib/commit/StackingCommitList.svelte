@@ -9,7 +9,7 @@
 	} from '$lib/dragging/reorderDropzoneManager';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
-	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getForge } from '$lib/forge/interface/forge';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { DetailedCommit, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
@@ -44,7 +44,7 @@
 	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
-	const gitHost = getGitHost();
+	const forge = getForge();
 
 	const LineSpacer = {
 		Remote: 'remote-spacer',
@@ -94,7 +94,7 @@
 						{commit}
 						{isUnapplied}
 						last={idx === remoteOnlyPatches.length - 1}
-						commitUrl={$gitHost?.commitUrl(commit.id)}
+						commitUrl={$forge?.commitUrl(commit.id)}
 						isHeadCommit={commit.id === headCommit?.id}
 					>
 						{#snippet lines()}
@@ -141,7 +141,7 @@
 							{isUnapplied}
 							last={idx === patches.length - 1}
 							isHeadCommit={commit.id === headCommit?.id}
-							commitUrl={$gitHost?.commitUrl(commit.id)}
+							commitUrl={$forge?.commitUrl(commit.id)}
 						>
 							{#snippet lines()}
 								<Line

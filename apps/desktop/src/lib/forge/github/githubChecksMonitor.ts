@@ -6,11 +6,11 @@ import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { writable } from 'svelte/store';
 import type { CheckSuites, ChecksStatus } from '$lib/forge/interface/types';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHostChecksMonitor } from '../interface/forgeChecksMonitor';
+import type { ForgeChecksMonitor } from '../interface/forgeChecksMonitor';
 
 export const MIN_COMPLETED_AGE = 20000;
 
-export class GitHubChecksMonitor implements GitHostChecksMonitor {
+export class GitHubChecksMonitor implements ForgeChecksMonitor {
 	private _status: ChecksStatus | undefined | null;
 	readonly status = writable<ChecksStatus | undefined | null>(undefined, () => {
 		// Hack: updating the loading writable can lead to state_unsafe_mutation.

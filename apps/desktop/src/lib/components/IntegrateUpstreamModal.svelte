@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getForge } from '$lib/forge/interface/forge';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
@@ -35,7 +35,7 @@
 
 	const { onClose }: Props = $props();
 
-	const gitHost = getGitHost();
+	const forge = getForge();
 	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
 	let branchStatuses = $state<Readable<BranchStatusesWithBranches | undefined>>();
 	const baseBranchService = getContext(BaseBranchService);
@@ -146,8 +146,8 @@
 								date={commit.createdAt}
 								author={commit.author.name}
 								onUrlOpen={() => {
-									if ($gitHost) {
-										openExternalUrl($gitHost.commitUrl(commit.id));
+									if ($forge) {
+										openExternalUrl($forge.commitUrl(commit.id));
 									}
 								}}
 								onCopy={() => {

@@ -96,7 +96,7 @@ pub struct Project {
     // The number of changed lines that will trigger a snapshot
     pub snapshot_lines_threshold: Option<usize>,
     #[serde(default)]
-    pub git_host: GitHostSettings,
+    pub git_host: ForgeSettings,
     // Experimental flag for new hunk dependency algorithm
     #[serde(default = "default_true")]
     pub use_experimental_locking: bool,
@@ -109,14 +109,14 @@ fn default_true() -> bool {
 
 #[derive(Debug, Deserialize, Serialize, Clone, Default)]
 #[serde(rename_all = "camelCase")]
-pub struct GitHostSettings {
+pub struct ForgeSettings {
     #[serde(default)]
     pub host_type: Option<ForgeType>,
     #[serde(default)]
     pub review_template_path: Option<String>,
 }
 
-impl GitHostSettings {
+impl ForgeSettings {
     pub fn init(&mut self, project_path: &Path) {
         if let Some(forge_type) = &self.host_type {
             if self.review_template_path.is_none() {

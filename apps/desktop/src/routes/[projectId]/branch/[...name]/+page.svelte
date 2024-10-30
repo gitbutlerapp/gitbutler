@@ -3,7 +3,7 @@
 	import { BranchListingService } from '$lib/branches/branchListing';
 	import BranchPreview from '$lib/components/BranchPreview.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
-	import { getGitHostListingService } from '$lib/forge/interface/forgeListingService';
+	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { groupBy } from '$lib/utils/groupBy';
 	import { error } from '$lib/utils/toasts';
@@ -22,8 +22,8 @@
 
 	const branchListing = $derived($branchListings.find((bl) => bl.name === $page.params.name));
 
-	const gitHostListingService = getGitHostListingService();
-	const prs = $derived($gitHostListingService?.prs);
+	const forgeListingService = getForgeListingService();
+	const prs = $derived($forgeListingService?.prs);
 	const pr = $derived($prs?.find((pr) => pr.sourceBranch === branchListing?.name));
 
 	let localBranch = $state<Branch>();

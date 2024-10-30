@@ -221,11 +221,11 @@ export class ProjectsService {
 		return await this.httpClient.get(`projects/${repositoryId}.json`);
 	}
 
-	async setGitHostType(project: Project, type: ForgeType) {
+	async setForgeType(project: Project, type: ForgeType) {
 		if (project.git_host.hostType?.type === type) return;
 		const hostType: HostType = { type };
-		const gitHost = { hostType };
-		await invoke('update_project_git_host', { projectId: project.id, gitHost });
+		const forge = { hostType };
+		await invoke('update_project_git_host', { projectId: project.id, forge });
 		this.reload();
 	}
 }

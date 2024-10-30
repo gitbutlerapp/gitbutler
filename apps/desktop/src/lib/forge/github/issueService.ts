@@ -1,8 +1,8 @@
-import type { GitHostIssueService } from '$lib/forge/interface/forgeIssueService';
+import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Octokit } from '@octokit/rest';
 
-export class GitHubIssueService implements GitHostIssueService {
+export class GitHubIssueService implements ForgeIssueService {
 	constructor(
 		private octokit: Octokit,
 		private repository: RepoInfo

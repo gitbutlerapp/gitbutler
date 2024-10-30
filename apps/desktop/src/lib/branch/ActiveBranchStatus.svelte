@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
-	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getForge } from '$lib/forge/interface/forge';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContextStore } from '@gitbutler/shared/context';
@@ -20,8 +20,8 @@
 
 	const branch = getContextStore(VirtualBranch);
 	const upstreamName = $derived($branch.upstreamName);
-	const gitHost = getGitHost();
-	const gitHostBranch = $derived(upstreamName ? $gitHost?.branch(upstreamName) : undefined);
+	const forge = getForge();
+	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
 
 	const nameNormalizationService = getNameNormalizationServiceContext();
 
@@ -91,7 +91,7 @@
 		outline
 		shrinkable
 		onclick={(e: MouseEvent) => {
-			const url = gitHostBranch?.url;
+			const url = forgeBranch?.url;
 			if (url) openExternalUrl(url);
 			e.preventDefault();
 			e.stopPropagation();

@@ -16,10 +16,10 @@
 	import { showHistoryView } from '$lib/config/config';
 	import { featureTopics } from '$lib/config/uiFeatureFlags';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
-	import { DefaultGitHostFactory } from '$lib/forge/forgeFactory';
+	import { DefaultForgeFactory } from '$lib/forge/forgeFactory';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
-	import { createGitHostStore } from '$lib/forge/interface/forge';
-	import { createGitHostListingServiceStore } from '$lib/forge/interface/forgeListingService';
+	import { createForgeStore } from '$lib/forge/interface/forge';
+	import { createForgeListingServiceStore } from '$lib/forge/interface/forgeListingService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
@@ -102,19 +102,17 @@
 	let intervalId: any;
 
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
-	const gitHostFactory = $derived(new DefaultGitHostFactory(octokit));
+	const forgeFactory = $derived(new DefaultForgeFactory(octokit));
 	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
 	const forkInfo = $derived(forkUrl && forkUrl !== remoteUrl ? parseRemoteUrl(forkUrl) : undefined);
 	const baseBranchName = $derived($baseBranch?.shortName);
 
-	const listServiceStore = createGitHostListingServiceStore(undefined);
-	const gitHostStore = createGitHostStore(undefined);
-	const gitHostIssueSerice = storeDerived(gitHostStore, (gitHostStore) =>
-		gitHostStore?.issueService()
-	);
+	const listServiceStore = createForgeListingServiceStore(undefined);
+	const forgeStore = createForgeStore(undefined);
+	const forgeIssueSerice = storeDerived(forgeStore, (forgeStore) => forgeStore?.issueService());
 
 	$effect.pre(() => {
-		const topicService = new TopicService(project, gitHostIssueSerice);
+		const topicService = new TopicService(project, forgeIssueSerice);
 		setContext(TopicService, topicService);
 	});
 
@@ -149,17 +147,17 @@
 	});
 
 	$effect(() => {
-		const gitHost =
+		const forge =
 			repoInfo && baseBranchName
-				? gitHostFactory.build(repoInfo, baseBranchName, forkInfo)
+				? forgeFactory.build(repoInfo, baseBranchName, forkInfo)
 				: undefined;
 
-		const ghListService = gitHost?.listService();
+		const ghListService = forge?.listService();
 
-		if (gitHost) projectsService.setGitHostType(project, gitHost.type);
+		if (forge) projectsService.setForgeType(project, forge.type);
 
 		listServiceStore.set(ghListService);
-		gitHostStore.set(gitHost);
+		forgeStore.set(forge);
 	});
 
 	// Once on load and every time the project id changes
@@ -192,7 +190,7 @@
 </script>
 
 {#if $topicsEnabled}
-	{#if $gitHostStore?.issueService()}
+	{#if $forgeStore?.issueService()}
 		<CreateIssueModal registerKeypress />
 	{/if}
 	<CreateTopicModal registerKeypress />

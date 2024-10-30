@@ -1,8 +1,8 @@
 import { GitLabBranch } from './gitlabBranch';
 import type { ForgeType } from '$lib/backend/forge';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHost } from '../interface/forge';
-import type { DetailedPullRequest, GitHostArguments } from '../interface/types';
+import type { Forge } from '../interface/forge';
+import type { DetailedPullRequest, ForgeArguments } from '../interface/types';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
@@ -17,14 +17,14 @@ export const GITLAB_SUB_DOMAIN = 'gitlab'; // For self hosted instance of Gitlab
  * Follow this issue to stay in the loop:
  * https://github.com/gitbutlerapp/gitbutler/issues/2511
  */
-export class GitLab implements GitHost {
+export class GitLab implements Forge {
 	readonly type: ForgeType = 'gitlab';
 	private baseUrl: string;
 	private repo: RepoInfo;
 	private baseBranch: string;
 	private forkStr?: string;
 
-	constructor({ repo, baseBranch, forkStr }: GitHostArguments) {
+	constructor({ repo, baseBranch, forkStr }: ForgeArguments) {
 		this.baseUrl = `https://${repo.domain}/${repo.owner}/${repo.name}`;
 		this.repo = repo;
 		this.baseBranch = baseBranch;

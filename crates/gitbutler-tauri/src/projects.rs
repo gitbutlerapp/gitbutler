@@ -5,7 +5,7 @@ pub mod commands {
 
     use anyhow::Context;
     use gitbutler_project::{
-        self as projects, Controller, GitHostSettings, ProjectId, UpdateRequest,
+        self as projects, Controller, ForgeSettings, ProjectId, UpdateRequest,
     };
     use tauri::{State, Window};
     use tracing::instrument;
@@ -26,7 +26,7 @@ pub mod commands {
     pub fn update_project_git_host(
         projects: State<'_, Controller>,
         project_id: ProjectId,
-        git_host: GitHostSettings,
+        git_host: ForgeSettings,
     ) -> Result<projects::Project, Error> {
         let project = projects.get_validated(project_id)?;
         let root_path = &project.path;

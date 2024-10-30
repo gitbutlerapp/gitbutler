@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Markdown from '$lib/components/Markdown.svelte';
-	import { getGitHost } from '$lib/forge/interface/forge';
+	import { getForge } from '$lib/forge/interface/forge';
 	import CreateIssueModal from '$lib/topics/CreateIssueModal.svelte';
 	import CreateTopicModal from '$lib/topics/CreateTopicModal.svelte';
 	import { TopicService, type Topic } from '$lib/topics/service';
@@ -16,7 +16,7 @@
 	const { topic }: Props = $props();
 
 	const topicService = getContext(TopicService);
-	const gitHost = getGitHost();
+	const forge = getForge();
 
 	let deleteModal = $state<Modal>();
 
@@ -70,7 +70,7 @@
 			</div>
 			<div class="footer__actions">
 				<Button onclick={() => createTopicModal?.open()}>Edit</Button>
-				{#if !topic.hasIssue && $gitHost?.issueService()}
+				{#if !topic.hasIssue && $forge?.issueService()}
 					<Button onclick={() => createIssueModal?.open()}>Convert to issue</Button>
 				{/if}
 				<Button icon="bin" style="error" onclick={() => deleteModal?.show()} />

@@ -1,6 +1,6 @@
-import type { GitHostBranch } from '../interface/forgeBranch';
+import type { ForgeBranch } from '../interface/forgeBranch';
 
-export class GitLabBranch implements GitHostBranch {
+export class GitLabBranch implements ForgeBranch {
 	readonly url: string;
 	constructor(name: string, baseBranch: string, baseUrl: string, fork?: string) {
 		if (fork) {

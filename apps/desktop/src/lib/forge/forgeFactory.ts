@@ -4,16 +4,16 @@ import { GitHub, GITHUB_DOMAIN } from './github/github';
 import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from './gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { GitHost } from './interface/forge';
+import type { Forge } from './interface/forge';
 import type { Octokit } from '@octokit/rest';
 
 // Used on a branch level to acquire the right kind of merge request / checks
 // monitoring service.
-export interface GitHostFactory {
-	build(repo: RepoInfo, baseBranch: string): GitHost | undefined;
+export interface ForgeFactory {
+	build(repo: RepoInfo, baseBranch: string): Forge | undefined;
 }
 
-export class DefaultGitHostFactory implements GitHostFactory {
+export class DefaultForgeFactory implements ForgeFactory {
 	constructor(private octokit: Octokit | undefined) {}
 
 	build(repo: RepoInfo, baseBranch: string, fork?: RepoInfo) {
