@@ -3,7 +3,6 @@
 	import TabList from '$lib/components/tabs/TabList.svelte';
 	import TabTrigger from '$lib/components/tabs/TabTrigger.svelte';
 	import Tabs from '$lib/components/tabs/Tabs.svelte';
-	import { featureBaseBranchSwitching } from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import Section from '$lib/settings/Section.svelte';
 	import BaseBranchSwitch from '$lib/settings/userPreferences/BaseBranchSwitch.svelte';
@@ -12,8 +11,6 @@
 	import GitForm from '$lib/settings/userPreferences/GitForm.svelte';
 	import PreferencesForm from '$lib/settings/userPreferences/PreferencesForm.svelte';
 	import RemoveProjectForm from '$lib/settings/userPreferences/RemoveProjectForm.svelte';
-
-	const baseBranchSwitching = featureBaseBranchSwitching();
 </script>
 
 <SettingsPage title="Project settings">
@@ -34,9 +31,7 @@
 		<TabContent value="project">
 			<Section>
 				<DetailsForm />
-				{#if $baseBranchSwitching}
-					<BaseBranchSwitch />
-				{/if}
+				<BaseBranchSwitch />
 				<RemoveProjectForm />
 			</Section>
 		</TabContent>

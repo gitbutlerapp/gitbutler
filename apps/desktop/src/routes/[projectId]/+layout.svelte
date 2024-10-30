@@ -14,7 +14,6 @@
 	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import { showHistoryView } from '$lib/config/config';
-	import { featureTopics } from '$lib/config/uiFeatureFlags';
 	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
@@ -27,9 +26,6 @@
 	import { ModeService } from '$lib/modes/service';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
-	import CreateIssueModal from '$lib/topics/CreateIssueModal.svelte';
-	import CreateTopicModal from '$lib/topics/CreateTopicModal.svelte';
-	import { TopicService } from '$lib/topics/service';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { debounce } from '$lib/utils/debounce';
@@ -39,7 +35,6 @@
 	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { DesktopRoutesService, getRoutesService } from '@gitbutler/shared/sharedRoutes';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
-	import { derived as storeDerived } from 'svelte/store';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
 
@@ -109,12 +104,6 @@
 
 	const listServiceStore = createForgeListingServiceStore(undefined);
 	const forgeStore = createForgeStore(undefined);
-	const forgeIssueSerice = storeDerived(forgeStore, (forgeStore) => forgeStore?.issueService());
-
-	$effect.pre(() => {
-		const topicService = new TopicService(project, forgeIssueSerice);
-		setContext(TopicService, topicService);
-	});
 
 	$effect.pre(() => {
 		const combinedBranchListingService = new CombinedBranchListingService(
@@ -185,16 +174,7 @@
 	onDestroy(() => {
 		clearFetchInterval();
 	});
-
-	const topicsEnabled = featureTopics();
 </script>
-
-{#if $topicsEnabled}
-	{#if $forgeStore?.issueService()}
-		<CreateIssueModal registerKeypress />
-	{/if}
-	<CreateTopicModal registerKeypress />
-{/if}
 
 <!-- forces components to be recreated when projectId changes -->
 {#key projectId}

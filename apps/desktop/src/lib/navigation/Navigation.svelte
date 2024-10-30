@@ -6,11 +6,9 @@
 	import WorkspaceButton from './WorkspaceButton.svelte';
 	import Resizer from '../shared/Resizer.svelte';
 	import { ProjectService } from '$lib/backend/projects';
-	import { featureTopics } from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/modes/service';
 	import CloudSeriesButton from '$lib/navigation/CloudSeriesButton.svelte';
 	import EditButton from '$lib/navigation/EditButton.svelte';
-	import TopicsButton from '$lib/navigation/TopicsButton.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { createKeybind } from '$lib/utils/hotkeys';
@@ -47,8 +45,6 @@
 
 	const modeService = getContext(ModeService);
 	const mode = modeService.mode;
-
-	const topicsEnabled = featureTopics();
 </script>
 
 <svelte:window on:keydown={handleKeyDown} />
@@ -125,10 +121,6 @@
 						<WorkspaceButton href={`/${projectId}/board`} isNavCollapsed={$isNavCollapsed} />
 					{:else if $mode?.type === 'Edit'}
 						<EditButton href={`/${projectId}/edit`} isNavCollapsed={$isNavCollapsed} />
-					{/if}
-
-					{#if $topicsEnabled}
-						<TopicsButton href={`/${projectId}/topics`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 
 					{#if $cloudEnabled}
