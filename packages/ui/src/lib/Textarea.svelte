@@ -84,17 +84,19 @@
 	$effect(() => {
 		if (textBoxEl) {
 			if (!disabled) {
-				textBoxEl.setAttribute('contenteditable', 'true');
+				textBoxEl.setAttribute('contenteditable', 'plaintext-only');
 			} else {
 				textBoxEl.removeAttribute('contenteditable');
 			}
 		}
 	});
+
+	console.log('placeholder', placeholder);
 </script>
 
 <div
 	class="textarea-container"
-	style:--placeholder-text={`"${placeholder || placeholder !== '' ? placeholder : ' '}"`}
+	style:--placeholder-text={`"${placeholder && placeholder !== '' ? placeholder : 'Type here...'}"`}
 	style:--font-size={pxToRem(fontSize)}
 	style:--min-rows={minRows}
 	style:--max-rows={maxRows}
@@ -112,7 +114,7 @@
 		role="textbox"
 		aria-multiline="true"
 		tabindex={disabled ? -1 : 0}
-		contenteditable
+		contenteditable="plaintext-only"
 		bind:innerText={value}
 		onfocus={(e: Event) => {
 			if (e.currentTarget) {
@@ -179,6 +181,7 @@
 			display: flex;
 			flex-direction: column;
 			gap: 6px;
+			overflow-x: hidden;
 		}
 
 		.textarea {
@@ -194,6 +197,8 @@
 			min-height: calc(var(--font-size) * 1.5 * var(--min-rows));
 			max-height: calc(var(--font-size) * 1.5 * var(--max-rows));
 			overflow-y: auto; /* Enable scrolling when max height is reached */
+			overflow-x: hidden;
+			word-wrap: break-word;
 			border-color: transparent;
 			transition:
 				border-color var(--transition-fast),
