@@ -99,14 +99,14 @@
 		outline: none;
 
 		/* not readonly */
-		&:not([readonly]):not([disabled]):hover {
-			background-color: var(--clr-bg-2);
+		&:not([readonly]):not([disabled]):not(:focus):hover {
+			background-color: var(--clr-bg-1-muted);
 		}
 
 		&:not([readonly]):not([disabled]):focus {
 			outline: none;
-			background-color: var(--clr-bg-2);
-			border-color: var(--clr-border-2);
+			background-color: var(--clr-bg-1-muted);
+			border: 1px solid var(--clr-border-2);
 		}
 	}
 	.branch-name-input[readonly] {

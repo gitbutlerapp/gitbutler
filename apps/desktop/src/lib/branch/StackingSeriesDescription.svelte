@@ -33,7 +33,7 @@
 			if (e.key === 'Escape') {
 				textAreaEl?.blur();
 
-				if (value === '') {
+				if (e.currentTarget.value === '') {
 					onEmpty?.();
 				}
 			}
@@ -50,20 +50,21 @@
 		padding: 0 2px;
 		border: 1px solid transparent;
 		border-radius: var(--radius-s);
-		width: calc(100% + 4px);
-		margin-left: -2px;
-		margin-bottom: -2px;
+
+		width: 100%;
 		transition:
 			border-color var(--transition-fast),
 			background-color var(--transition-fast);
 
-		&:hover {
+		&:not(:focus-within):hover {
 			background-color: var(--clr-bg-1-muted);
 		}
 
 		&:focus-within {
 			background-color: var(--clr-bg-1-muted);
-			border-color: var(--clr-border-2);
+
+			border: 1px solid var(--clr-border-2);
+			/* background-color: var(--clr-bg-2); */
 		}
 	}
 </style>
