@@ -56,6 +56,7 @@
 	let stackingAddSeriesModal = $state<ReturnType<typeof StackingAddSeriesModal>>();
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let stackingContextMenu = $state<ReturnType<typeof StackingSeriesHeaderContextMenu>>();
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
 
 	let contextMenuOpened = $state(false);
@@ -145,6 +146,7 @@
 <StackingAddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={currentSeries.name} />
 
 <StackingSeriesHeaderContextMenu
+	bind:this={stackingContextMenu}
 	bind:contextMenuEl={kebabContextMenu}
 	target={kebabContextMenuTrigger}
 	headName={currentSeries.name}
@@ -207,7 +209,10 @@
 				<BranchLabel
 					name={currentSeries.name}
 					onChange={(name) => editTitle(name)}
-					disabled={!!gitHostBranch}
+					readonly={!!gitHostBranch}
+					onDblClick={() => {
+						stackingContextMenu?.showSeriesRenameModal?.();
+					}}
 				/>
 			</div>
 		</div>

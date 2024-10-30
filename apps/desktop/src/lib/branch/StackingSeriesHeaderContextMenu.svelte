@@ -64,6 +64,10 @@
 	}
 
 	const branch = $derived($branchStore);
+
+	export function showSeriesRenameModal() {
+		renameSeriesModal.show(branch);
+	}
 </script>
 
 <ContextMenu bind:this={contextMenuEl} {target} {onopen} {onclose}>
