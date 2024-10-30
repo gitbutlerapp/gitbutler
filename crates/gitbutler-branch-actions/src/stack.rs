@@ -46,6 +46,7 @@ pub fn create_series(
                 name: req.name,
                 description: req.description,
                 forge_id: Default::default(),
+                archived: Default::default(),
             },
             req.preceding_head,
         )
@@ -283,6 +284,7 @@ pub(crate) fn stack_series(
             patches,
             upstream_patches,
             forge_id: series.head.forge_id,
+            archived: series.head.archived,
         });
     }
     api_series.reverse();

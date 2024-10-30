@@ -231,6 +231,7 @@ impl Stack {
             },
             description: None,
             forge_id: Default::default(),
+            archived: Default::default(),
         };
         let state = branch_state(ctx);
 
@@ -305,6 +306,7 @@ impl Stack {
             name,
             description,
             forge_id: Default::default(),
+            archived: Default::default(),
         };
         self.add_series(ctx, new_head, Some(current_top_head.name.clone()))
     }
@@ -438,20 +440,18 @@ impl Stack {
     }
 
     /// Removes any heads that are refering to commits that are no longer between the stack head and the merge base
-    pub fn prune_integrated_heads(&mut self, ctx: &CommandContext) -> Result<()> {
+    pub fn archive_integrated_heads(&mut self, ctx: &CommandContext) -> Result<()> {
         if !self.initialized() {
             return Err(anyhow!("Stack has not been initialized"));
         }
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         let state = branch_state(ctx);
         let commit_ids = stack_patches(ctx, &state, self.head(), true)?;
-        let new_heads = self
-            .heads
-            .iter()
-            .filter(|h| commit_ids.contains(&h.target))
-            .cloned()
-            .collect_vec();
-        self.heads = new_heads;
+        for head in self.heads.iter_mut() {
+            if !commit_ids.contains(&head.target) {
+                head.archived = true;
+            }
+        }
         state.set_branch(self.clone())
     }
 
@@ -498,19 +498,19 @@ impl Stack {
         let mut previous_head = repo.merge_base(self.head(), default_target.sha)?;
         for head in self.heads.clone() {
             let head_commit =
-                match commit_by_oid_or_change_id(&head.target, repo, self.head(), merge_base) {
-                    Ok(commits_for_id) => commits_for_id.head.id(),
-                    Err(e) => {
-                        // The series may have been integrated
-                        tracing::warn!(
-                            "Failed to find commit with commit_or_change_id: {} for head: {}, {}",
-                            head.target,
-                            head.name,
-                            e
-                        );
-                        continue;
-                    }
-                };
+                commit_by_oid_or_change_id(&head.target, repo, self.head(), merge_base);
+            if head.archived || head_commit.is_err() {
+                all_series.push(Series {
+                    head: head.clone(),
+                    local_commits: vec![],
+                    remote_commits: vec![],
+                    upstream_only_commits: vec![],
+                    remote_commit_ids_by_change_id: HashMap::new(),
+                    archived: head.archived,
+                });
+                continue;
+            }
+            let head_commit = head_commit?.head.id();
 
             let mut local_patches = vec![];
             for commit in repo
@@ -559,6 +559,7 @@ impl Stack {
                 remote_commits: remote_patches,
                 upstream_only_commits: upstream_only,
                 remote_commit_ids_by_change_id,
+                archived: head.archived,
             });
             previous_head = head_commit;
         }
