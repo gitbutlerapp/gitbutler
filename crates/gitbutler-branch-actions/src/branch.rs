@@ -568,16 +568,23 @@ pub fn get_branch_listing_details(
                             Some(base) => {
                                 let mut num_commits = 0;
                                 let mut authors = HashSet::new();
-                                let revwalk = repo
-                                    .rev_walk(Some(branch_head))
-                                    .with_pruned(Some(base))
-                                    .sorting(gix::revision::walk::Sorting::BreadthFirst)
-                                    .all()?;
-                                for commit_info in revwalk {
-                                    let commit_info = commit_info?;
-                                    let commit = repo.find_commit(commit_info.id)?;
-                                    authors.insert(commit.author()?.into());
-                                    num_commits += 1;
+                                for attempt in 1..=2 {
+                                    let mut revwalk =
+                                        repo.rev_walk(Some(branch_head)).with_pruned(Some(base));
+                                    if attempt == 2 {
+                                        revwalk = revwalk
+                                            .sorting(gix::revision::walk::Sorting::BreadthFirst);
+                                    }
+                                    let revwalk = revwalk.all()?;
+                                    for commit_info in revwalk {
+                                        let commit_info = commit_info?;
+                                        let commit = repo.find_commit(commit_info.id)?;
+                                        authors.insert(commit.author()?.into());
+                                        num_commits += 1;
+                                    }
+                                    if num_commits > 0 {
+                                        break;
+                                    }
                                 }
                                 merge_tx.send(Some((base, authors, num_commits)))
                             }
