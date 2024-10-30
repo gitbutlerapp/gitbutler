@@ -2,6 +2,7 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import Dropzones from './Dropzones.svelte';
 	import StackingAddSeriesModal from './StackingAddSeriesModal.svelte';
+	import StackingSeriesDescription from './StackingSeriesDescription.svelte';
 	import StackingStatusIcon from './StackingStatusIcon.svelte';
 	import { getColorFromBranchType } from './stackingUtils';
 	import { PromptService } from '$lib/ai/promptService';
@@ -173,7 +174,7 @@
 	{branchType}
 />
 
-<div role="article" class="branch-header" tabindex="-1" oncontextmenu={(e) => e.preventDefault()}>
+<div role="article" class="branch-header" oncontextmenu={(e) => e.preventDefault()}>
 	<Dropzones type="commit">
 		<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
 			{#if $stackingFeatureMultipleSeries}
@@ -214,29 +215,7 @@
 				color={lineColor}
 				lineBottom={currentSeries.patches.length > 0 || branch.series.length > 1}
 			/>
-			<div class="text-14 text-bold branch-info__name">
-				<span class:no-upstream={!forgeBranch} class="remote-name">
-					{$baseBranch.pushRemoteName ? `${$baseBranch.pushRemoteName} /` : 'origin /'}
-				</span>
-				<BranchLabel
-					name={currentSeries.name}
-					onChange={(name) => editTitle(name)}
-					readonly={!!forgeBranch}
-					onDblClick={() => {
-						if (branchType !== 'integrated') {
-							stackingContextMenu?.showSeriesRenameModal?.();
-						}
-					}}
-				/>
-			</div>
-		</div>
-		{#if descriptionVisible}
-			<div class="branch-info__description">
-				<div class="branch-action__line" style:--bg-color={lineColor}></div>
-				<BranchLabel
-					name={branch.description}
-					onChange={(description) => editDescription(description)}
-				/>
+			<div class="branch-info__content">
 				<div class="text-14 text-bold branch-info__name">
 					<span class:no-upstream={!forgeBranch} class="remote-name">
 						{$baseBranch.pushRemoteName ? `${$baseBranch.pushRemoteName} /` : 'origin /'}
@@ -244,11 +223,27 @@
 					<BranchLabel
 						name={currentSeries.name}
 						onChange={(name) => editTitle(name)}
-						disabled={!!forgeBranch}
+						readonly={!!forgeBranch}
+						onDblClick={() => {
+							if (branchType !== 'integrated') {
+								stackingContextMenu?.showSeriesRenameModal?.();
+							}
+						}}
 					/>
 				</div>
+				{#if descriptionVisible}
+					<div class="branch-info__description">
+						<div class="branch-action__line" style:--bg-color={lineColor}></div>
+						<StackingSeriesDescription
+							bind:textAreaEl={seriesDescriptionEl}
+							value={currentSeries.description ?? ''}
+							onBlur={(value) => editDescription(value)}
+							onEmpty={() => toggleDescription()}
+						/>
+					</div>
+				{/if}
 			</div>
-		{/if}
+		</div>
 		{#if ($prService && !hasNoCommits) || showCreateCloudBranch}
 			<div class="branch-action">
 				<div class="branch-action__line" style:--bg-color={lineColor}></div>
@@ -266,7 +261,7 @@
 								style="ghost"
 								wide
 								outline
-								disabled={currentSeries.patches.length === 0 || !forge || !$prService}
+								disabled={currentSeries.patches.length === 0 || !$forge || !$prService}
 								onclick={() => handleOpenPR(!forgeBranch)}
 							>
 								Create pull request
@@ -277,18 +272,21 @@
 					{#if showCreateCloudBranch}
 						<Button
 							style="ghost"
-							wide
 							outline
-							disabled={currentSeries.patches.length === 0 || !$forge || !$prService}
+							disabled={branch.commits.length === 0}
 							onclick={() => {
 								cloudBranchCreationService.createBranch(branch.id);
-							}}
+							}}>Publish Branch</Button
 						>
-							Create pull request
-						</Button>
 					{/if}
 				</div>
 			</div>
+		{/if}
+
+		{#if $pr}
+			<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
+		{:else}
+			<PrDetailsModal bind:this={prDetailsModal} type="preview-series" {currentSeries} />
 		{/if}
 	</Dropzones>
 </div>
@@ -331,6 +329,15 @@
 		justify-content: flex-start;
 		min-width: 0;
 		flex-grow: 1;
+	}
+
+	.branch-info__content {
+		flex: 1;
+		width: 100%;
+		display: flex;
+		flex-direction: column;
+		gap: 6px;
+		padding: 14px 0;
 	}
 
 	.branch-action {
