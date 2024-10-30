@@ -40,7 +40,7 @@
 
 		width: 100%;
 
-		margin: 24px;
+		margin: 24px auto;
 		margin-bottom: 0;
 
 		gap: 16px;
