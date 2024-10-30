@@ -94,6 +94,7 @@ fn rebase_commit() {
             project,
             &unapplied_branch,
             None,
+            None,
         )
         .unwrap();
 
@@ -191,6 +192,7 @@ fn rebase_work() {
         branch1_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
             project,
             &unapplied_branch,
+            None,
             None,
         )
         .unwrap();

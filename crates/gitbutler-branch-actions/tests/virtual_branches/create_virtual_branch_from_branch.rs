@@ -1,4 +1,5 @@
 use gitbutler_branch::BranchCreateRequest;
+use gitbutler_patch_reference::{ForgeIdentifier, GitHubIdentifier};
 use gitbutler_reference::LocalRefname;
 
 use super::*;
@@ -46,9 +47,13 @@ fn integration() {
     };
 
     // checkout a existing remote branch
-    let branch_id =
-        gitbutler_branch_actions::create_virtual_branch_from_branch(project, &branch_name, None)
-            .unwrap();
+    let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
+        project,
+        &branch_name,
+        None,
+        Some(ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })),
+    )
+    .unwrap();
 
     {
         // add a commit
@@ -96,6 +101,11 @@ fn integration() {
             .find(|branch| branch.id == branch_id)
             .unwrap();
 
+        assert_eq!(
+            branch.series.first().unwrap().forge_id,
+            Some(ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 }))
+        );
+
         assert!(branch.commits[0].is_remote);
         assert!(branch.commits[0].is_integrated);
         assert!(branch.commits[1].is_remote);
@@ -133,6 +143,7 @@ fn no_conflicts() {
     let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
         project,
         &"refs/remotes/origin/branch".parse().unwrap(),
+        None,
         None,
     )
     .unwrap();
@@ -181,6 +192,7 @@ fn conflicts_with_uncommited() {
     let new_branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
         project,
         &"refs/remotes/origin/branch".parse().unwrap(),
+        None,
         None,
     )
     .unwrap();
@@ -236,6 +248,7 @@ fn conflicts_with_commited() {
         project,
         &"refs/remotes/origin/branch".parse().unwrap(),
         None,
+        None,
     )
     .unwrap();
     let new_branch = gitbutler_branch_actions::list_virtual_branches(project)
@@ -265,7 +278,8 @@ fn from_default_target() {
         gitbutler_branch_actions::create_virtual_branch_from_branch(
             project,
             &"refs/remotes/origin/master".parse().unwrap(),
-            None
+            None,
+            None,
         )
         .unwrap_err()
         .to_string(),
@@ -289,7 +303,8 @@ fn from_non_existent_branch() {
         gitbutler_branch_actions::create_virtual_branch_from_branch(
             project,
             &"refs/remotes/origin/branch".parse().unwrap(),
-            None
+            None,
+            None,
         )
         .unwrap_err()
         .to_string(),
@@ -329,6 +344,7 @@ fn from_state_remote_branch() {
     let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
         project,
         &"refs/remotes/origin/branch".parse().unwrap(),
+        None,
         None,
     )
     .unwrap();
@@ -419,6 +435,7 @@ mod conflict_cases {
         gitbutler_branch_actions::create_virtual_branch_from_branch(
             project,
             &Refname::from_str(&branch_refname).unwrap(),
+            None,
             None,
         )
         .unwrap();

@@ -316,8 +316,13 @@ fn applying_first_branch() {
     let unapplied_branch =
         gitbutler_branch_actions::save_and_unapply_virutal_branch(project, branches[0].id).unwrap();
     let unapplied_branch = Refname::from_str(&unapplied_branch).unwrap();
-    gitbutler_branch_actions::create_virtual_branch_from_branch(project, &unapplied_branch, None)
-        .unwrap();
+    gitbutler_branch_actions::create_virtual_branch_from_branch(
+        project,
+        &unapplied_branch,
+        None,
+        None,
+    )
+    .unwrap();
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);

@@ -12,7 +12,7 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { PullRequest } from '$lib/gitHost/interface/types';
-	import type { Branch } from '$lib/vbranches/types';
+	import type { Branch, ForgeIdentifier } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	export let localBranch: Branch | undefined;
@@ -111,7 +111,14 @@
 									remoteBranch?.name
 								);
 							} else {
-								await branchController.createvBranchFromBranch(remoteBranch!.name);
+								let forgeId: ForgeIdentifier | undefined = pr
+									? { type: 'GitHub', subject: { prNumber: pr.number } }
+									: undefined;
+								await branchController.createvBranchFromBranch(
+									remoteBranch!.name,
+									undefined,
+									forgeId
+								);
 							}
 							goto(`/${project.id}/board`);
 						} catch (e) {

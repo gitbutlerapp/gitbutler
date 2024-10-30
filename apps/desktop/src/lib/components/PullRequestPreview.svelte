@@ -67,7 +67,9 @@
 			await remotesService.addRemote(project.id, remoteName, remoteUrl);
 			await baseBranchService.fetchFromRemotes();
 			await branchController.createvBranchFromBranch(
-				`refs/remotes/${remoteName}/${pullrequest.sourceBranch}`
+				`refs/remotes/${remoteName}/${pullrequest.sourceBranch}`,
+				undefined,
+				{ type: 'GitHub', subject: { prNumber: pullrequest.number } }
 			);
 			await virtualBranchService.refresh();
 

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use anyhow::{Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
+use gitbutler_patch_reference::{CommitOrChangeId, ForgeIdentifier, PatchReference};
 use gitbutler_project::Project;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{PatchReferenceUpdate, Series};
@@ -45,6 +45,7 @@ pub fn create_series(
                 target: target_patch,
                 name: req.name,
                 description: req.description,
+                forge_id: Default::default(),
             },
             req.preceding_head,
         )
@@ -119,6 +120,27 @@ pub fn update_series_description(
             ..Default::default()
         },
     )
+}
+
+/// Sets the forge identifiers for a given series/branch. Existing values are overwritten.
+///
+/// # Errors
+/// This method will return an error if:
+///  - The series does not exist
+///  - The stack cant be found
+///  - The stack has not been initialized
+///  - The project is not in workspace mode
+///  - Persisting the changes failed
+pub fn update_series_forge_ids(
+    project: &Project,
+    stack_id: StackId,
+    head_name: String,
+    forge_id: Option<ForgeIdentifier>,
+) -> Result<()> {
+    let ctx = &open_with_verify(project)?;
+    assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
+    let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
+    stack.set_forge_id(ctx, &head_name, forge_id)
 }
 
 /// Pushes all series in the stack to the remote.
@@ -260,6 +282,7 @@ pub(crate) fn stack_series(
             upstream_reference,
             patches,
             upstream_patches,
+            forge_id: series.head.forge_id,
         });
     }
     api_series.reverse();

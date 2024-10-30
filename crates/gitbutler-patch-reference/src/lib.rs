@@ -17,6 +17,25 @@ pub struct PatchReference {
     pub name: String,
     /// Optional description of the series. This could be markdown or anything our hearts desire.
     pub description: Option<String>,
+    /// An identifier for a review unit at a forge (eg. GitHub Pull Request number).
+    /// None if is no review unit, eg. no Pull Request has been created.
+    #[serde(default)]
+    pub forge_id: Option<ForgeIdentifier>,
+}
+
+/// Represents identifiers for the series at possible forges, eg. GitHub PR numbers.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(tag = "type", content = "subject")]
+pub enum ForgeIdentifier {
+    GitHub(GitHubIdentifier),
+}
+
+/// Represents a GitHub Pull Request identifier.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitHubIdentifier {
+    /// Pull Request number.
+    pub pr_number: usize,
 }
 
 /// A patch identifier which is either `CommitId` or a `ChangeId`.

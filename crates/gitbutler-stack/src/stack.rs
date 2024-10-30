@@ -11,6 +11,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_commit::commit_ext::CommitVecExt;
 use gitbutler_id::id::Id;
+use gitbutler_patch_reference::ForgeIdentifier;
 use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use gitbutler_repo::{LogUntil, RepositoryExt};
@@ -229,6 +230,7 @@ impl Stack {
                 generate_branch_name(author)?
             },
             description: None,
+            forge_id: Default::default(),
         };
         let state = branch_state(ctx);
 
@@ -302,6 +304,7 @@ impl Stack {
             target: current_top_head.target.clone(),
             name,
             description,
+            forge_id: Default::default(),
         };
         self.add_series(ctx, new_head, Some(current_top_head.name.clone()))
     }
@@ -655,6 +658,34 @@ impl Stack {
         Ok(())
     }
 
+    /// Sets the forge identifier for a given series/branch.
+    /// Existing value is overwritten - passing `None` sets the forge identifier to `None`.
+    ///
+    /// # Errors
+    /// If the series does not exist, this method will return an error.
+    /// If the stack has not been initialized, this method will return an error.
+    pub fn set_forge_id(
+        &mut self,
+        ctx: &CommandContext,
+        series_name: &str,
+        new_forge_id: Option<ForgeIdentifier>,
+    ) -> Result<()> {
+        if !self.initialized() {
+            return Err(anyhow!("Stack has not been initialized"));
+        }
+        match self.heads.iter_mut().find(|r| r.name == series_name) {
+            Some(head) => {
+                head.forge_id = new_forge_id;
+                branch_state(ctx).set_branch(self.clone())
+            }
+            None => bail!(
+                "Series {} does not exist on stack {}",
+                series_name,
+                self.name
+            ),
+        }
+    }
+
     pub fn set_legacy_compatible_stack_reference(&mut self, ctx: &CommandContext) -> Result<()> {
         // self.upstream is only set if this is a branch that was created & manipulated by the legacy flow
         let legacy_refname = match self.upstream.clone().map(|r| r.branch().to_owned()) {
@@ -686,6 +717,10 @@ impl Stack {
             self.update_series(ctx, head.name.clone(), &update)?;
         }
         Ok(())
+    }
+
+    pub fn heads(&self) -> Vec<String> {
+        self.heads.iter().map(|h| h.name.clone()).collect()
     }
 }
 
