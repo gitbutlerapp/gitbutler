@@ -84,6 +84,15 @@ export class GitHubPrService implements ForgePrService {
 		});
 	}
 
+	async reopen(prNumber: number) {
+		await this.octokit.pulls.update({
+			owner: this.repo.owner,
+			repo: this.repo.name,
+			pull_number: prNumber,
+			state: 'open'
+		});
+	}
+
 	prMonitor(prNumber: number): GitHubPrMonitor {
 		return new GitHubPrMonitor(this, prNumber);
 	}

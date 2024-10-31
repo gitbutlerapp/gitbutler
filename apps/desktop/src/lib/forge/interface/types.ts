@@ -42,6 +42,7 @@ export interface DetailedPullRequest {
 	mergeableState: string;
 	rebaseable: boolean;
 	squashable: boolean;
+	state: 'open' | 'closed';
 }
 
 export type ChecksStatus = {

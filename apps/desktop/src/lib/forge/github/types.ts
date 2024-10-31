@@ -20,7 +20,8 @@ export function parseGitHubDetailedPullRequest(
 		mergeable: !!data.mergeable,
 		mergeableState: data.mergeable_state,
 		rebaseable: !!data.rebaseable,
-		squashable: !!data.mergeable // Enabled whenever merge is enabled
+		squashable: !!data.mergeable, // Enabled whenever merge is enabled
+		state: data.state
 	};
 }
 
