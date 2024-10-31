@@ -207,7 +207,7 @@
 				padding={{ top: 0, right: 12, bottom: 0, left: 12 }}
 				spellcheck="false"
 				minRows={1}
-				maxRows={10}
+				maxRows={30}
 				bind:textBoxEl={descriptionTextArea}
 				oninput={(e: InputEvent & { currentTarget: HTMLTextAreaElement }) => {
 					const target = e.currentTarget;
