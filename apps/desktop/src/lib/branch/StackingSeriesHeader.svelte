@@ -106,6 +106,14 @@
 		prDetailsModal?.show(pushBeforeCreate);
 	}
 
+	async function handleReopenPr() {
+		if (!$pr) {
+			return;
+		}
+		await $prService?.reopen($pr?.number);
+		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
+	}
+
 	function editTitle(title: string) {
 		if (currentSeries?.name && title !== currentSeries.name) {
 			branchController.updateSeriesName(branch.id, currentSeries.name, title);
@@ -255,6 +263,7 @@
 							<StackingPullRequestCard
 								upstreamName={currentSeries.name}
 								reloadPR={handleReloadPR}
+								reopenPr={handleReopenPr}
 								pr={$pr}
 								{checksMonitor}
 							/>

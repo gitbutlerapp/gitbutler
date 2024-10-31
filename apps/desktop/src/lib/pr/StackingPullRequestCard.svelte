@@ -24,9 +24,10 @@
 		pr: DetailedPullRequest;
 		checksMonitor?: ForgeChecksMonitor;
 		reloadPR?: () => void;
+		reopenPr?: () => Promise<void>;
 	}
 
-	const { upstreamName, reloadPR, pr, checksMonitor }: Props = $props();
+	const { upstreamName, reloadPR, reopenPr, pr, checksMonitor }: Props = $props();
 
 	type StatusInfo = {
 		text: string;
@@ -66,6 +67,7 @@
 
 	const mrLoading = $derived(prMonitor?.loading);
 	const checksLoading = $derived(checksMonitor?.loading);
+	let loading = $state(false);
 
 	const checksError = $derived(checksMonitor?.error);
 	const detailsError = $derived(prMonitor?.error);
@@ -137,6 +139,13 @@
 			/>
 			<ContextMenuItem
 				label="Refetch PR status"
+				onclick={() => {
+					reloadPR?.();
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Detach PR"
 				onclick={() => {
 					reloadPR?.();
 					contextMenuEl?.close();
@@ -225,8 +234,8 @@
         determining "no checks will run for this PR" such that we can show the merge button
         immediately.
         -->
-		{#if pr}
-			<div class="pr-header-actions">
+		<div class="pr-header-actions">
+			{#if pr.state === 'open'}
 				<MergeButton
 					wide
 					projectId={project.id}
@@ -257,8 +266,24 @@
 						}
 					}}
 				/>
-			</div>
-		{/if}
+			{:else}
+				<Button
+					style="ghost"
+					outline
+					{loading}
+					onclick={async () => {
+						loading = true;
+						try {
+							await reopenPr?.();
+						} finally {
+							loading = false;
+						}
+					}}
+				>
+					Reopen pull request
+				</Button>
+			{/if}
+		</div>
 	</div>
 {/if}
 
