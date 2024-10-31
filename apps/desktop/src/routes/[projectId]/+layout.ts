@@ -1,6 +1,6 @@
-import { ForgeService } from '$lib/backend/forge';
 import { getUserErrorCode, invoke } from '$lib/backend/ipc';
 import { ProjectService, type Project } from '$lib/backend/projects';
+import { TemplateService } from '$lib/backend/templateService';
 import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 import { BranchListingService } from '$lib/branches/branchListing';
@@ -59,7 +59,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const historyService = new HistoryService(projectId);
 	const baseBranchService = new BaseBranchService(projectId);
 	const commitService = new CommitService(projectId);
-	const forgeService = new ForgeService(projectId);
+	const templateService = new TemplateService(projectId);
 
 	const branchListingService = new BranchListingService(projectId);
 	const remoteBranchService = new RemoteBranchService(
@@ -107,7 +107,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		authService,
 		baseBranchService,
 		commitService,
-		forgeService,
+		templateService,
 		branchController,
 		historyService,
 		projectId,

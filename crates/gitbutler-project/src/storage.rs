@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::{ApiProject, AuthKey, CodePushState, FetchResult, ForgeSettings, Project, ProjectId};
+use crate::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
 
 const PROJECTS_FILE: &str = "projects.json";
 
@@ -27,7 +27,6 @@ pub struct UpdateRequest {
     pub omit_certificate_check: Option<bool>,
     pub use_diff_context: Option<bool>,
     pub snapshot_lines_threshold: Option<usize>,
-    pub git_host: Option<ForgeSettings>,
     pub use_experimental_locking: Option<bool>,
 }
 
@@ -123,10 +122,6 @@ impl Storage {
 
         if let Some(snapshot_lines_threshold) = update_request.snapshot_lines_threshold {
             project.snapshot_lines_threshold = Some(snapshot_lines_threshold);
-        }
-
-        if let Some(git_host) = &update_request.git_host {
-            project.git_host = git_host.clone();
         }
 
         if let Some(use_experimental_locking) = &update_request.use_experimental_locking {

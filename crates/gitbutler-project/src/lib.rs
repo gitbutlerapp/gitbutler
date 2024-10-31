@@ -5,9 +5,7 @@ mod project;
 mod storage;
 
 pub use controller::Controller;
-pub use project::{
-    ApiProject, AuthKey, CodePushState, FetchResult, ForgeSettings, Project, ProjectId,
-};
+pub use project::{ApiProject, AuthKey, CodePushState, FetchResult, Project, ProjectId};
 pub use storage::UpdateRequest;
 
 /// A utility to be used from applications to optimize `git2` configuration.

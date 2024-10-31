@@ -1,9 +1,8 @@
 use std::{
-    path::{self, Path, PathBuf},
+    path::{self, PathBuf},
     time,
 };
 
-use gitbutler_forge::{forge::ForgeType, review::available_review_templates};
 use gitbutler_id::id::Id;
 use serde::{Deserialize, Serialize};
 
@@ -95,8 +94,6 @@ pub struct Project {
     pub omit_certificate_check: Option<bool>,
     // The number of changed lines that will trigger a snapshot
     pub snapshot_lines_threshold: Option<usize>,
-    #[serde(default)]
-    pub git_host: ForgeSettings,
     // Experimental flag for new hunk dependency algorithm
     #[serde(default = "default_true")]
     pub use_experimental_locking: bool,
@@ -105,27 +102,6 @@ pub struct Project {
 // TODO: Remove after `use_experimental` has been removed.
 fn default_true() -> bool {
     true
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone, Default)]
-#[serde(rename_all = "camelCase")]
-pub struct ForgeSettings {
-    #[serde(default)]
-    pub host_type: Option<ForgeType>,
-    #[serde(default)]
-    pub review_template_path: Option<String>,
-}
-
-impl ForgeSettings {
-    pub fn init(&mut self, project_path: &Path) {
-        if let Some(forge_type) = &self.host_type {
-            if self.review_template_path.is_none() {
-                self.review_template_path = available_review_templates(project_path, forge_type)
-                    .first()
-                    .cloned();
-            }
-        }
-    }
 }
 
 impl Project {
