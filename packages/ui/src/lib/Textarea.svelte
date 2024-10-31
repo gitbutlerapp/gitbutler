@@ -103,12 +103,6 @@
 		}
 	});
 
-	$effect(() => {
-		if (measureElHeight) {
-			console.log('measureElHeight', measureElHeight);
-		}
-	});
-
 	const lineHeight = 1.6;
 
 	let maxHeight = fontSize * maxRows + padding.top + padding.bottom;
