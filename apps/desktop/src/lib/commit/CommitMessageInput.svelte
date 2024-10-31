@@ -187,7 +187,7 @@
 			fontWeight="semibold"
 			spellcheck="false"
 			minRows={1}
-			maxRows={4}
+			maxRows={10}
 			bind:textBoxEl={titleTextArea}
 			autofocus
 			oninput={(e: InputEvent & { currentTarget: HTMLTextAreaElement }) => {
