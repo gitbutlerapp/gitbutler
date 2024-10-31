@@ -95,7 +95,7 @@
 	let templateSelector = $state<ReturnType<typeof PrTemplateSection>>();
 	let isEditing = $state<boolean>(true);
 	let isLoading = $state<boolean>(false);
-	let pullRequestTemplateBody = $state<string | undefined>(undefined);
+	let templateBody = $state<string | undefined>(undefined);
 	let aiIsLoading = $state<boolean>(false);
 	let aiConfigurationValid = $state<boolean>(false);
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
@@ -110,7 +110,7 @@
 	async function handleToggleUseTemplate() {
 		useTemplate.set(!$useTemplate);
 		if (!$useTemplate) {
-			pullRequestTemplateBody = undefined;
+			templateBody = undefined;
 		}
 	}
 
@@ -133,7 +133,7 @@
 		if (props.type === 'display') return props.pr.body ?? '';
 		if (props.type === 'preview-series' && props.currentSeries.description)
 			return props.currentSeries.description;
-		if (pullRequestTemplateBody) return pullRequestTemplateBody;
+		if (templateBody) return templateBody;
 
 		// In case of a single commit, use the commit description for the body
 		if (commits.length === 1) {
@@ -144,10 +144,10 @@
 		}
 	});
 
-	let inputBody = $state<string | undefined>(undefined);
-	let inputTitle = $state<string | undefined>(undefined);
-	const actualBody = $derived<string>(inputBody ?? defaultBody);
-	const actualTitle = $derived<string>(inputTitle ?? defaultTitle);
+	let inputBody = $state<string>('');
+	let inputTitle = $state<string>('');
+	const actualBody = $derived<string>(inputBody.trim().length > 0 ? inputBody : defaultBody);
+	const actualTitle = $derived<string>(inputTitle.trim().length > 0 ? inputTitle : defaultTitle);
 
 	$effect(() => {
 		if (modal?.imports.open) {
@@ -252,7 +252,7 @@
 			body: actualBody,
 			directive: aiDescriptionDirective,
 			commitMessages: commits.map((c) => c.description),
-			prBodyTemplate: pullRequestTemplateBody,
+			prBodyTemplate: templateBody,
 			onToken: async (t) => {
 				if (firstToken) {
 					inputBody = '';
@@ -308,8 +308,8 @@
 
 	function onClose() {
 		isEditing = true;
-		inputTitle = undefined;
-		inputBody = undefined;
+		inputTitle = '';
+		inputBody = '';
 	}
 
 	let prLinkCopied = $state(false);
@@ -397,7 +397,9 @@
 					{#if $useTemplate}
 						<PrTemplateSection
 							bind:this={templateSelector}
-							onselected={(body) => (pullRequestTemplateBody = body)}
+							onselected={(body) => {
+								templateBody = body;
+							}}
 							{templates}
 						/>
 					{/if}
@@ -411,9 +413,9 @@
 							autofocus
 							padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
 							placeholder="Add description…"
-							oninput={(e: InputEvent) => {
+							onchange={(e: InputEvent) => {
 								const target = e.currentTarget as HTMLTextAreaElement;
-								inputBody = target.value;
+								inputBody = target.value.trim();
 							}}
 						/>
 
