@@ -201,7 +201,7 @@ fn main() {
                     stack::remove_series,
                     stack::update_series_name,
                     stack::update_series_description,
-                    stack::update_series_forge_ids,
+                    stack::update_series_forge_id,
                     stack::push_stack,
                     secret::secret_get_global,
                     secret::secret_set_global,

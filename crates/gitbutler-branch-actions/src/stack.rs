@@ -145,7 +145,7 @@ pub fn update_series_description(
     )
 }
 
-/// Sets the forge identifiers for a given series/branch. Existing values are overwritten.
+/// Sets the forge identifier for a given series/branch. Existing value is overwritten.
 ///
 /// # Errors
 /// This method will return an error if:
@@ -154,7 +154,7 @@ pub fn update_series_description(
 ///  - The stack has not been initialized
 ///  - The project is not in workspace mode
 ///  - Persisting the changes failed
-pub fn update_series_forge_ids(
+pub fn update_series_forge_id(
     project: &Project,
     stack_id: StackId,
     head_name: String,

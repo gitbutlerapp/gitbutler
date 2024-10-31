@@ -170,7 +170,7 @@ export class BranchController {
 		forgeId: ForgeIdentifier | undefined
 	) {
 		try {
-			await invoke<void>('update_series_forge_ids', {
+			await invoke<void>('update_series_forge_id', {
 				projectId: this.projectId,
 				stackId,
 				headName,
