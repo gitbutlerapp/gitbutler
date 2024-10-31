@@ -41,7 +41,6 @@
 	let messageInputValue = '';
 	let emailInputValue = '';
 	let sendLogs = false;
-	let sendProjectData = false;
 	let sendProjectRepository = false;
 
 	$: projectId = $page.params.projectId!;
@@ -49,7 +48,6 @@
 	function reset() {
 		messageInputValue = '';
 		sendLogs = false;
-		sendProjectData = false;
 		sendProjectRepository = false;
 	}
 
@@ -78,33 +76,23 @@
 		toasts.promise(
 			Promise.all([
 				sendLogs ? zip.logs().then(async (path) => await readZipFile(path, 'logs.zip')) : undefined,
-				sendProjectData
-					? zip
-							.gitbutlerData({ projectId })
-							.then(async (path) => await readZipFile(path, 'data.zip'))
-							.catch(() => undefined)
-					: undefined,
 				sendProjectRepository
 					? zip
 							.projectData({ projectId })
 							.then(async (path) => await readZipFile(path, 'project.zip'))
 					: undefined
 			]).then(
-				async ([logs, data, repo]) =>
+				async ([logs, repo]) =>
 					await createFeedback($user?.access_token, {
 						email,
 						message,
 						context,
 						logs,
-						data,
 						repo
 					})
 			),
 			{
-				loading:
-					!sendLogs && !sendProjectData && !sendProjectRepository
-						? 'Sending feedback...'
-						: 'Uploading data...',
+				loading: !sendLogs && !sendProjectRepository ? 'Sending feedback...' : 'Uploading data...',
 				success: 'Feedback sent successfully',
 				error: 'Failed to send feedback'
 			}
@@ -119,7 +107,6 @@
 			message: string;
 			context?: string;
 			logs?: Blob | File;
-			data?: Blob | File;
 			repo?: Blob | File;
 		}
 	): Promise<Feedback> {
@@ -129,7 +116,6 @@
 		if (params.context) formData.append('context', params.context);
 		if (params.logs) formData.append('logs', params.logs);
 		if (params.repo) formData.append('repo', params.repo);
-		if (params.data) formData.append('data', params.data);
 
 		// Content Type must be unset for the right form-data border to be set automatically
 		return await httpClient.put('feedback', {
@@ -206,11 +192,6 @@
 			</div>
 
 			{#if projectId}
-				<div class="content-wrapper__checkbox">
-					<Checkbox name="project-data" bind:checked={sendProjectData} />
-					<label class="text-13" for="project-data">Share project data</label>
-				</div>
-
 				<div class="content-wrapper__checkbox">
 					<Checkbox name="project-repository" bind:checked={sendProjectRepository} />
 					<label class="text-13" for="project-repository">Share project repository</label>

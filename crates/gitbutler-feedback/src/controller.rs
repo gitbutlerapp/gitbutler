@@ -24,11 +24,6 @@ impl Archival {
         self.zipper().zip(project.path).map_err(Into::into)
     }
 
-    pub fn data_archive(&self, project_id: ProjectId) -> Result<PathBuf> {
-        let dir_to_archive = self.projects_controller.project_metadata_dir(project_id);
-        self.zipper().zip(dir_to_archive).map_err(Into::into)
-    }
-
     pub fn logs_archive(&self) -> Result<PathBuf> {
         self.zipper().zip(&self.logs_dir).map_err(Into::into)
     }
