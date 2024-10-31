@@ -7,6 +7,7 @@ export type LoadableOptional<T> =
 	  }
 	| {
 			state: 'uninitialized' | 'not-found';
+			value?: undefined;
 	  };
 
 export interface ApiPatchStatstics {
@@ -69,7 +70,7 @@ export interface ApiPatch {
 export type ApiDiffSection = {
 	id: number;
 	section_type: 'diff';
-	identifier?: string;
+	identifier: string;
 	title?: string;
 	position?: number;
 
@@ -89,7 +90,7 @@ export type ApiDiffSection = {
 export type ApiTextSection = {
 	id: number;
 	section_type: 'text';
-	identifier?: string;
+	identifier: string;
 	title?: string;
 	position?: number;
 
@@ -135,7 +136,7 @@ export class CloudPatch {
 interface CloudSection {
 	id: number;
 	sectionType: string;
-	identifier?: string;
+	identifier: string;
 	title?: string;
 	position?: number;
 }
@@ -143,7 +144,7 @@ interface CloudSection {
 export class CloudTextSection implements CloudSection {
 	id: number;
 	sectionType: 'text' = 'text' as const;
-	identifier?: string | undefined;
+	identifier: string;
 	title?: string | undefined;
 	position?: number | undefined;
 
@@ -168,7 +169,7 @@ export class CloudTextSection implements CloudSection {
 export class CloudDiffSection implements CloudSection {
 	id: number;
 	sectionType: 'diff' = 'diff' as const;
-	identifier?: string | undefined;
+	identifier: string;
 	title?: string | undefined;
 	position?: number | undefined;
 

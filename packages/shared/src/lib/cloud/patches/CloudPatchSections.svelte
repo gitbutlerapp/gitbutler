@@ -1,11 +1,21 @@
 <script lang="ts">
 	import DiffSection from '$lib/cloud/patches/DiffSection.svelte';
+	import { PatchSectionsService } from '$lib/cloud/patches/sections';
 	import { CloudPatchService } from '$lib/cloud/patches/service';
 	import { getContext } from '$lib/context';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	const cloudPatchService = getContext(CloudPatchService);
+	const patchSectionsService = getContext(PatchSectionsService);
 	const optionalPatch = cloudPatchService.patch;
 </script>
+
+{#snippet sectionControls(identifier: string)}
+	<div>
+		<Button onclick={() => patchSectionsService.moveSectionUp(identifier)}>Move Up</Button>
+		<Button onclick={() => patchSectionsService.moveSectionDown(identifier)}>Move Down</Button>
+	</div>
+{/snippet}
 
 {#if $optionalPatch.state === 'uninitialized'}
 	<p>Loading...</p>
@@ -18,7 +28,7 @@
 
 	{#each patch.sections as section}
 		{#if section.sectionType === 'diff'}
-			<DiffSection diffSection={section} />
+			<DiffSection diffSection={section} {sectionControls} />
 		{/if}
 	{/each}
 {/if}
@@ -26,11 +36,5 @@
 <style lang="postcss">
 	.padding-bottom {
 		margin-bottom: 16px;
-	}
-
-	.two-by-two {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: 8px;
 	}
 </style>

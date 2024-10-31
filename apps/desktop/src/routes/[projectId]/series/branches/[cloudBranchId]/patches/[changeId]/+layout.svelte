@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { PatchSectionsService } from '@gitbutler/shared/cloud/patches/sections';
 	import { ApiPatchService, CloudPatchService } from '@gitbutler/shared/cloud/patches/service';
 	import { getContext } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
@@ -19,8 +20,10 @@
 	const httpClient = getContext(HttpClient);
 	const apiPatchService = new ApiPatchService(httpClient);
 	const cloudPatchService = new CloudPatchService(cloudBranchId, changeId, apiPatchService);
+	const patchSectionsService = new PatchSectionsService(cloudPatchService);
 
 	setContext(CloudPatchService, cloudPatchService);
+	setContext(PatchSectionsService, patchSectionsService);
 </script>
 
 {@render children()}

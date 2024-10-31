@@ -1,9 +1,18 @@
 <script lang="ts">
 	import { CloudPatchService } from '$lib/cloud/patches/service';
 	import { getContext } from '$lib/context';
+	import Button from '@gitbutler/ui/Button.svelte';
 
 	const cloudPatchService = getContext(CloudPatchService);
 	const optionalPatch = cloudPatchService.patch;
+
+	function reject() {
+		cloudPatchService.update({ signOff: false });
+	}
+
+	function approve() {
+		cloudPatchService.update({ signOff: true });
+	}
 </script>
 
 {#if $optionalPatch.state === 'uninitialized'}
@@ -38,7 +47,12 @@
 			<div class="card__content">
 				<p>Viewings: {patch.review.viewed.join(', ')}</p>
 				<p>Sign offs: {patch.review.signedOff.join(', ')}</p>
-				<p>Rejections: {patch.review.rejected.join(', ')}</p>
+				<p class="padding-bottom">Rejections: {patch.review.rejected.join(', ')}</p>
+
+				<div>
+					<Button onclick={approve}>Approve</Button>
+					<Button onclick={reject}>Reject</Button>
+				</div>
 			</div>
 		</div>
 		<div class="card">
