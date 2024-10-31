@@ -43,7 +43,6 @@
 
 <script lang="ts">
 	import { pxToRem } from '$lib/utils/pxToRem';
-	import { onMount } from 'svelte';
 
 	let {
 		id,
@@ -76,7 +75,7 @@
 	let measureEl: HTMLPreElement | undefined = $state();
 	let textBoxValue = $state(value);
 
-	onMount(() => {
+	$effect(() => {
 		// mock textarea style
 		if (textBoxEl && measureEl) {
 			const textBoxElStyles = window.getComputedStyle(textBoxEl);
@@ -105,8 +104,8 @@
 
 	const lineHeight = 1.6;
 
-	let maxHeight = fontSize * maxRows + padding.top + padding.bottom;
-	let minHeight = fontSize * minRows + padding.top + padding.bottom;
+	let maxHeight = $derived(fontSize * maxRows + padding.top + padding.bottom);
+	let minHeight = $derived(fontSize * minRows + padding.top + padding.bottom);
 
 	let measureElHeight = $state(0);
 	let textBoxElHeight = $state(0);
