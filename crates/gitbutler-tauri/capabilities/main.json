@@ -9,6 +9,8 @@
 		"core:window:allow-start-dragging",
 		"core:window:default",
 		"dialog:allow-open",
+		"fs:allow-read-file",
+		"fs:allow-cache-read-recursive",
 		"log:default",
 		"process:default",
 		"shell:allow-open",
