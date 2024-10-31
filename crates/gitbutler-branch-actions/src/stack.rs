@@ -92,7 +92,7 @@ pub fn remove_series(project: &Project, branch_id: StackId, head_name: String) -
     stack.remove_series(ctx, head_name)
 }
 
-/// Updates the name an existing series in the stack.
+/// Updates the name an existing series in the stack and resets the forge_id to None.
 /// Same invariants as `create_series` apply.
 /// If the series have been pushed to a remote, the name can not be changed as it corresponds to a remote ref.
 pub fn update_series_name(
@@ -145,7 +145,7 @@ pub fn update_series_description(
     )
 }
 
-/// Sets the forge identifiers for a given series/branch. Existing values are overwritten.
+/// Sets the forge identifier for a given series/branch. Existing value is overwritten.
 ///
 /// # Errors
 /// This method will return an error if:
@@ -154,7 +154,7 @@ pub fn update_series_description(
 ///  - The stack has not been initialized
 ///  - The project is not in workspace mode
 ///  - Persisting the changes failed
-pub fn update_series_forge_ids(
+pub fn update_series_forge_id(
     project: &Project,
     stack_id: StackId,
     head_name: String,

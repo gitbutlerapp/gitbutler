@@ -83,7 +83,7 @@ pub fn update_series_description(
 
 #[tauri::command(async)]
 #[instrument(skip(projects, windows), err(Debug))]
-pub fn update_series_forge_ids(
+pub fn update_series_forge_id(
     windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
@@ -92,7 +92,7 @@ pub fn update_series_forge_ids(
     forge_id: Option<ForgeIdentifier>,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
-    gitbutler_branch_actions::stack::update_series_forge_ids(
+    gitbutler_branch_actions::stack::update_series_forge_id(
         &project, stack_id, head_name, forge_id,
     )?;
     emit_vbranches(&windows, project_id);
