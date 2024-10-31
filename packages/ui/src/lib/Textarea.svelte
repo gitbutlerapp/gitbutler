@@ -6,6 +6,7 @@
 		value?: string;
 		placeholder?: string;
 		disabled?: boolean;
+		fontWeight?: 'regular' | 'bold' | 'semibold';
 		fontSize?: number;
 		minRows?: number;
 		maxRows?: number;
@@ -55,6 +56,7 @@
 		maxRows = 100,
 		autofocus,
 		class: className = '',
+		fontWeight = 'regular',
 		flex,
 		padding = { top: 12, right: 12, bottom: 12, left: 12 },
 		borderless,
@@ -70,7 +72,19 @@
 		onkeydown
 	}: Props = $props();
 
-	let textBoxValue = $state(value);
+	let measureEl: HTMLPreElement | undefined = $state();
+
+	$effect(() => {
+		// mock textarea style
+		if (textBoxEl && measureEl) {
+			const textBoxElStyles = window.getComputedStyle(textBoxEl);
+
+			measureEl.style.fontFamily = textBoxElStyles.fontFamily;
+			measureEl.style.fontSize = textBoxElStyles.fontSize;
+			measureEl.style.fontWeight = textBoxElStyles.fontWeight;
+			measureEl.style.border = textBoxElStyles.border;
+		}
+	});
 
 	$effect(() => {
 		if (autofocus) {
@@ -78,23 +92,17 @@
 		}
 	});
 
-	$effect(() => {
-		if (value !== undefined) {
-			textBoxValue = value;
-		}
-	});
+	const lineHeight = 1.6;
 
-	let maxHeight = fontSize * 1.5 * maxRows + padding.top + padding.bottom;
-	let minHeight = fontSize * 1.5 * minRows + padding.top + padding.bottom;
+	let maxHeight = $derived(fontSize * maxRows + padding.top + padding.bottom);
+	let minHeight = $derived(fontSize * minRows + padding.top + padding.bottom);
 
 	let measureElHeight = $state(0);
-	let textBoxElHeight = $state(0);
 </script>
 
 <div
 	class="textarea-container"
 	style:--placeholder-text={`"${placeholder && placeholder !== '' ? placeholder : 'Type here...'}"`}
-	style:--font-size={pxToRem(fontSize)}
 	style:--min-rows={minRows}
 	style:--max-rows={maxRows}
 	style:--padding-top={pxToRem(padding.top)}
@@ -112,54 +120,53 @@
 	<pre
 		class="textarea-measure-el"
 		aria-hidden="true"
-		bind:clientHeight={measureElHeight}
-		style="min-height: {pxToRem(minHeight)}; max-height: {pxToRem(maxHeight)}">{textBoxValue +
-			'\n'}</pre>
-	<div class="textarea-wrapper">
-		<textarea
-			bind:this={textBoxEl}
-			name={id}
-			{id}
-			bind:clientHeight={textBoxElHeight}
-			class="textarea scrollbar {className}"
-			class:disabled
-			class:text-input={!unstyled}
-			class:textarea-unstyled={unstyled}
-			style:height={pxToRem(measureElHeight)}
-			class:hide-scrollbar={measureElHeight < maxHeight}
-			style:border-top-width={borderTop && !borderless ? '1px' : '0'}
-			style:border-right-width={borderRight && !borderless ? '1px' : '0'}
-			style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
-			style:border-left-width={borderLeft && !borderless ? '1px' : '0'}
-			style:border-top-right-radius={!borderTop || !borderRight ? '0' : undefined}
-			style:border-top-left-radius={!borderTop || !borderLeft ? '0' : undefined}
-			style:border-bottom-right-radius={!borderBottom || !borderRight ? '0' : undefined}
-			style:border-bottom-left-radius={!borderBottom || !borderLeft ? '0' : undefined}
-			{placeholder}
-			{value}
-			{disabled}
-			oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
-				textBoxValue = e.currentTarget.value;
-				oninput?.(e);
-			}}
-			onchange={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
-				textBoxValue = e.currentTarget.value;
-				onchange?.(e);
-			}}
-			{onblur}
-			{onkeydown}
-			{onfocus}
-			rows={minRows}
-		></textarea>
-	</div>
+		bind:this={measureEl}
+		bind:offsetHeight={measureElHeight}
+		style:line-height={lineHeight}
+		style:min-height={pxToRem(minHeight)}
+		style:max-height={pxToRem(maxHeight)}>{value + '\n'}</pre>
+	<textarea
+		bind:this={textBoxEl}
+		name={id}
+		{id}
+		class="textarea scrollbar {className} text-{fontWeight}"
+		class:disabled
+		class:text-input={!unstyled}
+		class:textarea-unstyled={unstyled}
+		class:hide-scrollbar={measureElHeight < maxHeight}
+		style:height={pxToRem(measureElHeight)}
+		style:font-size={pxToRem(fontSize)}
+		style:border-top-width={borderTop && !borderless ? '1px' : '0'}
+		style:border-right-width={borderRight && !borderless ? '1px' : '0'}
+		style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
+		style:border-left-width={borderLeft && !borderless ? '1px' : '0'}
+		style:border-top-right-radius={!borderTop || !borderRight ? '0' : undefined}
+		style:border-top-left-radius={!borderTop || !borderLeft ? '0' : undefined}
+		style:border-bottom-right-radius={!borderBottom || !borderRight ? '0' : undefined}
+		style:border-bottom-left-radius={!borderBottom || !borderLeft ? '0' : undefined}
+		{placeholder}
+		bind:value
+		{disabled}
+		{oninput}
+		{onchange}
+		{onblur}
+		{onkeydown}
+		{onfocus}
+		rows={minRows}
+	></textarea>
 </div>
 
 <style lang="postcss">
 	.textarea-container {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
-		overflow-x: hidden;
+
+		/* hide scrollbar */
+		&::-webkit-scrollbar {
+			display: none;
+		}
 	}
 
 	@layer components {
@@ -175,30 +182,32 @@
 		display: flex;
 	}
 
+	.textarea-measure-el,
+	.textarea {
+		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
+		line-height: var(--line-height-ratio);
+		width: 100%;
+		word-wrap: break-word;
+		white-space: pre-wrap;
+	}
+
 	.textarea-measure-el {
+		z-index: 1;
 		position: absolute;
 		background-color: rgba(0, 0, 0, 0.1);
-		pointer-events: none;
 		height: fit-content;
+		margin: 0;
+		pointer-events: none;
+		overflow: hidden;
 		visibility: hidden;
 	}
 
-	.textarea,
-	.textarea-measure-el {
+	.textarea {
 		font-family: var(--base-font-family);
-		line-height: var(--body-line-height);
-		font-weight: var(--base-font-weight);
-		white-space: pre-wrap;
 		cursor: text;
 		resize: none;
-
-		width: 100%;
-		font-size: var(--font-size);
-
-		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
 		overflow-y: auto; /* Enable scrolling when max height is reached */
 		overflow-x: hidden;
-		word-wrap: break-word;
 		transition:
 			border-color var(--transition-fast),
 			background-color var(--transition-fast);
@@ -225,6 +234,10 @@
 				position: absolute;
 			}
 		}
+	}
+
+	.text-regular {
+		font-weight: var(--base-font-weight);
 	}
 
 	.textarea-label {

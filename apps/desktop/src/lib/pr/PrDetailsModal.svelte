@@ -390,7 +390,7 @@
 							autofocus
 							padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
 							placeholder="Add description…"
-							onchange={(e: InputEvent) => {
+							oninput={(e: InputEvent) => {
 								const target = e.currentTarget as HTMLTextAreaElement;
 								inputBody = target.value;
 							}}

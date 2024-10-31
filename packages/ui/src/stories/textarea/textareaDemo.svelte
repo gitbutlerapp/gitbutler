@@ -7,13 +7,8 @@
 	let changableValue = $state(props.value);
 
 	function fillTheForm() {
-		changableValue = `## ☕️ Reasoning
-
-
-## 🧢 Changesd
-
-
-## 📌 Todos`;
+		console.log('fillTheForm');
+		changableValue = `## ☕️ Reasoning ## 🧢 Chang sdf sdf sdfsdf sdfsfsd ## 📌 Todos`;
 	}
 
 	function handleDescriptionKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
@@ -34,7 +29,7 @@
 <div class="wrapper">
 	<Textarea
 		label={props.label}
-		value={changableValue}
+		bind:value={changableValue}
 		placeholder={props.placeholder}
 		minRows={props.minRows}
 		maxRows={props.maxRows}

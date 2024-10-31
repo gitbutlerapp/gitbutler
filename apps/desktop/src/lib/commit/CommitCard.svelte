@@ -150,7 +150,6 @@
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
 	{#snippet children(_, close)}
 		<CommitMessageInput
-			focusOnMount
 			bind:commitMessage={description}
 			bind:valid={commitMessageValid}
 			isExpanded={true}
