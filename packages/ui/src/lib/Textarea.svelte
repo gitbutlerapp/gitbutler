@@ -73,7 +73,6 @@
 	}: Props = $props();
 
 	let measureEl: HTMLPreElement | undefined = $state();
-	let textBoxValue = $state(value);
 
 	$effect(() => {
 		// mock textarea style
@@ -83,10 +82,7 @@
 			measureEl.style.fontFamily = textBoxElStyles.fontFamily;
 			measureEl.style.fontSize = textBoxElStyles.fontSize;
 			measureEl.style.fontWeight = textBoxElStyles.fontWeight;
-			measureEl.style.padding = textBoxElStyles.padding;
-			measureEl.style.width = textBoxElStyles.width;
 			measureEl.style.border = textBoxElStyles.border;
-			measureEl.style.width = textBoxElStyles.width;
 		}
 	});
 
@@ -96,25 +92,17 @@
 		}
 	});
 
-	$effect(() => {
-		if (value !== undefined) {
-			textBoxValue = value;
-		}
-	});
-
 	const lineHeight = 1.6;
 
 	let maxHeight = $derived(fontSize * maxRows + padding.top + padding.bottom);
 	let minHeight = $derived(fontSize * minRows + padding.top + padding.bottom);
 
 	let measureElHeight = $state(0);
-	let textBoxElHeight = $state(0);
 </script>
 
 <div
 	class="textarea-container"
 	style:--placeholder-text={`"${placeholder && placeholder !== '' ? placeholder : 'Type here...'}"`}
-	style:--font-size={pxToRem(fontSize)}
 	style:--min-rows={minRows}
 	style:--max-rows={maxRows}
 	style:--padding-top={pxToRem(padding.top)}
@@ -136,53 +124,49 @@
 		bind:offsetHeight={measureElHeight}
 		style:line-height={lineHeight}
 		style:min-height={pxToRem(minHeight)}
-		style:max-height={pxToRem(maxHeight)}>{textBoxValue + '\n'}</pre>
-	<div class="textarea-wrapper">
-		<textarea
-			bind:this={textBoxEl}
-			name={id}
-			{id}
-			bind:clientHeight={textBoxElHeight}
-			class="textarea scrollbar {className} text-{fontWeight}"
-			class:disabled
-			class:text-input={!unstyled}
-			class:textarea-unstyled={unstyled}
-			class:hide-scrollbar={measureElHeight < maxHeight}
-			style:height={pxToRem(measureElHeight)}
-			style:line-height={lineHeight}
-			style:border-top-width={borderTop && !borderless ? '1px' : '0'}
-			style:border-right-width={borderRight && !borderless ? '1px' : '0'}
-			style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
-			style:border-left-width={borderLeft && !borderless ? '1px' : '0'}
-			style:border-top-right-radius={!borderTop || !borderRight ? '0' : undefined}
-			style:border-top-left-radius={!borderTop || !borderLeft ? '0' : undefined}
-			style:border-bottom-right-radius={!borderBottom || !borderRight ? '0' : undefined}
-			style:border-bottom-left-radius={!borderBottom || !borderLeft ? '0' : undefined}
-			{placeholder}
-			{value}
-			{disabled}
-			oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
-				textBoxValue = e.currentTarget.value;
-				oninput?.(e);
-			}}
-			onchange={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
-				textBoxValue = e.currentTarget.value;
-				onchange?.(e);
-			}}
-			{onblur}
-			{onkeydown}
-			{onfocus}
-			rows={minRows}
-		></textarea>
-	</div>
+		style:max-height={pxToRem(maxHeight)}>{value + '\n'}</pre>
+	<textarea
+		bind:this={textBoxEl}
+		name={id}
+		{id}
+		class="textarea scrollbar {className} text-{fontWeight}"
+		class:disabled
+		class:text-input={!unstyled}
+		class:textarea-unstyled={unstyled}
+		class:hide-scrollbar={measureElHeight < maxHeight}
+		style:height={pxToRem(measureElHeight)}
+		style:font-size={pxToRem(fontSize)}
+		style:border-top-width={borderTop && !borderless ? '1px' : '0'}
+		style:border-right-width={borderRight && !borderless ? '1px' : '0'}
+		style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
+		style:border-left-width={borderLeft && !borderless ? '1px' : '0'}
+		style:border-top-right-radius={!borderTop || !borderRight ? '0' : undefined}
+		style:border-top-left-radius={!borderTop || !borderLeft ? '0' : undefined}
+		style:border-bottom-right-radius={!borderBottom || !borderRight ? '0' : undefined}
+		style:border-bottom-left-radius={!borderBottom || !borderLeft ? '0' : undefined}
+		{placeholder}
+		bind:value
+		{disabled}
+		{oninput}
+		{onchange}
+		{onblur}
+		{onkeydown}
+		{onfocus}
+		rows={minRows}
+	></textarea>
 </div>
 
 <style lang="postcss">
 	.textarea-container {
+		position: relative;
 		display: flex;
 		flex-direction: column;
 		gap: 6px;
-		overflow-x: hidden;
+
+		/* hide scrollbar */
+		&::-webkit-scrollbar {
+			display: none;
+		}
 	}
 
 	@layer components {
@@ -205,7 +189,13 @@
 		height: fit-content;
 		margin: 0;
 		pointer-events: none;
+		overflow: hidden;
+		width: 100%;
+		word-break: break-all;
+		white-space: pre-wrap;
 		visibility: hidden;
+		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
+		line-height: var(--line-height-ratio);
 	}
 
 	.textarea {
@@ -215,9 +205,8 @@
 		resize: none;
 
 		width: 100%;
-		font-size: var(--font-size);
-
 		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
+		line-height: var(--line-height-ratio);
 		overflow-y: auto; /* Enable scrolling when max height is reached */
 		overflow-x: hidden;
 		word-wrap: break-word;
