@@ -1,6 +1,7 @@
 use super::r#virtual as vbranch;
 use crate::branch_upstream_integration;
 use crate::move_commits;
+use crate::move_commits_v2;
 use crate::reorder::{self, StackOrder};
 use crate::upstream_integration::{
     self, BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
@@ -501,7 +502,7 @@ pub fn move_commit(
         SnapshotDetails::new(OperationKind::MoveCommit),
         guard.write_permission(),
     );
-    move_commits::move_commit(
+    move_commits_v2::move_commit(
         &ctx,
         target_branch_id,
         commit_oid,

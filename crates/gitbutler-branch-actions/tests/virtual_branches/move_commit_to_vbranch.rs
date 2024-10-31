@@ -317,7 +317,7 @@ fn diffs_on_source_branch() {
     assert_eq!(destination_branch.commits.len(), 1);
     assert_eq!(destination_branch.files.len(), 0);
     assert_eq!(source_branch.commits.len(), 0);
-    assert_eq!(source_branch.files.len(), 1);
+    assert_eq!(source_branch.files.len(), 1); //
     assert_eq!(
         source_branch.files[0].path,
         PathBuf::from_str("another file.txt").unwrap()
@@ -387,7 +387,7 @@ fn diffs_on_target_branch() {
         .unwrap();
 
     assert_eq!(destination_branch.commits.len(), 1);
-    assert_eq!(destination_branch.files.len(), 1);
+    assert_eq!(destination_branch.files.len(), 1); //
     assert_eq!(
         destination_branch.files[0].path,
         PathBuf::from_str("another file.txt").unwrap()
@@ -570,7 +570,7 @@ fn target_commit_locked_to_ancestors() {
     );
 
     assert_eq!(
-        result.unwrap_err().to_string(),
+        result.unwrap_err().to_string(), //
         "the target commit contains hunks locked to its ancestors"
     );
 }
@@ -627,7 +627,7 @@ fn target_commit_locked_to_descendants() {
     );
 
     assert_eq!(
-        result.unwrap_err().to_string(),
+        result.unwrap_err().to_string(), //
         "the target commit contains hunks locked to its descendants"
     );
 }
@@ -670,7 +670,7 @@ fn locked_hunks_on_source_branch() {
             commit_oid,
             source_branch_id
         )
-        .unwrap_err()
+        .unwrap_err() //
         .to_string(),
         "the source branch contains hunks locked to the target commit"
     );
@@ -748,6 +748,6 @@ fn no_branch() {
         gitbutler_branch_actions::move_commit(project, id, commit_oid, source_branch_id)
             .unwrap_err()
             .to_string(),
-        format!("branch {id} is not among applied branches")
+        "Destination branch not found"
     );
 }

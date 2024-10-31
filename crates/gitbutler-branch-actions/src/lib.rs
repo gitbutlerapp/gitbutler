@@ -47,6 +47,7 @@ pub mod conflicts;
 pub mod branch_trees;
 pub mod branch_upstream_integration;
 mod move_commits;
+mod move_commits_v2;
 pub mod reorder;
 pub use reorder::{SeriesOrder, StackOrder};
 mod undo_commit;
