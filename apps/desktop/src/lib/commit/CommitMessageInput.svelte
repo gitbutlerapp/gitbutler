@@ -19,16 +19,14 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-	import { autoHeight } from '@gitbutler/ui/utils/autoHeight';
-	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { isWhiteSpaceString } from '@gitbutler/ui/utils/string';
 	import { createEventDispatcher, onMount, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
 
 	export let isExpanded: boolean;
 	export let commitMessage: string;
-	export let focusOnMount: boolean = false;
 	export let valid: boolean = false;
 	export let commit: (() => void) | undefined = undefined;
 	export let cancel: () => void;
@@ -58,15 +56,6 @@
 
 	function concatMessage(title: string, description: string) {
 		return `${title}\n\n${description}`;
-	}
-
-	function focusTextAreaOnMount(el: HTMLTextAreaElement) {
-		if (focusOnMount) el.focus();
-	}
-
-	function updateFieldsHeight() {
-		if (titleTextArea) autoHeight(titleTextArea);
-		if (descriptionTextArea) autoHeight(descriptionTextArea);
 	}
 
 	async function generateCommitMessage(files: LocalFile[]) {
@@ -111,11 +100,6 @@
 		}
 
 		aiLoading = false;
-
-		// set timeout to update the height of the textareas
-		setTimeout(() => {
-			updateFieldsHeight();
-		}, 0);
 	}
 
 	onMount(async () => {
@@ -139,7 +123,6 @@
 				titleTextArea.focus();
 				titleTextArea.selectionStart = titleTextArea.textLength;
 			}
-			autoHeight(e.currentTarget);
 			return;
 		}
 
@@ -179,7 +162,6 @@
 					if (descriptionTextArea) {
 						descriptionTextArea.focus();
 						descriptionTextArea.setSelectionRange(0, 0);
-						autoHeight(descriptionTextArea);
 					}
 				});
 			}
@@ -194,40 +176,45 @@
 </script>
 
 {#if isExpanded}
-	<div class="commit-box__textarea-wrapper text-input" use:resizeObserver={updateFieldsHeight}>
-		<textarea
+	<div class="commit-box__textarea-wrapper text-input">
+		<Textarea
 			value={title}
+			unstyled
 			placeholder="Commit summary"
 			disabled={aiLoading}
-			class="text-13 text-body text-semibold commit-box__textarea commit-box__textarea__title"
+			fontSize={13}
+			padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
+			fontWeight="semibold"
 			spellcheck="false"
-			rows="1"
-			bind:this={titleTextArea}
-			use:focusTextAreaOnMount
-			on:focus={(e) => autoHeight(e.currentTarget)}
-			on:input={(e) => {
-				commitMessage = concatMessage(e.currentTarget.value, description);
-				autoHeight(e.currentTarget);
+			minRows={1}
+			maxRows={4}
+			bind:textBoxEl={titleTextArea}
+			autofocus
+			oninput={(e: InputEvent & { currentTarget: HTMLTextAreaElement }) => {
+				const target = e.currentTarget;
+				commitMessage = concatMessage(target.value, description);
 			}}
-			on:keydown={handleSummaryKeyDown}
-		></textarea>
+			onkeydown={handleSummaryKeyDown}
+		/>
 
 		{#if title.length > 0 || description}
-			<textarea
+			<Textarea
 				value={description}
-				disabled={aiLoading}
+				unstyled
 				placeholder="Commit description (optional)"
-				class="text-13 text-body commit-box__textarea commit-box__textarea__description"
+				disabled={aiLoading}
+				fontSize={13}
+				padding={{ top: 0, right: 12, bottom: 0, left: 12 }}
 				spellcheck="false"
-				rows="1"
-				bind:this={descriptionTextArea}
-				on:focus={(e) => autoHeight(e.currentTarget)}
-				on:input={(e) => {
-					commitMessage = concatMessage(title, e.currentTarget.value);
-					autoHeight(e.currentTarget);
+				minRows={1}
+				maxRows={10}
+				bind:textBoxEl={descriptionTextArea}
+				oninput={(e: InputEvent & { currentTarget: HTMLTextAreaElement }) => {
+					const target = e.currentTarget;
+					commitMessage = concatMessage(title, target.value);
 				}}
-				on:keydown={handleDescriptionKeyDown}
-			></textarea>
+				onkeydown={handleDescriptionKeyDown}
+			/>
 		{/if}
 
 		{#if title.length > 50}
@@ -310,24 +297,6 @@
 		}
 	}
 
-	.commit-box__textarea {
-		overflow: hidden;
-		display: flex;
-		flex-direction: column;
-		align-items: flex-end;
-		gap: 16px;
-		background: none;
-		resize: none;
-
-		&:focus {
-			outline: none;
-		}
-
-		&::placeholder {
-			color: oklch(from var(--clr-scale-ntrl-30) l c h / 0.4);
-		}
-	}
-
 	.commit-box__textarea-tooltip {
 		position: absolute;
 		bottom: 12px;
@@ -343,15 +312,6 @@
 		border-radius: var(--radius-m);
 		background: var(--clr-theme-ntrl-soft);
 		color: var(--clr-scale-ntrl-50);
-	}
-
-	.commit-box__textarea__title {
-		min-height: 31px;
-		padding: 12px 12px 0 12px;
-	}
-
-	.commit-box__textarea__description {
-		padding: 0 12px 0 12px;
 	}
 
 	.commit-box__texarea-actions {

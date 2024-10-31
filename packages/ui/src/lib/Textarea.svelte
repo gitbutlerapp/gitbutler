@@ -6,6 +6,7 @@
 		value?: string;
 		placeholder?: string;
 		disabled?: boolean;
+		fontWeight?: 'regular' | 'bold' | 'semibold';
 		fontSize?: number;
 		minRows?: number;
 		maxRows?: number;
@@ -42,6 +43,7 @@
 
 <script lang="ts">
 	import { pxToRem } from '$lib/utils/pxToRem';
+	import { onMount } from 'svelte';
 
 	let {
 		id,
@@ -55,6 +57,7 @@
 		maxRows = 100,
 		autofocus,
 		class: className = '',
+		fontWeight = 'regular',
 		flex,
 		padding = { top: 12, right: 12, bottom: 12, left: 12 },
 		borderless,
@@ -70,7 +73,23 @@
 		onkeydown
 	}: Props = $props();
 
+	let measureEl: HTMLPreElement | undefined = $state();
 	let textBoxValue = $state(value);
+
+	onMount(() => {
+		// mock textarea style
+		if (textBoxEl && measureEl) {
+			const textBoxElStyles = window.getComputedStyle(textBoxEl);
+
+			measureEl.style.fontFamily = textBoxElStyles.fontFamily;
+			measureEl.style.fontSize = textBoxElStyles.fontSize;
+			measureEl.style.fontWeight = textBoxElStyles.fontWeight;
+			measureEl.style.padding = textBoxElStyles.padding;
+			measureEl.style.width = textBoxElStyles.width;
+			measureEl.style.border = textBoxElStyles.border;
+			measureEl.style.width = textBoxElStyles.width;
+		}
+	});
 
 	$effect(() => {
 		if (autofocus) {
@@ -84,8 +103,16 @@
 		}
 	});
 
-	let maxHeight = fontSize * 1.5 * maxRows + padding.top + padding.bottom;
-	let minHeight = fontSize * 1.5 * minRows + padding.top + padding.bottom;
+	$effect(() => {
+		if (measureElHeight) {
+			console.log('measureElHeight', measureElHeight);
+		}
+	});
+
+	const lineHeight = 1.6;
+
+	let maxHeight = fontSize * maxRows + padding.top + padding.bottom;
+	let minHeight = fontSize * minRows + padding.top + padding.bottom;
 
 	let measureElHeight = $state(0);
 	let textBoxElHeight = $state(0);
@@ -112,21 +139,24 @@
 	<pre
 		class="textarea-measure-el"
 		aria-hidden="true"
-		bind:clientHeight={measureElHeight}
-		style="min-height: {pxToRem(minHeight)}; max-height: {pxToRem(maxHeight)}">{textBoxValue +
-			'\n'}</pre>
+		bind:this={measureEl}
+		bind:offsetHeight={measureElHeight}
+		style:line-height={lineHeight}
+		style:min-height={pxToRem(minHeight)}
+		style:max-height={pxToRem(maxHeight)}>{textBoxValue + '\n'}</pre>
 	<div class="textarea-wrapper">
 		<textarea
 			bind:this={textBoxEl}
 			name={id}
 			{id}
 			bind:clientHeight={textBoxElHeight}
-			class="textarea scrollbar {className}"
+			class="textarea scrollbar {className} text-{fontWeight}"
 			class:disabled
 			class:text-input={!unstyled}
 			class:textarea-unstyled={unstyled}
-			style:height={pxToRem(measureElHeight)}
 			class:hide-scrollbar={measureElHeight < maxHeight}
+			style:height={pxToRem(measureElHeight)}
+			style:line-height={lineHeight}
 			style:border-top-width={borderTop && !borderless ? '1px' : '0'}
 			style:border-right-width={borderRight && !borderless ? '1px' : '0'}
 			style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
@@ -176,18 +206,17 @@
 	}
 
 	.textarea-measure-el {
+		z-index: 1;
 		position: absolute;
 		background-color: rgba(0, 0, 0, 0.1);
-		pointer-events: none;
 		height: fit-content;
+		margin: 0;
+		pointer-events: none;
 		visibility: hidden;
 	}
 
-	.textarea,
-	.textarea-measure-el {
+	.textarea {
 		font-family: var(--base-font-family);
-		line-height: var(--body-line-height);
-		font-weight: var(--base-font-weight);
 		white-space: pre-wrap;
 		cursor: text;
 		resize: none;
@@ -225,6 +254,10 @@
 				position: absolute;
 			}
 		}
+	}
+
+	.text-regular {
+		font-weight: var(--base-font-weight);
 	}
 
 	.textarea-label {
