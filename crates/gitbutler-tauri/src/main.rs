@@ -141,7 +141,6 @@ fn main() {
                     commands::git_index_size,
                     zip::commands::get_logs_archive_path,
                     zip::commands::get_project_archive_path,
-                    zip::commands::get_project_data_archive_path,
                     users::commands::set_user,
                     users::commands::delete_user,
                     users::commands::get_user,
