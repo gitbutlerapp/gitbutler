@@ -141,6 +141,9 @@ export class BranchController {
 		}
 	}
 
+	/**
+	 * Updates the name of the series and resets the forge id to undefined.
+	 */
 	async updateSeriesName(branchId: string, headName: string, newHeadName: string) {
 		try {
 			await invoke<void>('update_series_name', {

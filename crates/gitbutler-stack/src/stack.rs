@@ -328,6 +328,7 @@ impl Stack {
 
     /// Updates an existing branch in the stack.
     /// The same invariants as `add_branch` apply.
+    /// If the branch name is updated, the forge_id will be reset to None.
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
     pub fn update_series(
@@ -390,6 +391,7 @@ impl Stack {
             if let Some(head) = head {
                 head.name = name;
                 validate_name(head, &state)?;
+                head.forge_id = None; // reset forge_id
             }
         }
 

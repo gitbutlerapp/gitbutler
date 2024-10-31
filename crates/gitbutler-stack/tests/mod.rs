@@ -504,6 +504,32 @@ fn update_series_name_success() -> Result<()> {
 }
 
 #[test]
+fn update_series_name_resets_forge_id() -> Result<()> {
+    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+    let mut test_ctx = test_ctx(&ctx)?;
+    test_ctx.branch.initialize(&ctx)?;
+    let forge_id = ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 });
+    test_ctx
+        .branch
+        .set_forge_id(&ctx, "a-branch-2", Some(forge_id.clone()))?;
+    assert_eq!(test_ctx.branch.heads[0].forge_id, Some(forge_id.clone()));
+    let update = PatchReferenceUpdate {
+        name: Some("new-name".into()),
+        target_update: None,
+        description: None,
+    };
+    test_ctx
+        .branch
+        .update_series(&ctx, "a-branch-2".into(), &update)?;
+    assert_eq!(test_ctx.branch.heads[0].forge_id, None);
+    assert_eq!(
+        test_ctx.branch,
+        test_ctx.handle.get_branch(test_ctx.branch.id)?
+    );
+    Ok(())
+}
+
+#[test]
 fn update_series_set_description() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
