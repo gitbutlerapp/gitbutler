@@ -182,6 +182,15 @@
 		display: flex;
 	}
 
+	.textarea-measure-el,
+	.textarea {
+		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
+		line-height: var(--line-height-ratio);
+		width: 100%;
+		word-wrap: break-word;
+		white-space: pre-wrap;
+	}
+
 	.textarea-measure-el {
 		z-index: 1;
 		position: absolute;
@@ -190,26 +199,15 @@
 		margin: 0;
 		pointer-events: none;
 		overflow: hidden;
-		width: 100%;
-		word-break: break-all;
-		white-space: pre-wrap;
 		visibility: hidden;
-		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
-		line-height: var(--line-height-ratio);
 	}
 
 	.textarea {
 		font-family: var(--base-font-family);
-		white-space: pre-wrap;
 		cursor: text;
 		resize: none;
-
-		width: 100%;
-		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
-		line-height: var(--line-height-ratio);
 		overflow-y: auto; /* Enable scrolling when max height is reached */
 		overflow-x: hidden;
-		word-wrap: break-word;
 		transition:
 			border-color var(--transition-fast),
 			background-color var(--transition-fast);
