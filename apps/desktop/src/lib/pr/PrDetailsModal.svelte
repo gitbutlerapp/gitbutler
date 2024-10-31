@@ -12,6 +12,7 @@
 	import { getPreferredPRAction, PRAction } from './pr';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
+	import { TemplateService } from '$lib/backend/templateService';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
@@ -32,6 +33,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
@@ -71,6 +73,7 @@
 	const aiService = getContext(AIService);
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const forge = getForge();
+	const templateService = getContext(TemplateService);
 	const preferredPRAction = getPreferredPRAction();
 
 	const branch = $derived($branchStore);
@@ -99,10 +102,16 @@
 	let showAiBox = $state<boolean>(false);
 	let pushBeforeCreate = $state(false);
 
+	// Displays template select component when true.
+	let useTemplate = persisted(false, `use-template-${project.id}`);
+	// Available pull request templates.
+	let templates = $state<string[]>([]);
+
 	async function handleToggleUseTemplate() {
-		if (!templateSelector) return;
-		const displaying = templateSelector.imports.showing;
-		await templateSelector.setUsePullRequestTemplate(!displaying);
+		useTemplate.set(!$useTemplate);
+		if (!$useTemplate) {
+			pullRequestTemplateBody = undefined;
+		}
 	}
 
 	const canUseAI = $derived.by(() => {
@@ -145,6 +154,11 @@
 			aiService.validateConfiguration().then((valid) => {
 				aiConfigurationValid = valid;
 			});
+			if ($forge) {
+				templateService.getAvailable($forge.name).then((availableTemplates) => {
+					templates = availableTemplates;
+				});
+			}
 		}
 	});
 
@@ -363,9 +377,9 @@
 						<ToggleButton
 							icon="doc"
 							label="Use PR template"
-							checked={!!templateSelector?.imports.showing}
+							checked={$useTemplate}
 							onclick={handleToggleUseTemplate}
-							disabled={!templateSelector?.imports.hasTemplates}
+							disabled={templates.length === 0}
 						/>
 						<ToggleButton
 							icon="ai-small"
@@ -380,7 +394,13 @@
 					</div>
 
 					<!-- PR TEMPLATE SELECT -->
-					<PrTemplateSection bind:this={templateSelector} bind:pullRequestTemplateBody />
+					{#if $useTemplate}
+						<PrTemplateSection
+							bind:this={templateSelector}
+							onselected={(body) => (pullRequestTemplateBody = body)}
+							{templates}
+						/>
+					{/if}
 
 					<!-- DESCRIPTION FIELD -->
 					<div class="pr-description-field text-input">

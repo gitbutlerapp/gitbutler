@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ForgeService } from '$lib/backend/forge';
 	import { Project, ProjectService } from '$lib/backend/projects';
+	import { TemplateService } from '$lib/backend/templateService';
 	import FileMenuAction from '$lib/barmenuActions/FileMenuAction.svelte';
 	import ProjectSettingsMenuAction from '$lib/barmenuActions/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
@@ -68,7 +68,7 @@
 		setContext(BranchController, data.branchController);
 		setContext(BaseBranchService, data.baseBranchService);
 		setContext(CommitService, data.commitService);
-		setContext(ForgeService, data.forgeService);
+		setContext(TemplateService, data.templateService);
 		setContext(BaseBranch, baseBranch);
 		setContext(Project, project);
 		setContext(BranchDragActionsFactory, data.branchDragActionsFactory);
@@ -140,11 +140,7 @@
 			repoInfo && baseBranchName
 				? forgeFactory.build(repoInfo, baseBranchName, forkInfo)
 				: undefined;
-
 		const ghListService = forge?.listService();
-
-		if (forge) projectsService.setForgeType(project, forge.type);
-
 		listServiceStore.set(ghListService);
 		forgeStore.set(forge);
 	});

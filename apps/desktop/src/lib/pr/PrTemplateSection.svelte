@@ -1,106 +1,75 @@
 <script lang="ts">
-	import { ForgeService } from '$lib/backend/forge';
-	import { ProjectService, ProjectsService } from '$lib/backend/projects';
+	import { Project } from '$lib/backend/projects';
+	import { TemplateService } from '$lib/backend/templateService';
+	import { getForge } from '$lib/forge/interface/forge';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import { persisted } from '@gitbutler/shared/persisted';
+	import { onMount } from 'svelte';
 
 	interface Props {
-		pullRequestTemplateBody: string | undefined;
+		templates: string[];
+		onselected: (body: string) => void;
 	}
 
-	let { pullRequestTemplateBody = $bindable() }: Props = $props();
+	let { templates, onselected }: Props = $props();
 
-	const projectsService = getContext(ProjectsService);
-	const projectService = getContext(ProjectService);
-	const forgeService = getContext(ForgeService);
+	const forge = getForge();
+	// TODO: Rename or refactor this service.
+	const templateService = getContext(TemplateService);
+	const project = getContext(Project);
 
-	let allAvailableTemplates = $state<{ label: string; value: string }[]>([]);
+	// The last template that was used. It is used as default if it is in the
+	// list of available commits.
+	const lastTemplate = persisted<string | undefined>(undefined, `last-template-${project.id}`);
 
-	const projectStore = projectService.project;
-	const project = $derived($projectStore);
-	const reviewTemplatePath = $derived(project?.git_host.reviewTemplatePath);
-	const show = $derived(!!reviewTemplatePath);
+	async function setTemplate(path: string) {
+		if ($forge) {
+			lastTemplate.set(path);
+			loadAndEmit(path);
+		}
+	}
 
-	// Fetch PR template content
-	$effect(() => {
-		if (!project) return;
-		if (reviewTemplatePath) {
-			forgeService.getReviewTemplateContent(reviewTemplatePath).then((template) => {
-				pullRequestTemplateBody = template;
-			});
+	async function loadAndEmit(path: string) {
+		if (path && $forge) {
+			const template = await templateService.getContent($forge.name, path);
+			if (template) {
+				onselected(template);
+			}
+		}
+	}
+
+	onMount(() => {
+		if ($lastTemplate && templates.includes($lastTemplate)) {
+			loadAndEmit($lastTemplate);
+		} else if (templates.length === 1) {
+			const path = templates.at(0);
+			if (path) {
+				loadAndEmit(path);
+				lastTemplate.set(path);
+			}
 		}
 	});
-
-	// Fetch available PR templates
-	$effect(() => {
-		if (!project) return;
-		forgeService.getAvailableReviewTemplates().then((availableTemplates) => {
-			if (availableTemplates) {
-				allAvailableTemplates = availableTemplates.map((availableTemplate) => {
-					return {
-						label: availableTemplate,
-						value: availableTemplate
-					};
-				});
-			}
-		});
-	});
-
-	async function setPullRequestTemplatePath(value: string) {
-		if (!project) return;
-		project.git_host.reviewTemplatePath = value;
-		await projectsService.updateProject(project);
-	}
-
-	export async function setUsePullRequestTemplate(value: boolean) {
-		if (!project) return;
-
-		setTemplate: {
-			if (!value) {
-				project.git_host.reviewTemplatePath = undefined;
-				pullRequestTemplateBody = undefined;
-				break setTemplate;
-			}
-
-			if (allAvailableTemplates[0]) {
-				project.git_host.reviewTemplatePath = allAvailableTemplates[0].value;
-				break setTemplate;
-			}
-		}
-
-		await projectsService.updateProject(project);
-	}
-
-	export const imports = {
-		get showing() {
-			return show;
-		},
-		get hasTemplates() {
-			return allAvailableTemplates.length > 0;
-		}
-	};
 </script>
 
-{#if show}
-	<div class="pr-template__wrap">
-		<Select
-			value={reviewTemplatePath}
-			options={allAvailableTemplates.map(({ label, value }) => ({ label, value }))}
-			placeholder="No PR templates found ¯\_(ツ)_/¯"
-			flex="1"
-			searchable
-			disabled={allAvailableTemplates.length <= 1}
-			onselect={setPullRequestTemplatePath}
-		>
-			{#snippet itemSnippet({ item, highlighted })}
-				<SelectItem selected={item.value === reviewTemplatePath} {highlighted}>
-					{item.label}
-				</SelectItem>
-			{/snippet}
-		</Select>
-	</div>
-{/if}
+<div class="pr-template__wrap">
+	<Select
+		value={$lastTemplate}
+		options={templates.map((value) => ({ label: value, value }))}
+		placeholder={templates.length > 0 ? 'Choose template' : 'No PR templates found ¯_(ツ)_/¯'}
+		flex="1"
+		searchable
+		disabled={templates.length === 0}
+		onselect={setTemplate}
+	>
+		{#snippet itemSnippet({ item, highlighted })}
+			<SelectItem selected={item.value === $lastTemplate} {highlighted}>
+				{item.label}
+			</SelectItem>
+		{/snippet}
+	</Select>
+</div>
 
 <style lang="postcss">
 	.pr-template__wrap {

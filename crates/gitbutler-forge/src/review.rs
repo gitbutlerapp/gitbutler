@@ -2,17 +2,19 @@ use std::path::{self, Path};
 
 use gitbutler_fs::list_files;
 
-use crate::forge::ForgeType;
+use crate::forge::ForgeName;
 
 /// Get a list of available review template paths for a project
 ///
 /// The paths are relative to the root path
-pub fn available_review_templates(root_path: &path::Path, forge_type: &ForgeType) -> Vec<String> {
+pub fn available_review_templates(root_path: &path::Path, forge_name: &ForgeName) -> Vec<String> {
+    dbg!(&forge_name);
+    dbg!(&root_path);
     let ReviewTemplateFunctions {
         is_review_template,
         get_root,
         ..
-    } = get_review_template_functions(forge_type);
+    } = get_review_template_functions(forge_name);
 
     let forge_root_path = get_root(root_path);
     let forge_root_path = forge_root_path.as_path();
@@ -46,24 +48,24 @@ pub struct ReviewTemplateFunctions {
     pub is_valid_review_template_path: fn(&path::Path, &path::Path) -> bool,
 }
 
-pub fn get_review_template_functions(forge_type: &ForgeType) -> ReviewTemplateFunctions {
-    match forge_type {
-        ForgeType::GitHub => ReviewTemplateFunctions {
+pub fn get_review_template_functions(forge_name: &ForgeName) -> ReviewTemplateFunctions {
+    match forge_name {
+        ForgeName::GitHub => ReviewTemplateFunctions {
             is_review_template: is_review_template_github,
             get_root: get_github_directory_path,
             is_valid_review_template_path: is_valid_review_template_path_github,
         },
-        ForgeType::GitLab => ReviewTemplateFunctions {
+        ForgeName::GitLab => ReviewTemplateFunctions {
             is_review_template: is_review_template_gitlab,
             get_root: get_gitlab_directory_path,
             is_valid_review_template_path: is_valid_review_template_path_gitlab,
         },
-        ForgeType::Bitbucket => ReviewTemplateFunctions {
+        ForgeName::Bitbucket => ReviewTemplateFunctions {
             is_review_template: is_review_template_bitbucket,
             get_root: get_bitbucket_directory_path,
             is_valid_review_template_path: is_valid_review_template_path_bitbucket,
         },
-        ForgeType::Azure => ReviewTemplateFunctions {
+        ForgeName::Azure => ReviewTemplateFunctions {
             is_review_template: is_review_template_azure,
             get_root: get_azure_directory_path,
             is_valid_review_template_path: is_valid_review_template_path_azure,

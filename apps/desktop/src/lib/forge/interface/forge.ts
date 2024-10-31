@@ -1,13 +1,14 @@
 import { buildContextStore } from '@gitbutler/shared/context';
-import type { ForgeType } from '$lib/backend/forge';
 import type { ForgeIssueService } from '$lib/forge/interface/forgeIssueService';
 import type { ForgeBranch } from './forgeBranch';
 import type { ForgeChecksMonitor } from './forgeChecksMonitor';
 import type { ForgeListingService } from './forgeListingService';
 import type { ForgePrService } from './forgePrService';
 
+export type ForgeName = 'github' | 'gitlab' | 'bitbucket' | 'azure';
+
 export interface Forge {
-	readonly type: ForgeType;
+	readonly name: ForgeName;
 	// Lists PRs for the repo.
 	listService(): ForgeListingService | undefined;
 

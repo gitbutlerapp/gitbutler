@@ -5,7 +5,6 @@ import { persisted } from '@gitbutler/shared/persisted';
 import { open } from '@tauri-apps/plugin-dialog';
 import { plainToInstance } from 'class-transformer';
 import { derived, get, writable, type Readable } from 'svelte/store';
-import type { ForgeType } from './forge';
 import type { HttpClient } from '@gitbutler/shared/httpClient';
 import { goto } from '$app/navigation';
 
@@ -15,8 +14,6 @@ export type LocalKey = {
 };
 
 export type Key = Exclude<KeyType, 'local'> | LocalKey;
-
-export type HostType = { type: ForgeType };
 
 export class Project {
 	id!: string;
@@ -30,11 +27,6 @@ export class Project {
 	use_diff_context: boolean | undefined;
 	snapshot_lines_threshold!: number | undefined;
 	use_experimental_locking!: boolean;
-	git_host!: {
-		hostType: HostType | undefined;
-		reviewTemplatePath: string | undefined;
-	};
-
 	// Produced just for the frontend to determine if the project is open in any window.
 	is_open!: boolean;
 
@@ -219,14 +211,6 @@ export class ProjectsService {
 
 	async getCloudProject(repositoryId: string): Promise<CloudProject> {
 		return await this.httpClient.get(`projects/${repositoryId}.json`);
-	}
-
-	async setForgeType(project: Project, type: ForgeType) {
-		if (project.git_host.hostType?.type === type) return;
-		const hostType: HostType = { type };
-		const forge = { hostType };
-		await invoke('update_project_git_host', { projectId: project.id, forge });
-		this.reload();
 	}
 }
 

@@ -1,7 +1,6 @@
 import { GitLabBranch } from './gitlabBranch';
-import type { ForgeType } from '$lib/backend/forge';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { Forge } from '../interface/forge';
+import type { Forge, ForgeName } from '../interface/forge';
 import type { DetailedPullRequest, ForgeArguments } from '../interface/types';
 
 export type PrAction = 'creating_pr';
@@ -18,7 +17,7 @@ export const GITLAB_SUB_DOMAIN = 'gitlab'; // For self hosted instance of Gitlab
  * https://github.com/gitbutlerapp/gitbutler/issues/2511
  */
 export class GitLab implements Forge {
-	readonly type: ForgeType = 'gitlab';
+	readonly name: ForgeName = 'gitlab';
 	private baseUrl: string;
 	private repo: RepoInfo;
 	private baseBranch: string;
