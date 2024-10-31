@@ -7,6 +7,7 @@ export interface DropzoneConfiguration {
 	onHoverStart: () => void;
 	onHoverEnd: () => void;
 	target: string;
+	stackingReorderLine: boolean;
 }
 export class Dropzone {
 	private activated: boolean = false;
@@ -35,6 +36,7 @@ export class Dropzone {
 		this.data = data;
 
 		if (!this.configuration.accepts(await this.data)) return;
+
 		if (this.registered) {
 			this.unregister();
 		}
@@ -84,7 +86,12 @@ export class Dropzone {
 		} else {
 			this.configuration.onActivationEnd();
 		}
-		this.registerListeners();
+
+		// TODO: Hacky solution for stacking up eventListeners
+		// in stacking reordering situation
+		if (!this.configuration.stackingReorderLine) {
+			this.registerListeners();
+		}
 	}
 
 	private registerListeners() {
