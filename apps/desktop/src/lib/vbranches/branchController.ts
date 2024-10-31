@@ -212,7 +212,7 @@ export class BranchController {
 		}
 	}
 
-	/*
+	/**
 	 * Creates a new GitButler change reference associated with a branch.
 	 * @param branchId
 	 * @param reference in the format refs/remotes/origin/my-branch (must be remote)

@@ -75,7 +75,11 @@
 </script>
 
 {#snippet stackingReorderDropzone(dropzone: StackingReorderDropzone)}
-	<Dropzone accepts={dropzone.accepts.bind(dropzone)} ondrop={dropzone.onDrop.bind(dropzone)}>
+	<Dropzone
+		stackingReorderLine={true}
+		accepts={dropzone.accepts.bind(dropzone)}
+		ondrop={dropzone.onDrop.bind(dropzone)}
+	>
 		{#snippet overlay({ hovered, activated })}
 			<LineOverlay {hovered} {activated} />
 		{/snippet}
@@ -128,8 +132,6 @@
 		<!-- REMAINING LOCAL, LOCALANDREMOTE, AND INTEGRATED COMMITS -->
 		{#if patches.length > 0}
 			<div class="commits-group">
-				<!-- <InsertEmptyCommitAction isFirst onclick={() => insertBlankCommit($branch.head, 'above')} /> -->
-
 				{@render stackingReorderDropzone(stackingReorderDropzoneManager.topDropzone(seriesName))}
 
 				{#each patches as commit, idx (commit.id)}
@@ -156,11 +158,6 @@
 					{@render stackingReorderDropzone(
 						stackingReorderDropzoneManager.dropzoneBelowCommit(seriesName, commit.id)
 					)}
-					<!-- 
-					<InsertEmptyCommitAction
-						isLast={idx + 1 === patches.length}
-						onclick={() => insertBlankCommit(commit.id, 'below')}
-					/> -->
 				{/each}
 			</div>
 		{/if}

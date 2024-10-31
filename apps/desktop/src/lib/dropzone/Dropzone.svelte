@@ -8,6 +8,7 @@
 		accepts: (data: any) => boolean;
 		ondrop: (data: any) => Promise<void> | void;
 		overlay: Snippet<[{ hovered: boolean; activated: boolean }]>;
+		stackingReorderLine?: boolean;
 		children?: Snippet;
 	}
 
@@ -17,6 +18,7 @@
 		accepts,
 		ondrop,
 		overlay,
+		stackingReorderLine = false,
 		children
 	}: Props = $props();
 
@@ -43,6 +45,7 @@
 
 <div
 	use:dropzone={{
+		stackingReorderLine,
 		disabled,
 		accepts,
 		onDrop: ondrop,
