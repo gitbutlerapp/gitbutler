@@ -6,6 +6,9 @@ use gitbutler_stack::StackId;
 #[derive(Debug, Clone)]
 pub struct InputStack {
     pub stack_id: StackId,
+    /// The commits in the stack.
+    ///
+    /// The commits are ordered from the base to the top of the stack (application order).
     pub commits: Vec<InputCommit>,
 }
 
