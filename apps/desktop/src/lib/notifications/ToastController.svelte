@@ -15,15 +15,15 @@
 				on:secondary={() => dismissToast(toast.id)}
 				shadow
 			>
-				<svelte:fragment slot="title">
+				{#snippet title()}
 					{toast.title}
-				</svelte:fragment>
+				{/snippet}
 
-				<svelte:fragment slot="content">
+				{#snippet content()}
 					{#if toast.message}
 						<Markdown content={toast.message} />
 					{/if}
-				</svelte:fragment>
+				{/snippet}
 			</InfoMessage>
 		</div>
 	{/each}

@@ -13,18 +13,20 @@
 
 	<div class="experimental-settings__toggles">
 		<SectionCard labelFor="stackingFeatureMultipleSeries" orientation="row">
-			<svelte:fragment slot="title">Branch stacking multiple series</svelte:fragment>
-			<svelte:fragment slot="caption">
+			{#snippet title()}
+				Branch stacking multiple series
+			{/snippet}
+			{#snippet caption()}
 				Experimental support for using the new stacking interface to create multiple branches per
 				lane / stack. Not all features are supported yet.
-			</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{/snippet}
+			{#snippet actions()}
 				<Toggle
 					id="stackingFeatureMultipleSeries"
 					checked={$stackingFeatureMultipleSeries}
 					onclick={() => ($stackingFeatureMultipleSeries = !$stackingFeatureMultipleSeries)}
 				/>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 	</div>
 </SettingsPage>

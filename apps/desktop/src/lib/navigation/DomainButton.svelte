@@ -67,8 +67,8 @@
 		align-items: center;
 	}
 
-	.domain-button:not(.selected):hover,
-	.domain-button:not(.selected):focus {
+	.domain-button:not(:global(.selected)):hover,
+	.domain-button:not(:global(.selected)):focus {
 		background-color: var(--clr-bg-1-muted);
 	}
 

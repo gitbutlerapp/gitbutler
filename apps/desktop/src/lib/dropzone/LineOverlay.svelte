@@ -42,7 +42,7 @@
 			pointer-events: none;
 		}
 
-		&:not(.activated) {
+		&:not(:global(.activated)) {
 			display: none;
 		}
 

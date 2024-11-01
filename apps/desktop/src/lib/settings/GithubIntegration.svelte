@@ -74,7 +74,7 @@
 	<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 {:else}
 	<SectionCard orientation="row">
-		<svelte:fragment slot="iconSide">
+		{#snippet iconSide()}
 			<div class="icon-wrapper">
 				{#if $user?.github_access_token}
 					<div class="icon-wrapper__tick">
@@ -95,9 +95,13 @@
 					/>
 				</svg>
 			</div>
-		</svelte:fragment>
-		<svelte:fragment slot="title">GitHub</svelte:fragment>
-		<svelte:fragment slot="caption">Allows you to view and create Pull Requests.</svelte:fragment>
+		{/snippet}
+		{#snippet title()}
+			GitHub
+		{/snippet}
+		{#snippet caption()}
+			Allows you to view and create Pull Requests.
+		{/snippet}
 		{#if $user?.github_access_token}
 			<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}>
 				Forget

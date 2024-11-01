@@ -33,13 +33,15 @@
 
 	<Spacer />
 	<SectionCard orientation="row" labelFor="allowForcePush">
-		<svelte:fragment slot="title">Allow force pushing</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Allow force pushing
+		{/snippet}
+		{#snippet caption()}
 			Force pushing allows GitButler to override branches even if they were pushed to remote.
 			GitButler will never force push to the target branch.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle id="allowForcePush" checked={allowForcePushing} onclick={handleAllowForcePushClick} />
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 </Section>

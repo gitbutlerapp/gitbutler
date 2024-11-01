@@ -436,7 +436,7 @@
 			}
 		}
 
-		&:not(.is-commit-open) {
+		&:not(:global(.is-commit-open)) {
 			&:hover {
 				background-color: var(--clr-bg-1-muted);
 
@@ -446,7 +446,7 @@
 			}
 		}
 
-		&:not(.is-last) {
+		&:not(:global(.is-last)) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 

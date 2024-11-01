@@ -315,7 +315,7 @@
 		align-items: center;
 		flex-direction: column;
 
-		&:not(:last-child) {
+		&:not(:global(:last-child)) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 

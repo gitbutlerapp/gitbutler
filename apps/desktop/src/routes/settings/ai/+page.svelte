@@ -178,10 +178,12 @@
 			labelFor="open-ai"
 			bottomBorder={modelKind !== ModelKind.OpenAI}
 		>
-			<svelte:fragment slot="title">Open AI</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{#snippet title()}
+				Open AI
+			{/snippet}
+			{#snippet actions()}
 				<RadioButton name="modelKind" id="open-ai" value={ModelKind.OpenAI} />
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 		{#if modelKind === ModelKind.OpenAI}
 			<SectionCard roundedTop={false} roundedBottom={false} orientation="row" topDivider>
@@ -206,9 +208,9 @@
 							<AuthorizationBanner message="Please sign in to use the GitButler API." />
 						{:else}
 							<InfoMessage filled outlined={false} style="pop" icon="ai">
-								<svelte:fragment slot="title">
+								{#snippet title()}
 									GitButler uses OpenAI API for commit messages and branch names
-								</svelte:fragment>
+								{/snippet}
 							</InfoMessage>
 						{/if}
 					{/if}
@@ -242,10 +244,12 @@
 			labelFor="anthropic"
 			bottomBorder={modelKind !== ModelKind.Anthropic}
 		>
-			<svelte:fragment slot="title">Anthropic</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{#snippet title()}
+				Anthropic
+			{/snippet}
+			{#snippet actions()}
 				<RadioButton name="modelKind" id="anthropic" value={ModelKind.Anthropic} />
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 		{#if modelKind === ModelKind.Anthropic}
 			<SectionCard roundedTop={false} roundedBottom={false} orientation="row" topDivider>
@@ -270,9 +274,9 @@
 							<AuthorizationBanner message="Please sign in to use the GitButler API." />
 						{:else}
 							<InfoMessage filled outlined={false} style="pop" icon="ai">
-								<svelte:fragment slot="title">
+								{#snippet title()}
 									GitButler uses Anthropic API for commit messages and branch names
-								</svelte:fragment>
+								{/snippet}
 							</InfoMessage>
 						{/if}
 					{/if}
@@ -311,10 +315,12 @@
 			labelFor="ollama"
 			bottomBorder={modelKind !== ModelKind.Ollama}
 		>
-			<svelte:fragment slot="title">Ollama 🦙</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{#snippet title()}
+				Ollama 🦙
+			{/snippet}
+			{#snippet actions()}
 				<RadioButton name="modelKind" id="ollama" value={ModelKind.Ollama} />
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 		{#if modelKind === ModelKind.Ollama}
 			<SectionCard roundedTop={false} orientation="row" topDivider>
@@ -334,11 +340,13 @@
 	<Spacer />
 
 	<SectionCard orientation="row">
-		<svelte:fragment slot="title">Amount of provided context</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Amount of provided context
+		{/snippet}
+		{#snippet caption()}
 			How many characters of your git diff should be provided to AI
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Textbox
 				type="number"
 				width={80}
@@ -350,21 +358,23 @@
 				}}
 				placeholder="5000"
 			/>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 
 	<Spacer />
 
 	<Section>
-		<svelte:fragment slot="title">Custom AI prompts</svelte:fragment>
-		<svelte:fragment slot="description">
+		{#snippet title()}
+			Custom AI prompts
+		{/snippet}
+		{#snippet description()}
 			GitButler's AI assistant generates commit messages and branch names. Use default prompts or
 			create your own. Assign prompts in the <button
 				type="button"
 				class="link"
 				onclick={() => console.log('got to project settings')}>project settings</button
 			>.
-		</svelte:fragment>
+		{/snippet}
 
 		<div class="prompt-groups">
 			<AiPromptEdit promptUse="commits" />

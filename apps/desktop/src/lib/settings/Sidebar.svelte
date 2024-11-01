@@ -206,7 +206,7 @@
 			background-color var(--transition-fast),
 			color var(--transition-fast);
 
-		&:not(.item_selected):hover {
+		&:not(:global(.item_selected)):hover {
 			transition: none;
 			background-color: var(--clr-bg-1-muted);
 		}

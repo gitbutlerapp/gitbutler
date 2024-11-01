@@ -134,22 +134,26 @@
 
 	{#if $user}
 		<SectionCard orientation="row">
-			<svelte:fragment slot="title">Signing out</svelte:fragment>
-			<svelte:fragment slot="caption">
+			{#snippet title()}
+				Signing out
+			{/snippet}
+			{#snippet caption()}
 				Ready to take a break? Click here to log out and unwind.
-			</svelte:fragment>
+			{/snippet}
 
 			<Login />
 		</SectionCard>
 	{/if}
 
 	<SectionCard orientation="row">
-		<svelte:fragment slot="title">Remove all projects</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Remove all projects
+		{/snippet}
+		{#snippet caption()}
 			You can delete all projects from the GitButler app.
 			<br />
 			Your code remains safe. it only clears the configuration.
-		</svelte:fragment>
+		{/snippet}
 
 		<Button style="error" kind="soft" onclick={() => deleteConfirmationModal?.show()}>
 			Remove projects…

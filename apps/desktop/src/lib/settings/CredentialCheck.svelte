@@ -56,7 +56,7 @@
 				filled
 				outlined={false}
 			>
-				<svelte:fragment slot="title">
+				{#snippet title()}
 					{#if loading}
 						Checking git credentials …
 					{:else if errors > 0}
@@ -64,9 +64,9 @@
 					{:else}
 						All checks passed successfully
 					{/if}
-				</svelte:fragment>
+				{/snippet}
 
-				<svelte:fragment slot="content">
+				{#snippet content()}
 					<div class="checks-list" transition:slide={{ duration: 250, delay: 1000 }}>
 						{#each checks as check}
 							<div class="text-12 text-body check-result">
@@ -100,7 +100,7 @@
 							</span>
 						</div>
 					{/if}
-				</svelte:fragment>
+				{/snippet}
 			</InfoMessage>
 		</div>
 	{/if}

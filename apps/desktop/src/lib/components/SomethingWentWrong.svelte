@@ -18,9 +18,9 @@
 		</h2>
 
 		<InfoMessage filled outlined={false} style="error" icon="info">
-			<svelte:fragment slot="content">
+			{#snippet content()}
 				{error ? error : 'An unknown error occurred'}
-			</svelte:fragment>
+			{/snippet}
 		</InfoMessage>
 
 		<ProjectSwitcher />

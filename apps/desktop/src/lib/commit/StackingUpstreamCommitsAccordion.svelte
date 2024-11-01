@@ -88,7 +88,7 @@
 			background-color: var(--clr-bg-1);
 		}
 
-		&:not(:last-child) {
+		&:not(:global(:last-child)) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 

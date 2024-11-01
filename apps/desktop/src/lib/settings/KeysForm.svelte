@@ -83,16 +83,18 @@
 </script>
 
 <Section>
-	<svelte:fragment slot="top">
+	{#snippet top()}
 		{#if showProjectName}
 			<ProjectNameLabel projectName={project.title} />
 		{/if}
-	</svelte:fragment>
-	<svelte:fragment slot="title">Git authentication</svelte:fragment>
-	<svelte:fragment slot="description">
+	{/snippet}
+	{#snippet title()}
+		Git authentication
+	{/snippet}
+	{#snippet description()}
 		Configure the authentication flow for GitButler when authenticating with your Git remote
 		provider.
-	</svelte:fragment>
+	{/snippet}
 
 	<form
 		class="git-radio"
@@ -101,20 +103,19 @@
 		onchange={(e) => onFormChange(e.currentTarget)}
 	>
 		<SectionCard roundedBottom={false} orientation="row" labelFor="git-executable">
-			<svelte:fragment slot="title"
-				>Use a Git executable <span style="color: var(--clr-text-2)">(default)</span
-				></svelte:fragment
-			>
+			{#snippet title()}
+				Use a Git executable <span style="color: var(--clr-text-2)">(default)</span>
+			{/snippet}
 
-			<svelte:fragment slot="caption">
+			{#snippet caption()}
 				{#if selectedType === 'systemExecutable'}
 					Git executable must be present on your PATH
 				{/if}
-			</svelte:fragment>
+			{/snippet}
 
-			<svelte:fragment slot="actions">
+			{#snippet actions()}
 				<RadioButton name="credentialType" value="systemExecutable" id="git-executable" />
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		<SectionCard
@@ -124,17 +125,19 @@
 			orientation="row"
 			labelFor="credential-local"
 		>
-			<svelte:fragment slot="title">Use existing SSH key</svelte:fragment>
+			{#snippet title()}
+				Use existing SSH key
+			{/snippet}
 
-			<svelte:fragment slot="actions">
+			{#snippet actions()}
 				<RadioButton name="credentialType" id="credential-local" value="local" />
-			</svelte:fragment>
+			{/snippet}
 
-			<svelte:fragment slot="caption">
+			{#snippet caption()}
 				{#if selectedType === 'local'}
 					Add the path to an existing SSH key that GitButler can use.
 				{/if}
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		{#if selectedType === 'local'}
@@ -155,20 +158,22 @@
 			orientation="row"
 			labelFor="credential-helper"
 		>
-			<svelte:fragment slot="title">Use a Git credentials helper</svelte:fragment>
+			{#snippet title()}
+				Use a Git credentials helper
+			{/snippet}
 
-			<svelte:fragment slot="caption">
+			{#snippet caption()}
 				{#if selectedType === 'gitCredentialsHelper'}
 					GitButler will use the system's git credentials helper.
 					<Link target="_blank" rel="noreferrer" href="https://git-scm.com/doc/credential-helpers">
 						Learn more
 					</Link>
 				{/if}
-			</svelte:fragment>
+			{/snippet}
 
-			<svelte:fragment slot="actions">
+			{#snippet actions()}
 				<RadioButton name="credentialType" value="gitCredentialsHelper" id="credential-helper" />
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		<SectionCard roundedTop={false} orientation="row">

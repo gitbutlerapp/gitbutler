@@ -164,13 +164,13 @@
 				background-color: var(--resizer-color);
 			}
 
-			&:not(.vertical) {
+			&:not(:global(.vertical)) {
 				& .resizer-line {
 					width: var(--resizer-hover-line-thickness);
 				}
 			}
 
-			&:not(.horizontal) {
+			&:not(:global(.horizontal)) {
 				& .resizer-line {
 					height: var(--resizer-hover-line-thickness);
 				}

@@ -19,7 +19,7 @@
 		padding: 6px;
 		gap: 2px;
 
-		&:not(&:last-child) {
+		&:not(:global(&:last-child)) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 	}

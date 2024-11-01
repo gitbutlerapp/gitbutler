@@ -32,9 +32,9 @@
 	clickable
 	on:click={maybeToggle}
 >
-	<svelte:fragment slot="title">
+	{#snippet title()}
 		{@render header?.({ expanded })}
-	</svelte:fragment>
+	{/snippet}
 </SectionCard>
 
 {#if expanded}
