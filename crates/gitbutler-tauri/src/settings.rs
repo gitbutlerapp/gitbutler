@@ -20,10 +20,17 @@ impl SettingsStore {
             app_error_reporting_enabled: self.get_bool("appErrorReportingEnabled"),
             app_non_anon_metrics_enabled: self.get_bool("appNonAnonMetricsEnabled"),
             app_analytics_confirmed: self.get_bool("appAnalyticsConfirmed"),
+            github_oauth_client_id: self.get_string("githubOauthClientId"),
         }
     }
 
     fn get_bool(&self, value: &str) -> Option<bool> {
         self.store.get(value).and_then(|v| v.as_bool())
+    }
+
+    fn get_string(&self, value: &str) -> Option<String> {
+        self.store
+            .get(value)
+            .and_then(|v| v.as_str().map(|s| s.to_string()))
     }
 }
