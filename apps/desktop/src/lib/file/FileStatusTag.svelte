@@ -3,7 +3,11 @@
 	import type { FileStatus } from '@gitbutler/ui/file/types';
 	import type { ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 
-	export let status: FileStatus;
+	interface Props {
+		status: FileStatus;
+	}
+
+	let { status }: Props = $props();
 
 	function statusToColor(status: FileStatus): ComponentColor {
 		switch (status) {

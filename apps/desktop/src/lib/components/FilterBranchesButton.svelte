@@ -7,16 +7,27 @@
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import type { Writable, Readable } from 'svelte/store';
 
-	export let filtersActive: Readable<boolean>;
-	export let showPrCheckbox: boolean;
 
-	export let includePrs: Writable<boolean | undefined>;
-	export let includeRemote: Writable<boolean | undefined>;
-	export let hideBots: Writable<boolean | undefined>;
-	export let hideInactive: Writable<boolean | undefined>;
+	interface Props {
+		filtersActive: Readable<boolean>;
+		showPrCheckbox: boolean;
+		includePrs: Writable<boolean | undefined>;
+		includeRemote: Writable<boolean | undefined>;
+		hideBots: Writable<boolean | undefined>;
+		hideInactive: Writable<boolean | undefined>;
+	}
 
-	let target: HTMLElement;
-	let contextMenu: ReturnType<typeof ContextMenu>;
+	let {
+		filtersActive,
+		showPrCheckbox,
+		includePrs,
+		includeRemote,
+		hideBots,
+		hideInactive
+	}: Props = $props();
+
+	let target: HTMLElement = $state();
+	let contextMenu: ReturnType<typeof ContextMenu> = $state();
 
 	export function onFilterClick() {
 		contextMenu.toggle();

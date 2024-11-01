@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
@@ -25,11 +27,21 @@
 	import { createEventDispatcher, onMount, tick } from 'svelte';
 	import { fly } from 'svelte/transition';
 
-	export let isExpanded: boolean;
-	export let commitMessage: string;
-	export let valid: boolean = false;
-	export let commit: (() => void) | undefined = undefined;
-	export let cancel: () => void;
+	interface Props {
+		isExpanded: boolean;
+		commitMessage: string;
+		valid?: boolean;
+		commit?: (() => void) | undefined;
+		cancel: () => void;
+	}
+
+	let {
+		isExpanded,
+		commitMessage = $bindable(),
+		valid = $bindable(false),
+		commit = undefined,
+		cancel
+	}: Props = $props();
 
 	const selectedOwnership = getContextStore(SelectedOwnership);
 	const aiService = getContext(AIService);
@@ -45,14 +57,16 @@
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(project.id);
 	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(project.id);
 
-	let aiLoading = false;
-	let aiConfigurationValid = false;
+	let aiLoading = $state(false);
+	let aiConfigurationValid = $state(false);
 
-	let titleTextArea: HTMLTextAreaElement | undefined;
-	let descriptionTextArea: HTMLTextAreaElement | undefined;
+	let titleTextArea: HTMLTextAreaElement | undefined = $state();
+	let descriptionTextArea: HTMLTextAreaElement | undefined = $state();
 
-	$: ({ title, description } = splitMessage(commitMessage));
-	$: valid = !!title;
+	let { title, description } = $derived(splitMessage(commitMessage));
+	run(() => {
+		valid = !!title;
+	});
 
 	function concatMessage(title: string, description: string) {
 		return `${title}\n\n${description}`;

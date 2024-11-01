@@ -3,30 +3,50 @@
 	import { createEventDispatcher } from 'svelte';
 
 	// The element that is being resized
-	export let viewport: HTMLElement;
 
 	// Sets direction of resizing for viewport
-	export let direction: 'left' | 'right' | 'up' | 'down';
 
 	// Sets the color of the line
-	export let defaultLineColor: string = 'none';
-	export let defaultLineThickness: number = 1;
-	export let hoverLineThickness: number = 2;
 
 	// Needed when overflow is hidden
-	export let sticky = false;
 
 	// Custom z-index in case of overlapping with other elements
-	export let zIndex = 'var(--z-lifted)';
 
 	//
-	export let minWidth = 0;
-	export let minHeight = 0;
+	interface Props {
+		viewport: HTMLElement;
+		direction: 'left' | 'right' | 'up' | 'down';
+		defaultLineColor?: string;
+		defaultLineThickness?: number;
+		hoverLineThickness?: number;
+		sticky?: boolean;
+		zIndex?: string;
+		minWidth?: number;
+		minHeight?: number;
+		onclick?: (event: any) => void;
+		ondblclick?: (event: any) => void;
+		onkeydown?: (event: any) => void;
+	}
 
-	$: orientation = ['left', 'right'].includes(direction) ? 'horizontal' : 'vertical';
+	let {
+		viewport,
+		direction,
+		defaultLineColor = 'none',
+		defaultLineThickness = 1,
+		hoverLineThickness = 2,
+		sticky = false,
+		zIndex = 'var(--z-lifted)',
+		minWidth = 0,
+		minHeight = 0,
+		onclick,
+		ondblclick,
+		onkeydown
+	}: Props = $props();
+
+	let orientation = $derived(['left', 'right'].includes(direction) ? 'horizontal' : 'vertical');
 
 	let initial = 0;
-	let dragging = false;
+	let dragging = $state(false);
 
 	const dispatch = createEventDispatcher<{
 		height: number;
@@ -98,12 +118,12 @@
 
 <div
 	data-remove-from-draggable
-	on:mousedown={onMouseDown}
-	on:click|stopPropagation
-	on:dblclick|stopPropagation
-	on:keydown|stopPropagation
-	on:mouseenter={() => isHovered(true)}
-	on:mouseleave={() => isHovered(false)}
+	onmousedown={onMouseDown}
+	{onclick}
+	{ondblclick}
+	{onkeydown}
+	onmouseenter={() => isHovered(true)}
+	onmouseleave={() => isHovered(false)}
 	tabindex="0"
 	role="slider"
 	aria-valuenow={viewport?.clientHeight}

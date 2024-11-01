@@ -6,20 +6,32 @@
 	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	export let files: LocalFile[] | RemoteFile[];
-	export let isUnapplied: boolean;
-	export let showCheckboxes = false;
-	export let commitDialogExpanded: Writable<boolean>;
-	export let focusCommitDialog: () => void;
 
-	export let allowMultiple = false;
-	export let readonly = false;
+	interface Props {
+		files: LocalFile[] | RemoteFile[];
+		isUnapplied: boolean;
+		showCheckboxes?: boolean;
+		commitDialogExpanded: Writable<boolean>;
+		focusCommitDialog: () => void;
+		allowMultiple?: boolean;
+		readonly?: boolean;
+	}
+
+	let {
+		files,
+		isUnapplied,
+		showCheckboxes = false,
+		commitDialogExpanded,
+		focusCommitDialog,
+		allowMultiple = false,
+		readonly = false
+	}: Props = $props();
 
 	createCommitStore(undefined);
 	const fileIdSelection = getContext(FileIdSelection);
 </script>
 
-<div class="branch-files" role="presentation" on:click={() => fileIdSelection.clear()}>
+<div class="branch-files" role="presentation" onclick={() => fileIdSelection.clear()}>
 	{#if files.length > 0}
 		<BranchFilesList
 			{allowMultiple}

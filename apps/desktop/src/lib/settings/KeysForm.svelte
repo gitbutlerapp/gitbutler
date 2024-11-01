@@ -12,24 +12,33 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { onMount } from 'svelte';
 
-	const project = getContext(Project);
+	const project = $state(getContext(Project));
 
 	const baseBranch = getContextStore(BaseBranch);
 	const projectsService = getContext(ProjectsService);
 
 	// Used by credential checker before target branch set
-	export let remoteName = '';
-	export let branchName = '';
-	export let showProjectName = false;
-	export let disabled = false;
+	interface Props {
+		remoteName?: string;
+		branchName?: string;
+		showProjectName?: boolean;
+		disabled?: boolean;
+	}
 
-	let credentialCheck: CredentialCheck;
+	let {
+		remoteName = '',
+		branchName = '',
+		showProjectName = false,
+		disabled = false
+	}: Props = $props();
+
+	let credentialCheck: CredentialCheck = $state();
 
 	let selectedType: KeyType =
-		typeof project.preferred_key === 'string' ? project.preferred_key : 'local';
+		$state(typeof project.preferred_key === 'string' ? project.preferred_key : 'local');
 
 	let privateKeyPath =
-		typeof project.preferred_key === 'string' ? '' : project.preferred_key.local.private_key_path;
+		$state(typeof project.preferred_key === 'string' ? '' : project.preferred_key.local.private_key_path);
 
 	function setLocalKey() {
 		if (privateKeyPath.trim().length === 0) return;
@@ -51,7 +60,7 @@
 		}
 	}
 
-	let form: HTMLFormElement;
+	let form: HTMLFormElement = $state();
 
 	function onFormChange(form: HTMLFormElement) {
 		credentialCheck.reset();
@@ -83,7 +92,7 @@
 		class="git-radio"
 		class:disabled
 		bind:this={form}
-		on:change={(e) => onFormChange(e.currentTarget)}
+		onchange={(e) => onFormChange(e.currentTarget)}
 	>
 		<SectionCard roundedBottom={false} orientation="row" labelFor="git-executable">
 			<svelte:fragment slot="title"

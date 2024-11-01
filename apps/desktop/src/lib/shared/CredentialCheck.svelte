@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
 	import { AuthService } from '$lib/backend/auth';
@@ -8,17 +10,30 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';
 
-	export let projectId: string;
-	export let remoteName: string | null | undefined;
-	export let branchName: string | null | undefined;
+	interface Props {
+		projectId: string;
+		remoteName: string | null | undefined;
+		branchName: string | null | undefined;
+	}
+
+	let { projectId, remoteName, branchName }: Props = $props();
 
 	const authService = getContext(AuthService);
 
 	type Check = { name: string; promise: Promise<any> };
-	$: checks = [] as Check[];
+	let checks;
+	run(() => {
+		checks = [] as Check[];
+	});
 
-	$: errors = 0;
-	$: loading = false;
+	let errors;
+	run(() => {
+		errors = 0;
+	});
+	let loading;
+	run(() => {
+		loading = false;
+	});
 
 	async function checkCredentials() {
 		if (!remoteName || !branchName) return;

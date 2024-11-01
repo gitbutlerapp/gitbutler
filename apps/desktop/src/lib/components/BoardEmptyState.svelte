@@ -47,8 +47,8 @@
 							class="empty-board__suggestions__link"
 							role="button"
 							tabindex="0"
-							on:keypress={async () => await branchController.createBranch({})}
-							on:click={async () => await branchController.createBranch({})}
+							onkeypress={async () => await branchController.createBranch({})}
+							onclick={async () => await branchController.createBranch({})}
 						>
 							<div class="empty-board__suggestions__link__icon">
 								<Icon name="new-branch" />
@@ -58,7 +58,7 @@
 						<button
 							type="button"
 							class="empty-board__suggestions__link"
-							on:click={async () => await openExternalUrl('https://docs.gitbutler.com')}
+							onclick={async () => await openExternalUrl('https://docs.gitbutler.com')}
 						>
 							<div class="empty-board__suggestions__link__icon">
 								<Icon name="docs" />
@@ -69,8 +69,8 @@
 						<button
 							type="button"
 							class="empty-board__suggestions__link"
-							on:keypress={async () => await openInEditor()}
-							on:click={async () => await openInEditor()}
+							onkeypress={async () => await openInEditor()}
+							onclick={async () => await openInEditor()}
 						>
 							<div class="empty-board__suggestions__link__icon">
 								<Icon name="vscode" />

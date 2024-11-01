@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { ProjectsService } from '$lib/backend/projects';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -10,7 +12,7 @@
 
 	const projects = projectsService.projects;
 
-	$: debug = $page.url.searchParams.get('debug');
+	let debug = $derived($page.url.searchParams.get('debug'));
 
 	const persistedId = projectsService.getLastOpenedProject();
 	const redirect = derived(projects, (projects) => {
@@ -21,13 +23,13 @@
 		return null;
 	});
 
-	$: {
+	run(() => {
 		if ($redirect) {
 			goto(`/${$redirect}/`);
 		} else if ($redirect === null) {
 			goto('/onboarding');
 		}
-	}
+	});
 </script>
 
 {#if $redirect === undefined}

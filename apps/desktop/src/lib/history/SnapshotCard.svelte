@@ -12,14 +12,18 @@
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
-	export let entry: Snapshot;
-	export let isWithinRestore: boolean = true;
-	export let selectedFile:
+	interface Props {
+		entry: Snapshot;
+		isWithinRestore?: boolean;
+		selectedFile?: 
 		| {
 				entryId: string;
 				path: string;
 		  }
-		| undefined = undefined;
+		| undefined;
+	}
+
+	let { entry, isWithinRestore = true, selectedFile = undefined }: Props = $props();
 
 	function getShortSha(sha: string | undefined) {
 		if (!sha) return '';
@@ -219,7 +223,7 @@
 							class="files-attacment__file"
 							class:file-selected={selectedFile?.path === filePath &&
 								selectedFile?.entryId === entry.id}
-							on:click={() => {
+							onclick={() => {
 								dispatch('diffClick', filePath);
 							}}
 						>

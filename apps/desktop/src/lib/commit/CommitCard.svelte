@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import CommitContextMenu from './CommitContextMenu.svelte';
 	import CommitDragItem from './CommitDragItem.svelte';
 	import { Project } from '$lib/backend/projects';
@@ -31,15 +33,6 @@
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { type Snippet } from 'svelte';
 
-	export let branch: VirtualBranch | undefined = undefined;
-	export let commit: DetailedCommit | Commit;
-	export let commitUrl: string | undefined = undefined;
-	export let isHeadCommit: boolean = false;
-	export let isUnapplied = false;
-	export let first = false;
-	export let last = false;
-	export let type: CommitStatus;
-	export let lines: Snippet<[number]> | undefined = undefined;
 
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
@@ -47,23 +40,49 @@
 	const modeService = maybeGetContext(ModeService);
 
 	const commitStore = createCommitStore(commit);
-	$: commitStore.set(commit);
+	run(() => {
+		commitStore.set(commit);
+	});
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
-	let draggableCommitElement: HTMLElement;
-	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
-	let files: RemoteFile[] = [];
-	let showDetails = false;
+	let draggableCommitElement: HTMLElement = $state();
+	let contextMenu: ReturnType<typeof ContextMenu> | undefined = $state();
+	let files: RemoteFile[] = $state([]);
+	let showDetails = $state(false);
 
-	$: conflicted = commit.conflicted;
-	$: isAncestorMostConflicted = branch?.ancestorMostConflictedCommit?.id === commit.id;
+	let conflicted = $derived(commit.conflicted);
+	let isAncestorMostConflicted = $derived(branch?.ancestorMostConflictedCommit?.id === commit.id);
 
 	async function loadFiles() {
 		files = await listRemoteCommitFiles(project.id, commit.id);
 	}
 
-	export let filesToggleable = true;
+	interface Props {
+		branch?: VirtualBranch | undefined;
+		commit: DetailedCommit | Commit;
+		commitUrl?: string | undefined;
+		isHeadCommit?: boolean;
+		isUnapplied?: boolean;
+		first?: boolean;
+		last?: boolean;
+		type: CommitStatus;
+		lines?: Snippet<[number]> | undefined;
+		filesToggleable?: boolean;
+	}
+
+	let {
+		branch = undefined,
+		commit = $bindable(),
+		commitUrl = undefined,
+		isHeadCommit = false,
+		isUnapplied = false,
+		first = false,
+		last = false,
+		type,
+		lines = undefined,
+		filesToggleable = true
+	}: Props = $props();
 
 	function toggleFiles() {
 		if (!filesToggleable) return;
@@ -88,11 +107,11 @@
 
 	let isUndoable = commit instanceof DetailedCommit;
 
-	let commitMessageModal: ReturnType<typeof Modal> | undefined;
-	let commitMessageValid = false;
-	let description = '';
+	let commitMessageModal: ReturnType<typeof Modal> | undefined = $state();
+	let commitMessageValid = $state(false);
+	let description = $state('');
 
-	let conflictResolutionConfirmationModal: ReturnType<typeof Modal> | undefined;
+	let conflictResolutionConfirmationModal: ReturnType<typeof Modal> | undefined = $state();
 
 	function openCommitMessageModal(e: Event) {
 		e.stopPropagation();
@@ -114,16 +133,16 @@
 
 	const commitShortSha = commit.id.substring(0, 7);
 
-	let topHeightPx = 24;
+	let topHeightPx = $state(24);
 
-	$: {
+	run(() => {
 		topHeightPx = 24;
 		if (first) topHeightPx = 58;
 		if (showDetails && !first) topHeightPx += 12;
-	}
+	});
 
-	let dragDirection: 'up' | 'down' | undefined;
-	let isDragTargeted = false;
+	let dragDirection: 'up' | 'down' | undefined = $state();
+	let isDragTargeted = $state(false);
 
 	function canEdit() {
 		if (isUnapplied) return false;
@@ -222,24 +241,24 @@
 			<div
 				bind:this={draggableCommitElement}
 				class="commit__header"
-				on:click={toggleFiles}
-				on:keyup={onKeyup}
+				onclick={toggleFiles}
+				onkeyup={onKeyup}
 				role="button"
 				tabindex="0"
-				on:contextmenu={(e) => {
+				oncontextmenu={(e) => {
 					e.preventDefault();
 					contextMenu?.open(e);
 				}}
-				on:dragenter={() => {
+				ondragenter={() => {
 					isDragTargeted = true;
 				}}
-				on:dragleave={() => {
+				ondragleave={() => {
 					isDragTargeted = false;
 				}}
-				on:drop={() => {
+				ondrop={() => {
 					isDragTargeted = false;
 				}}
-				on:drag={(e) => {
+				ondrag={(e) => {
 					const target = e.target as HTMLElement;
 					const targetHeight = target.offsetHeight;
 					const targetTop = target.getBoundingClientRect().top;
@@ -332,7 +351,10 @@
 						<button
 							type="button"
 							class="commit__subtitle-btn commit__subtitle-btn_dashed"
-							on:click|stopPropagation={() => copyToClipboard(commit.id)}
+							onclick={(event) => {
+								event.stopPropagation();
+								copyToClipboard(commit.id)
+							}}
 						>
 							<span>{commitShortSha}</span>
 
@@ -347,8 +369,11 @@
 							<button
 								type="button"
 								class="commit__subtitle-btn"
-								on:click|stopPropagation={() => {
+								onclick={(event) => {
+									event.stopPropagation();
+									
 									if (commitUrl) openExternalUrl(commitUrl);
+								
 								}}
 							>
 								<span>Open</span>

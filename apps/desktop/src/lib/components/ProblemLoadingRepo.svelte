@@ -12,13 +12,17 @@
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import { goto } from '$app/navigation';
 
-	export let error: any = undefined;
+	interface Props {
+		error?: any;
+	}
+
+	let { error = undefined }: Props = $props();
 
 	const projectsService = getContext(ProjectsService);
 	const project = getContext(Project);
 
-	let loading = false;
-	let deleteConfirmationModal: ReturnType<typeof RemoveProjectButton> | undefined;
+	let loading = $state(false);
+	let deleteConfirmationModal: ReturnType<typeof RemoveProjectButton> | undefined = $state();
 
 	async function onDeleteClicked() {
 		loading = true;

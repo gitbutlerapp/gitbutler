@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectsService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
@@ -19,7 +21,7 @@
 	const project = getContext(Project);
 
 	let useNewLocking = project?.use_experimental_locking || false;
-	let signCommits = false;
+	let signCommits = $state(false);
 
 	const gitConfig = getContext(GitConfigService);
 
@@ -29,11 +31,11 @@
 	}
 
 	// gpg.format
-	let signingFormat = 'openpgp';
+	let signingFormat = $state('openpgp');
 	// user.signingkey
-	let signingKey = '';
+	let signingKey = $state('');
 	// gpg.ssh.program / gpg.program
-	let signingProgram = '';
+	let signingProgram = $state('');
 
 	const signingFormatOptions = [
 		{
@@ -46,10 +48,10 @@
 		}
 	];
 
-	let checked = false;
-	let loading = true;
-	let signCheckResult = false;
-	let errorMessage = '';
+	let checked = $state(false);
+	let loading = $state(true);
+	let signCheckResult = $state(false);
+	let errorMessage = $state('');
 
 	async function checkSigning() {
 		checked = true;
@@ -82,7 +84,9 @@
 		await projectsService.updateProject(project);
 	}
 
-	$: setUseNewLocking(useNewLocking);
+	run(() => {
+		setUseNewLocking(useNewLocking);
+	});
 
 	onMount(async () => {
 		let gitConfigSettings = await gitConfig.getGbConfig(project.id);

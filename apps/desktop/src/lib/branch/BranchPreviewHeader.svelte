@@ -15,23 +15,27 @@
 	import type { Branch, ForgeIdentifier } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
-	export let localBranch: Branch | undefined;
-	export let remoteBranch: Branch | undefined;
-	export let pr: PullRequest | undefined;
+	interface Props {
+		localBranch: Branch | undefined;
+		remoteBranch: Branch | undefined;
+		pr: PullRequest | undefined;
+	}
 
-	$: branch = remoteBranch || localBranch!;
-	$: upstream = remoteBranch?.givenName;
+	let { localBranch, remoteBranch, pr }: Props = $props();
+
+	let branch = $derived(remoteBranch || localBranch!);
+	let upstream = $derived(remoteBranch?.givenName);
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 	const forge = getForge();
 	const modeSerivce = getContext(ModeService);
 	const mode = modeSerivce.mode;
-	$: forgeBranch = upstream ? $forge?.branch(upstream) : undefined;
+	let forgeBranch = $derived(upstream ? $forge?.branch(upstream) : undefined);
 
-	let isApplying = false;
-	let isDeleting = false;
-	let deleteBranchModal: Modal;
+	let isApplying = $state(false);
+	let isDeleting = $state(false);
+	let deleteBranchModal: Modal = $state();
 </script>
 
 <div class="header__wrapper">

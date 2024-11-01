@@ -1,17 +1,34 @@
 <script lang="ts">
-	export let name = '';
 
-	export let small = false;
-	export let disabled = false;
-	export let value = '';
-	export let id = '';
-	export let checked = false;
+	interface Props {
+		name?: string;
+		small?: boolean;
+		disabled?: boolean;
+		value?: string;
+		id?: string;
+		checked?: boolean;
+		onclick?: (event: any) => void;
+		onchange?: (event: any) => void;
+		oninput?: (event: any) => void;
+	}
+
+	let {
+		name = '',
+		small = false,
+		disabled = false,
+		value = '',
+		id = '',
+		checked = false,
+		onclick,
+		onchange,
+		oninput
+	}: Props = $props();
 </script>
 
 <input
-	on:click|stopPropagation
-	on:change
-	on:input
+	{onclick}
+	{onchange}
+	{oninput}
 	type="radio"
 	class="radio"
 	class:small

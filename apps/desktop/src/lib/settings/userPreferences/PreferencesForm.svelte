@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { Project, ProjectsService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
@@ -13,7 +15,7 @@
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
 
 	let omitCertificateCheck = project?.omit_certificate_check;
-	let useNewLocking = project?.use_experimental_locking || false;
+	let useNewLocking = $state(project?.use_experimental_locking || false);
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
 
@@ -32,7 +34,9 @@
 		await projectsService.updateProject(project);
 	}
 
-	$: setUseNewLocking(useNewLocking);
+	run(() => {
+		setUseNewLocking(useNewLocking);
+	});
 
 	async function handleOmitCertificateCheckClick(event: MouseEvent) {
 		await setOmitCertificateCheck((event.target as HTMLInputElement)?.checked);

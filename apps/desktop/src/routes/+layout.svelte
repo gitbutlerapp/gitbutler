@@ -101,7 +101,7 @@
 	});
 </script>
 
-<svelte:window on:drop={(e) => e.preventDefault()} on:dragover={(e) => e.preventDefault()} />
+<svelte:window ondrop={(e) => e.preventDefault()} ondragover={(e) => e.preventDefault()} />
 
 <div
 	data-tauri-drag-region

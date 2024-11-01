@@ -5,18 +5,47 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 
-	export let orientation: 'row' | 'column' = 'column';
-	export let centerAlign = false;
-	export let extraPadding = false;
-	export let roundedTop = true;
-	export let roundedBottom = true;
-	export let topDivider = false;
-	export let bottomBorder = true;
-	export let background: SectionCardBackground = undefined;
-	export let noBorder = false;
-	export let labelFor = '';
-	export let disabled = false;
-	export let clickable = false;
+	interface Props {
+		orientation?: 'row' | 'column';
+		centerAlign?: boolean;
+		extraPadding?: boolean;
+		roundedTop?: boolean;
+		roundedBottom?: boolean;
+		topDivider?: boolean;
+		bottomBorder?: boolean;
+		background?: SectionCardBackground;
+		noBorder?: boolean;
+		labelFor?: string;
+		disabled?: boolean;
+		clickable?: boolean;
+		onclick?: (event: any) => void;
+		iconSide?: import('svelte').Snippet;
+		title?: import('svelte').Snippet;
+		caption?: import('svelte').Snippet;
+		children?: import('svelte').Snippet;
+		actions?: import('svelte').Snippet;
+	}
+
+	let {
+		orientation = 'column',
+		centerAlign = false,
+		extraPadding = false,
+		roundedTop = true,
+		roundedBottom = true,
+		topDivider = false,
+		bottomBorder = true,
+		background = undefined,
+		noBorder = false,
+		labelFor = '',
+		disabled = false,
+		clickable = false,
+		onclick,
+		iconSide,
+		title,
+		caption,
+		children,
+		actions
+	}: Props = $props();
 
 	const dispatch = createEventDispatcher<{ hover: boolean }>();
 </script>
@@ -39,36 +68,36 @@
 	class:error={background === 'error'}
 	class:clickable={labelFor !== '' || clickable}
 	class:disabled
-	on:click
-	on:mouseenter={() => dispatch('hover', true)}
-	on:mouseleave={() => dispatch('hover', false)}
+	{onclick}
+	onmouseenter={() => dispatch('hover', true)}
+	onmouseleave={() => dispatch('hover', false)}
 >
-	{#if $$slots.iconSide}
+	{#if iconSide}
 		<div class="section-card__icon-side">
-			<slot name="iconSide" />
+			{@render iconSide?.()}
 		</div>
 	{/if}
 
-	{#if $$slots.title || $$slots.caption}
+	{#if title || caption}
 		<div class="section-card__content">
-			{#if $$slots.title}
+			{#if title}
 				<h3 class="text-15 text-bold section-card__title">
-					<slot name="title" />
+					{@render title?.()}
 				</h3>
 			{/if}
-			{#if $$slots.caption}
+			{#if caption}
 				<p class="text-12 text-body section-card__text">
-					<slot name="caption" />
+					{@render caption?.()}
 				</p>
 			{/if}
 		</div>
 	{/if}
 
-	<slot />
+	{@render children?.()}
 
-	{#if $$slots.actions}
+	{#if actions}
 		<div class="section-card__actions">
-			<slot name="actions" />
+			{@render actions?.()}
 		</div>
 	{/if}
 </label>

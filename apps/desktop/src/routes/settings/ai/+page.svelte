@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
@@ -25,16 +27,16 @@
 	const user = userService.user;
 	let initialized = false;
 
-	let modelKind: ModelKind | undefined;
-	let openAIKeyOption: KeyOption | undefined;
-	let anthropicKeyOption: KeyOption | undefined;
-	let openAIKey: string | undefined;
-	let openAIModelName: OpenAIModelName | undefined;
-	let anthropicKey: string | undefined;
-	let anthropicModelName: AnthropicModelName | undefined;
-	let diffLengthLimit: number | undefined;
-	let ollamaEndpoint: string | undefined;
-	let ollamaModel: string | undefined;
+	let modelKind: ModelKind | undefined = $state();
+	let openAIKeyOption: KeyOption | undefined = $state();
+	let anthropicKeyOption: KeyOption | undefined = $state();
+	let openAIKey: string | undefined = $state();
+	let openAIModelName: OpenAIModelName | undefined = $state();
+	let anthropicKey: string | undefined = $state();
+	let anthropicModelName: AnthropicModelName | undefined = $state();
+	let diffLengthLimit: number | undefined = $state();
+	let ollamaEndpoint: string | undefined = $state();
+	let ollamaModel: string | undefined = $state();
 
 	async function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
@@ -46,19 +48,9 @@
 		await secretsService.set(handle, secret || '');
 	}
 
-	$: setConfiguration(GitAIConfigKey.ModelProvider, modelKind);
 
-	$: setConfiguration(GitAIConfigKey.OpenAIKeyOption, openAIKeyOption);
-	$: setConfiguration(GitAIConfigKey.OpenAIModelName, openAIModelName);
-	$: setSecret(AISecretHandle.OpenAIKey, openAIKey);
 
-	$: setConfiguration(GitAIConfigKey.AnthropicKeyOption, anthropicKeyOption);
-	$: setConfiguration(GitAIConfigKey.AnthropicModelName, anthropicModelName);
-	$: setConfiguration(GitAIConfigKey.DiffLengthLimit, diffLengthLimit?.toString());
-	$: setSecret(AISecretHandle.AnthropicKey, anthropicKey);
 
-	$: setConfiguration(GitAIConfigKey.OllamaEndpoint, ollamaEndpoint);
-	$: setConfiguration(GitAIConfigKey.OllamaModelName, ollamaModel);
 
 	onMount(async () => {
 		modelKind = await aiService.getModelKind();
@@ -82,7 +74,6 @@
 		initialized = true;
 	});
 
-	$: if (form) form.modelKind.value = modelKind;
 
 	const keyOptions = [
 		{
@@ -137,12 +128,45 @@
 		}
 	];
 
-	let form: HTMLFormElement;
+	let form: HTMLFormElement = $state();
 
 	function onFormChange(form: HTMLFormElement) {
 		const formData = new FormData(form);
 		modelKind = formData.get('modelKind') as ModelKind;
 	}
+	run(() => {
+		setConfiguration(GitAIConfigKey.ModelProvider, modelKind);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.OpenAIKeyOption, openAIKeyOption);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.OpenAIModelName, openAIModelName);
+	});
+	run(() => {
+		setSecret(AISecretHandle.OpenAIKey, openAIKey);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.AnthropicKeyOption, anthropicKeyOption);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.AnthropicModelName, anthropicModelName);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.DiffLengthLimit, diffLengthLimit?.toString());
+	});
+	run(() => {
+		setSecret(AISecretHandle.AnthropicKey, anthropicKey);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.OllamaEndpoint, ollamaEndpoint);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.OllamaModelName, ollamaModel);
+	});
+	run(() => {
+		if (form) form.modelKind.value = modelKind;
+	});
 </script>
 
 <SettingsPage title="AI options">
@@ -153,7 +177,7 @@
 		configuration.
 	</p>
 
-	<form class="git-radio" bind:this={form} on:change={(e) => onFormChange(e.currentTarget)}>
+	<form class="git-radio" bind:this={form} onchange={(e) => onFormChange(e.currentTarget)}>
 		<SectionCard
 			roundedBottom={false}
 			orientation="row"
@@ -344,7 +368,7 @@
 			create your own. Assign prompts in the <button
 				type="button"
 				class="link"
-				on:click={() => console.log('got to project settings')}>project settings</button
+				onclick={() => console.log('got to project settings')}>project settings</button
 			>.
 		</svelte:fragment>
 

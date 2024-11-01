@@ -230,7 +230,7 @@
 		</SectionCard>
 	</div>
 
-	<form class="stack-v" on:change={(e) => onScrollbarFormChange(e.currentTarget)}>
+	<form class="stack-v" onchange={(e) => onScrollbarFormChange(e.currentTarget)}>
 		<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll">
 			<svelte:fragment slot="title">Scrollbar-On-Scroll</svelte:fragment>
 			<svelte:fragment slot="caption">

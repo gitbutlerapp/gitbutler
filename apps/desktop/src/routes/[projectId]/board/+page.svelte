@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Board from '$lib/components/Board.svelte';
@@ -15,8 +17,8 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
-	let viewport: HTMLDivElement;
-	let contents: HTMLDivElement;
+	let viewport: HTMLDivElement = $state();
+	let contents: HTMLDivElement = $state();
 
 	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(project.id);
 
@@ -27,13 +29,15 @@
 		return true;
 	}
 
-	$: if (shouldShowHttpsWarning()) {
-		showToast({
-			title: 'HTTPS remote detected',
-			message: 'In order to push & fetch, you may need to set up an SSH key.',
-			style: 'neutral'
-		});
-	}
+	run(() => {
+		if (shouldShowHttpsWarning()) {
+			showToast({
+				title: 'HTTPS remote detected',
+				message: 'In order to push & fetch, you may need to set up an SSH key.',
+				style: 'neutral'
+			});
+		}
+	});
 
 	const modeService = getContext(ModeService);
 	const mode = modeService.mode;
@@ -42,10 +46,12 @@
 		goto(`/${project.id}/edit`);
 	}
 
-	$: if ($mode?.type === 'Edit') {
-		// That was causing an incorrect linting error when project.id was accessed inside the reactive block
-		gotoEdit();
-	}
+	run(() => {
+		if ($mode?.type === 'Edit') {
+			// That was causing an incorrect linting error when project.id was accessed inside the reactive block
+			gotoEdit();
+		}
+	});
 </script>
 
 <div class="board-wrapper">

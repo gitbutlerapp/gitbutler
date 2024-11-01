@@ -1,6 +1,8 @@
 <script>
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
+	/** @type {{children?: import('svelte').Snippet}} */
+	let { children } = $props();
 </script>
 
 <Button
@@ -14,5 +16,5 @@
 		}
 	}}
 >
-	<slot />
+	{@render children?.()}
 </Button>

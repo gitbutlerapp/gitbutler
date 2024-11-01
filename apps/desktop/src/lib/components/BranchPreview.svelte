@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
 	import Resizer from '../shared/Resizer.svelte';
 	import { Project } from '$lib/backend/projects';
@@ -20,9 +22,13 @@
 	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
-	export let localBranch: Branch | undefined = undefined;
-	export let remoteBranch: Branch | undefined = undefined;
-	export let pr: PullRequest | undefined;
+	interface Props {
+		localBranch?: Branch | undefined;
+		remoteBranch?: Branch | undefined;
+		pr: PullRequest | undefined;
+	}
+
+	let { localBranch = undefined, remoteBranch = undefined, pr }: Props = $props();
 
 	const project = getContext(Project);
 	const remoteBranchService = getContext(RemoteBranchService);
@@ -32,52 +38,56 @@
 	setContext(FileIdSelection, fileIdSelection);
 
 	const selectedFile = fileIdSelection.selectedFile;
-	$: commitId = $selectedFile?.[0];
-	$: selected = $selectedFile?.[1];
+	let commitId = $derived($selectedFile?.[0]);
+	let selected = $derived($selectedFile?.[1]);
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'branchPreviewLaneWidth';
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
-	let localBranchData: BranchData | undefined;
-	let remoteBranchData: BranchData | undefined;
+	let localBranchData: BranchData | undefined = $state();
+	let remoteBranchData: BranchData | undefined = $state();
 
 	// The remote branch service (which needs to be renamed) is responsible for
 	// fetching local and remote branches.
 	// We must manually set the branch data to undefined as the component
 	// doesn't get completely re-rendered on a page change.
-	$: if (localBranch) {
-		remoteBranchService
-			.getRemoteBranchData(localBranch.name)
-			.then((branchData) => (localBranchData = branchData));
-	} else {
-		localBranchData = undefined;
-	}
+	run(() => {
+		if (localBranch) {
+			remoteBranchService
+				.getRemoteBranchData(localBranch.name)
+				.then((branchData) => (localBranchData = branchData));
+		} else {
+			localBranchData = undefined;
+		}
+	});
 
-	$: if (remoteBranch) {
-		remoteBranchService
-			.getRemoteBranchData(remoteBranch.name)
-			.then((branchData) => (remoteBranchData = branchData));
-	} else {
-		remoteBranchData = undefined;
-	}
+	run(() => {
+		if (remoteBranch) {
+			remoteBranchService
+				.getRemoteBranchData(remoteBranch.name)
+				.then((branchData) => (remoteBranchData = branchData));
+		} else {
+			remoteBranchData = undefined;
+		}
+	});
 
-	$: remoteCommitShas = new Set(remoteBranchData?.commits.map((commit) => commit.id) || []);
+	let remoteCommitShas = $derived(new Set(remoteBranchData?.commits.map((commit) => commit.id) || []));
 
 	// Find commits common in the local and remote
-	$: localAndRemoteCommits =
-		localBranchData?.commits.filter((commit) => remoteCommitShas.has(commit.id)) || [];
+	let localAndRemoteCommits =
+		$derived(localBranchData?.commits.filter((commit) => remoteCommitShas.has(commit.id)) || []);
 
-	$: localAndRemoteCommitShas = new Set(localAndRemoteCommits.map((commit) => commit.id));
+	let localAndRemoteCommitShas = $derived(new Set(localAndRemoteCommits.map((commit) => commit.id)));
 
 	// Find the local and remote commits that are not shared
-	$: localCommits =
-		localBranchData?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || [];
-	$: remoteCommits =
-		remoteBranchData?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || [];
+	let localCommits =
+		$derived(localBranchData?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || []);
+	let remoteCommits =
+		$derived(remoteBranchData?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || []);
 
-	$: lineManager = lineManagerFactory.build(
+	let lineManager = $derived(lineManagerFactory.build(
 		{
 			remoteCommits: remoteCommits.map(transformAnyCommit),
 			localCommits: localCommits.map(transformAnyCommit),
@@ -85,10 +95,10 @@
 			integratedCommits: []
 		},
 		true
-	);
+	));
 
-	let rsViewport: HTMLDivElement;
-	let laneWidth: number;
+	let rsViewport: HTMLDivElement = $state();
+	let laneWidth: number = $state();
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
