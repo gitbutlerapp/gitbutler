@@ -1,9 +1,7 @@
-<script module lang="ts">
-	export type SectionCardBackground = 'loading' | 'success' | 'error' | undefined;
-</script>
-
 <script lang="ts">
-	import { createEventDispatcher, type Snippet } from 'svelte';
+	import type { Snippet } from 'svelte';
+
+	type SectionCardBackground = 'loading' | 'success' | 'error' | undefined;
 
 	interface Props {
 		orientation?: 'row' | 'column';
@@ -46,8 +44,6 @@
 		children,
 		actions
 	}: Props = $props();
-
-	const dispatch = createEventDispatcher<{ hover: boolean }>();
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -69,8 +65,6 @@
 	class:clickable={labelFor !== '' || clickable}
 	class:disabled
 	{onclick}
-	onmouseenter={() => dispatch('hover', true)}
-	onmouseleave={() => dispatch('hover', false)}
 >
 	{#if iconSide}
 		<div class="section-card__icon-side">

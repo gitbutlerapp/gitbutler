@@ -12,7 +12,6 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import { run } from 'svelte/legacy';
 	import { goto } from '$app/navigation';
 
 	const userService = getContext(UserService);
@@ -32,7 +31,7 @@
 
 	let deleteConfirmationModal: ReturnType<typeof Modal> | undefined = $state();
 
-	run(() => {
+	$effect(() => {
 		if ($user && !loaded) {
 			loaded = true;
 			userService.getUser().then((cloudUser) => {

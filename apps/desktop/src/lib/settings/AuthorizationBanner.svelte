@@ -10,13 +10,13 @@
 		message?: string;
 	}
 
-	const userService = getContext(UserService);
-	const loading = userService.loading;
-
 	const {
-		title = 'Authorization Required',
+		title: bannerTitle = 'Authorization Required',
 		message = 'You need to authorize GitButler to access this service.'
 	}: Props = $props();
+
+	const userService = getContext(UserService);
+	const loading = $derived(userService.loading);
 </script>
 
 <SectionCard orientation="row">
@@ -24,7 +24,7 @@
 		<Icon name="warning" color="warning" />
 	{/snippet}
 	{#snippet title()}
-		{title}
+		{bannerTitle}
 	{/snippet}
 	{#snippet caption()}
 		{message}
@@ -36,7 +36,9 @@
 			kind="solid"
 			onclick={async () => {
 				await userService.login();
-			}}>Log in or Sign up</Button
+			}}
 		>
+			Log in or Sign up
+		</Button>
 	{/snippet}
 </SectionCard>

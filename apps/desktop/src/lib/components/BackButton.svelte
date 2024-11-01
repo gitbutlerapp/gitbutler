@@ -1,8 +1,13 @@
-<script>
+<script lang="ts">
 	import Button from '@gitbutler/ui/Button.svelte';
+	import { type Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
-	/** @type {{children?: import('svelte').Snippet}} */
-	let { children } = $props();
+
+	interface Props {
+		children: Snippet;
+	}
+
+	let { children }: Props = $props();
 </script>
 
 <Button
