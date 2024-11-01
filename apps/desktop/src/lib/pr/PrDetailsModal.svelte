@@ -32,6 +32,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
+	import { confirm } from '@tauri-apps/plugin-dialog';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -148,6 +149,12 @@
 	let inputTitle = $state<string>('');
 	const actualBody = $derived<string>(inputBody.trim().length > 0 ? inputBody : defaultBody);
 	const actualTitle = $derived<string>(inputTitle.trim().length > 0 ? inputTitle : defaultTitle);
+	const isDirty = $derived(
+		inputTitle.length > 0 ||
+			inputBody.length > 0 ||
+			inputTitle !== defaultTitle ||
+			inputBody !== defaultBody
+	);
 
 	$effect(() => {
 		if (modal?.imports.open) {
@@ -274,7 +281,7 @@
 		await tick();
 	}
 
-	function handleModalKeydown(e: KeyboardEvent) {
+	async function handleModalKeydown(e: KeyboardEvent) {
 		switch (e.key) {
 			case 'g':
 				if ((e.metaKey || e.ctrlKey) && e.shiftKey) {
@@ -282,6 +289,25 @@
 					e.preventDefault();
 					handleAIButtonPressed();
 				}
+				break;
+			case KeyName.Escape:
+				e.stopPropagation();
+
+				if (isDirty) {
+					const discardPullRequest = await confirm(
+						'Are you sure you want to discard this pull request?',
+						{
+							title: 'Discard pull request?',
+							kind: 'warning'
+						}
+					);
+
+					if (!discardPullRequest) {
+						return;
+					}
+				}
+
+				modal?.close();
 				break;
 			case KeyName.Enter:
 				if (isLoading || aiIsLoading) break;

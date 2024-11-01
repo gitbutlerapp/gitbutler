@@ -8,6 +8,7 @@
 		"core:default",
 		"core:window:allow-start-dragging",
 		"core:window:default",
+		"dialog:allow-confirm",
 		"dialog:allow-open",
 		"fs:allow-read-file",
 		"fs:allow-cache-read-recursive",
