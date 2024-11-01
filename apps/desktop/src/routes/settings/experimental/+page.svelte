@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SectionCard from '$lib/components/SectionCard.svelte';
-	import { stackingFeature, stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
+	import { stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 </script>
@@ -12,40 +12,20 @@
 	</p>
 
 	<div class="experimental-settings__toggles">
-		<div class="stack-v">
-			<SectionCard labelFor="stackingFeature" orientation="row" roundedBottom={false}>
-				<svelte:fragment slot="title">Branch stacking UI</svelte:fragment>
-				<svelte:fragment slot="caption">
-					Enables the new user interface for managing lanes / stacks of branches.
-				</svelte:fragment>
-				<svelte:fragment slot="actions">
-					<Toggle
-						id="stackingFeature"
-						checked={$stackingFeature}
-						onclick={() => ($stackingFeature = !$stackingFeature)}
-					/>
-				</svelte:fragment>
-			</SectionCard>
-			<SectionCard
-				labelFor="stackingFeatureMultipleSeries"
-				orientation="row"
-				roundedTop={false}
-				disabled={!$stackingFeature}
-			>
-				<svelte:fragment slot="title">Branch stacking multiple series</svelte:fragment>
-				<svelte:fragment slot="caption">
-					Experimental support for using the new stacking interface to create multiple branches per
-					lane / stack. Not all features are supported yet.
-				</svelte:fragment>
-				<svelte:fragment slot="actions">
-					<Toggle
-						id="stackingFeatureMultipleSeries"
-						checked={$stackingFeatureMultipleSeries}
-						onclick={() => ($stackingFeatureMultipleSeries = !$stackingFeatureMultipleSeries)}
-					/>
-				</svelte:fragment>
-			</SectionCard>
-		</div>
+		<SectionCard labelFor="stackingFeatureMultipleSeries" orientation="row">
+			<svelte:fragment slot="title">Branch stacking multiple series</svelte:fragment>
+			<svelte:fragment slot="caption">
+				Experimental support for using the new stacking interface to create multiple branches per
+				lane / stack. Not all features are supported yet.
+			</svelte:fragment>
+			<svelte:fragment slot="actions">
+				<Toggle
+					id="stackingFeatureMultipleSeries"
+					checked={$stackingFeatureMultipleSeries}
+					onclick={() => ($stackingFeatureMultipleSeries = !$stackingFeatureMultipleSeries)}
+				/>
+			</svelte:fragment>
+		</SectionCard>
 	</div>
 </SettingsPage>
 
