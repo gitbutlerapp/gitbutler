@@ -88,7 +88,10 @@
 
 	$effect(() => {
 		if (autofocus) {
-			textBoxEl?.focus();
+			// set time out to ensure the element is rendered
+			setTimeout(() => {
+				textBoxEl?.focus();
+			}, 0);
 		}
 	});
 
