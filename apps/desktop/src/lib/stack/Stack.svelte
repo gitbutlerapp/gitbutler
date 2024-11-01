@@ -42,7 +42,7 @@
 
 	let laneWidth: number | undefined = $state();
 
-	let commitDialog = $state<CommitDialog>();
+	let commitDialog = $state<ReturnType<typeof CommitDialog>>();
 	let rsViewport = $state<HTMLElement>();
 
 	$effect(() => {

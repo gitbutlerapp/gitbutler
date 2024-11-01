@@ -14,7 +14,7 @@
 
 	//
 	interface Props {
-		viewport: HTMLElement;
+		viewport?: HTMLElement;
 		direction: 'left' | 'right' | 'up' | 'down';
 		defaultLineColor?: string;
 		defaultLineThickness?: number;
@@ -57,6 +57,8 @@
 	}>();
 
 	function onMouseDown(e: MouseEvent) {
+		if (!viewport) return;
+
 		e.stopPropagation();
 		e.preventDefault();
 		document.addEventListener('mouseup', onMouseUp);

@@ -203,11 +203,11 @@ importers:
         specifier: ^2.0.0
         version: 2.0.0
       '@testing-library/jest-dom':
-        specifier: ^6.4.8
-        version: 6.4.8
+        specifier: ^6.6.3
+        version: 6.6.3
       '@testing-library/svelte':
-        specifier: ^5.2.1
-        version: 5.2.1(svelte@5.1.9)(vite@5.4.10(@types/node@22.3.0))(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))
+        specifier: ^5.2.4
+        version: 5.2.4(svelte@5.1.9)(vite@5.4.10(@types/node@22.3.0))(vitest@2.0.5)
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
@@ -460,7 +460,7 @@ importers:
         version: 8.3.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.3.3)
       '@storybook/experimental-addon-test':
         specifier: ^8.3.0
-        version: 8.3.3(@vitest/browser@2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))
+        version: 8.3.3(@vitest/browser@2.0.5)(storybook@8.3.3)(vitest@2.0.5)
       '@storybook/svelte':
         specifier: ^8.3.0
         version: 8.3.3(storybook@8.3.3)(svelte@5.1.9)
@@ -2074,12 +2074,12 @@ packages:
     resolution: {integrity: sha512-pemlzrSESWbdAloYml3bAJMEfNh1Z7EduzqPKprCH5S341frlpYnUEW0H72dLxa6IsYr+mPno20GiSm+h9dEdQ==}
     engines: {node: '>=18'}
 
-  '@testing-library/jest-dom@6.4.8':
-    resolution: {integrity: sha512-JD0G+Zc38f5MBHA4NgxQMR5XtO5Jx9g86jqturNTt2WUfRmLDIY7iKkWHDCCTiDuFMre6nxAD5wHw9W5kI4rGw==}
+  '@testing-library/jest-dom@6.6.3':
+    resolution: {integrity: sha512-IteBhl4XqYNkM54f4ejhLRJiZNqcSCoXUOG2CPK7qbD322KjQozM4kHQOfkG2oln9b9HTYqs+Sae8vBATubxxA==}
     engines: {node: '>=14', npm: '>=6', yarn: '>=1'}
 
-  '@testing-library/svelte@5.2.1':
-    resolution: {integrity: sha512-yXSqBsYaQAeP2xt7gqKu135Q67+NTsBDcpL1akv5MVAQ/amb7AQ0zW5nzrquTIE2lvrc6q58KZhQA61Vc05ZOg==}
+  '@testing-library/svelte@5.2.4':
+    resolution: {integrity: sha512-EFdy73+lULQgMJ1WolAymrxWWrPv9DWyDuDFKKlUip2PA/EXuHptzfYOKWljccFWDKhhGOu3dqNmoc2f/h/Ecg==}
     engines: {node: '>= 10'}
     peerDependencies:
       svelte: ^3 || ^4 || ^5 || ^5.0.0-next.0
@@ -7858,7 +7858,7 @@ snapshots:
     dependencies:
       type-fest: 2.19.0
 
-  '@storybook/experimental-addon-test@8.3.3(@vitest/browser@2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))':
+  '@storybook/experimental-addon-test@8.3.3(@vitest/browser@2.0.5)(storybook@8.3.3)(vitest@2.0.5)':
     dependencies:
       '@storybook/csf': 0.1.11
       '@vitest/browser': 2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
@@ -8173,18 +8173,17 @@ snapshots:
       lz-string: 1.5.0
       pretty-format: 27.5.1
 
-  '@testing-library/jest-dom@6.4.8':
+  '@testing-library/jest-dom@6.6.3':
     dependencies:
       '@adobe/css-tools': 4.4.0
-      '@babel/runtime': 7.22.15
-      aria-query: 5.3.0
+      aria-query: 5.3.2
       chalk: 3.0.0
       css.escape: 1.5.1
       dom-accessibility-api: 0.6.3
       lodash: 4.17.21
       redent: 3.0.0
 
-  '@testing-library/svelte@5.2.1(svelte@5.1.9)(vite@5.4.10(@types/node@22.3.0))(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))':
+  '@testing-library/svelte@5.2.4(svelte@5.1.9)(vite@5.4.10(@types/node@22.3.0))(vitest@2.0.5)':
     dependencies:
       '@testing-library/dom': 10.4.0
       svelte: 5.1.9
@@ -9805,7 +9804,7 @@ snapshots:
       debug: 4.3.4
       enhanced-resolve: 5.17.0
       eslint: 9.13.0
-      eslint-module-utils: 2.8.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.13.0))(eslint@9.13.0)
+      eslint-module-utils: 2.8.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@9.13.0)
       eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-typescript@3.6.1)(eslint@9.13.0)
       fast-glob: 3.3.1
       get-tsconfig: 4.7.5
@@ -9817,7 +9816,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-module-utils@2.8.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.13.0))(eslint@9.13.0):
+  eslint-module-utils@2.8.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@9.13.0):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -9854,7 +9853,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.13.0
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.8.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.13.0))(eslint@9.13.0)
+      eslint-module-utils: 2.8.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@9.13.0)
       hasown: 2.0.2
       is-core-module: 2.13.1
       is-glob: 4.0.3
@@ -12786,7 +12785,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.3.0
-      '@vitest/browser': 2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
+      '@vitest/browser': 2.0.5(playwright@1.48.2)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
       '@vitest/ui': 2.0.5(vitest@2.0.5)
       happy-dom: 14.12.3
       jsdom: 24.1.1

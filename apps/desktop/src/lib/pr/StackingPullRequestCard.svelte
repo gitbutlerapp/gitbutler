@@ -247,10 +247,9 @@
 						!pr?.mergeable ||
 						['dirty', 'unknown', 'blocked', 'behind'].includes(pr?.mergeableState)}
 					loading={isMerging}
-					on:click={async (e) => {
+					onclick={async (method) => {
 						if (!pr) return;
 						isMerging = true;
-						const method = e.detail.method;
 						try {
 							await $prService?.merge(method, pr.number);
 							await baseBranchService.fetchFromRemotes();

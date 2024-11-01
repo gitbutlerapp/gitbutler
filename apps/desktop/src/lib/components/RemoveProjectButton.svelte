@@ -17,21 +17,21 @@
 	}: Props = $props();
 
 	export function show() {
-		modal.show();
+		modal?.show();
 	}
 	export function close() {
-		modal.close();
+		modal?.close();
 	}
 
 	function handleClick() {
 		if (noModal) {
 			onDeleteClicked();
 		} else {
-			modal.show();
+			modal?.show();
 		}
 	}
 
-	let modal: Modal = $state();
+	let modal = $state<ReturnType<typeof Modal>>();
 </script>
 
 <Button style="error" kind="solid" icon="bin-small" reversedDirection onclick={handleClick}>

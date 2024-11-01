@@ -10,7 +10,10 @@
 
 	const projects = projectsService.projects;
 
-	let debug = $derived($page.url.searchParams.get('debug'));
+	let debug = $state(false);
+	$effect(() => {
+		debug = !!$page.url.searchParams.get('debug');
+	});
 
 	const persistedId = projectsService.getLastOpenedProject();
 	const redirect = derived(projects, (projects) => {

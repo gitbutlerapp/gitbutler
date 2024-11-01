@@ -1,4 +1,6 @@
 <script lang="ts">
+	// @ts-nocheck
+	// TODO: Figure out MarkdownContent types
 	import MarkdownContent from './MarkdownContent.svelte';
 	import { renderers } from '$lib/utils/markdownRenderers';
 	import type { Tokens, Token } from 'marked';

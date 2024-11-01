@@ -1,6 +1,5 @@
 <script lang="ts">
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { createEventDispatcher } from 'svelte';
 	import { type Snippet } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
@@ -10,7 +9,7 @@
 		disabled?: boolean;
 		loading?: boolean;
 		highlighted?: boolean;
-		value?: string | undefined;
+		onclick?: (e: MouseEvent) => void;
 		children?: Snippet;
 	}
 
@@ -20,21 +19,12 @@
 		disabled = false,
 		loading = false,
 		highlighted = false,
-		value = undefined,
+		onclick,
 		children
 	}: Props = $props();
-
-	const dispatch = createEventDispatcher<{ click: string | undefined }>();
 </script>
 
-<button
-	type="button"
-	{disabled}
-	class="button"
-	class:selected
-	class:highlighted
-	onclick={() => dispatch('click', value)}
->
+<button type="button" {disabled} class="button" class:selected class:highlighted {onclick}>
 	<div class="label text-13">
 		{@render children?.()}
 	</div>

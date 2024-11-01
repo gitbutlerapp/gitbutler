@@ -46,7 +46,7 @@
 			<SelectItem
 				icon="plus"
 				loading={newProjectLoading}
-				on:click={async () => {
+				onclick={async () => {
 					newProjectLoading = true;
 					try {
 						await projectsService.addProject();
@@ -60,7 +60,7 @@
 			<SelectItem
 				icon="clone"
 				loading={cloneProjectLoading}
-				on:click={async () => {
+				onclick={async () => {
 					cloneProjectLoading = true;
 					try {
 						goto('/onboarding/clone');

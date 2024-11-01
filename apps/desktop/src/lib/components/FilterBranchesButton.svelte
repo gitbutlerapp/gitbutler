@@ -19,11 +19,11 @@
 	let { filtersActive, showPrCheckbox, includePrs, includeRemote, hideBots, hideInactive }: Props =
 		$props();
 
-	let target: HTMLElement = $state();
-	let contextMenu: ReturnType<typeof ContextMenu> = $state();
+	let target = $state<HTMLElement>();
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
 
 	export function onFilterClick() {
-		contextMenu.toggle();
+		contextMenu?.toggle();
 	}
 </script>
 

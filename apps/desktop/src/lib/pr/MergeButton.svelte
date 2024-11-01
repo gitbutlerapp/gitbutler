@@ -4,7 +4,6 @@
 	import { MergeMethod } from '$lib/forge/interface/types';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { persisted, type Persisted } from '@gitbutler/shared/persisted';
-	import { createEventDispatcher } from 'svelte';
 
 	interface Props {
 		projectId: string;
@@ -12,6 +11,7 @@
 		disabled?: boolean;
 		wide?: boolean;
 		tooltip?: string;
+		onclick?: (mergeMethod: MergeMethod) => void;
 	}
 
 	let {
@@ -19,7 +19,8 @@
 		loading = false,
 		disabled = false,
 		wide = false,
-		tooltip = ''
+		tooltip = '',
+		onclick
 	}: Props = $props();
 
 	function persistedAction(projectId: string): Persisted<MergeMethod> {
@@ -27,7 +28,6 @@
 		return persisted<MergeMethod>(MergeMethod.Merge, key + projectId);
 	}
 
-	const dispatch = createEventDispatcher<{ click: { method: MergeMethod } }>();
 	const action = persistedAction(projectId);
 
 	let dropDown: ReturnType<typeof DropDownButton> | undefined = $state();
@@ -37,6 +37,8 @@
 		[MergeMethod.Rebase]: 'Rebase and merge',
 		[MergeMethod.Squash]: 'Squash and merge'
 	};
+
+	let selectedMethod = $state<MergeMethod>();
 </script>
 
 <DropDownButton
@@ -48,7 +50,7 @@
 	{tooltip}
 	{disabled}
 	onclick={() => {
-		dispatch('click', { method: $action });
+		if (selectedMethod) onclick?.(selectedMethod);
 	}}
 >
 	{labels[$action]}
@@ -58,7 +60,7 @@
 				<ContextMenuItem
 					label={labels[method]}
 					onclick={() => {
-						$action = method;
+						selectedMethod = method;
 						dropDown?.close();
 					}}
 				/>

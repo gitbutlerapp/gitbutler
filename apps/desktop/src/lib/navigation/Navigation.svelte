@@ -27,7 +27,7 @@
 		'defaulTrayWidth_ ' + projectId
 	);
 
-	let viewport: HTMLDivElement = $state();
+	let viewport = $state<HTMLDivElement>();
 	let isResizerHovered = $state(false);
 	let isResizerDragging = $state(false);
 
@@ -88,6 +88,7 @@
 		<button
 			type="button"
 			class="folding-button"
+			aria-label="Toggle Nav"
 			class:resizer-hovered={isResizerHovered || isResizerDragging}
 			onmousedown={toggleNavCollapse}
 		>

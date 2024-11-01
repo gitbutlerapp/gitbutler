@@ -30,7 +30,7 @@
 	roundedBottom={roundedBottom && !expanded}
 	bottomBorder={!expanded}
 	clickable
-	on:click={maybeToggle}
+	onclick={maybeToggle}
 >
 	{#snippet title()}
 		{@render header?.({ expanded })}

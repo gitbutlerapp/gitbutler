@@ -92,7 +92,7 @@
 		ghUserServiceStore.set(githubUserService);
 	});
 
-	let shareIssueModal: ShareIssueModal;
+	let shareIssueModal = $state<ReturnType<typeof ShareIssueModal>>();
 	onMount(() => {
 		return unsubscribe(
 			events.on('goto', async (path: string) => await goto(path)),
