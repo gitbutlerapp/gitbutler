@@ -69,7 +69,6 @@ mod move_commit_file;
 mod move_commit_to_vbranch;
 mod oplog;
 mod references;
-mod reorder_commit;
 mod reset_virtual_branch;
 mod save_and_unapply_virtual_branch;
 mod selected_for_changes;

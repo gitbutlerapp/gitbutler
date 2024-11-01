@@ -2,7 +2,6 @@ use super::r#virtual as vbranch;
 use crate::branch_upstream_integration;
 use crate::move_commits;
 use crate::reorder::{self, StackOrder};
-use crate::reorder_commits;
 use crate::upstream_integration::{
     self, BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
     UpstreamIntegrationContext,
@@ -366,29 +365,6 @@ pub fn reorder_stack(project: &Project, stack_id: StackId, stack_order: StackOrd
         guard.write_permission(),
     );
     reorder::reorder_stack(&ctx, stack_id, stack_order, guard.write_permission())
-}
-
-pub fn reorder_commit(
-    project: &Project,
-    branch_id: StackId,
-    commit_oid: git2::Oid,
-    offset: i32,
-) -> Result<()> {
-    let ctx = open_with_verify(project)?;
-    assure_open_workspace_mode(&ctx).context("Reordering a commit requires open workspace mode")?;
-    let mut guard = project.exclusive_worktree_access();
-    let _ = ctx.project().create_snapshot(
-        SnapshotDetails::new(OperationKind::ReorderCommit),
-        guard.write_permission(),
-    );
-    reorder_commits::reorder_commit(
-        &ctx,
-        branch_id,
-        commit_oid,
-        offset,
-        guard.write_permission(),
-    )
-    .map_err(Into::into)
 }
 
 pub fn reset_virtual_branch(

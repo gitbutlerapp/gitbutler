@@ -414,22 +414,6 @@ pub mod commands {
         emit_vbranches(&windows, project_id);
         Ok(())
     }
-    #[tauri::command(async)]
-    #[instrument(skip(projects, windows), err(Debug))]
-    pub fn reorder_commit(
-        windows: State<'_, WindowState>,
-        projects: State<'_, projects::Controller>,
-        project_id: ProjectId,
-        branch_id: StackId,
-        commit_oid: String,
-        offset: i32,
-    ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
-        let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::reorder_commit(&project, branch_id, commit_oid, offset)?;
-        emit_vbranches(&windows, project_id);
-        Ok(())
-    }
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
