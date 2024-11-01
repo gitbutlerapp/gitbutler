@@ -1,11 +1,9 @@
 import 'reflect-metadata';
-import { stackingFeature } from '$lib/config/uiFeatureFlags';
 import { emptyConflictEntryPresence, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '@gitbutler/ui/utils/string';
 import { isDefined, notNull } from '@gitbutler/ui/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
-import { get } from 'svelte/store';
 import type { PullRequest } from '$lib/forge/interface/types';
 
 export type ChangeType =
@@ -244,16 +242,11 @@ export class DetailedCommit {
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
-		if (get(stackingFeature)) {
-			if (this.remoteCommitId) {
-				if (this.remoteCommitId !== this.id) {
-					return 'localAndShadow';
-				}
-				return 'localAndRemote';
+		if (this.remoteCommitId) {
+			if (this.remoteCommitId !== this.id) {
+				return 'localAndShadow';
 			}
-		} else {
-			if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id))
-				return 'localAndRemote';
+			return 'localAndRemote';
 		}
 		return 'local';
 	}
