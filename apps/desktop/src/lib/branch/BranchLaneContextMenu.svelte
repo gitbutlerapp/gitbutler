@@ -6,7 +6,6 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
@@ -132,31 +131,7 @@
 				contextMenuEl?.close();
 			}}
 		/>
-
-		{#if !$stackingFeature}
-			<ContextMenuItem
-				label="Generate branch name"
-				onclick={() => {
-					onGenerateBranchName?.();
-					contextMenuEl?.close();
-				}}
-				disabled={!($aiGenEnabled && aiConfigurationValid) || branch.files?.length === 0}
-			/>
-		{/if}
 	</ContextMenuSection>
-
-	{#if !$stackingFeature}
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="Set remote branch name"
-				onclick={() => {
-					newRemoteName = branch.upstreamName || normalizedBranchName || '';
-					renameRemoteModal.show(branch);
-					contextMenuEl?.close();
-				}}
-			/>
-		</ContextMenuSection>
-	{/if}
 
 	<ContextMenuSection>
 		<ContextMenuItem label="Allow rebasing" onclick={toggleAllowRebasing}>
@@ -168,35 +143,9 @@
 		</ContextMenuItem>
 	</ContextMenuSection>
 
-	{#if !$stackingFeature && prUrl}
-		<ContextMenuSection>
-			<ContextMenuItem
-				label="PR details"
-				onclick={() => {
-					openPrDetailsModal?.();
-					contextMenuEl?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Copy PR link"
-				onclick={() => {
-					copyToClipboard(prUrl);
-					contextMenuEl?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Refetch PR status"
-				onclick={() => {
-					reloadPR?.();
-					contextMenuEl?.close();
-				}}
-			/>
-		</ContextMenuSection>
-	{/if}
-
 	<ContextMenuSection>
 		<ContextMenuItem
-			label={`Create ${$stackingFeature ? 'stack' : 'branch'} to the left`}
+			label={`Create stack to the left`}
 			onclick={() => {
 				branchController.createBranch({ order: branch.order });
 				contextMenuEl?.close();
@@ -204,7 +153,7 @@
 		/>
 
 		<ContextMenuItem
-			label={`Create ${$stackingFeature ? 'stack' : 'branch'} to the right`}
+			label={`Create stack to the right`}
 			onclick={() => {
 				branchController.createBranch({ order: branch.order + 1 });
 				contextMenuEl?.close();
