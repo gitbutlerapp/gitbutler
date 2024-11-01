@@ -182,7 +182,6 @@
 			outline: none;
 			border: none;
 			background: transparent;
-			color: var(--clr-text-1);
 		}
 	}
 
