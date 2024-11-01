@@ -4,7 +4,6 @@
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
 	import BranchLane from '$lib/branch/BranchLane.svelte';
 	import { showHistoryView } from '$lib/config/config';
-	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import { cloneElement } from '$lib/dragging/draggable';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { throttle } from '$lib/utils/misc';
@@ -65,9 +64,6 @@
 	}, 200);
 
 	const handleKeyDown = createKeybind({
-		's t a c k': () => {
-			$stackingFeature = !$stackingFeature;
-		},
 		'$mod+Shift+H': () => {
 			$showHistoryView = !$showHistoryView;
 		},

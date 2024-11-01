@@ -1,11 +1,9 @@
 import 'reflect-metadata';
-import { stackingFeature } from '$lib/config/uiFeatureFlags';
 import { emptyConflictEntryPresence, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '@gitbutler/ui/utils/string';
 import { isDefined, notNull } from '@gitbutler/ui/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
-import { get } from 'svelte/store';
 import type { PullRequest } from '$lib/forge/interface/types';
 
 export type ChangeType =
@@ -244,16 +242,11 @@ export class DetailedCommit {
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
-		if (get(stackingFeature)) {
-			if (this.remoteCommitId) {
-				if (this.remoteCommitId !== this.id) {
-					return 'localAndShadow';
-				}
-				return 'localAndRemote';
+		if (this.remoteCommitId) {
+			if (this.remoteCommitId !== this.id) {
+				return 'localAndShadow';
 			}
-		} else {
-			if (this.isRemote && (!this.relatedTo || this.id === this.relatedTo.id))
-				return 'localAndRemote';
+			return 'localAndRemote';
 		}
 		return 'local';
 	}
@@ -478,12 +471,34 @@ export class PatchSeries {
 }
 
 /**
- * Represents a GitHub Pull Request identifier.
+ * @desc Represents a GitHub Pull Request identifier.
+ * @property prNumber - The GitHub Pull Request identifier.
  */
 export interface GitHubIdentifier {
 	prNumber: number;
 }
+
 /**
- * Represents identifiers for the series at possible forges, eg. GitHub PR numbers.
+ * @desc Represents identifiers for the series at possible forges, eg. GitHub PR numbers.
+ * @property type - The forge identifier string.
+ * @property subject - The selected for forges subject information.
  */
 export type ForgeIdentifier = { type: 'GitHub'; subject: GitHubIdentifier };
+
+/**
+ * @desc Represents the order of series (branches) and changes (commits) in a stack.
+ * @property series - The series are ordered from newest to oldest (most recent stacks go first).
+ */
+export class StackOrder {
+	series!: SeriesOrder[];
+}
+
+/**
+ * @desc Represents the order of changes (commits) in a series (branch).
+ * @property name - Unique name of the series (branch). Must already exist in the stack.
+ * @property commitIds - This is the desired commit order for the series. Because the commits will be rabased, naturally, the the commit ids will be different afte updating. The changes are ordered from newest to oldest (most recent changes go first)
+ */
+export class SeriesOrder {
+	name!: string;
+	commitIds!: string[];
+}

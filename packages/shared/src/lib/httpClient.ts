@@ -35,10 +35,10 @@ export class HttpClient {
 		return new URL(path, this.apiUrl);
 	}
 
-	private async request<T>(
+	private async request(
 		path: string,
 		opts: RequestOptions & { method: RequestMethod }
-	): Promise<T> {
+	): Promise<Response> {
 		const butlerHeaders = new Headers(DEFAULT_HEADERS);
 
 		if (opts.headers) {
@@ -60,27 +60,39 @@ export class HttpClient {
 			body: formatBody(opts.body)
 		});
 
+		return response;
+	}
+
+	private async requestJson<T>(
+		path: string,
+		opts: RequestOptions & { method: RequestMethod }
+	): Promise<T> {
+		const response = await this.request(path, opts);
 		return await parseResponseJSON(response);
 	}
 
 	async get<T>(path: string, opts?: Omit<RequestOptions, 'body'>) {
-		return await this.request<T>(path, { ...opts, method: 'GET' });
+		return await this.requestJson<T>(path, { ...opts, method: 'GET' });
 	}
 
 	async post<T>(path: string, opts?: RequestOptions) {
-		return await this.request<T>(path, { ...opts, method: 'POST' });
+		return await this.requestJson<T>(path, { ...opts, method: 'POST' });
 	}
 
 	async put<T>(path: string, opts?: RequestOptions) {
-		return await this.request<T>(path, { ...opts, method: 'PUT' });
+		return await this.requestJson<T>(path, { ...opts, method: 'PUT' });
 	}
 
 	async patch<T>(path: string, opts?: RequestOptions) {
-		return await this.request<T>(path, { ...opts, method: 'PATCH' });
+		return await this.requestJson<T>(path, { ...opts, method: 'PATCH' });
 	}
 
 	async delete<T>(path: string, opts?: RequestOptions) {
-		return await this.request<T>(path, { ...opts, method: 'DELETE' });
+		return await this.requestJson<T>(path, { ...opts, method: 'DELETE' });
+	}
+
+	async postRaw(path: string, opts?: RequestOptions) {
+		return await this.request(path, { ...opts, method: 'POST' });
 	}
 }
 

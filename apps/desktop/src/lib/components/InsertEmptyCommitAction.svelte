@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	interface Props {
@@ -11,12 +10,7 @@
 	const { isLast = false, isFirst = false, onclick }: Props = $props();
 </script>
 
-<div
-	class="line-container"
-	class:is-last={isLast}
-	class:is-first={isFirst}
-	class:not-stacking={!$stackingFeature}
->
+<div class="line-container" class:is-last={isLast} class:is-first={isFirst}>
 	<div class="barnch-plus-btn">
 		<Button
 			style="ghost"
@@ -90,14 +84,5 @@
 		transition:
 			opacity var(--transition-fast),
 			transform var(--transition-medium);
-	}
-
-	/* MODIFIERS */
-	.line-container.not-stacking.is-first {
-		transform: translateY(16px);
-	}
-
-	.line-container.not-stacking.is-last {
-		transform: translateY(-4px);
 	}
 </style>

@@ -6,7 +6,6 @@
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import { onMount } from 'svelte';
 
 	interface Props {
 		templates: string[];
@@ -40,14 +39,16 @@
 		}
 	}
 
-	onMount(() => {
-		if ($lastTemplate && templates.includes($lastTemplate)) {
-			loadAndEmit($lastTemplate);
-		} else if (templates.length === 1) {
-			const path = templates.at(0);
-			if (path) {
-				loadAndEmit(path);
-				lastTemplate.set(path);
+	$effect(() => {
+		if (templates) {
+			if ($lastTemplate && templates.includes($lastTemplate)) {
+				loadAndEmit($lastTemplate);
+			} else if (templates.length === 1) {
+				const path = templates.at(0);
+				if (path) {
+					loadAndEmit(path);
+					lastTemplate.set(path);
+				}
 			}
 		}
 	});

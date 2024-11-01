@@ -95,6 +95,7 @@ pub struct StackOrder {
 
 /// Represents the order of changes (commits) in a series (branch).
 #[derive(Debug, PartialEq, Eq, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SeriesOrder {
     /// Unique name of the series (branch). Must already exist in the stack.
     pub name: String,

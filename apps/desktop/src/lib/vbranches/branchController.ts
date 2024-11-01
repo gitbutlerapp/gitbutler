@@ -4,7 +4,7 @@ import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { BranchPushResult, ForgeIdentifier, Hunk, LocalFile } from './types';
+import type { BranchPushResult, ForgeIdentifier, Hunk, LocalFile, StackOrder } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
 export type CommitIdOrChangeId = { CommitId: string } | { ChangeId: string };
@@ -197,6 +197,18 @@ export class BranchController {
 			});
 		} catch (err) {
 			showError('Failed to update series description', err);
+		}
+	}
+
+	async reorderStackCommit(branchId: string, stackOrder: StackOrder) {
+		try {
+			await invoke<void>('reorder_stack', {
+				projectId: this.projectId,
+				branchId,
+				stackOrder
+			});
+		} catch (err) {
+			showError('Failed to reorder stack commit', err);
 		}
 	}
 

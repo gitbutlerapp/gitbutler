@@ -4,9 +4,9 @@
 	import StackingCommitDragItem from './StackingCommitDragItem.svelte';
 	import StackingUpstreamCommitsAccordion from './StackingUpstreamCommitsAccordion.svelte';
 	import {
-		ReorderDropzoneManager,
-		type ReorderDropzone
-	} from '$lib/dragging/reorderDropzoneManager';
+		StackingReorderDropzoneManager,
+		type StackingReorderDropzone
+	} from '$lib/dragging/stackingReorderDropzoneManager';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
 	import { getForge } from '$lib/forge/interface/forge';
@@ -26,7 +26,7 @@
 		isUnapplied: boolean;
 		pushButton?: Snippet<[{ disabled: boolean }]>;
 		hasConflicts: boolean;
-		reorderDropzoneManager: ReorderDropzoneManager;
+		stackingReorderDropzoneManager: StackingReorderDropzoneManager;
 		isBottom?: boolean;
 	}
 	const {
@@ -36,7 +36,7 @@
 		isUnapplied,
 		pushButton,
 		hasConflicts,
-		reorderDropzoneManager,
+		stackingReorderDropzoneManager,
 		isBottom = false
 	}: Props = $props();
 
@@ -74,7 +74,7 @@
 	const isBranchIntegrated = $derived(branchType === 'integrated');
 </script>
 
-{#snippet reorderDropzone(dropzone: ReorderDropzone)}
+{#snippet stackingReorderDropzone(dropzone: StackingReorderDropzone)}
 	<Dropzone accepts={dropzone.accepts.bind(dropzone)} ondrop={dropzone.onDrop.bind(dropzone)}>
 		{#snippet overlay({ hovered, activated })}
 			<LineOverlay {hovered} {activated} />
@@ -128,9 +128,7 @@
 		<!-- REMAINING LOCAL, LOCALANDREMOTE, AND INTEGRATED COMMITS -->
 		{#if patches.length > 0}
 			<div class="commits-group">
-				<!-- <InsertEmptyCommitAction isFirst onclick={() => insertBlankCommit($branch.head, 'above')} /> -->
-
-				{@render reorderDropzone(reorderDropzoneManager.topDropzone)}
+				{@render stackingReorderDropzone(stackingReorderDropzoneManager.topDropzone(seriesName))}
 
 				{#each patches as commit, idx (commit.id)}
 					<StackingCommitDragItem {commit}>
@@ -138,6 +136,7 @@
 							type={commit.status}
 							branch={$branch}
 							{commit}
+							{seriesName}
 							{isUnapplied}
 							last={idx === patches.length - 1}
 							isHeadCommit={commit.id === headCommit?.id}
@@ -152,12 +151,9 @@
 						</StackingCommitCard>
 					</StackingCommitDragItem>
 
-					{@render reorderDropzone(reorderDropzoneManager.dropzoneBelowCommit(commit.id))}
-					<!-- 
-					<InsertEmptyCommitAction
-						isLast={idx + 1 === patches.length}
-						onclick={() => insertBlankCommit(commit.id, 'below')}
-					/> -->
+					{@render stackingReorderDropzone(
+						stackingReorderDropzoneManager.dropzoneBelowCommit(seriesName, commit.id)
+					)}
 				{/each}
 			</div>
 		{/if}

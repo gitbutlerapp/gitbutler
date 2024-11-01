@@ -1,8 +1,6 @@
 <script lang="ts">
-	import BranchCard from './BranchCard.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { projectLaneCollapsed } from '$lib/config/config';
-	import { stackingFeature } from '$lib/config/uiFeatureFlags';
 	import FileCard from '$lib/file/FileCard.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
@@ -86,11 +84,7 @@
 </script>
 
 <div class="wrapper" data-tauri-drag-region>
-	{#if $stackingFeature}
-		<Stack {commitBoxOpen} {isLaneCollapsed} />
-	{:else}
-		<BranchCard {commitBoxOpen} {isLaneCollapsed} />
-	{/if}
+	<Stack {commitBoxOpen} {isLaneCollapsed} />
 
 	{#if selected}
 		<div

@@ -3,7 +3,7 @@
 	import StackSeriesDividerLine from './StackSeriesDividerLine.svelte';
 	import StackingSeriesHeader from '$lib/branch/StackingSeriesHeader.svelte';
 	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
-	import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
+	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { getContext } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import type { VirtualBranch } from '$lib/vbranches/types';
@@ -20,9 +20,9 @@
 
 	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
 
-	const reorderDropzoneManagerFactory = getContext(ReorderDropzoneManagerFactory);
-	const reorderDropzoneManager = $derived(
-		reorderDropzoneManagerFactory.build(branch, [...branch.localCommits, ...branch.remoteCommits])
+	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
+	const stackingReorderDropzoneManager = $derived(
+		stackingReorderDropzoneManagerFactory.build(branch)
 	);
 </script>
 
@@ -54,7 +54,7 @@
 				seriesName={currentSeries.name}
 				isUnapplied={false}
 				isBottom={idx === branch.series.length - 1}
-				{reorderDropzoneManager}
+				{stackingReorderDropzoneManager}
 				{hasConflicts}
 			/>
 		{/if}
