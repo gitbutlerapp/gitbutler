@@ -101,6 +101,7 @@
 		max-width: 240px;
 		padding: 4px 8px;
 		z-index: var(--z-blocker);
+		word-break: break-word;
 		text-align: left;
 		box-shadow: var(--fx-shadow-s);
 	}
