@@ -7,7 +7,6 @@
 	import { Project } from '$lib/backend/projects';
 	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
-	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
@@ -36,11 +35,6 @@
 	const branchStore = getContextStore(VirtualBranch);
 	const project = getContext(Project);
 	const branch = $derived($branchStore);
-
-	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
-	const stackingReorderDropzoneManager = $derived(
-		stackingReorderDropzoneManagerFactory.build(branch)
-	);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
@@ -179,7 +173,7 @@
 						{/if}
 						<Spacer dotted />
 						<div class="lane-branches">
-							<StackSeries {branch} {stackingReorderDropzoneManager} />
+							<StackSeries {branch} />
 						</div>
 					</div>
 				</div>

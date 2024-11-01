@@ -3,22 +3,27 @@
 	import StackSeriesDividerLine from './StackSeriesDividerLine.svelte';
 	import StackingSeriesHeader from '$lib/branch/StackingSeriesHeader.svelte';
 	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
+	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
+	import { getContext } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
-	import type { StackingReorderDropzoneManager } from '$lib/dragging/stackingReorderDropzoneManager';
 	import type { VirtualBranch } from '$lib/vbranches/types';
 
 	interface Props {
 		branch: VirtualBranch;
-		stackingReorderDropzoneManager: StackingReorderDropzoneManager;
 	}
 
-	const { branch, stackingReorderDropzoneManager }: Props = $props();
+	const { branch }: Props = $props();
 
 	const hasConflicts = $derived(
 		branch.series.flatMap((s) => s.patches).some((patch) => patch.conflicted)
 	);
 
 	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
+
+	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
+	const stackingReorderDropzoneManager = $derived(
+		stackingReorderDropzoneManagerFactory.build(branch)
+	);
 </script>
 
 {#each nonArchivedSeries as currentSeries, idx (currentSeries.name)}
