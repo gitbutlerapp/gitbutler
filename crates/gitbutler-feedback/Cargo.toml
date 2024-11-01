@@ -6,7 +6,7 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [dependencies]
-anyhow = "1.0.86"
+anyhow = "1.0.92"
 zip = "0.6.5"
 walkdir = "2.5.0"
 sha2 = "0.10.8"
