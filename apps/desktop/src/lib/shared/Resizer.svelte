@@ -1,18 +1,12 @@
 <script lang="ts">
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { createEventDispatcher } from 'svelte';
 
 	// The element that is being resized
-
 	// Sets direction of resizing for viewport
-
 	// Sets the color of the line
-
 	// Needed when overflow is hidden
-
 	// Custom z-index in case of overlapping with other elements
 
-	//
 	interface Props {
 		viewport?: HTMLElement;
 		direction: 'left' | 'right' | 'up' | 'down';
@@ -26,6 +20,12 @@
 		onclick?: (event: any) => void;
 		ondblclick?: (event: any) => void;
 		onkeydown?: (event: any) => void;
+
+		handleHeight?: (height: number) => void;
+		handleWidth?: (width: number) => void;
+		handleIsResizing?: (isResizing: boolean) => void;
+		handleOverflowValue?: (overflowValue: number) => void;
+		handleIsHovering?: (isHovering: boolean) => void;
 	}
 
 	let {
@@ -40,7 +40,13 @@
 		minHeight = 0,
 		onclick,
 		ondblclick,
-		onkeydown
+		onkeydown,
+
+		handleHeight,
+		handleWidth,
+		handleIsResizing,
+		handleOverflowValue,
+		handleIsHovering
 	}: Props = $props();
 
 	let orientation = $derived(['left', 'right'].includes(direction) ? 'horizontal' : 'vertical');
@@ -48,13 +54,13 @@
 	let initial = 0;
 	let dragging = $state(false);
 
-	const dispatch = createEventDispatcher<{
-		height: number;
-		width: number;
-		resizing: boolean;
-		overflowValue: number;
-		hover: boolean;
-	}>();
+	// const dispatch = createEventDispatcher<{
+	// 	height: number;
+	// 	width: number;
+	// 	resizing: boolean;
+	// 	overflowValue: number;
+	// 	hover: boolean;
+	// }>();
 
 	function onMouseDown(e: MouseEvent) {
 		if (!viewport) return;
@@ -69,12 +75,12 @@
 		if (direction === 'down') initial = e.clientY - viewport.clientHeight;
 		if (direction === 'up') initial = window.innerHeight - e.clientY - viewport.clientHeight;
 
-		dispatch('resizing', true);
+		handleIsResizing?.(true);
 	}
 
 	function onOverflowValue(currentValue: number, minVal: number) {
 		if (currentValue < minVal) {
-			dispatch('overflowValue', minVal - currentValue);
+			handleOverflowValue?.(minVal - currentValue);
 		}
 	}
 
@@ -82,25 +88,25 @@
 		dragging = true;
 		if (direction === 'down') {
 			let height = e.clientY - initial;
-			dispatch('height', Math.max(height, minHeight));
+			handleHeight?.(Math.max(height, minHeight));
 
 			onOverflowValue(height, minHeight);
 		}
 		if (direction === 'up') {
 			let height = document.body.scrollHeight - e.clientY - initial;
-			dispatch('height', Math.max(height, minHeight));
+			handleHeight?.(Math.max(height, minHeight));
 
 			onOverflowValue(height, minHeight);
 		}
 		if (direction === 'right') {
 			let width = e.clientX - initial + 2;
-			dispatch('width', Math.max(width, minWidth));
+			handleWidth?.(Math.max(width, minWidth));
 
 			onOverflowValue(width, minWidth);
 		}
 		if (direction === 'left') {
 			let width = document.body.scrollWidth - e.clientX - initial;
-			dispatch('width', Math.max(width, minWidth));
+			handleWidth?.(Math.max(width, minWidth));
 
 			onOverflowValue(width, minWidth);
 		}
@@ -110,11 +116,11 @@
 		dragging = false;
 		document.removeEventListener('mouseup', onMouseUp);
 		document.removeEventListener('mousemove', onMouseMove);
-		dispatch('resizing', false);
+		handleIsResizing?.(false);
 	}
 
 	function isHovered(isHovered: boolean) {
-		dispatch('hover', isHovered);
+		handleIsHovering?.(isHovered);
 	}
 </script>
 

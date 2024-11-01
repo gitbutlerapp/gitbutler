@@ -62,19 +62,17 @@
 			minWidth={minResizerWidth}
 			defaultLineColor="var(--clr-border-2)"
 			zIndex="var(--z-floating)"
-			on:dblclick={toggleNavCollapse}
-			on:width={(e) => {
-				$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
+			ondblclick={toggleNavCollapse}
+			handleWidth={(width) => {
+				$defaultTrayWidthRem = width / (16 * $userSettings.zoom);
 			}}
-			on:hover={(e) => {
-				isResizerHovered = e.detail;
+			handleIsHovering={(isHovering) => {
+				isResizerHovered = isHovering;
 			}}
-			on:resizing={(e) => {
-				isResizerDragging = e.detail;
+			handleIsResizing={(isResizing) => {
+				isResizerDragging = isResizing;
 			}}
-			on:overflowValue={(e) => {
-				const overflowValue = e.detail;
-
+			handleOverflowValue={(overflowValue) => {
 				if (!$isNavCollapsed && overflowValue > minResizerRatio) {
 					$isNavCollapsed = true;
 				}
@@ -142,14 +140,6 @@
 	.navigation-wrapper {
 		display: flex;
 		position: relative;
-
-		&:hover:not(.hide-fold-button) {
-			& .folding-button {
-				pointer-events: auto;
-				opacity: 1;
-				right: -6px;
-			}
-		}
 	}
 
 	.navigation {

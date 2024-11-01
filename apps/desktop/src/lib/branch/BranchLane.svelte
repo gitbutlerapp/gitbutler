@@ -109,8 +109,8 @@
 				direction="right"
 				minWidth={400}
 				defaultLineColor="var(--clr-border-2)"
-				on:width={(e) => {
-					fileWidth = e.detail / (16 * $userSettings.zoom);
+				handleWidth={(width) => {
+					fileWidth = width / (16 * $userSettings.zoom);
 					lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
 					$defaultFileWidthRem = fileWidth;
 				}}
