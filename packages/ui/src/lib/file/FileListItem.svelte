@@ -98,7 +98,7 @@
 			{fileInfo.filename}
 		</span>
 
-		<Tooltip text={fileInfo.path} delay={1500}>
+		<Tooltip text={filePath} delay={1500}>
 			<span class="text-12 path truncate">
 				{fileInfo.path}
 			</span>
@@ -205,7 +205,7 @@
 	.name {
 		flex-shrink: 1;
 		flex-grow: 0;
-
+		min-width: 40px;
 		pointer-events: none;
 		color: var(--clt-text-1);
 	}
