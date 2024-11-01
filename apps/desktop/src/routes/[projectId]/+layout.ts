@@ -7,7 +7,6 @@ import { BranchListingService } from '$lib/branches/branchListing';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { CommitDragActionsFactory } from '$lib/commits/dragActions.js';
 import { CommitService } from '$lib/commits/service';
-import { ReorderDropzoneManagerFactory } from '$lib/dragging/reorderDropzoneManager';
 import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { HistoryService } from '$lib/history/history';
@@ -85,7 +84,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	const branchDragActionsFactory = new BranchDragActionsFactory(branchController);
 	const commitDragActionsFactory = new CommitDragActionsFactory(branchController, project);
-	const reorderDropzoneManagerFactory = new ReorderDropzoneManagerFactory(branchController);
 	const stackingReorderDropzoneManagerFactory = new StackingReorderDropzoneManagerFactory(
 		branchController
 	);
@@ -127,7 +125,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		// These observables are provided for convenience
 		branchDragActionsFactory,
 		commitDragActionsFactory,
-		reorderDropzoneManagerFactory,
 		stackingReorderDropzoneManagerFactory,
 		branchListingService,
 		uncommitedFileWatcher,
