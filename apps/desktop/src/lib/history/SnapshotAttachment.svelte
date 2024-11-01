@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+	import { type Snippet } from 'svelte';
 	import { onMount } from 'svelte';
+	import { run } from 'svelte/legacy';
 
 	interface Props {
 		foldable?: boolean;
 		foldedAmount?: number | undefined;
 		foldedHeight?: string;
-		children?: import('svelte').Snippet;
+		children?: Snippet;
 	}
 
 	let {

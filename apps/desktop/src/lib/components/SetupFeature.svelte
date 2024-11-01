@@ -1,15 +1,16 @@
 <script lang="ts">
+	import { type Snippet } from 'svelte';
 
 	interface Props {
 		disabled?: boolean;
 		success?: boolean;
 		topBorder?: boolean;
 		labelFor?: string;
-		icon?: import('svelte').Snippet;
-		title?: import('svelte').Snippet;
-		body?: import('svelte').Snippet;
-		toggle?: import('svelte').Snippet;
-		actions?: import('svelte').Snippet;
+		icon?: Snippet;
+		title?: Snippet;
+		body?: Snippet;
+		toggle?: Snippet;
+		actions?: Snippet;
 	}
 
 	let {

@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { deleteAllData } from '$lib/backend/data';
 	import Login from '$lib/components/Login.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
@@ -14,6 +12,7 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import { run } from 'svelte/legacy';
 	import { goto } from '$app/navigation';
 
 	const userService = getContext(UserService);
@@ -26,8 +25,8 @@
 	let isDeleting = $state(false);
 	let loaded = $state(false);
 
-	let userPicture;
-	run(() => {
+	let userPicture = $state<string>();
+	$effect(() => {
 		userPicture = $user?.picture;
 	});
 

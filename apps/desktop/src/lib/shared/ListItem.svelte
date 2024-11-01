@@ -1,21 +1,17 @@
 <script lang="ts">
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import { type Snippet } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	interface Props {
 		icon?: keyof typeof iconsJson | undefined;
 		selected?: boolean;
 		loading?: boolean;
-		children?: import('svelte').Snippet;
+		children?: Snippet;
 	}
 
-	let {
-		icon = undefined,
-		selected = false,
-		loading = false,
-		children
-	}: Props = $props();
+	let { icon = undefined, selected = false, loading = false, children }: Props = $props();
 
 	const dispatch = createEventDispatcher<{ click: void }>();
 </script>

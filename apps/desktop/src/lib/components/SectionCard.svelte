@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-	import { createEventDispatcher } from 'svelte';
+	import { createEventDispatcher, type Snippet } from 'svelte';
 
 	interface Props {
 		orientation?: 'row' | 'column';
@@ -19,11 +19,11 @@
 		disabled?: boolean;
 		clickable?: boolean;
 		onclick?: (event: any) => void;
-		iconSide?: import('svelte').Snippet;
-		title?: import('svelte').Snippet;
-		caption?: import('svelte').Snippet;
-		children?: import('svelte').Snippet;
-		actions?: import('svelte').Snippet;
+		iconSide?: Snippet;
+		title?: Snippet;
+		caption?: Snippet;
+		children?: Snippet;
+		actions?: Snippet;
 	}
 
 	let {

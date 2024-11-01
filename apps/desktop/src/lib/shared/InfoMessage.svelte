@@ -7,6 +7,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
+	import { type Snippet } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	type IconColor = ComponentColor | undefined;
@@ -20,8 +21,8 @@
 		secondary?: string | undefined;
 		shadow?: boolean;
 		error?: string | undefined;
-		title?: import('svelte').Snippet;
-		content?: import('svelte').Snippet;
+		title?: Snippet;
+		content?: Snippet;
 	}
 
 	let {

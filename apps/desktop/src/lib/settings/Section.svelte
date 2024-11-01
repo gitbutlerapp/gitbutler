@@ -1,24 +1,18 @@
 <script lang="ts">
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+	import { type Snippet } from 'svelte';
 
 	interface Props {
 		spacer?: boolean;
 		gap?: number;
-		top?: import('svelte').Snippet;
-		title?: import('svelte').Snippet;
-		description?: import('svelte').Snippet;
-		children?: import('svelte').Snippet;
+		top?: Snippet;
+		title?: Snippet;
+		description?: Snippet;
+		children?: Snippet;
 	}
 
-	let {
-		spacer = false,
-		gap = 16,
-		top,
-		title,
-		description,
-		children
-	}: Props = $props();
+	let { spacer = false, gap = 16, top, title, description, children }: Props = $props();
 </script>
 
 <div class="settings-section" style="gap: {pxToRem(gap)}">
