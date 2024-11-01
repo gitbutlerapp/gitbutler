@@ -214,7 +214,7 @@ where
                 // get the full image path of the peer id; this is pretty expensive at the moment.
                 // TODO(qix-): see if dropping sysinfo for a more bespoke implementation is worth it.
                 let mut system = sysinfo::System::new();
-                system.refresh_processes(sysinfo::ProcessesToUpdate::All);
+                system.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
 
                 // We can ignore clippy here since the type is different depending on the platform.
                 #[allow(clippy::useless_conversion)]
