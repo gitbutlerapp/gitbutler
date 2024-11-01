@@ -117,45 +117,43 @@
 			{label}
 		</label>
 	{/if}
-	<div class="textarea-wrapper">
-		<pre
-			class="textarea-measure-el"
-			aria-hidden="true"
-			bind:this={measureEl}
-			bind:offsetHeight={measureElHeight}
-			style:line-height={lineHeight}
-			style:min-height={pxToRem(minHeight)}
-			style:max-height={pxToRem(maxHeight)}>{value + '\n'}</pre>
-		<textarea
-			bind:this={textBoxEl}
-			name={id}
-			{id}
-			class="textarea scrollbar {className} text-{fontWeight}"
-			class:disabled
-			class:text-input={!unstyled}
-			class:textarea-unstyled={unstyled}
-			class:hide-scrollbar={measureElHeight < maxHeight}
-			style:height={pxToRem(measureElHeight)}
-			style:font-size={pxToRem(fontSize)}
-			style:border-top-width={borderTop && !borderless ? '1px' : '0'}
-			style:border-right-width={borderRight && !borderless ? '1px' : '0'}
-			style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
-			style:border-left-width={borderLeft && !borderless ? '1px' : '0'}
-			style:border-top-right-radius={!borderTop || !borderRight ? '0' : undefined}
-			style:border-top-left-radius={!borderTop || !borderLeft ? '0' : undefined}
-			style:border-bottom-right-radius={!borderBottom || !borderRight ? '0' : undefined}
-			style:border-bottom-left-radius={!borderBottom || !borderLeft ? '0' : undefined}
-			{placeholder}
-			bind:value
-			{disabled}
-			{oninput}
-			{onchange}
-			{onblur}
-			{onkeydown}
-			{onfocus}
-			rows={minRows}
-		></textarea>
-	</div>
+	<pre
+		class="textarea-measure-el"
+		aria-hidden="true"
+		bind:this={measureEl}
+		bind:offsetHeight={measureElHeight}
+		style:line-height={lineHeight}
+		style:min-height={pxToRem(minHeight)}
+		style:max-height={pxToRem(maxHeight)}>{value + '\n'}</pre>
+	<textarea
+		bind:this={textBoxEl}
+		name={id}
+		{id}
+		class="textarea scrollbar {className} text-{fontWeight}"
+		class:disabled
+		class:text-input={!unstyled}
+		class:textarea-unstyled={unstyled}
+		class:hide-scrollbar={measureElHeight < maxHeight}
+		style:height={pxToRem(measureElHeight)}
+		style:font-size={pxToRem(fontSize)}
+		style:border-top-width={borderTop && !borderless ? '1px' : '0'}
+		style:border-right-width={borderRight && !borderless ? '1px' : '0'}
+		style:border-bottom-width={borderBottom && !borderless ? '1px' : '0'}
+		style:border-left-width={borderLeft && !borderless ? '1px' : '0'}
+		style:border-top-right-radius={!borderTop || !borderRight ? '0' : undefined}
+		style:border-top-left-radius={!borderTop || !borderLeft ? '0' : undefined}
+		style:border-bottom-right-radius={!borderBottom || !borderRight ? '0' : undefined}
+		style:border-bottom-left-radius={!borderBottom || !borderLeft ? '0' : undefined}
+		{placeholder}
+		bind:value
+		{disabled}
+		{oninput}
+		{onchange}
+		{onblur}
+		{onkeydown}
+		{onfocus}
+		rows={minRows}
+	></textarea>
 </div>
 
 <style lang="postcss">
@@ -169,12 +167,6 @@
 		&::-webkit-scrollbar {
 			display: none;
 		}
-	}
-
-	.textarea-wrapper {
-		position: relative;
-		display: flex;
-		flex-direction: column;
 	}
 
 	@layer components {
