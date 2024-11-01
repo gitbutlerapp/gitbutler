@@ -26,6 +26,9 @@ catalogs:
       specifier: 4.0.5
       version: 4.0.5
 
+overrides:
+  '@vitest/browser>playwright': 1.47.0
+
 importers:
 
   .:
@@ -400,7 +403,7 @@ importers:
         version: 6.0.3
       '@vitest/browser':
         specifier: ^2.0.5
-        version: 2.0.5(playwright@1.48.2)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
+        version: 2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.19(postcss@8.4.39)
@@ -2443,7 +2446,7 @@ packages:
   '@vitest/browser@2.0.5':
     resolution: {integrity: sha512-VbOYtu/6R3d7ASZREcrJmRY/sQuRFO9wMVsEDqfYbWiJRh2fDNi8CL1Csn7Ux31pOcPmmM5QvzFCMpiojvVh8g==}
     peerDependencies:
-      playwright: '*'
+      playwright: 1.47.0
       safaridriver: '*'
       vitest: 2.0.5
       webdriverio: '*'
@@ -4994,18 +4997,8 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  playwright-core@1.48.2:
-    resolution: {integrity: sha512-sjjw+qrLFlriJo64du+EK0kJgZzoQPsabGF4lBvsid+3CNIZIYLgnMj9V6JY5VhM2Peh20DJWIVpVljLLnlawA==}
-    engines: {node: '>=18'}
-    hasBin: true
-
   playwright@1.47.0:
     resolution: {integrity: sha512-jOWiRq2pdNAX/mwLiwFYnPHpEZ4rM+fRSQpRHwEwZlP2PUANvL3+aJOF/bvISMhFD30rqMxUB4RJx9aQbfh4Ww==}
-    engines: {node: '>=18'}
-    hasBin: true
-
-  playwright@1.48.2:
-    resolution: {integrity: sha512-NjYvYgp4BPmiwfe31j4gHLa3J7bD2WiBz8Lk2RoSsmX38SVIARZ18VYjxLjAcDsAhA+F4iSEXTSGgjua0rrlgQ==}
     engines: {node: '>=18'}
     hasBin: true
 
@@ -8618,25 +8611,6 @@ snapshots:
       - typescript
       - utf-8-validate
 
-  '@vitest/browser@2.0.5(playwright@1.48.2)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)':
-    dependencies:
-      '@testing-library/dom': 10.4.0
-      '@testing-library/user-event': 14.5.2(@testing-library/dom@10.4.0)
-      '@vitest/utils': 2.0.5
-      magic-string: 0.30.10
-      msw: 2.4.1(typescript@5.4.5)
-      sirv: 2.0.4
-      vitest: 2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)
-      ws: 8.18.0
-    optionalDependencies:
-      playwright: 1.48.2
-      webdriverio: 8.40.2
-    transitivePeerDependencies:
-      - bufferutil
-      - graphql
-      - typescript
-      - utf-8-validate
-
   '@vitest/expect@2.0.5':
     dependencies:
       '@vitest/spy': 2.0.5
@@ -11585,21 +11559,11 @@ snapshots:
 
   playwright-core@1.47.0: {}
 
-  playwright-core@1.48.2:
-    optional: true
-
   playwright@1.47.0:
     dependencies:
       playwright-core: 1.47.0
     optionalDependencies:
       fsevents: 2.3.2
-
-  playwright@1.48.2:
-    dependencies:
-      playwright-core: 1.48.2
-    optionalDependencies:
-      fsevents: 2.3.2
-    optional: true
 
   polished@4.3.1:
     dependencies:
@@ -12785,7 +12749,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.3.0
-      '@vitest/browser': 2.0.5(playwright@1.48.2)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
+      '@vitest/browser': 2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
       '@vitest/ui': 2.0.5(vitest@2.0.5)
       happy-dom: 14.12.3
       jsdom: 24.1.1

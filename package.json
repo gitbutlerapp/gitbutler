@@ -50,5 +50,10 @@
 		"turbo": "2.1.1",
 		"typescript": "5.4.5",
 		"typescript-eslint": "^8.10.0"
+	},
+	"pnpm": {
+		"overrides": {
+			"@vitest/browser>playwright": "1.47.0"
+		}
 	}
 }
