@@ -112,7 +112,8 @@ pub fn get_applied_status_cached(
     };
 
     for branch in &mut virtual_branches {
-        if let Err(e) = branch.initialize(ctx) {
+        // This should never be invoked. But if it is, dont try to  make the branch name unique
+        if let Err(e) = branch.initialize(ctx, true) {
             tracing::warn!("failed to initialize stack: {:?}", e);
         }
         let old_claims = branch.ownership.claims.clone();

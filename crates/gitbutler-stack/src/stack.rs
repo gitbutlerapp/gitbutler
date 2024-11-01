@@ -184,6 +184,7 @@ impl Stack {
         order: usize,
         selected_for_changes: Option<i64>,
         allow_rebasing: bool,
+        allow_duplicate_refs: bool,
     ) -> Self {
         #[allow(deprecated)]
         // this should be the only place (other than tests) where this is allowed
@@ -198,7 +199,7 @@ impl Stack {
             selected_for_changes,
             allow_rebasing,
         );
-        if let Err(e) = branch.initialize(ctx) {
+        if let Err(e) = branch.initialize(ctx, allow_duplicate_refs) {
             // TODO: When this is stable, make it error out
             tracing::warn!("failed to initialize stack: {:?}", e);
         }
@@ -215,7 +216,7 @@ impl Stack {
     /// Errors out if the stack has already been initialized.
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
-    pub fn initialize(&mut self, ctx: &CommandContext) -> Result<()> {
+    pub fn initialize(&mut self, ctx: &CommandContext, allow_duplicate_refs: bool) -> Result<()> {
         if self.initialized() {
             return Ok(());
         }
@@ -235,7 +236,17 @@ impl Stack {
         };
         let state = branch_state(ctx);
 
-        while patch_reference_exists(&state, &reference.name)? {
+        let is_duplicate = |reference: &PatchReference| -> Result<bool> {
+            Ok(if allow_duplicate_refs {
+                patch_reference_exists(&state, &reference.name)?
+            } else {
+                patch_reference_exists(&state, &reference.name)?
+                    || local_reference_exists(ctx, &reference.name)?
+                    || remote_reference_exists(ctx, &state, reference)?
+            })
+        };
+
+        while is_duplicate(&reference)? {
             // keep incrementing the suffix until the name is unique
             let split = reference.name.split('-');
             let left = split.clone().take(split.clone().count() - 1).join("-");
@@ -943,6 +954,23 @@ fn generate_branch_name(author: git2::Signature) -> Result<String> {
     }
     let branch_name = format!("{}{}-1", initials, "branch");
     normalize_branch_name(&branch_name)
+}
+
+fn local_reference_exists(ctx: &CommandContext, name: &str) -> Result<bool> {
+    let gix_repo = ctx.gix_repository()?;
+    Ok(gix_repo.find_reference(name_partial(name.into())?).is_ok())
+}
+
+fn remote_reference_exists(
+    ctx: &CommandContext,
+    state: &VirtualBranchesHandle,
+    reference: &PatchReference,
+) -> Result<bool> {
+    Ok(reference
+        .remote_reference(state.get_default_target()?.push_remote_name().as_str())
+        .and_then(|reference| local_reference_exists(ctx, &reference))
+        .ok()
+        .unwrap_or(false))
 }
 
 #[cfg(test)]
