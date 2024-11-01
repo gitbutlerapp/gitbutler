@@ -212,27 +212,22 @@
 			border-color var(--transition-fast),
 			background-color var(--transition-fast);
 
-		&.disabled {
-			cursor: default;
-		}
-
 		&.hide-scrollbar {
 			&::-webkit-scrollbar {
 				display: none;
 			}
 		}
 
-		&.textarea-placeholder {
-			display: block;
-			white-space: pre-wrap;
+		&:disabled {
+			cursor: default;
+		}
 
-			&:before {
-				content: var(--placeholder-text);
-				color: var(--clr-text-3);
-				cursor: text;
-				pointer-events: none;
-				position: absolute;
-			}
+		&::placeholder {
+			content: var(--placeholder-text);
+			color: var(--clr-text-3);
+			cursor: text;
+			pointer-events: none;
+			position: absolute;
 		}
 	}
 
