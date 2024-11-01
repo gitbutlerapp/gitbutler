@@ -74,12 +74,21 @@
 
 		const prompt = promptService.selectedCommitPrompt(project.id);
 
+		let firstToken = true;
+
 		const generatedMessageResult = await aiService.summarizeCommit({
 			hunks,
 			useEmojiStyle: $commitGenerationUseEmojis,
 			useBriefStyle: $commitGenerationExtraConcise,
 			commitTemplate: prompt,
-			branchName: $branch.name
+			branchName: $branch.name,
+			onToken: (t) => {
+				if (firstToken) {
+					commitMessage = '';
+					firstToken = false;
+				}
+				commitMessage += t;
+			}
 		});
 
 		if (isFailure(generatedMessageResult)) {
