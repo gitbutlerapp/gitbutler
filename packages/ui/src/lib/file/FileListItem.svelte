@@ -94,11 +94,8 @@
 	{/if}
 	<div class="info">
 		<FileIcon fileName={fileInfo.filename} />
-		<span class="text-12 name">
+		<span class="text-12 name truncate">
 			{fileInfo.filename}
-		</span>
-		<span class="text-12 path">
-			{fileInfo.path}
 		</span>
 	</div>
 
@@ -189,8 +186,8 @@
 			opacity var(--transition-fast);
 	}
 
+	/* INFO */
 	.info {
-		pointer-events: none;
 		display: flex;
 		align-items: center;
 		flex-grow: 1;
@@ -200,21 +197,23 @@
 	}
 
 	.name {
-		color: var(--clr-scale-ntrl-0);
-		white-space: nowrap;
-		flex-shrink: 0;
-		text-overflow: ellipsis;
-		overflow: hidden;
+		flex-shrink: 1;
+		flex-grow: 0;
+
+		pointer-events: none;
+		color: var(--clt-text-1);
 	}
 
 	.path {
-		color: var(--clr-scale-ntrl-0);
+		flex-shrink: 0;
+		flex-grow: 1;
+		flex-basis: 0px;
+		min-width: 50px;
+		color: var(--clt-text-1);
 		line-height: 120%;
 		flex-shrink: 1;
-		white-space: nowrap;
-		text-overflow: ellipsis;
-		overflow: hidden;
 		opacity: 0.3;
+		transition: opacity var(--transition-fast);
 	}
 
 	/* DETAILS */
