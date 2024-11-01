@@ -114,9 +114,7 @@
 		}
 	}
 
-	const canUseAI = $derived.by(() => {
-		return aiConfigurationValid || $aiGenEnabled;
-	});
+	const canUseAI = $derived(aiConfigurationValid && $aiGenEnabled);
 	const defaultTitle: string = $derived.by(() => {
 		if (props.type === 'display') return props.pr.title;
 
