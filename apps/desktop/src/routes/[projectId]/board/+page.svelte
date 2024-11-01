@@ -8,7 +8,6 @@
 	import { showToast } from '$lib/notifications/toasts';
 	import Scrollbar from '$lib/scroll/Scrollbar.svelte';
 	import { getContext } from '@gitbutler/shared/context';
-	import { run } from 'svelte/legacy';
 	import { goto } from '$app/navigation';
 
 	const project = getContext(Project);
@@ -28,7 +27,7 @@
 		return true;
 	}
 
-	run(() => {
+	$effect(() => {
 		if (shouldShowHttpsWarning()) {
 			showToast({
 				title: 'HTTPS remote detected',
@@ -45,7 +44,7 @@
 		goto(`/${project.id}/edit`);
 	}
 
-	run(() => {
+	$effect(() => {
 		if ($mode?.type === 'Edit') {
 			// That was causing an incorrect linting error when project.id was accessed inside the reactive block
 			gotoEdit();

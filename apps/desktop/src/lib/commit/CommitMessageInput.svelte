@@ -23,7 +23,6 @@
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { isWhiteSpaceString } from '@gitbutler/ui/utils/string';
 	import { createEventDispatcher, onMount, tick } from 'svelte';
-	import { run } from 'svelte/legacy';
 	import { fly } from 'svelte/transition';
 
 	interface Props {
@@ -63,7 +62,7 @@
 	let descriptionTextArea: HTMLTextAreaElement | undefined = $state();
 
 	let { title, description } = $derived(splitMessage(commitMessage));
-	run(() => {
+	$effect(() => {
 		valid = !!title;
 	});
 

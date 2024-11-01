@@ -30,7 +30,6 @@
 	import { getTimeAndAuthor } from '@gitbutler/ui/utils/getTimeAndAuthor';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { type Snippet } from 'svelte';
-	import { run } from 'svelte/legacy';
 
 	interface Props {
 		branch?: VirtualBranch | undefined;
@@ -133,7 +132,7 @@
 
 	let topHeightPx = $state(24);
 
-	run(() => {
+	$effect(() => {
 		topHeightPx = 24;
 		if (first) topHeightPx = 58;
 		if (showDetails && !first) topHeightPx += 12;

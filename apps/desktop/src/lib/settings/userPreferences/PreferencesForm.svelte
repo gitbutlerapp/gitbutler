@@ -6,7 +6,6 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import { run } from 'svelte/legacy';
 
 	const projectsService = getContext(ProjectsService);
 	const project = getContext(Project);
@@ -33,7 +32,7 @@
 		await projectsService.updateProject(project);
 	}
 
-	run(() => {
+	$effect(() => {
 		setUseNewLocking(useNewLocking);
 	});
 

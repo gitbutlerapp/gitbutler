@@ -14,7 +14,6 @@
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
-	import { run } from 'svelte/legacy';
 
 	const projectsService = getContext(ProjectsService);
 	const project = getContext(Project);
@@ -83,7 +82,7 @@
 		await projectsService.updateProject(project);
 	}
 
-	run(() => {
+	$effect(() => {
 		setUseNewLocking(useNewLocking);
 	});
 

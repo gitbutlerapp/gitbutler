@@ -17,7 +17,6 @@
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
-	import { run } from 'svelte/legacy';
 	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
@@ -52,7 +51,7 @@
 	// fetching local and remote branches.
 	// We must manually set the branch data to undefined as the component
 	// doesn't get completely re-rendered on a page change.
-	run(() => {
+	$effect(() => {
 		if (localBranch) {
 			remoteBranchService
 				.getRemoteBranchData(localBranch.name)
@@ -62,7 +61,7 @@
 		}
 	});
 
-	run(() => {
+	$effect(() => {
 		if (remoteBranch) {
 			remoteBranchService
 				.getRemoteBranchData(remoteBranch.name)
@@ -105,8 +104,8 @@
 		)
 	);
 
-	let rsViewport: HTMLDivElement = $state();
-	let laneWidth: number = $state();
+	let rsViewport = $state<HTMLDivElement>();
+	let laneWidth = $state<number>();
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);

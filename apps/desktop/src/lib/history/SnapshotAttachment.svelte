@@ -3,7 +3,6 @@
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { type Snippet } from 'svelte';
 	import { onMount } from 'svelte';
-	import { run } from 'svelte/legacy';
 
 	interface Props {
 		foldable?: boolean;
@@ -36,7 +35,7 @@
 		setHeight();
 	});
 
-	run(() => {
+	$effect(() => {
 		if (el) {
 			setHeight();
 		}

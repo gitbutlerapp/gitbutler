@@ -26,7 +26,7 @@
 	const runCommitHooks = projectRunCommitHooks(projectId);
 	const commitMessage = persistedCommitMessage(projectId, $branch.id);
 
-	let commitMessageInput: CommitMessageInput = $state();
+	let commitMessageInput = $state<CommitMessageInput>();
 	let isCommitting = $state(false);
 	let commitMessageValid = $state(false);
 	let isInViewport = $state(false);
@@ -54,7 +54,7 @@
 	export async function focus() {
 		$expanded = true;
 		await tick();
-		commitMessageInput.focus();
+		commitMessageInput?.focus();
 	}
 </script>
 
