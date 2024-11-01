@@ -14,28 +14,23 @@ export class StackingReorderDropzone {
 	accepts(data: any) {
 		if (!(data instanceof DraggableCommit)) return false;
 		if (data.branchId !== this.branchId) return false;
-		if (
-			this.commitId !== 'top' &&
-			distanceBetweenCommits(this.series, data.commit.id, this.commitId) === 0
-		)
-			return false;
+
+		// Do not show dropzones directly above or below the commit in question
+		const distance = distanceBetweenDropzones(
+			this.series,
+			`${data.seriesName}|${data.commit.id}`,
+			`${this.currentSeries.name}|${this.commitId}`
+		);
+		if (distance === 0 || distance === 1) return false;
 
 		return true;
 	}
 
 	onDrop(data: any) {
-		const allSeriesCommits = this.series.map((s) => ({
-			name: s.name,
-			commitIds: s.patches.map((p) => p.id)
-		}));
-
-		const flatCommits = allSeriesCommits.flatMap((s) => s.commitIds);
-
 		if (!(data instanceof DraggableCommit)) return;
 		if (data.branchId !== this.branchId) return;
-		if (!flatCommits.find((p) => p === data.commit.id)) return;
 
-		const stackOrder = getTargetStackOrder(
+		const stackOrder = buildNewStackOrder(
 			this.series,
 			this.currentSeries,
 			data.commit.id,
@@ -79,7 +74,6 @@ export class StackingReorderDropzoneManager {
 
 	dropzoneBelowCommit(seriesName: string, commitId: string) {
 		const currentSeries = this.series.get(seriesName);
-
 		if (!currentSeries) {
 			throw new Error('Series not found');
 		}
@@ -102,35 +96,35 @@ export class StackingReorderDropzoneManagerFactory {
 	}
 }
 
-function getTargetStackOrder(
+function buildNewStackOrder(
 	allSeries: PatchSeries[],
 	currentSeries: PatchSeries,
 	actorCommitId: string,
 	targetCommitId: string
 ): StackOrder | undefined {
-	const allSeriesCommits = allSeries.map((s) => ({
+	const patchSeries = allSeries.map((s) => ({
 		name: s.name,
 		commitIds: s.patches.map((p) => p.id)
 	}));
 
-	const flatCommits = allSeriesCommits.flatMap((s) => s.commitIds);
+	const allCommitIds = patchSeries.flatMap((s) => s.commitIds);
 
 	if (
 		targetCommitId !== 'top' &&
-		(!flatCommits.includes(actorCommitId) || !flatCommits.includes(targetCommitId))
+		(!allCommitIds.includes(actorCommitId) || !allCommitIds.includes(targetCommitId))
 	) {
 		throw new Error('Commit not found in series');
 	}
 
-	const currentSeriesIndex = allSeriesCommits.findIndex((s) => s.name === currentSeries.name);
+	const currentSeriesIndex = patchSeries.findIndex((s) => s.name === currentSeries.name);
 	if (currentSeriesIndex === -1) return undefined;
 
 	// Remove actorCommitId from its current position
-	allSeriesCommits.forEach((s) => {
+	patchSeries.forEach((s) => {
 		s.commitIds = s.commitIds.filter((id) => id !== actorCommitId);
 	});
 
-	const updatedCurrentSeries = allSeriesCommits[currentSeriesIndex];
+	const updatedCurrentSeries = patchSeries[currentSeriesIndex];
 	if (!updatedCurrentSeries) return undefined;
 
 	// Put actorCommtId in its new position
@@ -141,30 +135,32 @@ function getTargetStackOrder(
 		updatedCurrentSeries.commitIds.splice(targetIndex + 1, 0, actorCommitId);
 	}
 
-	allSeriesCommits[currentSeriesIndex] = updatedCurrentSeries;
+	patchSeries[currentSeriesIndex] = updatedCurrentSeries;
 
 	return {
-		series: allSeriesCommits
+		series: patchSeries
 	};
 }
 
-function distanceBetweenCommits(
+function distanceBetweenDropzones(
 	allSeries: PatchSeries[],
-	actorCommitId: string,
-	targetCommitId: string
+	actorDropzoneId: string,
+	targetDropzoneId: string
 ) {
-	const allSeriesCommitsFlat = allSeries.flatMap((s) => s.patches.flatMap((p) => p.id));
+	const dropzoneIds = allSeries.flatMap((s) => [
+		`${s.name}|top`,
+		...s.patches.flatMap((p) => `${s.name}|${p.id}`)
+	]);
 
 	if (
-		targetCommitId !== 'top' &&
-		(!allSeriesCommitsFlat.includes(actorCommitId) ||
-			!allSeriesCommitsFlat.includes(targetCommitId))
+		!targetDropzoneId.includes('|top') &&
+		(!dropzoneIds.includes(actorDropzoneId) || !dropzoneIds.includes(targetDropzoneId))
 	) {
 		return 0;
 	}
 
-	const actorIndex = allSeriesCommitsFlat.indexOf(actorCommitId);
-	const targetIndex = allSeriesCommitsFlat.indexOf(targetCommitId);
+	const actorIndex = dropzoneIds.indexOf(actorDropzoneId);
+	const targetIndex = dropzoneIds.indexOf(targetDropzoneId);
 
 	return actorIndex - targetIndex;
 }

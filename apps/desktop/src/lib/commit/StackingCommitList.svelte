@@ -75,11 +75,7 @@
 </script>
 
 {#snippet stackingReorderDropzone(dropzone: StackingReorderDropzone)}
-	<Dropzone
-		stackingReorderLine={true}
-		accepts={dropzone.accepts.bind(dropzone)}
-		ondrop={dropzone.onDrop.bind(dropzone)}
-	>
+	<Dropzone accepts={dropzone.accepts.bind(dropzone)} ondrop={dropzone.onDrop.bind(dropzone)}>
 		{#snippet overlay({ hovered, activated })}
 			<LineOverlay {hovered} {activated} />
 		{/snippet}
