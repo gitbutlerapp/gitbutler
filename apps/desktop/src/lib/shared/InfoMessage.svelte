@@ -226,7 +226,7 @@
 		text-decoration: underline;
 		word-break: break-all; /* allow long links to wrap */
 	}
-	:global(.info-message__text p:not(:global(:last-child))) {
+	:global(.info-message__text p:not(:last-child)) {
 		margin-bottom: 10px;
 	}
 	:global(.info-message__text ul) {

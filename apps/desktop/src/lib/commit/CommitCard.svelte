@@ -457,7 +457,7 @@
 			padding-right: 14px;
 		}
 
-		&:not(:global(.is-first)) {
+		&:not(.is-first) {
 			border-top: 1px dotted var(--clr-border-2);
 		}
 	}
@@ -484,7 +484,7 @@
 			border-bottom-left-radius: var(--radius-m);
 			border-bottom-right-radius: var(--radius-m);
 		}
-		&:not(:global(.is-first)) {
+		&:not(.is-first) {
 			border-top: none;
 		}
 	}
@@ -661,12 +661,12 @@
 		& .commit-card {
 			border-radius: var(--radius-m);
 
-			&:not(:global(.is-first)) {
+			&:not(.is-first) {
 				margin-top: 12px;
 				border-top: 1px solid var(--clr-border-2);
 			}
 
-			&:not(:global(.is-last)) {
+			&:not(.is-last) {
 				margin-bottom: 12px;
 				border-bottom: 1px solid var(--clr-border-2);
 			}

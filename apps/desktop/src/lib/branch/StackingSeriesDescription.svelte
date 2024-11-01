@@ -64,7 +64,7 @@
 			border-color var(--transition-fast),
 			background-color var(--transition-fast);
 
-		&:not(:global(:focus-within)):hover {
+		&:not(:focus-within):hover {
 			background-color: var(--clr-bg-1-muted);
 		}
 

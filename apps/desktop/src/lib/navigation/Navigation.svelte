@@ -142,7 +142,7 @@
 		display: flex;
 		position: relative;
 
-		&:hover:not(:global(.hide-fold-button)) {
+		&:hover:not(.hide-fold-button) {
 			& .folding-button {
 				pointer-events: auto;
 				opacity: 1;

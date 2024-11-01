@@ -38,7 +38,7 @@
 		border-radius: var(--radius-s);
 		gap: 12px;
 		transition: background-color var(--transition-fast);
-		&:not(:global(.disabled)):hover {
+		&:not(.disabled):hover {
 			transition: none;
 			background-color: var(--clr-bg-2-muted);
 		}

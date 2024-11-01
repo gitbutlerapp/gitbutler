@@ -99,11 +99,11 @@
 		outline: none;
 
 		/* not readonly */
-		&:not(:global([readonly])):not(:global([disabled])):not(:global(:focus)):hover {
+		&:not([readonly]):not([disabled]):not(:focus):hover {
 			background-color: var(--clr-bg-1-muted);
 		}
 
-		&:not(:global([readonly])):not(:global([disabled])):focus {
+		&:not([readonly]):not([disabled]):focus {
 			outline: none;
 			background-color: var(--clr-bg-1-muted);
 			border: 1px solid var(--clr-border-2);

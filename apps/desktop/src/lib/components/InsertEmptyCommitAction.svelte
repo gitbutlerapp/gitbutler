@@ -48,7 +48,7 @@
 			}
 		}
 
-		&:not(:global(.is-last, .is-first)) {
+		&:not(.is-last, .is-first) {
 			&:before {
 				pointer-events: none;
 				content: '';

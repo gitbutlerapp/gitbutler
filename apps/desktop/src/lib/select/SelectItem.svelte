@@ -61,8 +61,8 @@
 		border-radius: var(--radius-m);
 		width: 100%;
 		white-space: nowrap;
-		&:not(:global(.selected)):hover:enabled,
-		&:not(:global(.selected)):focus:enabled {
+		&:not(.selected):hover:enabled,
+		&:not(.selected):focus:enabled {
 			background-color: var(--clr-bg-1-muted);
 			& .icon {
 				color: var(--clr-scale-ntrl-40);

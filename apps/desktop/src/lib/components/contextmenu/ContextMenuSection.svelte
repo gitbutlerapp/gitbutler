@@ -20,7 +20,7 @@
 		padding: 4px;
 		gap: 2px;
 
-		&:not(:global(:first-child)) {
+		&:not(:first-child) {
 			border-top: 1px solid var(--clr-border-2);
 		}
 	}

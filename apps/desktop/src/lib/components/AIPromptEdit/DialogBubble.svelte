@@ -155,8 +155,8 @@
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
 
-		&:not(:global(.is-error)):hover,
-		&:not(:global(.is-error)):focus-within {
+		&:not(.is-error):hover,
+		&:not(.is-error):focus-within {
 			border-color: var(--clr-border-1);
 		}
 	}

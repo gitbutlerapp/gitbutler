@@ -388,7 +388,7 @@
 		padding: 8px;
 		border-bottom: 1px solid var(--clr-border-3);
 
-		&:not(:global(.file-selected)):hover {
+		&:not(.file-selected):hover {
 			background-color: var(--clr-bg-1-muted);
 		}
 

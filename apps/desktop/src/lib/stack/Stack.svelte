@@ -279,7 +279,7 @@
 			transition: opacity var(--transition-fast);
 		}
 
-		&:not(:global(.scroll-end-visible)):after {
+		&:not(.scroll-end-visible):after {
 			opacity: 1;
 		}
 	}
