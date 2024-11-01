@@ -293,7 +293,14 @@ fn compute_locks(
     let mut stacks_input: Vec<InputStack> = vec![];
     for stack in stacks {
         let mut commits_input: Vec<InputCommit> = vec![];
-        let commit_ids = repo.l(stack.head(), LogUntil::Commit(*target_sha), false)?;
+        // Commit IDs in application order
+        let commit_ids = repo
+            .l(stack.head(), LogUntil::Commit(*target_sha), false)
+            .context("failed to list commits")?
+            .into_iter()
+            .rev()
+            .collect_vec();
+
         for commit_id in commit_ids {
             let mut files_input: Vec<InputFile> = vec![];
             let commit = repo.find_commit(commit_id)?;
