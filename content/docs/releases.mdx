@@ -1,0 +1,46 @@
+---
+title: Releases
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+GitButler is released on a regular basis in two separate tracks. Their version numbers are incremented independently.
+
+1. **Release** - stable releases
+2. **Nightly** - development releases built at minimum 1x per day via GitHub Actions.
+
+
+<Callout type="info">
+You can find the latest releases on our [GitHub Releases](https://github.com/gitbutlerapp/gitbutler/releases).
+</Callout>
+
+## Platforms
+
+We bundle and ship GitButler for Mac OS, Windows, and Linux.
+
+#### Windows
+
+| Arch | Format | In-app updater |
+| --- | --- | --- |
+| `x86_64` | `msi` | <svg width="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><polyline points="88 136 112 160 168 104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="128" cy="128" r="96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg> |
+
+#### Mac OS
+
+| Arch | Format | In-app updater |
+| --- | --- | --- |
+| `x86_64` | `dmg` | <svg width="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><polyline points="88 136 112 160 168 104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="128" cy="128" r="96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg> |
+| `arm64` | `dmg` | <svg width="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><polyline points="88 136 112 160 168 104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="128" cy="128" r="96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg> |
+
+#### Linux
+
+| Arch | Format | In-app updater |
+| --- | --- | --- |
+| `x86_64` | `deb` | <svg width="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><polyline points="88 136 112 160 168 104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="128" cy="128" r="96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg> |
+| `x86_64` | `rpm` | <svg width="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><polyline points="88 136 112 160 168 104" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="128" cy="128" r="96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg> |
+| `x86_64` | `AppImage` | <svg width="20" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256"><rect width="256" height="256" fill="none"/><line x1="160" y1="96" x2="96" y2="160" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><line x1="96" y1="96" x2="160" y2="160" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/><circle cx="128" cy="128" r="96" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="16"/></svg> |
+
+> Support for the Linux releases are complicated a bit through a core dependency of our framework, `libwebkit2gtk`, which is used to provide the web view on Linux. Tauri v1 required `libwebkit2gtk-4.0` which is not available in Ubuntu 24.04 or Debian 13 and newer.
+>
+> We've recently upgraded to Tauri v2 (as of Nightly `0.5.845` and Release `0.13.9`), and it now requires `libwebkit2gtk-4.1`. This version of the package is not available in the repositories for Ubuntu 20.04 and older as well as Debian 11 and older.
+>
+> For more information, check out the  [link issue](https://github.com/tauri-apps/tauri/issues/9662) in the Tauri repository.
