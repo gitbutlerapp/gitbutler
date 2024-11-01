@@ -42,8 +42,8 @@
 	}
 
 	async function setSecret(handle: AISecretHandle, secret: string | undefined) {
-		if (!initialized) return;
-		await secretsService.set(handle, secret || '');
+		if (!initialized || !secret) return;
+		await secretsService.set(handle, secret);
 	}
 
 	onMount(async () => {
