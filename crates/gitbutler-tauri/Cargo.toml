@@ -83,6 +83,7 @@ gitbutler-operating-modes.workspace = true
 gitbutler-edit-mode.workspace = true
 gitbutler-sync.workspace = true
 gitbutler-forge.workspace = true
+gitbutler-settings.workspace = true
 open = "5"
 url = "2.5.2"
 

@@ -11,6 +11,7 @@
     clippy::too_many_lines
 )]
 
+use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
     askpass, commands, config, forge, github, logs, menu, modes, open, projects, remotes, repo,
     secret, stack, undo, users, virtual_branches, zip, App, WindowState,
@@ -18,6 +19,7 @@ use gitbutler_tauri::{
 use tauri::Emitter;
 use tauri::{generate_context, Manager};
 use tauri_plugin_log::{Target, TargetKind};
+use tauri_plugin_store::StoreExt;
 
 fn main() {
     let performance_logging = std::env::var_os("GITBUTLER_PERFORMANCE_LOG").is_some();
@@ -104,6 +106,8 @@ fn main() {
                     };
                     app_handle.manage(app.users());
                     app_handle.manage(app.projects());
+                    let settings_store: SettingsStore = tauri_app.store("settings.json")?.into();
+                    app_handle.manage(settings_store);
 
                     app_handle.manage(gitbutler_feedback::Archival {
                         cache_dir: app_cache_dir,

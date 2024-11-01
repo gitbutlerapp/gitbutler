@@ -2837,6 +2837,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-settings"
+version = "0.0.0"
+
+[[package]]
 name = "gitbutler-stack"
 version = "0.0.0"
 dependencies = [
@@ -2928,6 +2932,7 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-repo-actions",
  "gitbutler-secret",
+ "gitbutler-settings",
  "gitbutler-stack",
  "gitbutler-storage",
  "gitbutler-sync",
