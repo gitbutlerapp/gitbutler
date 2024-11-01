@@ -97,6 +97,12 @@
 		<span class="text-12 name truncate">
 			{fileInfo.filename}
 		</span>
+
+		<Tooltip text={fileInfo.path} delay={1500}>
+			<span class="text-12 path truncate">
+				{fileInfo.path}
+			</span>
+		</Tooltip>
 	</div>
 
 	<div class="details">
