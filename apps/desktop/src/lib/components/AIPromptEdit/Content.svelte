@@ -15,8 +15,8 @@
 
 	let expanded = $state(false);
 	let editing = $state(false);
-	let promptMessages = $state(structuredClone(prompt.prompt));
-	let promptName = $state(structuredClone(prompt.name));
+	let promptMessages = $state(structuredClone($state.snapshot(prompt.prompt)));
+	let promptName = $state(structuredClone($state.snapshot(prompt.name)));
 	let initialName = $derived(promptName);
 	let isInEditing = $state(false) as boolean;
 	let errorMessages = $state([]) as number[];
@@ -76,8 +76,8 @@
 	}
 
 	function cancel() {
-		promptMessages = structuredClone(prompt.prompt);
-		promptName = structuredClone(prompt.name);
+		promptMessages = structuredClone($state.snapshot(prompt.prompt));
+		promptName = structuredClone($state.snapshot(prompt.name));
 		editing = false;
 	}
 

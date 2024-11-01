@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import CommitContextMenu from './CommitContextMenu.svelte';
 	import CommitDragItem from './CommitDragItem.svelte';
 	import { Project } from '$lib/backend/projects';
@@ -32,30 +30,7 @@
 	import { getTimeAndAuthor } from '@gitbutler/ui/utils/getTimeAndAuthor';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { type Snippet } from 'svelte';
-
-	const branchController = getContext(BranchController);
-	const baseBranch = getContextStore(BaseBranch);
-	const project = getContext(Project);
-	const modeService = maybeGetContext(ModeService);
-
-	const commitStore = createCommitStore(commit);
-	run(() => {
-		commitStore.set(commit);
-	});
-
-	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
-
-	let draggableCommitElement: HTMLElement = $state();
-	let contextMenu: ReturnType<typeof ContextMenu> | undefined = $state();
-	let files: RemoteFile[] = $state([]);
-	let showDetails = $state(false);
-
-	let conflicted = $derived(commit.conflicted);
-	let isAncestorMostConflicted = $derived(branch?.ancestorMostConflictedCommit?.id === commit.id);
-
-	async function loadFiles() {
-		files = await listRemoteCommitFiles(project.id, commit.id);
-	}
+	import { run } from 'svelte/legacy';
 
 	interface Props {
 		branch?: VirtualBranch | undefined;
@@ -82,6 +57,30 @@
 		lines = undefined,
 		filesToggleable = true
 	}: Props = $props();
+
+	const branchController = getContext(BranchController);
+	const baseBranch = getContextStore(BaseBranch);
+	const project = getContext(Project);
+	const modeService = maybeGetContext(ModeService);
+
+	const commitStore = createCommitStore(commit);
+	$effect(() => {
+		commitStore.set(commit);
+	});
+
+	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
+
+	let draggableCommitElement = $state<HTMLElement>();
+	let contextMenu: ReturnType<typeof ContextMenu> | undefined = $state();
+	let files: RemoteFile[] = $state([]);
+	let showDetails = $state(false);
+
+	let conflicted = $derived(commit.conflicted);
+	let isAncestorMostConflicted = $derived(branch?.ancestorMostConflictedCommit?.id === commit.id);
+
+	async function loadFiles() {
+		files = await listRemoteCommitFiles(project.id, commit.id);
+	}
 
 	function toggleFiles() {
 		if (!filesToggleable) return;

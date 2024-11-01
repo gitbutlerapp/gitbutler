@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { PromptService } from '$lib/ai/promptService';
 	import { Project } from '$lib/backend/projects';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import { run } from 'svelte/legacy';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 	import type { Persisted } from '@gitbutler/shared/persisted';
 
@@ -45,7 +44,7 @@
 		setAllPrompts($userPrompts);
 	});
 
-	run(() => {
+	$effect(() => {
 		if (!$selectedPromptId || !promptService.findPrompt(allPrompts, $selectedPromptId)) {
 			$selectedPromptId = defaultId;
 		}

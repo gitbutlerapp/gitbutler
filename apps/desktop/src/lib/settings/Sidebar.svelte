@@ -1,14 +1,10 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import SupportersBanner from './SupportersBanner.svelte';
 	import { openExternalUrl } from '$lib/utils/url';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
-
-	let currentSection: string | undefined = $state();
 
 	const settingsPageRegExp = /\/settings\/(.*?)(?:$|\/)/;
 
@@ -21,9 +17,8 @@
 	function onMenuClick(section: string) {
 		goto(`/settings/${section}`, { replaceState: true });
 	}
-	run(() => {
-		currentSection = getPageName($page.url.pathname);
-	});
+
+	const currentSection = $derived(getPageName($page.url.pathname));
 </script>
 
 <aside class="profile-sidebar" data-tauri-drag-region>

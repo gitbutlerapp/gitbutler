@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
 	import { AuthService } from '$lib/backend/auth';
@@ -21,19 +19,9 @@
 	const authService = getContext(AuthService);
 
 	type Check = { name: string; promise: Promise<any> };
-	let checks;
-	run(() => {
-		checks = [] as Check[];
-	});
-
-	let errors;
-	run(() => {
-		errors = 0;
-	});
-	let loading;
-	run(() => {
-		loading = false;
-	});
+	let checks = $state<Check[]>([]);
+	let errors = $state(0);
+	let loading = $state(false);
 
 	async function checkCredentials() {
 		if (!remoteName || !branchName) return;

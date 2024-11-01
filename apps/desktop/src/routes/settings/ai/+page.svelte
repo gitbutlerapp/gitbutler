@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
@@ -25,18 +23,18 @@
 	const aiService = getContext(AIService);
 	const userService = getContext(UserService);
 	const user = userService.user;
-	let initialized = false;
+	let initialized = $state(false);
 
-	let modelKind: ModelKind | undefined = $state();
-	let openAIKeyOption: KeyOption | undefined = $state();
-	let anthropicKeyOption: KeyOption | undefined = $state();
-	let openAIKey: string | undefined = $state();
-	let openAIModelName: OpenAIModelName | undefined = $state();
-	let anthropicKey: string | undefined = $state();
-	let anthropicModelName: AnthropicModelName | undefined = $state();
-	let diffLengthLimit: number | undefined = $state();
-	let ollamaEndpoint: string | undefined = $state();
-	let ollamaModel: string | undefined = $state();
+	let modelKind = $state<ModelKind>();
+	let openAIKeyOption = $state<KeyOption>();
+	let anthropicKeyOption = $state<KeyOption>();
+	let openAIKey = $state<string>();
+	let openAIModelName = $state<OpenAIModelName>();
+	let anthropicKey = $state<string>();
+	let anthropicModelName = $state<AnthropicModelName>();
+	let diffLengthLimit = $state<number>();
+	let ollamaEndpoint = $state<string>();
+	let ollamaModel = $state<string>();
 
 	async function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
@@ -123,43 +121,44 @@
 		}
 	];
 
-	let form: HTMLFormElement = $state();
+	let form = $state<HTMLFormElement>();
 
 	function onFormChange(form: HTMLFormElement) {
 		const formData = new FormData(form);
 		modelKind = formData.get('modelKind') as ModelKind;
 	}
-	run(() => {
+
+	$effect(() => {
 		setConfiguration(GitAIConfigKey.ModelProvider, modelKind);
 	});
-	run(() => {
+	$effect(() => {
 		setConfiguration(GitAIConfigKey.OpenAIKeyOption, openAIKeyOption);
 	});
-	run(() => {
+	$effect(() => {
 		setConfiguration(GitAIConfigKey.OpenAIModelName, openAIModelName);
 	});
-	run(() => {
+	$effect(() => {
 		setSecret(AISecretHandle.OpenAIKey, openAIKey);
 	});
-	run(() => {
+	$effect(() => {
 		setConfiguration(GitAIConfigKey.AnthropicKeyOption, anthropicKeyOption);
 	});
-	run(() => {
+	$effect(() => {
 		setConfiguration(GitAIConfigKey.AnthropicModelName, anthropicModelName);
 	});
-	run(() => {
+	$effect(() => {
 		setConfiguration(GitAIConfigKey.DiffLengthLimit, diffLengthLimit?.toString());
 	});
-	run(() => {
+	$effect(() => {
 		setSecret(AISecretHandle.AnthropicKey, anthropicKey);
 	});
-	run(() => {
+	$effect(() => {
 		setConfiguration(GitAIConfigKey.OllamaEndpoint, ollamaEndpoint);
 	});
-	run(() => {
+	$effect(() => {
 		setConfiguration(GitAIConfigKey.OllamaModelName, ollamaModel);
 	});
-	run(() => {
+	$effect(() => {
 		if (form) form.modelKind.value = modelKind;
 	});
 </script>

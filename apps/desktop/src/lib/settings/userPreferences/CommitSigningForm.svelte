@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project, ProjectsService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
@@ -16,6 +14,7 @@
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
+	import { run } from 'svelte/legacy';
 
 	const projectsService = getContext(ProjectsService);
 	const project = getContext(Project);

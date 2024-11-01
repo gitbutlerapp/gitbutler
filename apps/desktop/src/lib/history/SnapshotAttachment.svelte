@@ -20,12 +20,14 @@
 	}: Props = $props();
 
 	let isOpen: boolean = $state(false);
-	let el: HTMLElement = $state();
+	let el = $state<HTMLElement>();
 
-	let contentHeight: string = $state();
+	let contentHeight = $state<string>();
 
 	function setHeight() {
-		contentHeight = `calc(${pxToRem(el.scrollHeight)} + ${pxToRem(8)})`;
+		if (el) {
+			contentHeight = `calc(${pxToRem(el.scrollHeight)} + ${pxToRem(8)})`;
+		}
 	}
 
 	onMount(() => {

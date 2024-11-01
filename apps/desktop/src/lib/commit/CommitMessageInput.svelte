@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
@@ -25,6 +23,7 @@
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { isWhiteSpaceString } from '@gitbutler/ui/utils/string';
 	import { createEventDispatcher, onMount, tick } from 'svelte';
+	import { run } from 'svelte/legacy';
 	import { fly } from 'svelte/transition';
 
 	interface Props {

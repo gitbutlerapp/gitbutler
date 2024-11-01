@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Board from '$lib/components/Board.svelte';
@@ -10,6 +8,7 @@
 	import { showToast } from '$lib/notifications/toasts';
 	import Scrollbar from '$lib/scroll/Scrollbar.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import { run } from 'svelte/legacy';
 	import { goto } from '$app/navigation';
 
 	const project = getContext(Project);
@@ -17,8 +16,8 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
-	let viewport: HTMLDivElement = $state();
-	let contents: HTMLDivElement = $state();
+	let viewport = $state<HTMLDivElement>();
+	let contents = $state<HTMLDivElement>();
 
 	const httpsWarningBannerDismissed = projectHttpsWarningBannerDismissed(project.id);
 

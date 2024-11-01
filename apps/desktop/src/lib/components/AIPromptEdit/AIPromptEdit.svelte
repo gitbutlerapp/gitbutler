@@ -55,9 +55,9 @@
 			}}
 		/>
 
-		{#each $userPrompts as prompt}
+		{#each $userPrompts as _prompt, idx}
 			<Content
-				bind:prompt
+				bind:prompt={$userPrompts[idx] as UserPrompt}
 				displayMode="writable"
 				on:deletePrompt={(e) => deletePrompt(e.detail.prompt)}
 			/>

@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { ProjectsService } from '$lib/backend/projects';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -23,7 +21,7 @@
 		return null;
 	});
 
-	run(() => {
+	$effect(() => {
 		if ($redirect) {
 			goto(`/${$redirect}/`);
 		} else if ($redirect === null) {

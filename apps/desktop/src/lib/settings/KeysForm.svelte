@@ -32,7 +32,7 @@
 		disabled = false
 	}: Props = $props();
 
-	let credentialCheck: CredentialCheck = $state();
+	let credentialCheck = $state<ReturnType<typeof CredentialCheck>>();
 
 	let selectedType: KeyType = $state(
 		typeof project.preferred_key === 'string' ? project.preferred_key : 'local'
@@ -62,10 +62,10 @@
 		}
 	}
 
-	let form: HTMLFormElement = $state();
+	let form = $state<HTMLFormElement>();
 
 	function onFormChange(form: HTMLFormElement) {
-		credentialCheck.reset();
+		credentialCheck?.reset();
 		const formData = new FormData(form);
 		selectedType = formData.get('credentialType') as KeyType;
 		if (selectedType !== 'local') {
@@ -76,14 +76,18 @@
 	}
 
 	onMount(async () => {
-		form.credentialType.value = selectedType;
+		if (form?.credentialType) {
+			form.credentialType.value = selectedType;
+		}
 	});
 </script>
 
 <Section>
-	<svelte:fragment slot="top"
-		>{#if showProjectName}<ProjectNameLabel projectName={project.title} />{/if}</svelte:fragment
-	>
+	<svelte:fragment slot="top">
+		{#if showProjectName}
+			<ProjectNameLabel projectName={project.title} />
+		{/if}
+	</svelte:fragment>
 	<svelte:fragment slot="title">Git authentication</svelte:fragment>
 	<svelte:fragment slot="description">
 		Configure the authentication flow for GitButler when authenticating with your Git remote
