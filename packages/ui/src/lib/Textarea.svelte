@@ -88,7 +88,10 @@
 
 	$effect(() => {
 		if (autofocus) {
-			textBoxEl?.focus();
+			// set time out to ensure the element is rendered
+			setTimeout(() => {
+				textBoxEl?.focus();
+			}, 0);
 		}
 	});
 
@@ -173,7 +176,7 @@
 		.textarea-unstyled {
 			outline: none;
 			border: none;
-			background: none;
+			background: transparent;
 		}
 	}
 
@@ -192,7 +195,7 @@
 	}
 
 	.textarea-measure-el {
-		z-index: 1;
+		z-index: -1;
 		position: absolute;
 		background-color: rgba(0, 0, 0, 0.1);
 		height: fit-content;
@@ -208,6 +211,7 @@
 		resize: none;
 		overflow-y: auto; /* Enable scrolling when max height is reached */
 		overflow-x: hidden;
+
 		transition:
 			border-color var(--transition-fast),
 			background-color var(--transition-fast);
@@ -223,11 +227,7 @@
 		}
 
 		&::placeholder {
-			content: var(--placeholder-text);
 			color: var(--clr-text-3);
-			cursor: text;
-			pointer-events: none;
-			position: absolute;
 		}
 	}
 
