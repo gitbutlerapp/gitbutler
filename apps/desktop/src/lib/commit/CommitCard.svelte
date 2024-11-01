@@ -33,7 +33,6 @@
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { type Snippet } from 'svelte';
 
-
 	const branchController = getContext(BranchController);
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
@@ -353,7 +352,7 @@
 							class="commit__subtitle-btn commit__subtitle-btn_dashed"
 							onclick={(event) => {
 								event.stopPropagation();
-								copyToClipboard(commit.id)
+								copyToClipboard(commit.id);
 							}}
 						>
 							<span>{commitShortSha}</span>
@@ -371,9 +370,8 @@
 								class="commit__subtitle-btn"
 								onclick={(event) => {
 									event.stopPropagation();
-									
+
 									if (commitUrl) openExternalUrl(commitUrl);
-								
 								}}
 							>
 								<span>Open</span>

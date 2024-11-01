@@ -73,29 +73,38 @@
 		}
 	});
 
-	let remoteCommitShas = $derived(new Set(remoteBranchData?.commits.map((commit) => commit.id) || []));
+	let remoteCommitShas = $derived(
+		new Set(remoteBranchData?.commits.map((commit) => commit.id) || [])
+	);
 
 	// Find commits common in the local and remote
-	let localAndRemoteCommits =
-		$derived(localBranchData?.commits.filter((commit) => remoteCommitShas.has(commit.id)) || []);
+	let localAndRemoteCommits = $derived(
+		localBranchData?.commits.filter((commit) => remoteCommitShas.has(commit.id)) || []
+	);
 
-	let localAndRemoteCommitShas = $derived(new Set(localAndRemoteCommits.map((commit) => commit.id)));
+	let localAndRemoteCommitShas = $derived(
+		new Set(localAndRemoteCommits.map((commit) => commit.id))
+	);
 
 	// Find the local and remote commits that are not shared
-	let localCommits =
-		$derived(localBranchData?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || []);
-	let remoteCommits =
-		$derived(remoteBranchData?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || []);
+	let localCommits = $derived(
+		localBranchData?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || []
+	);
+	let remoteCommits = $derived(
+		remoteBranchData?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || []
+	);
 
-	let lineManager = $derived(lineManagerFactory.build(
-		{
-			remoteCommits: remoteCommits.map(transformAnyCommit),
-			localCommits: localCommits.map(transformAnyCommit),
-			localAndRemoteCommits: localAndRemoteCommits.map(transformAnyCommit),
-			integratedCommits: []
-		},
-		true
-	));
+	let lineManager = $derived(
+		lineManagerFactory.build(
+			{
+				remoteCommits: remoteCommits.map(transformAnyCommit),
+				localCommits: localCommits.map(transformAnyCommit),
+				localAndRemoteCommits: localAndRemoteCommits.map(transformAnyCommit),
+				integratedCommits: []
+			},
+			true
+		)
+	);
 
 	let rsViewport: HTMLDivElement = $state();
 	let laneWidth: number = $state();

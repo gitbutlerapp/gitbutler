@@ -22,10 +22,14 @@
 	const base = baseBranchService.base;
 	let selected = $derived($page.url.href.endsWith('/base'));
 	let baseBranchDiverged = $derived(!!$base?.diverged);
-	let baseBranchAheadOnly = $derived(baseBranchDiverged && !!$base?.divergedBehind?.length === false);
-	let divergenceTooltip = $derived(baseBranchAheadOnly
-		? 'Your local target branch is ahead of its upstream'
-		: 'Your local target branch has diverged from its upstream');
+	let baseBranchAheadOnly = $derived(
+		baseBranchDiverged && !!$base?.divergedBehind?.length === false
+	);
+	let divergenceTooltip = $derived(
+		baseBranchAheadOnly
+			? 'Your local target branch is ahead of its upstream'
+			: 'Your local target branch has diverged from its upstream'
+	);
 </script>
 
 <DomainButton

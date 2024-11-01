@@ -34,11 +34,13 @@
 
 	let credentialCheck: CredentialCheck = $state();
 
-	let selectedType: KeyType =
-		$state(typeof project.preferred_key === 'string' ? project.preferred_key : 'local');
+	let selectedType: KeyType = $state(
+		typeof project.preferred_key === 'string' ? project.preferred_key : 'local'
+	);
 
-	let privateKeyPath =
-		$state(typeof project.preferred_key === 'string' ? '' : project.preferred_key.local.private_key_path);
+	let privateKeyPath = $state(
+		typeof project.preferred_key === 'string' ? '' : project.preferred_key.local.private_key_path
+	);
 
 	function setLocalKey() {
 		if (privateKeyPath.trim().length === 0) return;

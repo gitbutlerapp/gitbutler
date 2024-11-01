@@ -6,7 +6,6 @@
 	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-
 	interface Props {
 		files: LocalFile[] | RemoteFile[];
 		isUnapplied: boolean;

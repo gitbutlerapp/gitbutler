@@ -48,10 +48,6 @@
 		await secretsService.set(handle, secret || '');
 	}
 
-
-
-
-
 	onMount(async () => {
 		modelKind = await aiService.getModelKind();
 
@@ -73,7 +69,6 @@
 
 		initialized = true;
 	});
-
 
 	const keyOptions = [
 		{
