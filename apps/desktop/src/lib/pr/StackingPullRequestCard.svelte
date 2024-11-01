@@ -23,11 +23,13 @@
 		upstreamName: string;
 		pr: DetailedPullRequest;
 		checksMonitor?: ForgeChecksMonitor;
-		reloadPR?: () => void;
-		reopenPr?: () => Promise<void>;
+		reloadPR: () => void;
+		reopenPr: () => Promise<void>;
+		openPrDetailsModal: () => void;
 	}
 
-	const { upstreamName, reloadPR, reopenPr, pr, checksMonitor }: Props = $props();
+	const { upstreamName, pr, checksMonitor, reloadPR, reopenPr, openPrDetailsModal }: Props =
+		$props();
 
 	type StatusInfo = {
 		text: string;
@@ -124,7 +126,7 @@
 	<ContextMenu bind:this={contextMenuEl} target={contextMenuTarget} openByMouse>
 		<ContextMenuSection>
 			<ContextMenuItem
-				label="Open PR in browser"
+				label="Open in browser"
 				onclick={() => {
 					openExternalUrl(pr.htmlUrl);
 					contextMenuEl?.close();
@@ -138,16 +140,16 @@
 				}}
 			/>
 			<ContextMenuItem
-				label="Refetch PR status"
+				label="Show PR details"
 				onclick={() => {
-					reloadPR?.();
+					openPrDetailsModal();
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
-				label="Detach PR"
+				label="Refetch PR status"
 				onclick={() => {
-					reloadPR?.();
+					reloadPR();
 					contextMenuEl?.close();
 				}}
 			/>
