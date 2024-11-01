@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::bail;
 use gitbutler_stack::StackId;
@@ -19,6 +19,7 @@ use crate::{HunkRange, InputDiff};
 #[derive(Debug, Default)]
 pub struct PathRanges {
     pub hunks: Vec<HunkRange>,
+    pub commit_dependencies: HashMap<git2::Oid, HashSet<git2::Oid>>,
     commit_ids: HashSet<git2::Oid>,
 }
 
@@ -51,10 +52,10 @@ impl PathRanges {
             {
                 i += 1;
                 net_lines += diffs[i - 1].net_lines()?;
-                add_new(&diffs[i - 1], last_hunk, stack_id, commit_id)?
+                self.add_new(&diffs[i - 1], last_hunk, stack_id, commit_id)?
             } else {
                 j += 1;
-                add_existing(&self.hunks[j - 1], last_hunk, net_lines)
+                self.add_existing(&self.hunks[j - 1], last_hunk, net_lines)
             };
             // Last node is needed when adding new one, so we delay inserting it.
             last_hunk = hunks.pop();
@@ -75,52 +76,106 @@ impl PathRanges {
             .filter(|hunk| hunk.intersects(start, lines))
             .collect()
     }
-}
 
-/// Determines how to add new diff given the previous one.
-fn add_new(
-    new_diff: &InputDiff,
-    last_hunk: Option<HunkRange>,
-    stack_id: StackId,
-    commit_id: git2::Oid,
-) -> anyhow::Result<Vec<HunkRange>> {
-    // If we have nothing to compare against we just return the new diff.
-    if last_hunk.is_none() {
-        return Ok(vec![HunkRange {
-            stack_id,
-            commit_id,
-            start: new_diff.new_start,
-            lines: new_diff.new_lines,
-            line_shift: new_diff.net_lines()?,
-        }]);
-    }
-    let last_hunk = last_hunk.unwrap();
+    /// Determines how to add new diff given the previous one.
+    fn add_new(
+        &mut self,
+        new_diff: &InputDiff,
+        last_hunk: Option<HunkRange>,
+        stack_id: StackId,
+        commit_id: git2::Oid,
+    ) -> anyhow::Result<Vec<HunkRange>> {
+        // If we have nothing to compare against we just return the new diff.
+        if last_hunk.is_none() {
+            return Ok(vec![HunkRange {
+                stack_id,
+                commit_id,
+                start: new_diff.new_start,
+                lines: new_diff.new_lines,
+                line_shift: new_diff.net_lines()?,
+            }]);
+        }
+        let last_hunk = last_hunk.unwrap();
 
-    if last_hunk.start + last_hunk.lines < new_diff.old_start {
-        // Diffs do not overlap so we return them in order.
-        return Ok(vec![
-            last_hunk,
-            HunkRange {
+        if last_hunk.start + last_hunk.lines < new_diff.old_start {
+            // Diffs do not overlap so we return them in order.
+            return Ok(vec![
+                last_hunk,
+                HunkRange {
+                    commit_id,
+                    stack_id,
+                    start: new_diff.new_start,
+                    lines: new_diff.new_lines,
+                    line_shift: new_diff.net_lines()?,
+                },
+            ]);
+        }
+
+        if last_hunk.contains(new_diff.old_start, new_diff.old_lines) {
+            // Since the diff being added is from the current commit it overwrites the preceding one,
+            // but we need to split it in two and retain the tail.
+
+            self.commit_dependencies
+                .entry(commit_id)
+                .or_default()
+                .insert(last_hunk.commit_id);
+
+            return Ok(vec![
+                HunkRange {
+                    commit_id: last_hunk.commit_id,
+                    stack_id: last_hunk.stack_id,
+                    start: last_hunk.start,
+                    lines: new_diff.new_start - last_hunk.start,
+                    line_shift: 0,
+                },
+                HunkRange {
+                    commit_id,
+                    stack_id,
+                    start: new_diff.new_start,
+                    lines: new_diff.new_lines,
+                    line_shift: new_diff.net_lines()?,
+                },
+                HunkRange {
+                    commit_id: last_hunk.commit_id,
+                    stack_id: last_hunk.stack_id,
+                    start: new_diff.new_start + new_diff.new_lines,
+                    lines: last_hunk.lines
+                        - new_diff.old_lines
+                        - (new_diff.old_start - last_hunk.start),
+                    line_shift: last_hunk.line_shift,
+                },
+            ]);
+        }
+
+        if last_hunk.covered_by(new_diff.old_start, new_diff.old_lines) {
+            self.commit_dependencies
+                .entry(commit_id)
+                .or_default()
+                .insert(last_hunk.commit_id);
+
+            // The new diff completely overwrites the previous one.
+            return Ok(vec![HunkRange {
                 commit_id,
                 stack_id,
                 start: new_diff.new_start,
                 lines: new_diff.new_lines,
                 line_shift: new_diff.net_lines()?,
-            },
-        ]);
-    }
+            }]);
+        }
 
-    if last_hunk.contains(new_diff.old_start, new_diff.old_lines) {
-        // Since the diff being added is from the current commit it overwrites the preceding one,
-        // but we need to split it in two and retain the tail.
+        self.commit_dependencies
+            .entry(commit_id)
+            .or_default()
+            .insert(last_hunk.commit_id);
 
-        return Ok(vec![
+        // Overwrite the tail of the previous diff.
+        Ok(vec![
             HunkRange {
                 commit_id: last_hunk.commit_id,
                 stack_id: last_hunk.stack_id,
                 start: last_hunk.start,
                 lines: new_diff.new_start - last_hunk.start,
-                line_shift: 0,
+                line_shift: last_hunk.line_shift,
             },
             HunkRange {
                 commit_id,
@@ -129,81 +184,48 @@ fn add_new(
                 lines: new_diff.new_lines,
                 line_shift: new_diff.net_lines()?,
             },
-            HunkRange {
-                commit_id: last_hunk.commit_id,
-                stack_id: last_hunk.stack_id,
-                start: new_diff.new_start + new_diff.new_lines,
-                lines: last_hunk.lines
-                    - new_diff.old_lines
-                    - (new_diff.old_start - last_hunk.start),
-                line_shift: last_hunk.line_shift,
-            },
-        ]);
+        ])
     }
 
-    if last_hunk.covered_by(new_diff.old_start, new_diff.old_lines) {
-        // The new diff completely overwrites the previous one.
-        return Ok(vec![HunkRange {
-            commit_id,
-            stack_id,
-            start: new_diff.new_start,
-            lines: new_diff.new_lines,
-            line_shift: new_diff.net_lines()?,
-        }]);
-    }
+    /// Determines how existing diff given the previous one.
+    fn add_existing(
+        &self,
+        hunk: &HunkRange,
+        last_hunk: Option<HunkRange>,
+        shift: i32,
+    ) -> Vec<HunkRange> {
+        if last_hunk.is_none() {
+            return vec![*hunk];
+        };
+        let last_hunk = last_hunk.unwrap();
 
-    // Overwrite the tail of the previous diff.
-    Ok(vec![
-        HunkRange {
-            commit_id: last_hunk.commit_id,
-            stack_id: last_hunk.stack_id,
-            start: last_hunk.start,
-            lines: new_diff.new_start - last_hunk.start,
-            line_shift: last_hunk.line_shift,
-        },
-        HunkRange {
-            commit_id,
-            stack_id,
-            start: new_diff.new_start,
-            lines: new_diff.new_lines,
-            line_shift: new_diff.net_lines()?,
-        },
-    ])
-}
-
-/// Determines how existing diff given the previous one.
-fn add_existing(hunk: &HunkRange, last_hunk: Option<HunkRange>, shift: i32) -> Vec<HunkRange> {
-    if last_hunk.is_none() {
-        return vec![*hunk];
-    };
-    let last_hunk = last_hunk.unwrap();
-
-    if hunk.start + hunk.lines == 0 {
-        vec![*hunk]
-    } else if hunk.start.saturating_add_signed(shift) > last_hunk.start + last_hunk.lines {
-        vec![
-            last_hunk,
-            HunkRange {
-                commit_id: hunk.commit_id,
-                stack_id: hunk.stack_id,
-                start: hunk.start.saturating_add_signed(shift),
-                lines: hunk.lines,
-                line_shift: hunk.line_shift,
-            },
-        ]
-    } else if last_hunk.covered_by(hunk.start.saturating_add_signed(shift), hunk.lines) {
-        vec![last_hunk]
-    } else {
-        vec![
-            last_hunk,
-            HunkRange {
-                commit_id: hunk.commit_id,
-                stack_id: hunk.stack_id,
-                start: hunk.start.saturating_add_signed(shift),
-                lines: hunk.lines - (last_hunk.start + last_hunk.lines - hunk.start),
-                line_shift: hunk.line_shift,
-            },
-        ]
+        if hunk.start + hunk.lines == 0 {
+            vec![*hunk]
+        } else if hunk.start.saturating_add_signed(shift) > last_hunk.start + last_hunk.lines {
+            vec![
+                last_hunk,
+                HunkRange {
+                    commit_id: hunk.commit_id,
+                    stack_id: hunk.stack_id,
+                    start: hunk.start.saturating_add_signed(shift),
+                    lines: hunk.lines,
+                    line_shift: hunk.line_shift,
+                },
+            ]
+        } else if last_hunk.covered_by(hunk.start.saturating_add_signed(shift), hunk.lines) {
+            vec![last_hunk]
+        } else {
+            vec![
+                last_hunk,
+                HunkRange {
+                    commit_id: hunk.commit_id,
+                    stack_id: hunk.stack_id,
+                    start: hunk.start.saturating_add_signed(shift),
+                    lines: hunk.lines - (last_hunk.start + last_hunk.lines - hunk.start),
+                    line_shift: hunk.line_shift,
+                },
+            ]
+        }
     }
 }
 

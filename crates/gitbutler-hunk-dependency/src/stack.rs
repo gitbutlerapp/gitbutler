@@ -10,6 +10,7 @@ use crate::{HunkRange, InputDiff, PathRanges};
 
 #[derive(Debug, Default)]
 pub struct StackRanges {
+    pub stack_id: StackId,
     pub paths: HashMap<PathBuf, PathRanges>,
 }
 
@@ -23,13 +24,11 @@ impl StackRanges {
         path: &PathBuf,
         diffs: Vec<InputDiff>,
     ) -> anyhow::Result<()> {
-        if let Some(deps_path) = self.paths.get_mut(path) {
-            deps_path.add(stack_id, commit_id, diffs)?;
-        } else {
-            let mut path_deps = PathRanges::default();
-            path_deps.add(stack_id, commit_id, diffs)?;
-            self.paths.insert(path.clone(), path_deps);
-        };
+        self.paths
+            .entry(path.to_owned())
+            .or_default()
+            .add(stack_id, commit_id, diffs)?;
+
         Ok(())
     }
 
@@ -46,5 +45,18 @@ impl StackRanges {
             return deps_path.intersection(start, lines);
         }
         vec![]
+    }
+
+    /// Merge all the commit dependencies for each path into a single, global commit dependency map
+    pub fn get_commit_dependencies(&self) -> HashMap<git2::Oid, HashSet<git2::Oid>> {
+        self.paths
+            .values()
+            .flat_map(|path_ranges| path_ranges.commit_dependencies.iter())
+            .fold(HashMap::new(), |mut acc, (commit_id, dependencies)| {
+                acc.entry(*commit_id)
+                    .and_modify(|existing_dependencies| existing_dependencies.extend(dependencies))
+                    .or_insert(dependencies.clone());
+                acc
+            })
     }
 }

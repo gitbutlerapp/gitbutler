@@ -17,8 +17,8 @@ use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, GitHunk, Hunk, HunkHash};
 use gitbutler_hunk_dependency::{
-    compute_hunk_locks, HunkDependencyOptions, HunkLock, InputCommit, InputDiff, InputFile,
-    InputStack,
+    calculate_hunk_dependencies, HunkDependencyOptions, HunkLock, InputCommit, InputDiff,
+    InputFile, InputStack,
 };
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
@@ -333,10 +333,12 @@ fn compute_locks(
         });
     }
 
-    compute_hunk_locks(HunkDependencyOptions {
+    let dependencies = calculate_hunk_dependencies(HunkDependencyOptions {
         workdir: base_diffs,
         stacks: stacks_input,
-    })
+    })?;
+
+    Ok(dependencies.diffs)
 }
 
 fn compute_old_locks(
