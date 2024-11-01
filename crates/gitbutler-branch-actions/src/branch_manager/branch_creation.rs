@@ -106,6 +106,7 @@ impl BranchManager<'_> {
             order,
             selected_for_changes,
             self.ctx.project().ok_with_force_push.into(),
+            false, // disallow duplicate branch names on creation
         );
 
         if let Some(ownership) = &create.ownership {
@@ -231,7 +232,8 @@ impl BranchManager<'_> {
             branch.allow_rebasing = self.ctx.project().ok_with_force_push.into();
             branch.in_workspace = true;
 
-            branch.initialize(self.ctx)?;
+            // allow duplicate branch name if created from an existing branch
+            branch.initialize(self.ctx, true)?;
             branch
         } else {
             let upstream_head = upstream_branch.is_some().then_some(head_commit.id());
@@ -246,6 +248,7 @@ impl BranchManager<'_> {
                 order,
                 selected_for_changes,
                 self.ctx.project().ok_with_force_push.into(),
+                true, // allow duplicate branch name if created from an existing branch
             )
         };
 
