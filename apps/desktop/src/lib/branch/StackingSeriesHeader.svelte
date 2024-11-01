@@ -264,6 +264,7 @@
 								upstreamName={currentSeries.name}
 								reloadPR={handleReloadPR}
 								reopenPr={handleReopenPr}
+								openPrDetailsModal={handleOpenPR}
 								pr={$pr}
 								{checksMonitor}
 							/>
