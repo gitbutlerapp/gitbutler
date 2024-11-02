@@ -1,8 +1,7 @@
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
-use gitbutler_patch_reference::ForgeIdentifier;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-use gitbutler_stack::StackId;
+use gitbutler_stack::{ForgeIdentifier, StackId};
 use tauri::State;
 use tracing::instrument;
 

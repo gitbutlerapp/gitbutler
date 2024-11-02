@@ -14,7 +14,6 @@ anyhow = "1.0.92"
 serde = { workspace = true, features = ["std"] }
 toml.workspace = true
 tracing.workspace = true
-gitbutler-patch-reference.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-id.workspace = true
 gitbutler-serde.workspace = true

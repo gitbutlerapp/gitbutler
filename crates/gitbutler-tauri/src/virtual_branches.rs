@@ -10,11 +10,10 @@ pub mod commands {
         RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranches,
     };
     use gitbutler_command_context::CommandContext;
-    use gitbutler_patch_reference::ForgeIdentifier;
     use gitbutler_project as projects;
     use gitbutler_project::{FetchResult, ProjectId};
     use gitbutler_reference::{normalize_branch_name as normalize_name, Refname, RemoteRefname};
-    use gitbutler_stack::{BranchOwnershipClaims, StackId};
+    use gitbutler_stack::{BranchOwnershipClaims, ForgeIdentifier, StackId};
     use std::path::PathBuf;
     use tauri::State;
     use tracing::instrument;

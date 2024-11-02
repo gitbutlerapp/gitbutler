@@ -21,7 +21,6 @@ use gitbutler_diff::{trees, GitHunk, Hunk};
 use gitbutler_error::error::Code;
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_oxidize::git2_signature_to_gix_signature;
-use gitbutler_patch_reference::ForgeIdentifier;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -30,7 +29,8 @@ use gitbutler_repo::{
 };
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{
-    reconcile_claims, BranchOwnershipClaims, Stack, StackId, Target, VirtualBranchesHandle,
+    reconcile_claims, BranchOwnershipClaims, ForgeIdentifier, Stack, StackId, Target,
+    VirtualBranchesHandle,
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
