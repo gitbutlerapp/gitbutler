@@ -4,8 +4,7 @@ import type { ForgeBranch } from './forgeBranch';
 import type { ForgeChecksMonitor } from './forgeChecksMonitor';
 import type { ForgeListingService } from './forgeListingService';
 import type { ForgePrService } from './forgePrService';
-
-export type ForgeName = 'github' | 'gitlab' | 'bitbucket' | 'azure';
+import type { ForgeName } from './types';
 
 export interface Forge {
 	readonly name: ForgeName;

@@ -3,6 +3,7 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Markdown from '$lib/components/Markdown.svelte';
+	import { ForgeName, type PullRequest } from '$lib/forge/interface/types';
 	import { RemotesService } from '$lib/remotes/service';
 	import Link from '$lib/shared/Link.svelte';
 	import * as toasts from '$lib/utils/toasts';
@@ -14,7 +15,6 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { get } from 'svelte/store';
-	import type { PullRequest } from '$lib/forge/interface/types';
 	import { goto } from '$app/navigation';
 
 	export let pullrequest: PullRequest;
@@ -69,7 +69,7 @@
 			await branchController.createvBranchFromBranch(
 				`refs/remotes/${remoteName}/${pullrequest.sourceBranch}`,
 				undefined,
-				{ type: 'GitHub', subject: { prNumber: pullrequest.number } }
+				pullrequest.id
 			);
 			await virtualBranchService.refresh();
 
@@ -101,7 +101,9 @@
 				{pullrequest.title}
 				<span class="card__title-pr">
 					<Link target="_blank" rel="noreferrer" href={pullrequest.htmlUrl}>
-						#{pullrequest.number}
+						{#if pullrequest.id.type === ForgeName.GitHub}
+							#{pullrequest.id.subject.prNumber}:
+						{/if}
 					</Link>
 				</span>
 			</h2>

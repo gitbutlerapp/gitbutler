@@ -1,5 +1,6 @@
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Author } from '$lib/vbranches/types';
+import type { GitHubPullRequestId } from '../github/types';
 
 export interface Label {
 	name: string;
@@ -8,8 +9,8 @@ export interface Label {
 }
 
 export interface PullRequest {
+	id: PullRequestId;
 	htmlUrl: string;
-	number: number;
 	title: string;
 	body: string | undefined;
 	author: Author | null;
@@ -28,10 +29,9 @@ export interface PullRequest {
 }
 
 export interface DetailedPullRequest {
-	id: number;
+	id: PullRequestId;
 	title: string;
 	body: string | undefined;
-	number: number;
 	sourceBranch: string;
 	draft?: boolean;
 	createdAt: Date;
@@ -86,3 +86,19 @@ export type CreatePullRequestArgs = {
 	baseBranchName: string;
 	upstreamName: string;
 };
+
+export enum ForgeName {
+	GitHub = 'GitHub',
+	GitLab = 'GitLab',
+	BitBucket = 'BitBucket',
+	Azure = 'Azure'
+}
+
+/**
+ * Represents an identifier for the series at possible forges, e.g. a GitHub PR number.
+ */
+export type PullRequestId =
+	| { type: ForgeName.GitHub; subject: GitHubPullRequestId }
+	| { type: ForgeName.GitLab; subject: void }
+	| { type: ForgeName.Azure; subject: void }
+	| { type: ForgeName.BitBucket; subject: void };

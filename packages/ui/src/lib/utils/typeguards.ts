@@ -1,9 +1,5 @@
 export function isDefined<T>(file: T | undefined | null): file is T {
-	return file !== undefined;
-}
-
-export function notNull<T>(file: T | undefined | null): file is T {
-	return file !== null;
+	return file !== undefined && file !== null;
 }
 
 export type UnknownObject = Record<string, unknown>;

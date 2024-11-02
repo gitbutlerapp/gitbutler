@@ -17,6 +17,8 @@
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { ForgeName } from '$lib/forge/interface/types';
+	import { equalPrId } from '$lib/forge/shared/pullRequestId';
 	import { showError } from '$lib/notifications/toasts';
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
 	import StackingPullRequestCard from '$lib/pr/StackingPullRequestCard.svelte';
@@ -78,9 +80,26 @@
 	const prs = $derived(prStore ? $prStore : undefined);
 
 	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
-	const prNumber = $derived(currentSeries.forgeId?.subject.prNumber || listedPr?.number);
+	const prId = $derived(currentSeries.forgeId || listedPr?.id);
 
-	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
+	/**
+	 * We are starting to store pull request id's locally so if we find one that does not have
+	 * one locally stored then we set it once.
+	 *
+	 * TODO: Remove this after transition is complete.
+	 */
+	$effect(() => {
+		if (
+			$forge?.name === ForgeName.GitHub &&
+			listedPr?.id &&
+			currentSeries.forgeId &&
+			!equalPrId(listedPr.id, currentSeries.forgeId)
+		) {
+			branchController.updateSeriesForgeId(branch.id, currentSeries.name, listedPr.id);
+		}
+	});
+
+	const prMonitor = $derived(prId ? $prService?.prMonitor(prId) : undefined);
 	const pr = $derived(prMonitor?.pr);
 	const checksMonitor = $derived(
 		$pr?.sourceBranch ? $forge?.checksMonitor($pr.sourceBranch) : undefined
@@ -110,7 +129,7 @@
 		if (!$pr) {
 			return;
 		}
-		await $prService?.reopen($pr?.number);
+		await $prService?.reopen($pr.id);
 		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
 	}
 

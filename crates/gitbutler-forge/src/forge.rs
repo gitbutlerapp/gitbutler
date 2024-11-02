@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, PartialEq, Debug, Clone)]
-#[serde(tag = "name", rename_all = "lowercase")]
+#[serde(tag = "name")]
 /// Supported git forge types
 pub enum ForgeName {
     GitHub,

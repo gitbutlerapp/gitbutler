@@ -5,6 +5,7 @@
 	import { getForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { ForgeName } from '$lib/forge/interface/types';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
@@ -36,10 +37,10 @@
 	const prs = $derived(prStore ? $prStore : undefined);
 
 	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
-	const prNumber = $derived(listedPr?.number);
+	const prId = $derived(listedPr?.id);
 
 	const prService = getForgePrService();
-	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
+	const prMonitor = $derived(prId ? $prService?.prMonitor(prId) : undefined);
 
 	// This PR has been loaded on demand, and contains more details than the version
 	// obtained when listing them.
@@ -109,7 +110,11 @@
 {#if $pr}
 	<div class="card pr-card">
 		<div class="pr-title text-13 text-semibold">
-			<span style="color: var(--clr-scale-ntrl-50)">PR #{$pr?.number}:</span>
+			<span style="color: var(--clr-scale-ntrl-50)">
+				{#if $pr.id.type === ForgeName.GitHub}
+					PR #{$pr.id.subject.prNumber}:
+				{/if}
+			</span>
 			<span>{$pr.title}</span>
 		</div>
 		<div class="pr-tags">
@@ -173,7 +178,7 @@
 						isMerging = true;
 						const method = e.detail.method;
 						try {
-							await $prService?.merge(method, $pr.number);
+							await $prService?.merge(method, $pr.id);
 							await baseBranchService.fetchFromRemotes();
 							await Promise.all([
 								prMonitor?.refresh(),

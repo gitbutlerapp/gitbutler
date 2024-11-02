@@ -1,9 +1,10 @@
 import { invoke } from './ipc';
+import type { ForgeName } from '$lib/forge/interface/types';
 
 export class TemplateService {
 	constructor(private projectId: string) {}
 
-	async getAvailable(forgeName: string): Promise<string[]> {
+	async getAvailable(forgeName: ForgeName): Promise<string[]> {
 		return await invoke<string[]>('get_available_review_templates', {
 			projectId: this.projectId,
 			forge: { name: forgeName }

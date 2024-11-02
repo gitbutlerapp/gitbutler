@@ -1,4 +1,5 @@
 import { GitHub } from './github';
+import { ForgeName } from '../interface/types';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
 import type { ForgePrMonitor } from '../interface/forgePrMonitor';
@@ -31,7 +32,7 @@ describe.concurrent('GitHubPrMonitor', () => {
 			octokit
 		});
 		service = gh.prService();
-		monitor = service?.prMonitor(123);
+		monitor = service?.prMonitor({ type: ForgeName.GitHub, subject: { prNumber: 123 } });
 	});
 
 	test('should run on set interval', async () => {

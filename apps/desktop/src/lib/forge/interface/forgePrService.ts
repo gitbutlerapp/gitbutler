@@ -1,15 +1,21 @@
 import { buildContextStore } from '@gitbutler/shared/context';
 import type { ForgePrMonitor } from './forgePrMonitor';
-import type { CreatePullRequestArgs, DetailedPullRequest, MergeMethod, PullRequest } from './types';
+import type {
+	CreatePullRequestArgs,
+	DetailedPullRequest,
+	PullRequestId,
+	MergeMethod,
+	PullRequest
+} from './types';
 import type { Writable } from 'svelte/store';
 
 export const [getForgePrService, createForgePrServiceStore] = buildContextStore<
 	ForgePrService | undefined
->('gitBranchService');
+>('forgePrService');
 
 export interface ForgePrService {
 	loading: Writable<boolean>;
-	get(prNumber: number): Promise<DetailedPullRequest>;
+	get(id: PullRequestId): Promise<DetailedPullRequest>;
 	createPr({
 		title,
 		body,
@@ -17,7 +23,7 @@ export interface ForgePrService {
 		baseBranchName,
 		upstreamName
 	}: CreatePullRequestArgs): Promise<PullRequest>;
-	merge(method: MergeMethod, prNumber: number): Promise<void>;
-	reopen(prNumber: number): Promise<void>;
-	prMonitor(prNumber: number): ForgePrMonitor;
+	merge(method: MergeMethod, id: PullRequestId): Promise<void>;
+	reopen(id: PullRequestId): Promise<void>;
+	prMonitor(id: PullRequestId): ForgePrMonitor;
 }

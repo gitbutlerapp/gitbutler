@@ -2,17 +2,17 @@ import { GitHubBranch } from './githubBranch';
 import { GitHubChecksMonitor } from './githubChecksMonitor';
 import { GitHubListingService } from './githubListingService';
 import { GitHubPrService } from './githubPrService';
+import { type Forge } from '../interface/forge';
 import { GitHubIssueService } from '$lib/forge/github/issueService';
+import { ForgeName, type ForgeArguments } from '$lib/forge/interface/types';
 import { Octokit } from '@octokit/rest';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { Forge, ForgeName } from '../interface/forge';
-import type { ForgeArguments } from '../interface/types';
 
 export const GITHUB_DOMAIN = 'github.com';
 
 export class GitHub implements Forge {
-	readonly name: ForgeName = 'github';
+	readonly name = ForgeName.GitHub;
 	private baseUrl: string;
 	private repo: RepoInfo;
 	private baseBranch: string;

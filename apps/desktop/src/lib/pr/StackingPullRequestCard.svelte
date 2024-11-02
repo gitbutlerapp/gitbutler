@@ -8,6 +8,7 @@
 	import { type ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { ForgeName, type DetailedPullRequest } from '$lib/forge/interface/types';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -15,7 +16,6 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
-	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
@@ -50,10 +50,10 @@
 	const prs = $derived(prStore ? $prStore : undefined);
 
 	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
-	const prNumber = $derived(listedPr?.number);
+	const prId = $derived(listedPr?.id);
 
 	const prService = getForgePrService();
-	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
+	const prMonitor = $derived(prId ? $prService?.prMonitor(prId) : undefined);
 
 	const checks = $derived(checksMonitor?.status);
 
@@ -186,8 +186,12 @@
 		}}
 	>
 		<div class="text-13 text-semibold pr-header-title">
-			<span style="color: var(--clr-scale-ntrl-50)">PR #{pr?.number}:</span>
-			<span>{pr?.title}</span>
+			<span style="color: var(--clr-scale-ntrl-50)">
+				{#if pr.id.type === ForgeName.GitHub}
+					PR #{pr.id.subject.prNumber}:
+				{/if}
+				<span>{pr?.title}</span>
+			</span>
 		</div>
 		<div class="pr-header-tags">
 			<Button
@@ -252,7 +256,7 @@
 						isMerging = true;
 						const method = e.detail.method;
 						try {
-							await $prService?.merge(method, pr.number);
+							await $prService?.merge(method, pr.id);
 							await baseBranchService.fetchFromRemotes();
 							await Promise.all([
 								prMonitor?.refresh(),

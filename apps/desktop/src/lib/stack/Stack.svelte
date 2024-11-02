@@ -83,7 +83,6 @@
 		try {
 			await branchController.pushBranch(branch.id, branch.requiresForce, true);
 			$listingService?.refresh();
-			// TODO: Refresh prMonitor and checksMonitor upon push
 		} finally {
 			isPushingCommits = false;
 		}

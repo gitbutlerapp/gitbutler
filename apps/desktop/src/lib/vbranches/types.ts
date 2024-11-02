@@ -2,9 +2,9 @@ import 'reflect-metadata';
 import { emptyConflictEntryPresence, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '@gitbutler/ui/utils/string';
-import { isDefined, notNull } from '@gitbutler/ui/utils/typeguards';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
-import type { PullRequest } from '$lib/forge/interface/types';
+import type { PullRequest, PullRequestId } from '$lib/forge/interface/types';
 
 export type ChangeType =
 	/// Entry does not exist in old version
@@ -80,10 +80,7 @@ export class LocalFile {
 	}
 
 	get lockedIds(): HunkLock[] {
-		return this.hunks
-			.flatMap((hunk) => hunk.lockedTo)
-			.filter(notNull)
-			.filter(isDefined);
+		return this.hunks.flatMap((hunk) => hunk.lockedTo).filter(isDefined);
 	}
 }
 
@@ -439,7 +436,7 @@ export class PatchSeries {
 	 * A list of identifiers for the review unit at possible forges (eg. Pull Request).
 	 * The list is empty if there is no review units, eg. no Pull Request has been created.
 	 */
-	forgeId?: ForgeIdentifier | undefined;
+	forgeId?: PullRequestId | undefined | null;
 	/**
 	 * Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
 	 * This would occur when the branch has been merged at the remote and the workspace has been updated with that change.

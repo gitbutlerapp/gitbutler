@@ -7,14 +7,18 @@
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import type { PullRequest } from '$lib/forge/interface/types';
+	import { ForgeName, type PullRequest } from '$lib/forge/interface/types';
 	import type { Readable } from 'svelte/store';
 	import { page } from '$app/stores';
 
 	const forgeListing = getForgeListingService();
 	let prs = $derived<Readable<PullRequest[]> | undefined>($forgeListing?.prs);
 	let pr = $derived<PullRequest | undefined>(
-		$prs?.find((b) => b.number.toString() === $page.params.number)
+		$prs?.find((b) => {
+			return (
+				b.id.type === ForgeName.GitHub && b.id.subject.prNumber.toString() === $page.params.number
+			);
+		})
 	);
 </script>
 

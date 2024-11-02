@@ -1,4 +1,4 @@
-import { type DetailedPullRequest } from '$lib/forge/interface/types';
+import { type DetailedPullRequest, type PullRequestId } from '$lib/forge/interface/types';
 import { sleep } from '$lib/utils/sleep';
 import { derived, writable } from 'svelte/store';
 import type { GitHubPrService } from './githubPrService';
@@ -24,7 +24,7 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 
 	constructor(
 		private prService: GitHubPrService,
-		private prNumber: number
+		private prId: PullRequestId
 	) {}
 
 	private start() {
@@ -46,7 +46,7 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 		this.error.set(undefined);
 		this.loading.set(true);
 		try {
-			this.pr.set(await this.getPrWithRetries(this.prNumber));
+			this.pr.set(await this.getPrWithRetries(this.prId));
 			this.lastFetch.set(new Date());
 		} catch (err: any) {
 			this.error.set(err);
@@ -57,8 +57,8 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 	}
 
 	// Right after pushing GitHub will respond with status 422, necessatating retries.
-	private async getPrWithRetries(prNumber: number): Promise<DetailedPullRequest> {
-		const request = async () => await this.prService.get(prNumber);
+	private async getPrWithRetries(prId: PullRequestId): Promise<DetailedPullRequest> {
+		const request = async () => await this.prService.get(prId);
 		let lastError: any;
 		let attempt = 0;
 		while (attempt < 3) {

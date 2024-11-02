@@ -21,6 +21,7 @@
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { type DetailedPullRequest, type PullRequest } from '$lib/forge/interface/types';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
@@ -40,7 +41,6 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
 	import { tick } from 'svelte';
-	import type { DetailedPullRequest, PullRequest } from '$lib/forge/interface/types';
 
 	interface BaseProps {
 		type: 'display' | 'preview' | 'preview-series';
@@ -211,10 +211,7 @@
 				upstreamName: upstreamBranchName
 			});
 			if (props.type === 'preview-series') {
-				await branchController.updateSeriesForgeId(props.stackId, props.currentSeries.name, {
-					type: 'GitHub',
-					subject: { prNumber: pr.number }
-				});
+				await branchController.updateSeriesForgeId(props.stackId, props.currentSeries.name, pr.id);
 			}
 		} catch (err: any) {
 			console.error(err);

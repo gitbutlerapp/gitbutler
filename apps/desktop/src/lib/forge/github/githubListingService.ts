@@ -1,10 +1,10 @@
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance } from './types';
 import { writable } from 'svelte/store';
+import type { PullRequest } from '$lib/forge/interface/types';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { ForgeListingService } from '../interface/forgeListingService';
-import type { PullRequest } from '../interface/types';
 import type { Octokit } from '@octokit/rest';
 
 export class GitHubListingService implements ForgeListingService {

@@ -1,4 +1,5 @@
 import { GitHub } from './github';
+import { ForgeName } from '$lib/forge/interface/types';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { expect, test, describe, vi, beforeEach } from 'vitest';
 import type { ForgePrService as GitHubPrService } from '../interface/forgePrService';
@@ -30,7 +31,7 @@ describe.concurrent('GitHubPrService', () => {
 				data: { title }
 			} as RestEndpointMethodTypes['pulls']['get']['response'])
 		);
-		const pr = await service?.get(123);
+		const pr = await service?.get({ type: ForgeName.GitHub, subject: { prNumber: 123 } });
 		expect(pr?.title).equal(title);
 	});
 });

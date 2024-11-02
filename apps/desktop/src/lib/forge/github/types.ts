@@ -1,14 +1,26 @@
-import type { CheckSuite, DetailedPullRequest, Label, PullRequest } from '../interface/types';
+import {
+	ForgeName,
+	type CheckSuite,
+	type DetailedPullRequest,
+	type Label,
+	type PullRequest
+} from '$lib/forge/interface/types';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 
-export type DetailedGitHubPullRequest = RestEndpointMethodTypes['pulls']['get']['response']['data'];
+type DetailedGitHubPullRequest = RestEndpointMethodTypes['pulls']['get']['response']['data'];
+
+/**
+ * Represents a GitHub pull request identifier.
+ */
+export interface GitHubPullRequestId {
+	prNumber: number;
+}
 
 export function parseGitHubDetailedPullRequest(
 	data: DetailedGitHubPullRequest
 ): DetailedPullRequest {
 	return {
-		id: data.id,
-		number: data.number,
+		id: { type: ForgeName.GitHub, subject: { prNumber: data.number } },
 		title: data.title,
 		body: data.body ?? undefined,
 		sourceBranch: data.head?.ref,
@@ -37,8 +49,8 @@ export function ghResponseToInstance(
 	}));
 
 	return {
+		id: { type: ForgeName.GitHub, subject: { prNumber: pr.number } },
 		htmlUrl: pr.html_url,
-		number: pr.number,
 		title: pr.title,
 		body: pr.body || undefined,
 		author: pr.user

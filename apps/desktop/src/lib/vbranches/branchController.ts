@@ -3,8 +3,9 @@ import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+import type { PullRequestId } from '$lib/forge/interface/types';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { BranchPushResult, ForgeIdentifier, Hunk, LocalFile, StackOrder } from './types';
+import type { BranchPushResult, Hunk, LocalFile, StackOrder } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
 export type CommitIdOrChangeId = { CommitId: string } | { ChangeId: string };
@@ -164,11 +165,7 @@ export class BranchController {
 	 * @param headName The branch name to update.
 	 * @param forgeId New forge id to be set for the branch (overrides current state). Setting to undefined will remove the forge id.
 	 */
-	async updateSeriesForgeId(
-		stackId: string,
-		headName: string,
-		forgeId: ForgeIdentifier | undefined
-	) {
+	async updateSeriesForgeId(stackId: string, headName: string, forgeId: PullRequestId | undefined) {
 		try {
 			await invoke<void>('update_series_forge_id', {
 				projectId: this.projectId,
@@ -450,7 +447,7 @@ export class BranchController {
 	async createvBranchFromBranch(
 		branch: string,
 		remote: string | undefined = undefined,
-		forgeId: ForgeIdentifier | undefined = undefined
+		forgeId: PullRequestId | undefined = undefined
 	) {
 		try {
 			await invoke<string>('create_virtual_branch_from_branch', {

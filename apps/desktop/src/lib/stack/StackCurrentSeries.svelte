@@ -3,7 +3,7 @@
 	import { createForgeChecksMonitorStore } from '$lib/forge/interface/forgeChecksMonitor';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { createForgePrMonitorStore } from '$lib/forge/interface/forgePrMonitor';
-	import { createForgePrServiceStore } from '$lib/forge/interface/forgePrService';
+	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import type { PatchSeries } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
@@ -13,11 +13,8 @@
 	}
 
 	const { currentSeries, children }: Props = $props();
-
-	// Setup PR Store and Monitor on a per-series basis
+	const prService = getForgePrService();
 	const forge = getForge();
-	const prService = createForgePrServiceStore(undefined);
-	$effect(() => prService.set($forge?.prService()));
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
@@ -26,9 +23,9 @@
 	const prs = $derived(prStore ? $prStore : undefined);
 
 	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === currentSeries.name));
-	const prNumber = $derived(listedPr?.number);
+	const prId = $derived(listedPr?.id);
 
-	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
+	const prMonitor = $derived(prId ? $prService?.prMonitor(prId) : undefined);
 	const pr = $derived(prMonitor?.pr);
 
 	const forgePrMonitorStore = createForgePrMonitorStore(undefined);

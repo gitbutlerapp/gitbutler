@@ -1,7 +1,11 @@
 import { BitBucketBranch } from './bitbucketBranch';
+import { type Forge } from '$lib/forge/interface/forge';
+import {
+	ForgeName,
+	type DetailedPullRequest,
+	type ForgeArguments
+} from '$lib/forge/interface/types';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { Forge, ForgeName } from '../interface/forge';
-import type { DetailedPullRequest, ForgeArguments } from '../interface/types';
 
 export type PrAction = 'creating_pr';
 export type PrState = { busy: boolean; branchId: string; action?: PrAction };
@@ -16,7 +20,7 @@ export const BITBUCKET_DOMAIN = 'bitbucket.org';
  * https://github.com/gitbutlerapp/gitbutler/issues/3252
  */
 export class BitBucket implements Forge {
-	readonly name: ForgeName = 'bitbucket';
+	readonly name = ForgeName.BitBucket;
 	private baseUrl: string;
 	private repo: RepoInfo;
 	private baseBranch: string;
