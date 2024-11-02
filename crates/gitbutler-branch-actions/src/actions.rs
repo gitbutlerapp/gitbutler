@@ -24,11 +24,11 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt, SnapshotExt,
 };
-use gitbutler_patch_reference::ForgeIdentifier;
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
+use gitbutler_stack::ForgeIdentifier;
 use gitbutler_stack::{BranchOwnershipClaims, StackId};
 use std::path::PathBuf;
 use tracing::instrument;

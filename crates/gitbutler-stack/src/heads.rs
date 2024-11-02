@@ -1,8 +1,10 @@
 use anyhow::anyhow;
 use anyhow::bail;
 use anyhow::Result;
-use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use itertools::Itertools;
+
+use crate::CommitOrChangeId;
+use crate::PatchReference;
 
 pub(crate) fn get_head(heads: &[PatchReference], name: &str) -> Result<(usize, PatchReference)> {
     let (idx, head) = heads

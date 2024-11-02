@@ -29,7 +29,6 @@ gitbutler-operating-modes.workspace = true
 gitbutler-cherry-pick.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-stack.workspace = true
-gitbutler-patch-reference.workspace = true
 gitbutler-hunk-dependency.workspace = true
 serde = { workspace = true, features = ["std"] }
 bstr.workspace = true

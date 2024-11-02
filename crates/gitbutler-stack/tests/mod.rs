@@ -4,13 +4,12 @@ pub mod ownership;
 use anyhow::Result;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_patch_reference::{
-    CommitOrChangeId, ForgeIdentifier, GitHubIdentifier, PatchReference,
-};
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::VirtualBranchesHandle;
+use gitbutler_stack::{
+    CommitOrChangeId, ForgeIdentifier, GitHubIdentifier, PatchReference, VirtualBranchesHandle,
+};
 use gitbutler_stack::{PatchReferenceUpdate, TargetUpdate};
 use itertools::Itertools;
 use tempfile::TempDir;

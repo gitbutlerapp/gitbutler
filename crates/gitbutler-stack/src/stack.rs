@@ -11,8 +11,6 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_commit::commit_ext::CommitVecExt;
 use gitbutler_id::id::Id;
-use gitbutler_patch_reference::ForgeIdentifier;
-use gitbutler_patch_reference::{CommitOrChangeId, PatchReference};
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use gitbutler_repo::{LogUntil, RepositoryExt};
 use gix::validate::reference::name_partial;
@@ -23,6 +21,9 @@ use serde::{Deserialize, Serialize};
 use crate::heads::add_head;
 use crate::heads::get_head;
 use crate::heads::remove_head;
+use crate::CommitOrChangeId;
+use crate::ForgeIdentifier;
+use crate::PatchReference;
 use crate::Series;
 use crate::{ownership::BranchOwnershipClaims, VirtualBranchesHandle};
 

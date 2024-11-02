@@ -2388,7 +2388,6 @@ dependencies = [
  "gitbutler-fs",
  "gitbutler-id",
  "gitbutler-oxidize",
- "gitbutler-patch-reference",
  "gitbutler-reference",
  "gitbutler-serde",
  "gitbutler-stack",
@@ -2426,7 +2425,6 @@ dependencies = [
  "gitbutler-operating-modes",
  "gitbutler-oplog",
  "gitbutler-oxidize",
- "gitbutler-patch-reference",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
@@ -2714,17 +2712,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gitbutler-patch-reference"
-version = "0.0.0"
-dependencies = [
- "anyhow",
- "git2",
- "gitbutler-command-context",
- "gitbutler-commit",
- "serde",
-]
-
-[[package]]
 name = "gitbutler-project"
 version = "0.0.0"
 dependencies = [
@@ -2853,7 +2840,6 @@ dependencies = [
  "gitbutler-fs",
  "gitbutler-git",
  "gitbutler-id",
- "gitbutler-patch-reference",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-repo-actions",
@@ -2926,7 +2912,6 @@ dependencies = [
  "gitbutler-id",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
- "gitbutler-patch-reference",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",

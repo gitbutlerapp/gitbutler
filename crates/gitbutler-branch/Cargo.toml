@@ -16,7 +16,6 @@ gitbutler-error.workspace = true
 gitbutler-fs.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-oxidize.workspace = true
-gitbutler-patch-reference.workspace = true
 gitbutler-time.workspace = true
 gitbutler-stack.workspace = true
 itertools = "0.13"

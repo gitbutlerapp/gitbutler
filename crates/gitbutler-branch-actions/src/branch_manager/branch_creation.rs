@@ -6,7 +6,6 @@ use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
-use gitbutler_patch_reference::ForgeIdentifier;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{
@@ -14,7 +13,7 @@ use gitbutler_repo::{
     LogUntil, RepositoryExt,
 };
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
+use gitbutler_stack::{BranchOwnershipClaims, ForgeIdentifier, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use tracing::instrument;
 

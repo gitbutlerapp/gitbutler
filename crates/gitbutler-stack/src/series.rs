@@ -1,7 +1,8 @@
 use git2::Commit;
 use gitbutler_commit::commit_ext::CommitVecExt;
-use gitbutler_patch_reference::PatchReference;
 use std::collections::HashMap;
+
+use crate::PatchReference;
 
 /// Series or (patch) Series is a set of patches (commits) that are dependent on each other.
 /// This is effectively a sub-branch within a (series) stack.

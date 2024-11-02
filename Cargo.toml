@@ -34,7 +34,6 @@ members = [
     "crates/gitbutler-cherry-pick",
     "crates/gitbutler-oxidize",
     "crates/gitbutler-stack",
-    "crates/gitbutler-patch-reference",
     "crates/gitbutler-hunk-dependency",
     "crates/gitbutler-settings",
 ]
@@ -93,7 +92,6 @@ gitbutler-edit-mode = { path = "crates/gitbutler-edit-mode" }
 gitbutler-cherry-pick = { path = "crates/gitbutler-cherry-pick" }
 gitbutler-oxidize = { path = "crates/gitbutler-oxidize" }
 gitbutler-stack = { path = "crates/gitbutler-stack" }
-gitbutler-patch-reference = { path = "crates/gitbutler-patch-reference" }
 gitbutler-forge = { path = "crates/gitbutler-forge" }
 gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
 gitbutler-settings = { path = "crates/gitbutler-settings" }

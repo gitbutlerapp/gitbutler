@@ -1,6 +1,6 @@
 use gitbutler_branch::BranchCreateRequest;
-use gitbutler_patch_reference::{ForgeIdentifier, GitHubIdentifier};
 use gitbutler_reference::LocalRefname;
+use gitbutler_stack::{ForgeIdentifier, GitHubIdentifier};
 
 use super::*;
 

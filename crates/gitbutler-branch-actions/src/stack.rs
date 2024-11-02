@@ -5,11 +5,12 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
-use gitbutler_patch_reference::{CommitOrChangeId, ForgeIdentifier, PatchReference};
 use gitbutler_project::Project;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{PatchReferenceUpdate, Series};
+use gitbutler_stack::{
+    CommitOrChangeId, ForgeIdentifier, PatchReference, PatchReferenceUpdate, Series,
+};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
