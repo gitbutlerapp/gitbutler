@@ -206,9 +206,61 @@ impl Stack {
         branch
     }
 
+    /// Returns the commits between the stack head (including) and the merge base (not including) for the stack.
+    /// The commits are ordered from most recent to oldest.
+    ///
+    /// E.g. `[ 3, 2, 1 ]` where `3` is the branch head, and `1` is the oldest commit with the merge base as it's parent
+    ///
+    /// # Errors
+    /// - If a merge base cannot be found
+    /// - If logging between the head and merge base fails
+    pub fn commits<'a>(&'a self, ctx: &'a CommandContext) -> Result<Vec<Commit>> {
+        let repo = ctx.repository();
+        let stack_commits = repo.log(
+            self.head(),
+            LogUntil::Commit(self.merge_base(ctx)?.id()),
+            false,
+        )?;
+        Ok(stack_commits)
+    }
+
+    /// Returns the commits between the stack head (including) and the merge base (including) for the stack.
+    /// The commits are ordered from most recent to oldest.
+    ///
+    /// E.g. `[ 3, 2, 1 ]` where `3` is the branch head, and `1` is the oldest commit with the merge base as it's parent
+    ///
+    /// # Errors
+    /// - If a merge base cannot be found
+    /// - If logging between the head and merge base fails
+    pub fn commits_with_merge_base<'a>(&'a self, ctx: &'a CommandContext) -> Result<Vec<Commit>> {
+        let mut commits = self.commits(ctx)?;
+        commits.push(self.merge_base(ctx)?);
+        Ok(commits)
+    }
+
+    /// Returns the merge base of the stack head and the project's target branch.
+    /// The merge base is the common ancestor of the stack head and the project's target branch.
+    ///
+    /// # Errors
+    /// - If a target is not set for the project
+    /// - If the head commit of the stack is not found
+    pub fn merge_base<'a>(&'a self, ctx: &'a CommandContext) -> Result<Commit> {
+        let default_target = branch_state(ctx).get_default_target()?;
+        let repo = ctx.repository();
+        let merge_base = repo.merge_base(self.head(), default_target.sha)?;
+        let merge_base = repo.find_commit(merge_base)?;
+        Ok(merge_base)
+    }
+
     /// An initialized stack has at least one head (branch).
-    pub fn initialized(&self) -> bool {
-        !self.heads.is_empty()
+    ///
+    /// # Errors
+    /// - If the stack has not been initialized
+    fn initialized(&self) -> Result<()> {
+        if self.heads.is_empty() {
+            return Err(anyhow!("Stack has not been initialized"));
+        }
+        Ok(())
     }
     /// Initializes a new stack.
     /// An initialized stack means that the heads will always have at least one entry.
@@ -217,7 +269,7 @@ impl Stack {
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
     pub fn initialize(&mut self, ctx: &CommandContext, allow_duplicate_refs: bool) -> Result<()> {
-        if self.initialized() {
+        if self.initialized().is_ok() {
             return Ok(());
         }
         let commit = ctx.repository().find_commit(self.head())?;
@@ -280,9 +332,7 @@ impl Stack {
         new_head: PatchReference,
         preceding_head_name: Option<String>,
     ) -> Result<()> {
-        if !self.initialized() {
-            return Err(anyhow!("Stack has not been initialized"));
-        }
+        self.initialized()?;
         let preceding_head = if let Some(preceding_head_name) = preceding_head_name {
             let (_, preceding_head) = get_head(&self.heads, &preceding_head_name)
                 .context("The specified preceding_head could not be found")?;
@@ -291,7 +341,7 @@ impl Stack {
             None
         };
         let state = branch_state(ctx);
-        let patches = stack_patches(ctx, &state, self.head(), true)?;
+        let patches = self.stack_patches(ctx, true)?;
         validate_name(&new_head, &state)?;
         validate_target(&new_head, ctx.repository(), self.head(), &state)?;
         let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches)?;
@@ -306,9 +356,7 @@ impl Stack {
         name: String,
         description: Option<String>,
     ) -> Result<()> {
-        if !self.initialized() {
-            return Err(anyhow!("Stack has not been initialized"));
-        }
+        self.initialized()?;
         let current_top_head = self.heads.last().ok_or(anyhow!(
             "Stack is in an invalid state - heads list is empty"
         ))?;
@@ -329,9 +377,7 @@ impl Stack {
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
     pub fn remove_series(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()> {
-        if !self.initialized() {
-            return Err(anyhow!("Stack has not been initialized"));
-        }
+        self.initialized()?;
         (self.heads, _) = remove_head(self.heads.clone(), branch_name)?;
         let state = branch_state(ctx);
         state.set_branch(self.clone())
@@ -348,15 +394,13 @@ impl Stack {
         branch_name: String,
         update: &PatchReferenceUpdate,
     ) -> Result<()> {
-        if !self.initialized() {
-            return Err(anyhow!("Stack has not been initialized"));
-        }
+        self.initialized()?;
         if update == &PatchReferenceUpdate::default() {
             return Ok(()); // noop
         }
 
         let state = branch_state(ctx);
-        let patches = stack_patches(ctx, &state, self.head(), true)?;
+        let patches = self.stack_patches(ctx, true)?;
         let mut updated_heads = self.heads.clone();
 
         // Handle target updates
@@ -429,9 +473,7 @@ impl Stack {
         commit_id: git2::Oid,
         tree: Option<git2::Oid>,
     ) -> Result<()> {
-        if !self.initialized() {
-            return Err(anyhow!("Stack has not been initialized"));
-        }
+        self.initialized()?;
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         #[allow(deprecated)] // this is the only place where this is allowed
         self.set_head(commit_id);
@@ -454,12 +496,10 @@ impl Stack {
 
     /// Removes any heads that are refering to commits that are no longer between the stack head and the merge base
     pub fn archive_integrated_heads(&mut self, ctx: &CommandContext) -> Result<()> {
-        if !self.initialized() {
-            return Err(anyhow!("Stack has not been initialized"));
-        }
+        self.initialized()?;
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         let state = branch_state(ctx);
-        let commit_ids = stack_patches(ctx, &state, self.head(), true)?;
+        let commit_ids = self.stack_patches(ctx, true)?;
         for head in self.heads.iter_mut() {
             if !commit_ids.contains(&head.target) {
                 head.archived = true;
@@ -471,19 +511,13 @@ impl Stack {
     /// Prepares push details according to the series to be pushed (picking out the correct sha and remote refname)
     /// This operation will error out if the target has no push remote configured.
     pub fn push_details(&self, ctx: &CommandContext, branch_name: String) -> Result<PushDetails> {
-        if !self.initialized() {
-            return Err(anyhow!("Stack has not been initialized"));
-        }
+        self.initialized()?;
         let (_, reference) = get_head(&self.heads, &branch_name)?;
-        let default_target = branch_state(ctx).get_default_target()?;
-        let merge_base = ctx
-            .repository()
-            .merge_base(self.head(), default_target.sha)?;
         let commit = commit_by_oid_or_change_id(
             &reference.target,
             ctx.repository(),
             self.head(),
-            merge_base,
+            self.merge_base(ctx)?.id(),
         )?
         .head;
         let remote_name = branch_state(ctx).get_default_target()?.push_remote_name();
@@ -500,15 +534,13 @@ impl Stack {
     /// This operation will compute the current list of local and remote commits that belong to each series.
     /// The first entry is the newest in the Stack (i.e. the top of the stack).
     pub fn list_series<'a>(&self, ctx: &'a CommandContext) -> Result<Vec<Series<'a>>> {
-        if !self.initialized() {
-            return Err(anyhow!("Stack has not been initialized"));
-        }
+        self.initialized()?;
         let state = branch_state(ctx);
         let mut all_series: Vec<Series> = vec![];
         let repo = ctx.repository();
         let default_target = state.get_default_target()?;
-        let merge_base = repo.merge_base(self.head(), default_target.sha)?;
-        let mut previous_head = repo.merge_base(self.head(), default_target.sha)?;
+        let merge_base = self.merge_base(ctx)?.id();
+        let mut previous_head = merge_base;
         for head in self.heads.clone() {
             let head_commit =
                 commit_by_oid_or_change_id(&head.target, repo, self.head(), merge_base);
@@ -595,9 +627,7 @@ impl Stack {
         from: &Commit<'_>,
         to: &Commit<'_>,
     ) -> Result<()> {
-        if !self.initialized() {
-            return Err(anyhow!("Stack has not been initialized"));
-        }
+        self.initialized()?;
         // find all heads matching the 'from' target (there can be multiple heads pointing to the same commit)
         let matching_heads = self
             .heads
@@ -684,9 +714,7 @@ impl Stack {
         series_name: &str,
         new_forge_id: Option<ForgeIdentifier>,
     ) -> Result<()> {
-        if !self.initialized() {
-            return Err(anyhow!("Stack has not been initialized"));
-        }
+        self.initialized()?;
         match self.heads.iter_mut().find(|r| r.name == series_name) {
             Some(head) => {
                 head.forge_id = new_forge_id;
@@ -735,6 +763,22 @@ impl Stack {
 
     pub fn heads(&self) -> Vec<String> {
         self.heads.iter().map(|h| h.name.clone()).collect()
+    }
+
+    /// Returns the list of patches between the stack head and the merge base.
+    /// The most recent patch is at the top of the 'stack' (i.e. the last element in the vector)
+    fn stack_patches(
+        &self,
+        ctx: &CommandContext,
+        include_merge_base: bool,
+    ) -> Result<Vec<CommitOrChangeId>> {
+        let commits = if include_merge_base {
+            self.commits_with_merge_base(ctx)?
+        } else {
+            self.commits(ctx)?
+        };
+        let patches: Vec<CommitOrChangeId> = commits.into_iter().rev().map(|c| c.into()).collect();
+        Ok(patches)
     }
 }
 
@@ -816,31 +860,6 @@ fn validate_target(
         }
     }
     Ok(())
-}
-
-/// Returns the list of patches between the stack head and the merge base.
-/// The most recent patch is at the top of the 'stack' (i.e. the last element in the vector)
-fn stack_patches(
-    ctx: &CommandContext,
-    state: &VirtualBranchesHandle,
-    stack_head: git2::Oid,
-    include_merge_base: bool,
-) -> Result<Vec<CommitOrChangeId>> {
-    let default_target = state.get_default_target()?;
-    let merge_base = ctx
-        .repository()
-        .merge_base(stack_head, default_target.sha)?;
-    let mut patches = ctx
-        .repository()
-        .log(stack_head, LogUntil::Commit(merge_base), false)?
-        .into_iter()
-        .map(|c| c.into())
-        .collect_vec();
-    if include_merge_base {
-        patches.push(CommitOrChangeId::CommitId(merge_base.to_string()));
-    }
-    patches.reverse();
-    Ok(patches)
 }
 
 /// Validates the name of the stack head.
