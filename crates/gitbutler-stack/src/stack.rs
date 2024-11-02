@@ -574,7 +574,10 @@ impl Stack {
                 let head_commit = repo
                     .find_reference(&head.remote_reference(&remote_name)?)?
                     .peel_to_commit()?;
-                let merge_base = repo.merge_base(head_commit.id(), default_target.sha)?;
+                let target_commit = repo
+                    .find_reference(default_target.branch.to_string().as_str())?
+                    .peel_to_commit()?;
+                let merge_base = repo.merge_base(head_commit.id(), target_commit.id())?;
                 repo.log(head_commit.id(), LogUntil::Commit(merge_base), false)?
                     .into_iter()
                     .rev()
