@@ -7,6 +7,7 @@ use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project::Project;
 use gitbutler_reference::normalize_branch_name;
+use gitbutler_repo::GixRepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{
     CommitOrChangeId, ForgeIdentifier, PatchReference, PatchReferenceUpdate, Series,
@@ -191,14 +192,20 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
 
     // First fetch, because we dont want to push integrated series
     ctx.fetch(&default_target.push_remote_name(), None)?;
-    let check_commit = IsCommitIntegrated::new(ctx, &default_target)?;
+    let gix_repo = ctx
+        .gix_repository()?
+        .for_tree_diffing()?
+        .with_object_memory();
+    let cache = gix_repo.commit_graph_if_enabled()?;
+    let mut graph = gix_repo.revision_graph(cache.as_ref());
+    let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
     let stack_series = stack.list_series(ctx)?;
     for series in stack_series {
         if series.head.target == merge_base {
             // Nothing to push for this one
             continue;
         }
-        if series_integrated(&check_commit, &series)? {
+        if series_integrated(&mut check_commit, &series)? {
             // Already integrated, nothing to push
             continue;
         }
@@ -214,7 +221,7 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
     Ok(())
 }
 
-fn series_integrated(check_commit: &IsCommitIntegrated, series: &Series) -> Result<bool> {
+fn series_integrated(check_commit: &mut IsCommitIntegrated, series: &Series) -> Result<bool> {
     let mut is_integrated = false;
     for commit in series.clone().local_commits.iter().rev() {
         if !is_integrated {
@@ -226,12 +233,14 @@ fn series_integrated(check_commit: &IsCommitIntegrated, series: &Series) -> Resu
 
 /// Returns the stack series for the API.
 /// Newest first, oldest last in the list
+/// `commits` is used to accelerate the is-integrated check.
 pub(crate) fn stack_series(
     ctx: &CommandContext,
     branch: &mut Stack,
     default_target: &Target,
-    check_commit: &IsCommitIntegrated,
+    check_commit: &mut IsCommitIntegrated,
     remote_commit_data: HashMap<CommitData, git2::Oid>,
+    commits: &[VirtualBranchCommit],
 ) -> Result<(Vec<PatchSeries>, bool)> {
     let mut requires_force = false;
     let mut api_series: Vec<PatchSeries> = vec![];
@@ -248,7 +257,10 @@ pub(crate) fn stack_series(
         // Reverse first instead of later, so that we catch the first integrated commit
         for commit in series.clone().local_commits.iter().rev() {
             if !is_integrated {
-                is_integrated = check_commit.is_integrated(commit)?;
+                is_integrated = commits
+                    .iter()
+                    .find_map(|c| (c.id == commit.id()).then_some(Ok(c.is_integrated)))
+                    .unwrap_or_else(|| check_commit.is_integrated(commit))?;
             }
             let copied_from_remote_id = CommitData::try_from(commit)
                 .ok()

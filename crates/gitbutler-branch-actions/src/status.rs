@@ -131,9 +131,7 @@ pub fn get_applied_status_cached(
                     .filter_map(|claimed_hunk| {
                         // if any of the current hunks intersects with the owned hunk, we want to keep it
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
-                            if claimed_hunk == &Hunk::from(git_diff_hunk)
-                                || claimed_hunk.intersects(git_diff_hunk)
-                            {
+                            if claimed_hunk.intersects(git_diff_hunk) {
                                 let hash = Hunk::hash_diff(&git_diff_hunk.diff_lines);
                                 if locks.contains_key(&hash) {
                                     return None; // Defer allocation to unclaimed hunks processing
