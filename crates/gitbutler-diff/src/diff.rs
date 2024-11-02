@@ -174,12 +174,9 @@ pub fn trees(
         false => 0,
     };
     diff_opts
-        .recurse_untracked_dirs(true)
-        .include_untracked(true)
         .show_binary(true)
         .ignore_submodules(true)
-        .context_lines(context_lines)
-        .show_untracked_content(true);
+        .context_lines(context_lines);
 
     let diff = repo.diff_tree_to_tree(Some(old_tree), Some(new_tree), Some(&mut diff_opts))?;
     hunks_by_filepath(None, &diff)
