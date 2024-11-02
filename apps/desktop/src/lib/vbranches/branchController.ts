@@ -591,24 +591,6 @@ export class BranchController {
 		}
 	}
 
-	async reorderCommit(branchId: string, commitOid: string, offset: number) {
-		try {
-			await invoke<void>('reorder_commit', {
-				projectId: this.projectId,
-				branchId,
-				commitOid,
-				offset
-			});
-		} catch (err: any) {
-			// TODO: Probably we wanna have error code checking in a more generic way
-			if (err.code === 'errors.commit.signing_failed') {
-				showSignError(err);
-			} else {
-				showError('Failed to reorder blank commit', err);
-			}
-		}
-	}
-
 	async moveCommit(targetBranchId: string, commitOid: string, sourceBranchId: string) {
 		try {
 			await invoke<void>('move_commit', {
