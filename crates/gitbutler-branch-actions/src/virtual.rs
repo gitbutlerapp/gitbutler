@@ -20,12 +20,12 @@ use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_diff::{trees, GitHunk, Hunk};
 use gitbutler_error::error::Code;
 use gitbutler_operating_modes::assure_open_workspace_mode;
-use gitbutler_oxidize::git2_signature_to_gix_signature;
+use gitbutler_oxidize::{git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
     rebase::{cherry_rebase, cherry_rebase_group},
-    LogUntil, RepositoryExt,
+    GixRepositoryExt, LogUntil, RepositoryExt,
 };
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{
@@ -33,6 +33,7 @@ use gitbutler_stack::{
     VirtualBranchesHandle,
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
+use gix::objs::Write;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::{collections::HashMap, path::PathBuf, vec};
@@ -300,8 +301,15 @@ pub fn list_virtual_branches_cached(
 
     let branches_span =
         tracing::debug_span!("handle branches", num_branches = status.branches.len()).entered();
+    let repo = ctx.repository();
+    let gix_repo = ctx
+        .gix_repository()?
+        .for_tree_diffing()?
+        .with_object_memory();
+    // We will perform virtual merges, no need to write them to the ODB.
+    let cache = gix_repo.commit_graph_if_enabled()?;
+    let mut graph = gix_repo.revision_graph(cache.as_ref());
     for (mut branch, mut files) in status.branches {
-        let repo = ctx.repository();
         update_conflict_markers(ctx, files.clone())?;
 
         let upstream_branch = match branch.clone().upstream {
@@ -323,13 +331,18 @@ pub fn list_virtual_branches_cached(
             .as_ref()
             .map(
                 |upstream| -> Result<(HashSet<git2::Oid>, HashMap<CommitData, git2::Oid>)> {
-                    let merge_base =
-                        repo.merge_base(upstream.id(), default_target.sha)
-                            .context(format!(
-                                "failed to find merge base between {} and {}",
-                                upstream.id(),
-                                default_target.sha
-                            ))?;
+                    let merge_base = gix_repo
+                        .merge_base_with_graph(
+                            git2_to_gix_object_id(upstream.id()),
+                            git2_to_gix_object_id(default_target.sha),
+                            &mut graph,
+                        )
+                        .context(format!(
+                            "failed to find merge base between {} and {}",
+                            upstream.id(),
+                            default_target.sha
+                        ))?;
+                    let merge_base = gitbutler_oxidize::gix_to_git2_oid(merge_base);
                     let remote_commit_ids = HashSet::from_iter(repo.l(
                         upstream.id(),
                         LogUntil::Commit(merge_base),
@@ -356,7 +369,8 @@ pub fn list_virtual_branches_cached(
 
         // find all commits on head that are not on target.sha
         let commits = repo.log(branch.head(), LogUntil::Commit(default_target.sha), false)?;
-        let check_commit = IsCommitIntegrated::new(ctx, &default_target)?;
+        let mut check_commit =
+            IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
         let vbranch_commits = {
             let _span = tracing::debug_span!(
                 "is-commit-integrated",
@@ -397,9 +411,14 @@ pub fn list_virtual_branches_cached(
                 .collect::<Result<Vec<_>>>()?
         };
 
-        let merge_base = repo
-            .merge_base(default_target.sha, branch.head())
+        let merge_base = gix_repo
+            .merge_base_with_graph(
+                git2_to_gix_object_id(default_target.sha),
+                git2_to_gix_object_id(branch.head()),
+                check_commit.graph,
+            )
             .context("failed to find merge base")?;
+        let merge_base = gix_to_git2_oid(merge_base);
         let base_current = true;
 
         let upstream = upstream_branch.and_then(|upstream_branch| {
@@ -436,8 +455,9 @@ pub fn list_virtual_branches_cached(
             ctx,
             &mut branch,
             &default_target,
-            &check_commit,
+            &mut check_commit,
             remote_commit_data,
+            &vbranch_commits,
         ) {
             Ok((series, force)) => {
                 if series.iter().any(|s| s.upstream_reference.is_some()) {
@@ -943,40 +963,50 @@ pub(crate) fn push(
     })
 }
 
-pub(crate) struct IsCommitIntegrated<'repo> {
-    repo: &'repo git2::Repository,
-    target_commit_id: git2::Oid,
-    remote_head_id: git2::Oid,
+type MergeBaseCommitGraph<'repo, 'cache> = gix::revwalk::Graph<
+    'repo,
+    'cache,
+    gix::revision::plumbing::graph::Commit<gix::revision::plumbing::merge_base::Flags>,
+>;
+
+pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
+    gix_repo: &'repo gix::Repository,
+    graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
+    target_commit_id: gix::ObjectId,
+    upstream_tree_id: gix::ObjectId,
     upstream_commits: Vec<git2::Oid>,
-    /// A repository opened at the same path as `repo`, but with an in-memory ODB attached
-    /// to avoid writing intermediate objects.
-    inmemory_repo: git2::Repository,
 }
 
-impl<'repo> IsCommitIntegrated<'repo> {
-    pub(crate) fn new(ctx: &'repo CommandContext, target: &Target) -> anyhow::Result<Self> {
+impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
+    pub(crate) fn new(
+        ctx: &'repo CommandContext,
+        target: &Target,
+        gix_repo: &'repo gix::Repository,
+        graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
+    ) -> anyhow::Result<Self> {
         let remote_branch = ctx
             .repository()
             .maybe_find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("failed to get branch"))?;
         let remote_head = remote_branch.get().peel_to_commit()?;
-        let upstream_commits =
+        let mut upstream_commits =
             ctx.repository()
                 .l(remote_head.id(), LogUntil::Commit(target.sha), false)?;
-        let inmemory_repo = ctx.repository().in_memory_repo()?;
+        upstream_commits.sort();
+        let upstream_tree_id = ctx.repository().find_commit(remote_head.id())?.tree_id();
         Ok(Self {
-            repo: ctx.repository(),
-            target_commit_id: target.sha,
-            remote_head_id: remote_head.id(),
+            gix_repo,
+            graph,
+            target_commit_id: git2_to_gix_object_id(target.sha),
+            upstream_tree_id: git2_to_gix_object_id(upstream_tree_id),
             upstream_commits,
-            inmemory_repo,
         })
     }
 }
 
-impl IsCommitIntegrated<'_> {
-    pub(crate) fn is_integrated(&self, commit: &git2::Commit) -> Result<bool> {
-        if self.target_commit_id == commit.id() {
+impl IsCommitIntegrated<'_, '_, '_> {
+    pub(crate) fn is_integrated(&mut self, commit: &git2::Commit) -> Result<bool> {
+        if self.target_commit_id == git2_to_gix_object_id(commit.id()) {
             // could not be integrated if heads are the same.
             return Ok(false);
         }
@@ -986,44 +1016,54 @@ impl IsCommitIntegrated<'_> {
             return Ok(false);
         }
 
-        if self.upstream_commits.contains(&commit.id()) {
+        if self.upstream_commits.binary_search(&commit.id()).is_ok() {
             return Ok(true);
         }
 
-        let merge_base_id = self.repo.merge_base(self.target_commit_id, commit.id())?;
-        if merge_base_id.eq(&commit.id()) {
+        let merge_base_id = self.gix_repo.merge_base_with_graph(
+            self.target_commit_id,
+            git2_to_gix_object_id(commit.id()),
+            self.graph,
+        )?;
+        if gix_to_git2_oid(merge_base_id).eq(&commit.id()) {
             // if merge branch is the same as branch head and there are upstream commits
             // then it's integrated
             return Ok(true);
         }
 
-        let merge_base = self.repo.find_commit(merge_base_id)?;
-        let merge_base_tree = merge_base.tree()?;
-        let upstream = self.repo.find_commit(self.remote_head_id)?;
-        let upstream_tree = upstream.tree()?;
-
-        if merge_base_tree.id() == upstream_tree.id() {
+        let merge_base_tree_id = self.gix_repo.find_commit(merge_base_id)?.tree_id()?;
+        if merge_base_tree_id == self.upstream_tree_id {
             // if merge base is the same as upstream tree, then it's integrated
             return Ok(true);
         }
 
         // try to merge our tree into the upstream tree
-        let mut merge_index = self
-            .repo
-            .merge_trees(&merge_base_tree, &commit.tree()?, &upstream_tree, None)
+        let mut merge_options = self.gix_repo.tree_merge_options()?;
+        let conflict_kind = gix::merge::tree::UnresolvedConflict::Renames;
+        merge_options.fail_on_conflict = Some(conflict_kind);
+        let mut merge_output = self
+            .gix_repo
+            .merge_trees(
+                merge_base_tree_id,
+                git2_to_gix_object_id(commit.tree_id()),
+                self.upstream_tree_id,
+                Default::default(),
+                merge_options,
+            )
             .context("failed to merge trees")?;
 
-        if merge_index.has_conflicts() {
+        if merge_output.has_unresolved_conflicts(conflict_kind) {
             return Ok(false);
         }
 
-        let merge_tree_oid = merge_index
-            .write_tree_to(&self.inmemory_repo)
-            .context("failed to write tree")?;
+        let merge_tree_id = merge_output
+            .tree
+            .write(|tree| self.gix_repo.write(tree))
+            .map_err(|err| anyhow!("failed to write tree: {err}"))?;
 
         // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
         // then the vbranch is fully merged
-        Ok(merge_tree_oid == upstream_tree.id())
+        Ok(merge_tree_id == self.upstream_tree_id)
     }
 }
 

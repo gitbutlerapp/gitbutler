@@ -3059,6 +3059,7 @@ dependencies = [
  "gix-ignore 0.12.0",
  "gix-index 0.36.0",
  "gix-lock 15.0.0",
+ "gix-merge",
  "gix-negotiate",
  "gix-object 0.45.0",
  "gix-odb",
@@ -3600,6 +3601,29 @@ source = "git+https://github.com/Byron/gitoxide?rev=3fb989be21c739bbfeac93953c16
 dependencies = [
  "gix-tempfile 15.0.0",
  "gix-utils 0.1.13",
+ "thiserror",
+]
+
+[[package]]
+name = "gix-merge"
+version = "0.0.0"
+source = "git+https://github.com/Byron/gitoxide?rev=3fb989be21c739bbfeac93953c1685e7c6cd2106#3fb989be21c739bbfeac93953c1685e7c6cd2106"
+dependencies = [
+ "bstr",
+ "gix-command",
+ "gix-diff",
+ "gix-filter",
+ "gix-fs 0.12.0",
+ "gix-hash 0.15.0",
+ "gix-object 0.45.0",
+ "gix-path 0.10.12",
+ "gix-quote 0.4.13",
+ "gix-revision",
+ "gix-revwalk 0.16.0",
+ "gix-tempfile 15.0.0",
+ "gix-trace 0.1.11",
+ "gix-worktree 0.37.0",
+ "imara-diff",
  "thiserror",
 ]
 

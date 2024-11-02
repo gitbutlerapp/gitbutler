@@ -9,7 +9,7 @@ publish = false
 tracing.workspace = true
 anyhow = "1.0.92"
 git2.workspace = true
-gix = { workspace = true, features = ["blob-diff", "revision"] }
+gix = { workspace = true, features = ["blob-diff", "revision", "blob-merge"] }
 tokio.workspace = true
 gitbutler-oplog.workspace = true
 gitbutler-repo.workspace = true
