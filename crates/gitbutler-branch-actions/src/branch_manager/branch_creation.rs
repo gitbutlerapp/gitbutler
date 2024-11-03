@@ -8,6 +8,7 @@ use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_repo::GixRepositoryExt;
 use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
     LogUntil, RepositoryExt,
@@ -301,29 +302,27 @@ impl BranchManager<'_> {
             ))?;
 
         // Branch is out of date, merge or rebase it
-        let merge_base_tree = repo
+        let merge_base_tree_id = repo
             .find_commit(merge_base)
             .context(format!("failed to find merge base commit {}", merge_base))?
             .tree()
-            .context("failed to find merge base tree")?;
-
-        let branch_tree = repo
-            .find_tree(branch.tree)
-            .context("failed to find branch tree")?;
+            .context("failed to find merge base tree")?
+            .id();
+        let branch_tree_id = branch.tree;
 
         // We don't support having two branches applied that conflict with each other
         {
-            let uncommited_changes_tree = repo.create_wd_tree()?;
-            let branch_merged_with_other_applied_branches = repo
-                .merge_trees(
-                    &merge_base_tree,
-                    &branch_tree,
-                    &uncommited_changes_tree,
-                    None,
+            let uncommited_changes_tree_id = repo.create_wd_tree()?.id();
+            let gix_repo = self.ctx.gix_repository_for_merging_non_persisting()?;
+            let merges_cleanly = gix_repo
+                .merges_cleanly_compat(
+                    merge_base_tree_id,
+                    branch_tree_id,
+                    uncommited_changes_tree_id,
                 )
                 .context("failed to merge trees")?;
 
-            if branch_merged_with_other_applied_branches.has_conflicts() {
+            if !merges_cleanly {
                 for branch in vb_state
                     .list_branches_in_workspace()?
                     .iter()

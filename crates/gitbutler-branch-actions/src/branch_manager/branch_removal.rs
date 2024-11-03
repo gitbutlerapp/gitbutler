@@ -5,12 +5,16 @@ use git2::Commit;
 use gitbutler_branch::BranchExt;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oplog::SnapshotExt;
+use gitbutler_oxidize::git2_to_gix_object_id;
+use gitbutler_oxidize::gix_to_git2_oid;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, ReferenceName, Refname};
+use gitbutler_repo::GixRepositoryExt;
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{Stack, StackId};
+use gix::objs::Write;
 use tracing::instrument;
 
 use super::BranchManager;
@@ -79,7 +83,10 @@ impl BranchManager<'_> {
 
         let repo = self.ctx.repository();
 
-        let base_tree = target_commit.tree().context("failed to get target tree")?;
+        let base_tree_id = target_commit
+            .tree()
+            .context("failed to get target tree")?
+            .id();
 
         let applied_statuses = get_applied_status(self.ctx, None)
             .context("failed to get status by branch")?
@@ -98,13 +105,14 @@ impl BranchManager<'_> {
                 num_branches = applied_statuses.len() - 1
             )
             .entered();
-            applied_statuses
+            let gix_repo = self.ctx.gix_repository()?;
+            let merge_options = gix_repo.tree_merge_options()?;
+            let final_tree_id = applied_statuses
                 .into_iter()
                 .filter(|(branch, _)| branch.id != branch_id)
-                .fold(
-                    target_commit.tree().context("failed to get target tree"),
-                    |final_tree, status| {
-                        let final_tree = final_tree?;
+                .try_fold(
+                    git2_to_gix_object_id(target_commit.tree_id()),
+                    |final_tree_id, status| -> Result<_> {
                         let branch = status.0;
                         let files = status
                             .1
@@ -113,14 +121,21 @@ impl BranchManager<'_> {
                             .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
                         let tree_oid =
                             gitbutler_diff::write::hunks_onto_oid(self.ctx, branch.head(), files)?;
-                        let branch_tree = repo.find_tree(tree_oid)?;
-                        let mut result =
-                            repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
-                        let final_tree_oid = result.write_tree_to(repo)?;
-                        repo.find_tree(final_tree_oid)
-                            .context("failed to find tree")
+                        let mut merge = gix_repo.merge_trees(
+                            git2_to_gix_object_id(base_tree_id),
+                            final_tree_id,
+                            git2_to_gix_object_id(tree_oid),
+                            gix_repo.default_merge_labels(),
+                            merge_options.clone(),
+                        )?;
+                        let final_tree_id = merge
+                            .tree
+                            .write(|tree| gix_repo.write(tree))
+                            .map_err(|err| anyhow::anyhow!("Could not write merged tree: {err}"))?;
+                        Ok(final_tree_id)
                     },
-                )?
+                )?;
+            repo.find_tree(gix_to_git2_oid(final_tree_id))?
         };
 
         let _span = tracing::debug_span!("checkout final tree").entered();

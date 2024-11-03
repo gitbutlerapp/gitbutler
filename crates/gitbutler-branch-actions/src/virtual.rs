@@ -25,7 +25,7 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
     rebase::{cherry_rebase, cherry_rebase_group},
-    GixRepositoryExt, LogUntil, RepositoryExt,
+    LogUntil, RepositoryExt,
 };
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{
@@ -302,10 +302,7 @@ pub fn list_virtual_branches_cached(
     let branches_span =
         tracing::debug_span!("handle branches", num_branches = status.branches.len()).entered();
     let repo = ctx.repository();
-    let gix_repo = ctx
-        .gix_repository()?
-        .for_tree_diffing()?
-        .with_object_memory();
+    let gix_repo = ctx.gix_repository_for_merging_non_persisting()?;
     // We will perform virtual merges, no need to write them to the ODB.
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());
