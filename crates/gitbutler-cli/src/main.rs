@@ -85,6 +85,9 @@ fn main() -> Result<()> {
                 Some(snapshot::SubCommands::Restore { snapshot_id }) => {
                     command::snapshot::restore(project, snapshot_id)
                 }
+                Some(snapshot::SubCommands::Diff { snapshot_id }) => {
+                    command::snapshot::diff(project, snapshot_id)
+                }
                 None => command::snapshot::list(project),
             }
         }

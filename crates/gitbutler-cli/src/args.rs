@@ -160,6 +160,11 @@ pub mod snapshot {
             /// The snapshot to restore
             snapshot_id: String,
         },
+        /// Show what is stored in a given snapshot.
+        Diff {
+            /// The hex-hash of the commit-id of the snapshot.
+            snapshot_id: String,
+        },
     }
 }
 

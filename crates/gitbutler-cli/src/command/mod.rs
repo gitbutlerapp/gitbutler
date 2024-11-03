@@ -2,6 +2,7 @@ pub mod prepare;
 pub mod project;
 pub mod vbranch;
 pub mod snapshot {
+    use crate::command::debug_print;
     use anyhow::Result;
     use gitbutler_oplog::OplogExt;
     use gitbutler_project::Project;
@@ -22,6 +23,10 @@ pub mod snapshot {
         let _guard = project.try_exclusive_access()?;
         project.restore_snapshot(snapshot_id.parse()?)?;
         Ok(())
+    }
+
+    pub fn diff(project: Project, snapshot_id: String) -> Result<()> {
+        debug_print(project.snapshot_diff(snapshot_id.parse()?))
     }
 }
 
