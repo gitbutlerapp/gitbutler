@@ -17,6 +17,7 @@ use gitbutler_oxidize::{
 };
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::fs::is_executable;
+use gix::merge::tree::{Options, UnresolvedConflict};
 use gix::objs::WriteTo;
 use tracing::instrument;
 
@@ -731,6 +732,15 @@ pub trait GixRepositoryExt: Sized {
             other: Some("theirs".into()),
         }
     }
+
+    /// Return options suitable for merging so that the merge stops immediately after the first conflict.
+    /// It also returns the conflict kind to use when checking for unresolved conflicts.
+    fn merge_options_fail_fast(
+        &self,
+    ) -> Result<(
+        gix::merge::tree::Options,
+        gix::merge::tree::UnresolvedConflict,
+    )>;
 }
 
 impl GixRepositoryExt for gix::Repository {
@@ -759,9 +769,7 @@ impl GixRepositoryExt for gix::Repository {
         our_tree: gix::ObjectId,
         their_tree: gix::ObjectId,
     ) -> Result<bool> {
-        let mut options = self.tree_merge_options()?;
-        let conflict_kind = gix::merge::tree::UnresolvedConflict::Renames;
-        options.fail_on_conflict = Some(conflict_kind);
+        let (options, conflict_kind) = self.merge_options_fail_fast()?;
         let merge_outcome = self
             .merge_trees(
                 ancestor_tree,
@@ -772,6 +780,13 @@ impl GixRepositoryExt for gix::Repository {
             )
             .context("failed to merge trees")?;
         Ok(!merge_outcome.has_unresolved_conflicts(conflict_kind))
+    }
+
+    fn merge_options_fail_fast(&self) -> Result<(Options, UnresolvedConflict)> {
+        let mut options = self.tree_merge_options()?;
+        let conflict_kind = gix::merge::tree::UnresolvedConflict::Renames;
+        options.fail_on_conflict = Some(conflict_kind);
+        Ok((options, conflict_kind))
     }
 }
 

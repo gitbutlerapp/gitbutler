@@ -53,9 +53,7 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
         workspace_tree = repo.find_commit(merge_base)?.tree()?;
     } else {
         let gix_repo = ctx.gix_repository_for_merging()?;
-        let mut merge_options_fail_fast = gix_repo.tree_merge_options()?;
-        let conflict_kind = gix::merge::tree::UnresolvedConflict::Renames;
-        merge_options_fail_fast.fail_on_conflict = Some(conflict_kind);
+        let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
         let merge_tree_id = git2_to_gix_object_id(repo.find_commit(target.sha)?.tree_id());
         for branch in virtual_branches.iter_mut() {
             let branch_head = repo.find_commit(branch.head())?;

@@ -25,7 +25,7 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
     rebase::{cherry_rebase, cherry_rebase_group},
-    LogUntil, RepositoryExt,
+    GixRepositoryExt, LogUntil, RepositoryExt,
 };
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{
@@ -180,25 +180,37 @@ pub fn unapply_ownership(
         .find_commit(workspace_commit_id)
         .context("failed to find target commit")?;
 
-    let base_tree = target_commit.tree().context("failed to get target tree")?;
-    let final_tree = applied_statuses.into_iter().fold(
-        target_commit.tree().context("failed to get target tree"),
-        |final_tree, status| {
-            let final_tree = final_tree?;
+    let base_tree_id = git2_to_gix_object_id(target_commit.tree_id());
+    let gix_repo = ctx.gix_repository_for_merging()?;
+    let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
+    let final_tree_id = applied_statuses.into_iter().try_fold(
+        git2_to_gix_object_id(target_commit.tree_id()),
+        |final_tree_id, status| -> Result<_> {
             let files = status
                 .1
                 .into_iter()
                 .map(|file| (file.path, file.hunks))
                 .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
-            let tree_oid = gitbutler_diff::write::hunks_onto_oid(ctx, workspace_commit_id, files)?;
-            let branch_tree = repo.find_tree(tree_oid)?;
-            let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
-            let final_tree_oid = result.write_tree_to(ctx.repository())?;
-            repo.find_tree(final_tree_oid)
-                .context("failed to find tree")
+            let branch_tree_id =
+                gitbutler_diff::write::hunks_onto_oid(ctx, workspace_commit_id, files)?;
+            let mut merge = gix_repo.merge_trees(
+                base_tree_id,
+                final_tree_id,
+                git2_to_gix_object_id(branch_tree_id),
+                gix_repo.default_merge_labels(),
+                merge_options_fail_fast.clone(),
+            )?;
+            if merge.has_unresolved_conflicts(conflict_kind) {
+                bail!("Tree has conflicts after merge")
+            }
+            merge
+                .tree
+                .write(|tree| gix_repo.write(tree))
+                .map_err(|err| anyhow!("Could not write merged tree: {err}"))
         },
     )?;
 
+    let final_tree = repo.find_tree(gix_to_git2_oid(final_tree_id))?;
     let final_tree_oid = gitbutler_diff::write::hunks_onto_tree(ctx, &final_tree, diff, true)?;
     let final_tree = repo
         .find_tree(final_tree_oid)
@@ -1035,9 +1047,7 @@ impl IsCommitIntegrated<'_, '_, '_> {
         }
 
         // try to merge our tree into the upstream tree
-        let mut merge_options = self.gix_repo.tree_merge_options()?;
-        let conflict_kind = gix::merge::tree::UnresolvedConflict::Renames;
-        merge_options.fail_on_conflict = Some(conflict_kind);
+        let (merge_options, conflict_kind) = self.gix_repo.merge_options_fail_fast()?;
         let mut merge_output = self
             .gix_repo
             .merge_trees(
