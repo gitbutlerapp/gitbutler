@@ -1,6 +1,5 @@
 <script lang="ts">
-	import Header from './Header.svelte';
-	import SeriesList from './SeriesList.svelte';
+	import { StackHeader } from './header';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
@@ -92,7 +91,7 @@
 
 {#if $isLaneCollapsed}
 	<div class="collapsed-lane-container">
-		<Header uncommittedChanges={branch.files.length} {isLaneCollapsed} />
+		<StackHeader uncommittedChanges={branch.files.length} {isLaneCollapsed} />
 		<div class="collapsed-lane-divider" data-remove-from-draggable></div>
 	</div>
 {:else}
@@ -111,7 +110,7 @@
 					class="branch-card__contents"
 					data-tauri-drag-region
 				>
-					<Header {isLaneCollapsed} stackPrs={stackPrs?.length ?? 0} />
+					<StackHeader {isLaneCollapsed} stackPrs={stackPrs?.length ?? 0} />
 					<div class="card-stacking">
 						{#if branch.files?.length > 0}
 							<div class="branch-card__files">
