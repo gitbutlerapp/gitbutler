@@ -25,6 +25,9 @@ fn main() -> Result<()> {
                 Some(vbranch::SubCommands::Unapply { name }) => {
                     command::vbranch::unapply(project, name)
                 }
+                Some(vbranch::SubCommands::Apply { name }) => {
+                    command::vbranch::apply(project, name)
+                }
                 Some(vbranch::SubCommands::SetDefault { name }) => {
                     command::vbranch::set_default(project, name)
                 }

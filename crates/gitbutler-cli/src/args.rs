@@ -52,6 +52,11 @@ pub mod vbranch {
             /// The name of the virtual branch to unapply.
             name: String,
         },
+        /// Add a branch to the workspace.
+        Apply {
+            /// The name of the virtual branch to apply.
+            name: String,
+        },
         /// Create a new commit to named virtual branch with all changes currently in the worktree or staging area assigned to it.
         Commit {
             /// The commit message
