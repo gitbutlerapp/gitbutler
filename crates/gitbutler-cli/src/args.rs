@@ -16,6 +16,15 @@ pub struct Args {
 
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
+    /// Unapply the given ownership claim.
+    UnapplyOwnership {
+        /// The path to remove the claim from.
+        filepath: PathBuf,
+        /// The first line of hunks that should be removed.
+        from_line: u32,
+        /// The last line of hunks that should be removed.
+        to_line: u32,
+    },
     /// List and manipulate virtual branches.
     #[clap(visible_alias = "branches")]
     Branch(vbranch::Platform),
