@@ -1,16 +1,5 @@
 use std::{path::Path, time};
 
-use anyhow::{anyhow, Context, Result};
-use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
-use gitbutler_command_context::CommandContext;
-use gitbutler_error::error::Marker;
-use gitbutler_project::FetchResult;
-use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{LogUntil, RepositoryExt};
-use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle};
-use serde::Serialize;
-
 use crate::{
     conflicts::RepoConflictsExt,
     hunk::VirtualBranchHunk,
@@ -18,6 +7,18 @@ use crate::{
     remote::{commit_to_remote_commit, RemoteCommit},
     VirtualBranchesExt,
 };
+use anyhow::{anyhow, bail, Context, Result};
+use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
+use gitbutler_command_context::CommandContext;
+use gitbutler_error::error::Marker;
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
+use gitbutler_project::FetchResult;
+use gitbutler_reference::{Refname, RemoteRefname};
+use gitbutler_repo::{GixRepositoryExt, LogUntil, RepositoryExt};
+use gitbutler_repo_actions::RepoActionsExt;
+use gitbutler_stack::{BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle};
+use gix::prelude::Write;
+use serde::Serialize;
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -50,8 +51,8 @@ pub(crate) fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
 }
 
 fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Result<BaseBranch> {
-    let statuses = ctx
-        .repository()
+    let repo = ctx.repository();
+    let statuses = repo
         .statuses(Some(
             git2::StatusOptions::new()
                 .show(git2::StatusShow::IndexAndWorkdir)
@@ -67,41 +68,39 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
         .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
-    let target_commit = ctx
-        .repository()
+    let target_commit = repo
         .find_commit(default_target.sha)
         .context("failed to find target commit")?;
 
-    let base_tree = target_commit
-        .tree()
-        .context("failed to get base tree from commit")?;
-    let mut final_tree = target_commit
-        .tree()
-        .context("failed to get base tree from commit")?;
+    let base_tree = git2_to_gix_object_id(target_commit.tree_id());
+    let mut final_tree_id = git2_to_gix_object_id(target_commit.tree_id());
+    let gix_repo = ctx.gix_repository_for_merging()?;
+    let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     for branch in &virtual_branches {
         // merge this branches tree with our tree
-        let branch_head = ctx
-            .repository()
-            .find_commit(branch.head())
-            .context("failed to find branch head")?;
-        let branch_tree = branch_head
-            .tree()
-            .context("failed to get branch head tree")?;
-        let mut result = ctx
-            .repository()
-            .merge_trees(&base_tree, &final_tree, &branch_tree, None)
-            .context("failed to merge")?;
-        let final_tree_oid = result
-            .write_tree_to(ctx.repository())
-            .context("failed to write tree")?;
-        final_tree = ctx
-            .repository()
-            .find_tree(final_tree_oid)
-            .context("failed to find written tree")?;
+        let branch_tree_id = git2_to_gix_object_id(
+            repo.find_commit(branch.head())
+                .context("failed to find branch head")?
+                .tree_id(),
+        );
+        let mut merge = gix_repo.merge_trees(
+            base_tree,
+            final_tree_id,
+            branch_tree_id,
+            gix_repo.default_merge_labels(),
+            merge_options_fail_fast.clone(),
+        )?;
+        if merge.has_unresolved_conflicts(conflict_kind) {
+            bail!("Merge failed with conflicts");
+        }
+        final_tree_id = merge
+            .tree
+            .write(|tree| gix_repo.write(tree))
+            .map_err(|err| anyhow!("failed to write tree: {err}"))?;
     }
 
-    ctx.repository()
-        .checkout_tree_builder(&final_tree)
+    let final_tree = repo.find_tree(gix_to_git2_oid(final_tree_id))?;
+    repo.checkout_tree_builder(&final_tree)
         .force()
         .checkout()
         .context("failed to checkout tree")?;
