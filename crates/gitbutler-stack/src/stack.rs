@@ -531,6 +531,26 @@ impl Stack {
         })
     }
 
+    /// Returns the patch that this branch is based on. This would be either the head of a branch before it,
+    /// or the merge base of the stack if this is the first (oldest) branch in the stack.
+    pub(crate) fn branch_base(
+        &self,
+        ctx: &CommandContext,
+        branch: &Branch,
+    ) -> Result<CommitOrChangeId> {
+        self.initialized()?;
+        let previous_head = self
+            .heads
+            .iter()
+            .take_while(|head| *head != branch)
+            .last()
+            .map(|head| head.target.clone());
+        Ok(match previous_head {
+            Some(previous_head) => previous_head,
+            None => self.merge_base(ctx)?.into(),
+        })
+    }
+
     /// Returns a list of all branches/series in the stack.
     /// This operation will compute the current list of local and remote commits that belong to each series.
     /// The first entry is the newest in the Stack (i.e. the top of the stack).
@@ -541,7 +561,6 @@ impl Stack {
         let repo = ctx.repository();
         let default_target = state.get_default_target()?;
         let merge_base = self.merge_base(ctx)?.id();
-        let mut previous_head = merge_base;
         for head in self.heads.clone() {
             let head_commit =
                 commit_by_oid_or_change_id(&head.target, repo, self.head(), merge_base);
@@ -557,6 +576,15 @@ impl Stack {
                 continue;
             }
             let head_commit = head_commit?.head.id();
+
+            let previous_head = commit_by_oid_or_change_id(
+                &self.branch_base(ctx, &head)?,
+                repo,
+                self.head(),
+                merge_base,
+            )?
+            .head
+            .id();
 
             let mut local_patches = vec![];
             for commit in repo
@@ -610,7 +638,6 @@ impl Stack {
                 remote_commit_ids_by_change_id,
                 archived: head.archived,
             });
-            previous_head = head_commit;
         }
         Ok(all_series)
     }
