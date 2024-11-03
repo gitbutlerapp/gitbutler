@@ -570,7 +570,6 @@ impl Stack {
                     local_commits: vec![],
                     remote_commits: vec![],
                     upstream_only_commits: vec![],
-                    remote_commit_ids_by_change_id: HashMap::new(),
                     archived: head.archived,
                 });
                 continue;
@@ -596,7 +595,6 @@ impl Stack {
             }
 
             let mut remote_patches: Vec<Commit<'_>> = vec![];
-            let mut remote_commit_ids_by_change_id: HashMap<String, git2::Oid> = HashMap::new();
             let remote_name = default_target.push_remote_name();
             if head.pushed(&remote_name, ctx).unwrap_or_default() {
                 let head_commit = repo
@@ -610,9 +608,6 @@ impl Stack {
                     .into_iter()
                     .rev()
                     .for_each(|c| {
-                        if let Some(change_id) = c.change_id() {
-                            remote_commit_ids_by_change_id.insert(change_id.to_string(), c.id());
-                        }
                         remote_patches.push(c);
                     });
             }
@@ -635,7 +630,6 @@ impl Stack {
                 local_commits: local_patches,
                 remote_commits: remote_patches,
                 upstream_only_commits: upstream_only,
-                remote_commit_ids_by_change_id,
                 archived: head.archived,
             });
         }
