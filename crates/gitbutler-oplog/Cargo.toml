@@ -17,6 +17,7 @@ gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }
 toml.workspace = true
 gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
+gitbutler-oxidize.workspace = true
 gitbutler-branch.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-fs.workspace = true

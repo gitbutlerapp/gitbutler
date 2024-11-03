@@ -1,5 +1,6 @@
 use anyhow::Result;
 use gitbutler_project::Project;
+use std::path::Path;
 
 pub struct CommandContext {
     /// The git repository of the `project` itself.
@@ -90,10 +91,7 @@ impl CommandContext {
     /// to correctly figure out author and committer names (i.e. with most global configuration loaded),
     /// *and* which will perform diffs quickly thanks to an adequate object cache.
     pub fn gix_repository_for_merging(&self) -> Result<gix::Repository> {
-        let mut repo = gix::open(self.repository().path())?;
-        let bytes = repo.compute_object_cache_size_for_tree_diffs(&***repo.index_or_empty()?);
-        repo.object_cache_size_if_unset(bytes);
-        Ok(repo)
+        gix_repository_for_merging(self.repository().path())
     }
 
     /// Return a newly opened `gitoxide` repository, with all configuration available
@@ -117,6 +115,16 @@ impl CommandContext {
             gix::open::Options::isolated(),
         )?)
     }
+}
+
+/// Return a newly opened `gitoxide` repository, with all configuration available
+/// to correctly figure out author and committer names (i.e. with most global configuration loaded),
+/// *and* which will perform diffs quickly thanks to an adequate object cache.
+pub fn gix_repository_for_merging(worktree_or_git_dir: &Path) -> Result<gix::Repository> {
+    let mut repo = gix::open(worktree_or_git_dir)?;
+    let bytes = repo.compute_object_cache_size_for_tree_diffs(&***repo.index_or_empty()?);
+    repo.object_cache_size_if_unset(bytes);
+    Ok(repo)
 }
 
 mod repository_ext;
