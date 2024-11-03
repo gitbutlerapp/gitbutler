@@ -929,7 +929,11 @@ fn commit_by_branch_id_and_change_id<'a>(
     let commits = if stack_head == merge_base {
         vec![repo.find_commit(stack_head)?]
     } else {
-        repo.log(stack_head, LogUntil::Commit(merge_base), false)?
+        // Include the merge base, in case the change ID being searched for is the merge base itself.
+        // TODO: Use the Stack `commits_with_merge_base` method instead.
+        let mut commits = repo.log(stack_head, LogUntil::Commit(merge_base), false)?;
+        commits.push(repo.find_commit(merge_base)?);
+        commits
     };
     let commits = commits
         .into_iter()
