@@ -28,6 +28,9 @@ fn main() -> Result<()> {
         args::Subcommands::Branch(vbranch::Platform { cmd }) => {
             let project = command::prepare::project_from_path(args.current_dir)?;
             match cmd {
+                Some(vbranch::SubCommands::SetBase {
+                    short_tracking_branch_name,
+                }) => command::vbranch::set_base(project, short_tracking_branch_name),
                 Some(vbranch::SubCommands::ListLocal) => command::vbranch::list_local(project),
                 Some(vbranch::SubCommands::Status) => command::vbranch::status(project),
                 Some(vbranch::SubCommands::Unapply { name }) => {

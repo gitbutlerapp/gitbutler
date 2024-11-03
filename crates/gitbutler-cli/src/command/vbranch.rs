@@ -7,6 +7,16 @@ use gitbutler_stack::{Stack, VirtualBranchesHandle};
 
 use crate::command::debug_print;
 
+pub fn set_base(project: Project, short_tracking_branch_name: String) -> Result<()> {
+    let branch_name = format!("refs/remotes/{}", short_tracking_branch_name)
+        .parse()
+        .context("Invalid branch name")?;
+    debug_print(gitbutler_branch_actions::set_base_branch(
+        &project,
+        &branch_name,
+    )?)
+}
+
 pub fn list_all(project: Project) -> Result<()> {
     let ctx = CommandContext::open(&project)?;
     debug_print(list_branches(&ctx, None, None)?)
