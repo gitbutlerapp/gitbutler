@@ -547,7 +547,7 @@ impl Stack {
             .map(|head| head.target.clone());
         Ok(match previous_head {
             Some(previous_head) => previous_head,
-            None => self.merge_base(ctx)?.into(),
+            None => CommitOrChangeId::CommitId(self.merge_base(ctx)?.id().to_string()),
         })
     }
 
