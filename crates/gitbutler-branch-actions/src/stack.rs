@@ -266,10 +266,9 @@ pub(crate) fn stack_series(
             let remote_commit_id = commit
                 .change_id()
                 .and_then(|change_id| {
-                    series
-                        .remote_commit_ids_by_change_id
-                        .get(&change_id)
-                        .cloned()
+                    series.remote_commits.iter().find_map(|c| {
+                        (c.change_id().as_deref() == Some(&change_id)).then(|| c.id())
+                    })
                 })
                 .or(copied_from_remote_id)
                 .or(if series.remote(commit) {

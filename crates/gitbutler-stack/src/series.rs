@@ -1,6 +1,5 @@
 use git2::Commit;
 use gitbutler_commit::commit_ext::CommitVecExt;
-use std::collections::HashMap;
 
 use crate::Branch;
 
@@ -26,9 +25,6 @@ pub struct Series<'a> {
     /// The list of patches that are only in the upstream (remote) and not in the local commits,
     /// as determined by the commit ID or change ID.
     pub upstream_only_commits: Vec<Commit<'a>>,
-    /// The commit IDs of the remote commits that are part of this series, grouped by change id.
-    /// Since we don't have a change_id to commit_id index, this is used to determine
-    pub remote_commit_ids_by_change_id: HashMap<String, git2::Oid>,
     /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
     /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
     pub archived: bool,
