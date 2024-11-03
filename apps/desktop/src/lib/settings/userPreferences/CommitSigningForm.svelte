@@ -52,6 +52,7 @@
 	let errorMessage = '';
 
 	async function checkSigning() {
+		errorMessage = '';
 		checked = true;
 		loading = true;
 		await invoke('check_signing_settings', { id: project.id })
@@ -159,8 +160,11 @@
 							<p>Signing is working correctly</p>
 						{:else}
 							<p>Signing is not working correctly</p>
-							<pre>{errorMessage}</pre>
 						{/if}
+					</svelte:fragment>
+
+					<svelte:fragment slot="content">
+						{errorMessage}
 					</svelte:fragment>
 				</InfoMessage>
 			{/if}
