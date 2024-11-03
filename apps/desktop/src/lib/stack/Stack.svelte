@@ -111,7 +111,7 @@
 					data-tauri-drag-region
 				>
 					<!-- <OldStackHeader {isLaneCollapsed} stackPrs={stackPrs?.length ?? 0} /> -->
-					<StackHeader />
+					<StackHeader {branch} />
 					<div class="card-stacking">
 						{#if branch.files?.length > 0}
 							<div class="branch-card__files">
@@ -152,10 +152,10 @@
 								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
 										{#snippet title()}
-											This is a new branch
+											This is a new lane
 										{/snippet}
 										{#snippet caption()}
-											You can drag and drop files or parts of files here.
+											You can drag and drop files<br />or parts of files here.
 										{/snippet}
 									</EmptyStatePlaceholder>
 								</div>
@@ -165,7 +165,7 @@
 								<div class="no-changes">
 									<EmptyStatePlaceholder image={noChangesSvg} width={180}>
 										{#snippet caption()}
-											No uncommitted changes on this branch
+											No uncommitted<br />changes on this lane
 										{/snippet}
 									</EmptyStatePlaceholder>
 								</div>

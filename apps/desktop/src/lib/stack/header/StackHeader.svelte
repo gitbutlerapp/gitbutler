@@ -1,21 +1,31 @@
 <script lang="ts">
-	import ControlSection from './ControlSection.svelte';
+	import StackControlSection from './StackControlSection.svelte';
+	import StackMetaSection from './StackMetaSection.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
-	import { getContextStore, getContext } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
+
+	interface Props {
+		branch: VirtualBranch;
+	}
 
 	const branchController = getContext(BranchController);
-	const branchStore = getContextStore(VirtualBranch);
-	const branch = $derived($branchStore);
+	// const branchStore = getContextStore(VirtualBranch);
+	// const branch = $derived($branchStore);
+
+	const { branch }: Props = $props();
+	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
+	const seriesNames = $derived(nonArchivedSeries.map((s) => s.name));
 </script>
 
 <div class="stack-header">
-	<ControlSection
+	<StackControlSection
 		isDefault={branch.selectedForChanges}
 		onDefaultSet={async () => {
 			await branchController.setSelectedForChanges(branch.id);
 		}}
 	/>
+	<StackMetaSection series={seriesNames} />
 </div>
 
 <style lang="postcss">
