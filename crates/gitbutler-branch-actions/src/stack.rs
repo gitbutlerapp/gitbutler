@@ -9,9 +9,7 @@ use gitbutler_project::Project;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo::GixRepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{
-    CommitOrChangeId, ForgeIdentifier, PatchReference, PatchReferenceUpdate, Series,
-};
+use gitbutler_stack::{Branch, CommitOrChangeId, ForgeIdentifier, PatchReferenceUpdate, Series};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
@@ -51,7 +49,7 @@ pub fn create_series(
     if let Some(target_patch) = req.target_patch {
         stack.add_series(
             ctx,
-            PatchReference {
+            Branch {
                 target: target_patch,
                 name: normalized_head_name,
                 description: req.description,

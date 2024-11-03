@@ -2,7 +2,7 @@ use git2::Commit;
 use gitbutler_commit::commit_ext::CommitVecExt;
 use std::collections::HashMap;
 
-use crate::PatchReference;
+use crate::Branch;
 
 /// Series or (patch) Series is a set of patches (commits) that are dependent on each other.
 /// This is effectively a sub-branch within a (series) stack.
@@ -14,7 +14,7 @@ pub struct Series<'a> {
     /// The GitButler-managed head reference for this series. It points to a commit ID or a change ID in the stack.
     /// This head may or may not be part of the commits that are in the series
     /// There may be multiple "series" that point to the same head (e.g. when a new series / head is created)
-    pub head: PatchReference,
+    pub head: Branch,
     /// The local commits that are part of this series.
     /// The commits in one "series" never overlap with the commits in another series.
     /// Topologically ordered, the first entry is the newest in the series.
