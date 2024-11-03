@@ -48,17 +48,16 @@
 			style="success"
 			kind="solid"
 			tooltip="Changes have been integrated upstream, update your workspace to make this lane disappear."
-			reversedDirection>Integrated</Button
+			>Integrated</Button
 		>
 	{:else}
 		<Button
 			clickable={false}
 			size="tag"
-			icon="virtual-branch-small"
+			icon="branch-small"
 			style="neutral"
 			kind="soft"
-			tooltip="Changes are in your working directory"
-			reversedDirection>Virtual</Button
+			tooltip="Changes are in your working directory">Virtual</Button
 		>
 	{/if}
 	{#if !isUnapplied && !isLaneCollapsed}
@@ -80,7 +79,7 @@
 		size="tag"
 		style="neutral"
 		kind="solid"
-		icon="remote-branch-small"
+		icon="branch-small"
 		tooltip="Some changes have been pushed"
 		reversedDirection>Remote</Button
 	>

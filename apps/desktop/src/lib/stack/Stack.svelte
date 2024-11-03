@@ -110,7 +110,8 @@
 					class="branch-card__contents"
 					data-tauri-drag-region
 				>
-					<StackHeader {isLaneCollapsed} stackPrs={stackPrs?.length ?? 0} />
+					<!-- <OldStackHeader {isLaneCollapsed} stackPrs={stackPrs?.length ?? 0} /> -->
+					<StackHeader />
 					<div class="card-stacking">
 						{#if branch.files?.length > 0}
 							<div class="branch-card__files">

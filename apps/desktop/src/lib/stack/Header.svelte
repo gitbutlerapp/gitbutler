@@ -142,7 +142,7 @@
 							<Button
 								style="neutral"
 								kind="soft"
-								icon="remote-branch-small"
+								icon="branch-small"
 								size="tag"
 								clickable={false}
 								tooltip="Series"
