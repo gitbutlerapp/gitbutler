@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
 	import Resizer from '../shared/Resizer.svelte';
+	import StackingCommitCard from '$lib/commit/StackingCommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
@@ -17,7 +18,6 @@
 	import { onMount, setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/forge/interface/types';
-	import StackingCommitCard from '$lib/commit/StackingCommitCommitCard.svelte';
 
 	export let localBranch: Branch | undefined = undefined;
 	export let remoteBranch: Branch | undefined = undefined;
