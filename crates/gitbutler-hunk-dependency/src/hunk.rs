@@ -14,7 +14,11 @@ pub struct HunkRange {
 impl HunkRange {
     pub fn intersects(&self, start: u32, lines: u32) -> bool {
         if self.lines == 0 {
-            // Special case for checking if a point is inside a range, happens
+            if self.start == 0 {
+                // Special case when file is deleted.
+                return true;
+            }
+            // Special case when point is inside a range, happens
             // when a change contains only deletions.
             return self.start >= start && self.start < start + lines;
         }
@@ -23,5 +27,9 @@ impl HunkRange {
 
     pub fn contains(&self, start: u32, lines: u32) -> bool {
         start > self.start && start + lines <= self.start + self.lines
+    }
+
+    pub fn covered_by(&self, start: u32, lines: u32) -> bool {
+        self.start >= start && self.start + self.lines <= start + lines
     }
 }
