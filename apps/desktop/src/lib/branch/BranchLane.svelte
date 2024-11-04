@@ -58,10 +58,10 @@
 	});
 
 	const project = getContext(Project);
-	const fileIdSelection = new FileIdSelection(project.id, branchFiles);
+	const fileIdSelection = new FileIdSelection(branchFiles);
 	const selectedFile = fileIdSelection.selectedFile;
-	const commitId = $derived($selectedFile?.[0]);
-	const selected = $derived($selectedFile?.[1]);
+	const commitId = $derived($selectedFile?.commitId);
+	const selected = $derived($selectedFile?.file);
 	setContext(FileIdSelection, fileIdSelection);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);

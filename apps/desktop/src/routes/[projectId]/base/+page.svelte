@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import BaseBranch from '$lib/components/BaseBranch.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
@@ -19,15 +18,14 @@
 
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
-	const project = getContext(Project);
 
-	const fileIdSelection = new FileIdSelection(project.id, writable([]));
+	const fileIdSelection = new FileIdSelection(writable([]));
 	setContext(FileIdSelection, fileIdSelection);
 
 	const selectedFile = fileIdSelection.selectedFile;
 
-	$: commitId = $selectedFile?.[0];
-	$: selected = $selectedFile?.[1];
+	$: commitId = $selectedFile?.commitId;
+	$: selected = $selectedFile?.file;
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;

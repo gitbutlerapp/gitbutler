@@ -9,7 +9,7 @@
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { updateSelection } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
-	import { FileIdSelection, stringifyFileKey } from '$lib/vbranches/fileIdSelection';
+	import { FileIdSelection, stringifyKey } from '$lib/vbranches/fileIdSelection';
 	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import { SelectedOwnership, updateOwnership } from '$lib/vbranches/ownership';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
@@ -150,7 +150,7 @@
 				{readonly}
 				{isUnapplied}
 				showCheckbox={showCheckboxes}
-				selected={$fileIdSelection.includes(stringifyFileKey(file.id, $commit?.id))}
+				selected={$fileIdSelection.includes(stringifyKey(file.id, $commit?.id))}
 				onclick={(e) => {
 					selectFilesInList(e, file, fileIdSelection, displayedFiles, allowMultiple, $commit);
 				}}

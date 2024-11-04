@@ -175,6 +175,7 @@ function setupDragHandlers(
 		node.removeEventListener('dragstart', handleDragStart);
 		node.removeEventListener('drag', handleDrag);
 		node.removeEventListener('dragend', handleDragEnd);
+		node.removeEventListener('mousedown', handleMouseDown, { capture: false });
 	}
 
 	setup(opts);
