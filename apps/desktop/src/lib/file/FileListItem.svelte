@@ -175,7 +175,7 @@
 	ondragstart={handleDragStart}
 	oncontextmenu={(e) => {
 		if (fileIdSelection.has(file.id, $commit?.id)) {
-			contextMenu?.open(e, { files: selectedFiles });
+			contextMenu?.open(e, { files: $selectedFiles });
 		} else {
 			contextMenu?.open(e, { files: [file] });
 		}
