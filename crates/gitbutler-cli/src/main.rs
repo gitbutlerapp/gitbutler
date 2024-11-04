@@ -17,6 +17,10 @@ fn main() -> Result<()> {
     let _op_span = tracing::info_span!("cli-op").entered();
 
     match args.cmd {
+        args::Subcommands::IntegrateUpstream { mode } => {
+            let project = command::prepare::project_from_path(args.current_dir)?;
+            command::workspace::update(project, mode)
+        }
         args::Subcommands::UnapplyOwnership {
             filepath,
             from_line,

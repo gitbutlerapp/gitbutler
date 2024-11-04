@@ -60,3 +60,28 @@ pub mod ownership {
         gitbutler_branch_actions::unapply_ownership(&project, &claims)
     }
 }
+
+pub mod workspace {
+    use crate::args::UpdateMode;
+    use gitbutler_branch_actions::upstream_integration;
+    use gitbutler_project::Project;
+
+    pub fn update(project: Project, mode: UpdateMode) -> anyhow::Result<()> {
+        let approach = match mode {
+            UpdateMode::Rebase => upstream_integration::ResolutionApproach::Rebase,
+            UpdateMode::Merge => upstream_integration::ResolutionApproach::Merge,
+            UpdateMode::Unapply => upstream_integration::ResolutionApproach::Unapply,
+            UpdateMode::Delete => upstream_integration::ResolutionApproach::Delete,
+        };
+        let resolutions: Vec<_> = gitbutler_branch_actions::list_virtual_branches(&project)?
+            .0
+            .into_iter()
+            .map(|b| upstream_integration::Resolution {
+                branch_id: b.id,
+                branch_tree: b.tree,
+                approach,
+            })
+            .collect();
+        gitbutler_branch_actions::integrate_upstream(&project, &resolutions, None)
+    }
+}

@@ -41,9 +41,9 @@ pub enum BaseBranchResolutionApproach {
     HardReset,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
-enum ResolutionApproach {
+pub enum ResolutionApproach {
     Rebase,
     Merge,
     Unapply,
@@ -75,11 +75,11 @@ impl BranchStatus {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Resolution {
-    branch_id: StackId,
+    pub branch_id: StackId,
     /// Used to ensure a given branch hasn't changed since the UI issued the command.
     #[serde(with = "gitbutler_serde::oid")]
-    branch_tree: git2::Oid,
-    approach: ResolutionApproach,
+    pub branch_tree: git2::Oid,
+    pub approach: ResolutionApproach,
 }
 
 enum IntegrationResult {

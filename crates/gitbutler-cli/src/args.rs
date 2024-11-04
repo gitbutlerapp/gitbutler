@@ -14,6 +14,14 @@ pub struct Args {
     pub cmd: Subcommands,
 }
 
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum UpdateMode {
+    Rebase,
+    Merge,
+    Unapply,
+    Delete,
+}
+
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
     /// Unapply the given ownership claim.
@@ -24,6 +32,12 @@ pub enum Subcommands {
         from_line: u32,
         /// The last line of hunks that should be removed.
         to_line: u32,
+    },
+    /// Update the local workspace against an updated remote or target branch.
+    IntegrateUpstream {
+        /// Specify how all branches should be merged in.
+        #[clap(value_enum)]
+        mode: UpdateMode,
     },
     /// List and manipulate virtual branches.
     #[clap(visible_alias = "branches")]
