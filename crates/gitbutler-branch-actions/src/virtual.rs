@@ -1101,11 +1101,18 @@ pub fn is_remote_branch_mergeable(
     let wd_tree = ctx.repository().create_wd_tree()?;
 
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
-    let mergeable = !ctx
-        .repository()
-        .merge_trees(&base_tree, &branch_tree, &wd_tree, None)
+    let gix_repo_in_memory = ctx.gix_repository_for_merging()?.with_object_memory();
+    let (merge_options_fail_fast, conflict_kind) = gix_repo_in_memory.merge_options_fail_fast()?;
+    let mergeable = !gix_repo_in_memory
+        .merge_trees(
+            git2_to_gix_object_id(base_tree.id()),
+            git2_to_gix_object_id(branch_tree.id()),
+            git2_to_gix_object_id(wd_tree.id()),
+            Default::default(),
+            merge_options_fail_fast,
+        )
         .context("failed to merge trees")?
-        .has_conflicts();
+        .has_unresolved_conflicts(conflict_kind);
 
     Ok(mergeable)
 }
