@@ -12,7 +12,6 @@
 	import { VirtualBranch, type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
-	import { onDestroy } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
@@ -53,23 +52,15 @@
 	let indeterminate = $state(false);
 	let checked = $state(false);
 
-	let animationEndHandler: () => void;
-
 	function addAnimationEndListener(element: HTMLElement) {
-		animationEndHandler = () => {
-			element.classList.remove('locked-file-animation');
-			element.removeEventListener('animationend', animationEndHandler);
-		};
-		element.addEventListener('animationend', animationEndHandler);
+		element.addEventListener(
+			'animationend',
+			() => {
+				element.classList.remove('locked-file-animation');
+			},
+			{ once: true }
+		);
 	}
-
-	// TODO: Refactor to use this as a Svelte action, e.g. `use:draggableChips()`.
-	let chips:
-		| {
-				update: (opts: DraggableConfig) => void;
-				destroy: () => void;
-		  }
-		| undefined;
 
 	$effect(() => {
 		if (file && $selectedOwnership) {
@@ -81,6 +72,15 @@
 		}
 	});
 
+	// TODO: Refactor to use this as a Svelte action, e.g. `use:draggableChips()`.
+	let chips:
+		| {
+				update: (opts: DraggableConfig) => void;
+				destroy: () => void;
+		  }
+		| undefined;
+
+	// Manage the lifecycle of the draggable chips.
 	$effect(() => {
 		if (draggableEl) {
 			const draggableFile = new DraggableFile(branchId || '', file, $commit, selectedFiles);
@@ -100,6 +100,10 @@
 		} else {
 			chips?.destroy();
 		}
+
+		return () => {
+			chips?.destroy();
+		};
 	});
 
 	async function handleDragStart() {
@@ -114,19 +118,6 @@
 			}
 		});
 	}
-
-	onDestroy(() => {
-		chips?.destroy();
-		if (draggableEl && animationEndHandler) {
-			draggableEl.removeEventListener('animationend', animationEndHandler);
-		}
-		$selectedFiles.forEach((f) => {
-			const lockedElement = document.getElementById(`file-${f.id}`);
-			if (lockedElement && animationEndHandler) {
-				lockedElement.removeEventListener('animationend', animationEndHandler);
-			}
-		});
-	});
 </script>
 
 <FileContextMenu

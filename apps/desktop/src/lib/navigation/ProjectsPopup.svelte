@@ -105,7 +105,7 @@
 				: undefined}
 			style:left={inputBoundingRect?.left ? `${inputBoundingRect.left}px` : undefined}
 		>
-			{#if $projects.length > 0}
+			{#if $projects && $projects.length > 0}
 				<ScrollableContainer maxHeight="20rem">
 					<div class="popup__projects">
 						{#each $projects as project}

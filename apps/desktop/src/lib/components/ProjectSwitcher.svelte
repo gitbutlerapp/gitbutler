@@ -13,10 +13,10 @@
 	const projects = $derived(projectsService.projects);
 
 	const mappedProjects = $derived(
-		$projects.map((project) => ({
+		$projects?.map((project) => ({
 			value: project.id,
 			label: project.title
-		}))
+		})) || []
 	);
 
 	let selectedProjectId: string | undefined = $state(project ? project.id : undefined);
