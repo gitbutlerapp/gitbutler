@@ -128,6 +128,10 @@
 		}
 	}
 
+	.info-message__text :global(pre) {
+		white-space: pre-wrap;
+	}
+
 	/* MODIFIERS */
 	.neutral {
 		border: 0 solid var(--clr-border-2);
