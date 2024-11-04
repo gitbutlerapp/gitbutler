@@ -1,17 +1,20 @@
-use anyhow::{bail, Result};
+use crate::VirtualBranchesExt as _;
+use anyhow::{anyhow, bail, Result};
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::rebase::cherry_rebase_group;
-use gitbutler_repo::RepositoryExt as _;
+use gitbutler_repo::{GixRepositoryExt, RepositoryExt as _};
 use gitbutler_stack::Stack;
-
-use crate::VirtualBranchesExt as _;
+use gix::prelude::Write;
+use tracing::instrument;
 
 /// Checks out the combined trees of all branches in the workspace.
 ///
 /// This function will fail if the applied branches conflict with each other.
+#[instrument(level = tracing::Level::DEBUG, skip(ctx, _perm), err(Debug))]
 pub fn checkout_branch_trees<'a>(
     ctx: &'a CommandContext,
     _perm: &mut WorktreeWritePermission,
@@ -38,23 +41,33 @@ pub fn checkout_branch_trees<'a>(
         let merge_base = repository
             .merge_base_octopussy(&branches.iter().map(|b| b.head()).collect::<Vec<_>>())?;
 
-        let merge_base_tree = repository.find_commit(merge_base)?.tree()?;
+        let gix_repo = ctx.gix_repository_for_merging()?;
+        let merge_base_tree_id =
+            git2_to_gix_object_id(repository.find_commit(merge_base)?.tree_id());
+        let mut final_tree_id = merge_base_tree_id;
 
-        let mut final_tree = merge_base_tree.clone();
-
+        let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
         for branch in branches {
-            let theirs = repository.find_tree(branch.tree)?;
-            let mut merge_index =
-                repository.merge_trees(&merge_base_tree, &final_tree, &theirs, None)?;
+            let their_tree_id = git2_to_gix_object_id(branch.tree);
+            let mut merge = gix_repo.merge_trees(
+                merge_base_tree_id,
+                final_tree_id,
+                their_tree_id,
+                gix_repo.default_merge_labels(),
+                merge_options_fail_fast.clone(),
+            )?;
 
-            if merge_index.has_conflicts() {
+            if merge.has_unresolved_conflicts(conflict_kind) {
                 bail!("There appears to be conflicts between the virtual branches");
             };
 
-            let tree_oid = merge_index.write_tree_to(repository)?;
-            final_tree = repository.find_tree(tree_oid)?;
+            final_tree_id = merge
+                .tree
+                .write(|tree| gix_repo.write(tree))
+                .map_err(|err| anyhow!("{err}"))?;
         }
 
+        let final_tree = repository.find_tree(gix_to_git2_oid(final_tree_id))?;
         repository
             .checkout_tree_builder(&final_tree)
             .force()
