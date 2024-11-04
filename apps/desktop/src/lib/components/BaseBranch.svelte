@@ -12,9 +12,15 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Line from '@gitbutler/ui/commitLines/Line.svelte';
-	import { LineManagerFactory, LineSpacer } from '@gitbutler/ui/commitLines/lineManager';
+	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { tick } from 'svelte';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
+
+	const LineSpacer = {
+		Remote: 'remote-spacer',
+		Local: 'local-spacer',
+		LocalAndRemote: 'local-and-remote-spacer'
+	};
 
 	interface Props {
 		base: BaseBranch;
@@ -104,15 +110,12 @@
 	});
 
 	const lineManager = $derived(
-		lineManagerFactory.build(
-			{
-				remoteCommits: mappedRemoteCommits,
-				localCommits: mappedLocalCommits,
-				localAndRemoteCommits: mappedLocalAndRemoteCommits,
-				integratedCommits: []
-			},
-			true
-		)
+		lineManagerFactory.build({
+			remoteCommits: mappedRemoteCommits,
+			localCommits: mappedLocalCommits,
+			localAndRemoteCommits: mappedLocalAndRemoteCommits,
+			integratedCommits: []
+		})
 	);
 
 	async function handleMergeUpstream() {
