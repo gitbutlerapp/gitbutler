@@ -1,8 +1,8 @@
 <script lang="ts">
 	import CommitAction from './CommitAction.svelte';
-	import StackingCommitCard from './StackingCommitCard.svelte';
-	import StackingCommitDragItem from './StackingCommitDragItem.svelte';
-	import StackingUpstreamCommitsAccordion from './StackingUpstreamCommitsAccordion.svelte';
+	import CommitCard from './CommitCard.svelte';
+	import CommitDragItem from './CommitDragItem.svelte';
+	import UpstreamCommitsAccordion from './UpstreamCommitsAccordion.svelte';
 	import {
 		StackingReorderDropzoneManager,
 		type StackingReorderDropzone
@@ -86,9 +86,9 @@
 	<div class="commits">
 		<!-- UPSTREAM ONLY COMMITS -->
 		{#if hasRemoteCommits}
-			<StackingUpstreamCommitsAccordion count={Math.min(remoteOnlyPatches.length, 3)}>
+			<UpstreamCommitsAccordion count={Math.min(remoteOnlyPatches.length, 3)}>
 				{#each remoteOnlyPatches as commit, idx (commit.id)}
-					<StackingCommitCard
+					<CommitCard
 						type="remote"
 						branch={$branch}
 						{commit}
@@ -100,7 +100,7 @@
 						{#snippet lines()}
 							<Line line={lineManager.get(commit.id)} />
 						{/snippet}
-					</StackingCommitCard>
+					</CommitCard>
 				{/each}
 				{#snippet action()}
 					<Button
@@ -122,7 +122,7 @@
 						Integrate upstream
 					</Button>
 				{/snippet}
-			</StackingUpstreamCommitsAccordion>
+			</UpstreamCommitsAccordion>
 		{/if}
 
 		<!-- REMAINING LOCAL, LOCALANDREMOTE, AND INTEGRATED COMMITS -->
@@ -131,8 +131,8 @@
 				{@render stackingReorderDropzone(stackingReorderDropzoneManager.topDropzone(seriesName))}
 
 				{#each patches as commit, idx (commit.id)}
-					<StackingCommitDragItem {commit}>
-						<StackingCommitCard
+					<CommitDragItem {commit}>
+						<CommitCard
 							type={commit.status}
 							branch={$branch}
 							{commit}
@@ -148,8 +148,8 @@
 									isBottom={isBottom && idx === patches.length - 1}
 								/>
 							{/snippet}
-						</StackingCommitCard>
-					</StackingCommitDragItem>
+						</CommitCard>
+					</CommitDragItem>
 
 					{@render stackingReorderDropzone(
 						stackingReorderDropzoneManager.dropzoneBelowCommit(seriesName, commit.id)

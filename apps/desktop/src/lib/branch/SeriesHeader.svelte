@@ -1,15 +1,15 @@
 <script lang="ts">
+	import AddSeriesModal from './AddSeriesModal.svelte';
 	import BranchLabel from './BranchLabel.svelte';
 	import Dropzones from './Dropzones.svelte';
-	import StackingAddSeriesModal from './StackingAddSeriesModal.svelte';
-	import StackingSeriesDescription from './StackingSeriesDescription.svelte';
-	import StackingStatusIcon from './StackingStatusIcon.svelte';
+	import SeriesDescription from './SeriesDescription.svelte';
+	import SeriesHeaderStatusIcon from './SeriesHeaderStatusIcon.svelte';
 	import { getColorFromBranchType } from './stackingUtils';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import StackingSeriesHeaderContextMenu from '$lib/branch/StackingSeriesHeaderContextMenu.svelte';
+	import SeriesHeaderContextMenu from '$lib/branch/SeriesHeaderContextMenu.svelte';
 	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -55,10 +55,10 @@
 	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
 	const branch = $derived($branchStore);
 
-	let stackingAddSeriesModal = $state<ReturnType<typeof StackingAddSeriesModal>>();
+	let stackingAddSeriesModal = $state<ReturnType<typeof AddSeriesModal>>();
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let stackingContextMenu = $state<ReturnType<typeof StackingSeriesHeaderContextMenu>>();
+	let stackingContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
 	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
 
@@ -162,9 +162,9 @@
 	}
 </script>
 
-<StackingAddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={currentSeries.name} />
+<AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={currentSeries.name} />
 
-<StackingSeriesHeaderContextMenu
+<SeriesHeaderContextMenu
 	bind:this={stackingContextMenu}
 	bind:contextMenuEl={kebabContextMenu}
 	target={kebabContextMenuTrigger}
@@ -216,7 +216,7 @@
 		</PopoverActionsContainer>
 
 		<div class="branch-info">
-			<StackingStatusIcon
+			<SeriesHeaderStatusIcon
 				lineTop={isTopSeries ? false : true}
 				icon={branchType === 'integrated' ? 'tick-small' : 'remote-branch-small'}
 				iconColor="var(--clr-core-ntrl-100)"
@@ -244,7 +244,7 @@
 				{#if descriptionVisible}
 					<div class="branch-info__description">
 						<div class="branch-action__line" style:--bg-color={lineColor}></div>
-						<StackingSeriesDescription
+						<SeriesDescription
 							bind:textAreaEl={seriesDescriptionEl}
 							value={currentSeries.description ?? ''}
 							onBlur={(value) => editDescription(value)}
