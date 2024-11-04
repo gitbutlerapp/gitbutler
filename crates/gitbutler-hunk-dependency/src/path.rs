@@ -98,7 +98,7 @@ fn add_new(
 
     if last_hunk.start + last_hunk.lines < new_diff.old_start {
         // Diffs do not overlap so we return them in order.
-        Ok(vec![
+        return Ok(vec![
             last_hunk,
             HunkRange {
                 commit_id,
@@ -107,11 +107,14 @@ fn add_new(
                 lines: new_diff.new_lines,
                 line_shift: new_diff.net_lines()?,
             },
-        ])
-    } else if last_hunk.contains(new_diff.old_start, new_diff.old_lines) {
+        ]);
+    }
+
+    if last_hunk.contains(new_diff.old_start, new_diff.old_lines) {
         // Since the diff being added is from the current commit it overwrites the preceding one,
         // but we need to split it in two and retain the tail.
-        Ok(vec![
+
+        return Ok(vec![
             HunkRange {
                 commit_id: last_hunk.commit_id,
                 stack_id: last_hunk.stack_id,
@@ -135,26 +138,37 @@ fn add_new(
                     - (new_diff.old_start - last_hunk.start),
                 line_shift: last_hunk.line_shift,
             },
-        ])
-    } else {
-        // Overwrite the tail of the previous diff.
-        Ok(vec![
-            HunkRange {
-                commit_id: last_hunk.commit_id,
-                stack_id: last_hunk.stack_id,
-                start: last_hunk.start,
-                lines: new_diff.new_start - last_hunk.start,
-                line_shift: last_hunk.line_shift,
-            },
-            HunkRange {
-                commit_id,
-                stack_id,
-                start: new_diff.new_start,
-                lines: new_diff.new_lines,
-                line_shift: new_diff.net_lines()?,
-            },
-        ])
+        ]);
     }
+
+    if last_hunk.covered_by(new_diff.old_start, new_diff.old_lines) {
+        // The new diff completely overwrites the previous one.
+        return Ok(vec![HunkRange {
+            commit_id,
+            stack_id,
+            start: new_diff.new_start,
+            lines: new_diff.new_lines,
+            line_shift: new_diff.net_lines()?,
+        }]);
+    }
+
+    // Overwrite the tail of the previous diff.
+    Ok(vec![
+        HunkRange {
+            commit_id: last_hunk.commit_id,
+            stack_id: last_hunk.stack_id,
+            start: last_hunk.start,
+            lines: new_diff.new_start - last_hunk.start,
+            line_shift: last_hunk.line_shift,
+        },
+        HunkRange {
+            commit_id,
+            stack_id,
+            start: new_diff.new_start,
+            lines: new_diff.new_lines,
+            line_shift: new_diff.net_lines()?,
+        },
+    ])
 }
 
 /// Determines how existing diff given the previous one.
@@ -164,7 +178,9 @@ fn add_existing(hunk: &HunkRange, last_hunk: Option<HunkRange>, shift: i32) -> V
     };
     let last_hunk = last_hunk.unwrap();
 
-    if hunk.start.saturating_add_signed(shift) > last_hunk.start + last_hunk.lines {
+    if hunk.start + hunk.lines == 0 {
+        vec![*hunk]
+    } else if hunk.start.saturating_add_signed(shift) > last_hunk.start + last_hunk.lines {
         vec![
             last_hunk,
             HunkRange {
@@ -175,7 +191,7 @@ fn add_existing(hunk: &HunkRange, last_hunk: Option<HunkRange>, shift: i32) -> V
                 line_shift: hunk.line_shift,
             },
         ]
-    } else if last_hunk.contains(hunk.start.saturating_add_signed(shift), hunk.lines) {
+    } else if last_hunk.covered_by(hunk.start.saturating_add_signed(shift), hunk.lines) {
         vec![last_hunk]
     } else {
         vec![
@@ -216,6 +232,244 @@ mod tests {
 
         let intersection = stack_ranges.intersection(4, 1);
         assert_eq!(intersection.len(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn stack_delete_file() -> anyhow::Result<()> {
+        let diff_1 = InputDiff::try_from(
+            "@@ -0,0 +1,7 @@
++a
++a
++a
++a
++a
++a
++a
+",
+        )?;
+        let diff_2 = InputDiff::try_from(
+            "@@ -1,7 +1,7 @@
+a
+a
+a
+-a
++b
+a
+a
+a
+",
+        )?;
+        let diff_3 = InputDiff::try_from(
+            "@@ -1,7 +0,0 @@
+-a
+-a
+-a
+-b
+-a
+-a
+-a
+",
+        )?;
+        let stack_ranges = &mut PathRanges::default();
+        let stack_id = StackId::generate();
+        let commit_a_id = git2::Oid::from_str("a")?;
+        stack_ranges.add(stack_id, commit_a_id, vec![diff_1])?;
+
+        let commit_b_id = git2::Oid::from_str("b")?;
+        stack_ranges.add(stack_id, commit_b_id, vec![diff_2])?;
+
+        let commit_c_id = git2::Oid::from_str("c")?;
+        stack_ranges.add(stack_id, commit_c_id, vec![diff_3])?;
+
+        // The file is deleted in the second commit.
+        // If we recreate it, it should intersect.
+        let intersection = stack_ranges.intersection(1, 1);
+        assert_eq!(stack_ranges.hunks.len(), 1);
+        assert_eq!(intersection.len(), 1);
+        assert_eq!(intersection[0].commit_id, commit_c_id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn stack_delete_and_recreate_file() -> anyhow::Result<()> {
+        let diff_1 = InputDiff::try_from(
+            "@@ -0,0 +1,7 @@
++a
++a
++a
++a
++a
++a
++a
+",
+        )?;
+        let diff_2 = InputDiff::try_from(
+            "@@ -1,7 +1,7 @@
+a
+a
+a
+-a
++b
+a
+a
+a
+",
+        )?;
+        let diff_3 = InputDiff::try_from(
+            "@@ -1,7 +0,0 @@
+-a
+-a
+-a
+-b
+-a
+-a
+-a
+",
+        )?;
+        let diff_4 = InputDiff::try_from(
+            "@@ -0,0 +1,5 @@
++c
++c
++c
++c
++c
+",
+        )?;
+        let stack_ranges = &mut PathRanges::default();
+        let stack_id = StackId::generate();
+        let commit_a_id = git2::Oid::from_str("a")?;
+        stack_ranges.add(stack_id, commit_a_id, vec![diff_1])?;
+
+        let commit_b_id = git2::Oid::from_str("b")?;
+        stack_ranges.add(stack_id, commit_b_id, vec![diff_2])?;
+
+        let commit_c_id = git2::Oid::from_str("c")?;
+        stack_ranges.add(stack_id, commit_c_id, vec![diff_3])?;
+
+        let commit_d_id = git2::Oid::from_str("d")?;
+        stack_ranges.add(stack_id, commit_d_id, vec![diff_4])?;
+
+        // The file is deleted in the second commit.
+        // If we recreate it, it should intersect.
+        let intersection = stack_ranges.intersection(1, 1);
+        assert_eq!(stack_ranges.hunks.len(), 1);
+        assert_eq!(intersection.len(), 1);
+        assert_eq!(intersection[0].commit_id, commit_d_id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn uncommitted_file_deletion() -> anyhow::Result<()> {
+        let diff_1 = InputDiff::try_from(
+            "@@ -1,0 +1,7 @@
++a
++a
++a
++a
++a
++a
++a
+",
+        )?;
+        let stack_ranges = &mut PathRanges::default();
+        let stack_id = StackId::generate();
+        let commit_id = git2::Oid::from_str("a")?;
+        stack_ranges.add(stack_id, commit_id, vec![diff_1])?;
+
+        // If the file is completely deleted, the old start and lines are 1 and 7.
+        let intersection = stack_ranges.intersection(1, 7);
+        assert_eq!(intersection.len(), 1);
+        assert_eq!(intersection[0].commit_id, commit_id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn stack_overwrite_file() -> anyhow::Result<()> {
+        let diff_1 = InputDiff::try_from(
+            "@@ -1,0 +1,7 @@
++1
++2
++3
++4
++5
++6
++7
+",
+        )?;
+        let diff_2 = InputDiff::try_from(
+            "@@ -1,7 +1,7 @@
+-1
+-2
+-3
+-4
+-5
+-6
+-7
++a
++b
++c
++d
++e
++f
++g
+",
+        )?;
+        let stack_ranges = &mut PathRanges::default();
+        let stack_id = StackId::generate();
+        let commit_a_id = git2::Oid::from_str("a")?;
+        stack_ranges.add(stack_id, commit_a_id, vec![diff_1])?;
+
+        let commit_b_id = git2::Oid::from_str("b")?;
+        stack_ranges.add(stack_id, commit_b_id, vec![diff_2])?;
+
+        let intersection = stack_ranges.intersection(1, 1);
+        assert_eq!(intersection.len(), 1);
+        assert_eq!(intersection[0].commit_id, commit_b_id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn stack_overwrite_line() -> anyhow::Result<()> {
+        let diff_1 = InputDiff::try_from(
+            "@@ -1,6 +1,7 @@
+1
+2
+3
++4
+5
+6
+7
+",
+        )?;
+        let diff_2 = InputDiff::try_from(
+            "@@ -1,7 +1,7 @@
+1
+2
+3
+-4
++4.5
+5
+6
+7
+",
+        )?;
+        let stack_ranges = &mut PathRanges::default();
+        let stack_id = StackId::generate();
+        let commit_a_id = git2::Oid::from_str("a")?;
+        stack_ranges.add(stack_id, commit_a_id, vec![diff_1])?;
+
+        let commit_b_id = git2::Oid::from_str("b")?;
+        stack_ranges.add(stack_id, commit_b_id, vec![diff_2])?;
+
+        let intersection = stack_ranges.intersection(3, 3);
+        assert_eq!(intersection.len(), 1);
+        assert_eq!(intersection[0].commit_id, commit_b_id);
 
         Ok(())
     }
