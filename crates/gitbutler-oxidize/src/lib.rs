@@ -4,6 +4,10 @@ use anyhow::Context;
 use gix::bstr::ByteSlice;
 use std::borrow::Borrow;
 
+pub fn gix_time_to_git2(time: gix::date::Time) -> git2::Time {
+    git2::Time::new(time.seconds, time.offset)
+}
+
 pub fn git2_to_gix_object_id(id: git2::Oid) -> gix::ObjectId {
     gix::ObjectId::try_from(id.as_bytes()).expect("git2 oid is always valid")
 }
