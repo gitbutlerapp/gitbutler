@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
 	import Resizer from '../shared/Resizer.svelte';
-	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
@@ -18,6 +17,7 @@
 	import { onMount, setContext } from 'svelte';
 	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/forge/interface/types';
+	import StackingCommitCard from '$lib/commit/StackingCommitCommitCard.svelte';
 
 	export let localBranch: Branch | undefined = undefined;
 	export let remoteBranch: Branch | undefined = undefined;
@@ -113,53 +113,53 @@
 							{/if}
 						</div>
 					{/if}
-					<div>
+					<div class="branch-group">
 						{#if remoteCommits}
 							{#each remoteCommits as commit, index (commit.id)}
-								<CommitCard
+								<StackingCommitCard
 									isUnapplied
-									first={index === 0}
 									last={index === remoteCommits.length - 1}
 									{commit}
 									commitUrl={$forge?.commitUrl(commit.id)}
 									type="remote"
+									disableCommitActions={true}
 								>
 									{#snippet lines(topHeightPx)}
 										<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
 									{/snippet}
-								</CommitCard>
+								</StackingCommitCard>
 							{/each}
 						{/if}
 						{#if localCommits}
 							{#each localCommits as commit, index (commit.id)}
-								<CommitCard
+								<StackingCommitCard
 									isUnapplied
-									first={index === 0}
 									last={index === localCommits.length - 1}
 									{commit}
 									commitUrl={$forge?.commitUrl(commit.id)}
 									type="local"
+									disableCommitActions={true}
 								>
 									{#snippet lines(topHeightPx)}
 										<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
 									{/snippet}
-								</CommitCard>
+								</StackingCommitCard>
 							{/each}
 						{/if}
 						{#if localAndRemoteCommits}
 							{#each localAndRemoteCommits as commit, index (commit.id)}
-								<CommitCard
+								<StackingCommitCard
 									isUnapplied
-									first={index === 0}
 									last={index === localAndRemoteCommits.length - 1}
 									{commit}
 									commitUrl={$forge?.commitUrl(commit.id)}
 									type="localAndRemote"
+									disableCommitActions={true}
 								>
 									{#snippet lines(topHeightPx)}
 										<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
 									{/snippet}
-								</CommitCard>
+								</StackingCommitCard>
 							{/each}
 						{/if}
 					</div>
@@ -224,5 +224,19 @@
 
 	.card__content {
 		color: var(--clr-scale-ntrl-30);
+	}
+
+	.branch-group {
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		background: var(--clr-bg-1);
+
+		&:last-child {
+			margin-bottom: 12px;
+		}
+
+		& :global(.commit-row):first-child {
+			border-radius: var(--radius-m) var(--radius-m) 0 0;
+		}
 	}
 </style>
