@@ -12,24 +12,42 @@
 
 	$: debug = $page.url.searchParams.get('debug');
 
+	type Redirect =
+		| {
+				type: 'loading' | 'no-projects';
+		  }
+		| {
+				type: 'redirect';
+				subject: string;
+		  };
+
 	const persistedId = projectsService.getLastOpenedProject();
-	const redirect = derived(projects, (projects) => {
-		if (debug || !projects) return null;
-		const projectId = projects.find((p) => p.id === persistedId)?.id;
-		if (projectId) return projectId;
-		if (projects.length > 0) return projects[0]?.id;
-		return null;
-	});
+	const redirect = derived(
+		projects,
+		(projects): Redirect => {
+			if (debug) return { type: 'no-projects' };
+			if (!projects) return { type: 'loading' };
+			const projectId = projects.find((p) => p.id === persistedId)?.id;
+			if (projectId) {
+				return { type: 'redirect', subject: `/${projectId}/` };
+			}
+			if (projects.length > 0) {
+				return { type: 'redirect', subject: `/${projects[0]?.id}/` };
+			}
+			return { type: 'no-projects' };
+		},
+		{ type: 'loading' } as Redirect
+	);
 
 	$: {
-		if ($redirect) {
-			goto(`/${$redirect}/`);
-		} else if ($redirect === null) {
+		if ($redirect.type === 'redirect') {
+			goto($redirect.subject);
+		} else if ($redirect.type === 'no-projects') {
 			goto('/onboarding');
 		}
 	}
 </script>
 
-{#if $redirect === undefined}
+{#if $redirect.type === 'loading'}
 	<FullviewLoading />
 {/if}

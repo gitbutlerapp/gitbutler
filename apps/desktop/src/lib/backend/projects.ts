@@ -1,5 +1,6 @@
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
+import { sleep } from '$lib/utils/sleep';
 import * as toasts from '$lib/utils/toasts';
 import { persisted } from '@gitbutler/shared/persisted';
 import { open } from '@tauri-apps/plugin-dialog';
@@ -46,16 +47,18 @@ export type CloudProject = {
 
 export class ProjectsService {
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
-	readonly projects = writable<Project[]>([], (set) => {
-		this.loadAll()
-			.then((projects) => {
-				this.error.set(undefined);
-				set(projects);
-			})
-			.catch((err) => {
-				this.error.set(err);
-				showError('Failed to load projects', err);
-			});
+	readonly projects = writable<Project[] | undefined>(undefined, (set) => {
+		sleep(100).then(() => {
+			this.loadAll()
+				.then((projects) => {
+					this.error.set(undefined);
+					set(projects);
+				})
+				.catch((err) => {
+					this.error.set(err);
+					showError('Failed to load projects', err);
+				});
+		});
 	});
 	readonly error = writable();
 
@@ -82,7 +85,7 @@ export class ProjectsService {
 		if (store) return store;
 
 		store = derived(this.projects, (projects) => {
-			return projects.find((p) => p.id === projectId);
+			return projects?.find((p) => p.id === projectId);
 		});
 		this.#projectStores.set(projectId, store);
 		return store;
