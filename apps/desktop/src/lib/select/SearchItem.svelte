@@ -83,6 +83,7 @@
 	}
 
 	.search-icon {
+		display: flex;
 		pointer-events: none;
 	}
 </style>
