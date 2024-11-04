@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use super::{events, Change};
 use anyhow::{Context, Result};
-use gitbutler_branch_actions::{RemoteBranchFile, VirtualBranches};
+use gitbutler_branch_actions::VirtualBranches;
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_error::error::Marker;
@@ -57,8 +57,8 @@ impl Handler {
     #[instrument(skip(self), fields(event = %event), err(Debug))]
     pub(super) fn handle(&self, event: events::InternalEvent) -> Result<()> {
         match event {
-            events::InternalEvent::ProjectFilesChange(project_id, path) => {
-                self.recalculate_everything(path, project_id)
+            events::InternalEvent::ProjectFilesChange(project_id, paths) => {
+                self.recalculate_everything(paths, project_id)
             }
 
             events::InternalEvent::GitFilesChange(project_id, paths) => self
@@ -75,9 +75,7 @@ impl Handler {
                 .context("failed to handle virtual branch event"),
         }
     }
-}
 
-impl Handler {
     fn emit_app_event(&self, event: Change) -> Result<()> {
         (self.send_event)(event).context("failed to send event")
     }
@@ -148,15 +146,8 @@ impl Handler {
             project_id: project.id,
             files: files
                 .clone()
-                .into_iter()
-                .map(|(path, file)| {
-                    let binary = file.hunks.iter().any(|h| h.binary);
-                    RemoteBranchFile {
-                        path,
-                        hunks: file.hunks,
-                        binary,
-                    }
-                })
+                .into_values()
+                .map(|file| file.into())
                 .collect(),
         });
         Ok(files)
