@@ -15,8 +15,8 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import Line from '@gitbutler/ui/commitLinesStacking/Line.svelte';
-	import { LineManagerFactory } from '@gitbutler/ui/commitLinesStacking/lineManager';
+	import Line from '@gitbutler/ui/commitLines/Line.svelte';
+	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

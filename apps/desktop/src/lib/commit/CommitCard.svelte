@@ -39,7 +39,7 @@
 		isUnapplied?: boolean;
 		last?: boolean;
 		type: CommitStatus;
-		lines?: Snippet<[topHeightPx?: number]> | undefined;
+		lines?: Snippet | undefined;
 		filesToggleable?: boolean;
 		seriesName?: string;
 		disableCommitActions?: boolean;

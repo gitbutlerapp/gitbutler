@@ -15,7 +15,7 @@ import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { UserService } from '$lib/stores/user';
 import { HttpClient } from '@gitbutler/shared/httpClient';
 import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
-import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLinesStacking/lineManager';
+import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import lscache from 'lscache';
 import type { LayoutLoad } from './$types';
 import { PUBLIC_API_BASE_URL } from '$env/static/public';

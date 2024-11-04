@@ -11,7 +11,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
-	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
+	import Line from '@gitbutler/ui/commitLines/Line.svelte';
 	import { LineManagerFactory, LineSpacer } from '@gitbutler/ui/commitLines/lineManager';
 	import { tick } from 'svelte';
 	import type { BaseBranch } from '$lib/baseBranch/baseBranch';
@@ -218,8 +218,8 @@
 					type="remote"
 					disableCommitActions={true}
 				>
-					{#snippet lines(topHeightPx)}
-						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+					{#snippet lines()}
+						<Line line={lineManager.get(commit.id)} />
 					{/snippet}
 				</CommitCard>
 			{/each}
@@ -228,7 +228,7 @@
 		{#if base.diverged}
 			<CommitAction backgroundColor={false}>
 				{#snippet lines()}
-					<LineGroup lineGroup={lineManager.get(LineSpacer.Remote)} topHeightPx={0} />
+					<Line line={lineManager.get(LineSpacer.Remote)} />
 				{/snippet}
 				{#snippet action()}
 					<Button
@@ -262,8 +262,8 @@
 					type="local"
 					disableCommitActions={true}
 				>
-					{#snippet lines(topHeightPx)}
-						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+					{#snippet lines()}
+						<Line line={lineManager.get(commit.id)} />
 					{/snippet}
 				</CommitCard>
 			{/each}
@@ -271,7 +271,7 @@
 
 		<CommitAction backgroundColor={false}>
 			{#snippet lines()}
-				<LineGroup lineGroup={lineManager.get(LineSpacer.Local)} topHeightPx={0} />
+				<Line line={lineManager.get(LineSpacer.Local)} />
 			{/snippet}
 			{#snippet action()}
 				<div class="local-actions-wrapper">
@@ -321,8 +321,8 @@
 				type="localAndRemote"
 				disableCommitActions={true}
 			>
-				{#snippet lines(topHeightPx)}
-					<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+				{#snippet lines()}
+					<Line line={lineManager.get(commit.id)} />
 				{/snippet}
 			</CommitCard>
 		{/each}

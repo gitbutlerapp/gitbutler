@@ -1,6 +1,4 @@
 <script lang="ts">
-	import Fork from '$lib/commitLines/Cell/Fork.svelte';
-	import Straight from '$lib/commitLines/Cell/Straight.svelte';
 	import type { CellData } from '$lib/commitLines/types';
 
 	interface Props {
@@ -11,8 +9,19 @@
 	const { cell, isBottom = false }: Props = $props();
 </script>
 
-{#if cell.type === 'fork'}
-	<Fork color={cell.color} style={cell.style} {isBottom} />
-{:else}
-	<Straight color={cell.color} style={cell.style} />
-{/if}
+<div
+	class="commit-line stacked"
+	class:local={cell.type === 'local'}
+	class:remote={cell.type === 'localAndRemote'}
+	class:local-shadow={cell.type === 'localAndShadow'}
+	class:upstream={cell.type === 'remote'}
+	class:integrated={cell.type === 'integrated'}
+	class:dashed={isBottom}
+></div>
+
+<style lang="postcss">
+	.commit-line {
+		width: 2px;
+		margin: 0 22px 0 20px;
+	}
+</style>
