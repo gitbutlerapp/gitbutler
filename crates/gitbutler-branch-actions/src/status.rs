@@ -149,6 +149,21 @@ pub fn get_applied_status_cached(
             .collect();
 
         branch.ownership = BranchOwnershipClaims { claims: new_claims };
+        branch.commit_dependencies = workspace_dependencies
+            .commit_dependencies
+            .get(&branch.id)
+            .cloned()
+            .unwrap_or_default();
+        branch.inverse_commit_dependencies = workspace_dependencies
+            .inverse_commit_dependencies
+            .get(&branch.id)
+            .cloned()
+            .unwrap_or_default();
+        branch.commit_dependent_diffs = workspace_dependencies
+            .commit_dependent_diffs
+            .get(&branch.id)
+            .cloned()
+            .unwrap_or_default();
     }
 
     let max_selected_for_changes = virtual_branches
