@@ -303,17 +303,7 @@ pub(crate) fn starting_index_state(
 
     let diff_files = hunks_by_filepath(Some(repository), &diff)?
         .into_iter()
-        .map(|(path, file)| {
-            let binary = file.hunks.iter().any(|h| h.binary);
-            (
-                RemoteBranchFile {
-                    path: path.clone(),
-                    hunks: file.hunks,
-                    binary,
-                },
-                conflicts.get(&path).cloned(),
-            )
-        })
+        .map(|(path, file)| (file.into(), conflicts.get(&path).cloned()))
         .collect();
 
     Ok(diff_files)

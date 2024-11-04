@@ -41,15 +41,8 @@ pub(crate) fn get_uncommited_files(
     _permission: &WorktreeReadPermission,
 ) -> Result<Vec<RemoteBranchFile>> {
     let files = get_uncommited_files_raw(context, _permission)?
-        .into_iter()
-        .map(|(path, file)| {
-            let binary = file.hunks.iter().any(|h| h.binary);
-            RemoteBranchFile {
-                path,
-                hunks: file.hunks,
-                binary,
-            }
-        })
+        .into_values()
+        .map(|file| file.into())
         .collect();
 
     Ok(files)

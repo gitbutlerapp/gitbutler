@@ -1,7 +1,4 @@
-use crate::{
-    author::Author,
-    file::{list_virtual_commit_files, VirtualBranchFile},
-};
+use crate::author::Author;
 use anyhow::{anyhow, Result};
 use bstr::ByteSlice as _;
 use gitbutler_cherry_pick::ConflictedTreeKey;
@@ -30,7 +27,6 @@ pub struct VirtualBranchCommit {
     pub author: Author,
     /// Dont use, favor `remote_commit_id` instead
     pub is_remote: bool,
-    pub files: Vec<VirtualBranchFile>,
     pub is_integrated: bool,
     #[serde(with = "gitbutler_serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
@@ -68,9 +64,6 @@ pub(crate) fn commit_to_vbranch_commit(
     let timestamp = u128::try_from(commit.time().seconds())?;
     let message = commit.message_bstr().to_owned();
 
-    let files = list_virtual_commit_files(ctx, commit, true)?;
-    let files = large_files_abridged(files);
-
     let parent_ids: Vec<git2::Oid> = commit
         .parents()
         .map(|c| {
@@ -102,7 +95,6 @@ pub(crate) fn commit_to_vbranch_commit(
         author: commit.author().into(),
         description: message.into(),
         is_remote,
-        files,
         is_integrated,
         parent_ids,
         branch_id: branch.id,
@@ -115,17 +107,4 @@ pub(crate) fn commit_to_vbranch_commit(
     };
 
     Ok(commit)
-}
-
-fn large_files_abridged(mut files: Vec<VirtualBranchFile>) -> Vec<VirtualBranchFile> {
-    for file in &mut files {
-        // Diffs larger than 500kb are considered large
-        if file.hunks.iter().any(|hunk| hunk.diff.len() > 500_000) {
-            file.large = true;
-            file.hunks.iter_mut().for_each(|hunk| {
-                hunk.diff.drain(..);
-            });
-        }
-    }
-    files
 }

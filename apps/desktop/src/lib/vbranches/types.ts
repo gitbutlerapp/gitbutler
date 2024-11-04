@@ -333,6 +333,7 @@ export class RemoteFile {
 	@Type(() => RemoteHunk)
 	hunks!: RemoteHunk[];
 	binary!: boolean;
+	large!: boolean;
 
 	get id(): string {
 		return this.path;
@@ -344,10 +345,6 @@ export class RemoteFile {
 
 	get justpath() {
 		return this.path.split('/').slice(0, -1).join('/');
-	}
-
-	get large() {
-		return false;
 	}
 
 	get conflicted() {

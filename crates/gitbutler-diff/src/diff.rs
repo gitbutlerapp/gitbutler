@@ -110,8 +110,7 @@ impl GitHunk {
 #[derive(Debug, PartialEq, Clone, Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct FileDiff {
-    pub old_path: Option<PathBuf>,
-    pub new_path: Option<PathBuf>,
+    pub path: PathBuf,
     /// Hunks might be empty if nothing about the files content is known, which happens
     /// if the content is skipped due to it being a large file.
     pub hunks: Vec<GitHunk>,
@@ -252,8 +251,7 @@ pub fn hunks_by_filepath(
                     let existing = diff_files
                         .insert(file_path.to_path_buf(),
                             FileDiff {
-                                old_path: delta.old_file().path().map(ToOwned::to_owned),
-                                new_path: delta.new_file().path().map(ToOwned::to_owned),
+                                path: file_path.to_path_buf(),
                                 hunks: Vec::new(),
                                 skipped: false,
                                 binary: delta.new_file().is_binary(),

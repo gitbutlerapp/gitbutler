@@ -1,9 +1,10 @@
 use gitbutler_branch::BranchCreateRequest;
+use gitbutler_branch_actions::list_commit_files;
 
 use super::*;
 
 #[test]
-fn undo_commit_simple() {
+fn undo_commit_simple() -> anyhow::Result<()> {
     let Test {
         repository,
         project,
@@ -51,8 +52,8 @@ fn undo_commit_simple() {
     // should be two uncommitted files now (file2.txt and file3.txt)
     assert_eq!(branch.files.len(), 2);
     assert_eq!(branch.commits.len(), 2);
-    assert_eq!(branch.commits[0].files.len(), 1);
-    assert_eq!(branch.commits[1].files.len(), 1);
+    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 1);
+    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 1);
 
     let descriptions = branch
         .commits
@@ -61,10 +62,11 @@ fn undo_commit_simple() {
         .collect::<Vec<_>>();
 
     assert_eq!(descriptions, vec!["commit three", "commit one"]);
+    Ok(())
 }
 
 #[test]
-fn undo_commit_in_non_default_branch() {
+fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
     let Test {
         repository,
         project,
@@ -124,8 +126,8 @@ fn undo_commit_in_non_default_branch() {
     // should be two uncommitted files now (file2.txt and file3.txt)
     assert_eq!(branch.files.len(), 2);
     assert_eq!(branch.commits.len(), 2);
-    assert_eq!(branch.commits[0].files.len(), 1);
-    assert_eq!(branch.commits[1].files.len(), 1);
+    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 1);
+    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 1);
     assert_eq!(default_branch.files.len(), 0);
     assert_eq!(default_branch.commits.len(), 0);
 
@@ -136,4 +138,5 @@ fn undo_commit_in_non_default_branch() {
         .collect::<Vec<_>>();
 
     assert_eq!(descriptions, vec!["commit three", "commit one"]);
+    Ok(())
 }
