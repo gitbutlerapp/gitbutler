@@ -17,12 +17,12 @@ export interface DraggableConfig {
 	readonly viewportId?: string;
 }
 
-function createElement(
-	tag: string,
+function createElement<K extends keyof HTMLElementTagNameMap>(
+	tag: K,
 	classNames: string[],
 	textContent?: string,
 	src?: string
-): HTMLElement {
+): HTMLElementTagNameMap[K] {
 	const el = document.createElement(tag);
 	el.classList.add(...classNames);
 	if (textContent) el.textContent = textContent;
@@ -202,7 +202,7 @@ export function createCommitElement(
 	date: string | undefined,
 	authorImgUrl: string | undefined
 ): HTMLDivElement {
-	const cardEl = createElement('div', ['draggable-commit']) as HTMLDivElement;
+	const cardEl = createElement('div', ['draggable-commit']);
 	const labelEl = createElement('span', ['text-13', 'text-bold'], label || 'Empty commit');
 	const infoEl = createElement('div', ['draggable-commit-info', 'text-11']);
 	const authorImgEl = createElement(
@@ -245,7 +245,7 @@ export function createChipsElement(
 	label: string | undefined,
 	filePath: string | undefined
 ): HTMLDivElement {
-	const containerEl = createElement('div', ['draggable-chip-container']) as HTMLDivElement;
+	const containerEl = createElement('div', ['draggable-chip-container']);
 	const chipEl = createElement('div', ['draggable-chip']);
 	containerEl.appendChild(chipEl);
 
