@@ -39,9 +39,10 @@
 		isUnapplied?: boolean;
 		last?: boolean;
 		type: CommitStatus;
-		lines?: Snippet | undefined;
+		lines?: Snippet<[topHeightPx?: number]> | undefined;
 		filesToggleable?: boolean;
 		seriesName?: string;
+		disableCommitActions?: boolean;
 	}
 
 	const {
@@ -54,7 +55,8 @@
 		type,
 		lines = undefined,
 		filesToggleable = true,
-		seriesName = ''
+		seriesName = '',
+		disableCommitActions = false
 	}: Props = $props();
 
 	const branchController = getContext(BranchController);
@@ -207,13 +209,13 @@
 	{/if}
 {/snippet}
 
-{#if draggableCommitElement}
+{#if draggableCommitElement && !disableCommitActions}
 	<ContextMenu bind:this={contextMenu} target={draggableCommitElement} openByMouse>
 		{@render commitContextMenuSnippet(contextMenu)}
 	</ContextMenu>
 {/if}
 
-{#if kebabMenuTrigger}
+{#if kebabMenuTrigger && !disableCommitActions}
 	<ContextMenu
 		bind:this={kebabContextMenu}
 		target={kebabMenuTrigger}
@@ -258,25 +260,29 @@
 		</div>
 	{/if}
 
-	<PopoverActionsContainer class="commit-actions-menu" thin stayOpen={isKebabContextMenuOpen}>
-		<PopoverActionsItem
-			bind:el={kebabMenuTrigger}
-			activated={isKebabContextMenuOpen}
-			icon="kebab"
-			tooltip="More options"
-			thin
-			onclick={(e) => {
-				kebabContextMenu?.toggle(e);
-			}}
-		/>
-	</PopoverActionsContainer>
+	{#if !disableCommitActions}
+		<PopoverActionsContainer class="commit-actions-menu" thin stayOpen={isKebabContextMenuOpen}>
+			<PopoverActionsItem
+				bind:el={kebabMenuTrigger}
+				activated={isKebabContextMenuOpen}
+				icon="kebab"
+				tooltip="More options"
+				thin
+				onclick={(e) => {
+					kebabContextMenu?.toggle(e);
+				}}
+			/>
+		</PopoverActionsContainer>
+	{/if}
 
 	<div class="commit-card" class:is-last={last}>
 		<!-- GENERAL INFO -->
 		<div bind:this={draggableCommitElement} class="commit__header" role="button" tabindex="-1">
-			<div class="commit__drag-icon">
-				<Icon name="draggable" />
-			</div>
+			{#if !disableCommitActions}
+				<div class="commit__drag-icon">
+					<Icon name="draggable" />
+				</div>
+			{/if}
 
 			{#if isUndoable && !commit.descriptionTitle}
 				<span class="text-13 text-body text-semibold commit__empty-title">empty commit message</span
