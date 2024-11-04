@@ -1,15 +1,18 @@
-import { flattenPromises } from '$lib/utils/flattenPromises';
-import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
+import { RemoteFile, type AnyFile, type LocalFile } from '$lib/vbranches/types';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import { derived, type Readable } from 'svelte/store';
-import type { AnyFile, LocalFile } from '$lib/vbranches/types';
+import { get, writable, type Readable, type Unsubscriber } from 'svelte/store';
 
 export interface FileKey {
 	fileId: string;
 	commitId?: string;
 }
 
-export function stringifyFileKey(fileId: string, commitId?: string) {
+export type SelectedFile = {
+	commitId?: string;
+	file: AnyFile;
+};
+
+export function stringifyKey(fileId: string, commitId?: string) {
 	return fileId + '|' + commitId;
 }
 
@@ -26,129 +29,173 @@ export function parseFileKey(fileKeyString: string): FileKey {
 	};
 }
 
-export type SelectedFile = {
-	context?: string;
-	fileId: string;
-};
-
 type CallBack = (value: string[]) => void;
 
+/**
+ * Custom store for managing the set of selected files.
+ */
 export class FileIdSelection implements Readable<string[]> {
-	private value: string[];
+	// It should not be possible to select files from different
+	// so we keep track of the current commit id.
+	private currentCommitId: string | undefined;
+
+	// A string based selection so we do not emit selection changes
+	// when e.g. list_virtual_branches emits.
+	private selection: string[];
+
+	// Subscribed callback functions for this custom store.
 	private callbacks: CallBack[];
 
+	// If there is a commit id, this should hold the file.
+	private remoteFiles = new Map<string, RemoteFile>();
+
+	// Selected file, if selection contains only one file.
+	readonly selectedFile = writable<SelectedFile | undefined>();
+
+	// Currently selected files, refreshed when currently selected
+	// id's have changed.
+	readonly files = writable<AnyFile[]>([]);
+
+	// Unsubscribe function for the readable of uncommitted files.
+	private unsubscribeLocalFiles: Unsubscriber | undefined;
+
 	constructor(
-		private projectId: string,
-		private localFiles: Readable<LocalFile[]>,
+		private uncommittedFiles: Readable<LocalFile[]>,
 		value: FileKey[] = []
 	) {
 		this.callbacks = [];
-		this.value = value.map((key) => stringifyFileKey(key.fileId, key.commitId));
+		this.selection = value.map((key) => stringifyKey(key.fileId, key.commitId));
 	}
 
 	subscribe(callback: (value: string[]) => void) {
-		callback(this.value);
+		callback(this.selection);
 		this.callbacks.push(callback);
+		if (this.callbacks.length === 1) {
+			this.setup();
+		}
 		return () => this.unsubscribe(callback);
 	}
 
 	private unsubscribe(callback: CallBack) {
 		this.callbacks = this.callbacks.filter((cb) => cb !== callback);
+		if (this.callbacks.length === 0) {
+			this.teardown();
+		}
 	}
 
-	add(fileId: string, commitId?: string) {
-		const fileKey = stringifyFileKey(fileId, commitId);
-		if (!this.value.includes(fileKey)) {
-			this.value.push(fileKey);
+	/**
+	 * Calls each subscriber with the latest selection.
+	 */
+	private emit() {
+		for (const callback of this.callbacks) {
+			callback(this.selection);
+		}
+	}
+
+	/**
+	 * Called when subscriber count goes from 1 -> 0.
+	 */
+	async setup() {
+		this.unsubscribeLocalFiles = this.uncommittedFiles.subscribe(() => {
+			this.clear();
+		});
+	}
+
+	/**
+	 * Called when subscriber count goes from 0 -> 1.
+	 */
+	teardown() {
+		this.unsubscribeLocalFiles?.();
+		this.clear();
+	}
+
+	/**
+	 * Selection is managed as string values to deduplicate events, we therefore
+	 * need a way of keeping a corresponding list of files up-to-date.
+	 */
+	async reloadFiles() {
+		const files = this.selection
+			.map((selected) => {
+				const key = parseFileKey(selected);
+				return this.findFileByKey(key);
+			})
+			.filter(isDefined);
+
+		this.files.set(files);
+		if (files.length === 1) {
+			this.selectedFile.set({
+				commitId: this.currentCommitId,
+				file: files[0] as AnyFile
+			});
+		} else {
+			this.selectedFile.set(undefined);
+		}
+	}
+
+	add(file: AnyFile, commitId?: string) {
+		this.select_many([file], commitId);
+	}
+
+	select_many(files: AnyFile[], commitId?: string) {
+		if (this.selection.length > 0 && commitId !== this.currentCommitId) {
+			throw 'Selecting files from multiple commits not allowed.';
+		}
+		for (const file of files) {
+			const fileKey = stringifyKey(file.id, commitId);
+			if (!this.selection.includes(fileKey)) {
+				this.selection.push(fileKey);
+				if (file instanceof RemoteFile) {
+					this.remoteFiles.set(fileKey, file);
+				}
+			}
+		}
+		this.emit();
+		this.reloadFiles();
+	}
+
+	has(fileId: string, commitId?: string) {
+		return this.selection.includes(stringifyKey(fileId, commitId));
+	}
+
+	remove(fileId: string, commitId?: string) {
+		const strFileKey = stringifyKey(fileId, commitId);
+		this.selection = this.selection.filter((key) => key !== strFileKey);
+		if (commitId) {
+			this.remoteFiles.delete(strFileKey);
+		}
+		if (this.selection.length === 0) {
+			this.clear();
+		} else {
+			this.reloadFiles();
 			this.emit();
 		}
 	}
 
-	has(fileId: string, commitId?: string) {
-		return this.value.includes(stringifyFileKey(fileId, commitId));
-	}
-
-	remove(fileId: string, commitId?: string) {
-		this.value = this.value.filter((key) => key !== stringifyFileKey(fileId, commitId));
-		this.emit();
-	}
-
-	set(values: string[]) {
-		this.value = values;
-		this.emit();
-	}
-
 	clear() {
-		this.value = [];
+		this.selection = [];
+		this.remoteFiles.clear();
+		this.currentCommitId = undefined;
+		this.selectedFile.set(undefined);
 		this.emit();
 	}
 
 	clearExcept(fileId: string, commitId?: string) {
-		this.value = [stringifyFileKey(fileId, commitId)];
+		this.selection = [stringifyKey(fileId, commitId)];
+		this.reloadFiles();
 		this.emit();
 	}
 
-	private emit() {
-		for (const callback of this.callbacks) {
-			callback(this.value);
-		}
-	}
-
 	only(): FileKey | undefined {
-		if (this.value.length === 0) return;
-		const fileKey = parseFileKey(this.value[0]!);
+		if (this.selection.length === 0) return;
+		const fileKey = parseFileKey(this.selection[0]!);
 		return fileKey;
 	}
 
-	#selectedFile: Readable<[string | undefined, AnyFile | undefined] | undefined> | undefined;
-	get selectedFile() {
-		if (this.#selectedFile) return this.#selectedFile;
-
-		const files = derived(
-			[this as Readable<string[]>, this.localFiles],
-			async ([selection, localFiles]): Promise<
-				[string | undefined, AnyFile | undefined] | undefined
-			> => {
-				if (selection.length !== 1) return undefined;
-				const fileKey = parseFileKey(selection[0]!);
-				const file = await findFileByKey(localFiles, this.projectId, fileKey);
-				return [fileKey.commitId, file];
-			}
-		);
-
-		this.#selectedFile = flattenPromises(files);
-
-		return this.#selectedFile;
-	}
-
-	#files: Readable<AnyFile[] | undefined> | undefined;
-	get files() {
-		if (this.#files) return this.#files;
-
-		const files = derived(
-			[this as Readable<string[]>, this.localFiles],
-			async ([selection, localFiles]): Promise<AnyFile[]> => {
-				const files = await Promise.all(
-					selection.map(async (fileKey) => {
-						return await findFileByKey(localFiles, this.projectId, parseFileKey(fileKey));
-					})
-				);
-
-				return files.filter(isDefined);
-			}
-		);
-
-		this.#files = flattenPromises(files);
-
-		return this.#files;
-	}
-}
-
-async function findFileByKey(localFiles: LocalFile[], projectId: string, key: FileKey) {
-	if (key.commitId) {
-		const remoteFiles = await listRemoteCommitFiles(projectId, key.commitId);
-		return remoteFiles.find((file) => file.id === key.fileId);
-	} else {
-		return localFiles.find((file) => file.id === key.fileId);
+	findFileByKey(key: FileKey) {
+		if (key.commitId) {
+			return this.remoteFiles.get(stringifyKey(key.fileId, key.commitId));
+		} else {
+			return get(this.uncommittedFiles).find((file) => file.id === key.fileId);
+		}
 	}
 }

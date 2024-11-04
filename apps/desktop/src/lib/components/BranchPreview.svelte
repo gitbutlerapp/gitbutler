@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
 	import Resizer from '../shared/Resizer.svelte';
-	import { Project } from '$lib/backend/projects';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import Markdown from '$lib/components/Markdown.svelte';
@@ -24,16 +23,15 @@
 	export let remoteBranch: Branch | undefined = undefined;
 	export let pr: PullRequest | undefined;
 
-	const project = getContext(Project);
 	const remoteBranchService = getContext(RemoteBranchService);
 	const forge = getForge();
 
-	const fileIdSelection = new FileIdSelection(project.id, writable([]));
+	const fileIdSelection = new FileIdSelection(writable([]));
 	setContext(FileIdSelection, fileIdSelection);
 
 	const selectedFile = fileIdSelection.selectedFile;
-	$: commitId = $selectedFile?.[0];
-	$: selected = $selectedFile?.[1];
+	$: commitId = $selectedFile?.commitId;
+	$: selected = $selectedFile?.file;
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'branchPreviewLaneWidth';

@@ -1,5 +1,5 @@
 import { getSelectionDirection } from './getSelectionDirection';
-import { stringifyFileKey, type FileIdSelection } from '$lib/vbranches/fileIdSelection';
+import { type FileIdSelection } from '$lib/vbranches/fileIdSelection';
 import { get } from 'svelte/store';
 import type { AnyCommit, AnyFile } from '$lib/vbranches/types';
 
@@ -19,7 +19,7 @@ export function selectFilesInList(
 		if (isAlreadySelected) {
 			fileIdSelection.remove(file.id, commit?.id);
 		} else {
-			fileIdSelection.add(file.id, commit?.id);
+			fileIdSelection.add(file, commit?.id);
 		}
 	} else if (e.shiftKey && allowMultiple) {
 		// TODO(CTO): Not sure that this is accurate.
@@ -44,20 +44,18 @@ export function selectFilesInList(
 			) + 1
 		);
 
-		selectedFileIds = updatedSelection.map((f) => stringifyFileKey(f.id, commit?.id));
-
 		// if the selection is in the opposite direction, reverse the selection
 		if (selectionDirection === 'down') {
 			selectedFileIds = selectedFileIds.reverse();
 		}
-
-		fileIdSelection.set(selectedFileIds);
+		fileIdSelection.select_many(updatedSelection, commit?.id);
 	} else {
 		// if only one file is selected and it is already selected, unselect it
 		if (selectedFileIds.length === 1 && isAlreadySelected) {
 			fileIdSelection.clear();
 		} else {
-			fileIdSelection.set([stringifyFileKey(file.id, commit?.id)]);
+			fileIdSelection.clear();
+			fileIdSelection.add(file, commit?.id);
 		}
 	}
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
-	import { draggableChips } from '$lib/dragging/draggable';
+	import { draggableChips, type DraggableConfig } from '$lib/dragging/draggable';
 	import { DraggableFile } from '$lib/dragging/draggables';
 	import { itemsSatisfy } from '$lib/utils/array';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
@@ -29,6 +29,7 @@
 		$props();
 
 	const branch = maybeGetContextStore(VirtualBranch);
+	const branchId = $derived($branch?.id);
 	const selectedOwnership: Writable<SelectedOwnership> | undefined =
 		maybeGetContextStore(SelectedOwnership);
 	const fileIdSelection = getContext(FileIdSelection);
@@ -45,22 +46,12 @@
 	);
 
 	const selectedFiles = fileIdSelection.files;
-
-	const draggableFiles = $derived.by(() => {
-		if ($selectedFiles?.some((selectedFile) => selectedFile.id === file.id)) {
-			return $selectedFiles || [];
-		} else {
-			return [file];
-		}
-	});
+	const draggable = !readonly && !isUnapplied;
 
 	let contextMenu = $state<ReturnType<typeof FileContextMenu>>();
-
 	let draggableEl: HTMLDivElement | undefined = $state();
-	let checked = $state(false);
 	let indeterminate = $state(false);
-
-	const draggable = !readonly && !isUnapplied;
+	let checked = $state(false);
 
 	let animationEndHandler: () => void;
 
@@ -71,6 +62,14 @@
 		};
 		element.addEventListener('animationend', animationEndHandler);
 	}
+
+	// TODO: Refactor to use this as a Svelte action, e.g. `use:draggableChips()`.
+	let chips:
+		| {
+				update: (opts: DraggableConfig) => void;
+				destroy: () => void;
+		  }
+		| undefined;
 
 	$effect(() => {
 		if (file && $selectedOwnership) {
@@ -84,20 +83,28 @@
 
 	$effect(() => {
 		if (draggableEl) {
-			draggableChips(draggableEl, {
+			const draggableFile = new DraggableFile(branchId || '', file, $commit, selectedFiles);
+			const config = {
 				label: `${file.filename}`,
 				filePath: file.path,
-				data: new DraggableFile($branch?.id || '', file, $commit, draggableFiles),
+				data: draggableFile,
 				disabled: !draggable,
 				viewportId: 'board-viewport',
 				selector: '.selected-draggable'
-			});
+			};
+			if (chips) {
+				chips.update(config);
+			} else {
+				chips = draggableChips(draggableEl, config);
+			}
+		} else {
+			chips?.destroy();
 		}
 	});
 
 	async function handleDragStart() {
 		// Add animation end listener to files
-		draggableFiles.forEach((f) => {
+		$selectedFiles.forEach((f) => {
 			if (f.locked) {
 				const lockedElement = document.getElementById(`file-${f.id}`);
 				if (lockedElement) {
@@ -109,10 +116,11 @@
 	}
 
 	onDestroy(() => {
+		chips?.destroy();
 		if (draggableEl && animationEndHandler) {
 			draggableEl.removeEventListener('animationend', animationEndHandler);
 		}
-		draggableFiles.forEach((f) => {
+		$selectedFiles.forEach((f) => {
 			const lockedElement = document.getElementById(`file-${f.id}`);
 			if (lockedElement && animationEndHandler) {
 				lockedElement.removeEventListener('animationend', animationEndHandler);
@@ -155,16 +163,16 @@
 			return ownership;
 		});
 
-		if (draggableFiles.length > 0 && draggableFiles.includes(file)) {
+		if ($selectedFiles.length > 0 && $selectedFiles.includes(file)) {
 			if (isChecked) {
-				draggableFiles.forEach((f) => {
+				$selectedFiles.forEach((f) => {
 					selectedOwnership?.update((ownership) => {
 						f.hunks.forEach((h) => ownership.select(f.id, h));
 						return ownership;
 					});
 				});
 			} else {
-				draggableFiles.forEach((f) => {
+				$selectedFiles.forEach((f) => {
 					selectedOwnership?.update((ownership) => {
 						f.hunks.forEach((h) => ownership.ignore(f.id, h.id));
 						return ownership;
@@ -176,7 +184,7 @@
 	ondragstart={handleDragStart}
 	oncontextmenu={(e) => {
 		if (fileIdSelection.has(file.id, $commit?.id)) {
-			contextMenu?.open(e, { files: draggableFiles });
+			contextMenu?.open(e, { files: selectedFiles });
 		} else {
 			contextMenu?.open(e, { files: [file] });
 		}

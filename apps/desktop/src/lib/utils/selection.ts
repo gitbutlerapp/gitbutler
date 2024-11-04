@@ -3,7 +3,7 @@
  */
 import { getSelectionDirection } from './getSelectionDirection';
 import { KeyName } from './hotkeys';
-import { stringifyFileKey, unstringifyFileKey } from '$lib/vbranches/fileIdSelection';
+import { stringifyKey, unstringifyFileKey } from '$lib/vbranches/fileIdSelection';
 import type { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 import type { AnyFile } from '$lib/vbranches/types';
 
@@ -23,7 +23,7 @@ function getPreviousFile(files: AnyFile[], currentId: string): AnyFile | undefin
 
 function getTopFile(files: AnyFile[], selectedFileIds: string[]): AnyFile | undefined {
 	for (const file of files) {
-		if (selectedFileIds.includes(stringifyFileKey(file.id))) {
+		if (selectedFileIds.includes(stringifyKey(file.id))) {
 			return file;
 		}
 	}
@@ -33,7 +33,7 @@ function getTopFile(files: AnyFile[], selectedFileIds: string[]): AnyFile | unde
 function getBottomFile(files: AnyFile[], selectedFileIds: string[]): AnyFile | undefined {
 	for (let i = files.length - 1; i >= 0; i--) {
 		const file = files[i];
-		if (selectedFileIds.includes(stringifyFileKey(file!.id))) {
+		if (selectedFileIds.includes(stringifyKey(file!.id))) {
 			return file;
 		}
 	}
@@ -83,9 +83,9 @@ export function updateSelection({
 		const file = getFileFunc?.(files, id) ?? getFile(files, id);
 		if (file) {
 			// if file is already selected, do nothing
-			if (selectedFileIds.includes(stringifyFileKey(file.id, commitId))) return;
+			if (selectedFileIds.includes(stringifyKey(file.id, commitId))) return;
 
-			fileIdSelection.add(file.id, commitId);
+			fileIdSelection.add(file, commitId);
 		}
 	}
 
@@ -104,7 +104,7 @@ export function updateSelection({
 		case 'a':
 			if (allowMultiple && metaKey) {
 				for (const file of files) {
-					fileIdSelection.add(file.id, commitId);
+					fileIdSelection.add(file, commitId);
 				}
 			}
 			break;
