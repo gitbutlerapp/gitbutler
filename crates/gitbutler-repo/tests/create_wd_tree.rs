@@ -29,13 +29,7 @@ mod head_upsert_truthtable {
     // | add                | delete            | no-action |
     #[test]
     fn index_new_worktree_delete() {
-        let test_repository = TestingRepository::open();
-
-        let commit = test_repository.commit_tree(None, &[]);
-        test_repository
-            .repository
-            .branch("master", &commit, true)
-            .unwrap();
+        let test_repository = TestingRepository::open_with_initial_commit(&[]);
 
         std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content1").unwrap();
 
@@ -53,13 +47,8 @@ mod head_upsert_truthtable {
     // | modify             | delete            | remove    |
     #[test]
     fn index_modify_worktree_delete() {
-        let test_repository = TestingRepository::open();
-
-        let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
-        test_repository
-            .repository
-            .branch("master", &commit, true)
-            .unwrap();
+        let test_repository =
+            TestingRepository::open_with_initial_commit(&[("file1.txt", "content1")]);
 
         std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content2").unwrap();
 
@@ -77,13 +66,8 @@ mod head_upsert_truthtable {
     // |                    | delete            | remove    |
     #[test]
     fn worktree_delete() {
-        let test_repository = TestingRepository::open();
-
-        let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
-        test_repository
-            .repository
-            .branch("master", &commit, true)
-            .unwrap();
+        let test_repository =
+            TestingRepository::open_with_initial_commit(&[("file1.txt", "content1")]);
 
         std::fs::remove_file(test_repository.tempdir.path().join("file1.txt")).unwrap();
 
@@ -95,13 +79,8 @@ mod head_upsert_truthtable {
     // | delete             |                   | remove    |
     #[test]
     fn index_delete() {
-        let test_repository = TestingRepository::open();
-
-        let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
-        test_repository
-            .repository
-            .branch("master", &commit, true)
-            .unwrap();
+        let test_repository =
+            TestingRepository::open_with_initial_commit(&[("file1.txt", "content1")]);
 
         let mut index = test_repository.repository.index().unwrap();
         index.remove_all(["*"], None).unwrap();
@@ -120,13 +99,8 @@ mod head_upsert_truthtable {
     // | delete             | add               | upsert    |
     #[test]
     fn index_delete_worktree_add() {
-        let test_repository = TestingRepository::open();
-
-        let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
-        test_repository
-            .repository
-            .branch("master", &commit, true)
-            .unwrap();
+        let test_repository =
+            TestingRepository::open_with_initial_commit(&[("file1.txt", "content1")]);
 
         let mut index = test_repository.repository.index().unwrap();
         index.remove_all(["*"], None).unwrap();
@@ -147,13 +121,7 @@ mod head_upsert_truthtable {
     // | add                |                   | upsert    |
     #[test]
     fn index_add() {
-        let test_repository = TestingRepository::open();
-
-        let commit = test_repository.commit_tree(None, &[]);
-        test_repository
-            .repository
-            .branch("master", &commit, true)
-            .unwrap();
+        let test_repository = TestingRepository::open_with_initial_commit(&[]);
 
         std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content2").unwrap();
 
@@ -174,13 +142,7 @@ mod head_upsert_truthtable {
     // |                    | add               | upsert    |
     #[test]
     fn worktree_add() {
-        let test_repository = TestingRepository::open();
-
-        let commit = test_repository.commit_tree(None, &[]);
-        test_repository
-            .repository
-            .branch("master", &commit, true)
-            .unwrap();
+        let test_repository = TestingRepository::open_with_initial_commit(&[]);
 
         std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content2").unwrap();
 
@@ -197,13 +159,7 @@ mod head_upsert_truthtable {
     // | add                | modify            | upsert    |
     #[test]
     fn index_add_worktree_modify() {
-        let test_repository = TestingRepository::open();
-
-        let commit = test_repository.commit_tree(None, &[]);
-        test_repository
-            .repository
-            .branch("master", &commit, true)
-            .unwrap();
+        let test_repository = TestingRepository::open_with_initial_commit(&[]);
 
         std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content1").unwrap();
 
@@ -226,13 +182,8 @@ mod head_upsert_truthtable {
     // | modify             | modify            | upsert    |
     #[test]
     fn index_modify_worktree_modify() {
-        let test_repository = TestingRepository::open();
-
-        let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
-        test_repository
-            .repository
-            .branch("master", &commit, true)
-            .unwrap();
+        let test_repository =
+            TestingRepository::open_with_initial_commit(&[("file1.txt", "content1")]);
 
         std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content2").unwrap();
 
@@ -255,16 +206,7 @@ mod head_upsert_truthtable {
 
 #[test]
 fn lists_uncommited_changes() {
-    let test_repository = TestingRepository::open();
-
-    // Initial commit
-    // Create wd tree requires the HEAD branch to exist and for there
-    // to be at least one commit on that branch.
-    let commit = test_repository.commit_tree(None, &[]);
-    test_repository
-        .repository
-        .branch("master", &commit, true)
-        .unwrap();
+    let test_repository = TestingRepository::open_with_initial_commit(&[]);
 
     std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content1").unwrap();
     std::fs::write(test_repository.tempdir.path().join("file2.txt"), "content2").unwrap();
@@ -280,16 +222,7 @@ fn lists_uncommited_changes() {
 
 #[test]
 fn does_not_include_staged_but_deleted_files() {
-    let test_repository = TestingRepository::open();
-
-    // Initial commit
-    // Create wd tree requires the HEAD branch to exist and for there
-    // to be at least one commit on that branch.
-    let commit = test_repository.commit_tree(None, &[]);
-    test_repository
-        .repository
-        .branch("master", &commit, true)
-        .unwrap();
+    let test_repository = TestingRepository::open_with_initial_commit(&[]);
 
     std::fs::write(test_repository.tempdir.path().join("file1.txt"), "content1").unwrap();
     std::fs::write(test_repository.tempdir.path().join("file2.txt"), "content2").unwrap();
@@ -312,16 +245,10 @@ fn does_not_include_staged_but_deleted_files() {
 
 #[test]
 fn should_be_empty_after_checking_out_empty_tree() {
-    let test_repository = TestingRepository::open();
-
-    let commit = test_repository.commit_tree(
-        None,
-        &[("file1.txt", "content1"), ("file2.txt", "content2")],
-    );
-    test_repository
-        .repository
-        .branch("master", &commit, true)
-        .unwrap();
+    let test_repository = TestingRepository::open_with_initial_commit(&[
+        ("file1.txt", "content1"),
+        ("file2.txt", "content2"),
+    ]);
 
     // Checkout an empty tree
     {
@@ -353,16 +280,10 @@ fn should_be_empty_after_checking_out_empty_tree() {
 
 #[test]
 fn should_track_deleted_files() {
-    let test_repository = TestingRepository::open();
-
-    let commit = test_repository.commit_tree(
-        None,
-        &[("file1.txt", "content1"), ("file2.txt", "content2")],
-    );
-    test_repository
-        .repository
-        .branch("master", &commit, true)
-        .unwrap();
+    let test_repository = TestingRepository::open_with_initial_commit(&[
+        ("file1.txt", "content1"),
+        ("file2.txt", "content2"),
+    ]);
 
     // Make sure the index is empty, perhaps the user did this action
     let mut index: git2::Index = test_repository.repository.index().unwrap();
@@ -384,13 +305,7 @@ fn should_track_deleted_files() {
 
 #[test]
 fn should_not_change_index() {
-    let test_repository = TestingRepository::open();
-
-    let commit = test_repository.commit_tree(None, &[("file1.txt", "content1")]);
-    test_repository
-        .repository
-        .branch("master", &commit, true)
-        .unwrap();
+    let test_repository = TestingRepository::open_with_initial_commit(&[("file1.txt", "content1")]);
 
     let mut index = test_repository.repository.index().unwrap();
     index.remove_all(["*"], None).unwrap();
@@ -417,20 +332,10 @@ fn should_not_change_index() {
 
 #[test]
 fn tree_behavior() {
-    let test_repository = TestingRepository::open();
-
-    let commit = test_repository.commit_tree(
-        None,
-        &[
-            ("dir1/file1.txt", "content1"),
-            ("dir2/file2.txt", "content2"),
-        ],
-    );
-
-    test_repository
-        .repository
-        .branch("master", &commit, true)
-        .unwrap();
+    let test_repository = TestingRepository::open_with_initial_commit(&[
+        ("dir1/file1.txt", "content1"),
+        ("dir2/file2.txt", "content2"),
+    ]);
 
     // Update a file in a directory
     std::fs::write(
@@ -464,13 +369,7 @@ fn tree_behavior() {
 fn executable_blobs() {
     use std::{io::Write, os::unix::fs::PermissionsExt as _};
 
-    let test_repository = TestingRepository::open();
-
-    let commit = test_repository.commit_tree(None, &[]);
-    test_repository
-        .repository
-        .branch("master", &commit, true)
-        .unwrap();
+    let test_repository = TestingRepository::open_with_initial_commit(&[]);
 
     let mut file = File::create(test_repository.tempdir.path().join("file1.txt")).unwrap();
     file.set_permissions(Permissions::from_mode(0o755)).unwrap();
@@ -492,13 +391,7 @@ fn executable_blobs() {
 #[cfg(unix)]
 #[test]
 fn links() {
-    let test_repository = TestingRepository::open();
-
-    let commit = test_repository.commit_tree(None, &[("target", "helloworld")]);
-    test_repository
-        .repository
-        .branch("master", &commit, true)
-        .unwrap();
+    let test_repository = TestingRepository::open_with_initial_commit(&[("target", "helloworld")]);
 
     std::os::unix::fs::symlink("target", test_repository.tempdir.path().join("link1.txt")).unwrap();
 
