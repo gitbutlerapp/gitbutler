@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use anyhow::{Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
+use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project::Project;
@@ -241,6 +242,7 @@ pub(crate) fn stack_series(
     check_commit: &mut IsCommitIntegrated,
     remote_commit_data: HashMap<CommitData, git2::Oid>,
     commits: &[VirtualBranchCommit],
+    workspace_dependencies: &HunkDependencyResult,
 ) -> Result<(Vec<PatchSeries>, bool)> {
     let stack_context: StackContext = ctx.to_stack_context()?;
     let mut requires_force = false;
@@ -291,6 +293,7 @@ pub(crate) fn stack_series(
                 branch_commits.remote(commit),
                 copied_from_remote_id,
                 remote_commit_id,
+                workspace_dependencies,
             )?;
             patches.push(vcommit);
         }
@@ -308,6 +311,7 @@ pub(crate) fn stack_series(
                 true, // per definition
                 None, // per definition
                 Some(commit.id()),
+                workspace_dependencies,
             )?;
             upstream_patches.push(vcommit);
         }

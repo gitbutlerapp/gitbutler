@@ -13,6 +13,7 @@ use anyhow::{bail, Context, Result};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::{diff_files_into_hunks, Hunk};
+use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_stack::{BranchOwnershipClaims, OwnershipClaim, Stack, StackId};
@@ -25,6 +26,8 @@ pub struct VirtualBranchesStatus {
     pub branches: Vec<(Stack, Vec<VirtualBranchFile>)>,
     /// A collection of files that were skipped during the diffing process (due to being very large and unprocessable).
     pub skipped_files: Vec<gitbutler_diff::FileDiff>,
+    /// The dependency result for the workspace.
+    pub workspace_dependencies: HunkDependencyResult,
 }
 
 pub fn get_applied_status(
@@ -149,21 +152,6 @@ pub fn get_applied_status_cached(
             .collect();
 
         branch.ownership = BranchOwnershipClaims { claims: new_claims };
-        branch.commit_dependencies = workspace_dependencies
-            .commit_dependencies
-            .get(&branch.id)
-            .cloned()
-            .unwrap_or_default();
-        branch.inverse_commit_dependencies = workspace_dependencies
-            .inverse_commit_dependencies
-            .get(&branch.id)
-            .cloned()
-            .unwrap_or_default();
-        branch.commit_dependent_diffs = workspace_dependencies
-            .commit_dependent_diffs
-            .get(&branch.id)
-            .cloned()
-            .unwrap_or_default();
     }
 
     let max_selected_for_changes = virtual_branches
@@ -255,5 +243,6 @@ pub fn get_applied_status_cached(
     Ok(VirtualBranchesStatus {
         branches: files_by_branch,
         skipped_files,
+        workspace_dependencies,
     })
 }

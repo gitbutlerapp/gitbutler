@@ -431,6 +431,7 @@ pub fn list_virtual_branches_cached(
                         is_remote,
                         copied_from_remote_id,
                         None, // remote_commit_id is only used inside PatchSeries
+                        &status.workspace_dependencies,
                     )
                 })
                 .collect::<Result<Vec<_>>>()?
@@ -483,6 +484,7 @@ pub fn list_virtual_branches_cached(
             &mut check_commit,
             remote_commit_data,
             &vbranch_commits,
+            &status.workspace_dependencies,
         ) {
             Ok((series, force)) => {
                 if series.iter().any(|s| s.upstream_reference.is_some()) {

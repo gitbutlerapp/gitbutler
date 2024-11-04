@@ -235,6 +235,20 @@ export class DetailedCommit {
 	)
 	conflictedFiles!: ConflictEntries;
 
+	// Dependency tracking
+	/**
+	 * The commit ids of the dependencies of this commit.
+	 */
+	commitDependencies!: string[];
+	/**
+	 * The ids of the commits that depend on this commit.
+	 */
+	inverseCommitDependencies!: string[];
+	/**
+	 * The hunk hashes of uncommitted changes that depend on this commit.
+	 */
+	commitDependentDiffs!: string[];
+
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
 		if (this.remoteCommitId) {

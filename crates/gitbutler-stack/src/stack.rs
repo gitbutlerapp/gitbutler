@@ -9,8 +9,6 @@ use anyhow::Result;
 use git2::Commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_commit::commit_ext::CommitVecExt;
-use gitbutler_diff::HunkHash;
 use gitbutler_id::id::Id;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use gitbutler_repo::{LogUntil, RepositoryExt};
@@ -84,17 +82,6 @@ pub struct Stack {
     /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
     #[serde(default)]
     pub heads: Vec<StackBranch>,
-    // Dependency tracking
-    // ---
-    /// Commit id to commits it depends on.
-    #[serde(default, with = "gitbutler_serde::oid_hash_to_oid_set")]
-    pub commit_dependencies: HashMap<git2::Oid, HashSet<git2::Oid>>,
-    /// Commit id to commits that depend on it.
-    #[serde(default, with = "gitbutler_serde::oid_hash_to_oid_set")]
-    pub inverse_commit_dependencies: HashMap<git2::Oid, HashSet<git2::Oid>>,
-    /// Commit id to diffs of uncommitted files that depend on it.
-    #[serde(default, with = "gitbutler_serde::oid_hash_to_hunkhash_set")]
-    pub commit_dependent_diffs: HashMap<git2::Oid, HashSet<HunkHash>>,
 }
 
 fn default_true() -> bool {
@@ -168,9 +155,6 @@ impl Stack {
             in_workspace: true,
             not_in_workspace_wip_change_id: None,
             heads: Default::default(),
-            commit_dependencies: Default::default(),
-            inverse_commit_dependencies: Default::default(),
-            commit_dependent_diffs: Default::default(),
         }
     }
 
