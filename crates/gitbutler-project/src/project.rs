@@ -94,14 +94,6 @@ pub struct Project {
     pub omit_certificate_check: Option<bool>,
     // The number of changed lines that will trigger a snapshot
     pub snapshot_lines_threshold: Option<usize>,
-    // Experimental flag for new hunk dependency algorithm
-    #[serde(default = "default_true")]
-    pub use_experimental_locking: bool,
-}
-
-// TODO: Remove after `use_experimental` has been removed.
-fn default_true() -> bool {
-    true
 }
 
 impl Project {
