@@ -56,11 +56,13 @@
 	let animationEndHandler: () => void;
 
 	function addAnimationEndListener(element: HTMLElement) {
-		animationEndHandler = () => {
-			element.classList.remove('locked-file-animation');
-			element.removeEventListener('animationend', animationEndHandler);
-		};
-		element.addEventListener('animationend', animationEndHandler, { once: true });
+		element.addEventListener(
+			'animationend',
+			() => {
+				element.classList.remove('locked-file-animation');
+			},
+			{ once: true }
+		);
 	}
 
 	$effect(() => {
