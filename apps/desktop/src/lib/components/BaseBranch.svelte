@@ -2,7 +2,7 @@
 	import IntegrateUpstreamModal from './IntegrateUpstreamModal.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import CommitAction from '$lib/commit/CommitAction.svelte';
-	import StackingCommitCard from '$lib/commit/StackingCommitCard.svelte';
+	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/modes/service';
@@ -210,7 +210,7 @@
 	{#if base.upstreamCommits?.length > 0}
 		<div>
 			{#each base.upstreamCommits as commit, index}
-				<StackingCommitCard
+				<CommitCard
 					{commit}
 					last={index === base.upstreamCommits.length - 1}
 					isUnapplied={true}
@@ -221,7 +221,7 @@
 					{#snippet lines(topHeightPx)}
 						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
 					{/snippet}
-				</StackingCommitCard>
+				</CommitCard>
 			{/each}
 		</div>
 
@@ -254,7 +254,7 @@
 	{#if commitsAhead.length > 0}
 		<div>
 			{#each commitsAhead as commit, index}
-				<StackingCommitCard
+				<CommitCard
 					{commit}
 					last={index === commitsAhead.length - 1}
 					isUnapplied={true}
@@ -265,7 +265,7 @@
 					{#snippet lines(topHeightPx)}
 						<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
 					{/snippet}
-				</StackingCommitCard>
+				</CommitCard>
 			{/each}
 		</div>
 
@@ -313,7 +313,7 @@
 	<!-- LOCAL AND REMOTE COMMITS -->
 	<div>
 		{#each localAndRemoteCommits as commit, index}
-			<StackingCommitCard
+			<CommitCard
 				{commit}
 				last={index === localAndRemoteCommits.length - 1}
 				isUnapplied={true}
@@ -324,7 +324,7 @@
 				{#snippet lines(topHeightPx)}
 					<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
 				{/snippet}
-			</StackingCommitCard>
+			</CommitCard>
 		{/each}
 	</div>
 </div>

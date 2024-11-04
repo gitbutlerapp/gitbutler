@@ -1,8 +1,8 @@
 <script lang="ts">
-	import StackCurrentSeries from './StackCurrentSeries.svelte';
-	import StackSeriesDividerLine from './StackSeriesDividerLine.svelte';
-	import StackingSeriesHeader from '$lib/branch/StackingSeriesHeader.svelte';
-	import StackingCommitList from '$lib/commit/StackingCommitList.svelte';
+	import CurrentSeries from './CurrentSeries.svelte';
+	import SeriesDividerLine from './SeriesDividerLine.svelte';
+	import SeriesHeader from '$lib/branch/SeriesHeader.svelte';
+	import CommitList from '$lib/commit/CommitList.svelte';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { getContext } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
@@ -29,10 +29,10 @@
 {#each nonArchivedSeries as currentSeries, idx (currentSeries.name)}
 	{@const isTopSeries = idx === 0}
 	{#if !isTopSeries}
-		<StackSeriesDividerLine {currentSeries} />
+		<SeriesDividerLine {currentSeries} />
 	{/if}
-	<StackCurrentSeries {currentSeries}>
-		<StackingSeriesHeader {currentSeries} {isTopSeries} />
+	<CurrentSeries {currentSeries}>
+		<SeriesHeader {currentSeries} {isTopSeries} />
 
 		{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
 			<div class="branch-emptystate">
@@ -48,7 +48,7 @@
 		{/if}
 
 		{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
-			<StackingCommitList
+			<CommitList
 				remoteOnlyPatches={currentSeries.upstreamPatches}
 				patches={currentSeries.patches}
 				seriesName={currentSeries.name}
@@ -58,5 +58,5 @@
 				{hasConflicts}
 			/>
 		{/if}
-	</StackCurrentSeries>
+	</CurrentSeries>
 {/each}
