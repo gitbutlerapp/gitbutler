@@ -60,16 +60,8 @@
 			element.classList.remove('locked-file-animation');
 			element.removeEventListener('animationend', animationEndHandler);
 		};
-		element.addEventListener('animationend', animationEndHandler);
+		element.addEventListener('animationend', animationEndHandler, { once: true });
 	}
-
-	// TODO: Refactor to use this as a Svelte action, e.g. `use:draggableChips()`.
-	let chips:
-		| {
-				update: (opts: DraggableConfig) => void;
-				destroy: () => void;
-		  }
-		| undefined;
 
 	$effect(() => {
 		if (file && $selectedOwnership) {
@@ -81,6 +73,15 @@
 		}
 	});
 
+	// TODO: Refactor to use this as a Svelte action, e.g. `use:draggableChips()`.
+	let chips:
+		| {
+				update: (opts: DraggableConfig) => void;
+				destroy: () => void;
+		  }
+		| undefined;
+
+	// Manage the lifecycle of the draggable chips.
 	$effect(() => {
 		if (draggableEl) {
 			const draggableFile = new DraggableFile(branchId || '', file, $commit, selectedFiles);
@@ -100,6 +101,10 @@
 		} else {
 			chips?.destroy();
 		}
+
+		return () => {
+			chips?.destroy();
+		};
 	});
 
 	async function handleDragStart() {
@@ -116,7 +121,6 @@
 	}
 
 	onDestroy(() => {
-		chips?.destroy();
 		if (draggableEl && animationEndHandler) {
 			draggableEl.removeEventListener('animationend', animationEndHandler);
 		}
