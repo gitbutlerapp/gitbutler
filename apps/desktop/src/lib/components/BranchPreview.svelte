@@ -12,7 +12,7 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { BranchData, type Branch } from '$lib/vbranches/types';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
-	import LineGroup from '@gitbutler/ui/commitLines/LineGroup.svelte';
+	import Line from '@gitbutler/ui/commitLines/Line.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
@@ -124,8 +124,8 @@
 									type="remote"
 									disableCommitActions={true}
 								>
-									{#snippet lines(topHeightPx)}
-										<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+									{#snippet lines()}
+										<Line line={lineManager.get(commit.id)} />
 									{/snippet}
 								</CommitCard>
 							{/each}
@@ -140,8 +140,8 @@
 									type="local"
 									disableCommitActions={true}
 								>
-									{#snippet lines(topHeightPx)}
-										<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+									{#snippet lines()}
+										<Line line={lineManager.get(commit.id)} />
 									{/snippet}
 								</CommitCard>
 							{/each}
@@ -156,8 +156,8 @@
 									type="localAndRemote"
 									disableCommitActions={true}
 								>
-									{#snippet lines(topHeightPx)}
-										<LineGroup lineGroup={lineManager.get(commit.id)} {topHeightPx} />
+									{#snippet lines()}
+										<Line line={lineManager.get(commit.id)} />
 									{/snippet}
 								</CommitCard>
 							{/each}

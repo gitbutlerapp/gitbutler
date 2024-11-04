@@ -1,33 +1,25 @@
 <script lang="ts">
-	import BaseNode from '$lib/commitLines/BaseNode.svelte';
 	import Cell from '$lib/commitLines/Cell.svelte';
 	import CommitNode from '$lib/commitLines/CommitNode.svelte';
-	import { pxToRem } from '$lib/utils/pxToRem';
 	import type { LineData } from '$lib/commitLines/types';
 
 	interface Props {
 		line: LineData;
-		topHeightPx?: number;
+		isBottom?: boolean;
 	}
 
-	const { line, topHeightPx = 24 }: Props = $props();
+	const { line, isBottom = false }: Props = $props();
 </script>
 
 <div class="line">
-	<div
-		class="line-top"
-		style:--top-height={pxToRem(topHeightPx)}
-		class:has-branch-node={line.baseNode}
-	>
+	<div class="line-top">
 		<Cell cell={line.top} />
 	</div>
 	{#if line.commitNode}
-		<CommitNode commitNode={line.commitNode} color={line.bottom.color} />
-	{:else if line.baseNode}
-		<BaseNode baseNode={line.baseNode} color={line.top.color} />
+		<CommitNode commitNode={line.commitNode} type={line.commitNode.type ?? 'local'} />
 	{/if}
 	<div class="line-bottom">
-		<Cell cell={line.bottom} isBottom />
+		<Cell cell={line.bottom} {isBottom} />
 	</div>
 </div>
 
@@ -36,18 +28,15 @@
 		height: 100%;
 		display: flex;
 		flex-direction: column;
+		gap: 0.2rem;
 		align-items: flex-end;
-		width: 24px;
-		margin-right: -2px;
+		width: 25px;
+		margin-right: 8px;
 	}
 
 	.line-top {
-		height: var(--top-height);
+		height: 14px;
 		width: 100%;
-
-		&.has-branch-node {
-			height: 24px;
-		}
 	}
 
 	.line-bottom {

@@ -1,29 +1,18 @@
-export type Color = 'local' | 'localAndRemote' | 'remote' | 'integrated' | 'shadow' | 'none';
-
-export type Style = 'dashed';
+export type Style = 'dashed' | 'solid';
 export interface CellData {
-	type: 'straight' | 'fork';
-	color: Color;
+	type: CellType;
 	style?: Style;
 }
 
 export interface CommitNodeData {
-	type: 'small' | 'large';
-	commit?: CommitData;
+	commit: CommitData;
+	type?: CellType;
 }
-
-export type BaseNodeData = object;
 
 export interface LineData {
 	top: CellData;
 	bottom: CellData;
 	commitNode?: CommitNodeData;
-	baseNode?: BaseNodeData;
-}
-
-export interface LineGroupData {
-	// A tuple of two, three, or four lines
-	lines: LineData[];
 }
 
 export interface Author {
@@ -41,4 +30,7 @@ export interface CommitData {
 	// If an author is not provided, a commit node will not be drawn
 	author?: Author;
 	relatedRemoteCommit?: CommitData;
+	remoteCommitId?: string;
 }
+
+export type CellType = 'local' | 'localAndRemote' | 'integrated' | 'remote' | 'localAndShadow';

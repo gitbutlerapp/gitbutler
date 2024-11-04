@@ -1,4 +1,4 @@
-import type { CellType } from '@gitbutler/ui/commitLinesStacking/types';
+import type { CellType } from '@gitbutler/ui/commitLines/types';
 
 const colorMap = {
 	local: 'var(--clr-commit-local)',

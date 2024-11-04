@@ -42,7 +42,7 @@
 		WebRoutesService
 	} from '@gitbutler/shared/sharedRoutes';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
-	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLinesStacking/lineManager';
+	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { onMount, setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
