@@ -48,7 +48,7 @@ export function selectFilesInList(
 		if (selectionDirection === 'down') {
 			selectedFileIds = selectedFileIds.reverse();
 		}
-		fileIdSelection.select_many(updatedSelection, commit?.id);
+		fileIdSelection.selectMany(updatedSelection, commit?.id);
 	} else {
 		// if only one file is selected and it is already selected, unselect it
 		if (selectedFileIds.length === 1 && isAlreadySelected) {

@@ -133,10 +133,10 @@ export class FileIdSelection implements Readable<string[]> {
 	}
 
 	add(file: AnyFile, commitId?: string) {
-		this.select_many([file], commitId);
+		this.selectMany([file], commitId);
 	}
 
-	select_many(files: AnyFile[], commitId?: string) {
+	selectMany(files: AnyFile[], commitId?: string) {
 		if (this.selection.length > 0 && commitId !== this.currentCommitId) {
 			throw 'Selecting files from multiple commits not allowed.';
 		}
