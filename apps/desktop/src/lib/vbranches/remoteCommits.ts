@@ -7,10 +7,10 @@ import { invoke } from '$lib/backend/ipc';
 import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
 import { plainToInstance } from 'class-transformer';
 
-export async function listRemoteCommitFiles(projectId: string, commitOid: string) {
+export async function listCommitFiles(projectId: string, commitOid: string) {
 	return plainToInstance(
 		RemoteFile,
-		await invoke<any[]>('list_remote_commit_files', { projectId, commitOid })
+		await invoke<any[]>('list_commit_files', { projectId, commitOid })
 	).sort((a, b) => a.path?.localeCompare(b.path));
 }
 

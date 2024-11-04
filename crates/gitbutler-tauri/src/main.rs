@@ -178,7 +178,7 @@ fn main() {
                     virtual_branches::commands::push_virtual_branch,
                     virtual_branches::commands::create_virtual_branch_from_branch,
                     virtual_branches::commands::can_apply_remote_branch,
-                    virtual_branches::commands::list_remote_commit_files,
+                    virtual_branches::commands::list_commit_files,
                     virtual_branches::commands::reset_virtual_branch,
                     virtual_branches::commands::amend_virtual_branch,
                     virtual_branches::commands::move_commit_file,

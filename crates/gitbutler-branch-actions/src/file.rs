@@ -48,7 +48,7 @@ impl From<FileDiff> for RemoteBranchFile {
     }
 }
 
-pub(crate) fn list_remote_commit_files(
+pub(crate) fn list_commit_files(
     repository: &git2::Repository,
     commit_id: git2::Oid,
 ) -> Result<Vec<RemoteBranchFile>> {

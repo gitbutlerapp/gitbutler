@@ -143,12 +143,12 @@ pub fn get_base_branch_data(project: &Project) -> Result<BaseBranch> {
     base::get_base_branch_data(&ctx)
 }
 
-pub fn list_remote_commit_files(
+pub fn list_commit_files(
     project: &Project,
     commit_oid: git2::Oid,
 ) -> Result<Vec<RemoteBranchFile>> {
     let ctx = CommandContext::open(project)?;
-    crate::file::list_remote_commit_files(ctx.repository(), commit_oid).map_err(Into::into)
+    crate::file::list_commit_files(ctx.repository(), commit_oid).map_err(Into::into)
 }
 
 pub fn set_base_branch(project: &Project, target_branch: &RemoteRefname) -> Result<BaseBranch> {

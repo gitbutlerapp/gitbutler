@@ -15,7 +15,8 @@ use bstr::ByteSlice;
 use git2::TreeEntry;
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
 use gitbutler_branch_actions::{
-    get_applied_status, internal, update_workspace_commit, verify_branch, BranchManagerExt, Get,
+    get_applied_status, internal, list_commit_files, update_workspace_commit, verify_branch,
+    BranchManagerExt, Get,
 };
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::CommitHeadersV2};
 use gitbutler_reference::{Refname, RemoteRefname};
@@ -867,13 +868,11 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
         1,
         "test.txt is commited inside this commit"
     );
-    assert_eq!(branch1.commits[0].files.len(), 1);
+    let commit1_files = list_commit_files(project, branch1.commits[0].id)?;
+    assert_eq!(commit1_files.len(), 1);
+    assert_eq!(commit1_files[0].path.to_str().unwrap(), "test.txt");
     assert_eq!(
-        branch1.commits[0].files[0].path.to_str().unwrap(),
-        "test.txt"
-    );
-    assert_eq!(
-        branch1.commits[0].files[0].hunks[0].diff.to_str().unwrap(),
+        commit1_files[0].hunks[0].diff_lines.to_str().unwrap(),
         "@@ -2,3 +2,4 @@ line1\n line2\n line3\n line4\n+upstream\n"
     );
     // assert_eq!(branch1.upstream.as_ref().unwrap().commits.len(), 1);
@@ -1554,9 +1553,11 @@ fn commit_same_hunk_twice() -> Result<()> {
     assert_eq!(branch.files.len(), 0, "no files expected");
 
     assert_eq!(branch.commits.len(), 1, "file should have been commited");
-    assert_eq!(branch.commits[0].files.len(), 1, "hunks expected");
+
+    let commit1_files = list_commit_files(project, branch.commits[0].id)?;
+    assert_eq!(commit1_files.len(), 1, "hunks expected");
     assert_eq!(
-        branch.commits[0].files[0].hunks.len(),
+        commit1_files[0].hunks.len(),
         1,
         "one hunk should have been commited"
     );
@@ -1585,11 +1586,13 @@ fn commit_same_hunk_twice() -> Result<()> {
         "all changes should have been commited"
     );
 
+    let commit1_files = list_commit_files(project, branch.commits[0].id)?;
+    let commit2_files = list_commit_files(project, branch.commits[1].id)?;
     assert_eq!(branch.commits.len(), 2, "two commits expected");
-    assert_eq!(branch.commits[0].files.len(), 1);
-    assert_eq!(branch.commits[0].files[0].hunks.len(), 1);
-    assert_eq!(branch.commits[1].files.len(), 1);
-    assert_eq!(branch.commits[1].files[0].hunks.len(), 1);
+    assert_eq!(commit1_files.len(), 1);
+    assert_eq!(commit1_files[0].hunks.len(), 1);
+    assert_eq!(commit2_files.len(), 1);
+    assert_eq!(commit2_files[0].hunks.len(), 1);
 
     Ok(())
 }
@@ -1635,10 +1638,11 @@ fn commit_same_file_twice() -> Result<()> {
 
     assert_eq!(branch.files.len(), 0, "no files expected");
 
+    let commit1_files = list_commit_files(project, branch.commits[0].id)?;
     assert_eq!(branch.commits.len(), 1, "file should have been commited");
-    assert_eq!(branch.commits[0].files.len(), 1, "hunks expected");
+    assert_eq!(commit1_files.len(), 1, "hunks expected");
     assert_eq!(
-        branch.commits[0].files[0].hunks.len(),
+        commit1_files[0].hunks.len(),
         1,
         "one hunk should have been commited"
     );
@@ -1667,11 +1671,13 @@ fn commit_same_file_twice() -> Result<()> {
         "all changes should have been commited"
     );
 
+    let commit1_files = list_commit_files(project, branch.commits[0].id)?;
+    let commit2_files = list_commit_files(project, branch.commits[1].id)?;
     assert_eq!(branch.commits.len(), 2, "two commits expected");
-    assert_eq!(branch.commits[0].files.len(), 1);
-    assert_eq!(branch.commits[0].files[0].hunks.len(), 1);
-    assert_eq!(branch.commits[1].files.len(), 1);
-    assert_eq!(branch.commits[1].files[0].hunks.len(), 1);
+    assert_eq!(commit1_files.len(), 1);
+    assert_eq!(commit1_files[0].hunks.len(), 1);
+    assert_eq!(commit2_files.len(), 1);
+    assert_eq!(commit2_files[0].hunks.len(), 1);
 
     Ok(())
 }
@@ -1720,12 +1726,13 @@ fn commit_partial_by_hunk() -> Result<()> {
 
     let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+    let commit1_files = list_commit_files(project, branch.commits[0].id)?;
 
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.files[0].hunks.len(), 1);
     assert_eq!(branch.commits.len(), 1);
-    assert_eq!(branch.commits[0].files.len(), 1);
-    assert_eq!(branch.commits[0].files[0].hunks.len(), 1);
+    assert_eq!(commit1_files.len(), 1);
+    assert_eq!(commit1_files[0].hunks.len(), 1);
 
     internal::commit(
         ctx,
@@ -1737,13 +1744,15 @@ fn commit_partial_by_hunk() -> Result<()> {
 
     let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branch = &branches.iter().find(|b| b.id == branch1_id).unwrap();
+    let commit1_files = list_commit_files(project, branch.commits[0].id)?;
+    let commit2_files = list_commit_files(project, branch.commits[1].id)?;
 
     assert_eq!(branch.files.len(), 0);
     assert_eq!(branch.commits.len(), 2);
-    assert_eq!(branch.commits[0].files.len(), 1);
-    assert_eq!(branch.commits[0].files[0].hunks.len(), 1);
-    assert_eq!(branch.commits[1].files.len(), 1);
-    assert_eq!(branch.commits[1].files[0].hunks.len(), 1);
+    assert_eq!(commit1_files.len(), 1);
+    assert_eq!(commit1_files[0].hunks.len(), 1);
+    assert_eq!(commit2_files.len(), 1);
+    assert_eq!(commit2_files[0].hunks.len(), 1);
 
     Ok(())
 }

@@ -298,14 +298,14 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub fn list_remote_commit_files(
+    pub fn list_commit_files(
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         commit_oid: String,
     ) -> Result<Vec<RemoteBranchFile>, Error> {
         let project = projects.get(project_id)?;
         let commit_oid = git2::Oid::from_str(&commit_oid).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::list_remote_commit_files(&project, commit_oid).map_err(Into::into)
+        gitbutler_branch_actions::list_commit_files(&project, commit_oid).map_err(Into::into)
     }
 
     #[tauri::command(async)]

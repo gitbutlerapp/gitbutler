@@ -1,9 +1,10 @@
 use gitbutler_branch::BranchCreateRequest;
+use gitbutler_branch_actions::list_commit_files;
 
 use super::*;
 
 #[test]
-fn insert_blank_commit_down() {
+fn insert_blank_commit_down() -> anyhow::Result<()> {
     let Test {
         repository,
         project,
@@ -49,9 +50,10 @@ fn insert_blank_commit_down() {
         .unwrap();
 
     assert_eq!(branch.commits.len(), 4);
-    assert_eq!(branch.commits[0].files.len(), 1);
-    assert_eq!(branch.commits[1].files.len(), 2);
-    assert_eq!(branch.commits[2].files.len(), 0); // blank commit
+
+    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 1);
+    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 2);
+    assert_eq!(list_commit_files(project, branch.commits[2].id)?.len(), 0); // blank commit
 
     let descriptions = branch
         .commits
@@ -63,10 +65,11 @@ fn insert_blank_commit_down() {
         descriptions,
         vec!["commit three", "commit two", "", "commit one"]
     );
+    Ok(())
 }
 
 #[test]
-fn insert_blank_commit_up() {
+fn insert_blank_commit_up() -> anyhow::Result<()> {
     let Test {
         repository,
         project,
@@ -112,9 +115,9 @@ fn insert_blank_commit_up() {
         .unwrap();
 
     assert_eq!(branch.commits.len(), 4);
-    assert_eq!(branch.commits[0].files.len(), 1);
-    assert_eq!(branch.commits[1].files.len(), 0); // blank commit
-    assert_eq!(branch.commits[2].files.len(), 2);
+    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 1);
+    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 0); // blank commit
+    assert_eq!(list_commit_files(project, branch.commits[2].id)?.len(), 2);
 
     let descriptions = branch
         .commits
@@ -126,4 +129,5 @@ fn insert_blank_commit_up() {
         descriptions,
         vec!["commit three", "", "commit two", "commit one"]
     );
+    Ok(())
 }

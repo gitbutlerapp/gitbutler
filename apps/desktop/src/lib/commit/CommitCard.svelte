@@ -14,7 +14,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
-	import { listRemoteCommitFiles } from '$lib/vbranches/remoteCommits';
+	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
 	import {
 		Commit,
 		DetailedCommit,
@@ -60,7 +60,7 @@
 	$: isAncestorMostConflicted = branch?.ancestorMostConflictedCommit?.id === commit.id;
 
 	async function loadFiles() {
-		files = await listRemoteCommitFiles(project.id, commit.id);
+		files = await listCommitFiles(project.id, commit.id);
 	}
 
 	export let filesToggleable = true;

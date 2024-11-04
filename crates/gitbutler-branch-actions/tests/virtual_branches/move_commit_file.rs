@@ -1,11 +1,12 @@
 use gitbutler_branch::BranchCreateRequest;
+use gitbutler_branch_actions::list_commit_files;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_stack::BranchOwnershipClaims;
 
 use super::*;
 
 #[test]
-fn move_file_down() {
+fn move_file_down() -> anyhow::Result<()> {
     let Test {
         repository,
         project,
@@ -57,14 +58,14 @@ fn move_file_down() {
     assert_eq!(&commit2.change_id(), &branch.commits[0].change_id);
     assert_ne!(&commit2.id(), &branch.commits[0].id);
 
-    assert_eq!(branch.commits[0].files.len(), 1);
     assert_eq!(branch.commits.len(), 2);
-    assert_eq!(branch.commits[0].files.len(), 1);
-    assert_eq!(branch.commits[1].files.len(), 2); // this now has both file changes
+    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 1);
+    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 2); // this now has both file changes
+    Ok(())
 }
 
 #[test]
-fn move_file_up() {
+fn move_file_up() -> anyhow::Result<()> {
     let Test {
         repository,
         project,
@@ -109,8 +110,9 @@ fn move_file_up() {
         .unwrap();
 
     assert_eq!(branch.commits.len(), 2);
-    assert_eq!(branch.commits[0].files.len(), 2); // this now has both file changes
-    assert_eq!(branch.commits[1].files.len(), 1);
+    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 2); // this now has both file changes
+    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 1);
+    Ok(())
 }
 
 // This test is failing because the file is not being moved up to the correct commit

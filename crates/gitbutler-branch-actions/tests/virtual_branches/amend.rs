@@ -1,10 +1,11 @@
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+use gitbutler_branch_actions::list_commit_files;
 use gitbutler_stack::BranchOwnershipClaims;
 
 use super::*;
 
 #[test]
-fn forcepush_allowed() {
+fn forcepush_allowed() -> anyhow::Result<()> {
     let Test {
         repository,
         project_id,
@@ -60,8 +61,9 @@ fn forcepush_allowed() {
         assert!(branch.requires_force);
         assert_eq!(branch.commits.len(), 1);
         assert_eq!(branch.files.len(), 0);
-        assert_eq!(branch.commits[0].files.len(), 2);
+        assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 2);
     }
+    Ok(())
 }
 
 #[test]
@@ -113,7 +115,7 @@ fn forcepush_forbidden() {
 }
 
 #[test]
-fn non_locked_hunk() {
+fn non_locked_hunk() -> anyhow::Result<()> {
     let Test {
         repository,
         project,
@@ -144,7 +146,6 @@ fn non_locked_hunk() {
         .unwrap();
     assert_eq!(branch.commits.len(), 1);
     assert_eq!(branch.files.len(), 0);
-    assert_eq!(branch.commits[0].files.len(), 1);
 
     {
         // amend another hunk
@@ -160,12 +161,13 @@ fn non_locked_hunk() {
             .unwrap();
         assert_eq!(branch.commits.len(), 1);
         assert_eq!(branch.files.len(), 0);
-        assert_eq!(branch.commits[0].files.len(), 2);
+        assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 2);
     }
+    Ok(())
 }
 
 #[test]
-fn locked_hunk() {
+fn locked_hunk() -> anyhow::Result<()> {
     let Test {
         repository,
         project,
@@ -196,9 +198,8 @@ fn locked_hunk() {
         .unwrap();
     assert_eq!(branch.commits.len(), 1);
     assert_eq!(branch.files.len(), 0);
-    assert_eq!(branch.commits[0].files.len(), 1);
     assert_eq!(
-        branch.commits[0].files[0].hunks[0].diff,
+        list_commit_files(project, branch.commits[0].id)?[0].hunks[0].diff_lines,
         "@@ -0,0 +1 @@\n+content\n\\ No newline at end of file\n"
     );
 
@@ -217,12 +218,12 @@ fn locked_hunk() {
 
         assert_eq!(branch.commits.len(), 1);
         assert_eq!(branch.files.len(), 0);
-        assert_eq!(branch.commits[0].files.len(), 1);
         assert_eq!(
-            branch.commits[0].files[0].hunks[0].diff,
+            list_commit_files(project, branch.commits[0].id)?[0].hunks[0].diff_lines,
             "@@ -0,0 +1 @@\n+more content\n\\ No newline at end of file\n"
         );
     }
+    Ok(())
 }
 
 #[test]
@@ -257,7 +258,6 @@ fn non_existing_ownership() {
         .unwrap();
     assert_eq!(branch.commits.len(), 1);
     assert_eq!(branch.files.len(), 0);
-    assert_eq!(branch.commits[0].files.len(), 1);
 
     {
         // amend non existing hunk
