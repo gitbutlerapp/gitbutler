@@ -121,9 +121,6 @@
 	}
 
 	onDestroy(() => {
-		if (draggableEl && animationEndHandler) {
-			draggableEl.removeEventListener('animationend', animationEndHandler);
-		}
 		$selectedFiles.forEach((f) => {
 			const lockedElement = document.getElementById(`file-${f.id}`);
 			if (lockedElement && animationEndHandler) {
