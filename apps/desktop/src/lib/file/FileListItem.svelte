@@ -12,7 +12,6 @@
 	import { VirtualBranch, type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
-	import { onDestroy } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
@@ -52,8 +51,6 @@
 	let draggableEl: HTMLDivElement | undefined = $state();
 	let indeterminate = $state(false);
 	let checked = $state(false);
-
-	let animationEndHandler: () => void;
 
 	function addAnimationEndListener(element: HTMLElement) {
 		element.addEventListener(
@@ -121,15 +118,6 @@
 			}
 		});
 	}
-
-	onDestroy(() => {
-		$selectedFiles.forEach((f) => {
-			const lockedElement = document.getElementById(`file-${f.id}`);
-			if (lockedElement && animationEndHandler) {
-				lockedElement.removeEventListener('animationend', animationEndHandler);
-			}
-		});
-	});
 </script>
 
 <FileContextMenu
