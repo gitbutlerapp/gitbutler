@@ -14,20 +14,7 @@ export class PatchSectionsService {
 	 * This means that it will move the section towards the index 0 of the array
 	 */
 	moveSectionUp(identifier: string) {
-		if (!get(this.canMoveSection)) return;
-
-		const patch = get(this.cloudPatchService.patch).value;
-		if (!patch) return;
-
-		const identifiers = patch.sections.map((section) => section.identifier);
-
-		const sectionIndex = identifiers.findIndex(
-			(listedIdentifier) => listedIdentifier === identifier
-		);
-
-		swap(identifiers, sectionIndex, sectionIndex - 1);
-
-		this.cloudPatchService.update({ sectionOrder: identifiers });
+		this.moveSection(identifier, -1);
 	}
 
 	/**
@@ -36,6 +23,10 @@ export class PatchSectionsService {
 	 * This means that it will move the section away from the index 0 of the array
 	 */
 	moveSectionDown(identifier: string) {
+		this.moveSection(identifier, 1);
+	}
+
+	private moveSection(identifier: string, offset: number) {
 		if (!get(this.canMoveSection)) return;
 
 		const patch = get(this.cloudPatchService.patch).value;
@@ -47,7 +38,7 @@ export class PatchSectionsService {
 			(listedIdentifier) => listedIdentifier === identifier
 		);
 
-		swap(identifiers, sectionIndex, sectionIndex + 1);
+		swap(identifiers, sectionIndex, sectionIndex + offset);
 
 		this.cloudPatchService.update({ sectionOrder: identifiers });
 	}
