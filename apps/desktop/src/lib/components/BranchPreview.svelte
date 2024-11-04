@@ -75,15 +75,12 @@
 	$: remoteCommits =
 		remoteBranchData?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || [];
 
-	$: lineManager = lineManagerFactory.build(
-		{
-			remoteCommits: remoteCommits.map(transformAnyCommit),
-			localCommits: localCommits.map(transformAnyCommit),
-			localAndRemoteCommits: localAndRemoteCommits.map(transformAnyCommit),
-			integratedCommits: []
-		},
-		true
-	);
+	$: lineManager = lineManagerFactory.build({
+		remoteCommits: remoteCommits.map(transformAnyCommit),
+		localCommits: localCommits.map(transformAnyCommit),
+		localAndRemoteCommits: localAndRemoteCommits.map(transformAnyCommit),
+		integratedCommits: []
+	});
 
 	let rsViewport: HTMLDivElement;
 	let laneWidth: number;
