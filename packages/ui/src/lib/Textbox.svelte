@@ -100,7 +100,7 @@
 	bind:this={element}
 	class:wide
 	style:width={width ? pxToRem(width) : undefined}
-	class:wiggle={!isInputValid}
+	class:wiggle-animation={!isInputValid}
 	use:clickOutside={{ excludeElement: element, handler: onClickOutside }}
 >
 	{#if label}

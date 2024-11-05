@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getColorFromBranchType } from '$lib/branch/stackingUtils';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { createForgeChecksMonitorStore } from '$lib/forge/interface/forgeChecksMonitor';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
@@ -39,9 +40,15 @@
 	);
 	const forgeChecksMonitorStore = createForgeChecksMonitorStore(undefined);
 	$effect(() => forgeChecksMonitorStore.set(checksMonitor));
+
+	const seriesType = currentSeries.patches[0] ? currentSeries.patches[0].status : 'local';
 </script>
 
-<div class="branch-group">
+<div
+	class="branch-group"
+	data-series-name={currentSeries.name}
+	style:--highlight-color={getColorFromBranchType(seriesType)}
+>
 	{@render children()}
 </div>
 
@@ -50,6 +57,7 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-1);
+		scroll-margin-top: 120px;
 
 		&:last-child {
 			margin-bottom: 12px;

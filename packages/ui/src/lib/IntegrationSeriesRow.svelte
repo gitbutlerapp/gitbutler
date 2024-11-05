@@ -15,7 +15,7 @@
 
 <div class="integration-series-item no-select {type}">
 	<div class="branch-icon">
-		<Icon name="remote-branch-small" />
+		<Icon name="branch-small" />
 	</div>
 	<div class="name-label-wrap">
 		<span class="name-label text-13 text-semibold truncate">

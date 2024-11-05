@@ -71,7 +71,7 @@ body {
 
 /* STATES */
 
-.wiggle {
+.wiggle-animation {
 	animation: wiggle-animation 0.35s forwards;
 }
 
@@ -90,6 +90,27 @@ body {
 	}
 	100% {
 		transform: translateX(0);
+	}
+}
+
+.series-highlight-animation {
+	/* border: 1px solid red; */
+	animation: series-highlight-animation 0.9s forwards;
+
+	/* animation-delay: 0.1s; */
+	backface-visibility: hidden;
+}
+
+@keyframes series-highlight-animation {
+	0% {
+	}
+	40%,
+	65% {
+		box-shadow: 0 2px 7px 0 oklch(from var(--highlight-color) l c h / 0.4);
+		border: 1px solid var(--highlight-color);
+		transform: scale(1.015);
+	}
+	100% {
 	}
 }
 

@@ -1,6 +1,6 @@
 <script lang="ts">
-	import Header from './Header.svelte';
 	import SeriesList from './SeriesList.svelte';
+	import StackHeader from './header/StackHeader.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
@@ -12,6 +12,7 @@
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
+	import CollapsedLane from '$lib/stack/CollapsedLane.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
@@ -72,11 +73,6 @@
 	});
 
 	const listingService = getForgeListingService();
-	const hostedListingServiceStore = getForgeListingService();
-
-	const stackBranches = $derived(branch.series.map((s) => s.name));
-	const prStore = $derived($hostedListingServiceStore?.prs);
-	const stackPrs = $derived($prStore?.filter((pr) => stackBranches.includes(pr.sourceBranch)));
 
 	async function push() {
 		isPushingCommits = true;
@@ -92,7 +88,7 @@
 
 {#if $isLaneCollapsed}
 	<div class="collapsed-lane-container">
-		<Header uncommittedChanges={branch.files.length} {isLaneCollapsed} />
+		<CollapsedLane uncommittedChanges={branch.files.length} {isLaneCollapsed} />
 		<div class="collapsed-lane-divider" data-remove-from-draggable></div>
 	</div>
 {:else}
@@ -111,7 +107,12 @@
 					class="branch-card__contents"
 					data-tauri-drag-region
 				>
-					<Header {isLaneCollapsed} stackPrs={stackPrs?.length ?? 0} />
+					<StackHeader
+						{branch}
+						onCollapseButtonClick={() => {
+							$isLaneCollapsed = true;
+						}}
+					/>
 					<div class="card-stacking">
 						{#if branch.files?.length > 0}
 							<div class="branch-card__files">
@@ -152,10 +153,10 @@
 								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
 										{#snippet title()}
-											This is a new branch
+											This is a new lane
 										{/snippet}
 										{#snippet caption()}
-											You can drag and drop files or parts of files here.
+											You can drag and drop files<br />or parts of files here.
 										{/snippet}
 									</EmptyStatePlaceholder>
 								</div>
@@ -165,7 +166,7 @@
 								<div class="no-changes">
 									<EmptyStatePlaceholder image={noChangesSvg} width={180}>
 										{#snippet caption()}
-											No uncommitted changes on this branch
+											No uncommitted<br />changes on this lane
 										{/snippet}
 									</EmptyStatePlaceholder>
 								</div>

@@ -41,13 +41,7 @@
 			<div class="header__remote-branch">
 				{#if remoteBranch}
 					<Tooltip text="At least some of your changes have been pushed'">
-						<Button
-							size="tag"
-							icon="remote-branch-small"
-							style="neutral"
-							kind="solid"
-							clickable={false}
-						>
+						<Button size="tag" icon="branch-small" style="neutral" kind="solid" clickable={false}>
 							{localBranch ? 'local and remote' : 'remote'}
 						</Button>
 					</Tooltip>
@@ -71,7 +65,7 @@
 					{/if}
 				{:else}
 					<div class="status-tag text-11 text-semibold remote">
-						<Icon name="remote-branch-small" /> local
+						<Icon name="branch-small" /> local
 					</div>
 				{/if}
 				{#if pr?.htmlUrl}

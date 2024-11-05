@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
 	import Resizer from '../shared/Resizer.svelte';
-	import CommitCard from '$lib/commit/CommitCard.svelte';
+	import StackingCommitCard from '$lib/commit/StackingCommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import FileCard from '$lib/file/FileCard.svelte';
@@ -113,7 +113,7 @@
 					<div class="branch-group">
 						{#if remoteCommits}
 							{#each remoteCommits as commit, index (commit.id)}
-								<CommitCard
+								<StackingCommitCard
 									isUnapplied
 									last={index === remoteCommits.length - 1}
 									{commit}
@@ -124,12 +124,12 @@
 									{#snippet lines()}
 										<Line line={lineManager.get(commit.id)} />
 									{/snippet}
-								</CommitCard>
+								</StackingCommitCard>
 							{/each}
 						{/if}
 						{#if localCommits}
 							{#each localCommits as commit, index (commit.id)}
-								<CommitCard
+								<StackingCommitCard
 									isUnapplied
 									last={index === localCommits.length - 1}
 									{commit}
@@ -140,12 +140,12 @@
 									{#snippet lines()}
 										<Line line={lineManager.get(commit.id)} />
 									{/snippet}
-								</CommitCard>
+								</StackingCommitCard>
 							{/each}
 						{/if}
 						{#if localAndRemoteCommits}
 							{#each localAndRemoteCommits as commit, index (commit.id)}
-								<CommitCard
+								<StackingCommitCard
 									isUnapplied
 									last={index === localAndRemoteCommits.length - 1}
 									{commit}
@@ -156,7 +156,7 @@
 									{#snippet lines()}
 										<Line line={lineManager.get(commit.id)} />
 									{/snippet}
-								</CommitCard>
+								</StackingCommitCard>
 							{/each}
 						{/if}
 					</div>

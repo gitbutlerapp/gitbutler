@@ -15,6 +15,7 @@
 	import { KeyName } from '$lib/utils/hotkeys';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { portal } from '@gitbutler/ui/utils/portal';
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { resizeObserver } from '@gitbutler/ui/utils/resizeObserver';
 	import { type Snippet } from 'svelte';
 
@@ -30,7 +31,10 @@
 		placeholder?: string;
 		maxHeight?: number;
 		searchable?: boolean;
-		itemSnippet: Snippet<[{ item: SelectItem<T>; highlighted: boolean }]>;
+		customWidth?: number;
+		popupAlign?: 'left' | 'right';
+		customSelectButton?: Snippet;
+		itemSnippet: Snippet<[{ item: SelectItem<T>; highlighted: boolean; idx: number }]>;
 		children?: Snippet;
 		onselect?: (value: T) => void;
 	}
@@ -47,6 +51,9 @@
 		placeholder = 'Select an option...',
 		maxHeight,
 		searchable,
+		customWidth,
+		popupAlign = 'left',
+		customSelectButton,
 		itemSnippet,
 		children,
 		onselect
@@ -158,19 +165,25 @@
 	{#if label}
 		<label for={id} class="select__label text-13 text-body text-semibold">{label}</label>
 	{/if}
-	<Textbox
-		{id}
-		{placeholder}
-		noselect
-		readonly
-		type="select"
-		reversedDirection
-		icon="select-chevron"
-		value={options.find((item) => item.value === value)?.label}
-		disabled={disabled || loading}
-		onmousedown={toggleList}
-		onkeydown={(ev) => handleKeyDown(ev)}
-	/>
+	{#if customSelectButton}
+		<button type="button" onmousedown={toggleList} onkeydown={(ev) => handleKeyDown(ev)}>
+			{@render customSelectButton()}
+		</button>
+	{:else}
+		<Textbox
+			{id}
+			{placeholder}
+			noselect
+			readonly
+			type="select"
+			reversedDirection
+			icon="select-chevron"
+			value={options.find((item) => item.value === value)?.label}
+			disabled={disabled || loading}
+			onmousedown={toggleList}
+			onkeydown={(ev) => handleKeyDown(ev)}
+		/>
+	{/if}
 	{#if listOpen}
 		<div
 			role="presentation"
@@ -184,11 +197,17 @@
 		>
 			<div
 				class="options card"
-				style:width="{inputBoundingRect?.width}px"
+				style:width={customWidth ? 'fit-content' : `${inputBoundingRect?.width}px`}
+				style:max-width={customWidth && pxToRem(customWidth)}
 				style:top={inputBoundingRect?.top
 					? `${inputBoundingRect.top + inputBoundingRect.height}px`
 					: undefined}
-				style:left={inputBoundingRect?.left ? `${inputBoundingRect.left}px` : undefined}
+				style:left={inputBoundingRect?.left && popupAlign === 'left'
+					? `${inputBoundingRect.left}px`
+					: undefined}
+				style:right={inputBoundingRect?.right && popupAlign === 'right'
+					? `${window.innerWidth - inputBoundingRect.right}px`
+					: undefined}
 				style:max-height={maxHeightState && `${maxHeightState}px`}
 			>
 				<ScrollableContainer initiallyVisible>
@@ -203,7 +222,7 @@
 						{/if}
 						{#each filteredOptions as item, idx}
 							<div class="option" tabindex="-1" role="none" onmousedown={() => handleSelect(item)}>
-								{@render itemSnippet({ item, highlighted: idx === highlightedIndex })}
+								{@render itemSnippet({ item, highlighted: idx === highlightedIndex, idx })}
 							</div>
 						{/each}
 					</OptionsGroup>
