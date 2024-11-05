@@ -9,9 +9,7 @@
 
 	const { series }: Props = $props();
 
-	const seriesTypes = series.map((s) => (s.patches[0] ? s.patches[0].status : 'local'));
-
-	// console.log(seriesTypes);
+	let seriesTypes = series.map((s) => (s.patches[0] ? s.patches[0].status : 'local'));
 </script>
 
 <div class="stack-meta">
