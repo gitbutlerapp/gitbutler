@@ -93,6 +93,27 @@ body {
 	}
 }
 
+.series-highlight-animation {
+	/* border: 1px solid red; */
+	animation: series-highlight-animation 1s forwards;
+
+	/* animation-delay: 0.1s; */
+	backface-visibility: hidden;
+}
+
+@keyframes series-highlight-animation {
+	0% {
+	}
+	40%,
+	60% {
+		box-shadow: 0 2px 7px 0 oklch(from var(--highlight-color) l c h / 0.4);
+		border: 1px solid var(--highlight-color);
+		transform: scale(1.02);
+	}
+	100% {
+	}
+}
+
 .locked-file-animation {
 	--locked-color: oklch(from var(--clr-scale-warn-50) l c h / 0.2);
 	border: 1px solid var(--clr-bg-1);

@@ -10,12 +10,9 @@
 	}
 
 	const branchController = getContext(BranchController);
-	// const branchStore = getContextStore(VirtualBranch);
-	// const branch = $derived($branchStore);
 
 	const { branch }: Props = $props();
 	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
-	const seriesNames = $derived(nonArchivedSeries.map((s) => s.name));
 </script>
 
 <div class="stack-header">
@@ -25,7 +22,7 @@
 			await branchController.setSelectedForChanges(branch.id);
 		}}
 	/>
-	<StackMetaSection series={seriesNames} />
+	<StackMetaSection series={nonArchivedSeries} />
 </div>
 
 <style lang="postcss">

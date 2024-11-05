@@ -39,9 +39,26 @@
 	);
 	const forgeChecksMonitorStore = createForgeChecksMonitorStore(undefined);
 	$effect(() => forgeChecksMonitorStore.set(checksMonitor));
+
+	const seriesType = currentSeries.patches[0] ? currentSeries.patches[0].status : 'local';
+	console.log(seriesType);
+
+	function setSeriesHighlightColor() {
+		if (seriesType === 'local') {
+			return '--clr-commit-local';
+		} else if (seriesType === 'localAndRemote') {
+			return '--clr-commit-remote';
+		} else {
+			return '--clr-commit-integrated';
+		}
+	}
 </script>
 
-<div class="branch-group">
+<div
+	class="branch-group"
+	data-series-name={currentSeries.name}
+	style:--highlight-color="var({setSeriesHighlightColor()})"
+>
 	{@render children()}
 </div>
 
@@ -50,6 +67,7 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-1);
+		scroll-margin-top: 40px;
 
 		&:last-child {
 			margin-bottom: 12px;

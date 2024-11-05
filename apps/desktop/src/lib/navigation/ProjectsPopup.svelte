@@ -199,6 +199,7 @@
 			transform: translateY(0);
 		}
 	}
+
 	.popup__actions {
 		padding: 8px;
 		border-top: 1px solid var(--clr-scale-ntrl-70);

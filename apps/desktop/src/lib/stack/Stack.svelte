@@ -1,4 +1,6 @@
 <script lang="ts">
+	import OldStackHeader from './OldStackHeader.svelte';
+	import StackSeries from './StackSeries.svelte';
 	import { StackHeader } from './header';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
@@ -71,11 +73,6 @@
 	});
 
 	const listingService = getForgeListingService();
-	const hostedListingServiceStore = getForgeListingService();
-
-	const stackBranches = $derived(branch.series.map((s) => s.name));
-	const prStore = $derived($hostedListingServiceStore?.prs);
-	const stackPrs = $derived($prStore?.filter((pr) => stackBranches.includes(pr.sourceBranch)));
 
 	async function push() {
 		isPushingCommits = true;
