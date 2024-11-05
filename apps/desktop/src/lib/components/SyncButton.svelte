@@ -2,13 +2,11 @@
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchListingService } from '$lib/branches/branchListing';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import TimeAgo from '@gitbutler/ui/TimeAgo.svelte';
 
 	const baseBranchService = getContext(BaseBranchService);
-	const vbranchService = getContext(VirtualBranchService);
 	const baseBranch = baseBranchService.base;
 	const branchListingService = getContext(BranchListingService);
 
@@ -34,7 +32,6 @@
 			await baseBranchService.fetchFromRemotes('modal');
 			await Promise.all([
 				$listingService?.refresh(),
-				vbranchService.refresh(),
 				baseBranchService.refresh(),
 				branchListingService.refresh()
 			]);
