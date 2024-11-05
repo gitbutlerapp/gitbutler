@@ -130,7 +130,7 @@
 	};
 </script>
 
-<Modal bind:this={modal} {onClose} width={560} noPadding onSubmit={integrate}>
+<Modal bind:this={modal} {onClose} width={520} noPadding onSubmit={integrate}>
 	<ScrollableContainer maxHeight={'70vh'}>
 		{#if $base}
 			<div class="section">
