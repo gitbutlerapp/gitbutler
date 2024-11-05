@@ -1,14 +1,15 @@
 <script lang="ts">
 	import Cell from '$lib/commitLines/Cell.svelte';
 	import CommitNode from '$lib/commitLines/CommitNode.svelte';
-	import type { LineData } from '$lib/commitLines/types';
+	import type { CellType, LineData } from '$lib/commitLines/types';
 
 	interface Props {
 		line: LineData;
 		isBottom?: boolean;
+		type?: CellType;
 	}
 
-	const { line, isBottom = false }: Props = $props();
+	const { line, isBottom = false, type }: Props = $props();
 </script>
 
 <div class="line">
@@ -16,7 +17,7 @@
 		<Cell cell={line.top} />
 	</div>
 	{#if line.commitNode}
-		<CommitNode commitNode={line.commitNode} type={line.commitNode.type ?? 'local'} />
+		<CommitNode commitNode={line.commitNode} type={type ?? line.commitNode.type ?? 'local'} />
 	{/if}
 	<div class="line-bottom">
 		<Cell cell={line.bottom} {isBottom} />
