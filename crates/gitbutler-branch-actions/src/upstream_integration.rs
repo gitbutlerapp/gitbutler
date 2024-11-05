@@ -13,7 +13,6 @@ use gitbutler_repo::{
 };
 use gitbutler_repo_actions::RepoActionsExt as _;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
-use gix::prelude::Write;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, PartialEq, Debug)]
@@ -229,15 +228,13 @@ pub fn upstream_integration_statuses(
             {
                 if tree_merge.has_unresolved_conflicts(conflict_kind) {
                     bail!(
-                        "Merge result unexpectedly has conflicts between base, ours, theirs: {old_target_tree_id}, {new_target_tree_id}, {tree_id}"
+                        "Merge result unexpectedly has conflicts between base, \
+                         ours, theirs: {old_target_tree_id}, {new_target_tree_id}, {tree_id}"
                     )
                 }
                 // We're safe to write the tree as we've ensured it's
                 // unconflicted in the previous test.
-                let tree_merge_index_tree_id = tree_merge
-                    .tree
-                    .write(|tree| gix_repo.write(tree))
-                    .map_err(|err| anyhow!("{err}"))?;
+                let tree_merge_index_tree_id = tree_merge.tree.write()?.detach();
 
                 // Identical trees will have the same Oid so we can compare the two
                 if tree_merge_index_tree_id == new_target_tree_id {

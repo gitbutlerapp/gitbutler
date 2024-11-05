@@ -14,7 +14,6 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{GixRepositoryExt, SignaturePurpose};
 use gitbutler_repo::{LogUntil, RepositoryExt};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
-use gix::objs::Write;
 use tracing::instrument;
 
 use crate::{branch_manager::BranchManagerExt, conflicts, VirtualBranchesExt};
@@ -69,10 +68,7 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
             )?;
 
             if !merge.has_unresolved_conflicts(conflict_kind) {
-                workspace_tree_id = merge
-                    .tree
-                    .write(|tree| gix_repo.write(tree))
-                    .map_err(|err| anyhow!("{err}"))?;
+                workspace_tree_id = merge.tree.write()?.detach();
             } else {
                 // This branch should have already been unapplied during the "update" command but for some reason that failed
                 tracing::warn!("Merge conflict between base and {:?}", branch.name);

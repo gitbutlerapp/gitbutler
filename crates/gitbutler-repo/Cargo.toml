@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 git2.workspace = true
-gix = { workspace = true, features = ["blob-merge", "status", "tree-editor"] }
+gix = { workspace = true, features = ["merge", "status", "tree-editor"] }
 anyhow = "1.0.92"
 bstr.workspace = true
 tracing.workspace = true

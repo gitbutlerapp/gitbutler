@@ -1,5 +1,5 @@
 use crate::VirtualBranchesExt as _;
-use anyhow::{anyhow, bail, Result};
+use anyhow::{bail, Result};
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
@@ -8,7 +8,6 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::rebase::cherry_rebase_group;
 use gitbutler_repo::{GixRepositoryExt, RepositoryExt as _};
 use gitbutler_stack::Stack;
-use gix::prelude::Write;
 use tracing::instrument;
 
 /// Checks out the combined trees of all branches in the workspace.
@@ -61,10 +60,7 @@ pub fn checkout_branch_trees<'a>(
                 bail!("There appears to be conflicts between the virtual branches");
             };
 
-            final_tree_id = merge
-                .tree
-                .write(|tree| gix_repo.write(tree))
-                .map_err(|err| anyhow!("{err}"))?;
+            final_tree_id = merge.tree.write()?.detach();
         }
 
         let final_tree = repository.find_tree(gix_to_git2_oid(final_tree_id))?;

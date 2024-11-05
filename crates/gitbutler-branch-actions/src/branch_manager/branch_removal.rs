@@ -14,7 +14,6 @@ use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{Stack, StackId};
-use gix::objs::Write;
 use tracing::instrument;
 
 use super::BranchManager;
@@ -128,10 +127,7 @@ impl BranchManager<'_> {
                             gix_repo.default_merge_labels(),
                             merge_options.clone(),
                         )?;
-                        let final_tree_id = merge
-                            .tree
-                            .write(|tree| gix_repo.write(tree))
-                            .map_err(|err| anyhow::anyhow!("Could not write merged tree: {err}"))?;
+                        let final_tree_id = merge.tree.write()?.detach();
                         Ok(final_tree_id)
                     },
                 )?;

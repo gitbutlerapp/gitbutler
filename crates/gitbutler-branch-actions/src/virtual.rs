@@ -33,7 +33,6 @@ use gitbutler_stack::{
     VirtualBranchesHandle,
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
-use gix::objs::Write;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::{collections::HashMap, path::PathBuf, vec};
@@ -203,10 +202,7 @@ pub fn unapply_ownership(
             if merge.has_unresolved_conflicts(conflict_kind) {
                 bail!("Tree has conflicts after merge")
             }
-            merge
-                .tree
-                .write(|tree| gix_repo.write(tree))
-                .map_err(|err| anyhow!("Could not write merged tree: {err}"))
+            Ok(merge.tree.write()?.detach())
         },
     )?;
 
@@ -1063,10 +1059,7 @@ impl IsCommitIntegrated<'_, '_, '_> {
             return Ok(false);
         }
 
-        let merge_tree_id = merge_output
-            .tree
-            .write(|tree| self.gix_repo.write(tree))
-            .map_err(|err| anyhow!("failed to write tree: {err}"))?;
+        let merge_tree_id = merge_output.tree.write()?.detach();
 
         // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
         // then the vbranch is fully merged

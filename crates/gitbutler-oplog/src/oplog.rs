@@ -25,7 +25,7 @@ use gitbutler_repo::{GixRepositoryExt, RepositoryExt};
 use gitbutler_stack::{Stack, VirtualBranchesHandle, VirtualBranchesState};
 use gix::bstr::ByteSlice;
 use gix::object::tree::diff::Change;
-use gix::prelude::{ObjectIdExt, Write};
+use gix::prelude::ObjectIdExt;
 use tracing::instrument;
 
 const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
@@ -860,10 +860,7 @@ fn tree_from_applied_vbranches(
         if merge.has_unresolved_conflicts(conflict_kind) {
             tracing::warn!("Failed to merge tree {branch_id} - this branch is probably applied at a time when it should not be");
         } else {
-            let id = merge
-                .tree
-                .write(|tree| repo.write(tree))
-                .map_err(|err| anyhow!("{err}"))?;
+            let id = merge.tree.write()?.detach();
             workdir_tree_id = id;
             current_ours_id = id;
         }

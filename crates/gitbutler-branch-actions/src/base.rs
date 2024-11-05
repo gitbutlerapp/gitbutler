@@ -17,7 +17,6 @@ use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::{GixRepositoryExt, LogUntil, RepositoryExt};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle};
-use gix::prelude::Write;
 use serde::Serialize;
 
 #[derive(Debug, Serialize, PartialEq, Clone)]
@@ -93,10 +92,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
         if merge.has_unresolved_conflicts(conflict_kind) {
             bail!("Merge failed with conflicts");
         }
-        final_tree_id = merge
-            .tree
-            .write(|tree| gix_repo.write(tree))
-            .map_err(|err| anyhow!("failed to write tree: {err}"))?;
+        final_tree_id = merge.tree.write()?.detach();
     }
 
     let final_tree = repo.find_tree(gix_to_git2_oid(final_tree_id))?;
