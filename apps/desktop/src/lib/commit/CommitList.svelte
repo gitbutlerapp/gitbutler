@@ -16,7 +16,7 @@
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Line from '@gitbutler/ui/commitLines/Line.svelte';
-	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+	import { LineManagerFactory, LineSpacer } from '@gitbutler/ui/commitLines/lineManager';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -46,13 +46,6 @@
 
 	const forge = getForge();
 
-	const LineSpacer = {
-		Remote: 'remote-spacer',
-		Local: 'local-spacer',
-		LocalAndRemote: 'local-and-remote-spacer'
-	};
-
-	// TODO: Refactor out lineManager; unnecessary in stacking context
 	const lineManager = $derived(
 		lineManagerFactory.build({
 			remoteCommits: remoteOnlyPatches,
