@@ -552,12 +552,6 @@ impl Stack {
     }
 
     /// Returns a list of all branches/series in the stack.
-    /// Ordered from oldest to newest (most recent)
-    pub fn branches(&self) -> Vec<Branch> {
-        self.heads.clone()
-    }
-
-    /// Returns a list of all branches/series in the stack.
     /// This operation will compute the current list of local and remote commits that belong to each series.
     /// The first entry is the newest in the Stack (i.e. the top of the stack).
     pub fn list_series<'a>(&self, ctx: &'a CommandContext) -> Result<Vec<Series<'a>>> {
