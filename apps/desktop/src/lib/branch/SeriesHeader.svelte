@@ -19,7 +19,7 @@
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { showError } from '$lib/notifications/toasts';
 	import PrDetailsModal from '$lib/pr/PrDetailsModal.svelte';
-	import StackingPullRequestCard from '$lib/pr/StackingPullRequestCard.svelte';
+	import PullRequestCard from '$lib/pr/PullRequestCard.svelte';
 	import { isFailure } from '$lib/result';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -269,7 +269,7 @@
 				<div class="branch-action__body">
 					{#if $prService && !hasNoCommits}
 						{#if $pr}
-							<StackingPullRequestCard
+							<PullRequestCard
 								upstreamName={currentSeries.name}
 								reloadPR={handleReloadPR}
 								reopenPr={handleReopenPr}
