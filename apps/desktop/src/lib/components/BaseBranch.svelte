@@ -2,7 +2,7 @@
 	import IntegrateUpstreamModal from './IntegrateUpstreamModal.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import CommitAction from '$lib/commit/CommitAction.svelte';
-	import CommitCard from '$lib/commit/CommitCard.svelte';
+	import StackingCommitCard from '$lib/commit/StackingCommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/modes/service';
