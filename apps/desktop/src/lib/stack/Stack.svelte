@@ -272,9 +272,8 @@
 			z-index: -1;
 			background-color: var(--clr-bg-1);
 			border-top: 1px solid var(--clr-border-2);
-			/* transition props */
+
 			transform: translateY(0);
-			/* background-color: cadetblue; */
 			opacity: 0;
 			transition: opacity var(--transition-fast);
 		}

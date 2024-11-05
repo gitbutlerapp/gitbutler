@@ -211,22 +211,19 @@
 <div class="wrapper">
 	<!-- UPSTREAM COMMITS -->
 	{#if base.upstreamCommits?.length > 0}
-		<div>
-			{#each base.upstreamCommits as commit, index}
-				<CommitCard
-					{commit}
-					last={index === base.upstreamCommits.length - 1}
-					isUnapplied={true}
-					commitUrl={$forge?.commitUrl(commit.id)}
-					type="remote"
-					disableCommitActions={true}
-				>
-					{#snippet lines()}
-						<Line line={lineManager.get(commit.id)} />
-					{/snippet}
-				</CommitCard>
-			{/each}
-		</div>
+		{#each base.upstreamCommits as commit}
+			<CommitCard
+				{commit}
+				isUnapplied={true}
+				commitUrl={$forge?.commitUrl(commit.id)}
+				type="remote"
+				disableCommitActions={true}
+			>
+				{#snippet lines()}
+					<Line line={lineManager.get(commit.id)} />
+				{/snippet}
+			</CommitCard>
+		{/each}
 
 		{#if base.diverged}
 			<CommitAction backgroundColor={false}>
@@ -255,22 +252,19 @@
 
 	<!-- DIVERGED (LOCAL) COMMITS -->
 	{#if commitsAhead.length > 0}
-		<div>
-			{#each commitsAhead as commit, index}
-				<CommitCard
-					{commit}
-					last={index === commitsAhead.length - 1}
-					isUnapplied={true}
-					commitUrl={$forge?.commitUrl(commit.id)}
-					type="local"
-					disableCommitActions={true}
-				>
-					{#snippet lines()}
-						<Line line={lineManager.get(commit.id)} />
-					{/snippet}
-				</CommitCard>
-			{/each}
-		</div>
+		{#each commitsAhead as commit}
+			<CommitCard
+				{commit}
+				isUnapplied={true}
+				commitUrl={$forge?.commitUrl(commit.id)}
+				type="local"
+				disableCommitActions={true}
+			>
+				{#snippet lines()}
+					<Line line={lineManager.get(commit.id)} />
+				{/snippet}
+			</CommitCard>
+		{/each}
 
 		<CommitAction backgroundColor={false}>
 			{#snippet lines()}
@@ -314,22 +308,19 @@
 	{/if}
 
 	<!-- LOCAL AND REMOTE COMMITS -->
-	<div>
-		{#each localAndRemoteCommits as commit, index}
-			<CommitCard
-				{commit}
-				last={index === localAndRemoteCommits.length - 1}
-				isUnapplied={true}
-				commitUrl={$forge?.commitUrl(commit.id)}
-				type="localAndRemote"
-				disableCommitActions={true}
-			>
-				{#snippet lines()}
-					<Line line={lineManager.get(commit.id)} />
-				{/snippet}
-			</CommitCard>
-		{/each}
-	</div>
+	{#each localAndRemoteCommits as commit}
+		<CommitCard
+			{commit}
+			isUnapplied={true}
+			commitUrl={$forge?.commitUrl(commit.id)}
+			type="localAndRemote"
+			disableCommitActions={true}
+		>
+			{#snippet lines()}
+				<Line line={lineManager.get(commit.id)} />
+			{/snippet}
+		</CommitCard>
+	{/each}
 </div>
 
 {#if resetBaseStrategy}
@@ -375,16 +366,36 @@
 		display: flex;
 		flex-direction: column;
 		gap: 16px;
+		margin: 1rem;
+
+		& ~ .wrapper {
+			border-top: 1px solid var(--clr-border-2);
+
+			:global(.commit-row):first-child {
+				border-radius: 0;
+			}
+		}
 	}
+
 	.message-wrapper {
 		display: flex;
 		flex-direction: column;
 		margin-bottom: 20px;
 		gap: 16px;
 	}
+
 	.wrapper {
 		display: flex;
 		flex-direction: column;
+
+		:global(.commit-row):first-child {
+			border-radius: var(--radius-m) var(--radius-m) 0 0;
+		}
+
+		:global(.commit-row):last-child {
+			border-bottom: none;
+			border-radius: 0 0 var(--radius-m) var(--radius-m);
+		}
 	}
 
 	.info-text {
