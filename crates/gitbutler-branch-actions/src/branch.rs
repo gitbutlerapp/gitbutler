@@ -16,6 +16,7 @@ use gitbutler_stack::{Stack as GitButlerBranch, StackId, Target};
 use gix::object::tree::diff::Action;
 use gix::prelude::{ObjectIdExt, TreeDiffChangeExt};
 use gix::reference::Category;
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::collections::BTreeSet;
@@ -241,10 +242,16 @@ fn branch_group_to_branch(
     }
 
     // Virtual branch associated with this branch
-    let virtual_branch_reference = virtual_branch.map(|branch| VirtualBranchReference {
-        given_name: branch.name.clone(),
-        id: branch.id,
-        in_workspace: branch.in_workspace,
+    let virtual_branch_reference = virtual_branch.map(|stack| VirtualBranchReference {
+        given_name: stack.name.clone(),
+        id: stack.id,
+        in_workspace: stack.in_workspace,
+        stack_branches: stack
+            .branches()
+            .iter()
+            .rev()
+            .map(|b| b.name.clone())
+            .collect_vec(),
     });
 
     let mut remotes: Vec<gix::remote::Name<'static>> = Vec::new();
@@ -448,6 +455,9 @@ pub struct VirtualBranchReference {
     pub id: StackId,
     /// Determines if the virtual branch is applied in the workspace
     pub in_workspace: bool,
+    /// List of branches that are part of the stack
+    /// Ordered from newest to oldest (the most recent branch is first in the list)
+    pub stack_branches: Vec<String>,
 }
 
 /// Takes a list of `branch_names` (the given name, as returned by `BranchListing`) and returns

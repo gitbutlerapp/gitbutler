@@ -328,6 +328,11 @@ export class VirtualBranchReference {
 	id!: string;
 	/** Determines if the virtual branch is applied in the workspace */
 	inWorkspace!: boolean;
+	/**
+   List of branch names that are part of the stack
+   Ordered from newest to oldest (the most recent branch is first in the list)
+    */
+	stackBranches!: string[];
 }
 
 /** Represents a "commit author" or "signature", based on the data from ther git history */
