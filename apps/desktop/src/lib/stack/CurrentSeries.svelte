@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getColorFromBranchType } from '$lib/branch/stackingUtils';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { createForgeChecksMonitorStore } from '$lib/forge/interface/forgeChecksMonitor';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
@@ -41,22 +42,12 @@
 	$effect(() => forgeChecksMonitorStore.set(checksMonitor));
 
 	const seriesType = currentSeries.patches[0] ? currentSeries.patches[0].status : 'local';
-
-	function setSeriesHighlightColor() {
-		if (seriesType === 'local') {
-			return '--clr-commit-local';
-		} else if (seriesType === 'localAndRemote') {
-			return '--clr-commit-remote';
-		} else {
-			return '--clr-commit-integrated';
-		}
-	}
 </script>
 
 <div
 	class="branch-group"
 	data-series-name={currentSeries.name}
-	style:--highlight-color="var({setSeriesHighlightColor()})"
+	style:--highlight-color={getColorFromBranchType(seriesType)}
 >
 	{@render children()}
 </div>
