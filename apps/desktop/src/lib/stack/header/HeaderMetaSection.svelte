@@ -1,5 +1,5 @@
 <script lang="ts">
-	import StackSeriesRow from './StackSeriesRow.svelte';
+	import SeriesRowLabels from './SeriesRowLabels.svelte';
 	import BranchLaneContextMenu from '$lib/branch/BranchLaneContextMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { PatchSeries } from '$lib/vbranches/types';
@@ -18,7 +18,7 @@
 </script>
 
 <div class="stack-meta">
-	<StackSeriesRow {series} />
+	<SeriesRowLabels {series} />
 
 	<Button
 		bind:el={kebabButtonEl}

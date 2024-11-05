@@ -1,6 +1,6 @@
 <script lang="ts">
 	import SeriesList from './SeriesList.svelte';
-	import { StackHeader } from './header';
+	import StackHeader from './header/StackHeader.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';

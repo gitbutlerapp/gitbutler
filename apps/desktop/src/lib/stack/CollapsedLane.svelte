@@ -1,5 +1,5 @@
 <script lang="ts">
-	import StackSeriesRow from './header/StackSeriesRow.svelte';
+	import SeriesRowLabels from './header/SeriesRowLabels.svelte';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -53,7 +53,7 @@
 						{uncommittedChanges === 1 ? 'change' : 'changes'}
 					</Button>
 				{/if}
-				<StackSeriesRow series={nonArchivedSeries} disableSelector />
+				<SeriesRowLabels series={nonArchivedSeries} disableSelector />
 			</div>
 
 			<div class="collapsed-lane__info__details">

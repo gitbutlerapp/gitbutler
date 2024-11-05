@@ -1,6 +1,6 @@
 <script lang="ts">
-	import StackControlSection from './StackControlSection.svelte';
-	import StackMetaSection from './StackMetaSection.svelte';
+	import HeaderControlSection from './HeaderControlSection.svelte';
+	import HeaderMetaSection from './HeaderMetaSection.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
@@ -25,14 +25,14 @@
 		headerEl?.classList.remove('wiggle-animation');
 	}}
 >
-	<StackControlSection
+	<HeaderControlSection
 		isDefault={branch.selectedForChanges}
 		onDefaultSet={async () => {
 			await branchController.setSelectedForChanges(branch.id);
 			headerEl?.classList.add('wiggle-animation');
 		}}
 	/>
-	<StackMetaSection series={nonArchivedSeries} {onCollapseButtonClick} />
+	<HeaderMetaSection series={nonArchivedSeries} {onCollapseButtonClick} />
 </div>
 
 <style lang="postcss">
