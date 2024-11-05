@@ -27,8 +27,23 @@
 
 <style lang="postcss">
 	.stack-header {
+		z-index: var(--z-lifted);
+		position: sticky;
+		top: 14px;
 		display: flex;
 		flex-direction: column;
 		width: 100%;
+
+		&::after {
+			z-index: -1;
+			content: '';
+			display: block;
+			position: absolute;
+			top: -20px;
+			left: -14px;
+			height: 40px;
+			width: calc(100% + 20px);
+			background-color: var(--clr-bg-2);
+		}
 	}
 </style>
