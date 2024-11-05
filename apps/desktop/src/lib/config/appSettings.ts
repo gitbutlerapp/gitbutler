@@ -78,7 +78,7 @@ export class AppSettings {
 	}
 
 	async storeValueWithDefault<T>(initial: T, key: string): Promise<T> {
-		const stored = this.diskStore?.get(key) as T;
-		return stored === null ? initial : stored;
+		const stored = (await this.diskStore?.get(key)) as T;
+		return stored === null || stored === undefined ? initial : stored;
 	}
 }
