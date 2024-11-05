@@ -28,7 +28,7 @@
 		<div class="series-name text-12 text-semibold">
 			<span class="truncate">{series.length} more</span>
 		</div>
-	{:else if shiftedSeries.length >= 1}
+	{:else if series.length > 1}
 		<div class="other-series">
 			<Select
 				popupAlign="right"
