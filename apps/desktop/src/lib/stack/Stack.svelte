@@ -66,9 +66,14 @@
 	const branchPatches = $derived(branch.series.flatMap((s) => s.patches));
 
 	let canPush = $derived.by(() => {
+		// If all branches have status 'integrated', dont show push button
+		const allTopPatches = branch.series.map((s) => s.patches[0]).filter(Boolean);
+		if (!allTopPatches.some((patch) => patch?.status !== 'integrated')) return false;
+
 		if (branchUpstreamPatches.length > 0) return true;
 		if (branchPatches.some((p) => p.status !== 'localAndRemote')) return true;
 		if (branchPatches.some((p) => p.remoteCommitId !== p.id)) return true;
+
 		return false;
 	});
 
