@@ -67,7 +67,7 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		background: var(--clr-bg-1);
-		scroll-margin-top: 40px;
+		scroll-margin-top: 120px;
 
 		&:last-child {
 			margin-bottom: 12px;
