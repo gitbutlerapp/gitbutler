@@ -1,5 +1,4 @@
 <script lang="ts">
-	import OldStackHeader from './OldStackHeader.svelte';
 	import StackSeries from './StackSeries.svelte';
 	import { StackHeader } from './header';
 	import InfoMessage from '../shared/InfoMessage.svelte';
@@ -13,6 +12,7 @@
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
+	import CollapsedLane from '$lib/stack/CollapsedLane.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
@@ -88,7 +88,7 @@
 
 {#if $isLaneCollapsed}
 	<div class="collapsed-lane-container">
-		<StackHeader uncommittedChanges={branch.files.length} {isLaneCollapsed} />
+		<CollapsedLane uncommittedChanges={branch.files.length} {isLaneCollapsed} />
 		<div class="collapsed-lane-divider" data-remove-from-draggable></div>
 	</div>
 {:else}
@@ -107,8 +107,12 @@
 					class="branch-card__contents"
 					data-tauri-drag-region
 				>
-					<!-- <OldStackHeader {isLaneCollapsed} stackPrs={stackPrs?.length ?? 0} /> -->
-					<StackHeader {branch} />
+					<StackHeader
+						{branch}
+						onCollapseButtonClick={() => {
+							$isLaneCollapsed = true;
+						}}
+					/>
 					<div class="card-stacking">
 						{#if branch.files?.length > 0}
 							<div class="branch-card__files">

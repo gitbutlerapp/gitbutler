@@ -7,11 +7,12 @@
 
 	interface Props {
 		branch: VirtualBranch;
+		onCollapseButtonClick: () => void;
 	}
 
 	const branchController = getContext(BranchController);
 
-	const { branch }: Props = $props();
+	const { onCollapseButtonClick, branch }: Props = $props();
 
 	let headerEl: HTMLElement | undefined = $state();
 	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
@@ -31,7 +32,7 @@
 			headerEl?.classList.add('wiggle-animation');
 		}}
 	/>
-	<StackMetaSection series={nonArchivedSeries} />
+	<StackMetaSection series={nonArchivedSeries} {onCollapseButtonClick} />
 </div>
 
 <style lang="postcss">

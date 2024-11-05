@@ -1,16 +1,24 @@
 <script lang="ts">
+	import BranchLaneContextMenu from '$lib/branch/BranchLaneContextMenu.svelte';
+	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import Select from '$lib/select/Select.svelte';
 	import { PatchSeries } from '$lib/vbranches/types';
+	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 
 	interface Props {
 		series: PatchSeries[];
+		onCollapseButtonClick: () => void;
 	}
 
-	const { series }: Props = $props();
+	const { series, onCollapseButtonClick }: Props = $props();
 
 	const shiftedSeries = series.slice(1);
 	let seriesTypes = shiftedSeries.map((s) => (s.patches[0] ? s.patches[0].status : 'local'));
+
+	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
+	let kebabButtonEl: HTMLButtonElement | undefined = $state();
+	let isContextMenuOpen = $state(false);
 </script>
 
 <div class="stack-meta">
@@ -68,6 +76,24 @@
 				</div>
 			{/if}
 		</div>
+
+		<Button
+			bind:el={kebabButtonEl}
+			activated={isContextMenuOpen}
+			style="ghost"
+			icon="kebab"
+			size="tag"
+			onclick={() => {
+				contextMenu?.toggle();
+			}}
+		/>
+		<BranchLaneContextMenu
+			bind:contextMenuEl={contextMenu}
+			target={kebabButtonEl}
+			onCollapse={onCollapseButtonClick}
+			onopen={() => (isContextMenuOpen = true)}
+			onclose={() => (isContextMenuOpen = false)}
+		/>
 	</div>
 </div>
 
