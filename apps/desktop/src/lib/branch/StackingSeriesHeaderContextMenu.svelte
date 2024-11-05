@@ -5,6 +5,7 @@
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
@@ -116,6 +117,13 @@
 				label="Open PR in browser"
 				onclick={() => {
 					openExternalUrl(prUrl);
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Copy PR link"
+				onclick={() => {
+					copyToClipboard(prUrl);
 					contextMenuEl?.close();
 				}}
 			/>
