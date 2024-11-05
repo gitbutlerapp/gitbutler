@@ -55,4 +55,5 @@ pre {
 
 .no-select {
 	user-select: none;
+	cursor: default;
 }
