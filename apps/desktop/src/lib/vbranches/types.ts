@@ -204,8 +204,6 @@ export class DetailedCommit {
 	createdAt!: Date;
 	isRemote!: boolean;
 	isIntegrated!: boolean;
-	@Type(() => LocalFile)
-	files!: LocalFile[];
 	parentIds!: string[];
 	branchId!: string;
 	changeId!: string;
