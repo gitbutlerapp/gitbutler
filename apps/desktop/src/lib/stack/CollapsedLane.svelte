@@ -1,4 +1,5 @@
 <script lang="ts">
+	import StackSeriesRow from './header/StackSeriesRow.svelte';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -8,7 +9,6 @@
 	interface Props {
 		uncommittedChanges?: number;
 		isLaneCollapsed: Persisted<boolean>;
-		stackPrs?: number;
 	}
 
 	const { uncommittedChanges = 0, isLaneCollapsed }: Props = $props();
@@ -53,6 +53,7 @@
 						{uncommittedChanges === 1 ? 'change' : 'changes'}
 					</Button>
 				{/if}
+				<StackSeriesRow series={nonArchivedSeries} disableSelector />
 			</div>
 
 			<div class="collapsed-lane__info__details">
@@ -62,11 +63,6 @@
 					</Button>
 				{/if}
 			</div>
-		</div>
-	</div>
-	<div class="">
-		<div class="series-name text-12 text-semibold">
-			<span class="truncate">{nonArchivedSeries[0]?.name}</span>
 		</div>
 	</div>
 </div>
