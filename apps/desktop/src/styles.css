@@ -95,7 +95,7 @@ body {
 
 .series-highlight-animation {
 	/* border: 1px solid red; */
-	animation: series-highlight-animation 0.8s forwards;
+	animation: series-highlight-animation 0.9s forwards;
 
 	/* animation-delay: 0.1s; */
 	backface-visibility: hidden;

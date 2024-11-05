@@ -226,9 +226,9 @@
 		opacity: 0;
 		flex-shrink: 1;
 		text-wrap: nowrap;
-		padding: 2px 5px;
+		padding: 2px 4px;
 		border-radius: var(--radius-s);
 		color: var(--clr-text-2);
-		background-color: var(--clr-bg-2);
+		background-color: var(--clr-theme-ntrl-soft);
 	}
 </style>
