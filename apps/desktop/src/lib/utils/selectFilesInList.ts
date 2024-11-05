@@ -54,8 +54,7 @@ export function selectFilesInList(
 		if (selectedFileIds.length === 1 && isAlreadySelected) {
 			fileIdSelection.clear();
 		} else {
-			fileIdSelection.clear();
-			fileIdSelection.add(file, commit?.id);
+			fileIdSelection.set(file, commit?.id);
 		}
 	}
 }

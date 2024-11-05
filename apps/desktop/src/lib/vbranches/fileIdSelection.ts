@@ -95,16 +95,26 @@ export class FileIdSelection implements Readable<string[]> {
 	/**
 	 * Called when subscriber count goes from 1 -> 0.
 	 */
-	async setup() {
-		this.unsubscribeLocalFiles = this.uncommittedFiles.subscribe(() => {
-			this.clear();
+	private async setup() {
+		this.unsubscribeLocalFiles = this.uncommittedFiles.subscribe((localFiles) => {
+			if (this.currentCommitId !== undefined) {
+				// Selections from a commit are unaffected by uncommitted files.
+				return;
+			}
+			const localFilenames = localFiles.map((f) => f.path);
+			const removedFiles = this.selection.filter(
+				(s) => !localFilenames.includes(unstringifyFileKey(s))
+			);
+			if (removedFiles.length > 0) {
+				this.removeMany(removedFiles);
+			}
 		});
 	}
 
 	/**
 	 * Called when subscriber count goes from 0 -> 1.
 	 */
-	teardown() {
+	private teardown() {
 		this.unsubscribeLocalFiles?.();
 		this.clear();
 	}
@@ -132,11 +142,11 @@ export class FileIdSelection implements Readable<string[]> {
 		}
 	}
 
-	add(file: AnyFile, commitId?: string) {
+	async add(file: AnyFile, commitId?: string) {
 		this.selectMany([file], commitId);
 	}
 
-	selectMany(files: AnyFile[], commitId?: string) {
+	async selectMany(files: AnyFile[], commitId?: string) {
 		if (this.selection.length > 0 && commitId !== this.currentCommitId) {
 			throw 'Selecting files from multiple commits not allowed.';
 		}
@@ -149,39 +159,55 @@ export class FileIdSelection implements Readable<string[]> {
 				}
 			}
 		}
+		await this.reloadFiles();
 		this.emit();
-		this.reloadFiles();
+	}
+
+	async set(file: AnyFile, commitId?: string) {
+		this.clearInternal();
+		this.add(file, commitId);
 	}
 
 	has(fileId: string, commitId?: string) {
 		return this.selection.includes(stringifyKey(fileId, commitId));
 	}
 
-	remove(fileId: string, commitId?: string) {
-		const strFileKey = stringifyKey(fileId, commitId);
-		this.selection = this.selection.filter((key) => key !== strFileKey);
-		if (commitId) {
-			this.remoteFiles.delete(strFileKey);
+	async remove(fileId: string, commitId?: string) {
+		await this.removeMany([stringifyKey(fileId, commitId)]);
+	}
+
+	async removeMany(keys: string[]) {
+		this.selection = this.selection.filter((key) => !keys.includes(key));
+		for (const key of keys) {
+			const parsedKey = parseFileKey(key);
+			if (parsedKey.commitId) {
+				this.remoteFiles.delete(stringifyKey(parsedKey.fileId, parsedKey.commitId));
+			}
 		}
 		if (this.selection.length === 0) {
 			this.clear();
 		} else {
-			this.reloadFiles();
+			await this.reloadFiles();
 			this.emit();
 		}
 	}
 
 	clear() {
+		this.clearInternal();
+		this.emit();
+	}
+
+	// Used internally for to bypass emitting new values.
+	private clearInternal() {
 		this.selection = [];
 		this.remoteFiles.clear();
 		this.currentCommitId = undefined;
 		this.selectedFile.set(undefined);
-		this.emit();
 	}
 
-	clearExcept(fileId: string, commitId?: string) {
+	async clearExcept(fileId: string, commitId?: string) {
 		this.selection = [stringifyKey(fileId, commitId)];
-		this.reloadFiles();
+		await this.reloadFiles();
 		this.emit();
 	}
 
