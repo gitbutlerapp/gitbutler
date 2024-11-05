@@ -159,6 +159,7 @@ export class FileIdSelection implements Readable<string[]> {
 				}
 			}
 		}
+		this.currentCommitId = commitId;
 		await this.reloadFiles();
 		this.emit();
 	}
