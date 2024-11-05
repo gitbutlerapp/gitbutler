@@ -9,7 +9,8 @@
 
 	const { series }: Props = $props();
 
-	let seriesTypes = series.map((s) => (s.patches[0] ? s.patches[0].status : 'local'));
+	const shiftedSeries = series.slice(1);
+	let seriesTypes = shiftedSeries.map((s) => (s.patches[0] ? s.patches[0].status : 'local'));
 </script>
 
 <div class="stack-meta">
@@ -24,12 +25,12 @@
 			</div>
 
 			<!-- Selector -->
-			{#if series.length > 1}
+			{#if shiftedSeries.length >= 1}
 				<div class="other-series">
 					<Select
 						popupAlign="right"
 						customWidth={300}
-						options={series.map((b) => ({ label: b.name, value: b.name }))}
+						options={shiftedSeries.map((b) => ({ label: b.name, value: b.name }))}
 						onselect={(value) => {
 							// find in DOM and scroll to
 							const el = document.querySelector(`[data-series-name="${value}"]`);
@@ -46,7 +47,7 @@
 					>
 						{#snippet customSelectButton()}
 							<div class="other-series-select">
-								<span class="text-12 text-semibold">{series.length} more</span>
+								<span class="text-12 text-semibold">{shiftedSeries.length} more</span>
 								<Icon name="chevron-down-small" />
 							</div>
 						{/snippet}
