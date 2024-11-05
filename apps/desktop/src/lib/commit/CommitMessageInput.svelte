@@ -236,9 +236,9 @@
 
 		<Tooltip
 			text={!aiConfigurationValid
-				? 'You must be logged in or have provided your own API key'
+				? 'Log in or provide your own API key'
 				: !$aiGenEnabled
-					? 'You must have summary generation enabled'
+					? 'Enable summary generation'
 					: undefined}
 		>
 			<div class="commit-box__texarea-actions" class:commit-box-actions_expanded={isExpanded}>

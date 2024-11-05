@@ -434,9 +434,9 @@
 										kind="solid"
 										icon="ai-small"
 										tooltip={!aiConfigurationValid
-											? 'You must be logged in or have provided your own API key'
+											? 'Log in or provide your own API key'
 											: !$aiGenEnabled
-												? 'You must have summary generation enabled'
+												? 'Enable summary generation'
 												: undefined}
 										disabled={!canUseAI || aiIsLoading}
 										loading={aiIsLoading}
