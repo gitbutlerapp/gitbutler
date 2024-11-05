@@ -102,9 +102,6 @@
 	}
 	.card {
 		margin: 12px 6px 12px 12px;
-
-		& :global(.commit-row):first-child {
-			border-radius: var(--radius-m) var(--radius-m) 0 0;
-		}
+		border-radius: var(--radius-m);
 	}
 </style>
