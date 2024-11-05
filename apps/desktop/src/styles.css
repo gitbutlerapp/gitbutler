@@ -71,7 +71,7 @@ body {
 
 /* STATES */
 
-.wiggle {
+.wiggle-animation {
 	animation: wiggle-animation 0.35s forwards;
 }
 
@@ -108,7 +108,7 @@ body {
 	65% {
 		box-shadow: 0 2px 7px 0 oklch(from var(--highlight-color) l c h / 0.4);
 		border: 1px solid var(--highlight-color);
-		transform: scale(1.02);
+		transform: scale(1.015);
 	}
 	100% {
 	}

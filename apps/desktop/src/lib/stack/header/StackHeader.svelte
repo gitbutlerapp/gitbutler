@@ -15,7 +15,7 @@
 	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
 </script>
 
-<div class="stack-header">
+<div class="stack-header" class:wiggle-animation={branch.selectedForChanges}>
 	<StackControlSection
 		isDefault={branch.selectedForChanges}
 		onDefaultSet={async () => {
