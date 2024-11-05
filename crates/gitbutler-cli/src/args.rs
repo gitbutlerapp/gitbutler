@@ -14,8 +14,31 @@ pub struct Args {
     pub cmd: Subcommands,
 }
 
+#[derive(Debug, Clone, clap::ValueEnum)]
+pub enum UpdateMode {
+    Rebase,
+    Merge,
+    Unapply,
+    Delete,
+}
+
 #[derive(Debug, clap::Subcommand)]
 pub enum Subcommands {
+    /// Unapply the given ownership claim.
+    UnapplyOwnership {
+        /// The path to remove the claim from.
+        filepath: PathBuf,
+        /// The first line of hunks that should be removed.
+        from_line: u32,
+        /// The last line of hunks that should be removed.
+        to_line: u32,
+    },
+    /// Update the local workspace against an updated remote or target branch.
+    IntegrateUpstream {
+        /// Specify how all branches should be merged in.
+        #[clap(value_enum)]
+        mode: UpdateMode,
+    },
     /// List and manipulate virtual branches.
     #[clap(visible_alias = "branches")]
     Branch(vbranch::Platform),
@@ -42,6 +65,11 @@ pub mod vbranch {
         ListLocal,
         /// Provide the current state of all applied virtual branches.
         Status,
+        /// Switch to the GitButler workspace.
+        SetBase {
+            /// The name of the remote branch to integrate with, like `origin/main`.
+            short_tracking_branch_name: String,
+        },
         /// Make the named branch the default so all worktree or index changes are associated with it automatically.
         SetDefault {
             /// The name of the new default virtual branch.
@@ -50,6 +78,11 @@ pub mod vbranch {
         /// Remove a branch from the workspace.
         Unapply {
             /// The name of the virtual branch to unapply.
+            name: String,
+        },
+        /// Add a branch to the workspace.
+        Apply {
+            /// The name of the virtual branch to apply.
             name: String,
         },
         /// Create a new commit to named virtual branch with all changes currently in the worktree or staging area assigned to it.
@@ -139,6 +172,11 @@ pub mod snapshot {
         /// Restores the state of the working direcory as well as virtual branches to a given snapshot.
         Restore {
             /// The snapshot to restore
+            snapshot_id: String,
+        },
+        /// Show what is stored in a given snapshot.
+        Diff {
+            /// The hex-hash of the commit-id of the snapshot.
             snapshot_id: String,
         },
     }

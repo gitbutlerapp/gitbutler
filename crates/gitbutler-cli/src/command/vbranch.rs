@@ -1,11 +1,21 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use gitbutler_branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest};
-use gitbutler_branch_actions::{get_branch_listing_details, list_branches};
+use gitbutler_branch_actions::{get_branch_listing_details, list_branches, BranchManagerExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 
 use crate::command::debug_print;
+
+pub fn set_base(project: Project, short_tracking_branch_name: String) -> Result<()> {
+    let branch_name = format!("refs/remotes/{}", short_tracking_branch_name)
+        .parse()
+        .context("Invalid branch name")?;
+    debug_print(gitbutler_branch_actions::set_base_branch(
+        &project,
+        &branch_name,
+    )?)
+}
 
 pub fn list_all(project: Project) -> Result<()> {
     let ctx = CommandContext::open(&project)?;
@@ -51,6 +61,23 @@ pub fn unapply(project: Project, branch_name: String) -> Result<()> {
     debug_print(gitbutler_branch_actions::save_and_unapply_virutal_branch(
         &project, branch.id,
     )?)
+}
+
+pub fn apply(project: Project, branch_name: String) -> Result<()> {
+    let branch = branch_by_name(&project, &branch_name)?;
+    let ctx = CommandContext::open(&project)?;
+    let mut guard = project.exclusive_worktree_access();
+    debug_print(
+        ctx.branch_manager().create_virtual_branch_from_branch(
+            branch
+                .source_refname
+                .as_ref()
+                .context("local reference name was missing")?,
+            None,
+            None,
+            guard.write_permission(),
+        )?,
+    )
 }
 
 pub fn create(project: Project, branch_name: String, set_default: bool) -> Result<()> {

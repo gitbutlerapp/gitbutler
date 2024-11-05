@@ -7,7 +7,6 @@ use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project::Project;
 use gitbutler_reference::normalize_branch_name;
-use gitbutler_repo::GixRepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{Branch, CommitOrChangeId, ForgeIdentifier, PatchReferenceUpdate, Series};
 use gitbutler_stack::{Stack, StackId, Target};
@@ -190,10 +189,7 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
 
     // First fetch, because we dont want to push integrated series
     ctx.fetch(&default_target.push_remote_name(), None)?;
-    let gix_repo = ctx
-        .gix_repository()?
-        .for_tree_diffing()?
-        .with_object_memory();
+    let gix_repo = ctx.gix_repository_for_merging_non_persisting()?;
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());
     let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;

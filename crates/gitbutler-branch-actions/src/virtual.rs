@@ -33,7 +33,6 @@ use gitbutler_stack::{
     VirtualBranchesHandle,
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
-use gix::objs::Write;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::{collections::HashMap, path::PathBuf, vec};
@@ -180,25 +179,34 @@ pub fn unapply_ownership(
         .find_commit(workspace_commit_id)
         .context("failed to find target commit")?;
 
-    let base_tree = target_commit.tree().context("failed to get target tree")?;
-    let final_tree = applied_statuses.into_iter().fold(
-        target_commit.tree().context("failed to get target tree"),
-        |final_tree, status| {
-            let final_tree = final_tree?;
+    let base_tree_id = git2_to_gix_object_id(target_commit.tree_id());
+    let gix_repo = ctx.gix_repository_for_merging()?;
+    let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
+    let final_tree_id = applied_statuses.into_iter().try_fold(
+        git2_to_gix_object_id(target_commit.tree_id()),
+        |final_tree_id, status| -> Result<_> {
             let files = status
                 .1
                 .into_iter()
                 .map(|file| (file.path, file.hunks))
                 .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
-            let tree_oid = gitbutler_diff::write::hunks_onto_oid(ctx, workspace_commit_id, files)?;
-            let branch_tree = repo.find_tree(tree_oid)?;
-            let mut result = repo.merge_trees(&base_tree, &final_tree, &branch_tree, None)?;
-            let final_tree_oid = result.write_tree_to(ctx.repository())?;
-            repo.find_tree(final_tree_oid)
-                .context("failed to find tree")
+            let branch_tree_id =
+                gitbutler_diff::write::hunks_onto_oid(ctx, workspace_commit_id, files)?;
+            let mut merge = gix_repo.merge_trees(
+                base_tree_id,
+                final_tree_id,
+                git2_to_gix_object_id(branch_tree_id),
+                gix_repo.default_merge_labels(),
+                merge_options_fail_fast.clone(),
+            )?;
+            if merge.has_unresolved_conflicts(conflict_kind) {
+                bail!("Tree has conflicts after merge")
+            }
+            Ok(merge.tree.write()?.detach())
         },
     )?;
 
+    let final_tree = repo.find_tree(gix_to_git2_oid(final_tree_id))?;
     let final_tree_oid = gitbutler_diff::write::hunks_onto_tree(ctx, &final_tree, diff, true)?;
     let final_tree = repo
         .find_tree(final_tree_oid)
@@ -302,10 +310,7 @@ pub fn list_virtual_branches_cached(
     let branches_span =
         tracing::debug_span!("handle branches", num_branches = status.branches.len()).entered();
     let repo = ctx.repository();
-    let gix_repo = ctx
-        .gix_repository()?
-        .for_tree_diffing()?
-        .with_object_memory();
+    let gix_repo = ctx.gix_repository_for_merging_non_persisting()?;
     // We will perform virtual merges, no need to write them to the ODB.
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());
@@ -1038,9 +1043,7 @@ impl IsCommitIntegrated<'_, '_, '_> {
         }
 
         // try to merge our tree into the upstream tree
-        let mut merge_options = self.gix_repo.tree_merge_options()?;
-        let conflict_kind = gix::merge::tree::UnresolvedConflict::Renames;
-        merge_options.fail_on_conflict = Some(conflict_kind);
+        let (merge_options, conflict_kind) = self.gix_repo.merge_options_fail_fast()?;
         let mut merge_output = self
             .gix_repo
             .merge_trees(
@@ -1056,10 +1059,7 @@ impl IsCommitIntegrated<'_, '_, '_> {
             return Ok(false);
         }
 
-        let merge_tree_id = merge_output
-            .tree
-            .write(|tree| self.gix_repo.write(tree))
-            .map_err(|err| anyhow!("failed to write tree: {err}"))?;
+        let merge_tree_id = merge_output.tree.write()?.detach();
 
         // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
         // then the vbranch is fully merged
@@ -1094,11 +1094,18 @@ pub fn is_remote_branch_mergeable(
     let wd_tree = ctx.repository().create_wd_tree()?;
 
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
-    let mergeable = !ctx
-        .repository()
-        .merge_trees(&base_tree, &branch_tree, &wd_tree, None)
+    let gix_repo_in_memory = ctx.gix_repository_for_merging()?.with_object_memory();
+    let (merge_options_fail_fast, conflict_kind) = gix_repo_in_memory.merge_options_fail_fast()?;
+    let mergeable = !gix_repo_in_memory
+        .merge_trees(
+            git2_to_gix_object_id(base_tree.id()),
+            git2_to_gix_object_id(branch_tree.id()),
+            git2_to_gix_object_id(wd_tree.id()),
+            Default::default(),
+            merge_options_fail_fast,
+        )
         .context("failed to merge trees")?
-        .has_conflicts();
+        .has_unresolved_conflicts(conflict_kind);
 
     Ok(mergeable)
 }

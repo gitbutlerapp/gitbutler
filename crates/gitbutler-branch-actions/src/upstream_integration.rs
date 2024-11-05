@@ -1,19 +1,19 @@
-use anyhow::{anyhow, bail, Result};
-use gitbutler_cherry_pick::RepositoryExt as _;
-use gitbutler_command_context::CommandContext;
-use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::{
-    rebase::{cherry_rebase_group, gitbutler_merge_commits},
-    LogUntil, RepositoryExt as _,
-};
-use gitbutler_repo_actions::RepoActionsExt as _;
-use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
-use serde::{Deserialize, Serialize};
-
 use crate::{
     branch_trees::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree},
     BranchManagerExt, VirtualBranchesExt as _,
 };
+use anyhow::{anyhow, bail, Result};
+use gitbutler_cherry_pick::RepositoryExt as _;
+use gitbutler_command_context::CommandContext;
+use gitbutler_oxidize::git2_to_gix_object_id;
+use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_repo::{
+    rebase::{cherry_rebase_group, gitbutler_merge_commits},
+    GixRepositoryExt, LogUntil, RepositoryExt as _,
+};
+use gitbutler_repo_actions::RepoActionsExt as _;
+use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, PartialEq, Debug)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
@@ -41,9 +41,9 @@ pub enum BaseBranchResolutionApproach {
     HardReset,
 }
 
-#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
-enum ResolutionApproach {
+pub enum ResolutionApproach {
     Rebase,
     Merge,
     Unapply,
@@ -75,11 +75,11 @@ impl BranchStatus {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Resolution {
-    branch_id: StackId,
+    pub branch_id: StackId,
     /// Used to ensure a given branch hasn't changed since the UI issued the command.
     #[serde(with = "gitbutler_serde::oid")]
-    branch_tree: git2::Oid,
-    approach: ResolutionApproach,
+    pub branch_tree: git2::Oid,
+    pub approach: ResolutionApproach,
 }
 
 enum IntegrationResult {
@@ -140,8 +140,19 @@ pub fn upstream_integration_statuses(
         ..
     } = context;
     // look up the target and see if there is a new oid
-    let old_target_tree = repository.find_real_tree(old_target, Default::default())?;
-    let new_target_tree = repository.find_real_tree(new_target, Default::default())?;
+    let old_target_tree_id = git2_to_gix_object_id(
+        repository
+            .find_real_tree(old_target, Default::default())?
+            .id(),
+    );
+    let new_target_tree_id = git2_to_gix_object_id(
+        repository
+            .find_real_tree(new_target, Default::default())?
+            .id(),
+    );
+    let gix_repo = gitbutler_command_context::gix_repository_for_merging(repository.path())?;
+    let gix_repo_in_memory = gix_repo.clone().with_object_memory();
+    let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
 
     if new_target.id() == old_target.id() {
         return Ok(BranchStatuses::UpToDate);
@@ -151,8 +162,10 @@ pub fn upstream_integration_statuses(
         .iter()
         .map(|virtual_branch| {
             let tree = repository.find_tree(virtual_branch.tree)?;
+            let tree_id = git2_to_gix_object_id(tree.id());
             let head = repository.find_commit(virtual_branch.head())?;
             let head_tree = repository.find_real_tree(&head, Default::default())?;
+            let head_tree_id = git2_to_gix_object_id(head_tree.id());
 
             // Try cherry pick the branch's head commit onto the target to
             // see if it conflics. This is equivalent to doing a merge
@@ -168,25 +181,33 @@ pub fn upstream_integration_statuses(
                 };
             }
 
-            let head_merge_index =
-                repository.merge_trees(&old_target_tree, &new_target_tree, &head_tree, None)?;
-            let mut tree_merge_index =
-                repository.merge_trees(&old_target_tree, &new_target_tree, &tree, None)?;
+            let mut tree_merge = gix_repo.merge_trees(
+                old_target_tree_id,
+                new_target_tree_id,
+                tree_id,
+                gix_repo.default_merge_labels(),
+                merge_options_fail_fast.clone(),
+            )?;
 
             // Is the branch conflicted?
             // A branch can't be integrated if its conflicted
             {
-                let commits_conflicted = head_merge_index.has_conflicts();
+                let commits_conflicted = gix_repo_in_memory
+                    .merge_trees(
+                        old_target_tree_id,
+                        new_target_tree_id,
+                        head_tree_id,
+                        Default::default(),
+                        merge_options_fail_fast.clone(),
+                    )?
+                    .has_unresolved_conflicts(conflict_kind);
+                gix_repo_in_memory.objects.reset_object_memory();
 
                 // See whether uncommited changes are potentially conflicted
                 let potentially_conflicted_uncommited_changes = if has_uncommited_changes {
                     // If the commits are conflicted, we can guarentee that the
                     // tree will be conflicted.
-                    if commits_conflicted {
-                        true
-                    } else {
-                        tree_merge_index.has_conflicts()
-                    }
+                    commits_conflicted || tree_merge.has_unresolved_conflicts(conflict_kind)
                 } else {
                     // If there are no uncommited changes, then there can't be
                     // any conflicts.
@@ -205,13 +226,18 @@ pub fn upstream_integration_statuses(
 
             // Is the branch fully integrated?
             {
+                if tree_merge.has_unresolved_conflicts(conflict_kind) {
+                    bail!(
+                        "Merge result unexpectedly has conflicts between base, \
+                         ours, theirs: {old_target_tree_id}, {new_target_tree_id}, {tree_id}"
+                    )
+                }
                 // We're safe to write the tree as we've ensured it's
                 // unconflicted in the previous test.
-                let tree_merge_index_tree = tree_merge_index.write_tree_to(repository)?;
+                let tree_merge_index_tree_id = tree_merge.tree.write()?.detach();
 
-                // Identical trees will have the same Oid so we can compare
-                // the two
-                if tree_merge_index_tree == new_target_tree.id() {
+                // Identical trees will have the same Oid so we can compare the two
+                if tree_merge_index_tree_id == new_target_tree_id {
                     return Ok((virtual_branch.id, BranchStatus::FullyIntegrated));
                 }
             }

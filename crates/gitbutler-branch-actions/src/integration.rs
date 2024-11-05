@@ -9,8 +9,9 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_error::error::Marker;
 use gitbutler_operating_modes::OPEN_WORKSPACE_REFS;
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::SignaturePurpose;
+use gitbutler_repo::{GixRepositoryExt, SignaturePurpose};
 use gitbutler_repo::{LogUntil, RepositoryExt};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
@@ -41,6 +42,7 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
 
     let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = repo.find_real_tree(&target_commit, Default::default())?;
+    let mut workspace_tree_id = git2_to_gix_object_id(workspace_tree.id());
 
     if conflicts::is_conflicting(ctx, None)? {
         let merge_parent = conflicts::merge_parent(ctx)?.ok_or(anyhow!("No merge parent"))?;
@@ -49,15 +51,24 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
         let merge_base = repo.merge_base(first_branch.head(), merge_parent)?;
         workspace_tree = repo.find_commit(merge_base)?.tree()?;
     } else {
+        let gix_repo = ctx.gix_repository_for_merging()?;
+        let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
+        let merge_tree_id = git2_to_gix_object_id(repo.find_commit(target.sha)?.tree_id());
         for branch in virtual_branches.iter_mut() {
-            let merge_tree = repo.find_commit(target.sha)?.tree()?;
-            let branch_tree = repo.find_commit(branch.head())?;
-            let branch_tree = repo.find_real_tree(&branch_tree, Default::default())?;
+            let branch_head = repo.find_commit(branch.head())?;
+            let branch_tree_id =
+                git2_to_gix_object_id(repo.find_real_tree(&branch_head, Default::default())?.id());
 
-            let mut index = repo.merge_trees(&merge_tree, &workspace_tree, &branch_tree, None)?;
+            let mut merge = gix_repo.merge_trees(
+                merge_tree_id,
+                workspace_tree_id,
+                branch_tree_id,
+                gix_repo.default_merge_labels(),
+                merge_options_fail_fast.clone(),
+            )?;
 
-            if !index.has_conflicts() {
-                workspace_tree = repo.find_tree(index.write_tree_to(repo)?)?;
+            if !merge.has_unresolved_conflicts(conflict_kind) {
+                workspace_tree_id = merge.tree.write()?.detach();
             } else {
                 // This branch should have already been unapplied during the "update" command but for some reason that failed
                 tracing::warn!("Merge conflict between base and {:?}", branch.name);
@@ -65,6 +76,7 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
                 vb_state.set_branch(branch.clone())?;
             }
         }
+        workspace_tree = repo.find_tree(gix_to_git2_oid(workspace_tree_id))?;
     }
 
     let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;

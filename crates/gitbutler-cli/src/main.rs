@@ -17,13 +17,31 @@ fn main() -> Result<()> {
     let _op_span = tracing::info_span!("cli-op").entered();
 
     match args.cmd {
+        args::Subcommands::IntegrateUpstream { mode } => {
+            let project = command::prepare::project_from_path(args.current_dir)?;
+            command::workspace::update(project, mode)
+        }
+        args::Subcommands::UnapplyOwnership {
+            filepath,
+            from_line,
+            to_line,
+        } => {
+            let project = command::prepare::project_from_path(args.current_dir)?;
+            command::ownership::unapply(project, filepath, from_line, to_line)
+        }
         args::Subcommands::Branch(vbranch::Platform { cmd }) => {
             let project = command::prepare::project_from_path(args.current_dir)?;
             match cmd {
+                Some(vbranch::SubCommands::SetBase {
+                    short_tracking_branch_name,
+                }) => command::vbranch::set_base(project, short_tracking_branch_name),
                 Some(vbranch::SubCommands::ListLocal) => command::vbranch::list_local(project),
                 Some(vbranch::SubCommands::Status) => command::vbranch::status(project),
                 Some(vbranch::SubCommands::Unapply { name }) => {
                     command::vbranch::unapply(project, name)
+                }
+                Some(vbranch::SubCommands::Apply { name }) => {
+                    command::vbranch::apply(project, name)
                 }
                 Some(vbranch::SubCommands::SetDefault { name }) => {
                     command::vbranch::set_default(project, name)
@@ -70,6 +88,9 @@ fn main() -> Result<()> {
             match cmd {
                 Some(snapshot::SubCommands::Restore { snapshot_id }) => {
                     command::snapshot::restore(project, snapshot_id)
+                }
+                Some(snapshot::SubCommands::Diff { snapshot_id }) => {
+                    command::snapshot::diff(project, snapshot_id)
                 }
                 None => command::snapshot::list(project),
             }
