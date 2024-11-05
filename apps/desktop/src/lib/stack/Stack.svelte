@@ -16,7 +16,7 @@
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -59,20 +59,30 @@
 	let scrollEndVisible = $state(true);
 	let isPushingCommits = $state(false);
 
-	const hasConflicts = $derived(
-		branch.series.flatMap((s) => s.patches).some((patch) => patch.conflicted)
-	);
-	const branchUpstreamPatches = $derived(branch.series.flatMap((s) => s.upstreamPatches));
-	const branchPatches = $derived(branch.series.flatMap((s) => s.patches));
+	const { upstreamPatches, branchPatches, hasConflicts } = $derived.by(() => {
+		let hasConflicts = false;
+		const upstreamPatches: DetailedCommit[] = [];
+		const branchPatches: DetailedCommit[] = [];
+
+		branch.series.map((series) => {
+			upstreamPatches.push(...series.upstreamPatches);
+			branchPatches.push(...series.patches);
+			hasConflicts = branchPatches.some((patch) => patch.conflicted);
+		});
+
+		return {
+			upstreamPatches,
+			branchPatches,
+			hasConflicts
+		};
+	});
 
 	let canPush = $derived.by(() => {
-		// If all branches have status 'integrated', dont show push button
-		const allTopPatches = branch.series.map((s) => s.patches[0]).filter(Boolean);
-		if (!allTopPatches.some((patch) => patch?.status !== 'integrated')) return false;
-
-		if (branchUpstreamPatches.length > 0) return true;
-		if (branchPatches.some((p) => p.status !== 'localAndRemote')) return true;
-		if (branchPatches.some((p) => p.remoteCommitId !== p.id)) return true;
+		if (upstreamPatches.length > 0) return true;
+		if (branchPatches.some((p) => !['localAndRemote', 'integrated'].includes(p.status)))
+			return true;
+		if (branchPatches.some((p) => p.status !== 'integrated' && p.remoteCommitId !== p.id))
+			return true;
 
 		return false;
 	});
