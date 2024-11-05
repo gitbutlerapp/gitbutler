@@ -199,6 +199,10 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
     let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
     let stack_series = stack.list_series(ctx)?;
     for series in stack_series {
+        if series.local_commits.is_empty() {
+            // Nothing to push for this one
+            continue;
+        }
         if series.head.target == merge_base {
             // Nothing to push for this one
             continue;
