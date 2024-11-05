@@ -23,6 +23,7 @@
 	import { isFailure } from '$lib/result';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
+	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -140,7 +141,15 @@
 	async function generateBranchName() {
 		if (!aiGenEnabled || !currentSeries) return;
 
-		const hunks = currentSeries.patches.flatMap((p) => p.files.flatMap((f) => f.hunks));
+		let hunk_promises = currentSeries.patches.flatMap(async (p) => {
+			let files = await listCommitFiles(project.id, p.id);
+			return files.flatMap((f) =>
+				f.hunks.map((h) => {
+					return { filePath: f.path, diff: h.diff };
+				})
+			);
+		});
+		let hunks = (await Promise.all(hunk_promises)).flat();
 
 		const prompt = promptService.selectedBranchPrompt(project.id);
 		const messageResult = await aiService.summarizeBranch({

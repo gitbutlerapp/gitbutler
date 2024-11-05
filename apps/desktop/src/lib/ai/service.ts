@@ -62,7 +62,7 @@ interface SummarizeCommitOpts extends BaseAIServiceOpts {
 }
 
 interface SummarizeBranchOpts extends BaseAIServiceOpts {
-	hunks: Hunk[];
+	hunks: DiffInput[];
 	branchTemplate?: Prompt;
 }
 
@@ -75,8 +75,13 @@ interface SummarizePROpts extends BaseAIServiceOpts {
 	prBodyTemplate?: string;
 }
 
+interface DiffInput {
+	filePath: string;
+	diff: string;
+}
+
 // Exported for testing only
-export function buildDiff(hunks: Hunk[], limit: number) {
+export function buildDiff(hunks: DiffInput[], limit: number) {
 	return shuffle(hunks.map((h) => `${h.filePath} - ${h.diff}`))
 		.join('\n')
 		.slice(0, limit);
