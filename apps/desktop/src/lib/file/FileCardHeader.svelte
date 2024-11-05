@@ -48,10 +48,14 @@
 				{/if}
 				<div class="header__tag-group">
 					{#if fileStats.added}
-						<Button size="tag" clickable={false} style="success">+{fileStats.added}</Button>
+						<Button size="tag" clickable={false} style="success" kind="soft"
+							>+{fileStats.added}</Button
+						>
 					{/if}
 					{#if fileStats.removed}
-						<Button size="tag" clickable={false} style="error">-{fileStats.removed}</Button>
+						<Button size="tag" clickable={false} style="error" kind="soft"
+							>-{fileStats.removed}</Button
+						>
 					{/if}
 					{#if fileStatus}
 						<FileStatusTag status={fileStatus} />
