@@ -12,14 +12,23 @@
 	const branchController = getContext(BranchController);
 
 	const { branch }: Props = $props();
+
+	let headerEl: HTMLElement | undefined = $state();
 	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
 </script>
 
-<div class="stack-header" class:wiggle-animation={branch.selectedForChanges}>
+<div
+	bind:this={headerEl}
+	class="stack-header"
+	onanimationend={() => {
+		headerEl?.classList.remove('wiggle-animation');
+	}}
+>
 	<StackControlSection
 		isDefault={branch.selectedForChanges}
 		onDefaultSet={async () => {
 			await branchController.setSelectedForChanges(branch.id);
+			headerEl?.classList.add('wiggle-animation');
 		}}
 	/>
 	<StackMetaSection series={nonArchivedSeries} />

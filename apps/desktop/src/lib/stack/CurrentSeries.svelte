@@ -41,7 +41,6 @@
 	$effect(() => forgeChecksMonitorStore.set(checksMonitor));
 
 	const seriesType = currentSeries.patches[0] ? currentSeries.patches[0].status : 'local';
-	console.log(seriesType);
 
 	function setSeriesHighlightColor() {
 		if (seriesType === 'local') {
