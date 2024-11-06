@@ -111,7 +111,7 @@
 		align-items: center;
 		gap: 2px;
 		padding: 2px 4px 2px 6px;
-		color: var(--clr-text-2);
+		color: var(--clr-text-1);
 		background-color: var(--clr-bg-1);
 		border-radius: var(--radius-m);
 		border: 1px solid var(--clr-border-2);

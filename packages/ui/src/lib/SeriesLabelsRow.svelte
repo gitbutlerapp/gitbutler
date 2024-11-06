@@ -18,7 +18,7 @@
 		</div>
 	</Tooltip>
 
-	<div class="series-name text-12 text-semibold" class:contrast={showCounterLabel} class:selected>
+	<div class="series-name text-12 text-semibold contrast" class:selected>
 		<span class="truncate">{series[0]}</span>
 	</div>
 
