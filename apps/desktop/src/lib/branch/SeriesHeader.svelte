@@ -99,6 +99,23 @@
 			$cloudBranch.state === 'not-found'
 	);
 
+	/**
+	 * We are starting to store pull request id's locally so if we find one that does not have
+	 * one locally stored then we set it once.
+	 *
+	 * TODO: Remove this after transition is complete.
+	 */
+	$effect(() => {
+		if (
+			$forge?.name === 'github' &&
+			!currentSeries.prNumber &&
+			listedPr?.number &&
+			listedPr.number !== currentSeries.prNumber
+		) {
+			branchController.updateBranchPrNumber(branch.id, currentSeries.name, listedPr.number);
+		}
+	});
+
 	async function handleReloadPR() {
 		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
 	}

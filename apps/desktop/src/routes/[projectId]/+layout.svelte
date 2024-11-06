@@ -19,6 +19,7 @@
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import { createForgeStore } from '$lib/forge/interface/forge';
 	import { createForgeListingServiceStore } from '$lib/forge/interface/forgeListingService';
+	import { createForgePrServiceStore } from '$lib/forge/interface/forgePrService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
@@ -104,6 +105,7 @@
 
 	const listServiceStore = createForgeListingServiceStore(undefined);
 	const forgeStore = createForgeStore(undefined);
+	const prService = createForgePrServiceStore(undefined);
 
 	$effect.pre(() => {
 		const combinedBranchListingService = new CombinedBranchListingService(
@@ -143,6 +145,7 @@
 		const ghListService = forge?.listService();
 		listServiceStore.set(ghListService);
 		forgeStore.set(forge);
+		prService.set(forge ? forge.prService() : undefined);
 	});
 
 	// Once on load and every time the project id changes

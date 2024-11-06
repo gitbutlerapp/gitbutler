@@ -165,7 +165,7 @@ export class BranchController {
 	 * @param headName The branch name to update.
 	 * @param prNumber New pull request number to be set for the branch.
 	 */
-	async updateSeriesPrNumber(stackId: string, headName: string, prNumber: number | undefined) {
+	async updateBranchPrNumber(stackId: string, headName: string, prNumber: number | undefined) {
 		try {
 			await invoke<void>('update_series_pr_number', {
 				projectId: this.projectId,
