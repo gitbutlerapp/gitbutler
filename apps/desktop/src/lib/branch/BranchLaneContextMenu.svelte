@@ -2,6 +2,9 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
+	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { updatePrDescriptionTables } from '$lib/forge/shared/prFooter';
+	import { User } from '$lib/stores/user';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -9,6 +12,7 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
 		prUrl?: string;
@@ -26,6 +30,8 @@
 
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
+	const prService = getForgePrService();
+	const user = getContextStore(User);
 
 	let deleteBranchModal: Modal;
 	let allowRebasing = $state<boolean>();
@@ -36,6 +42,8 @@
 	$effect(() => {
 		allowRebasing = branch.allowRebasing;
 	});
+
+	const allPrIds = $derived(branch.series.map((series) => series.prNumber).filter(isDefined));
 
 	async function toggleAllowRebasing() {
 		branchController.updateBranchAllowRebasing(branch.id, !allowRebasing);
@@ -113,6 +121,22 @@
 			}}
 		/>
 	</ContextMenuSection>
+	{#if $user && $user.role?.includes('admin')}
+		<!-- TODO: Remove after iterating on the pull request footer. -->
+		<ContextMenuSection label="admin only">
+			<ContextMenuItem
+				label="Update PR footers"
+				disabled={allPrIds.length === 0}
+				onclick={() => {
+					if ($prService && branch) {
+						const allPrIds = branch.series.map((series) => series.prNumber).filter(isDefined);
+						updatePrDescriptionTables($prService, allPrIds);
+					}
+					contextMenuEl?.close();
+				}}
+			/>
+		</ContextMenuSection>
+	{/if}
 </ContextMenu>
 
 <Modal

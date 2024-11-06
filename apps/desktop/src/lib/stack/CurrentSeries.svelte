@@ -4,7 +4,7 @@
 	import { createForgeChecksMonitorStore } from '$lib/forge/interface/forgeChecksMonitor';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { createForgePrMonitorStore } from '$lib/forge/interface/forgePrMonitor';
-	import { createForgePrServiceStore } from '$lib/forge/interface/forgePrService';
+	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import type { PatchSeries } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
@@ -17,8 +17,7 @@
 
 	// Setup PR Store and Monitor on a per-series basis
 	const forge = getForge();
-	const prService = createForgePrServiceStore(undefined);
-	$effect(() => prService.set($forge?.prService()));
+	const prService = getForgePrService();
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
