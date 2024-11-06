@@ -8,7 +8,8 @@
 	interface Props {
 		onMouseDown?: () => void;
 		onFirstSeen?: () => void;
-		series: string[];
+		title?: string;
+		series?: string[];
 		selected?: boolean;
 		applied?: boolean;
 		pullRequestDetails?: { title: string; draft: boolean };
@@ -22,6 +23,7 @@
 	const {
 		onMouseDown = () => {},
 		onFirstSeen = () => {},
+		title,
 		series,
 		selected = false,
 		applied = false,
@@ -63,7 +65,15 @@
 	onmousedown={onMouseDown}
 	bind:this={intersectionTarget}
 >
-	<SeriesLabelsRow {series} showCounterLabel {selected} />
+	{#if series}
+		<SeriesLabelsRow {series} showCounterLabel {selected} />
+	{/if}
+
+	{#if title}
+		<h4 class="text-13 text-semibold branch-name">
+			{title}
+		</h4>
+	{/if}
 
 	<div class="row">
 		<div class="authors-and-tags">
@@ -294,6 +304,14 @@
 	.branch-remotes {
 		display: flex;
 		gap: 4px;
+	}
+
+	.branch-name {
+		color: var(--clr-text-1);
+		width: 100%;
+		white-space: nowrap;
+		overflow-x: hidden;
+		text-overflow: ellipsis;
 	}
 
 	.branch-time {
