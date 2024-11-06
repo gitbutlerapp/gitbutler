@@ -11,8 +11,10 @@
 
 	const { series, disableSelector }: Props = $props();
 
-	let shiftedSeries = series.slice(1);
-	let seriesTypes = shiftedSeries.map((s) => (s.patches[0] ? s.patches[0].status : 'local'));
+	const shiftedSeries = $derived(series.slice(1));
+	const seriesTypes = $derived(
+		shiftedSeries.map((s) => (s.patches[0] ? s.patches[0].status : 'local'))
+	);
 </script>
 
 <div class="stack-series-row">

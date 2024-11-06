@@ -3,7 +3,6 @@ import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-import type { BranchListingService } from '$lib/branches/branchListing';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
 import type { BranchPushResult, ForgeIdentifier, Hunk, LocalFile, StackOrder } from './types';
 import type { VirtualBranchService } from './virtualBranch';
@@ -15,8 +14,7 @@ export class BranchController {
 		readonly projectId: string,
 		readonly vbranchService: VirtualBranchService,
 		readonly remoteBranchService: RemoteBranchService,
-		readonly baseBranchService: BaseBranchService,
-		private readonly branchListingService: BranchListingService
+		readonly baseBranchService: BaseBranchService
 	) {}
 
 	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
@@ -67,7 +65,6 @@ export class BranchController {
 				ownership,
 				runHooks: runHooks
 			});
-			this.branchListingService.refreshBranchListingDetails(branchName);
 			posthog.capture('Commit Successful');
 		} catch (err: any) {
 			if (err.code === 'errors.commit.signing_failed') {
@@ -554,7 +551,6 @@ export class BranchController {
 				branchId,
 				commitOid
 			});
-			this.branchListingService.refreshBranchListingDetails(branchName);
 		} catch (err: any) {
 			showError('Failed to amend commit', err);
 		}

@@ -109,9 +109,10 @@
 		}
 	}
 
-	const stackBranches = branchListing.virtualBranch?.stackBranches;
-	const filteredStackBranches =
-		stackBranches && stackBranches.length > 0 ? stackBranches : [branchListing.name];
+	const stackBranches = $derived(branchListing.virtualBranch?.stackBranches);
+	const filteredStackBranches = $derived(
+		stackBranches && stackBranches.length > 0 ? stackBranches : [branchListing.name]
+	);
 </script>
 
 <SidebarEntry

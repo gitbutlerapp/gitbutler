@@ -79,8 +79,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		projectId,
 		vbranchService,
 		remoteBranchService,
-		baseBranchService,
-		branchListingService
+		baseBranchService
 	);
 
 	const branchDragActionsFactory = new BranchDragActionsFactory(branchController);
