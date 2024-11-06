@@ -1,4 +1,7 @@
+use bstr::ByteSlice;
 use serde::Serialize;
+
+use crate::gravatar::gravatar_url_from_email;
 
 #[derive(Debug, Serialize, Hash, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -13,15 +16,23 @@ impl From<git2::Signature<'_>> for Author {
         let name = value.name().unwrap_or_default().to_string();
         let email = value.email().unwrap_or_default().to_string();
 
-        let gravatar_url = url::Url::parse(&format!(
-            "https://www.gravatar.com/avatar/{:x}?s=100&r=g&d=retro",
-            md5::compute(email.to_lowercase())
-        ))
-        .unwrap();
+        let gravatar_url = gravatar_url_from_email(email.as_str()).unwrap();
 
         Author {
             name,
             email,
+            gravatar_url,
+        }
+    }
+}
+
+impl From<gix::actor::SignatureRef<'_>> for Author {
+    fn from(value: gix::actor::SignatureRef<'_>) -> Self {
+        let gravatar_url = gravatar_url_from_email(&value.email.to_str_lossy()).unwrap();
+
+        Author {
+            name: value.name.to_owned().to_string(),
+            email: value.email.to_owned().to_string(),
             gravatar_url,
         }
     }

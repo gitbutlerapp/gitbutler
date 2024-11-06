@@ -93,6 +93,7 @@ mod util {
         Author {
             name: Some("author".into()),
             email: Some("author@example.com".into()),
+            gravatar_url: Some("https://www.gravatar.com/avatar/5c1e6d6e64e12aca17657581a48005d1?s=100&r=g&d=retro".into()),
         }
     }
 

@@ -52,6 +52,7 @@ pub use reorder::{SeriesOrder, StackOrder};
 mod undo_commit;
 
 mod author;
+mod gravatar;
 mod status;
 use gitbutler_stack::VirtualBranchesHandle;
 pub use status::get_applied_status;
