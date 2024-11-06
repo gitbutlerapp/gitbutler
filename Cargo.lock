@@ -2804,6 +2804,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "gitbutler-review"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "git2",
+ "gitbutler-branch",
+ "gitbutler-branch-actions",
+ "gitbutler-cherry-pick",
+ "gitbutler-commit",
+ "gitbutler-repo",
+ "gitbutler-stack",
+ "serde",
+]
+
+[[package]]
 name = "gitbutler-secret"
 version = "0.0.0"
 dependencies = [
