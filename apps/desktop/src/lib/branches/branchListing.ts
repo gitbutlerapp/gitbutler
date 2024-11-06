@@ -30,6 +30,9 @@ export class BranchListingService {
 	async refresh() {
 		const listedValues = (await this.list({})) || [];
 		this.branchListingsWritable.set(listedValues);
+
+		const displayedBranchListingDetails = Array.from(this.branchListingDetails.keys());
+		this.updateBranchListingDetails(displayedBranchListingDetails);
 	}
 
 	private async list(filter: BranchListingFilter | undefined = undefined) {
@@ -75,17 +78,17 @@ export class BranchListingService {
 		this.updateBranchListing(branchName);
 	}
 
-	private accumulatedBranchListings: string[] = [];
+	private branchFetchQueue: string[] = [];
 	private updateBranchListingTimeout: ReturnType<typeof setTimeout> | undefined;
-	// Accumulates multiple update calls
+	// Debounces multiple update calls
 	private async updateBranchListing(branchName: string) {
-		this.accumulatedBranchListings.push(branchName);
+		this.branchFetchQueue.push(branchName);
 
 		clearTimeout(this.updateBranchListingTimeout);
 		this.updateBranchListingTimeout = setTimeout(
 			(() => {
-				this.updateBranchListingDetails(this.accumulatedBranchListings);
-				this.accumulatedBranchListings = [];
+				this.updateBranchListingDetails(this.branchFetchQueue);
+				this.branchFetchQueue = [];
 			}).bind(this),
 			50
 		);
