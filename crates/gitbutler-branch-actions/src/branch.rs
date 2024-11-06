@@ -90,12 +90,8 @@ pub fn list_branches(
         });
     }
 
-    branches.extend(
-        vb_handle
-            .list_all_branches()?
-            .into_iter()
-            .map(GroupBranch::Virtual),
-    );
+    let stacks = vb_handle.list_all_branches()?;
+    branches.extend(stacks.iter().map(|s| GroupBranch::Virtual(s.clone())));
     let mut branches = combine_branches(branches, &repo, vb_handle.get_default_target()?)?;
 
     // Apply the filter
@@ -131,7 +127,31 @@ pub fn list_branches(
         branches.retain(|branch_listing| branch_names.contains(&branch_listing.name))
     }
 
-    Ok(branches)
+    // Get a list of all stack branches (applied or not), in a tuple together with the stack they belong to as a GroupBranch
+    let stack_branches = stacks
+        .iter()
+        .flat_map(|s| {
+            s.branches()
+                .into_iter()
+                .map(|b| (b, GroupBranch::Virtual(s.clone())))
+                .collect_vec()
+        })
+        .collect_vec();
+
+    let remotes = repo.remote_names();
+    let mut out = vec![];
+    // Only include branches that are not part of a stack which will be included in the list
+    for branch_listing in &branches {
+        if !stack_branches.iter().any(|(stack_branch, stack)| {
+            stack_branch.name == branch_listing.name.to_string()
+                && branches
+                    .iter()
+                    .any(|listing| Some(listing.name.clone()) == stack.identity(&remotes))
+        }) {
+            out.push(branch_listing.clone())
+        }
+    }
+    Ok(out)
 }
 
 fn matches_all(branch: &BranchListing, filter: BranchListingFilter) -> bool {
