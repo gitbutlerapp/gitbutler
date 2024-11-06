@@ -14,22 +14,14 @@
 
 	const { onCollapseButtonClick, branch }: Props = $props();
 
-	let headerEl: HTMLElement | undefined = $state();
 	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
 </script>
 
-<div
-	bind:this={headerEl}
-	class="stack-header"
-	onanimationend={() => {
-		headerEl?.classList.remove('wiggle-animation');
-	}}
->
+<div class="stack-header">
 	<HeaderControlSection
 		isDefault={branch.selectedForChanges}
 		onDefaultSet={async () => {
 			await branchController.setSelectedForChanges(branch.id);
-			headerEl?.classList.add('wiggle-animation');
 		}}
 	/>
 	<HeaderMetaSection series={nonArchivedSeries} {onCollapseButtonClick} />
