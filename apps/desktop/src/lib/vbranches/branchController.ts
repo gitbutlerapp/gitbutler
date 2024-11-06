@@ -5,7 +5,7 @@ import posthog from 'posthog-js';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { BranchListingService } from '$lib/branches/branchListing';
 import type { RemoteBranchService } from '$lib/stores/remoteBranches';
-import type { BranchPushResult, ForgeIdentifier, Hunk, LocalFile, StackOrder } from './types';
+import type { BranchPushResult, Hunk, LocalFile, StackOrder } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
 export type CommitIdOrChangeId = { CommitId: string } | { ChangeId: string };
@@ -166,19 +166,15 @@ export class BranchController {
 	 * This is useful for storing for example the Pull Request Number for a branch.
 	 * @param stackId The stack ID to update.
 	 * @param headName The branch name to update.
-	 * @param forgeId New forge id to be set for the branch (overrides current state). Setting to undefined will remove the forge id.
+	 * @param prNumber New pull request number to be set for the branch.
 	 */
-	async updateSeriesForgeId(
-		stackId: string,
-		headName: string,
-		forgeId: ForgeIdentifier | undefined
-	) {
+	async updateSeriesPrNumber(stackId: string, headName: string, prNumber: number | undefined) {
 		try {
-			await invoke<void>('update_series_forge_id', {
+			await invoke<void>('update_series_pr_number', {
 				projectId: this.projectId,
 				stackId,
 				headName,
-				forgeId
+				prNumber
 			});
 		} catch (err) {
 			showError('Failed to update branch forge ids', err);
@@ -454,14 +450,14 @@ export class BranchController {
 	async createvBranchFromBranch(
 		branch: string,
 		remote: string | undefined = undefined,
-		forgeId: ForgeIdentifier | undefined = undefined
+		prNumber: number | undefined = undefined
 	) {
 		try {
 			await invoke<string>('create_virtual_branch_from_branch', {
 				projectId: this.projectId,
 				branch,
 				remote,
-				forgeId
+				prNumber
 			});
 		} catch (err) {
 			showError('Failed to create virtual branch', err);

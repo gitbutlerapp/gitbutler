@@ -437,7 +437,7 @@ export class PatchSeries {
 	 * A list of identifiers for the review unit at possible forges (eg. Pull Request).
 	 * The list is empty if there is no review units, eg. no Pull Request has been created.
 	 */
-	forgeId?: ForgeIdentifier | undefined;
+	prNumber?: number | undefined;
 	/**
 	 * Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
 	 * This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
@@ -472,13 +472,6 @@ export class PatchSeries {
 export interface GitHubIdentifier {
 	prNumber: number;
 }
-
-/**
- * @desc Represents identifiers for the series at possible forges, eg. GitHub PR numbers.
- * @property type - The forge identifier string.
- * @property subject - The selected for forges subject information.
- */
-export type ForgeIdentifier = { type: 'GitHub'; subject: GitHubIdentifier };
 
 /**
  * @desc Represents the order of series (branches) and changes (commits) in a stack.

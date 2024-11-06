@@ -28,7 +28,6 @@ use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::ForgeIdentifier;
 use gitbutler_stack::{BranchOwnershipClaims, StackId};
 use std::path::PathBuf;
 use tracing::instrument;
@@ -516,7 +515,7 @@ pub fn create_virtual_branch_from_branch(
     project: &Project,
     branch: &Refname,
     remote: Option<RemoteRefname>,
-    forge_id: Option<ForgeIdentifier>,
+    pr_number: Option<usize>,
 ) -> Result<StackId> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx)
@@ -524,7 +523,7 @@ pub fn create_virtual_branch_from_branch(
     let branch_manager = ctx.branch_manager();
     let mut guard = project.exclusive_worktree_access();
     branch_manager
-        .create_virtual_branch_from_branch(branch, remote, forge_id, guard.write_permission())
+        .create_virtual_branch_from_branch(branch, remote, pr_number, guard.write_permission())
         .map_err(Into::into)
 }
 

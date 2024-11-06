@@ -69,7 +69,7 @@
 			await branchController.createvBranchFromBranch(
 				`refs/remotes/${remoteName}/${pullrequest.sourceBranch}`,
 				undefined,
-				{ type: 'GitHub', subject: { prNumber: pullrequest.number } }
+				pullrequest.number
 			);
 			await virtualBranchService.refresh();
 

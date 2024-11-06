@@ -211,10 +211,11 @@
 				upstreamName: upstreamBranchName
 			});
 			if (props.type === 'preview-series') {
-				await branchController.updateSeriesForgeId(props.stackId, props.currentSeries.name, {
-					type: 'GitHub',
-					subject: { prNumber: pr.number }
-				});
+				await branchController.updateSeriesPrNumber(
+					props.stackId,
+					props.currentSeries.name,
+					pr.number
+				);
 			}
 		} catch (err: any) {
 			console.error(err);

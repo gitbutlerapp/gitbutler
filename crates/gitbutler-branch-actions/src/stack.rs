@@ -8,7 +8,7 @@ use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project::Project;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{Branch, CommitOrChangeId, ForgeIdentifier, PatchReferenceUpdate, Series};
+use gitbutler_stack::{Branch, CommitOrChangeId, PatchReferenceUpdate, Series};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
@@ -52,7 +52,7 @@ pub fn create_series(
                 target: target_patch,
                 name: normalized_head_name,
                 description: req.description,
-                forge_id: Default::default(),
+                pr_number: Default::default(),
                 archived: Default::default(),
             },
             req.preceding_head,
@@ -91,7 +91,7 @@ pub fn remove_series(project: &Project, branch_id: StackId, head_name: String) -
     stack.remove_series(ctx, head_name)
 }
 
-/// Updates the name an existing series in the stack and resets the forge_id to None.
+/// Updates the name an existing series in the stack and resets the pr_number to None.
 /// Same invariants as `create_series` apply.
 /// If the series have been pushed to a remote, the name can not be changed as it corresponds to a remote ref.
 pub fn update_series_name(
@@ -153,21 +153,21 @@ pub fn update_series_description(
 ///  - The stack has not been initialized
 ///  - The project is not in workspace mode
 ///  - Persisting the changes failed
-pub fn update_series_forge_id(
+pub fn update_series_pr_number(
     project: &Project,
     stack_id: StackId,
     head_name: String,
-    forge_id: Option<ForgeIdentifier>,
+    pr_number: Option<usize>,
 ) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     let mut guard = project.exclusive_worktree_access();
     let _ = ctx.project().create_snapshot(
-        SnapshotDetails::new(OperationKind::UpdateDependentBranchDescription),
+        SnapshotDetails::new(OperationKind::UpdateDependentBranchPrNumber),
         guard.write_permission(),
     );
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
-    stack.set_forge_id(ctx, &head_name, forge_id)
+    stack.set_pr_number(ctx, &head_name, pr_number)
 }
 
 /// Pushes all series in the stack to the remote.
@@ -320,7 +320,7 @@ pub(crate) fn stack_series(
             upstream_reference,
             patches,
             upstream_patches,
-            forge_id: series.head.forge_id,
+            pr_number: series.head.pr_number,
             archived: series.head.archived,
         });
     }

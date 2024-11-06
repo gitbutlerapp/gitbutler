@@ -14,7 +14,7 @@ use gitbutler_repo::{
     LogUntil, RepositoryExt,
 };
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{BranchOwnershipClaims, ForgeIdentifier, Stack, StackId};
+use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use tracing::instrument;
 
@@ -124,7 +124,7 @@ impl BranchManager<'_> {
         &self,
         target: &Refname,
         upstream_branch: Option<RemoteRefname>,
-        forge_id: Option<ForgeIdentifier>,
+        pr_number: Option<usize>,
         perm: &mut WorktreeWritePermission,
     ) -> Result<StackId> {
         // only set upstream if it's not the default target
@@ -252,8 +252,8 @@ impl BranchManager<'_> {
             )
         };
 
-        if let (Some(forge_id), Some(head)) = (forge_id, branch.heads().last()) {
-            branch.set_forge_id(self.ctx, head, Some(forge_id))?;
+        if let (Some(pr_number), Some(head)) = (pr_number, branch.heads().last()) {
+            branch.set_pr_number(self.ctx, head, Some(pr_number))?;
         }
         branch.set_stack_head(self.ctx, head_commit.id(), Some(head_commit_tree.id()))?;
         self.ctx.add_branch_reference(&branch)?;
