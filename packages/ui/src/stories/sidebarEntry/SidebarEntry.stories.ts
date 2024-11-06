@@ -6,7 +6,6 @@ const meta = {
 	component: DemoSidebarEntry,
 	argTypes: {
 		selected: { control: 'boolean' },
-		title: { control: 'text' },
 		applied: { control: 'boolean' },
 		pullRequestDetails: { control: 'object' },
 		lastCommitDetails: { control: 'object' },
@@ -19,9 +18,22 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+const dummySeries = [
+	'feature/add-user-auth',
+	'bugfix/fix-login-error',
+	'hotfix/update-ssl-cert',
+	'feature/improve-dashboard-ui',
+	'release/v1.2.0',
+	'feature/refactor-api-endpoints',
+	'bugfix/remove-duplicate-entries',
+	'chore/update-dependencies',
+	'feature/add-password-reset',
+	'hotfix/correct-typo-in-readme'
+];
+
 export const SidebarEntry: Story = {
 	args: {
-		title: 'best branch ever',
+		series: dummySeries,
 		selected: false,
 		applied: false,
 		pullRequestDetails: undefined,
@@ -41,7 +53,7 @@ export const SidebarEntry: Story = {
 
 export const SidebarEntryPr: Story = {
 	args: {
-		title: 'best branch ever',
+		series: dummySeries,
 		selected: false,
 		applied: false,
 
@@ -68,7 +80,7 @@ export const SidebarEntryPr: Story = {
 
 export const SidebarEntryInWorkspace: Story = {
 	args: {
-		title: 'best branch ever',
+		series: dummySeries,
 		selected: false,
 		applied: true,
 

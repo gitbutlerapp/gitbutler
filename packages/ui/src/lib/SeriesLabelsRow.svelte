@@ -4,22 +4,23 @@
 	interface Props {
 		series: string[];
 		showCounterLabel?: boolean;
+		selected?: boolean;
 	}
 
-	const { series, showCounterLabel }: Props = $props();
+	const { series, selected, showCounterLabel }: Props = $props();
 </script>
 
 <div class="series-labels-row">
-	<div class="stack-icon">
+	<div class="stack-icon" class:selected>
 		<Icon name={series.length > 1 ? 'chain-link' : 'branch-small'} />
 	</div>
 
-	<div class="series-name text-12 text-semibold" class:contrast={showCounterLabel}>
+	<div class="series-name text-12 text-semibold" class:contrast={showCounterLabel} class:selected>
 		<span class="truncate">{series[0]}</span>
 	</div>
 
-	{#if showCounterLabel}
-		<div class="series-name text-12 text-semibold">
+	{#if showCounterLabel && series.length > 1}
+		<div class="series-name text-12 text-semibold" class:selected>
 			<span class="truncate">{series.length - 1} more</span>
 		</div>
 	{/if}
@@ -31,6 +32,7 @@
 		align-items: center;
 		gap: 4px;
 		width: fit-content;
+		max-width: 100%;
 		overflow: hidden;
 	}
 
@@ -44,6 +46,10 @@
 		color: var(--clr-text-2);
 		background-color: var(--clr-theme-ntrl-soft);
 		border-radius: var(--radius-m);
+
+		&.selected {
+			background-color: var(--clr-theme-ntrl-soft-hover);
+		}
 	}
 
 	.series-name {
@@ -60,6 +66,10 @@
 
 		&.contrast {
 			color: var(--clr-text-1);
+		}
+
+		&.selected {
+			background-color: var(--clr-theme-ntrl-soft-hover);
 		}
 	}
 </style>
