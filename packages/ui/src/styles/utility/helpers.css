@@ -57,3 +57,27 @@ pre {
 	user-select: none;
 	cursor: default;
 }
+
+/* ANIMATION */
+
+.wiggle-animation {
+	animation: wiggle-animation 0.35s forwards;
+}
+
+@keyframes wiggle-animation {
+	0% {
+		transform: translateX(-3px);
+	}
+	25% {
+		transform: translateX(3px);
+	}
+	50% {
+		transform: translateX(-2px);
+	}
+	75% {
+		transform: translateX(2px);
+	}
+	100% {
+		transform: translateX(0);
+	}
+}

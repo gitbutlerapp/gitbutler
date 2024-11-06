@@ -71,28 +71,6 @@ body {
 
 /* STATES */
 
-.wiggle-animation {
-	animation: wiggle-animation 0.35s forwards;
-}
-
-@keyframes wiggle-animation {
-	0% {
-		transform: translateX(-3px);
-	}
-	25% {
-		transform: translateX(3px);
-	}
-	50% {
-		transform: translateX(-2px);
-	}
-	75% {
-		transform: translateX(2px);
-	}
-	100% {
-		transform: translateX(0);
-	}
-}
-
 .series-highlight-animation {
 	/* border: 1px solid red; */
 	animation: series-highlight-animation 0.9s forwards;
