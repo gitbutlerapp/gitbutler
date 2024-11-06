@@ -15,6 +15,11 @@
 		"process:default",
 		"shell:allow-open",
 		"store:default",
-		"updater:default"
+		"updater:default",
+		"http:allow-fetch",
+		{
+      "identifier": "http:default",
+      "allow": [{ "url": "http://127.0.0.1:*" }, { "url": "http://localhost:*" }]
+    }
 	]
 }

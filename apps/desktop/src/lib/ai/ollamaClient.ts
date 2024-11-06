@@ -148,7 +148,7 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 						'Content-Type': 'application/json'
 					},
 					body
-				})
+				}).then(async (response) => await response.json())
 		);
 	}
 
@@ -172,11 +172,11 @@ ${JSON.stringify(OLLAMA_CHAT_MESSAGE_FORMAT_SCHEMA, null, 2)}`
 		});
 
 		return andThen(result, (result) => {
-			if (!isOllamaChatResponse(result.data)) {
+			if (!isOllamaChatResponse(result)) {
 				return buildFailureFromAny('Invalid response\n' + JSON.stringify(result.data));
 			}
 
-			return ok(result.data);
+			return ok(result);
 		});
 	}
 }
