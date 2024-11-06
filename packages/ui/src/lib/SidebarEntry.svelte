@@ -189,7 +189,7 @@
 
 		&:not(.selected):hover {
 			&::after {
-				background-color: var(--clr-scale-ntrl-50);
+				background-color: var(--clr-scale-ntrl-60);
 				transform: translateX(0);
 			}
 		}
