@@ -19,3 +19,7 @@ serde = { workspace = true, features = ["std"] }
 bstr.workspace = true
 tokio.workspace = true
 uuid = { workspace = true, features = ["fast-rng"] }
+
+[[test]]
+name = "hunk-dependency"
+path = "tests/mod.rs"

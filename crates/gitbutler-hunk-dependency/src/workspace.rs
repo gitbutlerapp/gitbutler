@@ -444,7 +444,7 @@ mod tests {
                     commit_id: commit1_id,
                     files: vec![InputFile {
                         path: path.to_owned(),
-                        diffs: vec![InputDiff::try_from(
+                        diffs: vec![InputDiff::try_from((
                             "@@ -1,6 +1,7 @@
 1
 2
@@ -454,7 +454,8 @@ mod tests {
 6
 7
 ",
-                        )?],
+                            gitbutler_diff::ChangeType::Modified,
+                        ))?],
                     }],
                 }],
             },
@@ -465,7 +466,7 @@ mod tests {
                     files: vec![InputFile {
                         path: path.to_owned(),
                         diffs: vec![
-                            InputDiff::try_from(
+                            InputDiff::try_from((
                                 "@@ -1,5 +1,3 @@
 -1
 -2
@@ -473,8 +474,9 @@ mod tests {
 5
 6
 ",
-                            )?,
-                            InputDiff::try_from(
+                                gitbutler_diff::ChangeType::Modified,
+                            ))?,
+                            InputDiff::try_from((
                                 "@@ -10,6 +8,7 @@
 10
 11
@@ -484,7 +486,8 @@ mod tests {
 15
 16
 ",
-                            )?,
+                                gitbutler_diff::ChangeType::Modified,
+                            ))?,
                         ],
                     }],
                 }],

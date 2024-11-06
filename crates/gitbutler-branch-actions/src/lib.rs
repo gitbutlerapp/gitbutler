@@ -32,6 +32,7 @@ mod base;
 pub use base::BaseBranch;
 
 mod dependencies;
+pub use dependencies::compute_workspace_dependencies;
 
 pub mod upstream_integration;
 
