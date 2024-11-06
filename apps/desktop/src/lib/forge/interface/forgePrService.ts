@@ -5,7 +5,7 @@ import type { Writable } from 'svelte/store';
 
 export const [getForgePrService, createForgePrServiceStore] = buildContextStore<
 	ForgePrService | undefined
->('gitBranchService');
+>('forgePrService');
 
 export interface ForgePrService {
 	loading: Writable<boolean>;
@@ -20,4 +20,8 @@ export interface ForgePrService {
 	merge(method: MergeMethod, prNumber: number): Promise<void>;
 	reopen(prNumber: number): Promise<void>;
 	prMonitor(prNumber: number): ForgePrMonitor;
+	update(
+		prNumber: number,
+		details: { description?: string; state?: 'open' | 'closed' }
+	): Promise<void>;
 }

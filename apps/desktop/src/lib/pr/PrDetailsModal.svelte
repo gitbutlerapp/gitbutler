@@ -21,6 +21,8 @@
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { type DetailedPullRequest, type PullRequest } from '$lib/forge/interface/types';
+	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
@@ -39,8 +41,8 @@
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import ToggleButton from '@gitbutler/ui/ToggleButton.svelte';
+	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
-	import type { DetailedPullRequest, PullRequest } from '$lib/forge/interface/types';
 
 	interface BaseProps {
 		type: 'display' | 'preview' | 'preview-series';
@@ -165,6 +167,9 @@
 			error('Pull request service not available');
 			return;
 		}
+		if (props.type !== 'preview-series') {
+			return;
+		}
 
 		isLoading = true;
 		try {
@@ -203,6 +208,9 @@
 				return;
 			}
 
+			// All ids that existed prior to creating a new one (including archived).
+			const priorIds = branch.series.map((series) => series.prNumber).filter(isDefined);
+
 			const pr = await $prService.createPr({
 				title: params.title,
 				body: params.body,
@@ -210,12 +218,17 @@
 				baseBranchName,
 				upstreamName: upstreamBranchName
 			});
-			if (props.type === 'preview-series') {
-				await branchController.updateSeriesPrNumber(
-					props.stackId,
-					props.currentSeries.name,
-					pr.number
-				);
+
+			// Store the new pull request number with the branch data.
+			await branchController.updateBranchPrNumber(
+				props.stackId,
+				props.currentSeries.name,
+				pr.number
+			);
+
+			// If we now have two or more pull requests we add a stack table to the description.
+			if (priorIds.length > 0) {
+				updatePrStackInfo($prService, priorIds.concat([pr.number]));
 			}
 		} catch (err: any) {
 			console.error(err);
