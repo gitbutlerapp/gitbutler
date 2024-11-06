@@ -1,14 +1,16 @@
 <script lang="ts">
 	import Tooltip from './Tooltip.svelte';
 	import Icon from '$lib/Icon.svelte';
+	import SeriesLabelsRow from '$lib/SeriesLabelsRow.svelte';
 	import TimeAgo from '$lib/TimeAgo.svelte';
 	import { onMount, type Snippet } from 'svelte';
 
 	interface Props {
 		onMouseDown?: () => void;
 		onFirstSeen?: () => void;
+		title?: string;
+		series?: string[];
 		selected?: boolean;
-		title: string;
 		applied?: boolean;
 		pullRequestDetails?: { title: string; draft: boolean };
 		lastCommitDetails?: { authorName: string; lastCommitAt?: Date };
@@ -21,9 +23,10 @@
 	const {
 		onMouseDown = () => {},
 		onFirstSeen = () => {},
+		title,
+		series,
 		selected = false,
 		applied = false,
-		title,
 		pullRequestDetails,
 		lastCommitDetails,
 		branchDetails,
@@ -62,9 +65,15 @@
 	onmousedown={onMouseDown}
 	bind:this={intersectionTarget}
 >
-	<h4 class="text-13 text-semibold branch-name">
-		{title}
-	</h4>
+	{#if series}
+		<SeriesLabelsRow {series} showCounterLabel {selected} />
+	{/if}
+
+	{#if title}
+		<h4 class="text-13 text-semibold branch-name">
+			{title}
+		</h4>
+	{/if}
 
 	<div class="row">
 		<div class="authors-and-tags">
@@ -184,10 +193,15 @@
 			left: 0;
 			width: 4px;
 			height: 100%;
-			background-color: var(--clr-theme-pop-element);
 			transform: translateX(-100%);
-
 			transition: transform var(--transition-medium);
+		}
+
+		&:not(.selected):hover {
+			&::after {
+				background-color: var(--clr-scale-ntrl-60);
+				transform: translateX(0);
+			}
 		}
 	}
 
@@ -228,8 +242,6 @@
 	.tag-local,
 	.tag-remote {
 		border: 1px solid var(--clr-border-2);
-		/* background-color: color-mix(in srgb, var(--clr-scale-ntrl-60), transparent 70%);
-		color: var(--clr-text-1); */
 	}
 
 	.tag-pr,
@@ -306,18 +318,13 @@
 		color: var(--clr-scale-ntrl-50);
 	}
 
-	.branch:not(.selected):hover,
-	.branch:not(.selected):focus {
-		background-color: var(--clr-bg-1-muted);
-		transition: none;
-	}
-
 	/* MODIFIERS */
 
 	.selected {
-		background-color: var(--clr-bg-2);
+		background-color: var(--clr-bg-1-muted);
 
 		&::after {
+			background-color: var(--clr-theme-pop-element);
 			transform: translateX(0);
 		}
 	}

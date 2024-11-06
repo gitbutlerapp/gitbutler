@@ -1,9 +1,9 @@
 <script lang="ts">
-	import SeriesRowLabels from './header/SeriesRowLabels.svelte';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
 	import type { Persisted } from '@gitbutler/shared/persisted';
 
 	interface Props {
@@ -53,7 +53,7 @@
 						{uncommittedChanges === 1 ? 'change' : 'changes'}
 					</Button>
 				{/if}
-				<SeriesRowLabels series={nonArchivedSeries} disableSelector />
+				<SeriesLabelsRow series={nonArchivedSeries.map((s) => s.name)} showCounterLabel />
 			</div>
 
 			<div class="collapsed-lane__info__details">

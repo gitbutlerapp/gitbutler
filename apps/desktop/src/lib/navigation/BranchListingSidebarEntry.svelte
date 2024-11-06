@@ -108,10 +108,14 @@
 			avatars = [];
 		}
 	}
+
+	const stackBranches = branchListing.virtualBranch?.stackBranches;
+	const filteredStackBranches =
+		stackBranches && stackBranches.length > 0 ? stackBranches : [branchListing.name];
 </script>
 
 <SidebarEntry
-	title={branchListing.name}
+	series={filteredStackBranches}
 	remotes={branchListing.remotes}
 	local={branchListing.hasLocal}
 	applied={branchListing.virtualBranch?.inWorkspace}

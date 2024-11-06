@@ -2,6 +2,7 @@
 	import Select from '$lib/select/Select.svelte';
 	import { PatchSeries } from '$lib/vbranches/types';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
 
 	interface Props {
 		series: PatchSeries[];
@@ -15,14 +16,7 @@
 </script>
 
 <div class="stack-series-row">
-	<div class="stack-icon">
-		<Icon name={series.length > 1 ? 'chain-link' : 'branch-small'} />
-	</div>
-
-	<div class="series-name text-12 text-semibold">
-		<span class="truncate">{series[0]?.name}</span>
-	</div>
-
+	<SeriesLabelsRow series={series.map((s) => s.name)} />
 	<!-- Selector -->
 	{#if disableSelector}
 		<div class="series-name text-12 text-semibold">

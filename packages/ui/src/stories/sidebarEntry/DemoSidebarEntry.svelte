@@ -12,6 +12,7 @@
 		branchDetails?: { commitCount: number; linesAdded: number; linesRemoved: number };
 		remotes?: string[];
 		local?: boolean;
+		series: string[];
 	}
 
 	const { ...args }: Props = $props();
