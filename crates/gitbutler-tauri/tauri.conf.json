@@ -28,7 +28,7 @@
 				"depends": ["webkit2gtk4.1"]
 			},
 			"deb": {
-				"depends": ["libwebkit2gtk-4.1", "libgtk-3-0"]
+				"depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0"]
 			}
 		}
 	},
