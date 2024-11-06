@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SeriesRowLabels from './SeriesRowLabels.svelte';
+	import SeriesRowLabels from './SeriesLabels.svelte';
 	import BranchLaneContextMenu from '$lib/branch/BranchLaneContextMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { PatchSeries } from '$lib/vbranches/types';

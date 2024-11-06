@@ -108,6 +108,8 @@
 			avatars = [];
 		}
 	}
+
+	// console.log('branchListing', branchListing.virtualBranch?.stackBranches);
 </script>
 
 <SidebarEntry
