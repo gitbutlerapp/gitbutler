@@ -90,7 +90,7 @@ curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 
 3. Node
 
-Next, ensure you've got at least Node 20 installed. If you're on Mac OS or Linux and you're missing `node`, you can use your favorite package manager like `brew` or `apt`. 
+Next, ensure you've got at least Node 20 installed. If you're on Mac OS or Linux and you're missing `node`, you can use your favorite package manager like `brew` or `apt`.
 
 Alternatively, you can use the following Node installer from Vercel to get the latest version.
 
@@ -108,7 +108,6 @@ cd gitbutler-repo
 corepack enable
 pnpm install # This should now ask you to confirm download, install, and use of pnpm
 ```
-
 
 ### Install dependencies
 
