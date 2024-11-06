@@ -24,6 +24,7 @@ export const DefaultStory: Story = {
 			'feature/add-password-reset',
 			'hotfix/correct-typo-in-readme'
 		],
-		showCounterLabel: true
+		showCounterLabel: true,
+		selected: false
 	}
 };
