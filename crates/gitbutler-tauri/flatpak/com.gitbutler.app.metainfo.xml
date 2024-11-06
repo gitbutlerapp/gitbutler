@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.gitbutler.app</id>
+  <name>GitButler</name>
+
+  <developer id="com.gitbutler">
+    <name>GitButler Team</name>
+  </developer>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-FSL-1.1-MIT=https://github.com/gitbutlerapp/gitbutler/blob/master/LICENSE.md</project_license>
+
+  <url type="homepage">https://gitbutler.com/</url>
+  <url type="bugtracker">https://github.com/gitbutlerapp/gitbutler/issues</url>
+  <url type="help">https://docs.gitbutler.com/</url>
+
+  <summary>Git branch management tool</summary>
+
+  <icon type="stock">com.gitbutler.app</icon>
+  <description>
+    <p>VSCodium combines the simplicity of a code editor with what developers need for the core
+      edit-build-debug cycle.</p>
+  </description>
+  <categories>
+    <category>Development</category>
+  </categories>
+  <branding>
+    <color type="primary" scheme_preference="light">#3cb4ae</color>
+    <color type="primary" scheme_preference="dark">#3cb4ae</color>
+  </branding>
+  <launchable type="desktop-id">com.gitbutler.app.desktop</launchable>
+  <releases>
+    <release version="0.13.11" date="2024-11-05">
+      <description></description>
+    </release>
+  </releases>
+
+  <provides>
+    <binary>git-butler</binary>
+  </provides>
+</component>
