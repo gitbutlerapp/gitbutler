@@ -1,406 +1,222 @@
-use crate::{conflicts::RepoConflictsExt, status::get_applied_status, VirtualBranchesExt};
-use anyhow::{anyhow, bail, Context, Result};
-use gitbutler_command_context::CommandContext;
-use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_project::access::WorktreeWritePermission;
-use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt};
-use gitbutler_stack::{OwnershipClaim, StackId};
-use gitbutler_workspace::checkout_branch_trees;
 use std::collections::HashMap;
 
-/// moves commit from the branch it's in to the top of the target branch
+use anyhow::{anyhow, bail};
+use anyhow::{Context, Result};
+use gitbutler_command_context::CommandContext;
+use gitbutler_hunk_dependency::locks::HunkDependencyResult;
+use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_repo::rebase::cherry_rebase_group;
+use gitbutler_repo::{LogUntil, RepositoryExt};
+use gitbutler_stack::StackId;
+use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
+
+use crate::dependencies::commit_dependencies_from_workspace;
+use crate::{compute_workspace_dependencies, BranchStatus};
+use crate::{conflicts::RepoConflictsExt, VirtualBranchesExt};
+
+/// move a commit from one stack to another
+///
+/// commit will end up at the top of the destination stack
 pub(crate) fn move_commit(
     ctx: &CommandContext,
     target_stack_id: StackId,
-    commit_id: git2::Oid,
+    subject_commit_oid: git2::Oid,
     perm: &mut WorktreeWritePermission,
     source_stack_id: StackId,
 ) -> Result<()> {
     ctx.assure_resolved()?;
     let vb_state = ctx.project().virtual_branches();
+    let repo = ctx.repository();
 
     let applied_stacks = vb_state
         .list_stacks_in_workspace()
         .context("failed to read virtual branches")?;
 
     if !applied_stacks.iter().any(|b| b.id == target_stack_id) {
-        bail!("branch {target_stack_id} is not among applied branches")
+        bail!("Destination branch not found");
     }
-
-    let mut applied_statuses = get_applied_status(ctx, None)?.branches;
-
-    let (ref mut source_branch, source_status) = applied_statuses
-        .iter_mut()
-        .find(|(b, _)| b.id == source_stack_id)
-        .ok_or_else(|| anyhow!("the source branch could not be found"))?;
-
-    let is_head_commit = commit_id == source_branch.head();
-    let source_branch_non_comitted_files = source_status;
-
-    let source_commit = ctx
-        .repository()
-        .find_commit(commit_id)
-        .with_context(|| format!("commit {commit_id} to be moved could not be found"))?;
-
-    if source_commit.is_conflicted() {
-        bail!("Can not move conflicted commits");
-    }
-
-    let source_commit_parent = source_commit
-        .parent(0)
-        .context("failed to get parent commit")?;
-    let source_commit_tree = source_commit.tree().context("failed to get commit tree")?;
-    let source_commit_parent_tree = source_commit_parent
-        .tree()
-        .context("failed to get parent tree")?;
-    let source_commit_diff = gitbutler_diff::trees(
-        ctx.repository(),
-        &source_commit_parent_tree,
-        &source_commit_tree,
-        true,
-    )?;
 
     let default_target = vb_state.get_default_target()?;
-    let merge_base = ctx
-        .repository()
-        .merge_base(default_target.sha, commit_id)
-        .context("failed to find merge base")?;
-    let merge_base = ctx
-        .repository()
-        .find_commit(merge_base)
-        .context("failed to find merge base")?;
+    let default_target_commit = repo.find_commit(default_target.sha)?;
 
-    let source_commit_diff: HashMap<_, _> =
-        gitbutler_diff::diff_files_into_hunks(source_commit_diff).collect();
-    let is_source_locked = check_source_lock(source_branch_non_comitted_files, &source_commit_diff);
+    let mut source_stack = vb_state
+        .try_stack(source_stack_id)?
+        .ok_or(anyhow!("Source stack not found"))?;
 
-    let mut ancestor_commits = ctx.repository().log(
-        source_commit_parent.id(),
-        LogUntil::Commit(merge_base.id()),
-        false,
-    )?;
-    ancestor_commits.push(merge_base);
-    let ancestor_commits = ancestor_commits;
+    let destination_stack = vb_state
+        .try_stack(target_stack_id)?
+        .ok_or(anyhow!("Destination branch not found"))?;
 
-    let mut descendant_commits = None;
-    if !is_head_commit {
-        descendant_commits = Some(ctx.repository().log(
-            source_branch.head(),
-            LogUntil::Commit(commit_id),
-            false,
-        )?);
-    }
+    let subject_commit = repo
+        .find_commit(subject_commit_oid)
+        .with_context(|| format!("commit {subject_commit_oid} to be moved could not be found"))?;
 
-    let is_ancestor_locked =
-        check_source_lock_to_commits(ctx.repository(), &ancestor_commits, &source_commit_diff);
+    let source_branch_diffs = get_source_branch_diffs(ctx, &source_stack)?;
 
-    if is_source_locked {
-        bail!("the source branch contains hunks locked to the target commit")
-    }
-
-    if is_ancestor_locked {
-        bail!("the target commit contains hunks locked to its ancestors")
-    }
-
-    if let Some(commits_to_check) = descendant_commits.as_mut() {
-        // we append the source commit so that we can create the diff between
-        // the source commit and its first descendant
-        let mut commits_to_check = commits_to_check.clone();
-        commits_to_check.push(source_commit.clone());
-        let is_descendant_locked =
-            check_source_lock_to_commits(ctx.repository(), &commits_to_check, &source_commit_diff);
-
-        if is_descendant_locked {
-            bail!("the target commit contains hunks locked to its descendants")
-        }
-    }
-
-    // move files ownerships from source branch to the destination branch
-
-    let ownerships_to_transfer = source_commit_diff
-        .iter()
-        .map(|(file_path, hunks)| {
-            (
-                file_path.clone(),
-                hunks.iter().map(Into::into).collect::<Vec<_>>(),
-            )
-        })
-        .map(|(file_path, hunks)| OwnershipClaim { file_path, hunks })
-        .flat_map(|file_ownership| source_branch.ownership.take(&file_ownership))
-        .collect::<Vec<_>>();
-
-    // move the commit to destination branch target branch
-
-    let mut destination_stack = vb_state.get_stack_in_workspace(target_stack_id)?;
-
-    for ownership in ownerships_to_transfer {
-        destination_stack.ownership.put(ownership);
-    }
-
-    let new_destination_head_oid = cherry_rebase_group(
-        ctx.repository(),
-        destination_stack.head(),
-        &[source_commit.id()],
+    let workspace_dependencies = compute_workspace_dependencies(
+        ctx,
+        &default_target.sha,
+        &source_branch_diffs,
+        &applied_stacks,
     )?;
 
-    // if the source commit has children, move them to the source commit's parent
+    take_commit_from_source_stack(
+        ctx,
+        repo,
+        default_target_commit,
+        &mut source_stack,
+        subject_commit,
+        &workspace_dependencies,
+    )?;
 
-    let mut new_source_head_oid = source_commit_parent.id();
-    if let Some(child_commits) = descendant_commits.as_ref() {
-        let ids_to_rebase: Vec<git2::Oid> = child_commits.iter().map(|c| c.id()).collect();
-        new_source_head_oid =
-            cherry_rebase_group(ctx.repository(), source_commit_parent.id(), &ids_to_rebase)?;
-    }
-
-    // reset the source branch to the newer parent commit
-    // and update the destination branch head
-    source_branch.set_stack_head(ctx, new_source_head_oid, None)?;
-    vb_state.set_stack(source_branch.clone())?;
-
-    destination_stack.set_stack_head(ctx, new_destination_head_oid, None)?;
+    move_commit_to_destination_stack(ctx, repo, destination_stack, subject_commit_oid)?;
 
     checkout_branch_trees(ctx, perm)?;
-
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
 
     Ok(())
 }
 
-/// determines if the uncommitted files are locked to commit
-fn check_source_lock(
-    source_branch_non_comitted_files: &[crate::file::VirtualBranchFile],
-    source_commit_diff: &HashMap<std::path::PathBuf, Vec<gitbutler_diff::GitHunk>>,
-) -> bool {
-    let is_source_locked = source_branch_non_comitted_files.iter().any(|file| {
-        source_commit_diff
-            .get(&file.path)
-            .map_or(false, |source_diff_hunks| {
-                file.hunks.iter().any(|hunk| {
-                    let hunk: gitbutler_diff::GitHunk = hunk.clone().into();
-                    source_diff_hunks.iter().any(|source_hunk| {
-                        lines_overlap(
-                            source_hunk.new_start,
-                            source_hunk.new_start + source_hunk.new_lines,
-                            hunk.new_start,
-                            hunk.new_start + hunk.new_lines,
-                        )
-                    })
-                })
-            })
-    });
-    is_source_locked
+fn get_source_branch_diffs(
+    ctx: &CommandContext,
+    source_stack: &gitbutler_stack::Stack,
+) -> Result<BranchStatus> {
+    let repo = ctx.repository();
+    let source_stack_head = repo.find_commit(source_stack.head())?;
+    let source_stack_head_tree = source_stack_head.tree()?;
+    let uncommitted_changes_tree = repo.find_tree(source_stack.tree)?;
+
+    let uncommitted_changes_diff = gitbutler_diff::trees(
+        repo,
+        &source_stack_head_tree,
+        &uncommitted_changes_tree,
+        true,
+    )
+    .map(|diff| gitbutler_diff::diff_files_into_hunks(diff).collect::<HashMap<_, _>>())?;
+
+    Ok(uncommitted_changes_diff)
 }
 
-/// determines if the source commit is locked to any commits
+/// Remove the commit from the source stack.
 ///
-/// The commits are used to calculate the diffs between them in the following way:
-/// - Let A be the source commit and B, C its ancestors.
-/// - `source_commit_diff` is the diff between A and B
-/// - `commits` is a list of commits [B, C]
-/// - This function calculates the  diff between B and C check it against the hunks in `source_commit_diff`
-fn check_source_lock_to_commits(
-    repository: &git2::Repository,
-    commits: &Vec<git2::Commit>,
-    source_commit_diff: &HashMap<std::path::PathBuf, Vec<gitbutler_diff::GitHunk>>,
-) -> bool {
-    let mut previous: Option<&git2::Commit> = None;
+/// Will fail if the commit is not in the source stack or if has dependent changes.
+fn take_commit_from_source_stack(
+    ctx: &CommandContext,
+    repo: &git2::Repository,
+    default_target_commit: git2::Commit<'_>,
+    source_stack: &mut gitbutler_stack::Stack,
+    subject_commit: git2::Commit<'_>,
+    workspace_dependencies: &HunkDependencyResult,
+) -> Result<(), anyhow::Error> {
+    let commit_dependencies = commit_dependencies_from_workspace(
+        workspace_dependencies,
+        source_stack.id,
+        subject_commit.id(),
+    );
 
-    for commit in commits {
-        if previous.is_none() {
-            previous = Some(commit);
-            continue;
-        }
-
-        let previous_commit = previous.take().unwrap();
-
-        let old_tree = commit.tree().unwrap();
-        let new_tree = previous_commit.tree().unwrap();
-
-        let diff = gitbutler_diff::trees(repository, &old_tree, &new_tree, true);
-
-        if diff.is_err() {
-            previous = Some(commit);
-            continue;
-        }
-
-        let diff = diff.unwrap();
-        let diff: HashMap<_, _> = gitbutler_diff::diff_files_into_hunks(diff).collect();
-
-        let is_source_locked = diff.iter().any(|(file_path, hunks)| {
-            source_commit_diff
-                .get(file_path)
-                .map_or(false, |source_hunks| {
-                    hunks.iter().any(|hunk| {
-                        source_hunks.iter().any(|source_hunk| {
-                            lines_overlap(
-                                hunk.new_start,
-                                hunk.new_start + hunk.new_lines,
-                                source_hunk.new_start,
-                                source_hunk.new_start + source_hunk.new_lines,
-                            )
-                        })
-                    })
-                })
-        });
-
-        if is_source_locked {
-            return true;
-        }
-
-        previous = Some(commit);
+    if !commit_dependencies.dependencies.is_empty() {
+        bail!("Commit depends on other changes");
     }
 
-    false
+    if !commit_dependencies.reverse_dependencies.is_empty() {
+        bail!("Commit has dependent changes");
+    }
+
+    if !commit_dependencies.dependent_diffs.is_empty() {
+        bail!("Commit has dependent uncommitted changes");
+    }
+
+    let source_merge_base_oid = repo.merge_base(default_target_commit.id(), source_stack.head())?;
+    let source_commits_without_subject =
+        filter_out_commit(repo, source_stack, source_merge_base_oid, &subject_commit)?;
+
+    let new_source_head =
+        cherry_rebase_group(repo, source_merge_base_oid, &source_commits_without_subject)?;
+
+    let BranchHeadAndTree {
+        head: new_head_oid,
+        tree: new_tree_oid,
+    } = compute_updated_branch_head(repo, source_stack, new_source_head)?;
+
+    let subject_parent = subject_commit.parent(0)?;
+    source_stack.replace_head(ctx, &subject_commit, &subject_parent)?;
+    source_stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
+    Ok(())
 }
 
-fn lines_overlap(start_a: u32, end_a: u32, start_b: u32, end_b: u32) -> bool {
-    ((start_a >= start_b && start_a <= end_b) || (end_a >= start_b && end_a <= end_b))
-        || ((start_b >= start_a && start_b <= end_a) || (end_b >= start_a && end_b <= end_a))
+/// Move the commit to the destination stack.
+fn move_commit_to_destination_stack(
+    ctx: &CommandContext,
+    repo: &git2::Repository,
+    mut destination_stack: gitbutler_stack::Stack,
+    commit_id: git2::Oid,
+) -> Result<(), anyhow::Error> {
+    let destination_head_commit_oid = destination_stack.head();
+    let new_destination_head_oid =
+        cherry_rebase_group(repo, destination_head_commit_oid, &[commit_id])?;
+
+    let BranchHeadAndTree {
+        head: new_destination_head_oid,
+        tree: new_destination_tree_oid,
+    } = compute_updated_branch_head(repo, &destination_stack, new_destination_head_oid)?;
+
+    destination_stack.set_stack_head(
+        ctx,
+        new_destination_head_oid,
+        Some(new_destination_tree_oid),
+    )?;
+    Ok(())
 }
 
-#[cfg(test)]
-mod tests {
-    use gitbutler_diff::Hunk;
+struct FilterOutCommitResult {
+    found: bool,
+    source_commits_without_subject: Vec<git2::Oid>,
+}
 
-    use crate::hunk::VirtualBranchHunk;
+/// Filter out the commit from the source stack.
+///
+/// Will fail if the commit is not in the source stack.
+fn filter_out_commit(
+    repo: &git2::Repository,
+    source_stack: &gitbutler_stack::Stack,
+    source_merge_base_oid: git2::Oid,
+    subject_commit: &git2::Commit<'_>,
+) -> Result<Vec<git2::Oid>, anyhow::Error> {
+    let FilterOutCommitResult {
+        found,
+        source_commits_without_subject,
+    } = repo
+        .log(
+            source_stack.head(),
+            LogUntil::Commit(source_merge_base_oid),
+            false,
+        )?
+        .iter()
+        .fold(
+            FilterOutCommitResult {
+                found: false,
+                source_commits_without_subject: vec![],
+            },
+            |result, c| {
+                if c.id() == subject_commit.id() {
+                    FilterOutCommitResult {
+                        found: true,
+                        ..result
+                    }
+                } else {
+                    let mut source_commits_without_subject = result.source_commits_without_subject;
+                    source_commits_without_subject.push(c.id());
+                    FilterOutCommitResult {
+                        source_commits_without_subject,
+                        ..result
+                    }
+                }
+            },
+        );
 
-    use super::*;
-
-    fn create_virtual_branch_files(
-        path: &str,
-        start: u32,
-        end: u32,
-    ) -> Vec<crate::file::VirtualBranchFile> {
-        let source_branch_non_comitted_files = vec![crate::file::VirtualBranchFile {
-            id: path.to_string(),
-            path: path.into(),
-            hunks: vec![VirtualBranchHunk {
-                id: "1-2".into(),
-                diff: "".into(),
-                modified_at: 0,
-                file_path: path.into(),
-                old_start: 0,
-                old_lines: 0,
-                start,
-                end,
-                binary: false,
-                hash: Hunk::hash_diff("".as_bytes()),
-                locked: false,
-                locked_to: None,
-                change_type: gitbutler_diff::ChangeType::Modified,
-                poisoned: false,
-            }],
-            modified_at: 0,
-            conflicted: false,
-            binary: false,
-            large: false,
-        }];
-        source_branch_non_comitted_files
+    if !found {
+        return Err(anyhow!("Commit not found in source stack"));
     }
-
-    fn create_source_commit_diff(
-        path: &str,
-        new_start: u32,
-        new_lines: u32,
-    ) -> HashMap<std::path::PathBuf, Vec<gitbutler_diff::GitHunk>> {
-        let source_commit_diff: HashMap<_, _> = vec![(
-            path.into(),
-            vec![gitbutler_diff::GitHunk {
-                old_start: 0,
-                old_lines: 0,
-                new_start,
-                new_lines,
-                diff_lines: "".into(),
-                binary: false,
-                change_type: gitbutler_diff::ChangeType::Modified,
-            }],
-        )]
-        .into_iter()
-        .collect();
-        source_commit_diff
-    }
-
-    #[test]
-    fn lines_overlap_test() {
-        assert!(!lines_overlap(1, 2, 3, 4));
-        assert!(lines_overlap(1, 4, 2, 3));
-        assert!(lines_overlap(2, 3, 1, 4));
-        assert!(!lines_overlap(3, 4, 1, 2));
-
-        assert!(lines_overlap(1, 2, 2, 3));
-        assert!(lines_overlap(1, 3, 2, 3));
-        assert!(lines_overlap(2, 3, 1, 2));
-
-        assert!(!lines_overlap(1, 1, 2, 2));
-        assert!(lines_overlap(1, 1, 1, 1));
-        assert!(lines_overlap(1, 1, 1, 2));
-        assert!(lines_overlap(1, 2, 2, 2));
-    }
-
-    #[test]
-    fn check_source_lock_test_not_locked_same_file() {
-        let path: &str = "foo.txt";
-
-        let source_branch_non_comitted_files = create_virtual_branch_files(path, 1, 2);
-        let source_commit_diff = create_source_commit_diff(path, 3, 1);
-
-        assert!(!check_source_lock(
-            &source_branch_non_comitted_files,
-            &source_commit_diff
-        ));
-    }
-
-    #[test]
-    fn check_source_lock_test_not_locked_different_file() {
-        let path_1: &str = "foo.txt";
-        let path_2: &str = "bar.txt";
-
-        let source_branch_non_comitted_files = create_virtual_branch_files(path_1, 1, 2);
-        let source_commit_diff = create_source_commit_diff(path_2, 1, 1);
-
-        assert!(!check_source_lock(
-            &source_branch_non_comitted_files,
-            &source_commit_diff
-        ));
-    }
-
-    #[test]
-    fn check_source_lock_test_locked_exact_lines() {
-        let path: &str = "foo.txt";
-
-        let source_branch_non_comitted_files = create_virtual_branch_files(path, 1, 2);
-        let source_commit_diff = create_source_commit_diff(path, 1, 1);
-
-        assert!(check_source_lock(
-            &source_branch_non_comitted_files,
-            &source_commit_diff
-        ));
-    }
-
-    #[test]
-    fn check_source_lock_test_locked_overlapping_files() {
-        let path: &str = "foo.txt";
-
-        let source_branch_non_comitted_files = create_virtual_branch_files(path, 1, 4);
-        let source_commit_diff = create_source_commit_diff(path, 3, 4);
-
-        assert!(check_source_lock(
-            &source_branch_non_comitted_files,
-            &source_commit_diff
-        ));
-    }
-
-    #[test]
-    fn check_source_lock_test_locked_containing_lines() {
-        let path: &str = "foo.txt";
-
-        let source_branch_non_comitted_files = create_virtual_branch_files(path, 1, 4);
-        let source_commit_diff = create_source_commit_diff(path, 1, 2);
-
-        assert!(check_source_lock(
-            &source_branch_non_comitted_files,
-            &source_commit_diff
-        ));
-    }
+    Ok(source_commits_without_subject)
 }
