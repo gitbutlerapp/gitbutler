@@ -16,6 +16,8 @@
 
 <div class="integration-series-item no-select {type}">
 	<div class="name-label-wrap">
+		<SeriesLabelsRow {series} showCounterLabel selected={type === 'integrated'} />
+
 		{#if type !== 'clear'}
 			<span class="name-label-badge text-11 text-semibold">
 				{#if type === 'conflicted'}
@@ -25,7 +27,6 @@
 				{/if}
 			</span>
 		{/if}
-		<SeriesLabelsRow {series} showCounterLabel selected={type === 'integrated'} />
 	</div>
 
 	{#if select}
@@ -74,12 +75,9 @@
 			overflow: hidden;
 		}
 
-		.name-label {
-			color: var(--clr-text-1);
-		}
-
 		.name-label-badge {
-			padding: 2px 4px;
+			padding: 4px 6px 3px;
+			height: 100%;
 			border-radius: var(--radius-m);
 			color: var(--clr-core-ntrl-100);
 		}
@@ -105,16 +103,11 @@
 		/* MODIFIERS */
 		&.clear {
 			background-color: var(--clr-bg-1);
-
-			.branch-icon {
-				background-color: var(--clr-core-ntrl-50);
-			}
 		}
 
 		&.conflicted {
 			background-color: var(--clr-bg-1);
 
-			.branch-icon,
 			.name-label-badge {
 				background-color: var(--clr-theme-warn-on-element);
 				background-color: var(--clr-theme-warn-element);
@@ -124,7 +117,6 @@
 		&.integrated {
 			background-color: var(--clr-bg-1-muted);
 
-			.branch-icon,
 			.name-label-badge {
 				color: var(--clr-theme-purp-on-element);
 				background-color: var(--clr-theme-purp-element);
