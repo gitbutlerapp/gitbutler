@@ -8,8 +8,8 @@
 	import { type ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { showError } from '$lib/notifications/toasts';
 	import { copyToClipboard } from '$lib/utils/clipboard';
-	import * as toasts from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext } from '@gitbutler/shared/context';
@@ -262,7 +262,7 @@
 							]);
 						} catch (err) {
 							console.error(err);
-							toasts.error('Failed to merge pull request');
+							showError('Failed to merge PR', err);
 						} finally {
 							isMerging = false;
 						}
