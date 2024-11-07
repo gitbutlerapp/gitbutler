@@ -1,7 +1,7 @@
 use crate::gravatar::gravatar_url_from_email;
 use crate::{RemoteBranchFile, VirtualBranchesExt};
 use anyhow::{bail, Context, Result};
-use bstr::{BStr, ByteSlice};
+use bstr::{BStr, BString, ByteSlice};
 use core::fmt;
 use gitbutler_branch::BranchIdentity;
 use gitbutler_branch::ReferenceExtGix;
@@ -127,31 +127,32 @@ pub fn list_branches(
         branches.retain(|branch_listing| branch_names.contains(&branch_listing.name))
     }
 
-    // Get a list of all stack branches (applied or not), in a tuple together with the stack they belong to as a GroupBranch
-    let stack_branches = stacks
+    // Get a list of all stack branches that do not have the same name as the
+    // stack itself.
+    let branch_identities_to_exclude = stacks
         .iter()
+        .filter(|stack| {
+            let Ok(normalized_name) = normalize_branch_name(&stack.name) else {
+                return false;
+            };
+            let head_matches_stack_name = stack
+                .branches()
+                .iter()
+                .any(|branch| branch.name == normalized_name);
+
+            !head_matches_stack_name
+        })
         .flat_map(|s| {
             s.branches()
                 .into_iter()
-                .map(|b| (b, GroupBranch::Virtual(s.clone())))
+                .map(|b| BString::from(b.name))
                 .collect_vec()
         })
         .collect_vec();
 
-    let remotes = repo.remote_names();
-    let mut out = vec![];
-    // Only include branches that are not part of a stack which will be included in the list
-    for branch_listing in &branches {
-        if !stack_branches.iter().any(|(stack_branch, stack)| {
-            stack_branch.name == branch_listing.name.to_string()
-                && branches
-                    .iter()
-                    .any(|listing| Some(listing.name.clone()) == stack.identity(&remotes))
-        }) {
-            out.push(branch_listing.clone())
-        }
-    }
-    Ok(out)
+    branches.retain(|branch| !branch_identities_to_exclude.contains(&(*branch.name).to_owned()));
+
+    Ok(branches)
 }
 
 fn matches_all(branch: &BranchListing, filter: BranchListingFilter) -> bool {
