@@ -51,7 +51,7 @@
 	}
 </script>
 
-{#each nonArchivedSeries as currentSeries, idx (currentSeries.name)}
+{#each nonArchivedSeries as currentSeries, idx}
 	{@const isTopSeries = idx === 0}
 	{#if !isTopSeries}
 		<SeriesDividerLine {currentSeries} />
