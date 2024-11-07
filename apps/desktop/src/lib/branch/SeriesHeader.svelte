@@ -79,7 +79,7 @@
 	const prs = $derived(prStore ? $prStore : undefined);
 
 	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
-	const prNumber = $derived(currentSeries.forgeId?.subject.prNumber || listedPr?.number);
+	const prNumber = $derived(currentSeries.prNumber || listedPr?.number);
 
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 	const pr = $derived(prMonitor?.pr);

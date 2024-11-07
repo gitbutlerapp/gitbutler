@@ -1,6 +1,5 @@
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_reference::LocalRefname;
-use gitbutler_stack::{ForgeIdentifier, GitHubIdentifier};
 
 use super::*;
 
@@ -51,7 +50,7 @@ fn integration() {
         project,
         &branch_name,
         None,
-        Some(ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 })),
+        Some(123),
     )
     .unwrap();
 
@@ -101,10 +100,7 @@ fn integration() {
             .find(|branch| branch.id == branch_id)
             .unwrap();
 
-        assert_eq!(
-            branch.series.first().unwrap().forge_id,
-            Some(ForgeIdentifier::GitHub(GitHubIdentifier { pr_number: 123 }))
-        );
+        assert_eq!(branch.series.first().unwrap().pr_number, Some(123));
 
         assert!(branch.commits[0].is_remote);
         assert!(branch.commits[0].is_integrated);

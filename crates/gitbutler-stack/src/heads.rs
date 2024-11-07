@@ -145,14 +145,14 @@ mod test {
             target: CommitOrChangeId::ChangeId("328447a2-08aa-4c4d-a1bc-08d5cd82bcd4".to_string()),
             name: "kv-branch-3".to_string(),
             description: None,
-            forge_id: None,
+            pr_number: None,
             archived: true,
         };
         let head_2 = Branch {
             target: CommitOrChangeId::ChangeId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
             name: "more-on-top".to_string(),
             description: None,
-            forge_id: None,
+            pr_number: None,
             archived: false,
         };
         let existing_heads = vec![head_1_archived.clone(), head_2.clone()];
@@ -160,7 +160,7 @@ mod test {
             target: CommitOrChangeId::ChangeId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
             name: "abcd".to_string(),
             description: None,
-            forge_id: None,
+            pr_number: None,
             archived: false,
         };
         let patches = vec![

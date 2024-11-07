@@ -161,7 +161,7 @@ pub enum OperationKind {
     RemoveDependentBranch,
     UpdateDependentBranchName,
     UpdateDependentBranchDescription,
-    UpdateDependentBranchForgeId,
+    UpdateDependentBranchPrNumber,
     #[default]
     Unknown,
 }

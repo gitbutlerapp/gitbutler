@@ -23,7 +23,6 @@ use crate::heads::get_head;
 use crate::heads::remove_head;
 use crate::Branch;
 use crate::CommitOrChangeId;
-use crate::ForgeIdentifier;
 use crate::Series;
 use crate::{ownership::BranchOwnershipClaims, VirtualBranchesHandle};
 
@@ -284,7 +283,7 @@ impl Stack {
                 generate_branch_name(author)?
             },
             description: None,
-            forge_id: Default::default(),
+            pr_number: Default::default(),
             archived: Default::default(),
         };
         let state = branch_state(ctx);
@@ -365,7 +364,7 @@ impl Stack {
             target: current_top_head.target.clone(),
             name,
             description,
-            forge_id: Default::default(),
+            pr_number: Default::default(),
             archived: Default::default(),
         };
         self.add_series(ctx, new_head, Some(current_top_head.name.clone()))
@@ -386,7 +385,7 @@ impl Stack {
 
     /// Updates an existing branch in the stack.
     /// The same invariants as `add_branch` apply.
-    /// If the branch name is updated, the forge_id will be reset to None.
+    /// If the branch name is updated, the pr_number will be reset to None.
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
     pub fn update_series(
@@ -447,7 +446,7 @@ impl Stack {
             if let Some(head) = head {
                 head.name = name;
                 validate_name(head, &state)?;
-                head.forge_id = None; // reset forge_id
+                head.pr_number = None; // reset pr_number
             }
         }
 
@@ -739,16 +738,16 @@ impl Stack {
     /// # Errors
     /// If the series does not exist, this method will return an error.
     /// If the stack has not been initialized, this method will return an error.
-    pub fn set_forge_id(
+    pub fn set_pr_number(
         &mut self,
         ctx: &CommandContext,
         series_name: &str,
-        new_forge_id: Option<ForgeIdentifier>,
+        new_pr_number: Option<usize>,
     ) -> Result<()> {
         self.initialized()?;
         match self.heads.iter_mut().find(|r| r.name == series_name) {
             Some(head) => {
-                head.forge_id = new_forge_id;
+                head.pr_number = new_pr_number;
                 branch_state(ctx).set_branch(self.clone())
             }
             None => bail!(

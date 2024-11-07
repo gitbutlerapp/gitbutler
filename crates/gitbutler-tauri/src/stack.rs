@@ -1,7 +1,7 @@
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-use gitbutler_stack::{ForgeIdentifier, StackId};
+use gitbutler_stack::StackId;
 use tauri::State;
 use tracing::instrument;
 
@@ -82,17 +82,17 @@ pub fn update_series_description(
 
 #[tauri::command(async)]
 #[instrument(skip(projects, windows), err(Debug))]
-pub fn update_series_forge_id(
+pub fn update_series_pr_number(
     windows: State<'_, WindowState>,
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
     stack_id: StackId,
     head_name: String,
-    forge_id: Option<ForgeIdentifier>,
+    pr_number: Option<usize>,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
-    gitbutler_branch_actions::stack::update_series_forge_id(
-        &project, stack_id, head_name, forge_id,
+    gitbutler_branch_actions::stack::update_series_pr_number(
+        &project, stack_id, head_name, pr_number,
     )?;
     emit_vbranches(&windows, project_id);
     Ok(())

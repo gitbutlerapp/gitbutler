@@ -29,8 +29,7 @@ use gitbutler_repo::{
 };
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{
-    reconcile_claims, BranchOwnershipClaims, ForgeIdentifier, Stack, StackId, Target,
-    VirtualBranchesHandle,
+    reconcile_claims, BranchOwnershipClaims, Stack, StackId, Target, VirtualBranchesHandle,
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
@@ -97,9 +96,8 @@ pub struct PatchSeries {
     pub patches: Vec<VirtualBranchCommit>,
     /// List of patches that only exist on the upstream branch
     pub upstream_patches: Vec<VirtualBranchCommit>,
-    /// A list of identifiers for the review unit at possible forges (eg. Pull Request).
-    /// The list is empty if there is no review units, eg. no Pull Request has been created.
-    pub forge_id: Option<ForgeIdentifier>,
+    /// The pull request associated with the branch, or None if a pull request has not been created.
+    pub pr_number: Option<usize>,
     /// Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
     /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
     pub archived: bool,
