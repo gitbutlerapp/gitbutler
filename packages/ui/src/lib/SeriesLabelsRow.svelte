@@ -23,8 +23,8 @@
 	</div>
 
 	{#if showCounterLabel && series.length > 1}
-		<div class="series-name text-12 text-semibold" class:selected>
-			<span class="truncate">{series.length - 1} more</span>
+		<div class="series-name more-series text-12 text-semibold" class:selected>
+			<span>{series.length - 1} more</span>
 		</div>
 	{/if}
 </div>
@@ -63,9 +63,8 @@
 		padding: 2px 6px;
 		background-color: var(--clr-theme-ntrl-soft);
 		border-radius: var(--radius-m);
-		width: 100%;
+		/* width: 100%; */
 		overflow: hidden;
-		max-width: fit-content;
 
 		&.contrast {
 			color: var(--clr-text-1);
@@ -74,5 +73,10 @@
 		&.selected {
 			background-color: var(--clr-theme-ntrl-soft-hover);
 		}
+	}
+
+	.more-series {
+		flex-shrink: 0;
+		max-width: fit-content;
 	}
 </style>
