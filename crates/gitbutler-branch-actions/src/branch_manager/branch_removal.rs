@@ -161,33 +161,32 @@ impl BranchManager<'_> {
 }
 
 impl BranchManager<'_> {
-    #[instrument(level = tracing::Level::DEBUG, skip(self, vbranch), err(Debug))]
-    fn build_real_branch(&self, vbranch: &mut Stack) -> Result<git2::Branch<'_>> {
+    #[instrument(level = tracing::Level::DEBUG, skip(self, stack), err(Debug))]
+    fn build_real_branch(&self, stack: &mut Stack) -> Result<git2::Branch<'_>> {
         let repo = self.ctx.repository();
-        let target_commit = repo.find_commit(vbranch.head())?;
-        let branch_name = vbranch.name.clone();
-        let branch_name = normalize_branch_name(&branch_name)?;
+        let target_commit = repo.find_commit(stack.head())?;
+        let branch_name = normalize_branch_name(&stack.id.to_string())?;
 
         let vb_state = self.ctx.project().virtual_branches();
         let branch = repo.branch(&branch_name, &target_commit, true)?;
-        vbranch.source_refname = Some(Refname::try_from(&branch)?);
-        vb_state.set_branch(vbranch.clone())?;
+        stack.source_refname = Some(Refname::try_from(&branch)?);
+        vb_state.set_branch(stack.clone())?;
 
-        self.build_wip_commit(vbranch, &branch)?;
+        self.build_wip_commit(stack, &branch)?;
 
         Ok(branch)
     }
 
     fn build_wip_commit(
         &self,
-        vbranch: &mut Stack,
+        stack: &mut Stack,
         branch: &git2::Branch<'_>,
     ) -> Result<Option<git2::Oid>> {
         let repo = self.ctx.repository();
 
         // Build wip tree as either any uncommitted changes or an empty tree
-        let vbranch_wip_tree = repo.find_tree(vbranch.tree)?;
-        let vbranch_head_tree = repo.find_commit(vbranch.head())?.tree()?;
+        let vbranch_wip_tree = repo.find_tree(stack.tree)?;
+        let vbranch_head_tree = repo.find_commit(stack.head())?.tree()?;
 
         let tree = if vbranch_head_tree.id() != vbranch_wip_tree.id() {
             vbranch_wip_tree
@@ -219,8 +218,8 @@ impl BranchManager<'_> {
 
         let vb_state = self.ctx.project().virtual_branches();
         // vbranch.head = commit_oid;
-        vbranch.not_in_workspace_wip_change_id = Some(commit_headers.change_id);
-        vb_state.set_branch(vbranch.clone())?;
+        stack.not_in_workspace_wip_change_id = Some(commit_headers.change_id);
+        vb_state.set_branch(stack.clone())?;
 
         Ok(Some(commit_oid))
     }
