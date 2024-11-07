@@ -10,7 +10,6 @@
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
-	import { writable } from 'svelte/store';
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'historyLaneWidth';
@@ -19,7 +18,7 @@
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = baseBranchService.base;
 
-	const fileIdSelection = new FileIdSelection(writable([]));
+	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);
 
 	const selectedFile = fileIdSelection.selectedFile;
