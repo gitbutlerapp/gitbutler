@@ -87,14 +87,16 @@ impl Branch {
         }
         let head_commit = head_commit?.head.id();
 
-        let previous_head = commit_by_oid_or_change_id(
-            &stack.branch_base(ctx, self)?,
-            repo,
-            stack.head(),
-            merge_base,
-        )?
-        .head
-        .id();
+        // Find the previous head in the stack - if it is not archived, use it as base
+        // Otherwise use the merge base
+        let previous_head = stack
+            .branch_predacessor(self)
+            .filter(|predacessor| !predacessor.archived)
+            .map_or(merge_base, |predacessor| {
+                commit_by_oid_or_change_id(&predacessor.target, repo, stack.head(), merge_base)
+                    .map(|commit| commit.head.id())
+                    .unwrap_or(merge_base)
+            });
 
         let mut local_patches = vec![];
         for commit in repo
