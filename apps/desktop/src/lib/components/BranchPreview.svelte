@@ -16,7 +16,6 @@
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';
-	import { writable } from 'svelte/store';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
 	export let localBranch: Branch | undefined = undefined;
@@ -26,7 +25,7 @@
 	const remoteBranchService = getContext(RemoteBranchService);
 	const forge = getForge();
 
-	const fileIdSelection = new FileIdSelection(writable([]));
+	const fileIdSelection = new FileIdSelection();
 	setContext(FileIdSelection, fileIdSelection);
 
 	const selectedFile = fileIdSelection.selectedFile;

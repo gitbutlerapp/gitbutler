@@ -1,6 +1,6 @@
 import { RemoteFile, type AnyFile, type LocalFile } from '$lib/vbranches/types';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import { get, writable, type Readable, type Unsubscriber } from 'svelte/store';
+import { writable, type Readable } from 'svelte/store';
 
 export interface FileKey {
 	fileId: string;
@@ -41,10 +41,10 @@ export class FileIdSelection implements Readable<string[]> {
 
 	// A string based selection so we do not emit selection changes
 	// when e.g. list_virtual_branches emits.
-	private selection: string[];
+	private selection: string[] = [];
 
 	// Subscribed callback functions for this custom store.
-	private callbacks: CallBack[];
+	private callbacks: CallBack[] = [];
 
 	// If there is a commit id, this should hold the file.
 	private remoteFiles = new Map<string, RemoteFile>();
@@ -56,31 +56,20 @@ export class FileIdSelection implements Readable<string[]> {
 	// id's have changed.
 	readonly files = writable<AnyFile[]>([]);
 
-	// Unsubscribe function for the readable of uncommitted files.
-	private unsubscribeLocalFiles: Unsubscriber | undefined;
+	// For ucommitted changes we already have the files at hand,
+	// while for committed changes we load the files on-demand.
+	private uncommittedFiles: LocalFile[] = [];
 
-	constructor(
-		private uncommittedFiles: Readable<LocalFile[]>,
-		value: FileKey[] = []
-	) {
-		this.callbacks = [];
-		this.selection = value.map((key) => stringifyKey(key.fileId, key.commitId));
-	}
+	constructor() {}
 
 	subscribe(callback: (value: string[]) => void) {
 		callback(this.selection);
 		this.callbacks.push(callback);
-		if (this.callbacks.length === 1) {
-			this.setup();
-		}
 		return () => this.unsubscribe(callback);
 	}
 
 	private unsubscribe(callback: CallBack) {
 		this.callbacks = this.callbacks.filter((cb) => cb !== callback);
-		if (this.callbacks.length === 0) {
-			this.teardown();
-		}
 	}
 
 	/**
@@ -95,28 +84,22 @@ export class FileIdSelection implements Readable<string[]> {
 	/**
 	 * Called when subscriber count goes from 1 -> 0.
 	 */
-	private async setup() {
-		this.unsubscribeLocalFiles = this.uncommittedFiles.subscribe((localFiles) => {
-			if (this.currentCommitId !== undefined) {
-				// Selections from a commit are unaffected by uncommitted files.
-				return;
-			}
-			const localFilenames = localFiles.map((f) => f.path);
-			const removedFiles = this.selection.filter(
-				(s) => !localFilenames.includes(unstringifyFileKey(s))
-			);
-			if (removedFiles.length > 0) {
-				this.removeMany(removedFiles);
-			}
-		});
-	}
-
-	/**
-	 * Called when subscriber count goes from 0 -> 1.
-	 */
-	private teardown() {
-		this.unsubscribeLocalFiles?.();
-		this.clear();
+	async setUncommittedFiles(files: LocalFile[]) {
+		this.uncommittedFiles = files;
+		if (this.currentCommitId !== undefined) {
+			// Selections from a commit are unaffected by uncommitted files
+			// so we return early.
+			return;
+		}
+		// Remove any selections that are no longer present in the workspace.
+		const localFilenames = files.map((f) => f.path);
+		const removedFiles = this.selection.filter(
+			(s) => !localFilenames.includes(unstringifyFileKey(s))
+		);
+		if (removedFiles.length > 0) {
+			this.removeMany(removedFiles);
+		}
+		this.reloadFiles();
 	}
 
 	/**
@@ -200,6 +183,7 @@ export class FileIdSelection implements Readable<string[]> {
 
 	// Used internally for to bypass emitting new values.
 	private clearInternal() {
+		this.files.set([]);
 		this.selection = [];
 		this.remoteFiles.clear();
 		this.currentCommitId = undefined;
@@ -222,7 +206,7 @@ export class FileIdSelection implements Readable<string[]> {
 		if (key.commitId) {
 			return this.remoteFiles.get(stringifyKey(key.fileId, key.commitId));
 		} else {
-			return get(this.uncommittedFiles).find((file) => file.id === key.fileId);
+			return this.uncommittedFiles.find((file) => file.id === key.fileId);
 		}
 	}
 }

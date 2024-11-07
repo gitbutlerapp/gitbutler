@@ -34,12 +34,12 @@
 		SelectedOwnership,
 		SelectedOwnership.fromBranch(branch)
 	);
-	const branchFiles = writable(branch.files);
+	const uncommittedFiles = writable(branch.files);
 
 	$effect(() => {
 		branchStore.set(branch);
 		selectedOwnershipStore.update((o) => o?.update(branch));
-		branchFiles.set(branch.files);
+		uncommittedFiles.set(branch.files);
 	});
 
 	// COMMITS
@@ -58,11 +58,15 @@
 	});
 
 	const project = getContext(Project);
-	const fileIdSelection = new FileIdSelection(branchFiles);
+
+	const fileIdSelection = new FileIdSelection();
 	const selectedFile = fileIdSelection.selectedFile;
 	const commitId = $derived($selectedFile?.commitId);
 	const selected = $derived($selectedFile?.file);
 	setContext(FileIdSelection, fileIdSelection);
+	$effect(() => {
+		fileIdSelection.setUncommittedFiles($uncommittedFiles);
+	});
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 
