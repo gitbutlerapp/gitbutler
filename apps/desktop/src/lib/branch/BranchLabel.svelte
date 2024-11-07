@@ -10,29 +10,51 @@
 		onDblClick?: () => void;
 	}
 
-	let { name, disabled = false, readonly = false, onChange, onDblClick }: Props = $props();
+	const { name, disabled = false, readonly = false, onChange, onDblClick }: Props = $props();
 
-	let inputEl: HTMLInputElement;
-	let initialName = name;
-	let inputWidth = $state('');
+	let inputEl: HTMLInputElement | undefined;
+	let editableName = $state(name);
+	$effect(() => {
+		editableName = name;
+	});
+	let nameWidth = $state(0);
+	let editableNameWidth = $state(0);
+	const nameWidthPx = $derived(`${Math.max(nameWidth, editableNameWidth)}px`);
 </script>
 
 <span
 	use:resizeObserver={(e) => {
-		inputWidth = `${Math.round(e.frame.width)}px`;
+		nameWidth = Math.round(e.frame.width);
 	}}
 	class="branch-name-measure-el text-14 text-bold"
 >
 	{name}
+</span>
+
+<span
+	use:resizeObserver={(e) => {
+		editableNameWidth = Math.round(e.frame.width);
+	}}
+	class="branch-name-measure-el text-14 text-bold"
+>
+	{editableName}
 </span>
 <input
 	type="text"
 	{disabled}
 	{readonly}
 	bind:this={inputEl}
-	bind:value={name}
-	onchange={(e) => onChange?.(e.currentTarget.value.trim())}
-	title={name}
+	bind:value={editableName}
+	onchange={(e) => {
+		const value = e.currentTarget.value.trim();
+		if (value === name) return;
+		if (value === '') {
+			editableName = name;
+			return;
+		}
+		onChange?.(value);
+	}}
+	title={editableName}
 	class="branch-name-input text-14 text-bold"
 	ondblclick={(e) => {
 		e.stopPropagation();
@@ -45,26 +67,23 @@
 	}}
 	onclick={(e) => {
 		e.stopPropagation();
-		inputEl.focus();
+		inputEl?.focus();
 		if ($autoSelectBranchNameFeature) {
-			inputEl.select();
+			inputEl?.select();
 		}
 	}}
-	onblur={() => {
-		if (name === '') name = initialName;
-	}}
 	onfocus={() => {
-		initialName = name;
+		editableName = name;
 	}}
 	onkeydown={(e) => {
 		if (e.key === 'Enter' || e.key === 'Escape') {
-			inputEl.blur();
+			inputEl?.blur();
 		}
 	}}
 	autocomplete="off"
 	autocorrect="off"
 	spellcheck="false"
-	style:width={inputWidth}
+	style:width={nameWidthPx}
 />
 
 <style lang="postcss">
