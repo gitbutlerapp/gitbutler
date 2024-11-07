@@ -74,10 +74,19 @@ fn two_vbranches_in_workspace_one_commit() -> Result<()> {
         }),
     )?;
     assert_eq!(list.len(), 1, "only one of these is *not* applied");
+
+    let virtual_branch_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
+    let unapplied = virtual_branch_state.list_all_branches().unwrap();
+    dbg!(&unapplied);
+    let unapplied = unapplied
+        .iter()
+        .find(|stack| stack.name == "virtual")
+        .unwrap();
+
     assert_equal(
         &list[0],
         ExpectedBranchListing {
-            identity: "virtual".into(),
+            identity: (unapplied.source_refname.as_ref().unwrap().branch().unwrap()).into(),
             virtual_branch_given_name: Some("virtual"),
             virtual_branch_in_workspace: false,
             has_local: true,
@@ -229,4 +238,5 @@ mod util {
         Ok(branches)
     }
 }
+use gitbutler_stack::VirtualBranchesHandle;
 pub use util::{assert_equal, init_env, list_branches, project_ctx, ExpectedBranchListing};
