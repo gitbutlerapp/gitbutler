@@ -206,7 +206,7 @@
 									: status.type === 'conflicted'
 										? 'conflicted'
 										: 'clear'}
-								title={branch.name}
+								series={branch.series.filter((s) => !s.archived).map((s) => s.name)}
 							>
 								{#snippet select()}
 									{#if status.type !== 'fullyIntegrated' && results.get(branch.id)}

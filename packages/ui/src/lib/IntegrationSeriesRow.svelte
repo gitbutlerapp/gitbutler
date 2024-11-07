@@ -2,33 +2,30 @@
 	import type { Snippet } from 'svelte';
 	export interface Props {
 		type: 'clear' | 'conflicted' | 'integrated';
-		title: string;
+		series: string[];
 		select: Snippet;
 	}
 </script>
 
 <script lang="ts">
+	import SeriesLabelsRow from './SeriesLabelsRow.svelte';
 	import Icon from '$lib/Icon.svelte';
 
-	let { type, title, select }: Props = $props();
+	let { type, series, select }: Props = $props();
 </script>
 
 <div class="integration-series-item no-select {type}">
-	<div class="branch-icon">
-		<Icon name="branch-small" />
-	</div>
 	<div class="name-label-wrap">
-		<span class="name-label text-13 text-semibold truncate">
-			{title}
-		</span>
-
-		<span class="name-label-badge text-11 text-semibold">
-			{#if type === 'conflicted'}
-				<span>Conflicted</span>
-			{:else if type === 'integrated'}
-				<span>Integrated</span>
-			{/if}
-		</span>
+		{#if type !== 'clear'}
+			<span class="name-label-badge text-11 text-semibold">
+				{#if type === 'conflicted'}
+					<span>Conflicted</span>
+				{:else if type === 'integrated'}
+					<span>Integrated</span>
+				{/if}
+			</span>
+		{/if}
+		<SeriesLabelsRow {series} showCounterLabel selected={type === 'integrated'} />
 	</div>
 
 	{#if select}
