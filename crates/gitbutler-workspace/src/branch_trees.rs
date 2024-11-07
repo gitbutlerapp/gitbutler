@@ -36,14 +36,14 @@ pub fn checkout_branch_trees<'a>(
 
         Ok(tree)
     } else {
-        let merge_base = repository
-            .merge_base_octopussy(&stacks.iter().map(|b| b.head()).collect::<Vec<_>>())?;
-
         let gix_repo = ctx.gix_repository_for_merging()?;
-        let merge_base_tree_id =
-            git2_to_gix_object_id(repository.find_commit(merge_base)?.tree_id());
-        let mut final_tree_id = merge_base_tree_id;
+        let merge_base_tree_id = gix_repo
+            .merge_base_octopus(stacks.iter().map(|b| git2_to_gix_object_id(b.head())))?
+            .object()?
+            .into_commit()
+            .tree_id()?;
 
+        let mut final_tree_id = merge_base_tree_id;
         let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
         for branch in stacks {
             let their_tree_id = git2_to_gix_object_id(branch.tree);
@@ -59,7 +59,7 @@ pub fn checkout_branch_trees<'a>(
                 bail!("There appears to be conflicts between the virtual branches");
             };
 
-            final_tree_id = merge.tree.write()?.detach();
+            final_tree_id = merge.tree.write()?;
         }
 
         let final_tree = repository.find_tree(gix_to_git2_oid(final_tree_id))?;
