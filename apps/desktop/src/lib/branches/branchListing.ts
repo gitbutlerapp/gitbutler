@@ -214,13 +214,29 @@ export class CombinedBranchListingService {
 				if (!searchTerm) return [];
 
 				const fuse = new Fuse(combinedSidebarEntries, {
-					keys: ['subject.name', 'subject.title']
+					keys: [
+						// Subject is branch listing
+						'subject.name',
+						'subject.lastCommiter.email',
+						'subject.lastCommiter.name',
+						// Subject is pull request
+						'subject.title',
+						'subject.author.email',
+						'subject.author.name'
+					],
+					threshold: 0.3, // 0 is the strictest.
+					sortFn: (a, b) => {
+						// Sort results by when the item was last modified.
+						const dateA = (a.item.modifiedAt || a.item.updatedAt) as Date | undefined;
+						const dateB = (b.item.modifiedAt || b.item.updatedAt) as Date | undefined;
+						if (dateA && dateB) {
+							return dateA < dateB ? -1 : 1;
+						}
+						return 0;
+					}
 				});
 
-				return fuse
-					.search(searchTerm)
-					.slice(0, 100)
-					.map((searchResult) => searchResult.item);
+				return fuse.search(searchTerm, { limit: 100 }).map((result) => result.item);
 			},
 			[] as SidebarEntrySubject[]
 		);
