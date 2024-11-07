@@ -530,24 +530,9 @@ impl Stack {
         })
     }
 
-    /// Returns the patch that this branch is based on. This would be either the head of a branch before it,
-    /// or the merge base of the stack if this is the first (oldest) branch in the stack.
-    pub(crate) fn branch_base(
-        &self,
-        ctx: &CommandContext,
-        branch: &Branch,
-    ) -> Result<CommitOrChangeId> {
-        self.initialized()?;
-        let previous_head = self
-            .heads
-            .iter()
-            .take_while(|head| *head != branch)
-            .last()
-            .map(|head| head.target.clone());
-        Ok(match previous_head {
-            Some(previous_head) => previous_head,
-            None => CommitOrChangeId::CommitId(self.merge_base(ctx)?.id().to_string()),
-        })
+    /// Returns the branch that precedes the given branch in the stack, if any.
+    pub(crate) fn branch_predacessor(&self, branch: &Branch) -> Option<&Branch> {
+        self.heads.iter().take_while(|head| *head != branch).last()
     }
 
     /// Returns a list of all branches/series in the stack.
@@ -581,15 +566,16 @@ impl Stack {
             }
             let head_commit = head_commit?.head.id();
 
-            let previous_head = commit_by_oid_or_change_id(
-                &self.branch_base(ctx, &head)?,
-                repo,
-                self.head(),
-                merge_base,
-            )?
-            .head
-            .id();
-
+            // Find the previous head in the stack - if it is not archived, use it as base
+            // Otherwise use the merge base
+            let previous_head = self
+                .branch_predacessor(&head)
+                .filter(|predacessor| !predacessor.archived)
+                .map_or(merge_base, |predacessor| {
+                    commit_by_oid_or_change_id(&predacessor.target, repo, self.head(), merge_base)
+                        .map(|commit| commit.head.id())
+                        .unwrap_or(merge_base)
+                });
             let mut local_patches = vec![];
             for commit in repo
                 .log(head_commit, LogUntil::Commit(previous_head), false)?
