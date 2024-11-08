@@ -4,10 +4,10 @@ mod actions;
 pub use actions::{
     amend, can_apply_remote_branch, create_branch_stack, create_branch_stack_from_branch,
     create_commit, delete_local_branch, fetch_from_remotes, find_commit, get_base_branch_data,
-    get_remote_branch_data, get_uncommited_files, get_uncommited_files_reusable,
-    insert_blank_commit, integrate_upstream, integrate_upstream_commits, list_branch_stacks,
-    list_branch_stacks_cached, list_commit_files, list_git_branches, move_commit, move_commit_file,
-    push_base_branch, push_branch_stack, reorder_stack, reset_branch_stack, reset_files,
+    get_git_branch, get_uncommited_files, get_uncommited_files_reusable, insert_blank_commit,
+    integrate_upstream, integrate_upstream_commits, list_branch_stacks, list_branch_stacks_cached,
+    list_commit_files, list_git_branches, move_commit, move_commit_file, push_base_branch,
+    push_branch_stack, reorder_stack, reset_branch_stack, reset_files,
     resolve_upstream_integration, save_and_unapply_virutal_branch, set_base_branch,
     set_target_push_remote, squash, unapply_ownership, unapply_without_saving_branch_stack,
     undo_commit, update_branch_stack, update_commit_message, update_stack_order,
@@ -39,7 +39,7 @@ mod file;
 pub use file::{Get, RemoteBranchFile};
 
 mod remote;
-pub use remote::{PartialGitBranch, RemoteBranchData, RemoteCommit};
+pub use remote::{GitBranch, PartialGitBranch, RemoteCommit};
 
 pub mod conflicts;
 

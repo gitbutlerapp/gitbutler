@@ -36,7 +36,7 @@ pub struct PartialGitBranch {
 
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct RemoteBranchData {
+pub struct GitBranch {
     #[serde(with = "gitbutler_serde::oid")]
     pub sha: git2::Oid,
     pub name: Refname,
@@ -101,7 +101,7 @@ pub fn list_git_branches(ctx: &CommandContext) -> Result<Vec<PartialGitBranch>> 
     Ok(remote_branches)
 }
 
-pub(crate) fn get_branch_data(ctx: &CommandContext, refname: &Refname) -> Result<RemoteBranchData> {
+pub(crate) fn get_git_branch(ctx: &CommandContext, refname: &Refname) -> Result<GitBranch> {
     let default_target = default_target(&ctx.project().gb_dir())?;
 
     let branch = ctx
@@ -163,7 +163,7 @@ pub(crate) fn branch_to_remote_branch_data(
     ctx: &CommandContext,
     branch: &git2::Branch,
     base: git2::Oid,
-) -> Result<Option<RemoteBranchData>> {
+) -> Result<Option<GitBranch>> {
     branch
         .get()
         .target()
@@ -181,7 +181,7 @@ pub(crate) fn branch_to_remote_branch_data(
 
             let fork_point = ahead.last().and_then(|c| c.parent(0).ok()).map(|c| c.id());
 
-            Ok(RemoteBranchData {
+            Ok(GitBranch {
                 sha,
                 upstream: if let Refname::Local(local_name) = &name {
                     local_name.remote().cloned()

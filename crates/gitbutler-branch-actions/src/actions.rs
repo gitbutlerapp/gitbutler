@@ -12,7 +12,7 @@ use crate::{
     branch_manager::BranchManagerExt,
     file::RemoteBranchFile,
     remote,
-    remote::{PartialGitBranch, RemoteBranchData, RemoteCommit},
+    remote::{GitBranch, PartialGitBranch, RemoteCommit},
     VirtualBranchesExt,
 };
 use anyhow::{Context, Result};
@@ -420,9 +420,9 @@ pub fn list_git_branches(project: Project) -> Result<Vec<PartialGitBranch>> {
     remote::list_git_branches(&ctx)
 }
 
-pub fn get_remote_branch_data(project: &Project, refname: &Refname) -> Result<RemoteBranchData> {
+pub fn get_git_branch(project: &Project, refname: &Refname) -> Result<GitBranch> {
     let ctx = CommandContext::open(project)?;
-    remote::get_branch_data(&ctx, refname)
+    remote::get_git_branch(&ctx, refname)
 }
 
 pub fn squash(project: &Project, branch_id: StackId, commit_oid: git2::Oid) -> Result<()> {

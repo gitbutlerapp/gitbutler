@@ -6,8 +6,8 @@ pub mod commands {
         BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
     };
     use gitbutler_branch_actions::{
-        BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, PartialGitBranch,
-        RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranches,
+        BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, GitBranch,
+        PartialGitBranch, RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranches,
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
@@ -454,10 +454,11 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         refname: Refname,
-    ) -> Result<RemoteBranchData, Error> {
+    ) -> Result<GitBranch, Error> {
         let project = projects.get(project_id)?;
-        let branch_data = gitbutler_branch_actions::get_remote_branch_data(&project, &refname)?;
-        Ok(branch_data)
+        Ok(gitbutler_branch_actions::get_git_branch(
+            &project, &refname,
+        )?)
     }
 
     #[tauri::command(async)]

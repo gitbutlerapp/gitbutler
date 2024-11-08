@@ -10,7 +10,7 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { BranchData, type PartialGitBranch } from '$lib/vbranches/types';
+	import { GitBranch, type PartialGitBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Line from '@gitbutler/ui/commitLines/Line.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
@@ -37,8 +37,8 @@
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
-	let localBranchData: BranchData | undefined;
-	let remoteBranchData: BranchData | undefined;
+	let localBranchData: GitBranch | undefined;
+	let remoteBranchData: GitBranch | undefined;
 
 	// The remote branch service (which needs to be renamed) is responsible for
 	// fetching local and remote branches.

@@ -119,7 +119,7 @@ export class BranchStack {
 	order!: number;
 	@Type(() => PartialGitBranch)
 	upstream?: PartialGitBranch;
-	upstreamData?: BranchData;
+	upstreamData?: GitBranch;
 	upstreamName?: string;
 	conflicted!: boolean;
 	// TODO: to be removed from the API
@@ -384,7 +384,7 @@ export class PartialGitBranch {
 	}
 }
 
-export class BranchData {
+export class GitBranch {
 	sha!: string;
 	name!: string;
 	upstream?: string;
