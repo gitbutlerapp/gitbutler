@@ -123,7 +123,7 @@
 	</ContextMenuSection>
 	{#if $user && $user.role?.includes('admin')}
 		<!-- TODO: Remove after iterating on the pull request footer. -->
-		<ContextMenuSection label="admin only">
+		<ContextMenuSection title="Admin only">
 			<ContextMenuItem
 				label="Update PR footers"
 				disabled={allPrIds.length === 0}
