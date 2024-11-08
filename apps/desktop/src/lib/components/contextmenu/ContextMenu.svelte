@@ -11,6 +11,7 @@
 		verticalAlign?: 'top' | 'bottom';
 		horizontalAlign?: 'left' | 'right';
 		children: Snippet<[item: any]>;
+		ontoggle?: (isOpen: boolean) => void;
 		onclose?: () => void;
 		onopen?: () => void;
 	}
@@ -21,6 +22,7 @@
 		verticalAlign = 'bottom',
 		horizontalAlign = 'right',
 		children,
+		ontoggle,
 		onclose,
 		onopen
 	}: Props = $props();
@@ -158,8 +160,10 @@
 	export function toggle(e?: MouseEvent, newItem?: any) {
 		if (!isVisible) {
 			open(e, newItem);
+			ontoggle?.(true);
 		} else {
 			close();
+			ontoggle?.(false);
 		}
 	}
 

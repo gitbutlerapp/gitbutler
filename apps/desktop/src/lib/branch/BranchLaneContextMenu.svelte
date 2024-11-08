@@ -22,11 +22,10 @@
 		onGenerateBranchName?: () => void;
 		openPrDetailsModal?: () => void;
 		reloadPR?: () => void;
-		onopen?: () => void;
-		onclose?: () => void;
+		ontoggle?: (isOpen: boolean) => void;
 	}
 
-	let { contextMenuEl = $bindable(), target, onCollapse, onopen, onclose }: Props = $props();
+	let { contextMenuEl = $bindable(), target, onCollapse, ontoggle }: Props = $props();
 
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
@@ -54,7 +53,7 @@
 	}
 </script>
 
-<ContextMenu bind:this={contextMenuEl} {target} {onopen} {onclose}>
+<ContextMenu bind:this={contextMenuEl} {target} {ontoggle}>
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Collapse lane"

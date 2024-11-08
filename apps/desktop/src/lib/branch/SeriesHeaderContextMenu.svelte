@@ -27,8 +27,7 @@
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
 		reloadPR: () => void;
-		onopen?: () => void;
-		onclose?: () => void;
+		onMenuToggle?: (isOpen: boolean) => void;
 	}
 
 	let {
@@ -44,8 +43,7 @@
 		onGenerateBranchName,
 		openPrDetailsModal,
 		reloadPR,
-		onopen,
-		onclose
+		onMenuToggle
 	}: Props = $props();
 
 	const project = getContext(Project);
@@ -75,7 +73,7 @@
 	}
 </script>
 
-<ContextMenu bind:this={contextMenuEl} {target} {onopen} {onclose}>
+<ContextMenu bind:this={contextMenuEl} {target} ontoggle={onMenuToggle}>
 	<ContextMenuSection>
 		<ContextMenuItem
 			label={`${!description ? 'Add' : 'Remove'} description`}

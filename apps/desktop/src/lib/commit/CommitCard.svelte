@@ -219,8 +219,7 @@
 	<ContextMenu
 		bind:this={kebabContextMenu}
 		target={kebabMenuTrigger}
-		onopen={() => (isKebabContextMenuOpen = true)}
-		onclose={() => (isKebabContextMenuOpen = false)}
+		ontoggle={(isOpen) => (isKebabContextMenuOpen = isOpen)}
 	>
 		{@render commitContextMenuSnippet(kebabContextMenu)}
 	</ContextMenu>

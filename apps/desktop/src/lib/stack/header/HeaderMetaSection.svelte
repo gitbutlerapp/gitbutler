@@ -34,8 +34,7 @@
 		bind:contextMenuEl={contextMenu}
 		target={kebabButtonEl}
 		onCollapse={onCollapseButtonClick}
-		onopen={() => (isContextMenuOpen = true)}
-		onclose={() => (isContextMenuOpen = false)}
+		ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
 	/>
 </div>
 

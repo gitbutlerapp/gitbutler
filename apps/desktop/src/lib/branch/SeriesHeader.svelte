@@ -203,8 +203,7 @@
 	prUrl={$pr?.htmlUrl}
 	openPrDetailsModal={handleOpenPR}
 	reloadPR={handleReloadPR}
-	onopen={() => (contextMenuOpened = true)}
-	onclose={() => (contextMenuOpened = false)}
+	onMenuToggle={(isOpen) => (contextMenuOpened = isOpen)}
 	{branchType}
 />
 
