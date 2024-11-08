@@ -112,30 +112,30 @@
 		{/if}
 	</ContextMenuSection>
 	{#if prUrl}
-		<ContextMenuSection>
+		<ContextMenuSection title="Pull request">
 			<ContextMenuItem
-				label="Open PR in browser"
+				label="Open in browser"
 				onclick={() => {
 					openExternalUrl(prUrl);
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
-				label="Copy PR link"
+				label="Copy link"
 				onclick={() => {
 					copyToClipboard(prUrl);
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
-				label="Show PR details"
+				label="Show details"
 				onclick={() => {
 					openPrDetailsModal();
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
-				label="Refetch PR status"
+				label="Refetch status"
 				onclick={() => {
 					reloadPR();
 					contextMenuEl?.close();
