@@ -18,13 +18,10 @@
 </script>
 
 <div class="stack-series-row">
-	<SeriesLabelsRow series={series.map((s) => s.name)} />
-	<!-- Selector -->
-	{#if disableSelector}
-		<div class="series-name text-12 text-semibold">
-			<span class="truncate">{series.length} more</span>
-		</div>
-	{:else if series.length > 1}
+	<SeriesLabelsRow series={series.map((s) => s.name)} showCounterLabel={disableSelector} />
+
+	<!-- SERIES SELECTOR -->
+	{#if series.length > 1}
 		<div class="other-series">
 			<Select
 				popupAlign="right"
