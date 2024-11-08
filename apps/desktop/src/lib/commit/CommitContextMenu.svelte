@@ -10,7 +10,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 
 	interface Props {
-		parent: ReturnType<typeof ContextMenu>;
+		menu: ReturnType<typeof ContextMenu>;
 		baseBranch: BaseBranch;
 		branch: VirtualBranch | undefined;
 		commit: DetailedCommit | Commit;
@@ -22,7 +22,7 @@
 	}
 
 	const {
-		parent,
+		menu,
 		baseBranch,
 		branch,
 		commit,
@@ -50,21 +50,21 @@
 			label="Uncommit"
 			onclick={(e: MouseEvent) => {
 				onUncommitClick(e);
-				parent.close();
+				menu.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="Edit commit message"
 			onclick={(e: MouseEvent) => {
 				onEditMessageClick(e);
-				parent.close();
+				menu.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="Edit patch"
 			onclick={(e: MouseEvent) => {
 				onPatchEditClick(e);
-				parent.close();
+				menu.close();
 			}}
 		/>
 	</ContextMenuSection>
@@ -75,14 +75,14 @@
 			label="Open in browser"
 			onclick={async () => {
 				await openExternalUrl(commitUrl);
-				parent.close();
+				menu.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="Copy commit link"
 			onclick={() => {
 				copyToClipboard(commitUrl);
-				parent.close();
+				menu.close();
 			}}
 		/>
 	{/if}
@@ -90,7 +90,7 @@
 		label="Copy commit message"
 		onclick={() => {
 			copyToClipboard(commit.description);
-			parent.close();
+			menu.close();
 		}}
 	/>
 </ContextMenuSection>
@@ -100,14 +100,14 @@
 			label="Add empty commit above"
 			onclick={() => {
 				insertBlankCommit(commit.id, 'above');
-				parent.close();
+				menu.close();
 			}}
 		/>
 		<ContextMenuItem
 			label="Add empty commit below"
 			onclick={() => {
 				insertBlankCommit(commit.id, 'below');
-				parent.close();
+				menu.close();
 			}}
 		/>
 	</ContextMenuSection>

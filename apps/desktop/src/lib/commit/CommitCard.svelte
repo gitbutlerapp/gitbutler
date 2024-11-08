@@ -193,10 +193,10 @@
 	{/snippet}
 </Modal>
 
-{#snippet commitContextMenuSnippet(parent: ReturnType<typeof ContextMenu>)}
+{#snippet commitContextMenuSnippet(menu: ReturnType<typeof ContextMenu>)}
 	{#if contextMenu}
 		<CommitContextMenu
-			{parent}
+			{menu}
 			baseBranch={$baseBranch}
 			{branch}
 			{commit}
