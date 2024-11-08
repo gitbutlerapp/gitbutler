@@ -17,20 +17,55 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, PartialEq, Debug)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
-pub enum BranchStatus {
-    Empty,
-    FullyIntegrated,
-    Conflicted {
-        potentially_conflicted_uncommited_changes: bool,
-    },
-    SaflyUpdatable,
+enum StackKind {
+    Single,
+    Multiple,
+}
+
+impl From<Stack> for StackKind {
+    fn from(value: Stack) -> Self {
+        if value.heads().len() == 1 {
+            StackKind::Single
+        } else {
+            StackKind::Multiple
+        }
+    }
+}
+
+#[derive(Serialize, PartialEq, Debug)]
+#[serde(tag = "type", content = "subject", rename_all = "camelCase")]
+enum IntegrationStatus {
+    Integrated,
+    PartiallyIntegrated,
+    Unintegrated,
+}
+
+#[derive(Serialize, PartialEq, Debug)]
+#[serde(rename_all = "camelCase")]
+struct StackStatus {
+    stack_kind: StackKind,
+    integration_status: IntegrationStatus,
+    mergable: bool,
+    // rebasable: bool,
+    empty: bool,
+}
+
+impl StackStatus {
+    fn empty() -> Self {
+        Self {
+            stack_kind: StackKind::Single,
+            integration_status: IntegrationStatus::Unintegrated,
+            mergable: false,
+            empty: true,
+        }
+    }
 }
 
 #[derive(Serialize, PartialEq, Debug)]
 #[serde(tag = "type", content = "subject", rename_all = "camelCase")]
 pub enum BranchStatuses {
     UpToDate,
-    UpdatesRequired(Vec<(StackId, BranchStatus)>),
+    UpdatesRequired(Vec<(StackId, StackStatus)>),
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
@@ -58,16 +93,24 @@ pub struct BaseBranchResolution {
     approach: BaseBranchResolutionApproach,
 }
 
-impl BranchStatus {
+impl StackStatus {
     fn resolution_acceptable(&self, approach: &ResolutionApproach) -> bool {
         match self {
-            Self::Empty | Self::SaflyUpdatable | Self::Conflicted { .. } => matches!(
+            Self { empty: true, .. } => matches!(approach, ResolutionApproach::Rebase),
+            Self {
+                integration_status: IntegrationStatus::Unintegrated,
+                stack_kind: StackKind::Single,
+                ..
+            } => matches!(
                 approach,
                 ResolutionApproach::Rebase
                     | ResolutionApproach::Merge
                     | ResolutionApproach::Unapply
             ),
-            Self::FullyIntegrated => matches!(approach, ResolutionApproach::Delete),
+            Self { .. } => matches!(
+                approach,
+                ResolutionApproach::Unapply | ResolutionApproach::Rebase
+            ),
         }
     }
 }
@@ -75,6 +118,7 @@ impl BranchStatus {
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Resolution {
+    // TODO(CTO): Rename to stack_id
     pub branch_id: StackId,
     /// Used to ensure a given branch hasn't changed since the UI issued the command.
     #[serde(with = "gitbutler_serde::oid")]
@@ -85,7 +129,6 @@ pub struct Resolution {
 enum IntegrationResult {
     UpdatedObjects { head: git2::Oid, tree: git2::Oid },
     UnapplyBranch,
-    DeleteBranch,
 }
 
 pub struct UpstreamIntegrationContext<'a> {
@@ -136,7 +179,7 @@ pub fn upstream_integration_statuses(
         repository,
         new_target,
         old_target,
-        virtual_branches_in_workspace,
+        virtual_branches_in_workspace: stacks_in_workspace,
         ..
     } = context;
     // look up the target and see if there is a new oid
@@ -158,12 +201,12 @@ pub fn upstream_integration_statuses(
         return Ok(BranchStatuses::UpToDate);
     };
 
-    let statuses = virtual_branches_in_workspace
+    let statuses = stacks_in_workspace
         .iter()
-        .map(|virtual_branch| {
-            let tree = repository.find_tree(virtual_branch.tree)?;
+        .map(|stack| {
+            let tree = repository.find_tree(stack.tree)?;
             let tree_id = git2_to_gix_object_id(tree.id());
-            let head = repository.find_commit(virtual_branch.head())?;
+            let head = repository.find_commit(stack.head())?;
             let head_tree = repository.find_real_tree(&head, Default::default())?;
             let head_tree_id = git2_to_gix_object_id(head_tree.id());
 
@@ -171,13 +214,13 @@ pub fn upstream_integration_statuses(
             // see if it conflics. This is equivalent to doing a merge
             // but accounts for the commit being conflicted.
 
-            let has_commits = virtual_branch.head() != old_target.id();
+            let has_commits = stack.head() != old_target.id();
             let has_uncommited_changes = head_tree.id() != tree.id();
 
             // Is the branch completly empty?
             {
                 if !has_commits && !has_uncommited_changes {
-                    return Ok((virtual_branch.id, BranchStatus::Empty));
+                    return Ok((stack.id, StackStatus::empty()));
                 };
             }
 
@@ -216,8 +259,8 @@ pub fn upstream_integration_statuses(
 
                 if commits_conflicted || potentially_conflicted_uncommited_changes {
                     return Ok((
-                        virtual_branch.id,
-                        BranchStatus::Conflicted {
+                        stack.id,
+                        StackStatus::Conflicted {
                             potentially_conflicted_uncommited_changes,
                         },
                     ));
@@ -238,11 +281,27 @@ pub fn upstream_integration_statuses(
 
                 // Identical trees will have the same Oid so we can compare the two
                 if tree_merge_index_tree_id == new_target_tree_id {
-                    return Ok((virtual_branch.id, BranchStatus::FullyIntegrated));
+                    return Ok((
+                        stack.id,
+                        StackStatus {
+                            stack_kind: *stack.into(),
+                            integration_status: IntegrationStatus::Integrated,
+                            mergable: true,
+                            empty: false,
+                        },
+                    ));
                 }
             }
 
-            Ok((virtual_branch.id, BranchStatus::SaflyUpdatable))
+            Ok((
+                stack.id,
+                StackStatus {
+                    stack_kind: *stack.into(),
+                    integration_status: IntegrationStatus::Unintegrated,
+                    mergable: true,
+                    empty: false,
+                },
+            ))
         })
         .collect::<Result<Vec<_>>>()?;
 
@@ -603,7 +662,7 @@ mod test {
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::Empty)]),
+            BranchStatuses::UpdatesRequired(vec![(branch.id, StackStatus::Empty)]),
         )
     }
 
@@ -630,7 +689,7 @@ mod test {
             upstream_integration_statuses(&context).unwrap(),
             BranchStatuses::UpdatesRequired(vec![(
                 branch.id,
-                BranchStatus::Conflicted {
+                StackStatus::Conflicted {
                     potentially_conflicted_uncommited_changes: false
                 }
             )]),
@@ -687,7 +746,7 @@ mod test {
             upstream_integration_statuses(&context).unwrap(),
             BranchStatuses::UpdatesRequired(vec![(
                 branch.id,
-                BranchStatus::Conflicted {
+                StackStatus::Conflicted {
                     potentially_conflicted_uncommited_changes: false
                 }
             )]),
@@ -744,7 +803,7 @@ mod test {
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+            BranchStatuses::UpdatesRequired(vec![(branch.id, StackStatus::SaflyUpdatable)]),
         );
 
         let updates = compute_resolutions(
@@ -816,7 +875,7 @@ mod test {
             upstream_integration_statuses(&context).unwrap(),
             BranchStatuses::UpdatesRequired(vec![(
                 branch.id,
-                BranchStatus::Conflicted {
+                StackStatus::Conflicted {
                     potentially_conflicted_uncommited_changes: false
                 }
             )]),
@@ -889,7 +948,7 @@ mod test {
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+            BranchStatuses::UpdatesRequired(vec![(branch.id, StackStatus::SaflyUpdatable)]),
         );
 
         let updates = compute_resolutions(
@@ -952,7 +1011,7 @@ mod test {
             upstream_integration_statuses(&context).unwrap(),
             BranchStatuses::UpdatesRequired(vec![(
                 branch.id,
-                BranchStatus::Conflicted {
+                StackStatus::Conflicted {
                     potentially_conflicted_uncommited_changes: false
                 }
             )]),
@@ -1016,7 +1075,7 @@ mod test {
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+            BranchStatuses::UpdatesRequired(vec![(branch.id, StackStatus::SaflyUpdatable)]),
         );
 
         let updates = compute_resolutions(
@@ -1069,7 +1128,7 @@ mod test {
             upstream_integration_statuses(&context).unwrap(),
             BranchStatuses::UpdatesRequired(vec![(
                 branch.id,
-                BranchStatus::Conflicted {
+                StackStatus::Conflicted {
                     potentially_conflicted_uncommited_changes: true
                 }
             )]),
@@ -1100,7 +1159,7 @@ mod test {
             upstream_integration_statuses(&context).unwrap(),
             BranchStatuses::UpdatesRequired(vec![(
                 branch.id,
-                BranchStatus::Conflicted {
+                StackStatus::Conflicted {
                     potentially_conflicted_uncommited_changes: true
                 }
             )]),
@@ -1127,7 +1186,7 @@ mod test {
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::FullyIntegrated)]),
+            BranchStatuses::UpdatesRequired(vec![(branch.id, StackStatus::FullyIntegrated)]),
         )
     }
 
@@ -1158,7 +1217,7 @@ mod test {
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+            BranchStatuses::UpdatesRequired(vec![(branch.id, StackStatus::SaflyUpdatable)]),
         )
     }
 
@@ -1198,7 +1257,7 @@ mod test {
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+            BranchStatuses::UpdatesRequired(vec![(branch.id, StackStatus::SaflyUpdatable)]),
         )
     }
 }
