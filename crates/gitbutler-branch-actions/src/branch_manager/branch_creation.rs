@@ -1,4 +1,4 @@
-use crate::{branch_trees::checkout_branch_trees, r#virtual as vbranch};
+use crate::r#virtual as vbranch;
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch::{self, dedup};
@@ -16,6 +16,7 @@ use gitbutler_repo::{
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
+use gitbutler_workspace::checkout_branch_trees;
 use tracing::instrument;
 
 use super::BranchManager;
