@@ -133,21 +133,21 @@
 				}}
 			/>
 			<ContextMenuItem
-				label="Copy PR link"
+				label="Copy link"
 				onclick={() => {
 					copyToClipboard(pr.htmlUrl);
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
-				label="Show PR details"
+				label="Show details"
 				onclick={() => {
 					openPrDetailsModal();
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
-				label="Refetch PR status"
+				label="Refetch status"
 				onclick={() => {
 					reloadPR();
 					contextMenuEl?.close();
