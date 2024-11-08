@@ -140,6 +140,7 @@
 
 		isVisible = true;
 		onopen?.();
+		ontoggle?.(true);
 
 		if (!openByMouse) {
 			setAlignByTarget();
@@ -155,15 +156,14 @@
 
 		isVisible = false;
 		onclose?.();
+		ontoggle?.(false);
 	}
 
 	export function toggle(e?: MouseEvent, newItem?: any) {
 		if (!isVisible) {
 			open(e, newItem);
-			ontoggle?.(true);
 		} else {
 			close();
-			ontoggle?.(false);
 		}
 	}
 
