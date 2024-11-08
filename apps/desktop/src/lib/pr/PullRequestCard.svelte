@@ -123,7 +123,7 @@
 </script>
 
 {#if pr}
-	<ContextMenu bind:this={contextMenuEl} target={contextMenuTarget} openByMouse>
+	<ContextMenu bind:this={contextMenuEl} rightClickTrigger={contextMenuTarget}>
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Open in browser"
@@ -182,6 +182,7 @@
 		class="pr-header"
 		oncontextmenu={(e: MouseEvent) => {
 			e.preventDefault();
+			e.stopPropagation();
 			contextMenuEl?.open(e);
 		}}
 	>

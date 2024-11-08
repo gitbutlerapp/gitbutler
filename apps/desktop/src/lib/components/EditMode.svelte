@@ -233,7 +233,7 @@
 
 	<FileContextMenu
 		bind:this={contextMenu}
-		target={filesList}
+		trigger={filesList}
 		isUnapplied={false}
 		branchId={undefined}
 	/>

@@ -16,7 +16,8 @@
 
 	interface Props {
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
-		target?: HTMLElement;
+		leftClickTrigger?: HTMLElement;
+		rightClickTrigger?: HTMLElement;
 		headName: string;
 		seriesCount: number;
 		hasForgeBranch: boolean;
@@ -27,12 +28,13 @@
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
 		reloadPR: () => void;
-		onMenuToggle?: (isOpen: boolean) => void;
+		onMenuToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
 
 	let {
 		contextMenuEl = $bindable(),
-		target,
+		leftClickTrigger,
+		rightClickTrigger,
 		seriesCount,
 		hasForgeBranch,
 		headName,
@@ -73,7 +75,12 @@
 	}
 </script>
 
-<ContextMenu bind:this={contextMenuEl} {target} ontoggle={onMenuToggle}>
+<ContextMenu
+	bind:this={contextMenuEl}
+	{leftClickTrigger}
+	{rightClickTrigger}
+	ontoggle={onMenuToggle}
+>
 	<ContextMenuSection>
 		<ContextMenuItem
 			label={`${!description ? 'Add' : 'Remove'} description`}

@@ -20,11 +20,11 @@
 	interface Props {
 		isUnapplied: boolean;
 		branchId?: string;
-		target?: HTMLElement;
+		trigger?: HTMLElement;
 		isBinary?: boolean;
 	}
 
-	const { branchId, target, isUnapplied, isBinary = false }: Props = $props();
+	const { branchId, trigger, isUnapplied, isBinary = false }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
@@ -57,7 +57,7 @@
 	}
 </script>
 
-<ContextMenu bind:this={contextMenu} {target} openByMouse>
+<ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
 	{#snippet children(item)}
 		<ContextMenuSection>
 			{#if item.files && item.files.length > 0}

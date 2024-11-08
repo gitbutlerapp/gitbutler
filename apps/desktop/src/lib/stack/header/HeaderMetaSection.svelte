@@ -32,7 +32,7 @@
 	/>
 	<BranchLaneContextMenu
 		bind:contextMenuEl={contextMenu}
-		target={kebabButtonEl}
+		trigger={kebabButtonEl}
 		onCollapse={onCollapseButtonClick}
 		ontoggle={(isOpen) => (isContextMenuOpen = isOpen)}
 	/>

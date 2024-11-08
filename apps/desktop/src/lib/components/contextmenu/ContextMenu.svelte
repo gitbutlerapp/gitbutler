@@ -6,207 +6,171 @@
 	import { type Snippet } from 'svelte';
 
 	interface Props {
-		target?: HTMLElement;
-		openByMouse?: boolean;
+		leftClickTrigger?: HTMLElement;
+		rightClickTrigger?: HTMLElement;
 		verticalAlign?: 'top' | 'bottom';
 		horizontalAlign?: 'left' | 'right';
 		children: Snippet<[item: any]>;
-		ontoggle?: (isOpen: boolean) => void;
 		onclose?: () => void;
 		onopen?: () => void;
+		ontoggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
 
 	let {
-		target,
-		openByMouse,
+		leftClickTrigger,
+		rightClickTrigger,
 		verticalAlign = 'bottom',
 		horizontalAlign = 'right',
 		children,
-		ontoggle,
 		onclose,
-		onopen
+		onopen,
+		ontoggle
 	}: Props = $props();
 
-	let el: HTMLElement | undefined = $state();
+	let menuContainer: HTMLElement | undefined = $state();
 	let item = $state<any>();
 	let contextMenuHeight = $state(0);
 	let contextMenuWidth = $state(0);
 	let isVisible = $state(false);
 	let menuPosition = $state({ x: 0, y: 0 });
-	let savedMouseEvent: MouseEvent | undefined;
+	let savedMouseEvent: MouseEvent | undefined = $state();
 
 	function setVerticalAlign(targetBoundingRect: DOMRect) {
-		if (verticalAlign === 'top') {
-			return targetBoundingRect?.top ? targetBoundingRect.top - contextMenuHeight : 0;
-		}
-
-		return targetBoundingRect?.top ? targetBoundingRect.top + targetBoundingRect.height : 0;
+		return verticalAlign === 'top'
+			? targetBoundingRect?.top
+				? targetBoundingRect.top - contextMenuHeight
+				: 0
+			: targetBoundingRect?.top
+				? targetBoundingRect.top + targetBoundingRect.height
+				: 0;
 	}
 
 	function setHorizontalAlign(targetBoundingRect: DOMRect) {
 		const correction = 2;
-
-		if (horizontalAlign === 'left') {
-			return targetBoundingRect?.left ? targetBoundingRect.left : 0;
-		}
-
-		return targetBoundingRect?.left
-			? targetBoundingRect.left + targetBoundingRect.width - contextMenuWidth - correction
-			: 0;
+		return horizontalAlign === 'left'
+			? targetBoundingRect?.left ?? 0
+			: (targetBoundingRect?.left ?? 0) + targetBoundingRect.width - contextMenuWidth - correction;
 	}
 
-	function setAlignByMouse(e?: MouseEvent) {
+	function setAlignByMouse(
+		e?: MouseEvent,
+		contextMenuWidth: number = 0,
+		contextMenuHeight: number = 0
+	) {
 		if (!e) return;
-
 		let newMenuPosition = { x: e.clientX, y: e.clientY };
-
 		const menuWindowEdgesOffset = 20;
 
-		// Check if the menu exceeds the window's right edge
-		const exceedsRight = newMenuPosition.x + contextMenuWidth > window.innerWidth;
-		if (exceedsRight) {
+		// Adjust menu position to stay within the window
+		if (newMenuPosition.x + contextMenuWidth > window.innerWidth) {
 			newMenuPosition.x = window.innerWidth - contextMenuWidth - menuWindowEdgesOffset;
 		}
-
-		// Check if the menu exceeds the window's left edge
-		const exceedsLeft = newMenuPosition.x < 0;
-		if (exceedsLeft) {
-			newMenuPosition.x = 0;
-		}
-
-		// Check if the menu exceeds the window's bottom edge
-		const exceedsBottom = newMenuPosition.y + contextMenuHeight > window.innerHeight;
-		if (exceedsBottom) {
+		if (newMenuPosition.x < 0) newMenuPosition.x = 0;
+		if (newMenuPosition.y + contextMenuHeight > window.innerHeight) {
 			newMenuPosition.y = window.innerHeight - contextMenuHeight - menuWindowEdgesOffset;
 		}
+		if (newMenuPosition.y < 0) newMenuPosition.y = 0;
 
-		// Check if the menu exceeds the window's top edge
-		const exceedsTop = newMenuPosition.y < 0;
-		if (exceedsTop) {
-			newMenuPosition.y = 0;
-		}
-
-		// Apply the new position
 		menuPosition = newMenuPosition;
 	}
 
-	function setAlignByTarget() {
-		if (!target) return;
+	function excuteByTrigger(callback: (isOpened: boolean, isLeftClick: boolean) => void) {
+		if (leftClickTrigger && !savedMouseEvent) {
+			callback(isVisible, true);
+		} else if (rightClickTrigger && savedMouseEvent) {
+			callback(isVisible, false);
+		}
+	}
 
+	function setAlignByTarget(target: HTMLElement) {
 		const targetBoundingRect = target.getBoundingClientRect();
 		let newMenuPosition = {
 			x: setHorizontalAlign(targetBoundingRect),
 			y: setVerticalAlign(targetBoundingRect)
 		};
 
-		// Check if the menu goes beyond the window's right edge
-		const exceedsRight = newMenuPosition.x + contextMenuWidth > window.innerWidth;
-		if (exceedsRight) {
+		// Adjust alignment to stay within the window
+		if (newMenuPosition.x + contextMenuWidth > window.innerWidth) {
 			horizontalAlign = horizontalAlign === 'right' ? 'left' : 'right';
 			newMenuPosition.x = setHorizontalAlign(targetBoundingRect);
 		}
-
-		// Check if the menu goes beyond the window's left edge
-		const exceedsLeft = newMenuPosition.x < 0;
-		if (exceedsLeft) {
+		if (newMenuPosition.x < 0) {
 			horizontalAlign = 'right';
 			newMenuPosition.x = setHorizontalAlign(targetBoundingRect);
 		}
-
-		// Check if the menu goes beyond the window's bottom edge
-		const exceedsBottom = newMenuPosition.y + contextMenuHeight > window.innerHeight;
-		if (exceedsBottom) {
+		if (newMenuPosition.y + contextMenuHeight > window.innerHeight) {
 			verticalAlign = verticalAlign === 'bottom' ? 'top' : 'bottom';
 			newMenuPosition.y = setVerticalAlign(targetBoundingRect);
 		}
-
-		// Check if the menu goes beyond the window's top edge
-		const exceedsTop = newMenuPosition.y < 0;
-		if (exceedsTop) {
+		if (newMenuPosition.y < 0) {
 			verticalAlign = 'bottom';
 			newMenuPosition.y = setVerticalAlign(targetBoundingRect);
 		}
 
-		// Apply the new position
 		menuPosition = newMenuPosition;
 	}
 
 	export function open(e?: MouseEvent, newItem?: any) {
-		if (!target) return;
+		if (!(leftClickTrigger || rightClickTrigger)) return;
 
-		if (newItem) {
-			item = newItem;
-		}
-
+		item = newItem ?? item;
 		isVisible = true;
+		savedMouseEvent = e;
+
 		onopen?.();
-		ontoggle?.(true);
-
-		if (!openByMouse) {
-			setAlignByTarget();
-		}
-
-		if (openByMouse && e) {
-			savedMouseEvent = e;
-		}
+		if (ontoggle) excuteByTrigger(ontoggle);
 	}
 
 	export function close() {
 		if (!isVisible) return;
-
 		isVisible = false;
+		// leftClickTrigger?.style.removeProperty('background');
 		onclose?.();
-		ontoggle?.(false);
+		if (ontoggle) excuteByTrigger(ontoggle);
 	}
 
 	export function toggle(e?: MouseEvent, newItem?: any) {
-		if (!isVisible) {
-			open(e, newItem);
-		} else {
+		if (isVisible) {
 			close();
+		} else {
+			open(e, newItem);
 		}
 	}
 
 	$effect(() => {
-		if (isVisible) {
-			if (contextMenuHeight > 0 && contextMenuWidth > 0) {
-				el?.focus();
+		if (isVisible && contextMenuHeight > 0 && contextMenuWidth > 0) {
+			menuContainer?.focus();
 
-				if (openByMouse) {
-					setAlignByMouse(savedMouseEvent);
-				} else {
-					setAlignByTarget();
-				}
+			if (savedMouseEvent && rightClickTrigger) {
+				setAlignByMouse(savedMouseEvent, contextMenuWidth, contextMenuHeight);
+			} else if (leftClickTrigger) {
+				// leftClickTrigger.style.background = 'red';
+				// add attribute to trigger element
+				setAlignByTarget(leftClickTrigger);
 			}
-		} else {
+		}
+
+		if (!isVisible) {
 			savedMouseEvent = undefined;
 		}
 	});
 
 	function setTransformOrigin() {
-		if (!openByMouse) {
-			if (verticalAlign === 'top' && horizontalAlign === 'left') {
-				return 'bottom left';
-			}
-			if (verticalAlign === 'top' && horizontalAlign === 'right') {
-				return 'bottom right';
-			}
-			if (verticalAlign === 'bottom' && horizontalAlign === 'left') {
-				return 'top left';
-			}
-			if (verticalAlign === 'bottom' && horizontalAlign === 'right') {
-				return 'top right';
-			}
-		} else {
-			return 'top left';
+		if (!savedMouseEvent) {
+			return verticalAlign === 'top'
+				? horizontalAlign === 'left'
+					? 'bottom left'
+					: 'bottom right'
+				: horizontalAlign === 'left'
+					? 'top left'
+					: 'top right';
 		}
+		return 'top left';
 	}
 
 	const handleKeyDown = createKeybind({
 		Escape: () => {
-			if (isVisible) {
-				close();
-			}
+			if (isVisible) close();
 		}
 	});
 </script>
@@ -215,11 +179,11 @@
 
 {#snippet contextMenu()}
 	<div
-		bind:this={el}
+		bind:this={menuContainer}
 		tabindex="-1"
 		use:focusTrap
 		use:clickOutside={{
-			excludeElement: !openByMouse ? target : undefined,
+			excludeElement: !savedMouseEvent ? leftClickTrigger ?? rightClickTrigger : undefined,
 			handler: () => close()
 		}}
 		bind:clientHeight={contextMenuHeight}
@@ -246,15 +210,12 @@
 	.portal-wrap {
 		display: contents;
 	}
-
 	.top-oriented {
 		margin-top: -6px;
 	}
-
 	.bottom-oriented {
 		margin-top: 4px;
 	}
-
 	.context-menu {
 		z-index: var(--z-blocker);
 		position: fixed;
@@ -265,10 +226,8 @@
 		border-radius: var(--radius-m);
 		box-shadow: var(--fx-shadow-s);
 		outline: none;
-
 		animation: fadeIn 0.08s ease-out forwards;
 	}
-
 	@keyframes fadeIn {
 		0% {
 			opacity: 0;

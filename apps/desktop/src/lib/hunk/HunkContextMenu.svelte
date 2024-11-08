@@ -10,13 +10,13 @@
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
-		target: HTMLElement | undefined;
+		trigger: HTMLElement | undefined;
 		filePath: string;
 		projectPath: string | undefined;
 		readonly: boolean;
 	}
 
-	let { target, filePath, projectPath, readonly }: Props = $props();
+	let { trigger, filePath, projectPath, readonly }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);
@@ -32,7 +32,7 @@
 	}
 </script>
 
-<ContextMenu bind:this={contextMenu} {target} openByMouse>
+<ContextMenu bind:this={contextMenu} rightClickTrigger={trigger}>
 	{#snippet children(item)}
 		<ContextMenuSection>
 			{#if item.hunk !== undefined && !readonly}

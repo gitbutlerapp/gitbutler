@@ -17,7 +17,7 @@
 	interface Props {
 		prUrl?: string;
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
-		target?: HTMLElement;
+		trigger?: HTMLElement;
 		onCollapse: () => void;
 		onGenerateBranchName?: () => void;
 		openPrDetailsModal?: () => void;
@@ -25,7 +25,7 @@
 		ontoggle?: (isOpen: boolean) => void;
 	}
 
-	let { contextMenuEl = $bindable(), target, onCollapse, ontoggle }: Props = $props();
+	let { contextMenuEl = $bindable(), trigger, onCollapse, ontoggle }: Props = $props();
 
 	const branchStore = getContextStore(VirtualBranch);
 	const branchController = getContext(BranchController);
@@ -53,7 +53,7 @@
 	}
 </script>
 
-<ContextMenu bind:this={contextMenuEl} {target} {ontoggle}>
+<ContextMenu bind:this={contextMenuEl} leftClickTrigger={trigger} {ontoggle}>
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Collapse lane"
