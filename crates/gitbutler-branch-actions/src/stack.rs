@@ -8,7 +8,7 @@ use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project::Project;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{Branch, CommitOrChangeId, PatchReferenceUpdate, Series};
+use gitbutler_stack::{BranchReference, CommitOrChangeId, PatchReferenceUpdate, Series};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
@@ -48,7 +48,7 @@ pub fn create_series(
     if let Some(target_patch) = req.target_patch {
         stack.add_series(
             ctx,
-            Branch {
+            BranchReference {
                 target: target_patch,
                 name: normalized_head_name,
                 description: req.description,

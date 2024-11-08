@@ -14,7 +14,7 @@ use crate::{commit_by_oid_or_change_id, Stack, VirtualBranchesHandle};
 ///
 /// Because this is **NOT** a regular git reference, it will not be found in the `.git/refs`. It is instead managed by GitButler.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Branch {
+pub struct BranchReference {
     /// The target of the reference - this can be a commit or a change that points to a commit.
     pub target: CommitOrChangeId,
     /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
@@ -60,7 +60,7 @@ impl From<git2::Commit<'_>> for CommitOrChangeId {
     }
 }
 
-impl Branch {
+impl BranchReference {
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
     pub fn remote_reference(&self, remote: &str) -> Result<String> {
         Ok(format!("refs/remotes/{}/{}", remote, self.name))

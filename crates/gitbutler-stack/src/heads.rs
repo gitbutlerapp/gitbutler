@@ -3,10 +3,10 @@ use anyhow::bail;
 use anyhow::Result;
 use itertools::Itertools;
 
-use crate::Branch;
+use crate::BranchReference;
 use crate::CommitOrChangeId;
 
-pub(crate) fn get_head(heads: &[Branch], name: &str) -> Result<(usize, Branch)> {
+pub(crate) fn get_head(heads: &[BranchReference], name: &str) -> Result<(usize, BranchReference)> {
     let (idx, head) = heads
         .iter()
         .enumerate()
@@ -17,7 +17,10 @@ pub(crate) fn get_head(heads: &[Branch], name: &str) -> Result<(usize, Branch)> 
 
 /// Returns the updated list of heads and a boolean indicating if another reference was moved
 /// to the top of the stack as a result.
-pub(crate) fn remove_head(mut heads: Vec<Branch>, name: String) -> Result<(Vec<Branch>, bool)> {
+pub(crate) fn remove_head(
+    mut heads: Vec<BranchReference>,
+    name: String,
+) -> Result<(Vec<BranchReference>, bool)> {
     // find the head that corresponds to the supplied name, together with its index
     let (idx, head) = get_head(&heads, &name)?;
     if heads.len() == 1 {
@@ -43,11 +46,11 @@ pub(crate) fn remove_head(mut heads: Vec<Branch>, name: String) -> Result<(Vec<B
 /// If there are multiple heads pointing to the same patch, it uses `preceding_head` to disambiguate the order.
 // TODO: when there is a patch reference for a commit ID and a patch reference for a change ID, recognize if they are equivalent (i.e. point to the same commit)
 pub(crate) fn add_head(
-    existing_heads: Vec<Branch>,
-    new_head: Branch,
-    preceding_head: Option<Branch>,
+    existing_heads: Vec<BranchReference>,
+    new_head: BranchReference,
+    preceding_head: Option<BranchReference>,
     patches: Vec<CommitOrChangeId>,
-) -> Result<Vec<Branch>> {
+) -> Result<Vec<BranchReference>> {
     // Go over all patches in the stack from oldest to newest
     // If `new_head` or the first (bottom of the stack) head in existing_heads points to the patch, add it to the list
     // If there are multiple heads that point to the same patch, the order is disambiguated by specifying the `preceding_head`
@@ -74,7 +77,7 @@ pub(crate) fn add_head(
         .filter(|h| patches.contains(&h.target))
         .cloned()
         .collect_vec();
-    let mut updated_heads: Vec<Branch> = vec![];
+    let mut updated_heads: Vec<BranchReference> = vec![];
     updated_heads.extend(archived_heads); // add any heads that are below the merge base (archived)
     let mut new_head = Some(new_head);
     for patch in &patches {
@@ -141,14 +144,14 @@ mod test {
     use super::*;
     #[test]
     fn add_head_with_archived_bottom_head() -> Result<()> {
-        let head_1_archived = Branch {
+        let head_1_archived = BranchReference {
             target: CommitOrChangeId::ChangeId("328447a2-08aa-4c4d-a1bc-08d5cd82bcd4".to_string()),
             name: "kv-branch-3".to_string(),
             description: None,
             pr_number: None,
             archived: true,
         };
-        let head_2 = Branch {
+        let head_2 = BranchReference {
             target: CommitOrChangeId::ChangeId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
             name: "more-on-top".to_string(),
             description: None,
@@ -156,7 +159,7 @@ mod test {
             archived: false,
         };
         let existing_heads = vec![head_1_archived.clone(), head_2.clone()];
-        let new_head = Branch {
+        let new_head = BranchReference {
             target: CommitOrChangeId::ChangeId("11609175-039d-44ee-9d4a-6baa9ad2a750".to_string()),
             name: "abcd".to_string(),
             description: None,

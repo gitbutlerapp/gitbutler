@@ -17,4 +17,4 @@ pub use series::Series;
 pub use stack::{commit_by_oid_or_change_id, CommitsForId, PatchReferenceUpdate, TargetUpdate};
 
 mod patch_reference;
-pub use patch_reference::{Branch, CommitOrChangeId};
+pub use patch_reference::{BranchReference, CommitOrChangeId};
