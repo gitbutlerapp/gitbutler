@@ -93,7 +93,7 @@
 		</div>
 		<ContextMenu
 			bind:this={contextMenu}
-			target={iconEl}
+			leftClickTrigger={iconEl}
 			verticalAlign={menuPosition}
 			onclose={() => {
 				visible = false;
