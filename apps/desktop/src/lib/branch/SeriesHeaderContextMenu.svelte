@@ -117,7 +117,7 @@
 		{/if}
 	</ContextMenuSection>
 	{#if prUrl}
-		<ContextMenuSection title="Pull request">
+		<ContextMenuSection title="PR actions">
 			<ContextMenuItem
 				label="Open in browser"
 				onclick={() => {

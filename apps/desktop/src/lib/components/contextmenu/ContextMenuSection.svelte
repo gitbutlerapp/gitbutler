@@ -6,7 +6,7 @@
 
 <div class="context-menu-section">
 	{#if title}
-		<div class="context-menu-section__title text-11 text-semibold">{title}</div>
+		<div class="context-menu-section__title text-12 text-semibold">{title}</div>
 	{/if}
 	{@render children()}
 </div>
