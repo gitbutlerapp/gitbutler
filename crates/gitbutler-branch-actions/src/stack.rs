@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     actions::open_with_verify,
     commit::{commit_to_vbranch_commit, VirtualBranchCommit},
-    r#virtual::{CommitData, IsCommitIntegrated, PatchSeries},
+    r#virtual::{Branch, CommitData, IsCommitIntegrated},
     VirtualBranchesExt,
 };
 use gitbutler_operating_modes::assure_open_workspace_mode;
@@ -34,7 +34,7 @@ use gitbutler_operating_modes::assure_open_workspace_mode;
 pub fn create_series(
     project: &Project,
     branch_id: StackId,
-    req: CreateSeriesRequest,
+    req: CreateBranchRequest,
 ) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     let mut guard = project.exclusive_worktree_access();
@@ -64,7 +64,7 @@ pub fn create_series(
 
 /// Request to create a new series in a stack
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct CreateSeriesRequest {
+pub struct CreateBranchRequest {
     /// Name of the new series
     name: String,
     /// Description of the new series - can be markdown or anything really
@@ -80,7 +80,7 @@ pub struct CreateSeriesRequest {
 /// The very last branch (reference) cannot be removed (A Stack must always contain at least one reference)
 /// If there were commits/changes that were *only* referenced by the removed branch,
 /// those commits are moved to the branch underneath it (or more accurately, the preceding it)
-pub fn remove_series(project: &Project, branch_id: StackId, head_name: String) -> Result<()> {
+pub fn remove_branch(project: &Project, branch_id: StackId, head_name: String) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     let mut guard = project.exclusive_worktree_access();
     let _ = ctx
@@ -94,7 +94,7 @@ pub fn remove_series(project: &Project, branch_id: StackId, head_name: String) -
 /// Updates the name an existing series in the stack and resets the pr_number to None.
 /// Same invariants as `create_series` apply.
 /// If the series have been pushed to a remote, the name can not be changed as it corresponds to a remote ref.
-pub fn update_series_name(
+pub fn update_branch_name(
     project: &Project,
     branch_id: StackId,
     head_name: String,
@@ -120,7 +120,7 @@ pub fn update_series_name(
 
 /// Updates the description of an existing series in the stack.
 /// The description can be set to `None` to remove it.
-pub fn update_series_description(
+pub fn update_branch_description(
     project: &Project,
     branch_id: StackId,
     head_name: String,
@@ -153,7 +153,7 @@ pub fn update_series_description(
 ///  - The stack has not been initialized
 ///  - The project is not in workspace mode
 ///  - Persisting the changes failed
-pub fn update_series_pr_number(
+pub fn update_branch_pr_number(
     project: &Project,
     stack_id: StackId,
     head_name: String,
@@ -203,7 +203,7 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
             // Nothing to push for this one
             continue;
         }
-        if series_integrated(&mut check_commit, &series)? {
+        if branch_integrated(&mut check_commit, &series)? {
             // Already integrated, nothing to push
             continue;
         }
@@ -219,7 +219,7 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
     Ok(())
 }
 
-fn series_integrated(check_commit: &mut IsCommitIntegrated, series: &Series) -> Result<bool> {
+fn branch_integrated(check_commit: &mut IsCommitIntegrated, series: &Series) -> Result<bool> {
     let mut is_integrated = false;
     for commit in series.clone().local_commits.iter().rev() {
         if !is_integrated {
@@ -232,16 +232,16 @@ fn series_integrated(check_commit: &mut IsCommitIntegrated, series: &Series) -> 
 /// Returns the stack series for the API.
 /// Newest first, oldest last in the list
 /// `commits` is used to accelerate the is-integrated check.
-pub(crate) fn stack_series(
+pub(crate) fn stack_branches(
     ctx: &CommandContext,
     branch: &mut Stack,
     default_target: &Target,
     check_commit: &mut IsCommitIntegrated,
     remote_commit_data: HashMap<CommitData, git2::Oid>,
     commits: &[VirtualBranchCommit],
-) -> Result<(Vec<PatchSeries>, bool)> {
+) -> Result<(Vec<Branch>, bool)> {
     let mut requires_force = false;
-    let mut api_series: Vec<PatchSeries> = vec![];
+    let mut api_series: Vec<Branch> = vec![];
     let stack_series = branch.list_series(ctx)?;
     for series in stack_series.clone() {
         let remote = default_target.push_remote_name();
@@ -314,7 +314,7 @@ pub(crate) fn stack_series(
         if !upstream_patches.is_empty() {
             requires_force = true;
         }
-        api_series.push(PatchSeries {
+        api_series.push(Branch {
             name: series.head.name,
             description: series.head.description,
             upstream_reference,

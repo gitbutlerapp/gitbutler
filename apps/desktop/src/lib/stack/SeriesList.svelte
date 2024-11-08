@@ -11,39 +11,39 @@
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { PatchSeries, type BranchStack } from '$lib/vbranches/types';
+	import { Branch, type BranchStack } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 
 	interface Props {
-		branch: BranchStack;
+		stack: BranchStack;
 	}
 
-	const { branch }: Props = $props();
+	const { stack }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const hasConflicts = $derived(
-		branch.series.flatMap((s) => s.patches).some((patch) => patch.conflicted)
+		stack.branches.flatMap((s) => s.patches).some((patch) => patch.conflicted)
 	);
 
-	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
+	const nonArchivedSeries = $derived(stack.branches.filter((s) => !s.archived));
 
 	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
 	const stackingReorderDropzoneManager = $derived(
-		stackingReorderDropzoneManagerFactory.build(branch)
+		stackingReorderDropzoneManagerFactory.build(stack)
 	);
 
 	function accepts(data: any) {
 		if (!(data instanceof DraggableCommit)) return false;
-		if (data.branchId !== branch.id) return false;
+		if (data.branchId !== stack.id) return false;
 
 		return true;
 	}
 
-	function onDrop(data: DraggableCommit, allSeries: PatchSeries[], currentSeries: PatchSeries) {
+	function onDrop(data: DraggableCommit, allSeries: Branch[], branch: Branch) {
 		if (!(data instanceof DraggableCommit)) return;
 
-		const stackOrder = buildNewStackOrder(allSeries, currentSeries, data.commit.id, 'top');
+		const stackOrder = buildNewStackOrder(allSeries, branch, data.commit.id, 'top');
 
 		if (stackOrder) {
 			branchController.reorderStackCommit(data.branchId, stackOrder);
@@ -51,17 +51,17 @@
 	}
 </script>
 
-{#each nonArchivedSeries as currentSeries, idx}
+{#each nonArchivedSeries as branch, idx}
 	{@const isTopSeries = idx === 0}
 	{#if !isTopSeries}
-		<SeriesDividerLine {currentSeries} />
+		<SeriesDividerLine currentSeries={branch} />
 	{/if}
-	<CurrentSeries {currentSeries}>
-		<SeriesHeader {currentSeries} {isTopSeries} />
+	<CurrentSeries currentSeries={branch}>
+		<SeriesHeader {branch} {isTopSeries} />
 
-		{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
+		{#if branch.upstreamPatches.length === 0 && branch.patches.length === 0}
 			<div class="branch-emptystate">
-				<Dropzone {accepts} ondrop={(data) => onDrop(data, nonArchivedSeries, currentSeries)}>
+				<Dropzone {accepts} ondrop={(data) => onDrop(data, nonArchivedSeries, branch)}>
 					{#snippet overlay({ hovered, activated })}
 						<CardOverlay {hovered} {activated} label="Move here" />
 					{/snippet}
@@ -77,13 +77,13 @@
 			</div>
 		{/if}
 
-		{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
+		{#if branch.upstreamPatches.length > 0 || branch.patches.length > 0}
 			<CommitList
-				remoteOnlyPatches={currentSeries.upstreamPatches}
-				patches={currentSeries.patches}
-				seriesName={currentSeries.name}
+				remoteOnlyPatches={branch.upstreamPatches}
+				patches={branch.patches}
+				seriesName={branch.name}
 				isUnapplied={false}
-				isBottom={idx === branch.series.length - 1}
+				isBottom={idx === stack.branches.length - 1}
 				{stackingReorderDropzoneManager}
 				{hasConflicts}
 			/>

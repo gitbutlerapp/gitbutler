@@ -32,7 +32,7 @@
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { PatchSeries, BranchStack } from '$lib/vbranches/types';
+	import { Branch, BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -58,7 +58,7 @@
 
 	interface PreviewSeriesProps {
 		type: 'preview-series';
-		currentSeries: PatchSeries;
+		branch: Branch;
 		stackId: string;
 	}
 
@@ -77,16 +77,13 @@
 	const templateService = getContext(TemplateService);
 
 	const stack = $derived($stackStore);
-	const branchName = $derived(
-		props.type === 'preview-series' ? props.currentSeries.name : stack.name
-	);
-	const commits = $derived(
-		props.type === 'preview-series' ? props.currentSeries.patches : stack.commits
-	);
+	const branchName = $derived(props.type === 'preview-series' ? props.branch.name : stack.name);
+	const commits = $derived(props.type === 'preview-series' ? props.branch.patches : stack.commits);
 	const upstreamName = $derived(
-		props.type === 'preview-series' ? props.currentSeries.name : stack.upstreamName
+		props.type === 'preview-series' ? props.branch.name : stack.upstreamName
 	);
 	const baseBranchName = $derived($baseBranch.shortName);
+	const currentSeries = props.type === 'preview-series' ? props.branch : undefined;
 
 	let createPrDropDown = $state<ReturnType<typeof DropDownButton>>();
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
@@ -129,8 +126,8 @@
 
 	const defaultBody: string = $derived.by(() => {
 		if (props.type === 'display') return props.pr.body ?? '';
-		if (props.type === 'preview-series' && props.currentSeries.description)
-			return props.currentSeries.description;
+		if (props.type === 'preview-series' && props.branch.description)
+			return props.branch.description;
 		if (templateBody) return templateBody;
 
 		// In case of a single commit, use the commit description for the body
@@ -165,7 +162,7 @@
 			error('Pull request service not available');
 			return;
 		}
-		if (props.type !== 'preview-series') {
+		if (!currentSeries) {
 			return;
 		}
 
@@ -175,11 +172,7 @@
 
 			if (pushBeforeCreate || commits.some((c) => !c.isRemote)) {
 				const firstPush = !stack.upstream;
-				const pushResult = await branchController.pushBranch(
-					stack.id,
-					stack.requiresForce,
-					props.type === 'preview-series'
-				);
+				const pushResult = await branchController.pushBranch(stack.id, stack.requiresForce);
 
 				if (pushResult) {
 					upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
@@ -207,7 +200,7 @@
 			}
 
 			// All ids that existed prior to creating a new one (including archived).
-			const priorIds = stack.series.map((series) => series.prNumber).filter(isDefined);
+			const priorIds = stack.branches.map((branch) => branch.prNumber).filter(isDefined);
 
 			const pr = await $prService.createPr({
 				title: params.title,
@@ -218,11 +211,7 @@
 			});
 
 			// Store the new pull request number with the branch data.
-			await branchController.updateBranchPrNumber(
-				props.stackId,
-				props.currentSeries.name,
-				pr.number
-			);
+			await branchController.updateBranchPrNumber(stack.id, currentSeries.name, pr.number);
 
 			// If we now have two or more pull requests we add a stack table to the description.
 			if (priorIds.length > 0) {

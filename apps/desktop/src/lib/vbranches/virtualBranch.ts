@@ -52,7 +52,7 @@ export class VirtualBranchService {
 					try {
 						const data = await this.remoteBranchService.getRemoteBranchData(upstreamName);
 						const upstreamCommits = data.commits;
-						const stackedCommits = b.series.flatMap((series) => series.patches);
+						const stackedCommits = b.branches.flatMap((series) => series.patches);
 
 						upstreamCommits.forEach((uc) => {
 							const match = b.commits.find((c) => commitCompare(uc, c));
@@ -115,7 +115,7 @@ export class VirtualBranchService {
 			this.projectMetrics.setMetric('virtual_branch_count', branches.length);
 			this.projectMetrics.setMetric(
 				'max_stack_count',
-				Math.max(...branches.map((b) => b.series.length))
+				Math.max(...branches.map((b) => b.branches.length))
 			);
 		} catch (err: unknown) {
 			console.error(err);

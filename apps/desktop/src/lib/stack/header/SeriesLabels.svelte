@@ -1,11 +1,11 @@
 <script lang="ts">
 	import Select from '$lib/select/Select.svelte';
-	import { PatchSeries } from '$lib/vbranches/types';
+	import { Branch } from '$lib/vbranches/types';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
 
 	interface Props {
-		series: PatchSeries[];
+		series: Branch[];
 		disableSelector?: boolean;
 	}
 

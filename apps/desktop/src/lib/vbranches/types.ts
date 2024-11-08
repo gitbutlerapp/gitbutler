@@ -144,8 +144,8 @@ export class BranchStack {
 	tree!: string;
 
 	// Used in the stacking context where VirtualBranch === Stack
-	@Type(() => PatchSeries)
-	series!: PatchSeries[];
+	@Type(() => Branch)
+	branches!: Branch[];
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status === 'local');
@@ -424,7 +424,7 @@ export interface BranchPushResult {
 	remote: string;
 }
 
-export class PatchSeries {
+export class Branch {
 	name!: string;
 	description?: string;
 	upstreamReference?: string;

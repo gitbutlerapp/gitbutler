@@ -2,11 +2,11 @@
 	import SeriesRowLabels from './SeriesLabels.svelte';
 	import BranchLaneContextMenu from '$lib/branch/BranchLaneContextMenu.svelte';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
-	import { PatchSeries } from '$lib/vbranches/types';
+	import { Branch } from '$lib/vbranches/types';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	interface Props {
-		series: PatchSeries[];
+		series: Branch[];
 		onCollapseButtonClick: () => void;
 	}
 

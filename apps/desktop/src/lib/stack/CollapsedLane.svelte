@@ -15,7 +15,7 @@
 
 	const stackStore = getContextStore(BranchStack);
 	const stack = $derived($stackStore);
-	const nonArchivedSeries = $derived(stack.series.filter((s) => !s.archived));
+	const nonArchivedSeries = $derived(stack.branches.filter((s) => !s.archived));
 
 	function expandLane() {
 		$isLaneCollapsed = false;

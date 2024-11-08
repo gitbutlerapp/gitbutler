@@ -24,7 +24,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
-	import { PatchSeries, BranchStack, type CommitStatus } from '$lib/vbranches/types';
+	import { Branch, BranchStack, type CommitStatus } from '$lib/vbranches/types';
 	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -33,13 +33,13 @@
 	import { tick } from 'svelte';
 
 	interface Props {
-		currentSeries: PatchSeries;
+		branch: Branch;
 		isTopSeries: boolean;
 	}
 
-	const { currentSeries, isTopSeries }: Props = $props();
+	const { branch, isTopSeries }: Props = $props();
 
-	let descriptionVisible = $state(!!currentSeries.description);
+	let descriptionVisible = $state(!!branch.description);
 
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
@@ -52,7 +52,7 @@
 	const prService = getForgePrService();
 	const forge = getForge();
 
-	const upstreamName = $derived(currentSeries.upstreamReference ? currentSeries.name : undefined);
+	const upstreamName = $derived(branch.upstreamReference ? branch.name : undefined);
 	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
 	const stack = $derived($stackStore);
 
@@ -65,12 +65,10 @@
 
 	let contextMenuOpened = $state(false);
 
-	const topPatch = $derived(currentSeries?.patches[0]);
+	const topPatch = $derived(branch?.patches[0]);
 	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
 	const lineColor = $derived(getColorFromBranchType(branchType));
-	const hasNoCommits = $derived(
-		currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0
-	);
+	const hasNoCommits = $derived(branch.upstreamPatches.length === 0 && branch.patches.length === 0);
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
@@ -79,7 +77,7 @@
 	const prs = $derived(prStore ? $prStore : undefined);
 
 	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
-	const prNumber = $derived(currentSeries.prNumber || listedPr?.number);
+	const prNumber = $derived(branch.prNumber || listedPr?.number);
 
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 	const pr = $derived(prMonitor?.pr);
@@ -108,11 +106,11 @@
 	$effect(() => {
 		if (
 			$forge?.name === 'github' &&
-			!currentSeries.prNumber &&
+			!branch.prNumber &&
 			listedPr?.number &&
-			listedPr.number !== currentSeries.prNumber
+			listedPr.number !== branch.prNumber
 		) {
-			branchController.updateBranchPrNumber(stack.id, currentSeries.name, listedPr.number);
+			branchController.updateBranchPrNumber(stack.id, branch.name, listedPr.number);
 		}
 	});
 
@@ -133,14 +131,14 @@
 	}
 
 	function editTitle(title: string) {
-		if (currentSeries?.name && title !== currentSeries.name) {
-			branchController.updateSeriesName(stack.id, currentSeries.name, title);
+		if (branch?.name && title !== branch.name) {
+			branchController.updateSeriesName(stack.id, branch.name, title);
 		}
 	}
 
 	async function editDescription(description: string | undefined | null) {
 		if (description) {
-			await branchController.updateSeriesDescription(stack.id, currentSeries.name, description);
+			await branchController.updateSeriesDescription(stack.id, branch.name, description);
 		}
 	}
 
@@ -148,7 +146,7 @@
 		descriptionVisible = !descriptionVisible;
 
 		if (!descriptionVisible) {
-			await branchController.updateSeriesDescription(stack.id, currentSeries.name, '');
+			await branchController.updateSeriesDescription(stack.id, branch.name, '');
 		} else {
 			await tick();
 			seriesDescriptionEl?.focus();
@@ -156,9 +154,9 @@
 	}
 
 	async function generateBranchName() {
-		if (!aiGenEnabled || !currentSeries) return;
+		if (!aiGenEnabled || !branch) return;
 
-		let hunk_promises = currentSeries.patches.flatMap(async (p) => {
+		let hunk_promises = branch.patches.flatMap(async (p) => {
 			let files = await listCommitFiles(project.id, p.id);
 			return files.flatMap((f) =>
 				f.hunks.map((h) => {
@@ -182,22 +180,22 @@
 
 		const message = messageResult.value;
 
-		if (message && message !== currentSeries.name) {
-			branchController.updateSeriesName(stack.id, currentSeries.name, message);
+		if (message && message !== branch.name) {
+			branchController.updateSeriesName(stack.id, branch.name, message);
 		}
 	}
 </script>
 
-<AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={currentSeries.name} />
+<AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={branch.name} />
 
 <SeriesHeaderContextMenu
 	bind:this={stackingContextMenu}
 	bind:contextMenuEl={kebabContextMenu}
 	target={kebabContextMenuTrigger}
-	headName={currentSeries.name}
-	seriesCount={stack.series?.length ?? 0}
+	headName={branch.name}
+	seriesCount={stack.branches?.length ?? 0}
 	{toggleDescription}
-	description={currentSeries.description ?? ''}
+	description={branch.description ?? ''}
 	onGenerateBranchName={generateBranchName}
 	hasForgeBranch={!!forgeBranch}
 	prUrl={$pr?.htmlUrl}
@@ -247,7 +245,7 @@
 				icon={branchType === 'integrated' ? 'tick-small' : 'branch-small'}
 				iconColor="var(--clr-core-ntrl-100)"
 				color={lineColor}
-				lineBottom={currentSeries.patches.length > 0 || stack.series.length > 1}
+				lineBottom={branch.patches.length > 0 || stack.branches.length > 1}
 			/>
 			<div class="branch-info__content">
 				<div class="text-14 text-bold branch-info__name">
@@ -257,7 +255,7 @@
 						</span>
 					{/if}
 					<BranchLabel
-						name={currentSeries.name}
+						name={branch.name}
 						onChange={(name) => editTitle(name)}
 						readonly={!!forgeBranch}
 						onDblClick={() => {
@@ -272,7 +270,7 @@
 						<div class="branch-action__line" style:--bg-color={lineColor}></div>
 						<SeriesDescription
 							bind:textAreaEl={seriesDescriptionEl}
-							value={currentSeries.description ?? ''}
+							value={branch.description ?? ''}
 							onBlur={(value) => editDescription(value)}
 							onEmpty={() => toggleDescription()}
 						/>
@@ -287,7 +285,7 @@
 					{#if $prService && !hasNoCommits}
 						{#if $pr}
 							<PullRequestCard
-								upstreamName={currentSeries.name}
+								upstreamName={branch.name}
 								reloadPR={handleReloadPR}
 								reopenPr={handleReopenPr}
 								openPrDetailsModal={handleOpenPR}
@@ -299,7 +297,7 @@
 								style="ghost"
 								wide
 								outline
-								disabled={currentSeries.patches.length === 0 || !$forge || !$prService}
+								disabled={branch.patches.length === 0 || !$forge || !$prService}
 								onclick={() => handleOpenPR(!forgeBranch)}
 							>
 								Create pull request
@@ -327,7 +325,7 @@
 			<PrDetailsModal
 				bind:this={prDetailsModal}
 				type="preview-series"
-				{currentSeries}
+				{branch}
 				stackId={stack.id}
 			/>
 		{/if}

@@ -340,7 +340,7 @@ fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String)>> {
     let (vbranches, _) = list_branch_stacks(ctx.project()).unwrap();
     let vbranch = vbranches.iter().find(|vb| vb.name == "my_stack").unwrap();
     let mut out = vec![];
-    for series in vbranch.series.clone() {
+    for series in vbranch.branches.clone() {
         let messages = series
             .patches
             .iter()

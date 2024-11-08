@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { getColorFromBranchType } from '$lib/branch/stackingUtils';
-	import type { CommitStatus, PatchSeries } from '$lib/vbranches/types';
+	import type { CommitStatus, Branch } from '$lib/vbranches/types';
 
 	interface Props {
-		currentSeries: PatchSeries;
+		currentSeries: Branch;
 	}
 
 	const { currentSeries }: Props = $props();

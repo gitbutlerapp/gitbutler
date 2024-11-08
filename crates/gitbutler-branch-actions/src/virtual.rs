@@ -5,7 +5,7 @@ use crate::{
     hunk::VirtualBranchHunk,
     integration::get_workspace_head,
     remote::{branch_to_remote_branch, PartialGitBranch},
-    stack::stack_series,
+    stack::stack_branches,
     status::{get_applied_status, get_applied_status_cached},
     Get, VirtualBranchesExt,
 };
@@ -79,7 +79,7 @@ pub struct BranchStack {
     pub tree: git2::Oid,
     /// New way to group commits into a multiple patch series
     /// Most recent entries are first in order
-    pub series: Vec<PatchSeries>,
+    pub branches: Vec<Branch>,
 }
 
 /// A grouping that combines multiple commits into a patch series
@@ -88,7 +88,7 @@ pub struct BranchStack {
 /// independent branches to representing independent stacks of dependent patch series (branches).
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct PatchSeries {
+pub struct Branch {
     pub name: String,
     pub description: Option<String>,
     pub upstream_reference: Option<String>,
@@ -289,7 +289,7 @@ pub fn list_branch_stacks_cached(
 ) -> Result<(Vec<BranchStack>, Vec<gitbutler_diff::FileDiff>)> {
     assure_open_workspace_mode(ctx)
         .context("Listing virtual branches requires open workspace mode")?;
-    let mut branches: Vec<BranchStack> = Vec::new();
+    let mut stacks: Vec<BranchStack> = Vec::new();
 
     let vb_state = ctx.project().virtual_branches();
 
@@ -454,7 +454,7 @@ pub fn list_branch_stacks_cached(
         let refname = branch.refname()?.into();
 
         // TODO: Error out here once this API is stable
-        let series = match stack_series(
+        let branches = match stack_branches(
             ctx,
             &mut branch,
             &default_target,
@@ -499,13 +499,13 @@ pub fn list_branch_stacks_cached(
             fork_point,
             refname,
             tree: branch.tree,
-            series,
+            branches,
         };
-        branches.push(branch);
+        stacks.push(branch);
     }
     drop(branches_span);
 
-    let mut branches = branches_with_large_files_abridged(branches);
+    let mut branches = branches_with_large_files_abridged(stacks);
     branches.sort_by(|a, b| a.order.cmp(&b.order));
 
     Ok((branches, status.skipped_files))

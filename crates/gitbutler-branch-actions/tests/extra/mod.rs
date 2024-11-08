@@ -1008,8 +1008,8 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
 
     assert_eq!(branch1.files.len(), 0);
     assert_eq!(branch1.commits.len(), 3); // Local commits including the merge commit
-    assert_eq!(branch1.series[0].patches.len(), 3);
-    assert_eq!(branch1.series[0].upstream_patches.len(), 0);
+    assert_eq!(branch1.branches[0].patches.len(), 3);
+    assert_eq!(branch1.branches[0].upstream_patches.len(), 0);
     assert!(!branch1.conflicted);
 
     Ok(())

@@ -5,11 +5,11 @@
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { createForgePrMonitorStore } from '$lib/forge/interface/forgePrMonitor';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
-	import type { PatchSeries } from '$lib/vbranches/types';
+	import type { Branch } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		currentSeries: PatchSeries;
+		currentSeries: Branch;
 		children: Snippet;
 	}
 

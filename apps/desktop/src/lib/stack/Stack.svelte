@@ -64,7 +64,7 @@
 		const upstreamPatches: DetailedCommit[] = [];
 		const branchPatches: DetailedCommit[] = [];
 
-		stack.series.map((series) => {
+		stack.branches.map((series) => {
 			upstreamPatches.push(...series.upstreamPatches);
 			branchPatches.push(...series.patches);
 			hasConflicts = branchPatches.some((patch) => patch.conflicted);
@@ -92,7 +92,7 @@
 	async function push() {
 		isPushingCommits = true;
 		try {
-			await branchController.pushBranch(stack.id, stack.requiresForce, true);
+			await branchController.pushBranch(stack.id, stack.requiresForce);
 			$listingService?.refresh();
 			// TODO: Refresh prMonitor and checksMonitor upon push
 		} finally {
@@ -189,7 +189,7 @@
 						{/if}
 						<Spacer dotted />
 						<div class="lane-branches">
-							<SeriesList branch={stack} />
+							<SeriesList {stack} />
 						</div>
 					</div>
 				</div>
@@ -223,7 +223,7 @@
 								: undefined}
 							onclick={push}
 						>
-							{stack.requiresForce ? 'Force push' : stack.series.length > 1 ? 'Push All' : 'Push'}
+							{stack.requiresForce ? 'Force push' : stack.branches.length > 1 ? 'Push All' : 'Push'}
 						</Button>
 					</div>
 				{/if}
