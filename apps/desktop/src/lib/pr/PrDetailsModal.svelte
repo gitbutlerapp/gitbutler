@@ -32,7 +32,7 @@
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
+	import { PatchSeries, BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -68,7 +68,7 @@
 
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
-	const branchStore = getContextStore(VirtualBranch);
+	const stackStore = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
 	const prService = getForgePrService();
 	const aiService = getContext(AIService);
@@ -76,15 +76,15 @@
 	const forge = getForge();
 	const templateService = getContext(TemplateService);
 
-	const branch = $derived($branchStore);
+	const stack = $derived($stackStore);
 	const branchName = $derived(
-		props.type === 'preview-series' ? props.currentSeries.name : branch.name
+		props.type === 'preview-series' ? props.currentSeries.name : stack.name
 	);
 	const commits = $derived(
-		props.type === 'preview-series' ? props.currentSeries.patches : branch.commits
+		props.type === 'preview-series' ? props.currentSeries.patches : stack.commits
 	);
 	const upstreamName = $derived(
-		props.type === 'preview-series' ? props.currentSeries.name : branch.upstreamName
+		props.type === 'preview-series' ? props.currentSeries.name : stack.upstreamName
 	);
 	const baseBranchName = $derived($baseBranch.shortName);
 
@@ -174,10 +174,10 @@
 			let upstreamBranchName = upstreamName;
 
 			if (pushBeforeCreate || commits.some((c) => !c.isRemote)) {
-				const firstPush = !branch.upstream;
+				const firstPush = !stack.upstream;
 				const pushResult = await branchController.pushBranch(
-					branch.id,
-					branch.requiresForce,
+					stack.id,
+					stack.requiresForce,
 					props.type === 'preview-series'
 				);
 
@@ -207,7 +207,7 @@
 			}
 
 			// All ids that existed prior to creating a new one (including archived).
-			const priorIds = branch.series.map((series) => series.prNumber).filter(isDefined);
+			const priorIds = stack.series.map((series) => series.prNumber).filter(isDefined);
 
 			const pr = await $prService.createPr({
 				title: params.title,

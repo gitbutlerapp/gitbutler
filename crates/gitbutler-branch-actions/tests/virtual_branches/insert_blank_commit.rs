@@ -18,7 +18,7 @@ fn insert_blank_commit_down() -> anyhow::Result<()> {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
@@ -42,7 +42,7 @@ fn insert_blank_commit_down() -> anyhow::Result<()> {
 
     gitbutler_branch_actions::insert_blank_commit(project, branch_id, commit2_id, 1).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()
@@ -83,7 +83,7 @@ fn insert_blank_commit_up() -> anyhow::Result<()> {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
@@ -107,7 +107,7 @@ fn insert_blank_commit_up() -> anyhow::Result<()> {
 
     gitbutler_branch_actions::insert_blank_commit(project, branch_id, commit2_id, -1).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()

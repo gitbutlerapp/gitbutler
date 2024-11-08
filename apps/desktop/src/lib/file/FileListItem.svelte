@@ -9,7 +9,7 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { getLockText } from '$lib/vbranches/tooltip';
-	import { VirtualBranch, type AnyFile, LocalFile } from '$lib/vbranches/types';
+	import { BranchStack, type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { Writable } from 'svelte/store';
@@ -27,8 +27,8 @@
 	const { file, isUnapplied, selected, showCheckbox, readonly, onclick, onkeydown }: Props =
 		$props();
 
-	const branch = maybeGetContextStore(VirtualBranch);
-	const branchId = $derived($branch?.id);
+	const stackStore = maybeGetContextStore(BranchStack);
+	const stackId = $derived($stackStore?.id);
 	const selectedOwnership: Writable<SelectedOwnership> | undefined =
 		maybeGetContextStore(SelectedOwnership);
 	const fileIdSelection = getContext(FileIdSelection);
@@ -83,7 +83,7 @@
 	// Manage the lifecycle of the draggable chips.
 	$effect(() => {
 		if (draggableEl) {
-			const draggableFile = new DraggableFile(branchId || '', file, $commit, selectedFiles);
+			const draggableFile = new DraggableFile(stackId || '', file, $commit, selectedFiles);
 			const config = {
 				label: `${file.filename}`,
 				filePath: file.path,
@@ -124,7 +124,7 @@
 	bind:this={contextMenu}
 	target={draggableEl}
 	{isUnapplied}
-	branchId={$branch?.id}
+	branchId={$stackStore?.id}
 	isBinary={file.binary}
 />
 

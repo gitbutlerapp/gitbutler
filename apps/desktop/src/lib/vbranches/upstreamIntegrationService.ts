@@ -3,7 +3,7 @@ import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { derived, readable, type Readable } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';
-import type { VirtualBranch } from '$lib/vbranches/types';
+import type { BranchStack } from '$lib/vbranches/types';
 
 export type BranchStatus =
 	| {
@@ -16,15 +16,15 @@ export type BranchStatus =
 			};
 	  };
 
-export type BranchStatusInfo = { branch: VirtualBranch; status: BranchStatus };
+export type StackStatusInfo = { stack: BranchStack; status: BranchStatus };
 
-export type BranchStatusesWithBranches =
+export type StackStatusesWithStacks =
 	| {
 			type: 'upToDate';
 	  }
 	| {
 			type: 'updatesRequired';
-			subject: BranchStatusInfo[];
+			subject: StackStatusInfo[];
 	  };
 
 export type ResolutionApproach = {
@@ -56,24 +56,24 @@ export function getBaseBrancheResolution(
 	};
 }
 
-export function getResolutionApproach(statusInfo: BranchStatusInfo): ResolutionApproach {
+export function getResolutionApproach(statusInfo: StackStatusInfo): ResolutionApproach {
 	if (statusInfo.status.type === 'fullyIntegrated') {
 		return { type: 'delete' };
 	}
 
-	if (statusInfo.branch.allowRebasing) {
+	if (statusInfo.stack.allowRebasing) {
 		return { type: 'rebase' };
 	}
 
 	return { type: 'merge' };
 }
 
-export function sortStatusInfo(a: BranchStatusInfo, b: BranchStatusInfo): number {
+export function sortStatusInfo(a: StackStatusInfo, b: StackStatusInfo): number {
 	if (
 		(a.status.type !== 'fullyIntegrated' && b.status.type !== 'fullyIntegrated') ||
 		(a.status.type === 'fullyIntegrated' && b.status.type === 'fullyIntegrated')
 	) {
-		return (a.branch?.name || 'Unknown').localeCompare(b.branch?.name || 'Unknown');
+		return (a.stack?.name || 'Unknown').localeCompare(b.stack?.name || 'Unknown');
 	}
 
 	if (a.status.type === 'fullyIntegrated') {
@@ -98,7 +98,7 @@ export class UpstreamIntegrationService {
 		private virtualBranchService: VirtualBranchService
 	) {}
 
-	upstreamStatuses(targetCommitOid?: string): Readable<BranchStatusesWithBranches | undefined> {
+	upstreamStatuses(targetCommitOid?: string): Readable<StackStatusesWithStacks | undefined> {
 		const branchStatuses = readable<BranchStatusesResponse | undefined>(undefined, (set) => {
 			invoke<BranchStatusesResponse>('upstream_integration_statuses', {
 				projectId: this.project.id,
@@ -108,20 +108,20 @@ export class UpstreamIntegrationService {
 
 		const branchStatusesWithBranches = derived(
 			[branchStatuses, this.virtualBranchService.branches],
-			([branchStatuses, branches]): BranchStatusesWithBranches | undefined => {
-				if (!branchStatuses || !branches) return;
+			([branchStatuses, stacks]): StackStatusesWithStacks | undefined => {
+				if (!branchStatuses || !stacks) return;
 				if (branchStatuses.type === 'upToDate') return branchStatuses;
 
 				return {
 					type: 'updatesRequired',
 					subject: branchStatuses.subject
 						.map((status) => {
-							const branch = branches.find((appliedBranch) => appliedBranch.id === status[0]);
+							const stack = stacks.find((appliedBranch) => appliedBranch.id === status[0]);
 
-							if (!branch) return;
+							if (!stack) return;
 
 							return {
-								branch,
+								stack,
 								status: status[1]
 							};
 						})

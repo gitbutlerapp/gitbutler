@@ -11,12 +11,12 @@
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { PatchSeries, type VirtualBranch } from '$lib/vbranches/types';
+	import { PatchSeries, type BranchStack } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 
 	interface Props {
-		branch: VirtualBranch;
+		branch: BranchStack;
 	}
 
 	const { branch }: Props = $props();

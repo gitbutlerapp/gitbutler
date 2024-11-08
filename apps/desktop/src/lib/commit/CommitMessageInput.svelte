@@ -15,7 +15,7 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
-	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
+	import { BranchStack, LocalFile } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -33,7 +33,7 @@
 
 	const selectedOwnership = getContextStore(SelectedOwnership);
 	const aiService = getContext(AIService);
-	const branch = getContextStore(VirtualBranch);
+	const stack = getContextStore(BranchStack);
 	const project = getContext(Project);
 	const promptService = getContext(PromptService);
 
@@ -66,7 +66,7 @@
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
 		// or the user has to manually trigger the name generation from the meatball menu
 		// This saves people this extra click
-		if ($branch.name.toLowerCase().includes('lane')) {
+		if ($stack.name.toLowerCase().includes('lane')) {
 			dispatch('action', 'generate-branch-name');
 		}
 
@@ -81,7 +81,7 @@
 			useEmojiStyle: $commitGenerationUseEmojis,
 			useBriefStyle: $commitGenerationExtraConcise,
 			commitTemplate: prompt,
-			branchName: $branch.name,
+			branchName: $stack.name,
 			onToken: (t) => {
 				if (firstToken) {
 					commitMessage = '';
@@ -249,7 +249,7 @@
 					disabled={!($aiGenEnabled && aiConfigurationValid)}
 					loading={aiLoading}
 					menuPosition="top"
-					onclick={async () => await generateCommitMessage($branch.files)}
+					onclick={async () => await generateCommitMessage($stack.files)}
 				>
 					Generate message
 

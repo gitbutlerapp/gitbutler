@@ -19,7 +19,7 @@ fn to_head() {
     .unwrap();
 
     let branch1_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     let oid = {
@@ -30,7 +30,7 @@ fn to_head() {
             gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false)
                 .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -46,9 +46,9 @@ fn to_head() {
 
     {
         // reset changes to head
-        gitbutler_branch_actions::reset_virtual_branch(project, branch1_id, oid).unwrap();
+        gitbutler_branch_actions::reset_branch_stack(project, branch1_id, oid).unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -76,7 +76,7 @@ fn to_target() {
     .unwrap();
 
     let branch1_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     {
@@ -87,7 +87,7 @@ fn to_target() {
             gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false)
                 .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -101,10 +101,10 @@ fn to_target() {
 
     {
         // reset changes to head
-        gitbutler_branch_actions::reset_virtual_branch(project, branch1_id, base_branch.base_sha)
+        gitbutler_branch_actions::reset_branch_stack(project, branch1_id, base_branch.base_sha)
             .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 0);
@@ -131,7 +131,7 @@ fn to_commit() {
     .unwrap();
 
     let branch1_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     let first_commit_oid = {
@@ -143,7 +143,7 @@ fn to_commit() {
             gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false)
                 .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -165,7 +165,7 @@ fn to_commit() {
             gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false)
                 .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 2);
@@ -180,10 +180,10 @@ fn to_commit() {
 
     {
         // reset changes to the first commit
-        gitbutler_branch_actions::reset_virtual_branch(project, branch1_id, first_commit_oid)
+        gitbutler_branch_actions::reset_branch_stack(project, branch1_id, first_commit_oid)
             .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -211,7 +211,7 @@ fn to_non_existing() {
     .unwrap();
 
     let branch1_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     {
@@ -222,7 +222,7 @@ fn to_non_existing() {
             gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false)
                 .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 1);
@@ -237,7 +237,7 @@ fn to_non_existing() {
     };
 
     assert_eq!(
-        gitbutler_branch_actions::reset_virtual_branch(
+        gitbutler_branch_actions::reset_branch_stack(
             project,
             branch1_id,
             "fe14df8c66b73c6276f7bb26102ad91da680afcb".parse().unwrap()

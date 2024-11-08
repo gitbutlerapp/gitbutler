@@ -18,7 +18,7 @@
 		Commit,
 		DetailedCommit,
 		RemoteFile,
-		VirtualBranch,
+		BranchStack,
 		type CommitStatus
 	} from '$lib/vbranches/types';
 	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
@@ -32,7 +32,7 @@
 	import { type Snippet } from 'svelte';
 
 	interface Props {
-		branch?: VirtualBranch | undefined;
+		branch?: BranchStack | undefined;
 		commit: DetailedCommit | Commit;
 		commitUrl?: string | undefined;
 		isHeadCommit?: boolean;

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use git2::Oid;
-use gitbutler_branch_actions::{list_virtual_branches, reorder_stack, SeriesOrder, StackOrder};
+use gitbutler_branch_actions::{list_branch_stacks, reorder_stack, SeriesOrder, StackOrder};
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
 use itertools::Itertools;
@@ -337,7 +337,7 @@ impl CommitHelpers for Vec<(Oid, String)> {
 
 /// Commits from list_virtual_branches
 fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String)>> {
-    let (vbranches, _) = list_virtual_branches(ctx.project()).unwrap();
+    let (vbranches, _) = list_branch_stacks(ctx.project()).unwrap();
     let vbranch = vbranches.iter().find(|vb| vb.name == "my_stack").unwrap();
     let mut out = vec![];
     for series in vbranch.series.clone() {

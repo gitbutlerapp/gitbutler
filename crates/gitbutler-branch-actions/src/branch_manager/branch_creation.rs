@@ -120,7 +120,7 @@ impl BranchManager<'_> {
         Ok(branch)
     }
 
-    pub fn create_virtual_branch_from_branch(
+    pub fn create_branch_stack_from_branch(
         &self,
         target: &Refname,
         upstream_branch: Option<RemoteRefname>,

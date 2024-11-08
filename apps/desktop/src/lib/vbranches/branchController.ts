@@ -58,7 +58,7 @@ export class BranchController {
 		runHooks = false
 	) {
 		try {
-			await invoke<void>('commit_virtual_branch', {
+			await invoke<void>('commit_branch_stack', {
 				projectId: this.projectId,
 				branch: branchId,
 				message,
@@ -102,7 +102,7 @@ export class BranchController {
 
 	async updateBranchName(branchId: string, name: string) {
 		try {
-			await invoke<void>('update_virtual_branch', {
+			await invoke<void>('update_branch_stack', {
 				projectId: this.projectId,
 				branch: { id: branchId, name }
 			});
@@ -268,7 +268,7 @@ export class BranchController {
 
 	async updateBranchRemoteName(branchId: string, upstream: string) {
 		try {
-			await invoke<void>('update_virtual_branch', {
+			await invoke<void>('update_branch_stack', {
 				projectId: this.projectId,
 				branch: { id: branchId, upstream }
 			});
@@ -279,7 +279,7 @@ export class BranchController {
 
 	async updateBranchAllowRebasing(branchId: string, allowRebasing: boolean) {
 		try {
-			await invoke<void>('update_virtual_branch', {
+			await invoke<void>('update_branch_stack', {
 				projectId: this.projectId,
 				branch: { id: branchId, allow_rebasing: allowRebasing }
 			});
@@ -290,7 +290,7 @@ export class BranchController {
 
 	async updateBranchNotes(branchId: string, notes: string) {
 		try {
-			await invoke<void>('update_virtual_branch', {
+			await invoke<void>('update_branch_stack', {
 				projectId: this.projectId,
 				branch: { id: branchId, notes }
 			});
@@ -301,7 +301,7 @@ export class BranchController {
 
 	async setSelectedForChanges(branchId: string) {
 		try {
-			await invoke<void>('update_virtual_branch', {
+			await invoke<void>('update_branch_stack', {
 				projectId: this.projectId,
 				branch: { id: branchId, selected_for_changes: true }
 			});
@@ -353,7 +353,7 @@ export class BranchController {
 
 	async saveAndUnapply(branchId: string) {
 		try {
-			await invoke<void>('save_and_unapply_virtual_branch', {
+			await invoke<void>('save_and_unapply_branch_stack', {
 				projectId: this.projectId,
 				branch: branchId
 			});
@@ -365,7 +365,7 @@ export class BranchController {
 
 	async updateBranchOwnership(branchId: string, ownership: string) {
 		try {
-			await invoke<void>('update_virtual_branch', {
+			await invoke<void>('update_branch_stack', {
 				projectId: this.projectId,
 				branch: { id: branchId, ownership }
 			});
@@ -380,7 +380,7 @@ export class BranchController {
 		stack: boolean = false
 	): Promise<BranchPushResult | undefined> {
 		try {
-			const command = stack ? 'push_stack' : 'push_virtual_branch';
+			const command = stack ? 'push_stack' : 'push_branch_stack';
 			const pushResult = await invoke<BranchPushResult | undefined>(command, {
 				projectId: this.projectId,
 				branchId,
@@ -426,7 +426,7 @@ export class BranchController {
 	async unapplyWithoutSaving(branchId: string) {
 		try {
 			// TODO: make this optimistic again.
-			await invoke<void>('unapply_without_saving_virtual_branch', {
+			await invoke<void>('unapply_without_saving_branch_stack', {
 				projectId: this.projectId,
 				branchId
 			});
@@ -450,7 +450,7 @@ export class BranchController {
 		prNumber: number | undefined = undefined
 	) {
 		try {
-			await invoke<string>('create_virtual_branch_from_branch', {
+			await invoke<string>('create_branch_stack_from_branch', {
 				projectId: this.projectId,
 				branch,
 				remote,
@@ -510,7 +510,7 @@ export class BranchController {
 
 	async amendBranch(branchId: string, commitOid: string, ownership: string) {
 		try {
-			await invoke<void>('amend_virtual_branch', {
+			await invoke<void>('amend_branch_stack', {
 				projectId: this.projectId,
 				branchId,
 				commitOid,

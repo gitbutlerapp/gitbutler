@@ -64,28 +64,28 @@ pub fn can_apply_remote_branch(project: &Project, branch_name: &RemoteRefname) -
     vbranch::is_remote_branch_mergeable(&ctx, branch_name).map_err(Into::into)
 }
 
-pub fn list_virtual_branches(
+pub fn list_branch_stacks(
     project: &Project,
-) -> Result<(Vec<vbranch::VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
+) -> Result<(Vec<vbranch::BranchStack>, Vec<gitbutler_diff::FileDiff>)> {
     let ctx = open_with_verify(project)?;
 
     assure_open_workspace_mode(&ctx)
         .context("Listing virtual branches requires open workspace mode")?;
 
-    vbranch::list_virtual_branches(&ctx, project.exclusive_worktree_access().write_permission())
+    vbranch::list_branch_stacks(&ctx, project.exclusive_worktree_access().write_permission())
         .map_err(Into::into)
 }
 
-pub fn list_virtual_branches_cached(
+pub fn list_branch_stacks_cached(
     project: &Project,
     worktree_changes: Option<DiffByPathMap>,
-) -> Result<(Vec<vbranch::VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
+) -> Result<(Vec<vbranch::BranchStack>, Vec<gitbutler_diff::FileDiff>)> {
     let ctx = open_with_verify(project)?;
 
     assure_open_workspace_mode(&ctx)
         .context("Listing virtual branches requires open workspace mode")?;
 
-    vbranch::list_virtual_branches_cached(
+    vbranch::list_branch_stacks_cached(
         &ctx,
         project.exclusive_worktree_access().write_permission(),
         worktree_changes,
@@ -93,7 +93,7 @@ pub fn list_virtual_branches_cached(
     .map_err(Into::into)
 }
 
-pub fn create_virtual_branch(project: &Project, create: &BranchCreateRequest) -> Result<StackId> {
+pub fn create_branch_stack(project: &Project, create: &BranchCreateRequest) -> Result<StackId> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Creating a branch requires open workspace mode")?;
     let mut guard = project.exclusive_worktree_access();
@@ -200,7 +200,7 @@ pub fn integrate_upstream_commits(
     .map_err(Into::into)
 }
 
-pub fn update_virtual_branch(project: &Project, branch_update: BranchUpdateRequest) -> Result<()> {
+pub fn update_branch_stack(project: &Project, branch_update: BranchUpdateRequest) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Updating a branch requires open workspace mode")?;
     let mut guard = project.exclusive_worktree_access();
@@ -223,7 +223,7 @@ pub fn update_virtual_branch(project: &Project, branch_update: BranchUpdateReque
     Ok(())
 }
 
-pub fn update_branch_order(
+pub fn update_stack_order(
     project: &Project,
     branch_updates: Vec<BranchUpdateRequest>,
 ) -> Result<()> {
@@ -243,7 +243,7 @@ pub fn update_branch_order(
 }
 
 /// Unapplies a virtual branch and deletes the branch entry from the virtual branch state.
-pub fn unapply_without_saving_virtual_branch(project: &Project, branch_id: StackId) -> Result<()> {
+pub fn unapply_without_saving_branch_stack(project: &Project, branch_id: StackId) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx)
         .context("Deleting a branch order requires open workspace mode")?;
@@ -404,7 +404,7 @@ pub fn save_and_unapply_virutal_branch(
     result
 }
 
-pub fn push_virtual_branch(
+pub fn push_branch_stack(
     project: &Project,
     branch_id: StackId,
     with_force: bool,
@@ -511,7 +511,7 @@ pub fn move_commit(
 }
 
 #[instrument(level = tracing::Level::DEBUG, skip(project), err(Debug))]
-pub fn create_virtual_branch_from_branch(
+pub fn create_branch_stack_from_branch(
     project: &Project,
     branch: &Refname,
     remote: Option<RemoteRefname>,
@@ -523,7 +523,7 @@ pub fn create_virtual_branch_from_branch(
     let branch_manager = ctx.branch_manager();
     let mut guard = project.exclusive_worktree_access();
     branch_manager
-        .create_virtual_branch_from_branch(branch, remote, pr_number, guard.write_permission())
+        .create_branch_stack_from_branch(branch, remote, pr_number, guard.write_permission())
         .map_err(Into::into)
 }
 

@@ -175,14 +175,14 @@ mod test {
         crate::set_base_branch(&project, &"refs/remotes/origin/master".parse().unwrap()).unwrap();
 
         let branch_1 =
-            crate::create_virtual_branch(&project, &BranchCreateRequest::default()).unwrap();
+            crate::create_branch_stack(&project, &BranchCreateRequest::default()).unwrap();
 
         fs::write(test_project.path().join("foo.txt"), "content").unwrap();
 
         crate::create_commit(&project, branch_1, "commit one", None, false).unwrap();
 
         let branch_2 =
-            crate::create_virtual_branch(&project, &BranchCreateRequest::default()).unwrap();
+            crate::create_branch_stack(&project, &BranchCreateRequest::default()).unwrap();
 
         fs::write(test_project.path().join("bar.txt"), "content").unwrap();
 

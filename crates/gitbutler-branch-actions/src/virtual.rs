@@ -47,7 +47,7 @@ use tracing::instrument;
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::struct_excessive_bools)]
-pub struct VirtualBranch {
+pub struct BranchStack {
     pub id: StackId,
     pub name: String,
     pub notes: String,
@@ -106,7 +106,7 @@ pub struct PatchSeries {
 #[derive(Debug, PartialEq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranches {
-    pub branches: Vec<VirtualBranch>,
+    pub branches: Vec<BranchStack>,
     pub skipped_files: Vec<gitbutler_diff::FileDiff>,
 }
 
@@ -269,27 +269,27 @@ fn find_base_tree<'a>(
     Ok(base_tree)
 }
 
-pub fn list_virtual_branches(
+pub fn list_branch_stacks(
     ctx: &CommandContext,
     perm: &mut WorktreeWritePermission,
-) -> Result<(Vec<VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
-    list_virtual_branches_cached(ctx, perm, None)
+) -> Result<(Vec<BranchStack>, Vec<gitbutler_diff::FileDiff>)> {
+    list_branch_stacks_cached(ctx, perm, None)
 }
 
 /// `worktree_changes` are all changed files against the current `HEAD^{tree}` and index
 /// against the current working tree directory, and it's used to avoid double-computing
 /// this expensive information.
 #[instrument(level = tracing::Level::DEBUG, skip(ctx, perm, worktree_changes))]
-pub fn list_virtual_branches_cached(
+pub fn list_branch_stacks_cached(
     ctx: &CommandContext,
     // TODO(ST): this should really only shared access, but there is some internals
     //           that conditionally write things.
     perm: &mut WorktreeWritePermission,
     worktree_changes: Option<gitbutler_diff::DiffByPathMap>,
-) -> Result<(Vec<VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
+) -> Result<(Vec<BranchStack>, Vec<gitbutler_diff::FileDiff>)> {
     assure_open_workspace_mode(ctx)
         .context("Listing virtual branches requires open workspace mode")?;
-    let mut branches: Vec<VirtualBranch> = Vec::new();
+    let mut branches: Vec<BranchStack> = Vec::new();
 
     let vb_state = ctx.project().virtual_branches();
 
@@ -475,7 +475,7 @@ pub fn list_virtual_branches_cached(
         };
 
         let head = branch.head();
-        let branch = VirtualBranch {
+        let branch = BranchStack {
             id: branch.id,
             name: branch.name,
             notes: branch.notes,
@@ -533,7 +533,7 @@ impl TryFrom<&git2::Commit<'_>> for CommitData {
     }
 }
 
-fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<VirtualBranch> {
+fn branches_with_large_files_abridged(mut branches: Vec<BranchStack>) -> Vec<BranchStack> {
     for branch in &mut branches {
         for file in &mut branch.files {
             // Diffs larger than 500kb are considered large

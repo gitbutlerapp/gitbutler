@@ -12,8 +12,8 @@
 		sortStatusInfo,
 		UpstreamIntegrationService,
 		type BaseBranchResolutionApproach,
-		type BranchStatusesWithBranches,
-		type BranchStatusInfo,
+		type StackStatusesWithStacks,
+		type StackStatusInfo,
 		type Resolution
 	} from '$lib/vbranches/upstreamIntegrationService';
 	import { getContext } from '@gitbutler/shared/context';
@@ -37,14 +37,14 @@
 
 	const forge = getForge();
 	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
-	let branchStatuses = $state<Readable<BranchStatusesWithBranches | undefined>>();
+	let branchStatuses = $state<Readable<StackStatusesWithStacks | undefined>>();
 	const baseBranchService = getContext(BaseBranchService);
 	const base = baseBranchService.base;
 
 	let modal = $state<Modal>();
 	let integratingUpstream = $state<OperationState>('inert');
 	let results = $state(new SvelteMap<string, Resolution>());
-	let statuses = $state<BranchStatusInfo[]>([]);
+	let statuses = $state<StackStatusInfo[]>([]);
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
 
@@ -65,10 +65,10 @@
 				const defaultApproach = getResolutionApproach(status);
 
 				return [
-					status.branch.id,
+					status.stack.id,
 					{
-						branchId: status.branch.id,
-						branchTree: status.branch.tree,
+						branchId: status.stack.id,
+						branchTree: status.stack.tree,
 						approach: defaultApproach
 					}
 				];
@@ -199,7 +199,7 @@
 				<h3 class="text-14 text-semibold">To be updated:</h3>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight={pxToRem(240)}>
-						{#each statuses as { branch, status }}
+						{#each statuses as { stack: branch, status }}
 							<IntegrationSeriesRow
 								type={status.type === 'fullyIntegrated'
 									? 'integrated'

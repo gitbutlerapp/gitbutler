@@ -31,7 +31,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             worktree_dir.join(format!("file{round}.txt")),
             make_lines(line_count),
         )?;
-        let branch_id = gitbutler_branch_actions::create_virtual_branch(
+        let branch_id = gitbutler_branch_actions::create_branch_stack(
             project,
             &BranchCreateRequest {
                 name: Some(round.to_string()),
@@ -55,7 +55,7 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             line_count > 20
         );
     }
-    let _empty = gitbutler_branch_actions::create_virtual_branch(project, &Default::default())?;
+    let _empty = gitbutler_branch_actions::create_branch_stack(project, &Default::default())?;
 
     let snapshots = project.list_snapshots(10, None)?;
     assert_eq!(
@@ -108,7 +108,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     gitbutler_branch_actions::set_base_branch(project, &"refs/remotes/origin/master".parse()?)?;
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())?;
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())?;
 
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
@@ -138,7 +138,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     // create state with conflict state
     let _empty_branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())?;
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())?;
 
     std::fs::remove_file(&base_merge_parent_path)?;
     std::fs::remove_file(&conflicts_path)?;
@@ -147,13 +147,13 @@ fn basic_oplog() -> anyhow::Result<()> {
     let _commit3_id =
         gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None, false)?;
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)?
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)?
         .0
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let branches = gitbutler_branch_actions::list_virtual_branches(project)?;
+    let branches = gitbutler_branch_actions::list_branch_stacks(project)?;
     assert_eq!(branches.0.len(), 2);
 
     assert_eq!(branch.commits.len(), 3);
@@ -192,7 +192,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     project.restore_snapshot(snapshots[2].clone().commit_id)?;
 
     // the restore removed our new branch
-    let branches = gitbutler_branch_actions::list_virtual_branches(project)?;
+    let branches = gitbutler_branch_actions::list_branch_stacks(project)?;
     assert_eq!(branches.0.len(), 1);
 
     // assert that the conflicts file was removed
@@ -254,7 +254,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         0
     );
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())?;
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())?;
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
             .list_branches_in_workspace()?

@@ -8,7 +8,7 @@
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
+	import { BranchStack, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -50,7 +50,7 @@
 
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
-	const branchStore = getContextStore(VirtualBranch);
+	const stackStore = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 
@@ -68,10 +68,10 @@
 		aiConfigurationValid = await aiService.validateConfiguration();
 	}
 
-	const branch = $derived($branchStore);
+	const stack = $derived($stackStore);
 
 	export function showSeriesRenameModal() {
-		renameSeriesModal.show(branch);
+		renameSeriesModal.show(stack);
 	}
 </script>
 
@@ -97,7 +97,7 @@
 			label="Rename"
 			disabled={branchType === 'integrated'}
 			onclick={async () => {
-				renameSeriesModal.show(branch);
+				renameSeriesModal.show(stack);
 				contextMenuEl?.close();
 			}}
 		/>
@@ -105,7 +105,7 @@
 			<ContextMenuItem
 				label="Delete"
 				onclick={() => {
-					deleteSeriesModal.show(branch);
+					deleteSeriesModal.show(stack);
 					contextMenuEl?.close();
 				}}
 			/>
@@ -152,7 +152,7 @@
 	bind:this={renameSeriesModal}
 	onSubmit={(close) => {
 		if (newHeadName && newHeadName !== headName) {
-			branchController.updateSeriesName(branch.id, headName, newHeadName);
+			branchController.updateSeriesName(stack.id, headName, newHeadName);
 		}
 		close();
 	}}
@@ -179,7 +179,7 @@
 	onSubmit={async (close) => {
 		try {
 			isDeleting = true;
-			await branchController.removePatchSeries(branch.id, headName);
+			await branchController.removePatchSeries(stack.id, headName);
 			close();
 		} finally {
 			isDeleting = false;

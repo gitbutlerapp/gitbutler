@@ -17,7 +17,7 @@ fn detect_upstream_commits() {
     .unwrap();
 
     let branch1_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     let oid1 = {
@@ -33,7 +33,7 @@ fn detect_upstream_commits() {
     };
 
     // push
-    gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None).unwrap();
+    gitbutler_branch_actions::push_branch_stack(project, branch1_id, false, None).unwrap();
 
     let oid3 = {
         // create third commit
@@ -43,7 +43,7 @@ fn detect_upstream_commits() {
 
     {
         // should correctly detect pushed commits
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 3);
@@ -71,7 +71,7 @@ fn detect_integrated_commits() {
     .unwrap();
 
     let branch1_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     let oid1 = {
@@ -87,11 +87,11 @@ fn detect_integrated_commits() {
     };
 
     // push
-    gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None).unwrap();
+    gitbutler_branch_actions::push_branch_stack(project, branch1_id, false, None).unwrap();
 
     {
         // merge branch upstream
-        let branch = gitbutler_branch_actions::list_virtual_branches(project)
+        let branch = gitbutler_branch_actions::list_branch_stacks(project)
             .unwrap()
             .0
             .into_iter()
@@ -109,7 +109,7 @@ fn detect_integrated_commits() {
 
     {
         // should correctly detect pushed commits
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 3);

@@ -18,7 +18,7 @@ fn undo_commit_simple() -> anyhow::Result<()> {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
@@ -42,7 +42,7 @@ fn undo_commit_simple() -> anyhow::Result<()> {
 
     gitbutler_branch_actions::undo_commit(project, branch_id, commit2_id).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()
@@ -80,7 +80,7 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
@@ -104,7 +104,7 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
 
     // create default branch
     // this branch should not be affected by the undo
-    let default_branch_id = gitbutler_branch_actions::create_virtual_branch(
+    let default_branch_id = gitbutler_branch_actions::create_branch_stack(
         project,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
@@ -115,7 +115,7 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
 
     gitbutler_branch_actions::undo_commit(project, branch_id, commit2_id).unwrap();
 
-    let mut branches = gitbutler_branch_actions::list_virtual_branches(project)
+    let mut branches = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter();

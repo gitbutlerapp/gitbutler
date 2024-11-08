@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -13,9 +13,9 @@
 
 	const { uncommittedChanges = 0, isLaneCollapsed }: Props = $props();
 
-	const branchStore = getContextStore(VirtualBranch);
-	const branch = $derived($branchStore);
-	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
+	const stackStore = getContextStore(BranchStack);
+	const stack = $derived($stackStore);
+	const nonArchivedSeries = $derived(stack.series.filter((s) => !s.archived));
 
 	function expandLane() {
 		$isLaneCollapsed = false;
@@ -26,7 +26,7 @@
 
 <div
 	class="card collapsed-lane"
-	class:collapsed-lane_target-branch={branch.selectedForChanges}
+	class:collapsed-lane_target-branch={stack.selectedForChanges}
 	onkeydown={(e) => e.key === 'Enter' && expandLane()}
 	tabindex="0"
 	role="button"
@@ -57,7 +57,7 @@
 			</div>
 
 			<div class="collapsed-lane__info__details">
-				{#if branch.selectedForChanges}
+				{#if stack.selectedForChanges}
 					<Button style="pop" kind="soft" size="tag" clickable={false} icon="target">
 						Default lane
 					</Button>

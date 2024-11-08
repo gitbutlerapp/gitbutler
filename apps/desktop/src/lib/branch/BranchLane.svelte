@@ -13,7 +13,7 @@
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
-	import { RemoteFile, VirtualBranch } from '$lib/vbranches/types';
+	import { RemoteFile, BranchStack } from '$lib/vbranches/types';
 	import {
 		getContext,
 		getContextStoreBySymbol,
@@ -26,10 +26,10 @@
 	import { writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 
-	const { branch }: { branch: VirtualBranch } = $props();
+	const { branch }: { branch: BranchStack } = $props();
 
 	// BRANCH
-	const branchStore = createContextStore(VirtualBranch, branch);
+	const branchStore = createContextStore(BranchStack, branch);
 	const selectedOwnershipStore = createContextStore(
 		SelectedOwnership,
 		SelectedOwnership.fromBranch(branch)

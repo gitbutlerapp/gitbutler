@@ -1,5 +1,5 @@
 use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
-use gitbutler_branch_actions::VirtualBranch;
+use gitbutler_branch_actions::BranchStack;
 use gitbutler_id::id::Id;
 use gitbutler_stack::Stack;
 
@@ -20,7 +20,7 @@ fn should_lock_updated_hunks() {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     {
@@ -40,7 +40,7 @@ fn should_lock_updated_hunks() {
         // change in the committed hunks leads to hunk locking
         repository.write_file("file.txt", &["updated content".to_string()]);
 
-        let branch = gitbutler_branch_actions::list_virtual_branches(project)
+        let branch = gitbutler_branch_actions::list_branch_stacks(project)
             .unwrap()
             .0
             .into_iter()
@@ -70,10 +70,10 @@ fn should_reset_into_same_branch() {
     )
     .unwrap();
 
-    gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+    gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
         .unwrap();
 
-    let branch_2_id = gitbutler_branch_actions::create_virtual_branch(
+    let branch_2_id = gitbutler_branch_actions::create_branch_stack(
         project,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
@@ -98,7 +98,7 @@ fn should_reset_into_same_branch() {
     assert_eq!(files.len(), 0);
 
     // Set target to branch 1 and verify the file resets into branch 2.
-    gitbutler_branch_actions::update_virtual_branch(
+    gitbutler_branch_actions::update_branch_stack(
         project,
         BranchUpdateRequest {
             id: branch_2_id,
@@ -120,8 +120,8 @@ fn commit_and_push_initial(repository: &TestProject) {
     repository.push();
 }
 
-fn get_virtual_branch(project: &Project, branch_id: Id<Stack>) -> VirtualBranch {
-    gitbutler_branch_actions::list_virtual_branches(project)
+fn get_virtual_branch(project: &Project, branch_id: Id<Stack>) -> BranchStack {
+    gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { error } from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -15,7 +15,7 @@
 	const { parentSeriesName }: Props = $props();
 
 	const branchController = getContext(BranchController);
-	const branch = getContextStore(VirtualBranch);
+	const stack = getContextStore(BranchStack);
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName: string | undefined = $state();
@@ -29,7 +29,7 @@
 			return;
 		}
 
-		branchController.createPatchSeries($branch.id, slugifiedRefName);
+		branchController.createPatchSeries($stack.id, slugifiedRefName);
 		createRefModal?.close();
 	}
 

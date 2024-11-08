@@ -16,7 +16,7 @@
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import { DetailedCommit, BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -33,9 +33,9 @@
 
 	const branchController = getContext(BranchController);
 	const fileIdSelection = getContext(FileIdSelection);
-	const branchStore = getContextStore(VirtualBranch);
+	const stackStore = getContextStore(BranchStack);
 	const project = getContext(Project);
-	const branch = $derived($branchStore);
+	const stack = $derived($stackStore);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
@@ -47,13 +47,13 @@
 	let rsViewport = $state<HTMLElement>();
 
 	$effect(() => {
-		if ($commitBoxOpen && branch.files.length === 0) {
+		if ($commitBoxOpen && stack.files.length === 0) {
 			commitBoxOpen.set(false);
 		}
 	});
 
 	onMount(() => {
-		laneWidth = lscache.get(laneWidthKey + branch.id);
+		laneWidth = lscache.get(laneWidthKey + stack.id);
 	});
 
 	let scrollEndVisible = $state(true);
@@ -64,7 +64,7 @@
 		const upstreamPatches: DetailedCommit[] = [];
 		const branchPatches: DetailedCommit[] = [];
 
-		branch.series.map((series) => {
+		stack.series.map((series) => {
 			upstreamPatches.push(...series.upstreamPatches);
 			branchPatches.push(...series.patches);
 			hasConflicts = branchPatches.some((patch) => patch.conflicted);
@@ -92,7 +92,7 @@
 	async function push() {
 		isPushingCommits = true;
 		try {
-			await branchController.pushBranch(branch.id, branch.requiresForce, true);
+			await branchController.pushBranch(stack.id, stack.requiresForce, true);
 			$listingService?.refresh();
 			// TODO: Refresh prMonitor and checksMonitor upon push
 		} finally {
@@ -103,12 +103,12 @@
 
 {#if $isLaneCollapsed}
 	<div class="collapsed-lane-container">
-		<CollapsedLane uncommittedChanges={branch.files.length} {isLaneCollapsed} />
+		<CollapsedLane uncommittedChanges={stack.files.length} {isLaneCollapsed} />
 		<div class="collapsed-lane-divider" data-remove-from-draggable></div>
 	</div>
 {:else}
 	<div class="resizer-wrapper">
-		<div class="branch-card hide-native-scrollbar" class:target-branch={branch.selectedForChanges}>
+		<div class="branch-card hide-native-scrollbar" class:target-branch={stack.selectedForChanges}>
 			<ScrollableContainer
 				wide
 				padding={{
@@ -123,28 +123,28 @@
 					data-tauri-drag-region
 				>
 					<StackHeader
-						{branch}
+						branch={stack}
 						onCollapseButtonClick={() => {
 							$isLaneCollapsed = true;
 						}}
 					/>
 					<div class="card-stacking">
-						{#if branch.files?.length > 0}
+						{#if stack.files?.length > 0}
 							<div class="branch-card__files">
 								<Dropzones type="file">
 									<BranchFiles
 										isUnapplied={false}
-										files={branch.files}
+										files={stack.files}
 										showCheckboxes={$commitBoxOpen}
 										allowMultiple
 										commitDialogExpanded={commitBoxOpen}
 										focusCommitDialog={() => commitDialog?.focus()}
 									/>
-									{#if branch.conflicted}
+									{#if stack.conflicted}
 										<div class="card-notifications">
 											<InfoMessage filled outlined={false} style="error">
 												<svelte:fragment slot="title">
-													{#if branch.files.some((f) => f.conflicted)}
+													{#if stack.files.some((f) => f.conflicted)}
 														This virtual branch conflicts with upstream changes. Please resolve all
 														conflicts and commit before you can continue.
 													{:else}
@@ -160,10 +160,10 @@
 									bind:this={commitDialog}
 									projectId={project.id}
 									expanded={commitBoxOpen}
-									hasSectionsAfter={branch.commits.length > 0}
+									hasSectionsAfter={stack.commits.length > 0}
 								/>
 							</div>
-						{:else if branch.commits.length === 0}
+						{:else if stack.commits.length === 0}
 							<Dropzones type="file">
 								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
@@ -189,7 +189,7 @@
 						{/if}
 						<Spacer dotted />
 						<div class="lane-branches">
-							<SeriesList {branch} />
+							<SeriesList branch={stack} />
 						</div>
 					</div>
 				</div>
@@ -223,7 +223,7 @@
 								: undefined}
 							onclick={push}
 						>
-							{branch.requiresForce ? 'Force push' : branch.series.length > 1 ? 'Push All' : 'Push'}
+							{stack.requiresForce ? 'Force push' : stack.series.length > 1 ? 'Push All' : 'Push'}
 						</Button>
 					</div>
 				{/if}
@@ -238,7 +238,7 @@
 						defaultLineColor={$fileIdSelection.length === 1 ? 'transparent' : 'var(--clr-border-2)'}
 						on:width={(e) => {
 							laneWidth = e.detail / (16 * $userSettings.zoom);
-							lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
+							lscache.set(laneWidthKey + stack.id, laneWidth, 7 * 1440); // 7 day ttl
 							$defaultBranchWidthRem = laneWidth;
 						}}
 					/>

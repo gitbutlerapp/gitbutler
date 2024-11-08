@@ -6,13 +6,13 @@
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch, type Commit, type DetailedCommit } from '$lib/vbranches/types';
+	import { BranchStack, type Commit, type DetailedCommit } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 
 	interface Props {
 		parent: ReturnType<typeof ContextMenu>;
 		baseBranch: BaseBranch;
-		branch: VirtualBranch | undefined;
+		branch: BranchStack | undefined;
 		commit: DetailedCommit | Commit;
 		commitUrl: string | undefined;
 		isRemote: boolean;

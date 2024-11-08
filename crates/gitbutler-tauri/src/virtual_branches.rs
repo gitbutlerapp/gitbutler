@@ -28,7 +28,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
-    pub fn commit_virtual_branch(
+    pub fn commit_branch_stack(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
@@ -56,7 +56,7 @@ pub mod commands {
         project_id: ProjectId,
     ) -> Result<VirtualBranches, Error> {
         let project = projects.get(project_id)?;
-        gitbutler_branch_actions::list_virtual_branches(&project)
+        gitbutler_branch_actions::list_branch_stacks(&project)
             .map_err(Into::into)
             .map(|(branches, skipped_files)| VirtualBranches {
                 branches,
@@ -73,7 +73,7 @@ pub mod commands {
         branch: BranchCreateRequest,
     ) -> Result<StackId, Error> {
         let project = projects.get(project_id)?;
-        let branch_id = gitbutler_branch_actions::create_virtual_branch(&project, &branch)?;
+        let branch_id = gitbutler_branch_actions::create_branch_stack(&project, &branch)?;
         emit_vbranches(&windows, project_id);
         Ok(branch_id)
     }
@@ -95,7 +95,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
-    pub fn create_virtual_branch_from_branch(
+    pub fn create_branch_stack_from_branch(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
@@ -104,7 +104,7 @@ pub mod commands {
         pr_number: Option<usize>,
     ) -> Result<StackId, Error> {
         let project = projects.get(project_id)?;
-        let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
+        let branch_id = gitbutler_branch_actions::create_branch_stack_from_branch(
             &project, &branch, remote, pr_number,
         )?;
         emit_vbranches(&windows, project_id);
@@ -179,14 +179,14 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
-    pub fn update_virtual_branch(
+    pub fn update_branch_stack(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch: BranchUpdateRequest,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        gitbutler_branch_actions::update_virtual_branch(&project, branch)?;
+        gitbutler_branch_actions::update_branch_stack(&project, branch)?;
 
         emit_vbranches(&windows, project_id);
         Ok(())
@@ -201,28 +201,28 @@ pub mod commands {
         branches: Vec<BranchUpdateRequest>,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        gitbutler_branch_actions::update_branch_order(&project, branches)?;
+        gitbutler_branch_actions::update_stack_order(&project, branches)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
-    pub fn unapply_without_saving_virtual_branch(
+    pub fn unapply_without_saving_branch_stack(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch_id: StackId,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        gitbutler_branch_actions::unapply_without_saving_virtual_branch(&project, branch_id)?;
+        gitbutler_branch_actions::unapply_without_saving_branch_stack(&project, branch_id)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
-    pub fn save_and_unapply_virtual_branch(
+    pub fn save_and_unapply_branch_stack(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
@@ -265,7 +265,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
-    pub fn push_virtual_branch(
+    pub fn push_branch_stack(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
@@ -273,7 +273,7 @@ pub mod commands {
         with_force: bool,
     ) -> Result<PushResult, Error> {
         let project = projects.get(project_id)?;
-        let upstream_refname = gitbutler_branch_actions::push_virtual_branch(
+        let upstream_refname = gitbutler_branch_actions::push_branch_stack(
             &project,
             branch_id,
             with_force,
@@ -326,7 +326,7 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
-    pub fn amend_virtual_branch(
+    pub fn amend_branch_stack(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,

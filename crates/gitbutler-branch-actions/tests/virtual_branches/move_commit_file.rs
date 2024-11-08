@@ -20,7 +20,7 @@ fn move_file_down() -> anyhow::Result<()> {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
@@ -45,7 +45,7 @@ fn move_file_down() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()
@@ -79,7 +79,7 @@ fn move_file_up() -> anyhow::Result<()> {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
@@ -102,7 +102,7 @@ fn move_file_up() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()

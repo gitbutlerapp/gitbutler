@@ -2,21 +2,20 @@
 mod actions;
 // This is our API
 pub use actions::{
-    amend, can_apply_remote_branch, create_commit, create_virtual_branch,
-    create_virtual_branch_from_branch, delete_local_branch, fetch_from_remotes, find_commit,
-    get_base_branch_data, get_remote_branch_data, get_uncommited_files,
-    get_uncommited_files_reusable, insert_blank_commit, integrate_upstream,
-    integrate_upstream_commits, list_commit_files, list_local_branches, list_virtual_branches,
-    list_virtual_branches_cached, move_commit, move_commit_file, push_base_branch,
-    push_virtual_branch, reorder_stack, reset_files, reset_virtual_branch,
-    resolve_upstream_integration, save_and_unapply_virutal_branch, set_base_branch,
-    set_target_push_remote, squash, unapply_ownership, unapply_without_saving_virtual_branch,
-    undo_commit, update_branch_order, update_commit_message, update_virtual_branch,
-    upstream_integration_statuses,
+    amend, can_apply_remote_branch, create_branch_stack, create_branch_stack_from_branch,
+    create_commit, delete_local_branch, fetch_from_remotes, find_commit, get_base_branch_data,
+    get_remote_branch_data, get_uncommited_files, get_uncommited_files_reusable,
+    insert_blank_commit, integrate_upstream, integrate_upstream_commits, list_branch_stacks,
+    list_branch_stacks_cached, list_commit_files, list_local_branches, move_commit,
+    move_commit_file, push_base_branch, push_branch_stack, reorder_stack, reset_files,
+    reset_virtual_branch, resolve_upstream_integration, save_and_unapply_virutal_branch,
+    set_base_branch, set_target_push_remote, squash, unapply_ownership,
+    unapply_without_saving_branch_stack, undo_commit, update_branch_stack, update_commit_message,
+    update_stack_order, upstream_integration_statuses,
 };
 
 mod r#virtual;
-pub use r#virtual::{BranchStatus, VirtualBranch, VirtualBranchHunksByPathMap, VirtualBranches};
+pub use r#virtual::{BranchStack, BranchStatus, VirtualBranchHunksByPathMap, VirtualBranches};
 /// Avoid using these!
 /// This was previously `pub use r#virtual::*;`
 pub mod internal {

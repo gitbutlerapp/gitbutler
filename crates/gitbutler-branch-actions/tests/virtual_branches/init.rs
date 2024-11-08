@@ -16,12 +16,12 @@ fn twice() {
             &"refs/remotes/origin/master".parse().unwrap(),
         )
         .unwrap();
-        assert!(gitbutler_branch_actions::list_virtual_branches(&project)
+        assert!(gitbutler_branch_actions::list_branch_stacks(&project)
             .unwrap()
             .0
             .is_empty());
         projects.delete(project.id).unwrap();
-        gitbutler_branch_actions::list_virtual_branches(&project).unwrap_err();
+        gitbutler_branch_actions::list_branch_stacks(&project).unwrap_err();
     }
 
     {
@@ -33,7 +33,7 @@ fn twice() {
         .unwrap();
 
         // even though project is on gitbutler/workspace, we should not import it
-        assert!(gitbutler_branch_actions::list_virtual_branches(&project)
+        assert!(gitbutler_branch_actions::list_branch_stacks(&project)
             .unwrap()
             .0
             .is_empty());
@@ -60,7 +60,7 @@ fn dirty_non_target() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -86,7 +86,7 @@ fn dirty_target() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -112,7 +112,7 @@ fn commit_on_non_target_local() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].commits.len(), 1);
@@ -139,7 +139,7 @@ fn commit_on_non_target_remote() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].commits.len(), 1);
@@ -164,7 +164,7 @@ fn commit_on_target() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].commits.len(), 1);
@@ -191,7 +191,7 @@ fn submodule() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let (branches, _) = gitbutler_branch_actions::list_branch_stacks(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);

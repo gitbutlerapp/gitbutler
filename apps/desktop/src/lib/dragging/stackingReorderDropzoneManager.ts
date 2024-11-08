@@ -1,6 +1,6 @@
 import { DraggableCommit } from '$lib/dragging/draggables';
 import type { BranchController } from '$lib/vbranches/branchController';
-import type { VirtualBranch, PatchSeries, StackOrder } from '$lib/vbranches/types';
+import type { BranchStack, PatchSeries, StackOrder } from '$lib/vbranches/types';
 
 export class StackingReorderDropzone {
 	constructor(
@@ -48,7 +48,7 @@ export class StackingReorderDropzoneManager {
 
 	constructor(
 		private branchController: BranchController,
-		private branch: VirtualBranch
+		private branch: BranchStack
 	) {
 		const seriesMap = new Map();
 		this.branch.series.forEach((series) => {
@@ -91,7 +91,7 @@ export class StackingReorderDropzoneManager {
 export class StackingReorderDropzoneManagerFactory {
 	constructor(private branchController: BranchController) {}
 
-	build(branch: VirtualBranch) {
+	build(branch: BranchStack) {
 		return new StackingReorderDropzoneManager(this.branchController, branch);
 	}
 }

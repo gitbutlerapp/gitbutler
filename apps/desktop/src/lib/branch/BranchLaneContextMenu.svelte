@@ -6,7 +6,7 @@
 	import { updatePrDescriptionTables } from '$lib/forge/shared/prFooter';
 	import { User } from '$lib/stores/user';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -28,7 +28,7 @@
 
 	let { contextMenuEl = $bindable(), target, onCollapse, onopen, onclose }: Props = $props();
 
-	const branchStore = getContextStore(VirtualBranch);
+	const stackStore = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
 	const prService = getForgePrService();
 	const user = getContextStore(User);
@@ -37,20 +37,20 @@
 	let allowRebasing = $state<boolean>();
 	let isDeleting = $state(false);
 
-	const branch = $derived($branchStore);
-	const commits = $derived(branch.commits);
+	const stack = $derived($stackStore);
+	const commits = $derived(stack.commits);
 	$effect(() => {
-		allowRebasing = branch.allowRebasing;
+		allowRebasing = stack.allowRebasing;
 	});
 
-	const allPrIds = $derived(branch.series.map((series) => series.prNumber).filter(isDefined));
+	const allPrIds = $derived(stack.series.map((series) => series.prNumber).filter(isDefined));
 
 	async function toggleAllowRebasing() {
-		branchController.updateBranchAllowRebasing(branch.id, !allowRebasing);
+		branchController.updateBranchAllowRebasing(stack.id, !allowRebasing);
 	}
 
 	function saveAndUnapply() {
-		branchController.saveAndUnapply(branch.id);
+		branchController.saveAndUnapply(stack.id);
 	}
 </script>
 
@@ -68,8 +68,8 @@
 		<ContextMenuItem
 			label="Unapply"
 			onclick={async () => {
-				if (commits.length === 0 && branch.files?.length === 0) {
-					await branchController.unapplyWithoutSaving(branch.id);
+				if (commits.length === 0 && stack.files?.length === 0) {
+					await branchController.unapplyWithoutSaving(stack.id);
 				} else {
 					saveAndUnapply();
 				}
@@ -81,13 +81,13 @@
 			label="Unapply and drop changes"
 			onclick={async () => {
 				if (
-					branch.name.toLowerCase().includes('lane') &&
+					stack.name.toLowerCase().includes('lane') &&
 					commits.length === 0 &&
-					branch.files?.length === 0
+					stack.files?.length === 0
 				) {
-					await branchController.unapplyWithoutSaving(branch.id);
+					await branchController.unapplyWithoutSaving(stack.id);
 				} else {
-					deleteBranchModal.show(branch);
+					deleteBranchModal.show(stack);
 				}
 				contextMenuEl?.close();
 			}}
@@ -108,7 +108,7 @@
 		<ContextMenuItem
 			label={`Create stack to the left`}
 			onclick={() => {
-				branchController.createBranch({ order: branch.order });
+				branchController.createBranch({ order: stack.order });
 				contextMenuEl?.close();
 			}}
 		/>
@@ -116,7 +116,7 @@
 		<ContextMenuItem
 			label={`Create stack to the right`}
 			onclick={() => {
-				branchController.createBranch({ order: branch.order + 1 });
+				branchController.createBranch({ order: stack.order + 1 });
 				contextMenuEl?.close();
 			}}
 		/>
@@ -128,8 +128,8 @@
 				label="Update PR footers"
 				disabled={allPrIds.length === 0}
 				onclick={() => {
-					if ($prService && branch) {
-						const allPrIds = branch.series.map((series) => series.prNumber).filter(isDefined);
+					if ($prService && stack) {
+						const allPrIds = stack.series.map((series) => series.prNumber).filter(isDefined);
 						updatePrDescriptionTables($prService, allPrIds);
 					}
 					contextMenuEl?.close();
@@ -145,7 +145,7 @@
 	onSubmit={async (close) => {
 		try {
 			isDeleting = true;
-			await branchController.unapplyWithoutSaving(branch.id);
+			await branchController.unapplyWithoutSaving(stack.id);
 			close();
 		} finally {
 			isDeleting = false;

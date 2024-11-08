@@ -53,7 +53,7 @@ pub fn list(project: Project) -> Result<()> {
 }
 
 pub fn status(project: Project) -> Result<()> {
-    debug_print(gitbutler_branch_actions::list_virtual_branches(&project)?)
+    debug_print(gitbutler_branch_actions::list_branch_stacks(&project)?)
 }
 
 pub fn unapply(project: Project, branch_name: String) -> Result<()> {
@@ -68,7 +68,7 @@ pub fn apply(project: Project, branch_name: String) -> Result<()> {
     let ctx = CommandContext::open(&project)?;
     let mut guard = project.exclusive_worktree_access();
     debug_print(
-        ctx.branch_manager().create_virtual_branch_from_branch(
+        ctx.branch_manager().create_branch_stack_from_branch(
             branch
                 .source_refname
                 .as_ref()
@@ -81,7 +81,7 @@ pub fn apply(project: Project, branch_name: String) -> Result<()> {
 }
 
 pub fn create(project: Project, branch_name: String, set_default: bool) -> Result<()> {
-    let new = gitbutler_branch_actions::create_virtual_branch(
+    let new = gitbutler_branch_actions::create_branch_stack(
         &project,
         &BranchCreateRequest {
             name: Some(branch_name),
@@ -101,7 +101,7 @@ pub fn set_default(project: Project, branch_name: String) -> Result<()> {
 }
 
 fn set_default_branch(project: &Project, branch: &Stack) -> Result<()> {
-    gitbutler_branch_actions::update_virtual_branch(
+    gitbutler_branch_actions::update_branch_stack(
         project,
         BranchUpdateRequest {
             id: branch.id,
@@ -125,7 +125,7 @@ pub fn series(project: Project, stack_name: String, new_series_name: String) -> 
 
 pub fn commit(project: Project, branch_name: String, message: String) -> Result<()> {
     let branch = branch_by_name(&project, &branch_name)?;
-    let (info, skipped) = gitbutler_branch_actions::list_virtual_branches(&project)?;
+    let (info, skipped) = gitbutler_branch_actions::list_branch_stacks(&project)?;
 
     if !skipped.is_empty() {
         eprintln!(

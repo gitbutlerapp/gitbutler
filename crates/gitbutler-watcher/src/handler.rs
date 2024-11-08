@@ -104,7 +104,7 @@ impl Handler {
             .projects
             .get(project_id)
             .context("failed to get project")?;
-        match gitbutler_branch_actions::list_virtual_branches_cached(&project, worktree_changes) {
+        match gitbutler_branch_actions::list_branch_stacks_cached(&project, worktree_changes) {
             Ok((branches, skipped_files)) => self.emit_app_event(Change::VirtualBranches {
                 project_id: project.id,
                 virtual_branches: VirtualBranches {

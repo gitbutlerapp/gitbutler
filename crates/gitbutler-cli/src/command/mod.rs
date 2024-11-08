@@ -73,7 +73,7 @@ pub mod workspace {
             UpdateMode::Unapply => upstream_integration::ResolutionApproach::Unapply,
             UpdateMode::Delete => upstream_integration::ResolutionApproach::Delete,
         };
-        let resolutions: Vec<_> = gitbutler_branch_actions::list_virtual_branches(&project)?
+        let resolutions: Vec<_> = gitbutler_branch_actions::list_branch_stacks(&project)?
             .0
             .into_iter()
             .map(|b| upstream_integration::Resolution {

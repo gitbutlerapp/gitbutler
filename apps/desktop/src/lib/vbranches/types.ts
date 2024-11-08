@@ -95,14 +95,17 @@ export class SkippedFile {
 	newSizeBytes!: number;
 }
 
-export class VirtualBranches {
-	@Type(() => VirtualBranch)
-	branches!: VirtualBranch[];
+/**
+ * Returned by the back end API `list_virtual_branches` command.
+ */
+export class ListBranchStacksResponse {
+	@Type(() => BranchStack)
+	branches!: BranchStack[];
 	@Type(() => SkippedFile)
 	skippedFiles!: SkippedFile[];
 }
 
-export class VirtualBranch {
+export class BranchStack {
 	id!: string;
 	name!: string;
 	notes!: string;
@@ -171,8 +174,6 @@ export class VirtualBranch {
 	}
 }
 
-// Used for dependency injection
-export const BRANCH = Symbol('branch');
 export type CommitStatus = 'local' | 'localAndRemote' | 'localAndShadow' | 'integrated' | 'remote';
 
 export class ConflictEntries {

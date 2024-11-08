@@ -4,7 +4,7 @@
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { slideFade } from '@gitbutler/ui/utils/transitions';
@@ -17,10 +17,10 @@
 
 	const branchController = getContext(BranchController);
 	const selectedOwnership = getContextStore(SelectedOwnership);
-	const branch = getContextStore(VirtualBranch);
+	const stack = getContextStore(BranchStack);
 
 	const runCommitHooks = projectRunCommitHooks(projectId);
-	const commitMessage = persistedCommitMessage(projectId, $branch.id);
+	const commitMessage = persistedCommitMessage(projectId, $stack.id);
 
 	let commitMessageInput: CommitMessageInput;
 	let isCommitting = false;
@@ -32,8 +32,8 @@
 		isCommitting = true;
 		try {
 			await branchController.commitBranch(
-				$branch.id,
-				$branch.name,
+				$stack.id,
+				$stack.name,
 				message.trim(),
 				$selectedOwnership.toString(),
 				$runCommitHooks

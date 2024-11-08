@@ -11,7 +11,7 @@
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { DetailedCommit, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
+	import { DetailedCommit, BranchStack, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -40,7 +40,7 @@
 		isBottom = false
 	}: Props = $props();
 
-	const branch = getContextStore(VirtualBranch);
+	const stack = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
@@ -55,8 +55,8 @@
 		})
 	);
 
-	const hasCommits = $derived($branch.commits && $branch.commits.length > 0);
-	const headCommit = $derived($branch.commits.at(0));
+	const hasCommits = $derived($stack.commits && $stack.commits.length > 0);
+	const headCommit = $derived($stack.commits.at(0));
 
 	const hasRemoteCommits = $derived(remoteOnlyPatches.length > 0);
 
@@ -83,7 +83,7 @@
 				{#each remoteOnlyPatches as commit, idx (commit.id)}
 					<CommitCard
 						type="remote"
-						branch={$branch}
+						branch={$stack}
 						{commit}
 						{isUnapplied}
 						last={idx === remoteOnlyPatches.length - 1}
@@ -104,7 +104,7 @@
 						onclick={async () => {
 							isIntegratingCommits = true;
 							try {
-								await branchController.mergeUpstreamForSeries($branch.id, seriesName);
+								await branchController.mergeUpstreamForSeries($stack.id, seriesName);
 							} catch (e) {
 								console.error(e);
 							} finally {
@@ -127,7 +127,7 @@
 					<CommitDragItem {commit}>
 						<CommitCard
 							type={commit.status}
-							branch={$branch}
+							branch={$stack}
 							{commit}
 							{seriesName}
 							{isUnapplied}

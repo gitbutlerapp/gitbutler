@@ -2,12 +2,12 @@
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import type { Snippet } from 'svelte';
 
 	const branchDragActionsFactory = getContext(BranchDragActionsFactory);
-	const branch = getContextStore(VirtualBranch);
+	const stack = getContextStore(BranchStack);
 
 	interface Props {
 		children: Snippet;
@@ -16,7 +16,7 @@
 
 	const { children, type = 'all' }: Props = $props();
 
-	const actions = $derived(branchDragActionsFactory.build($branch));
+	const actions = $derived(branchDragActionsFactory.build($stack));
 
 	const commitTypes: Props['type'][] = ['commit', 'all'];
 	function acceptsCommits(data: unknown) {

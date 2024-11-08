@@ -35,7 +35,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
@@ -44,7 +44,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
             .unwrap();
 
-    gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+    gitbutler_branch_actions::push_branch_stack(project, branch_id, false, None).unwrap();
 
     {
         // amend another hunk
@@ -52,7 +52,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         gitbutler_branch_actions::amend(project, branch_id, commit_id, &to_amend).unwrap();
 
-        let branch = gitbutler_branch_actions::list_virtual_branches(project)
+        let branch = gitbutler_branch_actions::list_branch_stacks(project)
             .unwrap()
             .0
             .into_iter()
@@ -81,10 +81,10 @@ fn forcepush_forbidden() {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
-    gitbutler_branch_actions::update_virtual_branch(
+    gitbutler_branch_actions::update_branch_stack(
         project,
         BranchUpdateRequest {
             id: branch_id,
@@ -100,7 +100,7 @@ fn forcepush_forbidden() {
         gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
             .unwrap();
 
-    gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+    gitbutler_branch_actions::push_branch_stack(project, branch_id, false, None).unwrap();
 
     {
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();
@@ -129,7 +129,7 @@ fn non_locked_hunk() -> anyhow::Result<()> {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
@@ -138,7 +138,7 @@ fn non_locked_hunk() -> anyhow::Result<()> {
         gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
             .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()
@@ -153,7 +153,7 @@ fn non_locked_hunk() -> anyhow::Result<()> {
         let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
         gitbutler_branch_actions::amend(project, branch_id, commit_oid, &to_amend).unwrap();
 
-        let branch = gitbutler_branch_actions::list_virtual_branches(project)
+        let branch = gitbutler_branch_actions::list_branch_stacks(project)
             .unwrap()
             .0
             .into_iter()
@@ -181,7 +181,7 @@ fn locked_hunk() -> anyhow::Result<()> {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
@@ -190,7 +190,7 @@ fn locked_hunk() -> anyhow::Result<()> {
         gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
             .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()
@@ -209,7 +209,7 @@ fn locked_hunk() -> anyhow::Result<()> {
         let to_amend: BranchOwnershipClaims = "file.txt:1-2".parse().unwrap();
         gitbutler_branch_actions::amend(project, branch_id, commit_oid, &to_amend).unwrap();
 
-        let branch = gitbutler_branch_actions::list_virtual_branches(project)
+        let branch = gitbutler_branch_actions::list_branch_stacks(project)
             .unwrap()
             .0
             .into_iter()
@@ -241,7 +241,7 @@ fn non_existing_ownership() {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     // create commit
@@ -250,7 +250,7 @@ fn non_existing_ownership() {
         gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
             .unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()

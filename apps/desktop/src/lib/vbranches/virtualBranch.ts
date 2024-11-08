@@ -1,4 +1,10 @@
-import { VirtualBranch, DetailedCommit, Commit, VirtualBranches, commitCompare } from './types';
+import {
+	BranchStack,
+	DetailedCommit,
+	Commit,
+	ListBranchStacksResponse,
+	commitCompare
+} from './types';
 import { invoke, listen } from '$lib/backend/ipc';
 import { RemoteBranchService } from '$lib/stores/remoteBranches';
 import { plainToInstance } from 'class-transformer';
@@ -11,7 +17,7 @@ export class VirtualBranchService {
 	readonly error = writable();
 	readonly branchesError = writable<any>();
 
-	readonly branches = writable<VirtualBranch[] | undefined>(undefined, () => {
+	readonly branches = writable<BranchStack[] | undefined>(undefined, () => {
 		this.refresh();
 		const unsubscribe = this.subscribe(async (branches) => await this.handlePayload(branches));
 		return () => {
@@ -38,7 +44,7 @@ export class VirtualBranchService {
 		}
 	}
 
-	private async handlePayload(branches: VirtualBranch[]) {
+	private async handlePayload(branches: BranchStack[]) {
 		await Promise.all(
 			branches.map(async (b) => {
 				const upstreamName = b.upstream?.name;
@@ -85,20 +91,20 @@ export class VirtualBranchService {
 		this.branchListingService.refresh();
 	}
 
-	private async listVirtualBranches(): Promise<VirtualBranch[]> {
+	private async listVirtualBranches(): Promise<BranchStack[]> {
 		return plainToInstance(
-			VirtualBranches,
+			ListBranchStacksResponse,
 			await invoke<any>('list_virtual_branches', { projectId: this.projectId })
 		).branches;
 	}
 
-	private subscribe(callback: (branches: VirtualBranch[]) => void) {
+	private subscribe(callback: (branches: BranchStack[]) => void) {
 		return listen<any>(`project://${this.projectId}/virtual-branches`, (event) =>
-			callback(plainToInstance(VirtualBranches, event.payload).branches)
+			callback(plainToInstance(ListBranchStacksResponse, event.payload).branches)
 		);
 	}
 
-	private logMetrics(branches: VirtualBranch[]) {
+	private logMetrics(branches: BranchStack[]) {
 		try {
 			const files = branches.flatMap((branch) => branch.files);
 			const hunks = files.flatMap((file) => file.hunks);

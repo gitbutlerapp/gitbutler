@@ -13,7 +13,7 @@ fn should_fail_on_incorrect_branch() {
 
     let branch_name: LocalRefname = "refs/heads/somebranch".parse().unwrap();
     repository.checkout(&branch_name);
-    let result = gitbutler_branch_actions::list_virtual_branches(project);
+    let result = gitbutler_branch_actions::list_branch_stacks(project);
 
     let err = result.unwrap_err();
     assert_eq!(

@@ -8,7 +8,7 @@ use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::branch_trees::{
     checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree,
 };
-use gitbutler_branch_actions::internal::list_virtual_branches;
+use gitbutler_branch_actions::internal::list_branch_stacks;
 use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
 use gitbutler_command_context::CommandContext;
@@ -240,7 +240,7 @@ pub(crate) fn save_and_return_to_workspace(
     // Checkout the applied branches
     checkout_branch_trees(ctx, perm)?;
     update_workspace_commit(&vb_state, ctx)?;
-    list_virtual_branches(ctx, perm)?;
+    list_branch_stacks(ctx, perm)?;
 
     Ok(())
 }

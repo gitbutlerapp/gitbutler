@@ -17,7 +17,7 @@ fn head() {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     {
@@ -46,7 +46,7 @@ fn head() {
 
     gitbutler_branch_actions::squash(project, branch_id, commit_four_oid).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()
@@ -79,7 +79,7 @@ fn middle() {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     {
@@ -108,7 +108,7 @@ fn middle() {
 
     gitbutler_branch_actions::squash(project, branch_id, commit_two_oid).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()
@@ -150,7 +150,7 @@ fn forcepush_allowed() {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     {
@@ -159,7 +159,7 @@ fn forcepush_allowed() {
             .unwrap()
     };
 
-    gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+    gitbutler_branch_actions::push_branch_stack(project, branch_id, false, None).unwrap();
 
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
@@ -181,7 +181,7 @@ fn forcepush_allowed() {
 
     gitbutler_branch_actions::squash(project, branch_id, commit_two_oid).unwrap();
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()
@@ -215,10 +215,10 @@ fn forcepush_forbidden() {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
-    gitbutler_branch_actions::update_virtual_branch(
+    gitbutler_branch_actions::update_branch_stack(
         project,
         BranchUpdateRequest {
             id: branch_id,
@@ -234,7 +234,7 @@ fn forcepush_forbidden() {
             .unwrap()
     };
 
-    gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+    gitbutler_branch_actions::push_branch_stack(project, branch_id, false, None).unwrap();
 
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
@@ -277,7 +277,7 @@ fn root_forbidden() {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     let commit_one_oid = {

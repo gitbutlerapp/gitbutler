@@ -20,7 +20,7 @@ fn should_unapply_with_commits() {
     .unwrap();
 
     let branch_id =
-        gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
+        gitbutler_branch_actions::create_branch_stack(project, &BranchCreateRequest::default())
             .unwrap();
 
     fs::write(
@@ -45,7 +45,7 @@ fn should_unapply_with_commits() {
     )
     .unwrap_or_else(|err| panic!("{err:?}"));
 
-    let branch = gitbutler_branch_actions::list_virtual_branches(project)
+    let branch = gitbutler_branch_actions::list_branch_stacks(project)
         .unwrap()
         .0
         .into_iter()
