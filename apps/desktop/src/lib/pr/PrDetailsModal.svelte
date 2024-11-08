@@ -87,6 +87,7 @@
 		props.type === 'preview-series' ? props.currentSeries.name : branch.upstreamName
 	);
 	const baseBranchName = $derived($baseBranch.shortName);
+	const currentSeries = props.type === 'preview-series' ? props.currentSeries : undefined;
 
 	let createPrDropDown = $state<ReturnType<typeof DropDownButton>>();
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
@@ -129,8 +130,7 @@
 
 	const defaultBody: string = $derived.by(() => {
 		if (props.type === 'display') return props.pr.body ?? '';
-		if (props.type === 'preview-series' && props.currentSeries.description)
-			return props.currentSeries.description;
+		if (currentSeries && currentSeries.description) return currentSeries.description;
 		if (templateBody) return templateBody;
 
 		// In case of a single commit, use the commit description for the body
@@ -165,7 +165,7 @@
 			error('Pull request service not available');
 			return;
 		}
-		if (props.type !== 'preview-series') {
+		if (!currentSeries) {
 			return;
 		}
 
@@ -175,11 +175,7 @@
 
 			if (pushBeforeCreate || commits.some((c) => !c.isRemote)) {
 				const firstPush = !branch.upstream;
-				const pushResult = await branchController.pushBranch(
-					branch.id,
-					branch.requiresForce,
-					props.type === 'preview-series'
-				);
+				const pushResult = await branchController.pushBranch(branch.id, branch.requiresForce);
 
 				if (pushResult) {
 					upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
@@ -209,20 +205,30 @@
 			// All ids that existed prior to creating a new one (including archived).
 			const priorIds = branch.series.map((series) => series.prNumber).filter(isDefined);
 
+			// Find the index of the current branch so we know where we want to point the pr.
+			const branches = branch.series;
+			const currentIndex = branches.findIndex((b) => b.name === currentSeries.name);
+			if (currentIndex === -1) {
+				throw new Error('Branch index not found.');
+			}
+
+			// Use base branch as base unless it's part of stack and should be be pointing
+			// to the preceding branch.
+			let base = baseBranchName;
+			if (currentIndex < branches.length - 1) {
+				base = (branches[currentIndex + 1] as PatchSeries).branchName;
+			}
+
 			const pr = await $prService.createPr({
 				title: params.title,
 				body: params.body,
 				draft: params.draft,
-				baseBranchName,
+				baseBranchName: base,
 				upstreamName: upstreamBranchName
 			});
 
 			// Store the new pull request number with the branch data.
-			await branchController.updateBranchPrNumber(
-				props.stackId,
-				props.currentSeries.name,
-				pr.number
-			);
+			await branchController.updateBranchPrNumber(branch.id, currentSeries.name, pr.number);
 
 			// If we now have two or more pull requests we add a stack table to the description.
 			if (priorIds.length > 0) {
