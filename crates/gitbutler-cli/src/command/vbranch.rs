@@ -23,7 +23,7 @@ pub fn list_all(project: Project) -> Result<()> {
 }
 
 pub fn list_local(project: Project) -> Result<()> {
-    debug_print(gitbutler_branch_actions::list_local_branches(project)?)
+    debug_print(gitbutler_branch_actions::list_git_branches(project)?)
 }
 
 pub fn details(project: Project, branch_names: Vec<BranchIdentity>) -> Result<()> {

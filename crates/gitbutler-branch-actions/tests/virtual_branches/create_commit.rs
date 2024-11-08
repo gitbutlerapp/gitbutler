@@ -108,7 +108,7 @@ fn should_reset_into_same_branch() {
     )
     .unwrap();
 
-    gitbutler_branch_actions::reset_virtual_branch(project, branch_2_id, base_branch.base_sha)
+    gitbutler_branch_actions::reset_branch_stack(project, branch_2_id, base_branch.base_sha)
         .unwrap();
 
     let files = get_virtual_branch(project, branch_2_id).files;

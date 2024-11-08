@@ -23,7 +23,7 @@ use serde::Serialize;
 /// virtual branches yet (ie, we have no `Branch` struct persisted in our data.
 #[derive(Debug, Clone, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase")]
-pub struct RemoteBranch {
+pub struct PartialGitBranch {
     #[serde(with = "gitbutler_serde::oid")]
     pub sha: git2::Oid,
     pub name: Refname,
@@ -67,7 +67,7 @@ pub struct RemoteCommit {
 /// # Previous notes
 /// For legacy purposes, this is still named "remote" branches, but it's actually
 /// a list of all the normal (non-gitbutler) git branches.
-pub fn list_local_branches(ctx: &CommandContext) -> Result<Vec<RemoteBranch>> {
+pub fn list_git_branches(ctx: &CommandContext) -> Result<Vec<PartialGitBranch>> {
     let default_target = default_target(&ctx.project().gb_dir())?;
 
     let mut remote_branches = vec![];
@@ -133,13 +133,13 @@ pub(crate) fn get_commit_data(
 pub(crate) fn branch_to_remote_branch(
     branch: &git2::Branch<'_>,
     remotes: &git2::string_array::StringArray,
-) -> Result<Option<RemoteBranch>> {
+) -> Result<Option<PartialGitBranch>> {
     let commit = branch.get().peel_to_commit()?;
     let name = Refname::try_from(branch).context("could not get branch name")?;
 
     let given_name = branch.get().given_name(remotes)?;
 
-    Ok(branch.get().target().map(|sha| RemoteBranch {
+    Ok(branch.get().target().map(|sha| PartialGitBranch {
         sha,
         upstream: if let Refname::Local(local_name) = &name {
             local_name.remote().cloned()

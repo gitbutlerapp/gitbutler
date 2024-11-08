@@ -186,7 +186,7 @@ fn main() {
                     virtual_branches::commands::insert_blank_commit,
                     virtual_branches::commands::reorder_stack,
                     virtual_branches::commands::update_commit_message,
-                    virtual_branches::commands::list_local_branches,
+                    virtual_branches::commands::list_git_branches,
                     virtual_branches::commands::list_branches,
                     virtual_branches::commands::get_branch_listing_details,
                     virtual_branches::commands::get_remote_branch_data,

@@ -10,7 +10,7 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { BranchData, type Branch } from '$lib/vbranches/types';
+	import { BranchData, type PartialGitBranch } from '$lib/vbranches/types';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Line from '@gitbutler/ui/commitLines/Line.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
@@ -18,8 +18,8 @@
 	import { onMount, setContext } from 'svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
-	export let localBranch: Branch | undefined = undefined;
-	export let remoteBranch: Branch | undefined = undefined;
+	export let localBranch: PartialGitBranch | undefined = undefined;
+	export let remoteBranch: PartialGitBranch | undefined = undefined;
 	export let pr: PullRequest | undefined;
 
 	const remoteBranchService = getContext(RemoteBranchService);

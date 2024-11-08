@@ -117,8 +117,8 @@ export class BranchStack {
 	description!: string;
 	head!: string;
 	order!: number;
-	@Type(() => Branch)
-	upstream?: Branch;
+	@Type(() => PartialGitBranch)
+	upstream?: PartialGitBranch;
 	upstreamData?: BranchData;
 	upstreamName?: string;
 	conflicted!: boolean;
@@ -370,7 +370,7 @@ export interface Author {
 	isBot?: boolean;
 }
 
-export class Branch {
+export class PartialGitBranch {
 	sha!: string;
 	name!: string;
 	upstream?: string;

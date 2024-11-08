@@ -1364,9 +1364,9 @@ fn detect_mergeable_branch() -> Result<()> {
     };
     vb_state.set_branch(branch4.clone())?;
 
-    let remotes = gitbutler_branch_actions::internal::list_local_branches(ctx)
-        .expect("failed to list remotes");
-    let _remote1 = &remotes
+    let git_branches =
+        gitbutler_branch_actions::internal::list_git_branches(ctx).expect("failed to list remotes");
+    let _remote1 = &git_branches
         .iter()
         .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch")
         .unwrap();
@@ -1377,7 +1377,7 @@ fn detect_mergeable_branch() -> Result<()> {
     .unwrap());
     // assert_eq!(remote1.commits.len(), 1);
 
-    let _remote2 = &remotes
+    let _remote2 = &git_branches
         .iter()
         .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch2")
         .unwrap();

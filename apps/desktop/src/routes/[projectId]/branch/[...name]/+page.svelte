@@ -7,7 +7,7 @@
 	import { RemoteBranchService } from '$lib/stores/remoteBranches';
 	import { groupBy } from '$lib/utils/groupBy';
 	import { error } from '$lib/utils/toasts';
-	import { Branch } from '$lib/vbranches/types';
+	import { PartialGitBranch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -26,8 +26,8 @@
 	const prs = $derived($forgeListingService?.prs);
 	const pr = $derived($prs?.find((pr) => pr.sourceBranch === branchListing?.name));
 
-	let localBranch = $state<Branch>();
-	let remoteBranches = $state<Branch[]>([]);
+	let localBranch = $state<PartialGitBranch>();
+	let remoteBranches = $state<PartialGitBranch[]>([]);
 
 	$effect(() => {
 		if (branchListing) {
@@ -36,7 +36,8 @@
 				return;
 			}
 
-			const branchesWithGivenName: Branch[] | undefined = branchesByGivenName[branchListing.name];
+			const branchesWithGivenName: PartialGitBranch[] | undefined =
+				branchesByGivenName[branchListing.name];
 
 			if (branchesWithGivenName) {
 				localBranch = branchesWithGivenName.find((branch) => !branch.isRemote);

@@ -12,7 +12,7 @@ use crate::{
     branch_manager::BranchManagerExt,
     file::RemoteBranchFile,
     remote,
-    remote::{RemoteBranch, RemoteBranchData, RemoteCommit},
+    remote::{PartialGitBranch, RemoteBranchData, RemoteCommit},
     VirtualBranchesExt,
 };
 use anyhow::{Context, Result};
@@ -366,7 +366,7 @@ pub fn reorder_stack(project: &Project, stack_id: StackId, stack_order: StackOrd
     reorder::reorder_stack(&ctx, stack_id, stack_order, guard.write_permission())
 }
 
-pub fn reset_virtual_branch(
+pub fn reset_branch_stack(
     project: &Project,
     branch_id: StackId,
     target_commit_oid: git2::Oid,
@@ -415,9 +415,9 @@ pub fn push_branch_stack(
     vbranch::push(&ctx, branch_id, with_force, askpass)
 }
 
-pub fn list_local_branches(project: Project) -> Result<Vec<RemoteBranch>> {
+pub fn list_git_branches(project: Project) -> Result<Vec<PartialGitBranch>> {
     let ctx = CommandContext::open(&project)?;
-    remote::list_local_branches(&ctx)
+    remote::list_git_branches(&ctx)
 }
 
 pub fn get_remote_branch_data(project: &Project, refname: &Refname) -> Result<RemoteBranchData> {

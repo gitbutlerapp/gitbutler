@@ -6,7 +6,7 @@ pub mod commands {
         BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
     };
     use gitbutler_branch_actions::{
-        BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranch,
+        BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, PartialGitBranch,
         RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranches,
     };
     use gitbutler_command_context::CommandContext;
@@ -319,7 +319,7 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::reset_virtual_branch(&project, branch_id, target_commit_oid)?;
+        gitbutler_branch_actions::reset_branch_stack(&project, branch_id, target_commit_oid)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }
@@ -416,13 +416,12 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub fn list_local_branches(
+    pub fn list_git_branches(
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
-    ) -> Result<Vec<RemoteBranch>, Error> {
+    ) -> Result<Vec<PartialGitBranch>, Error> {
         let project = projects.get(project_id)?;
-        let branches = gitbutler_branch_actions::list_local_branches(project)?;
-        Ok(branches)
+        Ok(gitbutler_branch_actions::list_git_branches(project)?)
     }
 
     #[tauri::command(async)]
