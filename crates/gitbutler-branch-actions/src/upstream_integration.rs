@@ -1,7 +1,4 @@
-use crate::{
-    branch_trees::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree},
-    BranchManagerExt, VirtualBranchesExt as _,
-};
+use crate::{BranchManagerExt, VirtualBranchesExt as _};
 use anyhow::{anyhow, bail, Result};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
@@ -13,6 +10,7 @@ use gitbutler_repo::{
 };
 use gitbutler_repo_actions::RepoActionsExt as _;
 use gitbutler_stack::{Stack, StackId, Target, VirtualBranchesHandle};
+use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, PartialEq, Debug)]

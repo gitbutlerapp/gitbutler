@@ -26,12 +26,12 @@ fn make_branch(head: git2::Oid, tree: git2::Oid) -> Stack {
 #[cfg(test)]
 mod compute_updated_branch_head {
     use super::*;
-    use gitbutler_branch_actions::branch_trees::{compute_updated_branch_head, BranchHeadAndTree};
     use gitbutler_cherry_pick::RepositoryExt as _;
     use gitbutler_commit::commit_ext::CommitExt;
     use gitbutler_testsupport::testing_repository::{
         assert_commit_tree_matches, assert_tree_matches, TestingRepository,
     };
+    use gitbutler_workspace::{compute_updated_branch_head, BranchHeadAndTree};
 
     /// When the head ID is the same as the branch ID, we should return the same Oids.
     #[test]
