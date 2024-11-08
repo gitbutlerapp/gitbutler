@@ -9,7 +9,6 @@
 <script lang="ts">
 	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
 	import PrTemplateSection from './PrTemplateSection.svelte';
-	import { getPreferredPRAction, PRAction } from './pr';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import { TemplateService } from '$lib/backend/templateService';
@@ -74,7 +73,6 @@
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const forge = getForge();
 	const templateService = getContext(TemplateService);
-	const preferredPRAction = getPreferredPRAction();
 
 	const branch = $derived($branchStore);
 	const branchName = $derived(
@@ -89,7 +87,7 @@
 	const baseBranchName = $derived($baseBranch.shortName);
 
 	let createPrDropDown = $state<ReturnType<typeof DropDownButton>>();
-	let isDraft = $state<boolean>($preferredPRAction === PRAction.CreateDraft);
+	const createDraft = persisted<boolean>(false, 'createDraftPr');
 
 	let modal = $state<ReturnType<typeof Modal>>();
 	let templateSelector = $state<ReturnType<typeof PrTemplateSection>>();
@@ -232,7 +230,7 @@
 		await createPr({
 			title: actualTitle,
 			body: actualBody,
-			draft: isDraft
+			draft: $createDraft
 		});
 		close();
 	}
@@ -470,21 +468,21 @@
 				onclick={async () => await handleCreatePR(close)}
 			>
 				{pushBeforeCreate ? 'Push and ' : ''}
-				{isDraft ? 'Create pull request draft' : `Create pull request`}
+				{$createDraft ? 'Create pull request draft' : `Create pull request`}
 
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
 						<ContextMenuItem
 							label="Create pull request"
 							onclick={() => {
-								isDraft = false;
+								createDraft.set(false);
 								createPrDropDown?.close();
 							}}
 						/>
 						<ContextMenuItem
 							label="Create draft pull request"
 							onclick={() => {
-								isDraft = true;
+								createDraft.set(true);
 								createPrDropDown?.close();
 							}}
 						/>
