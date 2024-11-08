@@ -164,7 +164,9 @@
 					</svelte:fragment>
 
 					<svelte:fragment slot="content">
-						<pre>{errorMessage}</pre>
+						{#if errorMessage}
+							<pre>{errorMessage}</pre>
+						{/if}
 					</svelte:fragment>
 				</InfoMessage>
 			{/if}
