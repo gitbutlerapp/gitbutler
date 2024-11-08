@@ -4,9 +4,32 @@
 	} from '$lib/IntegrationSeriesRow.svelte';
 
 	const items = [
-		{ type: 'clear', title: 'Move context into shared' },
-		{ type: 'conflicted', title: 'Add new context' },
-		{ type: 'integrated', title: 'Make edit mode fantastic' }
+		{
+			type: 'clear',
+			series: [
+				'feature/improve-dashboard-ui',
+				'release/v1.2.0',
+				'feature/refactor-api-endpoints',
+				'bugfix/remove-duplicate-entries',
+				'chore/update-dependencies',
+				'feature/add-password-reset'
+			]
+		},
+		{ type: 'conflicted', series: ['feature/add-user-auth'] },
+		{
+			type: 'integrated',
+			series: [
+				'feature/add-user-auth',
+				'bugfix/fix-login-error',
+				'hotfix/update-ssl-cert',
+				'feature/improve-dashboard-ui',
+				'release/v1.2.0',
+				'feature/refactor-api-endpoints',
+				'bugfix/remove-duplicate-entries',
+				'chore/update-dependencies',
+				'feature/add-password-reset'
+			]
+		}
 	] as SeriesProps[];
 </script>
 

@@ -167,7 +167,7 @@
 				<div class="target-divergence-about">
 					<h3 class="text-14 text-semibold">Target branch divergence</h3>
 					<p class="text-12 text-body target-divergence-description">
-						Branch target/main has diverged from the workspace.
+						<span class="text-bold">target/main</span> has diverged from the workspace.
 						<br />
 						Select an action to proceed with updating.
 					</p>
@@ -206,7 +206,7 @@
 									: status.type === 'conflicted'
 										? 'conflicted'
 										: 'clear'}
-								title={branch.name}
+								series={branch.series.filter((s) => !s.archived).map((s) => s.name)}
 							>
 								{#snippet select()}
 									{#if status.type !== 'fullyIntegrated' && results.get(branch.id)}
