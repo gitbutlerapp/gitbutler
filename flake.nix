@@ -58,6 +58,8 @@
             wget
             pkg-config
             rustToolchain
+            flatpak-builder
+            appstream
           ] ++ common;
         in
         {
