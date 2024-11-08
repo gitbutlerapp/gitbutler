@@ -1,12 +1,12 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	const { label, children }: { label?: string; children: Snippet } = $props();
+	const { title, children }: { title?: string; children: Snippet } = $props();
 </script>
 
 <div class="context-menu-section">
-	{#if label}
-		<div class="label text-12">{label}</div>
+	{#if title}
+		<div class="context-menu-section__title text-11 text-semibold">{title}</div>
 	{/if}
 	{@render children()}
 </div>
@@ -24,9 +24,9 @@
 		}
 	}
 
-	.label {
-		padding: 6px 8px;
-		color: var(--clr-scale-ntrl-50);
+	.context-menu-section__title {
+		padding: 8px 8px 6px;
+		color: var(--clr-text-3);
 		user-select: none;
 	}
 </style>

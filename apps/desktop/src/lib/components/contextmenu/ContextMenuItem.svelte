@@ -11,15 +11,15 @@
 		onclick: (e: MouseEvent) => void;
 	}
 
-	const { onclick, icon = undefined, label, disabled, control }: Props = $props();
+	const { onclick, icon, label, disabled, control }: Props = $props();
 </script>
 
-<button type="button" class="menu-item" class:disabled {disabled} {onclick}>
+<button type="button" class="menu-item no-select" class:disabled {disabled} {onclick}>
 	{#if icon}
 		<Icon name={icon} />
 	{/if}
 
-	<span class="label text-12">
+	<span class="menu-item__label text-12">
 		{label}
 	</span>
 	{#if control}
@@ -33,7 +33,7 @@
 		display: flex;
 		text-align: left;
 		align-items: center;
-		color: var(--clr-scale-ntrl-0);
+		color: var(--clr-text-1);
 		padding: 6px 8px;
 		border-radius: var(--radius-s);
 		gap: 12px;
@@ -48,14 +48,15 @@
 		&:last-child {
 			margin-bottom: 2px;
 		}
+
+		&.disabled {
+			cursor: default;
+			opacity: 0.3;
+		}
 	}
-	.label {
-		user-select: none;
+
+	.menu-item__label {
 		flex-grow: 1;
 		white-space: nowrap;
-	}
-	.disabled {
-		cursor: default;
-		color: var(--clr-scale-ntrl-50);
 	}
 </style>
