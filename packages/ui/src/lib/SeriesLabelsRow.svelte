@@ -23,9 +23,11 @@
 	</div>
 
 	{#if showCounterLabel && series.length > 1}
-		<div class="series-name more-series text-12 text-semibold" class:selected>
-			<span>{series.length - 1} more</span>
-		</div>
+		<Tooltip text={'→ ' + series.slice(1).join(' → ')}>
+			<div class="series-name more-series text-12 text-semibold" class:selected>
+				<span>{series.length - 1} more</span>
+			</div>
+		</Tooltip>
 	{/if}
 </div>
 

@@ -2,33 +2,31 @@
 	import type { Snippet } from 'svelte';
 	export interface Props {
 		type: 'clear' | 'conflicted' | 'integrated';
-		title: string;
+		series: string[];
 		select: Snippet;
 	}
 </script>
 
 <script lang="ts">
+	import SeriesLabelsRow from './SeriesLabelsRow.svelte';
 	import Icon from '$lib/Icon.svelte';
 
-	let { type, title, select }: Props = $props();
+	let { type, series, select }: Props = $props();
 </script>
 
 <div class="integration-series-item no-select {type}">
-	<div class="branch-icon">
-		<Icon name="branch-small" />
-	</div>
 	<div class="name-label-wrap">
-		<span class="name-label text-13 text-semibold truncate">
-			{title}
-		</span>
+		<SeriesLabelsRow {series} showCounterLabel selected={type === 'integrated'} />
 
-		<span class="name-label-badge text-11 text-semibold">
-			{#if type === 'conflicted'}
-				<span>Conflicted</span>
-			{:else if type === 'integrated'}
-				<span>Integrated</span>
-			{/if}
-		</span>
+		{#if type !== 'clear'}
+			<span class="name-label-badge text-11 text-semibold">
+				{#if type === 'conflicted'}
+					<span>Conflicted</span>
+				{:else if type === 'integrated'}
+					<span>Integrated</span>
+				{/if}
+			</span>
+		{/if}
 	</div>
 
 	{#if select}
@@ -77,12 +75,9 @@
 			overflow: hidden;
 		}
 
-		.name-label {
-			color: var(--clr-text-1);
-		}
-
 		.name-label-badge {
-			padding: 2px 4px;
+			padding: 4px 6px 3px;
+			height: 100%;
 			border-radius: var(--radius-m);
 			color: var(--clr-core-ntrl-100);
 		}
@@ -108,16 +103,11 @@
 		/* MODIFIERS */
 		&.clear {
 			background-color: var(--clr-bg-1);
-
-			.branch-icon {
-				background-color: var(--clr-core-ntrl-50);
-			}
 		}
 
 		&.conflicted {
 			background-color: var(--clr-bg-1);
 
-			.branch-icon,
 			.name-label-badge {
 				background-color: var(--clr-theme-warn-on-element);
 				background-color: var(--clr-theme-warn-element);
@@ -127,7 +117,6 @@
 		&.integrated {
 			background-color: var(--clr-bg-1-muted);
 
-			.branch-icon,
 			.name-label-badge {
 				color: var(--clr-theme-purp-on-element);
 				background-color: var(--clr-theme-purp-element);
