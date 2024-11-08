@@ -122,11 +122,13 @@ fn commit_unconflicted_cherry_result<'repository>(
             ..commit_headers
         });
 
+    let (_, committer) = repository.signatures()?;
+
     let commit_oid = crate::RepositoryExt::commit_with_signature(
         repository,
         None,
         &to_rebase.author(),
-        &to_rebase.committer(),
+        &committer,
         &to_rebase.message_bstr().to_str_lossy(),
         &merge_tree,
         &[&head],
@@ -200,11 +202,13 @@ fn commit_conflicted_cherry_result<'repository>(
                 ..commit_headers
             });
 
+    let (_, committer) = repository.signatures()?;
+
     let commit_oid = crate::RepositoryExt::commit_with_signature(
         repository,
         None,
         &to_rebase.author(),
-        &to_rebase.committer(),
+        &committer,
         &to_rebase.message_bstr().to_str_lossy(),
         &repository
             .find_tree(tree_oid)
