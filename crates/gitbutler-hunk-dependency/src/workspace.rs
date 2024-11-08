@@ -100,7 +100,7 @@ fn combine_path_ranges(path: &Path, stacks: &[StackRanges]) -> Vec<HunkRange> {
         let start_lines = filtered_paths
             .iter()
             .enumerate()
-            .map(|(i, path_dep)| path_dep.hunks.get(hunk_indexes[i]))
+            .map(|(i, path_dep)| path_dep.hunk_ranges.get(hunk_indexes[i]))
             .map(|hunk| hunk.map(|hunk_dep| hunk_dep.start))
             .collect_vec();
 
@@ -123,7 +123,7 @@ fn combine_path_ranges(path: &Path, stacks: &[StackRanges]) -> Vec<HunkRange> {
 
         // Get the path with the lowest next start line.
         let path_dep = &filtered_paths[next_index];
-        let hunk_dep = &path_dep.hunks[hunk_index];
+        let hunk_dep = &path_dep.hunk_ranges[hunk_index];
 
         result.push(HunkRange {
             start: hunk_dep

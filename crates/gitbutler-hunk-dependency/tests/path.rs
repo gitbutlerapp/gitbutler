@@ -98,7 +98,7 @@ a
     let stack_id = StackId::generate();
     let commit_a_id = git2::Oid::from_str("a")?;
     stack_ranges.add(stack_id, commit_a_id, vec![diff_1])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 1);
     assert_eq!(
         hunks[0],
@@ -114,7 +114,7 @@ a
 
     let commit_b_id = git2::Oid::from_str("b")?;
     stack_ranges.add(stack_id, commit_b_id, vec![diff_2])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 3);
     assert_eq!(
         hunks,
@@ -148,7 +148,7 @@ a
 
     let commit_c_id = git2::Oid::from_str("c")?;
     stack_ranges.add(stack_id, commit_c_id, vec![diff_3])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 1);
     assert_eq!(
         hunks,
@@ -165,7 +165,7 @@ a
     // The file is deleted in the second commit.
     // If we recreate it, it should intersect.
     let intersection = stack_ranges.intersection(1, 1);
-    assert_eq!(stack_ranges.hunks.len(), 1);
+    assert_eq!(stack_ranges.hunk_ranges.len(), 1);
     assert_eq!(intersection.len(), 1);
     assert_eq!(intersection[0].commit_id, commit_c_id);
 
@@ -238,7 +238,7 @@ a
     // The file is deleted in the second commit.
     // If we recreate it, it should intersect.
     let intersection = stack_ranges.intersection(1, 1);
-    assert_eq!(stack_ranges.hunks.len(), 1);
+    assert_eq!(stack_ranges.hunk_ranges.len(), 1);
     assert_eq!(intersection.len(), 1);
     assert_eq!(intersection[0].commit_id, commit_d_id);
 
@@ -437,7 +437,7 @@ a
 
     let commit_a_id = git2::Oid::from_str("a")?;
     stack_ranges.add(stack_id, commit_a_id, vec![diff_1])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 1);
     assert_eq!(
         hunks,
@@ -453,7 +453,7 @@ a
 
     let commit_b_id = git2::Oid::from_str("b")?;
     stack_ranges.add(stack_id, commit_b_id, vec![diff_2])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 2);
     assert_eq!(
         hunks,
@@ -563,7 +563,7 @@ a
 
     // commit 1
     stack_ranges.add(stack_id, commit1_id, vec![diff1])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 1);
     assert_eq!(
         hunks,
@@ -579,7 +579,7 @@ a
 
     // commit 2
     stack_ranges.add(stack_id, commit2_id, vec![diff2])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 2);
     assert_eq!(
         hunks,
@@ -605,7 +605,7 @@ a
 
     // commit 3
     stack_ranges.add(stack_id, commit3_id, vec![diff3])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 2);
     assert_eq!(
         hunks,
@@ -631,7 +631,7 @@ a
 
     // commit 4
     stack_ranges.add(stack_id, commit4_id, vec![diff4])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 3);
     assert_eq!(
         hunks,
@@ -665,7 +665,7 @@ a
 
     // commit 5
     stack_ranges.add(stack_id, commit5_id, vec![diff5])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(hunks.len(), 3);
     assert_eq!(
         hunks,
@@ -699,7 +699,7 @@ a
 
     // commit 6
     stack_ranges.add(stack_id, commit6_id, vec![diff6])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![
@@ -935,7 +935,7 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
         gitbutler_diff::ChangeType::Added,
     ))?;
     stack_ranges.add(stack_id, commit1_id, vec![diff_1])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![HunkRange {
@@ -957,7 +957,7 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
         gitbutler_diff::ChangeType::Modified,
     ))?;
     stack_ranges.add(stack_id, commit2_id, vec![diff_2])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![HunkRange {
@@ -978,7 +978,7 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
         gitbutler_diff::ChangeType::Modified,
     ))?;
     stack_ranges.add(stack_id, commit3_id, vec![diff_3])?;
-    let hunks = &stack_ranges.hunks;
+    let hunks = &stack_ranges.hunk_ranges;
     assert_eq!(
         hunks,
         &vec![
