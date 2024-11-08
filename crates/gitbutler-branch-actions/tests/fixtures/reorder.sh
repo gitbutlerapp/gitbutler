@@ -5,7 +5,7 @@ CLI=${1:?The first argument is the GitButler CLI}
 
 git init remote
 (cd remote
-  echo first > file
+  echo a > file
   git add . && git commit -m "init"
 )
 
@@ -75,6 +75,27 @@ git clone remote multiple-commits-empty-top
   $CLI branch create --set-default my_stack
   echo change1 >> file
   $CLI branch commit my_stack -m "commit 1"
+
+  $CLI branch series my_stack -s "top-series"
+)
+
+git clone remote overlapping-commits
+(cd overlapping-commits
+  git config user.name "Author"
+  git config user.email "author@example.com"
+  
+  git branch existing-branch
+  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
+
+  $CLI branch create --set-default other_stack
+  echo change0 >> other_file
+  $CLI branch commit other_stack -m "commit 0"
+
+  $CLI branch create --set-default my_stack
+  echo x > file
+  $CLI branch commit my_stack -m "commit 1"
+  echo y > file
+  $CLI branch commit my_stack -m "commit 2"
 
   $CLI branch series my_stack -s "top-series"
 )

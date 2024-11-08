@@ -306,6 +306,69 @@ fn reorder_stack_into_empty_top() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn conflicting_reorder_stack() -> Result<()> {
+    // Before:        : After:          :
+    // commit 2: y    : commit 1': x    :
+    // |              :                 :
+    // commit 1: x    : commit 2': a    : <- commit 2' is the auto-resolved tree (conflicted)
+    // |              :                 :
+    // MB:       a    : MB:        a    :
+
+    let (ctx, _temp_dir) = command_ctx("overlapping-commits")?;
+    let test = test_ctx(&ctx)?;
+
+    // There is a stack of 2:
+    // [] <- top-series
+    // [  <- a-branch-2
+    //   commit 2,
+    //   commit 1
+    // ]
+    let commits = vb_commits(&ctx);
+
+    // Verify the initial order
+    assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]);
+    assert_eq!(commits[1].conflicted(), vec![false, false]); // no conflicts
+    assert_eq!(file(&ctx, test.stack.head()), "y\n"); // y is the last version
+
+    // Reorder the stack in a way that will cause a conflict
+    let new_order = order(vec![
+        vec![],
+        vec![
+            test.bottom_commits["commit 1"], // swapping 1 and 2
+            test.bottom_commits["commit 2"],
+        ],
+    ]);
+    reorder_stack(ctx.project(), test.stack.id, new_order.clone())?;
+    let test = test_ctx(&ctx)?;
+    let commits = vb_commits(&ctx);
+
+    // Verify that the commits are now in the updated order
+    assert_eq!(commits[1].msgs(), vec!["commit 1", "commit 2"]); // swapped
+    assert_eq!(commits[1].conflicted(), vec![false, true]); // bottom commit is now conflicted
+    assert_eq!(file(&ctx, test.stack.head()), "x\n"); // x is the last version
+
+    // Reorded the commits back to the original order
+    let new_order = order(vec![
+        vec![],
+        vec![
+            test.bottom_commits["commit 2"],
+            test.bottom_commits["commit 1"],
+        ],
+    ]);
+
+    reorder_stack(ctx.project(), test.stack.id, new_order.clone())?;
+    let test = test_ctx(&ctx)?;
+    let commits = vb_commits(&ctx);
+
+    // Verify that the commits are now in the updated order
+    assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]); // swapped
+    assert_eq!(commits[1].conflicted(), vec![false, false]); // conflicts are gone
+    assert_eq!(file(&ctx, test.stack.head()), "y\n"); // y is the last version again
+
+    Ok(())
+}
+
 fn order(series: Vec<Vec<Oid>>) -> StackOrder {
     StackOrder {
         series: vec![
@@ -324,19 +387,25 @@ fn order(series: Vec<Vec<Oid>>) -> StackOrder {
 trait CommitHelpers {
     fn msgs(&self) -> Vec<String>;
     fn ids(&self) -> Vec<Oid>;
+    fn conflicted(&self) -> Vec<bool>;
 }
 
-impl CommitHelpers for Vec<(Oid, String)> {
+impl CommitHelpers for Vec<(Oid, String, bool)> {
     fn msgs(&self) -> Vec<String> {
-        self.iter().map(|(_, msg)| msg.clone()).collect_vec()
+        self.iter().map(|(_, msg, _)| msg.clone()).collect_vec()
     }
     fn ids(&self) -> Vec<Oid> {
-        self.iter().map(|(id, _)| *id).collect_vec()
+        self.iter().map(|(id, _, _)| *id).collect_vec()
+    }
+    fn conflicted(&self) -> Vec<bool> {
+        self.iter()
+            .map(|(_, _, conflicted)| *conflicted)
+            .collect_vec()
     }
 }
 
 /// Commits from list_virtual_branches
-fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String)>> {
+fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool)>> {
     let (vbranches, _) = list_virtual_branches(ctx.project()).unwrap();
     let vbranch = vbranches.iter().find(|vb| vb.name == "my_stack").unwrap();
     let mut out = vec![];
@@ -344,11 +413,20 @@ fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String)>> {
         let messages = series
             .patches
             .iter()
-            .map(|p| (p.id, p.description.to_string()))
+            .map(|p| (p.id, p.description.to_string(), p.conflicted))
             .collect_vec();
         out.push(messages)
     }
     out
+}
+
+fn file(ctx: &CommandContext, commit_id: git2::Oid) -> String {
+    let repo = ctx.repository();
+    let commit = repo.find_commit(commit_id).unwrap();
+    let tree = commit.tree().unwrap();
+    let entry = tree.get_name("file").unwrap();
+    let blob = repo.find_blob(entry.id()).unwrap();
+    String::from_utf8(blob.content().to_vec()).unwrap()
 }
 
 fn command_ctx(name: &str) -> Result<(CommandContext, TempDir)> {
