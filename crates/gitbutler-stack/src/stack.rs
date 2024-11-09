@@ -9,7 +9,6 @@ use anyhow::Result;
 use git2::Commit;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_commit::commit_ext::CommitVecExt;
 use gitbutler_id::id::Id;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname, VirtualRefname};
 use gitbutler_repo::{LogUntil, RepositoryExt};
@@ -23,7 +22,6 @@ use crate::heads::get_head;
 use crate::heads::remove_head;
 use crate::Branch;
 use crate::CommitOrChangeId;
-use crate::Series;
 use crate::{ownership::BranchOwnershipClaims, VirtualBranchesHandle};
 
 pub type StackId = Id<Stack>;
@@ -539,92 +537,6 @@ impl Stack {
     /// Ordered from oldest to newest (most recent)
     pub fn branches(&self) -> Vec<Branch> {
         self.heads.clone()
-    }
-
-    /// Returns a list of all branches/series in the stack.
-    /// This operation will compute the current list of local and remote commits that belong to each series.
-    /// The first entry is the newest in the Stack (i.e. the top of the stack).
-    pub fn list_series<'a>(&self, ctx: &'a CommandContext) -> Result<Vec<Series<'a>>> {
-        self.initialized()?;
-        let state = branch_state(ctx);
-        let mut all_series: Vec<Series> = vec![];
-        let repo = ctx.repository();
-        let default_target = state.get_default_target()?;
-        let merge_base = self.merge_base(ctx)?.id();
-        for head in self.heads.clone() {
-            let head_commit =
-                commit_by_oid_or_change_id(&head.target, repo, self.head(), merge_base);
-            if head.archived || head_commit.is_err() {
-                all_series.push(Series {
-                    head: head.clone(),
-                    local_commits: vec![],
-                    remote_commits: vec![],
-                    upstream_only_commits: vec![],
-                    archived: head.archived,
-                });
-                continue;
-            }
-            let head_commit = head_commit?.head.id();
-
-            // Find the previous head in the stack - if it is not archived, use it as base
-            // Otherwise use the merge base
-            let previous_head = self
-                .branch_predacessor(&head)
-                .filter(|predacessor| !predacessor.archived)
-                .map_or(merge_base, |predacessor| {
-                    commit_by_oid_or_change_id(&predacessor.target, repo, self.head(), merge_base)
-                        .map(|commit| commit.head.id())
-                        .unwrap_or(merge_base)
-                });
-            let mut local_patches = vec![];
-            for commit in repo
-                .log(head_commit, LogUntil::Commit(previous_head), false)?
-                .into_iter()
-                .rev()
-            {
-                local_patches.push(commit);
-            }
-
-            let mut remote_patches: Vec<Commit<'_>> = vec![];
-            let remote_name = default_target.push_remote_name();
-            if head.pushed(&remote_name, ctx).unwrap_or_default() {
-                let head_commit = repo
-                    .find_reference(&head.remote_reference(&remote_name)?)?
-                    .peel_to_commit()?;
-                let target_commit = repo
-                    .find_reference(default_target.branch.to_string().as_str())?
-                    .peel_to_commit()?;
-                let merge_base = repo.merge_base(head_commit.id(), target_commit.id())?;
-                repo.log(head_commit.id(), LogUntil::Commit(merge_base), false)?
-                    .into_iter()
-                    .rev()
-                    .for_each(|c| {
-                        remote_patches.push(c);
-                    });
-            }
-
-            // compute the commits that are only in the upstream
-            let local_patches_including_merge = repo
-                .log(head_commit, LogUntil::Commit(merge_base), true)?
-                .into_iter()
-                .rev() // oldest commit first
-                .collect_vec();
-            let mut upstream_only = vec![];
-            for patch in remote_patches.iter() {
-                if !local_patches_including_merge.contains_by_commit_or_change_id(patch) {
-                    upstream_only.push(patch.clone());
-                }
-            }
-
-            all_series.push(Series {
-                head: head.clone(),
-                local_commits: local_patches,
-                remote_commits: remote_patches,
-                upstream_only_commits: upstream_only,
-                archived: head.archived,
-            });
-        }
-        Ok(all_series)
     }
 
     /// Updates all heads in the stack that point to the `from` commit to point to the `to` commit.
