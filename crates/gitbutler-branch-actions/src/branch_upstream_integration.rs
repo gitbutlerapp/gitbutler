@@ -25,21 +25,21 @@ pub fn integrate_upstream_commits_for_series(
     let vb_state = ctx.project().virtual_branches();
 
     let stack = vb_state.get_branch_in_workspace(branch_id)?;
-    let all_series = stack.list_series(ctx)?;
+    let branches = stack.branches();
 
     let default_target = vb_state.get_default_target()?;
     let remote = default_target.push_remote_name();
 
-    let subject_series = all_series
+    let subject_branch = branches
         .iter()
-        .find(|series| series.head.name == series_name)
+        .find(|branch| branch.name == series_name)
         .ok_or(anyhow!("Series not found"))?;
-    let upstream_reference = subject_series.head.remote_reference(remote.as_str())?;
+    let upstream_reference = subject_branch.remote_reference(remote.as_str())?;
     let remote_head = repo.find_reference(&upstream_reference)?.peel_to_commit()?;
 
     let stack_merge_base = repo.merge_base(stack.head(), default_target.sha)?;
     let series_head = commit_by_oid_or_change_id(
-        &subject_series.head.target,
+        &subject_branch.target,
         repo,
         remote_head.id(),
         stack_merge_base,
@@ -47,16 +47,15 @@ pub fn integrate_upstream_commits_for_series(
     .head;
 
     let do_rebease = stack.allow_rebasing
-        || Some(subject_series.head.name.clone())
-            != all_series.first().map(|s| s.head.name.clone());
+        || Some(subject_branch.name.clone()) != branches.first().map(|b| b.name.clone());
     let integrate_upstream_context = IntegrateUpstreamContext {
         repository: repo,
         target_branch_head: default_target.sha,
         branch_head: stack.head(),
         branch_tree: stack.tree,
-        branch_name: &subject_series.head.name,
+        branch_name: &subject_branch.name,
         remote_head: remote_head.id(),
-        remote_branch_name: &subject_series.head.remote_reference(&remote)?,
+        remote_branch_name: &subject_branch.remote_reference(&remote)?,
         prefers_merge: !do_rebease,
     };
 
