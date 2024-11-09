@@ -4,7 +4,7 @@ runtime: org.gnome.Platform
 runtime-version: '47'
 sdk: org.gnome.Sdk
 
-command: launch.sh
+command: gitbutler-tauri
 finish-args:
   - --share=ipc
   - --socket=wayland
@@ -12,21 +12,18 @@ finish-args:
   - --device=dri
   - --share=network
   - --filesystem=/tmp
-  - --filesystem=/sys
   - --filesystem=/var
   - --filesystem=host
   - --allow=devel
-  - --socket=ssh-auth
-  - --socket=gpg-agent
   - --socket=system-bus
   - --socket=session-bus
-  - --env=PATH=/app/bin:/usr/bin:/run/host/bin
   - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
-  - --filesystem=xdg-run/gnupg:ro
+  # Required for interacting with git
+  - --socket=ssh-auth
+  - --socket=gpg-agent
   - --talk-name=org.freedesktop.secrets
-  - --talk-name=org.freedesktop.Flatpak
+  - --talk-name=org.freedesktop.Flatpak # Required for flatpak-spawn
   - --talk-name=org.kde.kwalletd6
-  - --talk-name=org.kde.kwalletd5
   - --talk-name=org.gnome.keyring.SystemPrompter
 
 separate-locales: false
@@ -40,28 +37,11 @@ modules:
         path: com.gitbutler.app.metainfo.xml
       - type: file
         dest-filename: gitbutler.deb
-        url: file:///opt/gitbutler/gitbutler/target/debug/bundle/deb/GitButler Nightly_0.0.0_amd64.deb
-        sha256: 94db605fc2b6358c71cc5b94d169093e87fe57488c7855ff92b43977ca776bb1
-      # - type: file
-      #   dest-filename: gitbutler.deb
-      #   url: https://releases.gitbutler.com/releases/release/0.13.11-1445/linux/x86_64/GitButler_0.13.11_amd64.deb
-      #   sha256: 6495589f30c0b5b7d894e268fae6bd569d4e01cbf33de22df262b07cab0507f3
-      #   only-arches:
-      #     - x86_64
-      #   x-checker-data:
-      #     type: json
-      #     url: https://app.gitbutler.com/releases
-      #     version-query: .version
-      #     timestamp-query: .pub_date
-      #     url-query: .platforms."linux-x86_64".url | sub(".AppImage.tar.gz"; ".deb")
-      - type: script
-        commands:
-          - "/app/bin/gitbutler-tauri"
-        dest-filename: "launch.sh"
+        path: ../../../target/debug/bundle/deb/GitButler Nightly_0.0.0_amd64.deb
+        sha256: a57375afe90004501518f815238b58ef7f0c161ebd552e4259272c1de6719d5a
     build-commands:
-      - ar -x *.deb
+      - ar -x gitbutler.deb
       - tar -xf data.tar.gz
-      - install -Dm755 launch.sh /app/bin/launch.sh
       - install -Dm755 usr/bin/gitbutler-tauri /app/bin/gitbutler-tauri
       - install -Dm755 usr/bin/gitbutler-git-askpass /app/bin/gitbutler-git-askpass
       - install -Dm755 usr/bin/gitbutler-git-setsid /app/bin/gitbutler-git-setsid
