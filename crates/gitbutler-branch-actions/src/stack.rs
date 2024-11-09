@@ -8,7 +8,7 @@ use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project::Project;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{Branch, CommitOrChangeId, PatchReferenceUpdate, Series};
+use gitbutler_stack::{Branch, CommitOrChangeId, PatchReferenceUpdate};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
@@ -193,21 +193,21 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());
     let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
-    let stack_series = stack.list_series(ctx)?;
-    for series in stack_series {
-        if series.archived {
+    let stack_branches = stack.branches();
+    for branch in stack_branches {
+        if branch.archived {
             // Nothing to push for this one
             continue;
         }
-        if series.head.target == merge_base {
+        if branch.target == merge_base {
             // Nothing to push for this one
             continue;
         }
-        if series_integrated(&mut check_commit, &series)? {
+        if branch_integrated(&mut check_commit, &branch, ctx, &stack)? {
             // Already integrated, nothing to push
             continue;
         }
-        let push_details = stack.push_details(ctx, series.head.name)?;
+        let push_details = stack.push_details(ctx, branch.name)?;
         ctx.push(
             push_details.head,
             &push_details.remote_refname,
@@ -219,14 +219,17 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
     Ok(())
 }
 
-fn series_integrated(check_commit: &mut IsCommitIntegrated, series: &Series) -> Result<bool> {
-    let mut is_integrated = false;
-    for commit in series.clone().local_commits.iter().rev() {
-        if !is_integrated {
-            is_integrated = check_commit.is_integrated(commit)?;
-        }
+fn branch_integrated(
+    check_commit: &mut IsCommitIntegrated,
+    branch: &Branch,
+    ctx: &CommandContext,
+    stack: &Stack,
+) -> Result<bool> {
+    if branch.archived {
+        return Ok(true);
     }
-    Ok(is_integrated)
+    let branch_head = ctx.repository().find_commit(branch.head_oid(ctx, stack)?)?;
+    check_commit.is_integrated(&branch_head)
 }
 
 /// Returns the stack series for the API.

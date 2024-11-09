@@ -1,5 +1,5 @@
 use anyhow::Result;
-use git2::Commit;
+use git2::{Commit, Oid};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
 use gitbutler_repo::{LogUntil, RepositoryExt};
@@ -61,6 +61,14 @@ impl From<git2::Commit<'_>> for CommitOrChangeId {
 }
 
 impl Branch {
+    pub fn head_oid(&self, ctx: &CommandContext, stack: &Stack) -> Result<Oid> {
+        let repo = ctx.repository();
+        let merge_base = stack.merge_base(ctx)?.id();
+        let head_commit = commit_by_oid_or_change_id(&self.target, repo, stack.head(), merge_base)?
+            .head
+            .id();
+        Ok(head_commit)
+    }
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
     pub fn remote_reference(&self, remote: &str) -> Result<String> {
         Ok(format!("refs/remotes/{}/{}", remote, self.name))
