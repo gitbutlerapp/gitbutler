@@ -245,18 +245,18 @@ pub(crate) fn stack_series(
 ) -> Result<(Vec<PatchSeries>, bool)> {
     let mut requires_force = false;
     let mut api_series: Vec<PatchSeries> = vec![];
-    let stack_series = branch.list_series(ctx)?;
-    for series in stack_series.clone() {
+    for stack_branch in branch.branches() {
+        let branch_commits = stack_branch.commits(ctx, branch)?;
         let remote = default_target.push_remote_name();
-        let upstream_reference = if series.head.pushed(remote.as_str(), ctx)? {
-            series.head.remote_reference(remote.as_str()).ok()
+        let upstream_reference = if stack_branch.pushed(remote.as_str(), ctx)? {
+            stack_branch.remote_reference(remote.as_str()).ok()
         } else {
             None
         };
         let mut patches: Vec<VirtualBranchCommit> = vec![];
         let mut is_integrated = false;
         // Reverse first instead of later, so that we catch the first integrated commit
-        for commit in series.clone().local_commits.iter().rev() {
+        for commit in branch_commits.clone().local_commits.iter().rev() {
             if !is_integrated {
                 is_integrated = commits
                     .iter()
@@ -269,12 +269,12 @@ pub(crate) fn stack_series(
             let remote_commit_id = commit
                 .change_id()
                 .and_then(|change_id| {
-                    series.remote_commits.iter().find_map(|c| {
+                    branch_commits.remote_commits.iter().find_map(|c| {
                         (c.change_id().as_deref() == Some(&change_id)).then(|| c.id())
                     })
                 })
                 .or(copied_from_remote_id)
-                .or(if series.remote(commit) {
+                .or(if branch_commits.remote(commit) {
                     Some(commit.id())
                 } else {
                     None
@@ -287,7 +287,7 @@ pub(crate) fn stack_series(
                 branch,
                 commit,
                 is_integrated,
-                series.remote(commit),
+                branch_commits.remote(commit),
                 copied_from_remote_id,
                 remote_commit_id,
             )?;
@@ -297,7 +297,7 @@ pub(crate) fn stack_series(
         patches.dedup_by(|a, b| a.id == b.id);
 
         let mut upstream_patches = vec![];
-        for commit in series.upstream_only_commits {
+        for commit in branch_commits.upstream_only_commits {
             let is_integrated = check_commit.is_integrated(&commit)?;
             let vcommit = commit_to_vbranch_commit(
                 ctx,
@@ -318,13 +318,13 @@ pub(crate) fn stack_series(
             requires_force = true;
         }
         api_series.push(PatchSeries {
-            name: series.head.name,
-            description: series.head.description,
+            name: stack_branch.name,
+            description: stack_branch.description,
             upstream_reference,
             patches,
             upstream_patches,
-            pr_number: series.head.pr_number,
-            archived: series.head.archived,
+            pr_number: stack_branch.pr_number,
+            archived: stack_branch.archived,
         });
     }
     api_series.reverse();
