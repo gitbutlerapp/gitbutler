@@ -115,11 +115,11 @@ fn find_virtual_branch_by_reference(
     reference: &ReferenceName,
 ) -> Result<Option<Stack>> {
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let all_virtual_branches = vb_state
-        .list_branches_in_workspace()
+    let all_stacks = vb_state
+        .list_stacks_in_workspace()
         .context("Failed to read virtual branches")?;
 
-    Ok(all_virtual_branches.into_iter().find(|virtual_branch| {
+    Ok(all_stacks.into_iter().find(|virtual_branch| {
         let Ok(refname) = virtual_branch.refname() else {
             return false;
         };

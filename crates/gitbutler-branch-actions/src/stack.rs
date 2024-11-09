@@ -8,7 +8,7 @@ use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project::Project;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
-use gitbutler_stack::{Branch, CommitOrChangeId, PatchReferenceUpdate, Series};
+use gitbutler_stack::{CommitOrChangeId, PatchReferenceUpdate, StackBranch};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
@@ -31,25 +31,21 @@ use gitbutler_operating_modes::assure_open_workspace_mode;
 /// If there are multiple heads pointing to the same patch and `preceding_head` is not specified,
 /// that means the new head will be first in order for that patch.
 /// The argument `preceding_head` is only used if there are multiple heads that point to the same patch, otherwise it is ignored.
-pub fn create_series(
-    project: &Project,
-    branch_id: StackId,
-    req: CreateSeriesRequest,
-) -> Result<()> {
+pub fn create_series(project: &Project, stack_id: StackId, req: CreateSeriesRequest) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     let mut guard = project.exclusive_worktree_access();
     let _ = ctx
         .project()
         .snapshot_create_dependent_branch(&req.name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
+    let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
     // If target_patch is None, create a new head that points to the top of the stack (most recent patch)
     if let Some(target_patch) = req.target_patch {
         stack.add_series(
             ctx,
-            Branch {
-                target: target_patch,
+            StackBranch {
+                head: target_patch,
                 name: normalized_head_name,
                 description: req.description,
                 pr_number: Default::default(),
@@ -80,14 +76,14 @@ pub struct CreateSeriesRequest {
 /// The very last branch (reference) cannot be removed (A Stack must always contain at least one reference)
 /// If there were commits/changes that were *only* referenced by the removed branch,
 /// those commits are moved to the branch underneath it (or more accurately, the preceding it)
-pub fn remove_series(project: &Project, branch_id: StackId, head_name: String) -> Result<()> {
+pub fn remove_series(project: &Project, stack_id: StackId, head_name: String) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     let mut guard = project.exclusive_worktree_access();
     let _ = ctx
         .project()
         .snapshot_remove_dependent_branch(&head_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
+    let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.remove_series(ctx, head_name)
 }
 
@@ -96,7 +92,7 @@ pub fn remove_series(project: &Project, branch_id: StackId, head_name: String) -
 /// If the series have been pushed to a remote, the name can not be changed as it corresponds to a remote ref.
 pub fn update_series_name(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
     head_name: String,
     new_head_name: String,
 ) -> Result<()> {
@@ -106,7 +102,7 @@ pub fn update_series_name(
         .project()
         .snapshot_update_dependent_branch_name(&head_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
+    let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&new_head_name)?;
     stack.update_series(
         ctx,
@@ -122,7 +118,7 @@ pub fn update_series_name(
 /// The description can be set to `None` to remove it.
 pub fn update_series_description(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
     head_name: String,
     description: Option<String>,
 ) -> Result<()> {
@@ -133,7 +129,7 @@ pub fn update_series_description(
         guard.write_permission(),
     );
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
+    let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.update_series(
         ctx,
         head_name,
@@ -166,17 +162,17 @@ pub fn update_series_pr_number(
         guard.write_permission(),
     );
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
+    let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.set_pr_number(ctx, &head_name, pr_number)
 }
 
 /// Pushes all series in the stack to the remote.
 /// This operation will error out if the target has no push remote configured.
-pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Result<()> {
+pub fn push_stack(project: &Project, stack_id: StackId, with_force: bool) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let state = ctx.project().virtual_branches();
-    let stack = state.get_branch(branch_id)?;
+    let stack = state.get_stack(stack_id)?;
 
     let repo = ctx.repository();
     let default_target = state.get_default_target()?;
@@ -193,21 +189,21 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());
     let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
-    let stack_series = stack.list_series(ctx)?;
-    for series in stack_series {
-        if series.archived {
+    let stack_branches = stack.branches();
+    for branch in stack_branches {
+        if branch.archived {
             // Nothing to push for this one
             continue;
         }
-        if series.head.target == merge_base {
+        if branch.head == merge_base {
             // Nothing to push for this one
             continue;
         }
-        if series_integrated(&mut check_commit, &series)? {
+        if branch_integrated(&mut check_commit, &branch, ctx, &stack)? {
             // Already integrated, nothing to push
             continue;
         }
-        let push_details = stack.push_details(ctx, series.head.name)?;
+        let push_details = stack.push_details(ctx, branch.name)?;
         ctx.push(
             push_details.head,
             &push_details.remote_refname,
@@ -219,14 +215,17 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
     Ok(())
 }
 
-fn series_integrated(check_commit: &mut IsCommitIntegrated, series: &Series) -> Result<bool> {
-    let mut is_integrated = false;
-    for commit in series.clone().local_commits.iter().rev() {
-        if !is_integrated {
-            is_integrated = check_commit.is_integrated(commit)?;
-        }
+fn branch_integrated(
+    check_commit: &mut IsCommitIntegrated,
+    branch: &StackBranch,
+    ctx: &CommandContext,
+    stack: &Stack,
+) -> Result<bool> {
+    if branch.archived {
+        return Ok(true);
     }
-    Ok(is_integrated)
+    let branch_head = ctx.repository().find_commit(branch.head_oid(ctx, stack)?)?;
+    check_commit.is_integrated(&branch_head)
 }
 
 /// Returns the stack series for the API.
@@ -234,7 +233,7 @@ fn series_integrated(check_commit: &mut IsCommitIntegrated, series: &Series) -> 
 /// `commits` is used to accelerate the is-integrated check.
 pub(crate) fn stack_series(
     ctx: &CommandContext,
-    branch: &mut Stack,
+    stack: &mut Stack,
     default_target: &Target,
     check_commit: &mut IsCommitIntegrated,
     remote_commit_data: HashMap<CommitData, git2::Oid>,
@@ -242,18 +241,18 @@ pub(crate) fn stack_series(
 ) -> Result<(Vec<PatchSeries>, bool)> {
     let mut requires_force = false;
     let mut api_series: Vec<PatchSeries> = vec![];
-    let stack_series = branch.list_series(ctx)?;
-    for series in stack_series.clone() {
+    for stack_branch in stack.branches() {
+        let branch_commits = stack_branch.commits(ctx, stack)?;
         let remote = default_target.push_remote_name();
-        let upstream_reference = if series.head.pushed(remote.as_str(), ctx)? {
-            series.head.remote_reference(remote.as_str()).ok()
+        let upstream_reference = if stack_branch.pushed(remote.as_str(), ctx)? {
+            stack_branch.remote_reference(remote.as_str()).ok()
         } else {
             None
         };
         let mut patches: Vec<VirtualBranchCommit> = vec![];
         let mut is_integrated = false;
         // Reverse first instead of later, so that we catch the first integrated commit
-        for commit in series.clone().local_commits.iter().rev() {
+        for commit in branch_commits.clone().local_commits.iter().rev() {
             if !is_integrated {
                 is_integrated = commits
                     .iter()
@@ -266,12 +265,12 @@ pub(crate) fn stack_series(
             let remote_commit_id = commit
                 .change_id()
                 .and_then(|change_id| {
-                    series.remote_commits.iter().find_map(|c| {
+                    branch_commits.remote_commits.iter().find_map(|c| {
                         (c.change_id().as_deref() == Some(&change_id)).then(|| c.id())
                     })
                 })
                 .or(copied_from_remote_id)
-                .or(if series.remote(commit) {
+                .or(if branch_commits.remote(commit) {
                     Some(commit.id())
                 } else {
                     None
@@ -281,10 +280,10 @@ pub(crate) fn stack_series(
             }
             let vcommit = commit_to_vbranch_commit(
                 ctx,
-                branch,
+                stack,
                 commit,
                 is_integrated,
-                series.remote(commit),
+                branch_commits.remote(commit),
                 copied_from_remote_id,
                 remote_commit_id,
             )?;
@@ -294,11 +293,11 @@ pub(crate) fn stack_series(
         patches.dedup_by(|a, b| a.id == b.id);
 
         let mut upstream_patches = vec![];
-        for commit in series.upstream_only_commits {
+        for commit in branch_commits.upstream_only_commits {
             let is_integrated = check_commit.is_integrated(&commit)?;
             let vcommit = commit_to_vbranch_commit(
                 ctx,
-                branch,
+                stack,
                 &commit,
                 is_integrated,
                 true, // per definition
@@ -315,20 +314,20 @@ pub(crate) fn stack_series(
             requires_force = true;
         }
         api_series.push(PatchSeries {
-            name: series.head.name,
-            description: series.head.description,
+            name: stack_branch.name,
+            description: stack_branch.description,
             upstream_reference,
             patches,
             upstream_patches,
-            pr_number: series.head.pr_number,
-            archived: series.head.archived,
+            pr_number: stack_branch.pr_number,
+            archived: stack_branch.archived,
         });
     }
     api_series.reverse();
 
     // This is done for compatibility with the legacy flow.
     // After a couple of weeks we can get rid of this.
-    if let Err(e) = branch.set_legacy_compatible_stack_reference(ctx) {
+    if let Err(e) = stack.set_legacy_compatible_stack_reference(ctx) {
         tracing::warn!("failed to set legacy compatible stack reference: {:?}", e);
     }
 

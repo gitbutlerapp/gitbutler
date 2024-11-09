@@ -465,18 +465,18 @@ fn command_ctx(name: &str) -> Result<(CommandContext, TempDir)> {
 
 fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let branches = handle.list_all_branches()?;
-    let stack = branches.iter().find(|b| b.name == "my_stack").unwrap();
+    let stacks = handle.list_all_stacks()?;
+    let stack = stacks.iter().find(|b| b.name == "my_stack").unwrap();
 
-    let all_series = stack.list_series(ctx)?;
-
-    let top_commits: HashMap<String, git2::Oid> = all_series[1]
+    let branches = stack.branches();
+    let top_commits: HashMap<String, git2::Oid> = branches[1]
+        .commits(ctx, stack)?
         .local_commits
         .iter()
         .map(|c| (c.message().unwrap().to_string(), c.id()))
         .collect();
-
-    let bottom_commits: HashMap<String, git2::Oid> = all_series[0]
+    let bottom_commits: HashMap<String, git2::Oid> = branches[0]
+        .commits(ctx, stack)?
         .local_commits
         .iter()
         .map(|c| (c.message().unwrap().to_string(), c.id()))

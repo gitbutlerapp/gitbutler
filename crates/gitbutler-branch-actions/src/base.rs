@@ -64,7 +64,7 @@ fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Resu
 
     let vb_state = ctx.project().virtual_branches();
     let virtual_branches = vb_state
-        .list_branches_in_workspace()
+        .list_stacks_in_workspace()
         .context("failed to read virtual branches")?;
 
     let target_commit = repo
@@ -244,7 +244,7 @@ pub(crate) fn set_base_branch(
             );
             branch.ownership = ownership;
 
-            vb_state.set_branch(branch)?;
+            vb_state.set_stack(branch)?;
         }
     }
 

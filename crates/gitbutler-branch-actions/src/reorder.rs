@@ -5,7 +5,7 @@ use git2::{Commit, Oid};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::rebase::cherry_rebase_group;
-use gitbutler_stack::{Series, StackId};
+use gitbutler_stack::{Stack, StackId};
 
 use gitbutler_workspace::{
     checkout_branch_trees, compute_updated_branch_head_for_commits, BranchHeadAndTree,
@@ -28,15 +28,14 @@ use crate::VirtualBranchesExt;
 /// - The commit ids in the reorder request must be in the stack
 pub fn reorder_stack(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     new_order: StackOrder,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let state = ctx.project().virtual_branches();
     let repo = ctx.repository();
-    let mut stack = state.get_branch(branch_id)?;
-    let all_series = stack.list_series(ctx)?;
-    let current_order = series_order(&all_series);
+    let mut stack = state.get_stack(stack_id)?;
+    let current_order = commits_order(ctx, &stack)?;
     new_order.validate(current_order.clone())?;
 
     let default_target = state.get_default_target()?;
@@ -182,26 +181,25 @@ impl StackOrder {
     }
 }
 
-pub fn series_order(all_series: &[Series<'_>]) -> StackOrder {
-    let series_order: Vec<SeriesOrder> = all_series
+pub fn commits_order(ctx: &CommandContext, stack: &Stack) -> Result<StackOrder> {
+    let order: Result<Vec<SeriesOrder>> = stack
+        .branches()
         .iter()
         .rev()
-        .map(|series| {
-            let commit_ids = series
-                .local_commits
-                .iter()
-                .rev()
-                .map(|commit| commit.id())
-                .collect();
-            SeriesOrder {
-                name: series.head.name.clone(),
-                commit_ids,
-            }
+        .map(|b| {
+            Ok(SeriesOrder {
+                name: b.name.clone(),
+                commit_ids: b
+                    .commits(ctx, stack)?
+                    .local_commits
+                    .iter()
+                    .rev()
+                    .map(|c| c.id())
+                    .collect(),
+            })
         })
         .collect();
-    StackOrder {
-        series: series_order,
-    }
+    Ok(StackOrder { series: order? })
 }
 
 #[cfg(test)]

@@ -11,27 +11,27 @@ use std::collections::HashMap;
 /// moves commit from the branch it's in to the top of the target branch
 pub(crate) fn move_commit(
     ctx: &CommandContext,
-    target_branch_id: StackId,
+    target_stack_id: StackId,
     commit_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
-    source_branch_id: StackId,
+    source_stack_id: StackId,
 ) -> Result<()> {
     ctx.assure_resolved()?;
     let vb_state = ctx.project().virtual_branches();
 
-    let applied_branches = vb_state
-        .list_branches_in_workspace()
+    let applied_stacks = vb_state
+        .list_stacks_in_workspace()
         .context("failed to read virtual branches")?;
 
-    if !applied_branches.iter().any(|b| b.id == target_branch_id) {
-        bail!("branch {target_branch_id} is not among applied branches")
+    if !applied_stacks.iter().any(|b| b.id == target_stack_id) {
+        bail!("branch {target_stack_id} is not among applied branches")
     }
 
     let mut applied_statuses = get_applied_status(ctx, None)?.branches;
 
     let (ref mut source_branch, source_status) = applied_statuses
         .iter_mut()
-        .find(|(b, _)| b.id == source_branch_id)
+        .find(|(b, _)| b.id == source_stack_id)
         .ok_or_else(|| anyhow!("the source branch could not be found"))?;
 
     let is_head_commit = commit_id == source_branch.head();
@@ -131,15 +131,15 @@ pub(crate) fn move_commit(
 
     // move the commit to destination branch target branch
 
-    let mut destination_branch = vb_state.get_branch_in_workspace(target_branch_id)?;
+    let mut destination_stack = vb_state.get_stack_in_workspace(target_stack_id)?;
 
     for ownership in ownerships_to_transfer {
-        destination_branch.ownership.put(ownership);
+        destination_stack.ownership.put(ownership);
     }
 
     let new_destination_head_oid = cherry_rebase_group(
         ctx.repository(),
-        destination_branch.head(),
+        destination_stack.head(),
         &[source_commit.id()],
     )?;
 
@@ -155,9 +155,9 @@ pub(crate) fn move_commit(
     // reset the source branch to the newer parent commit
     // and update the destination branch head
     source_branch.set_stack_head(ctx, new_source_head_oid, None)?;
-    vb_state.set_branch(source_branch.clone())?;
+    vb_state.set_stack(source_branch.clone())?;
 
-    destination_branch.set_stack_head(ctx, new_destination_head_oid, None)?;
+    destination_stack.set_stack_head(ctx, new_destination_head_oid, None)?;
 
     checkout_branch_trees(ctx, perm)?;
 

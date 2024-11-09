@@ -1,5 +1,5 @@
 use anyhow::Result;
-use git2::Commit;
+use git2::{Commit, Oid};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
 use gitbutler_repo::{LogUntil, RepositoryExt};
@@ -14,9 +14,9 @@ use crate::{commit_by_oid_or_change_id, Stack, VirtualBranchesHandle};
 ///
 /// Because this is **NOT** a regular git reference, it will not be found in the `.git/refs`. It is instead managed by GitButler.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Branch {
+pub struct StackBranch {
     /// The target of the reference - this can be a commit or a change that points to a commit.
-    pub target: CommitOrChangeId,
+    pub head: CommitOrChangeId,
     /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
     /// The name must be unique within the repository.
     pub name: String,
@@ -60,7 +60,15 @@ impl From<git2::Commit<'_>> for CommitOrChangeId {
     }
 }
 
-impl Branch {
+impl StackBranch {
+    pub fn head_oid(&self, ctx: &CommandContext, stack: &Stack) -> Result<Oid> {
+        let repo = ctx.repository();
+        let merge_base = stack.merge_base(ctx)?.id();
+        let head_commit = commit_by_oid_or_change_id(&self.head, repo, stack.head(), merge_base)?
+            .head
+            .id();
+        Ok(head_commit)
+    }
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
     pub fn remote_reference(&self, remote: &str) -> Result<String> {
         Ok(format!("refs/remotes/{}/{}", remote, self.name))
@@ -77,7 +85,7 @@ impl Branch {
         let repo = ctx.repository();
         let merge_base = stack.merge_base(ctx)?.id();
 
-        let head_commit = commit_by_oid_or_change_id(&self.target, repo, stack.head(), merge_base);
+        let head_commit = commit_by_oid_or_change_id(&self.head, repo, stack.head(), merge_base);
         if self.archived || head_commit.is_err() {
             return Ok(BranchCommits {
                 local_commits: vec![],
@@ -93,7 +101,7 @@ impl Branch {
             .branch_predacessor(self)
             .filter(|predacessor| !predacessor.archived)
             .map_or(merge_base, |predacessor| {
-                commit_by_oid_or_change_id(&predacessor.target, repo, stack.head(), merge_base)
+                commit_by_oid_or_change_id(&predacessor.head, repo, stack.head(), merge_base)
                     .map(|commit| commit.head.id())
                     .unwrap_or(merge_base)
             });

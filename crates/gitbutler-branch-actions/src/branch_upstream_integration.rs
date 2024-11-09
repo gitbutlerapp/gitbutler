@@ -15,7 +15,7 @@ use crate::{conflicts, VirtualBranchesExt as _};
 
 pub fn integrate_upstream_commits_for_series(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     perm: &mut WorktreeWritePermission,
     series_name: String,
 ) -> Result<()> {
@@ -24,46 +24,45 @@ pub fn integrate_upstream_commits_for_series(
     let repo = ctx.repository();
     let vb_state = ctx.project().virtual_branches();
 
-    let branch = vb_state.get_branch_in_workspace(branch_id)?;
-    let all_series = branch.list_series(ctx)?;
+    let stack = vb_state.get_stack_in_workspace(stack_id)?;
+    let branches = stack.branches();
 
     let default_target = vb_state.get_default_target()?;
     let remote = default_target.push_remote_name();
 
-    let subject_series = all_series
+    let subject_branch = branches
         .iter()
-        .find(|series| series.head.name == series_name)
+        .find(|branch| branch.name == series_name)
         .ok_or(anyhow!("Series not found"))?;
-    let upstream_reference = subject_series.head.remote_reference(remote.as_str())?;
+    let upstream_reference = subject_branch.remote_reference(remote.as_str())?;
     let remote_head = repo.find_reference(&upstream_reference)?.peel_to_commit()?;
 
-    let stack_merge_base = repo.merge_base(branch.head(), default_target.sha)?;
+    let stack_merge_base = repo.merge_base(stack.head(), default_target.sha)?;
     let series_head = commit_by_oid_or_change_id(
-        &subject_series.head.target,
+        &subject_branch.head,
         repo,
         remote_head.id(),
         stack_merge_base,
     )?
     .head;
 
-    let do_rebease = branch.allow_rebasing
-        || Some(subject_series.head.name.clone())
-            != all_series.first().map(|s| s.head.name.clone());
+    let do_rebease = stack.allow_rebasing
+        || Some(subject_branch.name.clone()) != branches.first().map(|b| b.name.clone());
     let integrate_upstream_context = IntegrateUpstreamContext {
         repository: repo,
         target_branch_head: default_target.sha,
-        branch_head: branch.head(),
-        branch_tree: branch.tree,
-        branch_name: &subject_series.head.name,
+        branch_head: stack.head(),
+        branch_tree: stack.tree,
+        branch_name: &subject_branch.name,
         remote_head: remote_head.id(),
-        remote_branch_name: &subject_series.head.remote_reference(&remote)?,
+        remote_branch_name: &subject_branch.remote_reference(&remote)?,
         prefers_merge: !do_rebease,
     };
 
     let (BranchHeadAndTree { head, tree }, new_series_head) =
         integrate_upstream_context.inner_integrate_upstream_commits_for_series(series_head.id())?;
 
-    let mut branch = branch.clone();
+    let mut branch = stack.clone();
     branch.set_stack_head(ctx, head, Some(tree))?;
     checkout_branch_trees(ctx, perm)?;
     branch.replace_head(ctx, &series_head, &repo.find_commit(new_series_head)?)?;
@@ -79,7 +78,7 @@ pub fn integrate_upstream_commits_for_series(
 ///
 pub fn integrate_upstream_commits(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     conflicts::is_conflicting(ctx, None)?;
@@ -88,9 +87,9 @@ pub fn integrate_upstream_commits(
     let project = ctx.project();
     let vb_state = project.virtual_branches();
 
-    let branch = vb_state.get_branch_in_workspace(branch_id)?;
+    let stack = vb_state.get_stack_in_workspace(stack_id)?;
 
-    let Some(upstream_refname) = branch.clone().upstream else {
+    let Some(upstream_refname) = stack.clone().upstream else {
         bail!("No upstream reference found for branch");
     };
 
@@ -99,7 +98,7 @@ pub fn integrate_upstream_commits(
 
     // If the upstream branch head is the same as the local, then the branch is
     // up to date.
-    if upstream_branch_head == branch.head() {
+    if upstream_branch_head == stack.head() {
         return Ok(());
     }
 
@@ -110,20 +109,20 @@ pub fn integrate_upstream_commits(
     let integrate_upstream_context = IntegrateUpstreamContext {
         repository,
         target_branch_head,
-        branch_head: branch.head(),
-        branch_tree: branch.tree,
-        branch_name: &branch.name,
+        branch_head: stack.head(),
+        branch_tree: stack.tree,
+        branch_name: &stack.name,
         remote_head: upstream_branch_head,
         remote_branch_name: upstream_branch.name()?.unwrap_or("Unknown"),
-        prefers_merge: !branch.allow_rebasing,
+        prefers_merge: !stack.allow_rebasing,
     };
 
     let BranchHeadAndTree { head, tree } =
         integrate_upstream_context.inner_integrate_upstream_commits()?;
 
-    let mut branch = branch.clone();
+    let mut stack = stack.clone();
 
-    branch.set_stack_head(ctx, head, Some(tree))?;
+    stack.set_stack_head(ctx, head, Some(tree))?;
 
     checkout_branch_trees(ctx, perm)?;
 

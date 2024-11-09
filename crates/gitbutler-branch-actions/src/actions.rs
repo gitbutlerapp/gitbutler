@@ -34,7 +34,7 @@ use tracing::instrument;
 
 pub fn create_commit(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
     message: &str,
     ownership: Option<&BranchOwnershipClaims>,
     run_hooks: bool,
@@ -43,8 +43,7 @@ pub fn create_commit(
     assure_open_workspace_mode(&ctx).context("Creating a commit requires open workspace mode")?;
     let mut guard = project.exclusive_worktree_access();
     let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
-    let result =
-        vbranch::commit(&ctx, branch_id, message, ownership, run_hooks).map_err(Into::into);
+    let result = vbranch::commit(&ctx, stack_id, message, ownership, run_hooks).map_err(Into::into);
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         ctx.project().snapshot_commit_creation(
             snapshot_tree,
@@ -98,10 +97,10 @@ pub fn create_virtual_branch(project: &Project, create: &BranchCreateRequest) ->
     assure_open_workspace_mode(&ctx).context("Creating a branch requires open workspace mode")?;
     let mut guard = project.exclusive_worktree_access();
     let branch_manager = ctx.branch_manager();
-    let branch_id = branch_manager
+    let stack_id = branch_manager
         .create_virtual_branch(create, guard.write_permission())?
         .id;
-    Ok(branch_id)
+    Ok(stack_id)
 }
 
 /// Deletes a local branch reference and it's associated virtual branch.
@@ -111,22 +110,22 @@ pub fn delete_local_branch(project: &Project, refname: &Refname, given_name: Str
     let ctx = open_with_verify(project)?;
     let repo = ctx.repository();
     let handle = ctx.project().virtual_branches();
-    let vbranch = handle.list_all_branches()?.into_iter().find(|branch| {
-        branch
+    let stack = handle.list_all_stacks()?.into_iter().find(|stack| {
+        stack
             .source_refname
             .as_ref()
             .map_or(false, |source_refname| source_refname == refname)
     });
 
-    if let Some(vbranch) = vbranch {
+    if let Some(stack) = stack {
         // Disallow deletion of branches that are applied in workspace
-        if vbranch.in_workspace {
+        if stack.in_workspace {
             return Err(anyhow::anyhow!(
                 "Cannot delete a branch that is applied in workspace"
             ));
         }
         // Deletes the virtual branch entry from the application state
-        handle.delete_branch_entry(&vbranch.id)?;
+        handle.delete_branch_entry(&stack.id)?;
     }
 
     // If a branch reference for this can be found, delete it
@@ -172,7 +171,7 @@ pub fn push_base_branch(project: &Project, with_force: bool) -> Result<()> {
 
 pub fn integrate_upstream_commits(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
     series_name: Option<String>,
 ) -> Result<()> {
     let ctx = open_with_verify(project)?;
@@ -186,14 +185,14 @@ pub fn integrate_upstream_commits(
     if let Some(series_name) = series_name {
         branch_upstream_integration::integrate_upstream_commits_for_series(
             &ctx,
-            branch_id,
+            stack_id,
             guard.write_permission(),
             series_name,
         )
     } else {
         branch_upstream_integration::integrate_upstream_commits(
             &ctx,
-            branch_id,
+            stack_id,
             guard.write_permission(),
         )
     }
@@ -208,7 +207,7 @@ pub fn update_virtual_branch(project: &Project, branch_update: BranchUpdateReque
     let old_branch = ctx
         .project()
         .virtual_branches()
-        .get_branch_in_workspace(branch_update.id)?;
+        .get_stack_in_workspace(branch_update.id)?;
     let result = vbranch::update_branch(&ctx, &branch_update);
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         ctx.project().snapshot_branch_update(
@@ -231,11 +230,11 @@ pub fn update_branch_order(
     assure_open_workspace_mode(&ctx)
         .context("Updating branch order requires open workspace mode")?;
     for branch_update in branch_updates {
-        let branch = ctx
+        let stack = ctx
             .project()
             .virtual_branches()
-            .get_branch_in_workspace(branch_update.id)?;
-        if branch_update.order != Some(branch.order) {
+            .get_stack_in_workspace(branch_update.id)?;
+        if branch_update.order != Some(stack.order) {
             vbranch::update_branch(&ctx, &branch_update)?;
         }
     }
@@ -243,7 +242,7 @@ pub fn update_branch_order(
 }
 
 /// Unapplies a virtual branch and deletes the branch entry from the virtual branch state.
-pub fn unapply_without_saving_virtual_branch(project: &Project, branch_id: StackId) -> Result<()> {
+pub fn unapply_without_saving_virtual_branch(project: &Project, stack_id: StackId) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx)
         .context("Deleting a branch order requires open workspace mode")?;
@@ -253,8 +252,8 @@ pub fn unapply_without_saving_virtual_branch(project: &Project, branch_id: Stack
     let default_target = state.get_default_target()?;
     let target_commit = ctx.repository().find_commit(default_target.sha)?;
     // NB: unapply_without_saving is also called from save_and_unapply
-    branch_manager.unapply(branch_id, guard.write_permission(), &target_commit, true)?;
-    state.delete_branch_entry(&branch_id)
+    branch_manager.unapply(stack_id, guard.write_permission(), &target_commit, true)?;
+    state.delete_branch_entry(&stack_id)
 }
 
 pub fn unapply_ownership(project: &Project, ownership: &BranchOwnershipClaims) -> Result<()> {
@@ -268,7 +267,7 @@ pub fn unapply_ownership(project: &Project, ownership: &BranchOwnershipClaims) -
     vbranch::unapply_ownership(&ctx, ownership, guard.write_permission()).map_err(Into::into)
 }
 
-pub fn reset_files(project: &Project, branch_id: StackId, files: &[PathBuf]) -> Result<()> {
+pub fn reset_files(project: &Project, stack_id: StackId, files: &[PathBuf]) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Resetting a file requires open workspace mode")?;
     let mut guard = project.exclusive_worktree_access();
@@ -276,12 +275,12 @@ pub fn reset_files(project: &Project, branch_id: StackId, files: &[PathBuf]) -> 
         SnapshotDetails::new(OperationKind::DiscardFile),
         guard.write_permission(),
     );
-    vbranch::reset_files(&ctx, branch_id, files, guard.write_permission()).map_err(Into::into)
+    vbranch::reset_files(&ctx, stack_id, files, guard.write_permission()).map_err(Into::into)
 }
 
 pub fn amend(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
     commit_oid: git2::Oid,
     ownership: &BranchOwnershipClaims,
 ) -> Result<git2::Oid> {
@@ -294,7 +293,7 @@ pub fn amend(
     );
     vbranch::amend(
         &ctx,
-        branch_id,
+        stack_id,
         commit_oid,
         ownership,
         guard.write_permission(),
@@ -303,7 +302,7 @@ pub fn amend(
 
 pub fn move_commit_file(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
     from_commit_oid: git2::Oid,
     to_commit_oid: git2::Oid,
     ownership: &BranchOwnershipClaims,
@@ -315,16 +314,16 @@ pub fn move_commit_file(
         SnapshotDetails::new(OperationKind::MoveCommitFile),
         guard.write_permission(),
     );
-    vbranch::move_commit_file(&ctx, branch_id, from_commit_oid, to_commit_oid, ownership)
+    vbranch::move_commit_file(&ctx, stack_id, from_commit_oid, to_commit_oid, ownership)
         .map_err(Into::into)
 }
 
-pub fn undo_commit(project: &Project, branch_id: StackId, commit_oid: git2::Oid) -> Result<()> {
+pub fn undo_commit(project: &Project, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Undoing a commit requires open workspace mode")?;
     let mut guard = project.exclusive_worktree_access();
     let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
-    let result: Result<()> = crate::undo_commit::undo_commit(&ctx, branch_id, commit_oid)
+    let result: Result<()> = crate::undo_commit::undo_commit(&ctx, stack_id, commit_oid)
         .map(|_| ())
         .map_err(Into::into);
     let _ = snapshot_tree.and_then(|snapshot_tree| {
@@ -340,7 +339,7 @@ pub fn undo_commit(project: &Project, branch_id: StackId, commit_oid: git2::Oid)
 
 pub fn insert_blank_commit(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
     commit_oid: git2::Oid,
     offset: i32,
 ) -> Result<()> {
@@ -352,7 +351,7 @@ pub fn insert_blank_commit(
         SnapshotDetails::new(OperationKind::InsertBlankCommit),
         guard.write_permission(),
     );
-    vbranch::insert_blank_commit(&ctx, branch_id, commit_oid, offset).map_err(Into::into)
+    vbranch::insert_blank_commit(&ctx, stack_id, commit_oid, offset).map_err(Into::into)
 }
 
 pub fn reorder_stack(project: &Project, stack_id: StackId, stack_order: StackOrder) -> Result<()> {
@@ -368,7 +367,7 @@ pub fn reorder_stack(project: &Project, stack_id: StackId, stack_order: StackOrd
 
 pub fn reset_virtual_branch(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
     target_commit_oid: git2::Oid,
 ) -> Result<()> {
     let ctx = open_with_verify(project)?;
@@ -378,12 +377,12 @@ pub fn reset_virtual_branch(
         SnapshotDetails::new(OperationKind::UndoCommit),
         guard.write_permission(),
     );
-    vbranch::reset_branch(&ctx, branch_id, target_commit_oid).map_err(Into::into)
+    vbranch::reset_branch(&ctx, stack_id, target_commit_oid).map_err(Into::into)
 }
 
 pub fn save_and_unapply_virutal_branch(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
 ) -> Result<ReferenceName> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx)
@@ -391,7 +390,7 @@ pub fn save_and_unapply_virutal_branch(
     let mut guard = project.exclusive_worktree_access();
     let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
     let branch_manager = ctx.branch_manager();
-    let result = branch_manager.save_and_unapply(branch_id, guard.write_permission());
+    let result = branch_manager.save_and_unapply(stack_id, guard.write_permission());
 
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         ctx.project().snapshot_branch_unapplied(
@@ -406,13 +405,13 @@ pub fn save_and_unapply_virutal_branch(
 
 pub fn push_virtual_branch(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
     with_force: bool,
     askpass: Option<Option<StackId>>,
 ) -> Result<vbranch::PushResult> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Pushing a branch requires open workspace mode")?;
-    vbranch::push(&ctx, branch_id, with_force, askpass)
+    vbranch::push(&ctx, stack_id, with_force, askpass)
 }
 
 pub fn list_local_branches(project: Project) -> Result<Vec<RemoteBranch>> {
@@ -425,7 +424,7 @@ pub fn get_remote_branch_data(project: &Project, refname: &Refname) -> Result<Re
     remote::get_branch_data(&ctx, refname)
 }
 
-pub fn squash(project: &Project, branch_id: StackId, commit_oid: git2::Oid) -> Result<()> {
+pub fn squash(project: &Project, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Squashing a commit requires open workspace mode")?;
     let mut guard = project.exclusive_worktree_access();
@@ -433,12 +432,12 @@ pub fn squash(project: &Project, branch_id: StackId, commit_oid: git2::Oid) -> R
         SnapshotDetails::new(OperationKind::SquashCommit),
         guard.write_permission(),
     );
-    vbranch::squash(&ctx, branch_id, commit_oid).map_err(Into::into)
+    vbranch::squash(&ctx, stack_id, commit_oid).map_err(Into::into)
 }
 
 pub fn update_commit_message(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
     commit_oid: git2::Oid,
     message: &str,
 ) -> Result<()> {
@@ -450,7 +449,7 @@ pub fn update_commit_message(
         SnapshotDetails::new(OperationKind::UpdateCommitMessage),
         guard.write_permission(),
     );
-    vbranch::update_commit_message(&ctx, branch_id, commit_oid, message).map_err(Into::into)
+    vbranch::update_commit_message(&ctx, stack_id, commit_oid, message).map_err(Into::into)
 }
 
 pub fn find_commit(project: &Project, commit_oid: git2::Oid) -> Result<Option<RemoteCommit>> {
@@ -489,9 +488,9 @@ pub fn fetch_from_remotes(project: &Project, askpass: Option<String>) -> Result<
 
 pub fn move_commit(
     project: &Project,
-    target_branch_id: StackId,
+    target_stack_id: StackId,
     commit_oid: git2::Oid,
-    source_branch_id: StackId,
+    source_stack_id: StackId,
 ) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Moving a commit requires open workspace mode")?;
@@ -502,10 +501,10 @@ pub fn move_commit(
     );
     move_commits::move_commit(
         &ctx,
-        target_branch_id,
+        target_stack_id,
         commit_oid,
         guard.write_permission(),
-        source_branch_id,
+        source_stack_id,
     )
     .map_err(Into::into)
 }

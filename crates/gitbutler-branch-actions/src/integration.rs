@@ -38,7 +38,7 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
         .context("failed to get target")?;
     let repo: &git2::Repository = ctx.repository();
 
-    let mut virtual_branches: Vec<Stack> = vb_state.list_branches_in_workspace()?;
+    let mut stacks: Vec<Stack> = vb_state.list_stacks_in_workspace()?;
 
     let target_commit = repo.find_commit(target.sha)?;
     let mut workspace_tree = repo.find_real_tree(&target_commit, Default::default())?;
@@ -46,16 +46,16 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
 
     if conflicts::is_conflicting(ctx, None)? {
         let merge_parent = conflicts::merge_parent(ctx)?.ok_or(anyhow!("No merge parent"))?;
-        let first_branch = virtual_branches.first().ok_or(anyhow!("No branches"))?;
+        let first_stack = stacks.first().ok_or(anyhow!("No branches"))?;
 
-        let merge_base = repo.merge_base(first_branch.head(), merge_parent)?;
+        let merge_base = repo.merge_base(first_stack.head(), merge_parent)?;
         workspace_tree = repo.find_commit(merge_base)?.tree()?;
     } else {
         let gix_repo = ctx.gix_repository_for_merging()?;
         let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
         let merge_tree_id = git2_to_gix_object_id(repo.find_commit(target.sha)?.tree_id());
-        for branch in virtual_branches.iter_mut() {
-            let branch_head = repo.find_commit(branch.head())?;
+        for stack in stacks.iter_mut() {
+            let branch_head = repo.find_commit(stack.head())?;
             let branch_tree_id =
                 git2_to_gix_object_id(repo.find_real_tree(&branch_head, Default::default())?.id());
 
@@ -71,9 +71,9 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
                 workspace_tree_id = merge.tree.write()?.detach();
             } else {
                 // This branch should have already been unapplied during the "update" command but for some reason that failed
-                tracing::warn!("Merge conflict between base and {:?}", branch.name);
-                branch.in_workspace = false;
-                vb_state.set_branch(branch.clone())?;
+                tracing::warn!("Merge conflict between base and {:?}", stack.name);
+                stack.in_workspace = false;
+                vb_state.set_stack(stack.clone())?;
             }
         }
         workspace_tree = repo.find_tree(gix_to_git2_oid(workspace_tree_id))?;
@@ -81,7 +81,7 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
 
     let committer = gitbutler_repo::signature(SignaturePurpose::Committer)?;
     let author = gitbutler_repo::signature(SignaturePurpose::Author)?;
-    let mut heads: Vec<git2::Commit<'_>> = virtual_branches
+    let mut heads: Vec<git2::Commit<'_>> = stacks
         .iter()
         .filter(|b| b.head() != target.sha)
         .map(|b| repo.find_commit(b.head()))
@@ -166,7 +166,7 @@ pub fn update_workspace_commit(
 
     // get all virtual branches, we need to try to update them all
     let virtual_branches: Vec<Stack> = vb_state
-        .list_branches_in_workspace()
+        .list_stacks_in_workspace()
         .context("failed to list virtual branches")?;
 
     let workspace_head = repo.find_commit(get_workspace_head(ctx)?)?;
