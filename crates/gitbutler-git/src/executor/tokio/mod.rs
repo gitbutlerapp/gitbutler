@@ -30,7 +30,10 @@ unsafe impl super::GitExecutor for TokioExecutor {
         envs: Option<HashMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error> {
         let git_exe = gix_path::env::exe_invocation();
-        let mut cmd = Command::new(git_exe);
+        // let mut cmd = Command::new(git_exe);
+        //
+        let mut cmd = Command::new("flatpak-spawn");
+        cmd.args(["--host", "git"]);
 
         // Output the command being executed to stderr, for debugging purposes
         // (only on test configs).
@@ -88,6 +91,7 @@ unsafe impl super::GitExecutor for TokioExecutor {
             }
         }
 
+        println!("Cmd: {:?}", cmd);
         let output = cmd.output().await?;
 
         #[cfg(any(test, debug_assertions))]
