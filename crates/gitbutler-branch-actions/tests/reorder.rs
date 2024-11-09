@@ -5,6 +5,7 @@ use git2::Oid;
 use gitbutler_branch_actions::{list_virtual_branches, reorder_stack, SeriesOrder, StackOrder};
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
+use gitbutler_testsupport::testing_repository::assert_commit_tree_matches;
 use itertools::Itertools;
 use tempfile::TempDir;
 
@@ -306,6 +307,94 @@ fn reorder_stack_into_empty_top() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn conflicting_reorder_stack() -> Result<()> {
+    // Before:        : After:          :
+    // commit 2: y    : commit 1': x    :
+    // |              :                 :
+    // commit 1: x    : commit 2': a    : <- commit 2' is the auto-resolved tree (conflicted)
+    // |              :                 :
+    // MB:       a    : MB:        a    :
+
+    let (ctx, _temp_dir) = command_ctx("overlapping-commits")?;
+    let repo = ctx.repository();
+    let test = test_ctx(&ctx)?;
+
+    // There is a stack of 2:
+    // [] <- top-series
+    // [  <- a-branch-2
+    //   commit 2,
+    //   commit 1
+    // ]
+    let commits = vb_commits(&ctx);
+
+    // Verify the initial order
+    assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]);
+    assert_eq!(commits[1].conflicted(), vec![false, false]); // no conflicts
+    assert_eq!(file(&ctx, test.stack.head()), "y\n"); // y is the last version
+    assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
+
+    // Reorder the stack in a way that will cause a conflict
+    let new_order = order(vec![
+        vec![],
+        vec![
+            test.bottom_commits["commit 1"], // swapping 1 and 2
+            test.bottom_commits["commit 2"],
+        ],
+    ]);
+    reorder_stack(ctx.project(), test.stack.id, new_order.clone())?;
+    let test = test_ctx(&ctx)?;
+    let commits = vb_commits(&ctx);
+
+    // Verify that the commits are now in the updated order
+    assert_eq!(commits[1].msgs(), vec!["commit 1", "commit 2"]); // swapped
+    assert_eq!(commits[1].conflicted(), vec![false, true]); // bottom commit is now conflicted
+    assert_eq!(file(&ctx, test.stack.head()), "x\n"); // x is the last version
+    assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
+
+    let commit_1_prime = repo.find_commit(commits[1].ids()[0])?;
+    assert_commit_tree_matches(repo, &commit_1_prime, &[("file", b"x\n")]);
+
+    let commit_2_prime = repo.find_commit(commits[1].ids()[1])?;
+    assert_commit_tree_matches(
+        repo,
+        &commit_2_prime,
+        &[
+            (".auto-resolution/file", b"a\n"),
+            (".conflict-base-0/file", b"x\n"),
+            (".conflict-side-0/file", b"a\n"),
+            (".conflict-side-1/file", b"y\n"),
+        ],
+    );
+
+    // Reorded the commits back to the original order
+    let new_order = order(vec![
+        vec![],
+        vec![
+            test.bottom_commits["commit 2"],
+            test.bottom_commits["commit 1"],
+        ],
+    ]);
+
+    reorder_stack(ctx.project(), test.stack.id, new_order.clone())?;
+    let test = test_ctx(&ctx)?;
+    let commits = vb_commits(&ctx);
+
+    // Verify that the commits are now in the updated order
+    assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]); // swapped
+    assert_eq!(commits[1].conflicted(), vec![false, false]); // conflicts are gone
+    assert_eq!(file(&ctx, test.stack.head()), "y\n"); // y is the last version again
+    assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
+
+    let commit_2_prime_prime = repo.find_commit(commits[1].ids()[0])?;
+    assert_commit_tree_matches(repo, &commit_2_prime_prime, &[("file", b"y\n")]);
+
+    let commit_1_prime_prime = repo.find_commit(commits[1].ids()[1])?;
+    assert_commit_tree_matches(repo, &commit_1_prime_prime, &[("file", b"x\n")]);
+
+    Ok(())
+}
+
 fn order(series: Vec<Vec<Oid>>) -> StackOrder {
     StackOrder {
         series: vec![
@@ -324,19 +413,29 @@ fn order(series: Vec<Vec<Oid>>) -> StackOrder {
 trait CommitHelpers {
     fn msgs(&self) -> Vec<String>;
     fn ids(&self) -> Vec<Oid>;
+    fn conflicted(&self) -> Vec<bool>;
+    fn timestamps(&self) -> Vec<u128>;
 }
 
-impl CommitHelpers for Vec<(Oid, String)> {
+impl CommitHelpers for Vec<(Oid, String, bool, u128)> {
     fn msgs(&self) -> Vec<String> {
-        self.iter().map(|(_, msg)| msg.clone()).collect_vec()
+        self.iter().map(|(_, msg, _, _)| msg.clone()).collect_vec()
     }
     fn ids(&self) -> Vec<Oid> {
-        self.iter().map(|(id, _)| *id).collect_vec()
+        self.iter().map(|(id, _, _, _)| *id).collect_vec()
+    }
+    fn conflicted(&self) -> Vec<bool> {
+        self.iter()
+            .map(|(_, _, conflicted, _)| *conflicted)
+            .collect_vec()
+    }
+    fn timestamps(&self) -> Vec<u128> {
+        self.iter().map(|(_, _, _, ts)| *ts).collect_vec()
     }
 }
 
 /// Commits from list_virtual_branches
-fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String)>> {
+fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>> {
     let (vbranches, _) = list_virtual_branches(ctx.project()).unwrap();
     let vbranch = vbranches.iter().find(|vb| vb.name == "my_stack").unwrap();
     let mut out = vec![];
@@ -344,11 +443,20 @@ fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String)>> {
         let messages = series
             .patches
             .iter()
-            .map(|p| (p.id, p.description.to_string()))
+            .map(|p| (p.id, p.description.to_string(), p.conflicted, p.created_at))
             .collect_vec();
         out.push(messages)
     }
     out
+}
+
+fn file(ctx: &CommandContext, commit_id: git2::Oid) -> String {
+    let repo = ctx.repository();
+    let commit = repo.find_commit(commit_id).unwrap();
+    let tree = commit.tree().unwrap();
+    let entry = tree.get_name("file").unwrap();
+    let blob = repo.find_blob(entry.id()).unwrap();
+    String::from_utf8(blob.content().to_vec()).unwrap()
 }
 
 fn command_ctx(name: &str) -> Result<(CommandContext, TempDir)> {
