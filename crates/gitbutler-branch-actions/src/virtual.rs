@@ -230,7 +230,7 @@ pub(crate) fn reset_files(
 ) -> Result<()> {
     ctx.assure_resolved()?;
 
-    let branch = ctx
+    let stack = ctx
         .project()
         .virtual_branches()
         .list_branches_in_workspace()
@@ -240,7 +240,7 @@ pub(crate) fn reset_files(
         .with_context(|| {
             format!("could not find applied branch with id {stack_id} to reset files from")
         })?;
-    let claims: Vec<_> = branch
+    let claims: Vec<_> = stack
         .ownership
         .claims
         .into_iter()

@@ -87,9 +87,9 @@ pub fn integrate_upstream_commits(
     let project = ctx.project();
     let vb_state = project.virtual_branches();
 
-    let branch = vb_state.get_branch_in_workspace(stack_id)?;
+    let stack = vb_state.get_branch_in_workspace(stack_id)?;
 
-    let Some(upstream_refname) = branch.clone().upstream else {
+    let Some(upstream_refname) = stack.clone().upstream else {
         bail!("No upstream reference found for branch");
     };
 
@@ -98,7 +98,7 @@ pub fn integrate_upstream_commits(
 
     // If the upstream branch head is the same as the local, then the branch is
     // up to date.
-    if upstream_branch_head == branch.head() {
+    if upstream_branch_head == stack.head() {
         return Ok(());
     }
 
@@ -109,20 +109,20 @@ pub fn integrate_upstream_commits(
     let integrate_upstream_context = IntegrateUpstreamContext {
         repository,
         target_branch_head,
-        branch_head: branch.head(),
-        branch_tree: branch.tree,
-        branch_name: &branch.name,
+        branch_head: stack.head(),
+        branch_tree: stack.tree,
+        branch_name: &stack.name,
         remote_head: upstream_branch_head,
         remote_branch_name: upstream_branch.name()?.unwrap_or("Unknown"),
-        prefers_merge: !branch.allow_rebasing,
+        prefers_merge: !stack.allow_rebasing,
     };
 
     let BranchHeadAndTree { head, tree } =
         integrate_upstream_context.inner_integrate_upstream_commits()?;
 
-    let mut branch = branch.clone();
+    let mut stack = stack.clone();
 
-    branch.set_stack_head(ctx, head, Some(tree))?;
+    stack.set_stack_head(ctx, head, Some(tree))?;
 
     checkout_branch_trees(ctx, perm)?;
 

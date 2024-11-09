@@ -310,30 +310,30 @@ pub(crate) fn integrate_upstream(
         // could enter a much worse state if we're simultaniously updating trees
 
         // Delete branches
-        for (branch_id, integration_result) in &integration_results {
+        for (stack_id, integration_result) in &integration_results {
             if !matches!(integration_result, IntegrationResult::DeleteBranch) {
                 continue;
             };
 
-            let branch = virtual_branches_state.get_branch(*branch_id)?;
-            virtual_branches_state.delete_branch_entry(branch_id)?;
-            command_context.delete_branch_reference(&branch)?;
+            let stack = virtual_branches_state.get_branch(*stack_id)?;
+            virtual_branches_state.delete_branch_entry(stack_id)?;
+            command_context.delete_branch_reference(&stack)?;
         }
 
         let permission = context._permission.expect("Permission provided above");
 
         // Unapply branches
-        for (branch_id, integration_result) in &integration_results {
+        for (stack_id, integration_result) in &integration_results {
             if !matches!(integration_result, IntegrationResult::UnapplyBranch) {
                 continue;
             };
 
             command_context
                 .branch_manager()
-                .save_and_unapply(*branch_id, permission)?;
+                .save_and_unapply(*stack_id, permission)?;
         }
 
-        let mut branches = virtual_branches_state.list_branches_in_workspace()?;
+        let mut stacks = virtual_branches_state.list_branches_in_workspace()?;
 
         // Update branch trees
         for (branch_id, integration_result) in &integration_results {
@@ -341,19 +341,19 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            let Some(branch) = branches.iter_mut().find(|branch| branch.id == *branch_id) else {
+            let Some(stack) = stacks.iter_mut().find(|branch| branch.id == *branch_id) else {
                 continue;
             };
 
-            branch.set_stack_head(command_context, *head, Some(*tree))?;
-            branch.archive_integrated_heads(command_context)?;
+            stack.set_stack_head(command_context, *head, Some(*tree))?;
+            stack.archive_integrated_heads(command_context)?;
         }
 
         // checkout_branch_trees won't checkout anything if there are no
         // applied branches, and returns the current_wd_tree as its result.
         // This is very sensible, but in this case, we want to checkout the
         // new target sha.
-        if branches.is_empty() {
+        if stacks.is_empty() {
             context
                 .repository
                 .checkout_tree_builder(&context.new_target.tree()?)
@@ -588,20 +588,20 @@ mod test {
         let old_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
         let new_target = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "qux")]);
 
-        let branch = make_branch(old_target.id(), old_target.tree_id());
+        let stack = make_branch(old_target.id(), old_target.tree_id());
 
         let context = UpstreamIntegrationContext {
             _permission: None,
             old_target,
             new_target,
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::Empty)]),
+            BranchStatuses::UpdatesRequired(vec![(stack.id, BranchStatus::Empty)]),
         )
     }
 
@@ -613,21 +613,21 @@ mod test {
         let branch_head = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "fux")]);
         let new_target = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "qux")]);
 
-        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+        let stack = make_branch(branch_head.id(), branch_head.tree_id());
 
         let context = UpstreamIntegrationContext {
             _permission: None,
             old_target,
             new_target: new_target.clone(),
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
             BranchStatuses::UpdatesRequired(vec![(
-                branch.id,
+                stack.id,
                 BranchStatus::Conflicted {
                     potentially_conflicted_uncommited_changes: false
                 }
@@ -637,8 +637,8 @@ mod test {
         let updates = compute_resolutions(
             &context,
             &[Resolution {
-                branch_id: branch.id,
-                branch_tree: branch.tree,
+                branch_id: stack.id,
+                branch_tree: stack.tree,
                 approach: ResolutionApproach::Rebase,
             }],
             None,
@@ -670,21 +670,21 @@ mod test {
         // new target diverged from old target
         let new_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "qux")]);
 
-        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+        let stack = make_branch(branch_head.id(), branch_head.tree_id());
 
         let context = UpstreamIntegrationContext {
             _permission: None,
             old_target,
             new_target: new_target.clone(),
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
             BranchStatuses::UpdatesRequired(vec![(
-                branch.id,
+                stack.id,
                 BranchStatus::Conflicted {
                     potentially_conflicted_uncommited_changes: false
                 }
@@ -694,8 +694,8 @@ mod test {
         let updates = compute_resolutions(
             &context,
             &[Resolution {
-                branch_id: branch.id,
-                branch_tree: branch.tree,
+                branch_id: stack.id,
+                branch_tree: stack.tree,
                 approach: ResolutionApproach::Rebase,
             }],
             Some(BaseBranchResolutionApproach::HardReset),
@@ -729,27 +729,27 @@ mod test {
         let new_target =
             test_repository.commit_tree(Some(&initial_commit), &[("other.txt", "qux")]);
 
-        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+        let stack = make_branch(branch_head.id(), branch_head.tree_id());
 
         let context = UpstreamIntegrationContext {
             _permission: None,
             old_target,
             new_target: new_target.clone(),
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+            BranchStatuses::UpdatesRequired(vec![(stack.id, BranchStatus::SaflyUpdatable)]),
         );
 
         let updates = compute_resolutions(
             &context,
             &[Resolution {
-                branch_id: branch.id,
-                branch_tree: branch.tree,
+                branch_id: stack.id,
+                branch_tree: stack.tree,
                 approach: ResolutionApproach::Rebase,
             }],
             Some(BaseBranchResolutionApproach::HardReset),
@@ -781,7 +781,7 @@ mod test {
         // new target diverged from old target
         let new_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "qux")]);
 
-        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+        let stack = make_branch(branch_head.id(), branch_head.tree_id());
 
         let commits_to_rebase = test_repository
             .repository
@@ -806,14 +806,14 @@ mod test {
                 .find_commit(head_after_rebase)
                 .unwrap(),
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
             BranchStatuses::UpdatesRequired(vec![(
-                branch.id,
+                stack.id,
                 BranchStatus::Conflicted {
                     potentially_conflicted_uncommited_changes: false
                 }
@@ -823,8 +823,8 @@ mod test {
         let updates = compute_resolutions(
             &context,
             &[Resolution {
-                branch_id: branch.id,
-                branch_tree: branch.tree,
+                branch_id: stack.id,
+                branch_tree: stack.tree,
                 approach: ResolutionApproach::Rebase,
             }],
             Some(BaseBranchResolutionApproach::Rebase),
@@ -856,7 +856,7 @@ mod test {
         // new target diverged from old target
         let new_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "qux")]);
 
-        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+        let stack = make_branch(branch_head.id(), branch_head.tree_id());
 
         let commits_to_rebase = test_repository
             .repository
@@ -881,20 +881,20 @@ mod test {
                 .find_commit(head_after_rebase)
                 .unwrap(),
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+            BranchStatuses::UpdatesRequired(vec![(stack.id, BranchStatus::SaflyUpdatable)]),
         );
 
         let updates = compute_resolutions(
             &context,
             &[Resolution {
-                branch_id: branch.id,
-                branch_tree: branch.tree,
+                branch_id: stack.id,
+                branch_tree: stack.tree,
                 approach: ResolutionApproach::Rebase,
             }],
             Some(BaseBranchResolutionApproach::Rebase),
@@ -926,7 +926,7 @@ mod test {
         // new target diverged from old target
         let new_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "qux")]);
 
-        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+        let stack = make_branch(branch_head.id(), branch_head.tree_id());
 
         let merge_commit = gitbutler_merge_commits(
             &test_repository.repository,
@@ -942,14 +942,14 @@ mod test {
             old_target,
             new_target: merge_commit.clone(),
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
             BranchStatuses::UpdatesRequired(vec![(
-                branch.id,
+                stack.id,
                 BranchStatus::Conflicted {
                     potentially_conflicted_uncommited_changes: false
                 }
@@ -959,8 +959,8 @@ mod test {
         let updates = compute_resolutions(
             &context,
             &[Resolution {
-                branch_id: branch.id,
-                branch_tree: branch.tree,
+                branch_id: stack.id,
+                branch_tree: stack.tree,
                 approach: ResolutionApproach::Rebase,
             }],
             Some(BaseBranchResolutionApproach::Merge),
@@ -992,7 +992,7 @@ mod test {
         // new target diverged from old target
         let new_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "qux")]);
 
-        let branch = make_branch(branch_head.id(), branch_head.tree_id());
+        let stack = make_branch(branch_head.id(), branch_head.tree_id());
 
         let merge_commit = gitbutler_merge_commits(
             &test_repository.repository,
@@ -1008,20 +1008,20 @@ mod test {
             old_target,
             new_target: merge_commit.clone(),
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+            BranchStatuses::UpdatesRequired(vec![(stack.id, BranchStatus::SaflyUpdatable)]),
         );
 
         let updates = compute_resolutions(
             &context,
             &[Resolution {
-                branch_id: branch.id,
-                branch_tree: branch.tree,
+                branch_id: stack.id,
+                branch_tree: stack.tree,
                 approach: ResolutionApproach::Rebase,
             }],
             Some(BaseBranchResolutionApproach::Merge),
@@ -1052,21 +1052,21 @@ mod test {
         let branch_head = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "fux")]);
         let new_target = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "qux")]);
 
-        let branch = make_branch(old_target.id(), branch_head.tree_id());
+        let stack = make_branch(old_target.id(), branch_head.tree_id());
 
         let context = UpstreamIntegrationContext {
             _permission: None,
             old_target,
             new_target,
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
             BranchStatuses::UpdatesRequired(vec![(
-                branch.id,
+                stack.id,
                 BranchStatus::Conflicted {
                     potentially_conflicted_uncommited_changes: true
                 }
@@ -1083,21 +1083,21 @@ mod test {
         let branch_tree = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "bax")]);
         let new_target = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "qux")]);
 
-        let branch = make_branch(branch_head.id(), branch_tree.tree_id());
+        let stack = make_branch(branch_head.id(), branch_tree.tree_id());
 
         let context = UpstreamIntegrationContext {
             _permission: None,
             old_target,
             new_target,
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
             BranchStatuses::UpdatesRequired(vec![(
-                branch.id,
+                stack.id,
                 BranchStatus::Conflicted {
                     potentially_conflicted_uncommited_changes: true
                 }
@@ -1112,20 +1112,20 @@ mod test {
         let old_target = test_repository.commit_tree(Some(&initial_commit), &[("foo.txt", "baz")]);
         let new_target = test_repository.commit_tree(Some(&old_target), &[("foo.txt", "qux")]);
 
-        let branch = make_branch(new_target.id(), new_target.tree_id());
+        let stack = make_branch(new_target.id(), new_target.tree_id());
 
         let context = UpstreamIntegrationContext {
             _permission: None,
             old_target,
             new_target,
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::FullyIntegrated)]),
+            BranchStatuses::UpdatesRequired(vec![(stack.id, BranchStatus::FullyIntegrated)]),
         )
     }
 
@@ -1143,20 +1143,20 @@ mod test {
         let tree = test_repository
             .commit_tree(Some(&old_target), &[("foo.txt", "baz"), ("bar.txt", "qux")]);
 
-        let branch = make_branch(new_target.id(), tree.tree_id());
+        let stack = make_branch(new_target.id(), tree.tree_id());
 
         let context = UpstreamIntegrationContext {
             _permission: None,
             old_target,
             new_target,
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+            BranchStatuses::UpdatesRequired(vec![(stack.id, BranchStatus::SaflyUpdatable)]),
         )
     }
 
@@ -1183,20 +1183,20 @@ mod test {
             &[("file-one.txt", "bar"), ("file-two.txt", "baz")],
         );
 
-        let branch = make_branch(branch_head.id(), branch_tree.tree_id());
+        let stack = make_branch(branch_head.id(), branch_tree.tree_id());
 
         let context = UpstreamIntegrationContext {
             _permission: None,
             old_target,
             new_target,
             repository: &test_repository.repository,
-            virtual_branches_in_workspace: vec![branch.clone()],
+            virtual_branches_in_workspace: vec![stack.clone()],
             target_branch_name: "main".to_string(),
         };
 
         assert_eq!(
             upstream_integration_statuses(&context).unwrap(),
-            BranchStatuses::UpdatesRequired(vec![(branch.id, BranchStatus::SaflyUpdatable)]),
+            BranchStatuses::UpdatesRequired(vec![(stack.id, BranchStatus::SaflyUpdatable)]),
         )
     }
 }

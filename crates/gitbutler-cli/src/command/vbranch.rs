@@ -57,19 +57,19 @@ pub fn status(project: Project) -> Result<()> {
 }
 
 pub fn unapply(project: Project, branch_name: String) -> Result<()> {
-    let branch = branch_by_name(&project, &branch_name)?;
+    let stack = branch_by_name(&project, &branch_name)?;
     debug_print(gitbutler_branch_actions::save_and_unapply_virutal_branch(
-        &project, branch.id,
+        &project, stack.id,
     )?)
 }
 
 pub fn apply(project: Project, branch_name: String) -> Result<()> {
-    let branch = branch_by_name(&project, &branch_name)?;
+    let stack = branch_by_name(&project, &branch_name)?;
     let ctx = CommandContext::open(&project)?;
     let mut guard = project.exclusive_worktree_access();
     debug_print(
         ctx.branch_manager().create_virtual_branch_from_branch(
-            branch
+            stack
                 .source_refname
                 .as_ref()
                 .context("local reference name was missing")?,
@@ -96,8 +96,8 @@ pub fn create(project: Project, branch_name: String, set_default: bool) -> Resul
 }
 
 pub fn set_default(project: Project, branch_name: String) -> Result<()> {
-    let branch = branch_by_name(&project, &branch_name)?;
-    set_default_branch(&project, &branch)
+    let stack = branch_by_name(&project, &branch_name)?;
+    set_default_branch(&project, &stack)
 }
 
 fn set_default_branch(project: &Project, stack: &Stack) -> Result<()> {
@@ -124,7 +124,7 @@ pub fn series(project: Project, stack_name: String, new_series_name: String) -> 
 }
 
 pub fn commit(project: Project, branch_name: String, message: String) -> Result<()> {
-    let branch = branch_by_name(&project, &branch_name)?;
+    let stack = branch_by_name(&project, &branch_name)?;
     let (info, skipped) = gitbutler_branch_actions::list_virtual_branches(&project)?;
 
     if !skipped.is_empty() {
@@ -136,7 +136,7 @@ pub fn commit(project: Project, branch_name: String, message: String) -> Result<
 
     let populated_branch = info
         .iter()
-        .find(|b| b.id == branch.id)
+        .find(|b| b.id == stack.id)
         .expect("A populated branch exists for a branch we can list");
     if populated_branch.ownership.claims.is_empty() {
         bail!(
@@ -165,7 +165,7 @@ pub fn commit(project: Project, branch_name: String, message: String) -> Result<
     let run_hooks = false;
     debug_print(gitbutler_branch_actions::create_commit(
         &project,
-        branch.id,
+        stack.id,
         &message,
         Some(&populated_branch.ownership),
         run_hooks,

@@ -230,11 +230,11 @@ pub fn update_branch_order(
     assure_open_workspace_mode(&ctx)
         .context("Updating branch order requires open workspace mode")?;
     for branch_update in branch_updates {
-        let branch = ctx
+        let stack = ctx
             .project()
             .virtual_branches()
             .get_branch_in_workspace(branch_update.id)?;
-        if branch_update.order != Some(branch.order) {
+        if branch_update.order != Some(stack.order) {
             vbranch::update_branch(&ctx, &branch_update)?;
         }
     }

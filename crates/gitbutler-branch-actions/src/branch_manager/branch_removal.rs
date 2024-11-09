@@ -66,19 +66,19 @@ impl BranchManager<'_> {
         delete_vb_state: bool,
     ) -> Result<()> {
         let vb_state = self.ctx.project().virtual_branches();
-        let Some(branch) = vb_state.try_branch(stack_id)? else {
+        let Some(stack) = vb_state.try_branch(stack_id)? else {
             return Ok(());
         };
 
         // We don't want to try unapplying branches which are marked as not in workspace by the new metric
-        if !branch.in_workspace {
+        if !stack.in_workspace {
             return Ok(());
         }
 
         _ = self
             .ctx
             .project()
-            .snapshot_branch_deletion(branch.name.clone(), perm);
+            .snapshot_branch_deletion(stack.name.clone(), perm);
 
         let repo = self.ctx.repository();
 
@@ -93,7 +93,7 @@ impl BranchManager<'_> {
 
         // doing this earlier in the flow, in case any of the steps that follow fail
         vb_state
-            .mark_as_not_in_workspace(branch.id)
+            .mark_as_not_in_workspace(stack.id)
             .context("Failed to remove branch")?;
 
         // go through the other applied branches and merge them into the final tree
@@ -108,18 +108,18 @@ impl BranchManager<'_> {
             let merge_options = gix_repo.tree_merge_options()?;
             let final_tree_id = applied_statuses
                 .into_iter()
-                .filter(|(branch, _)| branch.id != stack_id)
+                .filter(|(stack, _)| stack.id != stack_id)
                 .try_fold(
                     git2_to_gix_object_id(target_commit.tree_id()),
                     |final_tree_id, status| -> Result<_> {
-                        let branch = status.0;
+                        let stack = status.0;
                         let files = status
                             .1
                             .into_iter()
                             .map(|file| (file.path, file.hunks))
                             .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
                         let tree_oid =
-                            gitbutler_diff::write::hunks_onto_oid(self.ctx, branch.head(), files)?;
+                            gitbutler_diff::write::hunks_onto_oid(self.ctx, stack.head(), files)?;
                         let mut merge = gix_repo.merge_trees(
                             git2_to_gix_object_id(base_tree_id),
                             final_tree_id,
@@ -143,7 +143,7 @@ impl BranchManager<'_> {
             .context("failed to checkout tree")?;
 
         if delete_vb_state {
-            self.ctx.delete_branch_reference(&branch)?;
+            self.ctx.delete_branch_reference(&stack)?;
         }
 
         vbranch::ensure_selected_for_changes(&vb_state)
