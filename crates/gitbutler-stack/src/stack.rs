@@ -308,7 +308,7 @@ impl Stack {
         }
         validate_name(&reference, &state)?;
         self.heads = vec![reference];
-        state.set_branch(self.clone())
+        state.set_stack(self.clone())
     }
 
     /// Adds a new "Branch" to the Stack.
@@ -344,7 +344,7 @@ impl Stack {
         validate_target(&new_head, ctx.repository(), self.head(), &state)?;
         let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches)?;
         self.heads = updated_heads;
-        state.set_branch(self.clone())
+        state.set_stack(self.clone())
     }
 
     /// A convenience method just like `add_series`, but adds a new branch on top of the stack.
@@ -378,7 +378,7 @@ impl Stack {
         self.initialized()?;
         (self.heads, _) = remove_head(self.heads.clone(), branch_name)?;
         let state = branch_state(ctx);
-        state.set_branch(self.clone())
+        state.set_stack(self.clone())
     }
 
     /// Updates an existing branch in the stack.
@@ -456,7 +456,7 @@ impl Stack {
             }
         }
         self.heads = updated_heads;
-        state.set_branch(self.clone())
+        state.set_stack(self.clone())
     }
 
     /// Updates the most recent series of the stack to point to a new patch (commit or change ID).
@@ -489,7 +489,7 @@ impl Stack {
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
         head.head = commit.into();
         validate_target(head, ctx.repository(), stack_head, &state)?;
-        state.set_branch(self.clone())
+        state.set_stack(self.clone())
     }
 
     /// Removes any heads that are refering to commits that are no longer between the stack head and the merge base
@@ -503,7 +503,7 @@ impl Stack {
                 head.archived = true;
             }
         }
-        state.set_branch(self.clone())
+        state.set_stack(self.clone())
     }
 
     /// Prepares push details according to the series to be pushed (picking out the correct sha and remote refname)
@@ -599,7 +599,7 @@ impl Stack {
             }
             self.updated_timestamp_ms = gitbutler_time::time::now_ms();
             // update the persistent state
-            state.set_branch(self.clone())?;
+            state.set_stack(self.clone())?;
         }
         Ok(())
     }
@@ -626,7 +626,7 @@ impl Stack {
                 head.head = commit.clone().into();
             }
         }
-        state.set_branch(self.clone())?;
+        state.set_stack(self.clone())?;
         Ok(())
     }
 
@@ -646,7 +646,7 @@ impl Stack {
         match self.heads.iter_mut().find(|r| r.name == series_name) {
             Some(head) => {
                 head.pr_number = new_pr_number;
-                branch_state(ctx).set_branch(self.clone())
+                branch_state(ctx).set_stack(self.clone())
             }
             None => bail!(
                 "Series {} does not exist on stack {}",
@@ -885,7 +885,7 @@ pub struct CommitsForId<'a> {
 
 fn patch_reference_exists(state: &VirtualBranchesHandle, name: &str) -> Result<bool> {
     Ok(state
-        .list_branches_in_workspace()?
+        .list_stacks_in_workspace()?
         .iter()
         .flat_map(|b| b.heads.iter())
         .any(|r| r.name == name))

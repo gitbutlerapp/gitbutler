@@ -32,21 +32,17 @@ pub fn details(project: Project, branch_names: Vec<BranchIdentity>) -> Result<()
 }
 
 pub fn list(project: Project) -> Result<()> {
-    let branches = VirtualBranchesHandle::new(project.gb_dir()).list_all_branches()?;
-    for vbranch in branches {
+    let stacks = VirtualBranchesHandle::new(project.gb_dir()).list_all_stacks()?;
+    for stack in stacks {
         println!(
             "{active} {id} {name} {upstream} {default}",
-            active = if vbranch.in_workspace {
-                "✔️"
-            } else {
-                "⛌"
-            },
-            id = vbranch.id,
-            name = vbranch.name,
-            upstream = vbranch
+            active = if stack.in_workspace { "✔️" } else { "⛌" },
+            id = stack.id,
+            name = stack.name,
+            upstream = stack
                 .upstream
                 .map_or_else(Default::default, |b| b.to_string()),
-            default = if vbranch.in_workspace { "🌟" } else { "" }
+            default = if stack.in_workspace { "🌟" } else { "" }
         );
     }
     Ok(())
@@ -89,7 +85,7 @@ pub fn create(project: Project, branch_name: String, set_default: bool) -> Resul
         },
     )?;
     if set_default {
-        let new = VirtualBranchesHandle::new(project.gb_dir()).get_branch(new)?;
+        let new = VirtualBranchesHandle::new(project.gb_dir()).get_stack(new)?;
         set_default_branch(&project, &new)?;
     }
     debug_print(new)
@@ -174,7 +170,7 @@ pub fn commit(project: Project, branch_name: String, message: String) -> Result<
 
 pub fn branch_by_name(project: &Project, name: &str) -> Result<Stack> {
     let mut found: Vec<_> = VirtualBranchesHandle::new(project.gb_dir())
-        .list_all_branches()?
+        .list_all_stacks()?
         .into_iter()
         .filter(|b| b.name == name)
         .collect();

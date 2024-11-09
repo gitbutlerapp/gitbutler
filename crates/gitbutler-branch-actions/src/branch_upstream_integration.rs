@@ -24,7 +24,7 @@ pub fn integrate_upstream_commits_for_series(
     let repo = ctx.repository();
     let vb_state = ctx.project().virtual_branches();
 
-    let stack = vb_state.get_branch_in_workspace(stack_id)?;
+    let stack = vb_state.get_stack_in_workspace(stack_id)?;
     let branches = stack.branches();
 
     let default_target = vb_state.get_default_target()?;
@@ -87,7 +87,7 @@ pub fn integrate_upstream_commits(
     let project = ctx.project();
     let vb_state = project.virtual_branches();
 
-    let stack = vb_state.get_branch_in_workspace(stack_id)?;
+    let stack = vb_state.get_stack_in_workspace(stack_id)?;
 
     let Some(upstream_refname) = stack.clone().upstream else {
         bail!("No upstream reference found for branch");

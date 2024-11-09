@@ -90,7 +90,7 @@ pub fn list_branches(
         });
     }
 
-    let stacks = vb_handle.list_all_branches()?;
+    let stacks = vb_handle.list_all_stacks()?;
     branches.extend(stacks.iter().map(|s| GroupBranch::Virtual(s.clone())));
     let mut branches = combine_branches(branches, &repo, vb_handle.get_default_target()?)?;
 

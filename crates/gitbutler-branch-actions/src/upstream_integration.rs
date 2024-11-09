@@ -114,14 +114,14 @@ impl<'a> UpstreamIntegrationContext<'a> {
         )?;
 
         let old_target = repository.find_commit(target.sha)?;
-        let virtual_branches_in_workspace = virtual_branches_handle.list_branches_in_workspace()?;
+        let stacks_in_workspace = virtual_branches_handle.list_stacks_in_workspace()?;
 
         Ok(Self {
             _permission: Some(permission),
             repository,
             new_target,
             old_target,
-            virtual_branches_in_workspace,
+            virtual_branches_in_workspace: stacks_in_workspace,
             target_branch_name: target.branch.branch().to_string(),
         })
     }
@@ -315,7 +315,7 @@ pub(crate) fn integrate_upstream(
                 continue;
             };
 
-            let stack = virtual_branches_state.get_branch(*stack_id)?;
+            let stack = virtual_branches_state.get_stack(*stack_id)?;
             virtual_branches_state.delete_branch_entry(stack_id)?;
             command_context.delete_branch_reference(&stack)?;
         }
@@ -333,7 +333,7 @@ pub(crate) fn integrate_upstream(
                 .save_and_unapply(*stack_id, permission)?;
         }
 
-        let mut stacks = virtual_branches_state.list_branches_in_workspace()?;
+        let mut stacks = virtual_branches_state.list_stacks_in_workspace()?;
 
         // Update branch trees
         for (branch_id, integration_result) in &integration_results {

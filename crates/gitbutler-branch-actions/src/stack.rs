@@ -38,7 +38,7 @@ pub fn create_series(project: &Project, stack_id: StackId, req: CreateSeriesRequ
         .project()
         .snapshot_create_dependent_branch(&req.name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
+    let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
     // If target_patch is None, create a new head that points to the top of the stack (most recent patch)
     if let Some(target_patch) = req.target_patch {
@@ -83,7 +83,7 @@ pub fn remove_series(project: &Project, stack_id: StackId, head_name: String) ->
         .project()
         .snapshot_remove_dependent_branch(&head_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
+    let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.remove_series(ctx, head_name)
 }
 
@@ -102,7 +102,7 @@ pub fn update_series_name(
         .project()
         .snapshot_update_dependent_branch_name(&head_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
+    let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     let normalized_head_name = normalize_branch_name(&new_head_name)?;
     stack.update_series(
         ctx,
@@ -129,7 +129,7 @@ pub fn update_series_description(
         guard.write_permission(),
     );
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
+    let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.update_series(
         ctx,
         head_name,
@@ -162,7 +162,7 @@ pub fn update_series_pr_number(
         guard.write_permission(),
     );
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
+    let mut stack = ctx.project().virtual_branches().get_stack(stack_id)?;
     stack.set_pr_number(ctx, &head_name, pr_number)
 }
 
@@ -172,7 +172,7 @@ pub fn push_stack(project: &Project, stack_id: StackId, with_force: bool) -> Res
     let ctx = &open_with_verify(project)?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let state = ctx.project().virtual_branches();
-    let stack = state.get_branch(stack_id)?;
+    let stack = state.get_stack(stack_id)?;
 
     let repo = ctx.repository();
     let default_target = state.get_default_target()?;

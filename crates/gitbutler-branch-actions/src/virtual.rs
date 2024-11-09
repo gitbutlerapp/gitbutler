@@ -233,7 +233,7 @@ pub(crate) fn reset_files(
     let stack = ctx
         .project()
         .virtual_branches()
-        .list_branches_in_workspace()
+        .list_stacks_in_workspace()
         .context("failed to read virtual branches")?
         .into_iter()
         .find(|b| b.id == stack_id)
@@ -575,20 +575,20 @@ fn is_requires_force(ctx: &CommandContext, stack: &Stack) -> Result<bool> {
 
 pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) -> Result<Stack> {
     let vb_state = ctx.project().virtual_branches();
-    let mut branch = vb_state.get_branch_in_workspace(branch_update.id)?;
+    let mut stack = vb_state.get_stack_in_workspace(branch_update.id)?;
 
     if let Some(ownership) = &branch_update.ownership {
-        set_ownership(&vb_state, &mut branch, ownership).context("failed to set ownership")?;
+        set_ownership(&vb_state, &mut stack, ownership).context("failed to set ownership")?;
     }
 
     if let Some(name) = &branch_update.name {
         let all_virtual_branches = vb_state
-            .list_branches_in_workspace()
+            .list_stacks_in_workspace()
             .context("failed to read virtual branches")?;
 
-        ctx.delete_branch_reference(&branch)?;
+        ctx.delete_branch_reference(&stack)?;
 
-        branch.name = dedup(
+        stack.name = dedup(
             &all_virtual_branches
                 .iter()
                 .filter(|b| b.id != branch_update.id)
@@ -597,7 +597,7 @@ pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) 
             name,
         );
 
-        ctx.add_branch_reference(&branch)?;
+        ctx.add_branch_reference(&stack)?;
     };
 
     if let Some(updated_upstream) = &branch_update.upstream {
@@ -614,27 +614,27 @@ pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) 
         )
         .parse::<RemoteRefname>()
         .unwrap();
-        branch.upstream = Some(remote_branch);
+        stack.upstream = Some(remote_branch);
     };
 
     if let Some(notes) = branch_update.notes.clone() {
-        branch.notes = notes;
+        stack.notes = notes;
     };
 
     if let Some(order) = branch_update.order {
-        branch.order = order;
+        stack.order = order;
     };
 
     if let Some(selected_for_changes) = branch_update.selected_for_changes {
-        branch.selected_for_changes = if selected_for_changes {
+        stack.selected_for_changes = if selected_for_changes {
             for mut other_branch in vb_state
-                .list_branches_in_workspace()
+                .list_stacks_in_workspace()
                 .context("failed to read virtual branches")?
                 .into_iter()
-                .filter(|b| b.id != branch.id)
+                .filter(|b| b.id != stack.id)
             {
                 other_branch.selected_for_changes = None;
-                vb_state.set_branch(other_branch.clone())?;
+                vb_state.set_stack(other_branch.clone())?;
             }
             Some(now_since_unix_epoch_ms())
         } else {
@@ -643,35 +643,32 @@ pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) 
     };
 
     if let Some(allow_rebasing) = branch_update.allow_rebasing {
-        branch.allow_rebasing = allow_rebasing;
+        stack.allow_rebasing = allow_rebasing;
     };
 
-    vb_state.set_branch(branch.clone())?;
-    Ok(branch)
+    vb_state.set_stack(stack.clone())?;
+    Ok(stack)
 }
 
 pub(crate) fn ensure_selected_for_changes(vb_state: &VirtualBranchesHandle) -> Result<()> {
-    let mut virtual_branches = vb_state
-        .list_branches_in_workspace()
+    let mut stacks = vb_state
+        .list_stacks_in_workspace()
         .context("failed to list branches")?;
 
-    if virtual_branches.is_empty() {
+    if stacks.is_empty() {
         println!("no applied branches");
         return Ok(());
     }
 
-    if virtual_branches
-        .iter()
-        .any(|b| b.selected_for_changes.is_some())
-    {
+    if stacks.iter().any(|b| b.selected_for_changes.is_some()) {
         println!("some branches already selected for changes");
         return Ok(());
     }
 
-    virtual_branches.sort_by_key(|branch| branch.order);
+    stacks.sort_by_key(|branch| branch.order);
 
-    virtual_branches[0].selected_for_changes = Some(now_since_unix_epoch_ms());
-    vb_state.set_branch(virtual_branches[0].clone())?;
+    stacks[0].selected_for_changes = Some(now_since_unix_epoch_ms());
+    vb_state.set_stack(stacks[0].clone())?;
     Ok(())
 }
 
@@ -685,15 +682,15 @@ pub(crate) fn set_ownership(
         return Ok(());
     }
 
-    let virtual_branches = vb_state
-        .list_branches_in_workspace()
+    let stacks = vb_state
+        .list_stacks_in_workspace()
         .context("failed to read virtual branches")?;
 
-    let mut claim_outcomes = reconcile_claims(virtual_branches, target_branch, &ownership.claims)?;
+    let mut claim_outcomes = reconcile_claims(stacks, target_branch, &ownership.claims)?;
     for claim_outcome in &mut claim_outcomes {
         if !claim_outcome.removed_claims.is_empty() {
             vb_state
-                .set_branch(claim_outcome.updated_branch.clone())
+                .set_stack(claim_outcome.updated_branch.clone())
                 .context("failed to write ownership for branch".to_string())?;
         }
     }
@@ -718,8 +715,8 @@ pub(crate) fn reset_branch(
 
     let default_target = vb_state.get_default_target()?;
 
-    let mut branch = vb_state.get_branch_in_workspace(stack_id)?;
-    if branch.head() == target_commit_id {
+    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
+    if stack.head() == target_commit_id {
         // nothing to do
         return Ok(());
     }
@@ -727,7 +724,7 @@ pub(crate) fn reset_branch(
     if default_target.sha != target_commit_id
         && !ctx
             .repository()
-            .l(branch.head(), LogUntil::Commit(default_target.sha), false)?
+            .l(stack.head(), LogUntil::Commit(default_target.sha), false)?
             .contains(&target_commit_id)
     {
         bail!("commit {target_commit_id} not in the branch");
@@ -737,7 +734,7 @@ pub(crate) fn reset_branch(
     // what hunks were released by this reset, and assign them to this branch.
     let old_head = get_workspace_head(ctx)?;
 
-    branch.set_stack_head(ctx, target_commit_id, None)?;
+    stack.set_stack_head(ctx, target_commit_id, None)?;
 
     let updated_head = get_workspace_head(ctx)?;
     let repo = ctx.repository();
@@ -758,7 +755,7 @@ pub(crate) fn reset_branch(
     for (path, filediff) in diff {
         for hunk in filediff.hunks {
             let hash = Hunk::hash_diff(&hunk.diff_lines);
-            branch.ownership.put(
+            stack.ownership.put(
                 format!(
                     "{}:{}-{}-{:?}",
                     path.display(),
@@ -771,7 +768,7 @@ pub(crate) fn reset_branch(
         }
     }
     vb_state
-        .set_branch(branch)
+        .set_stack(stack)
         .context("failed to write branch")?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
@@ -922,14 +919,14 @@ pub(crate) fn push(
         None => default_target.branch.remote().to_owned(),
     };
 
-    let mut vbranch = vb_state.get_branch_in_workspace(stack_id)?;
-    let remote_branch = if let Some(upstream_branch) = &vbranch.upstream {
+    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
+    let remote_branch = if let Some(upstream_branch) = &stack.upstream {
         upstream_branch.clone()
     } else {
         let remote_branch = format!(
             "refs/remotes/{}/{}",
             upstream_remote,
-            normalize_branch_name(&vbranch.name)?
+            normalize_branch_name(&stack.name)?
         )
         .parse::<RemoteRefname>()
         .context("failed to parse remote branch name")?;
@@ -951,12 +948,12 @@ pub(crate) fn push(
         ))
     };
 
-    ctx.push(vbranch.head(), &remote_branch, with_force, None, askpass)?;
+    ctx.push(stack.head(), &remote_branch, with_force, None, askpass)?;
 
-    vbranch.upstream = Some(remote_branch.clone());
-    vbranch.upstream_head = Some(vbranch.head());
+    stack.upstream = Some(remote_branch.clone());
+    stack.upstream_head = Some(stack.head());
     vb_state
-        .set_branch(vbranch.clone())
+        .set_stack(stack.clone())
         .context("failed to write target branch after push")?;
     ctx.fetch(remote_branch.remote(), askpass.map(|_| "modal".to_string()))?;
 
@@ -1124,7 +1121,7 @@ pub(crate) fn move_commit_file(
 ) -> Result<git2::Oid> {
     let vb_state = ctx.project().virtual_branches();
 
-    let Some(mut target_branch) = vb_state.try_branch_in_workspace(stack_id)? else {
+    let Some(mut target_stack) = vb_state.try_stack_in_workspace(stack_id)? else {
         return Ok(to_commit_id); // this is wrong
     };
 
@@ -1138,7 +1135,7 @@ pub(crate) fn move_commit_file(
 
     // find all the commits upstream from the target "to" commit
     let mut upstream_commits = ctx.repository().l(
-        target_branch.head(),
+        target_stack.head(),
         LogUntil::Commit(amend_commit.id()),
         false,
     )?;
@@ -1259,7 +1256,7 @@ pub(crate) fn move_commit_file(
             ctx,
             new_from_commit_oid,
             from_commit_id,
-            target_branch.head(),
+            target_stack.head(),
         ) {
             Ok(Some(new_head)) => new_head,
             Ok(None) => bail!("no rebase was performed"),
@@ -1270,7 +1267,7 @@ pub(crate) fn move_commit_file(
         // so we'll take a list of the upstream oids and find it simply based on location
         // (since the order should not have changed in our simple rebase)
         let old_upstream_commit_oids = ctx.repository().l(
-            target_branch.head(),
+            target_stack.head(),
             LogUntil::Commit(default_target.sha),
             false,
         )?;
@@ -1333,7 +1330,7 @@ pub(crate) fn move_commit_file(
 
     // if there are no upstream commits (the "to" commit was the branch head), then we're done
     if upstream_commits.is_empty() {
-        target_branch.set_stack_head(ctx, commit_oid, None)?;
+        target_stack.set_stack_head(ctx, commit_oid, None)?;
         crate::integration::update_workspace_commit(&vb_state, ctx)?;
         return Ok(commit_oid);
     }
@@ -1344,7 +1341,7 @@ pub(crate) fn move_commit_file(
 
     // if that rebase worked, update the branch head and the gitbutler workspace
     if let Some(new_head) = new_head {
-        target_branch.set_stack_head(ctx, new_head, None)?;
+        target_stack.set_stack_head(ctx, new_head, None)?;
         crate::integration::update_workspace_commit(&vb_state, ctx)?;
         Ok(commit_oid)
     } else {
@@ -1365,11 +1362,11 @@ pub(crate) fn amend(
     ctx.assure_resolved()?;
     let vb_state = ctx.project().virtual_branches();
 
-    let virtual_branches = vb_state
-        .list_branches_in_workspace()
+    let stacks = vb_state
+        .list_stacks_in_workspace()
         .context("failed to read virtual branches")?;
 
-    if !virtual_branches.iter().any(|b| b.id == stack_id) {
+    if !stacks.iter().any(|b| b.id == stack_id) {
         bail!("could not find applied branch with id {stack_id} to amend to");
     }
 
@@ -1495,7 +1492,7 @@ pub(crate) fn insert_blank_commit(
 ) -> Result<()> {
     let vb_state = ctx.project().virtual_branches();
 
-    let mut branch = vb_state.get_branch_in_workspace(stack_id)?;
+    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     // find the commit to offset from
     let mut commit = ctx
         .repository()
@@ -1513,16 +1510,16 @@ pub(crate) fn insert_blank_commit(
         .unwrap();
     let blank_commit_oid = ctx.commit("", &commit_tree, &[&commit], None)?;
 
-    if commit.id() == branch.head() && offset < 0 {
+    if commit.id() == stack.head() && offset < 0 {
         // inserting before the first commit
-        branch.set_stack_head(ctx, blank_commit_oid, None)?;
+        stack.set_stack_head(ctx, blank_commit_oid, None)?;
         crate::integration::update_workspace_commit(&vb_state, ctx)
             .context("failed to update gitbutler workspace")?;
     } else {
         // rebase all commits above it onto the new commit
-        match cherry_rebase(ctx, blank_commit_oid, commit.id(), branch.head()) {
+        match cherry_rebase(ctx, blank_commit_oid, commit.id(), stack.head()) {
             Ok(Some(new_head)) => {
-                branch.set_stack_head(ctx, new_head, None)?;
+                stack.set_stack_head(ctx, new_head, None)?;
                 crate::integration::update_workspace_commit(&vb_state, ctx)
                     .context("failed to update gitbutler workspace")?;
             }
@@ -1541,11 +1538,11 @@ pub(crate) fn squash(ctx: &CommandContext, stack_id: StackId, commit_id: git2::O
     ctx.assure_resolved()?;
 
     let vb_state = ctx.project().virtual_branches();
-    let mut branch = vb_state.get_branch_in_workspace(stack_id)?;
+    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let default_target = vb_state.get_default_target()?;
     let branch_commit_oids =
         ctx.repository()
-            .l(branch.head(), LogUntil::Commit(default_target.sha), false)?;
+            .l(stack.head(), LogUntil::Commit(default_target.sha), false)?;
 
     if !branch_commit_oids.contains(&commit_id) {
         bail!("commit {commit_id} not in the branch")
@@ -1564,7 +1561,7 @@ pub(crate) fn squash(ctx: &CommandContext, stack_id: StackId, commit_id: git2::O
         bail!("Can not squash conflicted commits");
     }
 
-    let pushed_commit_oids = branch.upstream_head.map_or_else(
+    let pushed_commit_oids = stack.upstream_head.map_or_else(
         || Ok(vec![]),
         |upstream_head| {
             ctx.repository()
@@ -1572,7 +1569,7 @@ pub(crate) fn squash(ctx: &CommandContext, stack_id: StackId, commit_id: git2::O
         },
     )?;
 
-    if pushed_commit_oids.contains(&parent_commit.id()) && !branch.allow_rebasing {
+    if pushed_commit_oids.contains(&parent_commit.id()) && !stack.allow_rebasing {
         // squashing into a pushed commit will cause a force push that is not allowed
         bail!("force push not allowed");
     }
@@ -1617,7 +1614,7 @@ pub(crate) fn squash(ctx: &CommandContext, stack_id: StackId, commit_id: git2::O
     match cherry_rebase_group(ctx.repository(), new_commit_oid, &ids_to_rebase) {
         Ok(new_head_id) => {
             // save new branch head
-            branch.set_stack_head(ctx, new_head_id, None)?;
+            stack.set_stack_head(ctx, new_head_id, None)?;
 
             crate::integration::update_workspace_commit(&vb_state, ctx)
                 .context("failed to update gitbutler workspace")?;
@@ -1642,16 +1639,16 @@ pub(crate) fn update_commit_message(
     let vb_state = ctx.project().virtual_branches();
     let default_target = vb_state.get_default_target()?;
 
-    let mut branch = vb_state.get_branch_in_workspace(stack_id)?;
+    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let branch_commit_oids =
         ctx.repository()
-            .l(branch.head(), LogUntil::Commit(default_target.sha), false)?;
+            .l(stack.head(), LogUntil::Commit(default_target.sha), false)?;
 
     if !branch_commit_oids.contains(&commit_id) {
         bail!("commit {commit_id} not in the branch");
     }
 
-    let pushed_commit_oids = branch.upstream_head.map_or_else(
+    let pushed_commit_oids = stack.upstream_head.map_or_else(
         || Ok(vec![]),
         |upstream_head| {
             ctx.repository()
@@ -1659,7 +1656,7 @@ pub(crate) fn update_commit_message(
         },
     )?;
 
-    if pushed_commit_oids.contains(&commit_id) && !branch.allow_rebasing {
+    if pushed_commit_oids.contains(&commit_id) && !stack.allow_rebasing {
         // updating the message of a pushed commit will cause a force push that is not allowed
         bail!("force push not allowed");
     }
@@ -1696,7 +1693,7 @@ pub(crate) fn update_commit_message(
     let new_head_id = cherry_rebase_group(ctx.repository(), new_commit_oid, &ids_to_rebase)
         .map_err(|err| err.context("rebase error"))?;
     // save new branch head
-    branch.set_stack_head(ctx, new_head_id, None)?;
+    stack.set_stack_head(ctx, new_head_id, None)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;

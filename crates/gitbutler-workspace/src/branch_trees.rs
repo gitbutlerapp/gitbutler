@@ -19,15 +19,15 @@ pub fn checkout_branch_trees<'a>(
 ) -> Result<git2::Tree<'a>> {
     let repository = ctx.repository();
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let branches = vb_state.list_branches_in_workspace()?;
+    let stacks = vb_state.list_stacks_in_workspace()?;
 
-    if branches.is_empty() {
+    if stacks.is_empty() {
         // If there are no applied branches, then return the current uncommtied state
         return repository.create_wd_tree();
     };
 
-    if branches.len() == 1 {
-        let tree = repository.find_tree(branches[0].tree)?;
+    if stacks.len() == 1 {
+        let tree = repository.find_tree(stacks[0].tree)?;
         repository
             .checkout_tree_builder(&tree)
             .force()
@@ -37,7 +37,7 @@ pub fn checkout_branch_trees<'a>(
         Ok(tree)
     } else {
         let merge_base = repository
-            .merge_base_octopussy(&branches.iter().map(|b| b.head()).collect::<Vec<_>>())?;
+            .merge_base_octopussy(&stacks.iter().map(|b| b.head()).collect::<Vec<_>>())?;
 
         let gix_repo = ctx.gix_repository_for_merging()?;
         let merge_base_tree_id =
@@ -45,7 +45,7 @@ pub fn checkout_branch_trees<'a>(
         let mut final_tree_id = merge_base_tree_id;
 
         let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
-        for branch in branches {
+        for branch in stacks {
             let their_tree_id = git2_to_gix_object_id(branch.tree);
             let mut merge = gix_repo.merge_trees(
                 merge_base_tree_id,

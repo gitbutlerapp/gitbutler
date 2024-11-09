@@ -60,7 +60,7 @@ pub fn get_applied_status_cached(
     let mut virtual_branches = ctx
         .project()
         .virtual_branches()
-        .list_branches_in_workspace()?;
+        .list_stacks_in_workspace()?;
     let base_file_diffs = worktree_changes.map(Ok).unwrap_or_else(|| {
         gitbutler_diff::workdir(ctx.repository(), workspace_head.to_owned())
             .context("failed to diff workdir")
@@ -232,7 +232,7 @@ pub fn get_applied_status_cached(
         for (vbranch, files) in &mut hunks_by_branch {
             vbranch.tree = gitbutler_diff::write::hunks_onto_oid(ctx, vbranch.head(), files)?;
             vb_state
-                .set_branch(vbranch.clone())
+                .set_stack(vbranch.clone())
                 .context(format!("failed to write virtual branch {}", vbranch.name))?;
         }
     }

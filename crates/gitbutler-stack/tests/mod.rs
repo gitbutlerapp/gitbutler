@@ -34,7 +34,7 @@ fn add_series_success() -> Result<()> {
     // Assert persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -57,7 +57,7 @@ fn add_series_top_of_stack() -> Result<()> {
     // Assert persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -82,7 +82,7 @@ fn add_series_top_base() -> Result<()> {
     // Assert persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -440,7 +440,7 @@ fn update_series_name_success() -> Result<()> {
     // Assert persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -465,7 +465,7 @@ fn update_series_name_resets_pr_number() -> Result<()> {
     assert_eq!(test_ctx.stack.heads[0].pr_number, None);
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -490,7 +490,7 @@ fn update_series_set_description() -> Result<()> {
     // Assert persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -579,7 +579,7 @@ fn update_series_target_success() -> Result<()> {
     // Assert persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -793,7 +793,7 @@ fn replace_head_single() -> Result<()> {
     // the state was persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -831,7 +831,7 @@ fn replace_head_single_with_merge_base() -> Result<()> {
     // the state was persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -859,7 +859,7 @@ fn replace_head_with_invalid_commit_error() -> Result<()> {
     // same in persistence
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -886,7 +886,7 @@ fn replace_head_with_same_noop() -> Result<()> {
     // same in persistence
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -905,7 +905,7 @@ fn replace_no_head_noop() -> Result<()> {
     // same in persistence
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -945,7 +945,7 @@ fn replace_top_of_stack_single() -> Result<()> {
     // the state was persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -993,7 +993,7 @@ fn replace_head_multiple() -> Result<()> {
     // the state was persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -1032,7 +1032,7 @@ fn replace_head_top_of_stack_multiple() -> Result<()> {
     // the state was persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -1119,7 +1119,7 @@ fn archive_heads_noop() -> Result<()> {
     // Assert persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -1147,7 +1147,7 @@ fn archive_heads_success() -> Result<()> {
     // Assert persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -1177,7 +1177,7 @@ fn does_not_archive_head_on_merge_base() -> Result<()> {
     // Assert persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -1192,7 +1192,7 @@ fn set_pr_numberentifiers_success() -> Result<()> {
     // Assert persisted
     assert_eq!(
         test_ctx.stack,
-        test_ctx.handle.get_branch(test_ctx.stack.id)?
+        test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
     Ok(())
 }
@@ -1228,9 +1228,9 @@ fn head_names(test_ctx: &TestContext) -> Vec<String> {
 
 fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let branches = handle.list_all_branches()?;
-    let stack = branches.iter().find(|b| b.name == "virtual").unwrap();
-    let other_branch = branches.iter().find(|b| b.name != "virtual").unwrap();
+    let stacks = handle.list_all_stacks()?;
+    let stack = stacks.iter().find(|b| b.name == "virtual").unwrap();
+    let other_stack = stacks.iter().find(|b| b.name != "virtual").unwrap();
     let target = handle.get_default_target()?;
     let mut branch_commits =
         ctx.repository()
@@ -1238,7 +1238,7 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     branch_commits.reverse();
     let mut other_commits =
         ctx.repository()
-            .log(other_branch.head(), LogUntil::Commit(target.sha), false)?;
+            .log(other_stack.head(), LogUntil::Commit(target.sha), false)?;
     other_commits.reverse();
     Ok(TestContext {
         stack: stack.clone(),

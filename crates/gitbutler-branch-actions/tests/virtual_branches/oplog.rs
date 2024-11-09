@@ -249,7 +249,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
 
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
-            .list_branches_in_workspace()?
+            .list_stacks_in_workspace()?
             .len(),
         0
     );
@@ -257,7 +257,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())?;
     assert_eq!(
         VirtualBranchesHandle::new(project.gb_dir())
-            .list_branches_in_workspace()?
+            .list_stacks_in_workspace()?
             .len(),
         1
     );
@@ -308,9 +308,9 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         "head now points to the first commit, it's not commit 2 anymore"
     );
 
-    let vbranches = VirtualBranchesHandle::new(project.gb_dir()).list_branches_in_workspace()?;
+    let stacks = VirtualBranchesHandle::new(project.gb_dir()).list_stacks_in_workspace()?;
     assert_eq!(
-        vbranches.len(),
+        stacks.len(),
         1,
         "vbranches aren't affected by this (only the head commit)"
     );

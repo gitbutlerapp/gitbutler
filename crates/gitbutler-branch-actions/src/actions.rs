@@ -110,22 +110,22 @@ pub fn delete_local_branch(project: &Project, refname: &Refname, given_name: Str
     let ctx = open_with_verify(project)?;
     let repo = ctx.repository();
     let handle = ctx.project().virtual_branches();
-    let vbranch = handle.list_all_branches()?.into_iter().find(|branch| {
-        branch
+    let stack = handle.list_all_stacks()?.into_iter().find(|stack| {
+        stack
             .source_refname
             .as_ref()
             .map_or(false, |source_refname| source_refname == refname)
     });
 
-    if let Some(vbranch) = vbranch {
+    if let Some(stack) = stack {
         // Disallow deletion of branches that are applied in workspace
-        if vbranch.in_workspace {
+        if stack.in_workspace {
             return Err(anyhow::anyhow!(
                 "Cannot delete a branch that is applied in workspace"
             ));
         }
         // Deletes the virtual branch entry from the application state
-        handle.delete_branch_entry(&vbranch.id)?;
+        handle.delete_branch_entry(&stack.id)?;
     }
 
     // If a branch reference for this can be found, delete it
@@ -207,7 +207,7 @@ pub fn update_virtual_branch(project: &Project, branch_update: BranchUpdateReque
     let old_branch = ctx
         .project()
         .virtual_branches()
-        .get_branch_in_workspace(branch_update.id)?;
+        .get_stack_in_workspace(branch_update.id)?;
     let result = vbranch::update_branch(&ctx, &branch_update);
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         ctx.project().snapshot_branch_update(
@@ -233,7 +233,7 @@ pub fn update_branch_order(
         let stack = ctx
             .project()
             .virtual_branches()
-            .get_branch_in_workspace(branch_update.id)?;
+            .get_stack_in_workspace(branch_update.id)?;
         if branch_update.order != Some(stack.order) {
             vbranch::update_branch(&ctx, &branch_update)?;
         }

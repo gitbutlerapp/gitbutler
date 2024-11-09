@@ -465,8 +465,8 @@ fn command_ctx(name: &str) -> Result<(CommandContext, TempDir)> {
 
 fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let handle = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let branches = handle.list_all_branches()?;
-    let stack = branches.iter().find(|b| b.name == "my_stack").unwrap();
+    let stacks = handle.list_all_stacks()?;
+    let stack = stacks.iter().find(|b| b.name == "my_stack").unwrap();
 
     let branches = stack.branches();
     let top_commits: HashMap<String, git2::Oid> = branches[1]

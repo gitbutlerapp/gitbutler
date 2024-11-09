@@ -385,17 +385,17 @@ fn prepare_snapshot(ctx: &Project, _shared_access: &WorktreeReadPermission) -> R
     let mut branches_tree_builder = repo.treebuilder(None)?;
     let mut head_tree_ids = Vec::new();
 
-    for branch in vb_state.list_branches_in_workspace()? {
-        head_tree_ids.push(branch.tree);
+    for stack in vb_state.list_stacks_in_workspace()? {
+        head_tree_ids.push(stack.tree);
 
         // commits in virtual branches (tree and commit data)
         // calculate all the commits between branch.head and the target and codify them
         let mut branch_tree_builder = repo.treebuilder(None)?;
-        branch_tree_builder.insert("tree", branch.tree, FileMode::Tree.into())?;
+        branch_tree_builder.insert("tree", stack.tree, FileMode::Tree.into())?;
 
         // let's get all the commits between the branch head and the target
         let mut revwalk = repo.revwalk()?;
-        revwalk.push(branch.head())?;
+        revwalk.push(stack.head())?;
         revwalk.hide(default_target_commit.id())?;
 
         let mut commits_tree_builder = repo.treebuilder(None)?;
@@ -422,7 +422,7 @@ fn prepare_snapshot(ctx: &Project, _shared_access: &WorktreeReadPermission) -> R
 
         let branch_tree_id = branch_tree_builder.write()?;
         branches_tree_builder.insert(
-            branch.id.to_string(),
+            stack.id.to_string(),
             branch_tree_id,
             FileMode::Tree.into(),
         )?;
@@ -744,9 +744,9 @@ fn lines_since_snapshot(project: &Project, repo: &git2::Repository) -> Result<us
         return Ok(0);
     };
 
-    let vbranches = VirtualBranchesHandle::new(project.gb_dir()).list_branches_in_workspace()?;
+    let stacks = VirtualBranchesHandle::new(project.gb_dir()).list_stacks_in_workspace()?;
     let mut lines_changed = 0;
-    let dirty_branches = vbranches.iter().filter(|b| !b.ownership.claims.is_empty());
+    let dirty_branches = stacks.iter().filter(|b| !b.ownership.claims.is_empty());
     for branch in dirty_branches {
         lines_changed += branch_lines_since_snapshot(branch, repo, oplog_commit_id)?;
     }
@@ -839,7 +839,7 @@ fn tree_from_applied_vbranches(
 
     let vbs_from_toml: VirtualBranchesState = toml::from_str(from_utf8(&vb_toml_blob.data)?)?;
     let applied_branch_trees: Vec<_> = vbs_from_toml
-        .list_branches_in_workspace()?
+        .list_stacks_in_workspace()?
         .iter()
         .map(|b| git2_to_gix_object_id(b.tree))
         .collect();

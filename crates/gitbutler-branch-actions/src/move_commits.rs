@@ -19,11 +19,11 @@ pub(crate) fn move_commit(
     ctx.assure_resolved()?;
     let vb_state = ctx.project().virtual_branches();
 
-    let applied_branches = vb_state
-        .list_branches_in_workspace()
+    let applied_stacks = vb_state
+        .list_stacks_in_workspace()
         .context("failed to read virtual branches")?;
 
-    if !applied_branches.iter().any(|b| b.id == target_stack_id) {
+    if !applied_stacks.iter().any(|b| b.id == target_stack_id) {
         bail!("branch {target_stack_id} is not among applied branches")
     }
 
@@ -131,15 +131,15 @@ pub(crate) fn move_commit(
 
     // move the commit to destination branch target branch
 
-    let mut destination_branch = vb_state.get_branch_in_workspace(target_stack_id)?;
+    let mut destination_stack = vb_state.get_stack_in_workspace(target_stack_id)?;
 
     for ownership in ownerships_to_transfer {
-        destination_branch.ownership.put(ownership);
+        destination_stack.ownership.put(ownership);
     }
 
     let new_destination_head_oid = cherry_rebase_group(
         ctx.repository(),
-        destination_branch.head(),
+        destination_stack.head(),
         &[source_commit.id()],
     )?;
 
@@ -155,9 +155,9 @@ pub(crate) fn move_commit(
     // reset the source branch to the newer parent commit
     // and update the destination branch head
     source_branch.set_stack_head(ctx, new_source_head_oid, None)?;
-    vb_state.set_branch(source_branch.clone())?;
+    vb_state.set_stack(source_branch.clone())?;
 
-    destination_branch.set_stack_head(ctx, new_destination_head_oid, None)?;
+    destination_stack.set_stack_head(ctx, new_destination_head_oid, None)?;
 
     checkout_branch_trees(ctx, perm)?;
 

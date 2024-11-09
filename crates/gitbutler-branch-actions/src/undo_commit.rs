@@ -27,26 +27,26 @@ pub(crate) fn undo_commit(
 ) -> Result<Stack> {
     let vb_state = ctx.project().virtual_branches();
 
-    let mut branch = vb_state.get_branch_in_workspace(stack_id)?;
+    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
 
     let UndoResult {
         new_head: new_head_commit,
         ownership_update,
-    } = inner_undo_commit(ctx.repository(), branch.head(), commit_oid)?;
+    } = inner_undo_commit(ctx.repository(), stack.head(), commit_oid)?;
 
     for ownership in ownership_update {
-        branch.ownership.put(ownership);
+        stack.ownership.put(ownership);
     }
 
-    branch.set_stack_head(ctx, new_head_commit, None)?;
+    stack.set_stack_head(ctx, new_head_commit, None)?;
 
     let removed_commit = ctx.repository().find_commit(commit_oid)?;
-    branch.replace_head(ctx, &removed_commit, &removed_commit.parent(0)?)?;
+    stack.replace_head(ctx, &removed_commit, &removed_commit.parent(0)?)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
         .context("failed to update gitbutler workspace")?;
 
-    Ok(branch)
+    Ok(stack)
 }
 
 struct UndoResult {

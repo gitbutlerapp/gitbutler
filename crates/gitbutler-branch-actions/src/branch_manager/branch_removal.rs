@@ -39,10 +39,10 @@ impl BranchManager<'_> {
             .repository()
             .find_commit(vb_state.get_default_target()?.sha)?;
 
-        let mut target_branch = vb_state.get_branch(stack_id)?;
+        let mut target_stack = vb_state.get_stack(stack_id)?;
 
         // Convert the vbranch to a real branch
-        let real_branch = self.build_real_branch(&mut target_branch)?;
+        let real_branch = self.build_real_branch(&mut target_stack)?;
 
         self.unapply(stack_id, perm, &target_commit, false)?;
 
@@ -66,7 +66,7 @@ impl BranchManager<'_> {
         delete_vb_state: bool,
     ) -> Result<()> {
         let vb_state = self.ctx.project().virtual_branches();
-        let Some(stack) = vb_state.try_branch(stack_id)? else {
+        let Some(stack) = vb_state.try_stack(stack_id)? else {
             return Ok(());
         };
 
@@ -170,7 +170,7 @@ impl BranchManager<'_> {
         let vb_state = self.ctx.project().virtual_branches();
         let branch = repo.branch(&branch_name, &target_commit, true)?;
         stack.source_refname = Some(Refname::try_from(&branch)?);
-        vb_state.set_branch(stack.clone())?;
+        vb_state.set_stack(stack.clone())?;
 
         self.build_wip_commit(stack, &branch)?;
 
@@ -219,7 +219,7 @@ impl BranchManager<'_> {
         let vb_state = self.ctx.project().virtual_branches();
         // vbranch.head = commit_oid;
         stack.not_in_workspace_wip_change_id = Some(commit_headers.change_id);
-        vb_state.set_branch(stack.clone())?;
+        vb_state.set_stack(stack.clone())?;
 
         Ok(Some(commit_oid))
     }
