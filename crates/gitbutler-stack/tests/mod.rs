@@ -634,14 +634,17 @@ fn update_name_after_push() -> Result<()> {
 fn list_series_default_head() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let test_ctx = test_ctx(&ctx)?;
-    let result = test_ctx.stack.list_series(&ctx);
-    assert!(result.is_ok());
-    let result = result?;
+    let branches = test_ctx.stack.branches();
     // the number of series matches the number of heads
-    assert_eq!(result.len(), test_ctx.stack.heads.len());
-    assert_eq!(result[0].head.name, "a-branch-2");
+    assert_eq!(branches.len(), test_ctx.stack.heads.len());
+    assert_eq!(branches[0].name, "a-branch-2");
     assert_eq!(
-        result[0].local_commits.iter().map(|c| c.id()).collect_vec(),
+        branches[0]
+            .commits(&ctx, &test_ctx.stack)?
+            .local_commits
+            .iter()
+            .map(|c| c.id())
+            .collect_vec(),
         test_ctx.commits.iter().map(|c| c.id()).collect_vec()
     );
     Ok(())
@@ -662,23 +665,31 @@ fn list_series_two_heads_same_commit() -> Result<()> {
     let result = test_ctx.stack.add_series(&ctx, head_before, None);
     assert!(result.is_ok());
 
-    let result = test_ctx.stack.list_series(&ctx);
-    assert!(result.is_ok());
-    let result = result?;
+    let branches = test_ctx.stack.branches();
 
     // the number of series matches the number of heads
-    assert_eq!(result.len(), test_ctx.stack.heads.len());
+    assert_eq!(branches.len(), test_ctx.stack.heads.len());
 
     assert_eq!(
-        result[0].local_commits.iter().map(|c| c.id()).collect_vec(),
+        branches[0]
+            .commits(&ctx, &test_ctx.stack)?
+            .local_commits
+            .iter()
+            .map(|c| c.id())
+            .collect_vec(),
         test_ctx.commits.iter().map(|c| c.id()).collect_vec()
     );
-    assert_eq!(result[0].head.name, "head_before");
+    assert_eq!(branches[0].name, "head_before");
     assert_eq!(
-        result[1].local_commits.iter().map(|c| c.id()).collect_vec(),
+        branches[1]
+            .commits(&ctx, &test_ctx.stack)?
+            .local_commits
+            .iter()
+            .map(|c| c.id())
+            .collect_vec(),
         vec![]
     );
-    assert_eq!(result[1].head.name, "a-branch-2");
+    assert_eq!(branches[1].name, "a-branch-2");
     Ok(())
 }
 
@@ -697,23 +708,31 @@ fn list_series_two_heads_different_commit() -> Result<()> {
     // add `head_before` before the initial head
     let result = test_ctx.stack.add_series(&ctx, head_before, None);
     assert!(result.is_ok());
-    let result = test_ctx.stack.list_series(&ctx);
-    assert!(result.is_ok());
-    let result = result?;
+    let branches = test_ctx.stack.branches();
     // the number of series matches the number of heads
-    assert_eq!(result.len(), test_ctx.stack.heads.len());
+    assert_eq!(branches.len(), test_ctx.stack.heads.len());
     let mut expected_patches = test_ctx.commits.iter().map(|c| c.id()).collect_vec();
     assert_eq!(
-        result[0].local_commits.iter().map(|c| c.id()).collect_vec(),
+        branches[0]
+            .commits(&ctx, &test_ctx.stack)?
+            .local_commits
+            .iter()
+            .map(|c| c.id())
+            .collect_vec(),
         vec![expected_patches.remove(0)]
     );
-    assert_eq!(result[0].head.name, "head_before");
+    assert_eq!(branches[0].name, "head_before");
     assert_eq!(expected_patches.len(), 2);
     assert_eq!(
-        result[1].local_commits.iter().map(|c| c.id()).collect_vec(),
+        branches[1]
+            .commits(&ctx, &test_ctx.stack)?
+            .local_commits
+            .iter()
+            .map(|c| c.id())
+            .collect_vec(),
         expected_patches
     ); // the other two patches are in the second series
-    assert_eq!(result[1].head.name, "a-branch-2");
+    assert_eq!(branches[1].name, "a-branch-2");
 
     Ok(())
 }
@@ -734,9 +753,9 @@ fn set_stack_head() -> Result<()> {
     let commit = test_ctx.other_commits.last().unwrap();
     let result = test_ctx.stack.set_stack_head(&ctx, commit.id(), None);
     assert!(result.is_ok());
-    let result = test_ctx.stack.list_series(&ctx)?;
+    let branches = test_ctx.stack.branches();
     assert_eq!(
-        result.first().unwrap().head.target,
+        branches.first().unwrap().target,
         CommitOrChangeId::ChangeId(commit.change_id().unwrap())
     );
     assert_eq!(
