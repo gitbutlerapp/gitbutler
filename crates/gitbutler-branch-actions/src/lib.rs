@@ -44,7 +44,6 @@ pub use remote::{RemoteBranch, RemoteBranchData, RemoteCommit};
 
 pub mod conflicts;
 
-pub mod branch_trees;
 pub mod branch_upstream_integration;
 mod move_commits;
 pub mod reorder;

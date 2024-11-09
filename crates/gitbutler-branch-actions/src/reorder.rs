@@ -7,15 +7,13 @@ use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::rebase::cherry_rebase_group;
 use gitbutler_stack::{Series, StackId};
 
+use gitbutler_workspace::{
+    checkout_branch_trees, compute_updated_branch_head_for_commits, BranchHeadAndTree,
+};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
-use crate::{
-    branch_trees::{
-        checkout_branch_trees, compute_updated_branch_head_for_commits, BranchHeadAndTree,
-    },
-    VirtualBranchesExt,
-};
+use crate::VirtualBranchesExt;
 
 /// This API allows the client to reorder commits in a stack.
 /// Commits may be moved within the same series or between different series.

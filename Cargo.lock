@@ -2435,6 +2435,7 @@ dependencies = [
  "gitbutler-time",
  "gitbutler-url",
  "gitbutler-user",
+ "gitbutler-workspace",
  "gix",
  "glob",
  "hex",
@@ -2555,6 +2556,7 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-stack",
  "gitbutler-time",
+ "gitbutler-workspace",
  "serde",
 ]
 
@@ -3033,6 +3035,26 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-util",
+ "tracing",
+]
+
+[[package]]
+name = "gitbutler-workspace"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "git2",
+ "gitbutler-branch",
+ "gitbutler-branch-actions",
+ "gitbutler-cherry-pick",
+ "gitbutler-command-context",
+ "gitbutler-commit",
+ "gitbutler-oxidize",
+ "gitbutler-project",
+ "gitbutler-repo",
+ "gitbutler-stack",
+ "gitbutler-testsupport",
+ "gitbutler-workspace",
  "tracing",
 ]
 

@@ -1,13 +1,11 @@
-use crate::{
-    branch_trees::checkout_branch_trees, conflicts::RepoConflictsExt, status::get_applied_status,
-    VirtualBranchesExt,
-};
+use crate::{conflicts::RepoConflictsExt, status::get_applied_status, VirtualBranchesExt};
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt};
 use gitbutler_stack::{OwnershipClaim, StackId};
+use gitbutler_workspace::checkout_branch_trees;
 use std::collections::HashMap;
 
 /// moves commit from the branch it's in to the top of the target branch

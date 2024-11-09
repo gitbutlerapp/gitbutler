@@ -310,7 +310,6 @@
 		display: flex;
 		gap: 4px;
 		padding: 0 14px 12px 14px;
-		align-items: baseline;
 	}
 
 	.pr-header-actions {
