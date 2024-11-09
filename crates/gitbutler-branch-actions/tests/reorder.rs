@@ -330,6 +330,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]);
     assert_eq!(commits[1].conflicted(), vec![false, false]); // no conflicts
     assert_eq!(file(&ctx, test.stack.head()), "y\n"); // y is the last version
+    assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
     // Reorder the stack in a way that will cause a conflict
     let new_order = order(vec![
@@ -347,6 +348,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     assert_eq!(commits[1].msgs(), vec!["commit 1", "commit 2"]); // swapped
     assert_eq!(commits[1].conflicted(), vec![false, true]); // bottom commit is now conflicted
     assert_eq!(file(&ctx, test.stack.head()), "x\n"); // x is the last version
+    assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
     // Reorded the commits back to the original order
     let new_order = order(vec![
@@ -365,6 +367,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     assert_eq!(commits[1].msgs(), vec!["commit 2", "commit 1"]); // swapped
     assert_eq!(commits[1].conflicted(), vec![false, false]); // conflicts are gone
     assert_eq!(file(&ctx, test.stack.head()), "y\n"); // y is the last version again
+    assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
     Ok(())
 }
@@ -388,24 +391,28 @@ trait CommitHelpers {
     fn msgs(&self) -> Vec<String>;
     fn ids(&self) -> Vec<Oid>;
     fn conflicted(&self) -> Vec<bool>;
+    fn timestamps(&self) -> Vec<u128>;
 }
 
-impl CommitHelpers for Vec<(Oid, String, bool)> {
+impl CommitHelpers for Vec<(Oid, String, bool, u128)> {
     fn msgs(&self) -> Vec<String> {
-        self.iter().map(|(_, msg, _)| msg.clone()).collect_vec()
+        self.iter().map(|(_, msg, _, _)| msg.clone()).collect_vec()
     }
     fn ids(&self) -> Vec<Oid> {
-        self.iter().map(|(id, _, _)| *id).collect_vec()
+        self.iter().map(|(id, _, _, _)| *id).collect_vec()
     }
     fn conflicted(&self) -> Vec<bool> {
         self.iter()
-            .map(|(_, _, conflicted)| *conflicted)
+            .map(|(_, _, conflicted, _)| *conflicted)
             .collect_vec()
+    }
+    fn timestamps(&self) -> Vec<u128> {
+        self.iter().map(|(_, _, _, ts)| *ts).collect_vec()
     }
 }
 
 /// Commits from list_virtual_branches
-fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool)>> {
+fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>> {
     let (vbranches, _) = list_virtual_branches(ctx.project()).unwrap();
     let vbranch = vbranches.iter().find(|vb| vb.name == "my_stack").unwrap();
     let mut out = vec![];
@@ -413,7 +420,7 @@ fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool)>> {
         let messages = series
             .patches
             .iter()
-            .map(|p| (p.id, p.description.to_string(), p.conflicted))
+            .map(|p| (p.id, p.description.to_string(), p.conflicted, p.created_at))
             .collect_vec();
         out.push(messages)
     }

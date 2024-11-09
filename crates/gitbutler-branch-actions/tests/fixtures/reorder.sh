@@ -2,6 +2,16 @@
 set -eu -o pipefail
 CLI=${1:?The first argument is the GitButler CLI}
 
+function tick () {
+  if test -z "${tick+set}"; then
+    tick=1675176957
+  else
+    tick=$(($tick + 60))
+  fi
+  GIT_COMMITTER_DATE="$tick +0100"
+  GIT_AUTHOR_DATE="$tick +0100"
+  export GIT_COMMITTER_DATE GIT_AUTHOR_DATE
+}
 
 git init remote
 (cd remote
@@ -80,6 +90,7 @@ git clone remote multiple-commits-empty-top
 )
 
 git clone remote overlapping-commits
+tick
 (cd overlapping-commits
   git config user.name "Author"
   git config user.email "author@example.com"
@@ -94,6 +105,7 @@ git clone remote overlapping-commits
   $CLI branch create --set-default my_stack
   echo x > file
   $CLI branch commit my_stack -m "commit 1"
+  tick
   echo y > file
   $CLI branch commit my_stack -m "commit 2"
 
