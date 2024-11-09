@@ -24,8 +24,8 @@ pub fn integrate_upstream_commits_for_series(
     let repo = ctx.repository();
     let vb_state = ctx.project().virtual_branches();
 
-    let branch = vb_state.get_branch_in_workspace(branch_id)?;
-    let all_series = branch.list_series(ctx)?;
+    let stack = vb_state.get_branch_in_workspace(branch_id)?;
+    let all_series = stack.list_series(ctx)?;
 
     let default_target = vb_state.get_default_target()?;
     let remote = default_target.push_remote_name();
@@ -37,7 +37,7 @@ pub fn integrate_upstream_commits_for_series(
     let upstream_reference = subject_series.head.remote_reference(remote.as_str())?;
     let remote_head = repo.find_reference(&upstream_reference)?.peel_to_commit()?;
 
-    let stack_merge_base = repo.merge_base(branch.head(), default_target.sha)?;
+    let stack_merge_base = repo.merge_base(stack.head(), default_target.sha)?;
     let series_head = commit_by_oid_or_change_id(
         &subject_series.head.target,
         repo,
@@ -46,14 +46,14 @@ pub fn integrate_upstream_commits_for_series(
     )?
     .head;
 
-    let do_rebease = branch.allow_rebasing
+    let do_rebease = stack.allow_rebasing
         || Some(subject_series.head.name.clone())
             != all_series.first().map(|s| s.head.name.clone());
     let integrate_upstream_context = IntegrateUpstreamContext {
         repository: repo,
         target_branch_head: default_target.sha,
-        branch_head: branch.head(),
-        branch_tree: branch.tree,
+        branch_head: stack.head(),
+        branch_tree: stack.tree,
         branch_name: &subject_series.head.name,
         remote_head: remote_head.id(),
         remote_branch_name: &subject_series.head.remote_reference(&remote)?,
@@ -63,7 +63,7 @@ pub fn integrate_upstream_commits_for_series(
     let (BranchHeadAndTree { head, tree }, new_series_head) =
         integrate_upstream_context.inner_integrate_upstream_commits_for_series(series_head.id())?;
 
-    let mut branch = branch.clone();
+    let mut branch = stack.clone();
     branch.set_stack_head(ctx, head, Some(tree))?;
     checkout_branch_trees(ctx, perm)?;
     branch.replace_head(ctx, &series_head, &repo.find_commit(new_series_head)?)?;

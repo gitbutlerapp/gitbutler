@@ -237,7 +237,7 @@ fn branch_integrated(
 /// `commits` is used to accelerate the is-integrated check.
 pub(crate) fn stack_series(
     ctx: &CommandContext,
-    branch: &mut Stack,
+    stack: &mut Stack,
     default_target: &Target,
     check_commit: &mut IsCommitIntegrated,
     remote_commit_data: HashMap<CommitData, git2::Oid>,
@@ -245,8 +245,8 @@ pub(crate) fn stack_series(
 ) -> Result<(Vec<PatchSeries>, bool)> {
     let mut requires_force = false;
     let mut api_series: Vec<PatchSeries> = vec![];
-    for stack_branch in branch.branches() {
-        let branch_commits = stack_branch.commits(ctx, branch)?;
+    for stack_branch in stack.branches() {
+        let branch_commits = stack_branch.commits(ctx, stack)?;
         let remote = default_target.push_remote_name();
         let upstream_reference = if stack_branch.pushed(remote.as_str(), ctx)? {
             stack_branch.remote_reference(remote.as_str()).ok()
@@ -284,7 +284,7 @@ pub(crate) fn stack_series(
             }
             let vcommit = commit_to_vbranch_commit(
                 ctx,
-                branch,
+                stack,
                 commit,
                 is_integrated,
                 branch_commits.remote(commit),
@@ -301,7 +301,7 @@ pub(crate) fn stack_series(
             let is_integrated = check_commit.is_integrated(&commit)?;
             let vcommit = commit_to_vbranch_commit(
                 ctx,
-                branch,
+                stack,
                 &commit,
                 is_integrated,
                 true, // per definition
@@ -331,7 +331,7 @@ pub(crate) fn stack_series(
 
     // This is done for compatibility with the legacy flow.
     // After a couple of weeks we can get rid of this.
-    if let Err(e) = branch.set_legacy_compatible_stack_reference(ctx) {
+    if let Err(e) = stack.set_legacy_compatible_stack_reference(ctx) {
         tracing::warn!("failed to set legacy compatible stack reference: {:?}", e);
     }
 

@@ -54,7 +54,7 @@ pub struct VirtualBranchCommit {
 
 pub(crate) fn commit_to_vbranch_commit(
     ctx: &CommandContext,
-    branch: &Stack,
+    stack: &Stack,
     commit: &git2::Commit,
     is_integrated: bool,
     is_remote: bool,
@@ -97,7 +97,7 @@ pub(crate) fn commit_to_vbranch_commit(
         is_remote,
         is_integrated,
         parent_ids,
-        branch_id: branch.id,
+        branch_id: stack.id,
         change_id: commit.change_id(),
         is_signed: commit.is_signed(),
         conflicted: commit.is_conflicted(),
