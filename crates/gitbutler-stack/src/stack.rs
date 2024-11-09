@@ -20,8 +20,8 @@ use serde::{Deserialize, Serialize};
 use crate::heads::add_head;
 use crate::heads::get_head;
 use crate::heads::remove_head;
-use crate::Branch;
 use crate::CommitOrChangeId;
+use crate::StackBranch;
 use crate::{ownership::BranchOwnershipClaims, VirtualBranchesHandle};
 
 pub type StackId = Id<Stack>;
@@ -78,7 +78,7 @@ pub struct Stack {
     /// Represents the Stack state of pseudo-references ("heads").
     /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
     #[serde(default)]
-    pub heads: Vec<Branch>,
+    pub heads: Vec<StackBranch>,
 }
 
 fn default_true() -> bool {
@@ -272,7 +272,7 @@ impl Stack {
         }
         let commit = ctx.repository().find_commit(self.head())?;
 
-        let mut reference = Branch {
+        let mut reference = StackBranch {
             head: commit.into(),
             name: if let Some(refname) = self.upstream.as_ref() {
                 refname.branch().to_string()
@@ -286,7 +286,7 @@ impl Stack {
         };
         let state = branch_state(ctx);
 
-        let is_duplicate = |reference: &Branch| -> Result<bool> {
+        let is_duplicate = |reference: &StackBranch| -> Result<bool> {
             Ok(if allow_duplicate_refs {
                 patch_reference_exists(&state, &reference.name)?
             } else {
@@ -327,7 +327,7 @@ impl Stack {
     pub fn add_series(
         &mut self,
         ctx: &CommandContext,
-        new_head: Branch,
+        new_head: StackBranch,
         preceding_head_name: Option<String>,
     ) -> Result<()> {
         self.initialized()?;
@@ -358,7 +358,7 @@ impl Stack {
         let current_top_head = self.heads.last().ok_or(anyhow!(
             "Stack is in an invalid state - heads list is empty"
         ))?;
-        let new_head = Branch {
+        let new_head = StackBranch {
             head: current_top_head.head.clone(),
             name,
             description,
@@ -440,7 +440,7 @@ impl Stack {
         if let Some(name) = update.name.clone() {
             let head = updated_heads
                 .iter_mut()
-                .find(|h: &&mut Branch| h.name == branch_name);
+                .find(|h: &&mut StackBranch| h.name == branch_name);
             if let Some(head) = head {
                 head.name = name;
                 validate_name(head, &state)?;
@@ -529,13 +529,13 @@ impl Stack {
     }
 
     /// Returns the branch that precedes the given branch in the stack, if any.
-    pub(crate) fn branch_predacessor(&self, branch: &Branch) -> Option<&Branch> {
+    pub(crate) fn branch_predacessor(&self, branch: &StackBranch) -> Option<&StackBranch> {
         self.heads.iter().take_while(|head| *head != branch).last()
     }
 
     /// Returns a list of all branches/series in the stack.
     /// Ordered from oldest to newest (most recent)
-    pub fn branches(&self) -> Vec<Branch> {
+    pub fn branches(&self) -> Vec<StackBranch> {
         self.heads.clone()
     }
 
@@ -573,7 +573,7 @@ impl Stack {
         }
 
         let state = branch_state(ctx);
-        let mut updated_heads: Vec<Branch> = vec![];
+        let mut updated_heads: Vec<StackBranch> = vec![];
 
         for head in matching_heads {
             if self.heads.last().cloned() == Some(head.clone()) {
@@ -756,7 +756,7 @@ impl TryFrom<&Stack> for VirtualRefname {
 /// If the patch reference is a commit ID, it must be the case that the commit has no change ID associated with it.
 /// In other words, change IDs are enforced to be preferred over commit IDs when available.
 fn validate_target(
-    reference: &Branch,
+    reference: &StackBranch,
     repo: &git2::Repository,
     stack_head: git2::Oid,
     state: &VirtualBranchesHandle,
@@ -795,7 +795,7 @@ fn validate_target(
 ///  - unique within all stacks
 ///  - not the same as any existing local git reference (it is permitted for the name to match an existing remote reference)
 ///  - not including the `refs/heads/` prefix
-fn validate_name(reference: &Branch, state: &VirtualBranchesHandle) -> Result<()> {
+fn validate_name(reference: &StackBranch, state: &VirtualBranchesHandle) -> Result<()> {
     if reference.name.starts_with("refs/heads") {
         return Err(anyhow!("Stack head name cannot start with 'refs/heads'"));
     }
@@ -915,7 +915,7 @@ fn local_reference_exists(ctx: &CommandContext, name: &str) -> Result<bool> {
 fn remote_reference_exists(
     ctx: &CommandContext,
     state: &VirtualBranchesHandle,
-    reference: &Branch,
+    reference: &StackBranch,
 ) -> Result<bool> {
     Ok(reference
         .remote_reference(state.get_default_target()?.push_remote_name().as_str())
