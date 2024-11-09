@@ -5,6 +5,7 @@ use git2::Oid;
 use gitbutler_branch_actions::{list_virtual_branches, reorder_stack, SeriesOrder, StackOrder};
 use gitbutler_command_context::CommandContext;
 use gitbutler_stack::VirtualBranchesHandle;
+use gitbutler_testsupport::testing_repository::assert_commit_tree_matches;
 use itertools::Itertools;
 use tempfile::TempDir;
 
@@ -316,6 +317,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     // MB:       a    : MB:        a    :
 
     let (ctx, _temp_dir) = command_ctx("overlapping-commits")?;
+    let repo = ctx.repository();
     let test = test_ctx(&ctx)?;
 
     // There is a stack of 2:
@@ -350,6 +352,21 @@ fn conflicting_reorder_stack() -> Result<()> {
     assert_eq!(file(&ctx, test.stack.head()), "x\n"); // x is the last version
     assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
 
+    let commit_1_prime = repo.find_commit(commits[1].ids()[0])?;
+    assert_commit_tree_matches(repo, &commit_1_prime, &[("file", b"x\n")]);
+
+    let commit_2_prime = repo.find_commit(commits[1].ids()[1])?;
+    assert_commit_tree_matches(
+        repo,
+        &commit_2_prime,
+        &[
+            (".auto-resolution/file", b"a\n"),
+            (".conflict-base-0/file", b"x\n"),
+            (".conflict-side-0/file", b"a\n"),
+            (".conflict-side-1/file", b"y\n"),
+        ],
+    );
+
     // Reorded the commits back to the original order
     let new_order = order(vec![
         vec![],
@@ -368,6 +385,12 @@ fn conflicting_reorder_stack() -> Result<()> {
     assert_eq!(commits[1].conflicted(), vec![false, false]); // conflicts are gone
     assert_eq!(file(&ctx, test.stack.head()), "y\n"); // y is the last version again
     assert!(commits[1].timestamps().windows(2).all(|w| w[0] >= w[1])); // commit timestamps in descending order
+
+    let commit_2_prime_prime = repo.find_commit(commits[1].ids()[0])?;
+    assert_commit_tree_matches(repo, &commit_2_prime_prime, &[("file", b"y\n")]);
+
+    let commit_1_prime_prime = repo.find_commit(commits[1].ids()[1])?;
+    assert_commit_tree_matches(repo, &commit_1_prime_prime, &[("file", b"x\n")]);
 
     Ok(())
 }
