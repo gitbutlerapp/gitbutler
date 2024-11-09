@@ -7,13 +7,11 @@ use gitbutler_repo::{
 };
 use gitbutler_stack::commit_by_oid_or_change_id;
 use gitbutler_stack::StackId;
-
-use crate::{
-    branch_trees::{
-        checkout_branch_trees, compute_updated_branch_head_for_commits, BranchHeadAndTree,
-    },
-    conflicts, VirtualBranchesExt as _,
+use gitbutler_workspace::{
+    checkout_branch_trees, compute_updated_branch_head_for_commits, BranchHeadAndTree,
 };
+
+use crate::{conflicts, VirtualBranchesExt as _};
 
 pub fn integrate_upstream_commits_for_series(
     ctx: &CommandContext,
@@ -308,8 +306,7 @@ mod test {
         use gitbutler_commit::commit_ext::CommitExt as _;
         use gitbutler_repo::LogUntil;
         use gitbutler_repo::RepositoryExt as _;
-
-        use crate::branch_trees::BranchHeadAndTree;
+        use gitbutler_workspace::BranchHeadAndTree;
 
         use super::*;
 

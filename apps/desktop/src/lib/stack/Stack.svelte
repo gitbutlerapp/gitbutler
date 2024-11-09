@@ -92,7 +92,7 @@
 	async function push() {
 		isPushingCommits = true;
 		try {
-			await branchController.pushBranch(branch.id, branch.requiresForce, true);
+			await branchController.pushBranch(branch.id, branch.requiresForce);
 			$listingService?.refresh();
 			// TODO: Refresh prMonitor and checksMonitor upon push
 		} finally {
