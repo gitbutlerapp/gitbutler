@@ -16,7 +16,7 @@ use crate::{commit_by_oid_or_change_id, Stack, VirtualBranchesHandle};
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Branch {
     /// The target of the reference - this can be a commit or a change that points to a commit.
-    pub target: CommitOrChangeId,
+    pub head: CommitOrChangeId,
     /// The name of the reference e.g. `master` or `feature/branch`. This should **NOT** include the `refs/heads/` prefix.
     /// The name must be unique within the repository.
     pub name: String,
@@ -64,7 +64,7 @@ impl Branch {
     pub fn head_oid(&self, ctx: &CommandContext, stack: &Stack) -> Result<Oid> {
         let repo = ctx.repository();
         let merge_base = stack.merge_base(ctx)?.id();
-        let head_commit = commit_by_oid_or_change_id(&self.target, repo, stack.head(), merge_base)?
+        let head_commit = commit_by_oid_or_change_id(&self.head, repo, stack.head(), merge_base)?
             .head
             .id();
         Ok(head_commit)
@@ -85,7 +85,7 @@ impl Branch {
         let repo = ctx.repository();
         let merge_base = stack.merge_base(ctx)?.id();
 
-        let head_commit = commit_by_oid_or_change_id(&self.target, repo, stack.head(), merge_base);
+        let head_commit = commit_by_oid_or_change_id(&self.head, repo, stack.head(), merge_base);
         if self.archived || head_commit.is_err() {
             return Ok(BranchCommits {
                 local_commits: vec![],
@@ -101,7 +101,7 @@ impl Branch {
             .branch_predacessor(self)
             .filter(|predacessor| !predacessor.archived)
             .map_or(merge_base, |predacessor| {
-                commit_by_oid_or_change_id(&predacessor.target, repo, stack.head(), merge_base)
+                commit_by_oid_or_change_id(&predacessor.head, repo, stack.head(), merge_base)
                     .map(|commit| commit.head.id())
                     .unwrap_or(merge_base)
             });

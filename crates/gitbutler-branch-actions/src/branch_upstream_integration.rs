@@ -39,7 +39,7 @@ pub fn integrate_upstream_commits_for_series(
 
     let stack_merge_base = repo.merge_base(stack.head(), default_target.sha)?;
     let series_head = commit_by_oid_or_change_id(
-        &subject_branch.target,
+        &subject_branch.head,
         repo,
         remote_head.id(),
         stack_merge_base,

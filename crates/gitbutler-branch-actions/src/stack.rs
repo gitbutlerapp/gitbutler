@@ -49,7 +49,7 @@ pub fn create_series(
         stack.add_series(
             ctx,
             Branch {
-                target: target_patch,
+                head: target_patch,
                 name: normalized_head_name,
                 description: req.description,
                 pr_number: Default::default(),
@@ -199,7 +199,7 @@ pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Re
             // Nothing to push for this one
             continue;
         }
-        if branch.target == merge_base {
+        if branch.head == merge_base {
             // Nothing to push for this one
             continue;
         }
