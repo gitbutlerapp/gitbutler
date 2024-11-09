@@ -1003,3 +1003,493 @@ fn create_file_update_and_trim() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn adding_line_splits_range() -> anyhow::Result<()> {
+    let stack_ranges = &mut PathRanges::default();
+    let stack_id = StackId::generate();
+
+    let commit1_id = git2::Oid::from_str("a")?;
+    let diff_1 = InputDiff::try_from((
+        "@@ -2,2 +2,2 @@
+-1
+-1
++a
++c
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+    stack_ranges.add(stack_id, commit1_id, vec![diff_1])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id,
+            commit_id: commit1_id,
+            start: 2,
+            lines: 2,
+            line_shift: 0
+        }]
+    );
+
+    let commit2_id = git2::Oid::from_str("b")?;
+    let diff_2 = InputDiff::try_from((
+        "@@ -2,0 +3,1 @@
++b
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+    stack_ranges.add(stack_id, commit2_id, vec![diff_2])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id,
+                commit_id: commit1_id,
+                start: 2,
+                lines: 1,
+                line_shift: 0
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id,
+                commit_id: commit2_id,
+                start: 3,
+                lines: 1,
+                line_shift: 1
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id,
+                commit_id: commit1_id,
+                start: 4,
+                lines: 1,
+                line_shift: 0
+            },
+        ]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn adding_line_before_shifts_range() -> anyhow::Result<()> {
+    let stack_ranges = &mut PathRanges::default();
+    let stack_id = StackId::generate();
+
+    let commit1_id = git2::Oid::from_str("a")?;
+    let diff_1 = InputDiff::try_from((
+        "@@ -2,2 +2,2 @@
+-1
+-1
++a
++c
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+    stack_ranges.add(stack_id, commit1_id, vec![diff_1])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id,
+            commit_id: commit1_id,
+            start: 2,
+            lines: 2,
+            line_shift: 0
+        }]
+    );
+
+    let commit2_id = git2::Oid::from_str("b")?;
+    let diff_2 = InputDiff::try_from((
+        "@@ -1,0 +2,1 @@
++b
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+    stack_ranges.add(stack_id, commit2_id, vec![diff_2])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id,
+                commit_id: commit2_id,
+                start: 2,
+                lines: 1,
+                line_shift: 1
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id,
+                commit_id: commit1_id,
+                start: 3,
+                lines: 2,
+                line_shift: 0
+            },
+        ]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn adding_line_after_shifts_range() -> anyhow::Result<()> {
+    let stack_ranges = &mut PathRanges::default();
+    let stack_id = StackId::generate();
+
+    let commit1_id = git2::Oid::from_str("a")?;
+    let diff_1 = InputDiff::try_from((
+        "@@ -2,2 +2,2 @@
+-1
+-1
++a
++c
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+    stack_ranges.add(stack_id, commit1_id, vec![diff_1])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id,
+            commit_id: commit1_id,
+            start: 2,
+            lines: 2,
+            line_shift: 0
+        }]
+    );
+
+    let commit2_id = git2::Oid::from_str("b")?;
+    let diff_2 = InputDiff::try_from((
+        "@@ -3,0 +4,1 @@
++b
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+    stack_ranges.add(stack_id, commit2_id, vec![diff_2])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id,
+                commit_id: commit1_id,
+                start: 2,
+                lines: 2,
+                line_shift: 0
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id,
+                commit_id: commit2_id,
+                start: 4,
+                lines: 1,
+                line_shift: 1
+            },
+        ]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn removing_line_updates_range() -> anyhow::Result<()> {
+    let stack_ranges = &mut PathRanges::default();
+    let stack_id = StackId::generate();
+
+    let commit1_id = git2::Oid::from_str("a")?;
+    let diff_1 = InputDiff::try_from((
+        "@@ -2,2 +2,3 @@
+-1
+-1
++a
++b
++c
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+    stack_ranges.add(stack_id, commit1_id, vec![diff_1])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id,
+            commit_id: commit1_id,
+            start: 2,
+            lines: 3,
+            line_shift: 1
+        }]
+    );
+
+    let commit2_id = git2::Oid::from_str("b")?;
+    let diff_2 = InputDiff::try_from((
+        "@@ -3,1 +2,0 @@
+-b
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+    stack_ranges.add(stack_id, commit2_id, vec![diff_2])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id,
+            commit_id: commit1_id,
+            start: 2,
+            lines: 2,
+            line_shift: 1
+        }]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn removing_line_before_shifts_range() -> anyhow::Result<()> {
+    let stack_ranges = &mut PathRanges::default();
+    let stack_id = StackId::generate();
+
+    let commit1_id = git2::Oid::from_str("a")?;
+    let diff_1 = InputDiff::try_from((
+        "@@ -2,2 +2,3 @@
+-1
+-1
++a
++b
++c
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+    stack_ranges.add(stack_id, commit1_id, vec![diff_1])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id,
+            commit_id: commit1_id,
+            start: 2,
+            lines: 3,
+            line_shift: 1
+        }]
+    );
+
+    let commit2_id = git2::Oid::from_str("b")?;
+    let diff_2 = InputDiff::try_from((
+        "@@ -1,1 +1,0 @@
+-start
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+    stack_ranges.add(stack_id, commit2_id, vec![diff_2])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id,
+            commit_id: commit1_id,
+            start: 1,
+            lines: 3,
+            line_shift: 1
+        }]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn removing_line_after_is_ignored() -> anyhow::Result<()> {
+    let stack_ranges = &mut PathRanges::default();
+    let stack_id = StackId::generate();
+
+    let commit1_id = git2::Oid::from_str("a")?;
+    let diff_1 = InputDiff::try_from((
+        "@@ -2,2 +2,3 @@
+-1
+-1
++a
++b
++c
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+    stack_ranges.add(stack_id, commit1_id, vec![diff_1])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id,
+            commit_id: commit1_id,
+            start: 2,
+            lines: 3,
+            line_shift: 1
+        }]
+    );
+
+    let commit2_id = git2::Oid::from_str("b")?;
+    let diff_2 = InputDiff::try_from((
+        "@@ -5,1 +4,0 @@
+-end
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+    stack_ranges.add(stack_id, commit2_id, vec![diff_2])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id,
+            commit_id: commit1_id,
+            start: 2,
+            lines: 3,
+            line_shift: 1
+        }]
+    );
+
+    Ok(())
+}
+
+#[test]
+fn shift_is_correct_after_multiple_changes() -> anyhow::Result<()> {
+    let stack_ranges = &mut PathRanges::default();
+    let stack_id = StackId::generate();
+
+    let commit1_id = git2::Oid::from_str("a")?;
+    let diff_1 = InputDiff::try_from((
+        "@@ -0,0 +1,10 @@
++1
++2
++3
++4
++5
++6
++7
++8
++9
++10
+",
+        gitbutler_diff::ChangeType::Added,
+    ))?;
+    stack_ranges.add(stack_id, commit1_id, vec![diff_1])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Added,
+            stack_id,
+            commit_id: commit1_id,
+            start: 1,
+            lines: 10,
+            line_shift: 10
+        }]
+    );
+
+    let commit2_id = git2::Oid::from_str("b")?;
+    let diff_2 = InputDiff::try_from((
+        "@@ -3,1 +3,4 @@
+-3
++ update 3
++ add line 1
++ add line 2
++ add line 4
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+
+    let diff_3 = InputDiff::try_from((
+        "@@ -5,1 +7,0 @@
+-5
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+
+    let diff_4 = InputDiff::try_from((
+        "@@ -7,1 +9,2 @@
+-7
++ update 7
++ add line
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+
+    let diff_5 = InputDiff::try_from((
+        "@@ -11,0 +14,3 @@
++ added
++ lines
++ at the bottom
+",
+        gitbutler_diff::ChangeType::Modified,
+    ))?;
+
+    stack_ranges.add(stack_id, commit2_id, vec![diff_2, diff_3, diff_4, diff_5])?;
+    let hunks = &stack_ranges.hunk_ranges;
+    assert_eq!(
+        hunks,
+        &vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id,
+                commit_id: commit1_id,
+                start: 1,
+                lines: 2,
+                line_shift: 10
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id,
+                commit_id: commit2_id,
+                start: 3,
+                lines: 4,
+                line_shift: 3
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id,
+                commit_id: commit1_id,
+                start: 7,
+                lines: 2,
+                line_shift: 10
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id,
+                commit_id: commit2_id,
+                start: 9,
+                lines: 2,
+                line_shift: 1
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id,
+                commit_id: commit1_id,
+                start: 11,
+                lines: 3,
+                line_shift: 10
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id,
+                commit_id: commit2_id,
+                start: 14,
+                lines: 3,
+                line_shift: 3
+            },
+        ]
+    );
+
+    Ok(())
+}

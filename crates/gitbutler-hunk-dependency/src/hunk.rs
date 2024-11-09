@@ -30,10 +30,19 @@ impl HunkRange {
             return false;
         }
 
+        if lines == 0 {
+            // Special case when only adding lines.
+            return self.start <= start && self.start + self.lines > start;
+        }
+
         self.start <= (start + lines - 1) && (self.start + self.lines - 1) >= start
     }
 
     pub fn contains(&self, start: u32, lines: u32) -> bool {
+        if lines == 0 {
+            // Special case when only adding lines.
+            return self.start <= start && self.start + self.lines > start + 1;
+        }
         start > self.start && start + lines <= self.start + self.lines
     }
 
@@ -54,6 +63,12 @@ impl HunkRange {
             // Special case when adding lines at the top of the file.
             return true;
         }
+
+        if lines == 0 {
+            // Special case when only adding lines.
+            return self.start > start;
+        }
+
         self.start > (start + lines - 1)
     }
 }
@@ -96,6 +111,7 @@ mod test {
         assert!(range.intersects(1, 10));
         assert!(range.intersects(4, 2));
         assert!(range.intersects(10, 20));
+        assert!(range.intersects(4, 0));
         // Adding lines at the beginning of the file.
         assert!(!range.intersects(0, 0));
 
@@ -118,6 +134,9 @@ mod test {
         assert!(range.intersects(1, 20));
         assert!(range.intersects(1, 30));
         assert!(range.intersects(4, 10));
+        assert!(range.intersects(19, 0));
+        assert!(range.intersects(10, 0));
+        assert!(range.intersects(10, 10));
         assert!(range.intersects(10, 20));
         assert!(range.intersects(11, 20));
         assert!(range.intersects(15, 1));
@@ -125,6 +144,7 @@ mod test {
         // Adding lines at the beginning of the file.
         assert!(!range.intersects(0, 0));
 
+        assert!(!range.intersects(20, 0));
         assert!(!range.intersects(1, 1));
         assert!(!range.intersects(1, 9));
         assert!(!range.intersects(20, 1));
@@ -175,8 +195,11 @@ mod test {
         assert!(!range.contains(4, 16));
         assert!(!range.contains(10, 20));
         assert!(!range.contains(10, 10));
+        assert!(!range.contains(19, 0));
         assert!(range.contains(11, 8));
         assert!(range.contains(11, 9));
+        assert!(range.contains(10, 0));
+        assert!(range.contains(18, 0));
     }
 
     #[test]
@@ -193,6 +216,8 @@ mod test {
         assert!(range.follows(0, 0));
         assert!(range.follows(1, 9));
         assert!(range.follows(9, 1));
+        assert!(!range.follows(10, 0));
+        assert!(!range.follows(11, 0));
         assert!(!range.follows(10, 1));
         assert!(!range.follows(11, 1));
         assert!(!range.follows(20, 1));

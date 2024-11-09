@@ -240,7 +240,7 @@ impl PathRanges {
             self.track_commit_dependency(commit_id, vec![file_creation_commit])?;
         }
 
-        let index_of_next = self.insert_hunk_ranges_at(
+        let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.insert_hunk_ranges_at(
             index,
             vec![HunkRange {
                 change_type: incoming_hunk.change_type,
@@ -250,9 +250,10 @@ impl PathRanges {
                 lines: incoming_hunk.new_lines,
                 line_shift: incoming_hunk.net_lines()?,
             }],
+            0,
         );
-        *index_next_hunk_to_visit = Some(index_of_next);
-        self.update_start_lines(index_of_next, incoming_hunk.net_lines()?)?;
+        *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+        self.update_start_lines(i_first_hunk_to_shift, incoming_hunk.net_lines()?)?;
         Ok(())
     }
 
@@ -318,7 +319,7 @@ impl PathRanges {
             self.get_shifted_old_start(incoming_hunk.old_start),
             incoming_hunk.old_lines,
         ) {
-            let index_of_next = self.replace_hunk_ranges_between(
+            let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_between(
                 *first_intersecting_hunk_index,
                 *last_intersecting_hunk_index + 1,
                 vec![HunkRange {
@@ -329,11 +330,12 @@ impl PathRanges {
                     lines: incoming_hunk.new_lines,
                     line_shift: net_lines,
                 }],
+                0,
             );
 
             self.track_commit_dependency(commit_id, affected_commits.into_iter().collect())?;
-            *index_next_hunk_to_visit = Some(index_of_next);
-            self.update_start_lines(index_of_next, net_lines)?;
+            *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+            self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
             return Ok(());
         }
 
@@ -344,7 +346,7 @@ impl PathRanges {
             self.get_shifted_old_start(incoming_hunk.old_start),
             incoming_hunk.old_lines,
         ) {
-            let index_of_next = self.replace_hunk_ranges_between(
+            let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_between(
                 *first_intersecting_hunk_index,
                 *last_intersecting_hunk_index + 1,
                 vec![
@@ -361,16 +363,16 @@ impl PathRanges {
                         stack_id: last_intersecting_hunk.stack_id,
                         commit_id: last_intersecting_hunk.commit_id,
                         start: incoming_hunk.new_start + incoming_hunk.new_lines,
-                        lines: last_intersecting_hunk.start + last_intersecting_hunk.lines
-                            - self.get_shifted_old_start(incoming_hunk.old_start)
-                            - incoming_hunk.old_lines,
+                        lines: self
+                            .calculate_lines_of_trimmed_hunk(last_intersecting_hunk, incoming_hunk),
                         line_shift: last_intersecting_hunk.line_shift,
                     },
                 ],
+                0,
             );
             self.track_commit_dependency(commit_id, affected_commits.into_iter().collect())?;
-            *index_next_hunk_to_visit = Some(index_of_next);
-            self.update_start_lines(index_of_next, net_lines)?;
+            *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+            self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
             return Ok(());
         }
 
@@ -380,7 +382,7 @@ impl PathRanges {
             self.get_shifted_old_start(incoming_hunk.old_start),
             incoming_hunk.old_lines,
         ) {
-            let index_of_next = self.replace_hunk_ranges_between(
+            let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_between(
                 *first_intersecting_hunk_index,
                 *last_intersecting_hunk_index + 1,
                 vec![
@@ -401,15 +403,16 @@ impl PathRanges {
                         line_shift: net_lines,
                     },
                 ],
+                1,
             );
             self.track_commit_dependency(commit_id, affected_commits.into_iter().collect())?;
-            *index_next_hunk_to_visit = Some(index_of_next);
-            self.update_start_lines(index_of_next, net_lines)?;
+            *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+            self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
             return Ok(());
         }
 
         // 2.3. The incoming hunk is contained in the intersecting hunk ranges
-        let index_of_next = self.replace_hunk_ranges_between(
+        let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_between(
             *first_intersecting_hunk_index,
             *last_intersecting_hunk_index + 1,
             vec![
@@ -434,16 +437,16 @@ impl PathRanges {
                     stack_id: last_intersecting_hunk.stack_id,
                     commit_id: last_intersecting_hunk.commit_id,
                     start: incoming_hunk.new_start + incoming_hunk.new_lines,
-                    lines: last_intersecting_hunk.start + last_intersecting_hunk.lines
-                        - self.get_shifted_old_start(incoming_hunk.old_start)
-                        - incoming_hunk.old_lines,
+                    lines: self
+                        .calculate_lines_of_trimmed_hunk(last_intersecting_hunk, incoming_hunk),
                     line_shift: last_intersecting_hunk.line_shift,
                 },
             ],
+            1,
         );
         self.track_commit_dependency(commit_id, affected_commits.into_iter().collect())?;
-        *index_next_hunk_to_visit = Some(index_of_next);
-        self.update_start_lines(index_of_next, net_lines)?;
+        *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+        self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
 
         Ok(())
     }
@@ -466,7 +469,7 @@ impl PathRanges {
             self.get_shifted_old_start(incoming_hunk.old_start),
             incoming_hunk.old_lines,
         ) {
-            let index_of_next = self.replace_hunk_ranges_at(
+            let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_at(
                 index,
                 vec![HunkRange {
                     change_type: incoming_hunk.change_type,
@@ -476,11 +479,12 @@ impl PathRanges {
                     lines: incoming_hunk.new_lines,
                     line_shift: net_lines,
                 }],
+                0,
             );
 
             self.track_commit_dependency(commit_id, vec![hunk.commit_id])?;
-            *index_next_hunk_to_visit = Some(index_of_next);
-            self.update_start_lines(index_of_next, net_lines)?;
+            *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+            self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
             return Ok(());
         }
 
@@ -489,7 +493,7 @@ impl PathRanges {
             self.get_shifted_old_start(incoming_hunk.old_start),
             incoming_hunk.old_lines,
         ) {
-            let index_of_next = self.replace_hunk_ranges_at(
+            let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_at(
                 index,
                 vec![
                     HunkRange {
@@ -513,75 +517,116 @@ impl PathRanges {
                         stack_id: hunk.stack_id,
                         commit_id: hunk.commit_id,
                         start: incoming_hunk.new_start + incoming_hunk.new_lines,
-                        lines: hunk.start + hunk.lines
-                            - self.get_shifted_old_start(incoming_hunk.old_start)
-                            - incoming_hunk.old_lines,
+                        lines: self.calculate_lines_of_trimmed_hunk(&hunk, incoming_hunk),
                         line_shift: hunk.line_shift,
                     },
                 ],
+                1,
             );
             self.track_commit_dependency(commit_id, vec![hunk.commit_id])?;
-            *index_next_hunk_to_visit = Some(index_of_next);
-            self.update_start_lines(index_of_next, net_lines)?;
+            *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+            self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
             return Ok(());
         }
 
         // 3. The incoming hunk partially overwrites the intersecting hunk range.
-        let index_of_next = if self.get_shifted_old_start(incoming_hunk.old_start) <= hunk.start {
-            // The incoming hunk overlaps the beginning of the intersecting hunk range.
-            self.replace_hunk_ranges_at(
-                index,
-                vec![
-                    HunkRange {
-                        change_type: incoming_hunk.change_type,
-                        stack_id,
-                        commit_id,
-                        start: incoming_hunk.new_start,
-                        lines: incoming_hunk.new_lines,
-                        line_shift: net_lines,
-                    },
-                    HunkRange {
-                        change_type: hunk.change_type,
-                        stack_id: hunk.stack_id,
-                        commit_id: hunk.commit_id,
-                        start: incoming_hunk.new_start + incoming_hunk.new_lines,
-                        lines: hunk.start + hunk.lines
-                            - self.get_shifted_old_start(incoming_hunk.old_start)
-                            - incoming_hunk.old_lines,
-                        line_shift: net_lines,
-                    },
-                ],
-            )
-        } else {
-            // The incoming hunk overlaps the end of the intersecting hunk range.
-            self.replace_hunk_ranges_at(
-                index,
-                vec![
-                    HunkRange {
-                        change_type: hunk.change_type,
-                        stack_id: hunk.stack_id,
-                        commit_id: hunk.commit_id,
-                        start: hunk.start,
-                        lines: incoming_hunk.new_start - hunk.start,
-                        line_shift: hunk.line_shift,
-                    },
-                    HunkRange {
-                        change_type: incoming_hunk.change_type,
-                        stack_id,
-                        commit_id,
-                        start: incoming_hunk.new_start,
-                        lines: incoming_hunk.new_lines,
-                        line_shift: net_lines,
-                    },
-                ],
-            )
-        };
+        let (i_next_hunk_to_visit, i_first_hunk_to_shift) =
+            if self.get_shifted_old_start(incoming_hunk.old_start) <= hunk.start {
+                // The incoming hunk overlaps the beginning of the intersecting hunk range.
+                self.replace_hunk_ranges_at(
+                    index,
+                    vec![
+                        HunkRange {
+                            change_type: incoming_hunk.change_type,
+                            stack_id,
+                            commit_id,
+                            start: incoming_hunk.new_start,
+                            lines: incoming_hunk.new_lines,
+                            line_shift: net_lines,
+                        },
+                        HunkRange {
+                            change_type: hunk.change_type,
+                            stack_id: hunk.stack_id,
+                            commit_id: hunk.commit_id,
+                            start: incoming_hunk.new_start + incoming_hunk.new_lines,
+                            lines: self.calculate_lines_of_trimmed_hunk(&hunk, incoming_hunk),
+                            line_shift: net_lines,
+                        },
+                    ],
+                    0,
+                )
+            } else {
+                // The incoming hunk overlaps the end of the intersecting hunk range.
+                self.replace_hunk_ranges_at(
+                    index,
+                    vec![
+                        HunkRange {
+                            change_type: hunk.change_type,
+                            stack_id: hunk.stack_id,
+                            commit_id: hunk.commit_id,
+                            start: hunk.start,
+                            lines: incoming_hunk.new_start - hunk.start,
+                            line_shift: hunk.line_shift,
+                        },
+                        HunkRange {
+                            change_type: incoming_hunk.change_type,
+                            stack_id,
+                            commit_id,
+                            start: incoming_hunk.new_start,
+                            lines: incoming_hunk.new_lines,
+                            line_shift: net_lines,
+                        },
+                    ],
+                    1,
+                )
+            };
 
         self.track_commit_dependency(commit_id, vec![hunk.commit_id])?;
-        *index_next_hunk_to_visit = Some(index_of_next);
-        self.update_start_lines(index_of_next, net_lines)?;
+        *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+        self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
 
         Ok(())
+    }
+
+    /// Calculate the number of lines of a hunk range that was trimmed from the top.
+    ///
+    /// Will handle the case where the incoming hunk is a modification and only adds or only deletes lines.
+    fn calculate_lines_of_trimmed_hunk(&self, hunk: &HunkRange, incoming_hunk: &InputDiff) -> u32 {
+        let old_start = self.get_shifted_old_start(incoming_hunk.old_start);
+        let addition_shift = if self.is_addition_only_hunk(incoming_hunk) {
+            // If the incoming hunk is an addition, we need to subtract one more line.
+            1
+        } else {
+            0
+        };
+
+        let deletion_shift = if self.is_deletion_only_hunk(incoming_hunk) {
+            // If the incoming hunk is a deletion, we need to add one more line.
+            1
+        } else {
+            0
+        };
+
+        ((hunk.start + hunk.lines - old_start - incoming_hunk.old_lines) - addition_shift)
+            + deletion_shift
+    }
+
+    /// Determine whether the incoming hunk is of modification type and only adds lines.
+    fn is_addition_only_hunk(&self, incoming_hunk: &InputDiff) -> bool {
+        let old_start = self.get_shifted_old_start(incoming_hunk.old_start);
+        incoming_hunk.change_type == gitbutler_diff::ChangeType::Modified
+            && (old_start + 1) == incoming_hunk.new_start
+            && incoming_hunk.old_lines == 0
+            && incoming_hunk.new_lines > 0
+    }
+
+    /// Determine whether the incoming hunk is of modification type and only deletes lines.
+    fn is_deletion_only_hunk(&self, incoming_hunk: &InputDiff) -> bool {
+        let old_start = self.get_shifted_old_start(incoming_hunk.old_start);
+        incoming_hunk.change_type == gitbutler_diff::ChangeType::Modified
+            && old_start == (incoming_hunk.new_start + 1)
+            && incoming_hunk.old_lines > 0
+            && incoming_hunk.new_lines == 0
     }
 
     fn track_commit_dependency(
@@ -602,6 +647,7 @@ impl PathRanges {
         Ok(())
     }
 
+    /// Shift the start lines of the hunk ranges starting at the given index.
     fn update_start_lines(
         &mut self,
         index_of_first_hunk: usize,
@@ -613,11 +659,14 @@ impl PathRanges {
             return Ok(());
         }
         for hunk in &mut self.hunk_ranges[index_of_first_hunk..] {
-            let new_start = hunk.start as i32 + line_shift;
-            if new_start < 0 {
-                bail!("Hunk start is less than line shift");
-            }
-            hunk.start = new_start as u32;
+            let new_start = hunk.start.checked_add_signed(line_shift).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Line shift overflow. Start: {} - Shift: {}",
+                    hunk.start,
+                    line_shift
+                )
+            })?;
+            hunk.start = new_start;
         }
         Ok(())
     }
@@ -630,38 +679,63 @@ impl PathRanges {
 
         // This method allows us to compare the old start line number of the incoming hunk
         // with the shifted start line number of the existing hunk ranges.
-        let shifted_old_start = old_start as i32 + self.line_shift;
-        if shifted_old_start < 0 {
-            0
-        } else {
-            shifted_old_start as u32
-        }
+
+        old_start.checked_add_signed(self.line_shift).unwrap_or(0)
     }
 
     /// Inserts the new hunks at the given index.
     ///
-    /// Returns the index of the next hunk after the last added hunk.
-    fn insert_hunk_ranges_at(&mut self, index: usize, hunks: Vec<HunkRange>) -> usize {
-        insert_hunk_ranges(&mut self.hunk_ranges, index, index, hunks)
+    /// Returns:
+    /// - The index of the next hunk after the last added hunk.
+    /// - The index of the next hunk after the hunk of interest.
+    fn insert_hunk_ranges_at(
+        &mut self,
+        index: usize,
+        hunks: Vec<HunkRange>,
+        index_of_interest: usize,
+    ) -> (usize, usize) {
+        insert_hunk_ranges(
+            &mut self.hunk_ranges,
+            index,
+            index,
+            hunks,
+            index_of_interest,
+        )
     }
 
     /// Replaces the hunk at the given index with the new hunks.
     ///
-    /// Returns the index of the next hunk after the last added hunk.
-    fn replace_hunk_ranges_at(&mut self, index: usize, hunks: Vec<HunkRange>) -> usize {
-        insert_hunk_ranges(&mut self.hunk_ranges, index, index + 1, hunks)
+    /// Returns:
+    /// - The index of the next hunk after the last added hunk.
+    /// - The index of the next hunk after the hunk of interest.
+    fn replace_hunk_ranges_at(
+        &mut self,
+        index: usize,
+        hunks: Vec<HunkRange>,
+        index_of_interest: usize,
+    ) -> (usize, usize) {
+        insert_hunk_ranges(
+            &mut self.hunk_ranges,
+            index,
+            index + 1,
+            hunks,
+            index_of_interest,
+        )
     }
 
     /// Replaces the hunks between the given start and end indices with the new hunks.
     ///
-    /// Returns the index of the next hunk after the last added hunk.
+    /// Returns:
+    /// - The index of the next hunk after the last added hunk.
+    /// - The index of the next hunk after the hunk of interest.
     fn replace_hunk_ranges_between(
         &mut self,
         start: usize,
         end: usize,
         hunks: Vec<HunkRange>,
-    ) -> usize {
-        insert_hunk_ranges(&mut self.hunk_ranges, start, end, hunks)
+        index_of_interest: usize,
+    ) -> (usize, usize) {
+        insert_hunk_ranges(&mut self.hunk_ranges, start, end, hunks, index_of_interest)
     }
 
     pub fn intersection(&self, start: u32, lines: u32) -> Vec<&HunkRange> {
@@ -676,25 +750,31 @@ impl PathRanges {
 ///
 /// Existing hunk ranges between the start and end indices are replaced by the new hunks.
 /// Added hunk ranges that have 0 lines are ignored.
-/// Returns the index of the next hunk after the last added hunk.
+/// Returns:
+/// - The index of the next hunk after the last added hunk.
+/// - The index of the next hunk after the hunk of interest.
 fn insert_hunk_ranges(
     hunk_ranges: &mut Vec<HunkRange>,
     start: usize,
     end: usize,
     hunks: Vec<HunkRange>,
-) -> usize {
+    index_of_interest: usize,
+) -> (usize, usize) {
     let mut new_hunks = vec![];
     new_hunks.extend_from_slice(&hunk_ranges[..start]);
 
-    let mut index_of_next = start;
-    for hunk in hunks {
-        if hunk.lines == 0 {
-            // this will happen when a new diff completely
-            // overwrites an existing hunk
-            continue;
+    let mut index_after_last_added = start;
+    let mut index_after_interest = start;
+    for (i, hunk) in hunks.iter().enumerate() {
+        if hunk.lines > 0 {
+            // Only add hunk ranges that have lines.
+            new_hunks.push(*hunk);
+            index_after_last_added += 1;
         }
-        new_hunks.push(hunk);
-        index_of_next += 1;
+
+        if i == index_of_interest {
+            index_after_interest = new_hunks.len();
+        }
     }
 
     if end < hunk_ranges.len() {
@@ -703,13 +783,362 @@ fn insert_hunk_ranges(
 
     *hunk_ranges = new_hunks;
 
-    index_of_next
+    (index_after_interest, index_after_last_added)
 }
 
 #[cfg(test)]
 
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_split_hunk_range() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+
+        let mut hunk_ranges = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Added,
+            stack_id: StackId::generate(),
+            commit_id: commit_a_id,
+            start: 1,
+            lines: 10,
+            line_shift: 9,
+        }];
+
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 3,
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 1,
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 5,
+                lines: 6,
+                line_shift: 9,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 1);
+
+        assert_eq!(hunk_ranges.len(), 3);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 3);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_a_id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_split_hunk_range_filter_before() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+
+        let mut hunk_ranges = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Added,
+            stack_id: StackId::generate(),
+            commit_id: commit_a_id,
+            start: 1,
+            lines: 10,
+            line_shift: 9,
+        }];
+
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 0, // this range will be ignored
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 1,
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 5,
+                lines: 6,
+                line_shift: 9,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 1);
+
+        assert_eq!(hunk_ranges.len(), 2);
+        assert_eq!(index_after_interest, 1);
+        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges[0].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_split_hunk_range_filter_after() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+
+        let mut hunk_ranges = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Added,
+            stack_id: StackId::generate(),
+            commit_id: commit_a_id,
+            start: 1,
+            lines: 10,
+            line_shift: 9,
+        }];
+
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 3,
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 1,
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 5,
+                lines: 0, // this range will be ignored
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 5,
+                lines: 0, // this range will be ignored
+                line_shift: 9,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 1);
+
+        assert_eq!(hunk_ranges.len(), 2);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_split_hunk_range_filter_incoming() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+
+        let mut hunk_ranges = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Added,
+            stack_id: StackId::generate(),
+            commit_id: commit_a_id,
+            start: 1,
+            lines: 10,
+            line_shift: 9,
+        }];
+
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 0, // this range will be ignored
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 3,
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 0, // this range will be ignored,
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 5,
+                lines: 6,
+                line_shift: 9,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 2);
+
+        assert_eq!(hunk_ranges.len(), 2);
+        assert_eq!(index_after_interest, 1);
+        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[0].start, 1);
+        assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].start, 5);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_split_hunk_range_filter_all() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 10,
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 11,
+                lines: 10,
+                line_shift: 9,
+            },
+        ];
+
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 0, // this range will be ignored
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 0,
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 0, // this range will be ignored,
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 5,
+                lines: 0,
+                line_shift: 9,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 2);
+
+        assert_eq!(hunk_ranges.len(), 1);
+        assert_eq!(index_after_interest, 0);
+        assert_eq!(index_after_last_added, 0);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[0].start, 11);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_split_hunk_range_filter_only() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 10,
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 11,
+                lines: 10,
+                line_shift: 9,
+            },
+        ];
+
+        let hunks = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Added,
+            stack_id: StackId::generate(),
+            commit_id: commit_b_id,
+            start: 4,
+            lines: 0, // this range will be ignored
+            line_shift: 0,
+        }];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 2, 2, hunks, 0);
+
+        assert_eq!(hunk_ranges.len(), 2);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[0].start, 1);
+        assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].start, 11);
+
+        Ok(())
+    }
 
     #[test]
     fn test_replace_hunk_ranges_at_the_end() -> anyhow::Result<()> {
@@ -762,10 +1191,12 @@ mod tests {
             },
         ];
 
-        let index_of_next = insert_hunk_ranges(&mut hunk_ranges, 1, 5, hunks);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 1, 5, hunks, 1);
 
         assert_eq!(hunk_ranges.len(), 3);
-        assert_eq!(index_of_next, 3);
+        assert_eq!(index_after_interest, 3);
+        assert_eq!(index_after_last_added, 3);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
         assert_eq!(hunk_ranges[2].commit_id, commit_c_id);
@@ -825,10 +1256,12 @@ mod tests {
             },
         ];
 
-        let index_of_next = insert_hunk_ranges(&mut hunk_ranges, 0, 2, hunks);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 2, hunks, 1);
 
         assert_eq!(hunk_ranges.len(), 3);
-        assert_eq!(index_of_next, 2);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 2);
         assert_eq!(hunk_ranges[0].commit_id, commit_c_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
         assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
@@ -878,9 +1311,11 @@ mod tests {
             line_shift: 1,
         }];
 
-        let index_of_next = insert_hunk_ranges(&mut hunk_ranges, 0, 0, hunks);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 0, hunks, 0);
         assert_eq!(hunk_ranges.len(), 4);
-        assert_eq!(index_of_next, 1);
+        assert_eq!(index_after_interest, 1);
+        assert_eq!(index_after_last_added, 1);
         assert_eq!(hunk_ranges[0].commit_id, commit_c_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
@@ -931,9 +1366,11 @@ mod tests {
             line_shift: 1,
         }];
 
-        let index_of_next = insert_hunk_ranges(&mut hunk_ranges, 3, 3, hunks);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 3, 3, hunks, 0);
         assert_eq!(hunk_ranges.len(), 4);
-        assert_eq!(index_of_next, 4);
+        assert_eq!(index_after_interest, 4);
+        assert_eq!(index_after_last_added, 4);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
         assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
@@ -994,9 +1431,11 @@ mod tests {
             },
         ];
 
-        let index_of_next = insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks, 1);
         assert_eq!(hunk_ranges.len(), 4);
-        assert_eq!(index_of_next, 3);
+        assert_eq!(index_after_interest, 3);
+        assert_eq!(index_after_last_added, 3);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
         assert_eq!(hunk_ranges[2].commit_id, commit_c_id);
@@ -1047,9 +1486,11 @@ mod tests {
             line_shift: 1,
         }];
 
-        let index_of_next = insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks, 0);
         assert_eq!(hunk_ranges.len(), 2);
-        assert_eq!(index_of_next, 1);
+        assert_eq!(index_after_interest, 1);
+        assert_eq!(index_after_last_added, 1);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
         assert_eq!(hunk_ranges[1].start, 5);
@@ -1117,9 +1558,11 @@ mod tests {
             },
         ];
 
-        let index_of_next = insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks, 2);
         assert_eq!(hunk_ranges.len(), 3);
-        assert_eq!(index_of_next, 2);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 2);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
         assert_eq!(hunk_ranges[1].start, 5);
@@ -1170,9 +1613,11 @@ mod tests {
             line_shift: 1,
         }];
 
-        let index_of_next = insert_hunk_ranges(&mut hunk_ranges, 1, 1, hunks);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 1, 1, hunks, 0);
         assert_eq!(hunk_ranges.len(), 3);
-        assert_eq!(index_of_next, 1);
+        assert_eq!(index_after_interest, 1);
+        assert_eq!(index_after_last_added, 1);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
         assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
@@ -1248,9 +1693,11 @@ mod tests {
             },
         ];
 
-        let index_of_next = insert_hunk_ranges(&mut hunk_ranges, 1, 1, hunks);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 1, 1, hunks, 3);
         assert_eq!(hunk_ranges.len(), 5);
-        assert_eq!(index_of_next, 3);
+        assert_eq!(index_after_interest, 3);
+        assert_eq!(index_after_last_added, 3);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
         assert_eq!(hunk_ranges[2].commit_id, commit_c_id);
