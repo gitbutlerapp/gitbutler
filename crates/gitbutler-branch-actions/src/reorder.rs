@@ -28,13 +28,13 @@ use crate::VirtualBranchesExt;
 /// - The commit ids in the reorder request must be in the stack
 pub fn reorder_stack(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     new_order: StackOrder,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let state = ctx.project().virtual_branches();
     let repo = ctx.repository();
-    let mut stack = state.get_branch(branch_id)?;
+    let mut stack = state.get_branch(stack_id)?;
     let current_order = commits_order(ctx, &stack)?;
     new_order.validate(current_order.clone())?;
 

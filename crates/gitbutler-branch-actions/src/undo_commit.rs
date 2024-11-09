@@ -22,12 +22,12 @@ use crate::VirtualBranchesExt as _;
 /// undone.
 pub(crate) fn undo_commit(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     commit_oid: git2::Oid,
 ) -> Result<Stack> {
     let vb_state = ctx.project().virtual_branches();
 
-    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
+    let mut branch = vb_state.get_branch_in_workspace(stack_id)?;
 
     let UndoResult {
         new_head: new_head_commit,

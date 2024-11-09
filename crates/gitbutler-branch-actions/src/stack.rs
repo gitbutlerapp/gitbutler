@@ -31,18 +31,14 @@ use gitbutler_operating_modes::assure_open_workspace_mode;
 /// If there are multiple heads pointing to the same patch and `preceding_head` is not specified,
 /// that means the new head will be first in order for that patch.
 /// The argument `preceding_head` is only used if there are multiple heads that point to the same patch, otherwise it is ignored.
-pub fn create_series(
-    project: &Project,
-    branch_id: StackId,
-    req: CreateSeriesRequest,
-) -> Result<()> {
+pub fn create_series(project: &Project, stack_id: StackId, req: CreateSeriesRequest) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     let mut guard = project.exclusive_worktree_access();
     let _ = ctx
         .project()
         .snapshot_create_dependent_branch(&req.name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
+    let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
     let normalized_head_name = normalize_branch_name(&req.name)?;
     // If target_patch is None, create a new head that points to the top of the stack (most recent patch)
     if let Some(target_patch) = req.target_patch {
@@ -80,14 +76,14 @@ pub struct CreateSeriesRequest {
 /// The very last branch (reference) cannot be removed (A Stack must always contain at least one reference)
 /// If there were commits/changes that were *only* referenced by the removed branch,
 /// those commits are moved to the branch underneath it (or more accurately, the preceding it)
-pub fn remove_series(project: &Project, branch_id: StackId, head_name: String) -> Result<()> {
+pub fn remove_series(project: &Project, stack_id: StackId, head_name: String) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     let mut guard = project.exclusive_worktree_access();
     let _ = ctx
         .project()
         .snapshot_remove_dependent_branch(&head_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
+    let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
     stack.remove_series(ctx, head_name)
 }
 
@@ -96,7 +92,7 @@ pub fn remove_series(project: &Project, branch_id: StackId, head_name: String) -
 /// If the series have been pushed to a remote, the name can not be changed as it corresponds to a remote ref.
 pub fn update_series_name(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
     head_name: String,
     new_head_name: String,
 ) -> Result<()> {
@@ -106,7 +102,7 @@ pub fn update_series_name(
         .project()
         .snapshot_update_dependent_branch_name(&head_name, guard.write_permission());
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
+    let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
     let normalized_head_name = normalize_branch_name(&new_head_name)?;
     stack.update_series(
         ctx,
@@ -122,7 +118,7 @@ pub fn update_series_name(
 /// The description can be set to `None` to remove it.
 pub fn update_series_description(
     project: &Project,
-    branch_id: StackId,
+    stack_id: StackId,
     head_name: String,
     description: Option<String>,
 ) -> Result<()> {
@@ -133,7 +129,7 @@ pub fn update_series_description(
         guard.write_permission(),
     );
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
-    let mut stack = ctx.project().virtual_branches().get_branch(branch_id)?;
+    let mut stack = ctx.project().virtual_branches().get_branch(stack_id)?;
     stack.update_series(
         ctx,
         head_name,
@@ -172,11 +168,11 @@ pub fn update_series_pr_number(
 
 /// Pushes all series in the stack to the remote.
 /// This operation will error out if the target has no push remote configured.
-pub fn push_stack(project: &Project, branch_id: StackId, with_force: bool) -> Result<()> {
+pub fn push_stack(project: &Project, stack_id: StackId, with_force: bool) -> Result<()> {
     let ctx = &open_with_verify(project)?;
     assure_open_workspace_mode(ctx).context("Requires an open workspace mode")?;
     let state = ctx.project().virtual_branches();
-    let stack = state.get_branch(branch_id)?;
+    let stack = state.get_branch(stack_id)?;
 
     let repo = ctx.repository();
     let default_target = state.get_default_target()?;

@@ -753,13 +753,13 @@ fn lines_since_snapshot(project: &Project, repo: &git2::Repository) -> Result<us
     Ok(lines_changed)
 }
 
-#[instrument(level = tracing::Level::DEBUG, skip(branch, repo), err(Debug))]
+#[instrument(level = tracing::Level::DEBUG, skip(stack, repo), err(Debug))]
 fn branch_lines_since_snapshot(
-    branch: &Stack,
+    stack: &Stack,
     repo: &git2::Repository,
     head_sha: git2::Oid,
 ) -> Result<usize> {
-    let active_branch_tree = repo.find_tree(branch.tree)?;
+    let active_branch_tree = repo.find_tree(stack.tree)?;
 
     let commit = repo.find_commit(head_sha)?;
     let head_tree = commit.tree()?;
@@ -768,7 +768,7 @@ fn branch_lines_since_snapshot(
         .ok_or_else(|| anyhow!("failed to get virtual_branches tree entry"))?;
     let virtual_branches = repo.find_tree(virtual_branches.id())?;
     let old_active_branch = virtual_branches
-        .get_name(branch.id.to_string().as_str())
+        .get_name(stack.id.to_string().as_str())
         .ok_or_else(|| anyhow!("failed to get active branch from tree entry"))?;
     let old_active_branch = repo.find_tree(old_active_branch.id())?;
     let old_active_branch_tree = old_active_branch

@@ -11,10 +11,10 @@ use std::collections::HashMap;
 /// moves commit from the branch it's in to the top of the target branch
 pub(crate) fn move_commit(
     ctx: &CommandContext,
-    target_branch_id: StackId,
+    target_stack_id: StackId,
     commit_id: git2::Oid,
     perm: &mut WorktreeWritePermission,
-    source_branch_id: StackId,
+    source_stack_id: StackId,
 ) -> Result<()> {
     ctx.assure_resolved()?;
     let vb_state = ctx.project().virtual_branches();
@@ -23,15 +23,15 @@ pub(crate) fn move_commit(
         .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
-    if !applied_branches.iter().any(|b| b.id == target_branch_id) {
-        bail!("branch {target_branch_id} is not among applied branches")
+    if !applied_branches.iter().any(|b| b.id == target_stack_id) {
+        bail!("branch {target_stack_id} is not among applied branches")
     }
 
     let mut applied_statuses = get_applied_status(ctx, None)?.branches;
 
     let (ref mut source_branch, source_status) = applied_statuses
         .iter_mut()
-        .find(|(b, _)| b.id == source_branch_id)
+        .find(|(b, _)| b.id == source_stack_id)
         .ok_or_else(|| anyhow!("the source branch could not be found"))?;
 
     let is_head_commit = commit_id == source_branch.head();
@@ -131,7 +131,7 @@ pub(crate) fn move_commit(
 
     // move the commit to destination branch target branch
 
-    let mut destination_branch = vb_state.get_branch_in_workspace(target_branch_id)?;
+    let mut destination_branch = vb_state.get_branch_in_workspace(target_stack_id)?;
 
     for ownership in ownerships_to_transfer {
         destination_branch.ownership.put(ownership);

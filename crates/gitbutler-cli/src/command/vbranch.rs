@@ -100,11 +100,11 @@ pub fn set_default(project: Project, branch_name: String) -> Result<()> {
     set_default_branch(&project, &branch)
 }
 
-fn set_default_branch(project: &Project, branch: &Stack) -> Result<()> {
+fn set_default_branch(project: &Project, stack: &Stack) -> Result<()> {
     gitbutler_branch_actions::update_virtual_branch(
         project,
         BranchUpdateRequest {
-            id: branch.id,
+            id: stack.id,
             name: None,
             notes: None,
             ownership: None,

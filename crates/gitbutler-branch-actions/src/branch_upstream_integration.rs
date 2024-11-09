@@ -15,7 +15,7 @@ use crate::{conflicts, VirtualBranchesExt as _};
 
 pub fn integrate_upstream_commits_for_series(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     perm: &mut WorktreeWritePermission,
     series_name: String,
 ) -> Result<()> {
@@ -24,7 +24,7 @@ pub fn integrate_upstream_commits_for_series(
     let repo = ctx.repository();
     let vb_state = ctx.project().virtual_branches();
 
-    let stack = vb_state.get_branch_in_workspace(branch_id)?;
+    let stack = vb_state.get_branch_in_workspace(stack_id)?;
     let branches = stack.branches();
 
     let default_target = vb_state.get_default_target()?;
@@ -78,7 +78,7 @@ pub fn integrate_upstream_commits_for_series(
 ///
 pub fn integrate_upstream_commits(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     conflicts::is_conflicting(ctx, None)?;
@@ -87,7 +87,7 @@ pub fn integrate_upstream_commits(
     let project = ctx.project();
     let vb_state = project.virtual_branches();
 
-    let branch = vb_state.get_branch_in_workspace(branch_id)?;
+    let branch = vb_state.get_branch_in_workspace(stack_id)?;
 
     let Some(upstream_refname) = branch.clone().upstream else {
         bail!("No upstream reference found for branch");

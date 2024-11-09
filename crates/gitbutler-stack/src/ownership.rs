@@ -98,12 +98,12 @@ pub struct ClaimOutcome {
 }
 pub fn reconcile_claims(
     all_branches: Vec<Stack>,
-    claiming_branch: &Stack,
+    claiming_stack: &Stack,
     new_claims: &[OwnershipClaim],
 ) -> Result<Vec<ClaimOutcome>> {
     let mut other_branches = all_branches
         .into_iter()
-        .filter(|branch| branch.id != claiming_branch.id)
+        .filter(|branch| branch.id != claiming_stack.id)
         .collect::<Vec<_>>();
 
     let mut claim_outcomes: Vec<ClaimOutcome> = Vec::new();
@@ -119,7 +119,7 @@ pub fn reconcile_claims(
         });
     }
 
-    let mut updated_branch = claiming_branch.clone();
+    let mut updated_branch = claiming_stack.clone();
     updated_branch.ownership.claims = new_claims.to_owned();
 
     // Add the claiming branch to the list of outcomes

@@ -279,7 +279,7 @@ impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
     fn apply_branch(
         &self,
-        branch_id: StackId,
+        stack_id: StackId,
         perm: &mut WorktreeWritePermission,
     ) -> Result<String> {
         self.ctx.assure_resolved()?;
@@ -289,7 +289,7 @@ impl BranchManager<'_> {
         let vb_state = self.ctx.project().virtual_branches();
         let default_target = vb_state.get_default_target()?;
 
-        let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
+        let mut branch = vb_state.get_branch_in_workspace(stack_id)?;
 
         // calculate the merge base and make sure it's the same as the target commit
         // if not, we need to merge or rebase the branch to get it up to date
@@ -327,7 +327,7 @@ impl BranchManager<'_> {
                 for branch in vb_state
                     .list_branches_in_workspace()?
                     .iter()
-                    .filter(|branch| branch.id != branch_id)
+                    .filter(|branch| branch.id != stack_id)
                 {
                     self.save_and_unapply(branch.id, perm)?;
                 }

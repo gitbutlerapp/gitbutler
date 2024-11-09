@@ -94,10 +94,10 @@ pub struct BranchHeadAndTree {
 /// mutated the virtual_branches.toml.
 pub fn compute_updated_branch_head(
     repository: &git2::Repository,
-    branch: &Stack,
+    stack: &Stack,
     new_head: git2::Oid,
 ) -> Result<BranchHeadAndTree> {
-    compute_updated_branch_head_for_commits(repository, branch.head(), branch.tree, new_head)
+    compute_updated_branch_head_for_commits(repository, stack.head(), stack.tree, new_head)
 }
 
 /// Given a new head for a branch, this comptues how the tree should be

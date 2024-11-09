@@ -28,8 +28,8 @@ pub trait RepoActionsExt {
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid>;
     fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32>;
-    fn delete_branch_reference(&self, branch: &Stack) -> Result<()>;
-    fn add_branch_reference(&self, branch: &Stack) -> Result<()>;
+    fn delete_branch_reference(&self, stack: &Stack) -> Result<()>;
+    fn add_branch_reference(&self, stack: &Stack) -> Result<()>;
     fn git_test_push(
         &self,
         remote_name: &str,
@@ -74,13 +74,13 @@ impl RepoActionsExt for CommandContext {
         Ok(())
     }
 
-    fn add_branch_reference(&self, branch: &Stack) -> Result<()> {
+    fn add_branch_reference(&self, stack: &Stack) -> Result<()> {
         let (should_write, with_force) = match self
             .repository()
-            .find_reference(&branch.refname()?.to_string())
+            .find_reference(&stack.refname()?.to_string())
         {
             Ok(reference) => match reference.target() {
-                Some(head_oid) => Ok((head_oid != branch.head(), true)),
+                Some(head_oid) => Ok((head_oid != stack.head(), true)),
                 None => Ok((true, true)),
             },
             Err(err) => match err.code() {
@@ -93,8 +93,8 @@ impl RepoActionsExt for CommandContext {
         if should_write {
             self.repository()
                 .reference(
-                    &branch.refname()?.to_string(),
-                    branch.head(),
+                    &stack.refname()?.to_string(),
+                    stack.head(),
                     with_force,
                     "new vbranch",
                 )
@@ -104,10 +104,10 @@ impl RepoActionsExt for CommandContext {
         Ok(())
     }
 
-    fn delete_branch_reference(&self, branch: &Stack) -> Result<()> {
+    fn delete_branch_reference(&self, stack: &Stack) -> Result<()> {
         match self
             .repository()
-            .find_reference(&branch.refname()?.to_string())
+            .find_reference(&stack.refname()?.to_string())
         {
             Ok(mut reference) => {
                 reference

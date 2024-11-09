@@ -30,7 +30,7 @@ impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
     pub fn save_and_unapply(
         &self,
-        branch_id: StackId,
+        stack_id: StackId,
         perm: &mut WorktreeWritePermission,
     ) -> Result<ReferenceName> {
         let vb_state = self.ctx.project().virtual_branches();
@@ -39,12 +39,12 @@ impl BranchManager<'_> {
             .repository()
             .find_commit(vb_state.get_default_target()?.sha)?;
 
-        let mut target_branch = vb_state.get_branch(branch_id)?;
+        let mut target_branch = vb_state.get_branch(stack_id)?;
 
         // Convert the vbranch to a real branch
         let real_branch = self.build_real_branch(&mut target_branch)?;
 
-        self.unapply(branch_id, perm, &target_commit, false)?;
+        self.unapply(stack_id, perm, &target_commit, false)?;
 
         vb_state.update_ordering()?;
 
@@ -60,13 +60,13 @@ impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
     pub(crate) fn unapply(
         &self,
-        branch_id: StackId,
+        stack_id: StackId,
         perm: &mut WorktreeWritePermission,
         target_commit: &Commit,
         delete_vb_state: bool,
     ) -> Result<()> {
         let vb_state = self.ctx.project().virtual_branches();
-        let Some(branch) = vb_state.try_branch(branch_id)? else {
+        let Some(branch) = vb_state.try_branch(stack_id)? else {
             return Ok(());
         };
 
@@ -108,7 +108,7 @@ impl BranchManager<'_> {
             let merge_options = gix_repo.tree_merge_options()?;
             let final_tree_id = applied_statuses
                 .into_iter()
-                .filter(|(branch, _)| branch.id != branch_id)
+                .filter(|(branch, _)| branch.id != stack_id)
                 .try_fold(
                     git2_to_gix_object_id(target_commit.tree_id()),
                     |final_tree_id, status| -> Result<_> {

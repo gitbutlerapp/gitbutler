@@ -224,7 +224,7 @@ pub fn unapply_ownership(
 // reset a file in the project to the index state
 pub(crate) fn reset_files(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     files: &[PathBuf],
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
@@ -236,9 +236,9 @@ pub(crate) fn reset_files(
         .list_branches_in_workspace()
         .context("failed to read virtual branches")?
         .into_iter()
-        .find(|b| b.id == branch_id)
+        .find(|b| b.id == stack_id)
         .with_context(|| {
-            format!("could not find applied branch with id {branch_id} to reset files from")
+            format!("could not find applied branch with id {stack_id} to reset files from")
         })?;
     let claims: Vec<_> = branch
         .ownership
@@ -548,8 +548,8 @@ fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<V
     branches
 }
 
-fn is_requires_force(ctx: &CommandContext, branch: &Stack) -> Result<bool> {
-    let upstream = if let Some(upstream) = &branch.upstream {
+fn is_requires_force(ctx: &CommandContext, stack: &Stack) -> Result<bool> {
+    let upstream = if let Some(upstream) = &stack.upstream {
         upstream
     } else {
         return Ok(false);
@@ -568,7 +568,7 @@ fn is_requires_force(ctx: &CommandContext, branch: &Stack) -> Result<bool> {
 
     let merge_base = ctx
         .repository()
-        .merge_base(upstream_commit.id(), branch.head())?;
+        .merge_base(upstream_commit.id(), stack.head())?;
 
     Ok(merge_base != upstream_commit.id())
 }
@@ -711,14 +711,14 @@ pub type VirtualBranchHunksByPathMap = HashMap<PathBuf, Vec<VirtualBranchHunk>>;
 // reset virtual branch to a specific commit
 pub(crate) fn reset_branch(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     target_commit_id: git2::Oid,
 ) -> Result<()> {
     let vb_state = ctx.project().virtual_branches();
 
     let default_target = vb_state.get_default_target()?;
 
-    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
+    let mut branch = vb_state.get_branch_in_workspace(stack_id)?;
     if branch.head() == target_commit_id {
         // nothing to do
         return Ok(());
@@ -783,7 +783,7 @@ pub(crate) fn reset_branch(
 #[allow(clippy::too_many_arguments)]
 pub fn commit(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     message: &str,
     ownership: Option<&BranchOwnershipClaims>,
     run_hooks: bool,
@@ -824,8 +824,8 @@ pub fn commit(
 
     let (ref mut branch, files) = statuses
         .into_iter()
-        .find(|(branch, _)| branch.id == branch_id)
-        .with_context(|| format!("branch {branch_id} not found"))?;
+        .find(|(stack, _)| stack.id == stack_id)
+        .with_context(|| format!("stack {stack_id} not found"))?;
 
     update_conflict_markers(ctx, files.clone()).context(Code::CommitMergeConflictFailure)?;
 
@@ -910,7 +910,7 @@ pub fn commit(
 
 pub(crate) fn push(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     with_force: bool,
     askpass: Option<Option<StackId>>,
 ) -> Result<PushResult> {
@@ -922,7 +922,7 @@ pub(crate) fn push(
         None => default_target.branch.remote().to_owned(),
     };
 
-    let mut vbranch = vb_state.get_branch_in_workspace(branch_id)?;
+    let mut vbranch = vb_state.get_branch_in_workspace(stack_id)?;
     let remote_branch = if let Some(upstream_branch) = &vbranch.upstream {
         upstream_branch.clone()
     } else {
@@ -1117,14 +1117,14 @@ pub fn is_remote_branch_mergeable(
 // then added to the "to" commit and everything above that rebased again.
 pub(crate) fn move_commit_file(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     from_commit_id: git2::Oid,
     to_commit_id: git2::Oid,
     target_ownership: &BranchOwnershipClaims,
 ) -> Result<git2::Oid> {
     let vb_state = ctx.project().virtual_branches();
 
-    let Some(mut target_branch) = vb_state.try_branch_in_workspace(branch_id)? else {
+    let Some(mut target_branch) = vb_state.try_branch_in_workspace(stack_id)? else {
         return Ok(to_commit_id); // this is wrong
     };
 
@@ -1357,7 +1357,7 @@ pub(crate) fn move_commit_file(
 // and the respective branch head is updated
 pub(crate) fn amend(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     commit_oid: git2::Oid,
     target_ownership: &BranchOwnershipClaims,
     _perm: &mut WorktreeWritePermission,
@@ -1369,8 +1369,8 @@ pub(crate) fn amend(
         .list_branches_in_workspace()
         .context("failed to read virtual branches")?;
 
-    if !virtual_branches.iter().any(|b| b.id == branch_id) {
-        bail!("could not find applied branch with id {branch_id} to amend to");
+    if !virtual_branches.iter().any(|b| b.id == stack_id) {
+        bail!("could not find applied branch with id {stack_id} to amend to");
     }
 
     let default_target = vb_state.get_default_target()?;
@@ -1379,8 +1379,8 @@ pub(crate) fn amend(
 
     let (ref mut target_branch, target_status) = applied_statuses
         .iter_mut()
-        .find(|(b, _)| b.id == branch_id)
-        .ok_or_else(|| anyhow!("could not find branch {branch_id} in status list"))?;
+        .find(|(b, _)| b.id == stack_id)
+        .ok_or_else(|| anyhow!("could not find branch {stack_id} in status list"))?;
 
     if target_branch.upstream.is_some() && !target_branch.allow_rebasing {
         // amending to a pushed head commit will cause a force push that is not allowed
@@ -1489,13 +1489,13 @@ pub(crate) fn amend(
 // return the oid of the new head commit of the branch with the inserted blank commit
 pub(crate) fn insert_blank_commit(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     commit_oid: git2::Oid,
     offset: i32,
 ) -> Result<()> {
     let vb_state = ctx.project().virtual_branches();
 
-    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
+    let mut branch = vb_state.get_branch_in_workspace(stack_id)?;
     // find the commit to offset from
     let mut commit = ctx
         .repository()
@@ -1537,11 +1537,11 @@ pub(crate) fn insert_blank_commit(
 }
 
 /// squashes a commit from a virtual branch into its parent.
-pub(crate) fn squash(ctx: &CommandContext, branch_id: StackId, commit_id: git2::Oid) -> Result<()> {
+pub(crate) fn squash(ctx: &CommandContext, stack_id: StackId, commit_id: git2::Oid) -> Result<()> {
     ctx.assure_resolved()?;
 
     let vb_state = ctx.project().virtual_branches();
-    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
+    let mut branch = vb_state.get_branch_in_workspace(stack_id)?;
     let default_target = vb_state.get_default_target()?;
     let branch_commit_oids =
         ctx.repository()
@@ -1630,7 +1630,7 @@ pub(crate) fn squash(ctx: &CommandContext, branch_id: StackId, commit_id: git2::
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful
 pub(crate) fn update_commit_message(
     ctx: &CommandContext,
-    branch_id: StackId,
+    stack_id: StackId,
     commit_id: git2::Oid,
     message: &str,
 ) -> Result<()> {
@@ -1642,7 +1642,7 @@ pub(crate) fn update_commit_message(
     let vb_state = ctx.project().virtual_branches();
     let default_target = vb_state.get_default_target()?;
 
-    let mut branch = vb_state.get_branch_in_workspace(branch_id)?;
+    let mut branch = vb_state.get_branch_in_workspace(stack_id)?;
     let branch_commit_oids =
         ctx.repository()
             .l(branch.head(), LogUntil::Commit(default_target.sha), false)?;

@@ -98,9 +98,9 @@ impl VirtualBranchesHandle {
     /// Sets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
-    pub fn set_branch(&self, branch: Stack) -> Result<()> {
+    pub fn set_branch(&self, stack: Stack) -> Result<()> {
         let mut virtual_branches = self.read_file()?;
-        virtual_branches.branches.insert(branch.id, branch);
+        virtual_branches.branches.insert(stack.id, stack);
         self.write_file(&virtual_branches)?;
         Ok(())
     }
