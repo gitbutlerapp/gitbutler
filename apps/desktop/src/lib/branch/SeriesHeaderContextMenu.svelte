@@ -27,6 +27,8 @@
 		toggleDescription: () => Promise<void>;
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
+		onAddDependentSeries?: () => void;
+		onOpenInBrowser?: () => void;
 		reloadPR: () => void;
 		onMenuToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
@@ -44,6 +46,8 @@
 		toggleDescription,
 		onGenerateBranchName,
 		openPrDetailsModal,
+		onAddDependentSeries,
+		onOpenInBrowser,
 		reloadPR,
 		onMenuToggle
 	}: Props = $props();
@@ -73,15 +77,41 @@
 	export function showSeriesRenameModal() {
 		renameSeriesModal.show(branch);
 	}
+
+	let isOpenedByMouse = $state(false);
 </script>
 
 <ContextMenu
 	bind:this={contextMenuEl}
 	{leftClickTrigger}
 	{rightClickTrigger}
-	ontoggle={onMenuToggle}
+	ontoggle={(isOpen, isLeftClick) => {
+		if (!isLeftClick) {
+			isOpenedByMouse = true;
+		} else {
+			isOpenedByMouse = false;
+		}
+
+		onMenuToggle?.(isOpen, isLeftClick);
+	}}
 >
 	<ContextMenuSection>
+		{#if isOpenedByMouse}
+			<ContextMenuItem
+				label="Add dependent series"
+				onclick={() => {
+					onAddDependentSeries?.();
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Open in browser"
+				onclick={() => {
+					onOpenInBrowser?.();
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
 		<ContextMenuItem
 			label={`${!description ? 'Add' : 'Remove'} description`}
 			onclick={async () => {

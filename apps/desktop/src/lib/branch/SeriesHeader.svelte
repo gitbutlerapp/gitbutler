@@ -201,6 +201,11 @@
 	{toggleDescription}
 	description={currentSeries.description ?? ''}
 	onGenerateBranchName={generateBranchName}
+	onAddDependentSeries={() => stackingAddSeriesModal?.show()}
+	onOpenInBrowser={() => {
+		const url = forgeBranch?.url;
+		if (url) openExternalUrl(url);
+	}}
 	hasForgeBranch={!!forgeBranch}
 	prUrl={$pr?.htmlUrl}
 	openPrDetailsModal={handleOpenPR}
