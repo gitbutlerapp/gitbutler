@@ -48,8 +48,8 @@
 	function setHorizontalAlign(targetBoundingRect: DOMRect) {
 		const correction = 2;
 		return horizontalAlign === 'left'
-			? targetBoundingRect?.left ?? 0
-			: (targetBoundingRect?.left ?? 0) + targetBoundingRect.width - contextMenuWidth - correction;
+			? targetBoundingRect?.left
+			: targetBoundingRect?.left + targetBoundingRect.width - contextMenuWidth - correction;
 	}
 
 	function executeByTrigger(callback: (isOpened: boolean, isLeftClick: boolean) => void) {
@@ -124,6 +124,7 @@
 	export function close() {
 		if (!isVisible) return;
 		isVisible = false;
+		// debugger;
 		// leftClickTrigger?.style.removeProperty('background');
 		onclose?.();
 		if (ontoggle) executeByTrigger(ontoggle);
@@ -144,6 +145,7 @@
 			if (savedMouseEvent && rightClickTrigger) {
 				setAlignByMouse(savedMouseEvent, contextMenuWidth, contextMenuHeight);
 			} else if (leftClickTrigger) {
+				// debugger;
 				// leftClickTrigger.style.background = 'red';
 				setAlignByTarget(leftClickTrigger);
 			}
