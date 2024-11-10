@@ -155,16 +155,9 @@
 	});
 
 	function setTransformOrigin() {
-		if (!savedMouseEvent) {
-			return verticalAlign === 'top'
-				? horizontalAlign === 'left'
-					? 'bottom left'
-					: 'bottom right'
-				: horizontalAlign === 'left'
-					? 'top left'
-					: 'top right';
-		}
-		return 'top left';
+		if (savedMouseEvent) return 'top left';
+		if (verticalAlign === 'top') return horizontalAlign === 'left' ? 'bottom left' : 'bottom right';
+		return horizontalAlign === 'left' ? 'top left' : 'top right';
 	}
 
 	const handleKeyDown = createKeybind({
