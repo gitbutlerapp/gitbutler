@@ -145,7 +145,6 @@
 				setAlignByMouse(savedMouseEvent, contextMenuWidth, contextMenuHeight);
 			} else if (leftClickTrigger) {
 				// leftClickTrigger.style.background = 'red';
-				// add attribute to trigger element
 				setAlignByTarget(leftClickTrigger);
 			}
 		}
@@ -217,6 +216,7 @@
 		margin-top: 4px;
 	}
 	.context-menu {
+		pointer-events: none;
 		z-index: var(--z-blocker);
 		position: fixed;
 		display: flex;
@@ -239,6 +239,7 @@
 		100% {
 			opacity: 1;
 			transform: translateY(0) scale(1);
+			pointer-events: all;
 		}
 	}
 </style>
