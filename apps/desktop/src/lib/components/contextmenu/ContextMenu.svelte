@@ -52,6 +52,14 @@
 			: (targetBoundingRect?.left ?? 0) + targetBoundingRect.width - contextMenuWidth - correction;
 	}
 
+	function executeByTrigger(callback: (isOpened: boolean, isLeftClick: boolean) => void) {
+		if (leftClickTrigger && !savedMouseEvent) {
+			callback(isVisible, true);
+		} else if (rightClickTrigger && savedMouseEvent) {
+			callback(isVisible, false);
+		}
+	}
+
 	function setAlignByMouse(
 		e?: MouseEvent,
 		contextMenuWidth: number = 0,
@@ -72,14 +80,6 @@
 		if (newMenuPosition.y < 0) newMenuPosition.y = 0;
 
 		menuPosition = newMenuPosition;
-	}
-
-	function excuteByTrigger(callback: (isOpened: boolean, isLeftClick: boolean) => void) {
-		if (leftClickTrigger && !savedMouseEvent) {
-			callback(isVisible, true);
-		} else if (rightClickTrigger && savedMouseEvent) {
-			callback(isVisible, false);
-		}
 	}
 
 	function setAlignByTarget(target: HTMLElement) {
@@ -118,7 +118,7 @@
 		savedMouseEvent = e;
 
 		onopen?.();
-		if (ontoggle) excuteByTrigger(ontoggle);
+		if (ontoggle) executeByTrigger(ontoggle);
 	}
 
 	export function close() {
@@ -126,7 +126,7 @@
 		isVisible = false;
 		// leftClickTrigger?.style.removeProperty('background');
 		onclose?.();
-		if (ontoggle) excuteByTrigger(ontoggle);
+		if (ontoggle) executeByTrigger(ontoggle);
 	}
 
 	export function toggle(e?: MouseEvent, newItem?: any) {
