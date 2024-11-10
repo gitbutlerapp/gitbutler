@@ -1,17 +1,17 @@
 <script lang="ts" module>
 	export interface Props {
+		title?: Snippet;
+		caption?: Snippet;
 		image?: string;
 		width?: number;
 		bottomMargin?: number;
 		topBottomPadding?: number;
 		leftRightPadding?: number;
-		title?: Snippet;
-		caption?: Snippet;
 	}
 </script>
 
 <script lang="ts">
-	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+	import { pxToRem } from '$lib/utils/pxToRem';
 	import type { Snippet } from 'svelte';
 	const {
 		image,
