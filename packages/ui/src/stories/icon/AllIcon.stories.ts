@@ -2,7 +2,7 @@ import allIcons from './AllIcons.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
-	title: 'Elements / Icon / All icons',
+	title: 'Basic / Icon / All icons',
 	component: allIcons
 } satisfies Meta<allIcons>;
 

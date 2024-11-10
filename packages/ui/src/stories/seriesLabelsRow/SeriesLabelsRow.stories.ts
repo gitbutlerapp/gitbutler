@@ -2,7 +2,7 @@ import DemoSeriesLabelsRow from './DemoSeriesLabelsRow.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
-	title: 'Labels / Series Labels Row',
+	title: 'Basic / Series Labels Row',
 	component: DemoSeriesLabelsRow
 } satisfies Meta<DemoSeriesLabelsRow>;
 

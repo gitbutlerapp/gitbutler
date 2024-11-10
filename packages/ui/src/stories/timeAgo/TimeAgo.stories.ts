@@ -2,7 +2,7 @@ import DemoTimeAgo from './DemoTimeAgo.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
-	title: 'Elements / Time Ago',
+	title: 'Basic / Time Ago',
 	component: DemoTimeAgo,
 	argTypes: {
 		date: {

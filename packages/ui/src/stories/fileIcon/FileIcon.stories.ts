@@ -2,7 +2,7 @@ import FileIcon from '$lib/file/FileIcon.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
-	title: 'Elements / File Icon',
+	title: 'Basic / File Icon',
 	component: FileIcon
 } satisfies Meta<FileIcon>;
 

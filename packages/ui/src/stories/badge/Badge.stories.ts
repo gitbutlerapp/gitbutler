@@ -2,7 +2,7 @@ import DemoBadge from './DemoBadge.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
-	title: 'Elements / Badge',
+	title: 'Basic / Badge',
 	component: DemoBadge
 } satisfies Meta<DemoBadge>;
 
