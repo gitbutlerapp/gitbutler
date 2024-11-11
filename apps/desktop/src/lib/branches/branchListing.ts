@@ -122,8 +122,12 @@ export class CombinedBranchListingService {
 	private pullRequests: Readable<PullRequest[]>;
 	selectedOption: Persisted<'all' | 'pullRequest' | 'local'>;
 
+	// Used when deriving the search results and for finding the total number
+	// of listings
 	combinedSidebarEntries: Readable<SidebarEntrySubject[]>;
+	// Contains entries grouped by date for the unsearched sidebar entries
 	groupedSidebarEntries: Readable<GroupedSidebarEntries>;
+	// Whether or not to show the pull request tab in the sidebar
 	pullRequestsListed: Readable<boolean>;
 
 	constructor(
@@ -135,6 +139,8 @@ export class CombinedBranchListingService {
 			'all',
 			`branches-selectedOption-${projectId}`
 		);
+
+		// Get a readable store of pull requeests
 		this.pullRequests = readable([] as PullRequest[], (set) => {
 			const unsubscribeListingService = forgeListingService.subscribe((forgeListingService) => {
 				if (!forgeListingService) return;
@@ -149,6 +155,7 @@ export class CombinedBranchListingService {
 			return unsubscribeListingService;
 		});
 
+		// Whether or not to show the pull request tab in the sidebar
 		this.pullRequestsListed = derived(
 			forgeListingService,
 			(forgeListingService) => {
@@ -157,23 +164,24 @@ export class CombinedBranchListingService {
 			false
 		);
 
-		const branchListingsByName = derived(branchListingService.branchListings, (branchListings) => {
-			const set = new Set<string>(branchListings.map((branchListing) => branchListing.name));
-			return set;
-		});
-
+		// Derive the combined sidebar entries
 		this.combinedSidebarEntries = debouncedDerive(
-			[
-				branchListingsByName,
-				this.pullRequests,
-				branchListingService.branchListings,
-				this.selectedOption
-			],
-			([branchListingsByName, pullRequests, branchListings, selectedOption]) => {
+			[this.pullRequests, branchListingService.branchListings, this.selectedOption],
+			([pullRequests, branchListings, selectedOption]) => {
+				// Find the pull requests that don't have cooresponding local branches,
+				// remote branches, virutal branches, or stack branch heads.
+				// Then map the pull requests into the SidebarEntrySubject type
 				const pullRequestSubjects: SidebarEntrySubject[] = pullRequests
-					.filter((pullRequests) => !branchListingsByName.has(pullRequests.sourceBranch))
+					.filter(
+						(pullRequests) =>
+							!branchListings.some((branchListing) =>
+								branchListing.containsPullRequestBranch(pullRequests.sourceBranch)
+							)
+					)
 					.map((pullRequests) => ({ type: 'pullRequest', subject: pullRequests }));
 
+				// Map the raw branch listing classes into the
+				// SidebarEntrySubject type
 				const branchListingSubjects: SidebarEntrySubject[] = branchListings.map(
 					(branchListing) => ({
 						type: 'branchListing',
@@ -181,6 +189,7 @@ export class CombinedBranchListingService {
 					})
 				);
 
+				// Sort the combined entries by when htey were last updated
 				const output = [...pullRequestSubjects, ...branchListingSubjects];
 
 				output.sort((a, b) => {
@@ -193,6 +202,7 @@ export class CombinedBranchListingService {
 					return getEntryName(a).localeCompare(getEntryName(b));
 				});
 
+				// Filter by the currently selected tab in the frontend
 				const filtered = this.filterSidebarEntries(pullRequests, selectedOption, output);
 
 				return filtered;
@@ -201,6 +211,7 @@ export class CombinedBranchListingService {
 			50
 		);
 
+		// Create the entries which are grouped date-wise
 		this.groupedSidebarEntries = derived(this.combinedSidebarEntries, (combinedSidebarEntries) => {
 			const groupings = this.groupBranches(combinedSidebarEntries);
 			return groupings;
@@ -287,8 +298,8 @@ export class CombinedBranchListingService {
 				return sidebarEntries.filter(
 					(sidebarEntry) =>
 						sidebarEntry.type === 'pullRequest' ||
-						pullRequests.some(
-							(pullRequest) => pullRequest.sourceBranch === sidebarEntry.subject.name
+						pullRequests.some((pullRequest) =>
+							sidebarEntry.subject.containsPullRequestBranch(pullRequest.sourceBranch)
 						)
 				);
 			}
@@ -349,6 +360,13 @@ export class BranchListing {
 	lastCommiter!: Author;
 	/** Whether or not there is a local branch as part of the grouping */
 	hasLocal!: boolean;
+
+	containsPullRequestBranch(sourceBranch: string): boolean {
+		if (sourceBranch === this.name) return true;
+		if (this.virtualBranch?.stackBranches.includes(sourceBranch)) return true;
+
+		return false;
+	}
 }
 
 /** Represents a reference to an associated virtual branch */
