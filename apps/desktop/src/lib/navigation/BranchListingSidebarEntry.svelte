@@ -30,7 +30,7 @@
 
 	const forgeListingService = getForgeListingService();
 	const prs = $derived($forgeListingService?.prs);
-	const pr = $derived($prs?.find((pr) => pr.sourceBranch === branchListing.name));
+	const pr = $derived($prs?.find((pr) => branchListing.containsPullRequestBranch(pr.sourceBranch)));
 
 	let branchListingDetails = $state<Readable<BranchListingDetails | undefined>>();
 

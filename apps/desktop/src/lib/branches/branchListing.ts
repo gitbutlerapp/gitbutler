@@ -298,8 +298,8 @@ export class CombinedBranchListingService {
 				return sidebarEntries.filter(
 					(sidebarEntry) =>
 						sidebarEntry.type === 'pullRequest' ||
-						pullRequests.some(
-							(pullRequest) => pullRequest.sourceBranch === sidebarEntry.subject.name
+						pullRequests.some((pullRequest) =>
+							sidebarEntry.subject.containsPullRequestBranch(pullRequest.sourceBranch)
 						)
 				);
 			}
