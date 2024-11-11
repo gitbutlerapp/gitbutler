@@ -2,7 +2,7 @@ import SpacerDemo from './SpacerDemo.svelte';
 import type { Meta, StoryObj } from '@storybook/svelte';
 
 const meta = {
-	title: 'Elements / Spacer',
+	title: 'Basic / Spacer',
 	component: SpacerDemo
 } satisfies Meta<SpacerDemo>;
 

@@ -65,12 +65,11 @@
 					{#snippet overlay({ hovered, activated })}
 						<CardOverlay {hovered} {activated} label="Move here" />
 					{/snippet}
-					<EmptyStatePlaceholder bottomMargin={10}>
-						{#snippet title()}
-							This is an empty branch
-						{/snippet}
+					<EmptyStatePlaceholder bottomMargin={8} topBottomPadding={28}>
 						{#snippet caption()}
-							Create or drag and drop commits here
+							This is an empty branch.
+							<br />
+							Create or drag & drop commits here
 						{/snippet}
 					</EmptyStatePlaceholder>
 				</Dropzone>
