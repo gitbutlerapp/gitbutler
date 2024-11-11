@@ -126,14 +126,15 @@
 				}}
 			/>
 		{/if}
-		<ContextMenuItem
-			label="Rename"
-			disabled={branchType === 'integrated'}
-			onclick={async () => {
-				renameSeriesModal.show(branch);
-				contextMenuEl?.close();
-			}}
-		/>
+		{#if branchType !== 'integrated'}
+			<ContextMenuItem
+				label="Rename"
+				onclick={async () => {
+					renameSeriesModal.show(branch);
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
 		{#if seriesCount > 1}
 			<ContextMenuItem
 				label="Delete"
