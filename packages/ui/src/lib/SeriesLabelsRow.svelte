@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Icon from '$lib/Icon.svelte';
+	import SeriesIcon from './SeriesIcon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
 
 	interface Props {
@@ -12,18 +12,14 @@
 </script>
 
 <div class="series-labels-row">
-	<Tooltip text={series.length > 1 ? 'Multiple branches' : 'Single branch'}>
-		<div class="stack-icon" class:selected>
-			<Icon name={series.length > 1 ? 'chain-link' : 'branch-small'} />
-		</div>
-	</Tooltip>
+	<SeriesIcon single={series.length > 1} outlined={selected} />
 
 	<div class="series-name text-12 text-semibold contrast" class:selected>
 		<span class="truncate">{series[0]}</span>
 	</div>
 
 	{#if showCounterLabel && series.length > 1}
-		<Tooltip text={'→ ' + series.slice(1).join(' → ')}>
+		<Tooltip text={'🠶 ' + series.slice(1).join(' 🠶 ')}>
 			<div class="series-name more-series text-12 text-semibold" class:selected>
 				<span>{series.length - 1} more</span>
 			</div>
