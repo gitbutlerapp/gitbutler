@@ -12,7 +12,7 @@
 
 <Tooltip text={single ? 'Multiple branches' : 'Single branch'}>
 	<div class="stack-icon" class:outlined>
-		<Icon name={single ? 'chain-link' : 'branch-small'} />
+		<Icon name={single ? 'branch-small' : 'chain-link'} />
 	</div>
 </Tooltip>
 
@@ -25,7 +25,7 @@
 		width: 20px;
 		height: 22px;
 		color: var(--clr-text-2);
-		background-color: oklch(from var(--clr-scale-ntrl-60) l c h / 0.2);
+		background-color: oklch(from var(--clr-core-ntrl-60) l c h / 0.15);
 		border-radius: var(--radius-m);
 
 		&.outlined {

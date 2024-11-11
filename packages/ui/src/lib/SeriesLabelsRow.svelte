@@ -14,13 +14,13 @@
 <div class="series-labels-row">
 	<SeriesIcon single={series.length > 1} outlined={selected} />
 
-	<div class="series-name text-12 text-semibold contrast" class:selected>
+	<div class="series-name text-12 text-semibold contrast">
 		<span class="truncate">{series[0]}</span>
 	</div>
 
 	{#if showCounterLabel && series.length > 1}
 		<Tooltip text={'🠶 ' + series.slice(1).join(' 🠶 ')}>
-			<div class="series-name more-series text-12 text-semibold" class:selected>
+			<div class="series-name more-series text-12 text-semibold">
 				<span>{series.length - 1} more</span>
 			</div>
 		</Tooltip>
@@ -37,39 +37,19 @@
 		overflow: hidden;
 	}
 
-	.stack-icon {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		flex-shrink: 0;
-		width: 20px;
-		height: 22px;
-		color: var(--clr-text-2);
-		background-color: var(--clr-theme-ntrl-soft);
-		border-radius: var(--radius-m);
-
-		&.selected {
-			background-color: var(--clr-theme-ntrl-soft-hover);
-		}
-	}
-
 	.series-name {
 		display: flex;
 		align-items: center;
 		color: var(--clr-text-2);
 		height: 22px;
 		padding: 2px 6px;
-		background-color: var(--clr-theme-ntrl-soft);
+		background-color: oklch(from var(--clr-core-ntrl-60) l c h / 0.15);
 		border-radius: var(--radius-m);
 		/* width: 100%; */
 		overflow: hidden;
 
 		&.contrast {
 			color: var(--clr-text-1);
-		}
-
-		&.selected {
-			background-color: var(--clr-theme-ntrl-soft-hover);
 		}
 	}
 

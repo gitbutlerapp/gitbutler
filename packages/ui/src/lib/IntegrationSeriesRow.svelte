@@ -1,44 +1,77 @@
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';
+
+	type seriesStatusType = 'integrated' | 'conflicted' | undefined;
+
+	type seriesType = {
+		name: string;
+		status: seriesStatusType;
+	};
+
 	export interface Props {
-		type: 'clear' | 'conflicted' | 'integrated';
-		series: string[];
-		select: Snippet;
+		series: seriesType[];
+		select?: Snippet;
 	}
 </script>
 
 <script lang="ts">
-	import SeriesLabelsRow from './SeriesLabelsRow.svelte';
-	import Icon from '$lib/Icon.svelte';
-
-	let { type, series, select }: Props = $props();
+	import Icon from './Icon.svelte';
+	import SeriesIcon from './SeriesIcon.svelte';
+	let { series, select }: Props = $props();
 </script>
 
-<div class="integration-series-item no-select {type}">
-	<div class="name-label-wrap">
-		<SeriesLabelsRow {series} showCounterLabel selected={type === 'integrated'} />
+{#snippet stackBranch({ name, status }: seriesType, isLast: boolean)}
+	<div class="series-branch {status}">
+		<div class="structure-lines" class:last={isLast}></div>
+		<div class="branch-info">
+			<span class="text-12 text-semibold truncate">{name}</span>
 
-		{#if type !== 'clear'}
-			<span class="name-label-badge text-11 text-semibold">
-				{#if type === 'conflicted'}
-					<span>Conflicted</span>
-				{:else if type === 'integrated'}
-					<span>Integrated</span>
-				{/if}
-			</span>
+			{#if status}
+				<span class="status-badge text-10 text-semibold">
+					{#if status === 'conflicted'}
+						Conflicted
+					{:else if status === 'integrated'}
+						Integrated
+					{/if}
+				</span>
+			{/if}
+		</div>
+
+		{#if status === 'integrated'}
+			<div class="integrated-label-wrap">
+				<Icon name="tick-small" />
+				<span class="integrated-label text-12"> Part of the new base </span>
+			</div>
+		{/if}
+	</div>
+{/snippet}
+
+<div class="integration-series-item no-select">
+	<div class="series-header">
+		<div class="name-label-wrap">
+			<SeriesIcon single={series.length === 1} outlined />
+
+			{#if series.length > 1}
+				<span class="series-label text-12 text-semibold truncate"> Stack branches </span>
+			{:else}
+				<span class="text-12 text-semibold truncate">
+					{series[0].name}
+				</span>
+			{/if}
+		</div>
+
+		{#if select}
+			<div class="select">
+				{@render select()}
+			</div>
 		{/if}
 	</div>
 
-	{#if select}
-		<div class="select">
-			{@render select()}
-		</div>
-	{/if}
-
-	{#if type === 'integrated'}
-		<div class="integrated-label-wrap">
-			<Icon name="tick-small" />
-			<span class="integrated-label text-12"> Part of the new base </span>
+	{#if series.length > 1}
+		<div class="series-branches">
+			{#each series.slice(1) as seriesItem, idx}
+				{@render stackBranch(seriesItem, idx === series.length - 2)}
+			{/each}
 		</div>
 	{/if}
 </div>
@@ -46,24 +79,23 @@
 <style lang="postcss">
 	.integration-series-item {
 		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding: 12px 12px 12px 14px;
-		min-height: 56px;
+		flex-direction: column;
 		border-bottom: 1px solid var(--clr-border-2);
 
 		&:last-child {
 			border-bottom: none;
 		}
 
-		.branch-icon {
+		.series-header {
 			display: flex;
 			align-items: center;
-			justify-content: center;
-			width: 16px;
-			height: 16px;
-			border-radius: var(--radius-s);
-			color: var(--clr-core-ntrl-100);
+			gap: 12px;
+			padding: 12px 12px 12px 14px;
+			min-height: 56px;
+		}
+
+		.series-label {
+			color: var(--clr-text-2);
 		}
 
 		/* NAME LABEL */
@@ -71,15 +103,61 @@
 			flex: 1;
 			display: flex;
 			align-items: center;
-			gap: 8px;
+			gap: 10px;
 			overflow: hidden;
 		}
 
-		.name-label-badge {
+		.select {
+			max-width: 130px;
+		}
+
+		/* MODIFIERS */
+		&.clear {
+			background-color: var(--clr-bg-1);
+		}
+	}
+
+	.series-branches {
+		display: flex;
+		flex-direction: column;
+		margin-top: -10px;
+	}
+
+	.series-branch {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		padding: 14px;
+
+		.branch-info {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			overflow: hidden;
+			flex: 1;
+		}
+
+		.status-badge {
 			padding: 4px 6px 3px;
 			height: 100%;
 			border-radius: var(--radius-m);
 			color: var(--clr-core-ntrl-100);
+		}
+
+		&.conflicted {
+			.status-badge {
+				background-color: var(--clr-theme-warn-on-element);
+				background-color: var(--clr-theme-warn-element);
+			}
+		}
+
+		&.integrated {
+			background-color: var(--clr-bg-1-muted);
+
+			.status-badge {
+				color: var(--clr-theme-purp-on-element);
+				background-color: var(--clr-theme-purp-element);
+			}
 		}
 
 		/* INTEGRATED LABEL */
@@ -96,30 +174,40 @@
 			white-space: nowrap;
 		}
 
-		.select {
-			max-width: 130px;
-		}
+		/* NESTING LINES */
+		.structure-lines {
+			position: relative;
+			width: 20px;
+			height: 20px;
+			--line-color: var(--clr-border-2);
+			--line-bounding-box: 12px;
+			--line-horiz-offset: -2px;
 
-		/* MODIFIERS */
-		&.clear {
-			background-color: var(--clr-bg-1);
-		}
-
-		&.conflicted {
-			background-color: var(--clr-bg-1);
-
-			.name-label-badge {
-				background-color: var(--clr-theme-warn-on-element);
-				background-color: var(--clr-theme-warn-element);
+			&::before {
+				content: '';
+				position: absolute;
+				top: -16px;
+				right: var(--line-horiz-offset);
+				width: var(--line-bounding-box);
+				height: calc(100% + 8px);
+				border-left: 1px solid var(--line-color);
+				border-bottom: 1px solid var(--line-color);
 			}
-		}
 
-		&.integrated {
-			background-color: var(--clr-bg-1-muted);
+			&::after {
+				content: '';
+				position: absolute;
+				top: 12px;
+				right: var(--line-horiz-offset);
+				width: var(--line-bounding-box);
+				height: 20px;
+				border-left: 1px solid var(--line-color);
+			}
 
-			.name-label-badge {
-				color: var(--clr-theme-purp-on-element);
-				background-color: var(--clr-theme-purp-element);
+			&.last {
+				&::after {
+					display: none;
+				}
 			}
 		}
 	}
