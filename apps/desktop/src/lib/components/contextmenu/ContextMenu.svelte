@@ -124,8 +124,6 @@
 	export function close() {
 		if (!isVisible) return;
 		isVisible = false;
-		// debugger;
-		// leftClickTrigger?.style.removeProperty('background');
 		onclose?.();
 		if (ontoggle) executeByTrigger(ontoggle);
 	}
@@ -145,8 +143,6 @@
 			if (savedMouseEvent && rightClickTrigger) {
 				setAlignByMouse(savedMouseEvent, contextMenuWidth, contextMenuHeight);
 			} else if (leftClickTrigger) {
-				// debugger;
-				// leftClickTrigger.style.background = 'red';
 				setAlignByTarget(leftClickTrigger);
 			}
 		}
