@@ -209,7 +209,6 @@
 	hasForgeBranch={!!forgeBranch}
 	prUrl={$pr?.htmlUrl}
 	openPrDetailsModal={handleOpenPR}
-	reloadPR={handleReloadPR}
 	{branchType}
 	onMenuToggle={(isOpen, isLeftClick) => {
 		if (isLeftClick) {

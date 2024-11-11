@@ -29,7 +29,6 @@
 		openPrDetailsModal: () => void;
 		onAddDependentSeries?: () => void;
 		onOpenInBrowser?: () => void;
-		reloadPR: () => void;
 		onMenuToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
 
@@ -48,7 +47,6 @@
 		openPrDetailsModal,
 		onAddDependentSeries,
 		onOpenInBrowser,
-		reloadPR,
 		onMenuToggle
 	}: Props = $props();
 
@@ -166,13 +164,6 @@
 				label="Show PR details"
 				onclick={() => {
 					openPrDetailsModal();
-					contextMenuEl?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Refetch PR status"
-				onclick={() => {
-					reloadPR();
 					contextMenuEl?.close();
 				}}
 			/>
