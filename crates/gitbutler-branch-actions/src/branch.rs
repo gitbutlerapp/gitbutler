@@ -274,6 +274,11 @@ fn branch_group_to_branch(
             .rev()
             .map(|b| b.name.clone())
             .collect_vec(),
+        pull_requests: stack
+            .branches()
+            .iter()
+            .filter_map(|b| b.pr_number.map(|pr| (b.name.clone(), pr)))
+            .collect(),
     });
 
     let mut remotes: Vec<gix::remote::Name<'static>> = Vec::new();
@@ -502,6 +507,8 @@ pub struct VirtualBranchReference {
     /// List of branches that are part of the stack
     /// Ordered from newest to oldest (the most recent branch is first in the list)
     pub stack_branches: Vec<String>,
+    /// Pull Request numbes by branch name associated with the stack
+    pub pull_requests: HashMap<String, usize>,
 }
 
 /// Takes a list of `branch_names` (the given name, as returned by `BranchListing`) and returns

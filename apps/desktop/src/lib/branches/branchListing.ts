@@ -364,6 +364,8 @@ export class VirtualBranchReference {
    Ordered from newest to oldest (the most recent branch is first in the list)
     */
 	stackBranches!: string[];
+	/** Pull Request numbes by branch name associated with the stack */
+	pullRequests!: Map<string, number>;
 }
 
 /** Represents a "commit author" or "signature", based on the data from ther git history */
