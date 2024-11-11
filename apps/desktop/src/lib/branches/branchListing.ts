@@ -95,20 +95,29 @@ export class BranchListingService {
 	}
 
 	private async updateBranchListingDetails(branchNames: string[]) {
-		const plainDetails = await invoke<unknown[]>('get_branch_listing_details', {
-			projectId: this.projectId,
-			branchNames
-		});
+		try {
+			const plainDetails = await invoke<unknown[]>('get_branch_listing_details', {
+				projectId: this.projectId,
+				branchNames
+			});
 
-		const branchListingDetails = plainToInstance(BranchListingDetails, plainDetails);
+			const branchListingDetails = plainToInstance(BranchListingDetails, plainDetails);
 
-		branchListingDetails.forEach((branchListingDetails) => {
-			let store = this.branchListingDetails.get(branchListingDetails.name);
+			branchListingDetails.forEach((branchListingDetails) => {
+				let store = this.branchListingDetails.get(branchListingDetails.name);
 
-			store ??= writable();
+				store ??= writable();
 
-			store.set(branchListingDetails);
-		});
+				store.set(branchListingDetails);
+			});
+		} catch (error: any) {
+			if (error.code === Code.DefaultTargetNotFound) {
+				// Swallow this error since user should be taken to project setup page
+				return;
+			}
+
+			throw error;
+		}
 	}
 }
 
