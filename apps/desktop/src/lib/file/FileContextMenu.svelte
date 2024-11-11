@@ -164,7 +164,7 @@
 		padding: 4px 0;
 		border-radius: var(--radius-m);
 		overflow: hidden;
-		border: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
 		margin-top: 12px;
 	}
 </style>
