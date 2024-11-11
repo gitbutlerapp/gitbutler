@@ -27,6 +27,7 @@
 
 <style lang="postcss">
 	.toggle {
+		flex-shrink: 0;
 		appearance: none;
 		cursor: pointer;
 		width: 26px;

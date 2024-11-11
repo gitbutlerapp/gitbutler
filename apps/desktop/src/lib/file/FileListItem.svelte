@@ -122,7 +122,7 @@
 
 <FileContextMenu
 	bind:this={contextMenu}
-	target={draggableEl}
+	trigger={draggableEl}
 	{isUnapplied}
 	branchId={$branch?.id}
 	isBinary={file.binary}

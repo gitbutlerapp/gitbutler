@@ -16,7 +16,8 @@
 
 	interface Props {
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
-		target?: HTMLElement;
+		leftClickTrigger?: HTMLElement;
+		rightClickTrigger?: HTMLElement;
 		headName: string;
 		seriesCount: number;
 		hasForgeBranch: boolean;
@@ -26,14 +27,15 @@
 		toggleDescription: () => Promise<void>;
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
-		reloadPR: () => void;
-		onopen?: () => void;
-		onclose?: () => void;
+		onAddDependentSeries?: () => void;
+		onOpenInBrowser?: () => void;
+		onMenuToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
 
 	let {
 		contextMenuEl = $bindable(),
-		target,
+		leftClickTrigger,
+		rightClickTrigger,
 		seriesCount,
 		hasForgeBranch,
 		headName,
@@ -43,9 +45,9 @@
 		toggleDescription,
 		onGenerateBranchName,
 		openPrDetailsModal,
-		reloadPR,
-		onopen,
-		onclose
+		onAddDependentSeries,
+		onOpenInBrowser,
+		onMenuToggle
 	}: Props = $props();
 
 	const project = getContext(Project);
@@ -73,10 +75,41 @@
 	export function showSeriesRenameModal() {
 		renameSeriesModal.show(branch);
 	}
+
+	let isOpenedByMouse = $state(false);
 </script>
 
-<ContextMenu bind:this={contextMenuEl} {target} {onopen} {onclose}>
+<ContextMenu
+	bind:this={contextMenuEl}
+	{leftClickTrigger}
+	{rightClickTrigger}
+	ontoggle={(isOpen, isLeftClick) => {
+		if (!isLeftClick) {
+			isOpenedByMouse = true;
+		} else {
+			isOpenedByMouse = false;
+		}
+
+		onMenuToggle?.(isOpen, isLeftClick);
+	}}
+>
 	<ContextMenuSection>
+		{#if isOpenedByMouse}
+			<ContextMenuItem
+				label="Add dependent branch"
+				onclick={() => {
+					onAddDependentSeries?.();
+					contextMenuEl?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Open in browser"
+				onclick={() => {
+					onOpenInBrowser?.();
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
 		<ContextMenuItem
 			label={`${!description ? 'Add' : 'Remove'} description`}
 			onclick={async () => {
@@ -93,14 +126,15 @@
 				}}
 			/>
 		{/if}
-		<ContextMenuItem
-			label="Rename"
-			disabled={branchType === 'integrated'}
-			onclick={async () => {
-				renameSeriesModal.show(branch);
-				contextMenuEl?.close();
-			}}
-		/>
+		{#if branchType !== 'integrated'}
+			<ContextMenuItem
+				label="Rename"
+				onclick={async () => {
+					renameSeriesModal.show(branch);
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
 		{#if seriesCount > 1}
 			<ContextMenuItem
 				label="Delete"
@@ -131,13 +165,6 @@
 				label="Show PR details"
 				onclick={() => {
 					openPrDetailsModal();
-					contextMenuEl?.close();
-				}}
-			/>
-			<ContextMenuItem
-				label="Refetch PR status"
-				onclick={() => {
-					reloadPR();
 					contextMenuEl?.close();
 				}}
 			/>

@@ -61,6 +61,7 @@
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let stackingContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
+	let seriesHeaderEl = $state<HTMLDivElement>();
 	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
 
 	let contextMenuOpened = $state(false);
@@ -193,22 +194,38 @@
 <SeriesHeaderContextMenu
 	bind:this={stackingContextMenu}
 	bind:contextMenuEl={kebabContextMenu}
-	target={kebabContextMenuTrigger}
+	leftClickTrigger={kebabContextMenuTrigger}
+	rightClickTrigger={seriesHeaderEl}
 	headName={currentSeries.name}
 	seriesCount={branch.series?.length ?? 0}
 	{toggleDescription}
 	description={currentSeries.description ?? ''}
 	onGenerateBranchName={generateBranchName}
+	onAddDependentSeries={() => stackingAddSeriesModal?.show()}
+	onOpenInBrowser={() => {
+		const url = forgeBranch?.url;
+		if (url) openExternalUrl(url);
+	}}
 	hasForgeBranch={!!forgeBranch}
 	prUrl={$pr?.htmlUrl}
 	openPrDetailsModal={handleOpenPR}
-	reloadPR={handleReloadPR}
-	onopen={() => (contextMenuOpened = true)}
-	onclose={() => (contextMenuOpened = false)}
 	{branchType}
+	onMenuToggle={(isOpen, isLeftClick) => {
+		if (isLeftClick) {
+			contextMenuOpened = isOpen;
+		}
+	}}
 />
 
-<div role="article" class="branch-header" oncontextmenu={(e) => e.preventDefault()}>
+<div
+	role="article"
+	class="branch-header"
+	bind:this={seriesHeaderEl}
+	oncontextmenu={(e) => {
+		e.preventDefault();
+		kebabContextMenu?.toggle(e);
+	}}
+>
 	<Dropzones type="commit">
 		<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
 			{#if $stackingFeatureMultipleSeries}

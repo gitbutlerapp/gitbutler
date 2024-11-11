@@ -10,7 +10,9 @@
 	import { getContext } from '@gitbutler/shared/context';
 
 	interface Props {
-		parent: ReturnType<typeof ContextMenu>;
+		menu: ReturnType<typeof ContextMenu> | undefined;
+		leftClickTrigger: HTMLElement | undefined;
+		rightClickTrigger: HTMLElement | undefined;
 		baseBranch: BaseBranch;
 		branch: VirtualBranch | undefined;
 		commit: DetailedCommit | Commit;
@@ -19,10 +21,14 @@
 		onUncommitClick: (event: MouseEvent) => void;
 		onEditMessageClick: (event: MouseEvent) => void;
 		onPatchEditClick: (event: MouseEvent) => void;
+		onClose?: () => void;
+		onToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
 
-	const {
-		parent,
+	let {
+		menu = $bindable(),
+		leftClickTrigger,
+		rightClickTrigger,
 		baseBranch,
 		branch,
 		commit,
@@ -30,7 +36,9 @@
 		isRemote,
 		onUncommitClick,
 		onEditMessageClick,
-		onPatchEditClick
+		onPatchEditClick,
+		onClose,
+		onToggle
 	}: Props = $props();
 
 	const branchController = getContext(BranchController);
@@ -44,71 +52,79 @@
 	}
 </script>
 
-{#if !isRemote}
-	<ContextMenuSection>
-		<ContextMenuItem
-			label="Uncommit"
-			onclick={(e: MouseEvent) => {
-				onUncommitClick(e);
-				parent.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Edit commit message"
-			onclick={(e: MouseEvent) => {
-				onEditMessageClick(e);
-				parent.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Edit patch"
-			onclick={(e: MouseEvent) => {
-				onPatchEditClick(e);
-				parent.close();
-			}}
-		/>
-	</ContextMenuSection>
-{/if}
-<ContextMenuSection>
-	{#if commitUrl}
-		<ContextMenuItem
-			label="Open in browser"
-			onclick={async () => {
-				await openExternalUrl(commitUrl);
-				parent.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Copy commit link"
-			onclick={() => {
-				copyToClipboard(commitUrl);
-				parent.close();
-			}}
-		/>
+<ContextMenu
+	bind:this={menu}
+	{leftClickTrigger}
+	{rightClickTrigger}
+	onclose={onClose}
+	ontoggle={onToggle}
+>
+	{#if !isRemote}
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Uncommit"
+				onclick={(e: MouseEvent) => {
+					onUncommitClick(e);
+					menu?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Edit commit message"
+				onclick={(e: MouseEvent) => {
+					onEditMessageClick(e);
+					menu?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Edit patch"
+				onclick={(e: MouseEvent) => {
+					onPatchEditClick(e);
+					menu?.close();
+				}}
+			/>
+		</ContextMenuSection>
 	{/if}
-	<ContextMenuItem
-		label="Copy commit message"
-		onclick={() => {
-			copyToClipboard(commit.description);
-			parent.close();
-		}}
-	/>
-</ContextMenuSection>
-{#if 'branchId' in commit && !isRemote}
 	<ContextMenuSection>
+		{#if commitUrl}
+			<ContextMenuItem
+				label="Open in browser"
+				onclick={async () => {
+					await openExternalUrl(commitUrl);
+					menu?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Copy commit link"
+				onclick={() => {
+					copyToClipboard(commitUrl);
+					menu?.close();
+				}}
+			/>
+		{/if}
 		<ContextMenuItem
-			label="Add empty commit above"
+			label="Copy commit message"
 			onclick={() => {
-				insertBlankCommit(commit.id, 'above');
-				parent.close();
-			}}
-		/>
-		<ContextMenuItem
-			label="Add empty commit below"
-			onclick={() => {
-				insertBlankCommit(commit.id, 'below');
-				parent.close();
+				copyToClipboard(commit.description);
+				menu?.close();
 			}}
 		/>
 	</ContextMenuSection>
-{/if}
+	{#if 'branchId' in commit && !isRemote}
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Add empty commit above"
+				onclick={() => {
+					insertBlankCommit(commit.id, 'above');
+					menu?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label="Add empty commit below"
+				onclick={() => {
+					insertBlankCommit(commit.id, 'below');
+					menu?.close();
+				}}
+			/>
+		</ContextMenuSection>
+	{/if}
+</ContextMenu>

@@ -71,17 +71,20 @@
 
 	const currentCommitMessage = persistedCommitMessage(project.id, branch?.id || '');
 
+	let branchCardElement = $state<HTMLElement>();
 	let kebabMenuTrigger = $state<HTMLButtonElement>();
 	let draggableCommitElement = $state<HTMLElement>();
 	let contextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
-	let isKebabContextMenuOpen = $state(false);
+	let isOpenedByKebabButton = $state(false);
+	let isOpenByMouse = $state(false);
+
 	let files = $state<RemoteFile[]>([]);
 	let showDetails = $state(false);
 	let conflictResolutionConfirmationModal = $state<ReturnType<typeof Modal>>();
 
 	const conflicted = $derived(commit.conflicted);
 	const isAncestorMostConflicted = $derived(branch?.ancestorMostConflictedCommit?.id === commit.id);
+
 	async function loadFiles() {
 		files = await listCommitFiles(project.id, commit.id);
 	}
@@ -193,43 +196,32 @@
 	{/snippet}
 </Modal>
 
-{#snippet commitContextMenuSnippet(parent: ReturnType<typeof ContextMenu>)}
-	{#if contextMenu}
-		<CommitContextMenu
-			{parent}
-			baseBranch={$baseBranch}
-			{branch}
-			{commit}
-			isRemote={type === 'remote'}
-			commitUrl={showOpenInBrowser ? commitUrl : undefined}
-			onUncommitClick={handleUncommit}
-			onEditMessageClick={openCommitMessageModal}
-			onPatchEditClick={handleEditPatch}
-		/>
-	{/if}
-{/snippet}
-
-{#if draggableCommitElement && !disableCommitActions}
-	<ContextMenu bind:this={contextMenu} target={draggableCommitElement} openByMouse>
-		{@render commitContextMenuSnippet(contextMenu)}
-	</ContextMenu>
-{/if}
-
-{#if kebabMenuTrigger && !disableCommitActions}
-	<ContextMenu
-		bind:this={kebabContextMenu}
-		target={kebabMenuTrigger}
-		onopen={() => (isKebabContextMenuOpen = true)}
-		onclose={() => (isKebabContextMenuOpen = false)}
-	>
-		{@render commitContextMenuSnippet(kebabContextMenu)}
-	</ContextMenu>
-{/if}
+<CommitContextMenu
+	leftClickTrigger={kebabMenuTrigger}
+	rightClickTrigger={branchCardElement}
+	onToggle={(isOpen, isLeftClick) => {
+		if (isLeftClick) {
+			isOpenedByKebabButton = isOpen;
+		} else {
+			isOpenByMouse = isOpen;
+		}
+	}}
+	bind:menu={contextMenu}
+	baseBranch={$baseBranch}
+	{branch}
+	{commit}
+	isRemote={type === 'remote'}
+	commitUrl={showOpenInBrowser ? commitUrl : undefined}
+	onUncommitClick={handleUncommit}
+	onEditMessageClick={openCommitMessageModal}
+	onPatchEditClick={handleEditPatch}
+/>
 
 <div
+	bind:this={branchCardElement}
 	class="commit-row"
 	class:is-commit-open={showDetails}
-	class:commit-card-activated={isKebabContextMenuOpen}
+	class:commit-card-activated={isOpenedByKebabButton || isOpenByMouse}
 	class:is-last={last}
 	onclick={(e) => {
 		e.preventDefault();
@@ -237,6 +229,7 @@
 	}}
 	oncontextmenu={(e) => {
 		e.preventDefault();
+		isOpenedByKebabButton = false;
 		contextMenu?.open(e);
 	}}
 	onkeyup={onKeyup}
@@ -261,15 +254,15 @@
 	{/if}
 
 	{#if !disableCommitActions}
-		<PopoverActionsContainer class="commit-actions-menu" thin stayOpen={isKebabContextMenuOpen}>
+		<PopoverActionsContainer class="commit-actions-menu" thin stayOpen={isOpenedByKebabButton}>
 			<PopoverActionsItem
 				bind:el={kebabMenuTrigger}
-				activated={isKebabContextMenuOpen}
+				activated={isOpenedByKebabButton}
 				icon="kebab"
 				tooltip="More options"
 				thin
-				onclick={(e) => {
-					kebabContextMenu?.toggle(e);
+				onclick={() => {
+					contextMenu?.toggle();
 				}}
 			/>
 		</PopoverActionsContainer>
