@@ -98,7 +98,7 @@
 	<ContextMenuSection>
 		{#if isOpenedByMouse}
 			<ContextMenuItem
-				label="Add dependent series"
+				label="Add dependent branch"
 				onclick={() => {
 					onAddDependentSeries?.();
 					contextMenuEl?.close();
