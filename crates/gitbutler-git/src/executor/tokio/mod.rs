@@ -29,11 +29,18 @@ unsafe impl super::GitExecutor for TokioExecutor {
         cwd: P,
         envs: Option<HashMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error> {
-        let git_exe = gix_path::env::exe_invocation();
-        // let mut cmd = Command::new(git_exe);
-        //
-        let mut cmd = Command::new("flatpak-spawn");
-        cmd.args(["--host", "git"]);
+        // Check if we're running in a flatpak
+        let flatpak = std::env::var("FLATPAK").unwrap_or_else(|_| String::new());
+        println!("FLATPAK: {}", flatpak);
+
+        let mut cmd = if !flatpak.is_empty() {
+            let mut cmd = Command::new("flatpak-spawn");
+            cmd.args(["--host", "git"]);
+            cmd
+        } else {
+            let git_exe = gix_path::env::exe_invocation();
+            Command::new(git_exe)
+        };
 
         // Output the command being executed to stderr, for debugging purposes
         // (only on test configs).
@@ -50,7 +57,7 @@ unsafe impl super::GitExecutor for TokioExecutor {
                 .map(|s| format!("{s:?}"))
                 .collect::<Vec<_>>()
                 .join(" ");
-            eprintln!("env {envs_str} {git_exe:?} {args_str}");
+            eprintln!("env {envs_str} {args_str}");
         }
 
         cmd.kill_on_drop(true);
