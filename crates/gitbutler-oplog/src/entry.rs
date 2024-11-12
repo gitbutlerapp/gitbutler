@@ -141,6 +141,7 @@ pub enum OperationKind {
     GenericBranchUpdate,
     DeleteBranch,
     ApplyBranch,
+    DiscardLines,
     DiscardHunk,
     DiscardFile,
     AmendCommit,

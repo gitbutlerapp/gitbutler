@@ -385,6 +385,227 @@ fn reverse_patch(patch: &BStr) -> Option<BString> {
     Some(reversed)
 }
 
+struct PatchHeaderInfo {
+    old_start: u32,
+    old_lines: u32,
+    new_start: u32,
+    new_lines: u32,
+    rest: BString,
+}
+
+/// Write a patch header from patch header information
+fn write_patch_header(parsed_header: &PatchHeaderInfo) -> BString {
+    let PatchHeaderInfo {
+        old_start,
+        old_lines,
+        new_start,
+        new_lines,
+        rest,
+    } = parsed_header;
+
+    let mut buf = BString::default();
+    buf.push_str("@@ ");
+    buf.push_str(format!("-{},{}", old_start, old_lines));
+    buf.push_str(" +");
+    buf.push_str(format!("{},{}", new_start, new_lines));
+    buf.push_str(" @@");
+    if !rest.is_empty() {
+        buf.push(b' ');
+        buf.push_str(rest);
+    }
+    buf.push(b'\n');
+    buf
+}
+
+/// Extract the patch range information from a patch header line
+fn parse_patch_header(header_line: &[u8]) -> Option<PatchHeaderInfo> {
+    let mut parts = header_line.split(|b| b.is_ascii_whitespace());
+    if parts.next() != Some(b"@@") {
+        return None;
+    }
+    let old_range = parts.next()?;
+    let new_range = parts.next()?;
+    let mut old_range = old_range.split(|b| b == &b',');
+    let mut new_range = new_range.split(|b| b == &b',');
+
+    let old_start = old_range.next()?;
+    let old_start = str::from_utf8(old_start).ok()?.replacen("-", "", 1);
+    let old_start = old_start.parse::<u32>().ok()?;
+
+    let old_lines = old_range.next()?;
+    let old_lines = str::from_utf8(old_lines).ok()?.parse::<u32>().ok()?;
+
+    let new_start = new_range.next()?;
+    let new_start = str::from_utf8(new_start).ok()?.replacen("+", "", 1);
+    let new_start = new_start.parse::<u32>().ok()?;
+
+    let new_lines = new_range.next()?;
+    let new_lines = str::from_utf8(new_lines).ok()?.parse::<u32>().ok()?;
+
+    let mut rest = BString::default();
+    let mut at_least_one_part = false;
+    for part in parts {
+        if part.is_empty() || part == b"@@" || part.trim_ascii() == b"" {
+            continue;
+        }
+        rest.extend_from_slice(part);
+        rest.push(b' ');
+        at_least_one_part = true;
+    }
+
+    if at_least_one_part {
+        rest.pop();
+    }
+
+    Some(PatchHeaderInfo {
+        old_start,
+        old_lines,
+        new_start,
+        new_lines,
+        rest,
+    })
+}
+
+fn create_patch_line_map_key(old_line: Option<u32>, new_line: Option<u32>) -> String {
+    format!(
+        "{}-{}",
+        old_line.map(|o| o.to_string()).unwrap_or("".to_string()),
+        new_line.map(|n| n.to_string()).unwrap_or("".to_string())
+    )
+}
+
+/// Build a map of old and new line numbers to the patch lines
+fn build_patch_line_map(
+    patch_lines: bstr::Lines<'_>,
+    new_start: u32,
+    old_start: u32,
+) -> HashMap<String, &[u8]> {
+    let mut lines_map: HashMap<String, &[u8]> = HashMap::new();
+
+    let mut new_line_number = new_start;
+    let mut old_line_number = old_start;
+
+    for patch_line in patch_lines {
+        if patch_line.starts_with(b"+") {
+            let key = create_patch_line_map_key(None, Some(new_line_number));
+            lines_map.insert(key, patch_line);
+            new_line_number += 1;
+            continue;
+        }
+
+        if patch_line.starts_with(b"-") {
+            let key = create_patch_line_map_key(Some(old_line_number), None);
+            lines_map.insert(key, patch_line);
+            old_line_number += 1;
+            continue;
+        }
+
+        let key = create_patch_line_map_key(Some(old_line_number), Some(new_line_number));
+        lines_map.insert(key, patch_line);
+
+        // It's a context line
+        old_line_number += 1;
+        new_line_number += 1;
+    }
+    lines_map
+}
+
+/// Reverse the lines of a patch, given a list of line numbers to reverse
+fn reverse_lines(
+    patch: &BStr,
+    lines: Vec<(Option<u32>, Option<u32>)>,
+) -> Option<(BString, PatchHeaderInfo)> {
+    let mut trimmed = BString::default();
+
+    let mut patch_lines = patch.lines();
+
+    let header_line = patch_lines.next()?;
+    if !header_line.starts_with(b"@@") {
+        return None;
+    }
+
+    let PatchHeaderInfo {
+        old_start,
+        new_start,
+        rest,
+        ..
+    } = parse_patch_header(header_line)?;
+
+    let lines_map = build_patch_line_map(patch_lines, new_start, old_start);
+
+    let mut reversed_old_start = None;
+    let mut reversed_old_lines = 0_u32;
+    let mut reversed_new_start = None;
+    let mut reversed_new_lines = 0_u32;
+
+    for (old_line, new_line) in lines {
+        let key = create_patch_line_map_key(old_line, new_line);
+        if let Some(line) = lines_map.get(&key) {
+            if line.starts_with(b"+") {
+                if reversed_old_start.is_none() {
+                    reversed_old_start = Some(new_line.unwrap());
+                }
+
+                trimmed.push_str(line.replacen(b"+", b"-", 1));
+                trimmed.push(b'\n');
+
+                reversed_old_lines += 1;
+            } else if line.starts_with(b"-") {
+                if reversed_new_start.is_none() {
+                    reversed_new_start = Some(old_line.unwrap());
+                }
+
+                trimmed.push_str(line.replacen(b"-", b"+", 1));
+                trimmed.push(b'\n');
+
+                reversed_new_lines += 1;
+            } else {
+                if reversed_old_start.is_none() {
+                    reversed_old_start = Some(new_line.unwrap());
+                }
+
+                if reversed_new_start.is_none() {
+                    reversed_new_start = Some(old_line.unwrap());
+                }
+
+                trimmed.push_str(line);
+                trimmed.push(b'\n');
+
+                reversed_old_lines += 1;
+                reversed_new_lines += 1;
+            }
+        }
+    }
+
+    if reversed_old_start.is_none() && reversed_new_start.is_none() {
+        return None;
+    }
+
+    if reversed_new_start.is_none() {
+        // Only deleted lines
+        reversed_new_start = reversed_old_start.map(|o| if o > 0 { o - 1 } else { 0 });
+    }
+
+    if reversed_old_start.is_none() {
+        // Only added lines
+        reversed_old_start = reversed_new_start.map(|n| if n > 0 { n - 1 } else { 0 });
+    }
+
+    let patch_header = PatchHeaderInfo {
+        old_start: reversed_old_start?,
+        old_lines: reversed_old_lines,
+        new_start: reversed_new_start?,
+        new_lines: reversed_new_lines,
+        rest,
+    };
+
+    // Insert reversed header at the top
+    let reversed_header = write_patch_header(&patch_header);
+    trimmed.insert_str(0, &reversed_header);
+
+    Some((trimmed, patch_header))
+}
+
 // returns `None` if the reversal failed
 pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
     let new_change_type = match hunk.change_type {
@@ -407,8 +628,258 @@ pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
     }
 }
 
+/// Reverse the lines of a hunk, given a list of line numbers to reverse
+///
+/// Returns `None` if the reversal failed
+pub fn reverse_hunk_lines(
+    hunk: &GitHunk,
+    lines: Vec<(Option<u32>, Option<u32>)>,
+) -> Option<GitHunk> {
+    let new_change_type = match hunk.change_type {
+        ChangeType::Added => ChangeType::Deleted,
+        ChangeType::Deleted => ChangeType::Added,
+        ChangeType::Modified => ChangeType::Modified,
+    };
+
+    if hunk.binary {
+        None
+    } else {
+        reverse_lines(hunk.diff_lines.as_ref(), lines).map(|(diff, patch_header)| GitHunk {
+            old_start: patch_header.old_start,
+            old_lines: patch_header.old_lines,
+            new_start: patch_header.new_start,
+            new_lines: patch_header.new_lines,
+            diff_lines: diff.into(),
+            binary: hunk.binary,
+            change_type: new_change_type,
+        })
+    }
+}
+
 pub fn diff_files_into_hunks(
     files: DiffByPathMap,
 ) -> impl Iterator<Item = (PathBuf, Vec<GitHunk>)> {
     files.into_iter().map(|(path, file)| (path, file.hunks))
+}
+
+#[cfg(test)]
+
+mod test {
+    use super::*;
+
+    #[test]
+    fn reverse_lines_single_line_change() {
+        let patch: BStringForFrontend = "@@ -55,7 +55,7 @@
+
+     1
+     2
+-    3
++    b
+     4
+     5
+     6
+"
+        .into();
+
+        let reversed =
+            super::reverse_lines(patch.as_ref(), vec![(Some(58), None), (None, Some(58))]);
+
+        assert_eq!(
+            reversed.map(|r| r.0),
+            Some(
+                "@@ -58,1 +58,1 @@
++    3
+-    b
+"
+                .into()
+            )
+        );
+    }
+
+    #[test]
+    fn reverse_lines_single_line_change_add_only() {
+        let patch: BStringForFrontend = "@@ -278,6 +278,8 @@
+     1
+     2
+     3
++    4
++    b
+     5
+     6
+     7
+"
+        .into();
+
+        let reversed = super::reverse_lines(patch.as_ref(), vec![(None, Some(282))]);
+
+        assert_eq!(
+            reversed.map(|r| r.0),
+            Some(
+                "@@ -282,1 +281,0 @@
+-    b
+"
+                .into()
+            )
+        );
+    }
+
+    #[test]
+    fn reverse_lines_single_line_change_delete_only() {
+        let patch: BStringForFrontend = "@@ -278,8 +278,6 @@
+     1
+     2
+     3
+-    b
+-    4
+     5
+     6
+     7
+"
+        .into();
+
+        let reversed = super::reverse_lines(patch.as_ref(), vec![(Some(282), None)]);
+
+        assert_eq!(
+            reversed.map(|r| r.0),
+            Some(
+                "@@ -281,0 +282,1 @@
++    4
+"
+                .into()
+            )
+        );
+    }
+
+    #[test]
+    fn reverse_lines_single_line_change_context() {
+        let patch: BStringForFrontend = "@@ -278,8 +278,6 @@
+     1
+     2
+     3
+-    b
+-    b
+     4
+     5
+     6
+"
+        .into();
+
+        let reversed = super::reverse_lines(patch.as_ref(), vec![(Some(279), Some(279))]);
+
+        assert_eq!(
+            reversed.map(|r| r.0),
+            Some(
+                "@@ -279,1 +279,1 @@
+     2
+"
+                .into()
+            )
+        );
+    }
+
+    #[test]
+    fn reverse_lines_multiple_line_change() {
+        let patch: BStringForFrontend = "@@ -278,8 +278,6 @@
+     1
+     2
+     3
+-    b
+-    4
++    4
++    b
+     5
+     6
+     7
+"
+        .into();
+
+        let reversed = super::reverse_lines(
+            patch.as_ref(),
+            vec![
+                (Some(281), None),
+                (Some(282), None),
+                (None, Some(281)),
+                (None, Some(282)),
+            ],
+        );
+
+        assert_eq!(
+            reversed.map(|r| r.0),
+            Some(
+                "@@ -281,2 +281,2 @@
++    b
++    4
+-    4
+-    b
+"
+                .into()
+            )
+        );
+    }
+
+    #[test]
+    fn reverse_lines_multiple_line_change_add_only() {
+        let patch: BStringForFrontend = "@@ -278,6 +278,9 @@
+     1
+     2
+     3
++    4
++    5
++    6
+     7
+     8
+     9
+"
+        .into();
+
+        let reversed = super::reverse_lines(
+            patch.as_ref(),
+            vec![(None, Some(281)), (None, Some(282)), (None, Some(283))],
+        );
+
+        assert_eq!(
+            reversed.map(|r| r.0),
+            Some(
+                "@@ -281,3 +280,0 @@
+-    4
+-    5
+-    6
+"
+                .into()
+            )
+        );
+    }
+
+    #[test]
+    fn reverse_lines_multiple_line_change_delete_only() {
+        let patch: BStringForFrontend = "@@ -278,9 +278,6 @@
+     1
+     2
+     3
+-    4
+-    5
+-    6
+     7
+     8
+     9
+"
+        .into();
+
+        let reversed = super::reverse_lines(
+            patch.as_ref(),
+            vec![(Some(281), None), (Some(282), None), (Some(283), None)],
+        );
+
+        assert_eq!(
+            reversed.map(|r| r.0),
+            Some(
+                "@@ -280,0 +281,3 @@
++    4
++    5
++    6
+"
+                .into()
+            )
+        );
+    }
 }

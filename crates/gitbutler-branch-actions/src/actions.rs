@@ -6,6 +6,7 @@ use crate::upstream_integration::{
     self, BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
     UpstreamIntegrationContext,
 };
+use crate::VirtualBranchHunkRangeMap;
 use crate::{
     base,
     base::BaseBranch,
@@ -256,6 +257,23 @@ pub fn unapply_without_saving_virtual_branch(project: &Project, stack_id: StackI
     state.delete_branch_entry(&stack_id)
 }
 
+pub fn unapply_lines(
+    project: &Project,
+    ownership: &BranchOwnershipClaims,
+    lines: VirtualBranchHunkRangeMap,
+) -> Result<()> {
+    let ctx = open_with_verify(project)?;
+    assure_open_workspace_mode(&ctx).context("Unapply a patch requires open workspace mode")?;
+    let mut guard = project.exclusive_worktree_access();
+    let _ = ctx.project().create_snapshot(
+        SnapshotDetails::new(OperationKind::DiscardLines),
+        guard.write_permission(),
+    );
+
+    vbranch::unapply_ownership(&ctx, ownership, Some(lines), guard.write_permission())
+        .map_err(Into::into)
+}
+
 pub fn unapply_ownership(project: &Project, ownership: &BranchOwnershipClaims) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Unapply a patch requires open workspace mode")?;
@@ -264,7 +282,7 @@ pub fn unapply_ownership(project: &Project, ownership: &BranchOwnershipClaims) -
         SnapshotDetails::new(OperationKind::DiscardHunk),
         guard.write_permission(),
     );
-    vbranch::unapply_ownership(&ctx, ownership, guard.write_permission()).map_err(Into::into)
+    vbranch::unapply_ownership(&ctx, ownership, None, guard.write_permission()).map_err(Into::into)
 }
 
 pub fn reset_files(project: &Project, stack_id: StackId, files: &[PathBuf]) -> Result<()> {
