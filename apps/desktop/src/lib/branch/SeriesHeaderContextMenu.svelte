@@ -72,8 +72,8 @@
 
 	const branch = $derived($branchStore);
 
-	export function showSeriesRenameModal() {
-		renameSeriesModal.show(branch);
+	export function showSeriesRenameModal(seriesName: string) {
+		renameSeriesModal.show(branch.series.find((s) => s.name === seriesName));
 	}
 
 	let isOpenedByMouse = $state(false);

@@ -279,7 +279,7 @@
 						readonly={!!forgeBranch}
 						onDblClick={() => {
 							if (branchType !== 'integrated') {
-								stackingContextMenu?.showSeriesRenameModal?.();
+								stackingContextMenu?.showSeriesRenameModal?.(currentSeries.name);
 							}
 						}}
 					/>
