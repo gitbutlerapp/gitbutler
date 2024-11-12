@@ -26,7 +26,7 @@
 		{disabled}
 		flex="1"
 		fontSize={12}
-		placeholder="Series description"
+		placeholder="Branch description"
 		unstyled
 		padding={{ top: 0, right: 0, bottom: 0, left: 0 }}
 		onblur={(e: FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
@@ -39,10 +39,6 @@
 		onkeydown={(e: KeyboardEvent & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 			if (e.key === 'Escape') {
 				textAreaEl?.blur();
-
-				if (e.currentTarget.value === '') {
-					onEmpty?.();
-				}
 			}
 		}}
 	/>
