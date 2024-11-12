@@ -93,8 +93,8 @@
 		onMenuToggle?.(isOpen, isLeftClick);
 	}}
 >
-	<ContextMenuSection>
-		{#if isOpenedByMouse}
+	{#if isOpenedByMouse}
+		<ContextMenuSection>
 			<ContextMenuItem
 				label="Add dependent branch"
 				onclick={() => {
@@ -102,6 +102,10 @@
 					contextMenuEl?.close();
 				}}
 			/>
+		</ContextMenuSection>
+	{/if}
+	<ContextMenuSection>
+		{#if isOpenedByMouse && hasForgeBranch}
 			<ContextMenuItem
 				label="Open in browser"
 				onclick={() => {
@@ -110,6 +114,15 @@
 				}}
 			/>
 		{/if}
+		<ContextMenuItem
+			label="Copy branch name"
+			onclick={() => {
+				copyToClipboard(headName);
+				contextMenuEl?.close();
+			}}
+		/>
+	</ContextMenuSection>
+	<ContextMenuSection>
 		<ContextMenuItem
 			label={`${!description ? 'Add' : 'Remove'} description`}
 			onclick={async () => {
