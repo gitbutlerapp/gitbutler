@@ -87,7 +87,7 @@
 		props.type === 'preview-series' ? props.currentSeries.name : branch.upstreamName
 	);
 	const baseBranchName = $derived($baseBranch.shortName);
-	const currentSeries = props.type === 'preview-series' ? props.currentSeries : undefined;
+	const currentSeries = $derived(props.type === 'preview-series' ? props.currentSeries : undefined);
 
 	let createPrDropDown = $state<ReturnType<typeof DropDownButton>>();
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
@@ -169,6 +169,9 @@
 			return;
 		}
 
+		// All ids that existed prior to creating a new one (including archived).
+		const priorIds = branch.series.map((series) => series.prNumber).filter(isDefined);
+
 		isLoading = true;
 		try {
 			let upstreamBranchName = upstreamName;
@@ -201,9 +204,6 @@
 				error('Pull request service not available');
 				return;
 			}
-
-			// All ids that existed prior to creating a new one (including archived).
-			const priorIds = branch.series.map((series) => series.prNumber).filter(isDefined);
 
 			// Find the index of the current branch so we know where we want to point the pr.
 			const branches = branch.series;

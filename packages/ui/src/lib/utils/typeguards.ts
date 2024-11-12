@@ -1,9 +1,9 @@
+/**
+ * Not undefined and not null. This is less prone for errors than checking undefined
+ * and not null separately.
+ */
 export function isDefined<T>(file: T | undefined | null): file is T {
-	return file !== undefined;
-}
-
-export function notNull<T>(file: T | undefined | null): file is T {
-	return file !== null;
+	return file !== undefined && file !== null;
 }
 
 export type UnknownObject = Record<string, unknown>;

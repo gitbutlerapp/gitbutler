@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { emptyConflictEntryPresence, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '@gitbutler/ui/utils/string';
-import { isDefined, notNull } from '@gitbutler/ui/utils/typeguards';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { Type, Transform } from 'class-transformer';
 import type { PullRequest } from '$lib/forge/interface/types';
 
@@ -80,10 +80,7 @@ export class LocalFile {
 	}
 
 	get lockedIds(): HunkLock[] {
-		return this.hunks
-			.flatMap((hunk) => hunk.lockedTo)
-			.filter(notNull)
-			.filter(isDefined);
+		return this.hunks.flatMap((hunk) => hunk.lockedTo).filter(isDefined);
 	}
 }
 
