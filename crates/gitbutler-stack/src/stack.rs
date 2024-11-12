@@ -257,12 +257,18 @@ impl Stack {
     ///
     /// # Errors
     /// - If the stack has not been initialized
-    fn initialized(&self) -> Result<()> {
-        if self.heads.is_empty() {
-            return Err(anyhow!("Stack has not been initialized"));
+    fn ensure_initialized(&self) -> Result<()> {
+        if !self.is_initialized() {
+            bail!("Stack has not been initialized")
         }
+
         Ok(())
     }
+
+    fn is_initialized(&self) -> bool {
+        !self.heads.is_empty()
+    }
+
     /// Initializes a new stack.
     /// An initialized stack means that the heads will always have at least one entry.
     /// When initialized, first stack head will point to the "Branch" head.
@@ -270,7 +276,8 @@ impl Stack {
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
     pub fn initialize(&mut self, ctx: &CommandContext, allow_duplicate_refs: bool) -> Result<()> {
-        if self.initialized().is_ok() {
+        // If the branch is already initialized, don't do anything
+        if self.is_initialized() {
             return Ok(());
         }
         let commit = ctx.repository().find_commit(self.head())?;
@@ -334,7 +341,7 @@ impl Stack {
         new_head: StackBranch,
         preceding_head_name: Option<String>,
     ) -> Result<()> {
-        self.initialized()?;
+        self.ensure_initialized()?;
         let preceding_head = if let Some(preceding_head_name) = preceding_head_name {
             let (_, preceding_head) = get_head(&self.heads, &preceding_head_name)
                 .context("The specified preceding_head could not be found")?;
@@ -358,7 +365,7 @@ impl Stack {
         name: String,
         description: Option<String>,
     ) -> Result<()> {
-        self.initialized()?;
+        self.ensure_initialized()?;
         let current_top_head = self.heads.last().ok_or(anyhow!(
             "Stack is in an invalid state - heads list is empty"
         ))?;
@@ -379,7 +386,7 @@ impl Stack {
     ///
     /// This operation mutates the gitbutler::Branch.heads list and updates the state in `virtual_branches.toml`
     pub fn remove_series(&mut self, ctx: &CommandContext, branch_name: String) -> Result<()> {
-        self.initialized()?;
+        self.ensure_initialized()?;
         (self.heads, _) = remove_head(self.heads.clone(), branch_name)?;
         let state = branch_state(ctx);
         state.set_stack(self.clone())
@@ -396,7 +403,7 @@ impl Stack {
         branch_name: String,
         update: &PatchReferenceUpdate,
     ) -> Result<()> {
-        self.initialized()?;
+        self.ensure_initialized()?;
         if update == &PatchReferenceUpdate::default() {
             return Ok(()); // noop
         }
@@ -475,7 +482,7 @@ impl Stack {
         commit_id: git2::Oid,
         tree: Option<git2::Oid>,
     ) -> Result<()> {
-        self.initialized()?;
+        self.ensure_initialized()?;
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         #[allow(deprecated)] // this is the only place where this is allowed
         self.set_head(commit_id);
@@ -498,7 +505,7 @@ impl Stack {
 
     /// Removes any heads that are refering to commits that are no longer between the stack head and the merge base
     pub fn archive_integrated_heads(&mut self, ctx: &CommandContext) -> Result<()> {
-        self.initialized()?;
+        self.ensure_initialized()?;
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         let state = branch_state(ctx);
         let commit_ids = self.stack_patches(&ctx.to_stack_context()?, true)?;
@@ -513,7 +520,7 @@ impl Stack {
     /// Prepares push details according to the series to be pushed (picking out the correct sha and remote refname)
     /// This operation will error out if the target has no push remote configured.
     pub fn push_details(&self, ctx: &CommandContext, branch_name: String) -> Result<PushDetails> {
-        self.initialized()?;
+        self.ensure_initialized()?;
         let (_, reference) = get_head(&self.heads, &branch_name)?;
         let commit = commit_by_oid_or_change_id(
             &reference.head,
@@ -559,7 +566,7 @@ impl Stack {
         from: &Commit<'_>,
         to: &Commit<'_>,
     ) -> Result<()> {
-        self.initialized()?;
+        self.ensure_initialized()?;
         // find all heads matching the 'from' target (there can be multiple heads pointing to the same commit)
         let matching_heads = self
             .heads
@@ -646,7 +653,7 @@ impl Stack {
         series_name: &str,
         new_pr_number: Option<usize>,
     ) -> Result<()> {
-        self.initialized()?;
+        self.ensure_initialized()?;
         match self.heads.iter_mut().find(|r| r.name == series_name) {
             Some(head) => {
                 head.pr_number = new_pr_number;
