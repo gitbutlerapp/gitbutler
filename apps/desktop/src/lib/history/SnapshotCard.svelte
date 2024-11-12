@@ -46,7 +46,7 @@
 
 	function mapOperation(snapshotDetails: SnapshotDetails | undefined): {
 		text: string;
-		icon: keyof typeof iconsJson;
+		icon?: keyof typeof iconsJson;
 		commitMessage?: string;
 	} {
 		if (!snapshotDetails) return { text: '', icon: 'commit' };
@@ -144,10 +144,10 @@
 				return { text: 'Merge upstream', icon: 'merged-pr-small' };
 			case 'UpdateWorkspaceBase':
 				return { text: 'Update workspace base', icon: 'rebase' };
-			case 'RestoreFromSnapshot':
-				return { text: 'Revert snapshot', icon: 'empty' };
 			case 'EnterEditMode':
 				return { text: 'Enter Edit Mode', icon: 'edit-text' };
+			case 'RestoreFromSnapshot':
+				return { text: 'Revert snapshot' };
 			default:
 				return { text: snapshotDetails.operation, icon: 'commit' };
 		}
@@ -187,7 +187,7 @@
 	<div class="snapshot-line">
 		{#if isRestoreSnapshot}
 			<img src="/images/history/restore-icon.svg" alt="" />
-		{:else}
+		{:else if operation.icon}
 			<Icon name={operation.icon} />
 		{/if}
 	</div>
