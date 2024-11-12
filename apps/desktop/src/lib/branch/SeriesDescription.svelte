@@ -39,10 +39,6 @@
 		onkeydown={(e: KeyboardEvent & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 			if (e.key === 'Escape') {
 				textAreaEl?.blur();
-
-				if (e.currentTarget.value === '') {
-					onEmpty?.();
-				}
 			}
 		}}
 	/>
