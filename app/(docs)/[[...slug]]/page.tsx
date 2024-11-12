@@ -2,7 +2,7 @@ import { openapi, utils } from "@/app/source"
 import { DocsPage, DocsBody, DocsTitle, DocsDescription } from "fumadocs-ui/page"
 import { notFound } from "next/navigation"
 import defaultComponents from "fumadocs-ui/mdx"
-import { Popup, PopupContent, PopupTrigger } from "fumadocs-ui/twoslash/popup"
+import { Popup, PopupContent, PopupTrigger } from "fumadocs-twoslash/ui"
 import { Tab, Tabs } from "fumadocs-ui/components/tabs"
 import { Callout } from "fumadocs-ui/components/callout"
 import { TypeTable } from "fumadocs-ui/components/type-table"
@@ -14,7 +14,8 @@ interface Param {
   slug: string[]
 }
 
-export default function Page({ params }: { params: Param }): React.ReactElement {
+export default async function Page(props: { params: Promise<Param> }): Promise<React.ReactElement> {
+  const params = await props.params
   const page = utils.getPage(params.slug)
 
   if (!page) notFound()
@@ -119,7 +120,8 @@ export function generateStaticParams(): Param[] {
   })
 }
 
-export function generateMetadata({ params }: { params: { slug?: string[] } }) {
+export async function generateMetadata(props: { params: Promise<{ slug?: string[] }> }) {
+  const params = await props.params
   const page = utils.getPage(params.slug)
 
   if (!page) notFound()

@@ -1,6 +1,5 @@
 "use client"
 
-// eslint-disable-next-line import/no-extraneous-dependencies
 import { Root } from "@radix-ui/react-dialog"
 import DefaultSearchDialog, {
   type DefaultSearchDialogProps
@@ -19,7 +18,7 @@ export function Provider({ children }: { readonly children: React.ReactNode }) {
   )
 }
 
-function SearchDialog({ tag, api, ...props }: DefaultSearchDialogProps): React.ReactElement {
+function SearchDialog(props: DefaultSearchDialogProps): React.ReactElement {
   return (
     <Root>
       <DefaultSearchDialog {...props} />

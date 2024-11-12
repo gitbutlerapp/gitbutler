@@ -1,6 +1,6 @@
 import { utils } from "@/app/source"
-import type { DocsLayoutProps } from "fumadocs-ui/layout"
-import type { HomeLayoutProps } from "fumadocs-ui/home-layout"
+import type { DocsLayoutProps } from "fumadocs-ui/layouts/docs"
+import type { HomeLayoutProps } from "fumadocs-ui/layouts/home"
 
 import Logo from "@/components/Logo"
 import Discord from "@/components/logos/discord"
