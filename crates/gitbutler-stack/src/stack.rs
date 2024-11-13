@@ -667,39 +667,6 @@ impl Stack {
         }
     }
 
-    pub fn set_legacy_compatible_stack_reference(&mut self, ctx: &CommandContext) -> Result<()> {
-        // self.upstream is only set if this is a branch that was created & manipulated by the legacy flow
-        let legacy_refname = match self.upstream.clone().map(|r| r.branch().to_owned()) {
-            Some(legacy_refname) => legacy_refname,
-            None => return Ok(()), // noop
-        };
-        // update the reference only if there is exactly one series in the stack
-        if self.heads.len() != 1 {
-            return Ok(()); // noop
-        }
-        let head = match self.heads.first() {
-            Some(head) => head,
-            None => return Ok(()), // noop
-        };
-        if legacy_refname == head.name {
-            return Ok(()); // noop
-        }
-        let default_target = branch_state(ctx).get_default_target()?;
-        let update = PatchReferenceUpdate {
-            name: Some(legacy_refname),
-            ..Default::default()
-        };
-        // modify the stack reference only if it has not been pushed yet
-        if !head
-            .pushed(&default_target.push_remote_name(), ctx.repository())
-            .unwrap_or_default()
-        {
-            // set the stack reference to the legacy refname
-            self.update_series(ctx, head.name.clone(), &update)?;
-        }
-        Ok(())
-    }
-
     pub fn heads(&self) -> Vec<String> {
         self.heads.iter().map(|h| h.name.clone()).collect()
     }

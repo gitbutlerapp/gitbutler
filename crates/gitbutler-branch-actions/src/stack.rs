@@ -330,11 +330,5 @@ pub(crate) fn stack_series(
     }
     api_series.reverse();
 
-    // This is done for compatibility with the legacy flow.
-    // After a couple of weeks we can get rid of this.
-    if let Err(e) = stack.set_legacy_compatible_stack_reference(ctx) {
-        tracing::warn!("failed to set legacy compatible stack reference: {:?}", e);
-    }
-
     Ok((api_series, requires_force))
 }
