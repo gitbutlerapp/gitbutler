@@ -34,8 +34,8 @@ unsafe impl super::GitExecutor for TokioExecutor {
         println!("FLATPAK: {}", flatpak);
 
         let mut cmd = if !flatpak.is_empty() {
-            let mut cmd = Command::new("flatpak-spawn");
-            cmd.args(["--host", "git"]);
+            let mut cmd = Command::new("host-spawn");
+            cmd.args(["git"]);
             cmd
         } else {
             let git_exe = gix_path::env::exe_invocation();
