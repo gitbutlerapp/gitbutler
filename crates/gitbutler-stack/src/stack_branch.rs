@@ -1,13 +1,12 @@
 use anyhow::Result;
 use git2::{Commit, Oid};
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
-use gitbutler_repo::{LogUntil, RepositoryExt};
-use itertools::Itertools;
+use gitbutler_repo::{LogUntil, RepositoryExt as _};
+use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
-use crate::{commit_by_oid_or_change_id, Stack, VirtualBranchesHandle};
+use crate::{commit_by_oid_or_change_id, stack_context::StackContext, Stack};
 
 /// A GitButler-specific reference type that points to a commit or a patch (change).
 /// The principal difference between a `PatchReference` and a regular git reference is that a `PatchReference` can point to a change (patch) that is mutable.
@@ -61,13 +60,26 @@ impl From<git2::Commit<'_>> for CommitOrChangeId {
     }
 }
 
+pub trait RepositoryExt {
+    fn lookup_change_id_or_oid(&self, oid: git2::Oid) -> Result<CommitOrChangeId>;
+}
+
+impl RepositoryExt for git2::Repository {
+    fn lookup_change_id_or_oid(&self, oid: git2::Oid) -> Result<CommitOrChangeId> {
+        let commit = self.find_commit(oid)?;
+
+        Ok(commit.into())
+    }
+}
+
 impl StackBranch {
-    pub fn head_oid(&self, ctx: &CommandContext, stack: &Stack) -> Result<Oid> {
-        let repo = ctx.repository();
-        let merge_base = stack.merge_base(ctx)?.id();
-        let head_commit = commit_by_oid_or_change_id(&self.head, repo, stack.head(), merge_base)?
-            .head
-            .id();
+    pub fn head_oid(&self, stack_context: &StackContext, stack: &Stack) -> Result<Oid> {
+        let repository = stack_context.repository();
+        let merge_base = stack.merge_base(stack_context)?;
+        let head_commit =
+            commit_by_oid_or_change_id(&self.head, repository, stack.head(), merge_base)?
+                .head
+                .id();
         Ok(head_commit)
     }
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
@@ -76,17 +88,22 @@ impl StackBranch {
     }
 
     /// Returns `true` if the reference is pushed to the provided remote
-    pub fn pushed(&self, remote: &str, ctx: &CommandContext) -> Result<bool> {
+    pub fn pushed(&self, remote: &str, repository: &git2::Repository) -> Result<bool> {
         let remote_ref = self.remote_reference(remote)?; // todo: this should probably just return false
-        Ok(ctx.repository().find_reference(&remote_ref).is_ok())
+        Ok(repository.find_reference(&remote_ref).is_ok())
     }
 
     /// Returns the commits that are part of the branch.
-    pub fn commits<'a>(&self, ctx: &'a CommandContext, stack: &Stack) -> Result<BranchCommits<'a>> {
-        let repo = ctx.repository();
-        let merge_base = stack.merge_base(ctx)?.id();
+    pub fn commits<'a>(
+        &self,
+        stack_context: &'a StackContext,
+        stack: &Stack,
+    ) -> Result<BranchCommits<'a>> {
+        let repository = stack_context.repository();
+        let merge_base = stack.merge_base(stack_context)?;
 
-        let head_commit = commit_by_oid_or_change_id(&self.head, repo, stack.head(), merge_base);
+        let head_commit =
+            commit_by_oid_or_change_id(&self.head, repository, stack.head(), merge_base);
         if self.archived || head_commit.is_err() {
             return Ok(BranchCommits {
                 local_commits: vec![],
@@ -102,13 +119,13 @@ impl StackBranch {
             .branch_predacessor(self)
             .filter(|predacessor| !predacessor.archived)
             .map_or(merge_base, |predacessor| {
-                commit_by_oid_or_change_id(&predacessor.head, repo, stack.head(), merge_base)
+                commit_by_oid_or_change_id(&predacessor.head, repository, stack.head(), merge_base)
                     .map(|commit| commit.head.id())
                     .unwrap_or(merge_base)
             });
 
         let mut local_patches = vec![];
-        for commit in repo
+        for commit in repository
             .log(head_commit, LogUntil::Commit(previous_head), false)?
             .into_iter()
             .rev()
@@ -116,19 +133,19 @@ impl StackBranch {
             local_patches.push(commit);
         }
 
-        let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-        let default_target = state.get_default_target()?;
+        let default_target = stack_context.target();
         let mut remote_patches: Vec<Commit<'_>> = vec![];
         let remote_name = default_target.push_remote_name();
-        if self.pushed(&remote_name, ctx).unwrap_or_default() {
-            let head_commit = repo
+        if self.pushed(&remote_name, repository).unwrap_or_default() {
+            let head_commit = repository
                 .find_reference(&self.remote_reference(&remote_name)?)?
                 .peel_to_commit()?;
-            let target_commit = repo
+            let target_commit = repository
                 .find_reference(default_target.branch.to_string().as_str())?
                 .peel_to_commit()?;
-            let merge_base = repo.merge_base(head_commit.id(), target_commit.id())?;
-            repo.log(head_commit.id(), LogUntil::Commit(merge_base), false)?
+            let merge_base = repository.merge_base(head_commit.id(), target_commit.id())?;
+            repository
+                .log(head_commit.id(), LogUntil::Commit(merge_base), false)?
                 .into_iter()
                 .rev()
                 .for_each(|c| {
@@ -137,7 +154,7 @@ impl StackBranch {
         }
 
         // compute the commits that are only in the upstream
-        let local_patches_including_merge = repo
+        let local_patches_including_merge = repository
             .log(head_commit, LogUntil::Commit(merge_base), true)?
             .into_iter()
             .rev() // oldest commit first

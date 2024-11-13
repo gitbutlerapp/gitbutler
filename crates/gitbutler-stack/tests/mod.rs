@@ -7,6 +7,7 @@ use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
+use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{CommitOrChangeId, StackBranch, VirtualBranchesHandle};
 use gitbutler_stack::{PatchReferenceUpdate, TargetUpdate};
 use itertools::Itertools;
@@ -640,7 +641,7 @@ fn list_series_default_head() -> Result<()> {
     assert_eq!(branches[0].name, "a-branch-2");
     assert_eq!(
         branches[0]
-            .commits(&ctx, &test_ctx.stack)?
+            .commits(&ctx.to_stack_context()?, &test_ctx.stack)?
             .local_commits
             .iter()
             .map(|c| c.id())
@@ -670,9 +671,11 @@ fn list_series_two_heads_same_commit() -> Result<()> {
     // the number of series matches the number of heads
     assert_eq!(branches.len(), test_ctx.stack.heads.len());
 
+    let stack_context = ctx.to_stack_context()?;
+
     assert_eq!(
         branches[0]
-            .commits(&ctx, &test_ctx.stack)?
+            .commits(&stack_context, &test_ctx.stack)?
             .local_commits
             .iter()
             .map(|c| c.id())
@@ -682,7 +685,7 @@ fn list_series_two_heads_same_commit() -> Result<()> {
     assert_eq!(branches[0].name, "head_before");
     assert_eq!(
         branches[1]
-            .commits(&ctx, &test_ctx.stack)?
+            .commits(&stack_context, &test_ctx.stack)?
             .local_commits
             .iter()
             .map(|c| c.id())
@@ -705,6 +708,9 @@ fn list_series_two_heads_different_commit() -> Result<()> {
         pr_number: Default::default(),
         archived: Default::default(),
     };
+
+    let stack_context = ctx.to_stack_context()?;
+
     // add `head_before` before the initial head
     let result = test_ctx.stack.add_series(&ctx, head_before, None);
     assert!(result.is_ok());
@@ -714,7 +720,7 @@ fn list_series_two_heads_different_commit() -> Result<()> {
     let mut expected_patches = test_ctx.commits.iter().map(|c| c.id()).collect_vec();
     assert_eq!(
         branches[0]
-            .commits(&ctx, &test_ctx.stack)?
+            .commits(&stack_context, &test_ctx.stack)?
             .local_commits
             .iter()
             .map(|c| c.id())
@@ -725,7 +731,7 @@ fn list_series_two_heads_different_commit() -> Result<()> {
     assert_eq!(expected_patches.len(), 2);
     assert_eq!(
         branches[1]
-            .commits(&ctx, &test_ctx.stack)?
+            .commits(&stack_context, &test_ctx.stack)?
             .local_commits
             .iter()
             .map(|c| c.id())

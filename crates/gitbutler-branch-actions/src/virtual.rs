@@ -424,7 +424,7 @@ pub fn list_virtual_branches_cached(
                         .and_then(|data| remote_commit_data.get(&data).copied());
 
                     commit_to_vbranch_commit(
-                        ctx,
+                        repo,
                         &branch,
                         commit,
                         is_integrated,

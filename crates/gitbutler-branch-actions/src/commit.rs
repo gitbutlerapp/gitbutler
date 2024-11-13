@@ -2,7 +2,6 @@ use crate::author::Author;
 use anyhow::{anyhow, Result};
 use bstr::ByteSlice as _;
 use gitbutler_cherry_pick::ConflictedTreeKey;
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_repo::rebase::ConflictEntries;
 use gitbutler_serde::BStringForFrontend;
@@ -53,7 +52,7 @@ pub struct VirtualBranchCommit {
 }
 
 pub(crate) fn commit_to_vbranch_commit(
-    ctx: &CommandContext,
+    repository: &git2::Repository,
     stack: &Stack,
     commit: &git2::Commit,
     is_integrated: bool,
@@ -71,8 +70,6 @@ pub(crate) fn commit_to_vbranch_commit(
             c
         })
         .collect::<Vec<_>>();
-
-    let repository = ctx.repository();
 
     let conflicted_files = if commit.is_conflicted() {
         let conflict_files_string = commit.tree()?;
