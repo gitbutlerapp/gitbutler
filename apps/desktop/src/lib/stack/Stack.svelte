@@ -1,13 +1,11 @@
 <script lang="ts">
 	import SeriesList from './SeriesList.svelte';
+	import UncommittedChanges from './UncommittedChanges.svelte';
 	import StackHeader from './header/StackHeader.svelte';
-	import InfoMessage from '../shared/InfoMessage.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { Project } from '$lib/backend/projects';
 	import Dropzones from '$lib/branch/Dropzones.svelte';
-	import CommitDialog from '$lib/commit/CommitDialog.svelte';
-	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
@@ -44,8 +42,9 @@
 
 	let laneWidth: number | undefined = $state();
 
-	let commitDialog = $state<CommitDialog>();
 	let rsViewport = $state<HTMLElement>();
+	const branchHasFiles = $derived(branch.files !== undefined && branch.files.length > 0);
+	const branchHasNoCommits = $derived(branch.commits !== undefined && branch.commits.length === 0);
 
 	$effect(() => {
 		if ($commitBoxOpen && branch.files.length === 0) {
@@ -130,64 +129,34 @@
 						}}
 					/>
 					<div class="card-stacking">
-						{#if branch.files?.length > 0}
-							<div class="branch-card__files">
+						{#key branch}
+							{#if branchHasFiles}
+								<UncommittedChanges {commitBoxOpen} />
+							{:else if branchHasNoCommits}
 								<Dropzones type="file">
-									<BranchFiles
-										isUnapplied={false}
-										files={branch.files}
-										showCheckboxes={$commitBoxOpen}
-										allowMultiple
-										commitDialogExpanded={commitBoxOpen}
-										focusCommitDialog={() => commitDialog?.focus()}
-									/>
-									{#if branch.conflicted}
-										<div class="card-notifications">
-											<InfoMessage filled outlined={false} style="error">
-												<svelte:fragment slot="title">
-													{#if branch.files.some((f) => f.conflicted)}
-														This virtual branch conflicts with upstream changes. Please resolve all
-														conflicts and commit before you can continue.
-													{:else}
-														Please commit your resolved conflicts to continue.
-													{/if}
-												</svelte:fragment>
-											</InfoMessage>
-										</div>
-									{/if}
+									<div class="new-branch">
+										<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
+											{#snippet title()}
+												This is a new lane
+											{/snippet}
+											{#snippet caption()}
+												You can drag and drop files<br />or parts of files here.
+											{/snippet}
+										</EmptyStatePlaceholder>
+									</div>
 								</Dropzones>
-
-								<CommitDialog
-									bind:this={commitDialog}
-									projectId={project.id}
-									expanded={commitBoxOpen}
-									hasSectionsAfter={branch.commits.length > 0}
-								/>
-							</div>
-						{:else if branch.commits.length === 0}
-							<Dropzones type="file">
-								<div class="new-branch">
-									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
-										{#snippet title()}
-											This is a new lane
-										{/snippet}
-										{#snippet caption()}
-											You can drag and drop files<br />or parts of files here.
-										{/snippet}
-									</EmptyStatePlaceholder>
-								</div>
-							</Dropzones>
-						{:else}
-							<Dropzones type="file">
-								<div class="no-changes">
-									<EmptyStatePlaceholder image={noChangesSvg} width={180}>
-										{#snippet caption()}
-											No uncommitted<br />changes on this lane
-										{/snippet}
-									</EmptyStatePlaceholder>
-								</div>
-							</Dropzones>
-						{/if}
+							{:else}
+								<Dropzones type="file">
+									<div class="no-changes">
+										<EmptyStatePlaceholder image={noChangesSvg} width={180}>
+											{#snippet caption()}
+												No uncommitted<br />changes on this lane
+											{/snippet}
+										</EmptyStatePlaceholder>
+									</div>
+								</Dropzones>
+							{/if}
+						{/key}
 						<Spacer dotted />
 						<div class="lane-branches">
 							<SeriesList {branch} {lastPush} />
@@ -323,26 +292,12 @@
 		flex-direction: column;
 	}
 
-	.branch-card__files,
 	.no-changes,
 	.new-branch {
 		border-radius: 0 0 var(--radius-m) var(--radius-m) !important;
 		border: 1px solid var(--clr-border-2);
 		border-top-width: 0;
 		background: var(--clr-bg-1);
-	}
-
-	.branch-card__files {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		height: 100%;
-	}
-
-	.card-notifications {
-		display: flex;
-		flex-direction: column;
-		padding: 12px;
 	}
 
 	.new-branch,
