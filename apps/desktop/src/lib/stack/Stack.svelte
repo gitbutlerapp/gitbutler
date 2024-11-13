@@ -129,34 +129,32 @@
 						}}
 					/>
 					<div class="card-stacking">
-						{#key branch}
-							{#if branchHasFiles}
-								<UncommittedChanges {commitBoxOpen} />
-							{:else if branchHasNoCommits}
-								<Dropzones type="file">
-									<div class="new-branch">
-										<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
-											{#snippet title()}
-												This is a new lane
-											{/snippet}
-											{#snippet caption()}
-												You can drag and drop files<br />or parts of files here.
-											{/snippet}
-										</EmptyStatePlaceholder>
-									</div>
-								</Dropzones>
-							{:else}
-								<Dropzones type="file">
-									<div class="no-changes">
-										<EmptyStatePlaceholder image={noChangesSvg} width={180}>
-											{#snippet caption()}
-												No uncommitted<br />changes on this lane
-											{/snippet}
-										</EmptyStatePlaceholder>
-									</div>
-								</Dropzones>
-							{/if}
-						{/key}
+						{#if branchHasFiles}
+							<UncommittedChanges {commitBoxOpen} />
+						{:else if branchHasNoCommits}
+							<Dropzones type="file">
+								<div class="new-branch">
+									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
+										{#snippet title()}
+											This is a new lane
+										{/snippet}
+										{#snippet caption()}
+											You can drag and drop files<br />or parts of files here.
+										{/snippet}
+									</EmptyStatePlaceholder>
+								</div>
+							</Dropzones>
+						{:else}
+							<Dropzones type="file">
+								<div class="no-changes">
+									<EmptyStatePlaceholder image={noChangesSvg} width={180}>
+										{#snippet caption()}
+											No uncommitted<br />changes on this lane
+										{/snippet}
+									</EmptyStatePlaceholder>
+								</div>
+							</Dropzones>
+						{/if}
 						<Spacer dotted />
 						<div class="lane-branches">
 							<SeriesList {branch} {lastPush} />
