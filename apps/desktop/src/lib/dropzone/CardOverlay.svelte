@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { scale } from 'svelte/transition';
 
 	interface Props {
 		hovered: boolean;
@@ -24,7 +23,6 @@
 </script>
 
 <div
-	transition:scale={{ duration: 200, start: 0.9 }}
 	class="dropzone-target dropzone-wrapper"
 	class:activated
 	class:hovered

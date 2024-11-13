@@ -7,7 +7,7 @@
 		fillHeight?: boolean;
 		accepts: (data: any) => boolean;
 		ondrop: (data: any) => Promise<void> | void;
-		overlay: Snippet<[{ hovered: boolean; activated: boolean }]>;
+		overlay?: Snippet<[{ hovered: boolean; activated: boolean }]>;
 		children?: Snippet;
 	}
 
@@ -55,7 +55,9 @@
 	class:fill-height={fillHeight}
 	class="dropzone-container"
 >
-	{@render overlay({ hovered, activated })}
+	{#if overlay}
+		{@render overlay({ hovered, activated })}
+	{/if}
 
 	{#if children}
 		{@render children()}
