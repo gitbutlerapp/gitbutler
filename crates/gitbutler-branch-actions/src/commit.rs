@@ -1,9 +1,8 @@
-use crate::author::Author;
+use crate::{author::Author, dependencies::CommitDependencies};
 use anyhow::{anyhow, Result};
 use bstr::ByteSlice as _;
 use gitbutler_cherry_pick::ConflictedTreeKey;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_repo::rebase::ConflictEntries;
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Stack, StackId};
@@ -54,12 +53,12 @@ pub struct VirtualBranchCommit {
     // ---
     /// Commits depended on.
     #[serde(default, with = "gitbutler_serde::oid_vec")]
-    pub commit_dependencies: Vec<git2::Oid>,
+    pub dependencies: Vec<git2::Oid>,
     /// Commits that depend on this commit.
     #[serde(default, with = "gitbutler_serde::oid_vec")]
-    pub inverse_commit_dependencies: Vec<git2::Oid>,
+    pub reverse_dependencies: Vec<git2::Oid>,
     /// Hashes of uncommitted hunks files that depend on this commit.
-    pub commit_dependent_diffs: Vec<BStringForFrontend>,
+    pub dependent_diffs: Vec<String>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -71,7 +70,7 @@ pub(crate) fn commit_to_vbranch_commit(
     is_remote: bool,
     copied_from_remote_id: Option<git2::Oid>,
     remote_commit_id: Option<git2::Oid>,
-    workspace_dependencies: &HunkDependencyResult,
+    commit_dependencies: CommitDependencies,
 ) -> Result<VirtualBranchCommit> {
     let timestamp = u128::try_from(commit.time().seconds())?;
     let message = commit.message_bstr().to_owned();
@@ -99,34 +98,11 @@ pub(crate) fn commit_to_vbranch_commit(
         Default::default()
     };
 
-    let commit_dependencies = workspace_dependencies
-        .commit_dependencies
-        .get(&stack.id)
-        .unwrap_or(&Default::default())
-        .get(&commit.id())
-        .map(|v| v.iter().cloned().collect())
-        .unwrap_or_default();
-
-    let inverse_commit_dependencies = workspace_dependencies
-        .inverse_commit_dependencies
-        .get(&stack.id)
-        .unwrap_or(&Default::default())
-        .get(&commit.id())
-        .map(|v| v.iter().cloned().collect())
-        .unwrap_or_default();
-
-    let commit_dependent_diffs = workspace_dependencies
-        .commit_dependent_diffs
-        .get(&stack.id)
-        .unwrap_or(&Default::default())
-        .get(&commit.id())
-        .map(|v| {
-            v.iter()
-                .cloned()
-                .map(|hunk_hash| format!("{:x}", hunk_hash).as_str().into())
-                .collect()
-        })
-        .unwrap_or_default();
+    let CommitDependencies {
+        dependencies,
+        reverse_dependencies: inverse_dependencies,
+        dependent_diffs,
+    } = commit_dependencies;
 
     let commit = VirtualBranchCommit {
         id: commit.id(),
@@ -143,9 +119,9 @@ pub(crate) fn commit_to_vbranch_commit(
         copied_from_remote_id,
         remote_commit_id,
         conflicted_files,
-        commit_dependencies,
-        inverse_commit_dependencies,
-        commit_dependent_diffs,
+        dependencies,
+        reverse_dependencies: inverse_dependencies,
+        dependent_diffs,
     };
 
     Ok(commit)

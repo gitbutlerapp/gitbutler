@@ -239,15 +239,15 @@ export class DetailedCommit {
 	/**
 	 * The commit ids of the dependencies of this commit.
 	 */
-	commitDependencies!: string[];
+	dependencies!: string[];
 	/**
 	 * The ids of the commits that depend on this commit.
 	 */
-	inverseCommitDependencies!: string[];
+	reverseDependencies!: string[];
 	/**
 	 * The hunk hashes of uncommitted changes that depend on this commit.
 	 */
-	commitDependentDiffs!: string[];
+	dependentDiffs!: string[];
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';

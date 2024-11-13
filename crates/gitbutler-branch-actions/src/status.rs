@@ -95,6 +95,8 @@ pub fn get_applied_status_cached(
     let workspace_dependencies =
         compute_workspace_dependencies(ctx, &default_target.sha, &base_diffs, &virtual_branches)?;
 
+    let diff_dependencies = &workspace_dependencies.diffs;
+
     for branch in &mut virtual_branches {
         // This should never be invoked. But if it is, dont try to  make the branch name unique
         if let Err(e) = branch.initialize(ctx, true) {
@@ -117,7 +119,7 @@ pub fn get_applied_status_cached(
                         for (i, git_diff_hunk) in git_diff_hunks.iter().enumerate() {
                             if claimed_hunk.intersects(git_diff_hunk) {
                                 let hash = Hunk::hash_diff(&git_diff_hunk.diff_lines);
-                                if workspace_dependencies.diffs.contains_key(&hash) {
+                                if diff_dependencies.contains_key(&hash) {
                                     return None; // Defer allocation to unclaimed hunks processing
                                 }
                                 diffs_by_branch
@@ -169,7 +171,7 @@ pub fn get_applied_status_cached(
     for (filepath, hunks) in base_diffs {
         for hunk in hunks {
             let hash = Hunk::hash_diff(&hunk.diff_lines);
-            let locked_to = workspace_dependencies.diffs.get(&hash);
+            let locked_to = diff_dependencies.get(&hash);
 
             let vbranch_pos = if let Some(locks) = locked_to {
                 let p = virtual_branches
@@ -223,11 +225,8 @@ pub fn get_applied_status_cached(
     let hunks_by_branch: Vec<(Stack, HashMap<PathBuf, Vec<VirtualBranchHunk>>)> = hunks_by_branch
         .iter()
         .map(|(branch, hunks)| {
-            let hunks = file_hunks_from_diffs(
-                &ctx.project().path,
-                hunks.clone(),
-                Some(&workspace_dependencies.diffs),
-            );
+            let hunks =
+                file_hunks_from_diffs(&ctx.project().path, hunks.clone(), Some(diff_dependencies));
             (branch.clone(), hunks)
         })
         .collect();

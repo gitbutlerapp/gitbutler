@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use anyhow::{Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project::Project;
@@ -14,6 +13,7 @@ use gitbutler_stack::{CommitOrChangeId, PatchReferenceUpdate, StackBranch};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
+use crate::dependencies::{commit_dependencies_from_stack, StackDependencies};
 use crate::{
     actions::open_with_verify,
     commit::{commit_to_vbranch_commit, VirtualBranchCommit},
@@ -242,7 +242,7 @@ pub(crate) fn stack_series(
     check_commit: &mut IsCommitIntegrated,
     remote_commit_data: HashMap<CommitData, git2::Oid>,
     commits: &[VirtualBranchCommit],
-    workspace_dependencies: &HunkDependencyResult,
+    stack_dependencies: StackDependencies,
 ) -> Result<(Vec<PatchSeries>, bool)> {
     let stack_context: StackContext = ctx.to_stack_context()?;
     let mut requires_force = false;
@@ -285,6 +285,10 @@ pub(crate) fn stack_series(
             if remote_commit_id.map_or(false, |id| commit.id() != id) {
                 requires_force = true;
             }
+
+            let commit_dependencies =
+                commit_dependencies_from_stack(&stack_dependencies, commit.id());
+
             let vcommit = commit_to_vbranch_commit(
                 repository,
                 stack,
@@ -293,7 +297,7 @@ pub(crate) fn stack_series(
                 branch_commits.remote(commit),
                 copied_from_remote_id,
                 remote_commit_id,
-                workspace_dependencies,
+                commit_dependencies,
             )?;
             patches.push(vcommit);
         }
@@ -303,6 +307,9 @@ pub(crate) fn stack_series(
         let mut upstream_patches = vec![];
         for commit in branch_commits.upstream_only_commits {
             let is_integrated = check_commit.is_integrated(&commit)?;
+            let commit_dependencies =
+                commit_dependencies_from_stack(&stack_dependencies, commit.id());
+
             let vcommit = commit_to_vbranch_commit(
                 repository,
                 stack,
@@ -311,7 +318,7 @@ pub(crate) fn stack_series(
                 true, // per definition
                 None, // per definition
                 Some(commit.id()),
-                workspace_dependencies,
+                commit_dependencies,
             )?;
             upstream_patches.push(vcommit);
         }
