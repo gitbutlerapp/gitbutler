@@ -424,7 +424,7 @@ mod test {
         fn modified_local_commit_unconflicting_content() {
             let test_repository = TestingRepository::open();
 
-            let base_commit = dbg!(test_repository.commit_tree(None, &[]));
+            let base_commit = test_repository.commit_tree(None, &[]);
             let local_a = test_repository.commit_tree_with_message(
                 Some(&base_commit),
                 "A",
@@ -540,7 +540,7 @@ mod test {
         fn modified_local_commit_conflicting_content() {
             let test_repository = TestingRepository::open();
 
-            let base_commit = dbg!(test_repository.commit_tree(None, &[]));
+            let base_commit = test_repository.commit_tree(None, &[]);
             let local_a = test_repository.commit_tree_with_message(
                 Some(&base_commit),
                 "A",
@@ -681,7 +681,7 @@ mod test {
         fn modified_local_commit_unconflicting_no_op() {
             let test_repository = TestingRepository::open();
 
-            let base_commit = dbg!(test_repository.commit_tree(None, &[]));
+            let base_commit = test_repository.commit_tree(None, &[]);
             let local_a = test_repository.commit_tree_with_message(
                 Some(&base_commit),
                 "A",
@@ -816,7 +816,7 @@ mod test {
         fn modified_local_commit() {
             let test_repository = TestingRepository::open();
 
-            let base_commit = dbg!(test_repository.commit_tree(None, &[]));
+            let base_commit = test_repository.commit_tree(None, &[]);
             let local_a = test_repository.commit_tree(Some(&base_commit), &[]);
             let local_b = test_repository.commit_tree(Some(&local_a), &[]);
 

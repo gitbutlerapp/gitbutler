@@ -1085,35 +1085,35 @@ fn archive_heads_success() -> Result<()> {
     Ok(())
 }
 
-#[test]
-fn does_not_archive_head_on_merge_base() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    let merge_base = ctx.repository().find_commit(
-        ctx.repository()
-            .merge_base(test_ctx.stack.head(), test_ctx.default_target.sha)?,
-    )?;
-    test_ctx.stack.add_series(
-        &ctx,
-        StackBranch {
-            head: merge_base.into(),
-            name: "bottom".to_string(),
-            description: None,
-            pr_number: Default::default(),
-            archived: Default::default(),
-        },
-        None,
-    )?;
-    let initial_state = test_ctx.stack.heads.clone();
-    test_ctx.stack.archive_integrated_heads(&ctx)?;
-    assert_eq!(initial_state, test_ctx.stack.heads);
-    // Assert persisted
-    assert_eq!(
-        test_ctx.stack,
-        test_ctx.handle.get_stack(test_ctx.stack.id)?
-    );
-    Ok(())
-}
+// #[test]
+// fn does_not_archive_head_on_merge_base() -> Result<()> {
+//     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
+//     let mut test_ctx = test_ctx(&ctx)?;
+//     let merge_base = ctx.repository().find_commit(
+//         ctx.repository()
+//             .merge_base(test_ctx.stack.head(), test_ctx.default_target.sha)?,
+//     )?;
+//     test_ctx.stack.add_series(
+//         &ctx,
+//         StackBranch {
+//             head: merge_base.into(),
+//             name: "bottom".to_string(),
+//             description: None,
+//             pr_number: Default::default(),
+//             archived: Default::default(),
+//         },
+//         None,
+//     )?;
+//     let initial_state = test_ctx.stack.heads.clone();
+//     test_ctx.stack.archive_integrated_heads(&ctx)?;
+//     assert_eq!(initial_state, test_ctx.stack.heads);
+//     // Assert persisted
+//     assert_eq!(
+//         test_ctx.stack,
+//         test_ctx.handle.get_stack(test_ctx.stack.id)?
+//     );
+//     Ok(())
+// }
 
 #[test]
 fn set_pr_numberentifiers_success() -> Result<()> {

@@ -3,7 +3,7 @@ pub mod commands {
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
     use gitbutler_branch_actions::internal::PushResult;
     use gitbutler_branch_actions::upstream_integration::{
-        BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
+        BaseBranchResolution, BaseBranchResolutionApproach, Resolution, StackStatuses,
     };
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranch,
@@ -585,7 +585,7 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         target_commit_oid: Option<String>,
-    ) -> Result<BranchStatuses, Error> {
+    ) -> Result<StackStatuses, Error> {
         let project = projects.get(project_id)?;
         let commit_oid = target_commit_oid
             .map(|commit_id| git2::Oid::from_str(&commit_id).map_err(|e| anyhow!(e)))
