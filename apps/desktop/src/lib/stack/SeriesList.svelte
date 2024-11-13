@@ -14,12 +14,14 @@
 	import { PatchSeries, type VirtualBranch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
+	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		branch: VirtualBranch;
+		lastPush: Writable<Date | undefined>;
 	}
 
-	const { branch }: Props = $props();
+	const { branch, lastPush }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const hasConflicts = $derived(
@@ -57,7 +59,7 @@
 		<SeriesDividerLine {currentSeries} />
 	{/if}
 	<CurrentSeries {currentSeries}>
-		<SeriesHeader {currentSeries} {isTopSeries} />
+		<SeriesHeader {currentSeries} {isTopSeries} {lastPush} />
 
 		{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
 			<div class="branch-emptystate">

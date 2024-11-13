@@ -31,13 +31,15 @@
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { tick } from 'svelte';
+	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		currentSeries: PatchSeries;
 		isTopSeries: boolean;
+		lastPush: Writable<Date | undefined>;
 	}
 
-	const { currentSeries, isTopSeries }: Props = $props();
+	const { currentSeries, isTopSeries, lastPush }: Props = $props();
 
 	let descriptionVisible = $state(!!currentSeries.description);
 
@@ -84,9 +86,20 @@
 
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 	const pr = $derived(prMonitor?.pr);
-	const checksMonitor = $derived(
-		$pr?.sourceBranch ? $forge?.checksMonitor($pr.sourceBranch) : undefined
-	);
+	const sourceBranch = $derived($pr?.sourceBranch); // Deduplication.
+	const checksMonitor = $derived(sourceBranch ? $forge?.checksMonitor(sourceBranch) : undefined);
+
+	// Trigger refresh of pull request status and checks when branch(es) are pushed.
+	$effect(() => {
+		if ($lastPush) {
+			updateStatusAndChecks();
+		}
+	});
+
+	function updateStatusAndChecks() {
+		prMonitor?.refresh();
+		checksMonitor?.update();
+	}
 
 	const projectService = getContext(ProjectService);
 	const cloudEnabled = projectService.cloudEnabled;
