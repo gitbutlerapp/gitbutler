@@ -18,12 +18,10 @@
 	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
-	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { isWhiteSpaceString } from '@gitbutler/ui/utils/string';
 	import { createEventDispatcher, onMount, tick } from 'svelte';
-	import { fly } from 'svelte/transition';
 
 	interface Props {
 		isExpanded: boolean;
@@ -206,7 +204,7 @@
 			placeholder="Commit summary"
 			disabled={aiLoading}
 			fontSize={13}
-			padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
+			padding={{ top: 12, right: 28, bottom: 0, left: 12 }}
 			fontWeight="semibold"
 			spellcheck="false"
 			flex="1"
@@ -241,24 +239,15 @@
 			/>
 		{/if}
 
-		{#if title.length > 0}
+		{#if title.length > 1}
 			<Tooltip
 				text={title.length > maxTitleLength
 					? `Summary is too long,\n${maxTitleLength} characters or less is best.\nUse description for more details`
 					: `Summary chars`}
 			>
-				<div
-					class="commit-box__textarea-char-counter"
-					class:textarea-char-counter_exsceeded={title.length > maxTitleLength}
-				>
-					{#if title.length > maxTitleLength}
-						<Icon name="idea-small" />
-					{/if}
-
-					<span class=" text-11 text-semibold text-body commit-box__textarea-char-counter-label">
-						{title.length}
-					</span>
-				</div>
+				<span class="text-11 text-semibold text-body commit-box__textarea-char-counter-label">
+					{title.length}
+				</span>
 			</Tooltip>
 		{/if}
 
@@ -334,11 +323,19 @@
 		}
 	}
 
-	.commit-box__textarea-char-counter {
+	.commit-box__textarea-char-counter-label {
+		position: absolute;
+		top: 2px;
+		right: 4px;
+		color: var(--clr-text-3);
+		padding: 4px;
+	}
+
+	/* .commit-box__textarea-char-counter {
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		/* gap: 2px; */
+		
 		position: absolute;
 		bottom: 12px;
 		left: 12px;
@@ -347,20 +344,20 @@
 		min-width: 20px;
 		color: var(--clr-text-2);
 		border-radius: var(--radius-m);
-		/* font-size: 12px; */
+		
 
 		background: var(--clr-theme-ntrl-soft);
 	}
 
 	.textarea-char-counter_exsceeded {
-		/* background: var(--clr-theme-ntrl-soft); */
+		
 		padding: 4px 7px 4px 4px;
 
 		& .commit-box__textarea-char-counter-label {
 			margin-left: 4px;
-			/* font-size: 11px; */
+			
 		}
-	}
+	} */
 
 	.commit-box__texarea-actions {
 		position: absolute;
