@@ -9,6 +9,10 @@ pub struct StackContext<'repositroy> {
 }
 
 impl<'repository> StackContext<'repository> {
+    pub fn new(repository: &'repository git2::Repository, target: Target) -> Self {
+        Self { repository, target }
+    }
+
     pub fn repository(&self) -> &'repository git2::Repository {
         self.repository
     }
@@ -27,9 +31,6 @@ impl CommandContextExt for CommandContext {
         let virtual_branch_state = VirtualBranchesHandle::new(self.project().gb_dir());
         let default_target = virtual_branch_state.get_default_target()?;
 
-        Ok(StackContext {
-            repository: self.repository(),
-            target: default_target,
-        })
+        Ok(StackContext::new(self.repository(), default_target))
     }
 }

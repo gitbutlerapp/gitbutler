@@ -91,7 +91,7 @@ pub struct UpstreamIntegrationContext<'a> {
     repository: &'a git2::Repository,
     virtual_branches_in_workspace: Vec<Stack>,
     new_target: git2::Commit<'a>,
-    old_target: git2::Commit<'a>,
+    target: &'a Target,
     target_branch_name: String,
 }
 
@@ -113,14 +113,13 @@ impl<'a> UpstreamIntegrationContext<'a> {
             |oid| repository.find_commit(oid),
         )?;
 
-        let old_target = repository.find_commit(target.sha)?;
         let stacks_in_workspace = virtual_branches_handle.list_stacks_in_workspace()?;
 
         Ok(Self {
             _permission: Some(permission),
             repository,
             new_target,
-            old_target,
+            target: &target,
             virtual_branches_in_workspace: stacks_in_workspace,
             target_branch_name: target.branch.branch().to_string(),
         })
