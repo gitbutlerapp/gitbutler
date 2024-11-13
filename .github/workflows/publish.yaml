@@ -207,15 +207,15 @@ jobs:
       - name: Find new deb artifact
         if: runner.os == 'Linux'
         run: |
-          DEB_PATH=$(find target/release -iname "*.deb")
-          DEB_SHA=$(sha256sum $DEB_PATH)
+          DEB_PATH="$(find target/release -iname "*.deb")"
+          DEB_SHA="$(sha256sum "$DEB_PATH")"
           echo "deb_path=$DEB_PATH" >> $GITHUB_ENV
           echo "deb_sha=$DEB_SHA" >> $GITHUB_ENV
       - name: Update Manifest File and SHA
         if: runner.os == 'Linux'
         run: |
-          sed -i "s|url: https://releases.gitbutler.com.*|url: file://${{ env.deb_path }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
-          sed -i "s|sha256:.*|sha256: ${{ env.deb_sha }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
+          sed -i "s|path: ../../../target.*|path: ../../../${{ env.deb_path }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
+          sed -i "s|sha256: 5f3.*|sha256: ${{ env.deb_sha }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
 
       - name: Build Flatpak
         if: runner.os == 'Linux'
