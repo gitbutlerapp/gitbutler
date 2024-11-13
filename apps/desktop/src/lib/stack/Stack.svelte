@@ -24,7 +24,7 @@
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
-	import type { Writable } from 'svelte/store';
+	import { writable, type Writable } from 'svelte/store';
 
 	const {
 		isLaneCollapsed,
@@ -40,6 +40,7 @@
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
+	const lastPush = writable<Date | undefined>();
 
 	let laneWidth: number | undefined = $state();
 
@@ -94,7 +95,7 @@
 		try {
 			await branchController.pushBranch(branch.id, branch.requiresForce);
 			$listingService?.refresh();
-			// TODO: Refresh prMonitor and checksMonitor upon push
+			lastPush.set(new Date());
 		} finally {
 			isPushingCommits = false;
 		}
@@ -189,7 +190,7 @@
 						{/if}
 						<Spacer dotted />
 						<div class="lane-branches">
-							<SeriesList {branch} />
+							<SeriesList {branch} {lastPush} />
 						</div>
 					</div>
 				</div>

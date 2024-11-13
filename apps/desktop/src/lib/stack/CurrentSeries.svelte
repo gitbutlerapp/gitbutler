@@ -1,10 +1,5 @@
 <script lang="ts">
 	import { getColorFromBranchType } from '$lib/branch/stackingUtils';
-	import { getForge } from '$lib/forge/interface/forge';
-	import { createForgeChecksMonitorStore } from '$lib/forge/interface/forgeChecksMonitor';
-	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { createForgePrMonitorStore } from '$lib/forge/interface/forgePrMonitor';
-	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import type { PatchSeries } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
@@ -14,31 +9,6 @@
 	}
 
 	const { currentSeries, children }: Props = $props();
-
-	// Setup PR Store and Monitor on a per-series basis
-	const forge = getForge();
-	const prService = getForgePrService();
-
-	// Pretty cumbersome way of getting the PR number, would be great if we can
-	// make it more concise somehow.
-	const hostedListingServiceStore = getForgeListingService();
-	const prStore = $derived($hostedListingServiceStore?.prs);
-	const prs = $derived(prStore ? $prStore : undefined);
-
-	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === currentSeries.name));
-	const prNumber = $derived(listedPr?.number);
-
-	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
-	const pr = $derived(prMonitor?.pr);
-
-	const forgePrMonitorStore = createForgePrMonitorStore(undefined);
-	$effect(() => forgePrMonitorStore.set(prMonitor));
-
-	const checksMonitor = $derived(
-		$pr?.sourceBranch ? $forge?.checksMonitor($pr.sourceBranch) : undefined
-	);
-	const forgeChecksMonitorStore = createForgeChecksMonitorStore(undefined);
-	$effect(() => forgeChecksMonitorStore.set(checksMonitor));
 
 	const seriesType = currentSeries.patches[0] ? currentSeries.patches[0].status : 'local';
 </script>
