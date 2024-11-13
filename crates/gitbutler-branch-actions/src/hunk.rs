@@ -10,7 +10,7 @@ use gitbutler_hunk_dependency::locks::HunkLock;
 use gitbutler_serde::BStringForFrontend;
 use itertools::Itertools;
 use md5::Digest;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 // this struct is a mapping to the view `Hunk` type in Typescript
 // found in src-tauri/src/routes/repo/[project_id]/types.ts
@@ -153,3 +153,13 @@ impl MTimeCache {
         mtime
     }
 }
+
+#[derive(Debug, PartialEq, Clone, Serialize, Deserialize)]
+pub struct VirtualBranchHunkRange {
+    /// The old line number, if any.
+    pub old: Option<u32>,
+    /// The new line number, if any.
+    pub new: Option<u32>,
+}
+
+pub type VirtualBranchHunkRangeMap = HashMap<String, Vec<VirtualBranchHunkRange>>;

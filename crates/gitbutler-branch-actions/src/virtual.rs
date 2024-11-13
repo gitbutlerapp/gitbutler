@@ -7,7 +7,7 @@ use crate::{
     remote::{branch_to_remote_branch, RemoteBranch},
     stack::stack_series,
     status::{get_applied_status, get_applied_status_cached},
-    Get, VirtualBranchesExt,
+    Get, VirtualBranchHunkRange, VirtualBranchHunkRangeMap, VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
@@ -117,9 +117,16 @@ pub struct PushResult {
     pub refname: Refname,
 }
 
+struct HunkToUnapply<'a> {
+    file_path: PathBuf,
+    hunk: GitHunk,
+    hunk_lines: Option<&'a Vec<VirtualBranchHunkRange>>,
+}
+
 pub fn unapply_ownership(
     ctx: &CommandContext,
     ownership: &BranchOwnershipClaims,
+    lines: Option<VirtualBranchHunkRangeMap>,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     ctx.assure_resolved()?;
@@ -134,29 +141,32 @@ pub fn unapply_ownership(
 
     let hunks_to_unapply = applied_statuses
         .iter()
-        .map(
-            |(_branch, branch_files)| -> Result<Vec<(PathBuf, gitbutler_diff::GitHunk)>> {
-                let mut hunks_to_unapply: Vec<(PathBuf, GitHunk)> = Vec::new();
-                for file in branch_files {
-                    let ownership_hunks: Vec<&Hunk> = ownership
-                        .claims
-                        .iter()
-                        .filter(|o| o.file_path == file.path)
-                        .flat_map(|f| &f.hunks)
-                        .collect();
-                    for hunk in &file.hunks {
-                        let hunk: GitHunk = hunk.clone().into();
-                        if ownership_hunks.contains(&&Hunk::from(&hunk)) {
-                            hunks_to_unapply.push((file.path.clone(), hunk));
-                        }
+        .map(|(_branch, branch_files)| -> Result<Vec<HunkToUnapply>> {
+            let mut hunks_to_unapply: Vec<HunkToUnapply> = Vec::new();
+            for file in branch_files {
+                let ownership_hunks: Vec<&Hunk> = ownership
+                    .claims
+                    .iter()
+                    .filter(|o| o.file_path == file.path)
+                    .flat_map(|f| &f.hunks)
+                    .collect();
+                for hunk in &file.hunks {
+                    let hunk_lines = lines.as_ref().and_then(|lines| lines.get(&hunk.id));
+                    let hunk: GitHunk = hunk.clone().into();
+                    if ownership_hunks.contains(&&Hunk::from(&hunk)) {
+                        hunks_to_unapply.push(HunkToUnapply {
+                            file_path: file.path.clone(),
+                            hunk,
+                            hunk_lines,
+                        });
                     }
                 }
+            }
 
-                hunks_to_unapply.sort_by(|a, b| a.1.old_start.cmp(&b.1.old_start));
+            hunks_to_unapply.sort_by(|a, b| a.hunk.old_start.cmp(&b.hunk.old_start));
 
-                Ok(hunks_to_unapply)
-            },
-        )
+            Ok(hunks_to_unapply)
+        })
         .collect::<Result<Vec<_>>>()?
         .into_iter()
         .flatten()
@@ -164,8 +174,20 @@ pub fn unapply_ownership(
 
     let mut diff = HashMap::new();
     for h in hunks_to_unapply {
-        if let Some(reversed_hunk) = gitbutler_diff::reverse_hunk(&h.1) {
-            diff.entry(h.0).or_insert_with(Vec::new).push(reversed_hunk);
+        let reversed_hunk = if let Some(hunk_lines) = h.hunk_lines {
+            let hunk_lines = hunk_lines
+                .iter()
+                .map(|l| (l.old, l.new))
+                .collect::<Vec<(Option<u32>, Option<u32>)>>();
+            gitbutler_diff::reverse_hunk_lines(&h.hunk, hunk_lines)
+        } else {
+            gitbutler_diff::reverse_hunk(&h.hunk)
+        };
+
+        if let Some(reversed_hunk) = reversed_hunk {
+            diff.entry(h.file_path)
+                .or_insert_with(Vec::new)
+                .push(reversed_hunk);
         } else {
             bail!("failed to reverse hunk")
         }
@@ -247,7 +269,7 @@ pub(crate) fn reset_files(
         .filter(|claim| files.contains(&claim.file_path))
         .collect();
 
-    unapply_ownership(ctx, &BranchOwnershipClaims { claims }, perm)?;
+    unapply_ownership(ctx, &BranchOwnershipClaims { claims }, None, perm)?;
     Ok(())
 }
 fn find_base_tree<'a>(

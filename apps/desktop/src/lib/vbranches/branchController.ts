@@ -330,6 +330,18 @@ export class BranchController {
 		}
 	}
 
+	async unapplyLines(hunk: Hunk, linesToUnapply: { old?: number; new?: number }[]) {
+		const ownership = `${hunk.filePath}:${hunk.id}-${hunk.hash}`;
+		const lines = {
+			[hunk.id]: linesToUnapply
+		};
+		try {
+			await invoke<void>('unapply_lines', { projectId: this.projectId, ownership, lines });
+		} catch (err) {
+			showError('Failed to unapply lines', err);
+		}
+	}
+
 	async unapplyHunk(hunk: Hunk) {
 		const ownership = `${hunk.filePath}:${hunk.id}-${hunk.hash}`;
 		try {

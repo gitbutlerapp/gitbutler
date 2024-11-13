@@ -1,3 +1,12 @@
+<script lang="ts" module>
+	export interface HunkContextItem {
+		hunk: Hunk;
+		beforeLineNumber: number | undefined;
+		afterLineNumber: number | undefined;
+		section: ContentSection;
+	}
+</script>
+
 <script lang="ts">
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
@@ -7,6 +16,8 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
+	import type { ContentSection } from '$lib/utils/fileSections';
+	import type { Hunk } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
@@ -23,7 +34,20 @@
 
 	let contextMenu: ReturnType<typeof ContextMenu> | undefined;
 
-	export function open(e: MouseEvent, item: any) {
+	function getDiscardLineLabel(
+		beforeLineNumber: number | undefined,
+		afterLineNumber: number | undefined
+	) {
+		if (beforeLineNumber !== undefined && afterLineNumber !== undefined)
+			return `Discard line ${beforeLineNumber} -> ${afterLineNumber}`;
+		if (beforeLineNumber !== undefined) return `Discard old line ${beforeLineNumber}`;
+
+		if (afterLineNumber !== undefined) return `Discard new line ${afterLineNumber}`;
+
+		return 'Discard line';
+	}
+
+	export function open(e: MouseEvent, item: HunkContextItem) {
 		contextMenu?.open(e, item);
 	}
 
@@ -37,14 +61,25 @@
 		<ContextMenuSection>
 			{#if item.hunk !== undefined && !readonly}
 				<ContextMenuItem
-					label="Discard"
+					label="Discard hunk"
 					onclick={() => {
 						branchController.unapplyHunk(item.hunk);
 						contextMenu?.close();
 					}}
 				/>
 			{/if}
-			{#if item.lineNumber}
+			{#if item.hunk !== undefined && (item.beforeLineNumber !== undefined || item.afterLineNumber !== undefined) && !readonly}
+				<ContextMenuItem
+					label={getDiscardLineLabel(item.beforeLineNumber, item.afterLineNumber)}
+					onclick={() => {
+						branchController.unapplyLines(item.hunk, [
+							{ old: item.beforeLineNumber, new: item.afterLineNumber }
+						]);
+						contextMenu?.close();
+					}}
+				/>
+			{/if}
+			{#if item.beforeLineNumber !== undefined || item.afterLineNumber !== undefined}
 				<ContextMenuItem
 					label="Open in {$userSettings.defaultCodeEditor.displayName}"
 					onclick={() => {
@@ -52,7 +87,7 @@
 							const path = getEditorUri({
 								schemeId: $userSettings.defaultCodeEditor.schemeIdentifer,
 								path: [projectPath, filePath],
-								line: item.lineNumber
+								line: item.beforeLineNumber ?? item.afterLineNumber
 							});
 							openExternalUrl(path);
 						}

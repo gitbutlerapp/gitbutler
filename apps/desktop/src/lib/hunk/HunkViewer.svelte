@@ -106,11 +106,12 @@
 				}}
 				subsections={section.subSections}
 				handleSelected={(hunk, isSelected) => onHunkSelected(hunk, isSelected)}
-				handleLineContextMenu={({ event, lineNumber, hunk, subsection }) => {
+				handleLineContextMenu={({ event, beforeLineNumber, afterLineNumber, hunk, subsection }) => {
 					contextMenu?.open(event, {
 						hunk,
 						section: subsection,
-						lineNumber: lineNumber
+						beforeLineNumber,
+						afterLineNumber
 					});
 				}}
 			/>

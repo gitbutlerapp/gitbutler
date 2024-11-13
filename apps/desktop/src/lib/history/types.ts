@@ -16,6 +16,7 @@ export type Operation =
 	| 'GenericBranchUpdate'
 	| 'DeleteBranch'
 	| 'ApplyBranch'
+	| 'DiscardLines'
 	| 'DiscardHunk'
 	| 'DiscardFile'
 	| 'AmendCommit'

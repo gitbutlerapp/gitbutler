@@ -7,7 +7,8 @@ pub mod commands {
     };
     use gitbutler_branch_actions::{
         BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranch,
-        RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranches,
+        RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranchHunkRangeMap,
+        VirtualBranches,
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
@@ -244,6 +245,21 @@ pub mod commands {
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
         gitbutler_branch_actions::unapply_ownership(&project, &ownership)?;
+        emit_vbranches(&windows, project_id);
+        Ok(())
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects, windows), err(Debug))]
+    pub fn unapply_lines(
+        windows: State<'_, WindowState>,
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        ownership: BranchOwnershipClaims,
+        lines: VirtualBranchHunkRangeMap,
+    ) -> Result<(), Error> {
+        let project = projects.get(project_id)?;
+        gitbutler_branch_actions::unapply_lines(&project, &ownership, lines)?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }

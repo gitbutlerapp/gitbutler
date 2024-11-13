@@ -173,6 +173,7 @@ fn main() {
                     virtual_branches::commands::update_branch_order,
                     virtual_branches::commands::unapply_without_saving_virtual_branch,
                     virtual_branches::commands::save_and_unapply_virtual_branch,
+                    virtual_branches::commands::unapply_lines,
                     virtual_branches::commands::unapply_ownership,
                     virtual_branches::commands::reset_files,
                     virtual_branches::commands::push_virtual_branch,

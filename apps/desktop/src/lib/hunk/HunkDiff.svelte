@@ -17,6 +17,14 @@
 	import diff_match_patch from 'diff-match-patch';
 	import type { Writable } from 'svelte/store';
 
+	interface ContextMenuParams {
+		event: MouseEvent;
+		beforeLineNumber: number | undefined;
+		afterLineNumber: number | undefined;
+		hunk: Hunk;
+		subsection: ContentSection;
+	}
+
 	interface Props {
 		hunk: Hunk;
 		readonly: boolean;
@@ -32,17 +40,7 @@
 		draggingDisabled: boolean;
 		onclick: () => void;
 		handleSelected: (hunk: Hunk, isSelected: boolean) => void;
-		handleLineContextMenu: ({
-			event,
-			lineNumber,
-			hunk,
-			subsection
-		}: {
-			event: MouseEvent;
-			lineNumber: number;
-			hunk: Hunk;
-			subsection: ContentSection;
-		}) => void;
+		handleLineContextMenu: (params: ContextMenuParams) => void;
 	}
 
 	const {
@@ -420,13 +418,11 @@
 							class:diff-line-addition={row.type === SectionType.AddedLines}
 							class:is-last={row.isLast}
 							oncontextmenu={(event) => {
-								const lineNumber = (
-									row.beforeLineNumber ? row.beforeLineNumber : row.afterLineNumber
-								) as number;
 								handleLineContextMenu({
 									event,
 									hunk,
-									lineNumber,
+									beforeLineNumber: row.beforeLineNumber,
+									afterLineNumber: row.afterLineNumber,
 									subsection: subsections[0] as ContentSection
 								});
 							}}

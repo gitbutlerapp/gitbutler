@@ -1050,6 +1050,7 @@ fn unapply_ownership_partial() -> Result<()> {
     internal::unapply_ownership(
         ctx,
         &"test.txt:2-6".parse().unwrap(),
+        None,
         guard.write_permission(),
     )
     .unwrap();

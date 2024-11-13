@@ -132,6 +132,8 @@
 					text: `Move hunk to "${entry.details?.trailers.find((t) => t.key === 'name')?.value}"`,
 					icon: 'item-move'
 				};
+			case 'DiscardLines':
+				return { text: 'Discard lines', icon: 'item-cross' };
 			case 'DiscardHunk':
 				return { text: 'Discard hunk', icon: 'item-cross' };
 			case 'DiscardFile':
