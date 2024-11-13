@@ -8,6 +8,7 @@ use gitbutler_oplog::{OplogExt, SnapshotExt};
 use gitbutler_project::Project;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_repo_actions::RepoActionsExt;
+use gitbutler_stack::stack_context::{CommandContextExt, StackContext};
 use gitbutler_stack::{CommitOrChangeId, PatchReferenceUpdate, StackBranch};
 use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
@@ -199,7 +200,7 @@ pub fn push_stack(project: &Project, stack_id: StackId, with_force: bool) -> Res
             // Nothing to push for this one
             continue;
         }
-        if branch_integrated(&mut check_commit, &branch, ctx, &stack)? {
+        if branch_integrated(&mut check_commit, &branch, &ctx.to_stack_context()?, &stack)? {
             // Already integrated, nothing to push
             continue;
         }
@@ -218,13 +219,15 @@ pub fn push_stack(project: &Project, stack_id: StackId, with_force: bool) -> Res
 fn branch_integrated(
     check_commit: &mut IsCommitIntegrated,
     branch: &StackBranch,
-    ctx: &CommandContext,
+    stack_context: &StackContext,
     stack: &Stack,
 ) -> Result<bool> {
     if branch.archived {
         return Ok(true);
     }
-    let branch_head = ctx.repository().find_commit(branch.head_oid(ctx, stack)?)?;
+    let branch_head = stack_context
+        .repository()
+        .find_commit(branch.head_oid(stack_context, stack)?)?;
     check_commit.is_integrated(&branch_head)
 }
 
@@ -239,12 +242,14 @@ pub(crate) fn stack_series(
     remote_commit_data: HashMap<CommitData, git2::Oid>,
     commits: &[VirtualBranchCommit],
 ) -> Result<(Vec<PatchSeries>, bool)> {
+    let stack_context: StackContext = ctx.to_stack_context()?;
     let mut requires_force = false;
     let mut api_series: Vec<PatchSeries> = vec![];
+    let repository = stack_context.repository();
     for stack_branch in stack.branches() {
-        let branch_commits = stack_branch.commits(ctx, stack)?;
+        let branch_commits = stack_branch.commits(&stack_context, stack)?;
         let remote = default_target.push_remote_name();
-        let upstream_reference = if stack_branch.pushed(remote.as_str(), ctx)? {
+        let upstream_reference = if stack_branch.pushed(remote.as_str(), repository)? {
             stack_branch.remote_reference(remote.as_str()).ok()
         } else {
             None
@@ -279,7 +284,7 @@ pub(crate) fn stack_series(
                 requires_force = true;
             }
             let vcommit = commit_to_vbranch_commit(
-                ctx,
+                repository,
                 stack,
                 commit,
                 is_integrated,
@@ -296,7 +301,7 @@ pub(crate) fn stack_series(
         for commit in branch_commits.upstream_only_commits {
             let is_integrated = check_commit.is_integrated(&commit)?;
             let vcommit = commit_to_vbranch_commit(
-                ctx,
+                repository,
                 stack,
                 &commit,
                 is_integrated,
