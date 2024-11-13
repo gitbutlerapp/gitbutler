@@ -53,41 +53,43 @@
 	}
 </script>
 
-{#each nonArchivedSeries as currentSeries, idx}
-	{@const isTopSeries = idx === 0}
-	{#if !isTopSeries}
-		<SeriesDividerLine {currentSeries} />
-	{/if}
-	<CurrentSeries {currentSeries}>
-		<SeriesHeader {currentSeries} {isTopSeries} {lastPush} />
+{#key nonArchivedSeries}
+	{#each nonArchivedSeries as currentSeries, idx (currentSeries.name)}
+		{@const isTopSeries = idx === 0}
+		{#if !isTopSeries}
+			<SeriesDividerLine {currentSeries} />
+		{/if}
+		<CurrentSeries {currentSeries}>
+			<SeriesHeader {currentSeries} {isTopSeries} {lastPush} />
 
-		{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
-			<div class="branch-emptystate">
-				<Dropzone {accepts} ondrop={(data) => onDrop(data, nonArchivedSeries, currentSeries)}>
-					{#snippet overlay({ hovered, activated })}
-						<CardOverlay {hovered} {activated} label="Move here" />
-					{/snippet}
-					<EmptyStatePlaceholder bottomMargin={8} topBottomPadding={28}>
-						{#snippet caption()}
-							This is an empty branch.
-							<br />
-							Create or drag & drop commits here
+			{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
+				<div class="branch-emptystate">
+					<Dropzone {accepts} ondrop={(data) => onDrop(data, nonArchivedSeries, currentSeries)}>
+						{#snippet overlay({ hovered, activated })}
+							<CardOverlay {hovered} {activated} label="Move here" />
 						{/snippet}
-					</EmptyStatePlaceholder>
-				</Dropzone>
-			</div>
-		{/if}
+						<EmptyStatePlaceholder bottomMargin={8} topBottomPadding={28}>
+							{#snippet caption()}
+								This is an empty branch.
+								<br />
+								Create or drag & drop commits here
+							{/snippet}
+						</EmptyStatePlaceholder>
+					</Dropzone>
+				</div>
+			{/if}
 
-		{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
-			<CommitList
-				remoteOnlyPatches={currentSeries.upstreamPatches}
-				patches={currentSeries.patches}
-				seriesName={currentSeries.name}
-				isUnapplied={false}
-				isBottom={idx === branch.series.length - 1}
-				{stackingReorderDropzoneManager}
-				{hasConflicts}
-			/>
-		{/if}
-	</CurrentSeries>
-{/each}
+			{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
+				<CommitList
+					remoteOnlyPatches={currentSeries.upstreamPatches}
+					patches={currentSeries.patches}
+					seriesName={currentSeries.name}
+					isUnapplied={false}
+					isBottom={idx === branch.series.length - 1}
+					{stackingReorderDropzoneManager}
+					{hasConflicts}
+				/>
+			{/if}
+		</CurrentSeries>
+	{/each}
+{/key}
