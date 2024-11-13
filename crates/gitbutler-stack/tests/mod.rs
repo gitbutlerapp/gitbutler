@@ -4,7 +4,6 @@ pub mod ownership;
 use anyhow::Result;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_reference::RemoteRefname;
 use gitbutler_repo::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::stack_context::CommandContextExt;
@@ -1040,78 +1039,6 @@ fn replace_head_top_of_stack_multiple() -> Result<()> {
         test_ctx.stack,
         test_ctx.handle.get_stack(test_ctx.stack.id)?
     );
-    Ok(())
-}
-
-#[test]
-fn set_legacy_refname() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    let remote_branch: RemoteRefname = "refs/remotes/origin/my-branch".parse()?;
-    test_ctx.stack.upstream = Some(remote_branch.clone());
-    test_ctx.stack.set_legacy_compatible_stack_reference(&ctx)?;
-    // reference name was updated
-    assert_eq!(test_ctx.stack.heads[0].name, "my-branch");
-    Ok(())
-}
-
-#[test]
-fn set_legacy_refname_no_upstream_set() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    let initial_state = test_ctx.stack.clone();
-    test_ctx.stack.set_legacy_compatible_stack_reference(&ctx)?;
-    // no changes
-    assert_eq!(initial_state, test_ctx.stack);
-    Ok(())
-}
-
-#[test]
-fn set_legacy_refname_multiple_heads() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    let remote_branch: RemoteRefname = "refs/remotes/origin/my-branch".parse()?;
-    test_ctx.stack.upstream = Some(remote_branch.clone());
-    let extra_head = StackBranch {
-        name: "extra_head".into(),
-        head: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
-        description: None,
-        pr_number: Default::default(),
-        archived: Default::default(),
-    };
-    // an extra head just beneath the top of the stack
-    test_ctx.stack.add_series(&ctx, extra_head, None)?;
-    let initial_state = test_ctx.stack.clone();
-    test_ctx.stack.set_legacy_compatible_stack_reference(&ctx)?;
-    // no changes
-    assert_eq!(initial_state, test_ctx.stack);
-    Ok(())
-}
-
-#[test]
-fn set_legacy_refname_pushed() -> Result<()> {
-    let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
-    let mut test_ctx = test_ctx(&ctx)?;
-    let remote_branch: RemoteRefname = "refs/remotes/origin/my-branch".parse()?;
-    test_ctx.stack.upstream = Some(remote_branch.clone());
-
-    let state = VirtualBranchesHandle::new(ctx.project().gb_dir());
-    let mut target = state.get_default_target()?;
-    target.push_remote_name = Some("origin".into());
-    state.set_default_target(target)?;
-    let push_details = test_ctx.stack.push_details(&ctx, "a-branch-2".into())?;
-    ctx.push(
-        push_details.head,
-        &push_details.remote_refname,
-        false,
-        None,
-        Some(Some(test_ctx.stack.id)),
-    )?;
-    let initial_state = test_ctx.stack.clone();
-
-    test_ctx.stack.set_legacy_compatible_stack_reference(&ctx)?;
-    // no changes
-    assert_eq!(initial_state, test_ctx.stack);
     Ok(())
 }
 
