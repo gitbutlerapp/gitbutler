@@ -194,6 +194,8 @@
 	export function focus() {
 		titleTextArea?.focus();
 	}
+
+	const maxTitleLength = 50;
 </script>
 
 {#if isExpanded}
@@ -207,9 +209,9 @@
 			padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
 			fontWeight="semibold"
 			spellcheck="false"
+			flex="1"
 			minRows={1}
 			maxRows={10}
-			charCount={true}
 			bind:textBoxEl={titleTextArea}
 			autofocus
 			oninput={(e: InputEvent & { currentTarget: HTMLTextAreaElement }) => {
@@ -239,10 +241,23 @@
 			/>
 		{/if}
 
-		{#if title.length > 50}
-			<Tooltip text={'50 characters or less is best.\nUse description for more details'}>
-				<div transition:fly={{ y: 2, duration: 150 }} class="commit-box__textarea-tooltip">
-					<Icon name="idea" />
+		{#if title.length > 0}
+			<Tooltip
+				text={title.length > maxTitleLength
+					? `Summary is too long,\n${maxTitleLength} characters or less is best.\nUse description for more details`
+					: `Summary chars`}
+			>
+				<div
+					class="commit-box__textarea-char-counter"
+					class:textarea-char-counter_exsceeded={title.length > maxTitleLength}
+				>
+					{#if title.length > maxTitleLength}
+						<Icon name="idea-small" />
+					{/if}
+
+					<span class=" text-11 text-semibold text-body commit-box__textarea-char-counter-label">
+						{title.length}
+					</span>
 				</div>
 			</Tooltip>
 		{/if}
@@ -319,21 +334,32 @@
 		}
 	}
 
-	.commit-box__textarea-tooltip {
+	.commit-box__textarea-char-counter {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		/* gap: 2px; */
 		position: absolute;
 		bottom: 12px;
 		left: 12px;
 
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		width: var(--size-tag);
-		height: var(--size-tag);
-
-		padding: 2px;
+		padding: 4px 6px;
+		min-width: 20px;
+		color: var(--clr-text-2);
 		border-radius: var(--radius-m);
+		/* font-size: 12px; */
+
 		background: var(--clr-theme-ntrl-soft);
-		color: var(--clr-scale-ntrl-50);
+	}
+
+	.textarea-char-counter_exsceeded {
+		/* background: var(--clr-theme-ntrl-soft); */
+		padding: 4px 7px 4px 4px;
+
+		& .commit-box__textarea-char-counter-label {
+			margin-left: 4px;
+			/* font-size: 11px; */
+		}
 	}
 
 	.commit-box__texarea-actions {
