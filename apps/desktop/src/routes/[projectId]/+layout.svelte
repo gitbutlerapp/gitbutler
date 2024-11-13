@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { setPostHogRepo } from '$lib/analytics/posthog';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import { TemplateService } from '$lib/backend/templateService';
 	import FileMenuAction from '$lib/barmenuActions/FileMenuAction.svelte';
@@ -146,6 +147,10 @@
 		listServiceStore.set(ghListService);
 		forgeStore.set(forge);
 		prService.set(forge ? forge.prService() : undefined);
+		setPostHogRepo(repoInfo);
+		return () => {
+			setPostHogRepo(undefined);
+		};
 	});
 
 	// Once on load and every time the project id changes

@@ -1,6 +1,7 @@
 import { getVersion, getName } from '@tauri-apps/api/app';
 import { posthog } from 'posthog-js';
 import type { User } from '$lib/stores/user';
+import type { RepoInfo } from '$lib/url/gitUrl';
 import { PUBLIC_POSTHOG_API_KEY } from '$env/static/public';
 
 export async function initPostHog() {
@@ -34,6 +35,18 @@ export function resetPostHog() {
 }
 
 export function capture(eventName: string, properties: any = undefined) {
-	console.log('PostHog event', eventName, properties);
 	posthog.capture(eventName, properties);
+}
+
+/**
+ * Include repo information for all events for the remainder of the session,
+ * or until cleared.
+ */
+export function setPostHogRepo(repo: RepoInfo | undefined) {
+	if (repo) {
+		posthog.register_for_session({ repoDomain: repo.domain, repoHash: repo.hash });
+	} else {
+		posthog.unregister_for_session('repoDomain');
+		posthog.unregister_for_session('repoHash');
+	}
 }
