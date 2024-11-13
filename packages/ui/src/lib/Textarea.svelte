@@ -10,7 +10,6 @@
 		fontSize?: number;
 		minRows?: number;
 		maxRows?: number;
-		charCount?: boolean;
 		autofocus?: boolean;
 		spellcheck?: boolean;
 		autoComplete?: string;
@@ -55,7 +54,6 @@
 		fontSize = 13,
 		minRows = 1,
 		maxRows = 100,
-		charCount = false,
 		autofocus,
 		class: className = '',
 		fontWeight = 'regular',
@@ -103,7 +101,6 @@
 	let minHeight = $derived(fontSize * minRows + padding.top + padding.bottom);
 
 	let measureElHeight = $state(0);
-	let valueLength = $derived(value?.length ?? 0);
 </script>
 
 <div
@@ -118,9 +115,6 @@
 	style:--line-height-ratio={1.6}
 	style:flex
 >
-	{#if charCount && valueLength > 0}
-		<div class="textarea-char-count text-12">{valueLength}</div>
-	{/if}
 	{#if label}
 		<label class="textarea-label text-13 text-semibold text-body" for={id}>
 			{label}
