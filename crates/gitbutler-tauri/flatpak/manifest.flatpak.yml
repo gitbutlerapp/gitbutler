@@ -17,6 +17,7 @@ finish-args:
   - --allow=devel
   - --socket=system-bus
   - --socket=session-bus
+  - --env=FLATPAK=1
   - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
   # Required for interacting with git
   - --socket=ssh-auth
@@ -38,15 +39,14 @@ modules:
       - type: file
         dest-filename: gitbutler.deb
         path: ../../../target/debug/bundle/deb/GitButler Nightly_0.0.0_amd64.deb
-        sha256: a57375afe90004501518f815238b58ef7f0c161ebd552e4259272c1de6719d5a
+        sha256: 5f3a4a7e26c28577eb9ccf2dc08810643a75c2de4bebf340e8f1ce05dce39667
     build-commands:
       - ar -x gitbutler.deb
       - tar -xf data.tar.gz
       - install -Dm755 usr/bin/gitbutler-tauri /app/bin/gitbutler-tauri
       - install -Dm755 usr/bin/gitbutler-git-askpass /app/bin/gitbutler-git-askpass
       - install -Dm755 usr/bin/gitbutler-git-setsid /app/bin/gitbutler-git-setsid
-      # - install -Dm644 usr/share/applications/GitButler.desktop /app/share/applications/com.gitbutler.app.desktop
-      - install -Dm644 usr/share/applications/GitButler\ Nightly.desktop /app/share/applications/com.gitbutler.app.desktop
+      - install -Dm644 usr/share/applications/*.desktop /app/share/applications/com.gitbutler.app.desktop
       - desktop-file-edit --set-icon=com.gitbutler.app /app/share/applications/com.gitbutler.app.desktop
       - |
         for size in 32x32 128x128 256x256@2; do
@@ -54,3 +54,14 @@ modules:
         done
       - install -Dm644 com.gitbutler.app.metainfo.xml /app/share/metainfo/com.gitbutler.app.metainfo.xml
       - rm -r *.deb control.tar.* data.tar.gz debian-binary usr
+
+  - name: host-spawn
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 host-spawn /app/bin/host-spawn
+    sources:
+      - type: file
+        url: https://github.com/1player/host-spawn/releases/download/1.5.0/host-spawn-x86_64
+        sha256: dbf67e7e111c4fe1edb0c642cbb4193064ca5b384aeb1054fc2befba6ed88b83
+        dest-filename: host-spawn
+        only-arches: [x86_64]
