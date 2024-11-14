@@ -242,20 +242,28 @@ jobs:
       - name: Flatpak update manifest file and SHA
         run: |
           sed -i "s|path: ../../../target.*|path: ../../../${{ env.deb_path }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
-          sed -i "s|sha256: 5f3.*|sha256: ${{ env.deb_sha }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
+          sed -i "s|sha256: 3a9.*|sha256: ${{ env.deb_sha }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
       - name: Flatpak build
-        uses: flatpak/flatpak-github-actions/flatpak-builder@master
-        with:
-          bundle: com.gitbutler.app.flatpak
-          manifest-path: crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
-          cache-key: flatpak-builder-${{ github.sha }}
-          arch: ${{ matrix.arch }}
+        run: |
+          flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --noninteractive flathub org.gnome.Platform//47 org.gnome.Sdk//47
+          flatpak-builder --force-clean --install-deps-from=flathub --repo=repo builddir crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
+          flatpak build-bundle repo "com.gitbutler.app.flatpak" "com.gitbutler.app"
       - name: Flatpak upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: com.gitbutler.app.flatpak
           path: ./*.flatpak
           if-no-files-found: error
+      - uses: shallwefootball/s3-upload-action@master
+        name: Upload To S3
+        id: S3
+        with:
+          aws_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_bucket: 'releases.gitbutler.com'
+          source_dir: 'release-s3/'
+          destination_dir: 'releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}'
 
   sign-tauri:
     needs: build-tauri

@@ -1,9 +1,7 @@
 id: com.gitbutler.app
-
 runtime: org.gnome.Platform
 runtime-version: '47'
 sdk: org.gnome.Sdk
-
 command: gitbutler-tauri
 finish-args:
   - --share=ipc
@@ -12,13 +10,13 @@ finish-args:
   - --device=dri
   - --share=network
   - --filesystem=/tmp
-  - --filesystem=/var
   - --filesystem=host
+  - --filesystem=xdg-run/gvfsd
   - --allow=devel
   - --socket=system-bus
   - --socket=session-bus
-  - --env=FLATPAK=1
-  - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
+  - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons:~/.icons
+  - --talk-name=org.freedesktop.portal.Fcitx
   # Required for interacting with git
   - --socket=ssh-auth
   - --socket=gpg-agent
@@ -39,7 +37,7 @@ modules:
       - type: file
         dest-filename: gitbutler.deb
         path: ../../../target/debug/bundle/deb/GitButler Nightly_0.0.0_amd64.deb
-        sha256: 5f3a4a7e26c28577eb9ccf2dc08810643a75c2de4bebf340e8f1ce05dce39667
+        sha256: 3a919c3ca743131af3f3faf3a9bfe1f9c08f581ec262f9ca3bd2fe1974cc1ff2
     build-commands:
       - ar -x gitbutler.deb
       - tar -xf data.tar.gz
@@ -57,6 +55,8 @@ modules:
 
   - name: host-spawn
     buildsystem: simple
+    build-options:
+      no-debuginfo: true
     build-commands:
       - install -Dm755 host-spawn /app/bin/host-spawn
     sources:
@@ -65,3 +65,8 @@ modules:
         sha256: dbf67e7e111c4fe1edb0c642cbb4193064ca5b384aeb1054fc2befba6ed88b83
         dest-filename: host-spawn
         only-arches: [x86_64]
+      # - type: file
+      #   url: https://github.com/1player/host-spawn/releases/download/1.5.0/host-spawn-aarch64
+      #   sha256: c42c12be6cdd83e374b847bec836659fb45231215797777c9ee1c9c0ae9e3783
+      #   dest-filename: host-spawn
+      #   only-arches: [aarch64]
