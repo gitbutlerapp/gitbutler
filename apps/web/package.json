@@ -18,7 +18,7 @@
 		"@gitbutler/ui": "workspace:*",
 		"@neoconfetti/svelte": "^1.0.0",
 		"@playwright/test": "1.47.0",
-		"@sveltejs/adapter-auto": "^3.0.0",
+		"@sveltejs/adapter-auto": "^3.3.1",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"@types/node": "^22.3.0",

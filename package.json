@@ -45,8 +45,8 @@
 		"eslint-plugin-svelte": "2.46.0",
 		"globals": "^15.6.0",
 		"prettier": "^3.3.2",
-		"prettier-plugin-svelte": "^3.2.7",
-		"svelte-eslint-parser": "^0.41.1",
+		"prettier-plugin-svelte": "^3.2.8",
+		"svelte-eslint-parser": "^0.43.0",
 		"turbo": "2.1.1",
 		"typescript": "5.4.5",
 		"typescript-eslint": "^8.10.0"
