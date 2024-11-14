@@ -30,8 +30,7 @@ unsafe impl super::GitExecutor for TokioExecutor {
         envs: Option<HashMap<String, String>>,
     ) -> Result<(usize, String, String), Self::Error> {
         // Check if we're running in a flatpak
-        let flatpak = std::env::var("FLATPAK").unwrap_or_else(|_| String::new());
-        println!("FLATPAK: {}", flatpak);
+        let flatpak = std::env::var("FLATPAK_ID").unwrap_or_else(|_| String::new());
 
         let mut cmd = if !flatpak.is_empty() {
             let mut cmd = Command::new("host-spawn");
