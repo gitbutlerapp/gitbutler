@@ -169,7 +169,7 @@ where
             {
                 #[cfg(unix)]
                 {
-                    format!("{setsid_path} ")
+                    format!("'{setsid_path}' ")
                 }
                 #[cfg(windows)]
                 {
