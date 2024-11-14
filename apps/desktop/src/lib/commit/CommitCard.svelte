@@ -609,6 +609,7 @@
 		flex-direction: column;
 		gap: 12px;
 		padding-bottom: 12px;
+		padding-right: 14px;
 	}
 
 	.commit__actions {
