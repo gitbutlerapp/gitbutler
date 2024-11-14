@@ -99,14 +99,12 @@ fn commit_unconflicted_cherry_result<'repository>(
     to_rebase: git2::Commit,
     mut cherrypick_index: git2::Index,
 ) -> Result<git2::Commit<'repository>> {
-    let is_merge_commit = to_rebase.parent_count() > 0;
-
     let merge_tree_oid = cherrypick_index
         .write_tree_to(repository)
         .context("failed to write merge tree")?;
 
-    // Remove empty merge commits
-    if is_merge_commit && merge_tree_oid == head.tree_id() {
+    // Remove empty commits
+    if merge_tree_oid == head.tree_id() {
         return Ok(head);
     }
 
