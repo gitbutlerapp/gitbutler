@@ -3,6 +3,7 @@
 	import CommitCard from './CommitCard.svelte';
 	import CommitDragItem from './CommitDragItem.svelte';
 	import UpstreamCommitsAccordion from './UpstreamCommitsAccordion.svelte';
+	import { findLastDivergentCommit } from '$lib/commits/utils';
 	import {
 		StackingReorderDropzoneManager,
 		type StackingReorderDropzone
@@ -46,11 +47,14 @@
 
 	const forge = getForge();
 
+	const localAndRemoteCommits = $derived(patches.filter((patch) => patch.remoteCommitId));
+	const lastDivergentCommit = $derived(findLastDivergentCommit(localAndRemoteCommits));
+
 	const lineManager = $derived(
 		lineManagerFactory.build({
 			remoteCommits: remoteOnlyPatches,
 			localCommits: patches.filter((patch) => !patch.remoteCommitId),
-			localAndRemoteCommits: patches.filter((patch) => patch.remoteCommitId),
+			localAndRemoteCommits,
 			integratedCommits: patches.filter((patch) => patch.isIntegrated)
 		})
 	);
@@ -59,7 +63,6 @@
 	const headCommit = $derived($branch.commits.at(0));
 
 	const hasRemoteCommits = $derived(remoteOnlyPatches.length > 0);
-
 	let isIntegratingCommits = $state(false);
 
 	const topPatch = $derived(patches[0]);
@@ -73,6 +76,27 @@
 			<LineOverlay {hovered} {activated} />
 		{/snippet}
 	</Dropzone>
+{/snippet}
+
+{#snippet integrateUpstreamButton(label: string)}
+	<Button
+		style="warning"
+		kind="solid"
+		grow
+		loading={isIntegratingCommits}
+		onclick={async () => {
+			isIntegratingCommits = true;
+			try {
+				await branchController.mergeUpstreamForSeries($branch.id, seriesName);
+			} catch (e) {
+				console.error(e);
+			} finally {
+				isIntegratingCommits = false;
+			}
+		}}
+	>
+		{label}
+	</Button>
 {/snippet}
 
 {#if hasCommits || hasRemoteCommits}
@@ -96,27 +120,12 @@
 					</CommitCard>
 				{/each}
 				{#snippet action()}
-					<Button
-						style="warning"
-						kind="solid"
-						grow
-						loading={isIntegratingCommits}
-						onclick={async () => {
-							isIntegratingCommits = true;
-							try {
-								await branchController.mergeUpstreamForSeries($branch.id, seriesName);
-							} catch (e) {
-								console.error(e);
-							} finally {
-								isIntegratingCommits = false;
-							}
-						}}
-					>
-						Integrate upstream
-					</Button>
+					{@render integrateUpstreamButton('Integrate upstream')}
 				{/snippet}
 			</UpstreamCommitsAccordion>
 		{/if}
+
+		<!-- DIVERGED -->
 
 		<!-- REMAINING LOCAL, LOCALANDREMOTE, AND INTEGRATED COMMITS -->
 		{#if patches.length > 0}
@@ -147,6 +156,16 @@
 					{@render stackingReorderDropzone(
 						stackingReorderDropzoneManager.dropzoneBelowCommit(seriesName, commit.id)
 					)}
+
+					<!-- RESET TO REMOTE BUTTON -->
+					{#if lastDivergentCommit?.id === commit.id}
+						<div class="action-row">
+							<div class="action-row__line"></div>
+							<div class="action-row__button-wrapper">
+								{@render integrateUpstreamButton('Reset to remote')}
+							</div>
+						</div>
+					{/if}
 				{/each}
 			</div>
 		{/if}
@@ -178,5 +197,30 @@
 		&:last-child {
 			border-bottom: none;
 		}
+	}
+
+	.action-row {
+		display: flex;
+		width: 100%;
+		min-height: 44px;
+		justify-content: center;
+		background-color: var(--clr-bg-1);
+		border-bottom: 1px solid var(--clr-border-2);
+	}
+
+	.action-row__button-wrapper {
+		width: 100%;
+		display: flex;
+		margin-right: 20px;
+		align-items: center;
+	}
+
+	.action-row__line {
+		flex-shrink: 0;
+		position: relative;
+		width: 2px;
+		margin: 0 22px 0 20px;
+		background-color: var(--clr-commit-local);
+		--dots-y-shift: -8px;
 	}
 </style>
