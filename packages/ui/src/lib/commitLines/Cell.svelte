@@ -10,7 +10,6 @@
 
 <style lang="postcss">
 	.commit-line {
-		width: 2px;
 		margin: 0 22px 0 20px;
 	}
 </style>

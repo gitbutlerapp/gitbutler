@@ -277,7 +277,6 @@
 				icon={branchType === 'integrated' ? 'tick-small' : 'branch-small'}
 				iconColor="var(--clr-core-ntrl-100)"
 				color={lineColor}
-				lineBottom={currentSeries.patches.length > 0 || branch.series.length > 1}
 			/>
 			<div class="branch-info__content">
 				<div class="text-14 text-bold branch-info__name">

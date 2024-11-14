@@ -1,5 +1,6 @@
 <script lang="ts">
 	import CurrentSeries from './CurrentSeries.svelte';
+	import EmptySeries from './EmptySeries.svelte';
 	import SeriesDividerLine from './SeriesDividerLine.svelte';
 	import SeriesHeader from '$lib/branch/SeriesHeader.svelte';
 	import CommitList from '$lib/commit/CommitList.svelte';
@@ -13,7 +14,6 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, type VirtualBranch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
-	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {
@@ -55,8 +55,9 @@
 
 {#each nonArchivedSeries as currentSeries, idx (currentSeries.name)}
 	{@const isTopSeries = idx === 0}
+	{@const isBottomSeries = idx === branch.series.length - 1}
 	{#if !isTopSeries}
-		<SeriesDividerLine {currentSeries} />
+		<SeriesDividerLine currentSeries={nonArchivedSeries[idx - 1] as PatchSeries} />
 	{/if}
 
 	<CurrentSeries {currentSeries}>
@@ -68,13 +69,7 @@
 					{#snippet overlay({ hovered, activated })}
 						<CardOverlay {hovered} {activated} label="Move here" />
 					{/snippet}
-					<EmptyStatePlaceholder bottomMargin={8} topBottomPadding={28}>
-						{#snippet caption()}
-							This is an empty branch.
-							<br />
-							Create or drag & drop commits here
-						{/snippet}
-					</EmptyStatePlaceholder>
+					<EmptySeries isBottom={isBottomSeries} />
 				</Dropzone>
 			</div>
 		{/if}

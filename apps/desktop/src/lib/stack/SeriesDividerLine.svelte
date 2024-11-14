@@ -17,7 +17,6 @@
 
 <style>
 	.commit-line {
-		width: 2px;
 		height: 10px;
 		margin: 0 21px;
 		background-color: var(--commit-color);
