@@ -162,6 +162,7 @@
 	}
 
 	const showOpenInBrowser = $derived(commitUrl && (type === 'remote' || type === 'localAndRemote'));
+	const isDraggable = commit instanceof DetailedCommit && !isUnapplied && type !== 'integrated';
 </script>
 
 <Modal bind:this={commitMessageModal} width="small" onSubmit={submitCommitMessageModal}>
@@ -221,6 +222,7 @@
 	bind:this={branchCardElement}
 	class="commit-row"
 	class:is-commit-open={showDetails}
+	class:not-draggable={!isDraggable}
 	class:commit-card-activated={isOpenedByKebabButton || isOpenByMouse}
 	class:is-last={last}
 	onclick={(e) => {
@@ -235,7 +237,7 @@
 	onkeyup={onKeyup}
 	role="button"
 	tabindex="0"
-	use:draggableCommit={commit instanceof DetailedCommit && !isUnapplied && type !== 'integrated'
+	use:draggableCommit={isDraggable
 		? {
 				label: commit.descriptionTitle,
 				sha: commitShortSha,
@@ -441,6 +443,15 @@
 
 				& .commit__drag-icon {
 					opacity: 1;
+				}
+			}
+		}
+
+		&.not-draggable {
+			&:hover {
+				& .commit__drag-icon {
+					pointer-events: none;
+					opacity: 0;
 				}
 			}
 		}
