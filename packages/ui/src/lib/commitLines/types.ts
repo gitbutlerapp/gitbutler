@@ -1,18 +1,8 @@
 export type Style = 'dashed' | 'solid';
-export interface CellData {
-	type: CellType;
-	style?: Style;
-}
 
 export interface CommitNodeData {
 	commit: CommitData;
 	type?: CellType;
-}
-
-export interface LineData {
-	top: CellData;
-	bottom: CellData;
-	commitNode?: CommitNodeData;
 }
 
 export interface Author {

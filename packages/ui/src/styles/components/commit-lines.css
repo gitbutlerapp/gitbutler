@@ -1,67 +1,12 @@
 .commit-line {
 	position: relative;
-	width: 100%;
+	width: 2px;
 	height: 100%;
-
-	--border-color: var(--clr-commit-shadow);
-	--border-style: solid;
-
-	&.none {
-		--border-color: transparent;
-	}
-
-	&.remote {
-		--border-color: var(--clr-commit-remote);
-	}
-
-	&.local {
-		--border-color: var(--clr-commit-local);
-	}
-
-	&.local-and-remote {
-		--border-color: var(--clr-commit-remote);
-	}
-
-	&.local-shadow {
-		--border-color: var(--clr-commit-local);
-	}
-
-	&.shadow {
-		--border-color: var(--clr-commit-shadow);
-	}
-
-	&.upstream {
-		--border-color: var(--clr-commit-upstream);
-	}
-
-	&.integrated {
-		--border-color: var(--clr-commit-shadow);
-
-		&.stacked {
-			--border-color: var(--clr-commit-integrated);
-		}
-	}
-
-	&:before {
-		content: '';
-		position: absolute;
-		top: 0;
-		right: 0;
-		width: 2px;
-		height: 100%;
-	}
-
-	&.stacked:before {
-		background: var(--border-color);
-	}
+	background-color: var(--commit-color);
 
 	&.dashed {
-		--border-style: none;
-
-		&:before {
-			height: calc(100% + 1px);
-			background: linear-gradient(to bottom, var(--border-color) 50%, transparent 50%);
-			background-size: 4px 4px;
-		}
+		height: calc(100% + 1px);
+		background: linear-gradient(to bottom, var(--commit-color) 50%, transparent 50%);
+		background-size: 4px 4px;
 	}
 }

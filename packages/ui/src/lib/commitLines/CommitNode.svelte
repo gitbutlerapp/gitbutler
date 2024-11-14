@@ -5,16 +5,16 @@
 
 	interface Props {
 		commitNode: CommitNodeData;
-		type: CellType;
+		typeOverride?: CellType;
 	}
 
-	const { commitNode, type }: Props = $props();
+	const { commitNode }: Props = $props();
 
 	const tooltipText = $derived(camelCaseToTitleCase(commitNode.type ?? 'local'));
 </script>
 
 <div class="container">
-	{#if type === 'local'}
+	{#if commitNode.type === 'local'}
 		<Tooltip text={tooltipText}>
 			<svg
 				class="local-commit-dot"
@@ -25,7 +25,7 @@
 				<rect width="10" height="10" rx="5" />
 			</svg>
 		</Tooltip>
-	{:else if type === 'localAndShadow'}
+	{:else if commitNode.type === 'localAndShadow'}
 		<div class="local-shadow-commit-dot">
 			<Tooltip text={commitNode.commit?.remoteCommitId?.substring(0, 7) ?? 'Diverged'}>
 				<svg class="shadow-dot" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
@@ -46,14 +46,7 @@
 		</div>
 	{:else}
 		<Tooltip text={tooltipText}>
-			<svg
-				class="generic-commit-dot"
-				class:remote={type === 'localAndRemote'}
-				class:upstream={type === 'remote'}
-				class:integrated={type === 'integrated'}
-				viewBox="0 0 11 12"
-				xmlns="http://www.w3.org/2000/svg"
-			>
+			<svg class="generic-commit-dot" viewBox="0 0 11 12" xmlns="http://www.w3.org/2000/svg">
 				<path
 					d="M0.585786 7.41422C-0.195262 6.63317 -0.195262 5.36684 0.585786 4.58579L3.793 1.37857C4.57405 0.597523 5.84038 0.597524 6.62143 1.37857L9.82865 4.58579C10.6097 5.36684 10.6097 6.63317 9.82865 7.41422L6.62143 10.6214C5.84038 11.4025 4.57405 11.4025 3.793 10.6214L0.585786 7.41422Z"
 				/>
@@ -79,18 +72,7 @@
 		width: 11px;
 		height: 12px;
 		transform: translateX(2px);
-
-		&.remote {
-			fill: var(--clr-commit-remote);
-		}
-
-		&.upstream {
-			fill: var(--clr-commit-upstream);
-		}
-
-		&.integrated {
-			fill: var(--clr-commit-integrated);
-		}
+		fill: var(--commit-color);
 	}
 
 	.local-shadow-commit-dot {
