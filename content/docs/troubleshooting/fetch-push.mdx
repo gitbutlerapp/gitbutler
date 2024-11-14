@@ -58,6 +58,16 @@ If you have added a remote branch to your active workspace in GitButler, or push
 
 The current workaround is to undo any local commits and then stash your local changes manually using [git stash](https://git-scm.com/docs/git-stash) and then delete the virtual branch that has upstream changes. Then you can update the trunk by clicking the update button next to the word "Trunk" in the sidebar on the left to make sure all new upstream changes are synced, then select the remote branch that has the new changes and click the "Apply +" button above the list of commits for the branch. Once the updated branch is applied to your working directory, you can manually `git stash pop` your stashed changes and then resolve any merge conflicts.
 
+### OAuth app access restrictions on your GitHub organization
+
+If you're submitting code and PRs to a repository under an organization on GitHub, you may receive an error that, despite having correct authorization credentials, your organization has enabled OAuth app access restrictions. These restrictions are an organization-level security feature designed to prevent unauthorized third-party applications from accessing organization resources.
+
+To solve this, go to Applications. Select the "Authorized OAuth Apps" tab, and look for "GitButler Client". If you don't find "GitButler Client", it's possible you haven't yet set GitButler up for personal use. If so, try creating a test commit on a test branch for a personal repository using GitButler, which you can delete after, then check the same tab as before.
+
+If you see "GitButler Client", click on it and, under "Organization Access", across from the organization you wish to enable GitButler for, click either the "Request" or "Grant" button, depending on whether you are a contributor or owner, respectively. If you're a contributor clicking "Request", note that you'll need to wait for an organization owner to approve your access request before you can proceed.
+
+Note for organization owners: To streamline this process for your team members, you can pre-approve GitButler for all organization members. This eliminates the need for individual access requests and approvals. This can be managed through your organization's OAuth app access settings.
+
 ### Help on Discord
 If none of the available options helps, feel free to hop on our [Discord](https://discord.gg/MmFkmaJ42D) and we will be happy to help you out.
 
