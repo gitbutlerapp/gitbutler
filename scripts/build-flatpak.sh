@@ -6,8 +6,8 @@ FLATPAK_ID="com.gitbutler.app"
 # Add Flathub Repository
 flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
-# Install Gnome runtimei dependency
-flatpak install --user flathub org.gnome.Platform//46 org.gnome.Sdk//46
+# Install Gnome runtime dependency
+flatpak install --user flathub org.gnome.Platform//47 org.gnome.Sdk//47
 
 # Build the manifest
 flatpak-builder --force-clean --user --install-deps-from=flathub --repo=repo builddir "$MANIFEST_PATH"
