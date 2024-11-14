@@ -6,15 +6,19 @@
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
+	import { VirtualBranch } from '$lib/vbranches/types';
 	import {
 		getBaseBrancheResolution,
 		getResolutionApproach,
 		sortStatusInfo,
 		UpstreamIntegrationService,
 		type BaseBranchResolutionApproach,
-		type BranchStatusesWithBranches,
-		type BranchStatusInfo,
-		type Resolution
+		type StackStatusesWithBranches,
+		type StackStatusInfo,
+		type Resolution,
+		type StackStatus,
+		stackFullyIntegrated,
+		type BranchStatus
 	} from '$lib/vbranches/upstreamIntegrationService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
@@ -37,14 +41,14 @@
 
 	const forge = getForge();
 	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
-	let branchStatuses = $state<Readable<BranchStatusesWithBranches | undefined>>();
+	let branchStatuses = $state<Readable<StackStatusesWithBranches | undefined>>();
 	const baseBranchService = getContext(BaseBranchService);
 	const base = baseBranchService.base;
 
 	let modal = $state<Modal>();
 	let integratingUpstream = $state<OperationState>('inert');
 	let results = $state(new SvelteMap<string, Resolution>());
-	let statuses = $state<BranchStatusInfo[]>([]);
+	let statuses = $state<StackStatusInfo[]>([]);
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
 
@@ -65,10 +69,10 @@
 				const defaultApproach = getResolutionApproach(status);
 
 				return [
-					status.branch.id,
+					status.stack.id,
 					{
-						branchId: status.branch.id,
-						branchTree: status.branch.tree,
+						branchId: status.stack.id,
+						branchTree: status.stack.tree,
 						approach: defaultApproach
 					}
 				];
@@ -128,7 +132,73 @@
 			return modal?.imports.open;
 		}
 	};
+
+	function branchStatusToRowEntry(
+		branchStatus: BranchStatus
+	): 'integrated' | 'conflicted' | 'clear' {
+		if (branchStatus.type === 'integrated') {
+			return 'integrated';
+		}
+		if (branchStatus.type === 'conflicted') {
+			return 'conflicted';
+		}
+		return 'clear';
+	}
+
+	function integrationRowSeries(
+		stackStatus: StackStatus
+	): { name: string; status: 'integrated' | 'conflicted' | 'clear' }[] {
+		const statuses = stackStatus.branchStatuses.map((series) => ({
+			name: series.name,
+			status: branchStatusToRowEntry(series.status)
+		}));
+
+		statuses.reverse();
+
+		return statuses;
+	}
+
+	function integrationOptions(
+		stackStatus: StackStatus
+	): { label: string; value: 'rebase' | 'unapply' | 'merge' }[] {
+		if (stackStatus.branchStatuses.length > 1) {
+			return [
+				{ label: 'Rebase', value: 'rebase' },
+				{ label: 'Stash', value: 'unapply' }
+			];
+		} else {
+			return [
+				{ label: 'Rebase', value: 'rebase' },
+				{ label: 'Merge', value: 'merge' },
+				{ label: 'Stash', value: 'unapply' }
+			];
+		}
+	}
 </script>
+
+{#snippet stackStatus(stack: VirtualBranch, stackStatus: StackStatus)}
+	<IntegrationSeriesRow series={integrationRowSeries(stackStatus)}>
+		{#snippet select()}
+			{#if !stackFullyIntegrated(stackStatus) && results.get(stack.id)}
+				<Select
+					value={results.get(stack.id)!.approach.type}
+					onselect={(value) => {
+						const result = results.get(stack.id)!;
+
+						results.set(stack.id, { ...result, approach: { type: value } });
+					}}
+					options={integrationOptions(stackStatus)}
+				>
+					{#snippet itemSnippet({ item, highlighted })}
+						<SelectItem selected={highlighted} {highlighted}>
+							{item.label}
+						</SelectItem>
+					{/snippet}
+				</Select>
+			{/if}
+		{/snippet}
+	</IntegrationSeriesRow>
+{/snippet}
 
 <Modal bind:this={modal} {onClose} width={520} noPadding onSubmit={integrate}>
 	<ScrollableContainer maxHeight={'70vh'}>
@@ -199,39 +269,8 @@
 				<h3 class="text-14 text-semibold">To be updated:</h3>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight={pxToRem(240)}>
-						{#each statuses as { branch, status }}
-							<IntegrationSeriesRow
-								type={status.type === 'fullyIntegrated'
-									? 'integrated'
-									: status.type === 'conflicted'
-										? 'conflicted'
-										: 'clear'}
-								series={branch.series.filter((s) => !s.archived).map((s) => s.name)}
-							>
-								{#snippet select()}
-									{#if status.type !== 'fullyIntegrated' && results.get(branch.id)}
-										<Select
-											value={results.get(branch.id)!.approach.type}
-											onselect={(value) => {
-												const result = results.get(branch.id)!;
-
-												results.set(branch.id, { ...result, approach: { type: value } });
-											}}
-											options={[
-												{ label: 'Rebase', value: 'rebase' },
-												{ label: 'Merge', value: 'merge' },
-												{ label: 'Stash', value: 'unapply' }
-											]}
-										>
-											{#snippet itemSnippet({ item, highlighted })}
-												<SelectItem selected={highlighted} {highlighted}>
-													{item.label}
-												</SelectItem>
-											{/snippet}
-										</Select>
-									{/if}
-								{/snippet}
-							</IntegrationSeriesRow>
+						{#each statuses as { stack, status }}
+							{@render stackStatus(stack, status)}
 						{/each}
 					</ScrollableContainer>
 				</div>
