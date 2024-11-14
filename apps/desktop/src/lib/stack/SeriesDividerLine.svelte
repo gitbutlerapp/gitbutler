@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getColorFromBranchType } from '$lib/branch/stackingUtils';
+	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type { CommitStatus, PatchSeries } from '$lib/vbranches/types';
 
 	interface Props {
@@ -13,13 +13,13 @@
 	const lineColor = $derived(getColorFromBranchType(branchType));
 </script>
 
-<div class="stack-line" style:--bg-color={lineColor}></div>
+<div class="commit-line" style:--commit-color={lineColor}></div>
 
 <style>
-	.stack-line {
+	.commit-line {
 		width: 2px;
 		height: 10px;
 		margin: 0 21px;
-		background-color: var(--bg-color, var(--clr-border-3));
+		background-color: var(--commit-color);
 	}
 </style>

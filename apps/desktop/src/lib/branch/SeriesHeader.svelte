@@ -4,7 +4,6 @@
 	import Dropzones from './Dropzones.svelte';
 	import SeriesDescription from './SeriesDescription.svelte';
 	import SeriesHeaderStatusIcon from './SeriesHeaderStatusIcon.svelte';
-	import { getColorFromBranchType } from './stackingUtils';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { Project, ProjectService } from '$lib/backend/projects';
@@ -30,6 +29,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
+	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { tick } from 'svelte';
 	import type { Writable } from 'svelte/store';
 

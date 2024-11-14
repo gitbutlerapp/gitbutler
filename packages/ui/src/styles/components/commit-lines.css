@@ -3,44 +3,7 @@
 	width: 100%;
 	height: 100%;
 
-	--border-color: var(--clr-commit-shadow);
 	--border-style: solid;
-
-	&.none {
-		--border-color: transparent;
-	}
-
-	&.remote {
-		--border-color: var(--clr-commit-remote);
-	}
-
-	&.local {
-		--border-color: var(--clr-commit-local);
-	}
-
-	&.local-and-remote {
-		--border-color: var(--clr-commit-remote);
-	}
-
-	&.local-shadow {
-		--border-color: var(--clr-commit-local);
-	}
-
-	&.shadow {
-		--border-color: var(--clr-commit-shadow);
-	}
-
-	&.upstream {
-		--border-color: var(--clr-commit-upstream);
-	}
-
-	&.integrated {
-		--border-color: var(--clr-commit-shadow);
-
-		&.stacked {
-			--border-color: var(--clr-commit-integrated);
-		}
-	}
 
 	&:before {
 		content: '';
@@ -52,7 +15,7 @@
 	}
 
 	&.stacked:before {
-		background: var(--border-color);
+		background: var(--commit-color);
 	}
 
 	&.dashed {
@@ -60,7 +23,7 @@
 
 		&:before {
 			height: calc(100% + 1px);
-			background: linear-gradient(to bottom, var(--border-color) 50%, transparent 50%);
+			background: linear-gradient(to bottom, var(--commit-color) 50%, transparent 50%);
 			background-size: 4px 4px;
 		}
 	}

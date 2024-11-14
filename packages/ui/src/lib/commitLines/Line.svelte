@@ -1,26 +1,28 @@
 <script lang="ts">
 	import Cell from '$lib/commitLines/Cell.svelte';
 	import CommitNode from '$lib/commitLines/CommitNode.svelte';
-	import type { CellType, LineData } from '$lib/commitLines/types';
+	import { getColorFromBranchType } from '$lib/utils/getColorFromBranchType';
+	import type { CellType, CommitNodeData } from '$lib/commitLines/types';
 
 	interface Props {
-		line: LineData;
+		line: CommitNodeData;
 		isBottom?: boolean;
-		type?: CellType;
 	}
 
-	const { line, isBottom = false, type }: Props = $props();
+	const { line, isBottom = false }: Props = $props();
+
+	const lineType = $derived<CellType>(line.type ?? line.type ?? 'local');
 </script>
 
-<div class="line">
+<div class="line" style:--commit-color={getColorFromBranchType(lineType)}>
 	<div class="line-top">
-		<Cell cell={line.top} />
+		<Cell />
 	</div>
-	{#if line.commitNode}
-		<CommitNode commitNode={line.commitNode} type={type ?? line.commitNode.type ?? 'local'} />
+	{#if line.commit}
+		<CommitNode commitNode={line} />
 	{/if}
 	<div class="line-bottom">
-		<Cell cell={line.bottom} {isBottom} />
+		<Cell {isBottom} />
 	</div>
 </div>
 
