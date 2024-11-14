@@ -19,6 +19,7 @@
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { getForge } from '$lib/forge/interface/forge';
+	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { type DetailedPullRequest, type PullRequest } from '$lib/forge/interface/types';
 	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
@@ -74,6 +75,7 @@
 	const aiService = getContext(AIService);
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const forge = getForge();
+	const forgeListingService = getForgeListingService();
 	const templateService = getContext(TemplateService);
 
 	const branch = $derived($branchStore);
@@ -234,6 +236,9 @@
 			if (priorIds.length > 0) {
 				updatePrStackInfo($prService, priorIds.concat([pr.number]));
 			}
+
+			// Refresh store
+			$forgeListingService?.refresh();
 		} catch (err: any) {
 			console.error(err);
 			const toast = mapErrorToToast(err);

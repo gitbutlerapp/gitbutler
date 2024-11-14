@@ -5,6 +5,7 @@ import type { GitHubPrService } from './githubPrService';
 import type { ForgePrMonitor } from '../interface/forgePrMonitor';
 
 export const PR_SERVICE_INTERVAL = 20 * 60 * 1000;
+const MAX_POLL_ATTEMPTS = 6;
 
 export class GitHubPrMonitor implements ForgePrMonitor {
 	readonly pr = writable<DetailedPullRequest | undefined>(undefined, () => {
@@ -56,15 +57,29 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 		}
 	}
 
-	// Right after pushing GitHub will respond with status 422, necessatating retries.
+	/**
+	 * Get the PR information.
+	 *
+	 * Right after pushing GitHub will respond with status 422, necessatating retries.
+	 * After that, the mergeable state is not always available immediately.
+	 * The function will set the initial PR information immediately and then poll for the mergeable state.
+	 */
 	private async getPrWithRetries(prNumber: number): Promise<DetailedPullRequest> {
 		const request = async () => await this.prService.get(prNumber);
 		let lastError: any;
 		let attempt = 0;
-		while (attempt < 3) {
+		while (attempt < MAX_POLL_ATTEMPTS) {
 			attempt++;
 			try {
-				return await request();
+				const detailedPR = await request();
+				// Set the PR info immediately to show
+				// the user all preliminary information.
+				this.pr.set(detailedPR);
+				if (detailedPR.mergeableState === 'unknown') {
+					await sleep(1000);
+					continue;
+				}
+				return detailedPR;
 			} catch (err: any) {
 				if (err.status !== 422) throw err;
 				lastError = err;

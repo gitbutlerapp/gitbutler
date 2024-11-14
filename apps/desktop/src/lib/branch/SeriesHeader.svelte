@@ -96,9 +96,16 @@
 		}
 	});
 
+	async function handleReloadPR() {
+		await Promise.allSettled([
+			prMonitor?.refresh(),
+			checksMonitor?.update(),
+			$hostedListingServiceStore?.refresh()
+		]);
+	}
+
 	function updateStatusAndChecks() {
-		prMonitor?.refresh();
-		checksMonitor?.update();
+		handleReloadPR();
 	}
 
 	const projectService = getContext(ProjectService);
@@ -130,10 +137,6 @@
 		}
 	});
 
-	async function handleReloadPR() {
-		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
-	}
-
 	function handleOpenPR(pushBeforeCreate: boolean = false) {
 		prDetailsModal?.show(pushBeforeCreate);
 	}
@@ -143,7 +146,7 @@
 			return;
 		}
 		await $prService?.reopen($pr?.number);
-		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
+		await handleReloadPR();
 	}
 
 	function editTitle(title: string) {
