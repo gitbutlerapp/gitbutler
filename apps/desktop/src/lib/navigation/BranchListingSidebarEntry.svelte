@@ -7,6 +7,7 @@
 		type BranchListing
 	} from '$lib/branches/branchListing';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { UserService } from '$lib/stores/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
@@ -31,6 +32,9 @@
 	const forgeListingService = getForgeListingService();
 	const prs = $derived($forgeListingService?.prs);
 	const pr = $derived($prs?.find((pr) => branchListing.containsPullRequestBranch(pr.sourceBranch)));
+
+	const userService = getContext(UserService);
+	const user = userService.user;
 
 	let branchListingDetails = $state<Readable<BranchListingDetails | undefined>>();
 
@@ -92,7 +96,7 @@
 		if (ownedByUser) {
 			const name = (await gitConfigService.get('user.name')) || unknownName;
 			const email = (await gitConfigService.get('user.email')) || unknownEmail;
-			const srcUrl = await gravatarUrlFromEmail(email);
+			const srcUrl = $user?.picture ? $user?.picture : await gravatarUrlFromEmail(email);
 
 			avatars = [{ name, srcUrl }];
 		} else if (branchListingDetails) {
@@ -100,7 +104,10 @@
 				branchListingDetails.authors.map(async (author) => {
 					return {
 						name: author.name || unknownName,
-						srcUrl: author.gravatarUrl ?? (await gravatarUrlFromEmail(author.email || unknownEmail))
+						srcUrl:
+							(author.email?.toLowerCase() === $user?.email?.toLowerCase()
+								? $user?.picture
+								: author.gravatarUrl) ?? (await gravatarUrlFromEmail(author.email || unknownEmail))
 					};
 				})
 			);

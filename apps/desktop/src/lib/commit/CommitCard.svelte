@@ -9,6 +9,7 @@
 	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
 	import { ModeService } from '$lib/modes/service';
+	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -30,6 +31,9 @@
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { getTimeAgo } from '@gitbutler/ui/utils/timeAgo';
 	import { type Snippet } from 'svelte';
+
+	const userService = getContext(UserService);
+	const user = userService.user;
 
 	interface Props {
 		branch?: VirtualBranch | undefined;
@@ -133,6 +137,10 @@
 	}
 
 	const commitShortSha = commit.id.substring(0, 7);
+	const authorImgUrl =
+		commit.author.email?.toLowerCase() === $user?.email?.toLowerCase()
+			? $user?.picture
+			: commit.author.gravatarUrl;
 
 	function handleUncommit(e: MouseEvent) {
 		e.stopPropagation();
@@ -242,7 +250,7 @@
 				label: commit.descriptionTitle,
 				sha: commitShortSha,
 				date: getTimeAgo(commit.createdAt),
-				authorImgUrl: commit.author.gravatarUrl,
+				authorImgUrl: authorImgUrl,
 				commitType: type,
 				data: new DraggableCommit(commit.branchId, commit, isHeadCommit, seriesName),
 				viewportId: 'board-viewport'
@@ -313,7 +321,7 @@
 					{/if}
 
 					<Tooltip text={commit.author.name}>
-						<img class="commit__subtitle-avatar" src={commit.author.gravatarUrl} alt="" />
+						<img class="commit__subtitle-avatar" src={authorImgUrl} alt="" />
 					</Tooltip>
 
 					<span class="commit__subtitle-divider">•</span>
