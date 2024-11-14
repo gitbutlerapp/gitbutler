@@ -96,7 +96,10 @@
 		if (ownedByUser) {
 			const name = (await gitConfigService.get('user.name')) || unknownName;
 			const email = (await gitConfigService.get('user.email')) || unknownEmail;
-			const srcUrl = $user?.picture ? $user?.picture : await gravatarUrlFromEmail(email);
+			const srcUrl =
+				email.toLowerCase() === $user?.email?.toLowerCase()
+					? $user?.picture
+					: await gravatarUrlFromEmail(email);
 
 			avatars = [{ name, srcUrl }];
 		} else if (branchListingDetails) {

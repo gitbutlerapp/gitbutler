@@ -137,10 +137,11 @@
 	}
 
 	const commitShortSha = commit.id.substring(0, 7);
-	const authorImgUrl =
-		commit.author.email?.toLowerCase() === $user?.email?.toLowerCase()
+	const authorImgUrl = $derived.by(() => {
+		return commit.author.email?.toLowerCase() === $user?.email?.toLowerCase()
 			? $user?.picture
 			: commit.author.gravatarUrl;
+	});
 
 	function handleUncommit(e: MouseEvent) {
 		e.stopPropagation();

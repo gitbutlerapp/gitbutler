@@ -19,10 +19,11 @@
 	const userService = getContext(UserService);
 	const user = userService.user;
 
-	const authorImgUrl =
-		pullRequest.author?.email?.toLowerCase() === $user?.email?.toLowerCase()
+	const authorImgUrl = $derived.by(() => {
+		return pullRequest.author?.email?.toLowerCase() === $user?.email?.toLowerCase()
 			? $user?.picture
 			: pullRequest.author?.gravatarUrl;
+	});
 
 	function onMouseDown() {
 		goto(formatPullRequestURL(project, pullRequest.number));

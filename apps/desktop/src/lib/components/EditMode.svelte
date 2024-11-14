@@ -42,7 +42,14 @@
 
 	let initialFiles = $state<[RemoteFile, ConflictEntryPresence | undefined][]>([]);
 	let commit = $state<Commit | undefined>(undefined);
-	let authorImgUrl = $state<string | undefined>(undefined);
+	const authorImgUrl = $derived.by(() => {
+		if (commit) {
+			return commit.author.email?.toLowerCase() === $user?.email?.toLowerCase()
+				? $user?.picture
+				: commit.author.gravatarUrl;
+		}
+		return undefined;
+	});
 
 	let filesList = $state<HTMLDivElement | undefined>(undefined);
 	let contextMenu = $state<ReturnType<typeof FileContextMenu> | undefined>(undefined);
@@ -57,15 +64,6 @@
 		remoteCommitService.find(editModeMetadata.commitOid).then((maybeCommit) => {
 			commit = maybeCommit;
 		});
-	});
-
-	$effect(() => {
-		if (commit) {
-			authorImgUrl =
-				commit.author.email?.toLowerCase() === $user?.email?.toLowerCase()
-					? $user?.picture
-					: commit.author.gravatarUrl;
-		}
 	});
 
 	interface FileEntry {
