@@ -1,15 +1,15 @@
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';
 
-	type seriesStatusType = 'integrated' | 'conflicted' | undefined;
+	type BranchStatus = 'integrated' | 'conflicted' | undefined;
 
-	type seriesType = {
+	type Branch = {
 		name: string;
-		status: seriesStatusType;
+		status: BranchStatus;
 	};
 
 	export interface Props {
-		series: seriesType[];
+		series: Branch[];
 		select?: Snippet;
 	}
 </script>
@@ -20,7 +20,7 @@
 	let { series, select }: Props = $props();
 </script>
 
-{#snippet stackBranch({ name, status }: seriesType, isLast: boolean)}
+{#snippet stackBranch({ name, status }: Branch, isLast: boolean)}
 	<div class="series-branch {status}">
 		<div class="structure-lines" class:last={isLast}></div>
 		<div class="branch-info">
@@ -69,8 +69,8 @@
 
 	{#if series.length > 1}
 		<div class="series-branches">
-			{#each series.slice(1) as seriesItem, idx}
-				{@render stackBranch(seriesItem, idx === series.length - 2)}
+			{#each series as seriesItem, idx}
+				{@render stackBranch(seriesItem, idx === series.length - 1)}
 			{/each}
 		</div>
 	{/if}
