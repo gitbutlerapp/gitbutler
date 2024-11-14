@@ -21,11 +21,11 @@
 		display: flex;
 	}
 	.empty-series__label {
-		text-align: center;
+		/* text-align: center; */
 		color: var(--clr-text-2);
+
 		width: 100%;
-		padding-top: 20px;
-		padding-bottom: 28px;
+		padding: 20px 28px 28px 46px;
 		opacity: 0.6;
 	}
 	.commit-line {
