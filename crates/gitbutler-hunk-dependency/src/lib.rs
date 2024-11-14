@@ -8,7 +8,7 @@ pub(crate) mod workspace;
 
 pub use {
     hunk::HunkRange,
-    input::{InputCommit, InputDiff, InputFile, InputStack},
+    input::{parse_diff_from_string, InputCommit, InputDiff, InputFile, InputStack},
     locks::{calculate_hunk_dependencies, HunkDependencyOptions, HunkLock},
     path::PathRanges,
     stack::StackRanges,

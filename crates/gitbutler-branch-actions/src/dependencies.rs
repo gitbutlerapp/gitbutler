@@ -28,7 +28,7 @@ pub fn compute_workspace_dependencies(
     let mut stacks_input: Vec<InputStack> = vec![];
     for stack in stacks {
         let mut commits_input: Vec<InputCommit> = vec![];
-        // The commit id's must be ordered from order they get applied.
+        // The commit id's must be in the order they get applied (parents first).
         let commit_ids = repo
             .l(stack.head(), LogUntil::Commit(*target_sha), false)
             .context("failed to list commits")?

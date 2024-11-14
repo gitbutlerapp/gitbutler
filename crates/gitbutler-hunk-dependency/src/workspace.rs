@@ -174,7 +174,7 @@ mod tests {
 
     use gitbutler_stack::StackId;
 
-    use crate::input::{InputDiff, InputFile};
+    use crate::{input::InputFile, parse_diff_from_string};
 
     use super::*;
 
@@ -444,7 +444,7 @@ mod tests {
                     commit_id: commit1_id,
                     files: vec![InputFile {
                         path: path.to_owned(),
-                        diffs: vec![InputDiff::try_from((
+                        diffs: vec![parse_diff_from_string(
                             "@@ -1,6 +1,7 @@
 1
 2
@@ -455,7 +455,7 @@ mod tests {
 7
 ",
                             gitbutler_diff::ChangeType::Modified,
-                        ))?],
+                        )?],
                     }],
                 }],
             },
@@ -466,7 +466,7 @@ mod tests {
                     files: vec![InputFile {
                         path: path.to_owned(),
                         diffs: vec![
-                            InputDiff::try_from((
+                            parse_diff_from_string(
                                 "@@ -1,5 +1,3 @@
 -1
 -2
@@ -475,8 +475,8 @@ mod tests {
 6
 ",
                                 gitbutler_diff::ChangeType::Modified,
-                            ))?,
-                            InputDiff::try_from((
+                            )?,
+                            parse_diff_from_string(
                                 "@@ -10,6 +8,7 @@
 10
 11
@@ -487,7 +487,7 @@ mod tests {
 16
 ",
                                 gitbutler_diff::ChangeType::Modified,
-                            ))?,
+                            )?,
                         ],
                     }],
                 }],

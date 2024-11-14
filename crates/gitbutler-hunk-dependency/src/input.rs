@@ -43,31 +43,10 @@ impl InputDiff {
     }
 }
 
-fn count_context_lines<I, S>(iter: I) -> u32
-where
-    I: Iterator<Item = S>,
-    S: AsRef<str>,
-{
-    iter.take_while(|line| {
-        let line_ref = line.as_ref(); // Convert to &str
-        !line_ref.starts_with('-') && !line_ref.starts_with('+')
-    })
-    .fold(0u32, |acc, _| acc + 1)
-}
-
-impl TryFrom<(&str, gitbutler_diff::ChangeType)> for InputDiff {
-    fn try_from(value: (&str, gitbutler_diff::ChangeType)) -> Result<Self, anyhow::Error> {
-        parse_diff(value.0, value.1)
-    }
-
-    type Error = anyhow::Error;
-}
-
-fn parse_diff(
-    value: impl AsRef<str>,
+pub fn parse_diff_from_string(
+    value: &str,
     change_type: gitbutler_diff::ChangeType,
 ) -> Result<InputDiff, anyhow::Error> {
-    let value = value.as_ref();
     let header = value.lines().next().context("No header found")?;
     if !header.starts_with("@@") {
         return Err(anyhow!("Malformed undiff"));
@@ -88,6 +67,18 @@ fn parse_diff(
     })
 }
 
+fn count_context_lines<I, S>(iter: I) -> u32
+where
+    I: Iterator<Item = S>,
+    S: AsRef<str>,
+{
+    iter.take_while(|line| {
+        let line_ref = line.as_ref(); // Convert to &str
+        !line_ref.starts_with('-') && !line_ref.starts_with('+')
+    })
+    .fold(0u32, |acc, _| acc + 1)
+}
+
 fn parse_header(hunk_info: &str) -> (u32, u32) {
     let hunk_info = hunk_info.trim_start_matches(&['-', '+'][..]); // Remove the leading '-' or '+'
     let parts: Vec<&str> = hunk_info.split(',').collect();
@@ -106,7 +97,7 @@ mod tests {
 
     #[test]
     fn diff_simple() -> anyhow::Result<()> {
-        let header = InputDiff::try_from((
+        let header = parse_diff_from_string(
             "@@ -1,6 +1,7 @@
 1
 2
@@ -117,7 +108,7 @@ mod tests {
 7
 ",
             gitbutler_diff::ChangeType::Modified,
-        ))?;
+        )?;
         assert_eq!(header.old_start, 4);
         assert_eq!(header.old_lines, 0);
         assert_eq!(header.new_start, 4);
@@ -128,7 +119,7 @@ mod tests {
 
     #[test]
     fn diff_complex() -> anyhow::Result<()> {
-        let header = InputDiff::try_from((
+        let header = parse_diff_from_string(
             "@@ -5,7 +5,6 @@
 5
 6
@@ -140,7 +131,7 @@ mod tests {
 11
 ",
             gitbutler_diff::ChangeType::Modified,
-        ))?;
+        )?;
         assert_eq!(header.old_start, 8);
         assert_eq!(header.old_lines, 2);
         assert_eq!(header.new_start, 8);
