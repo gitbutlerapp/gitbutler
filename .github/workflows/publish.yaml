@@ -94,6 +94,7 @@ jobs:
     outputs:
       platform: ${{ matrix.platform }}
       channel: ${{ env.channel }}
+      version: ${{ env.version }}
 
     steps:
       # Because GitHub broke perl installations sometime in 2022 on Windows.
@@ -241,21 +242,33 @@ jobs:
           echo "deb_sha=$DEB_SHA" >> $GITHUB_ENV
       - name: Flatpak update manifest file and SHA
         run: |
+          # Update path to .deb and sha in build manifest
           sed -i "s|path: ../../../target.*|path: ../../../${{ env.deb_path }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
-          sed -i "s|sha256: 5f3.*|sha256: ${{ env.deb_sha }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
+          sed -i "s|sha256: 3a9.*|sha256: ${{ env.deb_sha }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
+          FILE_NAME="$(basename -s ".deb" "${{ env.deb_path }}")"
+          echo "filename=$FILE_NAME" >> $GITHUB_ENV
+          # Update version and date of release in metadata xml
+          sed -i "s|0.13.11|${{ needs.build-tauri.outputs.version }}|" crates/gitbutler-tauri/flatpak/com.gitbutler.app.metainfo.xml
+          sed -i "s|2024-11-05|$(date +%Y-%m-%d)|" crates/gitbutler-tauri/flatpak/com.gitbutler.app.metainfo.xml
       - name: Flatpak build
-        uses: flatpak/flatpak-github-actions/flatpak-builder@master
-        with:
-          bundle: com.gitbutler.app.flatpak
-          manifest-path: crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
-          cache-key: flatpak-builder-${{ github.sha }}
-          arch: ${{ matrix.arch }}
+        run: |
+          flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install --noninteractive flathub org.gnome.Platform//47 org.gnome.Sdk//47
+          flatpak-builder --force-clean --install-deps-from=flathub --repo=repo builddir crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
+          flatpak build-bundle repo "${{ env.filename }}.flatpak" "com.gitbutler.app"
       - name: Flatpak upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: com.gitbutler.app.flatpak
+          name: "${{ env.filename }}.flatpak"
           path: ./*.flatpak
           if-no-files-found: error
+      - run: dnf install -y awscli
+      - name: Upload To S3
+        run: aws s3 cp "${{ env.filename}}.flatpak" "s3://releases.gitbutler.com/releases/${{ needs.build-tauri.outputs.channel }}/${{ env.version }}-${{ github.run_number }}"
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
 
   sign-tauri:
     needs: build-tauri
