@@ -31,6 +31,9 @@ pub use branch_manager::{BranchManager, BranchManagerExt};
 mod base;
 pub use base::BaseBranch;
 
+mod dependencies;
+pub use dependencies::compute_workspace_dependencies;
+
 pub mod upstream_integration;
 
 mod integration;

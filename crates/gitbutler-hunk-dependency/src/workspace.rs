@@ -1,8 +1,9 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
 };
 
+use gitbutler_stack::StackId;
 use itertools::Itertools;
 
 use crate::{HunkRange, InputCommit, InputStack, StackRanges};
@@ -10,6 +11,8 @@ use crate::{HunkRange, InputCommit, InputStack, StackRanges};
 #[derive(Debug)]
 pub struct WorkspaceRanges {
     paths: HashMap<PathBuf, Vec<HunkRange>>,
+    pub commit_dependencies: HashMap<StackId, HashMap<git2::Oid, HashSet<git2::Oid>>>,
+    pub inverse_commit_dependencies: HashMap<StackId, HashMap<git2::Oid, HashSet<git2::Oid>>>,
 }
 
 /// Provides blame-like functionality for looking up what commit(s) have touched a specific line
@@ -25,7 +28,10 @@ impl WorkspaceRanges {
     pub fn create(input_stacks: Vec<InputStack>) -> anyhow::Result<WorkspaceRanges> {
         let mut stacks = vec![];
         for input_stack in input_stacks {
-            let mut stack = StackRanges::default();
+            let mut stack = StackRanges {
+                stack_id: input_stack.stack_id,
+                ..Default::default()
+            };
             let InputStack { stack_id, commits } = input_stack;
             for commit in commits {
                 let InputCommit { commit_id, files } = commit;
@@ -41,11 +47,19 @@ impl WorkspaceRanges {
             .unique()
             .collect_vec();
 
+        let commit_dependencies = stacks
+            .iter()
+            .map(|stack| (stack.stack_id, stack.get_commit_dependencies()))
+            .collect();
+        let inverse_commit_dependencies = get_inverted_dependency_maps(&commit_dependencies);
+
         Ok(WorkspaceRanges {
             paths: paths
                 .iter()
                 .map(|path| (path.clone(), combine_path_ranges(path, &stacks)))
                 .collect(),
+            commit_dependencies,
+            inverse_commit_dependencies,
         })
     }
 
@@ -86,7 +100,7 @@ fn combine_path_ranges(path: &Path, stacks: &[StackRanges]) -> Vec<HunkRange> {
         let start_lines = filtered_paths
             .iter()
             .enumerate()
-            .map(|(i, path_dep)| path_dep.hunks.get(hunk_indexes[i]))
+            .map(|(i, path_dep)| path_dep.hunk_ranges.get(hunk_indexes[i]))
             .map(|hunk| hunk.map(|hunk_dep| hunk_dep.start))
             .collect_vec();
 
@@ -109,7 +123,7 @@ fn combine_path_ranges(path: &Path, stacks: &[StackRanges]) -> Vec<HunkRange> {
 
         // Get the path with the lowest next start line.
         let path_dep = &filtered_paths[next_index];
-        let hunk_dep = &path_dep.hunks[hunk_index];
+        let hunk_dep = &path_dep.hunk_ranges[hunk_index];
 
         result.push(HunkRange {
             start: hunk_dep
@@ -131,6 +145,29 @@ fn combine_path_ranges(path: &Path, stacks: &[StackRanges]) -> Vec<HunkRange> {
     result
 }
 
+fn get_inverted_dependency_maps(
+    commit_dependencies: &HashMap<StackId, HashMap<git2::Oid, HashSet<git2::Oid>>>,
+) -> HashMap<StackId, HashMap<git2::Oid, HashSet<git2::Oid>>> {
+    commit_dependencies
+        .iter()
+        .map(|(stack_id, dependencies)| {
+            (
+                *stack_id,
+                dependencies
+                    .iter()
+                    .flat_map(|(key, values)| values.iter().map(move |value| (value, key)))
+                    .fold(
+                        HashMap::new(),
+                        |mut acc: HashMap<git2::Oid, HashSet<git2::Oid>>, (value, key)| {
+                            acc.entry(*value).or_default().insert(*key);
+                            acc
+                        },
+                    ),
+            )
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -140,6 +177,255 @@ mod tests {
     use crate::input::{InputDiff, InputFile};
 
     use super::*;
+
+    #[test]
+    fn get_inverted_dependency_maps_test_single_stack() {
+        let stack_id = StackId::generate();
+        let commit_a = git2::Oid::from_str("a").unwrap();
+        let commit_b = git2::Oid::from_str("b").unwrap();
+        let commit_c = git2::Oid::from_str("c").unwrap();
+        let commit_d = git2::Oid::from_str("d").unwrap();
+
+        let original_map = {
+            let mut map = HashMap::new();
+            map.insert(stack_id, {
+                let mut inner_map = HashMap::new();
+                inner_map.insert(commit_a, {
+                    let mut set = HashSet::new();
+                    set.insert(commit_b);
+                    set.insert(commit_c);
+                    set.insert(commit_d);
+                    set
+                });
+                inner_map
+            });
+            map
+        };
+
+        let inverted_map = get_inverted_dependency_maps(&original_map);
+        assert_eq!(inverted_map.len(), 1);
+        let stack_inverted_map = inverted_map.get(&stack_id).unwrap();
+        assert_eq!(stack_inverted_map.len(), 3);
+        // b
+        assert!(stack_inverted_map.contains_key(&commit_b));
+        let commit_b_deps = stack_inverted_map.get(&commit_b).unwrap();
+        assert_eq!(commit_b_deps.len(), 1);
+        assert!(commit_b_deps.contains(&commit_a));
+        // c
+        assert!(stack_inverted_map.contains_key(&commit_c));
+        let commit_c_deps = stack_inverted_map.get(&commit_c).unwrap();
+        assert_eq!(commit_c_deps.len(), 1);
+        assert!(commit_c_deps.contains(&commit_a));
+        // d
+        assert!(stack_inverted_map.contains_key(&commit_d));
+        let commit_d_deps = stack_inverted_map.get(&commit_d).unwrap();
+        assert_eq!(commit_d_deps.len(), 1);
+        assert!(commit_d_deps.contains(&commit_a));
+    }
+
+    #[test]
+    fn get_inverted_dependency_maps_test_multiple_stacks() {
+        let stack_id_a = StackId::generate();
+        let stack_id_b = StackId::generate();
+
+        let commit_a = git2::Oid::from_str("a").unwrap();
+        let commit_b = git2::Oid::from_str("b").unwrap();
+        let commit_c = git2::Oid::from_str("c").unwrap();
+        let commit_d = git2::Oid::from_str("d").unwrap();
+        let commit_e = git2::Oid::from_str("e").unwrap();
+        let commit_f = git2::Oid::from_str("f").unwrap();
+        let commit_g = git2::Oid::from_str("0").unwrap();
+        let commit_h = git2::Oid::from_str("1").unwrap();
+
+        let original_map = {
+            let mut map = HashMap::new();
+            map.insert(stack_id_a, {
+                let mut inner_map = HashMap::new();
+                inner_map.insert(commit_a, {
+                    let mut set = HashSet::new();
+                    set.insert(commit_b);
+                    set.insert(commit_c);
+                    set.insert(commit_d);
+                    set
+                });
+                inner_map
+            });
+            map.insert(stack_id_b, {
+                let mut inner_map = HashMap::new();
+                inner_map.insert(commit_e, {
+                    let mut set = HashSet::new();
+                    set.insert(commit_f);
+                    set.insert(commit_g);
+                    set.insert(commit_h);
+                    set
+                });
+                inner_map
+            });
+            map
+        };
+
+        let inverted_map = get_inverted_dependency_maps(&original_map);
+        assert_eq!(inverted_map.len(), 2);
+        // stack a
+        assert!(inverted_map.contains_key(&stack_id_a));
+        let stack_a_inverted_map = inverted_map.get(&stack_id_a).unwrap();
+        assert_eq!(stack_a_inverted_map.len(), 3);
+        // === b
+        assert!(stack_a_inverted_map.contains_key(&commit_b));
+        let commit_b_deps = stack_a_inverted_map.get(&commit_b).unwrap();
+        assert_eq!(commit_b_deps.len(), 1);
+        assert!(commit_b_deps.contains(&commit_a));
+        // === c
+        assert!(stack_a_inverted_map.contains_key(&commit_c));
+        let commit_c_deps = stack_a_inverted_map.get(&commit_c).unwrap();
+        assert_eq!(commit_c_deps.len(), 1);
+        assert!(commit_c_deps.contains(&commit_a));
+        // === d
+        assert!(stack_a_inverted_map.contains_key(&commit_d));
+        let commit_d_deps = stack_a_inverted_map.get(&commit_d).unwrap();
+        assert_eq!(commit_d_deps.len(), 1);
+        assert!(commit_d_deps.contains(&commit_a));
+
+        // stack b
+        assert!(inverted_map.contains_key(&stack_id_b));
+        let stack_b_inverted_map = inverted_map.get(&stack_id_b).unwrap();
+        assert_eq!(stack_b_inverted_map.len(), 3);
+        // === f
+        assert!(stack_b_inverted_map.contains_key(&commit_f));
+        let commit_f_deps = stack_b_inverted_map.get(&commit_f).unwrap();
+        assert_eq!(commit_f_deps.len(), 1);
+        assert!(commit_f_deps.contains(&commit_e));
+        // === g
+        assert!(stack_b_inverted_map.contains_key(&commit_g));
+        let commit_g_deps = stack_b_inverted_map.get(&commit_g).unwrap();
+        assert_eq!(commit_g_deps.len(), 1);
+        assert!(commit_g_deps.contains(&commit_e));
+        // === h
+        assert!(stack_b_inverted_map.contains_key(&commit_h));
+        let commit_h_deps = stack_b_inverted_map.get(&commit_h).unwrap();
+        assert_eq!(commit_h_deps.len(), 1);
+        assert!(commit_h_deps.contains(&commit_e));
+    }
+
+    #[test]
+    fn get_inverted_dependency_maps_test_multple_dependencies() {
+        let stack_id_a = StackId::generate();
+        let stack_id_b = StackId::generate();
+
+        let commit_a = git2::Oid::from_str("a").unwrap();
+        let commit_b = git2::Oid::from_str("b").unwrap();
+        let commit_c = git2::Oid::from_str("c").unwrap();
+        let commit_d = git2::Oid::from_str("d").unwrap();
+        let commit_e = git2::Oid::from_str("e").unwrap();
+        let commit_f = git2::Oid::from_str("f").unwrap();
+        let commit_g = git2::Oid::from_str("0").unwrap();
+        let commit_h = git2::Oid::from_str("1").unwrap();
+
+        let original_map = {
+            let mut map = HashMap::new();
+            map.insert(stack_id_a, {
+                let mut inner_map = HashMap::new();
+                inner_map.insert(commit_a, {
+                    let mut set = HashSet::new();
+                    set.insert(commit_b);
+                    set.insert(commit_c);
+                    set.insert(commit_d);
+                    set
+                });
+
+                inner_map.insert(commit_b, {
+                    let mut set = HashSet::new();
+                    set.insert(commit_c);
+                    set.insert(commit_d);
+                    set
+                });
+
+                inner_map.insert(commit_c, {
+                    let mut set = HashSet::new();
+                    set.insert(commit_d);
+                    set
+                });
+
+                inner_map
+            });
+            map.insert(stack_id_b, {
+                let mut inner_map = HashMap::new();
+                inner_map.insert(commit_e, {
+                    let mut set = HashSet::new();
+                    set.insert(commit_f);
+                    set.insert(commit_g);
+                    set.insert(commit_h);
+                    set
+                });
+
+                inner_map.insert(commit_f, {
+                    let mut set = HashSet::new();
+                    set.insert(commit_g);
+                    set.insert(commit_h);
+                    set
+                });
+
+                inner_map.insert(commit_g, {
+                    let mut set = HashSet::new();
+                    set.insert(commit_h);
+                    set
+                });
+
+                inner_map
+            });
+            map
+        };
+
+        let inverted_map = get_inverted_dependency_maps(&original_map);
+        assert_eq!(inverted_map.len(), 2);
+        // stack a
+        assert!(inverted_map.contains_key(&stack_id_a));
+        let stack_a_inverted_map = inverted_map.get(&stack_id_a).unwrap();
+        assert_eq!(stack_a_inverted_map.len(), 3);
+        // === b
+        assert!(stack_a_inverted_map.contains_key(&commit_b));
+        let commit_b_deps = stack_a_inverted_map.get(&commit_b).unwrap();
+        assert_eq!(commit_b_deps.len(), 1);
+        assert!(commit_b_deps.contains(&commit_a));
+        // === c
+        assert!(stack_a_inverted_map.contains_key(&commit_c));
+        let commit_c_deps = stack_a_inverted_map.get(&commit_c).unwrap();
+        assert_eq!(commit_c_deps.len(), 2);
+        assert!(commit_c_deps.contains(&commit_a));
+        assert!(commit_c_deps.contains(&commit_b));
+        // === d
+        assert!(stack_a_inverted_map.contains_key(&commit_d));
+        let commit_d_deps = stack_a_inverted_map.get(&commit_d).unwrap();
+        assert_eq!(commit_d_deps.len(), 3);
+        assert!(commit_d_deps.contains(&commit_a));
+        assert!(commit_d_deps.contains(&commit_b));
+        assert!(commit_d_deps.contains(&commit_c));
+
+        // stack b
+        assert!(inverted_map.contains_key(&stack_id_b));
+        let stack_b_inverted_map = inverted_map.get(&stack_id_b).unwrap();
+        assert_eq!(stack_b_inverted_map.len(), 3);
+        // === f
+        assert!(stack_b_inverted_map.contains_key(&commit_f));
+        let commit_f_deps = stack_b_inverted_map.get(&commit_f).unwrap();
+        assert_eq!(commit_f_deps.len(), 1);
+        assert!(commit_f_deps.contains(&commit_e));
+
+        // === g
+        assert!(stack_b_inverted_map.contains_key(&commit_g));
+        let commit_g_deps = stack_b_inverted_map.get(&commit_g).unwrap();
+        assert_eq!(commit_g_deps.len(), 2);
+        assert!(commit_g_deps.contains(&commit_e));
+        assert!(commit_g_deps.contains(&commit_f));
+
+        // === h
+        assert!(stack_b_inverted_map.contains_key(&commit_h));
+        let commit_h_deps = stack_b_inverted_map.get(&commit_h).unwrap();
+        assert_eq!(commit_h_deps.len(), 3);
+        assert!(commit_h_deps.contains(&commit_e));
+        assert!(commit_h_deps.contains(&commit_f));
+        assert!(commit_h_deps.contains(&commit_g));
+    }
 
     #[test]
     fn workspace_simple() -> anyhow::Result<()> {
@@ -158,7 +444,7 @@ mod tests {
                     commit_id: commit1_id,
                     files: vec![InputFile {
                         path: path.to_owned(),
-                        diffs: vec![InputDiff::try_from(
+                        diffs: vec![InputDiff::try_from((
                             "@@ -1,6 +1,7 @@
 1
 2
@@ -168,7 +454,8 @@ mod tests {
 6
 7
 ",
-                        )?],
+                            gitbutler_diff::ChangeType::Modified,
+                        ))?],
                     }],
                 }],
             },
@@ -179,7 +466,7 @@ mod tests {
                     files: vec![InputFile {
                         path: path.to_owned(),
                         diffs: vec![
-                            InputDiff::try_from(
+                            InputDiff::try_from((
                                 "@@ -1,5 +1,3 @@
 -1
 -2
@@ -187,8 +474,9 @@ mod tests {
 5
 6
 ",
-                            )?,
-                            InputDiff::try_from(
+                                gitbutler_diff::ChangeType::Modified,
+                            ))?,
+                            InputDiff::try_from((
                                 "@@ -10,6 +8,7 @@
 10
 11
@@ -198,7 +486,8 @@ mod tests {
 15
 16
 ",
-                            )?,
+                                gitbutler_diff::ChangeType::Modified,
+                            ))?,
                         ],
                     }],
                 }],

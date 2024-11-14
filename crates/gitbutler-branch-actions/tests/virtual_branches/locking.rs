@@ -112,7 +112,7 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
 
     // Commit some changes to the second branch that will push the first changes
     // down when diffing workspace head against the default target.
-    create_virtual_branch(
+    let second_branch_id = create_virtual_branch(
         project,
         &BranchCreateRequest {
             selected_for_changes: Some(true),
@@ -125,7 +125,10 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
     repository.write_file("file.txt", &lines);
 
     let (branches, _) = list_virtual_branches(project)?;
-    assert_eq!(branches[0].files.len(), 1);
-    assert_eq!(branches[1].files.len(), 0);
+    assert_eq!(branches.len(), 2);
+    let first_branch = branches.iter().find(|b| b.id != second_branch_id).unwrap();
+    let second_branch = branches.iter().find(|b| b.id == second_branch_id).unwrap();
+    assert_eq!(first_branch.files.len(), 1);
+    assert_eq!(second_branch.files.len(), 0);
     Ok(())
 }

@@ -1,6 +1,7 @@
 use crate::{
     commit::{commit_to_vbranch_commit, VirtualBranchCommit},
     conflicts::{self, RepoConflictsExt},
+    dependencies::{commit_dependencies_from_workspace, stack_dependencies_from_workspace},
     file::VirtualBranchFile,
     hunk::VirtualBranchHunk,
     integration::get_workspace_head,
@@ -423,6 +424,12 @@ pub fn list_virtual_branches_cached(
                         .ok()
                         .and_then(|data| remote_commit_data.get(&data).copied());
 
+                    let commit_dependencies = commit_dependencies_from_workspace(
+                        &status.workspace_dependencies,
+                        branch.id,
+                        commit.id(),
+                    );
+
                     commit_to_vbranch_commit(
                         repo,
                         &branch,
@@ -431,6 +438,7 @@ pub fn list_virtual_branches_cached(
                         is_remote,
                         copied_from_remote_id,
                         None, // remote_commit_id is only used inside PatchSeries
+                        commit_dependencies,
                     )
                 })
                 .collect::<Result<Vec<_>>>()?
@@ -475,6 +483,9 @@ pub fn list_virtual_branches_cached(
 
         let refname = branch.refname()?.into();
 
+        let stack_dependencies =
+            stack_dependencies_from_workspace(&status.workspace_dependencies, branch.id);
+
         // TODO: Error out here once this API is stable
         let series = match stack_series(
             ctx,
@@ -483,6 +494,7 @@ pub fn list_virtual_branches_cached(
             &mut check_commit,
             remote_commit_data,
             &vbranch_commits,
+            stack_dependencies,
         ) {
             Ok((series, force)) => {
                 if series.iter().any(|s| s.upstream_reference.is_some()) {

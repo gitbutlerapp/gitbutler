@@ -1,4 +1,7 @@
-use std::collections::HashSet;
+use std::{
+    collections::{HashMap, HashSet},
+    vec,
+};
 
 use anyhow::bail;
 use gitbutler_stack::StackId;
@@ -8,18 +11,12 @@ use crate::{HunkRange, InputDiff};
 /// Adds sequential diffs from sequential commits for a specific path, and shifts line numbers
 /// with additions and deletions. It is expected that diffs are added one commit at a time,
 /// each time merging the already added diffs with the new ones being added.
-///
-/// When combining old and new diffs we process them in turn of their start line, lowest first.
-/// With each addition it is possible that we conflict with previous ranges (we only know start
-/// line is higher, line count can be very different), but it is important to note that old
-/// ranges will not conflict with old ranges, and new ranges cannot conflict with new ranges.
-///
-/// Therefore, a) if we are processing a new diff we know it overwrites anything it conflicts
-/// with, b) when processing an old diff we e.g. omit it if has been overwritten.
 #[derive(Debug, Default)]
 pub struct PathRanges {
-    pub hunks: Vec<HunkRange>,
-    commit_ids: HashSet<git2::Oid>,
+    pub hunk_ranges: Vec<HunkRange>,
+    pub commit_dependencies: HashMap<git2::Oid, HashSet<git2::Oid>>,
+    commit_ids: Vec<git2::Oid>,
+    line_shift: i32,
 }
 
 impl PathRanges {
@@ -27,741 +24,1685 @@ impl PathRanges {
         &mut self,
         stack_id: StackId,
         commit_id: git2::Oid,
-        diffs: Vec<InputDiff>,
+        incoming_hunks: Vec<InputDiff>,
     ) -> anyhow::Result<()> {
-        if !self.commit_ids.insert(commit_id) {
+        if self.commit_ids.contains(&commit_id) {
             bail!("Commit ID already in stack: {}", commit_id)
         }
 
-        // Cumulative count of net line change, used to update start lines.
-        let mut net_lines = 0;
-        let mut new_hunks: Vec<HunkRange> = vec![];
-        let mut last_hunk: Option<HunkRange> = None;
+        let mut index_next_hunk_to_visit: Option<usize> = None;
+        let incoming_hunks_count = incoming_hunks.len();
+        self.line_shift = 0;
 
-        // Two pointers for iterating over two arrays.
-        let [mut i, mut j] = [0, 0];
-
-        while i < diffs.len() || j < self.hunks.len() {
-            // If the old start is smaller than existing new_start, or if only have new diffs
-            // left to process.
-            let mut hunks = if (i < diffs.len()
-                && j < self.hunks.len()
-                && diffs[i].old_start < self.hunks[j].start)
-                || (i < diffs.len() && j >= self.hunks.len())
+        // This is the main loop that processes all diff hunks in a commit,
+        // turning them into hunk ranges and inserting them in order.
+        for incoming_hunk in &incoming_hunks {
+            // Handle existing hunk range is a file deletion.
+            if self.hunk_ranges.len() == 1
+                && self.hunk_ranges[0].change_type == gitbutler_diff::ChangeType::Deleted
             {
+                self.handle_file_recreation(
+                    commit_id,
+                    stack_id,
+                    incoming_hunks,
+                    self.hunk_ranges[0],
+                )?;
+                break;
+            }
+
+            // Assume that an incoming hunk deleting a file is the only diff in the commit.
+            if incoming_hunk.change_type == gitbutler_diff::ChangeType::Deleted {
+                self.handle_file_deletion(
+                    incoming_hunks_count,
+                    incoming_hunk,
+                    stack_id,
+                    commit_id,
+                )?;
+                break;
+            }
+
+            // If no existing hunk ranges, add all incoming hunks.
+            if self.hunk_ranges.is_empty() {
+                self.handle_add_all_hunks(stack_id, commit_id, incoming_hunks)?;
+                break;
+            }
+
+            // Find all existing hunks that intersect with the incoming hunk.
+            // --
+
+            // If we already added a hunk, we need to check **only** the hunk ranges after that.
+            // -> hunks are expected to be added in top to bottom and not overlapping.
+
+            if let Some(i) = index_next_hunk_to_visit {
+                // If the last hunk was added at the end, there are no more hunks to compare against.
+                // -> we can just append the incoming hunk
+                if i >= self.hunk_ranges.len() {
+                    // Append the incoming hunk depends only of the commit that created the file (if any)
+                    let file_creation_commit = self.find_file_creation_commit();
+
+                    if let Some(file_creation_commit) = file_creation_commit {
+                        self.track_commit_dependency(commit_id, vec![file_creation_commit])?;
+                    }
+
+                    if incoming_hunk.new_lines > 0 {
+                        self.hunk_ranges.push(HunkRange {
+                            change_type: incoming_hunk.change_type,
+                            stack_id,
+                            commit_id,
+                            start: incoming_hunk.new_start,
+                            lines: incoming_hunk.new_lines,
+                            line_shift: incoming_hunk.net_lines()?,
+                        });
+                    }
+
+                    index_next_hunk_to_visit = Some(self.hunk_ranges.len());
+                    continue;
+                }
+            }
+
+            // Start looking for intersecting hunks ranges after the last added hunk if there is one,
+            // otherwise start from the beginning.
+            let mut i = index_next_hunk_to_visit.unwrap_or_default();
+
+            // Find all intersecting hunk ranges.
+            let mut intersecting_hunks = vec![];
+            while i < self.hunk_ranges.len() {
+                let current_hunk = self.hunk_ranges[i];
+
+                // Current hunk range starts after the end of the incoming hunk.
+                // -> we can stop looking for intersecting hunks
+                if current_hunk.follows(
+                    self.get_shifted_old_start(incoming_hunk.old_start),
+                    incoming_hunk.old_lines,
+                ) {
+                    break;
+                }
+
+                // Current hunk range is ends before the start of the incoming hunk.
+                if current_hunk.precedes(self.get_shifted_old_start(incoming_hunk.old_start)) {
+                    i += 1;
+                    continue;
+                }
+
+                if current_hunk.intersects(
+                    self.get_shifted_old_start(incoming_hunk.old_start),
+                    incoming_hunk.old_lines,
+                ) {
+                    intersecting_hunks.push((i, current_hunk));
+                }
+
                 i += 1;
-                net_lines += diffs[i - 1].net_lines()?;
-                add_new(&diffs[i - 1], last_hunk, stack_id, commit_id)?
-            } else {
-                j += 1;
-                add_existing(&self.hunks[j - 1], last_hunk, net_lines)
-            };
-            // Last node is needed when adding new one, so we delay inserting it.
-            last_hunk = hunks.pop();
-            new_hunks.extend(hunks);
+            }
+
+            // If there are no intersecting hunk ranges, we just add the incoming hunk.
+            if intersecting_hunks.is_empty() {
+                self.handle_no_intersecting_hunks(
+                    commit_id,
+                    i,
+                    incoming_hunk,
+                    stack_id,
+                    &mut index_next_hunk_to_visit,
+                )?;
+                continue;
+            }
+
+            // Handle multiple a single intersecting hunk.
+            if intersecting_hunks.len() == 1 {
+                self.handle_single_intersecting_hunk(
+                    intersecting_hunks[0],
+                    incoming_hunk,
+                    stack_id,
+                    commit_id,
+                    &mut index_next_hunk_to_visit,
+                )?;
+                continue;
+            }
+
+            self.handle_multiple_intersecting_hunks(
+                intersecting_hunks,
+                incoming_hunk,
+                stack_id,
+                commit_id,
+                &mut index_next_hunk_to_visit,
+            )?;
         }
 
-        if let Some(last_hunk) = last_hunk {
-            new_hunks.push(last_hunk);
-        };
+        self.commit_ids.push(commit_id);
 
-        self.hunks = new_hunks;
         Ok(())
     }
 
+    fn handle_file_recreation(
+        &mut self,
+        commit_id: git2::Oid,
+        stack_id: gitbutler_id::id::Id<gitbutler_stack::Stack>,
+        incoming_hunks: Vec<InputDiff>,
+        existing_hunk_range: HunkRange,
+    ) -> Result<(), anyhow::Error> {
+        if incoming_hunks.len() > 1 {
+            bail!("File recreation must be the only diff in a commit");
+        }
+        let incoming_hunk = &incoming_hunks[0];
+        if incoming_hunk.change_type != gitbutler_diff::ChangeType::Added {
+            bail!("File recreation must be an addition");
+        }
+
+        self.track_commit_dependency(commit_id, vec![existing_hunk_range.commit_id])?;
+        self.hunk_ranges.clear();
+        self.handle_add_all_hunks(stack_id, commit_id, incoming_hunks)?;
+        Ok(())
+    }
+
+    fn handle_file_deletion(
+        &mut self,
+        incoming_hunks_count: usize,
+        incoming_hunk: &InputDiff,
+        stack_id: gitbutler_id::id::Id<gitbutler_stack::Stack>,
+        commit_id: git2::Oid,
+    ) -> Result<(), anyhow::Error> {
+        // Incoming hunk is a file deletion.
+        // This overrides all existing hunk ranges.
+        if incoming_hunks_count > 1 {
+            bail!("File deletion must be the only diff in a commit");
+        }
+        self.hunk_ranges = vec![HunkRange {
+            change_type: incoming_hunk.change_type,
+            stack_id,
+            commit_id,
+            start: incoming_hunk.new_start,
+            lines: incoming_hunk.new_lines,
+            line_shift: 0,
+        }];
+
+        // The commit that deletes a file depends on the last commit that touched it.
+        if let Some(previous_commit_added) = self.commit_ids.last().copied() {
+            self.track_commit_dependency(commit_id, vec![previous_commit_added])?;
+        }
+
+        Ok(())
+    }
+
+    /// Incoming hunk affects no hunk ranges.
+    fn handle_no_intersecting_hunks(
+        &mut self,
+        commit_id: git2::Oid,
+        index: usize,
+        incoming_hunk: &InputDiff,
+        stack_id: gitbutler_id::id::Id<gitbutler_stack::Stack>,
+        index_next_hunk_to_visit: &mut Option<usize>,
+    ) -> Result<(), anyhow::Error> {
+        // The incoming hunk does not intersect with anything.
+        // The only commit that this depends on is the one that created the file.
+        // That commit may or may not be available in the hunk list.
+        let file_creation_commit = self.find_file_creation_commit();
+
+        if let Some(file_creation_commit) = file_creation_commit {
+            self.track_commit_dependency(commit_id, vec![file_creation_commit])?;
+        }
+
+        let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.insert_hunk_ranges_at(
+            index,
+            vec![HunkRange {
+                change_type: incoming_hunk.change_type,
+                stack_id,
+                commit_id,
+                start: incoming_hunk.new_start,
+                lines: incoming_hunk.new_lines,
+                line_shift: incoming_hunk.net_lines()?,
+            }],
+            0,
+        );
+        *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+        self.update_start_lines(i_first_hunk_to_shift, incoming_hunk.net_lines()?)?;
+        Ok(())
+    }
+
+    /// Look for the commit that created the file.
+    fn find_file_creation_commit(&mut self) -> Option<git2::Oid> {
+        let file_creation_commit = self
+            .hunk_ranges
+            .iter()
+            .find(|h| h.change_type == gitbutler_diff::ChangeType::Added)
+            .map(|h| h.commit_id);
+        file_creation_commit
+    }
+
+    fn handle_add_all_hunks(
+        &mut self,
+        stack_id: gitbutler_id::id::Id<gitbutler_stack::Stack>,
+        commit_id: git2::Oid,
+        incoming_hunks: Vec<InputDiff>,
+    ) -> anyhow::Result<()> {
+        for hunk in incoming_hunks {
+            self.hunk_ranges.push(HunkRange {
+                change_type: hunk.change_type,
+                stack_id,
+                commit_id,
+                start: hunk.new_start,
+                lines: hunk.new_lines,
+                line_shift: hunk.net_lines()?,
+            });
+        }
+        Ok(())
+    }
+
+    /// Incoming hunk affects multiple hunk ranges.
+    fn handle_multiple_intersecting_hunks(
+        &mut self,
+        intersecting_hunk_ranges: Vec<(usize, HunkRange)>,
+        incoming_hunk: &InputDiff,
+        stack_id: gitbutler_id::id::Id<gitbutler_stack::Stack>,
+        commit_id: git2::Oid,
+        index_next_hunk_to_visit: &mut Option<usize>,
+    ) -> anyhow::Result<()> {
+        // If there are multiple intersecting hunks, we can ignore all the intersecting hunk ranges
+        // in the middle as they are considered to be completely overwritten by the incoming hunk.
+        let net_lines = incoming_hunk.net_lines()?;
+        let affected_commits = intersecting_hunk_ranges
+            .iter()
+            .map(|(_, hunk)| hunk.commit_id)
+            .collect::<HashSet<_>>();
+
+        // There are two possibilities:
+        let (first_intersecting_hunk_index, first_intersecting_hunk) = intersecting_hunk_ranges
+            .first()
+            .ok_or(anyhow::anyhow!("No first intersecting hunk"))?;
+        let (last_intersecting_hunk_index, last_intersecting_hunk) = intersecting_hunk_ranges
+            .last()
+            .ok_or(anyhow::anyhow!("No last intersecting hunk"))?;
+
+        // 1. The incoming hunk completely overwrites the intersecting hunk ranges.
+        if first_intersecting_hunk.covered_by(
+            self.get_shifted_old_start(incoming_hunk.old_start),
+            incoming_hunk.old_lines,
+        ) && last_intersecting_hunk.covered_by(
+            self.get_shifted_old_start(incoming_hunk.old_start),
+            incoming_hunk.old_lines,
+        ) {
+            let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_between(
+                *first_intersecting_hunk_index,
+                *last_intersecting_hunk_index + 1,
+                vec![HunkRange {
+                    change_type: incoming_hunk.change_type,
+                    stack_id,
+                    commit_id,
+                    start: incoming_hunk.new_start,
+                    lines: incoming_hunk.new_lines,
+                    line_shift: net_lines,
+                }],
+                0,
+            );
+
+            self.track_commit_dependency(commit_id, affected_commits.into_iter().collect())?;
+            *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+            self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
+            return Ok(());
+        }
+
+        // 2. The incoming hunk partially overwrites the intersecting hunk ranges.
+        // 2.1. The incoming hunk overlaps the beginning of the second intersecting hunk range
+        // -> we can tell because the first intersecting hunk range is completely covered by the incoming hunk.
+        if first_intersecting_hunk.covered_by(
+            self.get_shifted_old_start(incoming_hunk.old_start),
+            incoming_hunk.old_lines,
+        ) {
+            let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_between(
+                *first_intersecting_hunk_index,
+                *last_intersecting_hunk_index + 1,
+                vec![
+                    HunkRange {
+                        change_type: incoming_hunk.change_type,
+                        stack_id,
+                        commit_id,
+                        start: incoming_hunk.new_start,
+                        lines: incoming_hunk.new_lines,
+                        line_shift: net_lines,
+                    },
+                    HunkRange {
+                        change_type: last_intersecting_hunk.change_type,
+                        stack_id: last_intersecting_hunk.stack_id,
+                        commit_id: last_intersecting_hunk.commit_id,
+                        start: incoming_hunk.new_start + incoming_hunk.new_lines,
+                        lines: self
+                            .calculate_lines_of_trimmed_hunk(last_intersecting_hunk, incoming_hunk),
+                        line_shift: last_intersecting_hunk.line_shift,
+                    },
+                ],
+                0,
+            );
+            self.track_commit_dependency(commit_id, affected_commits.into_iter().collect())?;
+            *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+            self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
+            return Ok(());
+        }
+
+        // 2.2. The incoming hunk overlaps the end of the first intersecting hunk range
+        // -> we can tell because the last intersecting hunk range is completely covered by the incoming hunk.
+        if last_intersecting_hunk.covered_by(
+            self.get_shifted_old_start(incoming_hunk.old_start),
+            incoming_hunk.old_lines,
+        ) {
+            let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_between(
+                *first_intersecting_hunk_index,
+                *last_intersecting_hunk_index + 1,
+                vec![
+                    HunkRange {
+                        change_type: first_intersecting_hunk.change_type,
+                        stack_id: first_intersecting_hunk.stack_id,
+                        commit_id: first_intersecting_hunk.commit_id,
+                        start: first_intersecting_hunk.start,
+                        lines: incoming_hunk.new_start - first_intersecting_hunk.start,
+                        line_shift: first_intersecting_hunk.line_shift,
+                    },
+                    HunkRange {
+                        change_type: incoming_hunk.change_type,
+                        stack_id,
+                        commit_id,
+                        start: incoming_hunk.new_start,
+                        lines: incoming_hunk.new_lines,
+                        line_shift: net_lines,
+                    },
+                ],
+                1,
+            );
+            self.track_commit_dependency(commit_id, affected_commits.into_iter().collect())?;
+            *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+            self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
+            return Ok(());
+        }
+
+        // 2.3. The incoming hunk is contained in the intersecting hunk ranges
+        let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_between(
+            *first_intersecting_hunk_index,
+            *last_intersecting_hunk_index + 1,
+            vec![
+                HunkRange {
+                    change_type: first_intersecting_hunk.change_type,
+                    stack_id: first_intersecting_hunk.stack_id,
+                    commit_id: first_intersecting_hunk.commit_id,
+                    start: first_intersecting_hunk.start,
+                    lines: incoming_hunk.new_start - first_intersecting_hunk.start,
+                    line_shift: first_intersecting_hunk.line_shift,
+                },
+                HunkRange {
+                    change_type: incoming_hunk.change_type,
+                    stack_id,
+                    commit_id,
+                    start: incoming_hunk.new_start,
+                    lines: incoming_hunk.new_lines,
+                    line_shift: net_lines,
+                },
+                HunkRange {
+                    change_type: last_intersecting_hunk.change_type,
+                    stack_id: last_intersecting_hunk.stack_id,
+                    commit_id: last_intersecting_hunk.commit_id,
+                    start: incoming_hunk.new_start + incoming_hunk.new_lines,
+                    lines: self
+                        .calculate_lines_of_trimmed_hunk(last_intersecting_hunk, incoming_hunk),
+                    line_shift: last_intersecting_hunk.line_shift,
+                },
+            ],
+            1,
+        );
+        self.track_commit_dependency(commit_id, affected_commits.into_iter().collect())?;
+        *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+        self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
+
+        Ok(())
+    }
+
+    /// Incoming hunk only affects a single hunk range.
+    fn handle_single_intersecting_hunk(
+        &mut self,
+        intersecting_hunk_range: (usize, HunkRange),
+        incoming_hunk: &InputDiff,
+        stack_id: gitbutler_id::id::Id<gitbutler_stack::Stack>,
+        commit_id: git2::Oid,
+        index_next_hunk_to_visit: &mut Option<usize>,
+    ) -> anyhow::Result<()> {
+        // If there is only one intersecting hunk range there are three possibilities:
+        let (index, hunk) = intersecting_hunk_range;
+        let net_lines = incoming_hunk.net_lines()?;
+
+        // 1. The incoming hunk completely overwrites the intersecting hunk.
+        if hunk.covered_by(
+            self.get_shifted_old_start(incoming_hunk.old_start),
+            incoming_hunk.old_lines,
+        ) {
+            let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_at(
+                index,
+                vec![HunkRange {
+                    change_type: incoming_hunk.change_type,
+                    stack_id,
+                    commit_id,
+                    start: incoming_hunk.new_start,
+                    lines: incoming_hunk.new_lines,
+                    line_shift: net_lines,
+                }],
+                0,
+            );
+
+            self.track_commit_dependency(commit_id, vec![hunk.commit_id])?;
+            *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+            self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
+            return Ok(());
+        }
+
+        // 2. The incoming hunk is contained in the intersecting hunk range.
+        if hunk.contains(
+            self.get_shifted_old_start(incoming_hunk.old_start),
+            incoming_hunk.old_lines,
+        ) {
+            let (i_next_hunk_to_visit, i_first_hunk_to_shift) = self.replace_hunk_ranges_at(
+                index,
+                vec![
+                    HunkRange {
+                        change_type: hunk.change_type,
+                        stack_id: hunk.stack_id,
+                        commit_id: hunk.commit_id,
+                        start: hunk.start,
+                        lines: incoming_hunk.new_start - hunk.start,
+                        line_shift: hunk.line_shift,
+                    },
+                    HunkRange {
+                        change_type: incoming_hunk.change_type,
+                        stack_id,
+                        commit_id,
+                        start: incoming_hunk.new_start,
+                        lines: incoming_hunk.new_lines,
+                        line_shift: net_lines,
+                    },
+                    HunkRange {
+                        change_type: hunk.change_type,
+                        stack_id: hunk.stack_id,
+                        commit_id: hunk.commit_id,
+                        start: incoming_hunk.new_start + incoming_hunk.new_lines,
+                        lines: self.calculate_lines_of_trimmed_hunk(&hunk, incoming_hunk),
+                        line_shift: hunk.line_shift,
+                    },
+                ],
+                1,
+            );
+            self.track_commit_dependency(commit_id, vec![hunk.commit_id])?;
+            *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+            self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
+            return Ok(());
+        }
+
+        // 3. The incoming hunk partially overwrites the intersecting hunk range.
+        let (i_next_hunk_to_visit, i_first_hunk_to_shift) =
+            if self.get_shifted_old_start(incoming_hunk.old_start) <= hunk.start {
+                // The incoming hunk overlaps the beginning of the intersecting hunk range.
+                self.replace_hunk_ranges_at(
+                    index,
+                    vec![
+                        HunkRange {
+                            change_type: incoming_hunk.change_type,
+                            stack_id,
+                            commit_id,
+                            start: incoming_hunk.new_start,
+                            lines: incoming_hunk.new_lines,
+                            line_shift: net_lines,
+                        },
+                        HunkRange {
+                            change_type: hunk.change_type,
+                            stack_id: hunk.stack_id,
+                            commit_id: hunk.commit_id,
+                            start: incoming_hunk.new_start + incoming_hunk.new_lines,
+                            lines: self.calculate_lines_of_trimmed_hunk(&hunk, incoming_hunk),
+                            line_shift: net_lines,
+                        },
+                    ],
+                    0,
+                )
+            } else {
+                // The incoming hunk overlaps the end of the intersecting hunk range.
+                self.replace_hunk_ranges_at(
+                    index,
+                    vec![
+                        HunkRange {
+                            change_type: hunk.change_type,
+                            stack_id: hunk.stack_id,
+                            commit_id: hunk.commit_id,
+                            start: hunk.start,
+                            lines: incoming_hunk.new_start - hunk.start,
+                            line_shift: hunk.line_shift,
+                        },
+                        HunkRange {
+                            change_type: incoming_hunk.change_type,
+                            stack_id,
+                            commit_id,
+                            start: incoming_hunk.new_start,
+                            lines: incoming_hunk.new_lines,
+                            line_shift: net_lines,
+                        },
+                    ],
+                    1,
+                )
+            };
+
+        self.track_commit_dependency(commit_id, vec![hunk.commit_id])?;
+        *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
+        self.update_start_lines(i_first_hunk_to_shift, net_lines)?;
+
+        Ok(())
+    }
+
+    /// Calculate the number of lines of a hunk range that was trimmed from the top.
+    ///
+    /// Will handle the case where the incoming hunk is a modification and only adds or only deletes lines.
+    fn calculate_lines_of_trimmed_hunk(&self, hunk: &HunkRange, incoming_hunk: &InputDiff) -> u32 {
+        let old_start = self.get_shifted_old_start(incoming_hunk.old_start);
+        let addition_shift = if self.is_addition_only_hunk(incoming_hunk) {
+            // If the incoming hunk is an addition, we need to subtract one more line.
+            1
+        } else {
+            0
+        };
+
+        let deletion_shift = if self.is_deletion_only_hunk(incoming_hunk) {
+            // If the incoming hunk is a deletion, we need to add one more line.
+            1
+        } else {
+            0
+        };
+
+        ((hunk.start + hunk.lines - old_start - incoming_hunk.old_lines) - addition_shift)
+            + deletion_shift
+    }
+
+    /// Determine whether the incoming hunk is of modification type and only adds lines.
+    fn is_addition_only_hunk(&self, incoming_hunk: &InputDiff) -> bool {
+        let old_start = self.get_shifted_old_start(incoming_hunk.old_start);
+        incoming_hunk.change_type == gitbutler_diff::ChangeType::Modified
+            && (old_start + 1) == incoming_hunk.new_start
+            && incoming_hunk.old_lines == 0
+            && incoming_hunk.new_lines > 0
+    }
+
+    /// Determine whether the incoming hunk is of modification type and only deletes lines.
+    fn is_deletion_only_hunk(&self, incoming_hunk: &InputDiff) -> bool {
+        let old_start = self.get_shifted_old_start(incoming_hunk.old_start);
+        incoming_hunk.change_type == gitbutler_diff::ChangeType::Modified
+            && old_start == (incoming_hunk.new_start + 1)
+            && incoming_hunk.old_lines > 0
+            && incoming_hunk.new_lines == 0
+    }
+
+    fn track_commit_dependency(
+        &mut self,
+        commit_id: git2::Oid,
+        parent_ids: Vec<git2::Oid>,
+    ) -> anyhow::Result<()> {
+        for parent_id in parent_ids {
+            if commit_id == parent_id {
+                bail!("Commit ID cannot be a parent ID");
+            }
+            self.commit_dependencies
+                .entry(commit_id)
+                .or_default()
+                .insert(parent_id);
+        }
+
+        Ok(())
+    }
+
+    /// Shift the start lines of the hunk ranges starting at the given index.
+    fn update_start_lines(
+        &mut self,
+        index_of_first_hunk: usize,
+        line_shift: i32,
+    ) -> anyhow::Result<()> {
+        self.line_shift += line_shift;
+
+        if index_of_first_hunk >= self.hunk_ranges.len() {
+            return Ok(());
+        }
+        for hunk in &mut self.hunk_ranges[index_of_first_hunk..] {
+            let new_start = hunk.start.checked_add_signed(line_shift).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Line shift overflow. Start: {} - Shift: {}",
+                    hunk.start,
+                    line_shift
+                )
+            })?;
+            hunk.start = new_start;
+        }
+        Ok(())
+    }
+
+    /// Returns the shifted old start line number of an incoming hunk.
+    fn get_shifted_old_start(&self, old_start: u32) -> u32 {
+        // Everytime that we that an incoming hunk is added
+        // and it adds or subtracts lines,
+        // we need to shift the line numbers of the hunks that come after it.
+
+        // This method allows us to compare the old start line number of the incoming hunk
+        // with the shifted start line number of the existing hunk ranges.
+
+        old_start.checked_add_signed(self.line_shift).unwrap_or(0)
+    }
+
+    /// Inserts the new hunks at the given index.
+    ///
+    /// Returns:
+    /// - The index of the next hunk after the last added hunk.
+    /// - The index of the next hunk after the hunk of interest.
+    fn insert_hunk_ranges_at(
+        &mut self,
+        index: usize,
+        hunks: Vec<HunkRange>,
+        index_of_interest: usize,
+    ) -> (usize, usize) {
+        insert_hunk_ranges(
+            &mut self.hunk_ranges,
+            index,
+            index,
+            hunks,
+            index_of_interest,
+        )
+    }
+
+    /// Replaces the hunk at the given index with the new hunks.
+    ///
+    /// Returns:
+    /// - The index of the next hunk after the last added hunk.
+    /// - The index of the next hunk after the hunk of interest.
+    fn replace_hunk_ranges_at(
+        &mut self,
+        index: usize,
+        hunks: Vec<HunkRange>,
+        index_of_interest: usize,
+    ) -> (usize, usize) {
+        insert_hunk_ranges(
+            &mut self.hunk_ranges,
+            index,
+            index + 1,
+            hunks,
+            index_of_interest,
+        )
+    }
+
+    /// Replaces the hunks between the given start and end indices with the new hunks.
+    ///
+    /// Returns:
+    /// - The index of the next hunk after the last added hunk.
+    /// - The index of the next hunk after the hunk of interest.
+    fn replace_hunk_ranges_between(
+        &mut self,
+        start: usize,
+        end: usize,
+        hunks: Vec<HunkRange>,
+        index_of_interest: usize,
+    ) -> (usize, usize) {
+        insert_hunk_ranges(&mut self.hunk_ranges, start, end, hunks, index_of_interest)
+    }
+
     pub fn intersection(&self, start: u32, lines: u32) -> Vec<&HunkRange> {
-        self.hunks
+        self.hunk_ranges
             .iter()
             .filter(|hunk| hunk.intersects(start, lines))
             .collect()
     }
 }
 
-/// Determines how to add new diff given the previous one.
-fn add_new(
-    new_diff: &InputDiff,
-    last_hunk: Option<HunkRange>,
-    stack_id: StackId,
-    commit_id: git2::Oid,
-) -> anyhow::Result<Vec<HunkRange>> {
-    // If we have nothing to compare against we just return the new diff.
-    if last_hunk.is_none() {
-        return Ok(vec![HunkRange {
-            stack_id,
-            commit_id,
-            start: new_diff.new_start,
-            lines: new_diff.new_lines,
-            line_shift: new_diff.net_lines()?,
-        }]);
-    }
-    let last_hunk = last_hunk.unwrap();
+/// Update the hunk ranges by inserting the new hunks at the given start and end indices.
+///
+/// Existing hunk ranges between the start and end indices are replaced by the new hunks.
+/// Added hunk ranges that have 0 lines are ignored.
+/// Returns:
+/// - The index of the next hunk after the last added hunk.
+/// - The index of the next hunk after the hunk of interest.
+fn insert_hunk_ranges(
+    hunk_ranges: &mut Vec<HunkRange>,
+    start: usize,
+    end: usize,
+    hunks: Vec<HunkRange>,
+    index_of_interest: usize,
+) -> (usize, usize) {
+    let mut new_hunks = vec![];
+    new_hunks.extend_from_slice(&hunk_ranges[..start]);
 
-    if last_hunk.start + last_hunk.lines < new_diff.old_start {
-        // Diffs do not overlap so we return them in order.
-        return Ok(vec![
-            last_hunk,
-            HunkRange {
-                commit_id,
-                stack_id,
-                start: new_diff.new_start,
-                lines: new_diff.new_lines,
-                line_shift: new_diff.net_lines()?,
-            },
-        ]);
+    let mut index_after_last_added = start;
+    let mut index_after_interest = start;
+    for (i, hunk) in hunks.iter().enumerate() {
+        if hunk.lines > 0 {
+            // Only add hunk ranges that have lines.
+            new_hunks.push(*hunk);
+            index_after_last_added += 1;
+        }
+
+        if i == index_of_interest {
+            index_after_interest = new_hunks.len();
+        }
     }
 
-    if last_hunk.contains(new_diff.old_start, new_diff.old_lines) {
-        // Since the diff being added is from the current commit it overwrites the preceding one,
-        // but we need to split it in two and retain the tail.
-
-        return Ok(vec![
-            HunkRange {
-                commit_id: last_hunk.commit_id,
-                stack_id: last_hunk.stack_id,
-                start: last_hunk.start,
-                lines: new_diff.new_start - last_hunk.start,
-                line_shift: 0,
-            },
-            HunkRange {
-                commit_id,
-                stack_id,
-                start: new_diff.new_start,
-                lines: new_diff.new_lines,
-                line_shift: new_diff.net_lines()?,
-            },
-            HunkRange {
-                commit_id: last_hunk.commit_id,
-                stack_id: last_hunk.stack_id,
-                start: new_diff.new_start + new_diff.new_lines,
-                lines: last_hunk.lines
-                    - new_diff.old_lines
-                    - (new_diff.old_start - last_hunk.start),
-                line_shift: last_hunk.line_shift,
-            },
-        ]);
+    if end < hunk_ranges.len() {
+        new_hunks.extend_from_slice(&hunk_ranges[end..]);
     }
 
-    if last_hunk.covered_by(new_diff.old_start, new_diff.old_lines) {
-        // The new diff completely overwrites the previous one.
-        return Ok(vec![HunkRange {
-            commit_id,
-            stack_id,
-            start: new_diff.new_start,
-            lines: new_diff.new_lines,
-            line_shift: new_diff.net_lines()?,
-        }]);
-    }
+    *hunk_ranges = new_hunks;
 
-    // Overwrite the tail of the previous diff.
-    Ok(vec![
-        HunkRange {
-            commit_id: last_hunk.commit_id,
-            stack_id: last_hunk.stack_id,
-            start: last_hunk.start,
-            lines: new_diff.new_start - last_hunk.start,
-            line_shift: last_hunk.line_shift,
-        },
-        HunkRange {
-            commit_id,
-            stack_id,
-            start: new_diff.new_start,
-            lines: new_diff.new_lines,
-            line_shift: new_diff.net_lines()?,
-        },
-    ])
-}
-
-/// Determines how existing diff given the previous one.
-fn add_existing(hunk: &HunkRange, last_hunk: Option<HunkRange>, shift: i32) -> Vec<HunkRange> {
-    if last_hunk.is_none() {
-        return vec![*hunk];
-    };
-    let last_hunk = last_hunk.unwrap();
-
-    if hunk.start + hunk.lines == 0 {
-        vec![*hunk]
-    } else if hunk.start.saturating_add_signed(shift) > last_hunk.start + last_hunk.lines {
-        vec![
-            last_hunk,
-            HunkRange {
-                commit_id: hunk.commit_id,
-                stack_id: hunk.stack_id,
-                start: hunk.start.saturating_add_signed(shift),
-                lines: hunk.lines,
-                line_shift: hunk.line_shift,
-            },
-        ]
-    } else if last_hunk.covered_by(hunk.start.saturating_add_signed(shift), hunk.lines) {
-        vec![last_hunk]
-    } else {
-        vec![
-            last_hunk,
-            HunkRange {
-                commit_id: hunk.commit_id,
-                stack_id: hunk.stack_id,
-                start: hunk.start.saturating_add_signed(shift),
-                lines: hunk.lines - (last_hunk.start + last_hunk.lines - hunk.start),
-                line_shift: hunk.line_shift,
-            },
-        ]
-    }
+    (index_after_interest, index_after_last_added)
 }
 
 #[cfg(test)]
+
 mod tests {
     use super::*;
 
     #[test]
-    fn stack_simple() -> anyhow::Result<()> {
-        let diff = InputDiff::try_from(
-            "@@ -1,6 +1,7 @@
-1
-2
-3
-+4
-5
-6
-7
-",
-        )?;
-        let stack_ranges = &mut PathRanges::default();
-        let stack_id = StackId::generate();
-        let commit_id = git2::Oid::from_str("a")?;
+    fn test_split_hunk_range() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
 
-        stack_ranges.add(stack_id, commit_id, vec![diff])?;
+        let mut hunk_ranges = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Added,
+            stack_id: StackId::generate(),
+            commit_id: commit_a_id,
+            start: 1,
+            lines: 10,
+            line_shift: 9,
+        }];
 
-        let intersection = stack_ranges.intersection(4, 1);
-        assert_eq!(intersection.len(), 1);
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 3,
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 1,
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 5,
+                lines: 6,
+                line_shift: 9,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 1);
+
+        assert_eq!(hunk_ranges.len(), 3);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 3);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_a_id);
 
         Ok(())
     }
 
     #[test]
-    fn stack_delete_file() -> anyhow::Result<()> {
-        let diff_1 = InputDiff::try_from(
-            "@@ -0,0 +1,7 @@
-+a
-+a
-+a
-+a
-+a
-+a
-+a
-",
-        )?;
-        let diff_2 = InputDiff::try_from(
-            "@@ -1,7 +1,7 @@
-a
-a
-a
--a
-+b
-a
-a
-a
-",
-        )?;
-        let diff_3 = InputDiff::try_from(
-            "@@ -1,7 +0,0 @@
--a
--a
--a
--b
--a
--a
--a
-",
-        )?;
-        let stack_ranges = &mut PathRanges::default();
-        let stack_id = StackId::generate();
+    fn test_split_hunk_range_filter_before() -> anyhow::Result<()> {
         let commit_a_id = git2::Oid::from_str("a")?;
-        stack_ranges.add(stack_id, commit_a_id, vec![diff_1])?;
-
         let commit_b_id = git2::Oid::from_str("b")?;
-        stack_ranges.add(stack_id, commit_b_id, vec![diff_2])?;
+
+        let mut hunk_ranges = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Added,
+            stack_id: StackId::generate(),
+            commit_id: commit_a_id,
+            start: 1,
+            lines: 10,
+            line_shift: 9,
+        }];
+
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 0, // this range will be ignored
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 1,
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 5,
+                lines: 6,
+                line_shift: 9,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 1);
+
+        assert_eq!(hunk_ranges.len(), 2);
+        assert_eq!(index_after_interest, 1);
+        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges[0].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_split_hunk_range_filter_after() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+
+        let mut hunk_ranges = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Added,
+            stack_id: StackId::generate(),
+            commit_id: commit_a_id,
+            start: 1,
+            lines: 10,
+            line_shift: 9,
+        }];
+
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 3,
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 1,
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 5,
+                lines: 0, // this range will be ignored
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 5,
+                lines: 0, // this range will be ignored
+                line_shift: 9,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 1);
+
+        assert_eq!(hunk_ranges.len(), 2);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_split_hunk_range_filter_incoming() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+
+        let mut hunk_ranges = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Added,
+            stack_id: StackId::generate(),
+            commit_id: commit_a_id,
+            start: 1,
+            lines: 10,
+            line_shift: 9,
+        }];
+
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 0, // this range will be ignored
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 3,
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 0, // this range will be ignored,
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 5,
+                lines: 6,
+                line_shift: 9,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 2);
+
+        assert_eq!(hunk_ranges.len(), 2);
+        assert_eq!(index_after_interest, 1);
+        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[0].start, 1);
+        assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].start, 5);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_split_hunk_range_filter_all() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 10,
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 11,
+                lines: 10,
+                line_shift: 9,
+            },
+        ];
+
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 0, // this range will be ignored
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 0,
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 4,
+                lines: 0, // this range will be ignored,
+                line_shift: 0,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 5,
+                lines: 0,
+                line_shift: 9,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 2);
+
+        assert_eq!(hunk_ranges.len(), 1);
+        assert_eq!(index_after_interest, 0);
+        assert_eq!(index_after_last_added, 0);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[0].start, 11);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_split_hunk_range_filter_only() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 10,
+                line_shift: 9,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 11,
+                lines: 10,
+                line_shift: 9,
+            },
+        ];
+
+        let hunks = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Added,
+            stack_id: StackId::generate(),
+            commit_id: commit_b_id,
+            start: 4,
+            lines: 0, // this range will be ignored
+            line_shift: 0,
+        }];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 2, 2, hunks, 0);
+
+        assert_eq!(hunk_ranges.len(), 2);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[0].start, 1);
+        assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].start, 11);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_replace_hunk_ranges_at_the_end() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: git2::Oid::from_str("b")?,
+                start: 3,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: git2::Oid::from_str("b")?,
+                start: 5,
+                lines: 1,
+                line_shift: 1,
+            },
+        ];
 
         let commit_c_id = git2::Oid::from_str("c")?;
-        stack_ranges.add(stack_id, commit_c_id, vec![diff_3])?;
 
-        // The file is deleted in the second commit.
-        // If we recreate it, it should intersect.
-        let intersection = stack_ranges.intersection(1, 1);
-        assert_eq!(stack_ranges.hunks.len(), 1);
-        assert_eq!(intersection.len(), 1);
-        assert_eq!(intersection[0].commit_id, commit_c_id);
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 2,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 4,
+                lines: 1,
+                line_shift: 1,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 1, 5, hunks, 1);
+
+        assert_eq!(hunk_ranges.len(), 3);
+        assert_eq!(index_after_interest, 3);
+        assert_eq!(index_after_last_added, 3);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_c_id);
 
         Ok(())
     }
 
     #[test]
-    fn stack_delete_and_recreate_file() -> anyhow::Result<()> {
-        let diff_1 = InputDiff::try_from(
-            "@@ -0,0 +1,7 @@
-+a
-+a
-+a
-+a
-+a
-+a
-+a
-",
-        )?;
-        let diff_2 = InputDiff::try_from(
-            "@@ -1,7 +1,7 @@
-a
-a
-a
--a
-+b
-a
-a
-a
-",
-        )?;
-        let diff_3 = InputDiff::try_from(
-            "@@ -1,7 +0,0 @@
--a
--a
--a
--b
--a
--a
--a
-",
-        )?;
-        let diff_4 = InputDiff::try_from(
-            "@@ -0,0 +1,5 @@
-+c
-+c
-+c
-+c
-+c
-",
-        )?;
-        let stack_ranges = &mut PathRanges::default();
-        let stack_id = StackId::generate();
+    fn test_replace_hunk_ranges_at_the_beginning() -> anyhow::Result<()> {
         let commit_a_id = git2::Oid::from_str("a")?;
-        stack_ranges.add(stack_id, commit_a_id, vec![diff_1])?;
-
         let commit_b_id = git2::Oid::from_str("b")?;
-        stack_ranges.add(stack_id, commit_b_id, vec![diff_2])?;
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 3,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 5,
+                lines: 1,
+                line_shift: 1,
+            },
+        ];
 
         let commit_c_id = git2::Oid::from_str("c")?;
-        stack_ranges.add(stack_id, commit_c_id, vec![diff_3])?;
 
-        let commit_d_id = git2::Oid::from_str("d")?;
-        stack_ranges.add(stack_id, commit_d_id, vec![diff_4])?;
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 0,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 2,
+                lines: 1,
+                line_shift: 1,
+            },
+        ];
 
-        // The file is deleted in the second commit.
-        // If we recreate it, it should intersect.
-        let intersection = stack_ranges.intersection(1, 1);
-        assert_eq!(stack_ranges.hunks.len(), 1);
-        assert_eq!(intersection.len(), 1);
-        assert_eq!(intersection[0].commit_id, commit_d_id);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 2, hunks, 1);
 
-        Ok(())
-    }
-
-    #[test]
-    fn uncommitted_file_deletion() -> anyhow::Result<()> {
-        let diff_1 = InputDiff::try_from(
-            "@@ -1,0 +1,7 @@
-+a
-+a
-+a
-+a
-+a
-+a
-+a
-",
-        )?;
-        let stack_ranges = &mut PathRanges::default();
-        let stack_id = StackId::generate();
-        let commit_id = git2::Oid::from_str("a")?;
-        stack_ranges.add(stack_id, commit_id, vec![diff_1])?;
-
-        // If the file is completely deleted, the old start and lines are 1 and 7.
-        let intersection = stack_ranges.intersection(1, 7);
-        assert_eq!(intersection.len(), 1);
-        assert_eq!(intersection[0].commit_id, commit_id);
+        assert_eq!(hunk_ranges.len(), 3);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges[0].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
 
         Ok(())
     }
 
     #[test]
-    fn stack_overwrite_file() -> anyhow::Result<()> {
-        let diff_1 = InputDiff::try_from(
-            "@@ -1,0 +1,7 @@
-+1
-+2
-+3
-+4
-+5
-+6
-+7
-",
-        )?;
-        let diff_2 = InputDiff::try_from(
-            "@@ -1,7 +1,7 @@
--1
--2
--3
--4
--5
--6
--7
-+a
-+b
-+c
-+d
-+e
-+f
-+g
-",
-        )?;
-        let stack_ranges = &mut PathRanges::default();
-        let stack_id = StackId::generate();
+    fn test_insert_single_hunk_range_at_the_beginning() -> anyhow::Result<()> {
         let commit_a_id = git2::Oid::from_str("a")?;
-        stack_ranges.add(stack_id, commit_a_id, vec![diff_1])?;
-
         let commit_b_id = git2::Oid::from_str("b")?;
-        stack_ranges.add(stack_id, commit_b_id, vec![diff_2])?;
+        let commit_c_id = git2::Oid::from_str("c")?;
 
-        let intersection = stack_ranges.intersection(1, 1);
-        assert_eq!(intersection.len(), 1);
-        assert_eq!(intersection[0].commit_id, commit_b_id);
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 3,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 5,
+                lines: 1,
+                line_shift: 1,
+            },
+        ];
+
+        let hunks = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id: StackId::generate(),
+            commit_id: commit_c_id,
+            start: 0,
+            lines: 1,
+            line_shift: 1,
+        }];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 0, 0, hunks, 0);
+        assert_eq!(hunk_ranges.len(), 4);
+        assert_eq!(index_after_interest, 1);
+        assert_eq!(index_after_last_added, 1);
+        assert_eq!(hunk_ranges[0].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[3].commit_id, commit_b_id);
 
         Ok(())
     }
 
     #[test]
-    fn stack_overwrite_line() -> anyhow::Result<()> {
-        let diff_1 = InputDiff::try_from(
-            "@@ -1,6 +1,7 @@
-1
-2
-3
-+4
-5
-6
-7
-",
-        )?;
-        let diff_2 = InputDiff::try_from(
-            "@@ -1,7 +1,7 @@
-1
-2
-3
--4
-+4.5
-5
-6
-7
-",
-        )?;
-        let stack_ranges = &mut PathRanges::default();
-        let stack_id = StackId::generate();
+    fn test_insert_at_the_end() -> anyhow::Result<()> {
         let commit_a_id = git2::Oid::from_str("a")?;
-        stack_ranges.add(stack_id, commit_a_id, vec![diff_1])?;
-
         let commit_b_id = git2::Oid::from_str("b")?;
-        stack_ranges.add(stack_id, commit_b_id, vec![diff_2])?;
+        let commit_c_id = git2::Oid::from_str("c")?;
 
-        let intersection = stack_ranges.intersection(3, 3);
-        assert_eq!(intersection.len(), 1);
-        assert_eq!(intersection[0].commit_id, commit_b_id);
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 3,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 5,
+                lines: 1,
+                line_shift: 1,
+            },
+        ];
 
-        Ok(())
-    }
+        let hunks = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id: StackId::generate(),
+            commit_id: commit_c_id,
+            start: 0,
+            lines: 1,
+            line_shift: 1,
+        }];
 
-    #[test]
-    fn stack_complex() -> anyhow::Result<()> {
-        let diff_1 = InputDiff::try_from(
-            "@@ -1,6 +1,7 @@
-1
-2
-3
-+4
-5
-6
-7
-",
-        )?;
-        let diff_2 = InputDiff::try_from(
-            "@@ -2,6 +2,7 @@
-2
-3
-4
-+4.5
-5
-6
-7
-",
-        )?;
-
-        let stack_ranges = &mut PathRanges::default();
-        let stack_id = StackId::generate();
-
-        let commit_id = git2::Oid::from_str("a")?;
-        stack_ranges.add(stack_id, commit_id, vec![diff_1])?;
-
-        let commit_id = git2::Oid::from_str("b")?;
-        stack_ranges.add(stack_id, commit_id, vec![diff_2])?;
-
-        let intersection = stack_ranges.intersection(4, 1);
-        assert_eq!(intersection.len(), 1);
-
-        let intersection = stack_ranges.intersection(5, 1);
-        assert_eq!(intersection.len(), 1);
-
-        let intersection = stack_ranges.intersection(4, 2);
-        assert_eq!(intersection.len(), 2);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 3, 3, hunks, 0);
+        assert_eq!(hunk_ranges.len(), 4);
+        assert_eq!(index_after_interest, 4);
+        assert_eq!(index_after_last_added, 4);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[3].commit_id, commit_c_id);
 
         Ok(())
     }
 
     #[test]
-    fn stack_basic_line_shift() -> anyhow::Result<()> {
-        let diff_1 = InputDiff::try_from(
-            "@@ -1,4 +1,5 @@
-a
-+b
-a
-a
-a
-",
-        )?;
-        let diff_2 = InputDiff::try_from(
-            "@@ -1,3 +1,4 @@
-+c
-a
-b
-a
-",
-        )?;
+    fn test_replace_hunk_ranges_between_add() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+        let commit_c_id = git2::Oid::from_str("c")?;
 
-        let stack_ranges = &mut PathRanges::default();
-        let stack_id = StackId::generate();
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 3,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 5,
+                lines: 1,
+                line_shift: 1,
+            },
+        ];
 
-        let commit_id = git2::Oid::from_str("a")?;
-        stack_ranges.add(stack_id, commit_id, vec![diff_1])?;
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 0,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 2,
+                lines: 1,
+                line_shift: 1,
+            },
+        ];
 
-        let commit_id = git2::Oid::from_str("b")?;
-        stack_ranges.add(stack_id, commit_id, vec![diff_2])?;
-
-        let result = stack_ranges.intersection(1, 1);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].commit_id, commit_id);
-
-        Ok(())
-    }
-
-    #[test]
-    fn stack_complex_line_shift() -> anyhow::Result<()> {
-        let stack_ranges = &mut PathRanges::default();
-        let stack_id = StackId::generate();
-
-        let commit1_id = git2::Oid::from_str("a")?;
-        let diff1 = InputDiff::try_from(
-            "@@ -1,4 +1,5 @@
-a
-+b
-a
-a
-a
-",
-        )?;
-        stack_ranges.add(stack_id, commit1_id, vec![diff1])?;
-
-        let commit2_id = git2::Oid::from_str("b")?;
-        let diff2 = InputDiff::try_from(
-            "@@ -1,3 +1,4 @@
-+c
-a
-b
-a
-",
-        )?;
-
-        stack_ranges.add(stack_id, commit2_id, vec![diff2])?;
-
-        let result = stack_ranges.intersection(1, 1);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].commit_id, commit2_id);
-
-        let result = stack_ranges.intersection(2, 1);
-        assert_eq!(result.len(), 0);
-
-        let result = stack_ranges.intersection(3, 1);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].commit_id, commit1_id);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks, 1);
+        assert_eq!(hunk_ranges.len(), 4);
+        assert_eq!(index_after_interest, 3);
+        assert_eq!(index_after_last_added, 3);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[3].commit_id, commit_b_id);
 
         Ok(())
     }
 
     #[test]
-    fn stack_multiple_overwrites() -> anyhow::Result<()> {
-        let stack_ranges = &mut PathRanges::default();
-        let stack_id = StackId::generate();
+    fn test_filter_out_single_range_replacement() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+        let commit_c_id = git2::Oid::from_str("c")?;
 
-        let commit1_id = git2::Oid::from_str("a")?;
-        let diff_1 = InputDiff::try_from(
-            "@@ -1,0 +1,7 @@
-+a
-+a
-+a
-+a
-+a
-+a
-+a
-",
-        )?;
-        stack_ranges.add(stack_id, commit1_id, vec![diff_1])?;
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 3,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 5,
+                lines: 1,
+                line_shift: 1,
+            },
+        ];
 
-        let commit2_id = git2::Oid::from_str("b")?;
-        let diff2 = InputDiff::try_from(
-            "@@ -1,5 +1,5 @@
-a
--a
-+b
-a
-a
-a
-",
-        )?;
-        stack_ranges.add(stack_id, commit2_id, vec![diff2])?;
+        let hunks = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id: StackId::generate(),
+            commit_id: commit_c_id,
+            start: 4,
+            lines: 0, // ranges with 0 lines are filtered out
+            line_shift: 1,
+        }];
 
-        let commit3_id = git2::Oid::from_str("c")?;
-        let diff3 = InputDiff::try_from(
-            "@@ -1,7 +1,7 @@
-a
-b
-a
--a
-+b
-a
-a
-a
-",
-        )?;
-        stack_ranges.add(stack_id, commit3_id, vec![diff3])?;
-
-        let commit4_id = git2::Oid::from_str("d")?;
-        let diff4 = InputDiff::try_from(
-            "@@ -3,5 +3,5 @@
-a
-b
-a
--a
-+b
-a
-",
-        )?;
-        stack_ranges.add(stack_id, commit4_id, vec![diff4])?;
-
-        let result = stack_ranges.intersection(1, 1);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].commit_id, commit1_id);
-
-        let result = stack_ranges.intersection(2, 1);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].commit_id, commit2_id);
-
-        let result = stack_ranges.intersection(4, 1);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].commit_id, commit3_id);
-
-        let result = stack_ranges.intersection(6, 1);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].commit_id, commit4_id);
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks, 0);
+        assert_eq!(hunk_ranges.len(), 2);
+        assert_eq!(index_after_interest, 1);
+        assert_eq!(index_after_last_added, 1);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[1].start, 5);
 
         Ok(())
     }
 
     #[test]
-    fn stack_detect_deletion() -> anyhow::Result<()> {
-        let stack_ranges = &mut PathRanges::default();
-        let stack_id = StackId::generate();
+    fn test_filter_out_multiple_range_replacement() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+        let commit_c_id = git2::Oid::from_str("c")?;
 
-        let commit1_id = git2::Oid::from_str("a")?;
-        let diff_1 = InputDiff::try_from(
-            "@@ -1,7 +1,6 @@
-a
-a
-a
--a
-a
-a
-a
-",
-        )?;
-        stack_ranges.add(stack_id, commit1_id, vec![diff_1])?;
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 3,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 5,
+                lines: 1,
+                line_shift: 1,
+            },
+        ];
 
-        let result = stack_ranges.intersection(3, 2);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].commit_id, commit1_id);
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 4,
+                lines: 0, // ranges with 0 lines are filtered out
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 5,
+                lines: 3,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 6,
+                lines: 0, // ranges with 0 lines are filtered out
+                line_shift: 1,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks, 2);
+        assert_eq!(hunk_ranges.len(), 3);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[1].start, 5);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
 
         Ok(())
     }
 
     #[test]
-    fn stack_offset_and_split() -> anyhow::Result<()> {
-        let stack_ranges = &mut PathRanges::default();
-        let stack_id = StackId::generate();
+    fn test_filter_out_single_range_insertion() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+        let commit_c_id = git2::Oid::from_str("c")?;
 
-        let commit1_id = git2::Oid::from_str("a")?;
-        let diff_1 = InputDiff::try_from(
-            "@@ -10,6 +10,9 @@
-a
-a
-a
-+b
-+b
-+b
-a
-a
-a
-",
-        )?;
-        stack_ranges.add(stack_id, commit1_id, vec![diff_1])?;
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 3,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 5,
+                lines: 1,
+                line_shift: 1,
+            },
+        ];
 
-        let commit2_id = git2::Oid::from_str("b")?;
-        let diff_2 = InputDiff::try_from(
-            "@@ -1,6 +1,9 @@
-a
-a
-a
-+c
-+c
-+c
-a
-a
-a
-",
-        )?;
-        stack_ranges.add(stack_id, commit2_id, vec![diff_2])?;
+        let hunks = vec![HunkRange {
+            change_type: gitbutler_diff::ChangeType::Modified,
+            stack_id: StackId::generate(),
+            commit_id: commit_c_id,
+            start: 4,
+            lines: 0, // ranges with 0 lines are filtered out
+            line_shift: 1,
+        }];
 
-        let commit3_id = git2::Oid::from_str("c")?;
-        let diff_3 = InputDiff::try_from(
-            "@@ -14,7 +14,7 @@
-a
-a
-b
--b
-+d
-b
-a
-a
-",
-        )?;
-        stack_ranges.add(stack_id, commit3_id, vec![diff_3])?;
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 1, 1, hunks, 0);
+        assert_eq!(hunk_ranges.len(), 3);
+        assert_eq!(index_after_interest, 1);
+        assert_eq!(index_after_last_added, 1);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
 
-        assert_eq!(stack_ranges.intersection(4, 3)[0].commit_id, commit2_id);
-        assert_eq!(stack_ranges.intersection(15, 1).len(), 0);
-        assert_eq!(stack_ranges.intersection(16, 1)[0].commit_id, commit1_id);
-        assert_eq!(stack_ranges.intersection(17, 1)[0].commit_id, commit3_id);
-        assert_eq!(stack_ranges.intersection(18, 1)[0].commit_id, commit1_id);
-        assert_eq!(stack_ranges.intersection(19, 1).len(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn test_filter_out_multiple_range_insertion() -> anyhow::Result<()> {
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+        let commit_c_id = git2::Oid::from_str("c")?;
+
+        let mut hunk_ranges = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Added,
+                stack_id: StackId::generate(),
+                commit_id: commit_a_id,
+                start: 1,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 3,
+                lines: 1,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_b_id,
+                start: 5,
+                lines: 1,
+                line_shift: 1,
+            },
+        ];
+
+        let hunks = vec![
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 4,
+                lines: 0, // ranges with 0 lines are filtered out
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 5,
+                lines: 3,
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 6,
+                lines: 0, // ranges with 0 lines are filtered out
+                line_shift: 1,
+            },
+            HunkRange {
+                change_type: gitbutler_diff::ChangeType::Modified,
+                stack_id: StackId::generate(),
+                commit_id: commit_c_id,
+                start: 8,
+                lines: 3,
+                line_shift: 1,
+            },
+        ];
+
+        let (index_after_interest, index_after_last_added) =
+            insert_hunk_ranges(&mut hunk_ranges, 1, 1, hunks, 3);
+        assert_eq!(hunk_ranges.len(), 5);
+        assert_eq!(index_after_interest, 3);
+        assert_eq!(index_after_last_added, 3);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[3].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[4].commit_id, commit_b_id);
 
         Ok(())
     }

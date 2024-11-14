@@ -32,6 +32,7 @@ pub struct InputDiff {
     pub old_lines: u32,
     pub new_start: u32,
     pub new_lines: u32,
+    pub change_type: gitbutler_diff::ChangeType,
 }
 
 impl InputDiff {
@@ -54,23 +55,18 @@ where
     .fold(0u32, |acc, _| acc + 1)
 }
 
-impl TryFrom<String> for InputDiff {
-    fn try_from(value: String) -> Result<Self, anyhow::Error> {
-        parse_diff(value)
+impl TryFrom<(&str, gitbutler_diff::ChangeType)> for InputDiff {
+    fn try_from(value: (&str, gitbutler_diff::ChangeType)) -> Result<Self, anyhow::Error> {
+        parse_diff(value.0, value.1)
     }
 
     type Error = anyhow::Error;
 }
 
-impl TryFrom<&str> for InputDiff {
-    fn try_from(value: &str) -> Result<Self, anyhow::Error> {
-        parse_diff(value)
-    }
-
-    type Error = anyhow::Error;
-}
-
-fn parse_diff(value: impl AsRef<str>) -> Result<InputDiff, anyhow::Error> {
+fn parse_diff(
+    value: impl AsRef<str>,
+    change_type: gitbutler_diff::ChangeType,
+) -> Result<InputDiff, anyhow::Error> {
     let value = value.as_ref();
     let header = value.lines().next().context("No header found")?;
     if !header.starts_with("@@") {
@@ -84,6 +80,7 @@ fn parse_diff(value: impl AsRef<str>) -> Result<InputDiff, anyhow::Error> {
     let context_lines = head_context_lines + tail_context_lines;
 
     Ok(InputDiff {
+        change_type,
         old_start: old_start + head_context_lines,
         old_lines: old_lines - context_lines,
         new_start: new_start + head_context_lines,
@@ -109,7 +106,7 @@ mod tests {
 
     #[test]
     fn diff_simple() -> anyhow::Result<()> {
-        let header = InputDiff::try_from(
+        let header = InputDiff::try_from((
             "@@ -1,6 +1,7 @@
 1
 2
@@ -119,17 +116,19 @@ mod tests {
 6
 7
 ",
-        )?;
+            gitbutler_diff::ChangeType::Modified,
+        ))?;
         assert_eq!(header.old_start, 4);
         assert_eq!(header.old_lines, 0);
         assert_eq!(header.new_start, 4);
         assert_eq!(header.new_lines, 1);
+        assert_eq!(header.net_lines()?, 1);
         Ok(())
     }
 
     #[test]
     fn diff_complex() -> anyhow::Result<()> {
-        let header = InputDiff::try_from(
+        let header = InputDiff::try_from((
             "@@ -5,7 +5,6 @@
 5
 6
@@ -140,11 +139,13 @@ mod tests {
 10
 11
 ",
-        )?;
+            gitbutler_diff::ChangeType::Modified,
+        ))?;
         assert_eq!(header.old_start, 8);
         assert_eq!(header.old_lines, 2);
         assert_eq!(header.new_start, 8);
         assert_eq!(header.new_lines, 1);
+        assert_eq!(header.net_lines()?, -1);
         Ok(())
     }
 }

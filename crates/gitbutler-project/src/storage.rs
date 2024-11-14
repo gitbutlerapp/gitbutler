@@ -27,7 +27,6 @@ pub struct UpdateRequest {
     pub omit_certificate_check: Option<bool>,
     pub use_diff_context: Option<bool>,
     pub snapshot_lines_threshold: Option<usize>,
-    pub use_experimental_locking: Option<bool>,
 }
 
 impl Storage {
@@ -122,10 +121,6 @@ impl Storage {
 
         if let Some(snapshot_lines_threshold) = update_request.snapshot_lines_threshold {
             project.snapshot_lines_threshold = Some(snapshot_lines_threshold);
-        }
-
-        if let Some(use_experimental_locking) = &update_request.use_experimental_locking {
-            project.use_experimental_locking = *use_experimental_locking;
         }
 
         self.inner

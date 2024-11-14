@@ -1,4 +1,4 @@
-use crate::author::Author;
+use crate::{author::Author, dependencies::CommitDependencies};
 use anyhow::{anyhow, Result};
 use bstr::ByteSlice as _;
 use gitbutler_cherry_pick::ConflictedTreeKey;
@@ -49,8 +49,19 @@ pub struct VirtualBranchCommit {
     #[serde(with = "gitbutler_serde::oid_opt")]
     pub remote_commit_id: Option<git2::Oid>,
     pub conflicted_files: ConflictEntries,
+    // Dependency tracking
+    // ---
+    /// Commits depended on.
+    #[serde(default, with = "gitbutler_serde::oid_vec")]
+    pub dependencies: Vec<git2::Oid>,
+    /// Commits that depend on this commit.
+    #[serde(default, with = "gitbutler_serde::oid_vec")]
+    pub reverse_dependencies: Vec<git2::Oid>,
+    /// Hashes of uncommitted hunks files that depend on this commit.
+    pub dependent_diffs: Vec<String>,
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn commit_to_vbranch_commit(
     repository: &git2::Repository,
     stack: &Stack,
@@ -59,6 +70,7 @@ pub(crate) fn commit_to_vbranch_commit(
     is_remote: bool,
     copied_from_remote_id: Option<git2::Oid>,
     remote_commit_id: Option<git2::Oid>,
+    commit_dependencies: CommitDependencies,
 ) -> Result<VirtualBranchCommit> {
     let timestamp = u128::try_from(commit.time().seconds())?;
     let message = commit.message_bstr().to_owned();
@@ -86,6 +98,12 @@ pub(crate) fn commit_to_vbranch_commit(
         Default::default()
     };
 
+    let CommitDependencies {
+        dependencies,
+        reverse_dependencies: inverse_dependencies,
+        dependent_diffs,
+    } = commit_dependencies;
+
     let commit = VirtualBranchCommit {
         id: commit.id(),
         created_at: timestamp * 1000,
@@ -101,6 +119,9 @@ pub(crate) fn commit_to_vbranch_commit(
         copied_from_remote_id,
         remote_commit_id,
         conflicted_files,
+        dependencies,
+        reverse_dependencies: inverse_dependencies,
+        dependent_diffs,
     };
 
     Ok(commit)

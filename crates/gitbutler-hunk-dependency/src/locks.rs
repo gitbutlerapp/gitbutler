@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::{HashMap, HashSet},
+    path::PathBuf,
+};
 
 use gitbutler_diff::{GitHunk, Hunk, HunkHash};
 use gitbutler_stack::StackId;
@@ -26,6 +29,21 @@ pub struct HunkDependencyOptions<'a> {
     pub stacks: Vec<InputStack>,
 }
 
+#[derive(Debug, Clone)]
+pub struct HunkDependencyResult {
+    /// A map from diffs to branch and commit dependencies.
+    pub diffs: HashMap<HunkHash, Vec<HunkLock>>,
+    /// A map from stack id to commit dependencies.
+    /// Commit dependencies map commit id to commits it depends on.
+    pub commit_dependencies: HashMap<StackId, HashMap<git2::Oid, HashSet<git2::Oid>>>,
+    /// A map from stack id to inverse commit dependencies.
+    /// Inverse commit dependencies map commit id to commits that depend on it.
+    pub inverse_commit_dependencies: HashMap<StackId, HashMap<git2::Oid, HashSet<git2::Oid>>>,
+    /// A map from stack id to dependent commit dependent diffs.
+    /// Commit dependent diffs map commit id to diffs that depend on it.
+    pub commit_dependent_diffs: HashMap<StackId, HashMap<git2::Oid, HashSet<HunkHash>>>,
+}
+
 /// Returns a map from hunk hash to hunk locks.
 ///
 /// To understand if any uncommitted changes depend on (intersect) any existing changes we first
@@ -33,15 +51,15 @@ pub struct HunkDependencyOptions<'a> {
 /// intersect.
 ///
 /// TODO: Change terminology to talk about dependencies instead of locks.
-pub fn compute_hunk_locks(
+pub fn calculate_hunk_dependencies(
     options: HunkDependencyOptions,
-) -> anyhow::Result<HashMap<HunkHash, Vec<HunkLock>>> {
+) -> anyhow::Result<HunkDependencyResult> {
     let HunkDependencyOptions { workdir, stacks } = options;
 
     // Transforms stack specific line numbers to workspace line numbers.
     let ranges = WorkspaceRanges::create(stacks)?;
 
-    Ok(workdir
+    let diffs: HashMap<_, _> = workdir
         .iter()
         .flat_map(|(path, workspace_hunks)| {
             workspace_hunks.iter().filter_map(|hunk| {
@@ -59,5 +77,29 @@ pub fn compute_hunk_locks(
                     .map(|locks| (Hunk::hash_diff(&hunk.diff_lines), locks))
             })
         })
-        .collect())
+        .collect();
+
+    let commit_dependent_diffs = diffs.iter().fold(
+        HashMap::new(),
+        |mut acc: HashMap<StackId, HashMap<git2::Oid, HashSet<HunkHash>>>, (hash, locks)| {
+            for lock in locks {
+                acc.entry(lock.branch_id)
+                    .or_default()
+                    .entry(lock.commit_id)
+                    .or_default()
+                    .insert(*hash);
+            }
+            acc
+        },
+    );
+
+    let commit_dependencies = ranges.commit_dependencies;
+    let inverse_commit_dependencies = ranges.inverse_commit_dependencies;
+
+    Ok(HunkDependencyResult {
+        diffs,
+        commit_dependencies,
+        inverse_commit_dependencies,
+        commit_dependent_diffs,
+    })
 }

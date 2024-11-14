@@ -30,11 +30,9 @@ impl Default for Test {
         let projects = projects::Controller::from_path(data_dir.path());
 
         let test_project = TestProject::default();
-        let mut project = projects
+        let project = projects
             .add(test_project.path())
             .expect("failed to add project");
-        // TODO: Remove after transition is complete.
-        project.use_experimental_locking = true;
 
         Self {
             repository: test_project,
