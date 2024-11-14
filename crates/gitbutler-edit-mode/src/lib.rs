@@ -295,8 +295,6 @@ pub(crate) fn starting_index_state(
         })
         .collect::<HashMap<PathBuf, ConflictEntryPresence>>();
 
-    dbg!(&conflicts);
-
     let diff = repository.diff_tree_to_index(Some(&commit_parent_tree), Some(&index), None)?;
 
     let diff_files = hunks_by_filepath(Some(repository), &diff)?

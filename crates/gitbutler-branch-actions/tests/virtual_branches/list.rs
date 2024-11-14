@@ -77,7 +77,6 @@ fn two_vbranches_in_workspace_one_commit() -> Result<()> {
 
     let virtual_branch_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let unapplied = virtual_branch_state.list_all_stacks().unwrap();
-    dbg!(&unapplied);
     let unapplied = unapplied
         .iter()
         .find(|stack| stack.name == "virtual")
