@@ -1,10 +1,11 @@
 <script lang="ts">
 	import Tooltip from '$lib/Tooltip.svelte';
 	import { camelCaseToTitleCase } from '$lib/utils/string';
-	import type { CommitNodeData } from '$lib/commitLines/types';
+	import type { CellType, CommitNodeData } from '$lib/commitLines/types';
 
 	interface Props {
 		commitNode: CommitNodeData;
+		typeOverride?: CellType;
 	}
 
 	const { commitNode }: Props = $props();

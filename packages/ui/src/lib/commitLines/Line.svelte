@@ -7,19 +7,25 @@
 	interface Props {
 		line: CommitNodeData;
 		isBottom?: boolean;
+		typeOverride?: CellType;
 	}
 
-	const { line, isBottom = false }: Props = $props();
+	const { line, typeOverride, isBottom = false }: Props = $props();
 
 	const lineType = $derived<CellType>(line.type ?? line.type ?? 'local');
 </script>
 
-<div class="line" style:--commit-color={getColorFromBranchType(lineType)}>
+<div class="line" style:--commit-color={getColorFromBranchType(typeOverride ?? lineType)}>
 	<div class="line-top">
 		<Cell />
 	</div>
 	{#if line.commit}
-		<CommitNode commitNode={line} />
+		<CommitNode
+			commitNode={{
+				commit: line.commit,
+				type: typeOverride ?? line.type
+			}}
+		/>
 	{/if}
 	<div class="line-bottom">
 		<Cell {isBottom} />
