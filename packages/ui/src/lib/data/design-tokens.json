@@ -569,7 +569,7 @@
 		"warn": {
 			"5": {
 				"$type": "color",
-				"$value": "#261c0d",
+				"$value": "#261b0b",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -585,7 +585,7 @@
 			},
 			"10": {
 				"$type": "color",
-				"$value": "#432d0f",
+				"$value": "#432c0d",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -601,7 +601,7 @@
 			},
 			"20": {
 				"$type": "color",
-				"$value": "#604116",
+				"$value": "#603f11",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -617,7 +617,7 @@
 			},
 			"30": {
 				"$type": "color",
-				"$value": "#8a5914",
+				"$value": "#8a550b",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -633,7 +633,7 @@
 			},
 			"40": {
 				"$type": "color",
-				"$value": "#c77f1a",
+				"$value": "#be7105",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -649,7 +649,7 @@
 			},
 			"50": {
 				"$type": "color",
-				"$value": "#dc9914",
+				"$value": "#d99611",
 				"$description": "",
 				"$extensions": {
 					"mode": {},
@@ -4237,7 +4237,7 @@
 			"useDTCGKeys": true,
 			"colorMode": "hex",
 			"variableCollections": ["clr-core", "clr", "size", "radius"],
-			"createdAt": "2024-10-13T22:48:55.998Z"
+			"createdAt": "2024-11-11T21:38:13.564Z"
 		}
 	}
 }

@@ -5,29 +5,27 @@
 
 	const items = [
 		{
-			type: 'clear',
 			series: [
-				'feature/improve-dashboard-ui',
-				'release/v1.2.0',
-				'feature/refactor-api-endpoints',
-				'bugfix/remove-duplicate-entries',
-				'chore/update-dependencies',
-				'feature/add-password-reset'
+				{ name: 'feature/add-user-auth', status: 'integrated' },
+				{ name: 'feature/update-user-profile' },
+				{ name: 'feature/create-payment-gateway', status: 'conflicted' },
+				{ name: 'feature/improve-dashboard', status: 'integrated' },
+				{ name: 'feature/add-user-notifications' }
 			]
 		},
-		{ type: 'conflicted', series: ['feature/add-user-auth'] },
+		{ series: [{ name: 'feature/add-user-auth', status: 'integrated' }] },
 		{
-			type: 'integrated',
 			series: [
-				'feature/add-user-auth',
-				'bugfix/fix-login-error',
-				'hotfix/update-ssl-cert',
-				'feature/improve-dashboard-ui',
-				'release/v1.2.0',
-				'feature/refactor-api-endpoints',
-				'bugfix/remove-duplicate-entries',
-				'chore/update-dependencies',
-				'feature/add-password-reset'
+				{ name: 'feature/add-user-auth', status: 'integrated' },
+				{ name: 'feature/update-user-profile' },
+				{ name: 'feature/create-payment-gateway', status: 'conflicted' },
+				{ name: 'feature/improve-dashboard', status: 'integrated' },
+				{ name: 'feature/add-user-notifications' },
+				{ name: 'feature/optimize-search', status: 'conflicted' },
+				{ name: 'feature/refactor-api', status: 'integrated' },
+				{ name: 'feature/fix-bug-123' },
+				{ name: 'feature/add-analytics-tracking', status: 'conflicted' },
+				{ name: 'feature/add-multi-language-support', status: 'integrated' }
 			]
 		}
 	] as SeriesProps[];
