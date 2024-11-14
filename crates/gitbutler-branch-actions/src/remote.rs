@@ -102,15 +102,12 @@ pub fn list_local_branches(ctx: &CommandContext) -> Result<Vec<RemoteBranch>> {
 }
 
 pub(crate) fn get_branch_data(ctx: &CommandContext, refname: &Refname) -> Result<RemoteBranchData> {
-    let default_target = default_target(&ctx.project().gb_dir())?;
-
     let branch = ctx
         .repository()
         .maybe_find_branch_by_refname(refname)?
         .ok_or(anyhow::anyhow!("failed to find branch {}", refname))?;
 
-    branch_to_remote_branch_data(ctx, &branch, default_target.sha)?
-        .context("failed to get branch data")
+    branch_to_remote_branch_data(ctx, &branch)?.context("failed to get branch data")
 }
 
 pub(crate) fn get_commit_data(
@@ -162,8 +159,8 @@ pub(crate) fn branch_to_remote_branch(
 pub(crate) fn branch_to_remote_branch_data(
     ctx: &CommandContext,
     branch: &git2::Branch,
-    base: git2::Oid,
 ) -> Result<Option<RemoteBranchData>> {
+    let base = default_target(&ctx.project().gb_dir())?.remote_head(ctx.repository())?;
     branch
         .get()
         .target()
