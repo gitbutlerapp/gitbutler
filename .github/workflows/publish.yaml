@@ -243,10 +243,8 @@ jobs:
         run: |
           sed -i "s|path: ../../../target.*|path: ../../../${{ env.deb_path }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
           sed -i "s|sha256: 5f3.*|sha256: ${{ env.deb_sha }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
-      - name: Flatpak install Gnome SDK
-        run: flatpak --system install -y --noninteractive flathub org.gnome.Sdk//47
       - name: Flatpak build
-        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        uses: flatpak/flatpak-github-actions/flatpak-builder@master
         with:
           bundle: com.gitbutler.app.flatpak
           manifest-path: crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
