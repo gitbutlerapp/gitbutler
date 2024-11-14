@@ -1,4 +1,6 @@
+use anyhow::{Context, Result};
 use gitbutler_reference::RemoteRefname;
+use gitbutler_repo::RepositoryExt;
 use serde::{ser::SerializeStruct, Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -30,6 +32,16 @@ impl Target {
             None => self.branch.remote().to_owned(),
         };
         upstream_remote
+    }
+
+    /// Returns the head sha of the remote branch this target is tracking.
+    pub fn remote_head(&self, repo: &git2::Repository) -> Result<git2::Oid> {
+        let branch = repo.find_branch_by_refname(&self.branch.clone().into())?;
+        let oid = branch
+            .get()
+            .target()
+            .context("failed to get default commit")?;
+        Ok(oid)
     }
 }
 
