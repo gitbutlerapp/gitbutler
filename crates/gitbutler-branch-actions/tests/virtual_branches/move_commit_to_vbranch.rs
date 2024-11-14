@@ -293,6 +293,9 @@ fn diffs_on_source_branch() {
     )
     .unwrap();
 
+    // needed in order to resolve the claims of the just-created file
+    _ = gitbutler_branch_actions::list_virtual_branches(project);
+
     let target_branch_id =
         gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
             .unwrap();
@@ -368,6 +371,9 @@ fn diffs_on_target_branch() {
         "another content",
     )
     .unwrap();
+
+    // needed in order to resolve the claims of the just-created file
+    _ = gitbutler_branch_actions::list_virtual_branches(project);
 
     gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
         .unwrap();
@@ -571,7 +577,7 @@ fn target_commit_locked_to_ancestors() {
 
     assert_eq!(
         result.unwrap_err().to_string(),
-        "the target commit contains hunks locked to its ancestors"
+        "Commit depends on other changes"
     );
 }
 
@@ -628,7 +634,7 @@ fn target_commit_locked_to_descendants() {
 
     assert_eq!(
         result.unwrap_err().to_string(),
-        "the target commit contains hunks locked to its descendants"
+        "Commit has dependent changes"
     );
 }
 
@@ -659,6 +665,8 @@ fn locked_hunks_on_source_branch() {
 
     std::fs::write(repository.path().join("file.txt"), "locked content").unwrap();
 
+    _ = gitbutler_branch_actions::list_virtual_branches(project);
+
     let target_branch_id =
         gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
             .unwrap();
@@ -672,7 +680,7 @@ fn locked_hunks_on_source_branch() {
         )
         .unwrap_err()
         .to_string(),
-        "the source branch contains hunks locked to the target commit"
+        "Commit has dependent uncommitted changes"
     );
 }
 
@@ -748,6 +756,6 @@ fn no_branch() {
         gitbutler_branch_actions::move_commit(project, id, commit_oid, source_branch_id)
             .unwrap_err()
             .to_string(),
-        format!("branch {id} is not among applied branches")
+        "Destination branch not found"
     );
 }
