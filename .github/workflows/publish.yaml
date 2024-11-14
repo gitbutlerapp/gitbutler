@@ -204,36 +204,6 @@ jobs:
           path: release/
           if-no-files-found: error
 
-      - name: Find new deb artifact
-        if: runner.os == 'Linux'
-        run: |
-          DEB_PATH="$(find target/release -iname "*.deb")"
-          DEB_SHA="$(sha256sum "$DEB_PATH")"
-          echo "deb_path=$DEB_PATH" >> $GITHUB_ENV
-          echo "deb_sha=$DEB_SHA" >> $GITHUB_ENV
-      - name: Update Manifest File and SHA
-        if: runner.os == 'Linux'
-        run: |
-          sed -i "s|path: ../../../target.*|path: ../../../${{ env.deb_path }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
-          sed -i "s|sha256: 5f3.*|sha256: ${{ env.deb_sha }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
-
-      - name: Build Flatpak
-        if: runner.os == 'Linux'
-        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
-        with:
-          bundle: com.gitbutler.app.flatpak
-          manifest-path: crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
-          cache-key: flatpak-builder-${{ github.sha }}
-          arch: ${{ matrix.arch }}
-
-      - name: Upload Flatpak
-        if: runner.os == 'Linux'
-        uses: actions/upload-artifact@v4
-        with:
-          name: com.gitbutler.app.flatpak
-          path: ./*.flatpak
-          if-no-files-found: error
-
       - name: Prepare Windows Aux Binary Artifacts
         if: runner.os == 'Windows'
         shell: bash
@@ -248,6 +218,43 @@ jobs:
         with:
           name: '${{ env.channel }}-windows-aux-${{ github.run_number }}'
           path: tauri-aux-artifacts/
+          if-no-files-found: error
+
+  bundle-flatpak:
+    needs: build-tauri
+    runs-on: ubuntu-latest
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:gnome-47
+      options: --privileged
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download deb artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: '${{ needs.build-tauri.outputs.channel }}-ubuntu-24.04-${{ github.run_number }}'
+          path: release
+      - name: Flatpak find .deb path and sha256
+        run: |
+          DEB_PATH="$(find release -iname "*.deb")"
+          DEB_SHA="$(sha256sum "$DEB_PATH" | cut -d " " -f 1 )"
+          echo "deb_path=$DEB_PATH" >> $GITHUB_ENV
+          echo "deb_sha=$DEB_SHA" >> $GITHUB_ENV
+      - name: Flatpak update manifest file and SHA
+        run: |
+          sed -i "s|path: ../../../target.*|path: ../../../${{ env.deb_path }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
+          sed -i "s|sha256: 5f3.*|sha256: ${{ env.deb_sha }}|" crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
+      - name: Flatpak build
+        uses: flatpak/flatpak-github-actions/flatpak-builder@v6
+        with:
+          bundle: com.gitbutler.app.flatpak
+          manifest-path: crates/gitbutler-tauri/flatpak/manifest.flatpak.yml
+          cache-key: flatpak-builder-${{ github.sha }}
+          arch: ${{ matrix.arch }}
+      - name: Flatpak upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: com.gitbutler.app.flatpak
+          path: ./*.flatpak
           if-no-files-found: error
 
   sign-tauri:
