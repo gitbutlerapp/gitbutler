@@ -2,6 +2,7 @@ pub mod rebase;
 
 mod commands;
 pub use commands::{FileInfo, RepoCommands};
+pub use remote::GitRemote;
 
 mod repository_ext;
 pub use repository_ext::{GixRepositoryExt, LogUntil, RepositoryExt};
@@ -9,6 +10,7 @@ pub use repository_ext::{GixRepositoryExt, LogUntil, RepositoryExt};
 pub mod credentials;
 
 mod config;
+mod remote;
 
 pub use config::Config;
 

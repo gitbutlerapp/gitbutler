@@ -1,10 +1,11 @@
-use crate::{Config, RepositoryExt};
+use crate::{remote::GitRemote, Config, RepositoryExt};
 use anyhow::{bail, Result};
 use base64::engine::Engine as _;
 use git2::Oid;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
 use infer::MatcherType;
+use itertools::Itertools;
 use serde::Serialize;
 use std::path::Path;
 use tracing::warn;
@@ -97,7 +98,7 @@ impl FileInfo {
 
 pub trait RepoCommands {
     fn add_remote(&self, name: &str, url: &str) -> Result<()>;
-    fn remotes(&self) -> Result<Vec<String>>;
+    fn remotes(&self) -> Result<Vec<GitRemote>>;
     fn get_local_config(&self, key: &str) -> Result<Option<String>>;
     fn set_local_config(&self, key: &str, value: &str) -> Result<()>;
     fn check_signing_settings(&self) -> Result<bool>;
@@ -144,14 +145,40 @@ impl RepoCommands for Project {
         }
     }
 
-    fn remotes(&self) -> Result<Vec<String>> {
+    fn remotes(&self) -> anyhow::Result<Vec<GitRemote>> {
         let ctx = CommandContext::open(self)?;
-        ctx.repository().remotes_as_string()
+        let repo = ctx.repository();
+        let remotes = repo
+            .remotes_as_string()?
+            .iter()
+            .map(|name| repo.find_remote(name))
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .map(|remote| remote.into())
+            .collect_vec();
+        Ok(remotes)
     }
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
         let ctx = CommandContext::open(self)?;
-        ctx.repository().remote(name, url)?;
+        let repo = ctx.repository();
+
+        // Bail if remote with given name already exists.
+        if repo.find_remote(name).is_ok() {
+            bail!("Remote name '{}' already exists", name);
+        }
+
+        // Bail if remote with given url already exists.
+        if repo
+            .remotes_as_string()?
+            .iter()
+            .map(|name| repo.find_remote(name))
+            .any(|result| result.is_ok_and(|remote| remote.url() == Some(url)))
+        {
+            bail!("Remote with url '{}' already exists", url);
+        }
+
+        repo.remote(name, url)?;
         Ok(())
     }
 
