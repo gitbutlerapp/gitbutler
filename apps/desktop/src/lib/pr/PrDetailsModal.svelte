@@ -169,7 +169,7 @@
 		}
 
 		// All ids that existed prior to creating a new one (including archived).
-		const priorIds = branch.series.map((series) => series.prNumber).filter(isDefined);
+		const prNumbers = branch.series.map((series) => series.prNumber);
 
 		isLoading = true;
 		try {
@@ -230,8 +230,10 @@
 			await branchController.updateBranchPrNumber(branch.id, currentSeries.name, pr.number);
 
 			// If we now have two or more pull requests we add a stack table to the description.
-			if (priorIds.length > 0) {
-				updatePrStackInfo($prService, priorIds.concat([pr.number]));
+			prNumbers[currentIndex] = pr.number;
+			const definedPrNumbers = prNumbers.filter(isDefined);
+			if (definedPrNumbers.length > 0) {
+				updatePrStackInfo($prService, definedPrNumbers);
 			}
 
 			// Refresh store
