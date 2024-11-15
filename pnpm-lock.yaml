@@ -370,6 +370,10 @@ importers:
         version: 5.2.13(@types/node@22.3.0)
 
   packages/shared:
+    dependencies:
+      lscache:
+        specifier: ^1.3.2
+        version: 1.3.2
     devDependencies:
       '@csstools/postcss-bundler':
         specifier: ^1.0.15
@@ -395,6 +399,9 @@ importers:
       '@terrazzo/plugin-css':
         specifier: ^0.0.9
         version: 0.0.9(@terrazzo/cli@0.0.11)
+      '@types/lscache':
+        specifier: ^1.3.4
+        version: 1.3.4
       '@types/postcss-pxtorem':
         specifier: ^6.0.3
         version: 6.0.3
