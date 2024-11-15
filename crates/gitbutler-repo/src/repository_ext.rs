@@ -195,7 +195,17 @@ impl RepositoryExt for git2::Repository {
     /// or if the HEAD branch has no commits
     #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
     fn create_wd_tree(&self) -> Result<Tree> {
-        let gix_repo = gix::open(self.path())?;
+        let gix_repo = gix::open_opts(
+            self.path(),
+            gix::open::Options::default().permissions(gix::open::Permissions {
+                config: gix::open::permissions::Config {
+                    // Whenever we deal with worktree filters, we'd want to have the installation configuration as well.
+                    git_binary: cfg!(windows),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }),
+        )?;
         let (mut pipeline, index) = gix_repo.filter_pipeline(None)?;
         let mut tree_update_builder = git2::build::TreeUpdateBuilder::new();
 
