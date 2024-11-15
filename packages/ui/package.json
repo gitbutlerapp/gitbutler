@@ -23,8 +23,7 @@
 		"storybook": "storybook dev --no-open -p 6006",
 		"storybook:build": "storybook build",
 		"test": "vitest run --mode development",
-		"test:watch": "vitest --watch --mode development",
-		"playwright:install": "playwright install --with-deps chromium"
+		"test:watch": "vitest --watch --mode development"
 	},
 	"devDependencies": {
 		"@csstools/postcss-bundler": "^1.0.15",
@@ -42,11 +41,9 @@
 		"@terrazzo/cli": "^0.0.11",
 		"@terrazzo/plugin-css": "^0.0.9",
 		"@types/postcss-pxtorem": "^6.0.3",
-		"@vitest/browser": "^2.0.5",
 		"autoprefixer": "^10.4.19",
 		"cpy-cli": "^5.0.0",
 		"dayjs": "^1.11.13",
-		"playwright": "1.47.0",
 		"postcss": "^8.4.38",
 		"postcss-cli": "^11.0.0",
 		"postcss-minify": "^1.1.0",
