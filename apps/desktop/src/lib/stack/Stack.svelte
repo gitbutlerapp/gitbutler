@@ -22,7 +22,7 @@
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import lscache from 'lscache';
 	import { onMount } from 'svelte';
-	import { writable, type Writable } from 'svelte/store';
+	import { type Writable } from 'svelte/store';
 
 	const {
 		isLaneCollapsed,
@@ -38,7 +38,7 @@
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
 	const laneWidthKey = 'laneWidth_';
-	const lastPush = writable<Date | undefined>();
+	let lastPush = $state<Date | undefined>();
 
 	let laneWidth: number | undefined = $state();
 
@@ -94,7 +94,7 @@
 		try {
 			await branchController.pushBranch(branch.id, branch.requiresForce);
 			$listingService?.refresh();
-			lastPush.set(new Date());
+			lastPush = new Date();
 		} finally {
 			isPushingCommits = false;
 		}

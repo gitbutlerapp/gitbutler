@@ -14,11 +14,10 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, type VirtualBranch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
-	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		branch: VirtualBranch;
-		lastPush: Writable<Date | undefined>;
+		lastPush: Date | undefined;
 	}
 
 	const { branch, lastPush }: Props = $props();
