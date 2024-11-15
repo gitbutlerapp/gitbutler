@@ -42,6 +42,7 @@
 		isHeadCommit?: boolean;
 		isUnapplied?: boolean;
 		last?: boolean;
+		noBorder?: boolean;
 		type: CommitStatus;
 		lines?: Snippet | undefined;
 		filesToggleable?: boolean;
@@ -56,6 +57,7 @@
 		isHeadCommit = false,
 		isUnapplied = false,
 		last = false,
+		noBorder = false,
 		type,
 		lines = undefined,
 		filesToggleable = true,
@@ -234,6 +236,7 @@
 	class:not-draggable={!isDraggable}
 	class:commit-card-activated={isOpenedByKebabButton || isOpenByMouse}
 	class:is-last={last}
+	class:no-border={last || noBorder}
 	onclick={(e) => {
 		e.preventDefault();
 		toggleFiles();
@@ -279,7 +282,7 @@
 		</PopoverActionsContainer>
 	{/if}
 
-	<div class="commit-card" class:is-last={last}>
+	<div class="commit-card" class:is-last={last} class:no-border={last || noBorder}>
 		<!-- GENERAL INFO -->
 		<div bind:this={draggableCommitElement} class="commit__header" role="button" tabindex="-1">
 			{#if !disableCommitActions}
@@ -465,7 +468,7 @@
 			}
 		}
 
-		&:not(.is-last) {
+		&:not(.no-border) {
 			border-bottom: 1px solid var(--clr-border-2);
 		}
 
@@ -609,6 +612,7 @@
 		flex-direction: column;
 		gap: 12px;
 		padding-bottom: 12px;
+		padding-right: 14px;
 	}
 
 	.commit__actions {

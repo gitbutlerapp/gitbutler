@@ -1,6 +1,7 @@
 pub mod commands {
     use anyhow::{anyhow, Context};
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
+    use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
     use gitbutler_branch_actions::internal::PushResult;
     use gitbutler_branch_actions::upstream_integration::{
         BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
@@ -119,10 +120,16 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch: StackId,
-        series_name: Option<String>,
+        series_name: String,
+        integration_strategy: Option<IntegrationStrategy>,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        gitbutler_branch_actions::integrate_upstream_commits(&project, branch, series_name)?;
+        gitbutler_branch_actions::integrate_upstream_commits(
+            &project,
+            branch,
+            series_name,
+            integration_strategy,
+        )?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }

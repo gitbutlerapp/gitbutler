@@ -1,43 +1,22 @@
 <script lang="ts">
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
+	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { type Snippet } from 'svelte';
+	import type { CellType } from '@gitbutler/ui/commitLines/types';
 
 	interface Props {
-		bottomBorder?: boolean;
-		backgroundColor?: boolean;
-		lines: Snippet;
+		type: CellType;
+		isLast?: boolean;
 		action: Snippet;
 	}
 
-	const { bottomBorder = true, backgroundColor = true, lines, action }: Props = $props();
-
-	let isNotInViewport = $state(false);
+	const { type, isLast, action }: Props = $props();
 </script>
 
-<div
-	class="action-row sticky"
-	class:not-in-viewport={!isNotInViewport}
-	class:sticky-z-index={!isNotInViewport}
-	class:bottom-border={bottomBorder}
-	class:background-color={backgroundColor}
-	use:intersectionObserver={{
-		callback: (entry) => {
-			if (entry?.isIntersecting) {
-				isNotInViewport = false;
-			} else {
-				isNotInViewport = true;
-			}
-		},
-		options: {
-			root: null,
-			rootMargin: `-100% 0px 0px 0px`,
-			threshold: 0
-		}
-	}}
->
-	<div>
-		{@render lines()}
+<div class="action-row" class:is-last={isLast} style:--commit-color={getColorFromBranchType(type)}>
+	<div class="commit-line-wrapper">
+		<div class="commit-line" class:dashed={isLast}></div>
 	</div>
+
 	<div class="action">
 		{@render action()}
 	</div>
@@ -47,40 +26,28 @@
 	.action-row {
 		position: relative;
 		display: flex;
-
+		background-color: var(--clr-bg-1);
+		border-top: 1px solid var(--clr-border-3);
 		overflow: hidden;
 
-		transition: border-top var(--transition-fast);
-	}
-
-	.background-color {
-		background-color: var(--clr-bg-2);
+		&.is-last {
+			border-bottom: 1px solid var(--clr-border-3);
+			border-radius: 0 0 var(--radius-m) var(--radius-m);
+		}
 	}
 
 	.action {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
-		padding-top: 10px;
+		padding-top: 14px;
 		padding-right: 14px;
-		padding-bottom: 10px;
+		padding-bottom: 14px;
 	}
 
-	/* MODIFIERS */
-	.bottom-border {
-		border-bottom: 1px solid var(--clr-border-2);
-	}
-
-	.sticky {
-		position: sticky;
-		bottom: 0;
-	}
-
-	.sticky-z-index {
-		z-index: var(--z-lifted);
-	}
-
-	.not-in-viewport {
-		box-shadow: 0 0 0 1px var(--clr-border-2);
+	.commit-line-wrapper {
+		position: relative;
+		margin-left: 20px;
+		margin-right: 20px;
 	}
 </style>

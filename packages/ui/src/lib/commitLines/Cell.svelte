@@ -6,7 +6,7 @@
 	const { isBottom = false }: Props = $props();
 </script>
 
-<div class="commit-line stacked" class:dashed={isBottom}></div>
+<div class="commit-line" class:dashed={isBottom}></div>
 
 <style lang="postcss">
 	.commit-line {

@@ -3,6 +3,7 @@
 	import CommitCard from './CommitCard.svelte';
 	import CommitDragItem from './CommitDragItem.svelte';
 	import UpstreamCommitsAccordion from './UpstreamCommitsAccordion.svelte';
+	import { findLastDivergentCommit } from '$lib/commits/utils';
 	import {
 		StackingReorderDropzoneManager,
 		type StackingReorderDropzone
@@ -10,22 +11,44 @@
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
 	import { getForge } from '$lib/forge/interface/forge';
-	import { BranchController } from '$lib/vbranches/branchController';
-	import { DetailedCommit, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
+	import {
+		BranchController,
+		type SeriesIntegrationStrategy
+	} from '$lib/vbranches/branchController';
+	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Line from '@gitbutler/ui/commitLines/Line.svelte';
-	import { LineManagerFactory, LineSpacer } from '@gitbutler/ui/commitLines/lineManager';
-	import type { Snippet } from 'svelte';
+	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+
+	const integrationStrategies = {
+		default: {
+			label: 'Integrate upstream',
+			style: 'warning',
+			kind: 'solid',
+			outline: false,
+			icon: undefined,
+			action: () => integrate()
+		},
+		reset: {
+			label: 'Reset to remote…',
+			style: 'ghost',
+			outline: true,
+			kind: 'soft',
+			icon: 'warning-small',
+			action: confirmReset
+		}
+	} as const;
+
+	type IntegrationStrategy = keyof typeof integrationStrategies;
 
 	interface Props {
 		remoteOnlyPatches: DetailedCommit[];
 		patches: DetailedCommit[];
 		seriesName: string;
 		isUnapplied: boolean;
-		pushButton?: Snippet<[{ disabled: boolean }]>;
-		hasConflicts: boolean;
 		stackingReorderDropzoneManager: StackingReorderDropzoneManager;
 		isBottom?: boolean;
 	}
@@ -34,8 +57,6 @@
 		patches,
 		seriesName,
 		isUnapplied,
-		pushButton,
-		hasConflicts,
 		stackingReorderDropzoneManager,
 		isBottom = false
 	}: Props = $props();
@@ -46,11 +67,14 @@
 
 	const forge = getForge();
 
+	const localAndRemoteCommits = $derived(patches.filter((patch) => patch.remoteCommitId));
+	const lastDivergentCommit = $derived(findLastDivergentCommit(localAndRemoteCommits));
+
 	const lineManager = $derived(
 		lineManagerFactory.build({
 			remoteCommits: remoteOnlyPatches,
 			localCommits: patches.filter((patch) => !patch.remoteCommitId),
-			localAndRemoteCommits: patches.filter((patch) => patch.remoteCommitId),
+			localAndRemoteCommits,
 			integratedCommits: patches.filter((patch) => patch.isIntegrated)
 		})
 	);
@@ -59,12 +83,24 @@
 	const headCommit = $derived($branch.commits.at(0));
 
 	const hasRemoteCommits = $derived(remoteOnlyPatches.length > 0);
-
 	let isIntegratingCommits = $state(false);
 
-	const topPatch = $derived(patches[0]);
-	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
-	const isBranchIntegrated = $derived(branchType === 'integrated');
+	let confirmResetModal = $state<ReturnType<typeof Modal>>();
+
+	async function integrate(strategy?: SeriesIntegrationStrategy): Promise<void> {
+		isIntegratingCommits = true;
+		try {
+			await branchController.integrateUpstreamForSeries($branch.id, seriesName, strategy);
+		} catch (e) {
+			console.error(e);
+		} finally {
+			isIntegratingCommits = false;
+		}
+	}
+
+	function confirmReset() {
+		confirmResetModal?.show();
+	}
 </script>
 
 {#snippet stackingReorderDropzone(dropzone: StackingReorderDropzone)}
@@ -75,46 +111,51 @@
 	</Dropzone>
 {/snippet}
 
+{#snippet integrateUpstreamButton(strategy: IntegrationStrategy)}
+	{@const { label, icon, style, kind, outline, action } = integrationStrategies[strategy]}
+	<Button
+		{style}
+		{kind}
+		{outline}
+		grow
+		{icon}
+		reversedDirection={icon}
+		loading={isIntegratingCommits}
+		onclick={action}
+	>
+		{label}
+	</Button>
+{/snippet}
+
 {#if hasCommits || hasRemoteCommits}
 	<div class="commits">
 		<!-- UPSTREAM ONLY COMMITS -->
 		{#if hasRemoteCommits}
-			<UpstreamCommitsAccordion count={Math.min(remoteOnlyPatches.length, 3)}>
+			<UpstreamCommitsAccordion count={Math.min(remoteOnlyPatches.length, 3)} isLast={!hasCommits}>
 				{#each remoteOnlyPatches as commit, idx (commit.id)}
 					<CommitCard
 						type="remote"
 						branch={$branch}
 						{commit}
 						{isUnapplied}
-						last={idx === remoteOnlyPatches.length - 1}
+						noBorder={idx === remoteOnlyPatches.length - 1}
 						commitUrl={$forge?.commitUrl(commit.id)}
 						isHeadCommit={commit.id === headCommit?.id}
 					>
 						{#snippet lines()}
-							<Line line={lineManager.get(commit.id)} />
+							<Line
+								line={lineManager.get(commit.id)}
+								isBottom={!hasCommits && idx === remoteOnlyPatches.length - 1}
+							/>
 						{/snippet}
 					</CommitCard>
 				{/each}
-				{#snippet action()}
-					<Button
-						style="warning"
-						kind="solid"
-						grow
-						loading={isIntegratingCommits}
-						onclick={async () => {
-							isIntegratingCommits = true;
-							try {
-								await branchController.mergeUpstreamForSeries($branch.id, seriesName);
-							} catch (e) {
-								console.error(e);
-							} finally {
-								isIntegratingCommits = false;
-							}
-						}}
-					>
-						Integrate upstream
-					</Button>
-				{/snippet}
+
+				<CommitAction type="remote" isLast={!hasCommits}>
+					{#snippet action()}
+						{@render integrateUpstreamButton('default')}
+					{/snippet}
+				</CommitAction>
 			</UpstreamCommitsAccordion>
 		{/if}
 
@@ -124,6 +165,7 @@
 				{@render stackingReorderDropzone(stackingReorderDropzoneManager.topDropzone(seriesName))}
 
 				{#each patches as commit, idx (commit.id)}
+					{@const isResetAction = lastDivergentCommit?.id === commit.id}
 					<CommitDragItem {commit}>
 						<CommitCard
 							type={commit.status}
@@ -131,7 +173,8 @@
 							{commit}
 							{seriesName}
 							{isUnapplied}
-							last={idx === patches.length - 1}
+							noBorder={idx === patches.length - 1}
+							last={idx === patches.length - 1 && !isResetAction}
 							isHeadCommit={commit.id === headCommit?.id}
 							commitUrl={$forge?.commitUrl(commit.id)}
 						>
@@ -147,20 +190,41 @@
 					{@render stackingReorderDropzone(
 						stackingReorderDropzoneManager.dropzoneBelowCommit(seriesName, commit.id)
 					)}
+
+					<!-- RESET TO REMOTE BUTTON -->
+					{#if isResetAction}
+						<CommitAction type="local" isLast={idx === patches.length - 1}>
+							{#snippet action()}
+								{@render integrateUpstreamButton('reset')}
+							{/snippet}
+						</CommitAction>
+					{/if}
 				{/each}
 			</div>
 		{/if}
-		{#if remoteOnlyPatches.length > 0 && patches.length === 0 && !isBranchIntegrated && pushButton}
-			<CommitAction>
-				{#snippet lines()}
-					<Line line={lineManager.get(LineSpacer.LocalAndRemote)} />
-				{/snippet}
-				{#snippet action()}
-					{@render pushButton({ disabled: hasConflicts })}
-				{/snippet}
-			</CommitAction>
-		{/if}
 	</div>
+
+	<Modal
+		bind:this={confirmResetModal}
+		title="Reset to remote"
+		type="warning"
+		width="small"
+		onSubmit={async (close) => {
+			await integrate('hardreset');
+			close();
+		}}
+	>
+		{#snippet children()}
+			<p class="text-13 text-body helper-text">
+				This will reset the branch to the state of the remote branch. All local changes will be
+				overwritten.
+			</p>
+		{/snippet}
+		{#snippet controls(close)}
+			<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
+			<Button style="error" type="submit" kind="solid">Reset</Button>
+		{/snippet}
+	</Modal>
 {/if}
 
 <style lang="postcss">

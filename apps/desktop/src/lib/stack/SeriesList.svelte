@@ -24,9 +24,6 @@
 	const { branch, lastPush }: Props = $props();
 
 	const branchController = getContext(BranchController);
-	const hasConflicts = $derived(
-		branch.series.flatMap((s) => s.patches).some((patch) => patch.conflicted)
-	);
 
 	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
 
@@ -82,7 +79,6 @@
 				isUnapplied={false}
 				isBottom={idx === branch.series.length - 1}
 				{stackingReorderDropzoneManager}
-				{hasConflicts}
 			/>
 		{/if}
 	</CurrentSeries>
