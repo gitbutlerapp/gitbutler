@@ -156,6 +156,7 @@
 				{@render stackingReorderDropzone(stackingReorderDropzoneManager.topDropzone(seriesName))}
 
 				{#each patches as commit, idx (commit.id)}
+					{@const isResetAction = lastDivergentCommit?.id === commit.id}
 					<CommitDragItem {commit}>
 						<CommitCard
 							type={commit.status}
@@ -163,7 +164,8 @@
 							{commit}
 							{seriesName}
 							{isUnapplied}
-							last={idx === patches.length - 1}
+							noBorder={idx === patches.length - 1}
+							last={idx === patches.length - 1 && !isResetAction}
 							isHeadCommit={commit.id === headCommit?.id}
 							commitUrl={$forge?.commitUrl(commit.id)}
 						>
@@ -181,33 +183,16 @@
 					)}
 
 					<!-- RESET TO REMOTE BUTTON -->
-					{#if lastDivergentCommit?.id === commit.id}
+					{#if isResetAction}
 						<CommitAction type="local" isLast={idx === patches.length - 1}>
 							{#snippet action()}
 								{@render integrateUpstreamButton('reset')}
 							{/snippet}
 						</CommitAction>
-						<!-- <div class="action-row" class:last={idx === patches.length - 1}>
-							<div class="action-row__line" class:last={idx === patches.length - 1}></div>
-							<div class="action-row__button-wrapper">
-								{@render integrateUpstreamButton('reset')}
-							</div>
-						</div> -->
 					{/if}
 				{/each}
 			</div>
 		{/if}
-
-		<!-- {#if remoteOnlyPatches.length > 0 && patches.length === 0 && !isBranchIntegrated && pushButton}
-			<CommitAction>
-				{#snippet lines()}
-					<Line line={lineManager.get(LineSpacer.LocalAndRemote)} />
-				{/snippet}
-				{#snippet action()}
-					{@render pushButton({ disabled: hasConflicts })}
-				{/snippet}
-			</CommitAction>
-		{/if} -->
 	</div>
 
 	<Modal
@@ -247,57 +232,6 @@
 
 		&:last-child {
 			border-bottom: none;
-		}
-	}
-
-	.accordion-row__actions {
-		display: flex;
-		width: 100%;
-		align-items: stretch;
-		padding-right: 14px;
-		background-color: var(--clr-bg-1);
-	}
-
-	.accordion-row__actions__content {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		padding: 14px 0 14px;
-	}
-
-	.action-row {
-		display: flex;
-		width: 100%;
-		min-height: 44px;
-		justify-content: center;
-		background-color: var(--clr-bg-1);
-		border-bottom: 1px solid var(--clr-border-2);
-
-		&.last {
-			border-bottom: none;
-			border-top: 1px solid var(--clr-border-2);
-			border-radius: 0 0 var(--radius-m) var(--radius-m);
-		}
-	}
-
-	.action-row__button-wrapper {
-		width: 100%;
-		display: flex;
-		margin-right: 20px;
-		align-items: center;
-	}
-
-	.action-row__line {
-		flex-shrink: 0;
-		position: relative;
-		width: 2px;
-		margin: 0 22px 0 20px;
-		background-color: var(--clr-commit-local);
-		--dots-y-shift: -8px;
-
-		&.last {
-			background: linear-gradient(to bottom, var(--clr-commit-local) 50%, transparent 50%);
-			background-size: 4px 4px;
 		}
 	}
 </style>
