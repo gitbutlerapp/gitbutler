@@ -548,11 +548,10 @@ pub fn list_virtual_branches_cached(
 /// The commit-data we can use for comparison to see which remote-commit was used to craete
 /// a local commit from.
 /// Note that trees can't be used for comparison as these are typically rebased.
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Debug, Hash, Eq, PartialEq)]
 pub(crate) struct CommitData {
     message: BString,
     author: gix::actor::Signature,
-    committer: gix::actor::Signature,
 }
 
 impl TryFrom<&git2::Commit<'_>> for CommitData {
@@ -562,7 +561,6 @@ impl TryFrom<&git2::Commit<'_>> for CommitData {
         Ok(CommitData {
             message: commit.message_raw_bytes().into(),
             author: git2_signature_to_gix_signature(commit.author()),
-            committer: git2_signature_to_gix_signature(commit.committer()),
         })
     }
 }

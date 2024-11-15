@@ -68,12 +68,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		projectMetrics
 	);
 
-	const vbranchService = new VirtualBranchService(
-		projectId,
-		projectMetrics,
-		remoteBranchService,
-		branchListingService
-	);
+	const vbranchService = new VirtualBranchService(projectId, projectMetrics, branchListingService);
 
 	const branchController = new BranchController(
 		projectId,

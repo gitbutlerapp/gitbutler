@@ -205,13 +205,10 @@ export class DetailedCommit {
 	branchId!: string;
 	changeId!: string;
 	isSigned!: boolean;
-	relatedTo?: Commit;
+	relatedTo?: DetailedCommit;
 	conflicted!: boolean;
 	// Set if a GitButler branch reference pointing to this commit exists. In the format of "refs/remotes/origin/my-branch"
 	remoteRef?: string | undefined;
-	// Identifies the remote commit id from which this local commit was copied. The backend figured this out by comparing
-	// author, commit and message.
-	copiedFromRemoteId?: string;
 
 	/**
 	 *
@@ -314,13 +311,6 @@ export class Commit {
 }
 
 export type AnyCommit = DetailedCommit | Commit;
-
-export function commitCompare(left: AnyCommit, right: DetailedCommit): boolean {
-	if (left.id === right.id) return true;
-	if (left.changeId && right.changeId && left.changeId === right.changeId) return true;
-	if (right.copiedFromRemoteId && right.copiedFromRemoteId === left.id) return true;
-	return false;
-}
 
 export class RemoteHunk {
 	diff!: string;

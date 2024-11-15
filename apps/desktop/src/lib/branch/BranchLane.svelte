@@ -8,8 +8,7 @@
 	import {
 		createIntegratedCommitsContextStore,
 		createLocalCommitsContextStore,
-		createLocalAndRemoteCommitsContextStore,
-		createRemoteCommitsContextStore
+		createLocalAndRemoteCommitsContextStore
 	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
@@ -45,15 +44,11 @@
 	// COMMITS
 	const localCommits = createLocalCommitsContextStore([]);
 	const localAndRemoteCommits = createLocalAndRemoteCommitsContextStore([]);
-	const remoteCommits = createRemoteCommitsContextStore([]);
 	const integratedCommits = createIntegratedCommitsContextStore([]);
-
-	const allUpstreamCommits = $derived(branch.upstreamData?.commits ?? []);
 
 	$effect(() => {
 		localCommits.set(branch.localCommits);
 		localAndRemoteCommits.set(branch.remoteCommits);
-		remoteCommits.set(allUpstreamCommits.filter((c) => !c.relatedTo));
 		integratedCommits.set(branch.integratedCommits);
 	});
 
