@@ -5,7 +5,7 @@ use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
     LogUntil, RepositoryExt as _,
 };
-use gitbutler_stack::commit_by_oid_or_change_id;
+use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::StackId;
 use gitbutler_workspace::{
     checkout_branch_trees, compute_updated_branch_head_for_commits, BranchHeadAndTree,
@@ -37,14 +37,8 @@ pub fn integrate_upstream_commits_for_series(
     let upstream_reference = subject_branch.remote_reference(remote.as_str())?;
     let remote_head = repo.find_reference(&upstream_reference)?.peel_to_commit()?;
 
-    let stack_merge_base = repo.merge_base(stack.head(), default_target.sha)?;
-    let series_head = commit_by_oid_or_change_id(
-        &subject_branch.head,
-        repo,
-        remote_head.id(),
-        stack_merge_base,
-    )?
-    .head;
+    let series_head = subject_branch.head_oid(&ctx.to_stack_context()?, &stack)?;
+    let series_head = repo.find_commit(series_head)?;
 
     let do_rebease = stack.allow_rebasing
         || Some(subject_branch.name.clone()) != branches.first().map(|b| b.name.clone());
