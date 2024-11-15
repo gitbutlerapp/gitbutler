@@ -16,7 +16,7 @@
 	import Markdown from '$lib/components/Markdown.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { projectAiGenEnabled } from '$lib/config/config';
+	import { persistedPRBody, persistedPRTitle, projectAiGenEnabled } from '$lib/config/config';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
@@ -45,7 +45,7 @@
 	import { tick } from 'svelte';
 
 	interface BaseProps {
-		type: 'display' | 'preview' | 'preview-series';
+		type: 'display' | 'preview';
 	}
 
 	interface DisplayProps extends BaseProps {
@@ -55,15 +55,11 @@
 
 	interface PreviewProps extends BaseProps {
 		type: 'preview';
-	}
-
-	interface PreviewSeriesProps {
-		type: 'preview-series';
 		currentSeries: PatchSeries;
 		stackId: string;
 	}
 
-	type Props = DisplayProps | PreviewProps | PreviewSeriesProps;
+	type Props = DisplayProps | PreviewProps;
 
 	let props: Props = $props();
 
@@ -79,17 +75,13 @@
 	const templateService = getContext(TemplateService);
 
 	const branch = $derived($branchStore);
-	const branchName = $derived(
-		props.type === 'preview-series' ? props.currentSeries.name : branch.name
-	);
-	const commits = $derived(
-		props.type === 'preview-series' ? props.currentSeries.patches : branch.commits
-	);
+	const branchName = $derived(props.type === 'preview' ? props.currentSeries.name : branch.name);
+	const commits = $derived(props.type === 'preview' ? props.currentSeries.patches : branch.commits);
 	const upstreamName = $derived(
-		props.type === 'preview-series' ? props.currentSeries.name : branch.upstreamName
+		props.type === 'preview' ? props.currentSeries.name : branch.upstreamName
 	);
 	const baseBranchName = $derived($baseBranch.shortName);
-	const currentSeries = $derived(props.type === 'preview-series' ? props.currentSeries : undefined);
+	const currentSeries = $derived(props.type === 'preview' ? props.currentSeries : undefined);
 
 	let createPrDropDown = $state<ReturnType<typeof DropDownButton>>();
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
@@ -144,10 +136,15 @@
 		}
 	});
 
-	let inputBody = $state<string>('');
-	let inputTitle = $state<string>('');
-	const actualBody = $derived<string>(inputBody.trim().length > 0 ? inputBody : defaultBody);
-	const actualTitle = $derived<string>(inputTitle.trim().length > 0 ? inputTitle : defaultTitle);
+	let inputBody = $derived(
+		props.type !== 'display' ? persistedPRBody(project.id, props.currentSeries.name) : undefined
+	);
+	let inputTitle = $derived(
+		props.type !== 'display' ? persistedPRTitle(project.id, props.currentSeries.name) : undefined
+	);
+
+	const actualBody = $derived<string>(inputBody && $inputBody ? $inputBody : defaultBody);
+	const actualTitle = $derived<string>(inputTitle && $inputTitle ? $inputTitle : defaultTitle);
 
 	$effect(() => {
 		if (modal?.imports.open) {
@@ -218,7 +215,7 @@
 			// to the preceding branch.
 			let base = baseBranchName;
 			if (currentIndex < branches.length - 1) {
-				base = (branches[currentIndex + 1] as PatchSeries).branchName;
+				base = branches[currentIndex + 1]!.branchName;
 			}
 
 			const pr = await $prService.createPr({
@@ -276,10 +273,11 @@
 			prBodyTemplate: templateBody,
 			onToken: (t) => {
 				if (firstToken) {
-					inputBody = '';
+					inputBody?.set('');
 					firstToken = false;
 				}
-				inputBody += t;
+				const newInputBody = inputBody ? $inputBody + t : t;
+				inputBody?.set(newInputBody);
 			}
 		});
 
@@ -289,7 +287,7 @@
 			return;
 		}
 
-		inputBody = descriptionResult.value;
+		inputBody?.set(descriptionResult.value);
 		aiIsLoading = false;
 		aiDescriptionDirective = undefined;
 		await tick();
@@ -329,8 +327,6 @@
 
 	function onClose() {
 		isEditing = true;
-		inputTitle = '';
-		inputBody = '';
 	}
 
 	let prLinkCopied = $state(false);
@@ -389,7 +385,7 @@
 						value={actualTitle}
 						readonly={!isEditing || isDisplay}
 						oninput={(value: string) => {
-							inputTitle = value;
+							inputTitle?.set(value);
 						}}
 					/>
 
@@ -436,7 +432,7 @@
 							placeholder="Add description…"
 							onchange={(e: InputEvent) => {
 								const target = e.currentTarget as HTMLTextAreaElement;
-								inputBody = target.value.trim();
+								inputBody?.set(target.value.trim());
 							}}
 						/>
 
