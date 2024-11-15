@@ -60,7 +60,7 @@ export function ghResponseToInstance(
 		sha: pr.head?.sha,
 		mergedAt: pr.merged_at ? new Date(pr.merged_at) : undefined,
 		closedAt: pr.closed_at ? new Date(pr.closed_at) : undefined,
-		repoName: pr.head?.repo?.full_name,
+		repoOwner: pr.head?.repo?.owner.login,
 		repositorySshUrl: pr.head?.repo?.ssh_url,
 		repositoryHttpsUrl: pr.head?.repo?.clone_url
 	};

@@ -19,7 +19,6 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 	readonly error = writable<any>();
 
 	readonly mergeableState = derived(this.pr, (pr) => pr?.mergeableState);
-	readonly lastFetch = writable<Date | undefined>();
 
 	private intervalId: any;
 
@@ -71,7 +70,6 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 			try {
 				const pr = await request();
 				this.pr.set(pr);
-				this.lastFetch.set(new Date());
 
 				// Stop polling polling if merged or mergeable state known.
 				if (pr.mergeableState !== 'unknown' || pr.merged) {

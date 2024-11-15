@@ -22,9 +22,9 @@ export interface PullRequest {
 	modifiedAt: Date;
 	mergedAt?: Date;
 	closedAt?: Date;
-	repoName?: string;
 	repositorySshUrl?: string;
 	repositoryHttpsUrl?: string;
+	repoOwner?: string;
 }
 
 export interface DetailedPullRequest {

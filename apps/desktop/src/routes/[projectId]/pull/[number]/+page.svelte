@@ -23,7 +23,7 @@
 		{#if !pr}
 			<FullviewLoading />
 		{:else if pr}
-			<PullRequestPreview pullrequest={pr} />
+			<PullRequestPreview {pr} />
 		{:else}
 			<p>Branch doesn't seem to exist</p>
 		{/if}
