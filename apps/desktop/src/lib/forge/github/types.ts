@@ -17,6 +17,7 @@ export function parseGitHubDetailedPullRequest(
 		createdAt: new Date(data.created_at),
 		mergedAt: data.merged_at ? new Date(data.merged_at) : undefined,
 		closedAt: data.closed_at ? new Date(data.closed_at) : undefined,
+		merged: data.merged,
 		mergeable: !!data.mergeable,
 		mergeableState: data.mergeable_state,
 		rebaseable: !!data.rebaseable,

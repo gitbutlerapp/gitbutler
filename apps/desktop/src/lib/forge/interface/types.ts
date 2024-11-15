@@ -38,6 +38,7 @@ export interface DetailedPullRequest {
 	mergedAt?: Date;
 	closedAt?: Date;
 	htmlUrl: string;
+	merged: boolean;
 	mergeable: boolean;
 	mergeableState: string;
 	rebaseable: boolean;

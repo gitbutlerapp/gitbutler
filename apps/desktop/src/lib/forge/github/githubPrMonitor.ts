@@ -47,8 +47,7 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 		this.error.set(undefined);
 		this.loading.set(true);
 		try {
-			this.pr.set(await this.getPrWithRetries(this.prNumber));
-			this.lastFetch.set(new Date());
+			await this.loadPrWithRetries(this.prNumber);
 		} catch (err: any) {
 			this.error.set(err);
 			console.error(err);
@@ -58,34 +57,36 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 	}
 
 	/**
-	 * Get the PR information.
+	 * Loads pull request details.
 	 *
-	 * Right after pushing GitHub will respond with status 422, necessatating retries.
-	 * After that, the mergeable state is not always available immediately.
-	 * The function will set the initial PR information immediately and then poll for the mergeable state.
+	 * Right after pushing GitHub will respond with status 422, necessatating
+	 * retries. After that, it can take a few seconds for the mergeable state
+	 * to be known.
 	 */
-	private async getPrWithRetries(prNumber: number): Promise<DetailedPullRequest> {
+	private async loadPrWithRetries(prNumber: number): Promise<void> {
 		const request = async () => await this.prService.get(prNumber);
 		let lastError: any;
 		let attempt = 0;
-		while (attempt < MAX_POLL_ATTEMPTS) {
-			attempt++;
+		while (attempt++ < MAX_POLL_ATTEMPTS) {
 			try {
-				const detailedPR = await request();
-				// Set the PR info immediately to show
-				// the user all preliminary information.
-				this.pr.set(detailedPR);
-				if (detailedPR.mergeableState === 'unknown') {
-					await sleep(1000);
-					continue;
+				const pr = await request();
+				this.pr.set(pr);
+				this.lastFetch.set(new Date());
+
+				// Stop polling polling if merged or mergeable state known.
+				if (pr.mergeableState !== 'unknown' || pr.merged) {
+					return;
 				}
-				return detailedPR;
 			} catch (err: any) {
 				if (err.status !== 422) throw err;
 				lastError = err;
-				await sleep(1000);
 			}
+			await sleep(1000);
 		}
-		throw lastError;
+		if (lastError) {
+			throw lastError;
+		}
+		// The end of the function is reached if the pull request has an
+		// unknown mergeable state after retries.
 	}
 }
