@@ -3,12 +3,13 @@
 	import type { Snippet } from 'svelte';
 
 	interface Props {
+		count: number;
+		isLast?: boolean;
 		children: Snippet;
 		action: Snippet;
-		count: number;
 	}
 
-	const { children, action, count }: Props = $props();
+	const { count, isLast, children, action }: Props = $props();
 
 	let isOpen = $state(count === 1);
 
@@ -17,9 +18,9 @@
 	}
 </script>
 
-<div class="accordion">
+<div class="accordion" class:is-last={isLast} class:is-open={isOpen}>
 	{#if count !== 1}
-		<button type="button" class="accordion-row header" onclick={toggle}>
+		<button type="button" class="accordion-row__header" onclick={toggle}>
 			<div class="accordion-row__line">
 				<div class="dots">
 					{#if !isOpen}
@@ -55,9 +56,9 @@
 			{@render children()}
 		</div>
 
-		<div class="accordion-row unthemed">
+		<div class="accordion-row__actions">
 			<div class="accordion-row__line"></div>
-			<div class="accordion-row__actions">
+			<div class="accordion-row__actions__content">
 				{@render action()}
 			</div>
 		</div>
@@ -69,67 +70,50 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		background-color: var(--clr-theme-warn-bg);
+		border-bottom: 1px solid var(--clr-border-2);
 
 		&:focus {
 			outline: none;
 		}
+
+		&.is-last {
+			border-bottom: none;
+			border-radius: 0 0 var(--radius-m) var(--radius-m);
+			overflow: hidden;
+		}
+
+		&.is-open {
+			& .accordion-row__header {
+				border-bottom: 1px solid var(--clr-border-2);
+			}
+		}
 	}
 
-	.accordion-row {
+	.accordion-row__actions {
+		display: flex;
+		width: 100%;
+		align-items: stretch;
+		padding-right: 14px;
+		background-color: var(--clr-bg-1);
+	}
+
+	.accordion-row__actions__content {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		padding: 14px 0 14px;
+	}
+
+	.accordion-row__header {
 		display: flex;
 		width: 100%;
 		min-height: 44px;
 		align-items: stretch;
 		text-align: left;
-		border-bottom: 1px solid var(--clr-border-2);
-
-		&.unthemed {
-			background-color: var(--clr-bg-1);
-		}
+		background-color: var(--clr-theme-warn-bg);
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
-		}
-
-		& .accordion-row__line {
-			position: relative;
-			width: 2px;
-			margin: 0 22px 0 20px;
-			background-color: var(--clr-commit-upstream);
-			--dots-y-shift: -8px;
-
-			& .upstream-dot {
-				width: 14px;
-				height: 14px;
-				fill: var(--clr-commit-upstream);
-				stroke: var(--clr-theme-warn-bg);
-				transform: rotate(45deg);
-				margin-top: var(--dots-y-shift);
-			}
-
-			& .dots {
-				position: absolute;
-
-				top: calc(50% - (var(--dots-y-shift) / 2));
-				left: 50%;
-				transform: translate(-50%, -50%);
-			}
-		}
-
-		& .accordion-row__right {
-			display: flex;
-			flex: 1;
-			padding-right: 14px;
-			align-items: center;
-			color: var(--clr-text-2);
-		}
-
-		& .accordion-row__actions {
-			display: flex;
-			flex-direction: column;
-			flex: 1;
-			padding: 14px 14px 14px 0;
 		}
 
 		& .title {
@@ -140,6 +124,39 @@
 		}
 	}
 
+	.accordion-row__line {
+		position: relative;
+		width: 2px;
+		margin: 0 22px 0 20px;
+		background-color: var(--clr-commit-upstream);
+		--dots-y-shift: -8px;
+
+		& .upstream-dot {
+			width: 14px;
+			height: 14px;
+			fill: var(--clr-commit-upstream);
+			stroke: var(--clr-theme-warn-bg);
+			transform: rotate(45deg);
+			margin-top: var(--dots-y-shift);
+		}
+
+		& .dots {
+			position: absolute;
+
+			top: calc(50% - (var(--dots-y-shift) / 2));
+			left: 50%;
+			transform: translate(-50%, -50%);
+		}
+	}
+
+	.accordion-row__right {
+		display: flex;
+		flex: 1;
+		padding-right: 14px;
+		align-items: center;
+		color: var(--clr-text-2);
+	}
+
 	.accordion-children {
 		display: flex;
 		flex-direction: column;
@@ -147,6 +164,6 @@
 		min-height: 44px;
 		align-items: stretch;
 		text-align: left;
-		border-bottom: 1px solid var(--clr-border-2);
+		border-bottom: 1px solid var(--clr-border-3);
 	}
 </style>

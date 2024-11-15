@@ -103,14 +103,14 @@
 	<div class="commits">
 		<!-- UPSTREAM ONLY COMMITS -->
 		{#if hasRemoteCommits}
-			<UpstreamCommitsAccordion count={Math.min(remoteOnlyPatches.length, 3)}>
+			<UpstreamCommitsAccordion count={Math.min(remoteOnlyPatches.length, 3)} isLast={!hasCommits}>
 				{#each remoteOnlyPatches as commit, idx (commit.id)}
 					<CommitCard
 						type="remote"
 						branch={$branch}
 						{commit}
 						{isUnapplied}
-						last={idx === remoteOnlyPatches.length - 1}
+						noBorder={idx === remoteOnlyPatches.length - 1}
 						commitUrl={$forge?.commitUrl(commit.id)}
 						isHeadCommit={commit.id === headCommit?.id}
 					>
