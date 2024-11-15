@@ -47,6 +47,7 @@
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"@terrazzo/cli": "^0.0.11",
 		"@terrazzo/plugin-css": "^0.0.9",
+		"@types/lscache": "^1.3.4",
 		"@types/postcss-pxtorem": "^6.0.3",
 		"autoprefixer": "^10.4.19",
 		"cpy-cli": "^5.0.0",
@@ -62,5 +63,8 @@
 		"vite": "catalog:",
 		"vitest": "^2.0.5"
 	},
-	"type": "module"
+	"type": "module",
+	"dependencies": {
+		"lscache": "^1.3.2"
+	}
 }

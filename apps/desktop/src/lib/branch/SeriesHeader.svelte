@@ -359,7 +359,7 @@
 		{:else}
 			<PrDetailsModal
 				bind:this={prDetailsModal}
-				type="preview-series"
+				type="preview"
 				{currentSeries}
 				stackId={branch.id}
 			/>
