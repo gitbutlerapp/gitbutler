@@ -22,7 +22,8 @@ export function parseGitHubDetailedPullRequest(
 		mergeableState: data.mergeable_state,
 		rebaseable: !!data.rebaseable,
 		squashable: !!data.mergeable, // Enabled whenever merge is enabled
-		state: data.state
+		state: data.state,
+		fork: data.head?.repo?.fork ?? false
 	};
 }
 
