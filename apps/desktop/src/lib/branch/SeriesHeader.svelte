@@ -214,6 +214,7 @@
 	rightClickTrigger={seriesHeaderEl}
 	headName={currentSeries.name}
 	seriesCount={branch.series?.length ?? 0}
+	{isTopSeries}
 	{toggleDescription}
 	description={currentSeries.description ?? ''}
 	onGenerateBranchName={generateBranchName}
@@ -244,7 +245,7 @@
 >
 	<Dropzones type="commit">
 		<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
-			{#if $stackingFeatureMultipleSeries}
+			{#if $stackingFeatureMultipleSeries && isTopSeries}
 				<PopoverActionsItem
 					icon="plus-small"
 					tooltip="Add dependent branch"
