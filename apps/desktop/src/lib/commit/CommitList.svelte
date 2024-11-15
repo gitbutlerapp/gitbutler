@@ -159,8 +159,8 @@
 
 					<!-- RESET TO REMOTE BUTTON -->
 					{#if lastDivergentCommit?.id === commit.id}
-						<div class="action-row">
-							<div class="action-row__line"></div>
+						<div class="action-row" class:last={idx === patches.length - 1}>
+							<div class="action-row__line" class:last={idx === patches.length - 1}></div>
 							<div class="action-row__button-wrapper">
 								{@render integrateUpstreamButton('Reset to remote')}
 							</div>
@@ -206,6 +206,12 @@
 		justify-content: center;
 		background-color: var(--clr-bg-1);
 		border-bottom: 1px solid var(--clr-border-2);
+
+		&.last {
+			border-bottom: none;
+			border-top: 1px solid var(--clr-border-2);
+			border-radius: 0 0 var(--radius-m) var(--radius-m);
+		}
 	}
 
 	.action-row__button-wrapper {
@@ -222,5 +228,10 @@
 		margin: 0 22px 0 20px;
 		background-color: var(--clr-commit-local);
 		--dots-y-shift: -8px;
+
+		&.last {
+			background: linear-gradient(to bottom, var(--clr-commit-local) 50%, transparent 50%);
+			background-size: 4px 4px;
+		}
 	}
 </style>
