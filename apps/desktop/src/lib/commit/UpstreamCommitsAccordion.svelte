@@ -6,12 +6,12 @@
 		count: number;
 		isLast?: boolean;
 		children: Snippet;
-		action: Snippet;
 	}
 
-	const { count, isLast, children, action }: Props = $props();
+	const { count, isLast, children }: Props = $props();
 
 	let isOpen = $state(count === 1);
+	// let isOpen = true;
 
 	function toggle() {
 		isOpen = !isOpen;
@@ -55,13 +55,6 @@
 		<div class="accordion-children">
 			{@render children()}
 		</div>
-
-		<div class="accordion-row__actions">
-			<div class="accordion-row__line"></div>
-			<div class="accordion-row__actions__content">
-				{@render action()}
-			</div>
-		</div>
 	{/if}
 </div>
 
@@ -89,7 +82,7 @@
 		}
 	}
 
-	.accordion-row__actions {
+	/* .accordion-row__actions {
 		display: flex;
 		width: 100%;
 		align-items: stretch;
@@ -102,7 +95,7 @@
 		flex-direction: column;
 		flex: 1;
 		padding: 14px 0 14px;
-	}
+	} */
 
 	.accordion-row__header {
 		display: flex;
@@ -164,6 +157,6 @@
 		min-height: 44px;
 		align-items: stretch;
 		text-align: left;
-		border-bottom: 1px solid var(--clr-border-3);
+		/* border-bottom: 1px solid var(--clr-border-3); */
 	}
 </style>

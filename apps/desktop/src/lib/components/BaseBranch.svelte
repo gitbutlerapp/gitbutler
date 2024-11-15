@@ -220,10 +220,7 @@
 		{/each}
 
 		{#if base.diverged}
-			<CommitAction backgroundColor={false}>
-				{#snippet lines()}
-					<Line line={lineManager.get(LineSpacer.Remote)} />
-				{/snippet}
+			<CommitAction type={'remote'}>
 				{#snippet action()}
 					<Button
 						wide
@@ -260,10 +257,7 @@
 			</CommitCard>
 		{/each}
 
-		<CommitAction backgroundColor={false}>
-			{#snippet lines()}
-				<Line line={lineManager.get(LineSpacer.Local)} />
-			{/snippet}
+		<CommitAction type={'local'}>
 			{#snippet action()}
 				<div class="local-actions-wrapper">
 					<Button

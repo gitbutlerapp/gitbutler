@@ -15,14 +15,13 @@
 		BranchController,
 		type SeriesIntegrationStrategy
 	} from '$lib/vbranches/branchController';
-	import { DetailedCommit, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
+	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Line from '@gitbutler/ui/commitLines/Line.svelte';
-	import { LineManagerFactory, LineSpacer } from '@gitbutler/ui/commitLines/lineManager';
-	import type { Snippet } from 'svelte';
+	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 
 	const integrationStrategies = {
 		default: {
@@ -32,7 +31,7 @@
 			action: integrate
 		},
 		reset: {
-			label: 'Reset to remote',
+			label: 'Reset to remote…',
 			stretegy: 'hardreset',
 			style: 'error',
 			action: confirmReset
@@ -46,8 +45,6 @@
 		patches: DetailedCommit[];
 		seriesName: string;
 		isUnapplied: boolean;
-		pushButton?: Snippet<[{ disabled: boolean }]>;
-		hasConflicts: boolean;
 		stackingReorderDropzoneManager: StackingReorderDropzoneManager;
 		isBottom?: boolean;
 	}
@@ -56,8 +53,6 @@
 		patches,
 		seriesName,
 		isUnapplied,
-		pushButton,
-		hasConflicts,
 		stackingReorderDropzoneManager,
 		isBottom = false
 	}: Props = $props();
@@ -86,9 +81,9 @@
 	const hasRemoteCommits = $derived(remoteOnlyPatches.length > 0);
 	let isIntegratingCommits = $state(false);
 
-	const topPatch = $derived(patches[0]);
-	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
-	const isBranchIntegrated = $derived(branchType === 'integrated');
+	// const topPatch = $derived(patches[0]);
+	// const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
+	// const isBranchIntegrated = $derived(branchType === 'integrated');
 
 	let confirmResetModal = $state<ReturnType<typeof Modal>>();
 
@@ -139,17 +134,21 @@
 						isHeadCommit={commit.id === headCommit?.id}
 					>
 						{#snippet lines()}
-							<Line line={lineManager.get(commit.id)} />
+							<Line
+								line={lineManager.get(commit.id)}
+								isBottom={!hasCommits && idx === remoteOnlyPatches.length - 1}
+							/>
 						{/snippet}
 					</CommitCard>
 				{/each}
-				{#snippet action()}
-					{@render integrateUpstreamButton('default')}
-				{/snippet}
+
+				<CommitAction type="remote" isLast={!hasCommits}>
+					{#snippet action()}
+						{@render integrateUpstreamButton('default')}
+					{/snippet}
+				</CommitAction>
 			</UpstreamCommitsAccordion>
 		{/if}
-
-		<!-- DIVERGED -->
 
 		<!-- REMAINING LOCAL, LOCALANDREMOTE, AND INTEGRATED COMMITS -->
 		{#if patches.length > 0}
@@ -183,17 +182,23 @@
 
 					<!-- RESET TO REMOTE BUTTON -->
 					{#if lastDivergentCommit?.id === commit.id}
-						<div class="action-row" class:last={idx === patches.length - 1}>
+						<CommitAction type="local" isLast={idx === patches.length - 1}>
+							{#snippet action()}
+								{@render integrateUpstreamButton('reset')}
+							{/snippet}
+						</CommitAction>
+						<!-- <div class="action-row" class:last={idx === patches.length - 1}>
 							<div class="action-row__line" class:last={idx === patches.length - 1}></div>
 							<div class="action-row__button-wrapper">
 								{@render integrateUpstreamButton('reset')}
 							</div>
-						</div>
+						</div> -->
 					{/if}
 				{/each}
 			</div>
 		{/if}
-		{#if remoteOnlyPatches.length > 0 && patches.length === 0 && !isBranchIntegrated && pushButton}
+
+		<!-- {#if remoteOnlyPatches.length > 0 && patches.length === 0 && !isBranchIntegrated && pushButton}
 			<CommitAction>
 				{#snippet lines()}
 					<Line line={lineManager.get(LineSpacer.LocalAndRemote)} />
@@ -202,7 +207,7 @@
 					{@render pushButton({ disabled: hasConflicts })}
 				{/snippet}
 			</CommitAction>
-		{/if}
+		{/if} -->
 	</div>
 
 	<Modal
@@ -243,6 +248,21 @@
 		&:last-child {
 			border-bottom: none;
 		}
+	}
+
+	.accordion-row__actions {
+		display: flex;
+		width: 100%;
+		align-items: stretch;
+		padding-right: 14px;
+		background-color: var(--clr-bg-1);
+	}
+
+	.accordion-row__actions__content {
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		padding: 14px 0 14px;
 	}
 
 	.action-row {
