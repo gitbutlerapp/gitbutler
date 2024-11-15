@@ -82,8 +82,8 @@
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
-	const hostedListingServiceStore = getForgeListingService();
-	const prStore = $derived($hostedListingServiceStore?.prs);
+	const forgeListing = getForgeListingService();
+	const prStore = $derived($forgeListing?.prs);
 	const prs = $derived(prStore ? $prStore : undefined);
 
 	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
@@ -118,15 +118,11 @@
 	});
 
 	async function handleReloadPR() {
-		await Promise.allSettled([
-			prMonitor?.refresh(),
-			checksMonitor?.update(),
-			$hostedListingServiceStore?.refresh()
-		]);
+		await updateStatusAndChecks();
 	}
 
-	function updateStatusAndChecks() {
-		handleReloadPR();
+	async function updateStatusAndChecks() {
+		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
 	}
 
 	const projectService = getContext(ProjectService);
@@ -176,6 +172,7 @@
 			return;
 		}
 		await $prService?.reopen($pr?.number);
+		await $forgeListing?.refresh();
 		await handleReloadPR();
 	}
 

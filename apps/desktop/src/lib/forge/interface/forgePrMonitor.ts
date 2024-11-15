@@ -6,7 +6,6 @@ export interface ForgePrMonitor {
 	pr: Readable<DetailedPullRequest | undefined>;
 	loading?: Readable<boolean>;
 	error: Readable<any>;
-	lastFetch?: Readable<Date | undefined>;
 	refresh(): Promise<void>;
 }
 

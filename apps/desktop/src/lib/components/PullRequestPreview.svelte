@@ -3,9 +3,9 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Markdown from '$lib/components/Markdown.svelte';
+	import { showError } from '$lib/notifications/toasts';
 	import { RemotesService } from '$lib/remotes/service';
 	import Link from '$lib/shared/Link.svelte';
-	import * as toasts from '$lib/utils/toasts';
 	import { remoteUrlIsHttp } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
@@ -13,81 +13,72 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import { get } from 'svelte/store';
 	import type { PullRequest } from '$lib/forge/interface/types';
 	import { goto } from '$app/navigation';
 
-	export let pullrequest: PullRequest;
+	const { pr }: { pr: PullRequest } = $props();
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 	const remotesService = getContext(RemotesService);
 	const baseBranchService = getContext(BaseBranchService);
 	const virtualBranchService = getContext(VirtualBranchService);
+	const baseBranch = $derived(baseBranchService.base);
 
-	let remoteName = structuredClone(pullrequest.repoName) || '';
+	let inputRemoteName = $state<string>(pr.repoOwner || '');
+
 	let createRemoteModal: Modal | undefined;
 
-	let loading = false;
+	let loading = $state(false);
 
 	function closeModal(close: () => void) {
-		remoteName = structuredClone(pullrequest.repoName) || '';
 		close();
 	}
 
 	function getRemoteUrl() {
-		const baseRemoteUrl = get(baseBranchService.base)?.remoteUrl;
-
+		const baseRemoteUrl = $baseBranch?.remoteUrl;
 		if (!baseRemoteUrl) return;
 
 		if (remoteUrlIsHttp(baseRemoteUrl)) {
-			return pullrequest.repositoryHttpsUrl;
+			return pr.repositoryHttpsUrl;
 		} else {
-			return pullrequest.repositorySshUrl;
+			return pr.repositorySshUrl;
 		}
 	}
 
-	async function createRemoteAndBranch() {
+	async function handleConfirmRemote() {
 		const remoteUrl = getRemoteUrl();
 
 		if (!remoteUrl) {
-			toasts.error('Failed to get the remote URL');
-			return;
-		}
-
-		const remotes = await remotesService.remotes(project.id);
-		if (remotes.find((r) => r.name === remoteName)) {
-			toasts.error('Remote already exists');
-			return;
+			throw new Error(`Remote url not available for pr #${pr.number}.`);
 		}
 
 		loading = true;
 
 		try {
-			await remotesService.addRemote(project.id, remoteName, remoteUrl);
+			const remoteRef = 'refs/remotes/' + inputRemoteName + '/' + pr.sourceBranch;
+			await remotesService.addRemote(project.id, inputRemoteName, remoteUrl);
 			await baseBranchService.fetchFromRemotes();
-			await branchController.createvBranchFromBranch(
-				`refs/remotes/${remoteName}/${pullrequest.sourceBranch}`,
-				undefined,
-				pullrequest.number
-			);
+			await branchController.createvBranchFromBranch(remoteRef, remoteRef, pr.number);
 			await virtualBranchService.refresh();
 
 			// This is a little absurd, but it makes it soundly typed
 			goto(`/${project.id}/board`);
 
 			createRemoteModal?.close();
+		} catch (err: unknown) {
+			showError('Failed to apply forked branch', err);
 		} finally {
 			loading = false;
 		}
 	}
 </script>
 
-<Modal width="small" bind:this={createRemoteModal} onSubmit={createRemoteAndBranch}>
+<Modal width="small" bind:this={createRemoteModal} onSubmit={handleConfirmRemote}>
 	<p class="text-15 fork-notice">
 		In order to apply a branch from a fork, GitButler must first add a remote.
 	</p>
-	<Textbox label="Choose a remote name" bind:value={remoteName}></Textbox>
+	<Textbox label="Choose a remote name" bind:value={inputRemoteName} required />
 	{#snippet controls(close)}
 		<Button style="ghost" outline onclick={() => closeModal(close)}>Cancel</Button>
 		<Button style="pop" kind="solid" type="submit" grow {loading}>Confirm</Button>
@@ -98,14 +89,14 @@
 	<div class="card">
 		<div class="card__header text-14 text-body text-semibold">
 			<h2 class="text-14 text-semibold">
-				{pullrequest.title}
+				{pr.title}
 				<span class="card__title-pr">
-					<Link target="_blank" rel="noreferrer" href={pullrequest.htmlUrl}>
-						#{pullrequest.number}
+					<Link target="_blank" rel="noreferrer" href={pr.htmlUrl}>
+						#{pr.number}
 					</Link>
 				</span>
 			</h2>
-			{#if pullrequest.draft}
+			{#if pr.draft}
 				<Button size="tag" clickable={false} style="neutral" icon="draft-pr-small">Draft</Button>
 			{:else}
 				<Button size="tag" clickable={false} style="success" kind="solid" icon="pr-small">
@@ -117,19 +108,19 @@
 		<div class="card__content">
 			<div class="text-13">
 				<span class="text-bold">
-					{pullrequest.author?.name}
+					{pr.author?.name}
 				</span>
 				wants to merge into
 				<span class="code-string">
-					{pullrequest.targetBranch}
+					{pr.targetBranch}
 				</span>
 				from
 				<span class="code-string">
-					{pullrequest.sourceBranch}
+					{pr.sourceBranch}
 				</span>
 			</div>
-			{#if pullrequest.body}
-				<Markdown content={pullrequest.body} />
+			{#if pr.body}
+				<Markdown content={pr.body} />
 			{/if}
 		</div>
 		<div class="card__footer">
