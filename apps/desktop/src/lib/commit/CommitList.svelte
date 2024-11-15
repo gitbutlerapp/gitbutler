@@ -217,7 +217,7 @@
 		}}
 	>
 		{#snippet children()}
-			<p class="text-12 text-body helper-text">
+			<p class="text-13 text-body helper-text">
 				This will reset the branch to the state of the remote branch. All local changes will be
 				overwritten.
 			</p>
