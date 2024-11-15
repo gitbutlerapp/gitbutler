@@ -36,7 +36,7 @@
 		reset: {
 			label: 'Reset to remote…',
 			stretegy: 'hardreset',
-			style: 'error',
+			style: 'ghost',
 			outline: true,
 			kind: 'soft',
 			icon: 'warning-small',
