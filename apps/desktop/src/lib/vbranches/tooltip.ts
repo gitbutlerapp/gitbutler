@@ -1,16 +1,13 @@
 import { HunkLock, type DetailedCommit } from './types';
-import { unique } from '$lib/utils/filters';
+import { uniqeByPropValues, unique } from '$lib/utils/filters';
 
-export function getLockText(
-	hunkLocks: HunkLock | HunkLock[] | string,
-	commits: DetailedCommit[]
-): string {
+export function getLockText(hunkLocks: HunkLock | HunkLock[], commits: DetailedCommit[]): string {
 	if (!hunkLocks || commits === undefined) return 'Depends on a committed change';
 
-	const locks = hunkLocks instanceof HunkLock ? [hunkLocks] : (hunkLocks as HunkLock[]);
+	const locks = Array.isArray(hunkLocks) ? hunkLocks : [hunkLocks];
 
 	const descriptions = locks
-		.filter(unique)
+		.filter(uniqeByPropValues)
 		.map((lock) => {
 			const commit = commits.find((c) => {
 				return c.id === lock.commitId;
