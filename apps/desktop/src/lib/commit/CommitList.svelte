@@ -26,16 +26,14 @@
 	const integrationStrategies = {
 		default: {
 			label: 'Integrate upstream',
-			stretegy: undefined,
 			style: 'warning',
 			kind: 'solid',
 			outline: false,
 			icon: undefined,
-			action: integrate
+			action: () => integrate()
 		},
 		reset: {
 			label: 'Reset to remote…',
-			stretegy: 'hardreset',
 			style: 'ghost',
 			outline: true,
 			kind: 'soft',
