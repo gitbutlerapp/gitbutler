@@ -56,7 +56,7 @@
 		}
 
 		const remotes = await remotesService.remotes(project.id);
-		if (remotes.includes(remoteName)) {
+		if (remotes.find((r) => r.name === remoteName)) {
 			toasts.error('Remote already exists');
 			return;
 		}

@@ -1,19 +1,18 @@
+use crate::error::Error;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-use gitbutler_repo::RepoCommands;
+use gitbutler_repo::{GitRemote, RepoCommands};
 use tauri::State;
 use tracing::instrument;
-
-use crate::error::Error;
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
 pub fn list_remotes(
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
-) -> Result<Vec<String>, Error> {
+) -> Result<Vec<GitRemote>, Error> {
     let project = projects.get(project_id)?;
-    project.remotes().map_err(Into::into)
+    Ok(project.remotes()?)
 }
 
 #[tauri::command(async)]
@@ -25,5 +24,5 @@ pub fn add_remote(
     url: &str,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
-    project.add_remote(name, url).map_err(Into::into)
+    Ok(project.add_remote(name, url)?)
 }
