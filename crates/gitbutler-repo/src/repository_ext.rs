@@ -195,6 +195,8 @@ impl RepositoryExt for git2::Repository {
     /// or if the HEAD branch has no commits
     #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
     fn create_wd_tree(&self) -> Result<Tree> {
+        let gix_repo = gix::open(self.path())?;
+        let (mut pipeline, index) = gix_repo.filter_pipeline(None)?;
         let mut tree_update_builder = git2::build::TreeUpdateBuilder::new();
 
         let worktree_path = self.workdir().context("Could not find worktree path")?;
@@ -220,6 +222,7 @@ impl RepositoryExt for git2::Repository {
         // | add                | modify            | upsert    |
         // | modify             | modify            | upsert    |
 
+        let mut buf = Vec::with_capacity(1024);
         for status_entry in &statuses {
             let status = status_entry.status();
             let path = status_entry.path().context("Failed to get path")?;
@@ -241,8 +244,11 @@ impl RepositoryExt for git2::Repository {
                     let blob = self.blob(path_str.as_bytes())?;
                     tree_update_builder.upsert(path, blob, git2::FileMode::Link);
                 } else {
-                    let file = std::fs::read(&file_path)?;
-                    let blob = self.blob(&file)?;
+                    let mut file_for_git =
+                        pipeline.convert_to_git(std::fs::File::open(&file_path)?, path, &index)?;
+                    buf.clear();
+                    std::io::copy(&mut file_for_git, &mut buf)?;
+                    let blob_id = self.blob(&buf)?;
 
                     let file_type = if is_executable(&file_path.metadata()?) {
                         git2::FileMode::BlobExecutable
@@ -250,7 +256,7 @@ impl RepositoryExt for git2::Repository {
                         git2::FileMode::Blob
                     };
 
-                    tree_update_builder.upsert(path, blob, file_type);
+                    tree_update_builder.upsert(path, blob_id, file_type);
                 }
             }
         }
