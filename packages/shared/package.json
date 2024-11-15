@@ -48,7 +48,6 @@
 		"@terrazzo/cli": "^0.0.11",
 		"@terrazzo/plugin-css": "^0.0.9",
 		"@types/postcss-pxtorem": "^6.0.3",
-		"@vitest/browser": "^2.0.5",
 		"autoprefixer": "^10.4.19",
 		"cpy-cli": "^5.0.0",
 		"dayjs": "^1.11.13",

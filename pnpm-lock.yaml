@@ -398,9 +398,6 @@ importers:
       '@types/postcss-pxtorem':
         specifier: ^6.0.3
         version: 6.0.3
-      '@vitest/browser':
-        specifier: ^2.0.5
-        version: 2.0.5(playwright@1.48.2)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.19(postcss@8.4.39)
@@ -460,7 +457,7 @@ importers:
         version: 8.3.3(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.3.3)
       '@storybook/experimental-addon-test':
         specifier: ^8.3.0
-        version: 8.3.3(@vitest/browser@2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))
+        version: 8.3.3(@vitest/browser@2.0.5(playwright@1.48.2)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))
       '@storybook/svelte':
         specifier: ^8.3.0
         version: 8.3.3(storybook@8.3.3)(svelte@5.0.0-next.243)
@@ -488,9 +485,6 @@ importers:
       '@types/postcss-pxtorem':
         specifier: ^6.0.3
         version: 6.0.3
-      '@vitest/browser':
-        specifier: ^2.0.5
-        version: 2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
       autoprefixer:
         specifier: ^10.4.19
         version: 10.4.19(postcss@8.4.39)
@@ -500,9 +494,6 @@ importers:
       dayjs:
         specifier: ^1.11.13
         version: 1.11.13
-      playwright:
-        specifier: 1.47.0
-        version: 1.47.0
       postcss:
         specifier: ^8.4.38
         version: 8.4.39
@@ -6201,7 +6192,7 @@ snapshots:
       '@babel/traverse': 7.24.7
       '@babel/types': 7.24.7
       convert-source-map: 2.0.0
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       gensync: 1.0.0-beta.2
       json5: 2.2.3
       semver: 6.3.1
@@ -6307,7 +6298,7 @@ snapshots:
       '@babel/helper-split-export-declaration': 7.24.7
       '@babel/parser': 7.24.7
       '@babel/types': 7.24.7
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       globals: 11.12.0
     transitivePeerDependencies:
       - supports-color
@@ -6590,7 +6581,7 @@ snapshots:
   '@eslint/eslintrc@1.4.1':
     dependencies:
       ajv: 6.12.6
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       espree: 9.6.1
       globals: 13.24.0
       ignore: 5.3.1
@@ -6637,7 +6628,7 @@ snapshots:
   '@humanwhocodes/config-array@0.9.5':
     dependencies:
       '@humanwhocodes/object-schema': 1.2.1
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       minimatch: 3.1.2
     transitivePeerDependencies:
       - supports-color
@@ -7588,10 +7579,10 @@ snapshots:
     dependencies:
       type-fest: 2.19.0
 
-  '@storybook/experimental-addon-test@8.3.3(@vitest/browser@2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))':
+  '@storybook/experimental-addon-test@8.3.3(@vitest/browser@2.0.5(playwright@1.48.2)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2))(storybook@8.3.3)(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))':
     dependencies:
       '@storybook/csf': 0.1.11
-      '@vitest/browser': 2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
+      '@vitest/browser': 2.0.5(playwright@1.48.2)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
       storybook: 8.3.3
       vitest: 2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)
 
@@ -7741,7 +7732,7 @@ snapshots:
   '@sveltejs/vite-plugin-svelte-inspector@3.0.0-next.3(@sveltejs/vite-plugin-svelte@4.0.0-next.6(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0)))(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0))':
     dependencies:
       '@sveltejs/vite-plugin-svelte': 4.0.0-next.6(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0))
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       svelte: 5.0.0-next.243
       vite: 5.2.13(@types/node@22.3.0)
     transitivePeerDependencies:
@@ -7750,7 +7741,7 @@ snapshots:
   '@sveltejs/vite-plugin-svelte@4.0.0-next.6(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0))':
     dependencies:
       '@sveltejs/vite-plugin-svelte-inspector': 3.0.0-next.3(@sveltejs/vite-plugin-svelte@4.0.0-next.6(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0)))(svelte@5.0.0-next.243)(vite@5.2.13(@types/node@22.3.0))
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       deepmerge: 4.3.1
       kleur: 4.1.5
       magic-string: 0.30.11
@@ -8330,25 +8321,6 @@ snapshots:
 
   '@ungap/structured-clone@1.2.0': {}
 
-  '@vitest/browser@2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)':
-    dependencies:
-      '@testing-library/dom': 10.4.0
-      '@testing-library/user-event': 14.5.2(@testing-library/dom@10.4.0)
-      '@vitest/utils': 2.0.5
-      magic-string: 0.30.10
-      msw: 2.4.1(typescript@5.4.5)
-      sirv: 2.0.4
-      vitest: 2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)
-      ws: 8.18.0
-    optionalDependencies:
-      playwright: 1.47.0
-      webdriverio: 8.40.2
-    transitivePeerDependencies:
-      - bufferutil
-      - graphql
-      - typescript
-      - utf-8-validate
-
   '@vitest/browser@2.0.5(playwright@1.48.2)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)':
     dependencies:
       '@testing-library/dom': 10.4.0
@@ -8367,6 +8339,23 @@ snapshots:
       - graphql
       - typescript
       - utf-8-validate
+
+  '@vitest/browser@2.0.5(typescript@5.4.5)(vitest@2.0.5)':
+    dependencies:
+      '@testing-library/dom': 10.4.0
+      '@testing-library/user-event': 14.5.2(@testing-library/dom@10.4.0)
+      '@vitest/utils': 2.0.5
+      magic-string: 0.30.10
+      msw: 2.4.1(typescript@5.4.5)
+      sirv: 2.0.4
+      vitest: 2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1)
+      ws: 8.18.0
+    transitivePeerDependencies:
+      - bufferutil
+      - graphql
+      - typescript
+      - utf-8-validate
+    optional: true
 
   '@vitest/expect@2.0.5':
     dependencies:
@@ -8615,7 +8604,7 @@ snapshots:
 
   agent-base@7.1.1:
     dependencies:
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
     transitivePeerDependencies:
       - supports-color
 
@@ -9134,6 +9123,10 @@ snapshots:
     dependencies:
       ms: 2.1.2
 
+  debug@4.3.6:
+    dependencies:
+      ms: 2.1.2
+
   debug@4.3.6(supports-color@8.1.1):
     dependencies:
       ms: 2.1.2
@@ -9426,7 +9419,7 @@ snapshots:
 
   esbuild-register@3.5.0(esbuild@0.20.2):
     dependencies:
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       esbuild: 0.20.2
     transitivePeerDependencies:
       - supports-color
@@ -9622,7 +9615,7 @@ snapshots:
       ajv: 6.12.6
       chalk: 4.1.2
       cross-spawn: 7.0.3
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       doctrine: 3.0.0
       enquirer: 2.4.1
       escape-string-regexp: 4.0.0
@@ -9828,7 +9821,7 @@ snapshots:
 
   extract-zip@2.0.1:
     dependencies:
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       get-stream: 5.2.0
       yauzl: 2.10.0
     optionalDependencies:
@@ -10070,7 +10063,7 @@ snapshots:
     dependencies:
       basic-ftp: 5.0.5
       data-uri-to-buffer: 6.0.2
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       fs-extra: 11.2.0
     transitivePeerDependencies:
       - supports-color
@@ -10299,7 +10292,7 @@ snapshots:
   http-proxy-agent@7.0.2:
     dependencies:
       agent-base: 7.1.1
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
     transitivePeerDependencies:
       - supports-color
 
@@ -10318,7 +10311,7 @@ snapshots:
   https-proxy-agent@7.0.5:
     dependencies:
       agent-base: 7.1.1
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
     transitivePeerDependencies:
       - supports-color
 
@@ -11161,7 +11154,7 @@ snapshots:
     dependencies:
       '@tootallnate/quickjs-emscripten': 0.23.0
       agent-base: 7.1.1
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       get-uri: 6.0.3
       http-proxy-agent: 7.0.2
       https-proxy-agent: 7.0.5
@@ -11434,7 +11427,7 @@ snapshots:
   proxy-agent@6.3.1:
     dependencies:
       agent-base: 7.1.1
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       http-proxy-agent: 7.0.2
       https-proxy-agent: 7.0.5
       lru-cache: 7.18.3
@@ -11844,7 +11837,7 @@ snapshots:
   socks-proxy-agent@8.0.4:
     dependencies:
       agent-base: 7.1.1
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       socks: 2.8.3
     transitivePeerDependencies:
       - supports-color
@@ -12405,7 +12398,7 @@ snapshots:
   vite-node@2.0.5(@types/node@22.3.0):
     dependencies:
       cac: 6.7.14
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       pathe: 1.1.2
       tinyrainbow: 1.2.0
       vite: 5.2.13(@types/node@22.3.0)
@@ -12442,7 +12435,7 @@ snapshots:
       '@vitest/spy': 2.0.5
       '@vitest/utils': 2.0.5
       chai: 5.1.1
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
       execa: 8.0.1
       magic-string: 0.30.10
       pathe: 1.1.2
@@ -12455,7 +12448,7 @@ snapshots:
       why-is-node-running: 2.3.0
     optionalDependencies:
       '@types/node': 22.3.0
-      '@vitest/browser': 2.0.5(playwright@1.47.0)(typescript@5.4.5)(vitest@2.0.5)(webdriverio@8.40.2)
+      '@vitest/browser': 2.0.5(typescript@5.4.5)(vitest@2.0.5)
       '@vitest/ui': 2.0.5(vitest@2.0.5)
       happy-dom: 14.12.3
       jsdom: 24.1.1
@@ -12478,7 +12471,7 @@ snapshots:
     dependencies:
       chalk: 4.1.2
       commander: 9.5.0
-      debug: 4.3.6(supports-color@8.1.1)
+      debug: 4.3.6
     transitivePeerDependencies:
       - supports-color
 
