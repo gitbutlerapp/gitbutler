@@ -31,12 +31,11 @@
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import { tick } from 'svelte';
-	import type { Writable } from 'svelte/store';
 
 	interface Props {
 		currentSeries: PatchSeries;
 		isTopSeries: boolean;
-		lastPush: Writable<Date | undefined>;
+		lastPush: Date | undefined;
 	}
 
 	const { currentSeries, isTopSeries, lastPush }: Props = $props();
@@ -99,11 +98,18 @@
 		sourceBranch && shouldCheck ? $forge?.checksMonitor(sourceBranch) : undefined
 	);
 
-	// Trigger refresh of pull request status and checks when branch(es) are pushed.
+	// Extra reference to avoid potential infinite loop.
+	let lastSeenPush: Date | undefined;
+
+	// Without lastSeenPush this code has gone into an infinite loop, where lastPush
+	// seemingly kept updating as a result of calling updateStatusAndChecks.
+	// TODO: Refactor such that we do not need `$effect`.
 	$effect(() => {
-		if ($lastPush) {
+		if (!lastPush) return;
+		if (!lastSeenPush || lastPush > lastSeenPush) {
 			updateStatusAndChecks();
 		}
+		lastSeenPush = lastPush;
 	});
 
 	async function handleReloadPR() {
