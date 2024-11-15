@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
+	import { UserService } from '$lib/stores/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
@@ -14,6 +15,15 @@
 	const { pullRequest }: Props = $props();
 
 	const project = getContext(Project);
+
+	const userService = getContext(UserService);
+	const user = userService.user;
+
+	const authorImgUrl = $derived.by(() => {
+		return pullRequest.author?.email?.toLowerCase() === $user?.email?.toLowerCase()
+			? $user?.picture
+			: pullRequest.author?.gravatarUrl;
+	});
 
 	function onMouseDown() {
 		goto(formatPullRequestURL(project, pullRequest.number));
@@ -45,12 +55,12 @@
 	{selected}
 >
 	{#snippet authorAvatars()}
-		{#if pullRequest.author?.gravatarUrl}
+		{#if authorImgUrl}
 			<AvatarGroup
 				avatars={[
 					{
-						srcUrl: pullRequest.author.gravatarUrl,
-						name: pullRequest.author.name || 'unknown'
+						srcUrl: authorImgUrl,
+						name: pullRequest.author?.name || 'unknown'
 					}
 				]}
 			/>

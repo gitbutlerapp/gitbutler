@@ -6,6 +6,7 @@
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
+	import { UserService } from '$lib/stores/user';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { Commit, type RemoteFile } from '$lib/vbranches/types';
@@ -33,11 +34,22 @@
 
 	const uncommitedFiles = uncommitedFileWatcher.uncommitedFiles;
 
+	const userService = getContext(UserService);
+	const user = userService.user;
+
 	let modeServiceAborting = $state<'inert' | 'loading' | 'completed'>('inert');
 	let modeServiceSaving = $state<'inert' | 'loading' | 'completed'>('inert');
 
 	let initialFiles = $state<[RemoteFile, ConflictEntryPresence | undefined][]>([]);
 	let commit = $state<Commit | undefined>(undefined);
+	const authorImgUrl = $derived.by(() => {
+		if (commit) {
+			return commit.author.email?.toLowerCase() === $user?.email?.toLowerCase()
+				? $user?.picture
+				: commit.author.gravatarUrl;
+		}
+		return undefined;
+	});
 
 	let filesList = $state<HTMLDivElement | undefined>(undefined);
 	let contextMenu = $state<ReturnType<typeof FileContextMenu> | undefined>(undefined);
@@ -191,8 +203,8 @@
 
 			{#if commit}
 				<div class="text-11 commit-card__details">
-					{#if commit.author.gravatarUrl && commit.author.email}
-						<Avatar srcUrl={commit.author.gravatarUrl} tooltip={commit.author.email} />
+					{#if authorImgUrl && commit.author.email}
+						<Avatar srcUrl={authorImgUrl} tooltip={commit.author.email} />
 						<span class="commit-card__divider">•</span>
 					{/if}
 					<span class="">{editModeMetadata.commitOid.slice(0, 7)}</span>
