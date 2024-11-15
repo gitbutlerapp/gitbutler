@@ -8,6 +8,7 @@ import type { BranchPushResult, Hunk, LocalFile, StackOrder } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
 export type CommitIdOrChangeId = { CommitId: string } | { ChangeId: string };
+export type SeriesIntegrationStrategy = 'merge' | 'rebase' | 'hardreset';
 
 export class BranchController {
 	constructor(
@@ -77,23 +78,18 @@ export class BranchController {
 		}
 	}
 
-	async mergeUpstream(branch: string) {
-		try {
-			await invoke<void>('integrate_upstream_commits', {
-				projectId: this.projectId,
-				branch
-			});
-		} catch (err) {
-			showError('Failed to merge upstream branch', err);
-		}
-	}
-
-	async mergeUpstreamForSeries(branch: string, seriesName: string) {
+	async integrateUpstreamForSeries(
+		branch: string,
+		seriesName: string,
+		strategy?: SeriesIntegrationStrategy
+	) {
+		const integrationStrategy = strategy ? { type: strategy } : undefined;
 		try {
 			await invoke<void>('integrate_upstream_commits', {
 				projectId: this.projectId,
 				branch,
-				seriesName
+				seriesName,
+				integrationStrategy
 			});
 		} catch (err) {
 			showError('Failed to merge upstream branch', err);

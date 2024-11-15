@@ -11,14 +11,35 @@
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import LineOverlay from '$lib/dropzone/LineOverlay.svelte';
 	import { getForge } from '$lib/forge/interface/forge';
-	import { BranchController } from '$lib/vbranches/branchController';
+	import {
+		BranchController,
+		type SeriesIntegrationStrategy
+	} from '$lib/vbranches/branchController';
 	import { DetailedCommit, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Line from '@gitbutler/ui/commitLines/Line.svelte';
 	import { LineManagerFactory, LineSpacer } from '@gitbutler/ui/commitLines/lineManager';
 	import type { Snippet } from 'svelte';
+
+	const integrationStrategies = {
+		default: {
+			label: 'Integrate upstream',
+			stretegy: undefined,
+			style: 'warning',
+			action: integrate
+		},
+		reset: {
+			label: 'Reset to remote',
+			stretegy: 'hardreset',
+			style: 'error',
+			action: confirmReset
+		}
+	} as const;
+
+	type IntegrationStrategy = keyof typeof integrationStrategies;
 
 	interface Props {
 		remoteOnlyPatches: DetailedCommit[];
@@ -68,6 +89,23 @@
 	const topPatch = $derived(patches[0]);
 	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
 	const isBranchIntegrated = $derived(branchType === 'integrated');
+
+	let confirmResetModal = $state<ReturnType<typeof Modal>>();
+
+	async function integrate(strategy?: SeriesIntegrationStrategy): Promise<void> {
+		isIntegratingCommits = true;
+		try {
+			await branchController.integrateUpstreamForSeries($branch.id, seriesName, strategy);
+		} catch (e) {
+			console.error(e);
+		} finally {
+			isIntegratingCommits = false;
+		}
+	}
+
+	function confirmReset() {
+		confirmResetModal?.show();
+	}
 </script>
 
 {#snippet stackingReorderDropzone(dropzone: StackingReorderDropzone)}
@@ -78,23 +116,9 @@
 	</Dropzone>
 {/snippet}
 
-{#snippet integrateUpstreamButton(label: string)}
-	<Button
-		style="warning"
-		kind="solid"
-		grow
-		loading={isIntegratingCommits}
-		onclick={async () => {
-			isIntegratingCommits = true;
-			try {
-				await branchController.mergeUpstreamForSeries($branch.id, seriesName);
-			} catch (e) {
-				console.error(e);
-			} finally {
-				isIntegratingCommits = false;
-			}
-		}}
-	>
+{#snippet integrateUpstreamButton(strategy: IntegrationStrategy)}
+	{@const { label, style, action } = integrationStrategies[strategy]}
+	<Button {style} kind="solid" grow loading={isIntegratingCommits} onclick={action}>
 		{label}
 	</Button>
 {/snippet}
@@ -120,7 +144,7 @@
 					</CommitCard>
 				{/each}
 				{#snippet action()}
-					{@render integrateUpstreamButton('Integrate upstream')}
+					{@render integrateUpstreamButton('default')}
 				{/snippet}
 			</UpstreamCommitsAccordion>
 		{/if}
@@ -162,7 +186,7 @@
 						<div class="action-row" class:last={idx === patches.length - 1}>
 							<div class="action-row__line" class:last={idx === patches.length - 1}></div>
 							<div class="action-row__button-wrapper">
-								{@render integrateUpstreamButton('Reset to remote')}
+								{@render integrateUpstreamButton('reset')}
 							</div>
 						</div>
 					{/if}
@@ -180,6 +204,28 @@
 			</CommitAction>
 		{/if}
 	</div>
+
+	<Modal
+		bind:this={confirmResetModal}
+		title="Reset to remote"
+		type="warning"
+		width="small"
+		onSubmit={async (close) => {
+			await integrate('hardreset');
+			close();
+		}}
+	>
+		{#snippet children()}
+			<p class="text-12 text-body helper-text">
+				This will reset the branch to the state of the remote branch. All local changes will be
+				overwritten.
+			</p>
+		{/snippet}
+		{#snippet controls(close)}
+			<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
+			<Button style="error" type="submit" kind="solid">Reset</Button>
+		{/snippet}
+	</Modal>
 {/if}
 
 <style lang="postcss">
