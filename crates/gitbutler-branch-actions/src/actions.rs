@@ -1,5 +1,6 @@
 use super::r#virtual as vbranch;
 use crate::branch_upstream_integration;
+use crate::branch_upstream_integration::IntegrationStrategy;
 use crate::move_commits;
 use crate::reorder::{self, StackOrder};
 use crate::upstream_integration::{
@@ -173,7 +174,8 @@ pub fn push_base_branch(project: &Project, with_force: bool) -> Result<()> {
 pub fn integrate_upstream_commits(
     project: &Project,
     stack_id: StackId,
-    series_name: Option<String>,
+    series_name: String,
+    integration_strategy: Option<IntegrationStrategy>,
 ) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx)
@@ -183,20 +185,13 @@ pub fn integrate_upstream_commits(
         SnapshotDetails::new(OperationKind::MergeUpstream),
         guard.write_permission(),
     );
-    if let Some(series_name) = series_name {
-        branch_upstream_integration::integrate_upstream_commits_for_series(
-            &ctx,
-            stack_id,
-            guard.write_permission(),
-            series_name,
-        )
-    } else {
-        branch_upstream_integration::integrate_upstream_commits(
-            &ctx,
-            stack_id,
-            guard.write_permission(),
-        )
-    }
+    branch_upstream_integration::integrate_upstream_commits_for_series(
+        &ctx,
+        stack_id,
+        guard.write_permission(),
+        series_name,
+        integration_strategy,
+    )
     .map_err(Into::into)
 }
 

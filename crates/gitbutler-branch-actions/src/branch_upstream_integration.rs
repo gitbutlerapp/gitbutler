@@ -10,6 +10,7 @@ use gitbutler_stack::StackId;
 use gitbutler_workspace::{
     checkout_branch_trees, compute_updated_branch_head_for_commits, BranchHeadAndTree,
 };
+use serde::{Deserialize, Serialize};
 
 use crate::{conflicts, VirtualBranchesExt as _};
 
@@ -18,6 +19,7 @@ pub fn integrate_upstream_commits_for_series(
     stack_id: StackId,
     perm: &mut WorktreeWritePermission,
     series_name: String,
+    integration_strategy: Option<IntegrationStrategy>,
 ) -> Result<()> {
     conflicts::is_conflicting(ctx, None)?;
 
@@ -40,8 +42,16 @@ pub fn integrate_upstream_commits_for_series(
     let series_head = subject_branch.head_oid(&ctx.to_stack_context()?, &stack)?;
     let series_head = repo.find_commit(series_head)?;
 
-    let do_rebease = stack.allow_rebasing
-        || Some(subject_branch.name.clone()) != branches.first().map(|b| b.name.clone());
+    let strategy = integration_strategy.unwrap_or_else(|| {
+        let do_rebease = stack.allow_rebasing
+            || Some(subject_branch.name.clone()) != branches.first().map(|b| b.name.clone());
+        if do_rebease {
+            IntegrationStrategy::Rebase
+        } else {
+            IntegrationStrategy::Merge
+        }
+    });
+
     let integrate_upstream_context = IntegrateUpstreamContext {
         repository: repo,
         target_branch_head: default_target.sha,
@@ -50,7 +60,7 @@ pub fn integrate_upstream_commits_for_series(
         branch_name: &subject_branch.name,
         remote_head: remote_head.id(),
         remote_branch_name: &subject_branch.remote_reference(&remote)?,
-        prefers_merge: !do_rebease,
+        strategy,
     };
 
     let (BranchHeadAndTree { head, tree }, new_series_head) =
@@ -100,6 +110,12 @@ pub fn integrate_upstream_commits(
     let default_target_branch = repository.find_branch_by_refname(&default_target.branch.into())?;
     let target_branch_head = default_target_branch.get().peel_to_commit()?.id();
 
+    let integration_strategy = if stack.allow_rebasing {
+        IntegrationStrategy::Rebase
+    } else {
+        IntegrationStrategy::Merge
+    };
+
     let integrate_upstream_context = IntegrateUpstreamContext {
         repository,
         target_branch_head,
@@ -108,7 +124,7 @@ pub fn integrate_upstream_commits(
         branch_name: &stack.name,
         remote_head: upstream_branch_head,
         remote_branch_name: upstream_branch.name()?.unwrap_or("Unknown"),
-        prefers_merge: !stack.allow_rebasing,
+        strategy: integration_strategy,
     };
 
     let BranchHeadAndTree { head, tree } =
@@ -123,6 +139,14 @@ pub fn integrate_upstream_commits(
     crate::integration::update_workspace_commit(&vb_state, ctx)?;
 
     Ok(())
+}
+
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[serde(tag = "type", rename_all = "lowercase")]
+pub enum IntegrationStrategy {
+    Merge,
+    Rebase,
+    HardReset,
 }
 
 struct IntegrateUpstreamContext<'a, 'b> {
@@ -142,8 +166,8 @@ struct IntegrateUpstreamContext<'a, 'b> {
     /// The name of the remote branch
     remote_branch_name: &'b str,
 
-    /// Whether to merge or rebase
-    prefers_merge: bool,
+    /// Strategy to use when integrating the upstream commits
+    strategy: IntegrationStrategy,
 }
 
 impl IntegrateUpstreamContext<'_, '_> {
@@ -153,44 +177,66 @@ impl IntegrateUpstreamContext<'_, '_> {
         &self,
         series_head: git2::Oid,
     ) -> Result<(BranchHeadAndTree, git2::Oid)> {
-        let (new_stack_head, new_series_head) = if self.prefers_merge {
-            // If rebase is not allowed AND this is the latest series - create a merge commit on top
-            let series_head_commit = self.repository.find_commit(series_head)?;
-            let remote_head_commit = self.repository.find_commit(self.remote_head)?;
-            let merge_commit = gitbutler_merge_commits(
-                self.repository,
-                series_head_commit,
-                remote_head_commit,
-                self.branch_name,        // for error messages only
-                self.remote_branch_name, // for error messages only
-            )?;
-            // the are the same
-            let new_stack_head = merge_commit.id();
-            let new_series_head = merge_commit.id();
-            (new_stack_head, new_series_head)
-        } else {
-            // Get the commits to rebase for the series
-            let OrderCommitsResult {
-                merge_base,
-                ordered_commits,
-            } = order_commits_for_rebasing(
-                self.repository,
-                self.target_branch_head,
-                series_head,
-                self.remote_head,
-            )?;
-            // First rebase the series with it's remote commits
-            let new_series_head =
-                cherry_rebase_group(self.repository, merge_base, &ordered_commits)?;
-            // Get the commits that come after the series head, until the stack head
-            let remaining_ids_to_rebase =
-                self.repository
-                    .l(self.branch_head, LogUntil::Commit(series_head), false)?;
-            // Rebase the remaining commits on top of the new series head in order to get the new stack head
-            (
-                cherry_rebase_group(self.repository, new_series_head, &remaining_ids_to_rebase)?,
-                new_series_head,
-            )
+        let (new_stack_head, new_series_head) = match self.strategy {
+            IntegrationStrategy::Merge => {
+                // If rebase is not allowed AND this is the latest series - create a merge commit on top
+                let series_head_commit = self.repository.find_commit(series_head)?;
+                let remote_head_commit = self.repository.find_commit(self.remote_head)?;
+                let merge_commit = gitbutler_merge_commits(
+                    self.repository,
+                    series_head_commit,
+                    remote_head_commit,
+                    self.branch_name,        // for error messages only
+                    self.remote_branch_name, // for error messages only
+                )?;
+                // the are the same
+                let new_stack_head = merge_commit.id();
+                let new_series_head = merge_commit.id();
+                (new_stack_head, new_series_head)
+            }
+            IntegrationStrategy::Rebase => {
+                // Get the commits to rebase for the series
+                let OrderCommitsResult {
+                    merge_base,
+                    ordered_commits,
+                } = order_commits_for_rebasing(
+                    self.repository,
+                    self.target_branch_head,
+                    series_head,
+                    self.remote_head,
+                )?;
+                // First rebase the series with it's remote commits
+                let new_series_head =
+                    cherry_rebase_group(self.repository, merge_base, &ordered_commits)?;
+                // Get the commits that come after the series head, until the stack head
+                let remaining_ids_to_rebase =
+                    self.repository
+                        .l(self.branch_head, LogUntil::Commit(series_head), false)?;
+                // Rebase the remaining commits on top of the new series head in order to get the new stack head
+                (
+                    cherry_rebase_group(
+                        self.repository,
+                        new_series_head,
+                        &remaining_ids_to_rebase,
+                    )?,
+                    new_series_head,
+                )
+            }
+            IntegrationStrategy::HardReset => {
+                let remote_head_commit = self.repository.find_commit(self.remote_head)?;
+                // Get the commits that come after the series head, until the stack head
+                let remaining_ids_to_rebase =
+                    self.repository
+                        .l(self.branch_head, LogUntil::Commit(series_head), false)?;
+                (
+                    cherry_rebase_group(
+                        self.repository,
+                        remote_head_commit.id(),
+                        &remaining_ids_to_rebase,
+                    )?,
+                    remote_head_commit.id(),
+                )
+            }
         };
         // Find what the new head and branch tree should be
         Ok((
@@ -206,29 +252,33 @@ impl IntegrateUpstreamContext<'_, '_> {
 
     fn inner_integrate_upstream_commits(&self) -> Result<BranchHeadAndTree> {
         // Find the new branch head after integrating the upstream commits
-        let new_head = if self.prefers_merge {
-            let branch_head_commit = self.repository.find_commit(self.branch_head)?;
-            let remote_head_commit = self.repository.find_commit(self.remote_head)?;
-            gitbutler_merge_commits(
-                self.repository,
-                branch_head_commit,
-                remote_head_commit,
-                self.branch_name,
-                self.remote_branch_name,
-            )?
-            .id()
-        } else {
-            let OrderCommitsResult {
-                merge_base,
-                ordered_commits,
-            } = order_commits_for_rebasing(
-                self.repository,
-                self.target_branch_head,
-                self.branch_head,
-                self.remote_head,
-            )?;
+        let new_head = match self.strategy {
+            IntegrationStrategy::Merge => {
+                let branch_head_commit = self.repository.find_commit(self.branch_head)?;
+                let remote_head_commit = self.repository.find_commit(self.remote_head)?;
+                gitbutler_merge_commits(
+                    self.repository,
+                    branch_head_commit,
+                    remote_head_commit,
+                    self.branch_name,
+                    self.remote_branch_name,
+                )?
+                .id()
+            }
+            IntegrationStrategy::Rebase => {
+                let OrderCommitsResult {
+                    merge_base,
+                    ordered_commits,
+                } = order_commits_for_rebasing(
+                    self.repository,
+                    self.target_branch_head,
+                    self.branch_head,
+                    self.remote_head,
+                )?;
 
-            cherry_rebase_group(self.repository, merge_base, &ordered_commits)?
+                cherry_rebase_group(self.repository, merge_base, &ordered_commits)?
+            }
+            IntegrationStrategy::HardReset => self.remote_head,
         };
 
         // Find what the new head and branch tree should be
@@ -301,6 +351,8 @@ mod test {
         use gitbutler_repo::RepositoryExt as _;
         use gitbutler_workspace::BranchHeadAndTree;
 
+        use crate::branch_upstream_integration::IntegrationStrategy;
+
         use super::*;
 
         /// Local:  Base -> A -> B
@@ -326,7 +378,7 @@ mod test {
                 branch_name: "test",
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
-                prefers_merge: false,
+                strategy: IntegrationStrategy::Rebase,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -381,7 +433,7 @@ mod test {
                 branch_name: "test",
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
-                prefers_merge: false,
+                strategy: IntegrationStrategy::Rebase,
             };
 
             let (BranchHeadAndTree { head, tree: _tree }, new_series_head) = ctx
@@ -450,7 +502,7 @@ mod test {
                 branch_name: "test",
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
-                prefers_merge: false,
+                strategy: IntegrationStrategy::Rebase,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -566,7 +618,7 @@ mod test {
                 branch_name: "test",
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
-                prefers_merge: false,
+                strategy: IntegrationStrategy::Rebase,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -707,7 +759,7 @@ mod test {
                 branch_name: "test",
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
-                prefers_merge: false,
+                strategy: IntegrationStrategy::Rebase,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -767,6 +819,204 @@ mod test {
             );
 
             assert_commit_tree_matches(&test_repository.repository, &new_a, &[("foo.txt", b"foo")]);
+        }
+
+        /// Reset
+        /// Local:  Base -> A -> B
+        /// Remote: Base -> A -> B'
+        /// Trunk:  Base
+        /// Result: Base -> A -> B'
+        #[test]
+        fn hard_reset_to_externally_amended_commit() {
+            let test_repository = TestingRepository::open();
+
+            let base_commit = dbg!(test_repository.commit_tree(None, &[]));
+            let local_a = test_repository.commit_tree_with_message(
+                Some(&base_commit),
+                "A",
+                &[("foo.txt", "foo")],
+            );
+            let local_b = test_repository.commit_tree_with_message(
+                Some(&local_a),
+                "B",
+                &[("foo.txt", "foo1")],
+            );
+
+            // imagine someone on the remote rebased local_b and force pushed
+            let remote_b = test_repository.commit_tree_with_message(
+                Some(&local_a),
+                "B'",
+                &[("foo.txt", "Look at me, I'm so amended")],
+            );
+
+            let ctx = IntegrateUpstreamContext {
+                repository: &test_repository.repository,
+                target_branch_head: base_commit.id(),
+                branch_head: local_b.id(),
+                branch_tree: local_b.tree_id(),
+                branch_name: "test",
+                remote_head: remote_b.id(),
+                remote_branch_name: "test",
+                strategy: IntegrationStrategy::HardReset,
+            };
+
+            let BranchHeadAndTree { head, tree: _tree } =
+                ctx.inner_integrate_upstream_commits().unwrap();
+
+            let commits = test_repository
+                .repository
+                .log(head, LogUntil::Commit(base_commit.id()), false)
+                .unwrap();
+
+            assert_eq!(commits.len(), 2);
+
+            let new_b = commits[0].clone();
+            let new_a = commits[1].clone();
+
+            assert_commit_tree_matches(
+                &test_repository.repository,
+                &new_b,
+                &[("foo.txt", b"Look at me, I'm so amended")],
+            );
+
+            assert_commit_tree_matches(&test_repository.repository, &new_a, &[("foo.txt", b"foo")]);
+        }
+
+        /// Reset
+        /// Local:  Base -> A -> B -> C
+        /// Remote: Base -> A -> C'
+        /// Trunk:  Base
+        /// Result: Base -> A -> C'
+        #[test]
+        fn hard_reset_to_externally_removed_commit() {
+            let test_repository = TestingRepository::open();
+
+            let base_commit = dbg!(test_repository.commit_tree(None, &[]));
+            let local_a = test_repository.commit_tree_with_message(
+                Some(&base_commit),
+                "A",
+                &[("foo.txt", "foo")],
+            );
+            let local_b = test_repository.commit_tree_with_message(
+                Some(&local_a),
+                "B",
+                &[("foo.txt", "foo1")],
+            );
+            let local_c = test_repository.commit_tree_with_message(
+                Some(&local_b),
+                "C",
+                &[("foo.txt", "foo2")],
+            );
+
+            // imagine someone on the remote rebased local_b and force pushed
+            let remote_c = test_repository.commit_tree_with_message(
+                Some(&local_a),
+                "C'",
+                &[("foo.txt", "foo2")],
+            );
+
+            let ctx = IntegrateUpstreamContext {
+                repository: &test_repository.repository,
+                target_branch_head: base_commit.id(),
+                branch_head: local_c.id(),
+                branch_tree: local_c.tree_id(),
+                branch_name: "test",
+                remote_head: remote_c.id(),
+                remote_branch_name: "test",
+                strategy: IntegrationStrategy::HardReset,
+            };
+
+            let BranchHeadAndTree { head, tree: _tree } =
+                ctx.inner_integrate_upstream_commits().unwrap();
+
+            let commits = test_repository
+                .repository
+                .log(head, LogUntil::Commit(base_commit.id()), false)
+                .unwrap();
+
+            assert_eq!(commits.len(), 2);
+
+            let new_c = commits[0].clone();
+            let new_a = commits[1].clone();
+
+            assert_commit_tree_matches(
+                &test_repository.repository,
+                &new_c,
+                &[("foo.txt", b"foo2")],
+            );
+
+            assert_commit_tree_matches(&test_repository.repository, &new_a, &[("foo.txt", b"foo")]);
+        }
+
+        /// Reset
+        /// Local:  Base -> A -> B
+        /// Remote: Base -> A' -> B'
+        /// Trunk:  Base
+        /// Result: Base -> A' -> B'
+        #[test]
+        fn hard_reset_to_externally_amended_branch() {
+            let test_repository = TestingRepository::open();
+
+            let base_commit = dbg!(test_repository.commit_tree(None, &[]));
+            let local_a = test_repository.commit_tree_with_message(
+                Some(&base_commit),
+                "A",
+                &[("foo.txt", "foo")],
+            );
+            let local_b = test_repository.commit_tree_with_message(
+                Some(&local_a),
+                "B",
+                &[("foo.txt", "foo1")],
+            );
+
+            // imagine someone on the remote rebased local_b and force pushed
+            let remote_a = test_repository.commit_tree_with_message(
+                Some(&base_commit),
+                "A'",
+                &[("foo.txt", "amended foo")],
+            );
+
+            let remote_b = test_repository.commit_tree_with_message(
+                Some(&remote_a),
+                "B'",
+                &[("foo.txt", "amended foo1")],
+            );
+
+            let ctx = IntegrateUpstreamContext {
+                repository: &test_repository.repository,
+                target_branch_head: base_commit.id(),
+                branch_head: local_b.id(),
+                branch_tree: local_b.tree_id(),
+                branch_name: "test",
+                remote_head: remote_b.id(),
+                remote_branch_name: "test",
+                strategy: IntegrationStrategy::HardReset,
+            };
+
+            let BranchHeadAndTree { head, tree: _tree } =
+                ctx.inner_integrate_upstream_commits().unwrap();
+
+            let commits = test_repository
+                .repository
+                .log(head, LogUntil::Commit(base_commit.id()), false)
+                .unwrap();
+
+            assert_eq!(commits.len(), 2);
+
+            let new_b = commits[0].clone();
+            let new_a = commits[1].clone();
+
+            assert_commit_tree_matches(
+                &test_repository.repository,
+                &new_b,
+                &[("foo.txt", b"amended foo1")],
+            );
+
+            assert_commit_tree_matches(
+                &test_repository.repository,
+                &new_a,
+                &[("foo.txt", b"amended foo")],
+            );
         }
     }
 
