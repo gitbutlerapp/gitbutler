@@ -28,12 +28,18 @@
 			label: 'Integrate upstream',
 			stretegy: undefined,
 			style: 'warning',
+			kind: 'solid',
+			outline: false,
+			icon: undefined,
 			action: integrate
 		},
 		reset: {
 			label: 'Reset to remote…',
 			stretegy: 'hardreset',
 			style: 'error',
+			outline: true,
+			kind: 'soft',
+			icon: 'warning-small',
 			action: confirmReset
 		}
 	} as const;
@@ -81,10 +87,6 @@
 	const hasRemoteCommits = $derived(remoteOnlyPatches.length > 0);
 	let isIntegratingCommits = $state(false);
 
-	// const topPatch = $derived(patches[0]);
-	// const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
-	// const isBranchIntegrated = $derived(branchType === 'integrated');
-
 	let confirmResetModal = $state<ReturnType<typeof Modal>>();
 
 	async function integrate(strategy?: SeriesIntegrationStrategy): Promise<void> {
@@ -112,8 +114,17 @@
 {/snippet}
 
 {#snippet integrateUpstreamButton(strategy: IntegrationStrategy)}
-	{@const { label, style, action } = integrationStrategies[strategy]}
-	<Button {style} kind="solid" grow loading={isIntegratingCommits} onclick={action}>
+	{@const { label, icon, style, kind, outline, action } = integrationStrategies[strategy]}
+	<Button
+		{style}
+		{kind}
+		{outline}
+		grow
+		{icon}
+		reversedDirection={icon}
+		loading={isIntegratingCommits}
+		onclick={action}
+	>
 		{label}
 	</Button>
 {/snippet}
