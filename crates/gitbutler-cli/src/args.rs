@@ -62,8 +62,8 @@ pub mod vbranch {
 
     #[derive(Debug, clap::Subcommand)]
     pub enum SubCommands {
-        /// List all local branches that aren't GitButler specific.
-        ListLocal,
+        /// List all branches that aren't GitButler specific.
+        List,
         /// Provide the current state of all applied virtual branches.
         Status,
         /// Switch to the GitButler workspace.

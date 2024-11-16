@@ -37,7 +37,7 @@
 <div class="header__wrapper">
 	<div class="header card">
 		<div class="header__info">
-			<BranchLabel disabled name={branch.name} />
+			<BranchLabel disabled name={branch.givenName} />
 			<div class="header__remote-branch">
 				{#if remoteBranch}
 					<Tooltip text="At least some of your changes have been pushed'">

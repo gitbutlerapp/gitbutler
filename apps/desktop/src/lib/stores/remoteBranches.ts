@@ -1,39 +1,15 @@
-import { Code, invoke } from '$lib/backend/ipc';
+import { invoke } from '$lib/backend/ipc';
 import { Branch, BranchData } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
-import { writable } from 'svelte/store';
-import type { BranchListingService } from '$lib/branches/branchListing';
-import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 
 export class RemoteBranchService {
-	readonly branches = writable<Branch[]>([], () => {
-		this.refresh();
-	});
-	error = writable();
+	constructor(private projectId: string) {}
 
-	constructor(
-		private projectId: string,
-		private branchListingService: BranchListingService,
-		private projectMetrics?: ProjectMetrics
-	) {}
-
-	async refresh() {
-		try {
-			const remoteBranches = plainToInstance(
-				Branch,
-				await invoke<any[]>('list_local_branches', { projectId: this.projectId })
-			);
-			this.projectMetrics?.setMetric('normal_branch_count', remoteBranches.length);
-			this.branches.set(remoteBranches);
-		} catch (err: any) {
-			if (err.code === Code.DefaultTargetNotFound) {
-				// Swallow this error since user should be taken to project setup page
-				return;
-			}
-			this.error.set(err);
-		} finally {
-			this.branchListingService.refresh();
-		}
+	async findBranches(name: string) {
+		return plainToInstance(
+			Branch,
+			await invoke<any[]>('find_git_branches', { projectId: this.projectId, branchName: name })
+		);
 	}
 
 	async getRemoteBranchData(refname: string): Promise<BranchData> {

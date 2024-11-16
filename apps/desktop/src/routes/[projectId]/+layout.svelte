@@ -49,7 +49,7 @@
 		projectsService,
 		projectMetrics,
 		baseBranchService,
-		remoteBranchService,
+		branchListingService,
 		modeService,
 		userService,
 		fetchSignal
@@ -131,7 +131,7 @@
 
 	// TODO: can we eliminate the need to debounce?
 	const debouncedRemoteBranchRefresh = debounce(
-		async () => await remoteBranchService.refresh(),
+		async () => await branchListingService.refresh(),
 		500
 	);
 	$effect(() => {

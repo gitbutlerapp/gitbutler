@@ -2,6 +2,7 @@ use std::path::Path;
 
 use crate::author::Author;
 use anyhow::{Context, Result};
+use git2::BranchType;
 use gitbutler_branch::ReferenceExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
@@ -60,45 +61,51 @@ pub struct RemoteCommit {
     pub conflicted: bool,
 }
 
-/// Return information on all local branches, while skipping gitbutler-specific branches in `refs/heads`.
-///
-/// Note to be confused with `list_branches()`, which is used for the new branch listing.
+/// Finds all branches matching a given name, which can be at most one local branch,
+/// and any number of branches (on different remotes).
 ///
 /// # Previous notes
 /// For legacy purposes, this is still named "remote" branches, but it's actually
 /// a list of all the normal (non-gitbutler) git branches.
-pub fn list_local_branches(ctx: &CommandContext) -> Result<Vec<RemoteBranch>> {
-    let default_target = default_target(&ctx.project().gb_dir())?;
+pub fn find_git_branches(ctx: &CommandContext, branch_name: &str) -> Result<Vec<RemoteBranch>> {
+    let repo = ctx.repository();
+    let remotes_raw = repo.remotes()?;
+    let remotes: Vec<_> = remotes_raw.iter().flatten().collect();
 
-    let mut remote_branches = vec![];
-    let remotes = ctx.repository().remotes()?;
-    for (branch, _) in ctx
-        .repository()
-        .branches(None)
-        .context("failed to list remote branches")?
-        .flatten()
+    // We since we are testing for the presence of branches we swallow any errors
+    // from both finding the branch, and looking up the branch commit data. The
+    // latter can fail if/when a ref points to a object that doesn't exist.
+    let mut all_branches: Vec<RemoteBranch> = remotes
+        .iter()
+        .filter_map(|remote_name| {
+            let branch_name = format!("{}/{}", remote_name, branch_name);
+            let blah = repo
+                .find_branch(&branch_name, BranchType::Remote)
+                .ok()
+                .and_then(|branch| branch_to_remote_branch(&branch, &[remote_name]).ok());
+            blah
+        })
+        .collect();
+
+    if let Some(local_branch) = repo
+        .find_branch(branch_name, BranchType::Local)
+        .ok()
+        .and_then(|branch| branch_to_remote_branch(&branch, &remotes).ok())
     {
-        let branch = match branch_to_remote_branch(&branch, &remotes) {
-            Ok(Some(b)) => b,
-            Ok(None) => continue,
-            Err(err) => {
-                tracing::warn!(?err, "Ignoring branch");
-                continue;
-            }
-        };
-        let branch_is_trunk = branch.name.branch() == Some(default_target.branch.branch())
-            && branch.name.remote() == Some(default_target.branch.remote());
-
-        if !branch_is_trunk
-            && branch.name.branch() != Some("gitbutler/integration") // Remove after rename migration complete.
-            && branch.name.branch() != Some("gitbutler/workspace")
-            && branch.name.branch() != Some("gitbutler/edit")
-            && branch.name.branch() != Some("gitbutler/target")
-        {
-            remote_branches.push(branch);
-        }
+        all_branches.push(local_branch);
     }
-    Ok(remote_branches)
+
+    let target_branch = &default_target(&ctx.project().gb_dir())?.branch;
+    Ok(all_branches
+        .into_iter()
+        .filter(|branch| {
+            branch.name != target_branch.into() &&
+            branch.name.branch() != Some("gitbutler/integration") && // Remove after rename migration complete.
+            branch.name.branch() != Some("gitbutler/workspace") &&
+            branch.name.branch() != Some("gitbutler/target") &&
+            branch.name.branch() != Some("gitbutler/edit")
+        })
+        .collect())
 }
 
 pub(crate) fn get_branch_data(ctx: &CommandContext, refname: &Refname) -> Result<RemoteBranchData> {
@@ -107,7 +114,7 @@ pub(crate) fn get_branch_data(ctx: &CommandContext, refname: &Refname) -> Result
         .maybe_find_branch_by_refname(refname)?
         .ok_or(anyhow::anyhow!("failed to find branch {}", refname))?;
 
-    branch_to_remote_branch_data(ctx, &branch)?.context("failed to get branch data")
+    branch_to_remote_branch_data(ctx, &branch)
 }
 
 pub(crate) fn get_commit_data(
@@ -129,72 +136,71 @@ pub(crate) fn get_commit_data(
 
 pub(crate) fn branch_to_remote_branch(
     branch: &git2::Branch<'_>,
-    remotes: &git2::string_array::StringArray,
-) -> Result<Option<RemoteBranch>> {
-    let commit = branch.get().peel_to_commit()?;
-    let name = Refname::try_from(branch).context("could not get branch name")?;
+    remotes: &[&str],
+) -> Result<RemoteBranch> {
+    let reference = branch.get();
+    let name = Refname::try_from(branch)?;
+    let given_name = reference.given_name(remotes)?;
 
-    let given_name = branch.get().given_name(remotes)?;
+    let commit = reference.peel_to_commit()?;
+    let sha = commit.id();
+    let is_remote = reference.is_remote();
 
-    Ok(branch.get().target().map(|sha| RemoteBranch {
-        sha,
-        upstream: if let Refname::Local(local_name) = &name {
-            local_name.remote().cloned()
-        } else {
-            None
-        },
+    let author = commit.author().name().map(String::from);
+    let last_commit_timestamp_ms = commit
+        .time()
+        .seconds()
+        .try_into()
+        .map(|t: u128| t * 1000)
+        .ok();
+
+    let upstream = if let Refname::Local(local_name) = &name {
+        local_name.remote().cloned()
+    } else {
+        None
+    };
+
+    Ok(RemoteBranch {
         name,
         given_name,
-        last_commit_timestamp_ms: commit
-            .time()
-            .seconds()
-            .try_into()
-            .map(|t: u128| t * 1000)
-            .ok(),
-        last_commit_author: commit.author().name().map(std::string::ToString::to_string),
-        is_remote: branch.get().is_remote(),
-    }))
+        sha,
+        upstream,
+        is_remote,
+        last_commit_timestamp_ms,
+        last_commit_author: author,
+    })
 }
 
 pub(crate) fn branch_to_remote_branch_data(
     ctx: &CommandContext,
     branch: &git2::Branch,
-) -> Result<Option<RemoteBranchData>> {
+) -> Result<RemoteBranchData> {
+    let name = Refname::try_from(branch)?;
     let base = default_target(&ctx.project().gb_dir())?.remote_head(ctx.repository())?;
-    branch
-        .get()
-        .target()
-        .map(|sha| {
-            let ahead = ctx
-                .repository()
-                .log(sha, LogUntil::Commit(base), false)
-                .context("failed to get ahead commits")?;
 
-            let name = Refname::try_from(branch).context("could not get branch name")?;
+    let sha = branch.get().target().context("failed to get target")?;
+    let ahead = ctx.repository().log(sha, LogUntil::Commit(base), false)?;
+    let behind = ctx.distance(base, sha)?;
+    let fork_point = ahead.last().and_then(|c| c.parent(0).ok()).map(|c| c.id());
 
-            let count_behind = ctx
-                .distance(base, sha)
-                .context("failed to get behind count")?;
+    let commits = ahead
+        .into_iter()
+        .map(|commit| commit_to_remote_commit(&commit))
+        .collect::<Vec<_>>();
 
-            let fork_point = ahead.last().and_then(|c| c.parent(0).ok()).map(|c| c.id());
+    let upstream = match &name {
+        Refname::Local(local_name) => local_name.remote().cloned(),
+        _ => None,
+    };
 
-            Ok(RemoteBranchData {
-                sha,
-                upstream: if let Refname::Local(local_name) = &name {
-                    local_name.remote().cloned()
-                } else {
-                    None
-                },
-                name,
-                behind: count_behind,
-                commits: ahead
-                    .into_iter()
-                    .map(|commit| commit_to_remote_commit(&commit))
-                    .collect::<Vec<_>>(),
-                fork_point,
-            })
-        })
-        .transpose()
+    Ok(RemoteBranchData {
+        name,
+        sha,
+        behind,
+        upstream,
+        fork_point,
+        commits,
+    })
 }
 
 pub(crate) fn commit_to_remote_commit(commit: &git2::Commit) -> RemoteCommit {

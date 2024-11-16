@@ -3,7 +3,7 @@ import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
 import posthog from 'posthog-js';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-import type { RemoteBranchService } from '$lib/stores/remoteBranches';
+import type { BranchListingService } from '$lib/branches/branchListing';
 import type { BranchPushResult, Hunk, LocalFile, StackOrder } from './types';
 import type { VirtualBranchService } from './virtualBranch';
 
@@ -12,10 +12,10 @@ export type SeriesIntegrationStrategy = 'merge' | 'rebase' | 'hardreset';
 
 export class BranchController {
 	constructor(
-		readonly projectId: string,
-		readonly vbranchService: VirtualBranchService,
-		readonly remoteBranchService: RemoteBranchService,
-		readonly baseBranchService: BaseBranchService
+		private readonly projectId: string,
+		private readonly vbranchService: VirtualBranchService,
+		private readonly baseBranchService: BaseBranchService,
+		private readonly branchListingService: BranchListingService
 	) {}
 
 	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
@@ -365,7 +365,7 @@ export class BranchController {
 				projectId: this.projectId,
 				branch: branchId
 			});
-			this.remoteBranchService.refresh();
+			this.branchListingService.refresh();
 		} catch (err) {
 			showError('Failed to unapply branch', err);
 		}
@@ -437,7 +437,7 @@ export class BranchController {
 		} catch (err) {
 			showError('Failed to unapply branch', err);
 		} finally {
-			this.remoteBranchService.refresh();
+			this.branchListingService.refresh();
 		}
 	}
 
@@ -462,7 +462,7 @@ export class BranchController {
 		} catch (err) {
 			showError('Failed to create virtual branch', err);
 		} finally {
-			this.remoteBranchService.refresh();
+			this.branchListingService.refresh();
 			this.baseBranchService.refresh();
 		}
 	}
@@ -481,7 +481,7 @@ export class BranchController {
 		} catch (err) {
 			showError('Failed to delete local branch', err);
 		} finally {
-			this.remoteBranchService.refresh();
+			this.branchListingService.refresh();
 			this.baseBranchService.refresh();
 		}
 	}

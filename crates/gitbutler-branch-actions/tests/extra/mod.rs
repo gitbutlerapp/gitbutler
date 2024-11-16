@@ -1365,29 +1365,17 @@ fn detect_mergeable_branch() -> Result<()> {
     };
     vb_state.set_stack(stack4.clone())?;
 
-    let remotes = gitbutler_branch_actions::internal::list_local_branches(ctx)
-        .expect("failed to list remotes");
-    let _remote1 = &remotes
-        .iter()
-        .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch")
-        .unwrap();
     assert!(!internal::is_remote_branch_mergeable(
         ctx,
         &"refs/remotes/origin/remote_branch".parse().unwrap()
     )
     .unwrap());
-    // assert_eq!(remote1.commits.len(), 1);
 
-    let _remote2 = &remotes
-        .iter()
-        .find(|b| b.name.to_string() == "refs/remotes/origin/remote_branch2")
-        .unwrap();
     assert!(internal::is_remote_branch_mergeable(
         ctx,
         &"refs/remotes/origin/remote_branch2".parse().unwrap()
     )
     .unwrap());
-    // assert_eq!(remote2.commits.len(), 2);
 
     Ok(())
 }

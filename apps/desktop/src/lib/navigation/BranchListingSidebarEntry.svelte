@@ -51,7 +51,11 @@
 	}
 
 	function onMouseDown() {
-		goto(formatBranchURL(project, branchListing.name));
+		if (branchListing.virtualBranch?.inWorkspace) {
+			goto(`/${project.id}/board`);
+		} else {
+			goto(formatBranchURL(project, branchListing.name));
+		}
 	}
 
 	const selected = $derived($page.url.pathname === formatBranchURL(project, branchListing.name));

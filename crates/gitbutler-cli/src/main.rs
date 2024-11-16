@@ -35,7 +35,7 @@ fn main() -> Result<()> {
                 Some(vbranch::SubCommands::SetBase {
                     short_tracking_branch_name,
                 }) => command::vbranch::set_base(project, short_tracking_branch_name),
-                Some(vbranch::SubCommands::ListLocal) => command::vbranch::list_local(project),
+                Some(vbranch::SubCommands::List) => command::vbranch::list_all(project),
                 Some(vbranch::SubCommands::Status) => command::vbranch::status(project),
                 Some(vbranch::SubCommands::Unapply { name }) => {
                     command::vbranch::unapply(project, name)
