@@ -338,7 +338,7 @@ pub fn list_virtual_branches_cached(
     for (mut branch, mut files) in status.branches {
         update_conflict_markers(ctx, files.clone())?;
 
-        let upstream_branch = match branch.clone().upstream {
+        let upstream_branch = match &branch.upstream {
             Some(upstream) => repo.maybe_find_branch_by_refname(&Refname::from(upstream))?,
             None => None,
         };
@@ -454,10 +454,11 @@ pub fn list_virtual_branches_cached(
         let merge_base = gix_to_git2_oid(merge_base);
         let base_current = true;
 
-        let upstream = upstream_branch.and_then(|upstream_branch| {
-            let remotes = repo.remotes().ok()?;
-            branch_to_remote_branch(&upstream_branch, &remotes).ok()?
-        });
+        let raw_remotes = repo.remotes()?;
+        let remotes: Vec<_> = raw_remotes.into_iter().flatten().collect();
+        let upstream = upstream_branch
+            .map(|upstream_branch| branch_to_remote_branch(&upstream_branch, &remotes))
+            .transpose()?;
 
         let path_claim_positions: HashMap<&PathBuf, usize> = branch
             .ownership

@@ -439,12 +439,13 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
-    pub fn list_local_branches(
+    pub fn find_git_branches(
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
+        branch_name: &str,
     ) -> Result<Vec<RemoteBranch>, Error> {
         let project = projects.get(project_id)?;
-        let branches = gitbutler_branch_actions::list_local_branches(project)?;
+        let branches = gitbutler_branch_actions::find_git_branches(project, branch_name)?;
         Ok(branches)
     }
 

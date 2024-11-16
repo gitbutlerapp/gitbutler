@@ -427,9 +427,9 @@ pub fn push_virtual_branch(
     vbranch::push(&ctx, stack_id, with_force, askpass)
 }
 
-pub fn list_local_branches(project: Project) -> Result<Vec<RemoteBranch>> {
+pub fn find_git_branches(project: Project, branch_name: &str) -> Result<Vec<RemoteBranch>> {
     let ctx = CommandContext::open(&project)?;
-    remote::list_local_branches(&ctx)
+    remote::find_git_branches(&ctx, branch_name)
 }
 
 pub fn get_remote_branch_data(project: &Project, refname: &Refname) -> Result<RemoteBranchData> {

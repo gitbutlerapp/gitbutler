@@ -4,9 +4,9 @@ mod actions;
 pub use actions::{
     amend, can_apply_remote_branch, create_commit, create_virtual_branch,
     create_virtual_branch_from_branch, delete_local_branch, fetch_from_remotes, find_commit,
-    get_base_branch_data, get_remote_branch_data, get_uncommited_files,
+    find_git_branches, get_base_branch_data, get_remote_branch_data, get_uncommited_files,
     get_uncommited_files_reusable, insert_blank_commit, integrate_upstream,
-    integrate_upstream_commits, list_commit_files, list_local_branches, list_virtual_branches,
+    integrate_upstream_commits, list_commit_files, list_virtual_branches,
     list_virtual_branches_cached, move_commit, move_commit_file, push_base_branch,
     push_virtual_branch, reorder_stack, reset_files, reset_virtual_branch,
     resolve_upstream_integration, save_and_unapply_virutal_branch, set_base_branch,
@@ -22,7 +22,7 @@ pub use r#virtual::{BranchStatus, VirtualBranch, VirtualBranchHunksByPathMap, Vi
 pub mod internal {
     pub use super::branch_upstream_integration;
     pub use super::r#virtual::*;
-    pub use super::remote::list_local_branches;
+    pub use super::remote::find_git_branches;
 }
 
 mod branch_manager;

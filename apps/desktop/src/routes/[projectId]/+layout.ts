@@ -62,19 +62,15 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const templateService = new TemplateService(projectId);
 
 	const branchListingService = new BranchListingService(projectId);
-	const remoteBranchService = new RemoteBranchService(
-		projectId,
-		branchListingService,
-		projectMetrics
-	);
+	const remoteBranchService = new RemoteBranchService(projectId);
 
 	const vbranchService = new VirtualBranchService(projectId, projectMetrics, branchListingService);
 
 	const branchController = new BranchController(
 		projectId,
 		vbranchService,
-		remoteBranchService,
-		baseBranchService
+		baseBranchService,
+		branchListingService
 	);
 
 	const branchDragActionsFactory = new BranchDragActionsFactory(branchController);

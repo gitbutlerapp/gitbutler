@@ -22,10 +22,6 @@ pub fn list_all(project: Project) -> Result<()> {
     debug_print(list_branches(&ctx, None, None)?)
 }
 
-pub fn list_local(project: Project) -> Result<()> {
-    debug_print(gitbutler_branch_actions::list_local_branches(project)?)
-}
-
 pub fn details(project: Project, branch_names: Vec<BranchIdentity>) -> Result<()> {
     let ctx = CommandContext::open(&project)?;
     debug_print(get_branch_listing_details(&ctx, branch_names)?)
