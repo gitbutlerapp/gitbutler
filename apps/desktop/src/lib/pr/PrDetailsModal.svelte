@@ -487,7 +487,7 @@
 				type="submit"
 				onclick={async () => await handleCreatePR(close)}
 			>
-				{pushBeforeCreate ? 'Push and ' : ''}
+				{pushBeforeCreate ? 'Push & ' : ''}
 				{$createDraft ? 'Create pull request draft' : `Create pull request`}
 
 				{#snippet contextMenuSlot()}
