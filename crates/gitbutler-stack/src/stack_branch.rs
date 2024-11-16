@@ -82,14 +82,15 @@ impl StackBranch {
         Ok(head_commit)
     }
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
-    pub fn remote_reference(&self, remote: &str) -> Result<String> {
-        Ok(format!("refs/remotes/{}/{}", remote, self.name))
+    pub fn remote_reference(&self, remote: &str) -> String {
+        format!("refs/remotes/{}/{}", remote, self.name)
     }
 
     /// Returns `true` if the reference is pushed to the provided remote
     pub fn pushed(&self, remote: &str, repository: &git2::Repository) -> Result<bool> {
-        let remote_ref = self.remote_reference(remote)?; // todo: this should probably just return false
-        Ok(repository.find_reference(&remote_ref).is_ok())
+        Ok(repository
+            .find_reference(&self.remote_reference(remote))
+            .is_ok())
     }
 
     /// Returns the commits that are part of the branch.
@@ -133,13 +134,20 @@ impl StackBranch {
 
         let default_target = stack_context.target();
         let mut remote_patches: Vec<Commit<'_>> = vec![];
-        let remote_name = default_target.push_remote_name();
-        if self.pushed(&remote_name, repository).unwrap_or_default() {
-            let head_commit = repository
-                .find_reference(&self.remote_reference(&remote_name)?)?
+
+        // Use remote from upstream if available, otherwise default to push remote.
+        let remote = stack
+            .upstream
+            .clone()
+            .map(|ref_name| ref_name.remote().to_owned())
+            .unwrap_or(default_target.push_remote_name());
+
+        if self.pushed(&remote, repository).unwrap_or_default() {
+            let upstream_head = repository
+                .find_reference(self.remote_reference(&remote).as_str())?
                 .peel_to_commit()?;
             repository
-                .log(head_commit.id(), LogUntil::Commit(previous_head), false)?
+                .log(upstream_head.id(), LogUntil::Commit(previous_head), false)?
                 .into_iter()
                 .rev()
                 .for_each(|c| {
