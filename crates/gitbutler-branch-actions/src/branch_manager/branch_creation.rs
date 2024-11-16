@@ -222,7 +222,7 @@ impl BranchManager<'_> {
             vb_state.find_by_source_refname_where_not_in_workspace(target)
         {
             branch.upstream_head = upstream_branch.is_some().then_some(head_commit.id());
-            branch.upstream = upstream_branch;
+            branch.upstream = upstream_branch; // Used as remote when listing commits.
             branch.ownership = ownership;
             branch.order = order;
             branch.selected_for_changes = selected_for_changes;

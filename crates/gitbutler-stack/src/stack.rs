@@ -43,7 +43,8 @@ pub struct Stack {
     /// If set, this means this virtual branch was originally created from `Some(branch)`.
     /// It can be *any* branch.
     pub source_refname: Option<Refname>,
-    /// The local tracking branch, holding the state of the remote.
+    /// Upstream tracking branch reference, added when creating a stack from a branch.
+    /// Used e.g. when listing commits from a fork.
     pub upstream: Option<RemoteRefname>,
     // upstream_head is the last commit on we've pushed to the upstream branch
     #[serde(with = "gitbutler_serde::oid_opt", default)]
@@ -556,8 +557,7 @@ impl Stack {
         .head;
         let remote_name = branch_state(ctx).get_default_target()?.push_remote_name();
         let upstream_refname =
-            RemoteRefname::from_str(&reference.remote_reference(remote_name.as_str())?)
-                .context("Failed to parse the remote reference for branch")?;
+            RemoteRefname::from_str(&reference.remote_reference(remote_name.as_str()))?;
         Ok(PushDetails {
             head: commit.id(),
             remote_refname: upstream_refname,
@@ -925,13 +925,12 @@ fn local_reference_exists(repository: &gix::Repository, name: &str) -> Result<bo
 fn remote_reference_exists(
     repository: &gix::Repository,
     state: &VirtualBranchesHandle,
-    reference: &StackBranch,
+    branch: &StackBranch,
 ) -> Result<bool> {
-    Ok(reference
-        .remote_reference(state.get_default_target()?.push_remote_name().as_str())
-        .and_then(|reference| local_reference_exists(repository, &reference))
-        .ok()
-        .unwrap_or(false))
+    local_reference_exists(
+        repository,
+        &branch.remote_reference(state.get_default_target()?.push_remote_name().as_str()),
+    )
 }
 
 #[cfg(test)]
