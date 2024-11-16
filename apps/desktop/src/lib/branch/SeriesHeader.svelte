@@ -87,7 +87,16 @@
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 	const pr = $derived(prMonitor?.pr);
 	const sourceBranch = $derived($pr?.sourceBranch); // Deduplication.
-	const checksMonitor = $derived(sourceBranch ? $forge?.checksMonitor(sourceBranch) : undefined);
+
+	// Do not create a checks monitor if pull request is merged or from a fork.
+	// For more information about unavailability of check-runs for forked repos,
+	// see GitHub docs at:
+	// https://docs.github.com/en/rest/checks/runs?apiVersion=2022-11-28#list-check-runs-in-a-check-suite
+	// TODO: Make this forge specific by moving it into ForgePrMonitor.
+	const shouldCheck = $derived($pr && !$pr.fork && !$pr.merged); // Deduplication.
+	const checksMonitor = $derived(
+		sourceBranch && shouldCheck ? $forge?.checksMonitor(sourceBranch) : undefined
+	);
 
 	// Trigger refresh of pull request status and checks when branch(es) are pushed.
 	$effect(() => {

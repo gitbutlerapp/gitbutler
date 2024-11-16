@@ -36,6 +36,7 @@
 		icon: keyof typeof iconsJson | undefined;
 		style?: ComponentColor;
 		messageStyle?: MessageStyle;
+		tooltip?: string;
 	};
 
 	let contextMenuEl = $state<ReturnType<typeof ContextMenu>>();
@@ -75,6 +76,15 @@
 	const detailsError = $derived(prMonitor?.error);
 
 	const checksTagInfo: StatusInfo = $derived.by(() => {
+		if (!checksMonitor && pr.fork) {
+			return {
+				style: 'neutral',
+				icon: 'info',
+				text: 'No PR checks',
+				tooltip: 'Checks for forked repos only available on the web.'
+			};
+		}
+
 		if ($checksError || $detailsError) {
 			return { style: 'error', icon: 'warning-small', text: 'Failed to load' };
 		}
@@ -209,6 +219,7 @@
 					icon={checksTagInfo.icon}
 					style={checksTagInfo.style}
 					kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
+					tooltip={checksTagInfo.tooltip}
 				>
 					{checksTagInfo.text}
 				</Button>

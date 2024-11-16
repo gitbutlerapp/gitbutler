@@ -34,6 +34,7 @@ export interface DetailedPullRequest {
 	number: number;
 	sourceBranch: string;
 	draft?: boolean;
+	fork?: boolean;
 	createdAt: Date;
 	mergedAt?: Date;
 	closedAt?: Date;
