@@ -1,9 +1,3 @@
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-use std::{io::Write, path::Path, process::Stdio, str};
-
 use crate::Config;
 use crate::SignaturePurpose;
 use anyhow::{anyhow, bail, Context, Result};
@@ -16,9 +10,15 @@ use gitbutler_oxidize::{
     git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, gix_to_git2_signature,
 };
 use gitbutler_reference::{Refname, RemoteRefname};
+use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::fs::is_executable;
 use gix::merge::tree::{Options, UnresolvedConflict};
 use gix::objs::WriteTo;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+use std::{io::Write, path::Path, process::Stdio, str};
 use tracing::instrument;
 
 /// Extension trait for `git2::Repository`.
@@ -254,11 +254,22 @@ impl RepositoryExt for git2::Repository {
                     let blob = self.blob(path_str.as_bytes())?;
                     tree_update_builder.upsert(path, blob, git2::FileMode::Link);
                 } else {
-                    let mut file_for_git =
+                    let file_for_git =
                         pipeline.convert_to_git(std::fs::File::open(&file_path)?, path, &index)?;
-                    buf.clear();
-                    std::io::copy(&mut file_for_git, &mut buf)?;
-                    let blob_id = self.blob(&buf)?;
+                    let data = match file_for_git {
+                        ToGitOutcome::Unchanged(mut file) => {
+                            buf.clear();
+                            std::io::copy(&mut file, &mut buf)?;
+                            &buf
+                        }
+                        ToGitOutcome::Buffer(buf) => buf,
+                        ToGitOutcome::Process(mut read) => {
+                            buf.clear();
+                            std::io::copy(&mut read, &mut buf)?;
+                            &buf
+                        }
+                    };
+                    let blob_id = self.blob(data)?;
 
                     let file_type = if is_executable(&file_path.metadata()?) {
                         git2::FileMode::BlobExecutable
