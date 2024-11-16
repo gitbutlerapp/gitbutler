@@ -22,14 +22,14 @@
 
 	<!-- SERIES SELECTOR -->
 	{#if series.length > 1}
-		<div class="other-series">
+		<div class="selector-series">
 			<Select
 				popupAlign="right"
 				customWidth={300}
 				options={shiftedSeries.map((b) => ({ label: b.name, value: b.name }))}
 				onselect={(value) => {
 					// find in DOM and scroll to
-					const el = document.querySelector(`[data-series-name="${value}"]`);
+					const el = document.querySelector(`[data-series-name="${value}"]`) as HTMLElement;
 
 					if (!el) return;
 
@@ -42,20 +42,20 @@
 				}}
 			>
 				{#snippet customSelectButton()}
-					<div class="other-series-select">
+					<div class="selector-series-select">
 						<span class="text-12 text-semibold">{shiftedSeries.length} more</span>
 						<Icon name="chevron-down-small" />
 					</div>
 				{/snippet}
 
 				{#snippet itemSnippet({ item, idx })}
-					<button type="button" class="other-series-item">
-						<div class="other-series-chain-icon"></div>
-						<div class="other-series-icon-and-name">
-							<div class="other-series-icon {seriesTypes[idx]}"></div>
-							<span class="other-series-name text-12 truncate">{item.label}</span>
+					<button type="button" class="selector-series-item">
+						<div class="selector-series-chain-icon"></div>
+						<div class="selector-series-icon-and-name">
+							<div class="selector-series-icon {seriesTypes[idx]}"></div>
+							<span class="selector-series-name text-12 truncate">{item.label}</span>
 						</div>
-						<div class="other-series-scroll-to text-11">
+						<div class="selector-series-scroll-to text-11">
 							<span>Scroll here</span>
 						</div>
 					</button>
@@ -100,12 +100,12 @@
 	}
 
 	/* SERIES SELECTOR */
-	.other-series {
+	.selector-series {
 		position: relative;
 		display: flex;
 	}
 
-	.other-series-select {
+	.selector-series-select {
 		display: flex;
 		align-items: center;
 		gap: 2px;
@@ -123,7 +123,7 @@
 		}
 	}
 
-	.other-series-item {
+	.selector-series-item {
 		position: relative;
 		display: flex;
 		align-items: center;
@@ -135,21 +135,21 @@
 		&:hover {
 			/* background-color: var(--clr-bg-1-muted); */
 
-			.other-series-scroll-to {
+			.selector-series-scroll-to {
 				opacity: 1;
 				flex: none;
 			}
 		}
 	}
 
-	.other-series-icon-and-name {
+	.selector-series-icon-and-name {
 		display: flex;
 		flex: 1;
 		align-items: center;
 		overflow: hidden;
 	}
 
-	.other-series-icon {
+	.selector-series-icon {
 		position: relative;
 
 		z-index: 1;
@@ -176,7 +176,7 @@
 		}
 	}
 
-	.other-series-chain-icon {
+	.selector-series-chain-icon {
 		pointer-events: none;
 		position: absolute;
 		top: -5px;
@@ -186,13 +186,13 @@
 		background-color: var(--clr-border-3);
 	}
 
-	.other-series-name {
+	.selector-series-name {
 		color: var(--clr-text-1);
 		width: 100%;
 		text-align: left;
 	}
 
-	.other-series-scroll-to {
+	.selector-series-scroll-to {
 		overflow: hidden;
 		flex: 0;
 		width: fit-content;

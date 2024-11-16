@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	import type { PatchSeries } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
@@ -8,9 +9,14 @@
 	}
 
 	const { currentSeries, children }: Props = $props();
+	const seriesType = currentSeries.patches[0] ? currentSeries.patches[0].status : 'local';
 </script>
 
-<div class="branch-group" data-series-name={currentSeries.name}>
+<div
+	class="branch-group"
+	data-series-name={currentSeries.name}
+	style:--highlight-color={getColorFromBranchType(seriesType)}
+>
 	{@render children()}
 </div>
 
