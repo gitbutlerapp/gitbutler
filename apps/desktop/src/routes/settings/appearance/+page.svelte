@@ -24,6 +24,7 @@
 		{ schemeIdentifer: 'vscodium', displayName: 'VSCodium' },
 		{ schemeIdentifer: 'vscode', displayName: 'VSCode' },
 		{ schemeIdentifer: 'vscode-insiders', displayName: 'VSCode Insiders' },
+		{ schemeIdentifer: 'windsurf', displayName: 'Windsurf' },
 		{ schemeIdentifer: 'zed', displayName: 'Zed' }
 	];
 	const editorOptionsForSelect = editorOptions.map((option) => ({

@@ -14,6 +14,7 @@ pub(crate) fn open_that(path: &str) -> anyhow::Result<()> {
         "vscodium",
         "vscode-insiders",
         "zed",
+        "windsurf",
     ]
     .contains(&target_url.scheme())
     {
