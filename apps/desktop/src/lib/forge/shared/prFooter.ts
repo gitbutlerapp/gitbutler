@@ -37,14 +37,16 @@ function updateBody(body: string | undefined, prNumber: number, allPrNumbers: nu
  * Generates a footer for use in pull request descriptions when part of a stack.
  */
 export function generateFooter(forPrNumber: number, allPrNumbers: number[]) {
+	const stackLength = allPrNumbers.length;
 	const stackIndex = allPrNumbers.findIndex((number) => number === forPrNumber);
+	const nth = stackLength - stackIndex;
 	let footer = '';
 	footer += FOOTER_BOUNDARY_TOP + '\n';
 	footer += '---\n';
-	footer += 'This is **part of a stack** made with GitButler:\n';
+	footer += `This is **part ${nth} of ${stackLength} in a stack** made with GitButler:\n`;
 	allPrNumbers.forEach((prNumber, i) => {
 		const current = i === stackIndex;
-		footer += `- #${prNumber} ${current ? '👈 ' : ''}\n`;
+		footer += `- \`${stackLength - i}\` #${prNumber} ${current ? '👈 ' : ''}\n`;
 	});
 	footer += FOOTER_BOUNDARY_BOTTOM;
 	return footer;
