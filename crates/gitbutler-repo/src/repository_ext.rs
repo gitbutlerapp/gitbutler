@@ -1,9 +1,3 @@
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-use std::{io::Write, path::Path, process::Stdio, str};
-
 use crate::Config;
 use crate::SignaturePurpose;
 use anyhow::{anyhow, bail, Context, Result};
@@ -16,9 +10,15 @@ use gitbutler_oxidize::{
     git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, gix_to_git2_signature,
 };
 use gitbutler_reference::{Refname, RemoteRefname};
+use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::fs::is_executable;
 use gix::merge::tree::{Options, UnresolvedConflict};
 use gix::objs::WriteTo;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+use std::{io::Write, path::Path, process::Stdio, str};
 use tracing::instrument;
 
 /// Extension trait for `git2::Repository`.
@@ -195,6 +195,18 @@ impl RepositoryExt for git2::Repository {
     /// or if the HEAD branch has no commits
     #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
     fn create_wd_tree(&self) -> Result<Tree> {
+        let gix_repo = gix::open_opts(
+            self.path(),
+            gix::open::Options::default().permissions(gix::open::Permissions {
+                config: gix::open::permissions::Config {
+                    // Whenever we deal with worktree filters, we'd want to have the installation configuration as well.
+                    git_binary: cfg!(windows),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }),
+        )?;
+        let (mut pipeline, index) = gix_repo.filter_pipeline(None)?;
         let mut tree_update_builder = git2::build::TreeUpdateBuilder::new();
 
         let worktree_path = self.workdir().context("Could not find worktree path")?;
@@ -220,6 +232,7 @@ impl RepositoryExt for git2::Repository {
         // | add                | modify            | upsert    |
         // | modify             | modify            | upsert    |
 
+        let mut buf = Vec::with_capacity(1024);
         for status_entry in &statuses {
             let status = status_entry.status();
             let path = status_entry.path().context("Failed to get path")?;
@@ -241,8 +254,22 @@ impl RepositoryExt for git2::Repository {
                     let blob = self.blob(path_str.as_bytes())?;
                     tree_update_builder.upsert(path, blob, git2::FileMode::Link);
                 } else {
-                    let file = std::fs::read(&file_path)?;
-                    let blob = self.blob(&file)?;
+                    let file_for_git =
+                        pipeline.convert_to_git(std::fs::File::open(&file_path)?, path, &index)?;
+                    let data = match file_for_git {
+                        ToGitOutcome::Unchanged(mut file) => {
+                            buf.clear();
+                            std::io::copy(&mut file, &mut buf)?;
+                            &buf
+                        }
+                        ToGitOutcome::Buffer(buf) => buf,
+                        ToGitOutcome::Process(mut read) => {
+                            buf.clear();
+                            std::io::copy(&mut read, &mut buf)?;
+                            &buf
+                        }
+                    };
+                    let blob_id = self.blob(data)?;
 
                     let file_type = if is_executable(&file_path.metadata()?) {
                         git2::FileMode::BlobExecutable
@@ -250,7 +277,7 @@ impl RepositoryExt for git2::Repository {
                         git2::FileMode::Blob
                     };
 
-                    tree_update_builder.upsert(path, blob, file_type);
+                    tree_update_builder.upsert(path, blob_id, file_type);
                 }
             }
         }
