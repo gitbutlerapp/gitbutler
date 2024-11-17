@@ -87,7 +87,7 @@
 	});
 </script>
 
-<div class="wrapper" data-tauri-drag-region>
+<div class="wrapper">
 	<Stack {commitBoxOpen} {isLaneCollapsed} />
 
 	{#if selected}

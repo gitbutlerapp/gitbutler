@@ -75,14 +75,13 @@
 
 <svelte:window on:keydown={handleKeyDown} />
 {#if $error}
-	<div data-tauri-drag-region>Something went wrong...</div>
+	<div>Something went wrong...</div>
 {:else if !$branches}
 	<FullviewLoading />
 {:else}
 	<div
 		class="board"
 		role="group"
-		data-tauri-drag-region
 		on:drop={(e) => {
 			e.preventDefault();
 			if (!dragged) {
@@ -91,13 +90,7 @@
 			branchController.updateBranchOrder(sortedBranches.map((b, i) => ({ id: b.id, order: i })));
 		}}
 	>
-		<div
-			role="group"
-			class="branches"
-			data-tauri-drag-region
-			bind:this={dropZone}
-			on:dragover={(e) => handleDragOver(e)}
-		>
+		<div role="group" class="branches" bind:this={dropZone} on:dragover={(e) => handleDragOver(e)}>
 			{#each sortedBranches as branch (branch.id)}
 				<div
 					role="presentation"

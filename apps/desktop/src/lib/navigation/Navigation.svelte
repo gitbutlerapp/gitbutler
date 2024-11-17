@@ -112,7 +112,7 @@
 		{#if platformName || env.PUBLIC_TESTING}
 			<div class="navigation-top">
 				{#if platformName === 'macos'}
-					<div class="drag-region" data-tauri-drag-region></div>
+					<div class="traffic-lights-placeholder" data-tauri-drag-region></div>
 				{/if}
 				<ProjectSelector isNavCollapsed={$isNavCollapsed} />
 				<div class="domains">
@@ -161,10 +161,6 @@
 		user-select: none;
 	}
 
-	.drag-region {
-		flex-shrink: 0;
-		height: 30px;
-	}
 	.navigation-top {
 		display: flex;
 		flex-direction: column;
@@ -229,6 +225,10 @@
 	}
 
 	/* MODIFIERS */
+
+	.traffic-lights-placeholder {
+		height: 30px;
+	}
 
 	.navigation.collapsed {
 		width: auto;

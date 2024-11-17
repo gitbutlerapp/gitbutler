@@ -8,10 +8,8 @@
 </script>
 
 <DecorativeSplitView img={loadErrorSvg}>
-	<div class="problem__container" data-tauri-drag-region>
-		<h2 class="problem__title text-18 text-body text-bold" data-tauri-drag-region>
-			There was a problem loading the app
-		</h2>
+	<div class="problem__container">
+		<h2 class="problem__title text-18 text-body text-bold">There was a problem loading the app</h2>
 
 		<InfoMessage filled outlined={false} style="error" icon="info">
 			<svelte:fragment slot="content">

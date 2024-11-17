@@ -120,7 +120,6 @@
 					bind:this={rsViewport}
 					style:width={`${laneWidth || $defaultBranchWidthRem}rem`}
 					class="branch-card__contents"
-					data-tauri-drag-region
 				>
 					<StackHeader
 						{branch}

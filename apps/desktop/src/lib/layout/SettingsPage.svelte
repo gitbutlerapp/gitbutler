@@ -12,15 +12,13 @@
 
 <section class="content-wrapper">
 	<ScrollableContainer>
-		<div class="drag-region" data-tauri-drag-region>
-			<div class="content" data-tauri-drag-region>
-				{#if title}
-					<h1 class="title text-head-24">
-						{title}
-					</h1>
-				{/if}
-				{@render children()}
-			</div>
+		<div class="content">
+			{#if title}
+				<h1 class="title text-head-24">
+					{title}
+				</h1>
+			{/if}
+			{@render children()}
 		</div>
 	</ScrollableContainer>
 </section>
@@ -34,11 +32,6 @@
 		background-color: var(--clr-bg-2);
 	}
 
-	.drag-region {
-		width: 100%;
-		min-height: 100vh;
-	}
-
 	.content {
 		padding: 48px 32px;
 		display: flex;
@@ -46,6 +39,7 @@
 		gap: 16px;
 		max-width: 640px;
 		width: 100%;
+		min-height: 100vh;
 		margin: auto;
 	}
 

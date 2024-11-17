@@ -111,7 +111,7 @@
 		{/if}
 
 		<div class="sideview">
-			<div class="sideview__header" data-tauri-drag-region>
+			<div class="sideview__header">
 				<i class="clock-icon">
 					<div class="clock-pointers">
 						<div class="clock-pointer clock-pointer-minute"></div>

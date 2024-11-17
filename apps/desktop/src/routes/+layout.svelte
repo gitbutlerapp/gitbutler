@@ -29,6 +29,7 @@
 	} from '$lib/forge/github/githubUserService';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import ToastController from '$lib/notifications/ToastController.svelte';
+	import { platformName } from '$lib/platform/platform';
 	import { RemotesService } from '$lib/remotes/service';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
@@ -103,12 +104,10 @@
 
 <svelte:window on:drop={(e) => e.preventDefault()} on:dragover={(e) => e.preventDefault()} />
 
-<div
-	data-tauri-drag-region
-	class="app-root"
-	role="application"
-	oncontextmenu={(e) => !dev && e.preventDefault()}
->
+<div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
+	{#if platformName === 'macos'}
+		<div class="drag-region" data-tauri-drag-region></div>
+	{/if}
 	{@render children()}
 </div>
 <Toaster />
@@ -127,5 +126,14 @@
 		height: 100%;
 		user-select: none;
 		cursor: default;
+	}
+
+	.drag-region {
+		z-index: var(--z-modal);
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 14px;
 	}
 </style>

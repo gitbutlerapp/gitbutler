@@ -1,11 +1,3 @@
-.link {
-	text-decoration: underline;
-
-	&:hover {
-		text-decoration: none;
-	}
-}
-
 body {
 	height: 100vh;
 	width: 100vw;
@@ -14,6 +6,14 @@ body {
 	color: var(--clr-text-1);
 	background-color: var(--clr-bg-2);
 	user-select: none;
+}
+
+.link {
+	text-decoration: underline;
+
+	&:hover {
+		text-decoration: none;
+	}
 }
 
 /**

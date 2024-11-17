@@ -21,7 +21,7 @@
 </script>
 
 <div class="decorative-split-view">
-	<div class="left-side hide-native-scrollbar" data-tauri-drag-region>
+	<div class="left-side hide-native-scrollbar">
 		<div class="left-side__content">
 			{#if children}
 				{@render children()}
@@ -29,10 +29,10 @@
 		</div>
 	</div>
 
-	<div class="right-side" data-tauri-drag-region>
-		<div class="right-side-wrapper" data-tauri-drag-region>
+	<div class="right-side">
+		<div class="right-side-wrapper">
 			{#if user}
-				<div class="right-side__header" data-tauri-drag-region>
+				<div class="right-side__header">
 					<div class="account-button">
 						<AccountLink pop />
 					</div>
@@ -45,7 +45,7 @@
 				</div>
 			{/if}
 
-			<div class="right-side__bottom" data-tauri-drag-region>
+			<div class="right-side__bottom">
 				{#if title || description}
 					<div class="right-side__content">
 						{#if title}

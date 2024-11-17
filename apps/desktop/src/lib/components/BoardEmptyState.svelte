@@ -27,7 +27,7 @@
 	}
 </script>
 
-<div data-tauri-drag-region class="empty-board__wrapper transition-fly">
+<div class="empty-board__wrapper transition-fly">
 	<div class="empty-board">
 		<div class="empty-board__content">
 			<div class="empty-board__about">
@@ -75,7 +75,7 @@
 							<div class="empty-board__suggestions__link__icon">
 								<Icon name="vscode" />
 							</div>
-							<span class="text-12">`Open in {$userSettings.defaultCodeEditor.displayName}`</span>
+							<span class="text-12">Open in {$userSettings.defaultCodeEditor.displayName}</span>
 						</button>
 					</div>
 				</div>
@@ -103,7 +103,7 @@
 			</div>
 		</div>
 
-		<div data-tauri-drag-region class="empty-board__image-frame">
+		<div class="empty-board__image-frame">
 			<div class="empty-board__image">
 				{@html zenSvg}
 			</div>
