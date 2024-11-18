@@ -28,13 +28,7 @@ pub fn compute_workspace_dependencies(
     let mut stacks_input: Vec<InputStack> = vec![];
     for stack in stacks {
         let mut commits_input: Vec<InputCommit> = vec![];
-        // The commit id's must be in the order they get applied (parents first).
-        let commit_ids = repo
-            .l(stack.head(), LogUntil::Commit(*target_sha), false)
-            .context("failed to list commits")?
-            .into_iter()
-            .rev()
-            .collect_vec();
+        let commit_ids = get_commits_to_process(repo, stack, target_sha)?;
         for commit_id in commit_ids {
             let mut files_input: Vec<InputFile> = vec![];
             let commit = repo.find_commit(commit_id)?;
@@ -71,6 +65,41 @@ pub fn compute_workspace_dependencies(
         workdir: base_diffs,
         stacks: stacks_input,
     })
+}
+
+/// Get the commits that need to be processed for the stack dependencies caculation.
+///
+/// Commit IDs are in the order that they are applied (parent first).
+/// Merge commits to the target branch are not included.
+fn get_commits_to_process(
+    repo: &git2::Repository,
+    stack: &Stack,
+    target_sha: &git2::Oid,
+) -> Result<Vec<git2::Oid>, anyhow::Error> {
+    let commit_ids = repo
+        .l(stack.head(), LogUntil::Commit(*target_sha), true)
+        .context("failed to list commits")?
+        .into_iter()
+        .rev()
+        .filter_map(|commit_id| {
+            let commit = repo.find_commit(commit_id).ok()?;
+            if commit.parent_count() == 1 {
+                return Some(commit_id);
+            }
+
+            let has_integrated_parent = commit.parent_ids().any(|id| {
+                let (number_commits_ahead, _) = repo.graph_ahead_behind(id, *target_sha).unwrap();
+                number_commits_ahead == 0
+            });
+
+            if has_integrated_parent {
+                None
+            } else {
+                Some(commit_id)
+            }
+        })
+        .collect_vec();
+    Ok(commit_ids)
 }
 
 pub struct StackDependencies {

@@ -650,6 +650,76 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> Result
     Ok(())
 }
 
+#[test]
+fn dependecies_ignore_merge_commits() -> Result<()> {
+    let ctx = command_ctx_after_updates("merge-commit")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let default_target = test_ctx.virtual_branches.get_default_target()?;
+    let my_stack = &test_ctx.stack;
+
+    let file_path = Path::new("file");
+    let file_hunk_1 = GitHunk {
+        old_start: 5,
+        old_lines: 1,
+        new_start: 5,
+        new_lines: 1,
+        diff_lines: "@@ -5,1 +5,1 @@
+-update line 5
++update line 5 again
+"
+        .into(),
+        binary: false,
+        change_type: ChangeType::Modified,
+    };
+
+    let file_hunk_2 = GitHunk {
+        old_start: 8,
+        old_lines: 1,
+        new_start: 8,
+        new_lines: 1,
+        diff_lines: "@@ -8,1 +8,1 @@
+-update line 8
++update line 8 again
+"
+        .into(),
+        binary: false,
+        change_type: ChangeType::Modified,
+    };
+
+    let base_diffs: HashMap<PathBuf, Vec<GitHunk>> = HashMap::from([(
+        file_path.to_path_buf(),
+        vec![file_hunk_1.clone(), file_hunk_2.clone()],
+    )]);
+
+    let dependencies = compute_workspace_dependencies(
+        &ctx,
+        &default_target.sha,
+        &base_diffs,
+        &test_ctx.all_stacks,
+    )?;
+
+    let commit_dependencies = dependencies.commit_dependencies.get(&my_stack.id).unwrap();
+    assert_eq!(commit_dependencies.len(), 0);
+
+    assert_eq!(dependencies.diffs.len(), 1);
+    let file_hunk_1_hash = Hunk::hash_diff(&file_hunk_1.diff_lines);
+    let file_hunk_2_hash = Hunk::hash_diff(&file_hunk_2.diff_lines);
+
+    let hunk_1_locks = dependencies.diffs.get(&file_hunk_1_hash);
+    assert_eq!(hunk_1_locks, None);
+
+    let hunk_2_locks = dependencies.diffs.get(&file_hunk_2_hash).unwrap();
+    assert_eq!(hunk_2_locks.len(), 1);
+    assert_hunk_lock_matches_by_message(
+        hunk_2_locks[0],
+        "update line 8 and delete the line after 7",
+        &ctx,
+        "hunk 2",
+    );
+
+    Ok(())
+}
+
 // Test utility functions
 // ---
 
@@ -750,6 +820,10 @@ fn extract_commit_messages(
 
 fn command_ctx(name: &str) -> Result<CommandContext> {
     gitbutler_testsupport::read_only::fixture("dependencies.sh", name)
+}
+
+fn command_ctx_after_updates(name: &str) -> Result<CommandContext> {
+    gitbutler_testsupport::read_only::fixture("dependencies-after-updates.sh", name)
 }
 
 fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
