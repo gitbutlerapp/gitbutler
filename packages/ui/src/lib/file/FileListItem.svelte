@@ -96,9 +96,11 @@
 		</span>
 
 		<Tooltip text={filePath} delay={1500}>
-			<span class="text-12 path truncate">
-				{fileInfo.path}
-			</span>
+			<div class="path-container">
+				<span class="text-12 path truncate">
+					{fileInfo.path}
+				</span>
+			</div>
 		</Tooltip>
 	</div>
 
@@ -202,16 +204,25 @@
 		color: var(--clt-text-1);
 	}
 
-	.path {
+	.path-container {
 		flex-shrink: 0;
 		flex-grow: 1;
 		flex-basis: 0px;
 		min-width: 50px;
+		direction: rtl;
+		text-align: left;
+		overflow: hidden;
+	}
+
+	.path {
+		display: inline-block;
 		color: var(--clt-text-1);
 		line-height: 120%;
-		flex-shrink: 1;
 		opacity: 0.3;
 		transition: opacity var(--transition-fast);
+		direction: rtl;
+		width: 100%;
+		text-align: left;
 	}
 
 	/* DETAILS */
