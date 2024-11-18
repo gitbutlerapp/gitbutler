@@ -2,9 +2,9 @@
 	--mono-font-family: 'Geist Mono', monospace;
 	--base-font-family: 'Inter', sans-serif;
 	--serif-font-family: 'PP Editorial New', serif;
-	--base-font-weight: 500;
-	--semidold-font-weight: 600;
-	--bold-font-weight: 700;
+	--base-font-weight: 400;
+	--semidold-font-weight: 500;
+	--bold-font-weight: 600;
 	--base-line-height: 120%;
 	--body-line-height: 150%;
 }
