@@ -2,7 +2,7 @@ import { invoke } from '$lib/backend/ipc';
 import { Branch, BranchData } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 
-export class RemoteBranchService {
+export class GitBranchService {
 	constructor(private projectId: string) {}
 
 	async findBranches(name: string) {

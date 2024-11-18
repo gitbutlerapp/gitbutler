@@ -2,12 +2,12 @@
 	import BranchPreview from '$lib/components/BranchPreview.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { RemoteBranchService } from '$lib/stores/remoteBranches';
+	import { GitBranchService } from '$lib/stores/remoteBranches';
 	import { Branch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { page } from '$app/stores';
 
-	const remoteBranchService = getContext(RemoteBranchService);
+	const remoteBranchService = getContext(GitBranchService);
 
 	const forgeListingService = getForgeListingService();
 	const name = $derived($page.params.name);
