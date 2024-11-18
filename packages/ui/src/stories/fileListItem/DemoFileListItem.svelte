@@ -15,6 +15,7 @@
 		lockText?: string;
 		oncheck?: (e: Event) => void;
 		onclick?: () => void;
+		onresolveclick?: () => void;
 		onkeydown?: () => void;
 		ondragstart?: (e: DragEvent) => void;
 		oncontextmenu?: (e: MouseEvent) => void;
@@ -33,18 +34,13 @@
 		lockText,
 		oncheck,
 		onclick,
+		onresolveclick,
 		onkeydown,
 		ondragstart,
 		oncontextmenu
 	}: Props = $props();
 
 	let ref: HTMLDivElement | undefined = $state();
-
-	$effect(() => {
-		if (ref) {
-			console.log('FileListItem updated', ref);
-		}
-	});
 </script>
 
 <FileListItem
@@ -61,6 +57,7 @@
 	{lockText}
 	{oncheck}
 	{onclick}
+	{onresolveclick}
 	{onkeydown}
 	{ondragstart}
 	{oncontextmenu}

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import FileStatusBadge from './FileStatusBadge.svelte';
-	import Button from '$lib/Button.svelte';
+	import Badge from '$lib/Badge.svelte';
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
@@ -30,6 +30,7 @@
 			}
 		) => void;
 		onclick?: (e: MouseEvent) => void;
+		onresolveclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		ondragstart?: (e: DragEvent) => void;
 		oncontextmenu?: (e: MouseEvent) => void;
@@ -53,6 +54,7 @@
 		lockText,
 		oncheck,
 		onclick,
+		onresolveclick,
 		onkeydown,
 		ondragstart,
 		oncontextmenu
@@ -112,6 +114,26 @@
 					<Icon name="locked-small" color="warning" />
 				</div>
 			</Tooltip>
+		{/if}
+
+		{#if onresolveclick}
+			{#if !conflicted}
+				<Tooltip text="Conflict resolved">
+					<Badge style="success" label="Resolved" />
+				</Tooltip>
+			{:else}
+				<button
+					type="button"
+					class="mark-resolved-btn"
+					onclick={(e) => {
+						e.stopPropagation();
+						onresolveclick?.(e);
+					}}
+				>
+					<span class="text-11 text-semibold">Mark as resolved</span>
+					<Icon name="tick-small" opacity={0.5} />
+				</button>
+			{/if}
 		{/if}
 
 		{#if conflicted}
@@ -185,6 +207,23 @@
 		transition:
 			width var(--transition-fast),
 			opacity var(--transition-fast);
+	}
+
+	.mark-resolved-btn {
+		display: flex;
+		align-items: center;
+		gap: 4px;
+		padding: 3px 6px 3px 6px;
+		border: 1px solid var(--clr-border-2);
+		border-radius: var(--radius-m);
+		margin: 0 2px;
+		transition:
+			background-color var(--transition-fast),
+			border-color var(--transition-fast);
+
+		&:hover {
+			background-color: var(--clr-bg-1);
+		}
 	}
 
 	/* INFO */
