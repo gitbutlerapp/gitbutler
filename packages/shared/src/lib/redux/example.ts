@@ -25,5 +25,9 @@ const exampleSlice = createSlice({
 export const { increment, decrement } = exampleSlice.actions;
 export const exampleReducer = exampleSlice.reducer;
 
-export const selectExample = createSelector(selectSelf, (state) => state.example);
-export const selectExampleValue = createSelector(selectExample, (example) => example.value);
+export const selectExample = createSelector([selectSelf], (state) => state.example);
+export const selectExampleValue = createSelector([selectExample], (example) => example.value);
+export const selectExampleValueGreaterThan = createSelector(
+	[selectExampleValue, (_state: unknown, target: number) => target],
+	(value, target: number) => value > target
+);

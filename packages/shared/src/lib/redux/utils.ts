@@ -1,5 +1,5 @@
 import { _store, type AppDispatch, type RootState } from '$lib/redux/store';
-import { derived, readable, type Readable } from 'svelte/store';
+import { readable, type Readable } from 'svelte/store';
 
 /**
  * Used to access the store directly. It is recommended to access state via
@@ -14,18 +14,6 @@ export function useStore(): Readable<RootState> {
 	});
 
 	return stateStore;
-}
-
-/**
- * Used in combination with slice specific selectors. If an argument of the
- * selector depends on a reactive property, IE something defined with
- * `$state` or similar runes, then the `useSelector` call should be wrapped in
- * a `$derived` block.
- */
-export function useSelector<T>(selector: (state: RootState) => T): Readable<T> {
-	const stateStore = useStore();
-
-	return derived(stateStore, (state) => selector(state));
 }
 
 /**
