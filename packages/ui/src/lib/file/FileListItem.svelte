@@ -205,6 +205,8 @@
 	}
 
 	.path-container {
+		display: flex;
+		justify-content: flex-end;
 		flex-shrink: 0;
 		flex-grow: 1;
 		flex-basis: 0px;
@@ -221,7 +223,7 @@
 		opacity: 0.3;
 		transition: opacity var(--transition-fast);
 		direction: rtl;
-		width: 100%;
+		max-width: 100%;
 		text-align: left;
 	}
 
@@ -229,7 +231,7 @@
 	.details {
 		display: flex;
 		align-items: center;
-		gap: 4px;
+		gap: 6px;
 	}
 
 	.details .locked {
