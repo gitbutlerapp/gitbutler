@@ -9,7 +9,7 @@
 
 <div class="empty-series" style:--commit-color={getColorFromBranchType('local')}>
 	<div class="commit-line" class:dashed={isBottom}></div>
-	<div class="text-12 text-body empty-series__label">
+	<div class="text-13 text-body empty-series__label">
 		This is an empty branch.
 		<br />
 		Create or drag & drop commits here
