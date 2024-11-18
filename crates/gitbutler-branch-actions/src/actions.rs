@@ -4,7 +4,7 @@ use crate::branch_upstream_integration::IntegrationStrategy;
 use crate::move_commits;
 use crate::reorder::{self, StackOrder};
 use crate::upstream_integration::{
-    self, BaseBranchResolution, BaseBranchResolutionApproach, BranchStatuses, Resolution,
+    self, BaseBranchResolution, BaseBranchResolutionApproach, Resolution, StackStatuses,
     UpstreamIntegrationContext,
 };
 use crate::VirtualBranchHunkRangeMap;
@@ -556,7 +556,7 @@ pub fn get_uncommited_files_reusable(project: &Project) -> Result<DiffByPathMap>
 pub fn upstream_integration_statuses(
     project: &Project,
     target_commit_oid: Option<git2::Oid>,
-) -> Result<BranchStatuses> {
+) -> Result<StackStatuses> {
     let command_context = CommandContext::open(project)?;
     let mut guard = project.exclusive_worktree_access();
 

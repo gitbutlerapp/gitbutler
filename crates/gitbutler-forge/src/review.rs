@@ -8,8 +8,6 @@ use crate::forge::ForgeName;
 ///
 /// The paths are relative to the root path
 pub fn available_review_templates(root_path: &path::Path, forge_name: &ForgeName) -> Vec<String> {
-    dbg!(&forge_name);
-    dbg!(&root_path);
     let ReviewTemplateFunctions {
         is_review_template,
         get_root,

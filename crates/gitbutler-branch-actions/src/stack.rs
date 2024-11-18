@@ -217,7 +217,7 @@ pub fn push_stack(project: &Project, stack_id: StackId, with_force: bool) -> Res
     Ok(())
 }
 
-fn branch_integrated(
+pub(crate) fn branch_integrated(
     check_commit: &mut IsCommitIntegrated,
     branch: &StackBranch,
     stack_context: &StackContext,

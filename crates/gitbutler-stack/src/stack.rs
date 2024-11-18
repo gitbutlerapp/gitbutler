@@ -280,6 +280,19 @@ impl Stack {
         if self.is_initialized() {
             return Ok(());
         }
+
+        let empty_reference = self.make_new_empty_reference(ctx, allow_duplicate_refs)?;
+
+        self.heads = vec![empty_reference];
+        let state = branch_state(ctx);
+        state.set_stack(self.clone())
+    }
+
+    fn make_new_empty_reference(
+        &mut self,
+        ctx: &CommandContext,
+        allow_duplicate_refs: bool,
+    ) -> Result<StackBranch> {
         let commit = ctx.repository().find_commit(self.head())?;
 
         let mut reference = StackBranch {
@@ -318,8 +331,8 @@ impl Stack {
                 .unwrap_or_else(|| format!("{}-1", reference.name));
         }
         validate_name(&reference, &state)?;
-        self.heads = vec![reference];
-        state.set_stack(self.clone())
+
+        Ok(reference)
     }
 
     /// Adds a new "Branch" to the Stack.
@@ -506,14 +519,26 @@ impl Stack {
     /// Removes any heads that are refering to commits that are no longer between the stack head and the merge base
     pub fn archive_integrated_heads(&mut self, ctx: &CommandContext) -> Result<()> {
         self.ensure_initialized()?;
+
+        // Don't archive if there is only one branch
+        if self.heads.iter().filter(|branch| !branch.archived).count() == 1 {
+            return Ok(());
+        }
+
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         let state = branch_state(ctx);
-        let commit_ids = self.stack_patches(&ctx.to_stack_context()?, true)?;
+        let commit_ids = self.stack_patches(&ctx.to_stack_context()?, false)?;
         for head in self.heads.iter_mut() {
             if !commit_ids.contains(&head.head) {
                 head.archived = true;
             }
         }
+
+        if self.heads.iter().all(|branch| branch.archived) {
+            let new_head = self.make_new_empty_reference(ctx, false)?;
+            self.heads.push(new_head);
+        }
+
         state.set_stack(self.clone())
     }
 

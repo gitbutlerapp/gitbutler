@@ -5,26 +5,47 @@ import { derived, readable, type Readable } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';
 import type { VirtualBranch } from '$lib/vbranches/types';
 
+export type StackStatus = {
+	treeStatus: TreeStatus;
+	branchStatuses: NameAndBranchStatus[];
+};
+
+export type NameAndBranchStatus = {
+	name: string;
+	status: BranchStatus;
+};
+
 export type BranchStatus =
 	| {
-			type: 'empty' | 'fullyIntegrated' | 'saflyUpdatable';
+			type: 'empty' | 'integrated' | 'saflyUpdatable';
 	  }
 	| {
 			type: 'conflicted';
 			subject: {
-				potentiallyConflictedUncommitedChanges: boolean;
+				rebasable: boolean;
 			};
 	  };
 
-export type BranchStatusInfo = { branch: VirtualBranch; status: BranchStatus };
+export function stackFullyIntegrated(stackStatus: StackStatus): boolean {
+	return (
+		stackStatus.branchStatuses.every((branchStatus) => branchStatus.status.type === 'integrated') &&
+		stackStatus.treeStatus.type === 'empty'
+	);
+}
 
-export type BranchStatusesWithBranches =
+export type TreeStatus = {
+	type: 'empty' | 'conflicted' | 'saflyUpdatable';
+};
+
+export type StackStatusInfo = { stack: VirtualBranch; status: StackStatus };
+
+export type StackStatusesWithBranches =
 	| {
 			type: 'upToDate';
 	  }
 	| {
 			type: 'updatesRequired';
-			subject: BranchStatusInfo[];
+			subject: StackStatusInfo[];
 	  };
 
 export type ResolutionApproach = {
@@ -56,27 +77,27 @@ export function getBaseBrancheResolution(
 	};
 }
 
-export function getResolutionApproach(statusInfo: BranchStatusInfo): ResolutionApproach {
-	if (statusInfo.status.type === 'fullyIntegrated') {
+export function getResolutionApproach(statusInfo: StackStatusInfo): ResolutionApproach {
+	if (stackFullyIntegrated(statusInfo.status)) {
 		return { type: 'delete' };
 	}
 
-	if (statusInfo.branch.allowRebasing) {
+	if (statusInfo.stack.allowRebasing) {
 		return { type: 'rebase' };
 	}
 
 	return { type: 'merge' };
 }
 
-export function sortStatusInfo(a: BranchStatusInfo, b: BranchStatusInfo): number {
+export function sortStatusInfo(a: StackStatusInfo, b: StackStatusInfo): number {
 	if (
-		(a.status.type !== 'fullyIntegrated' && b.status.type !== 'fullyIntegrated') ||
-		(a.status.type === 'fullyIntegrated' && b.status.type === 'fullyIntegrated')
+		(!stackFullyIntegrated(a.status) && !stackFullyIntegrated(b.status)) ||
+		(stackFullyIntegrated(a.status) && stackFullyIntegrated(b.status))
 	) {
-		return (a.branch?.name || 'Unknown').localeCompare(b.branch?.name || 'Unknown');
+		return (a.stack?.name || 'Unknown').localeCompare(b.stack?.name || 'Unknown');
 	}
 
-	if (a.status.type === 'fullyIntegrated') {
+	if (stackFullyIntegrated(a.status)) {
 		return 1;
 	} else {
 		return -1;
@@ -89,7 +110,7 @@ type BranchStatusesResponse =
 	  }
 	| {
 			type: 'updatesRequired';
-			subject: [string, BranchStatus][];
+			subject: [string, StackStatus][];
 	  };
 
 export class UpstreamIntegrationService {
@@ -98,7 +119,7 @@ export class UpstreamIntegrationService {
 		private virtualBranchService: VirtualBranchService
 	) {}
 
-	upstreamStatuses(targetCommitOid?: string): Readable<BranchStatusesWithBranches | undefined> {
+	upstreamStatuses(targetCommitOid?: string): Readable<StackStatusesWithBranches | undefined> {
 		const branchStatuses = readable<BranchStatusesResponse | undefined>(undefined, (set) => {
 			invoke<BranchStatusesResponse>('upstream_integration_statuses', {
 				projectId: this.project.id,
@@ -108,20 +129,21 @@ export class UpstreamIntegrationService {
 
 		const branchStatusesWithBranches = derived(
 			[branchStatuses, this.virtualBranchService.branches],
-			([branchStatuses, branches]): BranchStatusesWithBranches | undefined => {
+			([branchStatuses, branches]): StackStatusesWithBranches | undefined => {
 				if (!branchStatuses || !branches) return;
+				console.log('branchStatuses', branchStatuses);
 				if (branchStatuses.type === 'upToDate') return branchStatuses;
 
 				return {
 					type: 'updatesRequired',
 					subject: branchStatuses.subject
 						.map((status) => {
-							const branch = branches.find((appliedBranch) => appliedBranch.id === status[0]);
+							const stack = branches.find((appliedBranch) => appliedBranch.id === status[0]);
 
-							if (!branch) return;
+							if (!stack) return;
 
 							return {
-								branch,
+								stack,
 								status: status[1]
 							};
 						})
