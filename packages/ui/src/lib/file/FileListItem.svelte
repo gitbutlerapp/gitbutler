@@ -1,5 +1,6 @@
 <script lang="ts">
 	import FileStatusBadge from './FileStatusBadge.svelte';
+	import Button from '$lib/Button.svelte';
 	import Checkbox from '$lib/Checkbox.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
@@ -95,13 +96,13 @@
 			{fileInfo.filename}
 		</span>
 
-		<Tooltip text={filePath} delay={1500}>
-			<div class="path-container">
+		<div class="path-container">
+			<Tooltip text={filePath} delay={1200}>
 				<span class="text-12 path truncate">
 					{fileInfo.path}
 				</span>
-			</div>
-		</Tooltip>
+			</Tooltip>
+		</div>
 	</div>
 
 	<div class="details">
