@@ -12,3 +12,5 @@ catalogs:
     svelte-check: 4.0.1
     '@sveltejs/vite-plugin-svelte': 4.0.0-next.6
     '@sveltejs/adapter-static': 3.0.4
+  redux:
+    '@reduxjs/toolkit': '^2.3.0'

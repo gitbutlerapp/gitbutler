@@ -90,7 +90,8 @@
 		"tinykeys": "^2.1.0",
 		"ts-node": "^10.9.2",
 		"vite": "catalog:",
-		"vitest": "^2.0.5"
+		"vitest": "^2.0.5",
+		"@reduxjs/toolkit": "catalog:redux"
 	},
 	"dependencies": {
 		"openai": "^4.47.3"
