@@ -475,6 +475,7 @@ pub fn list_virtual_branches_cached(
                 .unwrap_or(&usize::MAX)
                 .cmp(path_claim_positions.get(&b.path).unwrap_or(&usize::MAX))
         });
+        let mut requires_force = is_requires_force(ctx, &branch)?;
 
         let fork_point = commits
             .last()
@@ -487,7 +488,7 @@ pub fn list_virtual_branches_cached(
             stack_dependencies_from_workspace(&status.workspace_dependencies, branch.id);
 
         // TODO: Error out here once this API is stable
-        let (series, requires_force) = stack_series(
+        let (series, force) = stack_series(
             &ctx.to_stack_context()?,
             &mut branch,
             &default_target,
@@ -496,6 +497,15 @@ pub fn list_virtual_branches_cached(
             &vbranch_commits,
             stack_dependencies,
         );
+
+        if series
+            .iter()
+            .cloned()
+            .filter_map(Result::ok)
+            .any(|s| s.upstream_reference.is_some())
+        {
+            requires_force = force // derive force requirement from the series
+        }
 
         let head = branch.head();
         let branch = VirtualBranch {
@@ -567,6 +577,31 @@ fn branches_with_large_files_abridged(mut branches: Vec<VirtualBranch>) -> Vec<V
         }
     }
     branches
+}
+
+fn is_requires_force(ctx: &CommandContext, stack: &Stack) -> Result<bool> {
+    let upstream = if let Some(upstream) = &stack.upstream {
+        upstream
+    } else {
+        return Ok(false);
+    };
+
+    let reference = match ctx.repository().refname_to_id(&upstream.to_string()) {
+        Ok(reference) => reference,
+        Err(err) if err.code() == git2::ErrorCode::NotFound => return Ok(false),
+        Err(other) => return Err(other).context("failed to find upstream reference"),
+    };
+
+    let upstream_commit = ctx
+        .repository()
+        .find_commit(reference)
+        .context("failed to find upstream commit")?;
+
+    let merge_base = ctx
+        .repository()
+        .merge_base(upstream_commit.id(), stack.head())?;
+
+    Ok(merge_base != upstream_commit.id())
 }
 
 pub fn update_branch(ctx: &CommandContext, branch_update: &BranchUpdateRequest) -> Result<Stack> {
