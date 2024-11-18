@@ -13,7 +13,7 @@ import { HistoryService } from '$lib/history/history';
 import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ModeService } from '$lib/modes/service';
-import { RemoteBranchService } from '$lib/stores/remoteBranches';
+import { GitBranchService } from '$lib/stores/remoteBranches';
 import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 import { BranchController } from '$lib/vbranches/branchController';
 import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
@@ -62,7 +62,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const templateService = new TemplateService(projectId);
 
 	const branchListingService = new BranchListingService(projectId);
-	const remoteBranchService = new RemoteBranchService(projectId);
+	const remoteBranchService = new GitBranchService(projectId);
 
 	const vbranchService = new VirtualBranchService(projectId, projectMetrics, branchListingService);
 

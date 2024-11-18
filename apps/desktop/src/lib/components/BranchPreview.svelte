@@ -8,7 +8,7 @@
 	import { getForge } from '$lib/forge/interface/forge';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { RemoteBranchService } from '$lib/stores/remoteBranches';
+	import { GitBranchService } from '$lib/stores/remoteBranches';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { BranchData, type Branch } from '$lib/vbranches/types';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -22,7 +22,7 @@
 	export let remoteBranch: Branch | undefined = undefined;
 	export let pr: PullRequest | undefined;
 
-	const remoteBranchService = getContext(RemoteBranchService);
+	const remoteBranchService = getContext(GitBranchService);
 	const forge = getForge();
 
 	const fileIdSelection = new FileIdSelection();
