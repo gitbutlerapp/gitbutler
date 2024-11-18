@@ -1,7 +1,11 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
 	import { CommitService } from '$lib/commits/service';
-	import { conflictEntryHint, type ConflictEntryPresence } from '$lib/conflictEntryPresence';
+	import {
+		conflictEntryHint,
+		fileLooksConflicted,
+		type ConflictEntryPresence
+	} from '$lib/conflictEntryPresence';
 	import FileContextMenu from '$lib/file/FileContextMenu.svelte';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
@@ -15,6 +19,7 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import InfoButton from '@gitbutler/ui/InfoButton.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
@@ -53,6 +58,7 @@
 
 	let filesList = $state<HTMLDivElement | undefined>(undefined);
 	let contextMenu = $state<ReturnType<typeof FileContextMenu> | undefined>(undefined);
+	let confirmSaveModal = $state<ReturnType<typeof Modal> | undefined>(undefined);
 
 	$effect(() => {
 		modeService.getInitialIndexState().then((files) => {
@@ -72,6 +78,7 @@
 		conflicted: boolean;
 		conflictHint?: string;
 		status?: FileStatus;
+		looksConflicted?: boolean;
 	}
 
 	const files = $derived.by(() => {
@@ -95,10 +102,6 @@
 			initialFiles.forEach(([initialFile, conflictEntryPresence]) => {
 				const isDeleted = uncommitedFileMap.has(initialFile.path);
 
-				if (conflictEntryPresence) {
-					console.log(initialFile.path, conflictEntryPresence);
-				}
-
 				outputMap.set(initialFile.path, {
 					name: initialFile.filename,
 					path: initialFile.path,
@@ -106,7 +109,8 @@
 					conflictHint: conflictEntryPresence
 						? conflictEntryHint(conflictEntryPresence)
 						: undefined,
-					status: isDeleted || !!conflictEntryPresence ? undefined : 'D'
+					status: isDeleted || !!conflictEntryPresence ? undefined : 'D',
+					looksConflicted: !!conflictEntryPresence
 				});
 			});
 
@@ -122,7 +126,11 @@
 						// All initial entries should have been added to the map,
 						// so we can safely assert that it will be present
 						const outputFile = outputMap.get(uncommitedFile.path)!;
-						if (!outputFile.conflicted) {
+						if (outputFile.conflicted) {
+							outputFile.looksConflicted = fileLooksConflicted(uncommitedFile);
+						}
+
+						if (!outputFile.conflicted || outputFile.looksConflicted === false) {
 							outputFile.status = 'M';
 						}
 						return;
@@ -156,6 +164,7 @@
 	});
 
 	const conflictedFiles = $derived(files.filter((file) => file.conflicted));
+	const stillConflictedFiles = $derived(conflictedFiles.filter((file) => file.looksConflicted));
 
 	async function abort() {
 		modeServiceAborting = 'loading';
@@ -171,6 +180,15 @@
 		await modeService.saveEditAndReturnToWorkspace();
 
 		modeServiceSaving = 'completed';
+	}
+
+	async function handleSave() {
+		if (stillConflictedFiles.length > 0) {
+			confirmSaveModal?.show();
+			return;
+		}
+
+		await save();
 	}
 
 	async function openAllConflictedFiles() {
@@ -227,7 +245,7 @@
 						<FileListItem
 							filePath={file.path}
 							fileStatus={file.status}
-							conflicted={file.conflicted}
+							conflicted={file.conflicted && file.looksConflicted}
 							conflictHint={file.conflictHint}
 							fileStatusStyle={file.status === 'M' ? 'full' : 'dot'}
 							onclick={(e) => {
@@ -277,13 +295,35 @@
 			style="pop"
 			kind="solid"
 			icon="tick-small"
-			onclick={save}
+			onclick={handleSave}
 			disabled={modeServiceSaving === 'loading'}
 		>
 			Save and exit
 		</Button>
 	</div>
 </div>
+
+<Modal
+	bind:this={confirmSaveModal}
+	title="Save and exit"
+	type="warning"
+	width="small"
+	onSubmit={async (close) => {
+		await save();
+		close();
+	}}
+>
+	{#snippet children()}
+		<p class="text-13 text-body helper-text">
+			There are still some files that look to be conflicted. Are you sure that you want to save and
+			exit?
+		</p>
+	{/snippet}
+	{#snippet controls(close)}
+		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
+		<Button style="error" type="submit" kind="solid">Save and exit</Button>
+	{/snippet}
+</Modal>
 
 <style lang="postcss">
 	.editmode__container {
