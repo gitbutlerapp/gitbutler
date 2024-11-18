@@ -13,7 +13,7 @@
 
 	const shiftedSeries = $derived(series.slice(1));
 	const seriesTypes = $derived(
-		shiftedSeries.map((s) => (s.patches[0] ? s.patches[0].status : 'local'))
+		shiftedSeries.map((s) => (s.patches?.[0] ? s.patches?.[0].status : 'local'))
 	);
 </script>
 

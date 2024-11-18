@@ -1,15 +1,14 @@
 <script lang="ts">
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
-	import type { CommitStatus, PatchSeries } from '$lib/vbranches/types';
+	import type { CommitStatus } from '$lib/vbranches/types';
 
 	interface Props {
-		currentSeries: PatchSeries;
+		topPatchStatus?: CommitStatus;
 	}
 
-	const { currentSeries }: Props = $props();
+	const { topPatchStatus }: Props = $props();
 
-	const topPatch = $derived(currentSeries?.patches[0]);
-	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
+	const branchType = $derived<CommitStatus>(topPatchStatus ?? 'local');
 	const lineColor = $derived(getColorFromBranchType(branchType));
 </script>
 

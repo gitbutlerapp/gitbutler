@@ -1,6 +1,7 @@
 <script lang="ts">
 	import CurrentSeries from './CurrentSeries.svelte';
 	import EmptySeries from './EmptySeries.svelte';
+	import ErrorSeries from './ErrorSeries.svelte';
 	import SeriesDividerLine from './SeriesDividerLine.svelte';
 	import SeriesHeader from '$lib/branch/SeriesHeader.svelte';
 	import CommitList from '$lib/commit/CommitList.svelte';
@@ -14,6 +15,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, type VirtualBranch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
+	import { isError } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
 		branch: VirtualBranch;
@@ -24,7 +26,15 @@
 
 	const branchController = getContext(BranchController);
 
-	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
+	$inspect('bSeries', branch.series[0]);
+
+	const nonArchivedSeries = $derived(
+		branch.series.filter((s) => {
+			if (isError(s)) return s;
+
+			return !s.archived;
+		})
+	);
 
 	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
 	const stackingReorderDropzoneManager = $derived(
@@ -49,36 +59,40 @@
 	}
 </script>
 
-{#each nonArchivedSeries as currentSeries, idx (currentSeries.name)}
+{#each nonArchivedSeries as currentSeries, idx (currentSeries)}
 	{@const isTopSeries = idx === 0}
 	{@const isBottomSeries = idx === branch.series.length - 1}
 	{#if !isTopSeries}
-		<SeriesDividerLine currentSeries={nonArchivedSeries[idx - 1] as PatchSeries} />
+		<SeriesDividerLine topPatchStatus={currentSeries.patches?.[0]?.status} />
 	{/if}
 
-	<CurrentSeries {currentSeries}>
-		<SeriesHeader {currentSeries} {isTopSeries} {lastPush} />
+	{#if !isError(currentSeries)}
+		<CurrentSeries {currentSeries}>
+			<SeriesHeader {currentSeries} {isTopSeries} {lastPush} />
 
-		{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
-			<div class="branch-emptystate">
-				<Dropzone {accepts} ondrop={(data) => onDrop(data, nonArchivedSeries, currentSeries)}>
-					{#snippet overlay({ hovered, activated })}
-						<CardOverlay {hovered} {activated} label="Move here" />
-					{/snippet}
-					<EmptySeries isBottom={isBottomSeries} />
-				</Dropzone>
-			</div>
-		{/if}
+			{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
+				<div>
+					<Dropzone {accepts} ondrop={(data) => onDrop(data, nonArchivedSeries, currentSeries)}>
+						{#snippet overlay({ hovered, activated })}
+							<CardOverlay {hovered} {activated} label="Move here" />
+						{/snippet}
+						<EmptySeries isBottom={isBottomSeries} />
+					</Dropzone>
+				</div>
+			{/if}
 
-		{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
-			<CommitList
-				remoteOnlyPatches={currentSeries.upstreamPatches.filter((p) => !p.relatedTo)}
-				patches={currentSeries.patches}
-				seriesName={currentSeries.name}
-				isUnapplied={false}
-				isBottom={idx === branch.series.length - 1}
-				{stackingReorderDropzoneManager}
-			/>
-		{/if}
-	</CurrentSeries>
+			{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
+				<CommitList
+					remoteOnlyPatches={currentSeries.upstreamPatches.filter((p) => !p.relatedTo)}
+					patches={currentSeries.patches}
+					seriesName={currentSeries.name}
+					isUnapplied={false}
+					isBottom={idx === branch.series.length - 1}
+					{stackingReorderDropzoneManager}
+				/>
+			{/if}
+		</CurrentSeries>
+	{:else}
+		<ErrorSeries />
+	{/if}
 {/each}
