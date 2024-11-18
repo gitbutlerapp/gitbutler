@@ -3,8 +3,22 @@ import { emptyConflictEntryPresence, type ConflictEntryPresence } from '$lib/con
 import { splitMessage } from '$lib/utils/commitMessage';
 import { hashCode } from '@gitbutler/ui/utils/string';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import { Type, Transform } from 'class-transformer';
+import { Type, Transform, plainToInstance } from 'class-transformer';
 import type { PullRequest } from '$lib/forge/interface/types';
+
+function transformResultToType(type: any, value: any) {
+	if (!Array.isArray(value)) return plainToInstance(type, value);
+
+	return value.map((item) => {
+		if ('Ok' in item) {
+			return plainToInstance(type, item.Ok);
+		}
+		if ('Err' in item) {
+			return new Error(item.Err.description);
+		}
+		return plainToInstance(type, item);
+	});
+}
 
 export type ChangeType =
 	/// Entry does not exist in old version
@@ -138,8 +152,8 @@ export class VirtualBranch {
 	tree!: string;
 
 	// Used in the stacking context where VirtualBranch === Stack
-	@Type(() => PatchSeries)
-	series!: PatchSeries[];
+	@Transform(({ value }) => transformResultToType(PatchSeries, value))
+	series!: (PatchSeries | Error)[];
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status === 'local');
