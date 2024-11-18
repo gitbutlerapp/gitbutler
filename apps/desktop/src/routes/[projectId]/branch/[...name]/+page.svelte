@@ -1,13 +1,13 @@
 <script lang="ts">
+	import { GitBranchService } from '$lib/branches/gitBranch';
 	import BranchPreview from '$lib/components/BranchPreview.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { GitBranchService } from '$lib/stores/remoteBranches';
 	import { Branch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { page } from '$app/stores';
 
-	const remoteBranchService = getContext(GitBranchService);
+	const gitBranchService = getContext(GitBranchService);
 
 	const forgeListingService = getForgeListingService();
 	const name = $derived($page.params.name);
@@ -26,7 +26,7 @@
 	async function findBranches(name: string) {
 		loading = true;
 		try {
-			const branches = await remoteBranchService.findBranches(name);
+			const branches = await gitBranchService.findBranches(name);
 			localBranch = branches.find((branch) => !branch.isRemote);
 			remoteBranches = branches.filter((branch) => branch.isRemote);
 		} finally {

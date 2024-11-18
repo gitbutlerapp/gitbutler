@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
 	import Resizer from '../shared/Resizer.svelte';
+	import { GitBranchService } from '$lib/branches/gitBranch';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import Markdown from '$lib/components/Markdown.svelte';
@@ -8,7 +9,6 @@
 	import { getForge } from '$lib/forge/interface/forge';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { GitBranchService } from '$lib/stores/remoteBranches';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { BranchData, type Branch } from '$lib/vbranches/types';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -22,7 +22,7 @@
 	export let remoteBranch: Branch | undefined = undefined;
 	export let pr: PullRequest | undefined;
 
-	const remoteBranchService = getContext(GitBranchService);
+	const gitBranchService = getContext(GitBranchService);
 	const forge = getForge();
 
 	const fileIdSelection = new FileIdSelection();
@@ -45,7 +45,7 @@
 	// We must manually set the branch data to undefined as the component
 	// doesn't get completely re-rendered on a page change.
 	$: if (localBranch) {
-		remoteBranchService
+		gitBranchService
 			.getRemoteBranchData(localBranch.name)
 			.then((branchData) => (localBranchData = branchData));
 	} else {
@@ -53,7 +53,7 @@
 	}
 
 	$: if (remoteBranch) {
-		remoteBranchService
+		gitBranchService
 			.getRemoteBranchData(remoteBranch.name)
 			.then((branchData) => (remoteBranchData = branchData));
 	} else {

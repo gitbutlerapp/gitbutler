@@ -62,7 +62,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const templateService = new TemplateService(projectId);
 
 	const branchListingService = new BranchListingService(projectId);
-	const remoteBranchService = new GitBranchService(projectId);
+	const gitBranchService = new GitBranchService(projectId);
 
 	const vbranchService = new VirtualBranchService(projectId, projectMetrics, branchListingService);
 
@@ -106,7 +106,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		projectId,
 		project,
 		projectService,
-		remoteBranchService,
+		gitBranchService,
 		vbranchService,
 		projectMetrics,
 		modeService,

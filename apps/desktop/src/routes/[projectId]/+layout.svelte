@@ -9,6 +9,7 @@
 	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
+	import { GitBranchService } from '$lib/branches/gitBranch';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import { CommitService } from '$lib/commits/service';
 	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
@@ -27,7 +28,6 @@
 	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import { ModeService } from '$lib/modes/service';
 	import Navigation from '$lib/navigation/Navigation.svelte';
-	import { GitBranchService } from '$lib/stores/remoteBranches';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { debounce } from '$lib/utils/debounce';
@@ -76,7 +76,7 @@
 		setContext(BranchDragActionsFactory, data.branchDragActionsFactory);
 		setContext(CommitDragActionsFactory, data.commitDragActionsFactory);
 		setContext(StackingReorderDropzoneManagerFactory, data.stackingReorderDropzoneManagerFactory);
-		setContext(GitBranchService, data.remoteBranchService);
+		setContext(GitBranchService, data.gitBranchService);
 		setContext(BranchListingService, data.branchListingService);
 		setContext(ModeService, data.modeService);
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
