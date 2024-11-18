@@ -255,7 +255,6 @@
 							fileStatus={file.status}
 							conflicted={file.conflicted && file.looksConflicted}
 							conflictHint={file.conflictHint}
-							fileStatusStyle={file.status === 'M' ? 'full' : 'dot'}
 							onclick={(e) => {
 								contextMenu?.open(e, { files: [file] });
 							}}
