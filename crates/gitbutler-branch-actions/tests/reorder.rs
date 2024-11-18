@@ -441,6 +441,7 @@ fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>>
     let mut out = vec![];
     for series in vbranch.series.clone() {
         let messages = series
+            .unwrap()
             .patches
             .iter()
             .map(|p| (p.id, p.description.to_string(), p.conflicted, p.created_at))

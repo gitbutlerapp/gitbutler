@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::{Context, Result};
-use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
@@ -236,100 +235,135 @@ pub(crate) fn branch_integrated(
 /// Newest first, oldest last in the list
 /// `commits` is used to accelerate the is-integrated check.
 pub(crate) fn stack_series(
-    ctx: &CommandContext,
+    ctx: &StackContext,
     stack: &mut Stack,
     default_target: &Target,
     check_commit: &mut IsCommitIntegrated,
     remote_commit_data: HashMap<CommitData, git2::Oid>,
     commits: &[VirtualBranchCommit],
     stack_dependencies: StackDependencies,
-) -> Result<(Vec<PatchSeries>, bool)> {
-    let stack_context: StackContext = ctx.to_stack_context()?;
+) -> (Vec<Result<PatchSeries, serde_error::Error>>, bool) {
     let mut requires_force = false;
-    let mut api_series: Vec<PatchSeries> = vec![];
-    let repository = stack_context.repository();
+    let mut api_series: Vec<Result<PatchSeries, serde_error::Error>> = vec![];
     for stack_branch in stack.branches() {
-        let branch_commits = stack_branch.commits(&stack_context, stack)?;
-        let remote = default_target.push_remote_name();
-        let upstream_reference = if stack_branch.pushed(remote.as_str(), repository)? {
-            stack_branch.remote_reference(remote.as_str()).ok()
-        } else {
-            None
-        };
-        let mut patches: Vec<VirtualBranchCommit> = vec![];
-        let mut is_integrated = false;
-        // Reverse first instead of later, so that we catch the first integrated commit
-        for commit in branch_commits.clone().local_commits.iter().rev() {
-            if !is_integrated {
-                is_integrated = commits
-                    .iter()
-                    .find_map(|c| (c.id == commit.id()).then_some(Ok(c.is_integrated)))
-                    .unwrap_or_else(|| check_commit.is_integrated(commit))?;
-            }
-            let copied_from_remote_id = CommitData::try_from(commit)
-                .ok()
-                .and_then(|data| remote_commit_data.get(&data).copied());
-            let remote_commit_id = commit
-                .change_id()
-                .and_then(|change_id| {
-                    branch_commits.remote_commits.iter().find_map(|c| {
-                        (c.change_id().as_deref() == Some(&change_id)).then(|| c.id())
-                    })
-                })
-                .or(copied_from_remote_id)
-                .or(if branch_commits.remote(commit) {
-                    Some(commit.id())
-                } else {
-                    None
-                });
-            if remote_commit_id.map_or(false, |id| commit.id() != id) {
-                requires_force = true;
-            }
-
-            let commit_dependencies =
-                commit_dependencies_from_stack(&stack_dependencies, commit.id());
-
-            let vcommit = commit_to_vbranch_commit(
-                repository,
-                stack,
-                commit,
-                is_integrated,
-                branch_commits.remote(commit),
-                copied_from_remote_id,
-                remote_commit_id,
-                commit_dependencies,
-            )?;
-            patches.push(vcommit);
-        }
-        // There should be no duplicates, but dedup because the UI cant handle duplicates
-        patches.dedup_by(|a, b| a.id == b.id);
-
-        let mut upstream_patches = vec![];
-        for commit in branch_commits.upstream_only_commits {
-            let is_integrated = check_commit.is_integrated(&commit)?;
-            let commit_dependencies =
-                commit_dependencies_from_stack(&stack_dependencies, commit.id());
-
-            let vcommit = commit_to_vbranch_commit(
-                repository,
-                stack,
-                &commit,
-                is_integrated,
-                true, // per definition
-                None, // per definition
-                Some(commit.id()),
-                commit_dependencies,
-            )?;
-            upstream_patches.push(vcommit);
-        }
-        upstream_patches.reverse();
-        // There should be no duplicates, but dedup because the UI cant handle duplicates
-        upstream_patches.dedup_by(|a, b| a.id == b.id);
-
-        if !upstream_patches.is_empty() {
+        let (api_branch_result, force) = stack_branch_to_api_branch(
+            ctx,
+            stack_branch,
+            stack,
+            default_target,
+            check_commit,
+            &remote_commit_data,
+            commits,
+            &stack_dependencies,
+        )
+        .map_or_else(
+            |err| (Err(err), false),
+            |(patch_series, force)| (Ok(patch_series), force),
+        );
+        if force {
             requires_force = true;
         }
-        api_series.push(PatchSeries {
+        api_series.push(api_branch_result.map_err(|err| serde_error::Error::new(&*err)));
+    }
+    api_series.reverse();
+
+    (api_series, requires_force)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn stack_branch_to_api_branch(
+    ctx: &StackContext,
+    stack_branch: StackBranch,
+    stack: &Stack,
+    default_target: &Target,
+    check_commit: &mut IsCommitIntegrated,
+    remote_commit_data: &HashMap<CommitData, git2::Oid>,
+    commits: &[VirtualBranchCommit],
+    stack_dependencies: &StackDependencies,
+) -> Result<(PatchSeries, bool)> {
+    let mut requires_force = false;
+    let repository = ctx.repository();
+    let branch_commits = stack_branch.commits(ctx, stack)?;
+    let remote = default_target.push_remote_name();
+    let upstream_reference = if stack_branch.pushed(remote.as_str(), repository)? {
+        stack_branch.remote_reference(remote.as_str()).ok()
+    } else {
+        None
+    };
+    let mut patches: Vec<VirtualBranchCommit> = vec![];
+    let mut is_integrated = false;
+    // Reverse first instead of later, so that we catch the first integrated commit
+    for commit in branch_commits.clone().local_commits.iter().rev() {
+        if !is_integrated {
+            is_integrated = commits
+                .iter()
+                .find_map(|c| (c.id == commit.id()).then_some(Ok(c.is_integrated)))
+                .unwrap_or_else(|| check_commit.is_integrated(commit))?;
+        }
+        let copied_from_remote_id = CommitData::try_from(commit)
+            .ok()
+            .and_then(|data| remote_commit_data.get(&data).copied());
+        let remote_commit_id = commit
+            .change_id()
+            .and_then(|change_id| {
+                branch_commits
+                    .remote_commits
+                    .iter()
+                    .find_map(|c| (c.change_id().as_deref() == Some(&change_id)).then(|| c.id()))
+            })
+            .or(copied_from_remote_id)
+            .or(if branch_commits.remote(commit) {
+                Some(commit.id())
+            } else {
+                None
+            });
+        if remote_commit_id.map_or(false, |id| commit.id() != id) {
+            requires_force = true;
+        }
+
+        let commit_dependencies = commit_dependencies_from_stack(stack_dependencies, commit.id());
+
+        let vcommit = commit_to_vbranch_commit(
+            repository,
+            stack,
+            commit,
+            is_integrated,
+            branch_commits.remote(commit),
+            copied_from_remote_id,
+            remote_commit_id,
+            commit_dependencies,
+        )?;
+        patches.push(vcommit);
+    }
+    // There should be no duplicates, but dedup because the UI cant handle duplicates
+    patches.dedup_by(|a, b| a.id == b.id);
+
+    let mut upstream_patches = vec![];
+    for commit in branch_commits.upstream_only_commits {
+        let is_integrated = check_commit.is_integrated(&commit)?;
+        let commit_dependencies = commit_dependencies_from_stack(stack_dependencies, commit.id());
+
+        let vcommit = commit_to_vbranch_commit(
+            repository,
+            stack,
+            &commit,
+            is_integrated,
+            true, // per definition
+            None, // per definition
+            Some(commit.id()),
+            commit_dependencies,
+        )?;
+        upstream_patches.push(vcommit);
+    }
+    upstream_patches.reverse();
+    // There should be no duplicates, but dedup because the UI cant handle duplicates
+    upstream_patches.dedup_by(|a, b| a.id == b.id);
+
+    if !upstream_patches.is_empty() {
+        requires_force = true;
+    }
+    Ok((
+        PatchSeries {
             name: stack_branch.name,
             description: stack_branch.description,
             upstream_reference,
@@ -337,9 +371,7 @@ pub(crate) fn stack_series(
             upstream_patches,
             pr_number: stack_branch.pr_number,
             archived: stack_branch.archived,
-        });
-    }
-    api_series.reverse();
-
-    Ok((api_series, requires_force))
+        },
+        requires_force,
+    ))
 }

@@ -100,7 +100,10 @@ fn integration() {
             .find(|branch| branch.id == branch_id)
             .unwrap();
 
-        assert_eq!(branch.series.first().unwrap().pr_number, Some(123));
+        assert_eq!(
+            branch.series.first().unwrap().clone().unwrap().pr_number,
+            Some(123)
+        );
 
         assert!(branch.commits[0].is_remote);
         assert!(branch.commits[0].is_integrated);
