@@ -4,13 +4,13 @@ packages:
   - 'crates/*'
 
 catalog:
-  vite: 5.2.13
+  vite: 5.4.11
 catalogs:
   svelte:
-    svelte: 5.0.0-next.243
-    '@sveltejs/kit': 2.5.25
-    svelte-check: 4.0.1
-    '@sveltejs/vite-plugin-svelte': 4.0.0-next.6
-    '@sveltejs/adapter-static': 3.0.4
+    svelte: 5.2.1
+    '@sveltejs/kit': 2.8.1
+    svelte-check: 4.0.9
+    '@sveltejs/vite-plugin-svelte': 4.0.1
+    '@sveltejs/adapter-static': 3.0.6
   redux:
     '@reduxjs/toolkit': '^2.3.0'

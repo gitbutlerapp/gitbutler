@@ -23,6 +23,7 @@
 
 {#if (!type || type === 'init') && 'tokens' in rest && rest.tokens}
 	{#each rest.tokens as token}
+		<!-- eslint-disable-next-line svelte/valid-compile -->
 		<svelte:self {...token} />
 	{/each}
 {:else if renderers[type]}
@@ -33,6 +34,7 @@
 			{#each listItems as item}
 				{@const ChildComponent = renderers[item.type]}
 				<ChildComponent {...item}>
+					<!-- eslint-disable-next-line svelte/valid-compile -->
 					<svelte:self tokens={item.tokens} />
 				</ChildComponent>
 			{/each}
@@ -40,6 +42,7 @@
 	{:else}
 		<CurrentComponent {...rest}>
 			{#if 'tokens' in rest && rest.tokens}
+				<!-- eslint-disable-next-line svelte/valid-compile -->
 				<svelte:self tokens={rest.tokens} />
 			{:else if 'raw' in rest}
 				{rest.raw}
