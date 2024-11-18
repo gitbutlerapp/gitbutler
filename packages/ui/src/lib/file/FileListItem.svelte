@@ -217,6 +217,7 @@
 		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
 		margin: 0 2px;
+		white-space: nowrap;
 		transition:
 			background-color var(--transition-fast),
 			border-color var(--transition-fast);
