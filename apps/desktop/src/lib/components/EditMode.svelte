@@ -200,6 +200,8 @@
 			openExternalUrl(path);
 		}
 	}
+
+	let isCommitListScrolled = $state(false);
 </script>
 
 <div class="editmode__container">
@@ -235,11 +237,17 @@
 		</div>
 
 		<div bind:this={filesList} class="card files">
-			<div class="header">
+			<div class="header" class:show-border={isCommitListScrolled}>
 				<h3 class="text-13 text-semibold">Commit files</h3>
 				<Badge label={files.length} />
 			</div>
-			<ScrollableContainer>
+			<ScrollableContainer
+				onscroll={(e) => {
+					if (e.target instanceof HTMLElement) {
+						isCommitListScrolled = e.target.scrollTop > 0;
+					}
+				}}
+			>
 				{#each files as file (file.path)}
 					<div class="file">
 						<FileListItem
@@ -364,6 +372,10 @@
 			padding-left: 16px;
 			padding-top: 16px;
 			padding-bottom: 8px;
+
+			&.show-border {
+				border-bottom: 1px solid var(--clr-border-3);
+			}
 		}
 
 		& .file {
