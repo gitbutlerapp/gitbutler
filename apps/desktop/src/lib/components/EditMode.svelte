@@ -215,7 +215,7 @@
 
 	<div class="commit-group">
 		<div class="card commit-card">
-			<h3 class="text-13 text-semibold commit-card__title">
+			<h3 class="text-13 text-semibold text-body commit-card__title">
 				{commit?.descriptionTitle || 'Undefined commit'}
 			</h3>
 
