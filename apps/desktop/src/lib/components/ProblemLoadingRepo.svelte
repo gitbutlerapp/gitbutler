@@ -38,11 +38,11 @@
 </script>
 
 <DecorativeSplitView img={loadErrorSvg}>
-	<div class="problem" data-tauri-drag-region>
+	<div class="problem">
 		<div class="project-name">
 			<ProjectNameLabel projectName={project?.title} />
 		</div>
-		<h2 class="problem__title text-18 text-body text-bold" data-tauri-drag-region>
+		<h2 class="problem__title text-18 text-body text-bold">
 			There was a problem loading this repo
 		</h2>
 

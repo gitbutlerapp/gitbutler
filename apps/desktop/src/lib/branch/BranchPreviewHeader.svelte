@@ -141,7 +141,7 @@
 			</div>
 		</div>
 	</div>
-	<div class="header__top-overlay" data-tauri-drag-region></div>
+	<div class="header__top-overlay"></div>
 </div>
 
 <Modal

@@ -32,10 +32,10 @@
 	}
 </script>
 
-<div class="canvas-dropzone" data-tauri-drag-region>
+<div class="canvas-dropzone">
 	<Dropzone {accepts} ondrop={onDrop}>
 		{#snippet overlay({ hovered, activated })}
-			<div class="new-virtual-branch" class:activated class:hovered data-tauri-drag-region>
+			<div class="new-virtual-branch" class:activated class:hovered>
 				<div class="new-virtual-branch__content">
 					<div class="stimg">
 						<div class="stimg__hand">

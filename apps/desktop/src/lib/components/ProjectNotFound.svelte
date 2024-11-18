@@ -49,11 +49,11 @@
 </script>
 
 <DecorativeSplitView img={notFoundSvg}>
-	<div class="container" data-tauri-drag-region>
+	<div class="container">
 		{#await projectPromise then project}
 			{#if deleteSucceeded === undefined}
 				<div class="text-content">
-					<h2 class="title-text text-18 text-body text-bold" data-tauri-drag-region>
+					<h2 class="title-text text-18 text-body text-bold">
 						Can’t find "{project.title}"
 					</h2>
 

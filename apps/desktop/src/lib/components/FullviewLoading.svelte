@@ -2,7 +2,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 </script>
 
-<div class="loading" data-tauri-drag-region><Icon name="spinner" /></div>
+<div class="loading"><Icon name="spinner" /></div>
 
 <style>
 	.loading {

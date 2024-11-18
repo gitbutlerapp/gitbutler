@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SupportersBanner from './SupportersBanner.svelte';
+	import { platformName } from '$lib/platform/platform';
 	import { openExternalUrl } from '$lib/utils/url';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -22,24 +23,29 @@
 	}
 </script>
 
-<aside class="profile-sidebar" data-tauri-drag-region>
+<aside class="profile-sidebar">
 	<section class="profile-sidebar__top">
 		<div class="profile-sidebar__menu-wrapper">
-			<div class="profile-sidebar__header">
-				<div class="back-btn__icon">
-					<Button
-						icon="chevron-left"
-						style="ghost"
-						onmousedown={() => {
-							if (history.length > 0) {
-								history.back();
-							} else {
-								goto('/');
-							}
-						}}
-					/>
+			<div class="profile-sidebar__header-wrapper">
+				{#if platformName === 'macos'}
+					<div class="traffic-light-placeholder"></div>
+				{/if}
+				<div class="profile-sidebar__header">
+					<div class="back-btn__icon">
+						<Button
+							icon="chevron-left"
+							style="ghost"
+							onmousedown={() => {
+								if (history.length > 0) {
+									history.back();
+								} else {
+									goto('/');
+								}
+							}}
+						/>
+					</div>
+					<h2 class="profile-sidebar__title text-18 text-bold">Preferences</h2>
 				</div>
-				<h2 class="profile-sidebar__title text-18 text-bold">Preferences</h2>
 			</div>
 
 			<ul class="profile-sidebar__menu">
@@ -156,17 +162,27 @@
 		display: flex;
 		flex-direction: column;
 		justify-content: space-between;
-		padding: 40px 14px 14px 14px;
+		padding: 14px;
 		border-right: 1px solid var(--clr-border-2);
 		background-color: var(--clr-bg-1);
 		height: 100%;
 		width: 256px;
 	}
 
+	.profile-sidebar__header-wrapper {
+		display: flex;
+		flex-direction: column;
+	}
+
 	.profile-sidebar__header {
 		display: flex;
 		align-items: center;
 		gap: 8px;
+	}
+
+	.traffic-light-placeholder {
+		width: 100%;
+		height: 24px;
 	}
 
 	/* TOP */
