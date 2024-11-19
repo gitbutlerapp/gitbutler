@@ -45,6 +45,8 @@ export interface DetailedPullRequest {
 	rebaseable: boolean;
 	squashable: boolean;
 	state: 'open' | 'closed';
+	baseRepo: RepoInfo | undefined;
+	baseBranch: string;
 }
 
 export type ChecksStatus = {
