@@ -230,6 +230,27 @@
 			branchController.updateSeriesName(branch.id, currentSeries.name, message);
 		}
 	}
+
+	async function onCreateNewPr() {
+		// Make sure the listing result is up-to-date so that we don't
+		// automatically set it back to what it was. If a branch has no
+		// pr attached we look for any open prs with a matching branch
+		// name, and save it to the branch.
+		await $forgeListing?.refresh();
+
+		if (!currentSeries.prNumber) {
+			throw new Error('Failed to discard pr, try reloading the app.');
+		}
+
+		// Delete the reference stored on disk.
+		branchController.updateBranchPrNumber(branch.id, currentSeries.name, null);
+		kebabContextMenu?.close();
+
+		// Display create pr modal after a slight delay, this prevents
+		// interference with the closing context menu. It also feels nice
+		// that these two things are not happening at the same time.
+		setTimeout(() => handleOpenPR(), 250);
+	}
 </script>
 
 <AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={currentSeries.name} />
@@ -251,7 +272,7 @@
 		if (url) openExternalUrl(url);
 	}}
 	hasForgeBranch={!!forgeBranch}
-	prUrl={$pr?.htmlUrl}
+	pr={$pr}
 	openPrDetailsModal={handleOpenPR}
 	{branchType}
 	onMenuToggle={(isOpen, isLeftClick) => {
@@ -259,6 +280,7 @@
 			contextMenuOpened = isOpen;
 		}
 	}}
+	{onCreateNewPr}
 />
 
 <div

@@ -161,7 +161,7 @@ export class BranchController {
 	 * @param headName The branch name to update.
 	 * @param prNumber New pull request number to be set for the branch.
 	 */
-	async updateBranchPrNumber(stackId: string, headName: string, prNumber: number | undefined) {
+	async updateBranchPrNumber(stackId: string, headName: string, prNumber: number | null) {
 		try {
 			await invoke<void>('update_series_pr_number', {
 				projectId: this.projectId,
@@ -170,7 +170,7 @@ export class BranchController {
 				prNumber
 			});
 		} catch (err) {
-			showError('Failed to update branch forge ids', err);
+			showError('Failed to update pr number', err);
 		}
 	}
 
