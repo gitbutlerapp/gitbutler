@@ -13,6 +13,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 
 	interface Props {
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
@@ -22,13 +23,14 @@
 		seriesCount: number;
 		isTopSeries: boolean;
 		hasForgeBranch: boolean;
-		prUrl?: string;
+		pr?: DetailedPullRequest;
 		branchType: CommitStatus;
 		description: string;
 		toggleDescription: () => Promise<void>;
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
 		onAddDependentSeries?: () => void;
+		onCreateNewPr?: () => Promise<void>;
 		onOpenInBrowser?: () => void;
 		onMenuToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
@@ -41,12 +43,13 @@
 		seriesCount,
 		hasForgeBranch,
 		headName,
-		prUrl,
+		pr,
 		branchType,
 		description,
 		toggleDescription,
 		onGenerateBranchName,
 		openPrDetailsModal,
+		onCreateNewPr,
 		onAddDependentSeries,
 		onOpenInBrowser,
 		onMenuToggle
@@ -160,19 +163,19 @@
 			/>
 		{/if}
 	</ContextMenuSection>
-	{#if prUrl}
+	{#if pr?.htmlUrl}
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Open PR in browser"
 				onclick={() => {
-					openExternalUrl(prUrl);
+					openExternalUrl(pr.htmlUrl);
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
 				label="Copy PR link"
 				onclick={() => {
-					copyToClipboard(prUrl);
+					copyToClipboard(pr.htmlUrl);
 					contextMenuEl?.close();
 				}}
 			/>
@@ -181,6 +184,16 @@
 				onclick={() => {
 					openPrDetailsModal();
 					contextMenuEl?.close();
+				}}
+			/>
+		</ContextMenuSection>
+	{/if}
+	{#if onCreateNewPr && pr?.state === 'closed'}
+		<ContextMenuSection>
+			<ContextMenuItem
+				label="Create new PR"
+				onclick={async () => {
+					await onCreateNewPr();
 				}}
 			/>
 		</ContextMenuSection>

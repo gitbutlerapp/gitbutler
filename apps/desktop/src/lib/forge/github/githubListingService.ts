@@ -35,7 +35,7 @@ export class GitHubListingService implements ForgeListingService {
 
 	async refresh(): Promise<void> {
 		try {
-			this.fetch();
+			await this.fetch();
 		} catch (e) {
 			this.error.set(e);
 			console.error(e);
