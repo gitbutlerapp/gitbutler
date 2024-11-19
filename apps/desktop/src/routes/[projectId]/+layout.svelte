@@ -29,7 +29,6 @@
 	import { ModeService } from '$lib/modes/service';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
-	import { parseRemoteUrl } from '$lib/url/gitUrl';
 	import { debounce } from '$lib/utils/debounce';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
@@ -57,8 +56,8 @@
 
 	const branchesError = $derived(vbranchService.branchesError);
 	const baseBranch = $derived(baseBranchService.base);
-	const remoteUrl = $derived($baseBranch?.remoteUrl);
-	const forkUrl = $derived($baseBranch?.pushRemoteUrl);
+	const repoInfo = $derived(baseBranchService.repo);
+	const forkInfo = $derived(baseBranchService.pushRepo);
 	const user = $derived(userService.user);
 	const accessToken = $derived($user?.github_access_token);
 	const baseError = $derived(baseBranchService.error);
@@ -100,8 +99,6 @@
 
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
 	const forgeFactory = $derived(new DefaultForgeFactory(octokit));
-	const repoInfo = $derived(remoteUrl ? parseRemoteUrl(remoteUrl) : undefined);
-	const forkInfo = $derived(forkUrl && forkUrl !== remoteUrl ? parseRemoteUrl(forkUrl) : undefined);
 	const baseBranchName = $derived($baseBranch?.shortName);
 
 	const listServiceStore = createForgeListingServiceStore(undefined);
@@ -140,14 +137,14 @@
 
 	$effect(() => {
 		const forge =
-			repoInfo && baseBranchName
-				? forgeFactory.build(repoInfo, baseBranchName, forkInfo)
+			$repoInfo && baseBranchName
+				? forgeFactory.build($repoInfo, baseBranchName, $forkInfo)
 				: undefined;
 		const ghListService = forge?.listService();
 		listServiceStore.set(ghListService);
 		forgeStore.set(forge);
 		prService.set(forge ? forge.prService() : undefined);
-		setPostHogRepo(repoInfo);
+		setPostHogRepo($repoInfo);
 		return () => {
 			setPostHogRepo(undefined);
 		};

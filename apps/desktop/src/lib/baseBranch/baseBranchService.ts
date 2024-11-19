@@ -1,17 +1,38 @@
 import { BaseBranch, NoDefaultTarget } from './baseBranch';
 import { Code, invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
+import { uniqueDerived } from '$lib/stores/uniqueStore';
+import { parseRemoteUrl } from '$lib/url/gitUrl';
 import { plainToInstance } from 'class-transformer';
-import { writable } from 'svelte/store';
+import { derived, writable } from 'svelte/store';
 
 export interface RemoteBranchInfo {
 	name: string;
 }
 
 export class BaseBranchService {
-	readonly base = writable<BaseBranch | null | undefined>(undefined, () => {
+	// Primary private writable that this class emits to.
+	private readonly _base = writable<BaseBranch | null | undefined>(undefined, () => {
 		this.refresh();
 	});
+
+	// Deduplciated since updates are frequent.
+	readonly base = uniqueDerived(this._base);
+
+	// Deduplicated repo information.
+	readonly repo = uniqueDerived(
+		derived(this.base, (base) => {
+			return base ? parseRemoteUrl(base.remoteUrl) : undefined;
+		})
+	);
+
+	// Deduplicated push repo information.
+	readonly pushRepo = uniqueDerived(
+		derived(this.base, (base) => {
+			return base ? parseRemoteUrl(base.pushRemoteUrl) : undefined;
+		})
+	);
+
 	readonly loading = writable(false);
 	readonly error = writable();
 
@@ -25,7 +46,7 @@ export class BaseBranchService {
 				await invoke<any>('get_base_branch_data', { projectId: this.projectId })
 			);
 			if (!baseBranch) this.error.set(new NoDefaultTarget());
-			this.base.set(baseBranch);
+			this._base.set(baseBranch);
 		} catch (err: any) {
 			this.error.set(err);
 			throw err;

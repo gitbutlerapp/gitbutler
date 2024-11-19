@@ -35,13 +35,6 @@ export function convertRemoteToWebUrl(url: string): string {
 	return `${protocol}://${gitRemote.resource}/${gitRemote.owner}/${gitRemote.name}`;
 }
 
-export function remoteUrlIsHttp(url: string): boolean {
-	const httpProtocols = ['http', 'https'];
-	const gitRemote = GitUrlParse(url);
-
-	return httpProtocols.includes(gitRemote.protocol);
-}
-
 export interface EditorUriParams {
 	schemeId: string;
 	path: string[];

@@ -13,7 +13,7 @@ export type RepoInfo = {
 export function parseRemoteUrl(url: string): RepoInfo | undefined {
 	try {
 		const { protocol, name, owner, organization, resource } = gitUrlParse(url);
-		const hash = hashCode(name + '|' + owner + '|' + name + '|' + organization);
+		const hash = hashCode(name + '|' + owner + '|' + organization);
 
 		return {
 			protocol,
