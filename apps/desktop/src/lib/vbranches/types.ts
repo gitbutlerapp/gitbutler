@@ -464,6 +464,10 @@ export class PatchSeries {
 	get branchName() {
 		return this.name?.replace('refs/remotes/origin/', '');
 	}
+
+	get conflicted() {
+		return this.patches.some((c) => c.conflicted);
+	}
 }
 
 /**

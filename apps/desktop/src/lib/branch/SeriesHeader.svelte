@@ -74,6 +74,7 @@
 	const hasNoCommits = $derived(
 		currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0
 	);
+	const conflictedSeries = $derived(currentSeries.conflicted);
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
@@ -341,8 +342,14 @@
 								style="ghost"
 								wide
 								outline
-								disabled={currentSeries.patches.length === 0 || !$forge || !$prService}
+								disabled={currentSeries.patches.length === 0 ||
+									!$forge ||
+									!$prService ||
+									conflictedSeries}
 								onclick={() => handleOpenPR(!forgeBranch)}
+								tooltip={conflictedSeries
+									? 'Please resolve the conflicts before creating a PR'
+									: undefined}
 							>
 								Create pull request
 							</Button>
