@@ -14,20 +14,9 @@
 </script>
 
 <div class="container">
-	{#if commitNode.type === 'local'}
-		<Tooltip text={tooltipText}>
-			<svg
-				class="local-commit-dot"
-				viewBox="0 0 10 10"
-				fill="none"
-				xmlns="http://www.w3.org/2000/svg"
-			>
-				<rect width="10" height="10" rx="5" />
-			</svg>
-		</Tooltip>
-	{:else if commitNode.type === 'localAndShadow'}
+	{#if commitNode.type === 'local' && commitNode.commit?.remoteCommitId}
 		<div class="local-shadow-commit-dot">
-			<Tooltip text={commitNode.commit?.remoteCommitId?.substring(0, 7) ?? 'Diverged'}>
+			<Tooltip text={commitNode.commit?.remoteCommitId.substring(0, 7) ?? 'Diverged'}>
 				<svg class="shadow-dot" viewBox="0 0 10 10" xmlns="http://www.w3.org/2000/svg">
 					<path
 						d="M0.827119 6.41372C0.0460709 5.63267 0.0460709 4.36634 0.827119 3.58529L3.70602 0.706392C4.48707 -0.0746567 5.7534 -0.0746567 6.53445 0.706392L9.41335 3.58529C10.1944 4.36634 10.1944 5.63267 9.41335 6.41372L6.53445 9.29262C5.7534 10.0737 4.48707 10.0737 3.70602 9.29262L0.827119 6.41372Z"
@@ -44,6 +33,17 @@
 				</svg>
 			</Tooltip>
 		</div>
+	{:else if commitNode.type === 'local'}
+		<Tooltip text={tooltipText}>
+			<svg
+				class="local-commit-dot"
+				viewBox="0 0 10 10"
+				fill="none"
+				xmlns="http://www.w3.org/2000/svg"
+			>
+				<rect width="10" height="10" rx="5" />
+			</svg>
+		</Tooltip>
 	{:else}
 		<Tooltip text={tooltipText}>
 			<svg class="generic-commit-dot" viewBox="0 0 11 12" xmlns="http://www.w3.org/2000/svg">

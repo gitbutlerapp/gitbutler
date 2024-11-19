@@ -81,9 +81,9 @@ fn integration() {
             .find(|branch| branch.id == branch_id)
             .unwrap();
 
-        assert!(branch.commits[0].is_remote);
+        assert!(branch.commits[0].is_local_and_remote);
         assert!(!branch.commits[0].is_integrated);
-        assert!(branch.commits[1].is_remote);
+        assert!(branch.commits[1].is_local_and_remote);
         assert!(!branch.commits[1].is_integrated);
 
         repository.rebase_and_merge(&branch_name);
@@ -105,9 +105,9 @@ fn integration() {
             Some(123)
         );
 
-        assert!(branch.commits[0].is_remote);
+        assert!(branch.commits[0].is_local_and_remote);
         assert!(branch.commits[0].is_integrated);
-        assert!(branch.commits[1].is_remote);
+        assert!(branch.commits[1].is_local_and_remote);
         assert!(branch.commits[1].is_integrated);
     }
 }

@@ -67,15 +67,20 @@
 
 	const forge = getForge();
 
-	const localAndRemoteCommits = $derived(patches.filter((patch) => patch.remoteCommitId));
+	const localAndRemoteCommits = $derived(
+		patches.filter((patch) => patch.status === 'localAndRemote')
+	);
 	const lastDivergentCommit = $derived(findLastDivergentCommit(localAndRemoteCommits));
 
+	// A local or localAndRemote commit probably shouldn't every be integrated,
+	// but the isIntegrated check is a bit fuzzy, and is certainly the most
+	// important state to convey to the user.
 	const lineManager = $derived(
 		lineManagerFactory.build({
-			remoteCommits: remoteOnlyPatches,
-			localCommits: patches.filter((patch) => !patch.remoteCommitId),
-			localAndRemoteCommits,
-			integratedCommits: patches.filter((patch) => patch.isIntegrated)
+			remoteCommits: remoteOnlyPatches.filter((patch) => patch.status === 'remote'),
+			localCommits: patches.filter((patch) => patch.status === 'local'),
+			localAndRemoteCommits: localAndRemoteCommits,
+			integratedCommits: patches.filter((patch) => patch.status === 'integrated')
 		})
 	);
 

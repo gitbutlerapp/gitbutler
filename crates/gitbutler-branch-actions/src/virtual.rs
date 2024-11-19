@@ -1,7 +1,7 @@
 use crate::{
-    commit::{commit_to_vbranch_commit, VirtualBranchCommit},
+    commit::VirtualBranchCommit,
     conflicts::{self, RepoConflictsExt},
-    dependencies::{commit_dependencies_from_workspace, stack_dependencies_from_workspace},
+    dependencies::stack_dependencies_from_workspace,
     file::VirtualBranchFile,
     hunk::VirtualBranchHunk,
     integration::get_workspace_head,
@@ -36,7 +36,6 @@ use gitbutler_stack::{
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use itertools::Itertools;
 use serde::Serialize;
-use std::collections::HashSet;
 use std::{collections::HashMap, path::PathBuf, vec};
 use tracing::instrument;
 
@@ -345,106 +344,10 @@ pub fn list_virtual_branches_cached(
             None => None,
         };
 
-        let upstram_branch_commit = upstream_branch
-            .as_ref()
-            .map(|branch| branch.get().peel_to_commit())
-            .transpose()
-            .context(format!(
-                "failed to find upstream branch commit for {}",
-                branch.name
-            ))?;
-
-        // find upstream commits if we found an upstream reference
-        let (remote_commit_ids, remote_commit_data) = upstram_branch_commit
-            .as_ref()
-            .map(
-                |upstream| -> Result<(HashSet<git2::Oid>, HashMap<CommitData, git2::Oid>)> {
-                    let merge_base = gix_repo
-                        .merge_base_with_graph(
-                            git2_to_gix_object_id(upstream.id()),
-                            git2_to_gix_object_id(default_target.sha),
-                            &mut graph,
-                        )
-                        .context(format!(
-                            "failed to find merge base between {} and {}",
-                            upstream.id(),
-                            default_target.sha
-                        ))?;
-                    let merge_base = gitbutler_oxidize::gix_to_git2_oid(merge_base);
-                    let remote_commit_ids = HashSet::from_iter(repo.l(
-                        upstream.id(),
-                        LogUntil::Commit(merge_base),
-                        false,
-                    )?);
-                    let remote_commit_data: HashMap<_, _> = remote_commit_ids
-                        .iter()
-                        .copied()
-                        .filter_map(|id| repo.find_commit(id).ok())
-                        .filter_map(|commit| {
-                            CommitData::try_from(&commit)
-                                .ok()
-                                .map(|key| (key, commit.id()))
-                        })
-                        .collect();
-                    Ok((remote_commit_ids, remote_commit_data))
-                },
-            )
-            .transpose()?
-            .unwrap_or_default();
-
-        let mut is_integrated = false;
-        let mut is_remote = false;
-
         // find all commits on head that are not on target.sha
         let commits = repo.log(branch.head(), LogUntil::Commit(default_target.sha), false)?;
         let mut check_commit =
             IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
-        let vbranch_commits = {
-            let _span = tracing::debug_span!(
-                "is-commit-integrated",
-                given_name = branch.name,
-                commits_to_check = commits.len()
-            )
-            .entered();
-            commits
-                .iter()
-                .map(|commit| {
-                    is_remote = if is_remote {
-                        is_remote
-                    } else {
-                        // This can only work once we have pushed our commits to the remote.
-                        // Otherwise, even local commits created from a remote commit will look different.
-                        remote_commit_ids.contains(&commit.id())
-                    };
-
-                    // only check for integration if we haven't already found an integration
-                    if !is_integrated {
-                        is_integrated = check_commit.is_integrated(commit)?
-                    };
-
-                    let copied_from_remote_id = CommitData::try_from(commit)
-                        .ok()
-                        .and_then(|data| remote_commit_data.get(&data).copied());
-
-                    let commit_dependencies = commit_dependencies_from_workspace(
-                        &status.workspace_dependencies,
-                        branch.id,
-                        commit.id(),
-                    );
-
-                    commit_to_vbranch_commit(
-                        repo,
-                        &branch,
-                        commit,
-                        is_integrated,
-                        is_remote,
-                        copied_from_remote_id,
-                        None, // remote_commit_id is only used inside PatchSeries
-                        commit_dependencies,
-                    )
-                })
-                .collect::<Result<Vec<_>>>()?
-        };
 
         let merge_base = gix_repo
             .merge_base_with_graph(
@@ -494,8 +397,6 @@ pub fn list_virtual_branches_cached(
             &mut branch,
             &default_target,
             &mut check_commit,
-            remote_commit_data,
-            &vbranch_commits,
             stack_dependencies,
         );
 
@@ -508,6 +409,13 @@ pub fn list_virtual_branches_cached(
             requires_force = force // derive force requirement from the series
         }
 
+        let commits = series
+            .iter()
+            .cloned()
+            .filter_map(Result::ok)
+            .flat_map(|s| s.patches)
+            .collect();
+
         let head = branch.head();
         let branch = VirtualBranch {
             id: branch.id,
@@ -516,7 +424,7 @@ pub fn list_virtual_branches_cached(
             active: true,
             files,
             order: branch.order,
-            commits: vbranch_commits,
+            commits,
             requires_force,
             upstream,
             upstream_name: branch
