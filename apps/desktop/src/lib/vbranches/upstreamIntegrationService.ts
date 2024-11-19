@@ -131,7 +131,6 @@ export class UpstreamIntegrationService {
 			[branchStatuses, this.virtualBranchService.branches],
 			([branchStatuses, branches]): StackStatusesWithBranches | undefined => {
 				if (!branchStatuses || !branches) return;
-				console.log('branchStatuses', branchStatuses);
 				if (branchStatuses.type === 'upToDate') return branchStatuses;
 
 				return {
