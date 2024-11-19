@@ -60,7 +60,7 @@
 	}
 </script>
 
-{#each nonArchivedSeries as currentSeries, idx (currentSeries)}
+{#each nonArchivedSeries as currentSeries, idx ('name' in currentSeries ? currentSeries.name : undefined)}
 	{@const isTopSeries = idx === 0}
 	{@const isBottomSeries = idx === branch.series.length - 1}
 	{#if !isTopSeries}
