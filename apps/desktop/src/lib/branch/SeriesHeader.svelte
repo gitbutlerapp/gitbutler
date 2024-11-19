@@ -27,6 +27,7 @@
 	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import Modal from '@gitbutler/ui/Modal.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
@@ -57,11 +58,15 @@
 	const upstreamName = $derived(currentSeries.upstreamReference ? currentSeries.name : undefined);
 	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
 	const branch = $derived($branchStore);
+	const allPreviousSeriesHavePrNumber = $derived(
+		branch.allPreviousSeriesHavePrNumber(currentSeries.name)
+	);
 
 	let stackingAddSeriesModal = $state<ReturnType<typeof AddSeriesModal>>();
 	let prDetailsModal = $state<ReturnType<typeof PrDetailsModal>>();
 	let kebabContextMenu = $state<ReturnType<typeof ContextMenu>>();
 	let stackingContextMenu = $state<ReturnType<typeof SeriesHeaderContextMenu>>();
+	let confirmCreatePrModal = $state<ReturnType<typeof Modal>>();
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
 	let seriesHeaderEl = $state<HTMLDivElement>();
 	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
@@ -147,7 +152,16 @@
 		}
 	});
 
+	function confirmCreatePR(close: () => void) {
+		close();
+		prDetailsModal?.show(!forgeBranch);
+	}
+
 	function handleOpenPR(pushBeforeCreate: boolean = false) {
+		if (!allPreviousSeriesHavePrNumber) {
+			confirmCreatePrModal?.show();
+			return;
+		}
 		prDetailsModal?.show(pushBeforeCreate);
 	}
 
@@ -380,6 +394,27 @@
 				stackId={branch.id}
 			/>
 		{/if}
+
+		<Modal
+			width="small"
+			type="warning"
+			title="Create pull request"
+			bind:this={confirmCreatePrModal}
+			onSubmit={confirmCreatePR}
+		>
+			{#snippet children()}
+				<p class="text-13 text-body helper-text">
+					It's strongly recommended to create pull requests starting with the branch at the base of
+					the stack.
+					<br />
+					Do you still want to create this pull request?
+				</p>
+			{/snippet}
+			{#snippet controls(close)}
+				<Button style="ghost" outline onclick={close}>Cancel</Button>
+				<Button style="error" kind="solid" type="submit">Create pull request</Button>
+			{/snippet}
+		</Modal>
 	</Dropzones>
 </div>
 

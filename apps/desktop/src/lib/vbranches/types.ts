@@ -166,6 +166,17 @@ export class VirtualBranch {
 			if (commit?.conflicted) return commit;
 		}
 	}
+
+	allPreviousSeriesHavePrNumber(seriesName: string): boolean {
+		for (let i = this.series.length - 1; i >= 0; i--) {
+			const series = this.series[i]!;
+			if (series.name === seriesName) return true;
+			if (series.prNumber === null) return false;
+		}
+
+		// Should never happen, assuming the seriesName is valid.
+		return false;
+	}
 }
 
 // Used for dependency injection
@@ -438,7 +449,7 @@ export class PatchSeries {
 	 * A list of identifiers for the review unit at possible forges (eg. Pull Request).
 	 * The list is empty if there is no review units, eg. no Pull Request has been created.
 	 */
-	prNumber?: number | undefined;
+	prNumber?: number | null;
 	/**
 	 * Archived represents the state when series/branch has been integrated and is below the merge base of the branch.
 	 * This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
