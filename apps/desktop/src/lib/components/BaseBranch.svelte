@@ -305,7 +305,7 @@
 			disableCommitActions={true}
 		>
 			{#snippet lines()}
-				<Line typeOverride="local" line={lineManager.get(commit.id)} />
+				<Line line={lineManager.get(commit.id)} />
 			{/snippet}
 		</CommitCard>
 	{/each}

@@ -22,14 +22,9 @@ function generateLineData({
 	const commitGroups = [
 		{ commits: remoteCommits, type: 'remote' as CellType },
 		{ commits: localCommits, type: 'local' as CellType },
+		{ commits: localAndRemoteCommits, type: 'localAndRemote' as CellType },
 		{ commits: integratedCommits, type: 'integrated' as CellType }
 	];
-
-	const localAndRemoteGroups = localAndRemoteCommits.map((commit) => {
-		const type: CellType =
-			commit.remoteCommitId === commit.id ? 'localAndRemote' : 'localAndShadow';
-		return { commit, commitNode: { type, commit } };
-	});
 
 	const groupedData = commitGroups.flatMap(({ commits, type }) =>
 		commits.map((commit) => ({
@@ -38,10 +33,8 @@ function generateLineData({
 		}))
 	);
 
-	const allCommitData = [...groupedData, ...localAndRemoteGroups];
-
 	const data = new Map<string, CommitNodeData>(
-		allCommitData.map(({ commit, commitNode }) => [commit.id, commitNode])
+		groupedData.map(({ commit, commitNode }) => [commit.id, commitNode])
 	);
 
 	return { data };

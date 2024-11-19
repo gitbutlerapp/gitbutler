@@ -2,7 +2,6 @@ use anyhow::Result;
 use git2::{Commit, Oid};
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
 use gitbutler_repo::{LogUntil, RepositoryExt as _};
-use itertools::Itertools as _;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -108,7 +107,6 @@ impl StackBranch {
             return Ok(BranchCommits {
                 local_commits: vec![],
                 remote_commits: vec![],
-                upstream_only_commits: vec![],
             });
         }
         let head_commit = head_commit?.head.id();
@@ -140,12 +138,8 @@ impl StackBranch {
             let head_commit = repository
                 .find_reference(&self.remote_reference(&remote_name)?)?
                 .peel_to_commit()?;
-            let target_commit = repository
-                .find_reference(default_target.branch.to_string().as_str())?
-                .peel_to_commit()?;
-            let merge_base = repository.merge_base(head_commit.id(), target_commit.id())?;
             repository
-                .log(head_commit.id(), LogUntil::Commit(merge_base), false)?
+                .log(head_commit.id(), LogUntil::Commit(previous_head), false)?
                 .into_iter()
                 .rev()
                 .for_each(|c| {
@@ -153,23 +147,9 @@ impl StackBranch {
                 });
         }
 
-        // compute the commits that are only in the upstream
-        let local_patches_including_merge = repository
-            .log(head_commit, LogUntil::Commit(merge_base), true)?
-            .into_iter()
-            .rev() // oldest commit first
-            .collect_vec();
-        let mut upstream_only = vec![];
-        for patch in remote_patches.iter() {
-            if !local_patches_including_merge.contains_by_commit_or_change_id(patch) {
-                upstream_only.push(patch.clone());
-            }
-        }
-
         Ok(BranchCommits {
             local_commits: local_patches,
             remote_commits: remote_patches,
-            upstream_only_commits: upstream_only,
         })
     }
 }
@@ -185,9 +165,6 @@ pub struct BranchCommits<'a> {
     /// If the branch/series have never been pushed, this list will be empty.
     /// Topologically ordered, the first entry is the newest in the series.
     pub remote_commits: Vec<Commit<'a>>,
-    /// The list of patches that are only in the upstream (remote) and not in the local commits,
-    /// as determined by the commit ID or change ID.
-    pub upstream_only_commits: Vec<Commit<'a>>,
 }
 
 impl BranchCommits<'_> {

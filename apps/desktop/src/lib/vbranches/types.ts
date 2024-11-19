@@ -204,7 +204,7 @@ export class VirtualBranch {
 
 // Used for dependency injection
 export const BRANCH = Symbol('branch');
-export type CommitStatus = 'local' | 'localAndRemote' | 'localAndShadow' | 'integrated' | 'remote';
+export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
 
 export class ConflictEntries {
 	public entries: Map<string, ConflictEntryPresence> = new Map();
@@ -234,6 +234,7 @@ export class DetailedCommit {
 	@Transform((obj) => new Date(obj.value))
 	createdAt!: Date;
 	isRemote!: boolean;
+	isLocalAndRemote!: boolean;
 	isIntegrated!: boolean;
 	parentIds!: string[];
 	branchId!: string;
@@ -282,12 +283,8 @@ export class DetailedCommit {
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
-		if (this.remoteCommitId) {
-			if (this.remoteCommitId !== this.id) {
-				return 'localAndShadow';
-			}
-			return 'localAndRemote';
-		}
+		if (this.isLocalAndRemote) return 'localAndRemote';
+		if (this.isRemote) return 'remote';
 		return 'local';
 	}
 
@@ -473,10 +470,6 @@ export class PatchSeries {
 
 	get remoteCommits() {
 		return this.patches.filter((c) => c.status === 'localAndRemote');
-	}
-
-	get shadowCommits() {
-		return this.patches.filter((c) => c.status === 'localAndShadow');
 	}
 
 	get integratedCommits() {

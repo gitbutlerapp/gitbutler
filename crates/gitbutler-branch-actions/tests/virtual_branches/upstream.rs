@@ -33,7 +33,7 @@ fn detect_upstream_commits() {
     };
 
     // push
-    gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(project, branch1_id, false).unwrap();
 
     let oid3 = {
         // create third commit
@@ -48,11 +48,11 @@ fn detect_upstream_commits() {
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].commits.len(), 3);
         assert_eq!(branches[0].commits[0].id, oid3);
-        assert!(!branches[0].commits[0].is_remote);
+        assert!(!branches[0].commits[0].is_local_and_remote);
         assert_eq!(branches[0].commits[1].id, oid2);
-        assert!(branches[0].commits[1].is_remote);
+        assert!(branches[0].commits[1].is_local_and_remote);
         assert_eq!(branches[0].commits[2].id, oid1);
-        assert!(branches[0].commits[2].is_remote);
+        assert!(branches[0].commits[2].is_local_and_remote);
     }
 }
 

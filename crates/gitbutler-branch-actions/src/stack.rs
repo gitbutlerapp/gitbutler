@@ -239,8 +239,6 @@ pub(crate) fn stack_series(
     stack: &mut Stack,
     default_target: &Target,
     check_commit: &mut IsCommitIntegrated,
-    remote_commit_data: HashMap<CommitData, git2::Oid>,
-    commits: &[VirtualBranchCommit],
     stack_dependencies: StackDependencies,
 ) -> (Vec<Result<PatchSeries, serde_error::Error>>, bool) {
     let mut requires_force = false;
@@ -252,8 +250,6 @@ pub(crate) fn stack_series(
             stack,
             default_target,
             check_commit,
-            &remote_commit_data,
-            commits,
             &stack_dependencies,
         )
         .map_or_else(
@@ -277,8 +273,6 @@ fn stack_branch_to_api_branch(
     stack: &Stack,
     default_target: &Target,
     check_commit: &mut IsCommitIntegrated,
-    remote_commit_data: &HashMap<CommitData, git2::Oid>,
-    commits: &[VirtualBranchCommit],
     stack_dependencies: &StackDependencies,
 ) -> Result<(PatchSeries, bool)> {
     let mut requires_force = false;
@@ -293,31 +287,48 @@ fn stack_branch_to_api_branch(
     };
     let mut patches: Vec<VirtualBranchCommit> = vec![];
     let mut is_integrated = false;
+
+    let remote_commit_data = branch_commits
+        .remote_commits
+        .iter()
+        .filter_map(|commit| {
+            let data = CommitData::try_from(commit).ok()?;
+            Some((data, commit.id()))
+        })
+        .collect::<HashMap<_, _>>();
+
     // Reverse first instead of later, so that we catch the first integrated commit
     for commit in branch_commits.clone().local_commits.iter().rev() {
         if !is_integrated {
-            is_integrated = commits
-                .iter()
-                .find_map(|c| (c.id == commit.id()).then_some(Ok(c.is_integrated)))
-                .unwrap_or_else(|| check_commit.is_integrated(commit))?;
+            is_integrated = check_commit.is_integrated(commit)?;
         }
         let copied_from_remote_id = CommitData::try_from(commit)
             .ok()
             .and_then(|data| remote_commit_data.get(&data).copied());
-        let remote_commit_id = commit
-            .change_id()
-            .and_then(|change_id| {
-                branch_commits
-                    .remote_commits
-                    .iter()
-                    .find_map(|c| (c.change_id().as_deref() == Some(&change_id)).then(|| c.id()))
-            })
-            .or(copied_from_remote_id)
-            .or(if branch_commits.remote(commit) {
-                Some(commit.id())
-            } else {
-                None
-            });
+
+        // A commit is local and remote only if it is's ID is in the list of remote
+        // commits.
+        let is_local_and_remote = branch_commits
+            .remote_commits
+            .iter()
+            .any(|remote_commit| remote_commit.id() == commit.id());
+
+        let remote_commit_id = if is_local_and_remote {
+            None
+        } else {
+            commit
+                .change_id()
+                .and_then(|change_id| {
+                    let matching_remote_commit = branch_commits
+                        .remote_commits
+                        .iter()
+                        .find(|c| (c.change_id().as_deref() == Some(&change_id)))?;
+
+                    Some(matching_remote_commit.id())
+                })
+                .or(copied_from_remote_id)
+        };
+
         if remote_commit_id.map_or(false, |id| commit.id() != id) {
             requires_force = true;
         }
@@ -329,7 +340,8 @@ fn stack_branch_to_api_branch(
             stack,
             commit,
             is_integrated,
-            branch_commits.remote(commit),
+            false,
+            is_local_and_remote,
             copied_from_remote_id,
             remote_commit_id,
             commit_dependencies,
@@ -340,18 +352,31 @@ fn stack_branch_to_api_branch(
     patches.dedup_by(|a, b| a.id == b.id);
 
     let mut upstream_patches = vec![];
-    for commit in branch_commits.upstream_only_commits {
-        let is_integrated = check_commit.is_integrated(&commit)?;
+    for commit in branch_commits.remote_commits.iter().rev() {
+        if patches
+            .iter()
+            .any(|p| p.id == commit.id() || p.remote_commit_id == Some(commit.id()))
+        {
+            // Skip if we already have this commit in the list
+            continue;
+        }
+
+        let is_integrated = check_commit.is_integrated(commit)?;
+        if is_integrated {
+            continue;
+        }
+
         let commit_dependencies = commit_dependencies_from_stack(stack_dependencies, commit.id());
 
         let vcommit = commit_to_vbranch_commit(
             repository,
             stack,
-            &commit,
-            is_integrated,
-            true, // per definition
-            None, // per definition
-            Some(commit.id()),
+            commit,
+            false,
+            true,
+            false,
+            None,
+            None,
             commit_dependencies,
         )?;
         upstream_patches.push(vcommit);
