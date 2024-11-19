@@ -3,6 +3,7 @@
 	import { isPatchSeries, PatchSeries } from '$lib/vbranches/types';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
+	import { isError } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
 		series: (PatchSeries | Error)[];
@@ -17,7 +18,10 @@
 			if (isPatchSeries(s) && s.patches?.[0]) {
 				return s.patches?.[0].status;
 			}
-			return 'error';
+			if (isError(s)) {
+				return 'error';
+			}
+			return 'local';
 		})
 	);
 </script>
