@@ -219,6 +219,10 @@ fn get_stack_status(
     let stack_context = StackContext::new(repository, target);
     let branches = stack.branches();
     for branch in &branches {
+        if branch.archived {
+            continue;
+        }
+
         // If an integrated branch has been found, there is no need to bother
         // with subsequent branches.
         if !unintegrated_branch_found
