@@ -190,12 +190,6 @@ export class FileIdSelection implements Readable<string[]> {
 		this.selectedFile.set(undefined);
 	}
 
-	async clearExcept(fileId: string, commitId?: string) {
-		this.selection = [stringifyKey(fileId, commitId)];
-		await this.reloadFiles();
-		this.emit();
-	}
-
 	only(): FileKey | undefined {
 		if (this.selection.length === 0) return;
 		const fileKey = parseFileKey(this.selection[0]!);
