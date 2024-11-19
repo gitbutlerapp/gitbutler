@@ -351,6 +351,7 @@ export class RemoteHunk {
 	hash?: string;
 	new_start!: number;
 	new_lines!: number;
+	changeType!: ChangeType;
 
 	get id(): string {
 		return hashCode(this.diff);
