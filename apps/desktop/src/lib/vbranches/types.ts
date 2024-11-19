@@ -190,13 +190,14 @@ export class VirtualBranch {
 	}
 
 	allPreviousSeriesHavePrNumber(seriesName: string): boolean {
-		for (let i = this.series.length - 1; i >= 0; i--) {
-			const series = this.series[i]!;
+		for (let i = this.validSeries.length - 1; i >= 0; i--) {
+			const series = this.validSeries[i]!;
 			if (series.name === seriesName) return true;
 			if (series.prNumber === null) return false;
 		}
 
-		// Should never happen, assuming the seriesName is valid.
+		// Will only happen if the series name is invalid
+		// or if the series failed to be fetched.
 		return false;
 	}
 }
