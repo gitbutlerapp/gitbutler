@@ -225,6 +225,7 @@
 		display: flex;
 		align-items: center;
 		gap: 6px;
+		overflow: hidden;
 	}
 
 	/* TAG */
@@ -304,6 +305,7 @@
 	.branch-remotes {
 		display: flex;
 		gap: 4px;
+		overflow: hidden;
 	}
 
 	.branch-name {
