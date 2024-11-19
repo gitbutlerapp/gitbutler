@@ -16,11 +16,14 @@ import type { Octokit } from '@octokit/rest';
 
 export class GitHubPrService implements ForgePrService {
 	loading = writable(false);
+	private monitors: Map<number, GitHubPrMonitor>;
 
 	constructor(
 		private octokit: Octokit,
 		private repo: RepoInfo
-	) {}
+	) {
+		this.monitors = new Map();
+	}
 
 	async createPr({
 		title,
@@ -94,7 +97,12 @@ export class GitHubPrService implements ForgePrService {
 	}
 
 	prMonitor(prNumber: number): GitHubPrMonitor {
-		return new GitHubPrMonitor(this, prNumber);
+		if (this.monitors.has(prNumber)) {
+			return this.monitors.get(prNumber)!;
+		}
+		const monitor = new GitHubPrMonitor(this, prNumber);
+		this.monitors.set(prNumber, monitor);
+		return monitor;
 	}
 
 	async update(prNumber: number, details: { description?: string; state?: 'open' | 'closed' }) {

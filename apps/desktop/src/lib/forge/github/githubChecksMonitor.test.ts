@@ -80,15 +80,17 @@ describe('GitHubChecksMonitor', () => {
 				}
 			} as ChecksResponse)
 		);
-		await monitor?.update();
-		expect(mock).toHaveBeenCalledOnce();
+		monitor?.update();
+		expect(mock).toHaveBeenCalledTimes(1);
+		await vi.runOnlyPendingTimersAsync();
+		expect(mock).toHaveBeenCalledTimes(2);
 
 		let status = monitor?.getLastStatus();
 		expect(status?.finished).toBeFalsy();
 
 		// Verify that checks are re-fetchd after some timeout.
 		await vi.runOnlyPendingTimersAsync();
-		expect(mock).toHaveBeenCalledTimes(2);
+		expect(mock).toHaveBeenCalledTimes(3);
 		mock.mockRestore();
 
 		// Change response to something considered completed, and reset time so
@@ -110,6 +112,7 @@ describe('GitHubChecksMonitor', () => {
 				}
 			} as ChecksResponse)
 		);
+
 		await vi.runOnlyPendingTimersAsync();
 		expect(mock2).toHaveBeenCalledOnce();
 		status = monitor?.getLastStatus();
@@ -122,6 +125,6 @@ describe('GitHubChecksMonitor', () => {
 
 		// Verify polling has stopped.
 		await vi.runAllTimersAsync();
-		expect(mock2).toHaveBeenCalledTimes(2);
+		expect(mock2).toHaveBeenCalledTimes(3);
 	});
 });

@@ -10,6 +10,8 @@ import type { ForgeChecksMonitor } from '../interface/forgeChecksMonitor';
 
 export const MIN_COMPLETED_AGE = 20000;
 
+type CheckRunList = RestEndpointMethodTypes['checks']['listForRef']['response']['data'];
+
 export class GitHubChecksMonitor implements ForgeChecksMonitor {
 	private _status: ChecksStatus | undefined | null;
 	readonly status = writable<ChecksStatus | undefined | null>(undefined, () => {
@@ -85,8 +87,33 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 	}
 
 	private async fetchChecksWithRetries(ref: string, retries: number, delayMs: number) {
+		return await this.fetchChecksWithRetriesInner(ref, retries, delayMs, true);
+	}
+
+	/**
+	 * Fetch checks for a ref with retries.
+	 *
+	 * Will retry fetching checks if:
+	 * - The checks are available but the total count is 0.
+	 * - There is at least 1 check but the option to double check is enabled.
+	 *
+	 * @param doubleCheck - Some of the checks are loaded asynchronously and
+	 *			might not be available on the first fetch.
+	 *			This will wrongly report that all checks have passed.
+	 *			If this is set to true, the function will wait for a bit and check again.
+	 */
+	private async fetchChecksWithRetriesInner(
+		ref: string,
+		retries: number,
+		delayMs: number,
+		doubleCheck: boolean
+	): Promise<CheckRunList> {
 		let checks = await this.fetchChecks(ref);
 		if (checks.total_count > 0) {
+			if (doubleCheck) {
+				await sleep(delayMs);
+				return await this.fetchChecksWithRetriesInner(ref, retries, delayMs, false);
+			}
 			this.hasCheckSuites = true;
 			return checks;
 		}
