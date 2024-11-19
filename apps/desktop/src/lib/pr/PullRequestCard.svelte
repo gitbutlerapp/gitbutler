@@ -313,7 +313,7 @@
 						}
 					}}
 				/>
-			{:else}
+			{:else if !pr.merged}
 				<Button
 					style="ghost"
 					outline
