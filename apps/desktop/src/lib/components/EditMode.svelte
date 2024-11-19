@@ -3,8 +3,10 @@
 	import { CommitService } from '$lib/commits/service';
 	import {
 		conflictEntryHint,
-		fileLooksConflicted,
-		type ConflictEntryPresence
+		getConflictState,
+		getInitialFileStatus,
+		type ConflictEntryPresence,
+		type ConflictState
 	} from '$lib/conflictEntryPresence';
 	import FileContextMenu from '$lib/file/FileContextMenu.svelte';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
@@ -12,6 +14,7 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UserService } from '$lib/stores/user';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
+	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { Commit, type RemoteFile } from '$lib/vbranches/types';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
@@ -22,6 +25,7 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
+	import { SvelteSet } from 'svelte/reactivity';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
 	import type { Writable } from 'svelte/store';
 
@@ -73,34 +77,33 @@
 	});
 
 	interface FileEntry {
+		conflicted: boolean;
 		name: string;
 		path: string;
-		conflicted: boolean;
-		conflictHint?: string;
 		status?: FileStatus;
-		looksConflicted?: boolean;
+		conflictHint?: string;
+		conflictState?: ConflictState;
+		conflictEntryPresence?: ConflictEntryPresence;
 	}
 
+	const initialFileMap = $derived(
+		new Map<string, RemoteFile>(initialFiles.map(([file]) => [file.path, file]))
+	);
+
+	const uncommitedFileMap = $derived(
+		new Map<string, RemoteFile>($uncommitedFiles.map(([file]) => [file.path, file]))
+	);
+
 	const files = $derived.by(() => {
-		const initialFileMap = new Map<string, RemoteFile>();
-		const uncommitedFileMap = new Map<string, RemoteFile>();
 		const outputMap = new Map<string, FileEntry>();
-
-		// Build maps of files
-		{
-			initialFiles.forEach(([initialFile]) => {
-				initialFileMap.set(initialFile.path, initialFile);
-			});
-
-			$uncommitedFiles.forEach(([uncommitedFile]) => {
-				uncommitedFileMap.set(uncommitedFile.path, uncommitedFile);
-			});
-		}
 
 		// Create output
 		{
 			initialFiles.forEach(([initialFile, conflictEntryPresence]) => {
-				const isDeleted = uncommitedFileMap.has(initialFile.path);
+				const conflictState =
+					conflictEntryPresence && getConflictState(initialFile, conflictEntryPresence);
+
+				const uncommitedFileChange = uncommitedFileMap.get(initialFile.path);
 
 				outputMap.set(initialFile.path, {
 					name: initialFile.filename,
@@ -109,42 +112,45 @@
 					conflictHint: conflictEntryPresence
 						? conflictEntryHint(conflictEntryPresence)
 						: undefined,
-					status: isDeleted || !!conflictEntryPresence ? undefined : 'D',
-					looksConflicted: !!conflictEntryPresence
+					status: getInitialFileStatus(uncommitedFileChange, conflictEntryPresence),
+					conflictState,
+					conflictEntryPresence
 				});
 			});
 
 			$uncommitedFiles.forEach(([uncommitedFile]) => {
 				const existingFile = initialFileMap.get(uncommitedFile.path);
+				determineOutput: {
+					if (existingFile) {
+						const fileChanged = existingFile.hunks.some(
+							(hunk) => !uncommitedFile.hunks.map((hunk) => hunk.diff).includes(hunk.diff)
+						);
 
-				if (existingFile) {
-					const fileChanged = existingFile.hunks.some(
-						(hunk) => !uncommitedFile.hunks.map((hunk) => hunk.diff).includes(hunk.diff)
-					);
+						if (fileChanged) {
+							// All initial entries should have been added to the map,
+							// so we can safely assert that it will be present
+							const outputFile = outputMap.get(uncommitedFile.path)!;
+							if (outputFile.conflicted && outputFile.conflictEntryPresence) {
+								outputFile.conflictState = getConflictState(
+									uncommitedFile,
+									outputFile.conflictEntryPresence
+								);
+							}
 
-					if (fileChanged) {
-						// All initial entries should have been added to the map,
-						// so we can safely assert that it will be present
-						const outputFile = outputMap.get(uncommitedFile.path)!;
-						if (outputFile.conflicted) {
-							outputFile.looksConflicted = fileLooksConflicted(uncommitedFile);
+							if (!outputFile.conflicted) {
+								outputFile.status = 'M';
+							}
 						}
-
-						if (!outputFile.conflicted || outputFile.looksConflicted === false) {
-							outputFile.status = 'M';
-						}
-						return;
+						break determineOutput;
 					}
 
-					return;
+					outputMap.set(uncommitedFile.path, {
+						name: uncommitedFile.filename,
+						path: uncommitedFile.path,
+						conflicted: false,
+						status: computeFileStatus(uncommitedFile)
+					});
 				}
-
-				outputMap.set(uncommitedFile.path, {
-					name: uncommitedFile.filename,
-					path: uncommitedFile.path,
-					conflicted: false,
-					status: 'A'
-				});
 			});
 		}
 
@@ -164,7 +170,18 @@
 	});
 
 	const conflictedFiles = $derived(files.filter((file) => file.conflicted));
-	const stillConflictedFiles = $derived(conflictedFiles.filter((file) => file.looksConflicted));
+	let manuallyResolvedFiles = new SvelteSet<string>();
+	const stillConflictedFiles = $derived(
+		conflictedFiles.filter(
+			(file) => !manuallyResolvedFiles.has(file.path) && file.conflictState !== 'resolved'
+		)
+	);
+
+	function isConflicted(file: FileEntry): boolean {
+		return (
+			file.conflicted && file.conflictState !== 'resolved' && !manuallyResolvedFiles.has(file.path)
+		);
+	}
 
 	async function abort() {
 		modeServiceAborting = 'loading';
@@ -253,7 +270,10 @@
 						<FileListItem
 							filePath={file.path}
 							fileStatus={file.status}
-							conflicted={file.conflicted && file.looksConflicted}
+							conflicted={isConflicted(file)}
+							onresolveclick={file.conflicted
+								? () => manuallyResolvedFiles.add(file.path)
+								: undefined}
 							conflictHint={file.conflictHint}
 							onclick={(e) => {
 								contextMenu?.open(e, { files: [file] });
