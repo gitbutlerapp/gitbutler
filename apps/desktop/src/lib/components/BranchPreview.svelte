@@ -1,7 +1,6 @@
 <script lang="ts">
 	import BranchPreviewHeader from '../branch/BranchPreviewHeader.svelte';
 	import Resizer from '../shared/Resizer.svelte';
-	import { GitBranchService } from '$lib/branches/gitBranch';
 	import CommitCard from '$lib/commit/CommitCard.svelte';
 	import { transformAnyCommit } from '$lib/commitLines/transformers';
 	import Markdown from '$lib/components/Markdown.svelte';
@@ -10,7 +9,7 @@
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { BranchData, type Branch } from '$lib/vbranches/types';
+	import { BranchData } from '$lib/vbranches/types';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Line from '@gitbutler/ui/commitLines/Line.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
@@ -18,11 +17,10 @@
 	import { onMount, setContext } from 'svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
-	export let localBranch: Branch | undefined = undefined;
-	export let remoteBranch: Branch | undefined = undefined;
+	export let localBranch: BranchData | undefined = undefined;
+	export let remoteBranch: BranchData | undefined = undefined;
 	export let pr: PullRequest | undefined;
 
-	const gitBranchService = getContext(GitBranchService);
 	const forge = getForge();
 
 	const fileIdSelection = new FileIdSelection();
@@ -37,42 +35,19 @@
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
-	let localBranchData: BranchData | undefined;
-	let remoteBranchData: BranchData | undefined;
-
-	// The remote branch service (which needs to be renamed) is responsible for
-	// fetching local and remote branches.
-	// We must manually set the branch data to undefined as the component
-	// doesn't get completely re-rendered on a page change.
-	$: if (localBranch) {
-		gitBranchService
-			.getRemoteBranchData(localBranch.name)
-			.then((branchData) => (localBranchData = branchData));
-	} else {
-		localBranchData = undefined;
-	}
-
-	$: if (remoteBranch) {
-		gitBranchService
-			.getRemoteBranchData(remoteBranch.name)
-			.then((branchData) => (remoteBranchData = branchData));
-	} else {
-		remoteBranchData = undefined;
-	}
-
-	$: remoteCommitShas = new Set(remoteBranchData?.commits.map((commit) => commit.id) || []);
+	$: remoteCommitShas = new Set(remoteBranch?.commits.map((commit) => commit.id) || []);
 
 	// Find commits common in the local and remote
 	$: localAndRemoteCommits =
-		localBranchData?.commits.filter((commit) => remoteCommitShas.has(commit.id)) || [];
+		localBranch?.commits.filter((commit) => remoteCommitShas.has(commit.id)) || [];
 
 	$: localAndRemoteCommitShas = new Set(localAndRemoteCommits.map((commit) => commit.id));
 
 	// Find the local and remote commits that are not shared
 	$: localCommits =
-		localBranchData?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || [];
+		localBranch?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || [];
 	$: remoteCommits =
-		remoteBranchData?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || [];
+		remoteBranch?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || [];
 
 	$: lineManager = lineManagerFactory.build({
 		remoteCommits: remoteCommits.map(transformAnyCommit),
