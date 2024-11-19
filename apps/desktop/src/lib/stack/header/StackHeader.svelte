@@ -4,6 +4,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
+	import { isError } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
 		branch: VirtualBranch;
@@ -14,7 +15,12 @@
 
 	const { onCollapseButtonClick, branch }: Props = $props();
 
-	const nonArchivedSeries = $derived(branch.validSeries.filter((s) => !s.archived));
+	const nonArchivedSeries = $derived(
+		branch.series.filter((s) => {
+			if (isError(s)) return s;
+			return !s.archived;
+		})
+	);
 </script>
 
 <div class="stack-header">
