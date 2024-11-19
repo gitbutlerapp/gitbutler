@@ -53,8 +53,8 @@ export class VirtualBranchService {
 		branches.forEach(async (branch) => {
 			const upstreamName = branch.upstream?.name;
 			if (upstreamName) {
-				const upstreamCommits = branch.series.flatMap((series) => series.upstreamPatches);
-				const commits = branch.series.flatMap((series) => series.patches);
+				const upstreamCommits = branch.validSeries.flatMap((series) => series.upstreamPatches);
+				const commits = branch.validSeries.flatMap((series) => series.patches);
 				commits.forEach((commit) => {
 					const upstreamMatch = upstreamCommits.find(
 						(upstreamCommit) => commit.remoteCommitId === upstreamCommit.id

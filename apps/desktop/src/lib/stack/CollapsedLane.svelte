@@ -15,7 +15,7 @@
 
 	const branchStore = getContextStore(VirtualBranch);
 	const branch = $derived($branchStore);
-	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
+	const nonArchivedSeries = $derived(branch.validSeries.filter((s) => !s.archived));
 
 	function expandLane() {
 		$isLaneCollapsed = false;

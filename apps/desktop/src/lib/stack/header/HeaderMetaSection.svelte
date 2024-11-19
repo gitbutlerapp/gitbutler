@@ -6,7 +6,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	interface Props {
-		series: PatchSeries[];
+		series: (PatchSeries | Error)[];
 		onCollapseButtonClick: () => void;
 	}
 

@@ -5,9 +5,10 @@ const colorMap = {
 	localAndRemote: 'var(--clr-commit-remote)',
 	localAndShadow: 'var(--clr-commit-local)',
 	remote: 'var(--clr-commit-upstream)',
-	integrated: 'var(--clr-commit-integrated)'
+	integrated: 'var(--clr-commit-integrated)',
+	error: 'var(--clr-theme-err-element)'
 };
 
-export function getColorFromBranchType(type: CellType): string {
+export function getColorFromBranchType(type: CellType | 'error'): string {
 	return colorMap[type];
 }

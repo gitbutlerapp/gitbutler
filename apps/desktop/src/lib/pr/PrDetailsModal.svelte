@@ -169,7 +169,7 @@
 		}
 
 		// All ids that existed prior to creating a new one (including archived).
-		const prNumbers = branch.series.map((series) => series.prNumber);
+		const prNumbers = branch.validSeries.map((series) => series.prNumber);
 
 		isLoading = true;
 		try {
@@ -205,7 +205,7 @@
 			}
 
 			// Find the index of the current branch so we know where we want to point the pr.
-			const branches = branch.series;
+			const branches = branch.validSeries;
 			const currentIndex = branches.findIndex((b) => b.name === currentSeries.name);
 			if (currentIndex === -1) {
 				throw new Error('Branch index not found.');

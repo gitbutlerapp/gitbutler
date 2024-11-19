@@ -64,7 +64,7 @@
 		const upstreamPatches: DetailedCommit[] = [];
 		const branchPatches: DetailedCommit[] = [];
 
-		branch.series.map((series) => {
+		branch.validSeries.map((series) => {
 			upstreamPatches.push(...series.upstreamPatches);
 			branchPatches.push(...series.patches);
 			hasConflicts = branchPatches.some((patch) => patch.conflicted);
@@ -190,7 +190,11 @@
 								: undefined}
 							onclick={push}
 						>
-							{branch.requiresForce ? 'Force push' : branch.series.length > 1 ? 'Push All' : 'Push'}
+							{branch.requiresForce
+								? 'Force push'
+								: branch.validSeries.length > 1
+									? 'Push All'
+									: 'Push'}
 						</Button>
 					</div>
 				{/if}

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import Select from '$lib/select/Select.svelte';
-	import { PatchSeries } from '$lib/vbranches/types';
+	import { isPatchSeries, PatchSeries } from '$lib/vbranches/types';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
 
 	interface Props {
-		series: PatchSeries[];
+		series: (PatchSeries | Error)[];
 		disableSelector?: boolean;
 	}
 
@@ -13,7 +13,12 @@
 
 	const shiftedSeries = $derived(series.slice(1));
 	const seriesTypes = $derived(
-		shiftedSeries.map((s) => (s.patches[0] ? s.patches[0].status : 'local'))
+		shiftedSeries.map((s) => {
+			if (isPatchSeries(s) && s.patches?.[0]) {
+				return s.patches?.[0].status;
+			}
+			return 'error';
+		})
 	);
 </script>
 
@@ -173,6 +178,10 @@
 
 		&.integrated {
 			background-color: var(--clr-commit-integrated);
+		}
+
+		&.error {
+			background-color: var(--clr-theme-err-element);
 		}
 	}
 

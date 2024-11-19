@@ -21,3 +21,12 @@ export function isNonEmptyObject(something: unknown): something is UnknownObject
 		(Object.keys(something).length > 0 || Object.getOwnPropertySymbols(something).length > 0)
 	);
 }
+
+/**
+ * Checks if the provided value is an Error.
+ * @param value - The value to be checked.
+ * @returns A boolean indicating whether the value is an Error.
+ */
+export function isError(value: unknown): value is Error {
+	return value instanceof Error;
+}
