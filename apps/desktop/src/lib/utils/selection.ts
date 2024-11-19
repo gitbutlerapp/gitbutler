@@ -94,9 +94,8 @@ export function updateSelection({
 		getFileFunc?: (files: AnyFile[], id: string) => AnyFile | undefined
 	) {
 		const file = getFileFunc?.(files, id) ?? getFile(files, id);
-
 		if (file) {
-			fileIdSelection.clearExcept(file.id, commitId);
+			fileIdSelection.set(file, commitId);
 		}
 	}
 
@@ -108,6 +107,7 @@ export function updateSelection({
 				}
 			}
 			break;
+		case 'k':
 		case KeyName.Up:
 			if (shiftKey && allowMultiple) {
 				// Handle case if only one file is selected
@@ -131,6 +131,7 @@ export function updateSelection({
 			}
 			break;
 
+		case 'j':
 		case KeyName.Down:
 			if (shiftKey && allowMultiple) {
 				// Handle case if only one file is selected
