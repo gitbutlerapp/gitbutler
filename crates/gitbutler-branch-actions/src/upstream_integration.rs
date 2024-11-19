@@ -197,13 +197,14 @@ fn get_stack_status(
     let upstream_commit_oids = repository.l(
         gix_to_git2_oid(new_target_commit_id),
         LogUntil::Commit(target.sha),
-        false,
+        true,
     )?;
     let new_target_tree_id = gix_repository
         .find_commit(new_target_commit_id)?
         .tree_id()?;
     let mut check_commit = IsCommitIntegrated::new_basic(
         gix_repository,
+        repository,
         &mut graph,
         git2_to_gix_object_id(target.sha),
         new_target_tree_id.detach(),
@@ -579,9 +580,10 @@ fn compute_resolutions(
                     let cache = gix_repository.commit_graph_if_enabled()?;
                     let mut graph = gix_repository.revision_graph(cache.as_ref());
                     let upstream_commit_oids =
-                        repository.l(new_target.id(), LogUntil::Commit(target.sha), false)?;
+                        repository.l(new_target.id(), LogUntil::Commit(target.sha), true)?;
                     let mut check_commit = IsCommitIntegrated::new_basic(
                         &gix_repository,
+                        repository,
                         &mut graph,
                         git2_to_gix_object_id(target.sha),
                         git2_to_gix_object_id(new_target.tree_id()),

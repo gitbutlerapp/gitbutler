@@ -34,6 +34,7 @@ use gitbutler_stack::{
     Target, VirtualBranchesHandle,
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
+use itertools::Itertools;
 use serde::Serialize;
 use std::collections::HashSet;
 use std::{collections::HashMap, path::PathBuf, vec};
@@ -1006,6 +1007,7 @@ pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
     target_commit_id: gix::ObjectId,
     upstream_tree_id: gix::ObjectId,
     upstream_commits: Vec<git2::Oid>,
+    upstream_change_ids: Vec<String>,
 }
 
 impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
@@ -1020,17 +1022,28 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
             .maybe_find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("failed to get branch"))?;
         let remote_head = remote_branch.get().peel_to_commit()?;
-        let mut upstream_commits =
-            ctx.repository()
-                .l(remote_head.id(), LogUntil::Commit(target.sha), false)?;
-        upstream_commits.sort();
         let upstream_tree_id = ctx.repository().find_commit(remote_head.id())?.tree_id();
+
+        let upstream_commits =
+            ctx.repository()
+                .log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
+        let upstream_change_ids = upstream_commits
+            .iter()
+            .filter_map(|commit| commit.change_id())
+            .sorted()
+            .collect();
+        let upstream_commits = upstream_commits
+            .iter()
+            .map(|commit| commit.id())
+            .sorted()
+            .collect();
         Ok(Self {
             gix_repo,
             graph,
             target_commit_id: git2_to_gix_object_id(target.sha),
             upstream_tree_id: git2_to_gix_object_id(upstream_tree_id),
             upstream_commits,
+            upstream_change_ids,
         })
     }
 
@@ -1038,17 +1051,29 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
     /// you have a `CommandContext` available, use [`Self::new`] instead.
     pub(crate) fn new_basic(
         gix_repository: &'repo gix::Repository,
+        repository: &'repo git2::Repository,
         graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
         target_commit_id: gix::ObjectId,
         upstream_tree_id: gix::ObjectId,
-        upstream_commits: Vec<git2::Oid>,
+        mut upstream_commits: Vec<git2::Oid>,
     ) -> Self {
+        // Ensure upstream commits are sorted for binary search
+        upstream_commits.sort();
+        let upstream_change_ids = upstream_commits
+            .iter()
+            .filter_map(|oid| {
+                let commit = repository.find_commit(*oid).ok()?;
+                commit.change_id()
+            })
+            .sorted()
+            .collect();
         Self {
             gix_repo: gix_repository,
             graph,
             target_commit_id,
             upstream_tree_id,
             upstream_commits,
+            upstream_change_ids,
         }
     }
 }
@@ -1063,6 +1088,12 @@ impl IsCommitIntegrated<'_, '_, '_> {
         if self.upstream_commits.is_empty() {
             // could not be integrated - there is nothing new upstream.
             return Ok(false);
+        }
+
+        if let Some(change_id) = commit.change_id() {
+            if self.upstream_change_ids.binary_search(&change_id).is_ok() {
+                return Ok(true);
+            }
         }
 
         if self.upstream_commits.binary_search(&commit.id()).is_ok() {
