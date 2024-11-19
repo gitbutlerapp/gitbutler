@@ -298,38 +298,6 @@ impl BranchManager<'_> {
                 stack.head()
             ))?;
 
-        // Branch is out of date, merge or rebase it
-        let merge_base_tree_id = repo
-            .find_commit(merge_base)
-            .context(format!("failed to find merge base commit {}", merge_base))?
-            .tree()
-            .context("failed to find merge base tree")?
-            .id();
-        let branch_tree_id = stack.tree;
-
-        // We don't support having two branches applied that conflict with each other
-        {
-            let uncommited_changes_tree_id = repo.create_wd_tree()?.id();
-            let gix_repo = self.ctx.gix_repository_for_merging_non_persisting()?;
-            let merges_cleanly = gix_repo
-                .merges_cleanly_compat(
-                    merge_base_tree_id,
-                    branch_tree_id,
-                    uncommited_changes_tree_id,
-                )
-                .context("failed to merge trees")?;
-
-            if !merges_cleanly {
-                for stack in vb_state
-                    .list_stacks_in_workspace()?
-                    .iter()
-                    .filter(|branch| branch.id != stack_id)
-                {
-                    self.save_and_unapply(stack.id, perm)?;
-                }
-            }
-        }
-
         // Do we need to rebase the branch on top of the default target?
         if merge_base != default_target.sha {
             let new_head = if stack.allow_rebasing {
