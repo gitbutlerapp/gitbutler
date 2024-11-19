@@ -14,7 +14,7 @@
 
 	const { onCollapseButtonClick, branch }: Props = $props();
 
-	const nonArchivedSeries = $derived(branch.series.filter((s) => !s.archived));
+	const nonArchivedSeries = $derived(branch.validSeries.filter((s) => !s.archived));
 </script>
 
 <div class="stack-header">

@@ -229,7 +229,7 @@
 	leftClickTrigger={kebabContextMenuTrigger}
 	rightClickTrigger={seriesHeaderEl}
 	headName={currentSeries.name}
-	seriesCount={branch.series?.length ?? 0}
+	seriesCount={branch.validSeries?.length ?? 0}
 	{isTopSeries}
 	{toggleDescription}
 	description={currentSeries.description ?? ''}

@@ -42,7 +42,7 @@
 		allowRebasing = branch.allowRebasing;
 	});
 
-	const allPrIds = $derived(branch.series.map((series) => series.prNumber).filter(isDefined));
+	const allPrIds = $derived(branch.validSeries.map((series) => series.prNumber).filter(isDefined));
 
 	async function toggleAllowRebasing() {
 		branchController.updateBranchAllowRebasing(branch.id, !allowRebasing);
@@ -128,7 +128,7 @@
 				disabled={allPrIds.length === 0}
 				onclick={() => {
 					if ($prService && branch) {
-						const allPrIds = branch.series.map((series) => series.prNumber).filter(isDefined);
+						const allPrIds = branch.validSeries.map((series) => series.prNumber).filter(isDefined);
 						updatePrDescriptionTables($prService, allPrIds);
 					}
 					contextMenuEl?.close();

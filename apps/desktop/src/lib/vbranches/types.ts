@@ -113,6 +113,10 @@ export class VirtualBranches {
 	skippedFiles!: SkippedFile[];
 }
 
+export function isPatchSeries(item: PatchSeries | Error): item is PatchSeries {
+	return item instanceof PatchSeries;
+}
+
 export class VirtualBranch {
 	id!: string;
 	name!: string;
@@ -154,6 +158,10 @@ export class VirtualBranch {
 	// Used in the stacking context where VirtualBranch === Stack
 	@Transform(({ value }) => transformResultToType(PatchSeries, value))
 	series!: (PatchSeries | Error)[];
+
+	get validSeries(): PatchSeries[] {
+		return this.series.filter(isPatchSeries);
+	}
 
 	get localCommits() {
 		return this.commits.filter((c) => c.status === 'local');
