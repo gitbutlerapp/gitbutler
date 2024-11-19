@@ -13,7 +13,7 @@
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { PatchSeries, type VirtualBranch } from '$lib/vbranches/types';
+	import { isPatchSeries, PatchSeries, type VirtualBranch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { isError } from '@gitbutler/ui/utils/typeguards';
 
@@ -26,15 +26,16 @@
 
 	const branchController = getContext(BranchController);
 
-	$inspect('bSeries', branch.series[0]);
-
+	// Must contain the errored series in order to render them in the list in the correct spot
 	const nonArchivedSeries = $derived(
 		branch.series.filter((s) => {
 			if (isError(s)) return s;
-
 			return !s.archived;
 		})
 	);
+
+	// All non-errored non-archived series for consumption elsewhere
+	const nonArchivedValidSeries = $derived(branch.validSeries.filter((s) => !s.archived));
 
 	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
 	const stackingReorderDropzoneManager = $derived(
@@ -63,7 +64,9 @@
 	{@const isTopSeries = idx === 0}
 	{@const isBottomSeries = idx === branch.series.length - 1}
 	{#if !isTopSeries}
-		<SeriesDividerLine topPatchStatus={currentSeries.patches?.[0]?.status} />
+		<SeriesDividerLine
+			topPatchStatus={isPatchSeries(currentSeries) ? currentSeries?.patches?.[0]?.status : 'error'}
+		/>
 	{/if}
 
 	{#if !isError(currentSeries)}
@@ -72,7 +75,10 @@
 
 			{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
 				<div>
-					<Dropzone {accepts} ondrop={(data) => onDrop(data, nonArchivedSeries, currentSeries)}>
+					<Dropzone
+						{accepts}
+						ondrop={(data) => onDrop(data, nonArchivedValidSeries, currentSeries)}
+					>
 						{#snippet overlay({ hovered, activated })}
 							<CardOverlay {hovered} {activated} label="Move here" />
 						{/snippet}
@@ -93,6 +99,6 @@
 			{/if}
 		</CurrentSeries>
 	{:else}
-		<ErrorSeries />
+		<ErrorSeries error={currentSeries} />
 	{/if}
 {/each}

@@ -1,14 +1,18 @@
 <script lang="ts">
 	import { openExternalUrl } from '$lib/utils/url';
 	import LinkButton from '@gitbutler/ui/LinkButton.svelte';
+
+	interface Props {
+		error: Error;
+	}
+	const { error }: Props = $props();
 </script>
 
 <div class="error-series">
 	<div class="commit-line"></div>
-	<div class="text-13 text-body error-series__label">
+	<div class="text-13 text-body error-series__body">
 		This branch failed to load.
-		<br />
-		<br />
+		<pre class="error-series__message">{error.message}</pre>
 		Please check out our
 		<LinkButton
 			icon="copy-small"
@@ -17,7 +21,12 @@
 			}}
 		>
 			documentation
-		</LinkButton> or reload to try again.
+		</LinkButton> or visit our <LinkButton
+			icon="copy-small"
+			onclick={async () => {
+				openExternalUrl('https://discord.com/invite/MmFkmaJ42D');
+			}}>Discord</LinkButton
+		> for support.
 	</div>
 </div>
 
@@ -35,12 +44,16 @@
 		display: flex;
 		overflow: hidden;
 	}
-	.error-series__label {
+	.error-series__body {
 		color: var(--clr-text-2);
 
 		width: 100%;
 		padding: 20px 28px 26px 46px;
 		opacity: 0.6;
+
+		.error-series__message {
+			margin: 8px 0;
+		}
 	}
 	.commit-line {
 		--commit-color: var(--clr-theme-err-element);
