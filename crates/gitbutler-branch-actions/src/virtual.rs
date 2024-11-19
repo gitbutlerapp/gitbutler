@@ -30,7 +30,8 @@ use gitbutler_repo::{
 };
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{
-    reconcile_claims, BranchOwnershipClaims, Stack, StackId, Target, VirtualBranchesHandle,
+    reconcile_claims, stack_context::CommandContextExt, BranchOwnershipClaims, Stack, StackId,
+    Target, VirtualBranchesHandle,
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use serde::Serialize;
@@ -45,7 +46,7 @@ use tracing::instrument;
 //
 // it is not persisted, it is only used for presentation purposes through the ipc
 //
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(clippy::struct_excessive_bools)]
 pub struct VirtualBranch {
@@ -80,7 +81,7 @@ pub struct VirtualBranch {
     pub tree: git2::Oid,
     /// New way to group commits into a multiple patch series
     /// Most recent entries are first in order
-    pub series: Vec<PatchSeries>,
+    pub series: Vec<Result<PatchSeries, serde_error::Error>>,
 }
 
 /// A grouping that combines multiple commits into a patch series
@@ -104,7 +105,7 @@ pub struct PatchSeries {
     pub archived: bool,
 }
 
-#[derive(Debug, PartialEq, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct VirtualBranches {
     pub branches: Vec<VirtualBranch>,
@@ -474,7 +475,6 @@ pub fn list_virtual_branches_cached(
                 .unwrap_or(&usize::MAX)
                 .cmp(path_claim_positions.get(&b.path).unwrap_or(&usize::MAX))
         });
-
         let mut requires_force = is_requires_force(ctx, &branch)?;
 
         let fork_point = commits
@@ -488,26 +488,24 @@ pub fn list_virtual_branches_cached(
             stack_dependencies_from_workspace(&status.workspace_dependencies, branch.id);
 
         // TODO: Error out here once this API is stable
-        let series = match stack_series(
-            ctx,
+        let (series, force) = stack_series(
+            &ctx.to_stack_context()?,
             &mut branch,
             &default_target,
             &mut check_commit,
             remote_commit_data,
             &vbranch_commits,
             stack_dependencies,
-        ) {
-            Ok((series, force)) => {
-                if series.iter().any(|s| s.upstream_reference.is_some()) {
-                    requires_force = force; // derive force requirement from the series
-                }
-                series
-            }
-            Err(e) => {
-                tracing::warn!("failed to compute stack series: {:?}", e);
-                vec![]
-            }
-        };
+        );
+
+        if series
+            .iter()
+            .cloned()
+            .filter_map(Result::ok)
+            .any(|s| s.upstream_reference.is_some())
+        {
+            requires_force = force // derive force requirement from the series
+        }
 
         let head = branch.head();
         let branch = VirtualBranch {
