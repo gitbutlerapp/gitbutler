@@ -16,21 +16,21 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
+	import type { ForgePrMonitor } from '$lib/forge/interface/forgePrMonitor';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	interface Props {
-		upstreamName: string;
 		pr: DetailedPullRequest;
 		checksMonitor?: ForgeChecksMonitor;
+		prMonitor?: ForgePrMonitor;
 		reloadPR: () => void;
 		reopenPr: () => Promise<void>;
 		openPrDetailsModal: () => void;
 	}
 
-	const { upstreamName, pr, checksMonitor, reloadPR, reopenPr, openPrDetailsModal }: Props =
-		$props();
+	const { pr, checksMonitor, prMonitor, reloadPR, reopenPr, openPrDetailsModal }: Props = $props();
 
 	type StatusInfo = {
 		text: string;
@@ -49,14 +49,7 @@
 	const project = getContext(Project);
 
 	const forgeListingService = getForgeListingService();
-	const prStore = $derived($forgeListingService?.prs);
-	const prs = $derived(prStore ? $prStore : undefined);
-
-	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
-	const prNumber = $derived(listedPr?.number);
-
 	const prService = getForgePrService();
-	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 
 	const checks = $derived(checksMonitor?.status);
 
