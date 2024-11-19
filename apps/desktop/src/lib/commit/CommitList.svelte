@@ -70,14 +70,16 @@
 	const localAndRemoteCommits = $derived(
 		patches.filter((patch) => patch.status === 'localAndRemote')
 	);
-	const lastDivergentCommit = $derived(findLastDivergentCommit(localAndRemoteCommits));
+	const lastDivergentCommit = $derived(
+		findLastDivergentCommit(remoteOnlyPatches, localAndRemoteCommits)
+	);
 
 	// A local or localAndRemote commit probably shouldn't every be integrated,
 	// but the isIntegrated check is a bit fuzzy, and is certainly the most
 	// important state to convey to the user.
 	const lineManager = $derived(
 		lineManagerFactory.build({
-			remoteCommits: remoteOnlyPatches.filter((patch) => patch.status === 'remote'),
+			remoteCommits: remoteOnlyPatches,
 			localCommits: patches.filter((patch) => patch.status === 'local'),
 			localAndRemoteCommits: localAndRemoteCommits,
 			integratedCommits: patches.filter((patch) => patch.status === 'integrated')
@@ -170,7 +172,10 @@
 				{@render stackingReorderDropzone(stackingReorderDropzoneManager.topDropzone(seriesName))}
 
 				{#each patches as commit, idx (commit.id)}
-					{@const isResetAction = lastDivergentCommit?.id === commit.id}
+					{@const isResetAction =
+						(lastDivergentCommit.type === 'localDiverged' &&
+							lastDivergentCommit.commit.id === commit.id) ||
+						(lastDivergentCommit.type === 'onlyRemoteDiverged' && idx === patches.length - 1)}
 					<CommitDragItem {commit}>
 						<CommitCard
 							type={commit.status}
