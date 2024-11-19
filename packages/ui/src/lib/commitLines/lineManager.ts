@@ -38,7 +38,7 @@ function generateLineData({
 		}))
 	);
 
-	const allCommitData = [...groupedData, ...localAndRemoteGroups];
+	const allCommitData = [...localAndRemoteGroups, ...groupedData];
 
 	const data = new Map<string, CommitNodeData>(
 		allCommitData.map(({ commit, commitNode }) => [commit.id, commitNode])
