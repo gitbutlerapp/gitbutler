@@ -46,7 +46,7 @@ export function generateFooter(forPrNumber: number, allPrNumbers: number[]) {
 	footer += `This is **part ${nth} of ${stackLength} in a stack** made with GitButler:\n`;
 	allPrNumbers.forEach((prNumber, i) => {
 		const current = i === stackIndex;
-		footer += `- \`${stackLength - i}\` #${prNumber} ${current ? '👈 ' : ''}\n`;
+		footer += `- <kbd>&nbsp;${stackLength - i}&nbsp;</kbd> #${prNumber} ${current ? '👈 ' : ''}\n`;
 	});
 	footer += FOOTER_BOUNDARY_BOTTOM;
 	return footer;
