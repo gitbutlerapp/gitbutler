@@ -1,6 +1,7 @@
 <script lang="ts">
 	import MergeButton from './MergeButton.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
@@ -12,7 +13,7 @@
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
@@ -44,6 +45,7 @@
 
 	const vbranchService = getContext(VirtualBranchService);
 	const baseBranchService = getContext(BaseBranchService);
+	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 
 	const forgeListingService = getForgeListingService();
@@ -57,6 +59,13 @@
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 
 	const checks = $derived(checksMonitor?.status);
+
+	const baseBranchRepo = $derived(baseBranchService.repo);
+	const baseIsTargetBranch = $derived(
+		pr
+			? $baseBranch.shortName === pr.baseBranch && $baseBranchRepo?.hash === pr?.baseRepo?.hash
+			: false
+	);
 
 	// While the pr monitor is set to fetch updates by interval, we want
 	// frequent updates while checks are running.
@@ -129,6 +138,33 @@
 		}
 
 		return { text: 'Open', icon: 'pr-small', style: 'success' };
+	});
+
+	const mergability = $derived.by(() => {
+		let disabled = true;
+		let tooltip = undefined;
+		if (!baseIsTargetBranch) {
+			tooltip = 'Pull request is not next in stack.';
+		} else if ($mrLoading) {
+			tooltip = 'Reloading pull request data.';
+		} else if ($checksLoading) {
+			tooltip = 'Reloading checks data.';
+		} else if (pr?.draft) {
+			tooltip = 'Pull request is a draft.';
+		} else if (pr?.mergeableState === 'blocked') {
+			tooltip = 'Pull request needs approval.';
+		} else if (pr?.mergeableState === 'unknown') {
+			tooltip = 'Pull request mergeability is unknown.';
+		} else if (pr?.mergeableState === 'behind') {
+			tooltip = 'Pull request base is too far behind.';
+		} else if (pr?.mergeableState === 'dirty') {
+			tooltip = 'Pull request has conflicts.';
+		} else if (!pr?.mergeable) {
+			tooltip = 'Pull request is not mergeable.';
+		} else {
+			disabled = false;
+		}
+		return { disabled, tooltip };
 	});
 </script>
 
@@ -212,7 +248,7 @@
 			>
 				{prStatusInfo.text}
 			</Button>
-			{#if !pr?.closedAt && checksTagInfo}
+			{#if !pr.closedAt && checksTagInfo}
 				<Button
 					size="tag"
 					clickable={false}
@@ -224,7 +260,7 @@
 					{checksTagInfo.text}
 				</Button>
 			{/if}
-			{#if pr?.htmlUrl}
+			{#if pr.htmlUrl}
 				<Button
 					icon="open-link"
 					size="tag"
@@ -253,11 +289,8 @@
 				<MergeButton
 					wide
 					projectId={project.id}
-					disabled={$mrLoading ||
-						$checksLoading ||
-						pr?.draft ||
-						!pr?.mergeable ||
-						['dirty', 'unknown', 'blocked', 'behind'].includes(pr?.mergeableState)}
+					disabled={mergability.disabled}
+					tooltip={mergability.tooltip}
 					loading={isMerging}
 					on:click={async (e) => {
 						if (!pr) return;
