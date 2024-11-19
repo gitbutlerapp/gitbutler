@@ -14,7 +14,7 @@ use crate::{
     branch_manager::BranchManagerExt,
     file::RemoteBranchFile,
     remote,
-    remote::{RemoteBranch, RemoteBranchData, RemoteCommit},
+    remote::{RemoteBranchData, RemoteCommit},
     VirtualBranchesExt,
 };
 use anyhow::{Context, Result};
@@ -427,14 +427,9 @@ pub fn push_virtual_branch(
     vbranch::push(&ctx, stack_id, with_force, askpass)
 }
 
-pub fn find_git_branches(project: Project, branch_name: &str) -> Result<Vec<RemoteBranch>> {
+pub fn find_git_branches(project: Project, branch_name: &str) -> Result<Vec<RemoteBranchData>> {
     let ctx = CommandContext::open(&project)?;
     remote::find_git_branches(&ctx, branch_name)
-}
-
-pub fn get_remote_branch_data(project: &Project, refname: &Refname) -> Result<RemoteBranchData> {
-    let ctx = CommandContext::open(project)?;
-    remote::get_branch_data(&ctx, refname)
 }
 
 pub fn squash(project: &Project, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {

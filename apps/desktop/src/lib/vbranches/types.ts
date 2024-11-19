@@ -111,8 +111,8 @@ export class VirtualBranch {
 	description!: string;
 	head!: string;
 	order!: number;
-	@Type(() => Branch)
-	upstream?: Branch;
+	@Type(() => BranchData)
+	upstream?: BranchData;
 	upstreamData?: BranchData;
 	upstreamName?: string;
 	conflicted!: boolean;
@@ -370,20 +370,6 @@ export interface Author {
 	isBot?: boolean;
 }
 
-export class Branch {
-	sha!: string;
-	name!: string;
-	upstream?: string;
-	lastCommitTimestampMs?: number | undefined;
-	lastCommitAuthor?: string | undefined;
-	givenName!: string;
-	isRemote!: boolean;
-
-	get displayName(): string {
-		return this.name.replace('refs/remotes/', '').replace('refs/heads/', '');
-	}
-}
-
 export class BranchData {
 	sha!: string;
 	name!: string;
@@ -393,6 +379,8 @@ export class BranchData {
 	commits!: Commit[];
 	isMergeable!: boolean | undefined;
 	forkPoint?: string | undefined;
+	isRemote!: boolean;
+	givenName!: string;
 
 	get ahead(): number {
 		return this.commits.length;

@@ -3,7 +3,7 @@
 	import BranchPreview from '$lib/components/BranchPreview.svelte';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { Branch } from '$lib/vbranches/types';
+	import { BranchData } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { page } from '$app/stores';
 
@@ -14,8 +14,8 @@
 	const prs = $derived($forgeListingService?.prs);
 	const pr = $derived($prs?.find((pr) => pr.sourceBranch === name));
 
-	let localBranch = $state<Branch>();
-	let remoteBranches = $state<Branch[]>([]);
+	let localBranch = $state<BranchData>();
+	let remoteBranches = $state<BranchData[]>([]);
 	let loading = $state(false);
 
 	$effect(() => {

@@ -5,10 +5,10 @@ use crate::{
     file::VirtualBranchFile,
     hunk::VirtualBranchHunk,
     integration::get_workspace_head,
-    remote::{branch_to_remote_branch, RemoteBranch},
+    remote::branch_to_remote_branch,
     stack::stack_series,
     status::{get_applied_status, get_applied_status_cached},
-    Get, VirtualBranchHunkRange, VirtualBranchHunkRangeMap, VirtualBranchesExt,
+    Get, RemoteBranchData, VirtualBranchHunkRange, VirtualBranchHunkRangeMap, VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
@@ -58,7 +58,7 @@ pub struct VirtualBranch {
     pub requires_force: bool, // does this branch require a force push to the upstream?
     pub conflicted: bool, // is this branch currently in a conflicted state (only for the workspace)
     pub order: usize,     // the order in which this branch should be displayed in the UI
-    pub upstream: Option<RemoteBranch>, // the upstream branch where this branch pushes to, if any
+    pub upstream: Option<RemoteBranchData>, // the upstream branch where this branch pushes to, if any
     pub upstream_name: Option<String>, // the upstream branch where this branch will push to on next push
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
     /// The hunks (as `[(file, [hunks])]`) which are uncommitted but assigned to this branch.
@@ -457,7 +457,7 @@ pub fn list_virtual_branches_cached(
         let raw_remotes = repo.remotes()?;
         let remotes: Vec<_> = raw_remotes.into_iter().flatten().collect();
         let upstream = upstream_branch
-            .map(|upstream_branch| branch_to_remote_branch(&upstream_branch, &remotes))
+            .map(|upstream_branch| branch_to_remote_branch(ctx, &upstream_branch, &remotes))
             .transpose()?;
 
         let path_claim_positions: HashMap<&PathBuf, usize> = branch

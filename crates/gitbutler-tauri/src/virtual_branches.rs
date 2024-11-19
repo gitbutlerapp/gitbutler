@@ -7,9 +7,8 @@ pub mod commands {
         BaseBranchResolution, BaseBranchResolutionApproach, Resolution, StackStatuses,
     };
     use gitbutler_branch_actions::{
-        BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranch,
-        RemoteBranchData, RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranchHunkRangeMap,
-        VirtualBranches,
+        BaseBranch, BranchListing, BranchListingDetails, BranchListingFilter, RemoteBranchData,
+        RemoteBranchFile, RemoteCommit, StackOrder, VirtualBranchHunkRangeMap, VirtualBranches,
     };
     use gitbutler_command_context::CommandContext;
     use gitbutler_project as projects;
@@ -443,7 +442,7 @@ pub mod commands {
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch_name: &str,
-    ) -> Result<Vec<RemoteBranch>, Error> {
+    ) -> Result<Vec<RemoteBranchData>, Error> {
         let project = projects.get(project_id)?;
         let branches = gitbutler_branch_actions::find_git_branches(project, branch_name)?;
         Ok(branches)
@@ -471,18 +470,6 @@ pub mod commands {
         let ctx = CommandContext::open(&projects.get(project_id)?)?;
         let branches = gitbutler_branch_actions::get_branch_listing_details(&ctx, branch_names)?;
         Ok(branches)
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(projects), err(Debug))]
-    pub fn get_remote_branch_data(
-        projects: State<'_, projects::Controller>,
-        project_id: ProjectId,
-        refname: Refname,
-    ) -> Result<RemoteBranchData, Error> {
-        let project = projects.get(project_id)?;
-        let branch_data = gitbutler_branch_actions::get_remote_branch_data(&project, &refname)?;
-        Ok(branch_data)
     }
 
     #[tauri::command(async)]

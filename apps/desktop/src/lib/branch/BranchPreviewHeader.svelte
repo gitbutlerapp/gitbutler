@@ -12,11 +12,11 @@
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';
-	import type { Branch } from '$lib/vbranches/types';
+	import type { BranchData } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
-	export let localBranch: Branch | undefined;
-	export let remoteBranch: Branch | undefined;
+	export let localBranch: BranchData | undefined;
+	export let remoteBranch: BranchData | undefined;
 	export let pr: PullRequest | undefined;
 
 	$: branch = remoteBranch || localBranch!;
