@@ -140,12 +140,30 @@ impl StackBranch {
             .map(|ref_name| ref_name.remote().to_owned())
             .unwrap_or(default_target.push_remote_name());
 
+        let predecessor_branch = stack
+            .branch_predacessor(self)
+            .map(|p| p.name.to_owned())
+            .unwrap_or(default_target.branch.branch().to_owned());
+
+        let predecessor_ref = format!("refs/remotes/{}/{}", remote, predecessor_branch);
+        let previous_branch_head = match repository.find_reference(predecessor_ref.as_str()) {
+            Ok(reference) => reference
+                .peel_to_commit()
+                .map(|r| r.id())
+                .unwrap_or(previous_head),
+            Err(_) => previous_head,
+        };
+
         if self.pushed(&remote, repository) {
             let upstream_head = repository
                 .find_reference(self.remote_reference(&remote).as_str())?
                 .peel_to_commit()?;
             repository
-                .log(upstream_head.id(), LogUntil::Commit(previous_head), false)?
+                .log(
+                    upstream_head.id(),
+                    LogUntil::Commit(previous_branch_head),
+                    false,
+                )?
                 .into_iter()
                 .rev()
                 .for_each(|c| {
