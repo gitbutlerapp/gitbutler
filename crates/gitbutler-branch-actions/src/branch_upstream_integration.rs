@@ -207,7 +207,7 @@ impl IntegrateUpstreamContext<'_, '_> {
                 )?;
                 // First rebase the series with it's remote commits
                 let new_series_head =
-                    cherry_rebase_group(self.repository, merge_base, &ordered_commits)?;
+                    cherry_rebase_group(self.repository, merge_base, &ordered_commits, false)?;
                 // Get the commits that come after the series head, until the stack head
                 let remaining_ids_to_rebase =
                     self.repository
@@ -218,6 +218,7 @@ impl IntegrateUpstreamContext<'_, '_> {
                         self.repository,
                         new_series_head,
                         &remaining_ids_to_rebase,
+                        false,
                     )?,
                     new_series_head,
                 )
@@ -233,6 +234,7 @@ impl IntegrateUpstreamContext<'_, '_> {
                         self.repository,
                         remote_head_commit.id(),
                         &remaining_ids_to_rebase,
+                        false,
                     )?,
                     remote_head_commit.id(),
                 )
@@ -276,7 +278,7 @@ impl IntegrateUpstreamContext<'_, '_> {
                     self.remote_head,
                 )?;
 
-                cherry_rebase_group(self.repository, merge_base, &ordered_commits)?
+                cherry_rebase_group(self.repository, merge_base, &ordered_commits, false)?
             }
             IntegrationStrategy::HardReset => self.remote_head,
         };

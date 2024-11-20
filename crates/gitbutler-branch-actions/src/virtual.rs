@@ -1599,7 +1599,7 @@ pub(crate) fn squash(ctx: &CommandContext, stack_id: StackId, commit_id: git2::O
     .with_context(|| format!("commit {commit_id} not in the branch"))?;
     let ids_to_rebase = ids_to_rebase.to_vec();
 
-    match cherry_rebase_group(ctx.repository(), new_commit_oid, &ids_to_rebase) {
+    match cherry_rebase_group(ctx.repository(), new_commit_oid, &ids_to_rebase, false) {
         Ok(new_head_id) => {
             // save new branch head
             stack.set_stack_head(ctx, new_head_id, None)?;
@@ -1678,7 +1678,7 @@ pub(crate) fn update_commit_message(
     .with_context(|| format!("commit {commit_id} not in the branch"))?;
     let ids_to_rebase = ids_to_rebase.to_vec();
 
-    let new_head_id = cherry_rebase_group(ctx.repository(), new_commit_oid, &ids_to_rebase)
+    let new_head_id = cherry_rebase_group(ctx.repository(), new_commit_oid, &ids_to_rebase, false)
         .map_err(|err| err.context("rebase error"))?;
     // save new branch head
     stack.set_stack_head(ctx, new_head_id, None)?;

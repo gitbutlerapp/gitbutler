@@ -131,8 +131,12 @@ fn take_commit_from_source_stack(
     let source_commits_without_subject =
         filter_out_commit(repo, source_stack, source_merge_base_oid, &subject_commit)?;
 
-    let new_source_head =
-        cherry_rebase_group(repo, source_merge_base_oid, &source_commits_without_subject)?;
+    let new_source_head = cherry_rebase_group(
+        repo,
+        source_merge_base_oid,
+        &source_commits_without_subject,
+        false,
+    )?;
 
     let BranchHeadAndTree {
         head: new_head_oid,
@@ -154,7 +158,7 @@ fn move_commit_to_destination_stack(
 ) -> Result<(), anyhow::Error> {
     let destination_head_commit_oid = destination_stack.head();
     let new_destination_head_oid =
-        cherry_rebase_group(repo, destination_head_commit_oid, &[commit_id])?;
+        cherry_rebase_group(repo, destination_head_commit_oid, &[commit_id], false)?;
 
     let BranchHeadAndTree {
         head: new_destination_head_oid,

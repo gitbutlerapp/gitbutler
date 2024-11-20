@@ -35,7 +35,8 @@ pub fn cherry_rebase(
         return Ok(None);
     }
 
-    let new_head_id = cherry_rebase_group(ctx.repository(), target_commit_oid, &ids_to_rebase)?;
+    let new_head_id =
+        cherry_rebase_group(ctx.repository(), target_commit_oid, &ids_to_rebase, false)?;
 
     Ok(Some(new_head_id))
 }
@@ -50,6 +51,7 @@ pub fn cherry_rebase_group(
     repository: &git2::Repository,
     target_commit_oid: git2::Oid,
     ids_to_rebase: &[git2::Oid],
+    always_rebase: bool,
 ) -> Result<git2::Oid> {
     // now, rebase unchanged commits onto the new commit
     let commits_to_rebase = ids_to_rebase
@@ -68,7 +70,10 @@ pub fn cherry_rebase_group(
             |head, to_rebase| {
                 let head = head?;
 
-                if to_rebase.parent_ids().len() == 1 && head.id() == to_rebase.parent_id(0)? {
+                if !always_rebase
+                    && to_rebase.parent_ids().len() == 1
+                    && head.id() == to_rebase.parent_id(0)?
+                {
                     return Ok(to_rebase);
                 };
 
@@ -452,9 +457,13 @@ mod test {
             let c = test_repository.commit_tree(Some(&b), &[("foo.txt", "c"), ("bar.txt", "a")]);
             let d = test_repository.commit_tree(Some(&a), &[("foo.txt", "a"), ("bar.txt", "x")]);
 
-            let result =
-                cherry_rebase_group(&test_repository.repository, d.id(), &[c.id(), b.id()])
-                    .unwrap();
+            let result = cherry_rebase_group(
+                &test_repository.repository,
+                d.id(),
+                &[c.id(), b.id()],
+                false,
+            )
+            .unwrap();
 
             let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
 
@@ -482,7 +491,7 @@ mod test {
 
             // Rebase C on top of B
             let result =
-                cherry_rebase_group(&test_repository.repository, b.id(), &[c.id()]).unwrap();
+                cherry_rebase_group(&test_repository.repository, b.id(), &[c.id()], false).unwrap();
 
             let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
 
@@ -511,11 +520,11 @@ mod test {
 
             // Rebase C on top of B => C'
             let result =
-                cherry_rebase_group(&test_repository.repository, b.id(), &[c.id()]).unwrap();
+                cherry_rebase_group(&test_repository.repository, b.id(), &[c.id()], false).unwrap();
 
             // Rebase C' on top of D => C''
             let result =
-                cherry_rebase_group(&test_repository.repository, d.id(), &[result]).unwrap();
+                cherry_rebase_group(&test_repository.repository, d.id(), &[result], false).unwrap();
 
             let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
 
@@ -545,7 +554,7 @@ mod test {
 
             // Rebase D on top of B => D'
             let result =
-                cherry_rebase_group(&test_repository.repository, b.id(), &[d.id()]).unwrap();
+                cherry_rebase_group(&test_repository.repository, b.id(), &[d.id()], false).unwrap();
 
             let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
             assert!(commit.is_conflicted());
@@ -563,7 +572,7 @@ mod test {
 
             // Rebase D' on top of C => D''
             let result =
-                cherry_rebase_group(&test_repository.repository, c.id(), &[result]).unwrap();
+                cherry_rebase_group(&test_repository.repository, c.id(), &[result], false).unwrap();
 
             let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
             assert!(commit.is_conflicted());
@@ -590,9 +599,13 @@ mod test {
             let d = test_repository.commit_tree(Some(&a), &[("foo.txt", "c"), ("bar.txt", "c")]);
 
             // Rebase C on top of B
-            let result =
-                cherry_rebase_group(&test_repository.repository, d.id(), &[c.id(), b.id()])
-                    .unwrap();
+            let result = cherry_rebase_group(
+                &test_repository.repository,
+                d.id(),
+                &[c.id(), b.id()],
+                false,
+            )
+            .unwrap();
 
             let commit: git2::Commit = test_repository.repository.find_commit(result).unwrap();
 
