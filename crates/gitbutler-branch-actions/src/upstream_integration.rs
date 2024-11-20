@@ -1,6 +1,7 @@
 use crate::stack::branch_integrated;
 use crate::{r#virtual::IsCommitIntegrated, BranchManagerExt, VirtualBranchesExt as _};
 use anyhow::{anyhow, bail, Result};
+use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
@@ -281,9 +282,13 @@ fn get_stack_status(
         });
     }
 
-    let top_brach = branches.last().ok_or(anyhow!("No branches in stack"))?;
+    let stack_head = repository.find_commit(stack.head())?;
 
-    let tree_status = if stack.tree == top_brach.head_oid(&stack_context, stack)? {
+    let tree_status = if stack.tree
+        == repository
+            .find_real_tree(&stack_head, Default::default())?
+            .id()
+    {
         TreeStatus::Empty
     } else {
         let (merge_options_fail_fast, conflict_kind) = gix_repository.merge_options_fail_fast()?;
