@@ -253,7 +253,10 @@ pub(crate) fn stack_series(
             &stack_dependencies,
         )
         .map_or_else(
-            |err| (Err(err), false),
+            |err| {
+                tracing::error!("Series Error: {}", err);
+                (Err(err), false)
+            },
             |(patch_series, force)| (Ok(patch_series), force),
         );
         if force {
@@ -278,7 +281,6 @@ fn stack_branch_to_api_branch(
     let mut requires_force = false;
     let repository = ctx.repository();
     let branch_commits = stack_branch.commits(ctx, stack)?;
-    // anyhow::bail!("Lets pretend this is a real error");
     let remote = default_target.push_remote_name();
     let upstream_reference = if stack_branch.pushed(remote.as_str(), repository) {
         Some(stack_branch.remote_reference(remote.as_str()))
