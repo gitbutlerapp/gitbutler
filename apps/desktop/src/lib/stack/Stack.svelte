@@ -81,9 +81,6 @@
 		if (upstreamPatches.length > 0) return true;
 		if (branchPatches.some((p) => !['localAndRemote', 'integrated'].includes(p.status)))
 			return true;
-		if (branchPatches.some((p) => p.status !== 'integrated' && p.remoteCommitId !== p.id))
-			return true;
-
 		return false;
 	});
 
