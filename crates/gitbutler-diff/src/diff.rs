@@ -50,6 +50,7 @@ pub struct GitHunk {
     #[serde(rename = "diff")]
     pub diff_lines: BStringForFrontend,
     pub binary: bool,
+    #[serde(rename = "changeType")]
     pub change_type: ChangeType,
 }
 
