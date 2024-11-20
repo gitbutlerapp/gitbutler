@@ -109,6 +109,7 @@ fn inner_undo_commit(
         repository,
         commit_to_remove.parent_id(0)?,
         &commits_to_rebase,
+        false,
     )?;
 
     Ok(UndoResult {
