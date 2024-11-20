@@ -246,7 +246,7 @@
 				{#snippet title()}
 					<span class="text-12 text-body"
 						>Some branches in this stack have been integrated. Please force push to sync your branch
-						with the updated base.↘</span
+						with the updated base ↘</span
 					>
 				{/snippet}
 				{#each remoteIntegratedPatches as commit, idx (commit.id)}

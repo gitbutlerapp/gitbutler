@@ -4,23 +4,30 @@
 	import { MergeMethod } from '$lib/forge/interface/types';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { persisted, type Persisted } from '@gitbutler/shared/persisted';
+	import type { Props as ButtonProps } from '@gitbutler/ui/Button.svelte';
 
 	interface Props {
 		projectId: string;
+		onclick: (method: MergeMethod) => void;
 		loading?: boolean;
 		disabled?: boolean;
 		wide?: boolean;
 		tooltip?: string;
-		onclick?: (method: MergeMethod) => void;
+		style?: ButtonProps['style'];
+		kind?: ButtonProps['kind'];
+		outline?: boolean;
 	}
 
 	const {
 		projectId,
+		onclick,
 		loading = false,
 		disabled = false,
 		wide = false,
 		tooltip = '',
-		onclick
+		style = 'ghost',
+		kind = 'soft',
+		outline = true
 	}: Props = $props();
 
 	function persistedAction(projectId: string): Persisted<MergeMethod> {
@@ -41,9 +48,10 @@
 
 <DropDownButton
 	bind:this={dropDown}
-	onclick={() => onclick?.($action)}
-	style="ghost"
-	outline
+	onclick={() => onclick($action)}
+	{outline}
+	{style}
+	{kind}
 	{loading}
 	{wide}
 	{tooltip}

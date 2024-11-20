@@ -5,16 +5,23 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { type MergeMethod } from '$lib/forge/interface/types';
+	import { showError } from '$lib/notifications/toasts';
+	import MergeButton from '$lib/pr/MergeButton.svelte';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import CollapsedLane from '$lib/stack/CollapsedLane.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
+	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -29,17 +36,21 @@
 		commitBoxOpen
 	}: { isLaneCollapsed: Writable<boolean>; commitBoxOpen: Writable<boolean> } = $props();
 
+	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
 	const fileIdSelection = getContext(FileIdSelection);
 	const branchStore = getContextStore(VirtualBranch);
+	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
+	const prService = getForgePrService();
+	const listingService = getForgeListingService();
 	const branch = $derived($branchStore);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
-	const laneWidthKey = 'laneWidth_';
 	let lastPush = $state<Date | undefined>();
 
+	const laneWidthKey = 'laneWidth_';
 	let laneWidth: number | undefined = $state();
 	let rsViewport = $state<HTMLElement>();
 
@@ -58,6 +69,7 @@
 
 	let scrollEndVisible = $state(true);
 	let isPushingCommits = $state(false);
+	let isMergingSeries = $state(false);
 
 	const { upstreamPatches, branchPatches, hasConflicts } = $derived.by(() => {
 		let hasConflicts = false;
@@ -84,8 +96,6 @@
 		return false;
 	});
 
-	const listingService = getForgeListingService();
-
 	async function push() {
 		isPushingCommits = true;
 		try {
@@ -94,6 +104,51 @@
 			lastPush = new Date();
 		} finally {
 			isPushingCommits = false;
+		}
+	}
+
+	async function checkMergeable() {
+		const seriesMergeResponse = await Promise.allSettled(
+			branch.validSeries.map((series) => {
+				if (!series.prNumber) return Promise.reject();
+
+				const detailedPr = $prService?.get(series.prNumber);
+				return detailedPr;
+			})
+		);
+
+		return seriesMergeResponse.every((s) => {
+			if (s.status === 'fulfilled' && s.value) {
+				return s.value.mergeable === true;
+			}
+			return false;
+		});
+	}
+
+	let canMergeAll = $derived(checkMergeable());
+
+	async function mergeAll(method: MergeMethod) {
+		isMergingSeries = true;
+		try {
+			for (const validBranch of branch.validSeries.reverse()) {
+				if (validBranch.prNumber && $prService) {
+					await $prService.merge(method, validBranch.prNumber);
+					await baseBranchService.fetchFromRemotes();
+					toasts.success(`Merged PR ${validBranch.prNumber}`);
+					console.log('merged', validBranch);
+					await Promise.all([
+						$prService?.prMonitor(validBranch.prNumber).refresh(),
+						$listingService?.refresh(),
+						vbranchService.refresh(),
+						baseBranchService.refresh()
+					]);
+				}
+			}
+		} catch (e) {
+			console.error(e);
+			showError('Failed to merge PR', e);
+		} finally {
+			isMergingSeries = false;
 		}
 	}
 </script>
@@ -197,6 +252,78 @@
 						</div>
 					</div>
 				</div>
+				{#if canPush}
+					<div
+						class="lane-branches__action"
+						class:scroll-end-visible={scrollEndVisible}
+						use:intersectionObserver={{
+							callback: (entry) => {
+								if (entry?.isIntersecting) {
+									scrollEndVisible = false;
+								} else {
+									scrollEndVisible = true;
+								}
+							},
+							options: {
+								root: null,
+								rootMargin: `-100% 0px 0px 0px`,
+								threshold: 0
+							}
+						}}
+					>
+						<Button
+							style="neutral"
+							kind="solid"
+							wide
+							loading={isPushingCommits}
+							disabled={hasConflicts}
+							tooltip={hasConflicts
+								? 'In order to push, please resolve any conflicted commits.'
+								: undefined}
+							onclick={push}
+						>
+							{branch.requiresForce
+								? 'Force push'
+								: branch.validSeries.length > 1
+									? 'Push All'
+									: 'Push'}
+						</Button>
+					</div>
+				{/if}
+
+				{#await canMergeAll then isMergeable}
+					{#if isMergeable}
+						<div
+							class="lane-branches__action"
+							class:scroll-end-visible={scrollEndVisible}
+							class:can-merge-all={canMergeAll}
+							use:intersectionObserver={{
+								callback: (entry) => {
+									if (entry?.isIntersecting) {
+										scrollEndVisible = false;
+									} else {
+										scrollEndVisible = true;
+									}
+								},
+								options: {
+									root: null,
+									rootMargin: `-100% 0px 0px 0px`,
+									threshold: 0
+								}
+							}}
+						>
+							<MergeButton
+								style="neutral"
+								kind="solid"
+								wide
+								projectId={project.id}
+								tooltip="Merge all possible branches"
+								loading={isMergingSeries}
+								onclick={mergeAll}
+							/>
+						</div>
+					{/if}
+				{/await}
 			</ScrollableContainer>
 			<div class="divider-line">
 				{#if rsViewport}
@@ -245,6 +372,10 @@
 		margin: 0 -12px 1px -12px;
 		bottom: 0;
 		transition: background-color var(--transition-fast);
+
+		&:global(.can-merge-all > button:not(:last-child)) {
+			margin-bottom: 8px;
+		}
 
 		&:after {
 			content: '';
