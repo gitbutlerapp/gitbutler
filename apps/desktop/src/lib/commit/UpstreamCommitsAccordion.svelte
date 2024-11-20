@@ -11,7 +11,6 @@
 	const { count, isLast, children }: Props = $props();
 
 	let isOpen = $state(count === 1);
-	// let isOpen = true;
 
 	function toggle() {
 		isOpen = !isOpen;
@@ -63,12 +62,12 @@
 		position: relative;
 		display: flex;
 		flex-direction: column;
-		border-bottom: 1px solid var(--clr-border-2);
 
 		&:focus {
 			outline: none;
 		}
 
+		&:last-child,
 		&.is-last {
 			border-bottom: none;
 			border-radius: 0 0 var(--radius-m) var(--radius-m);
@@ -80,22 +79,11 @@
 				border-bottom: 1px solid var(--clr-border-2);
 			}
 		}
-	}
 
-	/* .accordion-row__actions {
-		display: flex;
-		width: 100%;
-		align-items: stretch;
-		padding-right: 14px;
-		background-color: var(--clr-bg-1);
+		&:not(:last-child) {
+			border-bottom: 1px solid var(--clr-border-2);
+		}
 	}
-
-	.accordion-row__actions__content {
-		display: flex;
-		flex-direction: column;
-		flex: 1;
-		padding: 14px 0 14px;
-	} */
 
 	.accordion-row__header {
 		display: flex;
