@@ -1,5 +1,5 @@
 import { exampleReducer } from '$lib/redux/example';
-import { postReducer } from '$lib/redux/posts/slice';
+import { feedReducer, postReducer } from '$lib/redux/posts/slice';
 import { configureStore } from '@reduxjs/toolkit';
 
 /**
@@ -11,7 +11,8 @@ import { configureStore } from '@reduxjs/toolkit';
 export const _store = configureStore({
 	reducer: {
 		example: exampleReducer,
-		post: postReducer
+		post: postReducer,
+		feed: feedReducer
 	}
 });
 

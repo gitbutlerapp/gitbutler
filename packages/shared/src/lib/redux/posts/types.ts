@@ -1,4 +1,4 @@
-export type _ApiPost = {
+export type ApiPost = {
 	uuid: string;
 	content: string;
 	post_type: string;
@@ -16,4 +16,18 @@ export type Post = {
 	// TODO userId:
 	// TODO metadata:
 	// TODO target:
+};
+
+export function apiToPost(apiPost: ApiPost): Post {
+	return {
+		uuid: apiPost.uuid,
+		content: apiPost.content,
+		postType: apiPost.post_type,
+		replyToId: apiPost.reply_to_id
+	};
+}
+
+export type Feed = {
+	identifier: string;
+	postIds: string[];
 };

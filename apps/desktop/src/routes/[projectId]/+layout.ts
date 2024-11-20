@@ -19,6 +19,8 @@ import { BranchController } from '$lib/vbranches/branchController';
 import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { BranchesApiService, CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
+import { FeedService } from '@gitbutler/shared/redux/posts/service';
+import { useDispatch } from '@gitbutler/shared/redux/utils';
 import { error } from '@sveltejs/kit';
 import { derived } from 'svelte/store';
 import type { LayoutLoad } from './$types';
@@ -96,6 +98,9 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		cloudBranchesService
 	);
 
+	const dispatch = useDispatch();
+	const feedService = new FeedService(cloud, dispatch);
+
 	return {
 		authService,
 		baseBranchService,
@@ -123,6 +128,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		// Cloud-related services
 		syncedSnapshotService,
 		cloudBranchesService,
-		cloudBranchCreationService
+		cloudBranchCreationService,
+		feedService
 	};
 };
