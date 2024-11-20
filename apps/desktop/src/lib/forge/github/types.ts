@@ -1,5 +1,11 @@
 import { parseRemoteUrl } from '$lib/url/gitUrl';
-import type { CheckSuite, DetailedPullRequest, Label, PullRequest } from '../interface/types';
+import type {
+	ChecksStatus,
+	CheckSuite,
+	DetailedPullRequest,
+	Label,
+	PullRequest
+} from '../interface/types';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 
 export type DetailedGitHubPullRequest = RestEndpointMethodTypes['pulls']['get']['response']['data'];
@@ -81,4 +87,49 @@ export function parseGitHubCheckSuites(data: GitHubListCheckSuitesResp): CheckSu
 		count: checkSuite.latest_check_runs_count
 	}));
 	return result;
+}
+
+export type GitHubListChecksResp =
+	RestEndpointMethodTypes['checks']['listForRef']['response']['data'];
+
+export function parseGitHubCheckRuns(data: GitHubListChecksResp): ChecksStatus | null {
+	// Fetch with retries since checks might not be available _right_ after
+	// the pull request has been created.
+
+	// If there are no checks then there is no status to report
+	const checkRuns = data.check_runs;
+	if (checkRuns.length === 0) return null;
+
+	// Establish when the first check started running, useful for showing
+	// how long something has been running.
+	const starts = checkRuns
+		.map((run) => run.started_at)
+		.filter((startedAt) => startedAt !== null) as string[];
+	const startTimes = starts.map((startedAt) => new Date(startedAt));
+
+	const queued = checkRuns.filter((c) => c.status === 'queued').length;
+	const failed = checkRuns.filter((c) => c.conclusion === 'failure').length;
+	const skipped = checkRuns.filter((c) => c.conclusion === 'skipped').length;
+	const succeeded = checkRuns.filter((c) => c.conclusion === 'success').length;
+
+	const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
+	const completed = checkRuns.every((check) => !!check.completed_at);
+	const totalCount = data.total_count;
+
+	const success = queued === 0 && failed === 0 && skipped + succeeded === totalCount;
+	const finished = checkRuns.filter(
+		(c) => c.conclusion && ['failure', 'success'].includes(c.conclusion)
+	).length;
+
+	return {
+		startedAt: firstStart,
+		hasChecks: !!totalCount,
+		success,
+		failed,
+		completed,
+		queued,
+		totalCount,
+		skipped,
+		finished
+	};
 }
