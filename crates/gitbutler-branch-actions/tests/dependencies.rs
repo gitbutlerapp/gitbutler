@@ -699,17 +699,28 @@ fn dependecies_ignore_merge_commits() -> Result<()> {
     )?;
 
     let commit_dependencies = dependencies.commit_dependencies.get(&my_stack.id).unwrap();
-    assert_eq!(commit_dependencies.len(), 0);
+    assert_eq!(
+        commit_dependencies.len(),
+        0,
+        "There are no commit interdependencies"
+    );
 
-    assert_eq!(dependencies.diffs.len(), 1);
+    assert_eq!(
+        dependencies.diffs.len(),
+        1,
+        "Only one diff depends on commits"
+    );
     let file_hunk_1_hash = Hunk::hash_diff(&file_hunk_1.diff_lines);
     let file_hunk_2_hash = Hunk::hash_diff(&file_hunk_2.diff_lines);
 
     let hunk_1_locks = dependencies.diffs.get(&file_hunk_1_hash);
-    assert_eq!(hunk_1_locks, None);
+    assert_eq!(
+        hunk_1_locks, None,
+        "Hunk 1 should not have any dependencies, because it only intersects with a merge commit"
+    );
 
     let hunk_2_locks = dependencies.diffs.get(&file_hunk_2_hash).unwrap();
-    assert_eq!(hunk_2_locks.len(), 1);
+    assert_eq!(hunk_2_locks.len(), 1, "Hunk 2 should have one dependency");
     assert_hunk_lock_matches_by_message(
         hunk_2_locks[0],
         "update line 8 and delete the line after 7",
