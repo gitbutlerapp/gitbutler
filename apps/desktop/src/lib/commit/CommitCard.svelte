@@ -181,6 +181,7 @@
 		<CommitMessageInput
 			bind:commitMessage={description}
 			bind:valid={commitMessageValid}
+			existingCommit={commit}
 			isExpanded={true}
 			cancel={close}
 			commit={submitCommitMessageModal}

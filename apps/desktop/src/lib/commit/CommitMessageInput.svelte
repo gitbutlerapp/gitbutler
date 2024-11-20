@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { PromptService } from '$lib/ai/promptService';
-	import { AIService } from '$lib/ai/service';
+	import { AIService, type DiffInput } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
@@ -15,7 +15,8 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
-	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
+	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
+	import { VirtualBranch, DetailedCommit, Commit } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
@@ -24,6 +25,7 @@
 	import { createEventDispatcher, onMount, tick } from 'svelte';
 
 	interface Props {
+		existingCommit?: DetailedCommit | Commit;
 		isExpanded: boolean;
 		commitMessage: string;
 		valid?: boolean;
@@ -33,6 +35,7 @@
 
 	let {
 		isExpanded,
+		existingCommit,
 		commitMessage = $bindable(),
 		valid = $bindable(false),
 		commit = undefined,
@@ -68,10 +71,30 @@
 		return `${title}\n\n${description}`;
 	}
 
-	async function generateCommitMessage(files: LocalFile[]) {
-		const hunks = files.flatMap((f) =>
-			f.hunks.filter((h) => $selectedOwnership.isSelected(f.id, h.id))
+	async function getDiffInput(): Promise<DiffInput[]> {
+		if (!existingCommit) {
+			return $branch.files.flatMap((f) =>
+				f.hunks
+					.filter((h) => $selectedOwnership.isSelected(f.id, h.id))
+					.map((h) => ({
+						filePath: f.path,
+						diff: h.diff
+					}))
+			);
+		}
+
+		const files = await listCommitFiles(project.id, existingCommit.id);
+		return files.flatMap((file) =>
+			file.hunks.map((hunk) => ({
+				filePath: file.path,
+				diff: hunk.diff
+			}))
 		);
+	}
+
+	async function generateCommitMessage() {
+		const diffInput = await getDiffInput();
+
 		// Branches get their names generated only if there are at least 4 lines of code
 		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
 		// or the user has to manually trigger the name generation from the meatball menu
@@ -87,7 +110,7 @@
 		let firstToken = true;
 
 		const generatedMessageResult = await aiService.summarizeCommit({
-			hunks,
+			diffInput,
 			useEmojiStyle: $commitGenerationUseEmojis,
 			useBriefStyle: $commitGenerationExtraConcise,
 			commitTemplate: prompt,
@@ -266,7 +289,7 @@
 					disabled={!($aiGenEnabled && aiConfigurationValid)}
 					loading={aiLoading}
 					menuPosition="top"
-					onclick={async () => await generateCommitMessage($branch.files)}
+					onclick={async () => await generateCommitMessage()}
 				>
 					Generate message
 
@@ -335,7 +358,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		
+
 		position: absolute;
 		bottom: 12px;
 		left: 12px;
@@ -344,18 +367,18 @@
 		min-width: 20px;
 		color: var(--clr-text-2);
 		border-radius: var(--radius-m);
-		
+
 
 		background: var(--clr-theme-ntrl-soft);
 	}
 
 	.textarea-char-counter_exsceeded {
-		
+
 		padding: 4px 7px 4px 4px;
 
 		& .commit-box__textarea-char-counter-label {
 			margin-left: 4px;
-			
+
 		}
 	} */
 

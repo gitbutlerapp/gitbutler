@@ -21,7 +21,6 @@ import { get } from 'svelte/store';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 import type { SecretsService } from '$lib/secrets/secretsService';
 import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
-import type { Hunk } from '$lib/vbranches/types';
 import type { HttpClient } from '@gitbutler/shared/httpClient';
 
 const maxDiffLengthLimitForAPI = 5000;
@@ -54,7 +53,7 @@ interface BaseAIServiceOpts {
 }
 
 interface SummarizeCommitOpts extends BaseAIServiceOpts {
-	hunks: Hunk[];
+	diffInput: DiffInput[];
 	useEmojiStyle?: boolean;
 	useBriefStyle?: boolean;
 	commitTemplate?: Prompt;
@@ -75,7 +74,7 @@ interface SummarizePROpts extends BaseAIServiceOpts {
 	prBodyTemplate?: string;
 }
 
-interface DiffInput {
+export interface DiffInput {
 	filePath: string;
 	diff: string;
 }
@@ -269,7 +268,7 @@ export class AIService {
 	}
 
 	async summarizeCommit({
-		hunks,
+		diffInput,
 		useEmojiStyle = false,
 		useBriefStyle = false,
 		commitTemplate,
@@ -288,7 +287,10 @@ export class AIService {
 				return promptMessage;
 			}
 
-			let content = promptMessage.content.replaceAll('%{diff}', buildDiff(hunks, diffLengthLimit));
+			let content = promptMessage.content.replaceAll(
+				'%{diff}',
+				buildDiff(diffInput, diffLengthLimit)
+			);
 
 			const briefPart = useBriefStyle
 				? 'The commit message must be only one sentence and as short as possible.'

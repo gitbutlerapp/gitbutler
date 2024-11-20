@@ -6,7 +6,14 @@ import {
 	SHORT_DEFAULT_COMMIT_TEMPLATE,
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
-import { AISecretHandle, AIService, GitAIConfigKey, KeyOption, buildDiff } from '$lib/ai/service';
+import {
+	AISecretHandle,
+	AIService,
+	GitAIConfigKey,
+	KeyOption,
+	buildDiff,
+	type DiffInput
+} from '$lib/ai/service';
 import {
 	AnthropicModelName,
 	ModelKind,
@@ -136,6 +143,10 @@ const hunk2 = plainToInstance(Hunk, {
 });
 
 const exampleHunks = [hunk1, hunk2];
+const exampleDiffs: DiffInput[] = exampleHunks.map((hunk) => ({
+	diff: hunk.diff,
+	filePath: hunk.filePath
+}));
 
 function buildDefaultAIService() {
 	const gitConfig = new DummyGitConfigService(structuredClone(defaultGitConfig));
@@ -229,7 +240,7 @@ describe('AIService', () => {
 				(async () => buildFailureFromAny('Failed to build'))()
 			);
 
-			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toStrictEqual(
+			expect(await aiService.summarizeCommit({ diffInput: exampleDiffs })).toStrictEqual(
 				buildFailureFromAny('Failed to build')
 			);
 		});
@@ -243,7 +254,7 @@ describe('AIService', () => {
 				(async () => ok<AIClient, Error>(new DummyAIClient(clientResponse)))()
 			);
 
-			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toStrictEqual(
+			expect(await aiService.summarizeCommit({ diffInput: exampleDiffs })).toStrictEqual(
 				ok('single line commit')
 			);
 		});
@@ -257,7 +268,7 @@ describe('AIService', () => {
 				(async () => ok<AIClient, Error>(new DummyAIClient(clientResponse)))()
 			);
 
-			expect(await aiService.summarizeCommit({ hunks: exampleHunks })).toStrictEqual(
+			expect(await aiService.summarizeCommit({ diffInput: exampleDiffs })).toStrictEqual(
 				ok('one\n\nnew line')
 			);
 		});
@@ -272,7 +283,7 @@ describe('AIService', () => {
 			);
 
 			expect(
-				await aiService.summarizeCommit({ hunks: exampleHunks, useBriefStyle: true })
+				await aiService.summarizeCommit({ diffInput: exampleDiffs, useBriefStyle: true })
 			).toStrictEqual(ok('one'));
 		});
 	});
