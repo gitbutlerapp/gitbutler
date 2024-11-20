@@ -1,18 +1,18 @@
 import { writable, type Readable } from 'svelte/store';
 
-export function uniqueDerived<T>(source: Readable<T>) {
-	return new UniqueDerived<T>(source);
+export function shallowDeduplicate<T>(source: Readable<T>) {
+	return new ShallowDeduplicateDervived<T>(source);
 }
 
 /**
  * A derived Svelte store that only emits new values if the objects differ
  * from each other using `shallowCompare`.
  */
-class UniqueDerived<T> implements Readable<T> {
+class ShallowDeduplicateDervived<T> implements Readable<T> {
 	/**
 	 * Previously set value used for comparison with new values.
 	 */
-	private prev: unknown;
+	private prev: T | undefined;
 
 	/**
 	 * A writable that sets up the parent subscription when it starts, and
@@ -52,19 +52,24 @@ function shallowCompare(left: unknown, right: unknown): boolean {
 		return true;
 	}
 
-	if (typeof left !== 'object' || typeof right !== 'object' || left === null || right === null) {
+	if (
+		typeof left !== 'object' ||
+		typeof right !== 'object' ||
+		left === undefined ||
+		right === undefined ||
+		left === null ||
+		right === null
+	) {
 		return false;
 	}
 
 	const keys1 = Object.keys(left);
 	const keys2 = Object.keys(right);
 
-	// Compare key lengths
 	if (keys1.length !== keys2.length) {
 		return false;
 	}
 
-	// Compare values for each key
 	for (const key of keys1) {
 		if ((left as Record<string, any>)[key] !== (right as Record<string, any>)[key]) {
 			return false;

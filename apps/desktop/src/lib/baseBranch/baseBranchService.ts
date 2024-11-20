@@ -1,7 +1,7 @@
 import { BaseBranch, NoDefaultTarget } from './baseBranch';
 import { Code, invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
-import { uniqueDerived } from '$lib/stores/uniqueStore';
+import { shallowDeduplicate } from '$lib/stores/shallowDeduplicate';
 import { parseRemoteUrl } from '$lib/url/gitUrl';
 import { plainToInstance } from 'class-transformer';
 import { derived, writable } from 'svelte/store';
@@ -17,17 +17,17 @@ export class BaseBranchService {
 	});
 
 	// Deduplciated since updates are frequent.
-	readonly base = uniqueDerived(this._base);
+	readonly base = shallowDeduplicate(this._base);
 
 	// Deduplicated repo information.
-	readonly repo = uniqueDerived(
+	readonly repo = shallowDeduplicate(
 		derived(this.base, (base) => {
 			return base ? parseRemoteUrl(base.remoteUrl) : undefined;
 		})
 	);
 
 	// Deduplicated push repo information.
-	readonly pushRepo = uniqueDerived(
+	readonly pushRepo = shallowDeduplicate(
 		derived(this.base, (base) => {
 			return base ? parseRemoteUrl(base.pushRemoteUrl) : undefined;
 		})
