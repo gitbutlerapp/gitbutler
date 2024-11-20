@@ -331,7 +331,11 @@ impl BranchManager<'_> {
         }
 
         // Do we need to rebase the branch on top of the default target?
-        if merge_base != default_target.sha {
+
+        let has_change_id = repo.find_commit(stack.head())?.change_id().is_some();
+        // If the branch has no change ID for the head commit, we want to rebase it even if the base is the same
+        // This way stacking functionality which relies on change IDs will work as expected
+        if merge_base != default_target.sha || !has_change_id {
             let new_head = if stack.allow_rebasing {
                 let commits_to_rebase =
                     repo.l(stack.head(), LogUntil::Commit(merge_base), false)?;
