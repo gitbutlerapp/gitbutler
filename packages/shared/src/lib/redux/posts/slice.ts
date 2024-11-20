@@ -1,5 +1,5 @@
 import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
-import type { Feed, Post } from '$lib/redux/posts/types';
+import type { Feed, Post, PostReplies } from '$lib/redux/posts/types';
 import type { RootState } from '$lib/redux/store';
 
 const postAdapter = createEntityAdapter({
@@ -36,6 +36,7 @@ export const {
 	upsertPosts
 } = postSlice.actions;
 
+// Feeds
 const feedAdapter = createEntityAdapter({
 	selectId: (feed: Feed) => feed.identifier,
 	sortComparer: (a: Feed, b: Feed) => a.identifier.localeCompare(b.identifier)
@@ -62,3 +63,34 @@ export const feedReducer = feedSlice.reducer;
 
 export const feedSelectors = feedAdapter.getSelectors((state: RootState) => state.feed);
 export const { addFeed, updateFeed, removeFeed, upsertFeed } = feedSlice.actions;
+
+// Replies
+const postRepliesAdapter = createEntityAdapter({
+	selectId: (postReplies: PostReplies) => postReplies.postId,
+	sortComparer: (a: PostReplies, b: PostReplies) => a.postId.localeCompare(b.postId)
+});
+
+const postRepliesSlice = createSlice({
+	name: 'postReplies',
+	initialState: postRepliesAdapter.getInitialState(),
+	reducers: {
+		addPostReplies: postRepliesAdapter.addOne,
+		updatePostReplies: postRepliesAdapter.updateOne,
+		removePostReplies: postRepliesAdapter.removeOne,
+		upsertPostReplies: postRepliesAdapter.upsertOne,
+		addReply: (state, action) => {
+			const feed = state.entities[action.payload.postId];
+			if (feed) {
+				feed.replyIds.unshift(action.payload.postId);
+			}
+		}
+	}
+});
+
+export const postRepliesReducer = postRepliesSlice.reducer;
+
+export const postRepliesSelectors = postRepliesAdapter.getSelectors(
+	(state: RootState) => state.postReplies
+);
+export const { addPostReplies, updatePostReplies, removePostReplies, upsertPostReplies } =
+	postRepliesSlice.actions;

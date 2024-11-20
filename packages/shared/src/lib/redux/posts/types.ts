@@ -8,6 +8,10 @@ export type ApiPost = {
 	// TODO target:
 };
 
+export type ApiPostWithReplies = ApiPost & {
+	replies: ApiPost[];
+};
+
 export type Post = {
 	uuid: string;
 	content: string;
@@ -30,4 +34,9 @@ export function apiToPost(apiPost: ApiPost): Post {
 export type Feed = {
 	identifier: string;
 	postIds: string[];
+};
+
+export type PostReplies = {
+	postId: string;
+	replyIds: string[];
 };

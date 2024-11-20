@@ -7,7 +7,7 @@ export interface Interest {
 interface Subscription<Arguments> {
 	args: Arguments;
 	counter: number;
-	interval: ReturnType<typeof setInterval>;
+	interval?: ReturnType<typeof setInterval>;
 	lastCalled: number;
 }
 
@@ -16,7 +16,7 @@ export class InterestStore<Arguments> {
 
 	constructor(private readonly frequency: number) {}
 
-	createInterest(args: Arguments, callback: (args: Arguments) => void): Interest {
+	createInterest(args: Arguments, callback: () => void): Interest {
 		return {
 			_subscribe: () => {
 				let subscription = this.subscriptions.find((subscription) =>
@@ -27,9 +27,7 @@ export class InterestStore<Arguments> {
 						args,
 						counter: 0,
 						lastCalled: 0,
-						interval: setInterval(() => {
-							callback(args);
-						}, this.frequency)
+						interval: undefined
 					} as Subscription<Arguments>;
 				}
 
@@ -37,13 +35,28 @@ export class InterestStore<Arguments> {
 
 				// Fetch data immediately on first subscription
 				if (subscription.counter === 0) {
-					callback(args);
+					if (Date.now() - subscription.lastCalled > this.frequency) {
+						subscription.lastCalled = Date.now();
+						callback();
+					}
+
+					subscription.interval = setInterval(() => {
+						subscription.lastCalled = Date.now();
+						callback();
+					}, this.frequency);
 				}
 
 				++subscription.counter;
 
+				let unsubscribed = false;
+
 				// Unsubscribe function
 				return () => {
+					if (unsubscribed) {
+						return;
+					}
+					unsubscribed = true;
+
 					--subscription.counter;
 					if (subscription.counter <= 0) {
 						clearInterval(subscription.interval);

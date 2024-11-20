@@ -1,17 +1,45 @@
 <script lang="ts">
-	import type { Interest } from '$lib/redux/interest';
+	import type { Interest } from '$lib/redux/interest/intrestStore';
 
 	type Props = {
 		interest: Interest;
-		// ref?: HTMLElement;
+		reference?: HTMLElement;
+		onlyInView?: boolean;
 	};
 
-	const { interest }: Props = $props();
+	const { interest, reference: ref, onlyInView }: Props = $props();
+
+	let inView = $state(false);
 
 	$effect(() => {
-		const unsubscribe = interest._subscribe();
+		if (ref && onlyInView) {
+			inView = false;
 
-		// It is vitally important that we return the unsubscribe function
-		return unsubscribe;
+			const observer = new IntersectionObserver(
+				(entries) => {
+					inView = entries[0].isIntersecting;
+				},
+				{
+					root: null
+				}
+			);
+
+			observer.observe(ref);
+
+			return () => {
+				inView = false;
+				observer.disconnect();
+			};
+		}
+	});
+
+	$effect(() => {
+		const shouldSubscribe = !onlyInView || inView;
+		if (interest && shouldSubscribe) {
+			const unsubscribe = interest._subscribe();
+
+			// It is vitally important that we return the unsubscribe function
+			return unsubscribe;
+		}
 	});
 </script>
