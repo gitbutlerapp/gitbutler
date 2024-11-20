@@ -2,6 +2,7 @@ use anyhow::Result;
 use git2::{Commit, Oid};
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
 use gitbutler_repo::{LogUntil, RepositoryExt as _};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -87,10 +88,10 @@ impl StackBranch {
     }
 
     /// Returns `true` if the reference is pushed to the provided remote
-    pub fn pushed(&self, remote: &str, repository: &git2::Repository) -> Result<bool> {
-        Ok(repository
+    pub fn pushed(&self, remote: &str, repository: &git2::Repository) -> bool {
+        repository
             .find_reference(&self.remote_reference(remote))
-            .is_ok())
+            .is_ok()
     }
 
     /// Returns the commits that are part of the branch.
@@ -123,14 +124,11 @@ impl StackBranch {
                     .unwrap_or(merge_base)
             });
 
-        let mut local_patches = vec![];
-        for commit in repository
+        let local_patches = repository
             .log(head_commit, LogUntil::Commit(previous_head), false)?
             .into_iter()
             .rev()
-        {
-            local_patches.push(commit);
-        }
+            .collect_vec();
 
         let default_target = stack_context.target();
         let mut remote_patches: Vec<Commit<'_>> = vec![];
@@ -142,7 +140,7 @@ impl StackBranch {
             .map(|ref_name| ref_name.remote().to_owned())
             .unwrap_or(default_target.push_remote_name());
 
-        if self.pushed(&remote, repository).unwrap_or_default() {
+        if self.pushed(&remote, repository) {
             let upstream_head = repository
                 .find_reference(self.remote_reference(&remote).as_str())?
                 .peel_to_commit()?;

@@ -280,7 +280,7 @@ fn stack_branch_to_api_branch(
     let branch_commits = stack_branch.commits(ctx, stack)?;
     // anyhow::bail!("Lets pretend this is a real error");
     let remote = default_target.push_remote_name();
-    let upstream_reference = if stack_branch.pushed(remote.as_str(), repository)? {
+    let upstream_reference = if stack_branch.pushed(remote.as_str(), repository) {
         Some(stack_branch.remote_reference(remote.as_str()))
     } else {
         None
