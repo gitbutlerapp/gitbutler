@@ -24,7 +24,8 @@
 		"@types/node": "^22.3.0",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
-		"vite": "catalog:"
+		"vite": "catalog:",
+		"@reduxjs/toolkit": "catalog:redux"
 	},
 	"dependencies": {
 		"@sentry/sveltekit": "^8.9.2",
