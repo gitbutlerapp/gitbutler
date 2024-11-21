@@ -215,7 +215,7 @@
 	<Textbox placeholder="New name" id="newSeriesName" bind:value={newHeadName} autofocus />
 
 	{#if hasForgeBranch}
-		<div class="text-12 text-light helper-text">
+		<div class="text-12 helper-text">
 			Renaming a branch that has already been pushed will create a new branch at the remote. The old
 			one will remain untouched but will be disassociated from this branch.
 		</div>

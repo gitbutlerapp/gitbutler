@@ -111,10 +111,6 @@
 	line-height: var(--text-line-height-body);
 }
 
-.text-light {
-	font-weight: var(--light-font-weight);
-}
-
 .text-semibold {
 	font-weight: var(--text-weight-semibold);
 }
