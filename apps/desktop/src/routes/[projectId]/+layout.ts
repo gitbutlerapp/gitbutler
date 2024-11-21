@@ -20,7 +20,6 @@ import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationSe
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { BranchesApiService, CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 import { FeedService } from '@gitbutler/shared/redux/posts/service';
-import { useDispatch } from '@gitbutler/shared/redux/utils';
 import { error } from '@sveltejs/kit';
 import { derived } from 'svelte/store';
 import type { LayoutLoad } from './$types';
@@ -29,7 +28,8 @@ export const prerender = false;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async ({ params, parent }) => {
-	const { authService, projectsService, cloud, commandService, userService } = await parent();
+	const { authService, projectsService, cloud, commandService, userService, appState } =
+		await parent();
 
 	const projectId = params.projectId;
 	projectsService.setLastOpenedProject(projectId);
@@ -98,8 +98,7 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		cloudBranchesService
 	);
 
-	const dispatch = useDispatch();
-	const feedService = new FeedService(cloud, dispatch);
+	const feedService = new FeedService(cloud, appState.appDispatch);
 
 	return {
 		authService,

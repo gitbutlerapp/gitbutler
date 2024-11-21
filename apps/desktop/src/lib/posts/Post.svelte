@@ -3,7 +3,7 @@
 	import RegisterInterest from '@gitbutler/shared/redux/interest/RegisterInterest.svelte';
 	import { FeedService } from '@gitbutler/shared/redux/posts/service';
 	import { postSelectors, postRepliesSelectors } from '@gitbutler/shared/redux/posts/slice';
-	import { useStore } from '@gitbutler/shared/redux/utils';
+	import { AppState } from '@gitbutler/shared/redux/store';
 
 	type Props = {
 		postId: string;
@@ -13,10 +13,13 @@
 
 	const feedService = getContext(FeedService);
 
-	const store = useStore();
+	const appState = getContext(AppState);
+	const postState = appState.post;
+	const postRepliesState = appState.postReplies;
+
 	const postWithRepliesInterest = $derived(feedService.getPostWithRepliesInterest(postId));
-	const post = $derived(postSelectors.selectById($store, postId));
-	const postReplies = $derived(postRepliesSelectors.selectById($store, postId));
+	const post = $derived(postSelectors.selectById($postState, postId));
+	const postReplies = $derived(postRepliesSelectors.selectById($postRepliesState, postId));
 
 	let postCardRef = $state<HTMLDivElement | undefined>(undefined);
 

@@ -14,6 +14,7 @@ import { RustSecretService } from '$lib/secrets/secretsService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { UserService } from '$lib/stores/user';
 import { HttpClient } from '@gitbutler/shared/httpClient';
+import { AppState } from '@gitbutler/shared/redux/store';
 import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import lscache from 'lscache';
@@ -29,6 +30,8 @@ export const csr = true;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async () => {
+	const appState = new AppState();
+
 	// Awaited and will block initial render, but it is necessary in order to respect the user
 	// settings on telemetry.
 	const appSettings = await loadAppSettings();
@@ -74,6 +77,7 @@ export const load: LayoutLoad = async () => {
 		aiPromptService,
 		lineManagerFactory,
 		stackingLineManagerFactory,
-		secretsService
+		secretsService,
+		appState
 	};
 };

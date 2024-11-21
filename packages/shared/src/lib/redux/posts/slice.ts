@@ -1,6 +1,5 @@
 import { createEntityAdapter, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { Feed, Post, PostReplies } from '$lib/redux/posts/types';
-import type { RootState } from '$lib/redux/store';
 
 const postAdapter = createEntityAdapter({
 	selectId: (post: Post) => post.uuid,
@@ -24,7 +23,7 @@ const postSlice = createSlice({
 
 export const postReducer = postSlice.reducer;
 
-export const postSelectors = postAdapter.getSelectors((state: RootState) => state.post);
+export const postSelectors = postAdapter.getSelectors();
 export const {
 	addPost,
 	addPosts,
@@ -77,7 +76,7 @@ const feedSlice = createSlice({
 
 export const feedReducer = feedSlice.reducer;
 
-export const feedSelectors = feedAdapter.getSelectors((state: RootState) => state.feed);
+export const feedSelectors = feedAdapter.getSelectors();
 export const { addFeed, updateFeed, removeFeed, upsertFeed, feedAppend, feedPrepend } =
 	feedSlice.actions;
 
@@ -106,8 +105,6 @@ const postRepliesSlice = createSlice({
 
 export const postRepliesReducer = postRepliesSlice.reducer;
 
-export const postRepliesSelectors = postRepliesAdapter.getSelectors(
-	(state: RootState) => state.postReplies
-);
+export const postRepliesSelectors = postRepliesAdapter.getSelectors();
 export const { addPostReplies, updatePostReplies, removePostReplies, upsertPostReplies } =
 	postRepliesSlice.actions;

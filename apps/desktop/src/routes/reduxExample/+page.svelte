@@ -1,11 +1,12 @@
 <script lang="ts">
+	import { getContext } from '@gitbutler/shared/context';
 	import {
 		decrement,
 		increment,
 		selectExampleValue,
 		selectExampleValueGreaterThan
 	} from '@gitbutler/shared/redux/example';
-	import { useDispatch, useStore } from '@gitbutler/shared/redux/utils';
+	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
@@ -14,14 +15,15 @@
 	 * `location = '/reduxExample'` in the console.
 	 */
 
-	const store = useStore();
-	const dispatch = useDispatch();
+	const appState = getContext(AppState);
+	const appDispatch = getContext(AppDispatch);
 
 	let comparisonTarget = $state(4);
 
-	const currentValue = $derived(selectExampleValue($store));
+	const exampleState = appState.example;
+	const currentValue = $derived(selectExampleValue($exampleState));
 	const greaterThanComparisonTarget = $derived(
-		selectExampleValueGreaterThan($store, comparisonTarget)
+		selectExampleValueGreaterThan($exampleState, comparisonTarget)
 	);
 </script>
 
@@ -32,8 +34,8 @@
 	<p>Current value: {currentValue}</p>
 
 	<div>
-		<Button onclick={() => dispatch(increment())} type="button">increase</Button>
-		<Button onclick={() => dispatch(decrement())} type="button">decrease</Button>
+		<Button onclick={() => appDispatch.dispatch(increment())} type="button">increase</Button>
+		<Button onclick={() => appDispatch.dispatch(decrement())} type="button">decrease</Button>
 	</div>
 	<hr />
 	<p>

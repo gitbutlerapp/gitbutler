@@ -21,7 +21,7 @@ export class FeedService {
 
 	constructor(
 		private readonly httpClient: HttpClient,
-		private readonly dispatch: AppDispatch
+		private readonly appDispatch: AppDispatch
 	) {}
 
 	/** Fetch and poll the latest entries in the feed */
@@ -34,20 +34,20 @@ export class FeedService {
 	async getFeedPage(_identifier: string, lastPostTimestamp?: string) {
 		const query = lastPostTimestamp ? `?from_created_at=${lastPostTimestamp}` : '';
 		const apiFeed = await this.httpClient.get<ApiPost[]>(`feed${query}`);
-		this.dispatch(upsertPosts(apiFeed.map(apiToPost)));
+		this.appDispatch.dispatch(upsertPosts(apiFeed.map(apiToPost)));
 
 		const actionArguments = { identifier: 'all', postIds: apiFeed.map((post) => post.uuid) };
 		if (lastPostTimestamp) {
-			this.dispatch(feedAppend(actionArguments));
+			this.appDispatch.dispatch(feedAppend(actionArguments));
 		} else {
-			this.dispatch(feedPrepend(actionArguments));
+			this.appDispatch.dispatch(feedPrepend(actionArguments));
 		}
 	}
 
 	async createPost(content: string): Promise<Post> {
 		const apiPost = await this.httpClient.post<ApiPost>('feed/new', { body: { content } });
 		const post = apiToPost(apiPost);
-		this.dispatch(upsertPost(post));
+		this.appDispatch.dispatch(upsertPost(post));
 
 		// TODO: Determine if this is needed / wanted / useful
 		this.getFeedPage('all');
@@ -57,14 +57,13 @@ export class FeedService {
 
 	getPostWithRepliesInterest(postId: string) {
 		return this.postWithRepliesInterests.createInterest({ postId }, async () => {
-			return;
 			const apiPostWithReplies = await this.httpClient.get<ApiPostWithReplies>(
 				`feed/post/${postId}`
 			);
 			const post = apiToPost(apiPostWithReplies);
 			const posts = [post, ...apiPostWithReplies.replies.map(apiToPost)];
-			this.dispatch(upsertPosts(posts));
-			this.dispatch(
+			this.appDispatch.dispatch(upsertPosts(posts));
+			this.appDispatch.dispatch(
 				upsertPostReplies({
 					postId,
 					replyIds: apiPostWithReplies.replies.map((reply) => reply.uuid)
