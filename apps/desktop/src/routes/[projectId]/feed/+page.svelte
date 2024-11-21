@@ -18,8 +18,6 @@
 	const feedsState = appState.feeds;
 	const feed = $derived(feedsSelectors.selectById($feedsState, 'all'));
 
-	$effect(() => console.log(feed));
-
 	// Post creation
 	let newPostContent = $state('');
 	function createPost() {
@@ -43,7 +41,6 @@
 			const observer = new IntersectionObserver(
 				(entries) => {
 					if (entries[0]?.isIntersecting && lastPost) {
-						console.log('fetching more posts');
 						feedService.getFeedPage('all', lastPost?.createdAt);
 					}
 				},

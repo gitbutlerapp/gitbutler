@@ -20,8 +20,6 @@
 	const post = $derived(postsSelectors.selectById($postsState, postId));
 
 	let postCardRef = $state<HTMLDivElement | undefined>(undefined);
-
-	$effect(() => console.log(post));
 </script>
 
 <RegisterInterest interest={postWithRepliesInterest} reference={postCardRef} onlyInView />
