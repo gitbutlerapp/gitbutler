@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext } from '@gitbutler/shared/context';
-	import Interest from '@gitbutler/shared/redux/interest/Interest.svelte';
+	import RegisterInterest from '@gitbutler/shared/redux/interest/RegisterInterest.svelte';
 	import { FeedService } from '@gitbutler/shared/redux/posts/service';
 	import { postSelectors, postRepliesSelectors } from '@gitbutler/shared/redux/posts/slice';
 	import { useStore } from '@gitbutler/shared/redux/utils';
@@ -24,7 +24,7 @@
 	$effect(() => console.log(postReplies));
 </script>
 
-<Interest interest={postWithRepliesInterest} reference={postCardRef} onlyInView />
+<RegisterInterest interest={postWithRepliesInterest} reference={postCardRef} onlyInView />
 
 {#if post}
 	<div class="card card__content" bind:this={postCardRef}>

@@ -3,6 +3,7 @@ export type ApiPost = {
 	content: string;
 	post_type: string;
 	reply_to_id: string;
+	created_at: string;
 	// TODO user:
 	// TODO metadata:
 	// TODO target:
@@ -17,6 +18,7 @@ export type Post = {
 	content: string;
 	postType: string;
 	replyToId: string;
+	createdAt: string;
 	// TODO userId:
 	// TODO metadata:
 	// TODO target:
@@ -27,7 +29,8 @@ export function apiToPost(apiPost: ApiPost): Post {
 		uuid: apiPost.uuid,
 		content: apiPost.content,
 		postType: apiPost.post_type,
-		replyToId: apiPost.reply_to_id
+		replyToId: apiPost.reply_to_id,
+		createdAt: apiPost.created_at
 	};
 }
 

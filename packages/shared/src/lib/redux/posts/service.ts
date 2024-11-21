@@ -1,5 +1,11 @@
 import { InterestStore } from '$lib/redux/interest/intrestStore';
-import { upsertFeed, upsertPost, upsertPostReplies, upsertPosts } from '$lib/redux/posts/slice';
+import {
+	feedAppend,
+	feedPrepend,
+	upsertPost,
+	upsertPostReplies,
+	upsertPosts
+} from '$lib/redux/posts/slice';
 import {
 	apiToPost,
 	type ApiPost,
@@ -10,21 +16,32 @@ import type { HttpClient } from '$lib/httpClient';
 import type { AppDispatch } from '$lib/redux/store';
 
 export class FeedService {
-	private readonly feedInterests = new InterestStore<undefined>(5 * 60 * 1000);
-	private readonly postWithRepliesIntrestes = new InterestStore<{ postId: string }>(5 * 60 * 1000);
+	private readonly feedInterests = new InterestStore<{ identifier: string }>(1 * 60 * 1000);
+	private readonly postWithRepliesInterests = new InterestStore<{ postId: string }>(30 * 1000);
 
 	constructor(
 		private readonly httpClient: HttpClient,
 		private readonly dispatch: AppDispatch
 	) {}
 
-	/** Used to start querying and polling the feed */
-	getFeedInterest() {
-		return this.feedInterests.createInterest(undefined, async () => {
-			const apiFeed = await this.httpClient.get<ApiPost[]>('feed');
-			this.dispatch(upsertPosts(apiFeed.map(apiToPost)));
-			this.dispatch(upsertFeed({ identifier: 'all', postIds: apiFeed.map((post) => post.uuid) }));
+	/** Fetch and poll the latest entries in the feed */
+	getFeedHeadInterest() {
+		return this.feedInterests.createInterest({ identifier: 'all' }, () => {
+			this.getFeedPage('all');
 		});
+	}
+
+	async getFeedPage(_identifier: string, lastPostTimestamp?: string) {
+		const query = lastPostTimestamp ? `?from_created_at=${lastPostTimestamp}` : '';
+		const apiFeed = await this.httpClient.get<ApiPost[]>(`feed${query}`);
+		this.dispatch(upsertPosts(apiFeed.map(apiToPost)));
+
+		const actionArguments = { identifier: 'all', postIds: apiFeed.map((post) => post.uuid) };
+		if (lastPostTimestamp) {
+			this.dispatch(feedAppend(actionArguments));
+		} else {
+			this.dispatch(feedPrepend(actionArguments));
+		}
 	}
 
 	async createPost(content: string): Promise<Post> {
@@ -33,15 +50,14 @@ export class FeedService {
 		this.dispatch(upsertPost(post));
 
 		// TODO: Determine if this is needed / wanted / useful
-		const apiFeed = await this.httpClient.get<ApiPost[]>('feed');
-		this.dispatch(upsertPosts(apiFeed.map(apiToPost)));
-		this.dispatch(upsertFeed({ identifier: 'all', postIds: apiFeed.map((post) => post.uuid) }));
+		this.getFeedPage('all');
 
 		return post;
 	}
 
 	getPostWithRepliesInterest(postId: string) {
-		return this.postWithRepliesIntrestes.createInterest({ postId }, async () => {
+		return this.postWithRepliesInterests.createInterest({ postId }, async () => {
+			return;
 			const apiPostWithReplies = await this.httpClient.get<ApiPostWithReplies>(
 				`feed/post/${postId}`
 			);

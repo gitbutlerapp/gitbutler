@@ -1,4 +1,4 @@
-import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
+import { createEntityAdapter, createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { Feed, Post, PostReplies } from '$lib/redux/posts/types';
 import type { RootState } from '$lib/redux/store';
 
@@ -50,11 +50,27 @@ const feedSlice = createSlice({
 		updateFeed: feedAdapter.updateOne,
 		removeFeed: feedAdapter.removeOne,
 		upsertFeed: feedAdapter.upsertOne,
-		addFeedPost: (state, action) => {
-			const feed = state.entities[action.payload.feedId];
-			if (feed) {
-				feed.postIds.unshift(action.payload.postId);
-			}
+		feedAppend: (state, action: PayloadAction<{ identifier: string; postIds: string[] }>) => {
+			let feed = state.entities[action.payload.identifier];
+			if (!feed) feed = { identifier: action.payload.identifier, postIds: [] };
+
+			const postIdsToAdd = action.payload.postIds.filter(
+				(postId) => !feed.postIds.includes(postId)
+			);
+			feed.postIds.push(...postIdsToAdd);
+
+			feedAdapter.upsertOne(state, feed);
+		},
+		feedPrepend: (state, action: PayloadAction<{ identifier: string; postIds: string[] }>) => {
+			let feed = state.entities[action.payload.identifier];
+			if (!feed) feed = { identifier: action.payload.identifier, postIds: [] };
+
+			const postIdsToAdd = action.payload.postIds.filter(
+				(postId) => !feed.postIds.includes(postId)
+			);
+			feed.postIds.unshift(...postIdsToAdd);
+
+			feedAdapter.upsertOne(state, feed);
 		}
 	}
 });
@@ -62,7 +78,8 @@ const feedSlice = createSlice({
 export const feedReducer = feedSlice.reducer;
 
 export const feedSelectors = feedAdapter.getSelectors((state: RootState) => state.feed);
-export const { addFeed, updateFeed, removeFeed, upsertFeed } = feedSlice.actions;
+export const { addFeed, updateFeed, removeFeed, upsertFeed, feedAppend, feedPrepend } =
+	feedSlice.actions;
 
 // Replies
 const postRepliesAdapter = createEntityAdapter({
