@@ -46,7 +46,7 @@ body {
 /* CODE */
 .code-string {
 	color: var(--clr-text-1);
-	font-family: var(--mono-font-family);
+	font-family: var(--font-family-mono);
 	border-radius: var(--radius-s);
 	background: var(--clr-scale-ntrl-80);
 	padding: 1px 4px;
