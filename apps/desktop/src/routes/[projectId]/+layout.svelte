@@ -34,7 +34,7 @@
 	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
-	import { FeedService } from '@gitbutler/shared/redux/posts/service';
+	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { DesktopRoutesService, getRoutesService } from '@gitbutler/shared/sharedRoutes';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';

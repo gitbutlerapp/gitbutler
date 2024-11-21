@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Interest } from '$lib/redux/interest/intrestStore';
+	import type { Interest } from '$lib/interest/intrestStore';
 
 	type Props = {
 		interest: Interest;

@@ -1,5 +1,6 @@
+import { feedsReducer } from '$lib/feeds/feedsSlice';
+import { postsReducer } from '$lib/feeds/postsSlice';
 import { exampleReducer } from '$lib/redux/example';
-import { feedReducer, postReducer, postRepliesReducer } from '$lib/redux/posts/slice';
 import { configureStore, createSelector } from '@reduxjs/toolkit';
 import { derived, readable, type Readable } from 'svelte/store';
 
@@ -11,23 +12,19 @@ export interface AppExampleState {
 	readonly example: Readable<ReturnType<typeof exampleReducer>>;
 }
 
-export interface AppPostState {
-	readonly post: Readable<ReturnType<typeof postReducer>>;
+export interface AppPostsState {
+	readonly posts: Readable<ReturnType<typeof postsReducer>>;
 }
 
-export interface AppPostRepliesState {
-	readonly postReplies: Readable<ReturnType<typeof postRepliesReducer>>;
-}
-
-export interface AppFeedState {
-	readonly feed: Readable<ReturnType<typeof feedReducer>>;
+export interface AppFeedsState {
+	readonly feeds: Readable<ReturnType<typeof feedsReducer>>;
 }
 
 export class AppDispatch {
 	constructor(readonly dispatch: Dispatch) {}
 }
 
-export class AppState implements AppExampleState, AppPostState, AppPostRepliesState, AppFeedState {
+export class AppState implements AppExampleState, AppPostsState, AppFeedsState {
 	/**
 	 * The base store.
 	 *
@@ -36,10 +33,9 @@ export class AppState implements AppExampleState, AppPostState, AppPostRepliesSt
 	 */
 	readonly _store = configureStore({
 		reducer: {
-			example: exampleReducer,
-			post: postReducer,
-			postReplies: postRepliesReducer,
-			feed: feedReducer
+			examples: exampleReducer,
+			posts: postsReducer,
+			feeds: feedsReducer
 		}
 	});
 
@@ -62,21 +58,15 @@ export class AppState implements AppExampleState, AppPostState, AppPostRepliesSt
 
 	private readonly selectExample = createSelector(
 		[this.selectSelf],
-		(rootState) => rootState.example
+		(rootState) => rootState.examples
 	);
 	readonly example = derived(this.rootState, this.selectExample);
 
-	private readonly selectPost = createSelector([this.selectSelf], (rootState) => rootState.post);
-	readonly post = derived(this.rootState, this.selectPost);
+	private readonly selectPosts = createSelector([this.selectSelf], (rootState) => rootState.posts);
+	readonly posts = derived(this.rootState, this.selectPosts);
 
-	private readonly selectPostReplies = createSelector(
-		[this.selectSelf],
-		(rootState) => rootState.postReplies
-	);
-	readonly postReplies = derived(this.rootState, this.selectPostReplies);
-
-	private readonly selectFeed = createSelector([this.selectSelf], (rootState) => rootState.feed);
-	readonly feed = derived(this.rootState, this.selectFeed);
+	private readonly selectFeeds = createSelector([this.selectSelf], (rootState) => rootState.feeds);
+	readonly feeds = derived(this.rootState, this.selectFeeds);
 }
 
 export type RootState = ReturnType<typeof AppState.prototype._store.getState>;

@@ -19,7 +19,7 @@ import { BranchController } from '$lib/vbranches/branchController';
 import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { BranchesApiService, CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
-import { FeedService } from '@gitbutler/shared/redux/posts/service';
+import { FeedService } from '@gitbutler/shared/feeds/service';
 import { error } from '@sveltejs/kit';
 import { derived } from 'svelte/store';
 import type { LayoutLoad } from './$types';

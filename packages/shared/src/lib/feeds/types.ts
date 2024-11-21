@@ -22,6 +22,8 @@ export type Post = {
 	// TODO userId:
 	// TODO metadata:
 	// TODO target:
+
+	replyIds?: string[];
 };
 
 export function apiToPost(apiPost: ApiPost): Post {
@@ -37,9 +39,4 @@ export function apiToPost(apiPost: ApiPost): Post {
 export type Feed = {
 	identifier: string;
 	postIds: string[];
-};
-
-export type PostReplies = {
-	postId: string;
-	replyIds: string[];
 };

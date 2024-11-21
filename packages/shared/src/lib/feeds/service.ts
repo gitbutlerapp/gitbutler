@@ -1,17 +1,7 @@
-import { InterestStore } from '$lib/redux/interest/intrestStore';
-import {
-	feedAppend,
-	feedPrepend,
-	upsertPost,
-	upsertPostReplies,
-	upsertPosts
-} from '$lib/redux/posts/slice';
-import {
-	apiToPost,
-	type ApiPost,
-	type ApiPostWithReplies,
-	type Post
-} from '$lib/redux/posts/types';
+import { feedAppend, feedPrepend } from '$lib/feeds/feedsSlice';
+import { upsertPost, upsertPosts } from '$lib/feeds/postsSlice';
+import { apiToPost, type ApiPost, type ApiPostWithReplies, type Post } from '$lib/feeds/types';
+import { InterestStore } from '$lib/interest/intrestStore';
 import type { HttpClient } from '$lib/httpClient';
 import type { AppDispatch } from '$lib/redux/store';
 
@@ -61,14 +51,10 @@ export class FeedService {
 				`feed/post/${postId}`
 			);
 			const post = apiToPost(apiPostWithReplies);
+			post.replyIds = apiPostWithReplies.replies.map((reply) => reply.uuid);
+
 			const posts = [post, ...apiPostWithReplies.replies.map(apiToPost)];
 			this.appDispatch.dispatch(upsertPosts(posts));
-			this.appDispatch.dispatch(
-				upsertPostReplies({
-					postId,
-					replyIds: apiPostWithReplies.replies.map((reply) => reply.uuid)
-				})
-			);
 		});
 	}
 }
