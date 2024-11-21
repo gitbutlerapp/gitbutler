@@ -138,8 +138,8 @@
 			{#if branchDetails}
 				<Tooltip text="Code changes">
 					<div class="code-changes">
-						<span class="text-10 text-semibold">+{branchDetails.linesAdded}</span>
-						<span class="text-10 text-semibold">-{branchDetails.linesRemoved}</span>
+						<span class="text-10 text-bold">+{branchDetails.linesAdded}</span>
+						<span class="text-10 text-bold">-{branchDetails.linesRemoved}</span>
 					</div>
 				</Tooltip>
 
@@ -157,7 +157,7 @@
 							<path d="M0.333374 4H3.66671" stroke="currentColor" stroke-width="1.5" />
 						</svg>
 
-						<span class="text-10 text-semibold">{branchDetails.commitCount}</span>
+						<span class="text-10 text-bold">{branchDetails.commitCount}</span>
 					</div>
 				</Tooltip>
 			{/if}
