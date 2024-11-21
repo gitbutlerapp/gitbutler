@@ -360,7 +360,7 @@ where
     args.push(&refspec);
 
     if force {
-        args.push("--force");
+        args.push("--force-with-lease");
     }
 
     let (status, stdout, stderr) =
