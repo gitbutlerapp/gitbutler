@@ -1,8 +1,9 @@
 import { scurveBackoff } from '$lib/backoff/scurve';
 import { DEFAULT_HEADERS } from '$lib/forge/github/headers';
-import { parseGitHubCheckSuites } from '$lib/forge/github/types';
+import { parseGitHubCheckRuns, parseGitHubCheckSuites } from '$lib/forge/github/types';
 import { sleep } from '$lib/utils/sleep';
-import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
+import { LocalCache } from '@gitbutler/shared/localCache';
+import { Octokit } from '@octokit/rest';
 import { writable } from 'svelte/store';
 import type { CheckSuites, ChecksStatus } from '$lib/forge/interface/types';
 import type { RepoInfo } from '$lib/url/gitUrl';
@@ -27,6 +28,9 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 	private timeout: any;
 	private hasCheckSuites: boolean | undefined;
 
+	// Stores previously fetched checks results by pr number.
+	private cache = new LocalCache({ keyPrefix: 'pr-checks', expiry: 1440 });
+
 	constructor(
 		private octokit: Octokit,
 		private repo: RepoInfo,
@@ -34,6 +38,7 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 	) {}
 
 	async start() {
+		this.loadFromCache();
 		this.update();
 	}
 
@@ -42,15 +47,25 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 		delete this.timeout;
 	}
 
+	loadFromCache() {
+		const cachedValue = this.cache.get(this.sourceBranch);
+		try {
+			const status = parseGitHubCheckRuns(cachedValue);
+			this._status = status;
+			this.status.set(status);
+		} catch {
+			this.cache.remove(this.sourceBranch);
+		}
+	}
+
 	async update() {
 		this.error.set(undefined);
 		this.loading.set(true);
 
 		try {
 			const checks = await this.fetchChecksWithRetries(this.sourceBranch, 5, 2000);
-			const status = parseChecks(checks);
-			this.status.set(status);
-			this._status = status;
+			this.status.set(checks);
+			this._status = checks;
 		} catch (e: any) {
 			console.error(e);
 			this.error.set(e.message);
@@ -84,9 +99,13 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 		return scurveBackoff(ageMs, 10000, 600000);
 	}
 
-	private async fetchChecksWithRetries(ref: string, retries: number, delayMs: number) {
+	private async fetchChecksWithRetries(
+		ref: string,
+		retries: number,
+		delayMs: number
+	): Promise<ChecksStatus | null> {
 		let checks = await this.fetchChecks(ref);
-		if (checks.total_count > 0) {
+		if (checks && checks?.totalCount > 0) {
 			this.hasCheckSuites = true;
 			return checks;
 		}
@@ -99,7 +118,7 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 		if (!this.hasCheckSuites) return checks;
 
 		let attempts = 0;
-		while (checks.total_count === 0 && attempts < retries) {
+		while (checks && checks.totalCount === 0 && attempts < retries) {
 			attempts++;
 			await sleep(delayMs);
 			checks = await this.fetchChecks(ref);
@@ -117,57 +136,14 @@ export class GitHubChecksMonitor implements ForgeChecksMonitor {
 		return { count: resp.data.total_count, items: parseGitHubCheckSuites(resp.data) };
 	}
 
-	private async fetchChecks(ref: string) {
+	private async fetchChecks(ref: string): Promise<ChecksStatus | null> {
 		const resp = await this.octokit.checks.listForRef({
 			headers: DEFAULT_HEADERS,
 			owner: this.repo.owner,
 			repo: this.repo.name,
 			ref: ref
 		});
-		return resp.data;
+		this.cache.set(ref, resp.data);
+		return parseGitHubCheckRuns(resp.data);
 	}
-}
-
-function parseChecks(
-	data: RestEndpointMethodTypes['checks']['listForRef']['response']['data']
-): ChecksStatus | null {
-	// Fetch with retries since checks might not be available _right_ after
-	// the pull request has been created.
-
-	// If there are no checks then there is no status to report
-	const checkRuns = data.check_runs;
-	if (checkRuns.length === 0) return null;
-
-	// Establish when the first check started running, useful for showing
-	// how long something has been running.
-	const starts = checkRuns
-		.map((run) => run.started_at)
-		.filter((startedAt) => startedAt !== null) as string[];
-	const startTimes = starts.map((startedAt) => new Date(startedAt));
-
-	const queued = checkRuns.filter((c) => c.status === 'queued').length;
-	const failed = checkRuns.filter((c) => c.conclusion === 'failure').length;
-	const skipped = checkRuns.filter((c) => c.conclusion === 'skipped').length;
-	const succeeded = checkRuns.filter((c) => c.conclusion === 'success').length;
-
-	const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
-	const completed = checkRuns.every((check) => !!check.completed_at);
-	const totalCount = data.total_count;
-
-	const success = queued === 0 && failed === 0 && skipped + succeeded === totalCount;
-	const finished = checkRuns.filter(
-		(c) => c.conclusion && ['failure', 'success'].includes(c.conclusion)
-	).length;
-
-	return {
-		startedAt: firstStart,
-		hasChecks: !!totalCount,
-		success,
-		failed,
-		completed,
-		queued,
-		totalCount,
-		skipped,
-		finished
-	};
 }

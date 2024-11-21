@@ -27,7 +27,15 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 		private prNumber: number
 	) {}
 
+	private loadFromCache() {
+		const cachedValue = this.prService.getCached(this.prNumber);
+		if (cachedValue) {
+			this.pr.set(cachedValue);
+		}
+	}
+
 	private start() {
+		this.loadFromCache();
 		this.fetch();
 		this.intervalId = setInterval(() => {
 			this.fetch();

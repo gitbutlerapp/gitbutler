@@ -1,7 +1,8 @@
 import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
-import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
+import { ghResponseToInstance, parseGitHubDetailedPullRequest, parseGitHubReview } from './types';
 import { sleep } from '$lib/utils/sleep';
+import { LocalCache } from '@gitbutler/shared/localCache';
 import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
@@ -16,6 +17,9 @@ import type { Octokit } from '@octokit/rest';
 
 export class GitHubPrService implements ForgePrService {
 	loading = writable(false);
+
+	// Stores previously fetched pull requests by their number.
+	private cache = new LocalCache({ keyPrefix: 'pr', expiry: 1440 });
 
 	constructor(
 		private octokit: Octokit,
@@ -72,7 +76,31 @@ export class GitHubPrService implements ForgePrService {
 			repo: this.repo.name,
 			pull_number: prNumber
 		});
+		this.cache.set(prNumber, resp.data);
 		return parseGitHubDetailedPullRequest(resp.data);
+	}
+
+	getCached(prNumber: number): DetailedPullRequest | undefined {
+		const cachedValue = this.cache.get(prNumber);
+		try {
+			return cachedValue ? parseGitHubDetailedPullRequest(cachedValue) : undefined;
+		} catch {
+			this.cache.remove(prNumber);
+		}
+	}
+
+	private cacheKey(prNumber: number) {
+		return 'pr-cache-' + prNumber;
+	}
+
+	async getReviewStatus(prNumber: number): Promise<ReviewStatus> {
+		const resp = await this.octokit.pulls.listReviews({
+			headers: DEFAULT_HEADERS,
+			owner: this.repo.owner,
+			repo: this.repo.name,
+			pull_number: prNumber
+		});
+		return parseGitHubReview(resp.data);
 	}
 
 	async merge(method: MergeMethod, prNumber: number) {
