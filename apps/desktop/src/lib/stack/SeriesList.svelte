@@ -89,7 +89,7 @@
 
 			{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
 				<CommitList
-					remoteOnlyPatches={currentSeries.upstreamPatches}
+					remotePatches={currentSeries.upstreamPatches}
 					patches={currentSeries.patches}
 					seriesName={currentSeries.name}
 					isUnapplied={false}
