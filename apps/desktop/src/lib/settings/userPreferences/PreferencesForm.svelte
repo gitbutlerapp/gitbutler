@@ -11,8 +11,8 @@
 	const project = getContext(Project);
 
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
-
 	let omitCertificateCheck = project?.omit_certificate_check;
+	let useNewBranchIntegrationAlgorithm = project?.use_new_branch_integration_algorithm;
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
 
@@ -26,8 +26,17 @@
 		await projectsService.updateProject(project);
 	}
 
+	async function setUseNewBranchIntegrationAlgorithm(value: boolean) {
+		project.use_new_branch_integration_algorithm = value;
+		await projectsService.updateProject(project);
+	}
+
 	async function handleOmitCertificateCheckClick(event: MouseEvent) {
 		await setOmitCertificateCheck((event.target as HTMLInputElement)?.checked);
+	}
+
+	async function handleUseNewBranchIntegrationAlgorithmClick(event: MouseEvent) {
+		await setUseNewBranchIntegrationAlgorithm((event.target as HTMLInputElement)?.checked);
 	}
 </script>
 
@@ -42,6 +51,23 @@
 				id="omitCertificateCheck"
 				checked={omitCertificateCheck}
 				onclick={handleOmitCertificateCheckClick}
+			/>
+		</svelte:fragment>
+	</SectionCard>
+
+	<SectionCard orientation="row" labelFor="newBranchIntegrationAlgorithm">
+		<svelte:fragment slot="title">Use new branch integration algorithm</svelte:fragment>
+		<svelte:fragment slot="caption"
+			>Enable this to start using the improved way of integrating remote changes into the local
+			virtual branches in your workspace.
+			<br />
+			This does not affect how the target branch is integrated.</svelte:fragment
+		>
+		<svelte:fragment slot="actions">
+			<Toggle
+				id="newBranchIntegrationAlgorithm"
+				checked={useNewBranchIntegrationAlgorithm}
+				onclick={handleUseNewBranchIntegrationAlgorithmClick}
 			/>
 		</svelte:fragment>
 	</SectionCard>
