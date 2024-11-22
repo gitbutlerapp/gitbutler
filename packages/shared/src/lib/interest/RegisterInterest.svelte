@@ -34,8 +34,7 @@
 	});
 
 	$effect(() => {
-		const shouldSubscribe = !onlyInView || inView;
-		if (interest && shouldSubscribe) {
+		if (!onlyInView || inView) {
 			const unsubscribe = interest._subscribe();
 
 			// It is vitally important that we return the unsubscribe function
