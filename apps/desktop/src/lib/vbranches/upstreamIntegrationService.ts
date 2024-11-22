@@ -1,5 +1,6 @@
 import { invoke } from '$lib/backend/ipc';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { derived, readable, type Readable } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';
 import type { VirtualBranch } from '$lib/vbranches/types';
@@ -134,20 +135,18 @@ export class UpstreamIntegrationService {
 
 				return {
 					type: 'updatesRequired',
-					subject: branchStatuses.subject.map((status) => {
-						const stack = branches.find((appliedBranch) => appliedBranch.id === status[0]);
+					subject: branchStatuses.subject
+						.map((status) => {
+							const stack = branches.find((appliedBranch) => appliedBranch.id === status[0]);
 
-						if (!stack) {
-							throw new Error(
-								`Could not find stack with id ${status[0]}. Please report this issue and try restarting the app and trying again.`
-							);
-						}
+							if (!stack) return;
 
-						return {
-							stack,
-							status: status[1]
-						};
-					})
+							return {
+								stack,
+								status: status[1]
+							};
+						})
+						.filter(isDefined)
 				};
 			}
 		);
