@@ -251,6 +251,10 @@ pub(crate) fn stack_series(
             default_target,
             check_commit,
             &stack_dependencies,
+            &api_series
+                .iter()
+                .filter_map(|series| series.as_ref().ok())
+                .collect::<Vec<_>>(),
         )
         .map_or_else(
             |err| {
@@ -277,6 +281,7 @@ fn stack_branch_to_api_branch(
     default_target: &Target,
     check_commit: &mut IsCommitIntegrated,
     stack_dependencies: &StackDependencies,
+    parent_series: &[&PatchSeries],
 ) -> Result<(PatchSeries, bool)> {
     let mut requires_force = false;
     let repository = ctx.repository();
@@ -363,10 +368,33 @@ fn stack_branch_to_api_branch(
             continue;
         }
 
-        let is_integrated = check_commit.is_integrated(commit)?;
-        if is_integrated {
+        if parent_series.iter().any(|series| {
+            if series.archived {
+                return false;
+            };
+
+            series
+                .patches
+                .iter()
+                .any(|p| p.id == commit.id() || p.remote_commit_id == Some(commit.id()))
+        }) {
+            // Skip if we already have this commit in the list
             continue;
         }
+
+        let is_integrated = {
+            if parent_series.iter().any(|series| {
+                if !series.archived {
+                    return false;
+                };
+
+                series.upstream_patches.iter().any(|p| p.id == commit.id())
+            }) {
+                true
+            } else {
+                check_commit.is_integrated(commit)?
+            }
+        };
 
         let commit_dependencies = commit_dependencies_from_stack(stack_dependencies, commit.id());
 
@@ -374,7 +402,7 @@ fn stack_branch_to_api_branch(
             repository,
             stack,
             commit,
-            false,
+            is_integrated,
             true,
             false,
             None,

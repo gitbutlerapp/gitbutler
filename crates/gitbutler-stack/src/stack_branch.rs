@@ -105,7 +105,7 @@ impl StackBranch {
 
         let head_commit =
             commit_by_oid_or_change_id(&self.head, repository, stack.head(), merge_base);
-        if self.archived || head_commit.is_err() {
+        if head_commit.is_err() {
             return Ok(BranchCommits {
                 local_commits: vec![],
                 remote_commits: vec![],
