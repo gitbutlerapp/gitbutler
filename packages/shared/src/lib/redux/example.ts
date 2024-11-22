@@ -1,4 +1,3 @@
-import { selectSelf } from '$lib/redux/selectSelf';
 import { createSelector, createSlice } from '@reduxjs/toolkit';
 
 export interface ExampleState {
@@ -25,7 +24,9 @@ const exampleSlice = createSlice({
 export const { increment, decrement } = exampleSlice.actions;
 export const exampleReducer = exampleSlice.reducer;
 
-export const selectExample = createSelector([selectSelf], (state) => state.example);
+export function selectExample(example: ExampleState): ExampleState {
+	return example;
+}
 export const selectExampleValue = createSelector([selectExample], (example) => example.value);
 export const selectExampleValueGreaterThan = createSelector(
 	[selectExampleValue, (_state: unknown, target: number) => target],

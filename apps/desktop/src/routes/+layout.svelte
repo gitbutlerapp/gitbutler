@@ -37,6 +37,7 @@
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
+	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store';
 	import {
 		DesktopRoutesService,
 		setRoutesService,
@@ -58,6 +59,8 @@
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
+	setContext(AppState, data.appState);
+	setContext(AppDispatch, data.appState.appDispatch);
 	setContext(CommandService, data.commandService);
 	setContext(UserService, data.userService);
 	setContext(ProjectsService, data.projectsService);

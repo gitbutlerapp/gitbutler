@@ -9,6 +9,7 @@
 	import { ModeService } from '$lib/modes/service';
 	import CloudSeriesButton from '$lib/navigation/CloudSeriesButton.svelte';
 	import EditButton from '$lib/navigation/EditButton.svelte';
+	import FeedButton from '$lib/navigation/FeedButton.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { createKeybind } from '$lib/utils/hotkeys';
@@ -125,6 +126,7 @@
 
 					{#if $cloudEnabled}
 						<CloudSeriesButton href={`/${projectId}/series`} isNavCollapsed={$isNavCollapsed} />
+						<FeedButton href={`/${projectId}/feed`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 				</div>
 			</div>
