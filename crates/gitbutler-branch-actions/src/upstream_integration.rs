@@ -148,7 +148,7 @@ enum IntegrationResult {
 pub struct UpstreamIntegrationContext<'a> {
     _permission: Option<&'a mut WorktreeWritePermission>,
     repository: &'a git2::Repository,
-    virtual_branches_in_workspace: Vec<Stack>,
+    stacks_in_workspace: Vec<Stack>,
     new_target: git2::Commit<'a>,
     target: Target,
 }
@@ -178,7 +178,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
             repository,
             new_target,
             target: target.clone(),
-            virtual_branches_in_workspace: stacks_in_workspace,
+            stacks_in_workspace,
         })
     }
 }
@@ -325,7 +325,7 @@ pub fn upstream_integration_statuses(
         repository,
         new_target,
         target,
-        virtual_branches_in_workspace: stacks_in_workspace,
+        stacks_in_workspace,
         ..
     } = context;
     let old_target = repository.find_commit(target.sha)?;
@@ -378,14 +378,18 @@ pub(crate) fn integrate_upstream(
             bail!("Branches are all up to date")
         };
 
-        if resolutions.len() != context.virtual_branches_in_workspace.len() {
-            bail!("Chosen resolutions do not match quantity of applied virtual branches")
+        if resolutions.len() != context.stacks_in_workspace.len() {
+            bail!(
+                "Chosen resolutions do not match quantity of applied virtual branches. {:?} {:?}",
+                resolutions,
+                context.stacks_in_workspace
+            )
         }
 
         let all_resolutions_are_up_to_date = resolutions.iter().all(|resolution| {
             // This is O(n^2), in reality, n is unlikly to be more than 3 or 4
             let Some(branch) = context
-                .virtual_branches_in_workspace
+                .stacks_in_workspace
                 .iter()
                 .find(|branch| branch.id == resolution.branch_id)
             else {
@@ -530,14 +534,14 @@ fn compute_resolutions(
         repository,
         new_target,
         target,
-        virtual_branches_in_workspace,
+        stacks_in_workspace,
         ..
     } = context;
 
     let results = resolutions
         .iter()
         .map(|resolution| {
-            let Some(virtual_branch) = virtual_branches_in_workspace
+            let Some(virtual_branch) = stacks_in_workspace
                 .iter()
                 .find(|branch| branch.id == resolution.branch_id)
             else {
