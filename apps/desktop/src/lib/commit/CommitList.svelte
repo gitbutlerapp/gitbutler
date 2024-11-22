@@ -2,7 +2,7 @@
 	import CommitAction from './CommitAction.svelte';
 	import CommitCard from './CommitCard.svelte';
 	import CommitDragItem from './CommitDragItem.svelte';
-	import UpstreamCommitsAccordion from './UpstreamCommitsAccordion.svelte';
+	import CommitsAccordion from './CommitsAccordion.svelte';
 	import { findLastDivergentCommit } from '$lib/commits/utils';
 	import {
 		StackingReorderDropzoneManager,
@@ -149,7 +149,15 @@
 	<div class="commits">
 		<!-- UPSTREAM ONLY COMMITS -->
 		{#if hasRemoteCommits}
-			<UpstreamCommitsAccordion count={Math.min(remotePatches.length, 3)} isLast={!hasCommits}>
+			<CommitsAccordion
+				count={Math.min(remotePatches.length, 3)}
+				isLast={!hasCommits}
+				type="upstream"
+				displayHeader={remotePatches.length > 1}
+			>
+				{#snippet title()}
+					<span class="text-13 text-body text-semibold">Upstream commits</span>
+				{/snippet}
 				{#each remoteOnlyPatches as commit, idx (commit.id)}
 					<CommitCard
 						type="remote"
@@ -174,7 +182,7 @@
 						{@render integrateUpstreamButton('default')}
 					{/snippet}
 				</CommitAction>
-			</UpstreamCommitsAccordion>
+			</CommitsAccordion>
 		{/if}
 
 		<!-- REMAINING LOCAL, LOCALANDREMOTE, AND INTEGRATED COMMITS -->
@@ -226,41 +234,44 @@
 		{/if}
 
 		<!-- Remote integrated commits -->
-		{#if hasRemoteIntegratedCommits}
-			<div class="commits-group">
-				{#each remoteIntegratedPatches as commit, idx (commit.id)}
-					<CommitDragItem {commit}>
-						<CommitCard
-							type={commit.status}
-							branch={$branch}
-							{commit}
-							{seriesName}
-							{isUnapplied}
-							noBorder={idx === remoteIntegratedPatches.length - 1}
-							last={idx === remoteIntegratedPatches.length - 1}
-							isHeadCommit={commit.id === headCommit?.id}
-							commitUrl={$forge?.commitUrl(commit.id)}
-							disableCommitActions={true}
-						>
-							{#snippet lines()}
-								<Line
-									line={lineManager.get(commit.id)}
-									isBottom={isBottom && idx === patches.length - 1}
-								/>
-							{/snippet}
-						</CommitCard>
-					</CommitDragItem>
-				{/each}
 
-				<CommitAction type="integrated" isLast>
-					{#snippet action()}
-						<p class="text-13">
-							Earlier branches in the stack have been integrated. Please force push to sync your
-							branch with the updated base.
-						</p>
-					{/snippet}
-				</CommitAction>
-			</div>
+		{#if hasRemoteIntegratedCommits}
+			<CommitsAccordion
+				count={Math.min(remoteIntegratedPatches.length, 3)}
+				isLast={!hasCommits}
+				type="integrated"
+				alignTop
+				displayHeader
+				unfoldable={remoteIntegratedPatches.length <= 1}
+			>
+				{#snippet title()}
+					<span class="text-12 text-body"
+						>Some branches in this stack have been integrated. Please force push to sync your branch
+						with the updated base.↘</span
+					>
+				{/snippet}
+				{#each remoteIntegratedPatches as commit, idx (commit.id)}
+					<CommitCard
+						type={commit.status}
+						branch={$branch}
+						{commit}
+						{seriesName}
+						{isUnapplied}
+						noBorder={idx === remoteIntegratedPatches.length - 1}
+						last={idx === remoteIntegratedPatches.length - 1}
+						isHeadCommit={commit.id === headCommit?.id}
+						commitUrl={$forge?.commitUrl(commit.id)}
+						disableCommitActions={true}
+					>
+						{#snippet lines()}
+							<Line
+								line={lineManager.get(commit.id)}
+								isBottom={isBottom && idx === patches.length - 1}
+							/>
+						{/snippet}
+					</CommitCard>
+				{/each}
+			</CommitsAccordion>
 		{/if}
 	</div>
 

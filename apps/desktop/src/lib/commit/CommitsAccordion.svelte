@@ -5,10 +5,16 @@
 	interface Props {
 		count: number;
 		isLast?: boolean;
+		alignTop?: boolean;
+		displayHeader?: boolean;
+		unfoldable?: boolean;
+		type: 'upstream' | 'integrated';
+		title: Snippet;
 		children: Snippet;
 	}
 
-	const { count, isLast, children }: Props = $props();
+	const { count, isLast, unfoldable, type, displayHeader, alignTop, title, children }: Props =
+		$props();
 
 	let isOpen = $state(count === 1);
 
@@ -17,12 +23,17 @@
 	}
 </script>
 
-<div class="accordion" class:is-last={isLast} class:is-open={isOpen}>
-	{#if count !== 1}
-		<button type="button" class="accordion-row__header" onclick={toggle}>
-			<div class="accordion-row__line">
-				<div class="dots">
-					{#if !isOpen}
+<div
+	class="commits-accordion {type}"
+	class:is-last={isLast}
+	class:is-open={isOpen}
+	class:align-elements-to-top={alignTop}
+>
+	{#if displayHeader}
+		<button type="button" class="commits-accordion-row__header" onclick={toggle}>
+			<div class="commits-accordion-row__line">
+				{#if !isOpen && count !== 1}
+					<div class="dots">
 						{#each new Array(count) as _, idx}
 							<svg
 								viewBox="0 0 14 14"
@@ -41,24 +52,28 @@
 								/>
 							</svg>
 						{/each}
-					{/if}
-				</div>
+					</div>
+				{/if}
 			</div>
-			<div class="accordion-row__right">
-				<h5 class="text-13 text-body text-semibold title">Upstream commits</h5>
-				<Icon name={isOpen ? 'chevron-up' : 'chevron-down'} />
+			<div class="commits-accordion-row__right">
+				<div class="title">
+					{@render title()}
+				</div>
+				{#if !unfoldable}
+					<Icon name={isOpen ? 'chevron-up' : 'chevron-down'} />
+				{/if}
 			</div>
 		</button>
 	{/if}
 	{#if isOpen}
-		<div class="accordion-children">
+		<div class="commits-accordion-children">
 			{@render children()}
 		</div>
 	{/if}
 </div>
 
 <style>
-	.accordion {
+	.commits-accordion {
 		position: relative;
 		display: flex;
 		flex-direction: column;
@@ -75,7 +90,7 @@
 		}
 
 		&.is-open {
-			& .accordion-row__header {
+			& .commits-accordion-row__header {
 				border-bottom: 1px solid var(--clr-border-2);
 			}
 		}
@@ -85,13 +100,12 @@
 		}
 	}
 
-	.accordion-row__header {
+	.commits-accordion-row__header {
 		display: flex;
 		width: 100%;
 		min-height: 44px;
 		align-items: stretch;
 		text-align: left;
-		background-color: var(--clr-theme-warn-bg);
 
 		&:not(:last-child) {
 			border-bottom: 1px solid var(--clr-border-2);
@@ -105,18 +119,16 @@
 		}
 	}
 
-	.accordion-row__line {
+	.commits-accordion-row__line {
 		position: relative;
 		width: 2px;
 		margin: 0 22px 0 20px;
-		background-color: var(--clr-commit-upstream);
+
 		--dots-y-shift: -8px;
 
 		& .upstream-dot {
 			width: 14px;
 			height: 14px;
-			fill: var(--clr-commit-upstream);
-			stroke: var(--clr-theme-warn-bg);
 			transform: rotate(45deg);
 			margin-top: var(--dots-y-shift);
 		}
@@ -130,21 +142,68 @@
 		}
 	}
 
-	.accordion-row__right {
+	.commits-accordion-row__right {
 		display: flex;
 		flex: 1;
-		padding-right: 14px;
+		padding: 12px 14px 12px 0;
 		align-items: center;
 		color: var(--clr-text-2);
 	}
 
-	.accordion-children {
+	.commits-accordion-children {
 		display: flex;
 		flex-direction: column;
 		width: 100%;
 		min-height: 44px;
 		align-items: stretch;
 		text-align: left;
-		/* border-bottom: 1px solid var(--clr-border-3); */
+	}
+
+	/* TYPE MODIFIERS */
+	.commits-accordion {
+		&.upstream {
+			& .commits-accordion-row__header {
+				background-color: var(--clr-theme-warn-bg);
+			}
+
+			& .commits-accordion-row__line {
+				background-color: var(--clr-commit-upstream);
+
+				& .upstream-dot {
+					fill: var(--clr-commit-upstream);
+					stroke: var(--clr-theme-warn-bg);
+				}
+			}
+		}
+
+		&.integrated {
+			& .commits-accordion-row__header {
+				background-color: var(--clr-theme-purp-bg);
+			}
+
+			& .commits-accordion-row__line {
+				background-color: var(--clr-commit-integrated);
+
+				& .upstream-dot {
+					fill: var(--clr-commit-integrated);
+					stroke: var(--clr-theme-purp-bg);
+				}
+			}
+		}
+	}
+
+	/* ALIGN ELEMENT TO TOP */
+	/* for long description text
+	we need to align the elements to the top */
+	.commits-accordion {
+		&.align-elements-to-top {
+			& .commits-accordion-row__line .dots {
+				top: 28px;
+			}
+
+			& .commits-accordion-row__right {
+				align-items: flex-start;
+			}
+		}
 	}
 </style>
