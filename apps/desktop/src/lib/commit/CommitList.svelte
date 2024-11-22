@@ -233,8 +233,7 @@
 			</div>
 		{/if}
 
-		<!-- Remote integrated commits -->
-
+		<!-- REMOTE INTEGRATED COMMITS -->
 		{#if hasRemoteIntegratedCommits}
 			<CommitsAccordion
 				count={Math.min(remoteIntegratedPatches.length, 3)}
