@@ -16,9 +16,11 @@ export class FeedService {
 
 	/** Fetch and poll the latest entries in the feed */
 	getFeedHeadInterest() {
-		return this.feedInterests.createInterest({ identifier: 'all' }, () => {
-			this.getFeedPage('all');
-		});
+		return this.feedInterests
+			.findOrCreateSubscribable({ identifier: 'all' }, () => {
+				this.getFeedPage('all');
+			})
+			.createInterest();
 	}
 
 	async getFeedPage(_identifier: string, lastPostTimestamp?: string) {
@@ -46,15 +48,17 @@ export class FeedService {
 	}
 
 	getPostWithRepliesInterest(postId: string) {
-		return this.postWithRepliesInterests.createInterest({ postId }, async () => {
-			const apiPostWithReplies = await this.httpClient.get<ApiPostWithReplies>(
-				`feed/post/${postId}`
-			);
-			const post = apiToPost(apiPostWithReplies);
-			post.replyIds = apiPostWithReplies.replies.map((reply) => reply.uuid);
+		return this.postWithRepliesInterests
+			.findOrCreateSubscribable({ postId }, async () => {
+				const apiPostWithReplies = await this.httpClient.get<ApiPostWithReplies>(
+					`feed/post/${postId}`
+				);
+				const post = apiToPost(apiPostWithReplies);
+				post.replyIds = apiPostWithReplies.replies.map((reply) => reply.uuid);
 
-			const posts = [post, ...apiPostWithReplies.replies.map(apiToPost)];
-			this.appDispatch.dispatch(upsertPosts(posts));
-		});
+				const posts = [post, ...apiPostWithReplies.replies.map(apiToPost)];
+				this.appDispatch.dispatch(upsertPosts(posts));
+			})
+			.createInterest();
 	}
 }

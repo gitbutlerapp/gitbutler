@@ -4,49 +4,34 @@ export interface Interest {
 	_subscribe: () => () => void;
 }
 
-interface Subscription<Arguments> {
-	args: Arguments;
-	counter: number;
-	interval?: ReturnType<typeof setInterval>;
-	lastCalled: number;
-}
+class Subscription<Arguments> {
+	private counter = 0;
+	private lastCalled = 0;
+	private interval?: ReturnType<typeof setInterval>;
 
-export class InterestStore<Arguments> {
-	private readonly subscriptions: Subscription<Arguments>[] = [];
+	constructor(
+		readonly args: Arguments,
+		private readonly upsert: () => void,
+		private readonly frequency: number
+	) {}
 
-	constructor(private readonly frequency: number) {}
-
-	createInterest(args: Arguments, callback: () => void): Interest {
+	createInterest(): Interest {
 		return {
 			_subscribe: () => {
-				let subscription = this.subscriptions.find((subscription) =>
-					shallowCompare(subscription.args, args)
-				);
-				if (!subscription) {
-					subscription = {
-						args,
-						counter: 0,
-						lastCalled: 0,
-						interval: undefined
-					} as Subscription<Arguments>;
-				}
-
-				this.subscriptions.push(subscription);
-
 				// Fetch data immediately on first subscription
-				if (subscription.counter === 0) {
-					if (Date.now() - subscription.lastCalled > this.frequency) {
-						subscription.lastCalled = Date.now();
-						callback();
+				if (this.counter === 0) {
+					if (Date.now() - this.lastCalled > this.frequency) {
+						this.lastCalled = Date.now();
+						this.upsert();
 					}
 
-					subscription.interval = setInterval(() => {
-						subscription.lastCalled = Date.now();
-						callback();
+					this.interval = setInterval(() => {
+						this.lastCalled = Date.now();
+						this.upsert();
 					}, this.frequency);
 				}
 
-				++subscription.counter;
+				++this.counter;
 
 				let unsubscribed = false;
 
@@ -57,12 +42,30 @@ export class InterestStore<Arguments> {
 					}
 					unsubscribed = true;
 
-					--subscription.counter;
-					if (subscription.counter <= 0) {
-						clearInterval(subscription.interval);
+					--this.counter;
+					if (this.counter <= 0) {
+						clearInterval(this.interval);
 					}
 				};
 			}
 		};
+	}
+}
+
+export class InterestStore<Arguments> {
+	private readonly subscriptions: Subscription<Arguments>[] = [];
+
+	constructor(private readonly frequency: number) {}
+
+	findOrCreateSubscribable(args: Arguments, upsert: () => void): Subscription<Arguments> {
+		let subscription = this.subscriptions.find((subscription) =>
+			shallowCompare(subscription.args, args)
+		);
+		if (!subscription) {
+			subscription = new Subscription(args, upsert, this.frequency);
+			this.subscriptions.push(subscription);
+		}
+
+		return subscription;
 	}
 }
