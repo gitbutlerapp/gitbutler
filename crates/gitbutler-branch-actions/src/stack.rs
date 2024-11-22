@@ -251,6 +251,10 @@ pub(crate) fn stack_series(
             default_target,
             check_commit,
             &stack_dependencies,
+            &api_series
+                .iter()
+                .filter_map(|series| series.as_ref().ok())
+                .collect::<Vec<_>>(),
         )
         .map_or_else(
             |err| {
@@ -277,6 +281,7 @@ fn stack_branch_to_api_branch(
     default_target: &Target,
     check_commit: &mut IsCommitIntegrated,
     stack_dependencies: &StackDependencies,
+    parent_series: &[&PatchSeries],
 ) -> Result<(PatchSeries, bool)> {
     let mut requires_force = false;
     let repository = ctx.repository();
@@ -358,6 +363,12 @@ fn stack_branch_to_api_branch(
         if patches
             .iter()
             .any(|p| p.id == commit.id() || p.remote_commit_id == Some(commit.id()))
+            || parent_series.iter().any(|series| {
+                series
+                    .patches
+                    .iter()
+                    .any(|p| p.id == commit.id() || p.remote_commit_id == Some(commit.id()))
+            })
         {
             // Skip if we already have this commit in the list
             continue;
