@@ -2,6 +2,7 @@ import { GitHubBranch } from './githubBranch';
 import { GitHubChecksMonitor } from './githubChecksMonitor';
 import { GitHubListingService } from './githubListingService';
 import { GitHubPrService } from './githubPrService';
+import { GitHubRepoService } from './githubRepoService';
 import { GitHubIssueService } from '$lib/forge/github/issueService';
 import { Octokit } from '@octokit/rest';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
@@ -50,6 +51,13 @@ export class GitHub implements Forge {
 			return;
 		}
 		return new GitHubPrService(this.octokit, this.repo);
+	}
+
+	repoService() {
+		if (!this.octokit) {
+			return;
+		}
+		return new GitHubRepoService(this.octokit, this.repo);
 	}
 
 	issueService() {

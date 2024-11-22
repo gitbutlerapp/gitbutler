@@ -1,6 +1,7 @@
 import { AzureBranch } from './azureBranch';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Forge, ForgeName } from '../interface/forge';
+import type { ForgeRepoService } from '../interface/forgeRepoService';
 import type { ForgeArguments } from '../interface/types';
 
 export const AZURE_DOMAIN = 'dev.azure.com';
@@ -42,6 +43,10 @@ export class AzureDevOps implements Forge {
 	}
 
 	prService() {
+		return undefined;
+	}
+
+	repoService(): ForgeRepoService | undefined {
 		return undefined;
 	}
 
