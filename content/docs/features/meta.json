@@ -3,6 +3,7 @@
   "defaultOpen": true,
   "pages": [
     "virtual-branches",
+    "stacked-branches",
     "timeline"
   ]
 }

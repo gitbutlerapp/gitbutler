@@ -1,0 +1,159 @@
+---
+title: Stacked Branches
+---
+
+import ImageSection from "@/components/ImageSection"
+
+Create a queue of dependent branches to be reviewed and merged in order.
+
+## Overview
+
+GitButler allows you to create an ordered stack of branches where each branch depends on (and is based on) the previous one.
+The application also supports creating the appropriate stacked Pull Requests (when used with a GitHub remote).
+This is useful when you have multiple changesets that depend on each other but it is desirable to have them reviewed and merged separately (and in sequence).
+
+> All of the Pull Request stack orchestration is done locally in the client, which means that your repo content is not shared with a cloud service.
+
+[//]: # "TODO: Git graph image showing stacked branches in the abstract"
+
+## Use cases
+
+Using stacked branches (Pull Requests) can be helpful for shipping smaller changes changes more frequently.
+
+### Breaking up a larger change into smaller ones
+
+Consider a scenario where you are implementing a medium/large feature in your software project.
+In the course of implementation you end up performing the following sub-tasks:
+
+1. Refactor a part of the codebase to accommodate the new feature
+2. Implement an API endpoint supporting the feature
+3. Implement the frontend part of the feature consuming the API
+
+While the feature is considered complete only when all of the subtasks are implemented, reviewed and merged, in many cases it is considered beneficial
+to ship each stage of the feature on it's own, potentially behind a feature flag. Not only the risk of merge conflicts with colleagues is reduced,
+but also eventual bugs are easier to track down / revert / fix as compared to a single large change.
+
+### More granular (easier) review process
+
+On GitHub at least, code reviews are performed on per-branch basis. While it is possible to view individual commits in a Pull Request, it is not possible to
+approve and merge a subset of commits from the PR.
+
+Utilizing stacked pull requests, means that the sub-tasks of a larger change are in their own PRs.
+This way it is possible to approve and merge the initial part of a stack (e.g. a refactor) while still iterating on the remaining sub-tasks.
+
+## Comparison to Virtual Branches
+
+Stacking and Virtual Branches are similar in that they allow you to separate code changes / commits into different branches. In both cases,
+the changes are available in your working directory.
+
+The main difference is that Virtual Branches are **independent** from one another, while stacked branches **depend** on the branch that precedes it.
+Because of this, the two features are not mutually exclusive but rather complementary. For example a bugfix change that is unrelated to a feature being developed
+can be put in a separate virtual branch. On the other hand a change that depends on a previous change can be put in a stacked branch above the one it depends on.
+
+In fact GitButler implements stacked branches as Virtual Branches that are split into multiple dependent branches which makes for a flexible workflow.
+
+## Workflow
+
+By default, virtual branches in the app are simply stacks of one. With version `0.14.0` or newer
+you can create a new dependent branch within a lance with the `+` button above the branch name.
+
+> The workflow below assumes a GitHub remote. If you are using a different forge, you can still use this functionality but will need to manually create/update the Pull/Merge Requests
+
+- Creating a new dependent branch forms a new stack within the virtual branch
+
+[//]: # "TODO: Screenshot of the + button and a screenshot of the naming modal side by side"
+
+- New commits land in the topmost branch of the stack
+
+[//]: # "TODO: Screenshot"
+
+- Pushing is done for the stack as a whole
+
+[//]: # "TODO: Screenshot of the push button as well as the branches at the remote"
+
+- Pull request creation has to be done from the bottom of the stack upwards
+
+[//]: # "TODO: Screenshot of the button as well as the error message"
+
+- The PRs will contain a footer with stack information and as you add more PRs it will keep all up to date
+
+[//]: # "TODO: Screenshot"
+
+- You can drag changes into commits to amend them (e.g. incorporating review feedback)
+
+[//]: # "TODO: Screenshot"
+
+- You can drag commits between the branches in the stack
+
+[//]: # "TODO: Screenshot"
+
+- If a change in your stack is independent (e.g. an unrelated bugfix) it can be moved to a different virtual branch (or stack1)
+
+[//]: # "TODO: Screenshot"
+
+- Review/merge your PRs starting from the bottom up
+
+[//]: # "TODO: Screenshot"
+
+- After a PR/branch from your stack has been merged, it is reflected in the Stack
+
+[//]: # 'TODO: Screenshot before pressing "update", the update modal and after with an arrow'
+
+- When all branches of a stack have been merged, the stack is complete
+
+[//]: # "TODO: Screenshot of the modal"
+
+## GitHub configuration for stacked PRs
+
+_TLDR:_
+
+1. Enable automatic branch deletion [automatic branch deletion](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-the-automatic-deletion-of-branches)
+   on GitHub
+2. If possible, consider using the the "Merge" strategy when merging PRs.
+
+#### Automatic branch deletion
+
+On GitHub, in the "Files changed" and "Commits" tabs of a PR that is part of a stack you will see only
+the changes that are part of that branch in the stack.
+However, in pure Git terms, a stacked branch will contain all the changes from the branches below it.
+
+In order to show the 'expected' diffs each PR is created to target the branch below it in the stack.
+This is true for all but the bottom-most branch in the stack, which targets the default branch of the repository as usual.
+[//]: # "TODO: Screenshot of both"
+
+> Every branch in the stack contains the commits from the branches below it.
+
+When the bottom-most branch is merged on GitHub, **if** the PR branch is deleted,
+GitHub will automatically update any PR that used to target it to target the default branch instead.
+
+[//]: # "TODO: Screenshot"
+
+For this reason it is _highly recommended_ to [enable on GitHub](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-the-automatic-deletion-of-branches) the automatic deletion of branches after merging.
+
+_NB:_ If you merge the first PR but the branch is not deleted and then merge the second PR,
+the app can still recover from this, see [Troubleshooting](#troubleshooting).
+
+#### Merge strategy
+
+The app will support any merge strategy you wish to use - "Merge", "Rebase" or "Squash". However, due to the nature of merge,
+the GitButler will be able to create a slightly better experience if the "Merge" strategy is used.
+
+[//]: # "TODO: Screenshot of both"
+
+## Troubleshooting
+
+Firstly, if you run into any issue with the app (stacking or not), you can always reach get in touch either
+on [Discord](https://discord.com/invite/MmFkmaJ42D) or via the in-app feedback feature. With that said, here are some
+workarounds for common issues.
+
+#### Accidentally merged a stack branch into an already merged branch before it
+
+[//]: # "TODO"
+
+#### Accidentally merged a branch into a branch before it (not integrated into main/master yet)
+
+[//]: # "TODO"
+
+#### Pull Request description footer is stale / manually removed
+
+[//]: # "TODO"
