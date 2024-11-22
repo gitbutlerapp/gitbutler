@@ -212,10 +212,16 @@
 			}
 
 			// Use base branch as base unless it's part of stack and should be be pointing
-			// to the preceding branch.
+			// to the preceding branch. Ensuring we're not using `archived` branches as base.
 			let base = baseBranchName;
 			if (currentIndex < branches.length - 1) {
-				base = branches[currentIndex + 1]!.branchName;
+				for (let i = currentIndex + 1; i < branches.length; i++) {
+					const branch = branches[i];
+					if (branch && !branch.archived) {
+						base = branch.branchName;
+						break;
+					}
+				}
 			}
 
 			const pr = await $prService.createPr({
@@ -343,9 +349,6 @@
 		}, 2000);
 	}
 
-	/**
-	 * @param {boolean} pushAndCreate - Whether or not the commits need pushed before opening a PR
-	 */
 	export function show(pushAndCreate = false) {
 		pushBeforeCreate = pushAndCreate;
 		modal?.show();
