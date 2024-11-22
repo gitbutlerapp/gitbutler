@@ -65,6 +65,7 @@ pub fn integrate_upstream_commits_for_series(
         remote_head: remote_head.id(),
         remote_branch_name: &subject_branch.remote_reference(&remote),
         strategy,
+        use_new_branch_integration_algorithm: ctx.project().use_new_branch_integration_algorithm,
     };
 
     let (BranchHeadAndTree { head, tree }, new_series_head) =
@@ -129,6 +130,7 @@ pub fn integrate_upstream_commits(
         remote_head: upstream_branch_head,
         remote_branch_name: upstream_branch.name()?.unwrap_or("Unknown"),
         strategy: integration_strategy,
+        use_new_branch_integration_algorithm: project.use_new_branch_integration_algorithm,
     };
 
     let BranchHeadAndTree { head, tree } =
@@ -172,6 +174,8 @@ struct IntegrateUpstreamContext<'a, 'b> {
 
     /// Strategy to use when integrating the upstream commits
     strategy: IntegrationStrategy,
+    /// Whether to use the new branch integration algorithm
+    use_new_branch_integration_algorithm: Option<bool>,
 }
 
 impl IntegrateUpstreamContext<'_, '_> {
@@ -204,6 +208,7 @@ impl IntegrateUpstreamContext<'_, '_> {
                     merge_base,
                     ordered_commits,
                 } = order_commits_for_rebasing(
+                    self.use_new_branch_integration_algorithm,
                     self.repository,
                     self.target_branch_head,
                     series_head,
@@ -276,6 +281,7 @@ impl IntegrateUpstreamContext<'_, '_> {
                     merge_base,
                     ordered_commits,
                 } = order_commits_for_rebasing(
+                    self.use_new_branch_integration_algorithm,
                     self.repository,
                     self.target_branch_head,
                     self.branch_head,
@@ -303,12 +309,13 @@ struct OrderCommitsResult {
 }
 
 fn order_commits_for_rebasing(
+    use_new_branch_integration_algorithm: Option<bool>,
     repository: &git2::Repository,
     target_branch_head: git2::Oid,
     branch_head: git2::Oid,
     remote_head: git2::Oid,
 ) -> Result<OrderCommitsResult> {
-    let use_zipping = false;
+    let use_zipping = use_new_branch_integration_algorithm.unwrap_or(false);
     if use_zipping {
         order_commits_for_zipping_rebase(repository, target_branch_head, branch_head, remote_head)
     } else {
@@ -620,6 +627,7 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -675,6 +683,7 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                use_new_branch_integration_algorithm: None,
             };
 
             let (BranchHeadAndTree { head, tree: _tree }, new_series_head) = ctx
@@ -744,6 +753,7 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -860,6 +870,7 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -1001,6 +1012,7 @@ mod test {
                 remote_head: remote_y.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::Rebase,
+                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -1099,6 +1111,7 @@ mod test {
                 remote_head: remote_b.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::HardReset,
+                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -1165,6 +1178,7 @@ mod test {
                 remote_head: remote_c.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::HardReset,
+                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
@@ -1232,6 +1246,7 @@ mod test {
                 remote_head: remote_b.id(),
                 remote_branch_name: "test",
                 strategy: IntegrationStrategy::HardReset,
+                use_new_branch_integration_algorithm: None,
             };
 
             let BranchHeadAndTree { head, tree: _tree } =
