@@ -20,17 +20,11 @@ export class BaseBranchService {
 	readonly base = shallowDeduplicate(this._base);
 
 	// Deduplicated repo information.
-	readonly repo = shallowDeduplicate(
-		derived(this.base, (base) => {
-			return base ? parseRemoteUrl(base.remoteUrl) : undefined;
-		})
-	);
+	readonly repo = shallowDeduplicate(derived(this.base, (base) => parseRemoteUrl(base?.remoteUrl)));
 
 	// Deduplicated push repo information.
 	readonly pushRepo = shallowDeduplicate(
-		derived(this.base, (base) => {
-			return base ? parseRemoteUrl(base.pushRemoteUrl) : undefined;
-		})
+		derived(this.base, (base) => parseRemoteUrl(base?.pushRemoteUrl))
 	);
 
 	readonly loading = writable(false);

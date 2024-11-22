@@ -16,9 +16,10 @@ export interface ForgeFactory {
 export class DefaultForgeFactory implements ForgeFactory {
 	constructor(private octokit: Octokit | undefined) {}
 
-	build(repo: RepoInfo, baseBranch: string, fork?: RepoInfo) {
+	build(repo: RepoInfo, baseBranch: string, pushRepo?: RepoInfo) {
 		const domain = repo.domain;
-		const forkStr = fork ? `${fork.owner}:${fork.name}` : undefined;
+		const forkStr =
+			pushRepo && pushRepo.hash !== repo.hash ? `${pushRepo.owner}:${pushRepo.name}` : undefined;
 
 		if (domain.includes(GITHUB_DOMAIN)) {
 			return new GitHub({
