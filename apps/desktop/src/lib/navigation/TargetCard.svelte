@@ -34,7 +34,7 @@
 	{#if isNavCollapsed}
 		{#if ($base?.behind || 0) > 0}
 			<div class="small-count-badge">
-				<span class="text-9 text-bold">{$base?.behind || 0}</span>
+				<span class="text-10 text-bold">{$base?.behind || 0}</span>
 			</div>
 		{/if}
 	{/if}

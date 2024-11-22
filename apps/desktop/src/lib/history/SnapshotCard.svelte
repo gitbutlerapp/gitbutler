@@ -202,7 +202,7 @@
 			</h4>
 
 			{#if operation.commitMessage}
-				<p class="text-12 snapshot-commit-message">
+				<p class="text-12 text-body snapshot-commit-message">
 					<span>Message:</span>
 					{operation.commitMessage}
 				</p>

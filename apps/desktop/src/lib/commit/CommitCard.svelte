@@ -300,7 +300,7 @@
 					{commit.descriptionTitle}
 				</h5>
 
-				<div class="text-11 commit__subtitle">
+				<div class="text-11 text-semibold commit__subtitle">
 					{#if commit.isSigned}
 						<Tooltip text="Signed">
 							<div class="commit__signed">
@@ -318,7 +318,7 @@
 							<div class="commit__conflicted">
 								<Icon name="warning-small" />
 
-								Conflicted
+								<span>Conflicted</span>
 							</div>
 						</Tooltip>
 
@@ -339,7 +339,7 @@
 							copyToClipboard(commit.id);
 						}}
 					>
-						{commitShortSha}
+						<span>{commitShortSha}</span>
 
 						<div class="commit__subtitle-btn__icon">
 							<Icon name="copy-small" />

@@ -213,7 +213,7 @@
 	}
 
 	.textarea {
-		font-family: var(--base-font-family);
+		font-family: var(--font-family-default);
 		cursor: text;
 		resize: none;
 		overflow-y: auto; /* Enable scrolling when max height is reached */
@@ -239,7 +239,7 @@
 	}
 
 	.text-regular {
-		font-weight: var(--base-font-weight);
+		font-weight: var(--text-weight-regular);
 	}
 
 	.textarea-label {

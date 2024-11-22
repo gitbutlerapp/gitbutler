@@ -62,7 +62,7 @@
 						<div class="selector-series-chain-icon"></div>
 						<div class="selector-series-icon-and-name">
 							<div class="selector-series-icon {seriesTypes[idx]}"></div>
-							<span class="selector-series-name text-12 truncate">{item.label}</span>
+							<span class="selector-series-name text-12 text-semibold truncate">{item.label}</span>
 						</div>
 						<div class="selector-series-scroll-to text-11">
 							<span>Scroll here</span>

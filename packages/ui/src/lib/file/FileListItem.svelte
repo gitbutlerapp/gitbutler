@@ -94,7 +94,7 @@
 	{/if}
 	<div class="info">
 		<FileIcon fileName={fileInfo.filename} />
-		<span class="text-12 name truncate">
+		<span class="text-12 text-semibold name truncate">
 			{fileInfo.filename}
 		</span>
 
