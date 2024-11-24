@@ -80,6 +80,7 @@
 	const upstreamName = $derived(
 		props.type === 'preview' ? props.currentSeries.name : branch.upstreamName
 	);
+	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
 	const baseBranchName = $derived($baseBranch.shortName);
 	const currentSeries = $derived(props.type === 'preview' ? props.currentSeries : undefined);
 
@@ -95,7 +96,7 @@
 	let aiConfigurationValid = $state<boolean>(false);
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
 	let showAiBox = $state<boolean>(false);
-	let pushBeforeCreate = $state(false);
+	const pushBeforeCreate = $derived(!forgeBranch || commits.some((c) => !c.isRemote));
 
 	// Displays template select component when true.
 	let useTemplate = persisted(false, `use-template-${project.id}`);
@@ -175,7 +176,7 @@
 		try {
 			let upstreamBranchName = upstreamName;
 
-			if (pushBeforeCreate || commits.some((c) => !c.isRemote)) {
+			if (pushBeforeCreate) {
 				const firstPush = !branch.upstream;
 				const pushResult = await branchController.pushBranch(branch.id, branch.requiresForce);
 
@@ -349,8 +350,7 @@
 		}, 2000);
 	}
 
-	export function show(pushAndCreate = false) {
-		pushBeforeCreate = pushAndCreate;
+	export function show() {
 		modal?.show();
 	}
 
