@@ -1026,7 +1026,7 @@ impl IsCommitIntegrated<'_, '_, '_> {
         }
 
         // try to merge our tree into the upstream tree
-        let (merge_options, conflict_kind) = self.gix_repo.merge_options_fail_fast()?;
+        let (merge_options, conflict_kind) = self.gix_repo.merge_options_no_rewrites_fail_fast()?;
         let mut merge_output = self
             .gix_repo
             .merge_trees(
@@ -1078,7 +1078,8 @@ pub fn is_remote_branch_mergeable(
 
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
     let gix_repo_in_memory = ctx.gix_repository_for_merging()?.with_object_memory();
-    let (merge_options_fail_fast, conflict_kind) = gix_repo_in_memory.merge_options_fail_fast()?;
+    let (merge_options_fail_fast, conflict_kind) =
+        gix_repo_in_memory.merge_options_no_rewrites_fail_fast()?;
     let mergeable = !gix_repo_in_memory
         .merge_trees(
             git2_to_gix_object_id(base_tree.id()),

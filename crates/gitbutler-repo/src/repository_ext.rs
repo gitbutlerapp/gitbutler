@@ -768,6 +768,11 @@ pub trait GixRepositoryExt: Sized {
         gix::merge::tree::Options,
         gix::merge::tree::TreatAsUnresolved,
     )>;
+
+    /// Just like [`Self::merge_options_fail_fast()`], but additionally don't perform rename tracking.
+    /// This is useful if the merge result isn't going to be used, and we are only interested in knowing
+    /// if a merge would succeed.
+    fn merge_options_no_rewrites_fail_fast(&self) -> Result<(Options, TreatAsUnresolved)>;
 }
 
 impl GixRepositoryExt for gix::Repository {
@@ -796,7 +801,7 @@ impl GixRepositoryExt for gix::Repository {
         our_tree: gix::ObjectId,
         their_tree: gix::ObjectId,
     ) -> Result<bool> {
-        let (options, conflict_kind) = self.merge_options_fail_fast()?;
+        let (options, conflict_kind) = self.merge_options_no_rewrites_fail_fast()?;
         let merge_outcome = self
             .merge_trees(
                 ancestor_tree,
@@ -815,6 +820,11 @@ impl GixRepositoryExt for gix::Repository {
             .tree_merge_options()?
             .with_fail_on_conflict(Some(conflict_kind));
         Ok((options, conflict_kind))
+    }
+
+    fn merge_options_no_rewrites_fail_fast(&self) -> Result<(Options, TreatAsUnresolved)> {
+        let (options, conflict_kind) = self.merge_options_fail_fast()?;
+        Ok((options.with_rewrites(None), conflict_kind))
     }
 }
 
