@@ -12,7 +12,7 @@ use gitbutler_oxidize::{
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::fs::is_executable;
-use gix::merge::tree::{Options, UnresolvedConflict};
+use gix::merge::tree::{Options, TreatAsUnresolved};
 use gix::objs::WriteTo;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -766,7 +766,7 @@ pub trait GixRepositoryExt: Sized {
         &self,
     ) -> Result<(
         gix::merge::tree::Options,
-        gix::merge::tree::UnresolvedConflict,
+        gix::merge::tree::TreatAsUnresolved,
     )>;
 }
 
@@ -809,8 +809,8 @@ impl GixRepositoryExt for gix::Repository {
         Ok(!merge_outcome.has_unresolved_conflicts(conflict_kind))
     }
 
-    fn merge_options_fail_fast(&self) -> Result<(Options, UnresolvedConflict)> {
-        let conflict_kind = gix::merge::tree::UnresolvedConflict::Renames;
+    fn merge_options_fail_fast(&self) -> Result<(Options, TreatAsUnresolved)> {
+        let conflict_kind = gix::merge::tree::TreatAsUnresolved::Renames;
         let options = self
             .tree_merge_options()?
             .with_fail_on_conflict(Some(conflict_kind));
