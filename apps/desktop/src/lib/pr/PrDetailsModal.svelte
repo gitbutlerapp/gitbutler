@@ -8,6 +8,7 @@
 
 <script lang="ts">
 	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
+	import PrDetailsModalInfo from './PrDetailsModalInfo.svelte';
 	import PrTemplateSection from './PrTemplateSection.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
@@ -475,6 +476,9 @@
 				</div>
 			{/if}
 		</div>
+
+		<!-- MODAL INFORMATION CONTAINER -->
+		<PrDetailsModalInfo />
 	</ScrollableContainer>
 
 	<!-- FOOTER -->
