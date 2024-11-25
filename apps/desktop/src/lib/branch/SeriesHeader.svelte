@@ -156,15 +156,15 @@
 
 	function confirmCreatePR(close: () => void) {
 		close();
-		prDetailsModal?.show(!forgeBranch);
+		prDetailsModal?.show();
 	}
 
-	function handleOpenPR(pushBeforeCreate: boolean = false) {
+	function handleOpenPR() {
 		if (!allPreviousSeriesHavePrNumber) {
 			confirmCreatePrModal?.show();
 			return;
 		}
-		prDetailsModal?.show(pushBeforeCreate);
+		prDetailsModal?.show();
 	}
 
 	async function handleReopenPr() {
@@ -385,7 +385,7 @@
 									!$forge ||
 									!$prService ||
 									conflictedSeries}
-								onclick={() => handleOpenPR(!forgeBranch)}
+								onclick={() => handleOpenPR()}
 								tooltip={conflictedSeries
 									? 'Please resolve the conflicts before creating a PR'
 									: undefined}
