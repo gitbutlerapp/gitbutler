@@ -4,6 +4,7 @@ import type { ForgeBranch } from './forgeBranch';
 import type { ForgeChecksMonitor } from './forgeChecksMonitor';
 import type { ForgeListingService } from './forgeListingService';
 import type { ForgePrService } from './forgePrService';
+import type { ForgeRepoService } from './forgeRepoService';
 
 export type ForgeName = 'github' | 'gitlab' | 'bitbucket' | 'azure';
 
@@ -16,6 +17,9 @@ export interface Forge {
 
 	// Detailed information about a specific PR.
 	prService(): ForgePrService | undefined;
+
+	// Detailed information about the repo.
+	repoService(): ForgeRepoService | undefined;
 
 	// Results from CI check-runs.
 	checksMonitor(branchName: string): ForgeChecksMonitor | undefined;

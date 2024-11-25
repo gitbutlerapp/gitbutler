@@ -10,19 +10,22 @@
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	type IconColor = ComponentColor | undefined;
+	type Icon = keyof typeof iconsJson;
 
-	export let icon: keyof typeof iconsJson | undefined = undefined;
+	export let icon: Icon | undefined = undefined;
 	export let style: MessageStyle = 'neutral';
 	export let outlined: boolean = true;
 	export let filled: boolean = false;
 	export let primary: string | undefined = undefined;
+	export let primaryIcon: Icon | undefined = undefined;
 	export let secondary: string | undefined = undefined;
+	export let secondaryIcon: Icon | undefined = undefined;
 	export let shadow = false;
 	export let error: string | undefined = undefined;
 
 	const dispatch = createEventDispatcher<{ primary: void; secondary: void }>();
 
-	const iconMap: { [Key in MessageStyle]: keyof typeof iconsJson } = {
+	const iconMap: { [Key in MessageStyle]: Icon } = {
 		neutral: 'info',
 		pop: 'info',
 		warning: 'warning',
@@ -78,12 +81,17 @@
 		{#if primary || secondary}
 			<div class="info-message__actions">
 				{#if secondary}
-					<Button style="ghost" outline onclick={() => dispatch('secondary')}>
+					<Button style="ghost" outline onclick={() => dispatch('secondary')} icon={secondaryIcon}>
 						{secondary}
 					</Button>
 				{/if}
 				{#if primary}
-					<Button style={primaryButtonMap[style]} kind="solid" onclick={() => dispatch('primary')}>
+					<Button
+						style={primaryButtonMap[style]}
+						kind="solid"
+						onclick={() => dispatch('primary')}
+						icon={primaryIcon}
+					>
 						{primary}
 					</Button>
 				{/if}
