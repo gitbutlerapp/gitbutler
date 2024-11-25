@@ -18,6 +18,7 @@ export interface ForgePrService {
 		upstreamName
 	}: CreatePullRequestArgs): Promise<PullRequest>;
 	merge(method: MergeMethod, prNumber: number): Promise<void>;
+	updateBase(prNumber: number, targetBase: string): Promise<void>;
 	reopen(prNumber: number): Promise<void>;
 	prMonitor(prNumber: number): ForgePrMonitor;
 	update(
