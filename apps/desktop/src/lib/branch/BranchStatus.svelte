@@ -12,7 +12,7 @@
 </script>
 
 {#if $mergedIncorrectly}
-	<InfoMessage style="warning" filled outlined>
+	<InfoMessage style="warning" filled outlined={false}>
 		<svelte:fragment slot="content">
 			<p>
 				It appears this branch has been merged into a branch different from your target. If this was
@@ -21,14 +21,12 @@
 			<p>
 				Please check out our
 				<LinkButton
-					icon="copy-small"
 					onclick={async () => {
-						openExternalUrl('http://docs.gitbutler.com/development/debugging');
+						openExternalUrl('https://docs.gitbutlercom/features/stacked-branches');
 					}}
 				>
 					documentation
 				</LinkButton> or join our <LinkButton
-					icon="copy-small"
 					onclick={async () => {
 						openExternalUrl('https://discord.com/invite/MmFkmaJ42D');
 					}}>Discord</LinkButton

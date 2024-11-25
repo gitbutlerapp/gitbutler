@@ -21,9 +21,11 @@
 	}}
 >
 	{@render children()}
-	{#if icon}
-		<Icon name={icon} />
-	{/if}
+	<div class="icon">
+		{#if icon}
+			<Icon name={icon} />
+		{/if}
+	</div>
 </button>
 
 <style lang="postcss">
@@ -37,6 +39,12 @@
 
 		&:hover {
 			text-decoration: none;
+		}
+
+		& .icon {
+			display: inline-flex;
+			align-items: center;
+			opacity: 0.8;
 		}
 	}
 </style>
