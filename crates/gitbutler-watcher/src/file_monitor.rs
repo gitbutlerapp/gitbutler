@@ -150,10 +150,18 @@ pub fn spawn(
                     {
                         if let Ok(repo) = gix::open(&worktree_path) {
                             if let Ok(index) = repo.index_or_empty() {
-                                if let Ok(mut excludes) = repo.excludes(&index, None, gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped) {
+                                if let Ok(mut excludes) = repo.excludes(
+                                    &index,
+                                    None,
+                                    gix::worktree::stack::state::ignore::Source::WorktreeThenIdMappingIfNotSkipped,
+                                ) {
                                     for (file_path, kind) in classified_file_paths.iter_mut() {
                                         if let Ok(relative_path) = file_path.strip_prefix(&worktree_path) {
-                                            if excludes.at_path(relative_path, None).map(|platform| platform.is_excluded()).unwrap_or(false) {
+                                            if excludes
+                                                .at_path(relative_path, None)
+                                                .map(|platform| platform.is_excluded())
+                                                .unwrap_or(false)
+                                            {
                                                 *kind = FileKind::ProjectIgnored
                                             }
                                         }
