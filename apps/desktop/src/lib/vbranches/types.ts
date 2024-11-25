@@ -472,6 +472,10 @@ export class PatchSeries {
 	get conflicted() {
 		return this.patches.some((c) => c.conflicted);
 	}
+
+	get integrated() {
+		return this.patches.length > 0 && this.patches.length === this.integratedCommits.length;
+	}
 }
 
 /**
