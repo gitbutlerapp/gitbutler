@@ -1,8 +1,9 @@
+import { type ForgePrMonitor } from '../interface/forgePrMonitor';
 import { type DetailedPullRequest } from '$lib/forge/interface/types';
 import { sleep } from '$lib/utils/sleep';
 import { derived, writable } from 'svelte/store';
+import type { RepoInfo } from '$lib/url/gitUrl';
 import type { GitHubPrService } from './githubPrService';
-import type { ForgePrMonitor } from '../interface/forgePrMonitor';
 
 export const PR_SERVICE_INTERVAL = 20 * 60 * 1000;
 const MAX_POLL_ATTEMPTS = 6;
@@ -17,6 +18,7 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 
 	readonly loading = writable(false);
 	readonly error = writable<any>();
+	readonly mergedIncorrectly = writable<boolean>(false);
 
 	readonly mergeableState = derived(this.pr, (pr) => pr?.mergeableState);
 
@@ -24,7 +26,9 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 
 	constructor(
 		private prService: GitHubPrService,
-		private prNumber: number
+		private repo: RepoInfo,
+		private prNumber: number,
+		private baseBranch: string
 	) {}
 
 	private start() {
@@ -70,6 +74,7 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 			try {
 				const pr = await request();
 				this.pr.set(pr);
+				this.updateFlags(pr);
 
 				// Stop polling polling if merged or mergeable state known.
 				if (pr.mergeableState !== 'unknown' || pr.merged) {
@@ -86,5 +91,11 @@ export class GitHubPrMonitor implements ForgePrMonitor {
 		}
 		// The end of the function is reached if the pull request has an
 		// unknown mergeable state after retries.
+	}
+
+	updateFlags(pr: DetailedPullRequest) {
+		this.mergedIncorrectly.set(
+			pr.merged && (pr.baseRepo?.hash !== this.repo.hash || pr.baseBranch !== this.baseBranch)
+		);
 	}
 }

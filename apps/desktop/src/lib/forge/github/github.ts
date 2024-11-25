@@ -50,7 +50,7 @@ export class GitHub implements Forge {
 		if (!this.octokit) {
 			return;
 		}
-		return new GitHubPrService(this.octokit, this.repo);
+		return new GitHubPrService(this.octokit, this.repo, this.baseBranch);
 	}
 
 	repoService() {
