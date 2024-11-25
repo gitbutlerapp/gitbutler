@@ -26,6 +26,8 @@
 		pr?: DetailedPullRequest;
 		branchType: CommitStatus;
 		description: string;
+		parentIsPushed: boolean;
+		hasParent: boolean;
 		toggleDescription: () => Promise<void>;
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
@@ -46,6 +48,8 @@
 		pr,
 		branchType,
 		description,
+		parentIsPushed,
+		hasParent,
 		toggleDescription,
 		onGenerateBranchName,
 		openPrDetailsModal,
@@ -191,6 +195,7 @@
 	{#if onCreateNewPr && pr?.state === 'closed'}
 		<ContextMenuSection>
 			<ContextMenuItem
+				disabled={hasParent && !parentIsPushed}
 				label="Create new PR"
 				onclick={async () => {
 					await onCreateNewPr();

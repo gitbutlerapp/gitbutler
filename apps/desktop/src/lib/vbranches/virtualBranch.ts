@@ -21,6 +21,15 @@ export function allPreviousSeriesHavePrNumber(
 	return false;
 }
 
+export function parentBranch(current: PatchSeries, all: PatchSeries[]): PatchSeries | undefined {
+	const index = all.indexOf(current);
+	if (index === -1 || index === all.length - 1) {
+		// Either not found or branch is last.
+		return undefined;
+	}
+	return all[index + 1];
+}
+
 export class VirtualBranchService {
 	private loading = writable(false);
 	readonly error = writable();

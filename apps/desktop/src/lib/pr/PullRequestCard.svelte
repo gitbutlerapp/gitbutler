@@ -23,6 +23,9 @@
 
 	interface Props {
 		pr: DetailedPullRequest;
+		isPushed: boolean;
+		hasParent: boolean;
+		parentIsPushed: boolean;
 		checksMonitor?: ForgeChecksMonitor;
 		prMonitor?: ForgePrMonitor;
 		reloadPR: () => void;
@@ -30,7 +33,17 @@
 		openPrDetailsModal: () => void;
 	}
 
-	const { pr, checksMonitor, prMonitor, reloadPR, reopenPr, openPrDetailsModal }: Props = $props();
+	const {
+		pr,
+		checksMonitor,
+		prMonitor,
+		isPushed,
+		hasParent,
+		parentIsPushed,
+		reloadPR,
+		reopenPr,
+		openPrDetailsModal
+	}: Props = $props();
 
 	type StatusInfo = {
 		text: string;
@@ -133,10 +146,12 @@
 		return { text: 'Open', icon: 'pr-small', style: 'success' };
 	});
 
-	const mergability = $derived.by(() => {
+	const mergeStatus = $derived.by(() => {
 		let disabled = true;
 		let tooltip = undefined;
-		if (!baseIsTargetBranch) {
+		if (isPushed && hasParent && !parentIsPushed) {
+			tooltip = 'Remote parent branch seems to have been deleted.';
+		} else if (!baseIsTargetBranch) {
 			tooltip = 'Pull request is not next in stack.';
 		} else if ($mrLoading) {
 			tooltip = 'Reloading pull request data.';
@@ -154,6 +169,17 @@
 			tooltip = 'Pull request has conflicts.';
 		} else if (!pr?.mergeable) {
 			tooltip = 'Pull request is not mergeable.';
+		} else {
+			disabled = false;
+		}
+		return { disabled, tooltip };
+	});
+
+	const reopenStatus = $derived.by(() => {
+		let disabled = true;
+		let tooltip = undefined;
+		if (isPushed && hasParent && !parentIsPushed) {
+			tooltip = 'Remote parent branch seems to have been deleted.';
 		} else {
 			disabled = false;
 		}
@@ -282,8 +308,8 @@
 				<MergeButton
 					wide
 					projectId={project.id}
-					disabled={mergability.disabled}
-					tooltip={mergability.tooltip}
+					disabled={mergeStatus.disabled}
+					tooltip={mergeStatus.tooltip}
 					loading={isMerging}
 					on:click={async (e) => {
 						if (!pr) return;
@@ -310,6 +336,8 @@
 				<Button
 					style="ghost"
 					outline
+					disabled={reopenStatus.disabled}
+					tooltip={reopenStatus.tooltip}
 					{loading}
 					onclick={async () => {
 						loading = true;
