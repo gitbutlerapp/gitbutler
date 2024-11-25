@@ -130,19 +130,21 @@
 	async function mergeAll(method: MergeMethod) {
 		isMergingSeries = true;
 		try {
-			for (const validBranch of branch.validSeries.reverse()) {
-				if (validBranch.prNumber && $prService) {
-					await $prService.merge(method, validBranch.prNumber);
-					await baseBranchService.fetchFromRemotes();
-					toasts.success(`Merged PR ${validBranch.prNumber}`);
-					console.log('merged', validBranch);
-					await Promise.all([
-						$prService?.prMonitor(validBranch.prNumber).refresh(),
-						$listingService?.refresh(),
-						vbranchService.refresh(),
-						baseBranchService.refresh()
-					]);
-				}
+			const topBranch = branch.validSeries[0];
+
+			if (topBranch?.prNumber && $prService) {
+				// TODO: Figure out default base branch of repo
+				await $prService.updateBase(topBranch.prNumber, 'main');
+				await $prService.merge(method, topBranch.prNumber);
+				await baseBranchService.fetchFromRemotes();
+				toasts.success('Stack Merged Successfully');
+
+				await Promise.all([
+					$prService?.prMonitor(topBranch.prNumber).refresh(),
+					$listingService?.refresh(),
+					vbranchService.refresh(),
+					baseBranchService.refresh()
+				]);
 			}
 		} catch (e) {
 			console.error(e);
