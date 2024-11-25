@@ -25,7 +25,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
-	import { allPreviousSeriesHavePrNumber } from '$lib/vbranches/virtualBranch';
+	import { allPreviousSeriesHavePrNumber, parentBranch } from '$lib/vbranches/virtualBranch';
 	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -36,19 +36,21 @@
 	import { tick } from 'svelte';
 
 	interface Props {
-		currentSeries: PatchSeries;
+		branch: PatchSeries;
 		isTopSeries: boolean;
 		lastPush: Date | undefined;
 	}
 
-	const { currentSeries, isTopSeries, lastPush }: Props = $props();
+	const { branch: branch, isTopSeries, lastPush }: Props = $props();
 
-	let descriptionVisible = $state(!!currentSeries.description);
+	let descriptionVisible = $state(!!branch.description);
 
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
 	const promptService = getContext(PromptService);
-	const branchStore = getContextStore(VirtualBranch);
+	const stackStore = getContextStore(VirtualBranch);
+	const stack = $derived($stackStore);
+	const parent = $derived(parentBranch(branch, stack.validSeries));
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const branchController = getContext(BranchController);
@@ -56,11 +58,10 @@
 	const prService = getForgePrService();
 	const forge = getForge();
 
-	const upstreamName = $derived(currentSeries.upstreamReference ? currentSeries.name : undefined);
+	const upstreamName = $derived(branch.upstreamReference ? branch.name : undefined);
 	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
-	const branch = $derived($branchStore);
 	const previousSeriesHavePrNumber = $derived(
-		allPreviousSeriesHavePrNumber(currentSeries.name, branch.validSeries)
+		allPreviousSeriesHavePrNumber(branch.name, stack.validSeries)
 	);
 
 	let stackingAddSeriesModal = $state<ReturnType<typeof AddSeriesModal>>();
@@ -74,13 +75,14 @@
 
 	let contextMenuOpened = $state(false);
 
-	const topPatch = $derived(currentSeries?.patches[0]);
+	const topPatch = $derived(branch?.patches[0]);
 	const branchType = $derived<CommitStatus>(topPatch?.status ?? 'local');
 	const lineColor = $derived(getColorFromBranchType(branchType));
-	const hasNoCommits = $derived(
-		currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0
-	);
-	const conflictedSeries = $derived(currentSeries.conflicted);
+	const hasNoCommits = $derived(branch.upstreamPatches.length === 0 && branch.patches.length === 0);
+	const conflictedSeries = $derived(branch.conflicted);
+	const parentIsPushed = $derived(!!parent?.upstreamReference);
+	const hasParent = $derived(!!parent);
+	const isPushed = $derived(!!branch.upstreamReference);
 
 	// Pretty cumbersome way of getting the PR number, would be great if we can
 	// make it more concise somehow.
@@ -89,7 +91,7 @@
 	const prs = $derived(prStore ? $prStore : undefined);
 
 	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
-	const prNumber = $derived(currentSeries.prNumber || listedPr?.number);
+	const prNumber = $derived(branch.prNumber || listedPr?.number);
 
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 	const pr = $derived(prMonitor?.pr);
@@ -133,7 +135,7 @@
 
 	const cloudBranchCreationService = getContext(CloudBranchCreationService);
 	const cloudBranchesService = getContext(CloudBranchesService);
-	const cloudBranch = $derived(cloudBranchesService.branchForBranchId(branch.id));
+	const cloudBranch = $derived(cloudBranchesService.branchForBranchId(stack.id));
 	const showCreateCloudBranch = $derived(
 		$cloudEnabled &&
 			cloudBranchCreationService.canCreateBranch &&
@@ -149,11 +151,11 @@
 	$effect(() => {
 		if (
 			$forge?.name === 'github' &&
-			!currentSeries.prNumber &&
+			!branch.prNumber &&
 			listedPr?.number &&
-			listedPr.number !== currentSeries.prNumber
+			listedPr.number !== branch.prNumber
 		) {
-			branchController.updateBranchPrNumber(branch.id, currentSeries.name, listedPr.number);
+			branchController.updateBranchPrNumber(stack.id, branch.name, listedPr.number);
 		}
 	});
 
@@ -180,14 +182,14 @@
 	}
 
 	function editTitle(title: string) {
-		if (currentSeries?.name && title !== currentSeries.name) {
-			branchController.updateSeriesName(branch.id, currentSeries.name, title);
+		if (branch?.name && title !== branch.name) {
+			branchController.updateSeriesName(stack.id, branch.name, title);
 		}
 	}
 
 	async function editDescription(description: string | undefined | null) {
 		if (description) {
-			await branchController.updateSeriesDescription(branch.id, currentSeries.name, description);
+			await branchController.updateSeriesDescription(stack.id, branch.name, description);
 		}
 	}
 
@@ -195,7 +197,7 @@
 		descriptionVisible = !descriptionVisible;
 
 		if (!descriptionVisible) {
-			await branchController.updateSeriesDescription(branch.id, currentSeries.name, '');
+			await branchController.updateSeriesDescription(stack.id, branch.name, '');
 		} else {
 			await tick();
 			seriesDescriptionEl?.focus();
@@ -203,9 +205,9 @@
 	}
 
 	async function generateBranchName() {
-		if (!aiGenEnabled || !currentSeries) return;
+		if (!aiGenEnabled || !branch) return;
 
-		let hunk_promises = currentSeries.patches.flatMap(async (p) => {
+		let hunk_promises = branch.patches.flatMap(async (p) => {
 			let files = await listCommitFiles(project.id, p.id);
 			return files.flatMap((f) =>
 				f.hunks.map((h) => {
@@ -229,8 +231,8 @@
 
 		const message = messageResult.value;
 
-		if (message && message !== currentSeries.name) {
-			branchController.updateSeriesName(branch.id, currentSeries.name, message);
+		if (message && message !== branch.name) {
+			branchController.updateSeriesName(stack.id, branch.name, message);
 		}
 	}
 
@@ -241,12 +243,12 @@
 		// name, and save it to the branch.
 		await $forgeListing?.refresh();
 
-		if (!currentSeries.prNumber) {
+		if (!branch.prNumber) {
 			throw new Error('Failed to discard pr, try reloading the app.');
 		}
 
 		// Delete the reference stored on disk.
-		branchController.updateBranchPrNumber(branch.id, currentSeries.name, null);
+		branchController.updateBranchPrNumber(stack.id, branch.name, null);
 		kebabContextMenu?.close();
 
 		// Display create pr modal after a slight delay, this prevents
@@ -256,18 +258,18 @@
 	}
 </script>
 
-<AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={currentSeries.name} />
+<AddSeriesModal bind:this={stackingAddSeriesModal} parentSeriesName={branch.name} />
 
 <SeriesHeaderContextMenu
 	bind:this={stackingContextMenu}
 	bind:contextMenuEl={kebabContextMenu}
 	leftClickTrigger={kebabContextMenuTrigger}
 	rightClickTrigger={seriesHeaderEl}
-	headName={currentSeries.name}
-	seriesCount={branch.validSeries?.length ?? 0}
+	headName={branch.name}
+	seriesCount={stack.validSeries?.length ?? 0}
 	{isTopSeries}
 	{toggleDescription}
-	description={currentSeries.description ?? ''}
+	description={branch.description ?? ''}
 	onGenerateBranchName={generateBranchName}
 	onAddDependentSeries={() => stackingAddSeriesModal?.show()}
 	onOpenInBrowser={() => {
@@ -283,6 +285,8 @@
 			contextMenuOpened = isOpen;
 		}
 	}}
+	{parentIsPushed}
+	{hasParent}
 	{onCreateNewPr}
 />
 
@@ -342,12 +346,12 @@
 						</span>
 					{/if}
 					<BranchLabel
-						name={currentSeries.name}
+						name={branch.name}
 						onChange={(name) => editTitle(name)}
 						readonly={!!forgeBranch}
 						onDblClick={() => {
 							if (branchType !== 'integrated') {
-								stackingContextMenu?.showSeriesRenameModal?.(currentSeries.name);
+								stackingContextMenu?.showSeriesRenameModal?.(branch.name);
 							}
 						}}
 					/>
@@ -357,7 +361,7 @@
 						<div class="branch-action__line" style:--bg-color={lineColor}></div>
 						<SeriesDescription
 							bind:textAreaEl={seriesDescriptionEl}
-							value={currentSeries.description ?? ''}
+							value={branch.description ?? ''}
 							onBlur={(value) => editDescription(value)}
 							onEmpty={() => toggleDescription()}
 						/>
@@ -378,17 +382,17 @@
 								pr={$pr}
 								{checksMonitor}
 								{prMonitor}
+								{isPushed}
+								{hasParent}
+								{parentIsPushed}
 							/>
-							<BranchStatus {mergedIncorrectly} />
+							<BranchStatus {mergedIncorrectly} {isPushed} {hasParent} {parentIsPushed} />
 						{:else}
 							<Button
 								style="ghost"
 								wide
 								outline
-								disabled={currentSeries.patches.length === 0 ||
-									!$forge ||
-									!$prService ||
-									conflictedSeries}
+								disabled={branch.patches.length === 0 || !$forge || !$prService || conflictedSeries}
 								onclick={() => handleOpenPR()}
 								tooltip={conflictedSeries
 									? 'Please resolve the conflicts before creating a PR'
@@ -403,9 +407,9 @@
 						<Button
 							style="ghost"
 							outline
-							disabled={branch.commits.length === 0}
+							disabled={stack.commits.length === 0}
 							onclick={() => {
-								cloudBranchCreationService.createBranch(branch.id);
+								cloudBranchCreationService.createBranch(stack.id);
 							}}>Publish Branch</Button
 						>
 					{/if}
@@ -419,8 +423,8 @@
 			<PrDetailsModal
 				bind:this={prDetailsModal}
 				type="preview"
-				{currentSeries}
-				stackId={branch.id}
+				currentSeries={branch}
+				stackId={stack.id}
 			/>
 		{/if}
 
