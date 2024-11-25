@@ -147,27 +147,16 @@ function parseChecks(
 
 	const queued = checkRuns.filter((c) => c.status === 'queued').length;
 	const failed = checkRuns.filter((c) => c.conclusion === 'failure').length;
-	const skipped = checkRuns.filter((c) => c.conclusion === 'skipped').length;
-	const succeeded = checkRuns.filter((c) => c.conclusion === 'success').length;
+	const actionRequired = checkRuns.filter((c) => c.conclusion === 'action_required').length;
 
 	const firstStart = new Date(Math.min(...startTimes.map((date) => date.getTime())));
 	const completed = checkRuns.every((check) => !!check.completed_at);
-	const totalCount = data.total_count;
 
-	const success = queued === 0 && failed === 0 && skipped + succeeded === totalCount;
-	const finished = checkRuns.filter(
-		(c) => c.conclusion && ['failure', 'success'].includes(c.conclusion)
-	).length;
+	const success = queued === 0 && failed === 0 && actionRequired === 0;
 
 	return {
 		startedAt: firstStart,
-		hasChecks: !!totalCount,
 		success,
-		failed,
-		completed,
-		queued,
-		totalCount,
-		skipped,
-		finished
+		completed
 	};
 }
