@@ -35,6 +35,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
+	import { parentBranch } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -216,14 +217,10 @@
 			// Use base branch as base unless it's part of stack and should be be pointing
 			// to the preceding branch. Ensuring we're not using `archived` branches as base.
 			let base = baseBranchName;
-			if (currentIndex < branches.length - 1) {
-				for (let i = currentIndex + 1; i < branches.length; i++) {
-					const branch = branches[i];
-					if (branch && !branch.archived) {
-						base = branch.branchName;
-						break;
-					}
-				}
+			let parent = parentBranch(currentSeries, branches);
+
+			if (parent && !parent.integrated) {
+				base = parent.branchName;
 			}
 
 			const pr = await $prService.createPr({
