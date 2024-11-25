@@ -14,7 +14,13 @@ This is useful when you have multiple changesets that depend on each other but i
 
 > All of the Pull Request stack orchestration is done locally in the client, which means that your repo content is not shared with a cloud service.
 
-[//]: # "TODO: Git graph image showing stacked branches in the abstract"
+<ImageSection
+  width={650}
+  height={222}
+  className="mx-auto"
+  alt="Virtual Branches Example"
+  src="/img/docs/0_concepts.png"
+/>
 
 ## Use cases
 
@@ -51,6 +57,14 @@ Because of this, the two features are not mutually exclusive but rather compleme
 can be put in a separate virtual branch. On the other hand a change that depends on a previous change can be put in a stacked branch above the one it depends on.
 
 In fact GitButler implements stacked branches as Virtual Branches that are split into multiple dependent branches which makes for a flexible workflow.
+
+<ImageSection
+  width={650}
+  height={350}
+  className="mx-auto"
+  alt="Virtual Branches Example"
+  src="/img/docs/11_overview.png"
+/>
 
 ## Workflow
 
@@ -152,21 +166,35 @@ _TLDR:_
 
 #### Automatic branch deletion
 
-On GitHub, in the "Files changed" and "Commits" tabs of a PR that is part of a stack you will see only
-the changes that are part of that branch in the stack.
-However, in pure Git terms, a stacked branch will contain all the changes from the branches below it.
+When reviewing a PR in a stack, it is important to be able to view only the changes in the branch that is being reviewed.
+Of course, in pure Git terms, a stacked branch will contain all the changes from the branches below it.
 
-In order to show the 'expected' diffs each PR is created to target the branch below it in the stack.
+In order to show only the expected Files changed and Commits for PRs in a stack, each PR is created to target the branch below it in the stack.
 This is true for all but the bottom-most branch in the stack, which targets the default branch of the repository as usual.
-[//]: # "TODO: Screenshot of both"
+
+<ImageSection
+  width={650}
+  height={160}
+  className="mx-auto"
+  alt="Virtual Branches Example"
+  src="/img/docs/9_pr_heads.png"
+/>
 
 > Every branch in the stack contains the commits from the branches below it.
 
+This of course does not mean that a Pull Request should be merged into it's predecessor.
 When the bottom-most branch is merged on GitHub, **if** the PR branch is deleted,
-GitHub will automatically update any PR that used to target it to target the default branch instead.
+GitHub will automatically update any PRs that used to target it to target the default branch instead.
 
-[//]: # "TODO: Screenshot"
+<ImageSection
+  width={650}
+  height={100}
+  className="mx-auto"
+  alt="Virtual Branches Example"
+  src="/img/docs/10_branch_deletion.png"
+/>
 
+If the newly merged branch from the bottom of the stack is not deleted, the next PR in line will still target it and there is a risk of accidentally merging it into the now out of data branch.
 For this reason it is _highly recommended_ to [enable on GitHub](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-the-automatic-deletion-of-branches) the automatic deletion of branches after merging.
 
 _NB:_ If you merge the first PR but the branch is not deleted and then merge the second PR,
@@ -182,17 +210,13 @@ the GitButler will be able to create a slightly better experience if the "Merge"
 ## Troubleshooting
 
 Firstly, if you run into any issue with the app (stacking or not), you can always reach get in touch either
-on [Discord](https://discord.com/invite/MmFkmaJ42D) or via the in-app feedback feature. With that said, here are some
-workarounds for common issues.
+on [Discord](https://discord.com/invite/MmFkmaJ42D) or via the in-app feedback icon (we will get back via email).
+With that said, here are some workarounds for common issues.
 
 #### Accidentally merged a stack branch into an already merged branch before it
 
 [//]: # "TODO"
 
 #### Accidentally merged a branch into a branch before it (not integrated into main/master yet)
-
-[//]: # "TODO"
-
-#### Pull Request description footer is stale / manually removed
 
 [//]: # "TODO"
