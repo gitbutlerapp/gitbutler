@@ -69,10 +69,15 @@ pub fn build<R: Runtime>(handle: &AppHandle<R>) -> tauri::Result<tauri::menu::Me
         .context("App name not defined.")?;
 
     #[cfg(target_os = "macos")]
+    let settings_menu = MenuItemBuilder::with_id("global/settings", "Settings")
+        .accelerator("CmdOrCtrl+,")
+        .build(handle)?;
+
+    #[cfg(target_os = "macos")]
     let mac_menu = &SubmenuBuilder::new(handle, app_name)
         .about(Some(AboutMetadata::default()))
         .separator()
-        .text("global/settings", "Settings")
+        .item(&settings_menu)
         .item(&check_for_updates)
         .separator()
         .services()
