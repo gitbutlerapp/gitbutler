@@ -24,6 +24,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
+	import { allPreviousSeriesHavePrNumber } from '$lib/vbranches/virtualBranch';
 	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -57,8 +58,8 @@
 	const upstreamName = $derived(currentSeries.upstreamReference ? currentSeries.name : undefined);
 	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
 	const branch = $derived($branchStore);
-	const allPreviousSeriesHavePrNumber = $derived(
-		branch.allPreviousSeriesHavePrNumber(currentSeries.name)
+	const previousSeriesHavePrNumber = $derived(
+		allPreviousSeriesHavePrNumber(currentSeries.name, branch.validSeries)
 	);
 
 	let stackingAddSeriesModal = $state<ReturnType<typeof AddSeriesModal>>();
@@ -160,7 +161,7 @@
 	}
 
 	function handleOpenPR() {
-		if (!allPreviousSeriesHavePrNumber) {
+		if (!previousSeriesHavePrNumber) {
 			confirmCreatePrModal?.show();
 			return;
 		}

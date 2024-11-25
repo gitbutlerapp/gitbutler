@@ -188,18 +188,6 @@ export class VirtualBranch {
 			if (commit?.conflicted) return commit;
 		}
 	}
-
-	allPreviousSeriesHavePrNumber(seriesName: string): boolean {
-		for (let i = this.validSeries.length - 1; i >= 0; i--) {
-			const series = this.validSeries[i]!;
-			if (series.name === seriesName) return true;
-			if (series.prNumber === null) return false;
-		}
-
-		// Will only happen if the series name is invalid
-		// or if the series failed to be fetched.
-		return false;
-	}
 }
 
 // Used for dependency injection

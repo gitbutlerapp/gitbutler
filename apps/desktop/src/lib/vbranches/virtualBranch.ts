@@ -1,9 +1,25 @@
-import { VirtualBranch, VirtualBranches } from './types';
+import { PatchSeries, VirtualBranch, VirtualBranches } from './types';
 import { invoke, listen } from '$lib/backend/ipc';
 import { plainToInstance } from 'class-transformer';
 import { writable } from 'svelte/store';
 import type { BranchListingService } from '$lib/branches/branchListing';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
+
+export function allPreviousSeriesHavePrNumber(
+	seriesName: string,
+	validSeries: PatchSeries[]
+): boolean {
+	const unarchivedSeries = validSeries.filter((series) => !series.archived);
+	for (let i = unarchivedSeries.length - 1; i >= 0; i--) {
+		const series = unarchivedSeries[i]!;
+		if (series.name === seriesName) return true;
+		if (series.prNumber === null) return false;
+	}
+
+	// Will only happen if the series name is invalid
+	// or if the series failed to be fetched.
+	return false;
+}
 
 export class VirtualBranchService {
 	private loading = writable(false);
