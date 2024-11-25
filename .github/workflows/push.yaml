@@ -23,6 +23,8 @@ jobs:
             workflows: &workflows
               - '.github/workflows/**'
               - '.github/actions/**'
+            docs:
+              - '*.md'
             node:
               - *workflows
               - 'apps/**'
@@ -36,6 +38,15 @@ jobs:
             rust: &any-rust
               - *rust
               - 'crates/**'
+
+  prettier:
+    needs: changes
+    if: ${{ needs.changes.outputs.node == 'false' &&  needs.changes.outputs.docs == 'true'}}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/init-env-node
+      - run: pnpm prettier
 
   lint-node:
     needs: changes
