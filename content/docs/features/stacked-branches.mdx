@@ -215,8 +215,14 @@ With that said, here are some workarounds for common issues.
 
 #### Accidentally merged a stack branch into an already merged branch before it
 
-[//]: # "TODO"
+If you merged the bottom Pull Request into main but the branch was _not_ deleted, then the targed of the next Pull Request would not be automatically updated.
+Under these contitions merging that next Pull Request, means it would be merged into the original, now out of date, bottom PR.
+
+A mitigation for this is to rename the branch, push and re-create the Pull Request.
 
 #### Accidentally merged a branch into a branch before it (not integrated into main/master yet)
 
-[//]: # "TODO"
+Merging of branches in a stack should be done from the bottom up. With the GitHub interface, it is possible to incorrectly merge a Pull Request which is in the middle of the stack.
+In this case it will merged in it's predecessor branch.
+
+In order to recover from this situation you can simply force push the branches and then re-create the PR that was incorrectly merged.
