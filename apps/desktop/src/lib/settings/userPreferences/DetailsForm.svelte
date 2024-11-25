@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Project, ProjectsService } from '$lib/backend/projects';
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
 	import Section from '$lib/settings/Section.svelte';
 	import Link from '$lib/shared/Link.svelte';
 	import { User } from '$lib/stores/user';
@@ -105,7 +106,7 @@
 	</form>
 </SectionCard>
 
-{#if $user?.role === 'admin'}
+{#if $cloudFunctionality}
 	<Spacer />
 	<Section>
 		{#snippet title()}

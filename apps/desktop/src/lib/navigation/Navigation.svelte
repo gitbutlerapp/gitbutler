@@ -16,12 +16,15 @@
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { env } from '$env/dynamic/public';
+	import {
+		cloudCommunicationFunctionality,
+		cloudReviewFunctionality
+	} from '$lib/config/uiFeatureFlags';
 
 	const minResizerWidth = 280;
 	const minResizerRatio = 150;
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const projectService = getContext(ProjectService);
-	const cloudEnabled = projectService.cloudEnabled;
 	const projectId = projectService.projectId;
 	const defaultTrayWidthRem = persisted<number | undefined>(
 		undefined,
@@ -125,8 +128,10 @@
 						<EditButton href={`/${projectId}/edit`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 
-					{#if $cloudEnabled}
+					{#if $cloudReviewFunctionality}
 						<CloudSeriesButton href={`/${projectId}/series`} isNavCollapsed={$isNavCollapsed} />
+					{/if}
+					{#if $cloudCommunicationFunctionality}
 						<FeedButton href={`/${projectId}/feed`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 				</div>

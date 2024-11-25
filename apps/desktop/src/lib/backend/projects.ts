@@ -224,16 +224,11 @@ export class ProjectsService {
  */
 export class ProjectService {
 	project: Readable<Project | undefined>;
-	cloudEnabled: Readable<boolean>;
 
 	constructor(
 		projectsService: ProjectsService,
 		readonly projectId: string
 	) {
 		this.project = projectsService.getProjectStore(projectId);
-
-		this.cloudEnabled = derived(this.project, (project) => {
-			return !!project?.api?.sync;
-		});
 	}
 }
