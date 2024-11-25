@@ -1,6 +1,7 @@
 <script lang="ts">
 	import AddSeriesModal from './AddSeriesModal.svelte';
 	import BranchLabel from './BranchLabel.svelte';
+	import BranchStatus from './BranchStatus.svelte';
 	import Dropzones from './Dropzones.svelte';
 	import SeriesDescription from './SeriesDescription.svelte';
 	import SeriesHeaderStatusIcon from './SeriesHeaderStatusIcon.svelte';
@@ -92,6 +93,7 @@
 	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 	const pr = $derived(prMonitor?.pr);
 	const sourceBranch = $derived($pr?.sourceBranch); // Deduplication.
+	const mergedIncorrectly = $derived(prMonitor?.mergedIncorrectly);
 
 	// Do not create a checks monitor if pull request is merged or from a fork.
 	// For more information about unavailability of check-runs for forked repos,
@@ -376,6 +378,7 @@
 								{checksMonitor}
 								{prMonitor}
 							/>
+							<BranchStatus {mergedIncorrectly} />
 						{:else}
 							<Button
 								style="ghost"
@@ -504,6 +507,9 @@
 		.branch-action__body {
 			width: 100%;
 			padding: 0 14px 14px 0;
+			display: flex;
+			flex-direction: column;
+			gap: 14px;
 		}
 	}
 

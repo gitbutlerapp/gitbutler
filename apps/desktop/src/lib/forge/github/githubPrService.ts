@@ -19,7 +19,8 @@ export class GitHubPrService implements ForgePrService {
 
 	constructor(
 		private octokit: Octokit,
-		private repo: RepoInfo
+		private repo: RepoInfo,
+		private baseBranch: string
 	) {}
 
 	async createPr({
@@ -94,7 +95,7 @@ export class GitHubPrService implements ForgePrService {
 	}
 
 	prMonitor(prNumber: number): GitHubPrMonitor {
-		return new GitHubPrMonitor(this, prNumber);
+		return new GitHubPrMonitor(this, this.repo, prNumber, this.baseBranch);
 	}
 
 	async update(prNumber: number, details: { description?: string; state?: 'open' | 'closed' }) {
