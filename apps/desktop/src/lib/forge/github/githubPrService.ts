@@ -77,6 +77,15 @@ export class GitHubPrService implements ForgePrService {
 		return parseGitHubDetailedPullRequest(resp.data);
 	}
 
+	async updateBase(prNumber: number, targetBase: string) {
+		await this.octokit.pulls.update({
+			owner: this.repo.owner,
+			repo: this.repo.name,
+			pull_number: prNumber,
+			base: targetBase
+		});
+	}
+
 	async merge(method: MergeMethod, prNumber: number) {
 		await this.octokit.pulls.merge({
 			owner: this.repo.owner,
