@@ -4,7 +4,7 @@ This year GitButler is sponsoring the Advent of Code and hosting our own users
 leaderboard!
 
 If you are a GitButler user, or just like us and want to join our AOC leaderboard,
-you can join by going [here](https://adventofcode.com/2024/leaderboard/private): 
+you can join by going [here](https://adventofcode.com/2024/leaderboard/private):
 
 https://adventofcode.com/2024/leaderboard/private
 
@@ -21,14 +21,14 @@ the end of the event :shushing_face:.
 
 GitButler is a Git GUI that is pretty cool, if you ask us.
 
-It is a desktop application that you can use to manage your Git branches. 
+It is a desktop application that you can use to manage your Git branches.
 We have:
 
-* virtual branches to easily deal with independent features simultaneously
-* stacked branches to work with dependent features
-* simple drag and drop rebasing tools
-* AI powered commit message and PR description generation
-* and much more
+- virtual branches to easily deal with independent features simultaneously
+- stacked branches to work with dependent features
+- simple drag and drop rebasing tools
+- AI powered commit message and PR description generation
+- and much more
 
 Check out how cool it looks:
 
