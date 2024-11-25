@@ -25,6 +25,7 @@
 		"tauri": "tauri",
 		"lint": "turbo run //#globallint --no-daemon",
 		"globallint": "prettier --check . && eslint .",
+		"prettier": "prettier --check",
 		"format": "prettier --write .",
 		"fix": "eslint --fix .",
 		"prepare": "pnpm --filter @gitbutler/desktop run prepare",
