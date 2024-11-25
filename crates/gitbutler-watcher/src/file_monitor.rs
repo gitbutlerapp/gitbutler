@@ -157,11 +157,13 @@ pub fn spawn(
                                 ) {
                                     for (file_path, kind) in classified_file_paths.iter_mut() {
                                         if let Ok(relative_path) = file_path.strip_prefix(&worktree_path) {
-                                            if excludes
+                                            let is_excluded = excludes
                                                 .at_path(relative_path, None)
                                                 .map(|platform| platform.is_excluded())
-                                                .unwrap_or(false)
-                                            {
+                                                .unwrap_or(false);
+                                            let is_untracked =
+                                                || index.entry_by_path(&gix::path::to_unix_separators_on_windows(gix::path::into_bstr(relative_path))).is_none();
+                                            if is_excluded && is_untracked() {
                                                 *kind = FileKind::ProjectIgnored
                                             }
                                         }
