@@ -223,6 +223,8 @@ jobs:
   sign-tauri:
     needs: build-tauri
     runs-on: [self-hosted, evcodesignd]
+    continue-on-error: true
+    timeout-minutes: 5
     strategy:
       matrix:
         platform:
@@ -237,12 +239,14 @@ jobs:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
           path: release
       - name: Sign Windows binary
+        continue-on-error: true
         shell: bash
         run: |
           find release -name "*.msi" -type f -print0 | xargs -0 -n1 -I{} python3 /sign-with-evcodesignd.py "{}"
         env:
           EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
       - name: Upload signed artifacts
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
