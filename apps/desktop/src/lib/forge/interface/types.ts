@@ -53,12 +53,6 @@ export type ChecksStatus = {
 	startedAt: Date;
 	completed: boolean;
 	success: boolean;
-	hasChecks: boolean;
-	failed: number;
-	queued: number;
-	totalCount: number;
-	skipped: number;
-	finished: number;
 };
 
 export enum MergeMethod {
