@@ -20,7 +20,7 @@ export default function ImageSection({ src, subtitle }: Props) {
         src={src}
       />
       {subtitle ? (
-        <div className="mx-auto mt-2 flex-shrink whitespace-normal text-pretty break-words text-center text-sm opacity-50">
+        <div className="mx-auto mt-2 flex-shrink whitespace-normal text-pretty break-words text-center text-xs opacity-50">
           {subtitle}
         </div>
       ) : null}
