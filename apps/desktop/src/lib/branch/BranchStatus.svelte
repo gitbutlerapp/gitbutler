@@ -9,16 +9,18 @@
 		isPushed: boolean;
 		hasParent: boolean;
 		parentIsPushed: boolean;
+		parentIsIntegrated: boolean;
 	}
 
-	const { mergedIncorrectly, isPushed, hasParent, parentIsPushed }: Props = $props();
+	const { mergedIncorrectly, isPushed, hasParent, parentIsPushed, parentIsIntegrated }: Props =
+		$props();
 </script>
 
-{#snippet links()}
+{#snippet links(props: { url: string })}
 	Please check out our
 	<LinkButton
 		onclick={async () => {
-			openExternalUrl('https://docs.gitbutler.com/features/stacked-branches');
+			openExternalUrl(props.url);
 		}}
 	>
 		documentation
@@ -30,17 +32,36 @@
 {/snippet}
 
 {#if $mergedIncorrectly}
-	<InfoMessage style="warning" filled outlined={false}>
-		<svelte:fragment slot="content">
-			<p>
-				This branch has been merged into a branch different from your target. If this was not
-				intentional you can force push and create a new pull request for this branch.
-			</p>
-			<p>
-				{@render links()}
-			</p>
-		</svelte:fragment>
-	</InfoMessage>
+	{#if hasParent && parentIsIntegrated}
+		<InfoMessage style="warning" filled outlined={false}>
+			<svelte:fragment slot="content">
+				<p>
+					This branch appears to have been merged into an already merged branch. If this was a
+					mistake, you can change the branch name and create a new pull request from the branch
+					context menu.
+				</p>
+				<p>
+					{@render links({
+						url: 'https://docs.gitbutler.com/features/stacked-branches#accidentally-merged-a-stack-branch-into-an-already-merged-branch-before-it'
+					})}
+				</p>
+			</svelte:fragment>
+		</InfoMessage>
+	{:else}
+		<InfoMessage style="warning" filled outlined={false}>
+			<svelte:fragment slot="content">
+				<p>
+					This branch has been merged into a branch different from your target. If this was not
+					intentional you can force push and create a new pull request from the branch context menu.
+				</p>
+				<p>
+					{@render links({
+						url: 'https://docs.gitbutler.com/features/stacked-branches#accidentally-merged-a-branch-into-a-branch-before-it-not-integrated-into-mainmaster-yet'
+					})}
+				</p>
+			</svelte:fragment>
+		</InfoMessage>
+	{/if}
 {/if}
 
 {#if isPushed && hasParent && !parentIsPushed}
@@ -51,7 +72,7 @@
 				intentional you can force push to recreate the branch.
 			</p>
 			<p>
-				{@render links()}
+				{@render links({ url: 'https://docs.gitbutler.com/features/stacked-branches' })}
 			</p>
 		</svelte:fragment>
 	</InfoMessage>

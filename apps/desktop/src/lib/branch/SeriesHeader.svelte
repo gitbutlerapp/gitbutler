@@ -86,6 +86,7 @@
 	const hasNoCommits = $derived(branch.upstreamPatches.length === 0 && branch.patches.length === 0);
 	const conflictedSeries = $derived(branch.conflicted);
 	const parentIsPushed = $derived(!!parent?.upstreamReference);
+	const parentIsIntegrated = $derived(!!parent?.integrated);
 	const hasParent = $derived(!!parent);
 	const isPushed = $derived(!!branch.upstreamReference);
 
@@ -391,7 +392,13 @@
 								{hasParent}
 								{parentIsPushed}
 							/>
-							<BranchStatus {mergedIncorrectly} {isPushed} {hasParent} {parentIsPushed} />
+							<BranchStatus
+								{mergedIncorrectly}
+								{isPushed}
+								{hasParent}
+								{parentIsPushed}
+								{parentIsIntegrated}
+							/>
 						{:else}
 							<Button
 								style="ghost"
