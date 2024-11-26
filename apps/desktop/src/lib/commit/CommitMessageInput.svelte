@@ -114,7 +114,7 @@
 			useEmojiStyle: $commitGenerationUseEmojis,
 			useBriefStyle: $commitGenerationExtraConcise,
 			commitTemplate: prompt,
-			branchName: $branch.name,
+			branchName: $branch.series[0]?.name,
 			onToken: (t) => {
 				if (firstToken) {
 					commitMessage = '';
