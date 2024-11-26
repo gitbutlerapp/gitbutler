@@ -382,5 +382,10 @@
 		flex-direction: column;
 		gap: 8px;
 		padding: 0 14px 12px 14px;
+
+		/* don't display if empty */
+		&:empty {
+			display: none;
+		}
 	}
 </style>
