@@ -14,9 +14,6 @@ https://www.youtube.com/watch?v=MRcmnUwrP8A
 Virtual branches are just like normal Git branches, except that you can work on several of them at the same time.
 
 <ImageSection
-  width={700}
-  height={600}
-  className="mx-auto"
   alt="Virtual Branches Example"
   src="/img/docs/virtual-branches-01.jpeg"
   subtitle="An example of working on two branches at the same time, while pending upstream changes wait for you to merge them."
@@ -53,18 +50,18 @@ Each time you commit on a virtual branch, GitButler calculates what that branch 
 ## Applying and Unapplying Branches
 Since there isn't just a single branch you can be on, you don't "switch" branches, which implies replacement. You simply "apply" branches, which takes whatever changes they represent and adds them to your working directory. If you don't want those changes in your working directory anymore, you can "unapply" them, which removes only those changes.
 
-<ImageSection subtitle="Click 'unapply' for any branch to stash it and remove it's changes from the working directory" width={375} height={190} className="mx-auto" src="/img/docs/virtual-branches-02.jpeg" alt="Virtual Branch Apply / Unapply" />
+<ImageSection subtitle="Click 'unapply' for any branch to stash it and remove it's changes from the working directory" src="/img/docs/virtual-branches-02.jpeg" alt="Virtual Branch Apply / Unapply" />
 
 To delete a virtual branch, you simply unapply it, then left click on it and choose "delete".
 
 ## Merging Upstream
 Eventually you will have work merged into the branch you chose as your target branch, which will need to be reconciled with all your virtual branches to keep them up to date with where they will eventually need to merge to.
 
-<ImageSection subtitle="Click 'Merge into common base' to integrate upstream changes into your virtual branches." width={700} height={600} className="mx-auto" src="/img/docs/merge-upstream.png" alt="Branch Commit List" />
+<ImageSection subtitle="Click 'Merge into common base' to integrate upstream changes into your virtual branches." src="/img/docs/merge-upstream.png" alt="Branch Commit List" />
 
 Upstream work will automatically be shown in your sidebar in the "Target" section. When you click "Merge into common base" (or the "Update" button next to your "Workspace" section), we will attempt to integrate that work with your existing virtual branches. Each branch, applied or unapplied, will try to be updated with the new work.
 
-<ImageSection subtitle="Click 'Update workspace' to integrate upstream changes into your virtual branches." width={700} height={600} className="mx-auto" src="/img/docs/merge-upstream-incoming.png" alt="Update Workspace" />
+<ImageSection subtitle="Click 'Update workspace' to integrate upstream changes into your virtual branches." src="/img/docs/merge-upstream-incoming.png" alt="Update Workspace" />
 
 For each virtual branch you have, we will show you if the incoming upstream work has conflicts with each branch. If there are conflicts, you can choose to stash the branch or go ahead and rebase with conflicts, which you can fix later.
 
@@ -75,9 +72,6 @@ If you do rebase work that has conflicts, the commit will be marked as being in 
 
 <ImageSection 
   subtitle="When your commits have conflicts" 
-  width={700}
-  height={600}
-  className="mx-auto"
   src="/img/docs/conflicts-commits.png"
   alt="Conflicts with commits"
 />
@@ -86,9 +80,6 @@ This is different from how you might have dealt with conflicts in Git before. If
 
 <ImageSection
   subtitle="Resolving a conflict"
-  width={700}
-  height={600}
-  className="mx-auto"
   src="/img/docs/conflicts-resolve.png"
   alt="Conflicts with commits"
 />

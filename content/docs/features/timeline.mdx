@@ -10,9 +10,6 @@ Undo nearly any of your actions or go back in time to an earlier state.
 Before GitButler does any major action, it records the state of everything (your virtual branch state, your uncommitted work, conflict state, etc) and stores it in your Git object database as snapshots. You can hit the 'revert' button on any of the entries and it will restore the state of all of these things to what they looked like when they were recorded, letting you go back in time.
 
 <ImageSection
-  width={700}
-  height={600}
-  className="mx-auto"
   alt="Virtual Branches Example"
   src="/img/docs/timeline-01.avif"
 />
@@ -25,9 +22,6 @@ There is a small clock-looking logo in the bottom left corner of the app, next t
 If you hover over any of the entries, you will see a button named "Revert" that will restore the state of things to right before you did that action. So if you revert one that says "Create Commit", it will put you where you were right before you made that commit.
 
 <ImageSection
-  width={700}
-  height={600}
-  className="mx-auto"
   alt="Virtual Branches Example"
   src="/img/docs/timeline-02.png"
 />
@@ -36,9 +30,6 @@ If you hover over any of the entries, you will see a button named "Revert" that 
 Occasionally, GitButler will also take snapshots of files that were changed recently, even if they weren't committed. If this, or any other action, sees changes in files, you can see which ones and view the change by clicking on the file name.
 
 <ImageSection
-  width={700}
-  height={600}
-  className="mx-auto"
   alt="Virtual Branches Example"
   src="/img/docs/timeline-03.avif"
 />

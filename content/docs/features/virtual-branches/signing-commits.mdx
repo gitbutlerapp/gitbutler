@@ -15,18 +15,12 @@ To make this work, a signature is added to the commit header and then that signa
 This is what a verified commit looks like on both systems:
 
 <ImageSection
-  width={700}
-  height={600}
-  className="mx-auto"
   alt="Viewing Remote Branches"
   src="/img/docs/signing-01.avif"
   subtitle="A verified commit on GitLab."
 />
 
 <ImageSection
-  width={700}
-  height={600}
-  className="mx-auto"
   alt="Viewing Remote Branches"
   src="/img/docs/signing-02.avif"
   subtitle="Verified and non-verified commits on GitHub."
@@ -60,9 +54,6 @@ $ git config --global gitbutler.signCommits true
 You can also set this up in your project settings, perhaps a little more easily:
 
 <ImageSection
-  width={700}
-  height={600}
-  className="mx-auto"
   alt="Viewing Remote Branches"
   src="/img/docs/signing-03.avif"
 />
@@ -107,9 +98,6 @@ For GitHub or GitLab to verify your signatures, you need to say that the SSH or 
 You can click on the "Add key to GitHub" link in the settings page right about the signing toggle, or you can go here (https://github.com/settings/ssh/new) to paste that public key in.
 
 <ImageSection
-  width={700}
-  height={600}
-  className="mx-auto"
   alt="Adding a key to GitHub"
   src="/img/docs/signing-04.avif"
   subtitle="Be sure to change the type to 'Signing Key'"
@@ -122,9 +110,6 @@ Now your signed commits should show up as "Verified".
 For GitLab you need to go to "SSH Keys" in your profile: https://gitlab.com/-/profile/keys and click the "Add new key" button.
 
 <ImageSection
-  width={700}
-  height={600}
-  className="mx-auto"
   alt="Adding a key to GitHub"
   src="/img/docs/signing-05.avif"
   subtitle="Add new key here."
@@ -133,9 +118,6 @@ For GitLab you need to go to "SSH Keys" in your profile: https://gitlab.com/-/pr
 Now paste in the public SSH key you copied from GitButler, name it and make sure the "Usage Type" is either "Signing" or "Authentication and Signing".
 
 <ImageSection
-  width={700}
-  height={600}
-  className="mx-auto"
   alt="Adding a key to GitHub"
   src="/img/docs/signing-06.avif"
   subtitle="Now all your GitButler generated commits will be verified on that platform!"
