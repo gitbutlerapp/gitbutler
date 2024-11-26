@@ -9,6 +9,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import { posthog } from 'posthog-js';
 	import { goto } from '$app/navigation';
 
 	export let remoteBranches: RemoteBranchInfo[];
@@ -35,6 +36,7 @@
 			await branchController.setTarget(selectedBranch[0], selectedBranch[1]);
 			goto(`/${project.id}/`, { invalidateAll: true });
 		} finally {
+			posthog.capture('Project Setup Complete');
 			loading = false;
 		}
 	}
