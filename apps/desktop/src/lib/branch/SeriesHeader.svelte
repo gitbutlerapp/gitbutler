@@ -50,7 +50,13 @@
 	const promptService = getContext(PromptService);
 	const stackStore = getContextStore(VirtualBranch);
 	const stack = $derived($stackStore);
-	const parent = $derived(parentBranch(branch, stack.validSeries));
+
+	const parent = $derived(
+		parentBranch(
+			branch,
+			stack.validSeries.filter((b) => b.archived)
+		)
+	);
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const branchController = getContext(BranchController);
