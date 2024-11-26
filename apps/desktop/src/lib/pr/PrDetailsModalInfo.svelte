@@ -10,6 +10,8 @@
 
 	const GITHUB_DELETE_ON_MERGE_DOCS_URL =
 		'https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-the-automatic-deletion-of-branches';
+	const BRANCH_AUTO_DELETE_DOCS =
+		'https://docs.gitbutler.com/features/stacked-branches#github-configuration-for-stacked-prs';
 
 	const branchStore = getContextStore(VirtualBranch);
 	const repoService = getForgeRepoService();
@@ -39,6 +41,9 @@
 	function clickOnGitHubLink() {
 		openExternalUrl(GITHUB_DELETE_ON_MERGE_DOCS_URL);
 	}
+	function clickOnDocsLink() {
+		openExternalUrl(BRANCH_AUTO_DELETE_DOCS);
+	}
 </script>
 
 {#if shouldDisplayDeleteOnMergeWarning}
@@ -56,7 +61,11 @@
 			<svelte:fragment slot="title">Branch deletion after merge</svelte:fragment>
 			<svelte:fragment slot="content">
 				After a stacked PR has been merged, its branch should be deleted in order for the next PR to
-				be updated to point to your target branch.
+				be updated to point to your target branch (<LinkButton onclick={clickOnDocsLink}>
+					{#snippet children()}
+						docs
+					{/snippet}
+				</LinkButton>).
 				<br />
 				You can <LinkButton onclick={clickOnGitHubLink}>
 					{#snippet children()}
