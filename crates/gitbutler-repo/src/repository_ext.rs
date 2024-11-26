@@ -12,7 +12,7 @@ use gitbutler_oxidize::{
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::fs::is_executable;
-use gix::merge::tree::{Options, UnresolvedConflict};
+use gix::merge::tree::{Options, TreatAsUnresolved};
 use gix::objs::WriteTo;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
@@ -766,8 +766,13 @@ pub trait GixRepositoryExt: Sized {
         &self,
     ) -> Result<(
         gix::merge::tree::Options,
-        gix::merge::tree::UnresolvedConflict,
+        gix::merge::tree::TreatAsUnresolved,
     )>;
+
+    /// Just like [`Self::merge_options_fail_fast()`], but additionally don't perform rename tracking.
+    /// This is useful if the merge result isn't going to be used, and we are only interested in knowing
+    /// if a merge would succeed.
+    fn merge_options_no_rewrites_fail_fast(&self) -> Result<(Options, TreatAsUnresolved)>;
 }
 
 impl GixRepositoryExt for gix::Repository {
@@ -796,7 +801,7 @@ impl GixRepositoryExt for gix::Repository {
         our_tree: gix::ObjectId,
         their_tree: gix::ObjectId,
     ) -> Result<bool> {
-        let (options, conflict_kind) = self.merge_options_fail_fast()?;
+        let (options, conflict_kind) = self.merge_options_no_rewrites_fail_fast()?;
         let merge_outcome = self
             .merge_trees(
                 ancestor_tree,
@@ -809,12 +814,17 @@ impl GixRepositoryExt for gix::Repository {
         Ok(!merge_outcome.has_unresolved_conflicts(conflict_kind))
     }
 
-    fn merge_options_fail_fast(&self) -> Result<(Options, UnresolvedConflict)> {
-        let conflict_kind = gix::merge::tree::UnresolvedConflict::Renames;
+    fn merge_options_fail_fast(&self) -> Result<(Options, TreatAsUnresolved)> {
+        let conflict_kind = gix::merge::tree::TreatAsUnresolved::Renames;
         let options = self
             .tree_merge_options()?
             .with_fail_on_conflict(Some(conflict_kind));
         Ok((options, conflict_kind))
+    }
+
+    fn merge_options_no_rewrites_fail_fast(&self) -> Result<(Options, TreatAsUnresolved)> {
+        let (options, conflict_kind) = self.merge_options_fail_fast()?;
+        Ok((options.with_rewrites(None), conflict_kind))
     }
 }
 

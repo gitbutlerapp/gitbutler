@@ -291,7 +291,8 @@ fn get_stack_status(
     {
         TreeStatus::Empty
     } else {
-        let (merge_options_fail_fast, conflict_kind) = gix_repository.merge_options_fail_fast()?;
+        let (merge_options_fail_fast, conflict_kind) =
+            gix_repository.merge_options_no_rewrites_fail_fast()?;
 
         let tree_merge_base = gix_repository
             .find_commit(new_target_commit_id)?
