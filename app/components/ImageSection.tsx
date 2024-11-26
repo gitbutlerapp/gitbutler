@@ -5,11 +5,10 @@ interface Props {
   height: number
   src: string
   className?: string
-  alt?: string
   subtitle?: string
 }
 
-export default function ImageSection({ alt, src, subtitle }: Props) {
+export default function ImageSection({ src, subtitle }: Props) {
   return (
     <div className="mx-auto mb-4 flex flex-col justify-start rounded-lg border border-neutral-200 bg-neutral-100 p-2 dark:border-neutral-800 dark:bg-neutral-900 [&>span]:w-fit [&_img]:m-0">
       <ImageZoom
@@ -17,7 +16,7 @@ export default function ImageSection({ alt, src, subtitle }: Props) {
         height="0"
         className="h-auto w-full rounded-md"
         sizes="(min-width: 808px) 50vw, 100vw"
-        alt={alt ?? ""}
+        alt={subtitle ?? ""}
         src={src}
       />
       {subtitle ? (
