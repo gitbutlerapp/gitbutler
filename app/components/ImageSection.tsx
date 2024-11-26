@@ -16,7 +16,7 @@ export default function ImageSection({ src, alt, subtitle }: Props) {
         width="0"
         height="0"
         className="h-auto w-full rounded-md"
-        sizes="(min-width: 808px) 50vw, 100vw"
+        sizes="(min-width: 800px) 50vw, 100vw"
         alt={alt ?? subtitle ?? ""}
         src={src}
       />
