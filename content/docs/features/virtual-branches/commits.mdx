@@ -18,7 +18,7 @@ If you want AI to use your diff to generate a commit message, you can hit the "G
 
 <ImageSection
   alt="Creating Commits Example"
-  src="/img/docs/commits-01.gif"
+  src="/commits-01.gif"
 />
 
 ## AI Commit Message Settings
@@ -29,14 +29,14 @@ For both OpenAI and Anthropic, you can either use your own API key to directly s
 
 <ImageSection
   alt="AI Commit Settings"
-  src="/img/docs/commits-02.avif"
+  src="/commits-02.png"
 />
 
 If you use your own key for OpenAI or Anthropic, you can choose which model you would like us to use.
 
 <ImageSection
   alt="AI Commit Settings"
-  src="/img/docs/commits-03.avif"
+  src="/commits-03.png"
 />
 
 If you don't want to send your diff to another server, you can also use Ollama, which is a local LLM server. With Ollama, you can run nearly any open source large language model ([Llama 3](https://www.ollama.com/library/llama3), [Phi 3](https://www.ollama.com/library/phi3), [Mistral](https://www.ollama.com/library/mistral), [Gemma](https://www.ollama.com/library/gemma), etc) entirely locally.
@@ -45,7 +45,7 @@ With all of these models, you can also customize the prompt if you want somethin
 
 <ImageSection
   alt="AI Commit Settings"
-  src="/img/docs/commits-04.avif"
+  src="/commits-04.png"
 />
 
 Custom prompts can contain three variables which we will replace with the appropriate values. Those include:
@@ -63,7 +63,7 @@ This will both rewrite that commit to include the new changes and also rebase ev
 
 <ImageSection
   alt="Absorbing New Work"
-  src="/img/docs/commits-05.gif"
+  src="/commits-05.gif"
 />
 
 ## Undoing Commits
@@ -76,7 +76,7 @@ You can easily undo any commit in your stack by expanding the commit and hitting
 
 <ImageSection
   alt="Undoing Commits"
-  src="/img/docs/commits-06.gif"
+  src="/commits-06.gif"
 />
 
 ## Squashing Commits
@@ -85,7 +85,7 @@ Squashing two commits into a single combined commit is also very simple. Just dr
 
 <ImageSection
   alt="Squashing Commits"
-  src="/img/docs/commits-07.gif"
+  src="/commits-07.gif"
 />
 
 ## Splitting Commits
@@ -94,7 +94,7 @@ Splitting commits is slightly more complex. GitButler allows you to create an "e
 
 <ImageSection
   alt="Splitting Commits"
-  src="/img/docs/commits-08.gif"
+  src="/commits-08.gif"
 />
 
 You can also notice that I easily edit the commit message by just hitting the "edit message" button.
@@ -105,7 +105,7 @@ You can also arbitrarily change the order of your commits by dragging and droppi
 
 <ImageSection
   alt="Moving Commits"
-  src="/img/docs/commits-09.gif"
+  src="/commits-09.gif"
 />
 
 ## Edit Mode
@@ -117,7 +117,7 @@ The screen will go into "Edit mode", indicating that you're in a special state w
 <ImageSection
   subtitle="Editing a commit"
   alt="Editing a commit"
-  src="/img/docs/conflicts-edit-mode.png"
+  src="/conflicts-edit-mode.png"
 />
 
 Then you can change whatever you want and when you click "Save and exit", it will amend the commit you were editing and rebase anything on top of it.

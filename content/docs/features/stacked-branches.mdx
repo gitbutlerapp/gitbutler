@@ -14,7 +14,7 @@ This is useful when you have multiple changesets that depend on each other but i
 
 > All of the Pull Request stack orchestration is done locally in the client, which means that your repo content is not shared with a cloud service.
 
-<ImageSection className="mx-auto" src="/img/docs/stacked-branches/0_concepts.jpg" />
+<ImageSection className="mx-auto" src="/stacked-branches/0_concepts.jpg" />
 
 ## Use cases
 
@@ -47,12 +47,12 @@ Stacking and Virtual Branches are similar in that they allow you to separate cod
 the changes are available in your working directory.
 
 The main difference is that Virtual Branches are **independent** from one another, while stacked branches **depend** on the ones that come before it.
-Because of this, the two features are not mutually exclusive but rather complementary. For example a bugfix change that is unrelated to a feature 
+Because of this, the two features are not mutually exclusive but rather complementary. For example a bugfix change that is unrelated to a feature
 can be put in a separate virtual branch. On the other hand, a change that depends on a previous change can be put in a stacked branch above the one it depends on.
 
 In fact GitButler implements stacked branches as Virtual Branches that are split into multiple dependent branches.
 
-<ImageSection src="/img/docs/stacked-branches/11_overview.jpg" />
+<ImageSection src="/stacked-branches/11_overview.jpg" />
 
 ## Workflow
 
@@ -63,49 +63,49 @@ you can create a new dependent branch within a lane by clicking the `+` button a
 
 1. Creating a new dependent branch forms a stack within the lane.
 
-<ImageSection src="/img/docs/stacked-branches/1_creating_stack.jpg" />
+<ImageSection src="/stacked-branches/1_creating_stack.jpg" />
 
 2. New commits land in the top branch of the stack.
 
-<ImageSection src="/img/docs/stacked-branches/2_new_commits.jpg" />
+<ImageSection src="/stacked-branches/2_new_commits.jpg" />
 
 3. Pushing is done for the stack as a whole. Note: The Pull Requests will be created in a way where each branch points to its parent - see [Automatic branch deletion](#automatic-branch-deletion)
 
-<ImageSection src="/img/docs/stacked-branches/3_push_all.jpg" />
+<ImageSection src="/stacked-branches/3_push_all.jpg" />
 
 4. Pull requests must be created one at a time starting from the bottom of the stack.
 
-<ImageSection src="/img/docs/stacked-branches/4_create_pr.jpg" />
+<ImageSection src="/stacked-branches/4_create_pr.jpg" />
 
 5. The PRs will contain a footer with stack information, and as you add more PRs it will keep all up to date.
 
-<ImageSection src="/img/docs/stacked-branches/5_pr_footer.jpg" />
+<ImageSection src="/stacked-branches/5_pr_footer.jpg" />
 
 6. You can drag changes into commits to amend them (e.g. incorporating review feedback) as well as move and squash commits.
 
 <ImageSection
-  src="/img/docs/stacked-branches/6_modify_commits-amend.jpg"
+  src="/stacked-branches/6_modify_commits-amend.jpg"
   subtitle="Amending a commit"
 />
 <ImageSection
-  src="/img/docs/stacked-branches/6_modify_commits-move.jpg"
+  src="/stacked-branches/6_modify_commits-move.jpg"
   subtitle="Moving a commit to a different branch"
 />
 <ImageSection
-  src="/img/docs/stacked-branches/6_modify_commits-squash.jpg"
+  src="/stacked-branches/6_modify_commits-squash.jpg"
   subtitle="Squashing commits"
 />
 
 7. If a change in your stack is independent (e.g. an unrelated bugfix) it can be moved to a different virtual branch (or stack).
    This works for both uncommitted changes and existing commits that you may want to relocate.
 
-<ImageSection src="/img/docs/stacked-branches/7_move_to_vb.jpg" />
+<ImageSection src="/stacked-branches/7_move_to_vb.jpg" />
 
 8. Review/merge your PRs starting from the bottom up. After a PR/branch from your stack has been merged, it is reflected in the Stack and you should force push to reflect the changes
    on the remote as well.
 
-<ImageSection src="/img/docs/stacked-branches/8_merging-1.jpg" />
-<ImageSection src="/img/docs/stacked-branches/8_merging-2.jpg" />
+<ImageSection src="/stacked-branches/8_merging-1.jpg" />
+<ImageSection src="/stacked-branches/8_merging-2.jpg" />
 
 9. When all branches of a stack have been merged, the stack is complete.
 
@@ -125,7 +125,7 @@ Of course, in pure Git terms, a stacked branch will contain all the changes from
 In order to show only the expected Files changed and Commits for PRs in a stack, each PR is created to target the branch below it in the stack.
 This is true for all but the bottom branch in the stack, which targets the default branch of the repository as usual.
 
-<ImageSection src="/img/docs/stacked-branches/9_pr_heads.jpg" />
+<ImageSection src="/stacked-branches/9_pr_heads.jpg" />
 
 > Every branch in the stack contains the commits from the branches below it.
 
@@ -133,7 +133,7 @@ This of course does not mean that a Pull Request should be merged into its paren
 When the bottom branch is merged on GitHub, **if** the PR branch is deleted,
 GitHub will automatically update any PRs that used to target it to target the default branch instead.
 
-<ImageSection src="/img/docs/stacked-branches/10_branch_deletion.jpg" />
+<ImageSection src="/stacked-branches/10_branch_deletion.jpg" />
 
 If the newly merged branch from the bottom of the stack is not deleted, the next PR in line will still target it and there is a risk of accidentally merging it into the now out of data branch.
 For this reason it is _highly recommended_ to [enable on GitHub](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-the-automatic-deletion-of-branches) the automatic deletion of branches after merging.

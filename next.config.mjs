@@ -10,10 +10,14 @@ const config = {
   swcMinify: true,
   cleanDistDir: true,
   images: {
-    unoptimized: true,
     remotePatterns: [
       {
         hostname: "docs.gitbutler.com"
+      }
+    ],
+    localPatterns: [
+      {
+        pathname: "/img/**"
       }
     ]
   }
