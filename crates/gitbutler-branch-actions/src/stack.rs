@@ -185,7 +185,10 @@ pub fn push_stack(project: &Project, stack_id: StackId, with_force: bool) -> Res
     };
 
     // First fetch, because we dont want to push integrated series
-    ctx.fetch(&default_target.push_remote_name(), None)?;
+    ctx.fetch(
+        &default_target.push_remote_name(),
+        Some("push_stack".into()),
+    )?;
     let gix_repo = ctx.gix_repository_for_merging_non_persisting()?;
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());
