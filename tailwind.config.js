@@ -10,13 +10,5 @@ export default {
     "./node_modules/fumadocs-ui/dist/**/*.js",
     "./node_modules/fumadocs-openapi/dist/**/*.js"
   ],
-  theme: {
-    extend: {
-      fontFamily: {
-        sans: ["var(--font-inter)", "var(--font-system)"],
-        ppeditorial: ["var(--font-ppeditorialnew)"]
-      }
-    }
-  },
   presets: [createPreset()]
 }

@@ -1,7 +1,6 @@
 import "./global.css"
 import { Provider } from "./provider"
-import localFont from "next/font/local"
-import { Inter } from 'next/font/google'
+import { Inter } from "next/font/google"
 import type { Metadata, Viewport } from "next"
 import type { ReactNode } from "react"
 
@@ -11,29 +10,14 @@ const baseUrl =
     : new URL(`https://${process.env.VERCEL_URL}`)
 
 const inter = Inter({
-  subsets: ['latin'],
-  display: 'swap',
+  subsets: ["latin"],
+  display: "swap",
   variable: "--font-inter"
-})
-
-const ppEditorialNew = localFont({
-  src: [
-    {
-      path: "../public/fonts/PPEditorialNew-Regular.woff2",
-      weight: "300"
-    },
-    {
-      path: "../public/fonts/PPEditorialNew-Italic.woff2",
-      weight: "300",
-      style: "italic"
-    }
-  ],
-  variable: "--font-ppeditorialnew"
 })
 
 export default function Layout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={`${ppEditorialNew.variable} ${inter.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${inter.variable}`} suppressHydrationWarning>
       <body>
         <Provider>{children}</Provider>
       </body>

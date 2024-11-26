@@ -16,8 +16,8 @@
   --clr-light-gray: #f1f1ed;
   /* accent */
   --clr-accent: #97eae5;
-  --clr-err-50: #DC606B;
-  --clr-warn-50: #DC9B14;
+  --clr-err-50: #dc606b;
+  --clr-warn-50: #dc9b14;
   --font-system: system-ui, sans-serif;
 }
 
@@ -53,19 +53,8 @@ body {
   }
 }
 
-/* Prev / Next Cards at bottom of every page */
-article div:last-of-type:is(.grid.grid-cols-2) a>p:last-of-type {
-  @apply !font-ppeditorial text-base;
-}
-
-/* Headers Serif */
-h1,
-h2 {
-  @apply !font-ppeditorial;
-}
-
 iframe[src*="youtube"] {
   aspect-ratio: 16 / 9;
   border-radius: 0.5rem;
-  @apply w-full h-full;
+  @apply h-full w-full;
 }
