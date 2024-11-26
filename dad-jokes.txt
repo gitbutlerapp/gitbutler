@@ -3,3 +3,6 @@ HDMI
 
 what do you call a dog that does magic tricks?
 a labracadabrador
+
+Why don't GitHub Actions and GitLab Actions get along?
+They don't CI to eye.
