@@ -6,6 +6,4 @@
  */
 import { persisted } from '@gitbutler/shared/persisted';
 
-export const stackingFeatureMultipleSeries = persisted(false, 'stackingFeatureMultipleSeries');
-
 export const autoSelectBranchNameFeature = persisted(false, 'autoSelectBranchLaneContentsFeature');

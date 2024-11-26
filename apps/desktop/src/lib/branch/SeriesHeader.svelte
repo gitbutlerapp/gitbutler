@@ -13,7 +13,6 @@
 	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { stackingFeatureMultipleSeries } from '$lib/config/uiFeatureFlags';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
@@ -307,7 +306,7 @@
 >
 	<Dropzones type="commit">
 		<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
-			{#if $stackingFeatureMultipleSeries && isTopSeries}
+			{#if isTopSeries}
 				<PopoverActionsItem
 					icon="plus-small"
 					tooltip="Add dependent branch"
