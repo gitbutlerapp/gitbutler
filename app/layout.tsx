@@ -3,6 +3,7 @@ import { Provider } from "./provider"
 import { Inter } from "next/font/google"
 import type { Metadata, Viewport } from "next"
 import type { ReactNode } from "react"
+import Script from "next/script"
 
 const baseUrl =
   process.env.NODE_ENV === "development"
@@ -21,6 +22,11 @@ export default function Layout({ children }: { children: ReactNode }) {
       <body>
         <Provider>{children}</Provider>
       </body>
+      <Script
+        async
+        src="https://u.gitbutler.com/script.js"
+        data-website-id="2f6dbf62-091f-4e57-bc47-7b1c6611a98b"
+      />
     </html>
   )
 }
