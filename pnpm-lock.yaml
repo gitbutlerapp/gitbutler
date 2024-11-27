@@ -469,9 +469,15 @@ importers:
       '@storybook/addon-essentials':
         specifier: ^8.4.5
         version: 8.4.5(@types/react@18.3.3)(storybook@8.4.5(prettier@3.3.2))
+      '@storybook/addon-interactions':
+        specifier: ^8.4.5
+        version: 8.4.5(storybook@8.4.5(prettier@3.3.2))
       '@storybook/addon-links':
         specifier: ^8.4.5
         version: 8.4.5(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))
+      '@storybook/addon-svelte-csf':
+        specifier: 5.0.0--canary.228.e697925.0
+        version: 5.0.0--canary.228.e697925.0(@storybook/svelte@8.4.5(storybook@8.4.5(prettier@3.3.2))(svelte@5.2.1))(@sveltejs/vite-plugin-svelte@4.0.1(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0)))(storybook@8.4.5(prettier@3.3.2))(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0))
       '@storybook/blocks':
         specifier: ^8.4.5
         version: 8.4.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))
@@ -484,6 +490,9 @@ importers:
       '@storybook/sveltekit':
         specifier: ^8.4.5
         version: 8.4.5(@babel/core@7.24.7)(@sveltejs/vite-plugin-svelte@4.0.1(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0)))(postcss-load-config@5.1.0(postcss@8.4.49))(postcss@8.4.49)(storybook@8.4.5(prettier@3.3.2))(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0))
+      '@storybook/test':
+        specifier: ^8.4.5
+        version: 8.4.5(storybook@8.4.5(prettier@3.3.2))
       '@sveltejs/adapter-static':
         specifier: catalog:svelte
         version: 3.0.6(@sveltejs/kit@2.8.1(@sveltejs/vite-plugin-svelte@4.0.1(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0)))(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0)))
@@ -1678,6 +1687,11 @@ packages:
     peerDependencies:
       storybook: ^8.4.5
 
+  '@storybook/addon-interactions@8.4.5':
+    resolution: {integrity: sha512-s6R8XVD8LTp+LQTDbhtDjDLE6S44I7FtMLxPdMNwN9VEJjBk01NONLDuGDpNq5o/0bnybA3rMHk9+3afsgzidQ==}
+    peerDependencies:
+      storybook: ^8.4.5
+
   '@storybook/addon-links@8.4.5':
     resolution: {integrity: sha512-ac3OtplFdrPw/2jtLnteuVllwu2yCe3sgKJS9AbdYMT/65OW47M7oDnzcpRPsDGufrKlDMBJXXEv4SfTtlT+rg==}
     peerDependencies:
@@ -1696,6 +1710,14 @@ packages:
     resolution: {integrity: sha512-XlpN98AUDnWQWNFSFVm+HkRUzm3xIUMjBGTkv6HsL6zt6XoJ+LsQMca+PPtYqlBJA+5CU41xMDaG8HC/p+sd3A==}
     peerDependencies:
       storybook: ^8.4.5
+
+  '@storybook/addon-svelte-csf@5.0.0--canary.228.e697925.0':
+    resolution: {integrity: sha512-EY4DOHl2+ARAQKfuf1gEFR91vXhrVaORLjD1YsdfSt/H+UbX9meFNq48Bg8p84Ktbh4RYDv4pZ9wlMp5M1Omdw==}
+    peerDependencies:
+      '@storybook/svelte': ^8.0.0
+      '@sveltejs/vite-plugin-svelte': ^4.0.0
+      svelte: ^5.0.0
+      vite: ^5.0.0
 
   '@storybook/addon-toolbars@8.4.5':
     resolution: {integrity: sha512-hOq5560ONOU/qrslrwosWzxnC4nrF8HZWD43ciKwtethm8HuptU2M+Jrui1CRsMScEZLopWWVE9o0vJMdKpIFQ==}
@@ -1759,6 +1781,11 @@ packages:
   '@storybook/csf@0.1.11':
     resolution: {integrity: sha512-dHYFQH3mA+EtnCkHXzicbLgsvzYjcDJ1JWsogbItZogkPHgSJM/Wr71uMkcvw8v9mmCyP4NpXJuu6bPoVsOnzg==}
 
+  '@storybook/docs-tools@8.4.5':
+    resolution: {integrity: sha512-WhAyGGyGYTdHTLE/Lt2g+cPtfeYdGRgbLpZ8gsit/ArJtni29/w7zxo1PfzLshDxIO82wvmIQFWLPZ2kFro84g==}
+    peerDependencies:
+      storybook: ^8.2.0 || ^8.3.0-0 || ^8.4.0-0 || ^8.5.0-0 || ^8.6.0-0
+
   '@storybook/experimental-addon-test@8.4.5':
     resolution: {integrity: sha512-mf/7XxXWzxM5XWDPsIIiwb7W50K8JrR3gLKMCZk51k935eye6r2PktVVW6Ef7YqqnhENfVOmNhNxMhxennEMPA==}
     peerDependencies:
@@ -1803,6 +1830,11 @@ packages:
 
   '@storybook/manager-api@8.4.5':
     resolution: {integrity: sha512-t39JaMy3UX4StbUH/tIDcaflBDxTcyIq853wQtBMhVL3e1+Dw3MIiiG/5bw79HU4R7kSmPVLXIIbV3FmXkq7KQ==}
+    peerDependencies:
+      storybook: ^8.2.0 || ^8.3.0-0 || ^8.4.0-0 || ^8.5.0-0 || ^8.6.0-0
+
+  '@storybook/node-logger@8.4.5':
+    resolution: {integrity: sha512-AVK/w17vrjTnmdfkHQaIjSFJDP9lJ/fXCT2d9/POUz6KXH0sTWFDb6dPMnjX+Fcu5Ef28kT91RQ+lnWUmLql8Q==}
     peerDependencies:
       storybook: ^8.2.0 || ^8.3.0-0 || ^8.4.0-0 || ^8.5.0-0 || ^8.6.0-0
 
@@ -1854,6 +1886,11 @@ packages:
 
   '@storybook/theming@8.4.5':
     resolution: {integrity: sha512-45e/jeG4iuqdZcHg3PbB6dwXQTwlnnEB7r/QcVExyC7ibrkTnjUfvxzyUw4mmU3CXETFGD5EcUobFkgK+/aPxQ==}
+    peerDependencies:
+      storybook: ^8.2.0 || ^8.3.0-0 || ^8.4.0-0 || ^8.5.0-0 || ^8.6.0-0
+
+  '@storybook/types@8.4.5':
+    resolution: {integrity: sha512-1hlSq7sPYyU9QT++7qytxtY53ARtKGq2cYEr92pOPt6uinCbStmtQ5BoKOFB6vyHoXWgIbhZJKAXZq+tGTz7Qw==}
     peerDependencies:
       storybook: ^8.2.0 || ^8.3.0-0 || ^8.4.0-0 || ^8.5.0-0 || ^8.6.0-0
 
@@ -3105,6 +3142,14 @@ packages:
   dedent-js@1.0.1:
     resolution: {integrity: sha512-OUepMozQULMLUmhxS95Vudo0jb0UchLimi3+pQ2plj61Fcy8axbP9hbiD4Sz6DPqn6XG3kfmziVfQ1rSys5AJQ==}
 
+  dedent@1.5.3:
+    resolution: {integrity: sha512-NHQtfOOW68WD8lgypbLA5oT+Bt0xXJhiYvoR6SmmNXZfpzOGXwdKWmcwG8N7PwVVWV3eF/68nmD9BaJSsTBhyQ==}
+    peerDependencies:
+      babel-plugin-macros: ^3.1.0
+    peerDependenciesMeta:
+      babel-plugin-macros:
+        optional: true
+
   deep-eql@5.0.2:
     resolution: {integrity: sha512-h5k/5U50IJJFpzfL6nO9jaaumfjO/f2NjK/oYB2Djzm4p9L+3T9qWpZqZ2hAbLPuuYq9wrU08WQyBTL5GbPk5Q==}
     engines: {node: '>=6'}
@@ -3313,6 +3358,9 @@ packages:
   es-to-primitive@1.3.0:
     resolution: {integrity: sha512-w+5mJ3GuFL+NjVtJlvydShqE1eN3h3PbI7/5LAsYJP/2qtuMXjfL2LpHSRqo4b4eSF5K/DH1JXKUAHSB2UW50g==}
     engines: {node: '>= 0.4'}
+
+  es-toolkit@1.27.0:
+    resolution: {integrity: sha512-ETSFA+ZJArcuSCpzD2TjAy6UHpx4E4uqFsoDg9F/nTLogrLmVVZQ+zNxco5h7cWnA1nNak07IXsLcaSMih+ZPQ==}
 
   es6-promise@3.3.1:
     resolution: {integrity: sha512-SOp9Phqvqn7jtEUxPWdWfWoLmyt2VaJ6MpvP9Comy1MceMXqE6bxvaTu4iaxpYYPzhny28Lc+M87/c2cPK6lDg==}
@@ -5583,6 +5631,12 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
+  svelte-ast-print@0.4.2:
+    resolution: {integrity: sha512-hRHHufbJoArFmDYQKCpCvc0xUuIEfwYksvyLYEQyH+1xb5LD5sM/IthfooCdXZQtOIqXz6xm7NmaqdfwG4kh6w==}
+    engines: {node: '>=18'}
+    peerDependencies:
+      svelte: ^5.0.0
+
   svelte-check@4.0.9:
     resolution: {integrity: sha512-SVNCz2L+9ZELGli7G0n3B3QE5kdf0u27RtKr2ZivWQhcWIXatZxwM4VrQ6AiA2k9zKp2mk5AxkEhdjbpjv7rEw==}
     engines: {node: '>= 18.0.0'}
@@ -5725,10 +5779,6 @@ packages:
 
   tinyrainbow@1.2.0:
     resolution: {integrity: sha512-weEDEq7Z5eTHPDh4xjX789+fHfF+P8boiFB+0vbWzpbnbsEr/GRaohi/uMKxg8RZMXnl1ItAi/IUHWMsjDV7kQ==}
-    engines: {node: '>=14.0.0'}
-
-  tinyspy@3.0.0:
-    resolution: {integrity: sha512-q5nmENpTHgiPVd1cJDDc9cVoYN5x4vCvwT3FMilvKPKneCBZAxn2YWQjDF0UMcE9k0Cay1gBiDfTMU0g+mPMQA==}
     engines: {node: '>=14.0.0'}
 
   tinyspy@3.0.2:
@@ -7655,6 +7705,15 @@ snapshots:
       '@storybook/global': 5.0.0
       storybook: 8.4.5(prettier@3.3.2)
 
+  '@storybook/addon-interactions@8.4.5(storybook@8.4.5(prettier@3.3.2))':
+    dependencies:
+      '@storybook/global': 5.0.0
+      '@storybook/instrumenter': 8.4.5(storybook@8.4.5(prettier@3.3.2))
+      '@storybook/test': 8.4.5(storybook@8.4.5(prettier@3.3.2))
+      polished: 4.3.1
+      storybook: 8.4.5(prettier@3.3.2)
+      ts-dedent: 2.2.0
+
   '@storybook/addon-links@8.4.5(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))':
     dependencies:
       '@storybook/csf': 0.1.11
@@ -7675,6 +7734,26 @@ snapshots:
       '@storybook/global': 5.0.0
       storybook: 8.4.5(prettier@3.3.2)
       ts-dedent: 2.2.0
+
+  '@storybook/addon-svelte-csf@5.0.0--canary.228.e697925.0(@storybook/svelte@8.4.5(storybook@8.4.5(prettier@3.3.2))(svelte@5.2.1))(@sveltejs/vite-plugin-svelte@4.0.1(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0)))(storybook@8.4.5(prettier@3.3.2))(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0))':
+    dependencies:
+      '@storybook/csf': 0.1.11
+      '@storybook/docs-tools': 8.4.5(storybook@8.4.5(prettier@3.3.2))
+      '@storybook/node-logger': 8.4.5(storybook@8.4.5(prettier@3.3.2))
+      '@storybook/svelte': 8.4.5(storybook@8.4.5(prettier@3.3.2))(svelte@5.2.1)
+      '@storybook/types': 8.4.5(storybook@8.4.5(prettier@3.3.2))
+      '@sveltejs/vite-plugin-svelte': 4.0.1(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0))
+      dedent: 1.5.3
+      es-toolkit: 1.27.0
+      esrap: 1.2.2
+      magic-string: 0.30.14
+      svelte: 5.2.1
+      svelte-ast-print: 0.4.2(svelte@5.2.1)
+      vite: 5.4.11(@types/node@22.3.0)
+      zimmerframe: 1.1.2
+    transitivePeerDependencies:
+      - babel-plugin-macros
+      - storybook
 
   '@storybook/addon-toolbars@8.4.5(storybook@8.4.5(prettier@3.3.2))':
     dependencies:
@@ -7748,6 +7827,10 @@ snapshots:
     dependencies:
       type-fest: 2.19.0
 
+  '@storybook/docs-tools@8.4.5(storybook@8.4.5(prettier@3.3.2))':
+    dependencies:
+      storybook: 8.4.5(prettier@3.3.2)
+
   '@storybook/experimental-addon-test@8.4.5(@vitest/browser@2.1.6)(@vitest/runner@2.1.6)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@2.1.6)':
     dependencies:
       '@storybook/csf': 0.1.11
@@ -7791,6 +7874,10 @@ snapshots:
       storybook: 8.4.5(prettier@3.3.2)
 
   '@storybook/manager-api@8.4.5(storybook@8.4.5(prettier@3.3.2))':
+    dependencies:
+      storybook: 8.4.5(prettier@3.3.2)
+
+  '@storybook/node-logger@8.4.5(storybook@8.4.5(prettier@3.3.2))':
     dependencies:
       storybook: 8.4.5(prettier@3.3.2)
 
@@ -7884,6 +7971,10 @@ snapshots:
       storybook: 8.4.5(prettier@3.3.2)
 
   '@storybook/theming@8.4.5(storybook@8.4.5(prettier@3.3.2))':
+    dependencies:
+      storybook: 8.4.5(prettier@3.3.2)
+
+  '@storybook/types@8.4.5(storybook@8.4.5(prettier@3.3.2))':
     dependencies:
       storybook: 8.4.5(prettier@3.3.2)
 
@@ -8628,7 +8719,7 @@ snapshots:
     dependencies:
       '@vitest/spy': 2.0.5
       '@vitest/utils': 2.0.5
-      chai: 5.1.1
+      chai: 5.1.2
       tinyrainbow: 1.2.0
 
   '@vitest/expect@2.1.6':
@@ -8685,7 +8776,7 @@ snapshots:
 
   '@vitest/spy@2.0.5':
     dependencies:
-      tinyspy: 3.0.0
+      tinyspy: 3.0.2
 
   '@vitest/spy@2.1.6':
     dependencies:
@@ -9446,6 +9537,8 @@ snapshots:
 
   dedent-js@1.0.1: {}
 
+  dedent@1.5.3: {}
+
   deep-eql@5.0.2: {}
 
   deep-equal@2.2.3:
@@ -9709,6 +9802,8 @@ snapshots:
       is-callable: 1.2.7
       is-date-object: 1.0.5
       is-symbol: 1.0.4
+
+  es-toolkit@1.27.0: {}
 
   es6-promise@3.3.1: {}
 
@@ -12243,6 +12338,12 @@ snapshots:
 
   supports-preserve-symlinks-flag@1.0.0: {}
 
+  svelte-ast-print@0.4.2(svelte@5.2.1):
+    dependencies:
+      esrap: 1.2.2
+      svelte: 5.2.1
+      zimmerframe: 1.1.2
+
   svelte-check@4.0.9(svelte@5.2.1)(typescript@5.4.5):
     dependencies:
       '@jridgewell/trace-mapping': 0.3.25
@@ -12386,8 +12487,6 @@ snapshots:
   tinypool@1.0.1: {}
 
   tinyrainbow@1.2.0: {}
-
-  tinyspy@3.0.0: {}
 
   tinyspy@3.0.2: {}
 

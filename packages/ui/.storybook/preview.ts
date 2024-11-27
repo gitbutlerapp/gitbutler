@@ -23,9 +23,7 @@ const preview: Preview = {
 				appPreviewBg: '#fff'
 			}
 		}
-	},
-
-	tags: ['autodocs']
+	}
 };
 
 export default preview;
