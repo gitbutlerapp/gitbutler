@@ -17,7 +17,7 @@ export type NameAndBranchStatus = {
 
 export type BranchStatus =
 	| {
-			type: 'empty' | 'integrated' | 'safelyUpdatable';
+			type: 'empty' | 'integrated' | 'saflyUpdatable';
 	  }
 	| {
 			type: 'conflicted';
@@ -34,7 +34,7 @@ export function stackFullyIntegrated(stackStatus: StackStatus): boolean {
 }
 
 export type TreeStatus = {
-	type: 'empty' | 'conflicted' | 'safelyUpdatable';
+	type: 'empty' | 'conflicted' | 'saflyUpdatable';
 };
 
 export type StackStatusInfo = { stack: VirtualBranch; status: StackStatus };

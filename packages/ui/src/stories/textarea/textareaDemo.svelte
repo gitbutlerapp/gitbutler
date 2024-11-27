@@ -11,7 +11,7 @@
 		changableValue = `## ☕️ Reasoning ## 🧢 Chang sdf sdf sdfsdf sdfsfsd ## 📌 Todos`;
 	}
 
-	function handleDescriptionKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
+	function handleDescriptionKeyDown(e: KeyboardEvent) {
 		if (e.key === 'Escape') {
 			console.log('keyboard', e.key);
 			e.preventDefault();
