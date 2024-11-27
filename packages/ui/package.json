@@ -49,7 +49,7 @@
 		"autoprefixer": "^10.4.20",
 		"cpy-cli": "^5.0.0",
 		"dayjs": "^1.11.13",
-		"playwright": "1.47.0",
+		"playwright": "1.49.0",
 		"postcss": "^8.4.49",
 		"postcss-cli": "^11.0.0",
 		"postcss-minify": "^1.1.0",
