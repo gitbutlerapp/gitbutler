@@ -12,7 +12,7 @@
 		maxRows?: number;
 		autofocus?: boolean;
 		spellcheck?: boolean;
-		autoComplete?: string;
+		autocomplete?: string;
 		class?: string;
 		flex?: string;
 		padding?: {

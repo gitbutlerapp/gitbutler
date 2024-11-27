@@ -21,7 +21,7 @@
 			width={26}
 			tooltip="Insert empty commit"
 			helpShowDelay={500}
-			onclick={onclick?.()}
+			onclick={() => onclick?.()}
 		/>
 	</div>
 </div>

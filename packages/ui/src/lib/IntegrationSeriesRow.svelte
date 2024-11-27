@@ -1,7 +1,7 @@
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';
 
-	type BranchStatus = 'integrated' | 'conflicted' | undefined;
+	type BranchStatus = 'integrated' | 'conflicted' | 'clear' | undefined;
 
 	type Branch = {
 		name: string;

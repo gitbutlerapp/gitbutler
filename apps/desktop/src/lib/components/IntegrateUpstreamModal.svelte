@@ -211,7 +211,7 @@
 					<ScrollableContainer maxHeight={pxToRem(268)}>
 						{#each $base.upstreamCommits as commit}
 							<SimpleCommitRow
-								title={commit.descriptionTitle}
+								title={commit.descriptionTitle ?? ''}
 								sha={commit.id}
 								date={commit.createdAt}
 								author={commit.author.name}
