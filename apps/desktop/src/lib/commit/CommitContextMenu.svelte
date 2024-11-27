@@ -76,7 +76,7 @@
 				}}
 			/>
 			<ContextMenuItem
-				label="Edit patch"
+				label="Edit commit"
 				onclick={(e: MouseEvent) => {
 					onPatchEditClick(e);
 					menu?.close();
