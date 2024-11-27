@@ -40,7 +40,7 @@
 			<BranchLabel disabled name={branch.givenName} />
 			<div class="header__remote-branch">
 				{#if remoteBranch}
-					<Tooltip text="At least some of your changes have been pushed'">
+					<Tooltip text="At least some of your changes have been pushed">
 						<Button size="tag" icon="branch-small" style="neutral" kind="solid" clickable={false}>
 							{localBranch ? 'local and remote' : 'remote'}
 						</Button>
