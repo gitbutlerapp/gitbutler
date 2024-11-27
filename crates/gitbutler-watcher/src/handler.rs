@@ -1,6 +1,5 @@
 use std::{path::PathBuf, sync::Arc};
 
-use super::{events, Change};
 use anyhow::{Context, Result};
 use gitbutler_branch_actions::VirtualBranches;
 use gitbutler_command_context::CommandContext;
@@ -13,12 +12,13 @@ use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt,
 };
-use gitbutler_project::ProjectId;
-use gitbutler_project::{self as projects, Project};
+use gitbutler_project::{self as projects, Project, ProjectId};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
 use tracing::instrument;
+
+use super::{events, Change};
 
 /// A type that contains enough state to make decisions based on changes in the filesystem, which themselves
 /// may trigger [Changes](Change)
