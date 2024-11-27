@@ -467,12 +467,10 @@ fn parse_patch_header(header_line: &[u8]) -> Option<PatchHeaderInfo> {
     })
 }
 
-fn create_patch_line_map_key(old_line: Option<u32>, new_line: Option<u32>) -> String {
-    format!(
-        "{}-{}",
-        old_line.map(|o| o.to_string()).unwrap_or("".to_string()),
-        new_line.map(|n| n.to_string()).unwrap_or("".to_string())
-    )
+type PatchLineMapKey = (Option<u32>, Option<u32>);
+
+fn create_patch_line_map_key(old_line: Option<u32>, new_line: Option<u32>) -> PatchLineMapKey {
+    (old_line, new_line)
 }
 
 /// Build a map of old and new line numbers to the patch lines
@@ -480,8 +478,8 @@ fn build_patch_line_map(
     patch_lines: bstr::Lines<'_>,
     new_start: u32,
     old_start: u32,
-) -> HashMap<String, &[u8]> {
-    let mut lines_map: HashMap<String, &[u8]> = HashMap::new();
+) -> HashMap<PatchLineMapKey, &[u8]> {
+    let mut lines_map: HashMap<PatchLineMapKey, &[u8]> = HashMap::new();
 
     let mut new_line_number = new_start;
     let mut old_line_number = old_start;
