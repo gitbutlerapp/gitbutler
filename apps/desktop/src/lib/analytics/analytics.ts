@@ -4,6 +4,8 @@ import { AppSettings } from '$lib/config/appSettings';
 import posthog from 'posthog-js';
 
 export function initAnalyticsIfEnabled(appSettings: AppSettings) {
+	if (import.meta.env.MODE === 'development') return;
+
 	appSettings.appAnalyticsConfirmed.onDisk().then((confirmed) => {
 		if (confirmed) {
 			appSettings.appErrorReportingEnabled.onDisk().then((enabled) => {
