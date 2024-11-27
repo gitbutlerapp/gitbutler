@@ -409,7 +409,7 @@
 									{#if conflicted}
 										Resolve conflicts
 									{:else}
-										Edit patch
+										Edit commit
 									{/if}
 								</Button>
 							{/if}
