@@ -137,7 +137,7 @@
 		{outline}
 		grow
 		{icon}
-		reversedDirection={icon}
+		reversedDirection
 		loading={isIntegratingCommits}
 		onclick={action}
 	>

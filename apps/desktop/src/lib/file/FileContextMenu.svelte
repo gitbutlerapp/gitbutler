@@ -152,7 +152,9 @@
 	{/snippet}
 	{#snippet controls(close, item)}
 		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="error" kind="solid" type="submit" onclick={confirmDiscard(item)}>Confirm</Button>
+		<Button style="error" kind="solid" type="submit" onclick={() => confirmDiscard(item)}>
+			Confirm
+		</Button>
 	{/snippet}
 </Modal>
 

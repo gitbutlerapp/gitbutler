@@ -229,13 +229,13 @@
 			fontSize={13}
 			padding={{ top: 12, right: 28, bottom: 0, left: 12 }}
 			fontWeight="semibold"
-			spellcheck="false"
+			spellcheck={false}
 			flex="1"
 			minRows={1}
 			maxRows={10}
 			bind:textBoxEl={titleTextArea}
 			autofocus
-			oninput={(e: InputEvent & { currentTarget: HTMLTextAreaElement }) => {
+			oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 				const target = e.currentTarget;
 				commitMessage = concatMessage(target.value, description);
 			}}
@@ -250,11 +250,11 @@
 				disabled={aiLoading}
 				fontSize={13}
 				padding={{ top: 0, right: 12, bottom: 0, left: 12 }}
-				spellcheck="false"
+				spellcheck={false}
 				minRows={1}
 				maxRows={30}
 				bind:textBoxEl={descriptionTextArea}
-				oninput={(e: InputEvent & { currentTarget: HTMLTextAreaElement }) => {
+				oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 					const target = e.currentTarget;
 					commitMessage = concatMessage(title, target.value);
 				}}
