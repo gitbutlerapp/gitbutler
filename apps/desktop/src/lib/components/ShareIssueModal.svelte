@@ -168,8 +168,6 @@
 		<Textarea
 			label="Comments"
 			placeholder="Provide any steps necessary to reproduce the problem."
-			autocomplete="off"
-			autocorrect="off"
 			spellcheck
 			id="comments"
 			minRows={6}
