@@ -1,18 +1,12 @@
 <script lang="ts" module>
-	export interface Props {
-		id?: string;
+	export interface Props extends HTMLTextareaAttributes {
 		textBoxEl?: HTMLTextAreaElement;
 		label?: string;
 		value?: string;
-		placeholder?: string;
-		disabled?: boolean;
 		fontWeight?: 'regular' | 'bold' | 'semibold';
 		fontSize?: number;
 		minRows?: number;
 		maxRows?: number;
-		autofocus?: boolean;
-		spellcheck?: boolean;
-		autocomplete?: string;
 		class?: string;
 		flex?: string;
 		padding?: {
@@ -27,22 +21,12 @@
 		borderBottom?: boolean;
 		borderLeft?: boolean;
 		unstyled?: boolean;
-		oninput?: (e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
-		onchange?: (e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
-		onfocus?: (
-			this: void,
-			e: FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement }
-		) => void;
-		onblur?: (
-			this: void,
-			e: FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement }
-		) => void;
-		onkeydown?: (e: KeyboardEvent & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
 	}
 </script>
 
 <script lang="ts">
 	import { pxToRem } from '$lib/utils/pxToRem';
+	import type { HTMLTextareaAttributes } from 'svelte/elements';
 
 	let {
 		id,
