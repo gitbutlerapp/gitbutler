@@ -52,7 +52,7 @@
 		bind:this={commitDialog}
 		projectId={project.id}
 		expanded={commitBoxOpen}
-		hasSectionsAfter={branch.commits.length > 0}
+		hasSectionsAfter={branch.validSeries.flatMap((s) => s.patches).length > 0}
 	/>
 </div>
 
