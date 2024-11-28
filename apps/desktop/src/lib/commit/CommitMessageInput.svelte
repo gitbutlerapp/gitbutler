@@ -135,8 +135,7 @@
 		if (generatedMessage) {
 			commitMessage = generatedMessage;
 		} else {
-			const errorMessage = 'Prompt generated no response';
-			showError(errorMessage, undefined);
+			showError('Failed to generate commit message', 'Prompt returned no response');
 			aiLoading = false;
 			return;
 		}

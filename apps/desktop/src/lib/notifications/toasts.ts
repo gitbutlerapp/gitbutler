@@ -17,7 +17,10 @@ let idCounter = 0;
 
 export function showToast(toast: Toast) {
 	if (toast.error) {
-		posthog.capture('toast:show_error', { error_title: toast.title });
+		posthog.capture('toast:show_error', {
+			error_title: toast.title,
+			error_message: String(toast.error)
+		});
 	}
 	toast.message = toast.message?.replace(/^ */gm, '');
 	toastStore.update((items) => [

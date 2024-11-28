@@ -91,7 +91,7 @@ export class UserService {
 			return user;
 		} catch (err) {
 			console.error(err);
-			showError('Something went wrong', err);
+			showError('Error occurred while logging in', err);
 		} finally {
 			this.loading.set(false);
 		}
