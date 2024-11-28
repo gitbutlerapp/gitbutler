@@ -89,9 +89,7 @@
 
 			{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
 				<CommitList
-					remotePatches={currentSeries.upstreamPatches}
-					patches={currentSeries.patches}
-					seriesName={currentSeries.name}
+					{currentSeries}
 					isUnapplied={false}
 					isBottom={idx === branch.series.length - 1}
 					{stackingReorderDropzoneManager}

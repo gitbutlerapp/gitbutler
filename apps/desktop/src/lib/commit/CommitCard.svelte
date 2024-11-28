@@ -18,6 +18,7 @@
 	import {
 		Commit,
 		DetailedCommit,
+		PatchSeries,
 		RemoteFile,
 		VirtualBranch,
 		type CommitStatus
@@ -37,6 +38,7 @@
 
 	interface Props {
 		branch?: VirtualBranch | undefined;
+		currentSeries?: PatchSeries | undefined;
 		commit: DetailedCommit | Commit;
 		commitUrl?: string | undefined;
 		isHeadCommit?: boolean;
@@ -46,12 +48,12 @@
 		type: CommitStatus;
 		lines?: Snippet | undefined;
 		filesToggleable?: boolean;
-		seriesName?: string;
 		disableCommitActions?: boolean;
 	}
 
 	const {
 		branch = undefined,
+		currentSeries,
 		commit,
 		commitUrl = undefined,
 		isHeadCommit = false,
@@ -61,7 +63,6 @@
 		type,
 		lines = undefined,
 		filesToggleable = true,
-		seriesName = '',
 		disableCommitActions = false
 	}: Props = $props();
 
@@ -89,7 +90,9 @@
 	let conflictResolutionConfirmationModal = $state<ReturnType<typeof Modal>>();
 
 	const conflicted = $derived(commit.conflicted);
-	const isAncestorMostConflicted = $derived(branch?.ancestorMostConflictedCommit?.id === commit.id);
+	const isAncestorMostConflicted = $derived(
+		currentSeries?.ancestorMostConflictedCommit(false)?.id === commit.id
+	);
 
 	async function loadFiles() {
 		files = await listCommitFiles(project.id, commit.id);
@@ -257,7 +260,7 @@
 				date: getTimeAgo(commit.createdAt),
 				authorImgUrl: authorImgUrl,
 				commitType: type,
-				data: new DraggableCommit(commit.branchId, commit, isHeadCommit, seriesName),
+				data: new DraggableCommit(commit.branchId, commit, isHeadCommit, currentSeries?.name),
 				viewportId: 'board-viewport'
 			}
 		: nonDraggable()}

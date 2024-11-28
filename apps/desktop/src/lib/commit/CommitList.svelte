@@ -15,7 +15,7 @@
 		BranchController,
 		type SeriesIntegrationStrategy
 	} from '$lib/vbranches/branchController';
-	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -45,17 +45,13 @@
 	type IntegrationStrategy = keyof typeof integrationStrategies;
 
 	interface Props {
-		remotePatches: DetailedCommit[];
-		patches: DetailedCommit[];
-		seriesName: string;
+		currentSeries: PatchSeries;
 		isUnapplied: boolean;
 		stackingReorderDropzoneManager: StackingReorderDropzoneManager;
 		isBottom?: boolean;
 	}
 	const {
-		remotePatches,
-		patches,
-		seriesName,
+		currentSeries,
 		isUnapplied,
 		stackingReorderDropzoneManager,
 		isBottom = false
@@ -68,17 +64,17 @@
 	const forge = getForge();
 
 	const localAndRemoteCommits = $derived(
-		patches.filter((patch) => patch.status === 'localAndRemote')
+		currentSeries.patches.filter((patch) => patch.status === 'localAndRemote')
 	);
 	const lastDivergentCommit = $derived(
-		findLastDivergentCommit(remotePatches, localAndRemoteCommits)
+		findLastDivergentCommit(currentSeries.upstreamPatches, localAndRemoteCommits)
 	);
 
 	const remoteOnlyPatches = $derived(
-		remotePatches.filter((patch) => patch.status !== 'integrated')
+		currentSeries.upstreamPatches.filter((patch) => patch.status !== 'integrated')
 	);
 	const remoteIntegratedPatches = $derived(
-		remotePatches.filter((patch) => patch.status === 'integrated')
+		currentSeries.upstreamPatches.filter((patch) => patch.status === 'integrated')
 	);
 
 	// A local or localAndRemote commit probably shouldn't every be integrated,
@@ -87,10 +83,10 @@
 	const lineManager = $derived(
 		lineManagerFactory.build({
 			remoteCommits: remoteOnlyPatches,
-			localCommits: patches.filter((patch) => patch.status === 'local'),
+			localCommits: currentSeries.patches.filter((patch) => patch.status === 'local'),
 			localAndRemoteCommits: localAndRemoteCommits,
 			integratedCommits: [
-				...patches.filter((patch) => patch.status === 'integrated'),
+				...currentSeries.patches.filter((patch) => patch.status === 'integrated'),
 				...remoteIntegratedPatches
 			]
 		})
@@ -108,7 +104,7 @@
 	async function integrate(strategy?: SeriesIntegrationStrategy): Promise<void> {
 		isIntegratingCommits = true;
 		try {
-			await branchController.integrateUpstreamForSeries($branch.id, seriesName, strategy);
+			await branchController.integrateUpstreamForSeries($branch.id, currentSeries.name, strategy);
 		} catch (e) {
 			console.error(e);
 		} finally {
@@ -150,10 +146,10 @@
 		<!-- UPSTREAM ONLY COMMITS -->
 		{#if hasRemoteCommits}
 			<CommitsAccordion
-				count={Math.min(remotePatches.length, 3)}
+				count={Math.min(currentSeries.upstreamPatches.length, 3)}
 				isLast={!hasCommits}
 				type="upstream"
-				displayHeader={remotePatches.length > 1}
+				displayHeader={currentSeries.upstreamPatches.length > 1}
 			>
 				{#snippet title()}
 					<span class="text-13 text-body text-semibold">Upstream commits</span>
@@ -164,14 +160,15 @@
 						branch={$branch}
 						{commit}
 						{isUnapplied}
-						noBorder={idx === remotePatches.length - 1}
+						{currentSeries}
+						noBorder={idx === currentSeries.upstreamPatches.length - 1}
 						commitUrl={$forge?.commitUrl(commit.id)}
 						isHeadCommit={commit.id === headCommit?.id}
 					>
 						{#snippet lines()}
 							<Line
 								line={lineManager.get(commit.id)}
-								isBottom={!hasCommits && idx === remotePatches.length - 1}
+								isBottom={!hasCommits && idx === currentSeries.upstreamPatches.length - 1}
 							/>
 						{/snippet}
 					</CommitCard>
@@ -186,44 +183,47 @@
 		{/if}
 
 		<!-- REMAINING LOCAL, LOCALANDREMOTE, AND INTEGRATED COMMITS -->
-		{#if patches.length > 0}
+		{#if currentSeries.patches.length > 0}
 			<div class="commits-group">
-				{@render stackingReorderDropzone(stackingReorderDropzoneManager.topDropzone(seriesName))}
+				{@render stackingReorderDropzone(
+					stackingReorderDropzoneManager.topDropzone(currentSeries.name)
+				)}
 
-				{#each patches as commit, idx (commit.id)}
+				{#each currentSeries.patches as commit, idx (commit.id)}
 					{@const isResetAction =
 						!hasRemoteIntegratedCommits &&
 						((lastDivergentCommit.type === 'localDiverged' &&
 							lastDivergentCommit.commit.id === commit.id) ||
-							(lastDivergentCommit.type === 'onlyRemoteDiverged' && idx === patches.length - 1))}
+							(lastDivergentCommit.type === 'onlyRemoteDiverged' &&
+								idx === currentSeries.patches.length - 1))}
 					<CommitDragItem {commit}>
 						<CommitCard
 							type={commit.status}
 							branch={$branch}
 							{commit}
-							{seriesName}
 							{isUnapplied}
-							noBorder={idx === patches.length - 1}
-							last={idx === patches.length - 1 && !isResetAction}
+							{currentSeries}
+							noBorder={idx === currentSeries.patches.length - 1}
+							last={idx === currentSeries.patches.length - 1 && !isResetAction}
 							isHeadCommit={commit.id === headCommit?.id}
 							commitUrl={$forge?.commitUrl(commit.id)}
 						>
 							{#snippet lines()}
 								<Line
 									line={lineManager.get(commit.id)}
-									isBottom={isBottom && idx === patches.length - 1}
+									isBottom={isBottom && idx === currentSeries.patches.length - 1}
 								/>
 							{/snippet}
 						</CommitCard>
 					</CommitDragItem>
 
 					{@render stackingReorderDropzone(
-						stackingReorderDropzoneManager.dropzoneBelowCommit(seriesName, commit.id)
+						stackingReorderDropzoneManager.dropzoneBelowCommit(currentSeries.name, commit.id)
 					)}
 
 					<!-- RESET TO REMOTE BUTTON -->
 					{#if isResetAction}
-						<CommitAction type="local" isLast={idx === patches.length - 1}>
+						<CommitAction type="local" isLast={idx === currentSeries.patches.length - 1}>
 							{#snippet action()}
 								{@render integrateUpstreamButton('reset')}
 							{/snippet}
@@ -254,7 +254,7 @@
 						type={commit.status}
 						branch={$branch}
 						{commit}
-						{seriesName}
+						{currentSeries}
 						{isUnapplied}
 						noBorder={idx === remoteIntegratedPatches.length - 1}
 						last={idx === remoteIntegratedPatches.length - 1}
@@ -265,7 +265,7 @@
 						{#snippet lines()}
 							<Line
 								line={lineManager.get(commit.id)}
-								isBottom={isBottom && idx === patches.length - 1}
+								isBottom={isBottom && idx === currentSeries.patches.length - 1}
 							/>
 						{/snippet}
 					</CommitCard>
