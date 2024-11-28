@@ -37,13 +37,16 @@
 	import { User, UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
+	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
+	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store';
 	import {
 		DesktopRoutesService,
 		setRoutesService,
 		WebRoutesService
 	} from '@gitbutler/shared/sharedRoutes';
+	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { onMount, setContext, type Snippet } from 'svelte';
@@ -80,6 +83,9 @@
 	setContext(LineManagerFactory, data.lineManagerFactory);
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
+	setContext(FeedService, data.feedService);
+	setContext(OrganizationService, data.organizationService);
+	setContext(CloudUserService, data.cloudUserService);
 
 	const webRoutesService = new WebRoutesService(true, env.PUBLIC_CLOUD_BASE_URL);
 	const desktopRoutesService = new DesktopRoutesService(webRoutesService);

@@ -21,7 +21,6 @@
 	import { createForgeStore } from '$lib/forge/interface/forge';
 	import { createForgeListingServiceStore } from '$lib/forge/interface/forgeListingService';
 	import { createForgePrServiceStore } from '$lib/forge/interface/forgePrService';
-	import { createForgeRepoServiceStore } from '$lib/forge/interface/forgeRepoService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
@@ -33,7 +32,6 @@
 	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
-	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { DesktopRoutesService, getRoutesService } from '@gitbutler/shared/sharedRoutes';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import type { LayoutData } from './$types';
@@ -87,7 +85,6 @@
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
 		setContext(CloudBranchesService, data.cloudBranchesService);
 		setContext(CloudBranchCreationService, data.cloudBranchCreationService);
-		setContext(FeedService, data.feedService);
 	});
 
 	const routesService = getRoutesService();
@@ -106,7 +103,6 @@
 	const listServiceStore = createForgeListingServiceStore(undefined);
 	const forgeStore = createForgeStore(undefined);
 	const prService = createForgePrServiceStore(undefined);
-	const repoService = createForgeRepoServiceStore(undefined);
 
 	$effect.pre(() => {
 		const combinedBranchListingService = new CombinedBranchListingService(
@@ -148,7 +144,6 @@
 		listServiceStore.set(ghListService);
 		forgeStore.set(forge);
 		prService.set(forge ? forge.prService() : undefined);
-		repoService.set(forge ? forge.repoService() : undefined);
 		posthog.setPostHogRepo($repoInfo);
 		return () => {
 			posthog.setPostHogRepo(undefined);

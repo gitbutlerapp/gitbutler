@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project } from '$lib/backend/projects';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
@@ -10,6 +9,7 @@
 	import Link from '$lib/shared/Link.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { invoke } from '@tauri-apps/api/core';

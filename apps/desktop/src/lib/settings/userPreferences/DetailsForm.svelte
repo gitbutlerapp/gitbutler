@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { Project, ProjectsService } from '$lib/backend/projects';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
 	import Section from '$lib/settings/Section.svelte';
 	import Link from '$lib/shared/Link.svelte';
 	import { User } from '$lib/stores/user';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';

@@ -1,8 +1,8 @@
 <script lang="ts">
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { AppSettings } from '$lib/config/appSettings';
 	import Link from '$lib/shared/Link.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
 	const appSettings = getContext(AppSettings);

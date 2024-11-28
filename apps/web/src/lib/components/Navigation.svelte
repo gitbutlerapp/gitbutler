@@ -26,8 +26,10 @@
 	<div>
 		<a href="/downloads">Downloads</a>
 		{#if $token}
+			<!-- |
+			<a href="/projects">Projects</a> -->
 			|
-			<a href="/projects">Projects</a>
+			<a href="/organizations">Projects</a>
 			|
 			<a href="/repositories">Repositories</a>
 			|

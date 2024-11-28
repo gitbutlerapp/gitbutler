@@ -1,6 +1,9 @@
 import { feedsReducer } from '$lib/feeds/feedsSlice';
 import { postsReducer } from '$lib/feeds/postsSlice';
+import { organizationsReducer } from '$lib/organizations/organizationsSlice';
+import { projectsReducer } from '$lib/organizations/projectsSlice';
 import { exampleReducer } from '$lib/redux/example';
+import { usersReducer } from '$lib/users/usersSlice';
 import { configureStore, createSelector } from '@reduxjs/toolkit';
 import { derived, readable, type Readable } from 'svelte/store';
 
@@ -20,11 +23,31 @@ export interface AppFeedsState {
 	readonly feeds: Readable<ReturnType<typeof feedsReducer>>;
 }
 
+export interface AppOrganizationsState {
+	readonly organizations: Readable<ReturnType<typeof organizationsReducer>>;
+}
+
+export interface AppUsersState {
+	readonly users: Readable<ReturnType<typeof usersReducer>>;
+}
+
+export interface AppProjectsState {
+	readonly projects: Readable<ReturnType<typeof projectsReducer>>;
+}
+
 export class AppDispatch {
 	constructor(readonly dispatch: Dispatch) {}
 }
 
-export class AppState implements AppExampleState, AppPostsState, AppFeedsState {
+export class AppState
+	implements
+		AppExampleState,
+		AppPostsState,
+		AppFeedsState,
+		AppOrganizationsState,
+		AppUsersState,
+		AppProjectsState
+{
 	/**
 	 * The base store.
 	 *
@@ -35,7 +58,10 @@ export class AppState implements AppExampleState, AppPostsState, AppFeedsState {
 		reducer: {
 			examples: exampleReducer,
 			posts: postsReducer,
-			feeds: feedsReducer
+			feeds: feedsReducer,
+			orgnaizations: organizationsReducer,
+			users: usersReducer,
+			projects: projectsReducer
 		}
 	});
 
@@ -67,6 +93,21 @@ export class AppState implements AppExampleState, AppPostsState, AppFeedsState {
 
 	private readonly selectFeeds = createSelector([this.selectSelf], (rootState) => rootState.feeds);
 	readonly feeds = derived(this.rootState, this.selectFeeds);
+
+	private readonly selectOrganizations = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.orgnaizations
+	);
+	readonly organizations = derived(this.rootState, this.selectOrganizations);
+
+	private readonly selectUsers = createSelector([this.selectSelf], (rootState) => rootState.users);
+	readonly users = derived(this.rootState, this.selectUsers);
+
+	private readonly selectProjects = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.projects
+	);
+	readonly projects = derived(this.rootState, this.selectProjects);
 }
 
 export type RootState = ReturnType<typeof AppState.prototype._store.getState>;

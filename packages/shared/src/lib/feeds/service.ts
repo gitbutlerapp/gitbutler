@@ -2,12 +2,13 @@ import { feedAppend, feedPrepend } from '$lib/feeds/feedsSlice';
 import { upsertPost, upsertPosts } from '$lib/feeds/postsSlice';
 import { apiToPost, type ApiPost, type ApiPostWithReplies, type Post } from '$lib/feeds/types';
 import { InterestStore } from '$lib/interest/intrestStore';
+import { POLLING_FAST, POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/httpClient';
 import type { AppDispatch } from '$lib/redux/store';
 
 export class FeedService {
-	private readonly feedInterests = new InterestStore<{ identifier: string }>(1 * 60 * 1000);
-	private readonly postWithRepliesInterests = new InterestStore<{ postId: string }>(30 * 1000);
+	private readonly feedInterests = new InterestStore<{ identifier: string }>(POLLING_REGULAR);
+	private readonly postWithRepliesInterests = new InterestStore<{ postId: string }>(POLLING_FAST);
 
 	constructor(
 		private readonly httpClient: HttpClient,

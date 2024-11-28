@@ -6,6 +6,10 @@
 	import WorkspaceButton from './WorkspaceButton.svelte';
 	import Resizer from '../shared/Resizer.svelte';
 	import { ProjectService } from '$lib/backend/projects';
+	import {
+		cloudCommunicationFunctionality,
+		cloudReviewFunctionality
+	} from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/modes/service';
 	import CloudSeriesButton from '$lib/navigation/CloudSeriesButton.svelte';
 	import EditButton from '$lib/navigation/EditButton.svelte';
@@ -16,10 +20,6 @@
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import { env } from '$env/dynamic/public';
-	import {
-		cloudCommunicationFunctionality,
-		cloudReviewFunctionality
-	} from '$lib/config/uiFeatureFlags';
 
 	const minResizerWidth = 280;
 	const minResizerRatio = 150;

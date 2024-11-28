@@ -1,5 +1,4 @@
 <script lang="ts">
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import {
 		cloudFunctionality,
 		cloudCommunicationFunctionality,
@@ -8,6 +7,7 @@
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { User } from '$lib/stores/user';
 	import { getContextStore } from '@gitbutler/shared/context';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
 	const user = getContextStore(User);
@@ -32,19 +32,19 @@
 		<div class="experimental-settings__toggles">
 			<div>
 				<SectionCard labelFor="cloudFunctionality" orientation="row" roundedBottom={false}>
-					<svelte:fragment slot="title">Online functionality</svelte:fragment>
-					<svelte:fragment slot="caption">
+					{#snippet title()}Online functionality{/snippet}
+					{#snippet caption()}
 						Very experimental online functionality powered by the GitButler backend. Subject to lots
 						of change. Data may get deleted as development of these features progresses, or the
 						features might get dropped entirly.
-					</svelte:fragment>
-					<svelte:fragment slot="actions">
+					{/snippet}
+					{#snippet actions()}
 						<Toggle
 							id="cloudFunctionality"
 							checked={$cloudFunctionality}
 							onclick={() => toggleCloudFunctionality()}
 						/>
-					</svelte:fragment>
+					{/snippet}
 				</SectionCard>
 				<SectionCard
 					labelFor="cloudCommunicationFunctionality"
@@ -53,18 +53,18 @@
 					roundedBottom={false}
 					disabled={!$cloudFunctionality}
 				>
-					<svelte:fragment slot="title">Social Coding</svelte:fragment>
-					<svelte:fragment slot="caption">
+					{#snippet title()}Social Coding{/snippet}
+					{#snippet caption()}
 						Highly experimental feature for collaborating around a project a community.
-					</svelte:fragment>
-					<svelte:fragment slot="actions">
+					{/snippet}
+					{#snippet actions()}
 						<Toggle
 							id="cloudCommunicationFunctionality"
 							checked={$cloudCommunicationFunctionality}
 							onclick={() => ($cloudCommunicationFunctionality = !$cloudCommunicationFunctionality)}
 							disabled={!$cloudFunctionality}
 						/>
-					</svelte:fragment>
+					{/snippet}
 				</SectionCard>
 				<SectionCard
 					labelFor="cloudReviewFunctionality"
@@ -72,18 +72,18 @@
 					roundedTop={false}
 					disabled={!$cloudFunctionality}
 				>
-					<svelte:fragment slot="title">Patch Review</svelte:fragment>
-					<svelte:fragment slot="caption">
+					{#snippet title()}Patch Review{/snippet}
+					{#snippet caption()}
 						Highly experimental feature for reviewing code in an interdiff style.
-					</svelte:fragment>
-					<svelte:fragment slot="actions">
+					{/snippet}
+					{#snippet actions()}
 						<Toggle
 							id="cloudReviewFunctionality"
 							checked={$cloudReviewFunctionality}
 							onclick={() => ($cloudReviewFunctionality = !$cloudReviewFunctionality)}
 							disabled={!$cloudFunctionality}
 						/>
-					</svelte:fragment>
+					{/snippet}
 				</SectionCard>
 			</div>
 		</div>

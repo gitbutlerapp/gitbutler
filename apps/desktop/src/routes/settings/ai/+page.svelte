@@ -3,7 +3,6 @@
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import AIPromptEdit from '$lib/components/AIPromptEdit/AIPromptEdit.svelte';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { getSecretsService } from '$lib/secrets/secretsService';
 	import Select from '$lib/select/Select.svelte';
@@ -14,6 +13,7 @@
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '@gitbutler/shared/context';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { onMount, tick } from 'svelte';

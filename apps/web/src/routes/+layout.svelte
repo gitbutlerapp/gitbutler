@@ -7,8 +7,12 @@
 		CloudRepositoriesService,
 		RepositoriesApiService
 	} from '@gitbutler/shared/cloud/repositories/service';
+	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
+	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import { AppState } from '@gitbutler/shared/redux/store';
 	import { WebRoutesService, setRoutesService } from '@gitbutler/shared/sharedRoutes';
+	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import { setContext, type Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -35,6 +39,15 @@
 	const repositoriesApiService = new RepositoriesApiService(httpClient);
 	const cloudRepositoriesService = new CloudRepositoriesService(repositoriesApiService);
 	setContext(CloudRepositoriesService, cloudRepositoriesService);
+
+	const appState = new AppState();
+	setContext(AppState, appState);
+	const feedService = new FeedService(httpClient, appState.appDispatch);
+	setContext(FeedService, feedService);
+	const organizationService = new OrganizationService(httpClient, appState.appDispatch);
+	setContext(OrganizationService, organizationService);
+	const newUserService = new NewUserService(httpClient, appState.appDispatch);
+	setContext(NewUserService, newUserService);
 
 	$effect(() => {
 		if ($page.url.searchParams.get('gb_access_token')) {

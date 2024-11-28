@@ -14,8 +14,11 @@ import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { UserService } from '$lib/stores/user';
+import { FeedService } from '@gitbutler/shared/feeds/service';
 import { HttpClient } from '@gitbutler/shared/httpClient';
+import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 import { AppState } from '@gitbutler/shared/redux/store';
+import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import lscache from 'lscache';
@@ -63,6 +66,10 @@ export const load: LayoutLoad = async () => {
 	const lineManagerFactory = new LineManagerFactory();
 	const stackingLineManagerFactory = new StackingLineManagerFactory();
 
+	const feedService = new FeedService(httpClient, appState.appDispatch);
+	const organizationService = new OrganizationService(httpClient, appState.appDispatch);
+	const cloudUserService = new CloudUserService(httpClient, appState.appDispatch);
+
 	return {
 		commandService,
 		tokenMemoryService,
@@ -82,5 +89,8 @@ export const load: LayoutLoad = async () => {
 		secretsService,
 		appState,
 		posthog
+		feedService,
+		organizationService,
+		cloudUserService
 	};
 };

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { ProjectsService, type Key, type KeyType, Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import Section from '$lib/settings/Section.svelte';
 	import CredentialCheck from '$lib/shared/CredentialCheck.svelte';
@@ -9,6 +8,7 @@
 	import ProjectNameLabel from '$lib/shared/ProjectNameLabel.svelte';
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { onMount } from 'svelte';
 

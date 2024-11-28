@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { Project } from '$lib/backend/projects';
 	import AiPromptSelect from '$lib/components/AIPromptSelect.svelte';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import Section from '$lib/settings/Section.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { goto } from '$app/navigation';
