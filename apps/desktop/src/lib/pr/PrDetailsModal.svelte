@@ -46,22 +46,17 @@
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
 
-	interface BaseProps {
-		type: 'display' | 'preview';
-	}
-
-	interface DisplayProps extends BaseProps {
-		type: 'display';
-		pr: DetailedPullRequest;
-	}
-
-	interface PreviewProps extends BaseProps {
-		type: 'preview';
-		currentSeries: PatchSeries;
-		stackId: string;
-	}
-
-	type Props = DisplayProps | PreviewProps;
+	type Props =
+		| {
+				type: 'preview';
+				currentSeries: PatchSeries;
+				stackId: string;
+		  }
+		| {
+				type: 'display';
+				currentSeries: PatchSeries;
+				pr: DetailedPullRequest;
+		  };
 
 	let props: Props = $props();
 
@@ -78,7 +73,11 @@
 
 	const branch = $derived($branchStore);
 	const branchName = $derived(props.type === 'preview' ? props.currentSeries.name : branch.name);
-	const commits = $derived(props.type === 'preview' ? props.currentSeries.patches : branch.commits);
+	const commits = $derived(
+		props.type === 'preview'
+			? props.currentSeries.patches
+			: [...props.currentSeries.patches, ...props.currentSeries.upstreamPatches]
+	);
 	const upstreamName = $derived(
 		props.type === 'preview' ? props.currentSeries.name : branch.upstreamName
 	);
