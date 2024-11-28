@@ -26,7 +26,7 @@
 		loading?: boolean;
 		wide?: boolean;
 		flex?: string;
-		options: SelectItem<T>[];
+		options: readonly SelectItem<T>[];
 		value?: T;
 		placeholder?: string;
 		maxHeight?: number;
