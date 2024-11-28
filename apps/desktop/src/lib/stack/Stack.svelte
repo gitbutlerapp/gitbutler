@@ -41,10 +41,10 @@
 	let lastPush = $state<Date | undefined>();
 
 	let laneWidth: number | undefined = $state();
-
 	let rsViewport = $state<HTMLElement>();
+
 	const branchHasFiles = $derived(branch.files !== undefined && branch.files.length > 0);
-	const branchHasNoCommits = $derived(branch.commits !== undefined && branch.commits.length === 0);
+	const branchHasNoCommits = $derived(branch.validSeries.flatMap((s) => s.patches).length === 0);
 
 	$effect(() => {
 		if ($commitBoxOpen && branch.files.length === 0) {
