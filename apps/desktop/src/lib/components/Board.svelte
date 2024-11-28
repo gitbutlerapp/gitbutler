@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import BoardEmptyState from './BoardEmptyState.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
@@ -15,14 +13,16 @@
 	import posthog from 'posthog-js';
 	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
+	import { run } from 'svelte/legacy';
+	import type { VirtualBranch } from '$lib/vbranches/types';
 
 	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
 	const error = vbranchService.error;
 	const branches = vbranchService.branches;
 
-	let dragged: HTMLDivElement | undefined = $state();
-	let dropZone: HTMLDivElement = $state();
+	let dragged = $state<HTMLDivElement>();
+	let dropZone = $state<HTMLDivElement>();
 
 	let dragHandle: any = $state();
 	let clone: any = $state();
@@ -31,7 +31,7 @@
 			$showHistoryView = true;
 		}
 	});
-	let sortedBranches;
+	let sortedBranches = $state<VirtualBranch[]>([]);
 	run(() => {
 		sortedBranches = $branches?.sort((a, b) => a.order - b.order) || [];
 	});
@@ -46,8 +46,8 @@
 		const currentPosition = children.indexOf(dragged);
 
 		let dropPosition = 0;
-		let mouseLeft = e.clientX - dropZone.getBoundingClientRect().left;
-		let cumulativeWidth = dropZone.offsetLeft;
+		let mouseLeft = e.clientX - (dropZone?.getBoundingClientRect().left ?? 0);
+		let cumulativeWidth = dropZone?.offsetLeft ?? 0;
 
 		for (let i = 0; i < children.length; i++) {
 			if (i === currentPosition) {

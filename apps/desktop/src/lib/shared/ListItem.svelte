@@ -2,12 +2,13 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		icon?: keyof typeof iconsJson | undefined;
 		selected?: boolean;
 		loading?: boolean;
-		children?: import('svelte').Snippet;
+		children?: Snippet;
 	}
 
 	let { icon = undefined, selected = false, loading = false, children }: Props = $props();

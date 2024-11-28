@@ -14,7 +14,7 @@
 	const loading = userService.loading;
 
 	const {
-		title = 'Authorization Required',
+		title: titleLabel = 'Authorization Required',
 		message = 'You need to authorize GitButler to access this service.'
 	}: Props = $props();
 </script>
@@ -24,7 +24,7 @@
 		<Icon name="warning" color="warning" />
 	{/snippet}
 	{#snippet title()}
-		{title}
+		{titleLabel}
 	{/snippet}
 	{#snippet caption()}
 		{message}

@@ -35,7 +35,7 @@
 
 	let isApplying = $state(false);
 	let isDeleting = $state(false);
-	let deleteBranchModal: Modal = $state();
+	let deleteBranchModal = $state<Modal>();
 </script>
 
 <div class="header__wrapper">
@@ -136,7 +136,7 @@
 					disabled={!localBranch}
 					onclick={async () => {
 						if (localBranch) {
-							deleteBranchModal.show(branch);
+							deleteBranchModal?.show(branch);
 						}
 					}}
 				>

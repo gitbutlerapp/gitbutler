@@ -142,7 +142,7 @@
 </div>
 
 {#snippet Notification({
-	title,
+	title: titleLabel,
 	items,
 	style
 }: {
@@ -153,7 +153,7 @@
 	<div class="clone__info-message">
 		<InfoMessage {style} filled outlined={false}>
 			{#snippet title()}
-				{title}
+				{titleLabel}
 			{/snippet}
 			{#snippet content()}
 				{#if items && items.length > 0}

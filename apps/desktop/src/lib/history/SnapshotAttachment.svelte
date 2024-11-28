@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { onMount } from 'svelte';
+	import { run } from 'svelte/legacy';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		foldable?: boolean;
 		foldedAmount?: number | undefined;
 		foldedHeight?: string;
-		children?: import('svelte').Snippet;
+		children?: Snippet;
 	}
 
 	let {
@@ -20,12 +20,12 @@
 	}: Props = $props();
 
 	let isOpen: boolean = $state(false);
-	let el: HTMLElement = $state();
+	let el = $state<HTMLElement>();
 
-	let contentHeight: string = $state();
+	let contentHeight = $state<string>();
 
 	function setHeight() {
-		contentHeight = `calc(${pxToRem(el.scrollHeight)} + ${pxToRem(8)})`;
+		contentHeight = `calc(${pxToRem(el?.scrollHeight ?? 0)} + ${pxToRem(8)})`;
 	}
 
 	onMount(() => {

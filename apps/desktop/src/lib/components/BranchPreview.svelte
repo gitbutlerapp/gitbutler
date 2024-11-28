@@ -67,8 +67,8 @@
 		})
 	);
 
-	let rsViewport: HTMLDivElement = $state();
-	let laneWidth: number = $state();
+	let rsViewport = $state<HTMLDivElement>();
+	let laneWidth = $state<number>();
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);

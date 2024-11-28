@@ -1,11 +1,10 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { PromptService } from '$lib/ai/promptService';
 	import { Project } from '$lib/backend/projects';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import { run } from 'svelte/legacy';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 	import type { Persisted } from '@gitbutler/shared/persisted';
 
@@ -19,7 +18,7 @@
 	const promptService = getContext(PromptService);
 
 	let prompts: Prompts;
-	let selectedPromptId: Persisted<string | undefined> = $state();
+	let selectedPromptId = $state<Persisted<string | undefined>>();
 
 	if (promptUse === 'commits') {
 		prompts = promptService.commitPrompts;

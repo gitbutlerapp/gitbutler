@@ -1,8 +1,10 @@
 <script lang="ts">
 	import Button from '@gitbutler/ui/Button.svelte';
+	import type { Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
+
 	interface Props {
-		children?: import('svelte').Snippet;
+		children?: Snippet;
 	}
 
 	let { children }: Props = $props();

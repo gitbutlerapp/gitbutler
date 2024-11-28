@@ -14,7 +14,7 @@
 
 	const promptService = getContext(PromptService);
 
-	let prompts: Prompts = $state();
+	let prompts = $state<Prompts>();
 
 	if (promptUse === 'commits') {
 		prompts = promptService.commitPrompts;
@@ -25,15 +25,17 @@
 	let userPrompts = $derived(prompts.userPrompts);
 
 	function createNewPrompt() {
-		prompts.userPrompts.set([
+		prompts?.userPrompts.set([
 			...get(prompts.userPrompts),
 			promptService.createDefaultUserPrompt(promptUse)
 		]);
 	}
 
 	function deletePrompt(targetPrompt: UserPrompt) {
-		const filteredPrompts = get(prompts.userPrompts).filter((prompt) => prompt !== targetPrompt);
-		prompts.userPrompts.set(filteredPrompts);
+		if (prompts) {
+			const filteredPrompts = get(prompts.userPrompts).filter((prompt) => prompt !== targetPrompt);
+			prompts.userPrompts.set(filteredPrompts);
+		}
 	}
 </script>
 
@@ -55,9 +57,9 @@
 			}}
 		/>
 
-		{#each $userPrompts as prompt}
+		{#each $userPrompts as _prompt, idx}
 			<Content
-				bind:prompt
+				bind:prompt={$userPrompts[idx] as UserPrompt}
 				displayMode="writable"
 				on:deletePrompt={(e) => deletePrompt(e.detail.prompt)}
 			/>

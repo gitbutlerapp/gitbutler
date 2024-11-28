@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import SectionCardDisclaimer from '../components/SectionCardDisclaimer.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import Link from '../shared/Link.svelte';
@@ -21,10 +19,7 @@
 	const authService = getContext(AuthService);
 
 	type Check = { name: string; promise: Promise<any> };
-	let checks;
-	run(() => {
-		checks = [] as Check[];
-	});
+	let checks = $state<Check[]>();
 
 	let errors = $state(0);
 
@@ -56,7 +51,7 @@
 </script>
 
 <div class="credential-check">
-	{#if checks.length > 0}
+	{#if checks && checks.length > 0}
 		<div transition:slide={{ duration: 250 }}>
 			<InfoMessage
 				style={errors > 0 ? 'warning' : loading ? 'neutral' : 'success'}
@@ -75,23 +70,25 @@
 
 				{#snippet content()}
 					<div class="checks-list" transition:slide={{ duration: 250, delay: 1000 }}>
-						{#each checks as check}
-							<div class="text-12 text-body check-result">
-								<i class="check-icon">
-									{#await check.promise}
-										<Icon name="spinner" spinnerRadius={4} />
-									{:then}
-										<Icon name="success-small" color="success" />
-									{:catch}
-										<Icon name="error-small" color="error" />
-									{/await}
-								</i>{check.name}
+						{#if checks}
+							{#each checks as check}
+								<div class="text-12 text-body check-result">
+									<i class="check-icon">
+										{#await check.promise}
+											<Icon name="spinner" spinnerRadius={4} />
+										{:then}
+											<Icon name="success-small" color="success" />
+										{:catch}
+											<Icon name="error-small" color="error" />
+										{/await}
+									</i>{check.name}
 
-								{#await check.promise catch err}
-									- {err}
-								{/await}
-							</div>
-						{/each}
+									{#await check.promise catch err}
+										- {err}
+									{/await}
+								</div>
+							{/each}
+						{/if}
 					</div>
 
 					{#if errors > 0}
@@ -119,7 +116,7 @@
 		disabled={loading}
 		onclick={checkCredentials}
 	>
-		{#if loading || checks.length === 0}
+		{#if loading || checks?.length === 0}
 			Test credentials
 		{:else}
 			Re-test credentials

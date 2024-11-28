@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
@@ -19,6 +17,7 @@
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { onMount, tick } from 'svelte';
+	import { run } from 'svelte/legacy';
 
 	const gitConfigService = getContext(GitConfigService);
 	const secretsService = getSecretsService();
@@ -123,7 +122,7 @@
 		}
 	];
 
-	let form: HTMLFormElement = $state();
+	let form = $state<HTMLFormElement>();
 
 	function onFormChange(form: HTMLFormElement) {
 		const formData = new FormData(form);

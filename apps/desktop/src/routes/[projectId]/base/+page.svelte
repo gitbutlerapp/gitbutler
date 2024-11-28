@@ -26,8 +26,8 @@
 	let commitId = $derived($selectedFile?.commitId);
 	let selected = $derived($selectedFile?.file);
 
-	let rsViewport: HTMLDivElement = $state();
-	let laneWidth: number = $state();
+	let rsViewport = $state<HTMLDivElement>();
+	let laneWidth = $state<number>();
 
 	const error = baseBranchService.error;
 

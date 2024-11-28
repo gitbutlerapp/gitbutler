@@ -32,7 +32,7 @@
 		disabled = false
 	}: Props = $props();
 
-	let credentialCheck: CredentialCheck = $state();
+	let credentialCheck = $state<CredentialCheck>();
 
 	let selectedType: KeyType = $state(
 		typeof project.preferred_key === 'string' ? project.preferred_key : 'local'
@@ -62,10 +62,10 @@
 		}
 	}
 
-	let form: HTMLFormElement = $state();
+	let form = $state<HTMLFormElement>();
 
 	function onFormChange(form: HTMLFormElement) {
-		credentialCheck.reset();
+		credentialCheck?.reset();
 		const formData = new FormData(form);
 		selectedType = formData.get('credentialType') as KeyType;
 		if (selectedType !== 'local') {
@@ -76,7 +76,9 @@
 	}
 
 	onMount(async () => {
-		form.credentialType.value = selectedType;
+		if (form) {
+			form.credentialType.value = selectedType;
+		}
 	});
 </script>
 

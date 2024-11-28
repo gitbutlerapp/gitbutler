@@ -1,12 +1,5 @@
-<script module lang="ts">
-	export type SectionCardBackground = 'loading' | 'success' | 'error' | undefined;
-</script>
-
 <script lang="ts">
-	import { createBubbler } from 'svelte/legacy';
-
-	const bubble = createBubbler();
-	import { createEventDispatcher } from 'svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		orientation?: 'row' | 'column';
@@ -16,16 +9,17 @@
 		roundedBottom?: boolean;
 		topDivider?: boolean;
 		bottomBorder?: boolean;
-		background?: SectionCardBackground;
+		background?: 'loading' | 'success' | 'error' | undefined;
 		noBorder?: boolean;
 		labelFor?: string;
 		disabled?: boolean;
 		clickable?: boolean;
-		iconSide?: import('svelte').Snippet;
-		title?: import('svelte').Snippet;
-		caption?: import('svelte').Snippet;
-		children?: import('svelte').Snippet;
-		actions?: import('svelte').Snippet;
+		iconSide?: Snippet;
+		title?: Snippet;
+		caption?: Snippet;
+		children?: Snippet;
+		actions?: Snippet;
+		onclick?: (e: MouseEvent) => void;
 	}
 
 	let {
@@ -45,10 +39,9 @@
 		title,
 		caption,
 		children,
-		actions
+		actions,
+		onclick
 	}: Props = $props();
-
-	const dispatch = createEventDispatcher<{ hover: boolean }>();
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -69,9 +62,7 @@
 	class:error={background === 'error'}
 	class:clickable={labelFor !== '' || clickable}
 	class:disabled
-	onclick={bubble('click')}
-	onmouseenter={() => dispatch('hover', true)}
-	onmouseleave={() => dispatch('hover', false)}
+	{onclick}
 >
 	{#if iconSide}
 		<div class="section-card__icon-side">

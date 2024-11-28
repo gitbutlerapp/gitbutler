@@ -1,13 +1,14 @@
 <script lang="ts">
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import type { Snippet } from 'svelte';
 
 	interface Props {
 		roundedTop?: boolean;
 		roundedBottom?: boolean;
 		expanded?: boolean;
-		header?: import('svelte').Snippet<[any]>;
-		children?: import('svelte').Snippet;
-		actions?: import('svelte').Snippet;
+		header?: Snippet<[any]>;
+		children?: Snippet;
+		actions?: Snippet;
 	}
 
 	let {
@@ -29,7 +30,7 @@
 	roundedBottom={roundedBottom && !expanded}
 	bottomBorder={!expanded}
 	clickable
-	on:click={maybeToggle}
+	onclick={maybeToggle}
 >
 	{#snippet title()}
 		{@render header?.({ expanded })}
