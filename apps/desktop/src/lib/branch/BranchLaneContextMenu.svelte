@@ -37,7 +37,8 @@
 	let isDeleting = $state(false);
 
 	const branch = $derived($branchStore);
-	const commits = $derived(branch.commits);
+	const commits = $derived(branch.validSeries.flatMap((s) => s.patches));
+
 	$effect(() => {
 		allowRebasing = branch.allowRebasing;
 	});
