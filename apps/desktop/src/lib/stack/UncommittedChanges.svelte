@@ -27,6 +27,7 @@
 		<BranchFiles
 			isUnapplied={false}
 			files={branch.files}
+			branches={branch.validSeries}
 			showCheckboxes={$commitBoxOpen}
 			allowMultiple
 			commitDialogExpanded={commitBoxOpen}
