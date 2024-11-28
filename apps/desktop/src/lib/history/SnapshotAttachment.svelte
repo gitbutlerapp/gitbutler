@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { onMount } from 'svelte';

@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import BoardEmptyState from './BoardEmptyState.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';

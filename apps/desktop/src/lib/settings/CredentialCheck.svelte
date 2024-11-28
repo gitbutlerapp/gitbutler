@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import SectionCardDisclaimer from '../components/SectionCardDisclaimer.svelte';
 	import InfoMessage from '../shared/InfoMessage.svelte';
 	import Link from '../shared/Link.svelte';

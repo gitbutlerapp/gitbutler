@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';

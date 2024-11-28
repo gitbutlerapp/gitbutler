@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { run } from 'svelte/legacy';
-
 	import { PromptService } from '$lib/ai/promptService';
 	import { Project } from '$lib/backend/projects';
 	import Select from '$lib/select/Select.svelte';

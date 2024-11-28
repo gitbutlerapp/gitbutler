@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
+	import { createEventDispatcher } from 'svelte';
 	import { createBubbler, stopPropagation } from 'svelte/legacy';
 
 	const bubble = createBubbler();
