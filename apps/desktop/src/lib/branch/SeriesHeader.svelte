@@ -40,7 +40,7 @@
 		lastPush: Date | undefined;
 	}
 
-	const { branch: branch, isTopSeries, lastPush }: Props = $props();
+	const { branch, isTopSeries, lastPush }: Props = $props();
 
 	let descriptionVisible = $state(!!branch.description);
 
@@ -430,7 +430,7 @@
 		{/if}
 
 		{#if $pr}
-			<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} />
+			<PrDetailsModal bind:this={prDetailsModal} type="display" pr={$pr} currentSeries={branch} />
 		{:else}
 			<PrDetailsModal
 				bind:this={prDetailsModal}
