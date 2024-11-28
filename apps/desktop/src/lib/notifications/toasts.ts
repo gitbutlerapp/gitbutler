@@ -1,4 +1,5 @@
 import { isStr } from '@gitbutler/ui/utils/string';
+import posthog from 'posthog-js';
 import { writable, type Writable } from 'svelte/store';
 import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
 
@@ -15,6 +16,9 @@ export const toastStore: Writable<Toast[]> = writable([]);
 let idCounter = 0;
 
 export function showToast(toast: Toast) {
+	if (toast.error) {
+		posthog.capture('toast:show_error', { error_title: toast.title });
+	}
 	toast.message = toast.message?.replace(/^ */gm, '');
 	toastStore.update((items) => [
 		...items.filter((t) => toast.id === undefined || t.id !== toast.id),
