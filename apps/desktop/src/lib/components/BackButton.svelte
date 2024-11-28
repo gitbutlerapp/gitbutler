@@ -1,6 +1,11 @@
-<script>
+<script lang="ts">
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
+	interface Props {
+		children?: import('svelte').Snippet;
+	}
+
+	let { children }: Props = $props();
 </script>
 
 <Button
@@ -14,5 +19,5 @@
 		}
 	}}
 >
-	<slot />
+	{@render children?.()}
 </Button>

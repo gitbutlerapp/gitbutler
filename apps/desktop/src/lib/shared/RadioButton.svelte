@@ -1,17 +1,31 @@
 <script lang="ts">
-	export let name = '';
+	import { createBubbler, stopPropagation } from 'svelte/legacy';
 
-	export let small = false;
-	export let disabled = false;
-	export let value = '';
-	export let id = '';
-	export let checked = false;
+	const bubble = createBubbler();
+
+	interface Props {
+		name?: string;
+		small?: boolean;
+		disabled?: boolean;
+		value?: string;
+		id?: string;
+		checked?: boolean;
+	}
+
+	let {
+		name = '',
+		small = false,
+		disabled = false,
+		value = '',
+		id = '',
+		checked = false
+	}: Props = $props();
 </script>
 
 <input
-	on:click|stopPropagation
-	on:change
-	on:input
+	onclick={stopPropagation(bubble('click'))}
+	onchange={bubble('change')}
+	oninput={bubble('input')}
 	type="radio"
 	class="radio"
 	class:small

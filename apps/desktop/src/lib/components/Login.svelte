@@ -8,7 +8,11 @@
 	const loading = userService.loading;
 	const user = userService.user;
 
-	export let wide = false;
+	interface Props {
+		wide?: boolean;
+	}
+
+	let { wide = false }: Props = $props();
 
 	let token: LoginToken | undefined;
 </script>

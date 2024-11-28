@@ -138,16 +138,16 @@
 						<div class="indicators text-11 text-semibold">
 							{#if isHunkLocked}
 								<InfoMessage filled outlined={false} style="warning" icon="locked">
-									<svelte:fragment slot="content">
+									{#snippet content()}
 										{getLockText(section.hunk.lockedTo, commits)}
-									</svelte:fragment>
+									{/snippet}
 								</InfoMessage>
 							{/if}
 							{#if section.hunk.poisoned}
 								<InfoMessage filled outlined={false}>
-									<svelte:fragment slot="content">
+									{#snippet content()}
 										Can not manage this hunk because it depends on changes from multiple branches
-									</svelte:fragment>
+									{/snippet}
 								</InfoMessage>
 							{/if}
 						</div>

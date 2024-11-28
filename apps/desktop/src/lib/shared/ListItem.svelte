@@ -3,9 +3,14 @@
 	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
-	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let selected = false;
-	export let loading = false;
+	interface Props {
+		icon?: keyof typeof iconsJson | undefined;
+		selected?: boolean;
+		loading?: boolean;
+		children?: import('svelte').Snippet;
+	}
+
+	let { icon = undefined, selected = false, loading = false, children }: Props = $props();
 
 	const dispatch = createEventDispatcher<{ click: void }>();
 </script>
@@ -15,10 +20,10 @@
 	disabled={selected}
 	class="button"
 	class:selected
-	on:click={() => dispatch('click')}
+	onclick={() => dispatch('click')}
 >
 	<div class="label text-14 text-bold">
-		<slot />
+		{@render children?.()}
 	</div>
 	{#if icon || selected}
 		<div class="icon">

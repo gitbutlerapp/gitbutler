@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import BoardEmptyState from './BoardEmptyState.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
@@ -19,15 +21,20 @@
 	const error = vbranchService.error;
 	const branches = vbranchService.branches;
 
-	let dragged: HTMLDivElement | undefined;
-	let dropZone: HTMLDivElement;
+	let dragged: HTMLDivElement | undefined = $state();
+	let dropZone: HTMLDivElement = $state();
 
-	let dragHandle: any;
-	let clone: any;
-	$: if ($error) {
-		$showHistoryView = true;
-	}
-	$: sortedBranches = $branches?.sort((a, b) => a.order - b.order) || [];
+	let dragHandle: any = $state();
+	let clone: any = $state();
+	run(() => {
+		if ($error) {
+			$showHistoryView = true;
+		}
+	});
+	let sortedBranches;
+	run(() => {
+		sortedBranches = $branches?.sort((a, b) => a.order - b.order) || [];
+	});
 
 	const handleDragOver = throttle((e: MouseEvent & { currentTarget: HTMLDivElement }) => {
 		e.preventDefault();
@@ -79,7 +86,7 @@
 	});
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
+<svelte:window onkeydown={handleKeyDown} />
 {#if $error}
 	<div>Something went wrong...</div>
 {:else if !$branches}
@@ -88,7 +95,7 @@
 	<div
 		class="board"
 		role="group"
-		on:drop={(e) => {
+		ondrop={(e) => {
 			e.preventDefault();
 			if (!dragged) {
 				return; // Something other than a lane was dropped.
@@ -96,7 +103,7 @@
 			branchController.updateBranchOrder(sortedBranches.map((b, i) => ({ id: b.id, order: i })));
 		}}
 	>
-		<div role="group" class="branches" bind:this={dropZone} on:dragover={(e) => handleDragOver(e)}>
+		<div role="group" class="branches" bind:this={dropZone} ondragover={(e) => handleDragOver(e)}>
 			{#each sortedBranches as branch (branch.id)}
 				<div
 					role="presentation"
@@ -105,8 +112,8 @@
 					class="branch draggable-branch"
 					draggable="true"
 					animate:flip={{ duration: 150 }}
-					on:mousedown={(e) => (dragHandle = e.target)}
-					on:dragstart={(e) => {
+					onmousedown={(e) => (dragHandle = e.target)}
+					ondragstart={(e) => {
 						if (dragHandle.dataset.dragHandle === undefined) {
 							// We rely on elements with id `drag-handle` to initiate this drag
 							e.preventDefault();
@@ -122,7 +129,7 @@
 						dragged = e.currentTarget;
 						dragged.style.opacity = '0.6';
 					}}
-					on:dragend={() => {
+					ondragend={() => {
 						if (dragged) {
 							dragged.style.opacity = '1';
 							dragged = undefined;

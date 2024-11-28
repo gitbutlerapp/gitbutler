@@ -29,11 +29,13 @@
 </script>
 
 <SectionCard>
-	<svelte:fragment slot="title">Remove project</svelte:fragment>
-	<svelte:fragment slot="caption">
+	{#snippet title()}
+		Remove project
+	{/snippet}
+	{#snippet caption()}
 		You can remove projects from GitButler, your code remains safe as this only clears
 		configuration.
-	</svelte:fragment>
+	{/snippet}
 	<div>
 		<RemoveProjectButton projectTitle={project.title} {isDeleting} {onDeleteClicked} />
 	</div>

@@ -104,15 +104,17 @@
 
 <Section>
 	<SectionCard orientation="row" labelFor="signCommits">
-		<svelte:fragment slot="title">Sign commits</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Sign commits
+		{/snippet}
+		{#snippet caption()}
 			Use GPG or SSH to sign your commits so they can be verified as authentic.
 			<br />
 			GitButler will sign commits as per your git configuration.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle id="signCommits" checked={signCommits} onclick={handleSignCommitsClick} />
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 	{#if signCommits}
 		<SectionCard orientation="column">
@@ -153,7 +155,7 @@
 					filled
 					outlined={false}
 				>
-					<svelte:fragment slot="title">
+					{#snippet title()}
 						{#if loading}
 							<p>Checking signing</p>
 						{:else if signCheckResult}
@@ -161,13 +163,13 @@
 						{:else}
 							<p>Signing is not working correctly</p>
 						{/if}
-					</svelte:fragment>
+					{/snippet}
 
-					<svelte:fragment slot="content">
+					{#snippet content()}
 						{#if errorMessage}
 							<pre>{errorMessage}</pre>
 						{/if}
-					</svelte:fragment>
+					{/snippet}
 				</InfoMessage>
 			{/if}
 

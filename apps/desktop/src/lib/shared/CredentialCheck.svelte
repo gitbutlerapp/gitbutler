@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
 	import { AuthService } from '$lib/backend/auth';
@@ -8,17 +10,25 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';
 
-	export let projectId: string;
-	export let remoteName: string | null | undefined;
-	export let branchName: string | null | undefined;
+	interface Props {
+		projectId: string;
+		remoteName: string | null | undefined;
+		branchName: string | null | undefined;
+	}
+
+	let { projectId, remoteName, branchName }: Props = $props();
 
 	const authService = getContext(AuthService);
 
 	type Check = { name: string; promise: Promise<any> };
-	$: checks = [] as Check[];
+	let checks;
+	run(() => {
+		checks = [] as Check[];
+	});
 
-	$: errors = 0;
-	$: loading = false;
+	let errors = $state(0);
+
+	let loading = $state(false);
 
 	async function checkCredentials() {
 		if (!remoteName || !branchName) return;
@@ -53,7 +63,7 @@
 				filled
 				outlined={false}
 			>
-				<svelte:fragment slot="title">
+				{#snippet title()}
 					{#if loading}
 						Checking git credentials …
 					{:else if errors > 0}
@@ -61,9 +71,9 @@
 					{:else}
 						All checks passed successfully
 					{/if}
-				</svelte:fragment>
+				{/snippet}
 
-				<svelte:fragment slot="content">
+				{#snippet content()}
 					<div class="checks-list" transition:slide={{ duration: 250, delay: 1000 }}>
 						{#each checks as check}
 							<div class="text-12 text-body check-result">
@@ -97,7 +107,7 @@
 							</span>
 						</div>
 					{/if}
-				</svelte:fragment>
+				{/snippet}
 			</InfoMessage>
 		</div>
 	{/if}

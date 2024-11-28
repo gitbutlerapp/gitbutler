@@ -23,11 +23,11 @@
 
 	const selectedFile = fileIdSelection.selectedFile;
 
-	$: commitId = $selectedFile?.commitId;
-	$: selected = $selectedFile?.file;
+	let commitId = $derived($selectedFile?.commitId);
+	let selected = $derived($selectedFile?.file);
 
-	let rsViewport: HTMLDivElement;
-	let laneWidth: number;
+	let rsViewport: HTMLDivElement = $state();
+	let laneWidth: number = $state();
 
 	const error = baseBranchService.error;
 

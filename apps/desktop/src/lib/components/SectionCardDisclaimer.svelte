@@ -1,5 +1,13 @@
+<script lang="ts">
+	interface Props {
+		children?: import('svelte').Snippet;
+	}
+
+	let { children }: Props = $props();
+</script>
+
 <div class="disclaimer text-12 text-body">
-	<slot />
+	{@render children?.()}
 </div>
 
 <style>

@@ -2,7 +2,8 @@
 	import { ProjectsService } from '$lib/backend/projects';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import { getContext } from '@gitbutler/shared/context';
-	import { derived } from 'svelte/store';
+	import { run } from 'svelte/legacy';
+	import { derived as derivedStore } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
@@ -10,7 +11,7 @@
 
 	const projects = projectsService.projects;
 
-	$: debug = $page.url.searchParams.get('debug');
+	const debug = $derived($page.url.searchParams.get('debug'));
 
 	type Redirect =
 		| {
@@ -22,7 +23,7 @@
 		  };
 
 	const persistedId = projectsService.getLastOpenedProject();
-	const redirect = derived(
+	const redirect = derivedStore(
 		projects,
 		(projects): Redirect => {
 			if (debug) return { type: 'no-projects' };
@@ -39,13 +40,13 @@
 		{ type: 'loading' } as Redirect
 	);
 
-	$: {
+	run(() => {
 		if ($redirect.type === 'redirect') {
 			goto($redirect.subject);
 		} else if ($redirect.type === 'no-projects') {
 			goto('/onboarding');
 		}
-	}
+	});
 </script>
 
 {#if $redirect.type === 'loading'}

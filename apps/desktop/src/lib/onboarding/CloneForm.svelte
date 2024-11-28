@@ -152,16 +152,16 @@
 })}
 	<div class="clone__info-message">
 		<InfoMessage {style} filled outlined={false}>
-			<svelte:fragment slot="title">
+			{#snippet title()}
 				{title}
-			</svelte:fragment>
-			<svelte:fragment slot="content">
+			{/snippet}
+			{#snippet content()}
 				{#if items && items.length > 0}
 					{#each items as item}
 						{@html item.label}
 					{/each}
 				{/if}
-			</svelte:fragment>
+			{/snippet}
 		</InfoMessage>
 	</div>
 {/snippet}

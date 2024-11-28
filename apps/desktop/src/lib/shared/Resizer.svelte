@@ -1,32 +1,44 @@
 <script lang="ts">
+	import { createBubbler, stopPropagation } from 'svelte/legacy';
+
+	const bubble = createBubbler();
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { createEventDispatcher } from 'svelte';
 
-	// The element that is being resized
-	export let viewport: HTMLElement;
+	interface Props {
+		// The element that is being resized
+		viewport: HTMLElement;
+		// Sets direction of resizing for viewport
+		direction: 'left' | 'right' | 'up' | 'down';
+		// Sets the color of the line
+		defaultLineColor?: string;
+		defaultLineThickness?: number;
+		hoverLineThickness?: number;
+		// Needed when overflow is hidden
+		sticky?: boolean;
+		// Custom z-index in case of overlapping with other elements
+		zIndex?: string;
+		//
+		minWidth?: number;
+		minHeight?: number;
+	}
 
-	// Sets direction of resizing for viewport
-	export let direction: 'left' | 'right' | 'up' | 'down';
+	let {
+		viewport,
+		direction,
+		defaultLineColor = 'none',
+		defaultLineThickness = 1,
+		hoverLineThickness = 2,
+		sticky = false,
+		zIndex = 'var(--z-lifted)',
+		minWidth = 0,
+		minHeight = 0
+	}: Props = $props();
 
-	// Sets the color of the line
-	export let defaultLineColor: string = 'none';
-	export let defaultLineThickness: number = 1;
-	export let hoverLineThickness: number = 2;
-
-	// Needed when overflow is hidden
-	export let sticky = false;
-
-	// Custom z-index in case of overlapping with other elements
-	export let zIndex = 'var(--z-lifted)';
-
-	//
-	export let minWidth = 0;
-	export let minHeight = 0;
-
-	$: orientation = ['left', 'right'].includes(direction) ? 'horizontal' : 'vertical';
+	let orientation = $derived(['left', 'right'].includes(direction) ? 'horizontal' : 'vertical');
 
 	let initial = 0;
-	let dragging = false;
+	let dragging = $state(false);
 
 	const dispatch = createEventDispatcher<{
 		height: number;
@@ -98,12 +110,12 @@
 
 <div
 	data-remove-from-draggable
-	on:mousedown={onMouseDown}
-	on:click|stopPropagation
-	on:dblclick|stopPropagation
-	on:keydown|stopPropagation
-	on:mouseenter={() => isHovered(true)}
-	on:mouseleave={() => isHovered(false)}
+	onmousedown={onMouseDown}
+	onclick={stopPropagation(bubble('click'))}
+	ondblclick={stopPropagation(bubble('dblclick'))}
+	onkeydown={stopPropagation(bubble('keydown'))}
+	onmouseenter={() => isHovered(true)}
+	onmouseleave={() => isHovered(false)}
 	tabindex="0"
 	role="slider"
 	aria-valuenow={viewport?.clientHeight}

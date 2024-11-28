@@ -20,16 +20,16 @@
 </script>
 
 <SectionCard orientation="row">
-	<svelte:fragment slot="iconSide">
+	{#snippet iconSide()}
 		<Icon name="warning" color="warning" />
-	</svelte:fragment>
-	<svelte:fragment slot="title">
+	{/snippet}
+	{#snippet title()}
 		{title}
-	</svelte:fragment>
-	<svelte:fragment slot="caption">
+	{/snippet}
+	{#snippet caption()}
 		{message}
-	</svelte:fragment>
-	<svelte:fragment slot="actions">
+	{/snippet}
+	{#snippet actions()}
 		<Button
 			loading={$loading}
 			style="pop"
@@ -38,5 +38,5 @@
 				await userService.login();
 			}}>Log in or Sign up</Button
 		>
-	</svelte:fragment>
+	{/snippet}
 </SectionCard>

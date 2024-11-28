@@ -10,18 +10,26 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	export let isNavCollapsed: boolean;
+	interface Props {
+		isNavCollapsed: boolean;
+	}
+
+	let { isNavCollapsed }: Props = $props();
 
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);
 
 	const base = baseBranchService.base;
-	$: selected = $page.url.href.endsWith('/base');
-	$: baseBranchDiverged = !!$base?.diverged;
-	$: baseBranchAheadOnly = baseBranchDiverged && !!$base?.divergedBehind?.length === false;
-	$: divergenceTooltip = baseBranchAheadOnly
-		? 'Your local target branch is ahead of its upstream'
-		: 'Your local target branch has diverged from its upstream';
+	let selected = $derived($page.url.href.endsWith('/base'));
+	let baseBranchDiverged = $derived(!!$base?.diverged);
+	let baseBranchAheadOnly = $derived(
+		baseBranchDiverged && !!$base?.divergedBehind?.length === false
+	);
+	let divergenceTooltip = $derived(
+		baseBranchAheadOnly
+			? 'Your local target branch is ahead of its upstream'
+			: 'Your local target branch has diverged from its upstream'
+	);
 </script>
 
 <DomainButton

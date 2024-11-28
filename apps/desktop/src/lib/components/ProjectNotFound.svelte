@@ -88,9 +88,9 @@
 			{#if deleteSucceeded !== undefined}
 				{@const deletionStatus = getDeletionStatus(project.title, deleteSucceeded)}
 				<InfoMessage filled outlined={false} style={deletionStatus.style} icon="info">
-					<svelte:fragment slot="content">
+					{#snippet content()}
 						{deletionStatus.message}
-					</svelte:fragment>
+					{/snippet}
 				</InfoMessage>
 			{/if}
 		{:catch}

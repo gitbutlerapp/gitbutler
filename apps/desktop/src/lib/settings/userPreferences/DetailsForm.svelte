@@ -108,32 +108,34 @@
 {#if $user?.role === 'admin'}
 	<Spacer />
 	<Section>
-		<svelte:fragment slot="title">Full data synchronization</svelte:fragment>
+		{#snippet title()}
+			Full data synchronization
+		{/snippet}
 
 		<SectionCard labelFor="historySync" orientation="row">
-			<svelte:fragment slot="caption">
+			{#snippet caption()}
 				Sync this project's operations log with GitButler Web services. The operations log includes
 				snapshots of the repository state, including non-committed code changes.
-			</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{/snippet}
+			{#snippet actions()}
 				<Toggle
 					id="historySync"
 					checked={project.api?.sync || false}
 					onclick={async () => await onSyncChange(!project.api?.sync)}
 				/>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 		<SectionCard labelFor="branchesySync" orientation="row">
-			<svelte:fragment slot="caption">
+			{#snippet caption()}
 				Sync this repository's branches with the GitButler Remote.
-			</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{/snippet}
+			{#snippet actions()}
 				<Toggle
 					id="branchesySync"
 					checked={project.api?.sync_code || false}
 					onclick={async () => await onSyncCodeChange(!project.api?.sync_code)}
 				/>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		{#if project.api}

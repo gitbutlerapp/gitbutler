@@ -18,14 +18,14 @@
 
 	let project = getContext(Project);
 
-	let selectedBranch = { name: $baseBranch.branchName };
-	let selectedRemote = { name: $baseBranch.actualPushRemoteName() };
-	let targetChangeDisabled = false;
+	let selectedBranch = $state({ name: $baseBranch.branchName });
+	let selectedRemote = $state({ name: $baseBranch.actualPushRemoteName() });
+	let targetChangeDisabled = $state(false);
 
 	if ($activeBranches) {
 		targetChangeDisabled = $activeBranches.length > 0;
 	}
-	let isSwitching = false;
+	let isSwitching = $state(false);
 
 	function uniqueRemotes(remoteBranches: { name: string }[]) {
 		return Array.from(new Set(remoteBranches.map((b) => b.name.split('/')[0]))).map((r) => ({
@@ -52,17 +52,21 @@
 
 {#await getRemoteBranches(project.id)}
 	<InfoMessage filled outlined={false} icon="info">
-		<svelte:fragment slot="content">Loading remote branches...</svelte:fragment>
+		{#snippet content()}
+			Loading remote branches...
+		{/snippet}
 	</InfoMessage>
 {:then remoteBranches}
 	{#if remoteBranches.length > 0}
 		<SectionCard>
-			<svelte:fragment slot="title">Remote configuration</svelte:fragment>
-			<svelte:fragment slot="caption">
+			{#snippet title()}
+				Remote configuration
+			{/snippet}
+			{#snippet caption()}
 				Lets you choose where to push code and set the target branch for contributions. The target
 				branch is usually the "production" branch like 'origin/master' or 'upstream/main.' This
 				section helps ensure your code goes to the correct remote and branch for integration.
-			</svelte:fragment>
+			{/snippet}
 
 			<Select
 				value={selectedBranch.name}
@@ -101,12 +105,12 @@
 
 			{#if $activeBranches && targetChangeDisabled}
 				<InfoMessage filled outlined={false} icon="info">
-					<svelte:fragment slot="content">
+					{#snippet content()}
 						You have {$activeBranches.length === 1
 							? '1 active branch'
 							: `${$activeBranches.length} active branches`} in your workspace. Please clear the workspace
 						before switching the base branch.
-					</svelte:fragment>
+					{/snippet}
 				</InfoMessage>
 			{:else}
 				<Button
@@ -127,8 +131,8 @@
 	{/if}
 {:catch}
 	<InfoMessage filled outlined={true} style="error" icon="error">
-		<svelte:fragment slot="title"
-			>We got an error trying to list your remote branches</svelte:fragment
-		>
+		{#snippet title()}
+			We got an error trying to list your remote branches
+		{/snippet}
 	</InfoMessage>
 {/await}

@@ -36,14 +36,14 @@
 		{#if branch.conflicted}
 			<div class="card-notifications">
 				<InfoMessage filled outlined={false} style="error">
-					<svelte:fragment slot="title">
+					{#snippet title()}
 						{#if branch.files.some((f) => f.conflicted)}
 							This virtual branch conflicts with upstream changes. Please resolve all conflicts and
 							commit before you can continue.
 						{:else}
 							Please commit your resolved conflicts to continue.
 						{/if}
-					</svelte:fragment>
+					{/snippet}
 				</InfoMessage>
 			</div>
 		{/if}
