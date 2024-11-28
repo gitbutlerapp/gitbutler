@@ -123,8 +123,6 @@ export class VirtualBranch {
 	notes!: string;
 	@Type(() => LocalFile)
 	files!: LocalFile[];
-	@Type(() => DetailedCommit)
-	commits!: DetailedCommit[];
 	requiresForce!: boolean;
 	description!: string;
 	head!: string;
@@ -155,7 +153,10 @@ export class VirtualBranch {
 	refname!: string;
 	tree!: string;
 
-	// Used in the stacking context where VirtualBranch === Stack
+	/**
+	 * @desc Used in the stacking context where VirtualBranch === Stack
+	 * @warning You probably want 'validSeries' instead
+	 */
 	@Transform(({ value }) => transformResultToType(PatchSeries, value))
 	series!: (PatchSeries | Error)[];
 
@@ -163,30 +164,10 @@ export class VirtualBranch {
 		return this.series.filter(isPatchSeries);
 	}
 
-	get localCommits() {
-		return this.commits.filter((c) => c.status === 'local');
-	}
-
-	get remoteCommits() {
-		return this.commits.filter((c) => c.status === 'localAndRemote');
-	}
-
-	get integratedCommits() {
-		return this.commits.filter((c) => c.status === 'integrated');
-	}
-
 	get displayName() {
 		if (this.upstream?.displayName) return this.upstream?.displayName;
 
 		return this.upstreamName || this.name;
-	}
-
-	get ancestorMostConflictedCommit(): DetailedCommit | undefined {
-		if (this.commits.length === 0) return undefined;
-		for (let i = this.commits.length - 1; i >= 0; i--) {
-			const commit = this.commits[i];
-			if (commit?.conflicted) return commit;
-		}
 	}
 }
 
@@ -475,6 +456,16 @@ export class PatchSeries {
 
 	get integrated() {
 		return this.patches.length > 0 && this.patches.length === this.integratedCommits.length;
+	}
+
+	ancestorMostConflictedCommit(checkRemotePatches: boolean): DetailedCommit | undefined {
+		const commits = checkRemotePatches ? this.upstreamPatches : this.patches;
+		if (commits.length === 0) return undefined;
+
+		for (let i = commits.length - 1; i >= 0; i--) {
+			const commit = commits[i];
+			if (commit?.conflicted) return commit;
+		}
 	}
 }
 
