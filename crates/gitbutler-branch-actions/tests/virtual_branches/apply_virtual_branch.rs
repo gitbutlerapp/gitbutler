@@ -45,7 +45,7 @@ fn rebase_commit() {
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
         assert_eq!(branches[0].files.len(), 0);
-        assert_eq!(branches[0].commits.len(), 1);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
 
         branch1_id
     };
@@ -103,7 +103,7 @@ fn rebase_commit() {
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 0);
-        assert_eq!(branches[0].commits.len(), 1);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
         assert!(branches[0].active);
         assert!(!branches[0].conflicted);
 
@@ -156,7 +156,7 @@ fn rebase_work() {
         assert_eq!(branches[0].id, branch1_id);
         assert!(branches[0].active);
         assert_eq!(branches[0].files.len(), 1);
-        assert_eq!(branches[0].commits.len(), 0);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 0);
 
         branch1_id
     };
@@ -202,7 +202,7 @@ fn rebase_work() {
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].files.len(), 1);
-        assert_eq!(branches[0].commits.len(), 0);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 0);
         assert!(branches[0].active);
         assert!(!branches[0].conflicted);
 

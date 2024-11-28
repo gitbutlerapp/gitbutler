@@ -55,7 +55,6 @@ pub struct VirtualBranch {
     pub notes: String,
     pub active: bool,
     pub files: Vec<VirtualBranchFile>,
-    pub commits: Vec<VirtualBranchCommit>,
     pub requires_force: bool, // does this branch require a force push to the upstream?
     pub conflicted: bool, // is this branch currently in a conflicted state (only for the workspace)
     pub order: usize,     // the order in which this branch should be displayed in the UI
@@ -409,13 +408,6 @@ pub fn list_virtual_branches_cached(
             requires_force = force // derive force requirement from the series
         }
 
-        let commits = series
-            .iter()
-            .cloned()
-            .filter_map(Result::ok)
-            .flat_map(|s| s.patches)
-            .collect();
-
         let head = branch.head();
         let branch = VirtualBranch {
             id: branch.id,
@@ -424,7 +416,6 @@ pub fn list_virtual_branches_cached(
             active: true,
             files,
             order: branch.order,
-            commits,
             requires_force,
             upstream,
             upstream_name: branch

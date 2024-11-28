@@ -51,9 +51,12 @@ fn no_diffs() {
         .find(|b| b.id == source_branch_id)
         .unwrap();
 
-    assert_eq!(destination_branch.commits.len(), 1);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        1
+    );
     assert_eq!(destination_branch.files.len(), 0);
-    assert_eq!(source_branch.commits.len(), 0);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 0);
     assert_eq!(source_branch.files.len(), 0);
 }
 
@@ -119,11 +122,16 @@ fn multiple_commits() {
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
     let destination_branch = branches.iter().find(|b| b.id == target_branch_id).unwrap();
 
-    assert_eq!(destination_branch.commits.len(), 2);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        2
+    );
     assert_eq!(destination_branch.files.len(), 0);
     assert_eq!(
-        destination_branch
-            .commits
+        destination_branch.series[0]
+            .clone()
+            .unwrap()
+            .patches
             .clone()
             .into_iter()
             .map(|c| c.description.to_str_lossy().into_owned())
@@ -131,11 +139,13 @@ fn multiple_commits() {
         vec!["Add b", "Add d"]
     );
 
-    assert_eq!(source_branch.commits.len(), 2);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 2);
     assert_eq!(source_branch.files.len(), 0);
     assert_eq!(
-        source_branch
-            .commits
+        source_branch.series[0]
+            .clone()
+            .unwrap()
+            .patches
             .clone()
             .into_iter()
             .map(|c| c.description.to_str_lossy().into_owned())
@@ -187,7 +197,7 @@ fn multiple_commits_with_diffs() {
         .unwrap();
 
     // State of source branch after the two commits
-    assert_eq!(source_branch.commits.len(), 2);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 2);
     assert_eq!(source_branch.files.len(), 1);
 
     let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
@@ -216,7 +226,10 @@ fn multiple_commits_with_diffs() {
         .unwrap();
 
     // State of destination branch before the commit is moved
-    assert_eq!(destination_branch.commits.len(), 1);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        1
+    );
     assert_eq!(destination_branch.files.len(), 1);
 
     // Move the top commit from the source branch to the destination branch
@@ -227,11 +240,16 @@ fn multiple_commits_with_diffs() {
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
     let destination_branch = branches.iter().find(|b| b.id == target_branch_id).unwrap();
 
-    assert_eq!(destination_branch.commits.len(), 2);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        2
+    );
     assert_eq!(destination_branch.files.len(), 1);
     assert_eq!(
-        destination_branch
-            .commits
+        destination_branch.series[0]
+            .clone()
+            .unwrap()
+            .patches
             .clone()
             .into_iter()
             .map(|c| c.description.to_str_lossy().into_owned())
@@ -248,9 +266,14 @@ fn multiple_commits_with_diffs() {
         "@@ -0,0 +1 @@\n+This is e\n\\ No newline at end of file\n"
     );
 
-    assert_eq!(source_branch.commits.len(), 1);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 1);
     assert_eq!(source_branch.files.len(), 1);
-    assert_eq!(source_branch.commits[0].description.to_str_lossy(), "Add a");
+    assert_eq!(
+        source_branch.series[0].clone().unwrap().patches[0]
+            .description
+            .to_str_lossy(),
+        "Add a"
+    );
     assert_eq!(
         source_branch.files[0].path,
         PathBuf::from_str("c.txt").unwrap()
@@ -317,9 +340,12 @@ fn diffs_on_source_branch() {
         .find(|b| b.id == source_branch_id)
         .unwrap();
 
-    assert_eq!(destination_branch.commits.len(), 1);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        1
+    );
     assert_eq!(destination_branch.files.len(), 0);
-    assert_eq!(source_branch.commits.len(), 0);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 0);
     assert_eq!(source_branch.files.len(), 1);
     assert_eq!(
         source_branch.files[0].path,
@@ -392,7 +418,10 @@ fn diffs_on_target_branch() {
         .find(|b| b.id == source_branch_id)
         .unwrap();
 
-    assert_eq!(destination_branch.commits.len(), 1);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        1
+    );
     assert_eq!(destination_branch.files.len(), 1);
     assert_eq!(
         destination_branch.files[0].path,
@@ -403,7 +432,7 @@ fn diffs_on_target_branch() {
         destination_branch.files[0].hunks[0].diff.to_str_lossy(),
         "@@ -0,0 +1 @@\n+another content\n\\ No newline at end of file\n"
     );
-    assert_eq!(source_branch.commits.len(), 0);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 0);
     assert_eq!(source_branch.files.len(), 0);
 }
 
@@ -448,7 +477,7 @@ fn diffs_on_both_branches() {
         .unwrap();
 
     // State of source branch after the first commit
-    assert_eq!(source_branch.commits.len(), 1);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 1);
     assert_eq!(source_branch.files.len(), 1);
     assert_eq!(
         source_branch.files[0].path,
@@ -484,7 +513,10 @@ fn diffs_on_both_branches() {
         .unwrap();
 
     // State of the destination branch before the commit is moved
-    assert_eq!(destination_branch.commits.len(), 0);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        0
+    );
     assert_eq!(destination_branch.files.len(), 1);
     assert_eq!(
         destination_branch.files[0].path,
@@ -503,7 +535,10 @@ fn diffs_on_both_branches() {
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
     let destination_branch = branches.iter().find(|b| b.id == target_branch_id).unwrap();
 
-    assert_eq!(destination_branch.commits.len(), 1);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        1
+    );
     assert_eq!(destination_branch.files.len(), 1);
     assert_eq!(
         destination_branch.files[0].path,
@@ -515,7 +550,7 @@ fn diffs_on_both_branches() {
         "@@ -0,0 +1 @@\n+yet another content\n\\ No newline at end of file\n"
     );
 
-    assert_eq!(source_branch.commits.len(), 0);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 0);
     assert_eq!(source_branch.files.len(), 1);
     assert_eq!(
         source_branch.files[0].path,

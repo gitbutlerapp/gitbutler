@@ -56,8 +56,10 @@ fn head() {
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let descriptions = branch
-        .commits
+    let descriptions = branch.series[0]
+        .clone()
+        .unwrap()
+        .patches
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();
@@ -126,8 +128,10 @@ fn middle() {
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let descriptions = branch
-        .commits
+    let descriptions = branch.series[0]
+        .clone()
+        .unwrap()
+        .patches
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();
@@ -187,8 +191,10 @@ fn forcepush_allowed() {
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let descriptions = branch
-        .commits
+    let descriptions = branch.series[0]
+        .clone()
+        .unwrap()
+        .patches
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();
@@ -296,8 +302,10 @@ fn root() {
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let descriptions = branch
-        .commits
+    let descriptions = branch.series[0]
+        .clone()
+        .unwrap()
+        .patches
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();
