@@ -46,13 +46,13 @@ fn detect_upstream_commits() {
         let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        assert_eq!(branches[0].commits.len(), 3);
-        assert_eq!(branches[0].commits[0].id, oid3);
-        assert!(!branches[0].commits[0].is_local_and_remote);
-        assert_eq!(branches[0].commits[1].id, oid2);
-        assert!(branches[0].commits[1].is_local_and_remote);
-        assert_eq!(branches[0].commits[2].id, oid1);
-        assert!(branches[0].commits[2].is_local_and_remote);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 3);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid3);
+        assert!(!branches[0].series[0].clone().unwrap().patches[0].is_local_and_remote);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[1].id, oid2);
+        assert!(branches[0].series[0].clone().unwrap().patches[1].is_local_and_remote);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[2].id, oid1);
+        assert!(branches[0].series[0].clone().unwrap().patches[2].is_local_and_remote);
     }
 }
 
@@ -112,12 +112,12 @@ fn detect_integrated_commits() {
         let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        assert_eq!(branches[0].commits.len(), 3);
-        assert_eq!(branches[0].commits[0].id, oid3);
-        assert!(!branches[0].commits[0].is_integrated);
-        assert_eq!(branches[0].commits[1].id, oid2);
-        assert!(branches[0].commits[1].is_integrated);
-        assert_eq!(branches[0].commits[2].id, oid1);
-        assert!(branches[0].commits[2].is_integrated);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 3);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid3);
+        assert!(!branches[0].series[0].clone().unwrap().patches[0].is_integrated);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[1].id, oid2);
+        assert!(branches[0].series[0].clone().unwrap().patches[1].is_integrated);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[2].id, oid1);
+        assert!(branches[0].series[0].clone().unwrap().patches[2].is_integrated);
     }
 }

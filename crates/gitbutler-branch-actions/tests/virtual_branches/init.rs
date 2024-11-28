@@ -115,7 +115,7 @@ fn commit_on_non_target_local() {
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
-    assert_eq!(branches[0].commits.len(), 1);
+    assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
     assert!(branches[0].upstream.is_none());
     assert_eq!(branches[0].name, "some-feature");
 }
@@ -142,7 +142,7 @@ fn commit_on_non_target_remote() {
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
-    assert_eq!(branches[0].commits.len(), 1);
+    assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
     assert!(branches[0].upstream.is_some());
     assert_eq!(branches[0].name, "some-feature");
 }
@@ -167,7 +167,7 @@ fn commit_on_target() {
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
-    assert_eq!(branches[0].commits.len(), 1);
+    assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
     assert!(branches[0].upstream.is_none());
     assert_eq!(branches[0].name, "master");
 }

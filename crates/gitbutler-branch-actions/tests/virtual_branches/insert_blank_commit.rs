@@ -49,14 +49,24 @@ fn insert_blank_commit_down() -> anyhow::Result<()> {
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    assert_eq!(branch.commits.len(), 4);
+    assert_eq!(branch.series[0].clone()?.patches.len(), 4);
 
-    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 1);
-    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 2);
-    assert_eq!(list_commit_files(project, branch.commits[2].id)?.len(), 0); // blank commit
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone()?.patches[0].id)?.len(),
+        1
+    );
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone()?.patches[1].id)?.len(),
+        2
+    );
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone()?.patches[2].id)?.len(),
+        0
+    ); // blank commit
 
-    let descriptions = branch
-        .commits
+    let descriptions = branch.series[0]
+        .clone()?
+        .patches
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();
@@ -114,13 +124,23 @@ fn insert_blank_commit_up() -> anyhow::Result<()> {
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    assert_eq!(branch.commits.len(), 4);
-    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 1);
-    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 0); // blank commit
-    assert_eq!(list_commit_files(project, branch.commits[2].id)?.len(), 2);
+    assert_eq!(branch.series[0].clone()?.patches.len(), 4);
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone()?.patches[0].id)?.len(),
+        1
+    );
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone()?.patches[1].id)?.len(),
+        0
+    ); // blank commit
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone()?.patches[2].id)?.len(),
+        2
+    );
 
-    let descriptions = branch
-        .commits
+    let descriptions = branch.series[0]
+        .clone()?
+        .patches
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();

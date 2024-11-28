@@ -156,9 +156,15 @@ fn basic_oplog() -> anyhow::Result<()> {
     let branches = gitbutler_branch_actions::list_virtual_branches(project)?;
     assert_eq!(branches.0.len(), 2);
 
-    assert_eq!(branch.commits.len(), 3);
-    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 1);
-    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 3);
+    assert_eq!(branch.series[0].clone()?.patches.len(), 3);
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone()?.patches[0].id)?.len(),
+        1
+    );
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone()?.patches[1].id)?.len(),
+        3
+    );
 
     let snapshots = project.list_snapshots(10, None)?;
 

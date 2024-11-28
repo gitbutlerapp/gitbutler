@@ -59,9 +59,12 @@ fn forcepush_allowed() -> anyhow::Result<()> {
             .find(|b| b.id == branch_id)
             .unwrap();
         assert!(branch.requires_force);
-        assert_eq!(branch.commits.len(), 1);
+        assert_eq!(branch.series[0].clone()?.patches.len(), 1);
         assert_eq!(branch.files.len(), 0);
-        assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 2);
+        assert_eq!(
+            list_commit_files(project, branch.series[0].clone()?.patches[0].id)?.len(),
+            2
+        );
     }
     Ok(())
 }
@@ -144,7 +147,7 @@ fn non_locked_hunk() -> anyhow::Result<()> {
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
-    assert_eq!(branch.commits.len(), 1);
+    assert_eq!(branch.series[0].clone()?.patches.len(), 1);
     assert_eq!(branch.files.len(), 0);
 
     {
@@ -159,9 +162,12 @@ fn non_locked_hunk() -> anyhow::Result<()> {
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
-        assert_eq!(branch.commits.len(), 1);
+        assert_eq!(branch.series[0].clone()?.patches.len(), 1);
         assert_eq!(branch.files.len(), 0);
-        assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 2);
+        assert_eq!(
+            list_commit_files(project, branch.series[0].clone()?.patches[0].id)?.len(),
+            2
+        );
     }
     Ok(())
 }
@@ -196,10 +202,10 @@ fn locked_hunk() -> anyhow::Result<()> {
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
-    assert_eq!(branch.commits.len(), 1);
+    assert_eq!(branch.series[0].clone()?.patches.len(), 1);
     assert_eq!(branch.files.len(), 0);
     assert_eq!(
-        list_commit_files(project, branch.commits[0].id)?[0].hunks[0].diff_lines,
+        list_commit_files(project, branch.series[0].clone()?.patches[0].id)?[0].hunks[0].diff_lines,
         "@@ -0,0 +1 @@\n+content\n\\ No newline at end of file\n"
     );
 
@@ -216,10 +222,11 @@ fn locked_hunk() -> anyhow::Result<()> {
             .find(|b| b.id == branch_id)
             .unwrap();
 
-        assert_eq!(branch.commits.len(), 1);
+        assert_eq!(branch.series[0].clone()?.patches.len(), 1);
         assert_eq!(branch.files.len(), 0);
         assert_eq!(
-            list_commit_files(project, branch.commits[0].id)?[0].hunks[0].diff_lines,
+            list_commit_files(project, branch.series[0].clone()?.patches[0].id)?[0].hunks[0]
+                .diff_lines,
             "@@ -0,0 +1 @@\n+more content\n\\ No newline at end of file\n"
         );
     }
@@ -256,7 +263,7 @@ fn non_existing_ownership() {
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
-    assert_eq!(branch.commits.len(), 1);
+    assert_eq!(branch.series[0].clone().unwrap().patches.len(), 1);
     assert_eq!(branch.files.len(), 0);
 
     {

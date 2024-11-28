@@ -32,7 +32,7 @@ async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
 
     let (branches, _) = list_virtual_branches(project).unwrap();
     assert_eq!(branches[0].files.len(), 0);
-    assert_eq!(branches[0].commits.len(), 1);
+    assert_eq!(branches[0].series[0].clone()?.patches.len(), 1);
 
     // Commit some changes to the second branch that will push the first
     // changes down when diffing workspace head against the default target.
@@ -57,9 +57,9 @@ async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
 
     // At this point we expect no uncommitted files, and one commit per branch.
     let (branches, _) = list_virtual_branches(project).unwrap();
-    assert_eq!(branches[0].commits.len(), 1);
+    assert_eq!(branches[0].series[0].clone()?.patches.len(), 1);
     assert_eq!(branches[0].files.len(), 0);
-    assert_eq!(branches[1].commits.len(), 1);
+    assert_eq!(branches[1].series[0].clone()?.patches.len(), 1);
     assert_eq!(branches[1].files.len(), 0);
 
     // Now we change line we already changed in the first commit.
@@ -107,7 +107,7 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
     create_commit(project, branches[0].id, "first commit", None, false)?;
 
     let (branches, _) = list_virtual_branches(project).unwrap();
-    assert_eq!(branches[0].commits.len(), 1);
+    assert_eq!(branches[0].series[0].clone()?.patches.len(), 1);
     assert_eq!(branches[0].files.len(), 0);
 
     // Commit some changes to the second branch that will push the first changes

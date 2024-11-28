@@ -361,7 +361,7 @@ fn new_locked_hunk_without_modifying_existing() {
 
     let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
     assert_eq!(branches[0].files.len(), 0);
-    assert_eq!(branches[0].commits.len(), 1);
+    assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
 
     gitbutler_branch_actions::create_virtual_branch(
         project,
