@@ -311,10 +311,9 @@
 					disabled={mergeStatus.disabled}
 					tooltip={mergeStatus.tooltip}
 					loading={isMerging}
-					on:click={async (e) => {
+					onclick={async (method) => {
 						if (!pr) return;
 						isMerging = true;
-						const method = e.detail.method;
 						try {
 							await $prService?.merge(method, pr.number);
 							await baseBranchService.fetchFromRemotes();
