@@ -91,7 +91,7 @@
 
 	const conflicted = $derived(commit.conflicted);
 	const isAncestorMostConflicted = $derived(
-		currentSeries?.ancestorMostConflictedCommit(false)?.id === commit.id
+		currentSeries?.ancestorMostConflictedCommit?.id === commit.id
 	);
 
 	async function loadFiles() {

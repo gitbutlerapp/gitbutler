@@ -458,8 +458,14 @@ export class PatchSeries {
 		return this.patches.length > 0 && this.patches.length === this.integratedCommits.length;
 	}
 
-	ancestorMostConflictedCommit(checkRemotePatches: boolean): DetailedCommit | undefined {
-		const commits = checkRemotePatches ? this.upstreamPatches : this.patches;
+	get ancestorMostConflictedCommit(): DetailedCommit | undefined {
+		const commits = [...this.upstreamPatches, ...this.patches].sort((a, b) => {
+			if (a.createdAt > b.createdAt) {
+				return -1;
+			}
+			return 1;
+		});
+
 		if (commits.length === 0) return undefined;
 
 		for (let i = commits.length - 1; i >= 0; i--) {
