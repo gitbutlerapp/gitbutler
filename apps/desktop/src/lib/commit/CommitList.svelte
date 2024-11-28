@@ -92,8 +92,8 @@
 		})
 	);
 
-	const hasCommits = $derived($branch.commits && $branch.commits.length > 0);
-	const headCommit = $derived($branch.commits.at(0));
+	const hasCommits = $derived(currentSeries.patches.length > 0);
+	const headCommit = $derived(currentSeries.patches.at(0));
 
 	const hasRemoteCommits = $derived(remoteOnlyPatches.length > 0);
 	const hasRemoteIntegratedCommits = $derived(remoteIntegratedPatches.length > 0);
