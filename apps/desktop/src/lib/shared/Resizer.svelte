@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { createBubbler, stopPropagation } from 'svelte/legacy';
+
+	const bubble = createBubbler();
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 
 	interface Props {

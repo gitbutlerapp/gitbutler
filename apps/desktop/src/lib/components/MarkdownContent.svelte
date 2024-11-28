@@ -1,4 +1,5 @@
 <script lang="ts">
+	import MarkdownContent from './MarkdownContent.svelte';
 	import { renderers } from '$lib/utils/markdownRenderers';
 	import type { Tokens, Token } from 'marked';
 	import type { Component } from 'svelte';
@@ -24,7 +25,7 @@
 {#if (!type || type === 'init') && 'tokens' in rest && rest.tokens}
 	{#each rest.tokens as token}
 		<!-- eslint-disable-next-line svelte/valid-compile -->
-		<svelte:self {...token} />
+		<MarkdownContent {...token} />
 	{/each}
 {:else if renderers[type]}
 	{@const CurrentComponent = renderers[type] as Component<Omit<Props, 'type'>>}
@@ -35,7 +36,7 @@
 				{@const ChildComponent = renderers[item.type]}
 				<ChildComponent {...item}>
 					<!-- eslint-disable-next-line svelte/valid-compile -->
-					<svelte:self tokens={item.tokens} />
+					<MarkdownContent tokens={item.tokens} />
 				</ChildComponent>
 			{/each}
 		</CurrentComponent>
@@ -43,7 +44,7 @@
 		<CurrentComponent {...rest}>
 			{#if 'tokens' in rest && rest.tokens}
 				<!-- eslint-disable-next-line svelte/valid-compile -->
-				<svelte:self tokens={rest.tokens} />
+				<MarkdownContent tokens={rest.tokens} />
 			{:else if 'raw' in rest}
 				{rest.raw}
 			{/if}

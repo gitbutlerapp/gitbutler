@@ -35,7 +35,7 @@
 		</div>
 	{/if}
 
-	{@render children()}
+	{@render children?.()}
 
 	{#if spacer}
 		<Spacer />

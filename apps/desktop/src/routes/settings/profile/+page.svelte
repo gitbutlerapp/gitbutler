@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { deleteAllData } from '$lib/backend/data';
 	import Login from '$lib/components/Login.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import InfoMessage from './InfoMessage.svelte';
 	import Link from './Link.svelte';
 	import { AuthService } from '$lib/backend/auth';
