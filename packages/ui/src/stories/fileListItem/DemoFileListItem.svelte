@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { type FileStatus } from '$lib/file/types';
 	import FileListItem from '$lib/file/FileListItem.svelte';
+	import { type FileStatus } from '$lib/file/types';
 
 	interface Props {
 		filePath: string;

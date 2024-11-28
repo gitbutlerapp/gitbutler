@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
-	import FileListItemSmart from './FileListItem.svelte';
+	import FileListItemSmart from './FileListItemWrapper.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import LazyloadContainer from '$lib/shared/LazyloadContainer.svelte';
 	import { chunk } from '$lib/utils/array';

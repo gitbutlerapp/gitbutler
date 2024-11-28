@@ -72,6 +72,7 @@
 	const modeService = maybeGetContext(ModeService);
 
 	const commitStore = createCommitStore(commit);
+
 	$effect(() => {
 		commitStore.set(commit);
 	});
