@@ -149,7 +149,7 @@ export class ProjectsService {
 			// linkProjectModal?.show(project.id);
 			goto(`/${project.id}/board`);
 		} catch (e: any) {
-			showError('There was a problem', e.message);
+			showError('There was an error while adding project', e.message);
 		}
 	}
 
