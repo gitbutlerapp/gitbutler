@@ -16,10 +16,9 @@
 	import { onMount } from 'svelte';
 
 	const project = getContext(Project);
-
-	let signCommits = false;
-
 	const gitConfig = getContext(GitConfigService);
+
+	let signCommits = $state(false);
 
 	async function setSignCommits(targetState: boolean) {
 		signCommits = targetState;
@@ -27,27 +26,37 @@
 	}
 
 	// gpg.format
-	let signingFormat = 'openpgp';
+	let signingFormat = $state('openpgp');
 	// user.signingkey
-	let signingKey = '';
+	let signingKey = $state('');
 	// gpg.ssh.program / gpg.program
-	let signingProgram = '';
+	let signingProgram = $state('');
 
 	const signingFormatOptions = [
 		{
 			label: 'GPG',
-			value: 'openpgp'
+			value: 'openpgp',
+			keyPlaceholder: 'ex: 723CCA3AC13CF28D',
+			programPlaceholder: 'ex: /usr/local/bin/gpg'
 		},
 		{
 			label: 'SSH',
-			value: 'ssh'
+			value: 'ssh',
+			keyPlaceholder: 'ex: /Users/bob/.ssh/id_rsa.pub',
+			programPlaceholder: 'ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign'
 		}
-	];
+	] as const;
 
-	let checked = false;
-	let loading = true;
-	let signCheckResult = false;
-	let errorMessage = '';
+	const selectedOption = $derived(
+		signingFormatOptions.find((option) => option.value === signingFormat)
+	);
+	const keyPlaceholder = $derived(selectedOption?.keyPlaceholder);
+	const programPlaceholder = $derived(selectedOption?.programPlaceholder);
+
+	let checked = $state(false);
+	let loading = $state(true);
+	let signCheckResult = $state(false);
+	let errorMessage = $state('');
 
 	async function checkSigning() {
 		errorMessage = '';
@@ -128,14 +137,14 @@
 				bind:value={signingKey}
 				required
 				onchange={updateSigningInfo}
-				placeholder="ex: /Users/bob/.ssh/id_rsa.pub"
+				placeholder={keyPlaceholder}
 			/>
 
 			<Textbox
 				label="Signing program (optional)"
 				bind:value={signingProgram}
 				onchange={updateSigningInfo}
-				placeholder="ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+				placeholder={programPlaceholder}
 			/>
 
 			{#if checked}
