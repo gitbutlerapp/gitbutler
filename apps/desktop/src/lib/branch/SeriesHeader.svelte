@@ -419,7 +419,7 @@
 						<Button
 							style="ghost"
 							outline
-							disabled={stack.commits.length === 0}
+							disabled={branch.patches.length === 0}
 							onclick={() => {
 								cloudBranchCreationService.createBranch(stack.id);
 							}}>Publish Branch</Button
