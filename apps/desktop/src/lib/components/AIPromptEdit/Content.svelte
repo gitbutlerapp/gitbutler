@@ -4,14 +4,14 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import { createEventDispatcher } from 'svelte';
 
 	interface Props {
 		prompt: UserPrompt;
 		displayMode: 'readOnly' | 'writable';
+		deletePrompt?: (prompt: UserPrompt) => void;
 	}
 
-	let { prompt = $bindable(), displayMode = 'writable' }: Props = $props();
+	let { prompt = $bindable(), displayMode = 'writable', deletePrompt }: Props = $props();
 
 	let expanded = $state(false);
 	let editing = $state(false);
@@ -51,12 +51,6 @@
 	function removeLastExample() {
 		console.log(promptMessages);
 		promptMessages = promptMessages.slice(0, -2);
-	}
-
-	const dispatcher = createEventDispatcher<{ deletePrompt: { prompt: UserPrompt } }>();
-
-	function deletePrompt() {
-		dispatcher('deletePrompt', { prompt });
 	}
 
 	function save() {
@@ -173,7 +167,7 @@
 						style="error"
 						onclick={(e: MouseEvent) => {
 							e.stopPropagation();
-							deletePrompt();
+							deletePrompt?.(prompt);
 						}}
 						icon="bin-small">Delete</Button
 					>

@@ -61,7 +61,7 @@
 			<Content
 				bind:prompt={$userPrompts[idx] as UserPrompt}
 				displayMode="writable"
-				on:deletePrompt={(e) => deletePrompt(e.detail.prompt)}
+				deletePrompt={(prompt) => deletePrompt(prompt)}
 			/>
 		{/each}
 	</div>
