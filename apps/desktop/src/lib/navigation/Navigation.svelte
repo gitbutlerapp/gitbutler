@@ -64,19 +64,17 @@
 				minWidth={minResizerWidth}
 				defaultLineColor="var(--clr-border-2)"
 				zIndex="var(--z-floating)"
-				on:dblclick={toggleNavCollapse}
-				on:width={(e) => {
-					$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
+				onDblClick={toggleNavCollapse}
+				onWidth={(value) => {
+					$defaultTrayWidthRem = value / (16 * $userSettings.zoom);
 				}}
-				on:hover={(e) => {
-					isResizerHovered = e.detail;
+				onHover={(isHovering) => {
+					isResizerHovered = isHovering;
 				}}
-				on:resizing={(e) => {
-					isResizerDragging = e.detail;
+				onResizing={(isDragging) => {
+					isResizerDragging = isDragging;
 				}}
-				on:overflowValue={(e) => {
-					const overflowValue = e.detail;
-
+				onOverflow={(overflowValue) => {
 					if (!$isNavCollapsed && overflowValue > minResizerRatio) {
 						$isNavCollapsed = true;
 					}

@@ -1,9 +1,5 @@
 <script lang="ts">
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { createEventDispatcher } from 'svelte';
-	import { createBubbler, stopPropagation } from 'svelte/legacy';
-
-	const bubble = createBubbler();
 
 	interface Props {
 		// The element that is being resized
@@ -21,6 +17,14 @@
 		//
 		minWidth?: number;
 		minHeight?: number;
+
+		// Actions
+		onHeight?: (height: number) => void;
+		onWidth?: (width: number) => void;
+		onResizing?: (isResizing: boolean) => void;
+		onOverflow?: (value: number) => void;
+		onHover?: (isHovering: boolean) => void;
+		onDblClick?: () => void;
 	}
 
 	let {
@@ -32,21 +36,20 @@
 		sticky = false,
 		zIndex = 'var(--z-lifted)',
 		minWidth = 0,
-		minHeight = 0
+		minHeight = 0,
+
+		onHeight,
+		onWidth,
+		onResizing,
+		onOverflow,
+		onHover,
+		onDblClick
 	}: Props = $props();
 
 	let orientation = $derived(['left', 'right'].includes(direction) ? 'horizontal' : 'vertical');
 
 	let initial = 0;
 	let dragging = $state(false);
-
-	const dispatch = createEventDispatcher<{
-		height: number;
-		width: number;
-		resizing: boolean;
-		overflowValue: number;
-		hover: boolean;
-	}>();
 
 	function onMouseDown(e: MouseEvent) {
 		e.stopPropagation();
@@ -59,12 +62,12 @@
 		if (direction === 'down') initial = e.clientY - viewport.clientHeight;
 		if (direction === 'up') initial = window.innerHeight - e.clientY - viewport.clientHeight;
 
-		dispatch('resizing', true);
+		onResizing?.(true);
 	}
 
 	function onOverflowValue(currentValue: number, minVal: number) {
 		if (currentValue < minVal) {
-			dispatch('overflowValue', minVal - currentValue);
+			onOverflow?.(minVal - currentValue);
 		}
 	}
 
@@ -72,25 +75,25 @@
 		dragging = true;
 		if (direction === 'down') {
 			let height = e.clientY - initial;
-			dispatch('height', Math.max(height, minHeight));
+			onHeight?.(Math.max(height, minHeight));
 
 			onOverflowValue(height, minHeight);
 		}
 		if (direction === 'up') {
 			let height = document.body.scrollHeight - e.clientY - initial;
-			dispatch('height', Math.max(height, minHeight));
+			onHeight?.(Math.max(height, minHeight));
 
 			onOverflowValue(height, minHeight);
 		}
 		if (direction === 'right') {
 			let width = e.clientX - initial + 2;
-			dispatch('width', Math.max(width, minWidth));
+			onWidth?.(Math.max(width, minWidth));
 
 			onOverflowValue(width, minWidth);
 		}
 		if (direction === 'left') {
 			let width = document.body.scrollWidth - e.clientX - initial;
-			dispatch('width', Math.max(width, minWidth));
+			onWidth?.(Math.max(width, minWidth));
 
 			onOverflowValue(width, minWidth);
 		}
@@ -100,20 +103,18 @@
 		dragging = false;
 		document.removeEventListener('mouseup', onMouseUp);
 		document.removeEventListener('mousemove', onMouseMove);
-		dispatch('resizing', false);
+		onResizing?.(false);
 	}
 
 	function isHovered(isHovered: boolean) {
-		dispatch('hover', isHovered);
+		onHover?.(isHovered);
 	}
 </script>
 
 <div
 	data-remove-from-draggable
 	onmousedown={onMouseDown}
-	onclick={stopPropagation(bubble('click'))}
-	ondblclick={stopPropagation(bubble('dblclick'))}
-	onkeydown={stopPropagation(bubble('keydown'))}
+	ondblclick={onDblClick}
 	onmouseenter={() => isHovered(true)}
 	onmouseleave={() => isHovered(false)}
 	tabindex="0"

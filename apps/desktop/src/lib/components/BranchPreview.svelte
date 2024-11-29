@@ -151,8 +151,8 @@
 				viewport={rsViewport}
 				direction="right"
 				minWidth={320}
-				on:width={(e) => {
-					laneWidth = e.detail / (16 * $userSettings.zoom);
+				onWidth={(value) => {
+					laneWidth = value / (16 * $userSettings.zoom);
 					lscache.set(laneWidthKey, laneWidth, 7 * 1440); // 7 day ttl
 				}}
 			/>

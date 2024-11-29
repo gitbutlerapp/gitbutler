@@ -204,8 +204,8 @@
 						minWidth={380}
 						sticky
 						defaultLineColor={$fileIdSelection.length === 1 ? 'transparent' : 'var(--clr-border-2)'}
-						on:width={(e) => {
-							laneWidth = e.detail / (16 * $userSettings.zoom);
+						onWidth={(value) => {
+							laneWidth = value / (16 * $userSettings.zoom);
 							lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
 							$defaultBranchWidthRem = laneWidth;
 						}}
