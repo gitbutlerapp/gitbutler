@@ -10,6 +10,8 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext } from '@gitbutler/shared/context';
+	import posthog from 'posthog-js';
+	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
 
 	const vbranchService = getContext(VirtualBranchService);
@@ -70,6 +72,10 @@
 		'$mod+z': () => {
 			$showHistoryView = !$showHistoryView;
 		}
+	});
+
+	onMount(() => {
+		posthog.capture('Workspace Open');
 	});
 </script>
 
