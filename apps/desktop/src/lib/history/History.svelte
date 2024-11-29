@@ -168,16 +168,14 @@
 									<SnapshotCard
 										isWithinRestore={withinRestoreItems.includes(entry.id)}
 										{entry}
-										on:restoreClick={() => {
+										onRestoreClick={() => {
 											historyService.restoreSnapshot(project.id, entry.id);
 											// In some cases, restoring the snapshot doesnt update the UI correctly
 											// Until we have that figured out, we need to reload the page.
 											location.reload();
 										}}
 										{selectedFile}
-										on:diffClick={async (filePath) => {
-											const path = filePath.detail;
-
+										onDiffClick={async (path) => {
 											if (snapshotFilesTempStore?.entryId === entry.id) {
 												if (selectedFile?.path === path) {
 													currentFilePreview = undefined;

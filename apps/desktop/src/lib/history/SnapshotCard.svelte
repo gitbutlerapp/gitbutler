@@ -8,13 +8,14 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
 	import { splitFilePath } from '@gitbutler/ui/utils/filePath';
-	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDetails } from '$lib/history/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	interface Props {
 		entry: Snapshot;
 		isWithinRestore?: boolean;
+		onRestoreClick: () => void;
+		onDiffClick: (filePath: string) => void;
 		selectedFile?:
 			| {
 					entryId: string;
@@ -23,7 +24,13 @@
 			| undefined;
 	}
 
-	let { entry, isWithinRestore = true, selectedFile = undefined }: Props = $props();
+	let {
+		entry,
+		isWithinRestore = true,
+		selectedFile = undefined,
+		onRestoreClick,
+		onDiffClick
+	}: Props = $props();
 
 	function getShortSha(sha: string | undefined) {
 		if (!sha) return '';
@@ -35,12 +42,6 @@
 		const date = new Date(epoch);
 		return `${createdOnDay(date)}, ${toHumanReadableTime(date)}`;
 	}
-
-	const dispatch = createEventDispatcher<{
-		restoreClick: void;
-		diffClick: string;
-		visible: void;
-	}>();
 
 	function camelToTitleCase(str: string | undefined) {
 		if (!str) return '';
@@ -180,7 +181,7 @@
 				outline
 				tooltip="Restores GitButler and your files to the state before this operation. Revert actions can also be undone."
 				onclick={() => {
-					dispatch('restoreClick');
+					onRestoreClick();
 				}}
 				disabled={$mode?.type !== 'OpenWorkspace'}>Revert</Button
 			>
@@ -226,7 +227,7 @@
 							class:file-selected={selectedFile?.path === filePath &&
 								selectedFile?.entryId === entry.id}
 							onclick={() => {
-								dispatch('diffClick', filePath);
+								onDiffClick(filePath);
 							}}
 						>
 							<FileIcon fileName={filePath} size={14} />
