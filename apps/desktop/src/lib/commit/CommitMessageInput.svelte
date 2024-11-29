@@ -22,7 +22,7 @@
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { isWhiteSpaceString } from '@gitbutler/ui/utils/string';
-	import { createEventDispatcher, onMount, tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 
 	interface Props {
 		existingCommit?: DetailedCommit | Commit;
@@ -47,10 +47,6 @@
 	const branch = getContextStore(VirtualBranch);
 	const project = getContext(Project);
 	const promptService = getContext(PromptService);
-
-	const dispatch = createEventDispatcher<{
-		action: 'generate-branch-name';
-	}>();
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(project.id);
@@ -94,14 +90,6 @@
 
 	async function generateCommitMessage() {
 		const diffInput = await getDiffInput();
-
-		// Branches get their names generated only if there are at least 4 lines of code
-		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
-		// or the user has to manually trigger the name generation from the meatball menu
-		// This saves people this extra click
-		if ($branch.name.toLowerCase().includes('lane')) {
-			dispatch('action', 'generate-branch-name');
-		}
 
 		aiLoading = true;
 

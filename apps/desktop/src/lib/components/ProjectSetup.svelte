@@ -62,8 +62,8 @@
 		<ProjectSetupTarget
 			projectName={project.title}
 			{remoteBranches}
-			on:branchSelected={async (e) => {
-				selectedBranch = e.detail;
+			onBranchSelected={async (branch) => {
+				selectedBranch = branch;
 				// TODO: Temporary solution to forcing Windows to use system executable
 				if (platformName === 'windows') {
 					setTarget();

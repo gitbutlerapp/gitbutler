@@ -14,24 +14,20 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import { createEventDispatcher } from 'svelte';
 	import type { RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';
 	import { goto } from '$app/navigation';
 
 	interface Props {
 		projectName: string;
 		remoteBranches: RemoteBranchInfo[];
+		onBranchSelected?: (branch: string[]) => void;
 	}
 
-	const { projectName, remoteBranches }: Props = $props();
+	const { projectName, remoteBranches, onBranchSelected }: Props = $props();
 
 	const project = getContext(Project);
 	const userService = getContext(UserService);
 	const user = userService.user;
-
-	const dispatch = createEventDispatcher<{
-		branchSelected: string[];
-	}>();
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 
@@ -58,7 +54,7 @@
 
 	async function onSetTargetClick() {
 		if (!branch || !remote) return;
-		dispatch('branchSelected', [branch.name, remote]);
+		onBranchSelected?.([branch.name, remote]);
 	}
 
 	const projectsService = getContext(ProjectsService);
