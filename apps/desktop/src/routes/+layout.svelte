@@ -45,11 +45,14 @@
 	} from '@gitbutler/shared/sharedRoutes';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
+	import posthog from 'posthog-js';
 	import { onMount, setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { dev } from '$app/environment';
+	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -86,6 +89,12 @@
 	const user = data.userService.user;
 	const accessToken = $derived($user?.github_access_token);
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
+
+	// Special initialization to capture pageviews for single page apps.
+	if (browser) {
+		beforeNavigate(() => posthog.capture('$pageleave'));
+		afterNavigate(() => posthog.capture('$pageview'));
+	}
 
 	// This store is literally only used once, on GitHub oauth, to set the
 	// gh username on the user object. Furthermore, it isn't used anywhere.
