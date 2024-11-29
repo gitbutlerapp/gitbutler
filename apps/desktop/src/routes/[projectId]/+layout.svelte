@@ -203,7 +203,7 @@
 			<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
 				<Navigation />
 				{#if $showHistoryView}
-					<History on:hide={() => ($showHistoryView = false)} />
+					<History onHide={() => ($showHistoryView = false)} />
 				{/if}
 				{@render children()}
 			</div>

@@ -14,13 +14,17 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
 	import { plainToInstance } from 'class-transformer';
-	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
+
+	interface Props {
+		onHide: () => void;
+	}
+
+	const { onHide }: Props = $props();
 
 	const project = getContext(Project);
 	const historyService = getContext(HistoryService);
 	const snapshots = historyService.snapshots;
-	const dispatch = createEventDispatcher<{ hide: any }>();
 
 	const loading = historyService.loading;
 	const isAllLoaded = historyService.isAllLoaded;
@@ -82,7 +86,7 @@
 <svelte:window
 	onkeydown={(e) => {
 		if (e.key === 'Escape') {
-			dispatch('hide');
+			onHide?.();
 		}
 	}}
 />
@@ -91,7 +95,7 @@
 	<div
 		class="sideview-content-wrap show-sideview"
 		use:clickOutside={{
-			handler: () => dispatch('hide')
+			handler: () => onHide?.()
 		}}
 	>
 		{#if currentFilePreview}
@@ -119,13 +123,7 @@
 					</div>
 				</i>
 				<h3 class="sideview__header-title text-15 text-bold">Project history</h3>
-				<Button
-					style="ghost"
-					icon="cross"
-					onclick={() => {
-						dispatch('hide');
-					}}
-				/>
+				<Button style="ghost" icon="cross" onclick={onHide} />
 			</div>
 
 			<!-- EMPTY STATE -->
