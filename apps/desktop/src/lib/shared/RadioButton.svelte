@@ -1,8 +1,4 @@
 <script lang="ts">
-	import { createBubbler, stopPropagation } from 'svelte/legacy';
-
-	const bubble = createBubbler();
-
 	interface Props {
 		name?: string;
 		small?: boolean;
@@ -22,19 +18,7 @@
 	}: Props = $props();
 </script>
 
-<input
-	onclick={stopPropagation(bubble('click'))}
-	onchange={bubble('change')}
-	oninput={bubble('input')}
-	type="radio"
-	class="radio"
-	class:small
-	{id}
-	{value}
-	{name}
-	{disabled}
-	{checked}
-/>
+<input type="radio" class="radio" class:small {id} {value} {name} {disabled} {checked} />
 
 <style lang="postcss">
 	.radio {

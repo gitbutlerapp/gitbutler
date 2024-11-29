@@ -132,9 +132,10 @@
 
 	// TODO: can we eliminate the need to debounce?
 	const debouncedRemoteBranchRefresh = debounce(
-		async () => await branchListingService.refresh(),
+		async () => await branchListingService?.refresh(),
 		500
 	);
+
 	$effect(() => {
 		if ($baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
 	});

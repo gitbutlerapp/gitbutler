@@ -9,7 +9,7 @@
 		top?: Snippet;
 		title?: Snippet;
 		description?: Snippet;
-		children?: Snippet;
+		children: Snippet;
 	}
 
 	let { spacer = false, gap = 16, top, title, description, children }: Props = $props();
@@ -35,7 +35,7 @@
 		</div>
 	{/if}
 
-	{@render children?.()}
+	{@render children()}
 
 	{#if spacer}
 		<Spacer />

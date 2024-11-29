@@ -2,7 +2,7 @@
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
-	import AiPromptEdit from '$lib/components/AIPromptEdit/AIPromptEdit.svelte';
+	import AIPromptEdit from '$lib/components/AIPromptEdit/AIPromptEdit.svelte';
 	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { getSecretsService } from '$lib/secrets/secretsService';
@@ -377,9 +377,9 @@
 		{/snippet}
 
 		<div class="prompt-groups">
-			<AiPromptEdit promptUse="commits" />
+			<AIPromptEdit promptUse="commits" />
 			<Spacer margin={12} />
-			<AiPromptEdit promptUse="branches" />
+			<AIPromptEdit promptUse="branches" />
 		</div>
 	</Section>
 </SettingsPage>
