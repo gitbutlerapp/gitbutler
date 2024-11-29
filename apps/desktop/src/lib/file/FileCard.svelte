@@ -15,6 +15,7 @@
 		readonly?: boolean;
 		isCard?: boolean;
 		commitId?: string;
+		onClose?: () => void;
 	}
 
 	let {
@@ -24,7 +25,8 @@
 		commitId,
 		selectable = false,
 		readonly = false,
-		isCard = true
+		isCard = true,
+		onClose
 	}: Props = $props();
 
 	const branchController = getContext(BranchController);
@@ -47,7 +49,7 @@
 </script>
 
 <div id={`file-${file.id}`} class="file-card" class:card={isCard}>
-	<FileCardHeader {file} {isFileLocked} on:close />
+	<FileCardHeader {file} {isFileLocked} {onClose} />
 	{#if conflicted}
 		<div class="file-card__resolved-btn">
 			<button

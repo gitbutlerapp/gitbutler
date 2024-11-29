@@ -83,7 +83,7 @@
 				readonly={selected instanceof RemoteFile}
 				selectable={$commitBoxOpen && commitId === undefined}
 				{commitId}
-				on:close={() => {
+				onClose={() => {
 					fileIdSelection.clear();
 				}}
 			/>

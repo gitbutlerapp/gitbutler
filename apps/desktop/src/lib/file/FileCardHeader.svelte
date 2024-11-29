@@ -5,17 +5,16 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
 	import { splitFilePath } from '@gitbutler/ui/utils/filePath';
-	import { createEventDispatcher } from 'svelte';
 	import type { AnyFile } from '$lib/vbranches/types';
 
 	interface Props {
 		file: AnyFile;
 		isFileLocked: boolean;
+		onClose?: () => void;
 	}
 
-	let { file, isFileLocked }: Props = $props();
+	let { file, isFileLocked, onClose }: Props = $props();
 
-	const dispatch = createEventDispatcher<{ close: void }>();
 	let fileStats = $derived(computeAddedRemovedByFiles(file));
 	let fileStatus = $derived(computeFileStatus(file));
 
@@ -68,7 +67,7 @@
 			</div>
 		</div>
 	</div>
-	<Button icon="cross" style="ghost" onclick={() => dispatch('close')} />
+	<Button icon="cross" style="ghost" onclick={() => onClose?.()} />
 </div>
 
 <style lang="postcss">

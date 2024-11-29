@@ -102,7 +102,7 @@
 					file={currentFilePreview}
 					isUnapplied={false}
 					readonly={true}
-					on:close={() => {
+					onClose={() => {
 						currentFilePreview = undefined;
 						selectedFile = undefined;
 					}}

@@ -165,7 +165,7 @@
 					isUnapplied={false}
 					readonly={true}
 					{commitId}
-					on:close={() => {
+					onClose={() => {
 						fileIdSelection.clear();
 					}}
 				/>
