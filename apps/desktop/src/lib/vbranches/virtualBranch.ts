@@ -1,5 +1,6 @@
 import { PatchSeries, VirtualBranch, VirtualBranches } from './types';
 import { invoke, listen } from '$lib/backend/ipc';
+import { showError } from '$lib/notifications/toasts';
 import { plainToInstance } from 'class-transformer';
 import { writable } from 'svelte/store';
 import type { BranchListingService } from '$lib/branches/branchListing';
@@ -54,9 +55,10 @@ export class VirtualBranchService {
 		try {
 			this.handlePayload(await this.listVirtualBranches());
 			this.branchListingService.refresh();
-		} catch (err: any) {
+		} catch (err: unknown) {
 			console.error(err);
 			this.error.set(err);
+			showError('Failed to load branches', err);
 		} finally {
 			this.loading.set(false);
 		}

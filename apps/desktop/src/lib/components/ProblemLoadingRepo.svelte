@@ -10,6 +10,8 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
+	import posthog from 'posthog-js';
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
 	export let error: any = undefined;
@@ -35,6 +37,10 @@
 			projectsService.reload();
 		}
 	}
+
+	onMount(() => {
+		posthog.capture('repo:load_failed', { error_message: String(error) });
+	});
 </script>
 
 <DecorativeSplitView img={loadErrorSvg}>
