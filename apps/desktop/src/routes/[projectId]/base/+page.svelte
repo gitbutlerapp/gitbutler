@@ -23,8 +23,8 @@
 
 	const selectedFile = fileIdSelection.selectedFile;
 
-	let commitId = $derived($selectedFile?.commitId);
-	let selected = $derived($selectedFile?.file);
+	const commitId = $derived($selectedFile?.commitId);
+	const selected = $derived($selectedFile?.file);
 
 	let rsViewport = $state<HTMLDivElement>();
 	let laneWidth = $state<number>();

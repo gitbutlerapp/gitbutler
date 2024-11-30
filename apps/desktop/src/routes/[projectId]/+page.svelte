@@ -3,7 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 
-	let projectId = $derived($page.params.projectId);
+	const projectId = $derived($page.params.projectId);
 	run(() => {
 		if (projectId) {
 			goto(`/${projectId}/board`, { replaceState: true });

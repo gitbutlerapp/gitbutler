@@ -43,7 +43,7 @@
 	let sendLogs = $state(false);
 	let sendProjectRepository = $state(false);
 
-	let projectId = $derived($page.params.projectId!);
+	const projectId = $derived($page.params.projectId!);
 
 	function reset() {
 		messageInputValue = '';

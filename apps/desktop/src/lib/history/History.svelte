@@ -80,7 +80,7 @@
 		| undefined = $state(undefined);
 	let selectedFile: { entryId: string; path: string } | undefined = $state(undefined);
 
-	let withinRestoreItems = $derived(findRestorationRanges($snapshots));
+	const withinRestoreItems = $derived(findRestorationRanges($snapshots));
 </script>
 
 <svelte:window

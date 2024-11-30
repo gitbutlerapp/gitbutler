@@ -31,34 +31,36 @@
 	setContext(FileIdSelection, fileIdSelection);
 
 	const selectedFile = fileIdSelection.selectedFile;
-	let commitId = $derived($selectedFile?.commitId);
-	let selected = $derived($selectedFile?.file);
+	const commitId = $derived($selectedFile?.commitId);
+	const selected = $derived($selectedFile?.file);
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'branchPreviewLaneWidth';
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
-	let remoteCommitShas = $derived(new Set(remoteBranch?.commits.map((commit) => commit.id) || []));
+	const remoteCommitShas = $derived(
+		new Set(remoteBranch?.commits.map((commit) => commit.id) || [])
+	);
 
 	// Find commits common in the local and remote
-	let localAndRemoteCommits = $derived(
+	const localAndRemoteCommits = $derived(
 		localBranch?.commits.filter((commit) => remoteCommitShas.has(commit.id)) || []
 	);
 
-	let localAndRemoteCommitShas = $derived(
+	const localAndRemoteCommitShas = $derived(
 		new Set(localAndRemoteCommits.map((commit) => commit.id))
 	);
 
 	// Find the local and remote commits that are not shared
-	let localCommits = $derived(
+	const localCommits = $derived(
 		localBranch?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || []
 	);
-	let remoteCommits = $derived(
+	const remoteCommits = $derived(
 		remoteBranch?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || []
 	);
 
-	let lineManager = $derived(
+	const lineManager = $derived(
 		lineManagerFactory.build({
 			remoteCommits: remoteCommits.map(transformAnyCommit),
 			localCommits: localCommits.map(transformAnyCommit),

@@ -138,10 +138,10 @@
 		}
 	});
 
-	let inputBody = $derived(
+	const inputBody = $derived(
 		props.type !== 'display' ? persistedPRBody(project.id, props.currentSeries.name) : undefined
 	);
-	let inputTitle = $derived(
+	const inputTitle = $derived(
 		props.type !== 'display' ? persistedPRTitle(project.id, props.currentSeries.name) : undefined
 	);
 

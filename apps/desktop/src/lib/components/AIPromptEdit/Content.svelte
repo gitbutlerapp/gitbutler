@@ -17,7 +17,7 @@
 	let editing = $state(false);
 	let promptMessages = $state($state.snapshot(prompt.prompt));
 	let promptName = $state(prompt.name);
-	let initialName = $derived(promptName);
+	const initialName = $derived(promptName);
 	let isInEditing = $state(false) as boolean;
 	let errorMessages = $state([]) as number[];
 

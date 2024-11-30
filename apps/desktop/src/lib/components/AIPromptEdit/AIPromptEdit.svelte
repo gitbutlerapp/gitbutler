@@ -22,7 +22,7 @@
 		prompts = promptService.branchPrompts;
 	}
 
-	let userPrompts = $derived(prompts.userPrompts);
+	const userPrompts = $derived(prompts.userPrompts);
 
 	function createNewPrompt() {
 		prompts?.userPrompts.set([

@@ -15,10 +15,10 @@
 
 	let { file, isFileLocked, onClose }: Props = $props();
 
-	let fileStats = $derived(computeAddedRemovedByFiles(file));
-	let fileStatus = $derived(computeFileStatus(file));
+	const fileStats = $derived(computeAddedRemovedByFiles(file));
+	const fileStatus = $derived(computeFileStatus(file));
 
-	let fileTitle = $derived(splitFilePath(file.path));
+	const fileTitle = $derived(splitFilePath(file.path));
 </script>
 
 <div class="header">

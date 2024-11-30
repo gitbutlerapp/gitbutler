@@ -23,15 +23,15 @@
 
 	let { localBranch, remoteBranch, pr }: Props = $props();
 
-	let branch = $derived(remoteBranch || localBranch!);
-	let upstream = $derived(remoteBranch?.givenName);
+	const branch = $derived(remoteBranch || localBranch!);
+	const upstream = $derived(remoteBranch?.givenName);
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 	const forge = getForge();
 	const modeSerivce = getContext(ModeService);
 	const mode = modeSerivce.mode;
-	let forgeBranch = $derived(upstream ? $forge?.branch(upstream) : undefined);
+	const forgeBranch = $derived(upstream ? $forge?.branch(upstream) : undefined);
 
 	let isApplying = $state(false);
 	let isDeleting = $state(false);

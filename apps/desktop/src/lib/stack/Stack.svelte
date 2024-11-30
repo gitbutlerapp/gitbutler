@@ -77,7 +77,7 @@
 		};
 	});
 
-	let canPush = $derived.by(() => {
+	const canPush = $derived.by(() => {
 		if (upstreamPatches.length > 0) return true;
 		if (branchPatches.some((p) => !['localAndRemote', 'integrated'].includes(p.status)))
 			return true;

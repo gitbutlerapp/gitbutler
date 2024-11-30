@@ -58,7 +58,7 @@
 	let titleTextArea: HTMLTextAreaElement | undefined = $state();
 	let descriptionTextArea: HTMLTextAreaElement | undefined = $state();
 
-	let { title, description } = $derived(splitMessage(commitMessage));
+	const { title, description } = $derived(splitMessage(commitMessage));
 	$effect(() => {
 		valid = !!title;
 	});
