@@ -7,7 +7,7 @@
 		userSettings: Writable<Settings>;
 	}
 
-	let { userSettings }: Props = $props();
+	const { userSettings }: Props = $props();
 
 	const themes = [
 		{

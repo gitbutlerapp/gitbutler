@@ -10,7 +10,7 @@
 		promptUse: 'commits' | 'branches';
 	}
 
-	let { promptUse }: Props = $props();
+	const { promptUse }: Props = $props();
 
 	const promptService = getContext(PromptService);
 

@@ -23,7 +23,7 @@
 		pr: PullRequest | undefined;
 	}
 
-	let { localBranch = undefined, remoteBranch = undefined, pr }: Props = $props();
+	const { localBranch = undefined, remoteBranch = undefined, pr }: Props = $props();
 
 	const forge = getForge();
 

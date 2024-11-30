@@ -12,7 +12,7 @@
 		children?: Snippet;
 	}
 
-	let {
+	const {
 		foldable = false,
 		foldedAmount = undefined,
 		foldedHeight = '3rem',

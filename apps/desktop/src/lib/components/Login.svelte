@@ -12,7 +12,7 @@
 		wide?: boolean;
 	}
 
-	let { wide = false }: Props = $props();
+	const { wide = false }: Props = $props();
 
 	let token: LoginToken | undefined;
 </script>

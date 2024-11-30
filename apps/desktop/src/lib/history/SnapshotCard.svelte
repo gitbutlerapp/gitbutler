@@ -24,7 +24,7 @@
 			| undefined;
 	}
 
-	let {
+	const {
 		entry,
 		isWithinRestore = true,
 		selectedFile = undefined,

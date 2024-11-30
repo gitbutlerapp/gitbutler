@@ -12,7 +12,7 @@
 		commitBoxOpen: Writable<boolean>;
 	}
 
-	let { commitBoxOpen }: Props = $props();
+	const { commitBoxOpen }: Props = $props();
 
 	const project = getContext(Project);
 	const branchStore = getContextStore(VirtualBranch);

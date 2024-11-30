@@ -21,7 +21,7 @@
 		pr: PullRequest | undefined;
 	}
 
-	let { localBranch, remoteBranch, pr }: Props = $props();
+	const { localBranch, remoteBranch, pr }: Props = $props();
 
 	const branch = $derived(remoteBranch || localBranch!);
 	const upstream = $derived(remoteBranch?.givenName);

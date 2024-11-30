@@ -12,7 +12,7 @@
 		onselected: (body: string) => void;
 	}
 
-	let { templates, onselected }: Props = $props();
+	const { templates, onselected }: Props = $props();
 
 	const forge = getForge();
 	// TODO: Rename or refactor this service.

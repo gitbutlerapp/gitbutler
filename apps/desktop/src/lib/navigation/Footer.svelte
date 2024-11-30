@@ -11,7 +11,7 @@
 		isNavCollapsed: boolean;
 	}
 
-	let { projectId, isNavCollapsed }: Props = $props();
+	const { projectId, isNavCollapsed }: Props = $props();
 
 	const modeService = getContext(ModeService);
 	const mode = modeService.mode;

@@ -25,7 +25,7 @@
 		disabled?: boolean;
 	}
 
-	let {
+	const {
 		remoteName = '',
 		branchName = '',
 		showProjectName = false,

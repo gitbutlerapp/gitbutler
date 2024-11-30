@@ -14,7 +14,7 @@
 		branchName: string | null | undefined;
 	}
 
-	let { projectId, remoteName, branchName }: Props = $props();
+	const { projectId, remoteName, branchName }: Props = $props();
 
 	const authService = getContext(AuthService);
 

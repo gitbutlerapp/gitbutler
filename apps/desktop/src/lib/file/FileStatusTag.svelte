@@ -7,7 +7,7 @@
 		status: FileStatus;
 	}
 
-	let { status }: Props = $props();
+	const { status }: Props = $props();
 
 	function statusToColor(status: FileStatus): ComponentColor {
 		switch (status) {

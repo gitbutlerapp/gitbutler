@@ -11,7 +11,13 @@
 		onClick?: () => void;
 	}
 
-	let { icon = undefined, selected = false, loading = false, children, onClick }: Props = $props();
+	const {
+		icon = undefined,
+		selected = false,
+		loading = false,
+		children,
+		onClick
+	}: Props = $props();
 </script>
 
 <button type="button" disabled={selected} class="button" class:selected onclick={() => onClick?.()}>

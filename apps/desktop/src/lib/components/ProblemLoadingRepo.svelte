@@ -18,7 +18,7 @@
 		error?: any;
 	}
 
-	let { error = undefined }: Props = $props();
+	const { error = undefined }: Props = $props();
 
 	const projectsService = getContext(ProjectsService);
 	const project = getContext(Project);

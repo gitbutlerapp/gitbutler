@@ -4,7 +4,7 @@
 		projectName?: string;
 	}
 
-	let { projectName = '' }: Props = $props();
+	const { projectName = '' }: Props = $props();
 </script>
 
 <div class="project-name">

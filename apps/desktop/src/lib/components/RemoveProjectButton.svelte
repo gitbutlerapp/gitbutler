@@ -9,7 +9,7 @@
 		onDeleteClicked: () => Promise<void>;
 	}
 
-	let {
+	const {
 		projectTitle = '#',
 		isDeleting = false,
 		noModal = false,

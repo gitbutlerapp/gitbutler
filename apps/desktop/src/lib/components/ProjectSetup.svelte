@@ -16,7 +16,7 @@
 		remoteBranches: RemoteBranchInfo[];
 	}
 
-	let { remoteBranches }: Props = $props();
+	const { remoteBranches }: Props = $props();
 
 	const project = $state(getContext(Project));
 	const projectsService = getContext(ProjectsService);

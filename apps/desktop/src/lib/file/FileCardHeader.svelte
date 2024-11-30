@@ -13,7 +13,7 @@
 		onClose?: () => void;
 	}
 
-	let { file, isFileLocked, onClose }: Props = $props();
+	const { file, isFileLocked, onClose }: Props = $props();
 
 	const fileStats = $derived(computeAddedRemovedByFiles(file));
 	const fileStatus = $derived(computeFileStatus(file));

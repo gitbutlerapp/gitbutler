@@ -8,7 +8,7 @@
 		checked?: boolean;
 	}
 
-	let {
+	const {
 		name = '',
 		small = false,
 		disabled = false,

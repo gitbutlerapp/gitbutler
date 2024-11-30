@@ -17,7 +17,7 @@
 		disabled?: boolean;
 	}
 
-	let { minimal = false, disabled = false }: Props = $props();
+	const { minimal = false, disabled = false }: Props = $props();
 
 	const githubUserService = getGitHubUserServiceStore();
 	const userService = getContext(UserService);

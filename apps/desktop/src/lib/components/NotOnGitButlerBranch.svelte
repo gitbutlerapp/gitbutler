@@ -19,7 +19,7 @@
 		baseBranch: BaseBranch;
 	}
 
-	let { baseBranch }: Props = $props();
+	const { baseBranch }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const projectsService = getContext(ProjectsService);

@@ -14,7 +14,7 @@
 		isNavCollapsed: boolean;
 	}
 
-	let { isNavCollapsed }: Props = $props();
+	const { isNavCollapsed }: Props = $props();
 
 	const baseBranchService = getContext(BaseBranchService);
 	const project = getContext(Project);

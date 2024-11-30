@@ -13,7 +13,7 @@
 		toggle?: Snippet;
 	}
 
-	let {
+	const {
 		disabled = false,
 		success = false,
 		topBorder = false,

@@ -9,7 +9,7 @@
 		isNavCollapsed?: boolean;
 	}
 
-	let { pop = false, isNavCollapsed = false }: Props = $props();
+	const { pop = false, isNavCollapsed = false }: Props = $props();
 
 	const user = getContextStore(User);
 </script>

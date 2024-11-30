@@ -8,7 +8,7 @@
 		error?: any;
 	}
 
-	let { error = undefined }: Props = $props();
+	const { error = undefined }: Props = $props();
 </script>
 
 <DecorativeSplitView img={loadErrorSvg}>

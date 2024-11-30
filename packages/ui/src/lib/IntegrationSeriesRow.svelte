@@ -17,7 +17,7 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
 	import SeriesIcon from './SeriesIcon.svelte';
-	let { series, select }: Props = $props();
+	const { series, select }: Props = $props();
 
 	const allIntegrated = $derived(series.every((branch) => branch.status === 'integrated'));
 </script>

@@ -17,7 +17,7 @@
 		hasSectionsAfter: boolean;
 	}
 
-	let { projectId, expanded, hasSectionsAfter }: Props = $props();
+	const { projectId, expanded, hasSectionsAfter }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const selectedOwnership = getContextStore(SelectedOwnership);

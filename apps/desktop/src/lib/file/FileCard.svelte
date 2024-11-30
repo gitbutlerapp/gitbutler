@@ -18,7 +18,7 @@
 		onClose?: () => void;
 	}
 
-	let {
+	const {
 		file,
 		conflicted,
 		isUnapplied,

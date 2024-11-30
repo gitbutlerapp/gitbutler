@@ -5,7 +5,7 @@
 		children?: Snippet;
 	}
 
-	let { children }: Props = $props();
+	const { children }: Props = $props();
 </script>
 
 <div class="disclaimer text-12 text-body">

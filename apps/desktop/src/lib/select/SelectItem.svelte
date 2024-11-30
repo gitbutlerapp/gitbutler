@@ -14,7 +14,7 @@
 		onClick?: (value: string | undefined) => void;
 	}
 
-	let {
+	const {
 		icon = undefined,
 		selected = false,
 		disabled = false,
