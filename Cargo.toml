@@ -41,7 +41,7 @@ members = [
 resolver = "2"
 
 [workspace.dependencies]
-bstr = "1.10.0"
+bstr = "1.11.0"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
 gix = { version = "0.68.0", default-features = false, features = [] }
 git2 = { version = "0.19.0", features = [
@@ -50,15 +50,15 @@ git2 = { version = "0.19.0", features = [
 ] }
 uuid = { version = "1.11.0", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
-thiserror = "1.0.66"
-tokio = { version = "1.41.0", default-features = false }
+thiserror = "2.0.3"
+tokio = { version = "1.41.1", default-features = false }
 keyring = "2.3.3"
-anyhow = "1.0.92"
+anyhow = "1.0.93"
 parking_lot = "0.12.3"
 futures = "0.3.31"
 toml = "0.8.13"
-tracing = "0.1.40"
-tracing-subscriber = "0.3.17"
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"
 
 gitbutler-id = { path = "crates/gitbutler-id" }
 gitbutler-git = { path = "crates/gitbutler-git" }

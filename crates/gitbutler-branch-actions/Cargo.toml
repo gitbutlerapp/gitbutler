@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 tracing.workspace = true
-anyhow = "1.0.92"
+anyhow = "1.0.93"
 git2.workspace = true
 gix = { workspace = true, features = ["blob-diff", "revision", "merge"] }
 tokio.workspace = true
@@ -38,7 +38,7 @@ diffy = "0.4.0"
 hex = "0.4.3"
 regex = "1.11"
 git2-hooks = "0.4"
-url = { version = "2.5.2", features = ["serde"] }
+url = { version = "2.5.4", features = ["serde"] }
 md5 = "0.7.0"
 itertools = "0.13"
 gitbutler-command-context.workspace = true
@@ -55,8 +55,8 @@ gitbutler-workspace.workspace = true
 gix = { workspace = true, features = ["max-performance"] }
 gitbutler-git = { workspace = true, features = ["test-askpass-path"] }
 glob = "0.3.1"
-serial_test = "3.1.1"
-tempfile = "3.13"
+serial_test = "3.2.0"
+tempfile = "3.14"
 criterion = "0.5.1"
 uuid.workspace = true
 
