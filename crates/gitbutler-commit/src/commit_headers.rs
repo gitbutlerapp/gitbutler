@@ -1,4 +1,4 @@
-use bstr::{BStr, BString};
+use bstr::{BStr, BString, ByteSlice};
 use uuid::Uuid;
 
 /// Header used to determine which version of the headers is in use. This should never be changed
@@ -108,6 +108,41 @@ impl HasCommitHeaders for git2::Commit<'_> {
 
             let headers = CommitHeadersV1 { change_id };
 
+            Some(headers.into())
+        }
+    }
+}
+
+impl HasCommitHeaders for gix::Commit<'_> {
+    fn gitbutler_headers(&self) -> Option<CommitHeadersV2> {
+        let decoded = self.decode().ok()?;
+        if let Some(header) = decoded.extra_headers().find(HEADERS_VERSION_HEADER) {
+            let version_number = header.to_owned();
+
+            // Parse v2 headers
+            if version_number == V2_HEADERS_VERSION {
+                let change_id = decoded.extra_headers().find(V2_CHANGE_ID_HEADER)?;
+                // We can safely assume that the change id should be UTF8
+                let change_id = change_id.to_str().ok()?.to_string();
+
+                let conflicted = decoded
+                    .extra_headers()
+                    .find(V2_CONFLICTED_HEADER)
+                    .and_then(|value| value.to_str().ok()?.parse::<u64>().ok());
+
+                Some(CommitHeadersV2 {
+                    change_id,
+                    conflicted,
+                })
+            } else {
+                // Must be for a version we don't recognise
+                None
+            }
+        } else {
+            // Parse v1 headers
+            let change_id = decoded.extra_headers().find(V1_CHANGE_ID_HEADER)?;
+            let change_id = change_id.to_str().ok()?.to_string();
+            let headers = CommitHeadersV1 { change_id };
             Some(headers.into())
         }
     }

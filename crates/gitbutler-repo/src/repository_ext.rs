@@ -769,7 +769,7 @@ pub trait GixRepositoryExt: Sized {
         their_tree: gix::ObjectId,
     ) -> Result<bool>;
 
-    /// Return default lable names when merging trees.
+    /// Return default label names when merging trees.
     ///
     /// Note that these should probably rather be branch names, but that's for another day.
     fn default_merge_labels(&self) -> gix::merge::blob::builtin_driver::text::Labels<'static> {

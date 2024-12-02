@@ -2363,6 +2363,8 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-commit",
+ "gitbutler-oxidize",
+ "gix",
 ]
 
 [[package]]
@@ -2406,6 +2408,7 @@ version = "0.0.0"
 dependencies = [
  "bstr",
  "git2",
+ "gix",
  "uuid",
 ]
 
