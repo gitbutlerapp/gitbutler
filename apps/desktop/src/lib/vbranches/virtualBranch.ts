@@ -68,7 +68,7 @@ export class VirtualBranchService {
 		this.linkRelatedCommits(branches);
 		this.branches.set(branches);
 		this.branchesError.set(undefined);
-		this.logMetrics(branches);
+		this.updateMetrics(branches);
 	}
 
 	/**
@@ -108,7 +108,7 @@ export class VirtualBranchService {
 		);
 	}
 
-	private logMetrics(branches: VirtualBranch[]) {
+	private updateMetrics(branches: VirtualBranch[]) {
 		try {
 			const files = branches.flatMap((branch) => branch.files);
 			const hunks = files.flatMap((file) => file.hunks);
@@ -119,7 +119,7 @@ export class VirtualBranchService {
 			this.projectMetrics.setMetric('virtual_branch_count', branches.length);
 			this.projectMetrics.setMetric(
 				'max_stack_count',
-				Math.max(...branches.map((b) => b.series.length))
+				branches.length > 0 ? Math.max(...branches.map((b) => b.series.length)) : 0
 			);
 		} catch (err: unknown) {
 			console.error(err);
