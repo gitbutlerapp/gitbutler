@@ -10,7 +10,7 @@ import {
 } from '$lib/organizations/types';
 import { POLLING_REGULAR, POLLING_SLOW } from '$lib/polling';
 import type { HttpClient } from '$lib/httpClient';
-import type { AppDispatch } from '$lib/redux/store';
+import type { AppDispatch } from '$lib/redux/store.svelte';
 
 export class OrganizationService {
 	private readonly organizationListingInterests = new InterestStore<undefined>(POLLING_SLOW);

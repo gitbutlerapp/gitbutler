@@ -3,7 +3,7 @@ import { POLLING_SLOW } from '$lib/polling';
 import { apiToUser, type ApiUser } from '$lib/users/types';
 import { upsertUser } from '$lib/users/usersSlice';
 import type { HttpClient } from '$lib/httpClient';
-import type { AppDispatch } from '$lib/redux/store';
+import type { AppDispatch } from '$lib/redux/store.svelte';
 
 export class UserService {
 	private readonly userInterests = new InterestStore<{ login: string }>(POLLING_SLOW);

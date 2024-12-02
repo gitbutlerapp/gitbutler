@@ -11,7 +11,7 @@
 	import { organizationsSelectors } from '@gitbutler/shared/organizations/organizationsSlice';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { projectsSelectors } from '@gitbutler/shared/organizations/projectsSlice';
-	import { AppState } from '@gitbutler/shared/redux/store';
+	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
@@ -26,16 +26,16 @@
 
 	const project = projectsService.getProjectStore(_project.id);
 
-	const projects = appState.projects;
 	const cloudProject = $derived(
-		$project?.api ? projectsSelectors.selectById($projects, $project.api.repository_id) : undefined
+		$project?.api
+			? projectsSelectors.selectById(appState.projects, $project.api.repository_id)
+			: undefined
 	);
 	const cloudProjectInterest = $derived(
 		$project?.api ? cloudProjectService.getProjectInterest($project.api.repository_id) : undefined
 	);
 
-	const organizations = appState.organizations;
-	const usersOrganizations = $derived(organizationsSelectors.selectAll($organizations));
+	const usersOrganizations = $derived(organizationsSelectors.selectAll(appState.organizations));
 	const usersOrganizationsInterest = organizationService.getOrganizationListingInterest();
 
 	async function createProject() {

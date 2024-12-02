@@ -3,7 +3,7 @@ import { upsertProject } from '$lib/organizations/projectsSlice';
 import { type ApiProject, apiToProject } from '$lib/organizations/types';
 import { POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/httpClient';
-import type { AppDispatch } from '$lib/redux/store';
+import type { AppDispatch } from '$lib/redux/store.svelte';
 
 export class ProjectService {
 	private readonly projectInterests = new InterestStore<{ repositoryId: string }>(POLLING_REGULAR);

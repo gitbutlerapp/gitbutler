@@ -41,7 +41,7 @@
 	import { HttpClient } from '@gitbutler/shared/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
-	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store';
+	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		DesktopRoutesService,
 		setRoutesService,
@@ -64,6 +64,19 @@
 	const userSettings = loadUserSettings();
 	setContext(SETTINGS, userSettings);
 
+	const appState = new AppState();
+	const feedService = new FeedService(data.cloud, appState.appDispatch);
+	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
+	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
+	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
+
+	setContext(AppState, appState);
+	setContext(AppDispatch, appState.appDispatch);
+	setContext(FeedService, feedService);
+	setContext(OrganizationService, organizationService);
+	setContext(CloudUserService, cloudUserService);
+	setContext(CloudProjectService, cloudProjectService);
+
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
 	setContext(PostHogWrapper, data.posthog);
@@ -84,10 +97,6 @@
 	setContext(LineManagerFactory, data.lineManagerFactory);
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
-	setContext(FeedService, data.feedService);
-	setContext(OrganizationService, data.organizationService);
-	setContext(CloudUserService, data.cloudUserService);
-	setContext(CloudProjectService, data.cloudProjectService);
 
 	const webRoutesService = new WebRoutesService(true, env.PUBLIC_CLOUD_BASE_URL);
 	const desktopRoutesService = new DesktopRoutesService(webRoutesService);

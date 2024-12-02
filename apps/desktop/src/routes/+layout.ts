@@ -14,12 +14,7 @@ import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { UserService } from '$lib/stores/user';
-import { FeedService } from '@gitbutler/shared/feeds/service';
 import { HttpClient } from '@gitbutler/shared/httpClient';
-import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
-import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
-import { AppState } from '@gitbutler/shared/redux/store';
-import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import lscache from 'lscache';
@@ -35,8 +30,6 @@ export const csr = true;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async () => {
-	const appState = new AppState();
-
 	// Awaited and will block initial render, but it is necessary in order to respect the user
 	// settings on telemetry.
 	const posthog = new PostHogWrapper();
@@ -67,11 +60,6 @@ export const load: LayoutLoad = async () => {
 	const lineManagerFactory = new LineManagerFactory();
 	const stackingLineManagerFactory = new StackingLineManagerFactory();
 
-	const feedService = new FeedService(httpClient, appState.appDispatch);
-	const organizationService = new OrganizationService(httpClient, appState.appDispatch);
-	const cloudUserService = new CloudUserService(httpClient, appState.appDispatch);
-	const cloudProjectService = new CloudProjectService(httpClient, appState.appDispatch);
-
 	return {
 		commandService,
 		tokenMemoryService,
@@ -89,11 +77,6 @@ export const load: LayoutLoad = async () => {
 		lineManagerFactory,
 		stackingLineManagerFactory,
 		secretsService,
-		appState,
 		posthog
-		feedService,
-		organizationService,
-		cloudUserService,
-		cloudProjectService
 	};
 };

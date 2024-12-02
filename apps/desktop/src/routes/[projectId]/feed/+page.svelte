@@ -6,7 +6,7 @@
 	import { postsSelectors } from '@gitbutler/shared/feeds/postsSlice';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
-	import { AppState } from '@gitbutler/shared/redux/store';
+	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	const appState = getContext(AppState);
@@ -15,8 +15,7 @@
 	// Fetching the head of the feed
 	const feedHeadInterest = feedService.getFeedHeadInterest();
 	// List posts associated with the feed
-	const feedsState = appState.feeds;
-	const feed = $derived(feedsSelectors.selectById($feedsState, 'all'));
+	const feed = $derived(feedsSelectors.selectById(appState.feeds, 'all'));
 
 	// Post creation
 	let newPostContent = $state('');
@@ -26,13 +25,12 @@
 	}
 
 	// Infinite scrolling
-	const postsState = appState.posts;
 	const lastPostId = $derived(feed?.postIds.at(-1));
 	const lastPostInterest = $derived(
 		lastPostId ? feedService.getPostWithRepliesInterest(lastPostId) : undefined
 	);
 	const lastPost = $derived(
-		lastPostId ? postsSelectors.selectById($postsState, lastPostId) : undefined
+		lastPostId ? postsSelectors.selectById(appState.posts, lastPostId) : undefined
 	);
 	let lastElement = $state<HTMLElement | undefined>();
 

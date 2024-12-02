@@ -4,7 +4,7 @@ import { apiToPost, type ApiPost, type ApiPostWithReplies, type Post } from '$li
 import { InterestStore } from '$lib/interest/intrestStore';
 import { POLLING_FAST, POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/httpClient';
-import type { AppDispatch } from '$lib/redux/store';
+import type { AppDispatch } from '$lib/redux/store.svelte';
 
 export class FeedService {
 	private readonly feedInterests = new InterestStore<{ identifier: string }>(POLLING_REGULAR);

@@ -5,7 +5,7 @@
 	import { organizationsSelectors } from '$lib/organizations/organizationsSlice';
 	import { ProjectService } from '$lib/organizations/projectService';
 	import { projectsSelectors } from '$lib/organizations/projectsSlice';
-	import { AppState } from '$lib/redux/store';
+	import { AppState } from '$lib/redux/store.svelte';
 	import { UserService } from '$lib/users/userService';
 	import { usersSelectors } from '$lib/users/usersSlice';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -28,26 +28,23 @@
 	const projectService = getContext(ProjectService);
 	const userService = getContext(UserService);
 
-	const organizationsState = appState.organizations;
-	const usersState = appState.users;
-	const projectsState = appState.projects;
 	const organizationInterest = $derived(
 		organizationService.getOrganizationWithDetailsInterest(slug)
 	);
 
 	const organization = $derived<Organization | undefined>(
-		organizationsSelectors.selectById($organizationsState, slug)
+		organizationsSelectors.selectById(appState.organizations, slug)
 	);
 	const users = $derived<{ interest: Interest; user: User | undefined }[]>(
 		organization?.memberLogins?.map((login) => ({
 			interest: userService.getUserInterest(login),
-			user: usersSelectors.selectById($usersState, login)
+			user: usersSelectors.selectById(appState.users, login)
 		})) || []
 	);
 
 	const projects = $derived(
 		organization?.projectRepositoryIds?.map((repositoryId) => ({
-			project: projectsSelectors.selectById($projectsState, repositoryId),
+			project: projectsSelectors.selectById(appState.projects, repositoryId),
 			projectInterest: projectService.getProjectInterest(repositoryId)
 		})) || []
 	);
