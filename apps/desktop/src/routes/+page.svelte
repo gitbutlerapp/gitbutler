@@ -2,7 +2,6 @@
 	import { ProjectsService } from '$lib/backend/projects';
 	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import { getContext } from '@gitbutler/shared/context';
-	import { run } from 'svelte/legacy';
 	import { derived as derivedStore } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -40,7 +39,7 @@
 		{ type: 'loading' } as Redirect
 	);
 
-	run(() => {
+	$effect(() => {
 		if ($redirect.type === 'redirect') {
 			goto($redirect.subject);
 		} else if ($redirect.type === 'no-projects') {

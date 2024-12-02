@@ -2,7 +2,6 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { onMount } from 'svelte';
-	import { run } from 'svelte/legacy';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -34,7 +33,7 @@
 		setHeight();
 	});
 
-	run(() => {
+	$effect(() => {
 		if (el) {
 			setHeight();
 		}

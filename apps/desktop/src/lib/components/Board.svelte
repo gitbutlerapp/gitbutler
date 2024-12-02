@@ -13,7 +13,6 @@
 	import posthog from 'posthog-js';
 	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
-	import { run } from 'svelte/legacy';
 	import type { VirtualBranch } from '$lib/vbranches/types';
 
 	const vbranchService = getContext(VirtualBranchService);
@@ -26,13 +25,14 @@
 
 	let dragHandle: any = $state();
 	let clone: any = $state();
-	run(() => {
+	$effect(() => {
 		if ($error) {
 			$showHistoryView = true;
 		}
 	});
+
 	let sortedBranches = $state<VirtualBranch[]>([]);
-	run(() => {
+	$effect(() => {
 		sortedBranches = $branches?.sort((a, b) => a.order - b.order) || [];
 	});
 
