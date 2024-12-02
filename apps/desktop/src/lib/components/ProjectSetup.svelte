@@ -18,7 +18,7 @@
 
 	const { remoteBranches }: Props = $props();
 
-	const project = $state(getContext(Project));
+	const project = getContext(Project);
 	const projectsService = getContext(ProjectsService);
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
