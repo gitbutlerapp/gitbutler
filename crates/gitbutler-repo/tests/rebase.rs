@@ -337,11 +337,11 @@ mod gitbutler_merge_commits {
         // setup such that the auto-resolution of `bc_result` and `de_result`
         // don't conflict when merged themselves.
         //
-        // bc_result auto-resoultion tree:
+        // bc_result auto-resolution tree:
         // foo.txt: c
         // bar.txt: a
         //
-        // bc_result auto-resoultion tree:
+        // bc_result auto-resolution tree:
         // foo.txt: a
         // bar.txt: c
 

@@ -3,17 +3,17 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use crate::{LogUntil, RepositoryExt as _};
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
-use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt};
-use gitbutler_command_context::CommandContext;
+use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt, RepositoryExt};
+use gitbutler_command_context::{gix_repository_for_merging, CommandContext};
 use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
+use gitbutler_oxidize::gix_to_git2_oid;
 use serde::{Deserialize, Serialize};
-
-use crate::{LogUntil, RepositoryExt as _};
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
@@ -59,7 +59,8 @@ pub fn cherry_rebase_group(
         .rev()
         .collect::<Result<Vec<_>, _>>()
         .context("failed to read commits to rebase")?;
-
+    let gix_repo = gix_repository_for_merging(repository.path())?;
+    let conflict_kind = gix::merge::tree::TreatAsUnresolved::forced_resolution();
     let new_head_id = commits_to_rebase
         .into_iter()
         .fold(
@@ -76,19 +77,26 @@ pub fn cherry_rebase_group(
                     return Ok(to_rebase);
                 };
 
-                let mut cherrypick_index = repository
-                    .cherry_pick_gitbutler(&head, &to_rebase, None)
+                let mut cherrypick_result = gix_repo
+                    .cherry_pick_gitbutler(&head, &to_rebase)
                     .context("failed to cherry pick")?;
 
-                if cherrypick_index.has_conflicts() {
+                let tree_id = cherrypick_result.tree.write()?;
+                if cherrypick_result.has_unresolved_conflicts(conflict_kind) {
                     commit_conflicted_cherry_result(
                         repository,
                         head,
                         to_rebase,
-                        &mut cherrypick_index,
+                        cherrypick_result,
+                        conflict_kind,
                     )
                 } else {
-                    commit_unconflicted_cherry_result(repository, head, to_rebase, cherrypick_index)
+                    commit_unconflicted_cherry_result(
+                        repository,
+                        head,
+                        to_rebase,
+                        gix_to_git2_oid(tree_id),
+                    )
                 }
             },
         )?
@@ -101,19 +109,15 @@ fn commit_unconflicted_cherry_result<'repository>(
     repository: &'repository git2::Repository,
     head: git2::Commit<'repository>,
     to_rebase: git2::Commit,
-    mut cherrypick_index: git2::Index,
+    merge_tree_id: git2::Oid,
 ) -> Result<git2::Commit<'repository>> {
-    let merge_tree_oid = cherrypick_index
-        .write_tree_to(repository)
-        .context("failed to write merge tree")?;
-
     // Remove empty commits
-    if merge_tree_oid == head.tree_id() {
+    if merge_tree_id == head.tree_id() {
         return Ok(head);
     }
 
     let merge_tree = repository
-        .find_tree(merge_tree_oid)
+        .find_tree(merge_tree_id)
         .context("failed to find merge tree")?;
 
     // Set conflicted header to None
@@ -147,7 +151,8 @@ fn commit_conflicted_cherry_result<'repository>(
     repository: &'repository git2::Repository,
     head: git2::Commit,
     to_rebase: git2::Commit,
-    cherrypick_index: &mut git2::Index,
+    mut cherry_pick_result: gix::merge::tree::Outcome<'_>,
+    treat_as_unresolved: gix::merge::tree::TreatAsUnresolved,
 ) -> Result<git2::Commit<'repository>> {
     let commit_headers = to_rebase.gitbutler_headers();
 
@@ -164,9 +169,9 @@ fn commit_conflicted_cherry_result<'repository>(
         b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
     let readme_blob = repository.blob(readme_content)?;
 
-    let conflicted_files = resolve_index(repository, cherrypick_index)?;
-
-    let resolved_tree_id = cherrypick_index.write_tree_to(repository)?;
+    let resolved_tree_id = cherry_pick_result.tree.write()?;
+    let conflicted_files =
+        extract_conflicted_files(resolved_tree_id, cherry_pick_result, treat_as_unresolved)?;
 
     // convert files into a string and save as a blob
     let conflicted_files_string = toml::to_string(&conflicted_files)?;
@@ -184,7 +189,7 @@ fn commit_conflicted_cherry_result<'repository>(
     tree_writer.insert(&*ConflictedTreeKey::Base, base_tree.id(), 0o040000)?;
     tree_writer.insert(
         &*ConflictedTreeKey::AutoResolution,
-        resolved_tree_id,
+        gix_to_git2_oid(resolved_tree_id),
         0o040000,
     )?;
     tree_writer.insert(
@@ -199,9 +204,9 @@ fn commit_conflicted_cherry_result<'repository>(
     let commit_headers =
         commit_headers
             .or_else(|| Some(Default::default()))
-            .map(|commit_headers| CommitHeadersV2 {
-                conflicted: Some(conflicted_files.total_entries() as u64),
-                ..commit_headers
+            .map(|mut commit_headers| {
+                commit_headers.conflicted = conflicted_files.to_headers().conflicted;
+                commit_headers
             });
 
     let (_, committer) = repository.signatures()?;
@@ -223,6 +228,79 @@ fn commit_conflicted_cherry_result<'repository>(
     repository
         .find_commit(commit_oid)
         .context("failed to find commit")
+}
+
+fn extract_conflicted_files(
+    tree_id: gix::Id<'_>,
+    merge_result: gix::merge::tree::Outcome<'_>,
+    treat_as_unresolved: gix::merge::tree::TreatAsUnresolved,
+) -> Result<ConflictEntries> {
+    use gix::index::entry::Stage;
+    let repo = tree_id.repo;
+    let mut index = repo.index_from_tree(&tree_id)?;
+    merge_result.index_changed_after_applying_conflicts(
+        &mut index,
+        treat_as_unresolved,
+        gix::merge::tree::apply_index_entries::RemovalMode::Mark,
+    );
+    let (mut ancestor_entries, mut our_entries, mut their_entries) =
+        (Vec::new(), Vec::new(), Vec::new());
+    let conflicting_entries = index.entries().iter().filter_map(|e| {
+        let stage = e.stage();
+        if stage == gix::index::entry::Stage::Unconflicted {
+            None
+        } else {
+            Some((stage, e))
+        }
+    });
+    for (stage, entry) in conflicting_entries {
+        let storage = match stage {
+            Stage::Unconflicted => {
+                unreachable!("BUG: filtered above to not contain unconflicted entries")
+            }
+            Stage::Base => &mut ancestor_entries,
+            Stage::Ours => &mut our_entries,
+            Stage::Theirs => &mut their_entries,
+        };
+
+        let path = entry.path(&index);
+        storage.push(gix::path::from_bstr(path).into_owned());
+    }
+    let mut out = ConflictEntries {
+        ancestor_entries,
+        our_entries,
+        their_entries,
+    };
+
+    // Since we typically auto-resolve with 'ours', it maybe that conflicting entries don't have an
+    // unconflicting counterpart anymore, so they are not applied (which is also what Git does).
+    // So to have something to show for - we *must* produce a conflict, extract paths manually.
+    // TODO(ST): instead of doing this, don't pre-record the paths. Instead redo the merge without
+    //           merge-strategy so that the index entries can be used instead.
+    if !out.has_entries() {
+        fn push_unique(v: &mut Vec<PathBuf>, change: &gix::diff::tree_with_rewrites::Change) {
+            let path = gix::path::from_bstr(change.location()).into_owned();
+            if !v.contains(&path) {
+                v.push(path);
+            }
+        }
+        for conflict in merge_result
+            .conflicts
+            .iter()
+            .filter(|c| c.is_unresolved(treat_as_unresolved))
+        {
+            let (ours, theirs) = conflict.changes_in_resolution();
+            push_unique(&mut out.our_entries, ours);
+            push_unique(&mut out.their_entries, theirs);
+        }
+    }
+    assert_eq!(
+        out.has_entries(),
+        merge_result.has_unresolved_conflicts(treat_as_unresolved),
+        "Must have entries to indicate conflicting files, or bad things will happen later: {:#?}",
+        merge_result.conflicts
+    );
+    Ok(out)
 }
 
 /// Merge two commits together
@@ -284,7 +362,7 @@ pub fn gitbutler_merge_commits<'repository>(
 
         // in case someone checks this out with vanilla Git, we should warn why it looks like this
         let readme_content =
-        b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
+            b"You have checked out a GitButler Conflicted commit. You probably didn't mean to do this.";
         let readme_blob = repository.blob(readme_content)?;
         tree_writer.insert("README.txt", readme_blob, 0o100644)?;
 
@@ -354,6 +432,25 @@ impl ConflictEntries {
             .collect::<HashSet<_>>();
 
         set.len()
+    }
+
+    /// Assure that the returned headers will always indicate a conflict.
+    /// This is a fail-safe in case this instance has no paths stored as auto-resolution
+    /// removed the path that would otherwise be conflicting.
+    /// In other words: conflicting index entries aren't reliable when conflicts were resolved
+    /// with the 'ours' strategy.
+    fn to_headers(&self) -> CommitHeadersV2 {
+        CommitHeadersV2 {
+            conflicted: Some({
+                let entries = self.total_entries();
+                if entries > 0 {
+                    entries as u64
+                } else {
+                    1
+                }
+            }),
+            ..Default::default()
+        }
     }
 }
 
@@ -436,7 +533,6 @@ fn resolve_index(
 
 #[cfg(test)]
 mod test {
-
     #[cfg(test)]
     mod resolve_index {
         use crate::rebase::resolve_index;
