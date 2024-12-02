@@ -36,6 +36,7 @@
 		diffFont: string;
 		diffLigatures: boolean;
 		inlineUnifiedDiffs: boolean;
+		diffContrast: 'light' | 'medium' | 'strong';
 		minWidth: number;
 		draggingDisabled: boolean;
 		onclick: () => void;
@@ -53,6 +54,7 @@
 		wrapText,
 		diffFont,
 		diffLigatures,
+		diffContrast,
 		inlineUnifiedDiffs,
 		minWidth,
 		draggingDisabled = false,
@@ -339,7 +341,7 @@
 <div
 	bind:clientWidth={tableWidth}
 	bind:clientHeight={tableHeight}
-	class="table__wrapper hide-native-scrollbar"
+	class="table__wrapper hide-native-scrollbar contrast-{diffContrast}"
 	style="--tab-size: {tabSize}; --diff-font: {diffFont};"
 	style:font-variant-ligatures={diffLigatures ? 'common-ligatures' : 'none'}
 >
@@ -647,5 +649,67 @@
 		user-select: text;
 		cursor: text;
 		text-wrap: var(--wrap);
+	}
+
+	/* DIFF LINE */
+	.diff-line-marker-addition,
+	.diff-line-addition {
+		background-color: var(--clr-diff-addition-line-bg);
+	}
+
+	.diff-line-marker-deletion,
+	.diff-line-deletion {
+		background-color: var(--clr-diff-deletion-line-bg);
+	}
+
+	/* CONTRAST MODIFIERS */
+	.table__wrapper {
+		&.contrast-light {
+			--clr-diff-count-text: var('--', var(--clr-diff-count-text));
+			/* deletion */
+			--clr-diff-deletion-line-bg: var('--', var(--clr-diff-deletion-line-bg));
+			--clr-diff-deletion-line-highlight: var('--', var(--clr-diff-deletion-line-highlight));
+			--clr-diff-deletion-count-bg: var('--', var(--clr-diff-deletion-count-bg));
+			--clr-diff-deletion-count-text: var('--', var(--clr-diff-deletion-count-text));
+			--clr-diff-deletion-count-border: var('--', var(--clr-diff-deletion-count-border));
+			/* addition */
+			--ctx-diff-addition-line-bg: var('--', var(--clr-diff-addition-line-bg));
+			--clr-diff-addition-line-highlight: var('--', var(--clr-diff-addition-line-highlight));
+			--clr-diff-addition-count-bg: var('--', var(--clr-diff-addition-count-bg));
+			--clr-diff-addition-count-text: var('--', var(--clr-diff-addition-count-text));
+			--clr-diff-addition-count-border: var('--', var(--clr-diff-addition-count-border));
+		}
+
+		&.contrast-medium {
+			--clr-diff-count-text: var(--clr-diff-count-text-contrast-2);
+			/* deletion */
+			--clr-diff-deletion-line-bg: var(--clr-diff-deletion-contrast-2-line-bg);
+			--clr-diff-deletion-line-highlight: var(--clr-diff-deletion-contrast-2-line-highlight);
+			--clr-diff-deletion-count-bg: var(--clr-diff-deletion-contrast-2-count-bg);
+			--clr-diff-deletion-count-text: var(--clr-diff-deletion-contrast-2-count-text);
+			--clr-diff-deletion-count-border: var(--clr-diff-deletion-contrast-2-count-border);
+			/* addition */
+			--clr-diff-addition-line-bg: var(--clr-diff-addition-contrast-2-line-bg);
+			--clr-diff-addition-line-highlight: var(--clr-diff-addition-contrast-2-line-highlight);
+			--clr-diff-addition-count-bg: var(--clr-diff-addition-contrast-2-count-bg);
+			--clr-diff-addition-count-text: var(--clr-diff-addition-contrast-2-count-text);
+			--clr-diff-addition-count-border: var(--clr-diff-addition-contrast-2-count-border);
+		}
+
+		&.contrast-strong {
+			--clr-diff-count-text: var(--clr-diff-count-text-contrast-3);
+			/* deletion */
+			--clr-diff-deletion-line-bg: var(--clr-diff-deletion-contrast-3-line-bg);
+			--clr-diff-deletion-line-highlight: var(--clr-diff-deletion-contrast-3-line-highlight);
+			--clr-diff-deletion-count-bg: var(--clr-diff-deletion-contrast-3-count-bg);
+			--clr-diff-deletion-count-text: var(--clr-diff-deletion-contrast-3-count-text);
+			--clr-diff-deletion-count-border: var(--clr-diff-deletion-contrast-3-count-border);
+			/* addition */
+			--clr-diff-addition-line-bg: var(--clr-diff-addition-contrast-3-line-bg);
+			--clr-diff-addition-line-highlight: var(--clr-diff-addition-contrast-3-line-highlight);
+			--clr-diff-addition-count-bg: var(--clr-diff-addition-contrast-3-count-bg);
+			--clr-diff-addition-count-text: var(--clr-diff-addition-contrast-3-count-text);
+			--clr-diff-addition-count-border: var(--clr-diff-addition-contrast-3-count-border);
+		}
 	}
 </style>

@@ -25,6 +25,7 @@
 		disabled?: boolean;
 		loading?: boolean;
 		wide?: boolean;
+		maxWidth?: number;
 		flex?: string;
 		options: readonly SelectItem<T>[];
 		value?: T;
@@ -45,6 +46,7 @@
 		disabled,
 		loading,
 		wide,
+		maxWidth,
 		flex,
 		options = [],
 		value,
@@ -161,7 +163,13 @@
 	}
 </script>
 
-<div class="select-wrapper" class:wide bind:this={selectWrapperEl} style:flex>
+<div
+	class="select-wrapper"
+	class:wide
+	bind:this={selectWrapperEl}
+	style:flex
+	style:max-width={maxWidth ? pxToRem(maxWidth) : undefined}
+>
 	{#if label}
 		<label for={id} class="select__label text-13 text-body text-semibold">{label}</label>
 	{/if}
