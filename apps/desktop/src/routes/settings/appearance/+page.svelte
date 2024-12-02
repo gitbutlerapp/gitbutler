@@ -205,7 +205,7 @@
 
 		<SectionCard labelFor="wrapText" orientation="row" roundedTop={false} roundedBottom={false}>
 			{#snippet title()}
-				Text Wrap
+				Text wrap
 			{/snippet}
 			{#snippet caption()}
 				Wrap text in the diff view once it hits the end of the viewport.
