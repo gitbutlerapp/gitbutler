@@ -13,7 +13,6 @@
 @import './sharable/syntax-highlighting.css';
 
 /* COMPONENTS */
-@import './components/diff.css';
 @import './components/text-input.css';
 @import './components/commit-lines.css';
 @import './components/draggable.css';
