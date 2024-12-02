@@ -81,7 +81,7 @@ sudo apt install libwebkit2gtk-4.1-dev \
 
 2. Rust
 
-For both Mac OS and Linux, you can use the following `rustup` quick install scripti to get all the necessary tools.
+For both Mac OS and Linux, you can use the following `rustup` quick install script to get all the necessary tools.
 
 ```bash
 cd gitbutler-repo
