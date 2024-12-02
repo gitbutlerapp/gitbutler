@@ -439,6 +439,20 @@
 </div>
 
 <style lang="postcss">
+	.inner-diff {
+		border-radius: 2px;
+	}
+
+	.diff-line-marker-addition,
+	.diff-line-addition {
+		background-color: var(--clr-diff-addition-line-bg);
+	}
+
+	.diff-line-marker-deletion,
+	.diff-line-deletion {
+		background-color: var(--clr-diff-deletion-line-bg);
+	}
+
 	.table__wrapper {
 		border-radius: var(--radius-s);
 		background-color: var(--clr-diff-line-bg);
