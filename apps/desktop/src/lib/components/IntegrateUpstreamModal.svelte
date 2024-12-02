@@ -29,7 +29,6 @@
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 	import { tick } from 'svelte';
 	import { SvelteMap } from 'svelte/reactivity';
-	import type { Readable } from 'svelte/store';
 
 	type OperationState = 'inert' | 'loading' | 'completed';
 
@@ -41,7 +40,7 @@
 
 	const forge = getForge();
 	const upstreamIntegrationService = getContext(UpstreamIntegrationService);
-	let branchStatuses = $state<Readable<StackStatusesWithBranches | undefined>>();
+	let branchStatuses = $state<StackStatusesWithBranches | undefined>();
 	const baseBranchService = getContext(BaseBranchService);
 	const base = baseBranchService.base;
 
@@ -55,12 +54,12 @@
 	const isDivergedResolved = $derived($base?.diverged && !baseResolutionApproach);
 
 	$effect(() => {
-		if ($branchStatuses?.type !== 'updatesRequired') {
+		if (branchStatuses?.type !== 'updatesRequired') {
 			statuses = [];
 			return;
 		}
 
-		const statusesTmp = [...$branchStatuses.subject];
+		const statusesTmp = [...branchStatuses.subject];
 		statusesTmp.sort(sortStatusInfo);
 
 		// Side effect, refresh results
@@ -85,7 +84,9 @@
 	// Re-fetch upstream statuses if the target commit oid changes
 	$effect(() => {
 		if (targetCommitOid) {
-			branchStatuses = upstreamIntegrationService.upstreamStatuses(targetCommitOid);
+			upstreamIntegrationService.upstreamStatuses(targetCommitOid).then((statuses) => {
+				branchStatuses = statuses;
+			});
 		}
 	});
 
@@ -122,9 +123,9 @@
 
 	export async function show() {
 		integratingUpstream = 'inert';
-		branchStatuses = upstreamIntegrationService.upstreamStatuses();
-		await tick();
+		branchStatuses = undefined;
 		modal?.show();
+		branchStatuses = await upstreamIntegrationService.upstreamStatuses();
 	}
 
 	export const imports = {
@@ -286,8 +287,8 @@
 				type="submit"
 				style="pop"
 				kind="solid"
-				disabled={isDivergedResolved}
-				loading={integratingUpstream === 'loading'}>Update workspace</Button
+				disabled={isDivergedResolved || !branchStatuses}
+				loading={integratingUpstream === 'loading' || !branchStatuses}>Update workspace</Button
 			>
 		</div>
 	{/snippet}
