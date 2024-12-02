@@ -27,7 +27,7 @@
 		readonly: boolean;
 	}
 
-	let { trigger, filePath, projectPath, readonly }: Props = $props();
+	const { trigger, filePath, projectPath, readonly }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const userSettings = getContextStoreBySymbol<Settings, Writable<Settings>>(SETTINGS);

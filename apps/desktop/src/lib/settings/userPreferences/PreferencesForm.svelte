@@ -42,54 +42,62 @@
 
 <Section gap={8}>
 	<SectionCard orientation="row" labelFor="omitCertificateCheck">
-		<svelte:fragment slot="title">Ignore host certificate checks</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Ignore host certificate checks
+		{/snippet}
+		{#snippet caption()}
 			Enabling this will ignore host certificate checks when authenticating with ssh.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle
 				id="omitCertificateCheck"
 				checked={omitCertificateCheck}
 				onclick={handleOmitCertificateCheckClick}
 			/>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 
 	<SectionCard orientation="row" labelFor="newBranchIntegrationAlgorithm">
-		<svelte:fragment slot="title">Use new branch integration algorithm</svelte:fragment>
-		<svelte:fragment slot="caption"
-			>Enable this to start using the improved way of integrating remote changes into the local
+		{#snippet title()}
+			Use new branch integration algorithm
+		{/snippet}
+		{#snippet caption()}
+			Enable this to start using the improved way of integrating remote changes into the local
 			virtual branches in your workspace.
 			<br />
-			This does not affect how the target branch is integrated.</svelte:fragment
-		>
-		<svelte:fragment slot="actions">
+			This does not affect how the target branch is integrated.
+		{/snippet}
+		{#snippet actions()}
 			<Toggle
 				id="newBranchIntegrationAlgorithm"
 				checked={useNewBranchIntegrationAlgorithm}
 				onclick={handleUseNewBranchIntegrationAlgorithmClick}
 			/>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 
 	<SectionCard labelFor="runHooks" orientation="row">
-		<svelte:fragment slot="title">Run commit hooks</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Run commit hooks
+		{/snippet}
+		{#snippet caption()}
 			Enabling this will run any git pre and post commit hooks you have configured in your
 			repository.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle id="runHooks" bind:checked={$runCommitHooks} />
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 
 	<SectionCard orientation="row" centerAlign>
-		<svelte:fragment slot="title">Snapshot lines threshold</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Snapshot lines threshold
+		{/snippet}
+		{#snippet caption()}
 			The number of lines that trigger a snapshot when saving.
-		</svelte:fragment>
+		{/snippet}
 
-		<svelte:fragment slot="actions">
+		{#snippet actions()}
 			<Textbox
 				type="number"
 				width={100}
@@ -102,6 +110,6 @@
 					setSnapshotLinesThreshold(parseInt(value));
 				}}
 			/>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 </Section>

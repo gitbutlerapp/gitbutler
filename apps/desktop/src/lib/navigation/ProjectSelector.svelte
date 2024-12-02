@@ -10,7 +10,7 @@
 		isNavCollapsed: boolean;
 	}
 
-	let { isNavCollapsed }: Props = $props();
+	const { isNavCollapsed }: Props = $props();
 
 	const project = getContext(Project);
 

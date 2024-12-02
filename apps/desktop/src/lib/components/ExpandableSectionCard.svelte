@@ -1,9 +1,24 @@
 <script lang="ts">
 	import SectionCard from '$lib/components/SectionCard.svelte';
+	import type { Snippet } from 'svelte';
 
-	export let roundedTop = true;
-	export let roundedBottom = true;
-	export let expanded = false;
+	interface Props {
+		roundedTop?: boolean;
+		roundedBottom?: boolean;
+		expanded?: boolean;
+		header?: Snippet<[any]>;
+		children?: Snippet;
+		actions?: Snippet;
+	}
+
+	let {
+		roundedTop = true,
+		roundedBottom = true,
+		expanded = $bindable(false),
+		header,
+		children,
+		actions
+	}: Props = $props();
 
 	function maybeToggle() {
 		expanded = !expanded;
@@ -15,19 +30,19 @@
 	roundedBottom={roundedBottom && !expanded}
 	bottomBorder={!expanded}
 	clickable
-	on:click={maybeToggle}
+	onclick={maybeToggle}
 >
-	<svelte:fragment slot="title">
-		<slot name="header" {expanded}></slot>
-	</svelte:fragment>
+	{#snippet title()}
+		{@render header?.({ expanded })}
+	{/snippet}
 </SectionCard>
 
 {#if expanded}
 	<SectionCard roundedTop={false} {roundedBottom} topDivider>
-		<slot></slot>
+		{@render children?.()}
 	</SectionCard>
 
 	<SectionCard roundedTop={false} {roundedBottom} topDivider>
-		<slot name="actions"></slot>
+		{@render actions?.()}
 	</SectionCard>
 {/if}

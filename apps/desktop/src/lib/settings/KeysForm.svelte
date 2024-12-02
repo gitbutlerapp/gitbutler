@@ -12,24 +12,35 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { onMount } from 'svelte';
 
-	const project = getContext(Project);
+	const project = $state(getContext(Project));
 
 	const baseBranch = getContextStore(BaseBranch);
 	const projectsService = getContext(ProjectsService);
 
-	// Used by credential checker before target branch set
-	export let remoteName = '';
-	export let branchName = '';
-	export let showProjectName = false;
-	export let disabled = false;
+	interface Props {
+		// Used by credential checker before target branch set
+		remoteName?: string;
+		branchName?: string;
+		showProjectName?: boolean;
+		disabled?: boolean;
+	}
 
-	let credentialCheck: CredentialCheck;
+	const {
+		remoteName = '',
+		branchName = '',
+		showProjectName = false,
+		disabled = false
+	}: Props = $props();
 
-	let selectedType: KeyType =
-		typeof project.preferred_key === 'string' ? project.preferred_key : 'local';
+	let credentialCheck = $state<CredentialCheck>();
 
-	let privateKeyPath =
-		typeof project.preferred_key === 'string' ? '' : project.preferred_key.local.private_key_path;
+	let selectedType: KeyType = $state(
+		typeof project.preferred_key === 'string' ? project.preferred_key : 'local'
+	);
+
+	let privateKeyPath = $state(
+		typeof project.preferred_key === 'string' ? '' : project.preferred_key.local.private_key_path
+	);
 
 	function setLocalKey() {
 		if (privateKeyPath.trim().length === 0) return;
@@ -51,10 +62,10 @@
 		}
 	}
 
-	let form: HTMLFormElement;
+	let form = $state<HTMLFormElement>();
 
 	function onFormChange(form: HTMLFormElement) {
-		credentialCheck.reset();
+		credentialCheck?.reset();
 		const formData = new FormData(form);
 		selectedType = formData.get('credentialType') as KeyType;
 		if (selectedType !== 'local') {
@@ -65,41 +76,44 @@
 	}
 
 	onMount(async () => {
-		form.credentialType.value = selectedType;
+		if (form) {
+			form.credentialType.value = selectedType;
+		}
 	});
 </script>
 
 <Section>
-	<svelte:fragment slot="top"
-		>{#if showProjectName}<ProjectNameLabel projectName={project.title} />{/if}</svelte:fragment
-	>
-	<svelte:fragment slot="title">Git authentication</svelte:fragment>
-	<svelte:fragment slot="description">
+	{#snippet top()}
+		{#if showProjectName}<ProjectNameLabel projectName={project.title} />{/if}
+	{/snippet}
+	{#snippet title()}
+		Git authentication
+	{/snippet}
+	{#snippet description()}
 		Configure the authentication flow for GitButler when authenticating with your Git remote
 		provider.
-	</svelte:fragment>
+	{/snippet}
 
 	<form
 		class="git-radio"
 		class:disabled
 		bind:this={form}
-		on:change={(e) => onFormChange(e.currentTarget)}
+		onchange={(e) => onFormChange(e.currentTarget)}
 	>
 		<SectionCard roundedBottom={false} orientation="row" labelFor="git-executable">
-			<svelte:fragment slot="title"
-				>Use a Git executable <span style="color: var(--clr-text-2)">(default)</span
-				></svelte:fragment
-			>
+			{#snippet title()}
+				Use a Git executable <span style="color: var(--clr-text-2)">(default)</span>
+			{/snippet}
 
-			<svelte:fragment slot="caption">
+			{#snippet caption()}
 				{#if selectedType === 'systemExecutable'}
 					Git executable must be present on your PATH
 				{/if}
-			</svelte:fragment>
+			{/snippet}
 
-			<svelte:fragment slot="actions">
+			{#snippet actions()}
 				<RadioButton name="credentialType" value="systemExecutable" id="git-executable" />
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		<SectionCard
@@ -109,17 +123,19 @@
 			orientation="row"
 			labelFor="credential-local"
 		>
-			<svelte:fragment slot="title">Use existing SSH key</svelte:fragment>
+			{#snippet title()}
+				Use existing SSH key
+			{/snippet}
 
-			<svelte:fragment slot="actions">
+			{#snippet actions()}
 				<RadioButton name="credentialType" id="credential-local" value="local" />
-			</svelte:fragment>
+			{/snippet}
 
-			<svelte:fragment slot="caption">
+			{#snippet caption()}
 				{#if selectedType === 'local'}
 					Add the path to an existing SSH key that GitButler can use.
 				{/if}
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		{#if selectedType === 'local'}
@@ -140,20 +156,22 @@
 			orientation="row"
 			labelFor="credential-helper"
 		>
-			<svelte:fragment slot="title">Use a Git credentials helper</svelte:fragment>
+			{#snippet title()}
+				Use a Git credentials helper
+			{/snippet}
 
-			<svelte:fragment slot="caption">
+			{#snippet caption()}
 				{#if selectedType === 'gitCredentialsHelper'}
 					GitButler will use the system's git credentials helper.
 					<Link target="_blank" rel="noreferrer" href="https://git-scm.com/doc/credential-helpers">
 						Learn more
 					</Link>
 				{/if}
-			</svelte:fragment>
+			{/snippet}
 
-			<svelte:fragment slot="actions">
+			{#snippet actions()}
 				<RadioButton name="credentialType" value="gitCredentialsHelper" id="credential-helper" />
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		<SectionCard roundedTop={false} orientation="row">

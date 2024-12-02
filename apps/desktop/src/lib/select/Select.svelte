@@ -63,7 +63,7 @@
 
 	let highlightedIndex: number | undefined = $state(undefined);
 	let searchValue = $state('');
-	let filteredOptions = $derived(
+	const filteredOptions = $derived(
 		options.filter((item) => item.label.toLowerCase().includes(searchValue.toLowerCase()))
 	);
 	let maxHeightState = $state(maxHeight);

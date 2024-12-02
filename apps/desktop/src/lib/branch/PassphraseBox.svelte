@@ -4,12 +4,16 @@
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import type { SystemPromptHandle } from '$lib/backend/prompt';
 
-	export let prompt: SystemPromptHandle | undefined;
-	export let error: any;
-	export let value: string = '';
+	interface Props {
+		prompt: SystemPromptHandle | undefined;
+		error: any;
+		value?: string;
+	}
+
+	let { prompt, error, value = $bindable('') }: Props = $props();
 
 	let submitDisabled: boolean = false;
-	let isSubmitting = false;
+	let isSubmitting = $state(false);
 
 	async function submit() {
 		if (!prompt) return;

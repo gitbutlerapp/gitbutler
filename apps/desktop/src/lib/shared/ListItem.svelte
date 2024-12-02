@@ -1,24 +1,28 @@
 <script lang="ts">
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
+	import type { Snippet } from 'svelte';
 
-	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let selected = false;
-	export let loading = false;
+	interface Props {
+		icon?: keyof typeof iconsJson | undefined;
+		selected?: boolean;
+		loading?: boolean;
+		children?: Snippet;
+		onClick?: () => void;
+	}
 
-	const dispatch = createEventDispatcher<{ click: void }>();
+	const {
+		icon = undefined,
+		selected = false,
+		loading = false,
+		children,
+		onClick
+	}: Props = $props();
 </script>
 
-<button
-	type="button"
-	disabled={selected}
-	class="button"
-	class:selected
-	on:click={() => dispatch('click')}
->
+<button type="button" disabled={selected} class="button" class:selected onclick={() => onClick?.()}>
 	<div class="label text-14 text-bold">
-		<slot />
+		{@render children?.()}
 	</div>
 	{#if icon || selected}
 		<div class="icon">

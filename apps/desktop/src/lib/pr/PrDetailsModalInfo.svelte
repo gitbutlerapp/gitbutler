@@ -52,14 +52,16 @@
 			style="neutral"
 			filled
 			outlined={false}
-			primary="Configure GitHub"
+			primaryLabel="Configure GitHub"
 			primaryIcon="open-link"
-			on:primary={clickOnGitHubLink}
-			secondary="Ok, don't show this again"
-			on:secondary={acknowledgeWarning}
+			primaryAction={clickOnGitHubLink}
+			secondaryLabel="Ok, don't show this again"
+			secondaryAction={acknowledgeWarning}
 		>
-			<svelte:fragment slot="title">Branch deletion after merge</svelte:fragment>
-			<svelte:fragment slot="content">
+			{#snippet title()}
+				Branch deletion after merge
+			{/snippet}
+			{#snippet content()}
 				After a stacked PR has been merged, its branch should be deleted in order for the next PR to
 				be updated to point to your target branch (<LinkButton onclick={clickOnDocsLink}>
 					{#snippet children()}
@@ -72,7 +74,7 @@
 						configure GitHub
 					{/snippet}
 				</LinkButton> to do this automatically or alternatively delete the branch after merging.
-			</svelte:fragment>
+			{/snippet}
 		</InfoMessage>
 	</div>
 {/if}

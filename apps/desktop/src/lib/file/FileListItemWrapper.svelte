@@ -38,7 +38,7 @@
 	const localCommits = file instanceof LocalFile ? getLocalCommits() : undefined;
 	const remoteCommits = file instanceof LocalFile ? getLocalAndRemoteCommits() : undefined;
 	let lockedIds = file.lockedIds;
-	let lockText = $derived(
+	const lockText = $derived(
 		lockedIds.length > 0 && $localCommits
 			? getLockText(lockedIds, ($localCommits || []).concat($remoteCommits || []))
 			: ''

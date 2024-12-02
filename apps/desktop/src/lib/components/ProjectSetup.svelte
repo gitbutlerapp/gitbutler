@@ -12,15 +12,19 @@
 	import { posthog } from 'posthog-js';
 	import { goto } from '$app/navigation';
 
-	export let remoteBranches: RemoteBranchInfo[];
+	interface Props {
+		remoteBranches: RemoteBranchInfo[];
+	}
+
+	const { remoteBranches }: Props = $props();
 
 	const project = getContext(Project);
 	const projectsService = getContext(ProjectsService);
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
 
-	let selectedBranch = ['', ''];
-	let loading = false;
+	let selectedBranch = $state(['', '']);
+	let loading = $state(false);
 
 	async function setTarget() {
 		if (!selectedBranch[0] || selectedBranch[0] === '') return;
@@ -58,8 +62,8 @@
 		<ProjectSetupTarget
 			projectName={project.title}
 			{remoteBranches}
-			on:branchSelected={async (e) => {
-				selectedBranch = e.detail;
+			onBranchSelected={async (branch) => {
+				selectedBranch = branch;
 				// TODO: Temporary solution to forcing Windows to use system executable
 				if (platformName === 'windows') {
 					setTarget();

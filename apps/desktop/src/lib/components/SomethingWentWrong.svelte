@@ -4,7 +4,11 @@
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 
-	export let error: any = undefined;
+	interface Props {
+		error?: any;
+	}
+
+	const { error = undefined }: Props = $props();
 </script>
 
 <DecorativeSplitView img={loadErrorSvg}>
@@ -12,9 +16,9 @@
 		<h2 class="problem__title text-18 text-body text-bold">There was a problem loading the app</h2>
 
 		<InfoMessage filled outlined={false} style="error" icon="info">
-			<svelte:fragment slot="content">
+			{#snippet content()}
 				{error ? error : 'An unknown error occurred'}
-			</svelte:fragment>
+			{/snippet}
 		</InfoMessage>
 
 		<ProjectSwitcher />

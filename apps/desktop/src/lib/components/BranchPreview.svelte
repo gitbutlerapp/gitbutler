@@ -17,9 +17,13 @@
 	import { onMount, setContext } from 'svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';
 
-	export let localBranch: BranchData | undefined = undefined;
-	export let remoteBranch: BranchData | undefined = undefined;
-	export let pr: PullRequest | undefined;
+	interface Props {
+		localBranch?: BranchData | undefined;
+		remoteBranch?: BranchData | undefined;
+		pr: PullRequest | undefined;
+	}
+
+	const { localBranch = undefined, remoteBranch = undefined, pr }: Props = $props();
 
 	const forge = getForge();
 
@@ -27,37 +31,46 @@
 	setContext(FileIdSelection, fileIdSelection);
 
 	const selectedFile = fileIdSelection.selectedFile;
-	$: commitId = $selectedFile?.commitId;
-	$: selected = $selectedFile?.file;
+	const commitId = $derived($selectedFile?.commitId);
+	const selected = $derived($selectedFile?.file);
 
 	const defaultBranchWidthRem = 30;
 	const laneWidthKey = 'branchPreviewLaneWidth';
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const lineManagerFactory = getContext(LineManagerFactory);
 
-	$: remoteCommitShas = new Set(remoteBranch?.commits.map((commit) => commit.id) || []);
+	const remoteCommitShas = $derived(
+		new Set(remoteBranch?.commits.map((commit) => commit.id) || [])
+	);
 
 	// Find commits common in the local and remote
-	$: localAndRemoteCommits =
-		localBranch?.commits.filter((commit) => remoteCommitShas.has(commit.id)) || [];
+	const localAndRemoteCommits = $derived(
+		localBranch?.commits.filter((commit) => remoteCommitShas.has(commit.id)) || []
+	);
 
-	$: localAndRemoteCommitShas = new Set(localAndRemoteCommits.map((commit) => commit.id));
+	const localAndRemoteCommitShas = $derived(
+		new Set(localAndRemoteCommits.map((commit) => commit.id))
+	);
 
 	// Find the local and remote commits that are not shared
-	$: localCommits =
-		localBranch?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || [];
-	$: remoteCommits =
-		remoteBranch?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || [];
+	const localCommits = $derived(
+		localBranch?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || []
+	);
+	const remoteCommits = $derived(
+		remoteBranch?.commits.filter((commit) => !localAndRemoteCommitShas.has(commit.id)) || []
+	);
 
-	$: lineManager = lineManagerFactory.build({
-		remoteCommits: remoteCommits.map(transformAnyCommit),
-		localCommits: localCommits.map(transformAnyCommit),
-		localAndRemoteCommits: localAndRemoteCommits.map(transformAnyCommit),
-		integratedCommits: []
-	});
+	const lineManager = $derived(
+		lineManagerFactory.build({
+			remoteCommits: remoteCommits.map(transformAnyCommit),
+			localCommits: localCommits.map(transformAnyCommit),
+			localAndRemoteCommits: localAndRemoteCommits.map(transformAnyCommit),
+			integratedCommits: []
+		})
+	);
 
-	let rsViewport: HTMLDivElement;
-	let laneWidth: number;
+	let rsViewport = $state<HTMLDivElement>();
+	let laneWidth = $state<number>();
 
 	onMount(() => {
 		laneWidth = lscache.get(laneWidthKey);
@@ -140,8 +153,8 @@
 				viewport={rsViewport}
 				direction="right"
 				minWidth={320}
-				on:width={(e) => {
-					laneWidth = e.detail / (16 * $userSettings.zoom);
+				onWidth={(value) => {
+					laneWidth = value / (16 * $userSettings.zoom);
 					lscache.set(laneWidthKey, laneWidth, 7 * 1440); // 7 day ttl
 				}}
 			/>
@@ -154,7 +167,7 @@
 					isUnapplied={false}
 					readonly={true}
 					{commitId}
-					on:close={() => {
+					onClose={() => {
 						fileIdSelection.clear();
 					}}
 				/>

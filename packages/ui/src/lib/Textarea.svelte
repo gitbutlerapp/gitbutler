@@ -81,8 +81,8 @@
 
 	const lineHeight = 1.6;
 
-	let maxHeight = $derived(fontSize * maxRows + padding.top + padding.bottom);
-	let minHeight = $derived(fontSize * minRows + padding.top + padding.bottom);
+	const maxHeight = $derived(fontSize * maxRows + padding.top + padding.bottom);
+	const minHeight = $derived(fontSize * minRows + padding.top + padding.bottom);
 
 	let measureElHeight = $state(0);
 </script>

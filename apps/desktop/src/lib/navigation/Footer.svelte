@@ -6,8 +6,12 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
-	export let projectId: string | undefined;
-	export let isNavCollapsed: boolean;
+	interface Props {
+		projectId: string | undefined;
+		isNavCollapsed: boolean;
+	}
+
+	const { projectId, isNavCollapsed }: Props = $props();
 
 	const modeService = getContext(ModeService);
 	const mode = modeService.mode;

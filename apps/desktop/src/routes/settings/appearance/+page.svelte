@@ -74,12 +74,16 @@
 
 <SettingsPage title="Appearance">
 	<SectionCard>
-		<svelte:fragment slot="title">Theme</svelte:fragment>
+		{#snippet title()}
+			Theme
+		{/snippet}
 		<ThemeSelector {userSettings} />
 	</SectionCard>
 	<SectionCard orientation="row" centerAlign>
-		<svelte:fragment slot="title">Default code editor</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{#snippet title()}
+			Default code editor
+		{/snippet}
+		{#snippet actions()}
 			<Select
 				value={$userSettings.defaultCodeEditor.schemeIdentifer}
 				options={editorOptionsForSelect}
@@ -99,11 +103,13 @@
 					</SelectItem>
 				{/snippet}
 			</Select>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 	<div class="stack-v">
 		<SectionCard centerAlign roundedBottom={false}>
-			<svelte:fragment slot="title">Diff preview</svelte:fragment>
+			{#snippet title()}
+				Diff preview
+			{/snippet}
 
 			<HunkDiff
 				readonly
@@ -125,11 +131,13 @@
 		</SectionCard>
 
 		<SectionCard orientation="column" roundedTop={false} roundedBottom={false}>
-			<svelte:fragment slot="title">Font family</svelte:fragment>
-			<svelte:fragment slot="caption"
-				>Sets the font for the diff view. The first font name is the default, others are fallbacks.
-			</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{#snippet title()}
+				Font family
+			{/snippet}
+			{#snippet caption()}
+				Sets the font for the diff view. The first font name is the default, others are fallbacks.
+			{/snippet}
+			{#snippet actions()}
 				<Textbox
 					wide
 					bind:value={$userSettings.diffFont}
@@ -141,7 +149,7 @@
 						}));
 					}}
 				/>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		<SectionCard
@@ -150,8 +158,10 @@
 			roundedTop={false}
 			roundedBottom={false}
 		>
-			<svelte:fragment slot="title">Allow font ligatures</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{#snippet title()}
+				Allow font ligatures
+			{/snippet}
+			{#snippet actions()}
 				<Toggle
 					id="allowDiffLigatures"
 					checked={$userSettings.diffLigatures}
@@ -162,16 +172,18 @@
 						}));
 					}}
 				/>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		<SectionCard orientation="row" centerAlign roundedTop={false} roundedBottom={false}>
-			<svelte:fragment slot="title">Tab size</svelte:fragment>
-			<svelte:fragment slot="caption">
+			{#snippet title()}
+				Tab size
+			{/snippet}
+			{#snippet caption()}
 				The number of spaces a tab is equal to when previewing code changes.
-			</svelte:fragment>
+			{/snippet}
 
-			<svelte:fragment slot="actions">
+			{#snippet actions()}
 				<Textbox
 					type="number"
 					width={100}
@@ -188,16 +200,18 @@
 					}}
 					placeholder={$userSettings.tabSize.toString()}
 				/>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		<SectionCard labelFor="wrapText" orientation="row" roundedTop={false} roundedBottom={false}>
-			<svelte:fragment slot="title">Text Wrap</svelte:fragment>
-			<svelte:fragment slot="caption">
+			{#snippet title()}
+				Text Wrap
+			{/snippet}
+			{#snippet caption()}
 				Wrap text in the diff view once it hits the end of the viewport.
-			</svelte:fragment>
+			{/snippet}
 
-			<svelte:fragment slot="actions">
+			{#snippet actions()}
 				<Toggle
 					id="wrapText"
 					checked={$userSettings.wrapText}
@@ -208,16 +222,18 @@
 						}));
 					}}
 				/>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		<SectionCard labelFor="inlineUnifiedDiffs" orientation="row" roundedTop={false}>
-			<svelte:fragment slot="title">Display word diffs inline</svelte:fragment>
-			<svelte:fragment slot="caption">
+			{#snippet title()}
+				Display word diffs inline
+			{/snippet}
+			{#snippet caption()}
 				Instead of separate lines for removals and additions, this feature shows a single line with
 				both added and removed words highlighted.
-			</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{/snippet}
+			{#snippet actions()}
 				<Toggle
 					id="inlineUnifiedDiffs"
 					checked={$userSettings.inlineUnifiedDiffs}
@@ -228,24 +244,26 @@
 						}));
 					}}
 				/>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 	</div>
 
-	<form class="stack-v" on:change={(e) => onScrollbarFormChange(e.currentTarget)}>
+	<form class="stack-v" onchange={(e) => onScrollbarFormChange(e.currentTarget)}>
 		<SectionCard roundedBottom={false} orientation="row" labelFor="scrollbar-on-scroll">
-			<svelte:fragment slot="title">Scrollbar-On-Scroll</svelte:fragment>
-			<svelte:fragment slot="caption">
+			{#snippet title()}
+				Scrollbar-On-Scroll
+			{/snippet}
+			{#snippet caption()}
 				Only show the scrollbar when you are scrolling.
-			</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{/snippet}
+			{#snippet actions()}
 				<RadioButton
 					name="scrollBarVisibilityType"
 					value="scroll"
 					id="scrollbar-on-scroll"
 					checked={$userSettings.scrollbarVisibilityState === 'scroll'}
 				/>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		<SectionCard
@@ -254,44 +272,50 @@
 			orientation="row"
 			labelFor="scrollbar-on-hover"
 		>
-			<svelte:fragment slot="title">Scrollbar-On-Hover</svelte:fragment>
-			<svelte:fragment slot="caption">
+			{#snippet title()}
+				Scrollbar-On-Hover
+			{/snippet}
+			{#snippet caption()}
 				Show the scrollbar only when you hover over the scrollable area.
-			</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{/snippet}
+			{#snippet actions()}
 				<RadioButton
 					name="scrollBarVisibilityType"
 					value="hover"
 					id="scrollbar-on-hover"
 					checked={$userSettings.scrollbarVisibilityState === 'hover'}
 				/>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		<SectionCard roundedTop={false} orientation="row" labelFor="scrollbar-always">
-			<svelte:fragment slot="title">Always show scrollbar</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{#snippet title()}
+				Always show scrollbar
+			{/snippet}
+			{#snippet actions()}
 				<RadioButton
 					name="scrollBarVisibilityType"
 					value="always"
 					id="scrollbar-always"
 					checked={$userSettings.scrollbarVisibilityState === 'always'}
 				/>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 	</form>
 
 	<SectionCard labelFor="branchLaneContents" orientation="row">
-		<svelte:fragment slot="title">Auto-select text on branch/lane rename</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Auto-select text on branch/lane rename
+		{/snippet}
+		{#snippet caption()}
 			Enable this option to automatically select the text when the input is focused.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle
 				id="branchLaneContents"
 				checked={$autoSelectBranchNameFeature}
 				onclick={() => ($autoSelectBranchNameFeature = !$autoSelectBranchNameFeature)}
 			/>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 </SettingsPage>

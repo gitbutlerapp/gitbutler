@@ -3,7 +3,11 @@
 	import type { Settings } from '$lib/settings/userSettings';
 	import type { Writable } from 'svelte/store';
 
-	export let userSettings: Writable<Settings>;
+	interface Props {
+		userSettings: Writable<Settings>;
+	}
+
+	const { userSettings }: Props = $props();
 
 	const themes = [
 		{
@@ -37,7 +41,7 @@
 				id="theme-{theme.value}"
 				value={$userSettings.theme || 'system'}
 				checked={theme.value === $userSettings.theme}
-				on:change={() => userSettings.update((s) => ({ ...s, theme: theme.value }))}
+				onchange={() => userSettings.update((s) => ({ ...s, theme: theme.value }))}
 			/>
 			<div class="theme-card__preview">
 				<i class="theme-card__icon"><Icon name="success" color="pop" /></i>

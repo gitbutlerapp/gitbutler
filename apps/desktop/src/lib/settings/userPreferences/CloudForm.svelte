@@ -20,11 +20,11 @@
 </script>
 
 <Section>
-	<svelte:fragment slot="description">
+	{#snippet description()}
 		GitButler supports the use of OpenAI and Anthropic to provide commit message and branch name
 		generation. This works either through GitButler's API or in a bring your own key configuration
 		and can be configured in the main preferences screen.
-	</svelte:fragment>
+	{/snippet}
 
 	<Spacer />
 
@@ -35,12 +35,14 @@
 
 	<div class="options">
 		<SectionCard labelFor="aiGenEnabled" orientation="row">
-			<svelte:fragment slot="title">Enable branch and commit message generation</svelte:fragment>
-			<svelte:fragment slot="caption">
+			{#snippet title()}
+				Enable branch and commit message generation
+			{/snippet}
+			{#snippet caption()}
 				If enabled, diffs will be sent to OpenAI or Anthropic's servers when pressing the "Generate
 				message" and "Generate branch name" button.
-			</svelte:fragment>
-			<svelte:fragment slot="actions">
+			{/snippet}
+			{#snippet actions()}
 				<Toggle
 					id="aiGenEnabled"
 					checked={$aiGenEnabled}
@@ -48,12 +50,14 @@
 						$aiGenEnabled = !$aiGenEnabled;
 					}}
 				/>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 	</div>
 
 	<SectionCard>
-		<svelte:fragment slot="title">Custom prompts</svelte:fragment>
+		{#snippet title()}
+			Custom prompts
+		{/snippet}
 
 		<AiPromptSelect promptUse="commits" />
 		<AiPromptSelect promptUse="branches" />

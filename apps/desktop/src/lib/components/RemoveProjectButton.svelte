@@ -2,27 +2,36 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 
-	export let projectTitle: string = '#';
-	export let isDeleting = false;
-	export let noModal = false;
-	export let onDeleteClicked: () => Promise<void>;
+	interface Props {
+		projectTitle?: string;
+		isDeleting?: boolean;
+		noModal?: boolean;
+		onDeleteClicked: () => Promise<void>;
+	}
+
+	const {
+		projectTitle = '#',
+		isDeleting = false,
+		noModal = false,
+		onDeleteClicked
+	}: Props = $props();
 
 	export function show() {
-		modal.show();
+		modal?.show();
 	}
 	export function close() {
-		modal.close();
+		modal?.close();
 	}
 
 	function handleClick() {
 		if (noModal) {
 			onDeleteClicked();
 		} else {
-			modal.show();
+			modal?.show();
 		}
 	}
 
-	let modal: Modal;
+	let modal = $state<Modal>();
 </script>
 
 <Button style="error" kind="solid" icon="bin-small" reversedDirection onclick={handleClick}>

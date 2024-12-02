@@ -51,7 +51,7 @@
 	let baseResolutionApproach = $state<BaseBranchResolutionApproach | undefined>();
 	let targetCommitOid = $state<string | undefined>(undefined);
 
-	let isDivergedResolved = $derived($base?.diverged && !baseResolutionApproach);
+	const isDivergedResolved = $derived($base?.diverged && !baseResolutionApproach);
 
 	$effect(() => {
 		if (branchStatuses?.type !== 'updatesRequired') {
