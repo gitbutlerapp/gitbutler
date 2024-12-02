@@ -227,12 +227,13 @@
 		</SectionCard>
 
 		<SectionCard orientation="row" roundedTop={false} roundedBottom={false}>
-			<svelte:fragment slot="title">Lines contrast</svelte:fragment>
-			<svelte:fragment slot="caption"
-				>The contrast level of the diff lines — added, deleted, and counter lines.
-			</svelte:fragment>
-
-			<svelte:fragment slot="actions">
+			{#snippet title()}
+				Lines contrast
+			{/snippet}
+			{#snippet caption()}
+				The contrast level of the diff lines — added, deleted, and counter lines.
+			{/snippet}
+			{#snippet actions()}
 				<Select
 					maxWidth={110}
 					value={$userSettings.diffContrast}
@@ -254,38 +255,7 @@
 						</SelectItem>
 					{/snippet}
 				</Select>
-			</svelte:fragment>
-		</SectionCard>
-
-		<SectionCard orientation="row" roundedTop={false} roundedBottom={false}>
-			<svelte:fragment slot="title">Lines contrast</svelte:fragment>
-			<svelte:fragment slot="caption"
-				>The contrast level of the diff lines — added, deleted, and counter lines.
-			</svelte:fragment>
-
-			<svelte:fragment slot="actions">
-				<Select
-					maxWidth={110}
-					value={$userSettings.diffContrast}
-					options={[
-						{ label: 'Light', value: 'light' },
-						{ label: 'Medium', value: 'medium' },
-						{ label: 'Strong', value: 'strong' }
-					]}
-					onselect={(value) => {
-						userSettings.update((s) => ({
-							...s,
-							diffContrast: value
-						}));
-					}}
-				>
-					{#snippet itemSnippet({ item, highlighted })}
-						<SelectItem selected={item.value === $userSettings.diffContrast} {highlighted}>
-							{item.label}
-						</SelectItem>
-					{/snippet}
-				</Select>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		<SectionCard labelFor="inlineUnifiedDiffs" orientation="row" roundedTop={false}>
