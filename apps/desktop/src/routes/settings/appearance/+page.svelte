@@ -259,12 +259,13 @@
 		</SectionCard>
 
 		<SectionCard orientation="row" roundedTop={false} roundedBottom={false}>
-			<svelte:fragment slot="title">Lines contrast</svelte:fragment>
-			<svelte:fragment slot="caption"
-				>The contrast level of the diff lines — added, deleted, and counter lines.
-			</svelte:fragment>
-
-			<svelte:fragment slot="actions">
+			{#snippet title()}
+				Lines contrast
+			{/snippet}
+			{#snippet caption()}
+				The contrast level of the diff lines — added, deleted, and counter lines.
+			{/snippet}
+			{#snippet actions()}
 				<Select
 					maxWidth={110}
 					value={$userSettings.diffContrast}
@@ -286,7 +287,7 @@
 						</SelectItem>
 					{/snippet}
 				</Select>
-			</svelte:fragment>
+			{/snippet}
 		</SectionCard>
 
 		<SectionCard labelFor="inlineUnifiedDiffs" orientation="row" roundedTop={false}>
