@@ -3,6 +3,8 @@
 	import RegisterInterest from '$lib/interest/RegisterInterest.svelte';
 	import { OrganizationService } from '$lib/organizations/organizationService';
 	import { organizationsSelectors } from '$lib/organizations/organizationsSlice';
+	import { ProjectService } from '$lib/organizations/projectService';
+	import { projectsSelectors } from '$lib/organizations/projectsSlice';
 	import { AppState } from '$lib/redux/store';
 	import { UserService } from '$lib/users/userService';
 	import { usersSelectors } from '$lib/users/usersSlice';
@@ -23,10 +25,12 @@
 
 	const appState = getContext(AppState);
 	const organizationService = getContext(OrganizationService);
+	const projectService = getContext(ProjectService);
 	const userService = getContext(UserService);
 
 	const organizationsState = appState.organizations;
 	const usersState = appState.users;
+	const projectsState = appState.projects;
 	const organizationInterest = $derived(
 		organizationService.getOrganizationWithDetailsInterest(slug)
 	);
@@ -38,6 +42,13 @@
 		organization?.memberLogins?.map((login) => ({
 			interest: userService.getUserInterest(login),
 			user: usersSelectors.selectById($usersState, login)
+		})) || []
+	);
+
+	const projects = $derived(
+		organization?.projectRepositoryIds?.map((repositoryId) => ({
+			project: projectsSelectors.selectById($projectsState, repositoryId),
+			projectInterest: projectService.getProjectInterest(repositoryId)
 		})) || []
 	);
 
@@ -72,6 +83,21 @@
 					srcUrl={user.user?.avatarUrl || ''}
 				/>
 				<p>{user.user?.name}</p>
+			</SectionCard>
+		{/each}
+	</div>
+
+	<h5 class="text-15 text-bold">Projects:</h5>
+	<div>
+		{#each projects as { project, projectInterest }, index}
+			<RegisterInterest interest={projectInterest} />
+
+			<SectionCard
+				roundedBottom={index === projects.length - 1}
+				roundedTop={index === 0}
+				orientation="row"
+			>
+				<p>{project?.name}</p>
 			</SectionCard>
 		{/each}
 	</div>

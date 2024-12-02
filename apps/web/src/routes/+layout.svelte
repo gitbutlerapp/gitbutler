@@ -10,6 +10,7 @@
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { AppState } from '@gitbutler/shared/redux/store';
 	import { WebRoutesService, setRoutesService } from '@gitbutler/shared/sharedRoutes';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
@@ -46,6 +47,8 @@
 	setContext(FeedService, feedService);
 	const organizationService = new OrganizationService(httpClient, appState.appDispatch);
 	setContext(OrganizationService, organizationService);
+	const projectService = new ProjectService(httpClient, appState.appDispatch);
+	setContext(ProjectService, projectService);
 	const newUserService = new NewUserService(httpClient, appState.appDispatch);
 	setContext(NewUserService, newUserService);
 

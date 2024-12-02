@@ -40,6 +40,7 @@
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store';
 	import {
 		DesktopRoutesService,
@@ -86,6 +87,7 @@
 	setContext(FeedService, data.feedService);
 	setContext(OrganizationService, data.organizationService);
 	setContext(CloudUserService, data.cloudUserService);
+	setContext(CloudProjectService, data.cloudProjectService);
 
 	const webRoutesService = new WebRoutesService(true, env.PUBLIC_CLOUD_BASE_URL);
 	const desktopRoutesService = new DesktopRoutesService(webRoutesService);

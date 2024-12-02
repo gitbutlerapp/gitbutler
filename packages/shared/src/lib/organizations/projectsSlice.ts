@@ -2,7 +2,7 @@ import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
 import type { Project } from '$lib/organizations/types';
 
 const projectsAdapter = createEntityAdapter({
-	selectId: (project: Project) => project.slug,
+	selectId: (project: Project) => project.repositoryId,
 	sortComparer: (a: Project, b: Project) => a.slug.localeCompare(b.slug)
 });
 

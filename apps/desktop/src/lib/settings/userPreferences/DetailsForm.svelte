@@ -1,76 +1,16 @@
 <script lang="ts">
 	import { Project, ProjectsService } from '$lib/backend/projects';
-	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
-	import Section from '$lib/settings/Section.svelte';
-	import Link from '$lib/shared/Link.svelte';
-	import { User } from '$lib/stores/user';
-	import * as toasts from '$lib/utils/toasts';
-	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import { onMount } from 'svelte';
-	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const project = getContext(Project);
-	const user = getContextStore(User);
 	const projectsService = getContext(ProjectsService);
 
 	let title = $state(project?.title);
 	let description = $state(project?.description);
-
-	async function onSyncChange(sync: boolean) {
-		if (!$user) return;
-		try {
-			const cloudProject =
-				project.api ??
-				(await projectsService.createCloudProject({
-					name: project.title,
-					description: project.description,
-					uid: project.id
-				}));
-			project.api = { ...cloudProject, sync, sync_code: project.api?.sync_code };
-			projectsService.updateProject(project);
-		} catch (error) {
-			console.error(`Failed to update project sync status: ${error}`);
-			toasts.error('Failed to update project sync status');
-		}
-	}
-	// These functions are disgusting
-	async function onSyncCodeChange(sync_code: boolean) {
-		if (!$user) return;
-		try {
-			const cloudProject =
-				project.api ??
-				(await projectsService.createCloudProject({
-					name: project.title,
-					description: project.description,
-					uid: project.id
-				}));
-			project.api = { ...cloudProject, sync: project.api?.sync || false, sync_code: sync_code };
-			projectsService.updateProject(project);
-		} catch (error) {
-			console.error(`Failed to update project sync status: ${error}`);
-			toasts.error('Failed to update project sync status');
-		}
-	}
-
-	// This is some janky bullshit, but it works well enough for now
-	onMount(async () => {
-		if (!project?.api) return;
-		if (!$user) return;
-		const cloudProject = await projectsService.getCloudProject(project.api.repository_id);
-		project.api = { ...cloudProject, sync: project.api.sync, sync_code: project.api.sync_code };
-		projectsService.updateProject(project);
-	});
-
-	$effect(() => {
-		if (description) {
-			console.log('description', description);
-		}
-	});
 </script>
 
 <SectionCard>
@@ -106,51 +46,6 @@
 	</form>
 </SectionCard>
 
-{#if $cloudFunctionality}
-	<Spacer />
-	<Section>
-		{#snippet title()}
-			Full data synchronization
-		{/snippet}
-
-		<SectionCard labelFor="historySync" orientation="row">
-			{#snippet caption()}
-				Sync this project's operations log with GitButler Web services. The operations log includes
-				snapshots of the repository state, including non-committed code changes.
-			{/snippet}
-			{#snippet actions()}
-				<Toggle
-					id="historySync"
-					checked={project.api?.sync || false}
-					onclick={async () => await onSyncChange(!project.api?.sync)}
-				/>
-			{/snippet}
-		</SectionCard>
-		<SectionCard labelFor="branchesySync" orientation="row">
-			{#snippet caption()}
-				Sync this repository's branches with the GitButler Remote.
-			{/snippet}
-			{#snippet actions()}
-				<Toggle
-					id="branchesySync"
-					checked={project.api?.sync_code || false}
-					onclick={async () => await onSyncCodeChange(!project.api?.sync_code)}
-				/>
-			{/snippet}
-		</SectionCard>
-
-		{#if project.api}
-			<div class="api-link text-12">
-				<Link
-					target="_blank"
-					rel="noreferrer"
-					href="{PUBLIC_API_BASE_URL}projects/{project.api?.repository_id}"
-					>Go to GitButler Cloud Project</Link
-				>
-			</div>
-		{/if}
-	</Section>
-{/if}
 <Spacer />
 
 <style>
@@ -164,10 +59,5 @@
 		display: flex;
 		flex-direction: column;
 		gap: 8px;
-	}
-
-	.api-link {
-		display: flex;
-		justify-content: flex-end;
 	}
 </style>

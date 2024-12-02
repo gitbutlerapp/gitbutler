@@ -17,6 +17,7 @@ import { UserService } from '$lib/stores/user';
 import { FeedService } from '@gitbutler/shared/feeds/service';
 import { HttpClient } from '@gitbutler/shared/httpClient';
 import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 import { AppState } from '@gitbutler/shared/redux/store';
 import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
@@ -69,6 +70,7 @@ export const load: LayoutLoad = async () => {
 	const feedService = new FeedService(httpClient, appState.appDispatch);
 	const organizationService = new OrganizationService(httpClient, appState.appDispatch);
 	const cloudUserService = new CloudUserService(httpClient, appState.appDispatch);
+	const cloudProjectService = new CloudProjectService(httpClient, appState.appDispatch);
 
 	return {
 		commandService,
@@ -91,6 +93,7 @@ export const load: LayoutLoad = async () => {
 		posthog
 		feedService,
 		organizationService,
-		cloudUserService
+		cloudUserService,
+		cloudProjectService
 	};
 };
