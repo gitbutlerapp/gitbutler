@@ -116,7 +116,7 @@ I hope you have some disk space for 300M of `node_modules`, because this bad
 boy will fill er up:
 
 ```bash
-$ pnpm install # This should now ask you to confirm download, install, and use of pnpm
+$ pnpm install # This should now ask you to confirm the download, installation, and use of pnpm via corepack
 ```
 
 You'll have to re-run this occasionally when our deps change.
