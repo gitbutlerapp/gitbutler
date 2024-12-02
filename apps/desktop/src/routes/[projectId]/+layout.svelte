@@ -132,9 +132,10 @@
 
 	// TODO: can we eliminate the need to debounce?
 	const debouncedRemoteBranchRefresh = debounce(
-		async () => await branchListingService.refresh(),
+		async () => await branchListingService?.refresh(),
 		500
 	);
+
 	$effect(() => {
 		if ($baseBranch || $head || $fetch) debouncedRemoteBranchRefresh();
 	});
@@ -202,7 +203,7 @@
 			<div class="view-wrap" role="group" ondragover={(e) => e.preventDefault()}>
 				<Navigation />
 				{#if $showHistoryView}
-					<History on:hide={() => ($showHistoryView = false)} />
+					<History onHide={() => ($showHistoryView = false)} />
 				{/if}
 				{@render children()}
 			</div>

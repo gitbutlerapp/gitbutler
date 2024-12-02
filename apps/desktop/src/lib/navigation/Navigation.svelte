@@ -28,9 +28,9 @@
 		'defaulTrayWidth_ ' + projectId
 	);
 
-	let viewport: HTMLDivElement;
-	let isResizerHovered = false;
-	let isResizerDragging = false;
+	let viewport = $state<HTMLDivElement>();
+	let isResizerHovered = $state(false);
+	let isResizerDragging = $state(false);
 
 	const isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + projectId);
 
@@ -48,7 +48,7 @@
 	const mode = modeService.mode;
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
+<svelte:window onkeydown={handleKeyDown} />
 
 <aside class="navigation-wrapper">
 	<div
@@ -57,41 +57,41 @@
 		role="button"
 		class:folding-button_folded={$isNavCollapsed}
 	>
-		<Resizer
-			{viewport}
-			direction="right"
-			minWidth={minResizerWidth}
-			defaultLineColor="var(--clr-border-2)"
-			zIndex="var(--z-floating)"
-			on:dblclick={toggleNavCollapse}
-			on:width={(e) => {
-				$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
-			}}
-			on:hover={(e) => {
-				isResizerHovered = e.detail;
-			}}
-			on:resizing={(e) => {
-				isResizerDragging = e.detail;
-			}}
-			on:overflowValue={(e) => {
-				const overflowValue = e.detail;
+		{#if viewport}
+			<Resizer
+				{viewport}
+				direction="right"
+				minWidth={minResizerWidth}
+				defaultLineColor="var(--clr-border-2)"
+				zIndex="var(--z-floating)"
+				onDblClick={toggleNavCollapse}
+				onWidth={(value) => {
+					$defaultTrayWidthRem = value / (16 * $userSettings.zoom);
+				}}
+				onHover={(isHovering) => {
+					isResizerHovered = isHovering;
+				}}
+				onResizing={(isDragging) => {
+					isResizerDragging = isDragging;
+				}}
+				onOverflow={(overflowValue) => {
+					if (!$isNavCollapsed && overflowValue > minResizerRatio) {
+						$isNavCollapsed = true;
+					}
 
-				if (!$isNavCollapsed && overflowValue > minResizerRatio) {
-					$isNavCollapsed = true;
-				}
-
-				if ($isNavCollapsed && overflowValue < minResizerRatio) {
-					$isNavCollapsed = false;
-				}
-			}}
-		/>
+					if ($isNavCollapsed && overflowValue < minResizerRatio) {
+						$isNavCollapsed = false;
+					}
+				}}
+			/>
+		{/if}
 
 		<button
 			type="button"
 			aria-label="Collapse Navigation"
 			class="folding-button"
 			class:resizer-hovered={isResizerHovered || isResizerDragging}
-			on:mousedown={toggleNavCollapse}
+			onmousedown={toggleNavCollapse}
 		>
 			<svg viewBox="0 0 6 11" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<path

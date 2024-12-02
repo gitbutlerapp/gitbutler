@@ -14,7 +14,7 @@
 	import Icon from '$lib/Icon.svelte';
 	import { getTimeAndAuthor } from '$lib/utils/getTimeAndAuthor';
 
-	let { title, sha, author, date, onCopy, onUrlOpen }: Props = $props();
+	const { title, sha, author, date, onCopy, onUrlOpen }: Props = $props();
 </script>
 
 <div class="simple-commit-item no-select">

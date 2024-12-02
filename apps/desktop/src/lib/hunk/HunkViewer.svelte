@@ -28,7 +28,7 @@
 		commitId?: string | undefined;
 	}
 
-	let {
+	const {
 		filePath,
 		section,
 		linesModified,

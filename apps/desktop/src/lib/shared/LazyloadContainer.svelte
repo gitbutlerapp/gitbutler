@@ -10,7 +10,7 @@
 		onkeydown?: (e: KeyboardEvent) => void;
 	}
 
-	let { children, minTriggerCount, role, ontrigger, onkeydown }: Props = $props();
+	const { children, minTriggerCount, role, ontrigger, onkeydown }: Props = $props();
 
 	let lazyContainerEl: HTMLDivElement | undefined;
 

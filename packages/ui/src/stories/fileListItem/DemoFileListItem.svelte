@@ -21,7 +21,7 @@
 		oncontextmenu?: (e: MouseEvent) => void;
 	}
 
-	let {
+	const {
 		filePath,
 		fileStatus,
 		draggable = false,

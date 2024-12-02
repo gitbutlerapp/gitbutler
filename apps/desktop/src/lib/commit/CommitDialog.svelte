@@ -11,9 +11,13 @@
 	import { tick } from 'svelte';
 	import type { Writable } from 'svelte/store';
 
-	export let projectId: string;
-	export let expanded: Writable<boolean>;
-	export let hasSectionsAfter: boolean;
+	interface Props {
+		projectId: string;
+		expanded: Writable<boolean>;
+		hasSectionsAfter: boolean;
+	}
+
+	const { projectId, expanded, hasSectionsAfter }: Props = $props();
 
 	const branchController = getContext(BranchController);
 	const selectedOwnership = getContextStore(SelectedOwnership);
@@ -22,10 +26,10 @@
 	const runCommitHooks = projectRunCommitHooks(projectId);
 	const commitMessage = persistedCommitMessage(projectId, $branch.id);
 
-	let commitMessageInput: CommitMessageInput;
-	let isCommitting = false;
-	let commitMessageValid = false;
-	let isInViewport = false;
+	let commitMessageInput = $state<CommitMessageInput>();
+	let isCommitting = $state(false);
+	let commitMessageValid = $state(false);
+	let isInViewport = $state(false);
 
 	async function commit() {
 		const message = $commitMessage;
@@ -51,7 +55,7 @@
 	export async function focus() {
 		$expanded = true;
 		await tick();
-		commitMessageInput.focus();
+		commitMessageInput?.focus();
 	}
 </script>
 

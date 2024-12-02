@@ -48,9 +48,9 @@
 		maybeGetContextStore(SelectedOwnership);
 	const commit = getCommitStore();
 
-	let chunkedFiles: AnyFile[][] = $derived(chunk(sortLikeFileTree(files), 100));
+	const chunkedFiles: AnyFile[][] = $derived(chunk(sortLikeFileTree(files), 100));
 	let currentDisplayIndex = $state(0);
-	let displayedFiles: AnyFile[] = $derived(chunkedFiles.slice(0, currentDisplayIndex + 1).flat());
+	const displayedFiles: AnyFile[] = $derived(chunkedFiles.slice(0, currentDisplayIndex + 1).flat());
 
 	function handleSpace() {
 		if (commitDialogExpanded === undefined) return;

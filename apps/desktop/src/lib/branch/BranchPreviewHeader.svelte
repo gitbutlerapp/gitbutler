@@ -15,23 +15,27 @@
 	import type { BranchData } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
-	export let localBranch: BranchData | undefined;
-	export let remoteBranch: BranchData | undefined;
-	export let pr: PullRequest | undefined;
+	interface Props {
+		localBranch: BranchData | undefined;
+		remoteBranch: BranchData | undefined;
+		pr: PullRequest | undefined;
+	}
 
-	$: branch = remoteBranch || localBranch!;
-	$: upstream = remoteBranch?.givenName;
+	const { localBranch, remoteBranch, pr }: Props = $props();
+
+	const branch = $derived(remoteBranch || localBranch!);
+	const upstream = $derived(remoteBranch?.givenName);
 
 	const branchController = getContext(BranchController);
 	const project = getContext(Project);
 	const forge = getForge();
 	const modeSerivce = getContext(ModeService);
 	const mode = modeSerivce.mode;
-	$: forgeBranch = upstream ? $forge?.branch(upstream) : undefined;
+	const forgeBranch = $derived(upstream ? $forge?.branch(upstream) : undefined);
 
-	let isApplying = false;
-	let isDeleting = false;
-	let deleteBranchModal: Modal;
+	let isApplying = $state(false);
+	let isDeleting = $state(false);
+	let deleteBranchModal = $state<Modal>();
 </script>
 
 <div class="header__wrapper">
@@ -132,7 +136,7 @@
 					disabled={!localBranch}
 					onclick={async () => {
 						if (localBranch) {
-							deleteBranchModal.show(branch);
+							deleteBranchModal?.show(branch);
 						}
 					}}
 				>

@@ -73,7 +73,7 @@
 	let numberHeaderWidth = $state<number>(0);
 
 	const selected = $derived($selectedOwnership?.isSelected(hunk.filePath, hunk.id) ?? false);
-	let isSelected = $derived(selectable && selected);
+	const isSelected = $derived(selectable && selected);
 
 	function charDiff(text1: string, text2: string): { 0: number; 1: string }[] {
 		const differ = new diff_match_patch();

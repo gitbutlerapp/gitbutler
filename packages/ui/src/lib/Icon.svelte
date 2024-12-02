@@ -15,7 +15,7 @@
 		size?: number;
 	}
 
-	let { name, color = undefined, opacity = 1, spinnerRadius = 5, size = 16 }: Props = $props();
+	const { name, color = undefined, opacity = 1, spinnerRadius = 5, size = 16 }: Props = $props();
 </script>
 
 <svg

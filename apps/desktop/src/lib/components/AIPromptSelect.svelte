@@ -4,16 +4,21 @@
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import { onMount } from 'svelte';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 	import type { Persisted } from '@gitbutler/shared/persisted';
 
-	export let promptUse: 'commits' | 'branches';
+	interface Props {
+		promptUse: 'commits' | 'branches';
+	}
+
+	const { promptUse }: Props = $props();
 
 	const project = getContext(Project);
 	const promptService = getContext(PromptService);
 
 	let prompts: Prompts;
-	let selectedPromptId: Persisted<string | undefined>;
+	let selectedPromptId = $state<Persisted<string | undefined>>();
 
 	if (promptUse === 'commits') {
 		prompts = promptService.commitPrompts;
@@ -24,7 +29,7 @@
 	}
 
 	let userPrompts = prompts.userPrompts;
-	let allPrompts: UserPrompt[] = [];
+	let allPrompts: UserPrompt[] = $state([]);
 
 	const defaultId = crypto.randomUUID();
 
@@ -35,11 +40,15 @@
 		];
 	}
 
-	$: setAllPrompts($userPrompts);
+	onMount(() => {
+		setAllPrompts($userPrompts);
+	});
 
-	$: if (!$selectedPromptId || !promptService.findPrompt(allPrompts, $selectedPromptId)) {
-		$selectedPromptId = defaultId;
-	}
+	$effect(() => {
+		if (!$selectedPromptId || !promptService.findPrompt(allPrompts, $selectedPromptId)) {
+			$selectedPromptId = defaultId;
+		}
+	});
 </script>
 
 <Select

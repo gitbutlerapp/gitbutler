@@ -6,11 +6,15 @@
 	import { get } from 'svelte/store';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
 
-	export let promptUse: 'commits' | 'branches';
+	interface Props {
+		promptUse: 'commits' | 'branches';
+	}
+
+	const { promptUse }: Props = $props();
 
 	const promptService = getContext(PromptService);
 
-	let prompts: Prompts;
+	let prompts = $state<Prompts>();
 
 	if (promptUse === 'commits') {
 		prompts = promptService.commitPrompts;
@@ -18,18 +22,20 @@
 		prompts = promptService.branchPrompts;
 	}
 
-	$: userPrompts = prompts.userPrompts;
+	const userPrompts = $derived(prompts.userPrompts);
 
 	function createNewPrompt() {
-		prompts.userPrompts.set([
+		prompts?.userPrompts.set([
 			...get(prompts.userPrompts),
 			promptService.createDefaultUserPrompt(promptUse)
 		]);
 	}
 
 	function deletePrompt(targetPrompt: UserPrompt) {
-		const filteredPrompts = get(prompts.userPrompts).filter((prompt) => prompt !== targetPrompt);
-		prompts.userPrompts.set(filteredPrompts);
+		if (prompts) {
+			const filteredPrompts = get(prompts.userPrompts).filter((prompt) => prompt !== targetPrompt);
+			prompts.userPrompts.set(filteredPrompts);
+		}
 	}
 </script>
 
@@ -51,11 +57,11 @@
 			}}
 		/>
 
-		{#each $userPrompts as prompt}
+		{#each $userPrompts as _prompt, idx}
 			<Content
-				bind:prompt
+				bind:prompt={$userPrompts[idx] as UserPrompt}
 				displayMode="writable"
-				on:deletePrompt={(e) => deletePrompt(e.detail.prompt)}
+				deletePrompt={(prompt) => deletePrompt(prompt)}
 			/>
 		{/each}
 	</div>

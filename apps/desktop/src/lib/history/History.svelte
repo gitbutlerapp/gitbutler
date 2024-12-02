@@ -14,18 +14,22 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { clickOutside } from '@gitbutler/ui/utils/clickOutside';
 	import { plainToInstance } from 'class-transformer';
-	import { createEventDispatcher } from 'svelte';
 	import type { Snapshot, SnapshotDiff } from '$lib/history/types';
+
+	interface Props {
+		onHide: () => void;
+	}
+
+	const { onHide }: Props = $props();
 
 	const project = getContext(Project);
 	const historyService = getContext(HistoryService);
 	const snapshots = historyService.snapshots;
-	const dispatch = createEventDispatcher<{ hide: any }>();
 
 	const loading = historyService.loading;
 	const isAllLoaded = historyService.isAllLoaded;
 
-	let currentFilePreview: RemoteFile | undefined = undefined;
+	let currentFilePreview: RemoteFile | undefined = $state(undefined);
 
 	function findRestorationRanges(snapshots: Snapshot[]) {
 		if (snapshots.length === 0) return [];
@@ -73,16 +77,16 @@
 
 	let snapshotFilesTempStore:
 		| { entryId: string; diffs: { [key: string]: SnapshotDiff } }
-		| undefined = undefined;
-	let selectedFile: { entryId: string; path: string } | undefined = undefined;
+		| undefined = $state(undefined);
+	let selectedFile: { entryId: string; path: string } | undefined = $state(undefined);
 
-	$: withinRestoreItems = findRestorationRanges($snapshots);
+	const withinRestoreItems = $derived(findRestorationRanges($snapshots));
 </script>
 
 <svelte:window
-	on:keydown={(e) => {
+	onkeydown={(e) => {
 		if (e.key === 'Escape') {
-			dispatch('hide');
+			onHide?.();
 		}
 	}}
 />
@@ -91,7 +95,7 @@
 	<div
 		class="sideview-content-wrap show-sideview"
 		use:clickOutside={{
-			handler: () => dispatch('hide')
+			handler: () => onHide?.()
 		}}
 	>
 		{#if currentFilePreview}
@@ -102,7 +106,7 @@
 					file={currentFilePreview}
 					isUnapplied={false}
 					readonly={true}
-					on:close={() => {
+					onClose={() => {
 						currentFilePreview = undefined;
 						selectedFile = undefined;
 					}}
@@ -119,13 +123,7 @@
 					</div>
 				</i>
 				<h3 class="sideview__header-title text-15 text-bold">Project history</h3>
-				<Button
-					style="ghost"
-					icon="cross"
-					onclick={() => {
-						dispatch('hide');
-					}}
-				/>
+				<Button style="ghost" icon="cross" onclick={onHide} />
 			</div>
 
 			<!-- EMPTY STATE -->
@@ -170,16 +168,14 @@
 									<SnapshotCard
 										isWithinRestore={withinRestoreItems.includes(entry.id)}
 										{entry}
-										on:restoreClick={() => {
+										onRestoreClick={() => {
 											historyService.restoreSnapshot(project.id, entry.id);
 											// In some cases, restoring the snapshot doesnt update the UI correctly
 											// Until we have that figured out, we need to reload the page.
 											location.reload();
 										}}
 										{selectedFile}
-										on:diffClick={async (filePath) => {
-											const path = filePath.detail;
-
+										onDiffClick={async (path) => {
 											if (snapshotFilesTempStore?.entryId === entry.id) {
 												if (selectedFile?.path === path) {
 													currentFilePreview = undefined;
