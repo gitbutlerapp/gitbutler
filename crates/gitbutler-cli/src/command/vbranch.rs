@@ -3,6 +3,7 @@ use gitbutler_branch::{BranchCreateRequest, BranchIdentity, BranchUpdateRequest}
 use gitbutler_branch_actions::{get_branch_listing_details, list_branches, BranchManagerExt};
 use gitbutler_command_context::CommandContext;
 use gitbutler_project::Project;
+use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 
 use crate::command::debug_print;
@@ -49,14 +50,22 @@ pub fn status(project: Project) -> Result<()> {
 }
 
 pub fn unapply(project: Project, branch_name: String) -> Result<()> {
-    let stack = branch_by_name(&project, &branch_name)?;
+    let stack = stack_by_name(&project, &branch_name)?;
     debug_print(gitbutler_branch_actions::save_and_unapply_virutal_branch(
         &project, stack.id,
     )?)
 }
 
-pub fn apply(project: Project, branch_name: String) -> Result<()> {
-    let stack = branch_by_name(&project, &branch_name)?;
+pub fn apply(project: Project, branch_name: String, from_branch: bool) -> Result<()> {
+    if from_branch {
+        apply_from_branch(project, branch_name)
+    } else {
+        apply_by_name(project, branch_name)
+    }
+}
+
+fn apply_by_name(project: Project, branch_name: String) -> Result<()> {
+    let stack = stack_by_name(&project, &branch_name)?;
     let ctx = CommandContext::open(&project)?;
     let mut guard = project.exclusive_worktree_access();
     debug_print(
@@ -70,6 +79,27 @@ pub fn apply(project: Project, branch_name: String) -> Result<()> {
             guard.write_permission(),
         )?,
     )
+}
+
+fn apply_from_branch(project: Project, branch_name: String) -> Result<()> {
+    let refname = Refname::Local(LocalRefname::new(&branch_name, None));
+    let target = if let Some(stack) = stack_by_refname(&project, &refname)? {
+        stack
+            .source_refname
+            .context("local reference name was missing")?
+    } else {
+        refname
+    };
+
+    let ctx = CommandContext::open(&project)?;
+
+    let mut guard = project.exclusive_worktree_access();
+    debug_print(ctx.branch_manager().create_virtual_branch_from_branch(
+        &target,
+        None,
+        None,
+        guard.write_permission(),
+    )?)
 }
 
 pub fn create(project: Project, branch_name: String, set_default: bool) -> Result<()> {
@@ -88,7 +118,7 @@ pub fn create(project: Project, branch_name: String, set_default: bool) -> Resul
 }
 
 pub fn set_default(project: Project, branch_name: String) -> Result<()> {
-    let stack = branch_by_name(&project, &branch_name)?;
+    let stack = stack_by_name(&project, &branch_name)?;
     set_default_branch(&project, &stack)
 }
 
@@ -109,14 +139,14 @@ fn set_default_branch(project: &Project, stack: &Stack) -> Result<()> {
 }
 
 pub fn series(project: Project, stack_name: String, new_series_name: String) -> Result<()> {
-    let mut stack = branch_by_name(&project, &stack_name)?;
+    let mut stack = stack_by_name(&project, &stack_name)?;
     let ctx = CommandContext::open(&project)?;
     stack.add_series_top_of_stack(&ctx, new_series_name, None)?;
     Ok(())
 }
 
 pub fn commit(project: Project, branch_name: String, message: String) -> Result<()> {
-    let stack = branch_by_name(&project, &branch_name)?;
+    let stack = stack_by_name(&project, &branch_name)?;
     let (info, skipped) = gitbutler_branch_actions::list_virtual_branches(&project)?;
 
     if !skipped.is_empty() {
@@ -164,16 +194,40 @@ pub fn commit(project: Project, branch_name: String, message: String) -> Result<
     )?)
 }
 
-pub fn branch_by_name(project: &Project, name: &str) -> Result<Stack> {
-    let mut found: Vec<_> = VirtualBranchesHandle::new(project.gb_dir())
+fn stack_by_name(project: &Project, name: &str) -> Result<Stack> {
+    let mut found = find_all_stacks_by_name(project, name)?;
+    if found.is_empty() {
+        bail!("No stack named '{name}'");
+    } else if found.len() > 1 {
+        bail!("Found more than one stack named '{name}'");
+    }
+    Ok(found.pop().expect("present"))
+}
+
+fn stack_by_refname(project: &Project, refname: &Refname) -> Result<Option<Stack>> {
+    let mut found = find_all_stacks_by_refname(project, refname)?;
+    if found.is_empty() {
+        return Ok(None);
+    } else if found.len() > 1 {
+        bail!("Found more than one stack with refname '{refname}'");
+    }
+    Ok(Some(found.pop().expect("present")))
+}
+
+fn find_all_stacks_by_name(project: &Project, name: &str) -> Result<Vec<Stack>> {
+    let found = VirtualBranchesHandle::new(project.gb_dir())
         .list_all_stacks()?
         .into_iter()
         .filter(|b| b.name == name)
         .collect();
-    if found.is_empty() {
-        bail!("No virtual branch named '{name}'");
-    } else if found.len() > 1 {
-        bail!("Found more than one virtual branch named '{name}'");
-    }
-    Ok(found.pop().expect("present"))
+    Ok(found)
+}
+
+fn find_all_stacks_by_refname(project: &Project, refname: &Refname) -> Result<Vec<Stack>> {
+    let found = VirtualBranchesHandle::new(project.gb_dir())
+        .list_all_stacks()?
+        .into_iter()
+        .filter(|b| b.source_refname.as_ref() == Some(refname))
+        .collect();
+    Ok(found)
 }
