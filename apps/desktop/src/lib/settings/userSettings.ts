@@ -27,6 +27,7 @@ export interface Settings {
 	diffFont: string;
 	diffLigatures: boolean;
 	inlineUnifiedDiffs: boolean;
+	diffContrast: 'light' | 'medium' | 'strong';
 	defaultCodeEditor: CodeEditorSettings;
 }
 
@@ -47,6 +48,7 @@ const defaults: Settings = {
 	diffFont: 'Geist Mono, Menlo, monospace',
 	diffLigatures: false,
 	inlineUnifiedDiffs: false,
+	diffContrast: 'light',
 	defaultCodeEditor: { schemeIdentifer: 'vscode', displayName: 'VSCode' }
 };
 
