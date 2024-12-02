@@ -1,18 +1,18 @@
-<script lang="ts">
-	import type { Interest } from '$lib/interest/intrestStore';
+import type { Interest } from '$lib/interest/intrestStore';
 
-	type Props = {
-		interest: Interest;
-		reference?: HTMLElement;
-		onlyInView?: boolean;
-	};
+export function registerInterest(interest: Interest) {
+	$effect(() => {
+		const unsubscribe = interest._subscribe();
 
-	const { interest, reference: ref, onlyInView }: Props = $props();
+		return unsubscribe;
+	});
+}
 
+export function registerInterestInView(interest: Interest, element?: HTMLElement) {
 	let inView = $state(false);
 
 	$effect(() => {
-		if (ref && onlyInView) {
+		if (element) {
 			inView = false;
 
 			const observer = new IntersectionObserver(
@@ -24,21 +24,23 @@
 				}
 			);
 
-			observer.observe(ref);
+			observer.observe(element);
 
 			return () => {
 				inView = false;
 				observer.disconnect();
 			};
+		} else {
+			inView = false;
 		}
 	});
 
 	$effect(() => {
-		if (!onlyInView || inView) {
+		if (inView) {
 			const unsubscribe = interest._subscribe();
 
 			// It is vitally important that we return the unsubscribe function
 			return unsubscribe;
 		}
 	});
-</script>
+}

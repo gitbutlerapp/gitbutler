@@ -16,20 +16,31 @@ export class FeedService {
 	) {}
 
 	/** Fetch and poll the latest entries in the feed */
-	getFeedHeadInterest() {
+	getFeedHeadInterest(identifier: string) {
 		return this.feedInterests
-			.findOrCreateSubscribable({ identifier: 'all' }, () => {
-				this.getFeedPage('all');
+			.findOrCreateSubscribable({ identifier }, () => {
+				this.getFeedPage(identifier);
 			})
 			.createInterest();
 	}
 
-	async getFeedPage(_identifier: string, lastPostTimestamp?: string) {
+	/**
+	 * Fetches either the first page of a feed, or a page of posts after a certain timestamp.
+	 *
+	 * Any posts returned get upserted into the posts slice.
+	 * If the the fist page is queried, the ids will be added to the front of the feed.
+	 * If a lastPostTimestamp is provided, the ids will be added to the end of the feed.
+	 *
+	 * If pages are queried out of order, the feed may end up with post ids that are not in order.
+	 *
+	 * TODO(CTO): This function is due some TLC, it has implicit behaviour and does not make me happy
+	 */
+	async getFeedPage(identifier: string, lastPostTimestamp?: string) {
 		const query = lastPostTimestamp ? `?from_created_at=${lastPostTimestamp}` : '';
-		const apiFeed = await this.httpClient.get<ApiPost[]>(`feed${query}`);
+		const apiFeed = await this.httpClient.get<ApiPost[]>(`feed/project/${identifier}${query}`);
 		this.appDispatch.dispatch(upsertPosts(apiFeed.map(apiToPost)));
 
-		const actionArguments = { identifier: 'all', postIds: apiFeed.map((post) => post.uuid) };
+		const actionArguments = { identifier, postIds: apiFeed.map((post) => post.uuid) };
 		if (lastPostTimestamp) {
 			this.appDispatch.dispatch(feedAppend(actionArguments));
 		} else {
@@ -37,13 +48,19 @@ export class FeedService {
 		}
 	}
 
-	async createPost(content: string): Promise<Post> {
-		const apiPost = await this.httpClient.post<ApiPost>('feed/new', { body: { content } });
+	async createPost(
+		content: string,
+		projectRepositoryId: string,
+		identifier: string
+	): Promise<Post> {
+		const apiPost = await this.httpClient.post<ApiPost>('feed/new', {
+			body: { content, project_repository_id: projectRepositoryId }
+		});
 		const post = apiToPost(apiPost);
 		this.appDispatch.dispatch(upsertPost(post));
 
 		// TODO: Determine if this is needed / wanted / useful
-		this.getFeedPage('all');
+		this.getFeedPage(identifier);
 
 		return post;
 	}

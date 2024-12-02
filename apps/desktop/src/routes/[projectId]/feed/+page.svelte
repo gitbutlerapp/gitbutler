@@ -1,61 +1,69 @@
 <script lang="ts">
+	import { ProjectService } from '$lib/backend/projects';
 	import Post from '$lib/feeds/Post.svelte';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { getContext } from '@gitbutler/shared/context';
-	import { feedsSelectors } from '@gitbutler/shared/feeds/feedsSlice';
-	import { postsSelectors } from '@gitbutler/shared/feeds/postsSlice';
+	import { getFeed, getFeedLastPost } from '@gitbutler/shared/feeds/feedsPreview.svelte';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
-	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
+	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
+	import {
+		getFeedIdentityForRepositoryId,
+		getParentForRepositoryId
+	} from '@gitbutler/shared/organizations/projectsPreview.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	const appState = getContext(AppState);
 	const feedService = getContext(FeedService);
+	const projectService = getContext(ProjectService);
+	const project = projectService.project;
+	const cloudProjectService = getContext(CloudProjectService);
 
-	// Fetching the head of the feed
-	const feedHeadInterest = feedService.getFeedHeadInterest();
-	// List posts associated with the feed
-	const feed = $derived(feedsSelectors.selectById(appState.feeds, 'all'));
+	const parentProject = $derived(
+		$project?.api
+			? getParentForRepositoryId(appState, cloudProjectService, $project.api.repository_id)
+			: undefined
+	);
+
+	const feedIdentity = $derived(
+		$project?.api
+			? getFeedIdentityForRepositoryId(appState, cloudProjectService, $project.api.repository_id)
+			: undefined
+	);
+
+	const feed = $derived(getFeed(appState, feedService, feedIdentity?.current));
 
 	// Post creation
 	let newPostContent = $state('');
 	function createPost() {
-		feedService.createPost(newPostContent);
+		if (!feedIdentity?.current) return;
+		if (!parentProject?.current) return;
+
+		feedService.createPost(
+			newPostContent,
+			parentProject.current.repositoryId,
+			feedIdentity.current
+		);
 		newPostContent = '';
 	}
 
 	// Infinite scrolling
-	const lastPostId = $derived(feed?.postIds.at(-1));
-	const lastPostInterest = $derived(
-		lastPostId ? feedService.getPostWithRepliesInterest(lastPostId) : undefined
-	);
-	const lastPost = $derived(
-		lastPostId ? postsSelectors.selectById(appState.posts, lastPostId) : undefined
-	);
+	const lastPost = $derived(getFeedLastPost(appState, feedService, feed.current));
+
 	let lastElement = $state<HTMLElement | undefined>();
-
 	$effect(() => {
-		if (lastElement) {
-			const observer = new IntersectionObserver(
-				(entries) => {
-					if (entries[0]?.isIntersecting && lastPost) {
-						feedService.getFeedPage('all', lastPost?.createdAt);
-					}
-				},
-				{ root: null }
-			);
+		if (!lastElement) return;
 
-			observer.observe(lastElement);
-			return () => observer.disconnect();
-		}
+		const observer = new IntersectionObserver((entries) => {
+			if (entries[0]?.isIntersecting && lastPost.current?.createdAt && feedIdentity?.current) {
+				feedService.getFeedPage(feedIdentity.current, lastPost.current.createdAt);
+			}
+		});
+
+		observer.observe(lastElement);
+		return () => observer.disconnect();
 	});
 </script>
-
-<RegisterInterest interest={feedHeadInterest} />
-
-{#if lastPostInterest}
-	<RegisterInterest interest={lastPostInterest} />
-{/if}
 
 <ScrollableContainer>
 	<div>
@@ -64,9 +72,9 @@
 	</div>
 
 	<div>
-		{#if feed}
-			{#each feed.postIds as postId, index (postId)}
-				{#if index < feed.postIds.length - 1 && lastPostInterest}
+		{#if feed.current}
+			{#each feed.current.postIds as postId, index (postId)}
+				{#if index < feed.current.postIds.length - 1 && lastPost.current && feedIdentity?.current}
 					<div bind:this={lastElement}></div>
 				{/if}
 

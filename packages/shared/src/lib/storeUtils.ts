@@ -55,3 +55,5 @@ export function writableDerived<A, B>(
 
 	return derivedStore;
 }
+
+export type Reactive<T> = { current: T };

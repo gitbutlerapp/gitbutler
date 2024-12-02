@@ -2,7 +2,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { postsSelectors } from '@gitbutler/shared/feeds/postsSlice';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
-	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
+	import { registerInterestInView } from '@gitbutler/shared/interest/registerInterestFunction.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 
 	type Props = {
@@ -15,13 +15,15 @@
 
 	const appState = getContext(AppState);
 
-	const postWithRepliesInterest = $derived(feedService.getPostWithRepliesInterest(postId));
+	// Register interest for posts
+	$effect(() => {
+		const interest = feedService.getPostWithRepliesInterest(postId);
+		registerInterestInView(interest, postCardRef);
+	});
 	const post = $derived(postsSelectors.selectById(appState.posts, postId));
 
 	let postCardRef = $state<HTMLDivElement | undefined>(undefined);
 </script>
-
-<RegisterInterest interest={postWithRepliesInterest} reference={postCardRef} onlyInView />
 
 {#if post}
 	<div class="card card__content" bind:this={postCardRef}>
