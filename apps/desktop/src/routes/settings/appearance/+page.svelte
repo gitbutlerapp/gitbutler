@@ -224,9 +224,8 @@
 					}}
 				/>
 			{/snippet}
-
 		</SectionCard>
-
+      
 		<SectionCard orientation="row" roundedTop={false} roundedBottom={false}>
 			{#snippet title()}
 				Lines contrast
