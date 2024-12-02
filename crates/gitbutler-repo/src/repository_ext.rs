@@ -835,7 +835,7 @@ impl GixRepositoryExt for gix::Repository {
     }
 
     fn merge_options_fail_fast(&self) -> Result<(Options, TreatAsUnresolved)> {
-        let conflict_kind = gix::merge::tree::TreatAsUnresolved::Renames;
+        let conflict_kind = TreatAsUnresolved::forced_resolution();
         let options = self
             .tree_merge_options()?
             .with_fail_on_conflict(Some(conflict_kind));
