@@ -731,6 +731,40 @@ fn dependecies_ignore_merge_commits() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn dependencies_handle_complex_branch_checkout() -> Result<()> {
+    // This test ensures that checking out branches with *complex* histories
+    // does not cause the dependency calculation to fail.
+    //
+    // The *complexity* of the branch is that is contains a merge commit from itself to itself,
+    // mimicking checking-out a remote branch that had PRs merged to it.
+    let ctx = command_ctx("complex-branch-checkout")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let default_target = test_ctx.virtual_branches.get_default_target()?;
+    let my_stack = &test_ctx.stack;
+
+    let dependencies = compute_workspace_dependencies(
+        &ctx,
+        &default_target.sha,
+        &HashMap::new(),
+        &test_ctx.all_stacks,
+    )?;
+
+    let commit_dependencies = dependencies.commit_dependencies.get(&my_stack.id).unwrap();
+    assert_commit_map_matches_by_message(
+        commit_dependencies,
+        HashMap::from([
+            ("update a again", vec!["update a"]),
+            ("update a", vec!["add a"]),
+            ("Merge branch 'delete-b' into my_stack", vec!["add b"]),
+        ]),
+        &ctx,
+        "Commit interdependencies correctly calculated. They should only pick up the merge commit when calculating dependencies",
+    );
+
+    Ok(())
+}
+
 // Test utility functions
 // ---
 
@@ -814,12 +848,12 @@ fn extract_commit_messages(
     for (oid_key, oid_values) in actual {
         let repo = ctx.repository();
         let key_commit = repo.find_commit(*oid_key).unwrap();
-        let key_message = key_commit.message().unwrap().to_string();
+        let key_message = key_commit.message().unwrap().trim().to_string();
         let actual_values: Vec<String> = oid_values
             .iter()
             .map(|oid| {
                 let value_commit = repo.find_commit(*oid).unwrap();
-                let value_commit_message = value_commit.message().unwrap();
+                let value_commit_message = value_commit.message().unwrap().trim();
                 value_commit_message.to_string()
             })
             .collect();
