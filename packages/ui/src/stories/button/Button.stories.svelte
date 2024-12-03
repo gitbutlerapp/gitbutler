@@ -4,9 +4,8 @@
 	import { fn, expect, userEvent, within } from '@storybook/test';
 
 	const { Story } = defineMeta({
-		title: 'Inputs / Button / CSF Buttons',
+		title: 'Inputs / Button',
 		component: Button,
-		tags: ['autodocs'],
 		args: {
 			loading: false,
 			disabled: false,
@@ -32,12 +31,20 @@
 			onclick: fn(() => {
 				console.log('Button clicked');
 			})
+		},
+		argTypes: {
+			size: {
+				options: ['cta', 'button', 'tag'],
+				control: {
+					type: 'select'
+				}
+			}
 		}
 	});
 </script>
 
 <Story
-	name="Primary"
+	name="Single"
 	play={async ({ args, canvasElement }) => {
 		const canvas = within(canvasElement);
 		const submitButton = canvas.getByRole('button');
@@ -45,5 +52,5 @@
 		await expect(args.onclick).toHaveBeenCalled();
 	}}
 >
-	Button Text
+	Button
 </Story>
