@@ -29,7 +29,7 @@ export class SyncedSnapshotService {
 		});
 	}
 
-	async takeSyncedSnapshot(): Promise<string> {
+	async takeSyncedSnapshot(stackId?: string): Promise<string> {
 		// Take a snapshot
 		const { user, project } = get(this.#joinedUserAndProject);
 
@@ -40,7 +40,8 @@ export class SyncedSnapshotService {
 
 		const snapshotOid = await this.commandService.invoke<string>('take_synced_snapshot', {
 			projectId: project!.id,
-			user: user!
+			user: user!,
+			stackId
 		});
 
 		return snapshotOid;
