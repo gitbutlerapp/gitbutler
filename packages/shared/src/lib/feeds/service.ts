@@ -56,13 +56,26 @@ export class FeedService {
 		content: string,
 		projectRepositoryId: string,
 		identifier: string,
-		replyTo?: string
+		replyTo?: string,
+		picture?: File
 	): Promise<Post> {
 		await guardReadableTrue(this.httpClient.authenticationAvailable);
 
+		const formData = new FormData();
+		formData.append('content', content);
+		formData.append('project_repository_id', projectRepositoryId);
+		if (replyTo) {
+			formData.append('reply_to', replyTo);
+		}
+		if (picture) {
+			formData.append('picture', picture);
+		}
+
 		const apiPost = await this.httpClient.post<ApiPost>('feed/new', {
-			body: { content, project_repository_id: projectRepositoryId, reply_to: replyTo }
+			body: formData,
+			headers: { 'Content-Type': undefined }
 		});
+
 		const post = apiToPost(apiPost);
 		this.appDispatch.dispatch(upsertPost(post));
 

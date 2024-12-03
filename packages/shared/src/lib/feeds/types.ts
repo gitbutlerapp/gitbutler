@@ -7,6 +7,7 @@ export type ApiPost = {
 	reply_to_id: string;
 	created_at: string;
 	user: ApiUser;
+	picture_url: string | null;
 	// TODO metadata:
 	// TODO target:
 };
@@ -22,6 +23,7 @@ export type Post = {
 	replyToId: string;
 	createdAt: string;
 	userLogin: string;
+	pictureUrl?: string;
 	// TODO metadata:
 	// TODO target:
 
@@ -35,7 +37,8 @@ export function apiToPost(apiPost: ApiPost): Post {
 		postType: apiPost.post_type,
 		replyToId: apiPost.reply_to_id,
 		createdAt: apiPost.created_at,
-		userLogin: apiPost.user.login
+		userLogin: apiPost.user.login,
+		pictureUrl: apiPost.picture_url || undefined
 	};
 }
 

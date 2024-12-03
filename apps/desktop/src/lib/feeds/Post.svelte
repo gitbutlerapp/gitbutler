@@ -31,6 +31,7 @@
 		registerInterestInView(interest, postCardRef);
 	});
 	const post = $derived(postsSelectors.selectById(appState.posts, postId));
+	$inspect(post);
 
 	const author = $derived(getPostAuthor(appState, feedService, userService, postId));
 
@@ -50,6 +51,12 @@
 			</div>
 
 			<Markdown content={post.content} />
+
+			{#if post.pictureUrl}
+				<div class="post-picture-container">
+					<img src={post.pictureUrl} alt="" referrerpolicy="no-referrer" />
+				</div>
+			{/if}
 
 			{#if post.replyIds}
 				<div>
@@ -75,5 +82,17 @@
 		align-items: center;
 
 		gap: 8px;
+	}
+
+	.post-picture-container {
+		display: flex;
+		justify-content: center;
+		width: 100%;
+
+		max-height: 400px;
+
+		img {
+			object-fit: contain;
+		}
 	}
 </style>
