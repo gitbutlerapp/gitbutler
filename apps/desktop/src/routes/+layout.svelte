@@ -80,8 +80,6 @@
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
 	setContext(PostHogWrapper, data.posthog);
-	setContext(AppState, data.appState);
-	setContext(AppDispatch, data.appState.appDispatch);
 	setContext(CommandService, data.commandService);
 	setContext(UserService, data.userService);
 	setContext(ProjectsService, data.projectsService);

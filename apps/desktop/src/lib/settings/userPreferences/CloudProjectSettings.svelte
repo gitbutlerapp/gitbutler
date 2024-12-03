@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Project, ProjectsService } from '$lib/backend/projects';
+	import { ProjectsService, ProjectService } from '$lib/backend/projects';
 	import Section from '$lib/settings/Section.svelte';
 	import ProjectConnectModal from '$lib/settings/userPreferences/ProjectConnectModal.svelte';
 	import Link from '$lib/shared/Link.svelte';
@@ -18,13 +18,13 @@
 	import { PUBLIC_API_BASE_URL } from '$env/static/public';
 
 	const appState = getContext(AppState);
-	const _project = getContext(Project);
 	const user = getContextStore(User);
 	const projectsService = getContext(ProjectsService);
+	const projectService = getContext(ProjectService);
 	const cloudProjectService = getContext(CloudProjectService);
 	const organizationService = getContext(OrganizationService);
 
-	const project = projectsService.getProjectStore(_project.id);
+	const project = projectService.project;
 
 	const cloudProject = $derived(
 		$project?.api
@@ -52,7 +52,7 @@
 			description: fetchedCloudProject.description,
 			repository_id: fetchedCloudProject.repositoryId,
 			git_url: fetchedCloudProject.gitUrl,
-			// code_git_url: fetchedCloudProject.codeGitUrl,
+			git_code_url: fetchedCloudProject.codeGitUrl,
 			created_at: fetchedCloudProject.createdAt,
 			updated_at: fetchedCloudProject.updatedAt,
 			sync: false,
