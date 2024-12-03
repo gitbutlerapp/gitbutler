@@ -5,6 +5,7 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
@@ -41,6 +42,7 @@
 	const fileIdSelection = getContext(FileIdSelection);
 	const branchStore = getContextStore(VirtualBranch);
 	const baseBranchService = getContext(BaseBranchService);
+	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const prService = getForgePrService();
 	const listingService = getForgeListingService();
@@ -109,12 +111,14 @@
 
 	async function checkMergeable() {
 		const seriesMergeResponse = await Promise.allSettled(
-			branch.validSeries.map((series) => {
-				if (!series.prNumber) return Promise.reject();
+			branch.validSeries
+				.filter((s) => !s.archived)
+				.map((series) => {
+					if (!series.prNumber) return Promise.reject();
 
-				const detailedPr = $prService?.get(series.prNumber);
-				return detailedPr;
-			})
+					const detailedPr = $prService?.get(series.prNumber);
+					return detailedPr;
+				})
 		);
 
 		return seriesMergeResponse.every((s) => {
@@ -133,8 +137,8 @@
 			const topBranch = branch.validSeries[0];
 
 			if (topBranch?.prNumber && $prService) {
-				// TODO: Figure out default base branch of repo
-				await $prService.updateBase(topBranch.prNumber, 'main');
+				const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
+				await $prService.update(topBranch.prNumber, { targetBase });
 				await $prService.merge(method, topBranch.prNumber);
 				await baseBranchService.fetchFromRemotes();
 				toasts.success('Stack Merged Successfully');
@@ -292,13 +296,12 @@
 						</Button>
 					</div>
 				{/if}
-
 				{#await canMergeAll then isMergeable}
 					{#if isMergeable}
 						<div
 							class="lane-branches__action"
 							class:scroll-end-visible={scrollEndVisible}
-							class:can-merge-all={canMergeAll}
+							class:can-merge-all={isMergeable}
 							use:intersectionObserver={{
 								callback: (entry) => {
 									if (entry?.isIntersecting) {
