@@ -21,8 +21,8 @@ gitbutler-diff.workspace = true
 gitbutler-stack.workspace = true
 gix = { workspace = true, features = ["max-performance", "tracing"] }
 dirs-next = "2.0.0"
-clap = { version = "4.5.20", features = ["derive", "env"] }
-anyhow = "1.0.92"
+clap = { version = "4.5.21", features = ["derive", "env"] }
+anyhow = "1.0.93"
 chrono = "0.4.10"
 tracing-forest = { version = "0.1.6" }
 tracing-subscriber.workspace = true

@@ -6,7 +6,7 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [dependencies]
-anyhow = "1.0.92"
+anyhow = "1.0.93"
 git2.workspace = true
 gitbutler-repo.workspace = true
 serde = { workspace = true, features = ["std"] }
@@ -31,4 +31,4 @@ path = "tests/mod.rs"
 
 [dev-dependencies]
 pretty_assertions = "1.4"
-tempfile = "3.13"
+tempfile = "3.14"

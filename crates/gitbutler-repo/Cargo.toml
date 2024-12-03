@@ -8,10 +8,10 @@ publish = false
 [dependencies]
 git2.workspace = true
 gix = { workspace = true, features = ["merge", "status", "tree-editor"] }
-anyhow = "1.0.92"
+anyhow = "1.0.93"
 bstr.workspace = true
 tracing.workspace = true
-tempfile = "3.13"
+tempfile = "3.14"
 serde = { workspace = true, features = ["std"] }
 thiserror.workspace = true
 resolve-path = "0.1.0"

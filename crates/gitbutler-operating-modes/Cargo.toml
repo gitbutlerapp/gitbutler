@@ -7,7 +7,7 @@ publish = false
 
 [dependencies]
 serde = { workspace = true, features = ["std"] }
-tracing = "0.1.40"
+tracing = "0.1.41"
 git2.workspace = true
 anyhow.workspace = true
 toml.workspace = true
