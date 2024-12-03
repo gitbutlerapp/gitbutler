@@ -21,7 +21,7 @@
 	reversedDirection
 	style="ghost"
 	outline
-	icon="update-small"
+	icon="update"
 	tooltip="Last fetch from upstream"
 	{loading}
 	onmousedown={async (e: MouseEvent) => {
