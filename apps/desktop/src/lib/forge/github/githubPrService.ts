@@ -99,14 +99,18 @@ export class GitHubPrService implements ForgePrService {
 		return new GitHubPrMonitor(this, this.repo, prNumber, this.baseBranch);
 	}
 
-	async update(prNumber: number, details: { description?: string; state?: 'open' | 'closed' }) {
-		const { description, state } = details;
+	async update(
+		prNumber: number,
+		details: { description?: string; state?: 'open' | 'closed'; targetBase?: string }
+	) {
+		const { description, state, targetBase } = details;
 		await this.octokit.pulls.update({
 			owner: this.repo.owner,
 			repo: this.repo.name,
 			pull_number: prNumber,
 			body: description,
-			state: state
+			state: state,
+			base: targetBase
 		});
 	}
 }

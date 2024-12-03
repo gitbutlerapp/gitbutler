@@ -38,10 +38,11 @@
 	interface Props {
 		branch: PatchSeries;
 		isTopSeries: boolean;
+		isBottomSeries: boolean;
 		lastPush: Date | undefined;
 	}
 
-	const { branch, isTopSeries, lastPush }: Props = $props();
+	const { branch, isTopSeries, isBottomSeries, lastPush }: Props = $props();
 
 	let descriptionVisible = $state(!!branch.description);
 
@@ -160,6 +161,28 @@
 			listedPr.number !== branch.prNumber
 		) {
 			branchController.updateBranchPrNumber(stack.id, branch.name, listedPr.number);
+		}
+	});
+
+	/**
+	 * If the repository does not have "delete after merged" enabled, we need to manually update the base
+	 * of the bottom most branch to point to the projects baseBranch of choice after its parent has been integrated,
+	 * and  it now is the bottom-most series.
+	 */
+	$effect(() => {
+		const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
+		if (
+			listedPr?.targetBranch !== targetBase &&
+			isBottomSeries &&
+			$prService &&
+			$forge?.name === 'github' &&
+			branch.prNumber &&
+			$pr?.state === 'open'
+		) {
+			$prService?.update(branch.prNumber, { targetBase }).then(async () => {
+				await $forgeListing?.refresh();
+				await updateStatusAndChecks();
+			});
 		}
 	});
 
