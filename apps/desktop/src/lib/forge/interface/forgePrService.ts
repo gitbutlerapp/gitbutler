@@ -22,6 +22,6 @@ export interface ForgePrService {
 	prMonitor(prNumber: number): ForgePrMonitor;
 	update(
 		prNumber: number,
-		details: { description?: string; state?: 'open' | 'closed' }
+		details: { description?: string; state?: 'open' | 'closed'; targetBase?: string }
 	): Promise<void>;
 }

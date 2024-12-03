@@ -62,7 +62,7 @@
 
 {#each nonArchivedSeries as currentSeries, idx ('name' in currentSeries ? currentSeries.name : undefined)}
 	{@const isTopSeries = idx === 0}
-	{@const isBottomSeries = idx === branch.series.length - 1}
+	{@const isBottomSeries = idx === nonArchivedSeries.length - 1}
 	{#if !isTopSeries}
 		<SeriesDividerLine
 			topPatchStatus={isPatchSeries(currentSeries) ? currentSeries?.patches?.[0]?.status : 'error'}
@@ -71,7 +71,7 @@
 
 	{#if !isError(currentSeries)}
 		<CurrentSeries {currentSeries}>
-			<SeriesHeader branch={currentSeries} {isTopSeries} {lastPush} />
+			<SeriesHeader branch={currentSeries} {isTopSeries} {isBottomSeries} {lastPush} />
 
 			{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
 				<div>
