@@ -1509,6 +1509,12 @@ pub(crate) fn insert_blank_commit(
             }
         }
     }
+    // when inserting a commit above (offeset = -1), it is possible that the new commit is above the branch head
+    // so in this case we need to update the heads
+    if offset < 0 {
+        let new_commit = repository.find_commit(blank_commit_oid)?;
+        stack.replace_head(ctx, &commit, &new_commit)?
+    }
 
     Ok(())
 }
