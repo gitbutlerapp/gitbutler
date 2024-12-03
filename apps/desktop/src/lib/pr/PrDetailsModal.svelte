@@ -8,7 +8,6 @@
 
 <script lang="ts">
 	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
-	import PrDetailsModalInfo from './PrDetailsModalInfo.svelte';
 	import PrTemplateSection from './PrTemplateSection.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
@@ -89,7 +88,6 @@
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
 
 	let modal = $state<ReturnType<typeof Modal>>();
-	let templateSelector = $state<ReturnType<typeof PrTemplateSection>>();
 	let isEditing = $state<boolean>(true);
 	let isLoading = $state<boolean>(false);
 	let templateBody = $state<string | undefined>(undefined);
@@ -415,7 +413,6 @@
 					<!-- PR TEMPLATE SELECT -->
 					{#if $useTemplate}
 						<PrTemplateSection
-							bind:this={templateSelector}
 							onselected={(body) => {
 								templateBody = body;
 							}}
@@ -472,9 +469,6 @@
 				</div>
 			{/if}
 		</div>
-
-		<!-- MODAL INFORMATION CONTAINER -->
-		<PrDetailsModalInfo />
 	</ScrollableContainer>
 
 	<!-- FOOTER -->
