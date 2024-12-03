@@ -48,7 +48,7 @@
 
 <DropDownButton
 	bind:this={dropDown}
-	onclick={() => onclick($action)}
+	onclick={() => onclick?.($action)}
 	{outline}
 	{style}
 	{kind}
