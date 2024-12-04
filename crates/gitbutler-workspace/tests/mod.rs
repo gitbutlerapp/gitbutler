@@ -1,7 +1,6 @@
 mod branch_trees;
 
-#[cfg(test)]
-mod test {
+mod checkout_branch_trees {
     use std::fs;
 
     use gitbutler_branch::BranchCreateRequest;
