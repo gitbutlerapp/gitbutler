@@ -2,8 +2,8 @@ import { Tauri } from './tauri';
 import { showToast } from '$lib/notifications/toasts';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { type DownloadEvent, Update } from '@tauri-apps/plugin-updater';
-import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
+import type { PostHogWrapper } from '$lib/analytics/posthog';
 
 type UpdateStatus = {
 	version?: string;
@@ -53,7 +53,10 @@ export class UpdaterService {
 	unlistenStatus?: () => void;
 	unlistenMenu?: () => void;
 
-	constructor(private tauri: Tauri) {}
+	constructor(
+		private tauri: Tauri,
+		private posthog: PostHogWrapper
+	) {}
 
 	private async start() {
 		this.unlistenMenu = this.tauri.listen<string>('menu://global/update/clicked', () => {
@@ -112,12 +115,12 @@ export class UpdaterService {
 		try {
 			await this.download();
 			await this.install();
-			posthog.capture('App Update Successful');
+			this.posthog.capture('App Update Successful');
 		} catch (error: any) {
 			// We expect toast to be shown by error handling in `onUpdaterEvent`
 			handleError(error, true);
 			this.update.set({ status: 'Error' });
-			posthog.capture('App Update Install Error', { error });
+			this.posthog.capture('App Update Install Error', { error });
 		} finally {
 			this.loading.set(false);
 		}

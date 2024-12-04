@@ -17,6 +17,7 @@ let idCounter = 0;
 
 export function showToast(toast: Toast) {
 	if (toast.error) {
+		// TODO: Make toast a service, so we can inject posthog.
 		posthog.capture('toast:show_error', {
 			error_title: toast.title,
 			error_message: String(toast.error)

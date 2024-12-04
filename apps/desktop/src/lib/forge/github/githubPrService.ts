@@ -2,8 +2,8 @@ import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
 import { sleep } from '$lib/utils/sleep';
-import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
+import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type {
@@ -20,7 +20,8 @@ export class GitHubPrService implements ForgePrService {
 	constructor(
 		private octokit: Octokit,
 		private repo: RepoInfo,
-		private baseBranch: string
+		private baseBranch: string,
+		private posthog?: PostHogWrapper
 	) {}
 
 	async createPr({
@@ -53,7 +54,7 @@ export class GitHubPrService implements ForgePrService {
 		while (attempts < 4) {
 			try {
 				pr = await request();
-				posthog.capture('PR Successful');
+				this.posthog?.capture('PR Successful');
 				return pr;
 			} catch (err: any) {
 				lastError = err;

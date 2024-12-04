@@ -1,7 +1,6 @@
 import { invoke } from '$lib/backend/ipc';
 import { showToast } from '$lib/notifications/toasts';
 import GitUrlParse from 'git-url-parse';
-import { posthog } from 'posthog-js';
 
 const SEPARATOR = '/';
 
@@ -10,9 +9,6 @@ export async function openExternalUrl(href: string) {
 		await invoke<void>('open_url', { url: href });
 	} catch (e) {
 		if (typeof e === 'string' || e instanceof String) {
-			// TODO: Remove if/when we've resolved all external URL problems.
-			posthog.capture('Link Error', { href, message: e });
-
 			const message = `
                 Failed to open link in external browser:
 

@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { AppSettings } from '$lib/config/appSettings';
 	import AnalyticsSettings from '$lib/settings/AnalyticsSettings.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
 	const appSettings = getContext(AppSettings);
+	const posthog = getContext(PostHogWrapper);
 	const analyticsConfirmed = appSettings.appAnalyticsConfirmed;
 </script>
 
@@ -21,7 +23,7 @@
 			icon="chevron-right-small"
 			onclick={() => {
 				$analyticsConfirmed = true;
-				initAnalyticsIfEnabled(appSettings);
+				initAnalyticsIfEnabled(appSettings, posthog);
 			}}
 		>
 			Continue

@@ -2,6 +2,7 @@
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import { ProjectsService, Project } from '$lib/backend/projects';
 	import { showError } from '$lib/notifications/toasts';
@@ -10,7 +11,6 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
-	import posthog from 'posthog-js';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
@@ -21,6 +21,7 @@
 	const { error = undefined }: Props = $props();
 
 	const projectsService = getContext(ProjectsService);
+	const posthog = getContext(PostHogWrapper);
 	const project = getContext(Project);
 
 	let loading = $state(false);
