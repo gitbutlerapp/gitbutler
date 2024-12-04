@@ -76,7 +76,7 @@ fn get_commits_to_process<'a>(
     target_sha: &'a git2::Oid,
 ) -> Result<impl Iterator<Item = git2::Oid> + 'a, anyhow::Error> {
     let commit_ids = repo
-        .l(stack.head(), LogUntil::Commit(*target_sha), true)
+        .l(stack.head(), LogUntil::Commit(*target_sha), false)
         .context("failed to list commits")?
         .into_iter()
         .rev()
