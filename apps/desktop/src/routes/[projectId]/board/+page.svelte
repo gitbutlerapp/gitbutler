@@ -4,11 +4,16 @@
 	import Board from '$lib/components/Board.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { getForge } from '$lib/forge/interface/forge';
+	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import { ModeService } from '$lib/modes/service';
 	import { showToast } from '$lib/notifications/toasts';
 	import Scrollbar from '$lib/scroll/Scrollbar.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';
+
+	const { data }: { data: PageData } = $props();
+	const { projectMetrics } = $derived(data);
 
 	const project = getContext(Project);
 	const forge = getForge();
@@ -60,6 +65,9 @@
 		<Scrollbar {viewport} {contents} horz />
 	</div>
 </div>
+
+<!-- Mounting metrics reporter in the board ensures dependent services are subscribed to. -->
+<MetricsReporter {projectMetrics} />
 
 <style lang="postcss">
 	/* BOARD */
