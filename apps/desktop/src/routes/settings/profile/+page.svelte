@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { deleteAllData } from '$lib/backend/data';
 	import Login from '$lib/components/Login.svelte';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
@@ -10,6 +9,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import { onMount } from 'svelte';

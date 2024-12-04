@@ -1,5 +1,4 @@
 <script lang="ts">
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
 	import HunkDiff from '$lib/hunk/HunkDiff.svelte';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
@@ -15,6 +14,7 @@
 	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import { type Hunk } from '$lib/vbranches/types';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import type { ContentSection } from '$lib/utils/fileSections';

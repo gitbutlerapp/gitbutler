@@ -6,6 +6,10 @@
 	import WorkspaceButton from './WorkspaceButton.svelte';
 	import Resizer from '../shared/Resizer.svelte';
 	import { ProjectService } from '$lib/backend/projects';
+	import {
+		cloudCommunicationFunctionality,
+		cloudReviewFunctionality
+	} from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/modes/service';
 	import CloudSeriesButton from '$lib/navigation/CloudSeriesButton.svelte';
 	import EditButton from '$lib/navigation/EditButton.svelte';
@@ -21,7 +25,6 @@
 	const minResizerRatio = 150;
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const projectService = getContext(ProjectService);
-	const cloudEnabled = projectService.cloudEnabled;
 	const projectId = projectService.projectId;
 	const defaultTrayWidthRem = persisted<number | undefined>(
 		undefined,
@@ -125,8 +128,10 @@
 						<EditButton href={`/${projectId}/edit`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 
-					{#if $cloudEnabled}
+					{#if $cloudReviewFunctionality}
 						<CloudSeriesButton href={`/${projectId}/series`} isNavCollapsed={$isNavCollapsed} />
+					{/if}
+					{#if $cloudCommunicationFunctionality}
 						<FeedButton href={`/${projectId}/feed`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 				</div>

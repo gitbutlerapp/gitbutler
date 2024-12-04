@@ -1,10 +1,13 @@
+import type { ApiUser } from '$lib/users/types';
+
 export type ApiPost = {
 	uuid: string;
 	content: string;
 	post_type: string;
 	reply_to_id: string;
 	created_at: string;
-	// TODO user:
+	user: ApiUser;
+	picture_url: string | null;
 	// TODO metadata:
 	// TODO target:
 };
@@ -19,7 +22,8 @@ export type Post = {
 	postType: string;
 	replyToId: string;
 	createdAt: string;
-	// TODO userId:
+	userLogin: string;
+	pictureUrl?: string;
 	// TODO metadata:
 	// TODO target:
 
@@ -32,7 +36,9 @@ export function apiToPost(apiPost: ApiPost): Post {
 		content: apiPost.content,
 		postType: apiPost.post_type,
 		replyToId: apiPost.reply_to_id,
-		createdAt: apiPost.created_at
+		createdAt: apiPost.created_at,
+		userLogin: apiPost.user.login,
+		pictureUrl: apiPost.picture_url || undefined
 	};
 }
 

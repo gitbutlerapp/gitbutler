@@ -3,9 +3,9 @@
 	import KeysForm from '../KeysForm.svelte';
 	import Section from '../Section.svelte';
 	import { Project, ProjectsService } from '$lib/backend/projects';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { getContext } from '@gitbutler/shared/context';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 

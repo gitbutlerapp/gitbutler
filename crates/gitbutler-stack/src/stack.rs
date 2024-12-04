@@ -83,10 +83,16 @@ pub struct Stack {
     /// Do **NOT** edit this directly, instead use the `Stack` trait in gitbutler_stack.
     #[serde(default)]
     pub heads: Vec<StackBranch>,
+    #[serde(default = "default_false")]
+    pub post_commits: bool,
 }
 
 fn default_true() -> bool {
     true
+}
+
+fn default_false() -> bool {
+    false
 }
 
 fn serialize_u128<S>(x: &u128, s: S) -> Result<S::Ok, S::Error>
@@ -156,6 +162,7 @@ impl Stack {
             in_workspace: true,
             not_in_workspace_wip_change_id: None,
             heads: Default::default(),
+            post_commits: false,
         }
     }
 

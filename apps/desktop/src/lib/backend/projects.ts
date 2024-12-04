@@ -41,6 +41,7 @@ export type CloudProject = {
 	description: string | null;
 	repository_id: string;
 	git_url: string;
+	git_code_url: string;
 	created_at: string;
 	updated_at: string;
 };
@@ -224,16 +225,11 @@ export class ProjectsService {
  */
 export class ProjectService {
 	project: Readable<Project | undefined>;
-	cloudEnabled: Readable<boolean>;
 
 	constructor(
 		projectsService: ProjectsService,
 		readonly projectId: string
 	) {
 		this.project = projectsService.getProjectStore(projectId);
-
-		this.cloudEnabled = derived(this.project, (project) => {
-			return !!project?.api?.sync;
-		});
 	}
 }

@@ -19,7 +19,6 @@ import { BranchController } from '$lib/vbranches/branchController';
 import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { BranchesApiService, CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
-import { FeedService } from '@gitbutler/shared/feeds/service';
 import { error } from '@sveltejs/kit';
 import { derived } from 'svelte/store';
 import type { LayoutLoad } from './$types';
@@ -28,7 +27,7 @@ export const prerender = false;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async ({ params, parent }) => {
-	const { authService, projectsService, cloud, commandService, userService, appState, posthog } =
+	const { authService, projectsService, cloud, commandService, userService, posthog } =
 		await parent();
 
 	const projectId = params.projectId;
@@ -99,8 +98,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		cloudBranchesService
 	);
 
-	const feedService = new FeedService(cloud, appState.appDispatch);
-
 	return {
 		authService,
 		baseBranchService,
@@ -128,7 +125,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		// Cloud-related services
 		syncedSnapshotService,
 		cloudBranchesService,
-		cloudBranchCreationService,
-		feedService
+		cloudBranchCreationService
 	};
 };

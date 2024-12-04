@@ -55,6 +55,7 @@ pub fn create_commit(
             guard.write_permission(),
         )
     });
+
     result
 }
 

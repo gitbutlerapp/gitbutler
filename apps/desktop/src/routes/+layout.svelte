@@ -37,13 +37,17 @@
 	import { User, UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
+	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
-	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store';
+	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		DesktopRoutesService,
 		setRoutesService,
 		WebRoutesService
 	} from '@gitbutler/shared/sharedRoutes';
+	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { onMount, setContext, type Snippet } from 'svelte';
@@ -60,11 +64,22 @@
 	const userSettings = loadUserSettings();
 	setContext(SETTINGS, userSettings);
 
+	const appState = new AppState();
+	const feedService = new FeedService(data.cloud, appState.appDispatch);
+	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
+	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
+	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
+
+	setContext(AppState, appState);
+	setContext(AppDispatch, appState.appDispatch);
+	setContext(FeedService, feedService);
+	setContext(OrganizationService, organizationService);
+	setContext(CloudUserService, cloudUserService);
+	setContext(CloudProjectService, cloudProjectService);
+
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
 	setContext(PostHogWrapper, data.posthog);
-	setContext(AppState, data.appState);
-	setContext(AppDispatch, data.appState.appDispatch);
 	setContext(CommandService, data.commandService);
 	setContext(UserService, data.userService);
 	setContext(ProjectsService, data.projectsService);

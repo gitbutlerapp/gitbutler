@@ -7,12 +7,13 @@
 	import SeriesHeaderStatusIcon from './SeriesHeaderStatusIcon.svelte';
 	import { PromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
-	import { Project, ProjectService } from '$lib/backend/projects';
+	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import SeriesHeaderContextMenu from '$lib/branch/SeriesHeaderContextMenu.svelte';
 	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
@@ -136,14 +137,11 @@
 		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
 	}
 
-	const projectService = getContext(ProjectService);
-	const cloudEnabled = projectService.cloudEnabled;
-
 	const cloudBranchCreationService = getContext(CloudBranchCreationService);
 	const cloudBranchesService = getContext(CloudBranchesService);
 	const cloudBranch = $derived(cloudBranchesService.branchForBranchId(stack.id));
 	const showCreateCloudBranch = $derived(
-		$cloudEnabled &&
+		$cloudReviewFunctionality &&
 			cloudBranchCreationService.canCreateBranch &&
 			$cloudBranch.state === 'not-found'
 	);

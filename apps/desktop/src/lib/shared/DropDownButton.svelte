@@ -14,6 +14,7 @@
 		disabled?: boolean;
 		loading?: boolean;
 		wide?: boolean;
+		grow?: boolean;
 		tooltip?: string;
 		type?: 'button' | 'submit' | 'reset';
 		menuPosition?: 'top' | 'bottom';
@@ -30,6 +31,7 @@
 		disabled = false,
 		loading = false,
 		wide = false,
+		grow = false,
 		type,
 		tooltip,
 		menuPosition = 'bottom',
@@ -59,7 +61,7 @@
 </script>
 
 <Tooltip text={tooltip}>
-	<div class="dropdown-wrapper" class:wide>
+	<div class="dropdown-wrapper" class:wide class:grow>
 		<div class="dropdown">
 			<Button
 				{style}
@@ -108,6 +110,10 @@
 	.dropdown-wrapper {
 		/* display set directly on element */
 		position: relative;
+	}
+
+	.grow {
+		flex-grow: 1;
 	}
 
 	.dropdown {

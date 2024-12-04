@@ -1,9 +1,9 @@
 <script lang="ts">
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 
 	interface Props {
 		title?: string;

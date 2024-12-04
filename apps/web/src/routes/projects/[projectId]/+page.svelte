@@ -121,7 +121,7 @@
 						{#each Object.keys(event.files) as branch}
 							{#if event.branch_data.branches[branch]}
 								<h3>Branch {event.branch_data.branches[branch].name}</h3>
-								<button type="button" on:click={() => createPatchStack(branch, event.sha)}
+								<button type="button" onclick={() => createPatchStack(branch, event.sha)}
 									>Create Patch Stack</button
 								>
 								{#each Object.keys(event.files[branch]) as file}

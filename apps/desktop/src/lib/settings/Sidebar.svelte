@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SupportersBanner from './SupportersBanner.svelte';
+	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
 	import { platformName } from '$lib/platform/platform';
 	import { openExternalUrl } from '$lib/utils/url';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -126,6 +127,19 @@
 						<span class="text-14 text-semibold">Experimental</span>
 					</button>
 				</li>
+				{#if $cloudFunctionality}
+					<li>
+						<button
+							type="button"
+							class="profile-sidebar__menu-item"
+							class:item_selected={currentSection === 'organizations'}
+							onmousedown={() => onMenuClick('organizations')}
+						>
+							<Icon name="idea" />
+							<span class="text-14 text-semibold">Organizations</span>
+						</button>
+					</li>
+				{/if}
 			</ul>
 		</div>
 	</section>

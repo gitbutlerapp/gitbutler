@@ -7,7 +7,7 @@
 		tooltip: string;
 		tooltipAlign?: TooltipAlign;
 		tooltipPosition?: TooltipPosition;
-		size?: 'small' | 'medium';
+		size?: 'small' | 'medium' | 'large';
 	}
 
 	let isLoaded = $state(false);
@@ -47,6 +47,12 @@
 			border-radius: 8px;
 			width: 16px;
 			height: 16px;
+		}
+
+		&.large {
+			border-radius: 16px;
+			width: 32px;
+			height: 32px;
 		}
 	}
 

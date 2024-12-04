@@ -17,7 +17,7 @@
 
 			const observer = new IntersectionObserver(
 				(entries) => {
-					inView = entries[0].isIntersecting;
+					inView = entries[0]?.isIntersecting || false;
 				},
 				{
 					root: null

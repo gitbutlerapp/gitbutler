@@ -6,7 +6,7 @@
 		selectExampleValue,
 		selectExampleValueGreaterThan
 	} from '@gitbutler/shared/redux/example';
-	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store';
+	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
@@ -20,10 +20,9 @@
 
 	let comparisonTarget = $state(4);
 
-	const exampleState = appState.example;
-	const currentValue = $derived(selectExampleValue($exampleState));
+	const currentValue = $derived(selectExampleValue(appState.example));
 	const greaterThanComparisonTarget = $derived(
-		selectExampleValueGreaterThan($exampleState, comparisonTarget)
+		selectExampleValueGreaterThan(appState.example, comparisonTarget)
 	);
 </script>
 
