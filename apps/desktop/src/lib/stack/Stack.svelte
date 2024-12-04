@@ -183,7 +183,7 @@
 										disabled={hasConflicts}
 										tooltip={hasConflicts
 											? 'In order to push, please resolve any conflicted commits.'
-											: undefined}w
+											: undefined}
 										onclick={push}
 									>
 										{branch.requiresForce
