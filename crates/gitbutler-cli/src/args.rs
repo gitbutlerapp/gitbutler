@@ -83,7 +83,14 @@ pub mod vbranch {
         },
         /// Add a branch to the workspace.
         Apply {
-            /// The name of the virtual branch to apply.
+            /// Whether it's a branch that we're applying.
+            ///
+            /// If a stack create from the given brach is not found a new stack is created.
+            #[clap(short = 'b', long, default_value_t = false)]
+            branch: bool,
+            /// The name of the stack to apply.
+            ///
+            /// If the flag `--branch` is set, this is the name of the branch to apply a stack from.
             name: String,
         },
         /// Create a new commit to named virtual branch with all changes currently in the worktree or staging area assigned to it.
