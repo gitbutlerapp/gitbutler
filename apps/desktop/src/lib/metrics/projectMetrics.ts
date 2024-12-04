@@ -19,12 +19,12 @@ const STORAGE_EXPIRY_MINUTES = 24 * 60;
  * component.
  */
 export class ProjectMetrics {
-	// Storing the last known values so we don't report same metrics twice
-	private reportKey = `${REPORT_PREFIX}-${this.projectId}`;
-
 	private report: MetricsReport = {};
+	private reportKey: string;
 
-	constructor(readonly projectId: string) {}
+	constructor(readonly projectId: string) {
+		this.reportKey = `${REPORT_PREFIX}-${this.projectId}`;
+	}
 
 	setMetric(key: string, value: number) {
 		// Guard against upstream bugs feeding bad values.
