@@ -4,7 +4,7 @@
 </script>
 
 <script lang="ts">
-	import { ProjectMetrics, type ProjectMetricsReport } from './projectMetrics';
+	import { type ProjectMetrics } from './projectMetrics';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -14,9 +14,6 @@
 
 	const projectId = projectMetrics.projectId;
 	const posthog = getContext(PostHogWrapper);
-
-	// Storing the last known values so we don't report same metrics twice
-	const lastReport = persisted<ProjectMetricsReport>({}, `projectMetrics-${projectId}`);
 	const lastReportMs = persisted<number | undefined>(undefined, `lastMetricsTs-${projectId}`);
 
 	// Any interval or timeout must be cleared on unmount.
@@ -36,9 +33,10 @@
 				project_id: projectId,
 				...metric
 			});
+			// We don't want to report the same static value over and over
+			// again, so after successfully reporting a metric we reset it.
 			projectMetrics.resetMetric(name);
 		}
-		lastReport.set(projectMetrics.getReport());
 	}
 
 	function startInterval() {

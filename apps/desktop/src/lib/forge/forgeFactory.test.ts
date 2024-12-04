@@ -9,7 +9,7 @@ import { expect, test, describe } from 'vitest';
 describe.concurrent('DefaultforgeFactory', () => {
 	const posthog = new PostHogWrapper();
 	const octokit = new Octokit();
-	const projectMetrics = new ProjectMetrics();
+	const projectMetrics = new ProjectMetrics('test-project');
 	test('Create GitHub service', async () => {
 		const monitorFactory = new DefaultForgeFactory(octokit, posthog, projectMetrics);
 		expect(

@@ -54,11 +54,15 @@ export function persisted<T>(initial: T, key: string): Persisted<T> {
 	};
 }
 
-function setEphemeralStorageItem(key: string, value: unknown, expirationInMinutes: number): void {
+export function setEphemeralStorageItem(
+	key: string,
+	value: unknown,
+	expirationInMinutes: number
+): void {
 	lscache.set(key, JSON.stringify(value), expirationInMinutes);
 }
 
-function getEphemeralStorageItem(key: string): unknown {
+export function getEphemeralStorageItem(key: string): unknown {
 	const item = lscache.get(key);
 	try {
 		if (!item) {
