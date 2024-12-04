@@ -12,9 +12,10 @@
 	interface Props {
 		children: Snippet;
 		type?: 'commit' | 'file' | 'all';
+		id?: string;
 	}
 
-	const { children, type = 'all' }: Props = $props();
+	const { children, id, type = 'all' }: Props = $props();
 
 	const actions = $derived(branchDragActionsFactory.build($branch));
 
@@ -51,7 +52,12 @@
 {/snippet}
 
 {#snippet branchDropDropzone()}
-	<Dropzone accepts={acceptsFiles} ondrop={actions.onBranchDrop.bind(actions)} fillHeight>
+	<Dropzone
+		accepts={acceptsFiles}
+		ondrop={actions.onBranchDrop.bind(actions)}
+		fillHeight
+		id={id ? id + '-files-dz' : undefined}
+	>
 		{@render children()}
 
 		{#snippet overlay({ hovered, activated })}

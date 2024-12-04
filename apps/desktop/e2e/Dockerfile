@@ -5,6 +5,7 @@
 #     -v /tmp/e2e-pnpm-store:/tmp/pnpm-store gitbutler/e2e:latest
 # 3. docker cp -a ~/.ssh/id_ed25519.pub e2e-agent:/root/.ssh/authorized_keys
 # 4. ssh -p 2222 -Y root@localhost
+# 4.5 Fix .ssh/ permissions with chmod and chgrp
 # The rest is run inside the container in your SSH session:
 # 5. cd /root/gitbutler
 # 6. pnpm install && cargo build

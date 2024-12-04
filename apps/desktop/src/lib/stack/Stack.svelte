@@ -128,7 +128,7 @@
 						{#if branchHasFiles}
 							<UncommittedChanges {commitBoxOpen} />
 						{:else if branchHasNoCommits}
-							<Dropzones type="file">
+							<Dropzones type="file" id={branch.name}>
 								<div class="new-branch">
 									<EmptyStatePlaceholder image={laneNewSvg} width={180} bottomMargin={48}>
 										{#snippet title()}
