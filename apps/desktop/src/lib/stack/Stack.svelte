@@ -152,49 +152,51 @@
 							</Dropzones>
 						{/if}
 						<Spacer dotted />
-						<div class="lane-branches">
-							<SeriesList {branch} {lastPush} />
+						<div style:position="relative">
+							<div class="lane-branches">
+								<SeriesList {branch} {lastPush} />
+							</div>
+							{#if canPush}
+								<div
+									class="lane-branches__action"
+									class:scroll-end-visible={scrollEndVisible}
+									use:intersectionObserver={{
+										callback: (entry) => {
+											if (entry?.isIntersecting) {
+												scrollEndVisible = false;
+											} else {
+												scrollEndVisible = true;
+											}
+										},
+										options: {
+											root: null,
+											rootMargin: `-100% 0px 0px 0px`,
+											threshold: 0
+										}
+									}}
+								>
+									<Button
+										style="neutral"
+										kind="solid"
+										wide
+										loading={isPushingCommits}
+										disabled={hasConflicts}
+										tooltip={hasConflicts
+											? 'In order to push, please resolve any conflicted commits.'
+											: undefined}w
+										onclick={push}
+									>
+										{branch.requiresForce
+											? 'Force push'
+											: branch.validSeries.length > 1
+												? 'Push All'
+												: 'Push'}
+									</Button>
+								</div>
+							{/if}
 						</div>
 					</div>
 				</div>
-				{#if canPush}
-					<div
-						class="lane-branches__action"
-						class:scroll-end-visible={scrollEndVisible}
-						use:intersectionObserver={{
-							callback: (entry) => {
-								if (entry?.isIntersecting) {
-									scrollEndVisible = false;
-								} else {
-									scrollEndVisible = true;
-								}
-							},
-							options: {
-								root: null,
-								rootMargin: `-100% 0px 0px 0px`,
-								threshold: 0
-							}
-						}}
-					>
-						<Button
-							style="neutral"
-							kind="solid"
-							wide
-							loading={isPushingCommits}
-							disabled={hasConflicts}
-							tooltip={hasConflicts
-								? 'In order to push, please resolve any conflicted commits.'
-								: undefined}
-							onclick={push}
-						>
-							{branch.requiresForce
-								? 'Force push'
-								: branch.validSeries.length > 1
-									? 'Push All'
-									: 'Push'}
-						</Button>
-					</div>
-				{/if}
 			</ScrollableContainer>
 			<div class="divider-line">
 				{#if rsViewport}
@@ -237,11 +239,10 @@
 	}
 
 	.lane-branches__action {
-		position: relative;
 		z-index: var(--z-lifted);
 		position: sticky;
 		padding: 0 12px 12px;
-		margin-bottom: 1px;
+		margin: 0 -12px 1px -12px;
 		bottom: 0;
 		transition: background-color var(--transition-fast);
 
