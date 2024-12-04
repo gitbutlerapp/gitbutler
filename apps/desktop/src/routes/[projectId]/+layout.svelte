@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { setPostHogRepo } from '$lib/analytics/posthog';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import { TemplateService } from '$lib/backend/templateService';
 	import FileMenuAction from '$lib/barmenuActions/FileMenuAction.svelte';
@@ -26,7 +25,6 @@
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
-	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import { ModeService } from '$lib/modes/service';
 	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
@@ -48,12 +46,13 @@
 		project,
 		projectId,
 		projectsService,
-		projectMetrics,
 		baseBranchService,
 		branchListingService,
 		modeService,
 		userService,
-		fetchSignal
+		fetchSignal,
+		posthog,
+		projectMetrics
 	} = $derived(data);
 
 	const branchesError = $derived(vbranchService.branchesError);
@@ -101,7 +100,7 @@
 	let intervalId: any;
 
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
-	const forgeFactory = $derived(new DefaultForgeFactory(octokit));
+	const forgeFactory = $derived(new DefaultForgeFactory(octokit, posthog, projectMetrics));
 	const baseBranchName = $derived($baseBranch?.shortName);
 
 	const listServiceStore = createForgeListingServiceStore(undefined);
@@ -150,9 +149,9 @@
 		forgeStore.set(forge);
 		prService.set(forge ? forge.prService() : undefined);
 		repoService.set(forge ? forge.repoService() : undefined);
-		setPostHogRepo($repoInfo);
+		posthog.setPostHogRepo($repoInfo);
 		return () => {
-			setPostHogRepo(undefined);
+			posthog.setPostHogRepo(undefined);
 		};
 	});
 
@@ -211,7 +210,6 @@
 			<NotOnGitButlerBranch baseBranch={$baseBranch} />
 		{/if}
 	{/if}
-	<MetricsReporter {projectMetrics} />
 {/key}
 
 <style>

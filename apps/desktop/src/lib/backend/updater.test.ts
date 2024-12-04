@@ -1,5 +1,6 @@
 import { Tauri } from './tauri';
 import { UPDATE_INTERVAL_MS, UpdaterService } from './updater';
+import { PostHogWrapper } from '$lib/analytics/posthog';
 import { get } from 'svelte/store';
 import { expect, test, describe, vi, beforeEach, afterEach } from 'vitest';
 import type { Update } from '@tauri-apps/plugin-updater';
@@ -11,11 +12,12 @@ import type { Update } from '@tauri-apps/plugin-updater';
 describe('Updater', () => {
 	let tauri: Tauri;
 	let updater: UpdaterService;
+	const posthog = new PostHogWrapper();
 
 	beforeEach(() => {
 		vi.useFakeTimers();
 		tauri = new Tauri();
-		updater = new UpdaterService(tauri);
+		updater = new UpdaterService(tauri, posthog);
 		vi.spyOn(tauri, 'listen').mockReturnValue(async () => {});
 	});
 
@@ -86,7 +88,6 @@ describe('Updater', () => {
 				body
 			})
 		);
-		const updater = new UpdaterService(tauri);
 		await updater.checkForUpdate();
 
 		const update1 = get(updater.update);

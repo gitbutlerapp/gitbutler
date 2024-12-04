@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BoardEmptyState from './BoardEmptyState.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
 	import BranchLane from '$lib/branch/BranchLane.svelte';
 	import { showHistoryView } from '$lib/config/config';
@@ -10,13 +11,13 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext } from '@gitbutler/shared/context';
-	import posthog from 'posthog-js';
 	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
 	import type { VirtualBranch } from '$lib/vbranches/types';
 
 	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
+	const posthog = getContext(PostHogWrapper);
 	const error = vbranchService.error;
 	const branches = vbranchService.branches;
 

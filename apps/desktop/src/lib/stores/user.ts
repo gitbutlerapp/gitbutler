@@ -1,4 +1,3 @@
-import { resetPostHog, setPostHogUser } from '$lib/analytics/posthog';
 import { resetSentry, setSentryUser } from '$lib/analytics/sentry';
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
@@ -8,6 +7,7 @@ import { openExternalUrl } from '$lib/utils/url';
 import { type HttpClient } from '@gitbutler/shared/httpClient';
 import { plainToInstance } from 'class-transformer';
 import { derived, writable } from 'svelte/store';
+import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 
 export type LoginToken = {
@@ -30,7 +30,7 @@ export class UserService {
 			const user = plainToInstance(User, userData);
 			this.tokenMemoryService.setToken(user.access_token);
 			this.user.set(user);
-			setPostHogUser(user);
+			this.posthog.setPostHogUser({ id: user.id, email: user.email, name: user.name });
 			setSentryUser(user);
 			return user;
 		}
@@ -45,7 +45,8 @@ export class UserService {
 
 	constructor(
 		private httpClient: HttpClient,
-		private tokenMemoryService: TokenMemoryService
+		private tokenMemoryService: TokenMemoryService,
+		private posthog: PostHogWrapper
 	) {}
 
 	async setUser(user: User | undefined) {
@@ -66,7 +67,7 @@ export class UserService {
 		await this.clearUser();
 		this.user.set(undefined);
 		this.tokenMemoryService.setToken(undefined);
-		resetPostHog();
+		this.posthog.resetPostHog();
 		resetSentry();
 	}
 

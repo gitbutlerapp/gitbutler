@@ -1,4 +1,5 @@
 import { GitHub } from './github';
+import { PostHogWrapper } from '$lib/analytics/posthog';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { test, describe, vi, beforeEach, afterEach, expect } from 'vitest';
@@ -18,6 +19,7 @@ describe.concurrent('GitHubListingService', () => {
 	let gh: GitHub;
 	let service: ForgeListingService | undefined;
 	let projectMetrics: ProjectMetrics;
+	const posthog = new PostHogWrapper();
 
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -31,7 +33,7 @@ describe.concurrent('GitHubListingService', () => {
 		octokit = new Octokit();
 		projectMetrics = new ProjectMetrics();
 
-		gh = new GitHub({ repo: repoInfo, baseBranch: 'some-base', octokit, projectMetrics });
+		gh = new GitHub({ repo: repoInfo, baseBranch: 'some-base', octokit, projectMetrics, posthog });
 		service = gh.listService();
 	});
 

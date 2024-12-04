@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { Project, ProjectsService } from '$lib/backend/projects';
 	import { BaseBranchService, type RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';
@@ -9,7 +10,6 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import { posthog } from 'posthog-js';
 	import { goto } from '$app/navigation';
 
 	interface Props {
@@ -22,6 +22,7 @@
 	const projectsService = getContext(ProjectsService);
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
+	const posthog = getContext(PostHogWrapper);
 
 	let selectedBranch = $state(['', '']);
 	let loading = $state(false);

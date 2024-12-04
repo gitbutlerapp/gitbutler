@@ -5,6 +5,7 @@
 
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { CommandService, invoke } from '$lib/backend/ipc';
@@ -45,7 +46,6 @@
 	} from '@gitbutler/shared/sharedRoutes';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
-	import posthog from 'posthog-js';
 	import { onMount, setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
@@ -62,6 +62,7 @@
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
+	setContext(PostHogWrapper, data.posthog);
 	setContext(AppState, data.appState);
 	setContext(AppDispatch, data.appState.appDispatch);
 	setContext(CommandService, data.commandService);
@@ -92,8 +93,8 @@
 
 	// Special initialization to capture pageviews for single page apps.
 	if (browser) {
-		beforeNavigate(() => posthog.capture('$pageleave'));
-		afterNavigate(() => posthog.capture('$pageview'));
+		beforeNavigate(() => data.posthog.capture('$pageleave'));
+		afterNavigate(() => data.posthog.capture('$pageview'));
 	}
 
 	// This store is literally only used once, on GitHub oauth, to set the
