@@ -35,7 +35,7 @@ export interface AppProjectsState {
 }
 
 export class AppDispatch {
-	constructor(readonly dispatch: Dispatch) {}
+	constructor(readonly dispatch: typeof AppState.prototype._store.dispatch) {}
 }
 
 export class AppState
@@ -70,9 +70,9 @@ export class AppState
 	 * Used to access the store directly. It is recommended to access state via
 	 * selectors as they are more efficient.
 	 */
-	rootState = $state<RootState>(this._store.getState());
+	rootState = $state<ReturnType<typeof this._store.getState>>(this._store.getState());
 
-	private selectSelf(state: RootState) {
+	protected selectSelf(state: ReturnType<typeof this._store.getState>) {
 		return state;
 	}
 	private readonly selectExample = createSelector(
@@ -108,6 +108,3 @@ export class AppState
 		});
 	}
 }
-
-export type RootState = ReturnType<typeof AppState.prototype._store.getState>;
-export type Dispatch = typeof AppState.prototype._store.dispatch;

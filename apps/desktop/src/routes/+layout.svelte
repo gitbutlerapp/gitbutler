@@ -31,6 +31,7 @@
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { platformName } from '$lib/platform/platform';
+	import { DesktopDispatch, DesktopState } from '$lib/redux/store.svelte';
 	import { RemotesService } from '$lib/remotes/service';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
@@ -64,7 +65,7 @@
 	const userSettings = loadUserSettings();
 	setContext(SETTINGS, userSettings);
 
-	const appState = new AppState();
+	const appState = new DesktopState();
 	const feedService = new FeedService(data.cloud, appState.appDispatch);
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
@@ -72,6 +73,8 @@
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
+	setContext(DesktopState, appState);
+	setContext(DesktopDispatch, appState.appDispatch);
 	setContext(FeedService, feedService);
 	setContext(OrganizationService, organizationService);
 	setContext(CloudUserService, cloudUserService);
