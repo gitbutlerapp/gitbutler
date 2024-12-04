@@ -3,10 +3,6 @@
 	import { AuthService } from '$lib/auth/authService';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import { UserService } from '$lib/user/userService';
-	import {
-		CloudRepositoriesService,
-		RepositoriesApiService
-	} from '@gitbutler/shared/cloud/repositories/service';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
@@ -38,10 +34,6 @@
 
 	const userService = new UserService(httpClient);
 	setContext(UserService, userService);
-
-	const repositoriesApiService = new RepositoriesApiService(httpClient);
-	const cloudRepositoriesService = new CloudRepositoriesService(repositoriesApiService);
-	setContext(CloudRepositoriesService, cloudRepositoriesService);
 
 	const appState = new AppState();
 	setContext(AppState, appState);

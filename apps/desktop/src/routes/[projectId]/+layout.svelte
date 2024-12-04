@@ -6,7 +6,6 @@
 	import ProjectSettingsMenuAction from '$lib/barmenuActions/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { GitBranchService } from '$lib/branches/gitBranch';
@@ -34,7 +33,6 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -88,11 +86,7 @@
 		setContext(UncommitedFilesWatcher, data.uncommitedFileWatcher);
 		setContext(UpstreamIntegrationService, data.upstreamIntegrationService);
 		setContext(ProjectService, data.projectService);
-
-		// Cloud related services
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
-		setContext(CloudBranchesService, data.cloudBranchesService);
-		setContext(CloudBranchCreationService, data.cloudBranchCreationService);
 	});
 
 	const routesService = getRoutesService();

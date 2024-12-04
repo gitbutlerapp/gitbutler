@@ -10,7 +10,6 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import SeriesHeaderContextMenu from '$lib/branch/SeriesHeaderContextMenu.svelte';
-	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
@@ -30,7 +29,6 @@
 		childBranch,
 		parentBranch
 	} from '$lib/vbranches/virtualBranch';
-	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -146,14 +144,7 @@
 		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
 	}
 
-	const cloudBranchCreationService = getContext(CloudBranchCreationService);
-	const cloudBranchesService = getContext(CloudBranchesService);
-	const cloudBranch = $derived(cloudBranchesService.branchForBranchId(stack.id));
-	const showCreateCloudBranch = $derived(
-		$cloudReviewFunctionality &&
-			cloudBranchCreationService.canCreateBranch &&
-			$cloudBranch.state === 'not-found'
-	);
+	const showCreateCloudBranch = $derived($cloudReviewFunctionality);
 
 	/**
 	 * We are starting to store pull request id's locally so if we find one that does not have
@@ -429,7 +420,7 @@
 							outline
 							disabled={branch.patches.length === 0}
 							onclick={() => {
-								cloudBranchCreationService.createBranch(stack.id);
+								throw new Error('TODO');
 							}}>Publish Branch</Button
 						>
 					{/if}
