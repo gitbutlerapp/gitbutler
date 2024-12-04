@@ -36,6 +36,7 @@
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { DesktopRoutesService, getRoutesService } from '@gitbutler/shared/sharedRoutes';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
+	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
 	import { goto } from '$app/navigation';
 
@@ -162,6 +163,22 @@
 		} else {
 			goto('/onboarding');
 		}
+	});
+
+	// TODO(mattias): This is an ugly hack, fix it somehow?
+	// I want to flush project metrics to local storage before e.g. switching
+	// to a different project. Since `projectMetrics` is defined in layout.ts
+	// we get no heads up when it is about to change, and reactively updated
+	// in this scope through `LayoutData`. Even at time of unMount in e.g.
+	// metrics reporter it seems as if the projectMetrics variable is already
+	// referencing the new instance.
+	let lastProjectMetrics: ProjectMetrics | undefined;
+	$effect(() => {
+		if (lastProjectMetrics) {
+			lastProjectMetrics.saveToLocalStorage();
+		}
+		lastProjectMetrics = projectMetrics;
+		projectMetrics.loadFromLocalStorage();
 	});
 
 	function setupFetchInterval() {

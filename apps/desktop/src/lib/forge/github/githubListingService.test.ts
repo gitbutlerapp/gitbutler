@@ -31,7 +31,7 @@ describe.concurrent('GitHubListingService', () => {
 
 	beforeEach(() => {
 		octokit = new Octokit();
-		projectMetrics = new ProjectMetrics();
+		projectMetrics = new ProjectMetrics('test-project');
 
 		gh = new GitHub({ repo: repoInfo, baseBranch: 'some-base', octokit, projectMetrics, posthog });
 		service = gh.listService();
