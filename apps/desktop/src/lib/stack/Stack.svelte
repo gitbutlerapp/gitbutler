@@ -92,7 +92,7 @@
 	});
 
 	const canPush = $derived.by(() => {
-		if (upstreamPatches.length > 0) return true;
+		if (upstreamPatches.filter((p) => !p.isIntegrated).length > 0) return true;
 		if (branchPatches.some((p) => !['localAndRemote', 'integrated'].includes(p.status)))
 			return true;
 		return false;
@@ -110,6 +110,8 @@
 	}
 
 	async function checkMergeable() {
+		// TODO: Find a way to rerun once checks have completed, otherwise the "merge all" btn
+		// won't appear until another action is taken in the UI
 		const seriesMergeResponse = await Promise.allSettled(
 			branch.validSeries
 				.filter((s) => !s.archived)
@@ -299,9 +301,8 @@
 				{#await canMergeAll then isMergeable}
 					{#if isMergeable}
 						<div
-							class="lane-branches__action"
+							class="lane-branches__action merge-all"
 							class:scroll-end-visible={scrollEndVisible}
-							class:can-merge-all={isMergeable}
 							use:intersectionObserver={{
 								callback: (entry) => {
 									if (entry?.isIntersecting) {
@@ -378,7 +379,7 @@
 		bottom: 0;
 		transition: background-color var(--transition-fast);
 
-		&:global(.can-merge-all > button:not(:last-child)) {
+		&:global(.merge-all > button:not(:last-child)) {
 			margin-bottom: 8px;
 		}
 
