@@ -1,4 +1,10 @@
 <script lang="ts">
+	import {
+		desktopDecrement,
+		DesktopDispatch,
+		desktopIncrement,
+		DesktopState
+	} from '$lib/redux/store.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import {
 		decrement,
@@ -6,7 +12,6 @@
 		selectExampleValue,
 		selectExampleValueGreaterThan
 	} from '@gitbutler/shared/redux/example';
-	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
@@ -15,8 +20,8 @@
 	 * `location = '/reduxExample'` in the console.
 	 */
 
-	const appState = getContext(AppState);
-	const appDispatch = getContext(AppDispatch);
+	const appState = getContext(DesktopState);
+	const appDispatch = getContext(DesktopDispatch);
 
 	let comparisonTarget = $state(4);
 
@@ -24,6 +29,8 @@
 	const greaterThanComparisonTarget = $derived(
 		selectExampleValueGreaterThan(appState.example, comparisonTarget)
 	);
+
+	const currentDesktopValue = $derived(appState.desktopOnly.value);
 </script>
 
 <div class="example-container">
@@ -40,6 +47,17 @@
 	<p>
 		Is current value greater than <input type="number" bind:value={comparisonTarget} />? {greaterThanComparisonTarget}
 	</p>
+
+	<hr />
+
+	<h1>Redux Desktop Only Example</h1>
+	<p>Current value: {currentDesktopValue}</p>
+
+	<div>
+		<Button onclick={() => appDispatch.dispatch(desktopIncrement())} type="button">increase</Button>
+		<Button onclick={() => appDispatch.dispatch(desktopDecrement())} type="button">decrease</Button>
+	</div>
+	<hr />
 </div>
 
 <style lang="postcss">

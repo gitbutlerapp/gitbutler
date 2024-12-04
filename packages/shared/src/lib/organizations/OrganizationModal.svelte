@@ -5,9 +5,9 @@
 	import { organizationsSelectors } from '$lib/organizations/organizationsSlice';
 	import { ProjectService } from '$lib/organizations/projectService';
 	import { projectsSelectors } from '$lib/organizations/projectsSlice';
-	import { AppState } from '$lib/redux/store.svelte';
 	import { UserService } from '$lib/users/userService';
 	import { usersSelectors } from '$lib/users/usersSlice';
+	import { AppState } from '$lib/redux/store.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
