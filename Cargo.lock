@@ -2293,22 +2293,12 @@ dependencies = [
  "bstr",
  "git2",
  "gitbutler-diff",
- "gitbutler-error",
- "gitbutler-fs",
- "gitbutler-id",
- "gitbutler-oxidize",
  "gitbutler-reference",
- "gitbutler-serde",
  "gitbutler-stack",
- "gitbutler-time",
  "gix",
- "hex",
  "itertools 0.13.0",
  "lazy_static",
- "md5",
  "serde",
- "toml 0.8.19",
- "tracing",
 ]
 
 [[package]]
@@ -2532,18 +2522,13 @@ name = "gitbutler-hunk-dependency"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "bstr",
  "git2",
  "gitbutler-diff",
  "gitbutler-id",
- "gitbutler-reference",
  "gitbutler-serde",
  "gitbutler-stack",
- "gix",
  "itertools 0.13.0",
  "serde",
- "tokio",
- "uuid",
 ]
 
 [[package]]
@@ -2673,7 +2658,6 @@ dependencies = [
  "gitbutler-commit",
  "gitbutler-config",
  "gitbutler-error",
- "gitbutler-git",
  "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
