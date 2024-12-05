@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
 	interface Props {
-		isBottom?: boolean;
+		isBottomBranch?: boolean;
 	}
 
-	const { isBottom }: Props = $props();
+	const { isBottomBranch }: Props = $props();
 </script>
 
 <div class="empty-series" style:--commit-color={getColorFromBranchType('local')}>
-	<div class="commit-line" class:dashed={isBottom}></div>
+	<div class="commit-line" class:dashed={isBottomBranch}></div>
 	<div class="text-13 text-body empty-series__label">
 		This is an empty branch.
 		<br />

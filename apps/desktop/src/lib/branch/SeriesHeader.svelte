@@ -37,12 +37,12 @@
 
 	interface Props {
 		branch: PatchSeries;
-		isTopSeries: boolean;
-		isBottomSeries: boolean;
+		isTopBranch: boolean;
+		isBottomBranch: boolean;
 		lastPush: Date | undefined;
 	}
 
-	const { branch, isTopSeries, isBottomSeries, lastPush }: Props = $props();
+	const { branch, isTopBranch: isTopSeries, isBottomBranch: isBottomSeries, lastPush }: Props = $props();
 
 	let descriptionVisible = $state(!!branch.description);
 
