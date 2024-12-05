@@ -1,6 +1,6 @@
 use crate::stack::branch_integrated;
 use crate::{r#virtual::IsCommitIntegrated, BranchManagerExt, VirtualBranchesExt as _};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
@@ -561,13 +561,18 @@ fn compute_resolutions(
                     // then rebase the tree ontop of that. If the tree ends
                     // up conflicted, commit the tree.
                     let target_commit = repository.find_commit(branch_stack.head())?;
+                    let top_branch = branch_stack.heads.last().context("top branch not found")?;
+
+                    // These two go into the merge commit message.
+                    let incoming_branch_name = target.branch.fullname();
+                    let target_branch_name = &top_branch.name;
 
                     let new_head = gitbutler_merge_commits(
                         repository,
                         target_commit,
                         new_target.clone(),
-                        &branch_stack.name,
-                        &target.branch.to_string(),
+                        target_branch_name,
+                        &incoming_branch_name,
                     )?;
 
                     // Get the updated tree oid
