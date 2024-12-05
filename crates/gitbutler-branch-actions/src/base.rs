@@ -365,7 +365,7 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
     };
 
     let base = BaseBranch {
-        branch_name: format!("{}/{}", target.branch.remote(), target.branch.branch()),
+        branch_name: target.branch.fullname(),
         remote_name: target.branch.remote().to_string(),
         remote_url: target.remote_url.clone(),
         push_remote_name: target.push_remote_name.clone(),
