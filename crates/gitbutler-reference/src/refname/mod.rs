@@ -69,9 +69,7 @@ impl Refname {
         match self {
             Refname::Virtual(virtual_refname) => virtual_refname.branch().to_string(),
             Refname::Local(local) => local.branch().to_string(),
-            Refname::Remote(remote) => {
-                format!("{}/{}", remote.remote(), remote.branch())
-            }
+            Refname::Remote(remote) => remote.fullname(),
             Refname::Other(raw) => raw.to_string(),
         }
     }

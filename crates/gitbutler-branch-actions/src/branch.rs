@@ -531,7 +531,7 @@ pub fn get_branch_listing_details(
             .virtual_branches()
             .get_default_target()
             .context("failed to get default target")?;
-        let target_branch_name = format!("{}/{}", &target.branch.remote(), &target.branch.branch());
+        let target_branch_name = &target.branch.fullname();
         let target_branch_name = target_branch_name.as_str();
         let mut target_branch = repo.find_reference(target_branch_name)?;
 
