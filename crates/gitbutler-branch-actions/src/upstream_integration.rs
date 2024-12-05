@@ -542,7 +542,7 @@ fn compute_resolutions(
     let results = resolutions
         .iter()
         .map(|resolution| {
-            let Some(virtual_branch) = stacks_in_workspace
+            let Some(branch_stack) = stacks_in_workspace
                 .iter()
                 .find(|branch| branch.id == resolution.branch_id)
             else {
@@ -551,22 +551,22 @@ fn compute_resolutions(
 
             match resolution.approach {
                 ResolutionApproach::Unapply => {
-                    Ok((virtual_branch.id, IntegrationResult::UnapplyBranch))
+                    Ok((branch_stack.id, IntegrationResult::UnapplyBranch))
                 }
                 ResolutionApproach::Delete => {
-                    Ok((virtual_branch.id, IntegrationResult::DeleteBranch))
+                    Ok((branch_stack.id, IntegrationResult::DeleteBranch))
                 }
                 ResolutionApproach::Merge => {
                     // Make a merge commit on top of the branch commits,
                     // then rebase the tree ontop of that. If the tree ends
                     // up conflicted, commit the tree.
-                    let target_commit = repository.find_commit(virtual_branch.head())?;
+                    let target_commit = repository.find_commit(branch_stack.head())?;
 
                     let new_head = gitbutler_merge_commits(
                         repository,
                         target_commit,
                         new_target.clone(),
-                        &virtual_branch.name,
+                        &branch_stack.name,
                         &target.branch.to_string(),
                     )?;
 
@@ -574,10 +574,10 @@ fn compute_resolutions(
                     let BranchHeadAndTree {
                         head: new_head,
                         tree: new_tree,
-                    } = compute_updated_branch_head(repository, virtual_branch, new_head.id())?;
+                    } = compute_updated_branch_head(repository, branch_stack, new_head.id())?;
 
                     Ok((
-                        virtual_branch.id,
+                        branch_stack.id,
                         IntegrationResult::UpdatedObjects {
                             head: new_head,
                             tree: new_tree,
@@ -613,7 +613,7 @@ fn compute_resolutions(
 
                     // Rebase virtual branches' commits
                     let virtual_branch_commits = repository.log(
-                        virtual_branch.head(),
+                        branch_stack.head(),
                         LogUntil::Commit(lower_bound),
                         false,
                     )?;
@@ -642,10 +642,10 @@ fn compute_resolutions(
                     let BranchHeadAndTree {
                         head: new_head,
                         tree: new_tree,
-                    } = compute_updated_branch_head(repository, virtual_branch, new_head)?;
+                    } = compute_updated_branch_head(repository, branch_stack, new_head)?;
 
                     Ok((
-                        virtual_branch.id,
+                        branch_stack.id,
                         IntegrationResult::UpdatedObjects {
                             head: new_head,
                             tree: new_tree,
