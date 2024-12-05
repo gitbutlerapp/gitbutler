@@ -42,7 +42,12 @@
 		lastPush: Date | undefined;
 	}
 
-	const { branch, isTopBranch: isTopSeries, isBottomBranch: isBottomSeries, lastPush }: Props = $props();
+	const {
+		branch,
+		isTopBranch: isTopSeries,
+		isBottomBranch: isBottomSeries,
+		lastPush
+	}: Props = $props();
 
 	let descriptionVisible = $state(!!branch.description);
 
@@ -79,7 +84,7 @@
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
 	let seriesHeaderEl = $state<HTMLDivElement>();
 	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
-
+	let targetBaseError = $state<Error | undefined>();
 	let contextMenuOpened = $state(false);
 
 	const topPatch = $derived(branch?.patches[0]);
@@ -177,12 +182,19 @@
 			$prService &&
 			$forge?.name === 'github' &&
 			branch.prNumber &&
+			!targetBaseError &&
 			$pr?.state === 'open'
 		) {
-			$prService?.update(branch.prNumber, { targetBase }).then(async () => {
-				await $forgeListing?.refresh();
-				await updateStatusAndChecks();
-			});
+			$prService
+				?.update(branch.prNumber, { targetBase })
+				.then(async () => {
+					await $forgeListing?.refresh();
+					await updateStatusAndChecks();
+				})
+				.catch((err) => {
+					showError('Failed to update PR target base', err.message ? err.message : err);
+					targetBaseError = err;
+				});
 		}
 	});
 
