@@ -23,6 +23,7 @@
 	import { createForgeStore } from '$lib/forge/interface/forge';
 	import { createForgeListingServiceStore } from '$lib/forge/interface/forgeListingService';
 	import { createForgePrServiceStore } from '$lib/forge/interface/forgePrService';
+	import { createForgeRepoServiceStore } from '$lib/forge/interface/forgeRepoService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
@@ -110,6 +111,7 @@
 	const listServiceStore = createForgeListingServiceStore(undefined);
 	const forgeStore = createForgeStore(undefined);
 	const prService = createForgePrServiceStore(undefined);
+	const repoService = createForgeRepoServiceStore(undefined);
 
 	$effect.pre(() => {
 		const combinedBranchListingService = new CombinedBranchListingService(
@@ -151,6 +153,7 @@
 		listServiceStore.set(ghListService);
 		forgeStore.set(forge);
 		prService.set(forge ? forge.prService() : undefined);
+		repoService.set(forge ? forge.repoService() : undefined);
 		posthog.setPostHogRepo($repoInfo);
 		return () => {
 			posthog.setPostHogRepo(undefined);
