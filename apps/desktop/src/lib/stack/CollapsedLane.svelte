@@ -53,7 +53,7 @@
 						{uncommittedChanges === 1 ? 'change' : 'changes'}
 					</Button>
 				{/if}
-				<SeriesLabelsRow series={nonArchivedSeries.map((s) => s.name)} showCounterLabel />
+				<SeriesLabelsRow series={nonArchivedSeries.map((s) => s.name)} showRestAmount />
 			</div>
 
 			<div class="collapsed-lane__info__details">
