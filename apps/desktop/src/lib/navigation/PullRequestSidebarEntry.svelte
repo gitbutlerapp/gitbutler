@@ -38,7 +38,7 @@
 </script>
 
 <SidebarEntry
-	title={pullRequest.title}
+	prTitle={pullRequest.title}
 	remotes={[]}
 	local={false}
 	applied={false}

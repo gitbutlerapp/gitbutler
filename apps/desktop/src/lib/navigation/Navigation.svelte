@@ -172,9 +172,7 @@
 	.navigation-top {
 		display: flex;
 		flex-direction: column;
-		padding-bottom: 24px;
-		padding-left: 14px;
-		padding-right: 14px;
+		padding: 0 14px 14px 14px;
 	}
 	.domains {
 		display: flex;

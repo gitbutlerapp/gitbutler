@@ -8,7 +8,7 @@
 	interface Props {
 		onMouseDown?: () => void;
 		onFirstSeen?: () => void;
-		title?: string;
+		prTitle?: string;
 		series?: string[];
 		selected?: boolean;
 		applied?: boolean;
@@ -23,7 +23,7 @@
 	const {
 		onMouseDown = () => {},
 		onFirstSeen = () => {},
-		title,
+		prTitle,
 		series,
 		selected = false,
 		applied = false,
@@ -85,9 +85,9 @@
 				<SeriesLabelsRow {series} showRestAmount {selected} />
 			{/if}
 
-			{#if title}
-				<h4 class="text-13 text-semibold branch-name">
-					{title}
+			{#if prTitle}
+				<h4 class="text-12 text-semibold branch-name">
+					{prTitle}
 				</h4>
 			{/if}
 		</div>
@@ -114,6 +114,10 @@
 				{#if local}
 					<span>•</span>
 					<span>local</span>
+				{/if}
+				{#if prTitle}
+					<span>•</span>
+					<span>No remotes</span>
 				{/if}
 			</div>
 		</div>
