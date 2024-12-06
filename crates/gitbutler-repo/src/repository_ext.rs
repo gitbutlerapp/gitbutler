@@ -401,7 +401,8 @@ impl RepositoryExt for git2::Repository {
                     gpg_program = "ssh-keygen".to_string();
                 }
 
-                let mut cmd = std::process::Command::new("bash");
+                let shell = std::env::var("SHELL");
+                let mut cmd = std::process::Command::new(shell.unwrap_or("sh".to_string()));
                 cmd.arg("-c");
                 let gpg_cmd = format!("{} -Y sign -n git -f", gpg_program);
 
