@@ -1,7 +1,4 @@
-use std::{
-    collections::HashSet,
-    path::{Path, PathBuf},
-};
+use std::{collections::HashSet, path::PathBuf};
 
 use crate::{LogUntil, RepositoryExt as _};
 use anyhow::{Context, Result};
@@ -12,7 +9,7 @@ use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
-use gitbutler_oxidize::gix_to_git2_oid;
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
 use serde::{Deserialize, Serialize};
 
 /// cherry-pick based rebase, which handles empty commits
@@ -231,13 +228,13 @@ fn commit_conflicted_cherry_result<'repository>(
 }
 
 fn extract_conflicted_files(
-    tree_id: gix::Id<'_>,
+    merged_tree_id: gix::Id<'_>,
     merge_result: gix::merge::tree::Outcome<'_>,
     treat_as_unresolved: gix::merge::tree::TreatAsUnresolved,
 ) -> Result<ConflictEntries> {
     use gix::index::entry::Stage;
-    let repo = tree_id.repo;
-    let mut index = repo.index_from_tree(&tree_id)?;
+    let repo = merged_tree_id.repo;
+    let mut index = repo.index_from_tree(&merged_tree_id)?;
     merge_result.index_changed_after_applying_conflicts(
         &mut index,
         treat_as_unresolved,
@@ -307,7 +304,7 @@ fn extract_conflicted_files(
 ///
 /// The `target_commit` and `incoming_commit` must have a common ancestor.
 ///
-/// If there is a merge conflict, the
+/// If there is a merge conflict, we will **auto-resolve** to favor *our* side, the `incoming_commit`.
 pub fn gitbutler_merge_commits<'repository>(
     repository: &'repository git2::Repository,
     target_commit: git2::Commit<'repository>,
@@ -326,17 +323,28 @@ pub fn gitbutler_merge_commits<'repository>(
 
     let target_merge_tree = repository.find_real_tree(&target_commit, Default::default())?;
     let incoming_merge_tree = repository.find_real_tree(&incoming_commit, Default::default())?;
-    let mut merged_index =
-        repository.merge_trees(&base_tree, &incoming_merge_tree, &target_merge_tree, None)?;
+    let gix_repo = gix_repository_for_merging(repository.path())?;
+    let mut merge_result = gix_repo.merge_trees(
+        git2_to_gix_object_id(base_tree.id()),
+        git2_to_gix_object_id(incoming_merge_tree.id()),
+        git2_to_gix_object_id(target_merge_tree.id()),
+        gix::merge::blob::builtin_driver::text::Labels {
+            ancestor: Some("base".into()),
+            current: Some("ours".into()),
+            other: Some("theirs".into()),
+        },
+        gix_repo
+            .tree_merge_options()?
+            .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours))
+            .with_file_favor(Some(gix::merge::tree::FileFavor::Ours)),
+    )?;
+    let merged_tree_id = merge_result.tree.write()?;
 
     let tree_oid;
-    let conflicted_files;
-
-    if merged_index.has_conflicts() {
-        conflicted_files = resolve_index(repository, &mut merged_index)?;
-
-        // Index gets resolved from the `resolve_index` call above, so we can safly write it out
-        let resolved_tree_id = merged_index.write_tree_to(repository)?;
+    let forced_resolution = gix::merge::tree::TreatAsUnresolved::forced_resolution();
+    let commit_headers = if merge_result.has_unresolved_conflicts(forced_resolution) {
+        let conflicted_files =
+            extract_conflicted_files(merged_tree_id, merge_result, forced_resolution)?;
 
         // convert files into a string and save as a blob
         let conflicted_files_string = toml::to_string(&conflicted_files)?;
@@ -351,7 +359,7 @@ pub fn gitbutler_merge_commits<'repository>(
         tree_writer.insert(&*ConflictedTreeKey::Base, base_tree.id(), 0o040000)?;
         tree_writer.insert(
             &*ConflictedTreeKey::AutoResolution,
-            resolved_tree_id,
+            gix_to_git2_oid(merged_tree_id),
             0o040000,
         )?;
         tree_writer.insert(
@@ -367,27 +375,13 @@ pub fn gitbutler_merge_commits<'repository>(
         tree_writer.insert("README.txt", readme_blob, 0o100644)?;
 
         tree_oid = tree_writer.write().context("failed to write tree")?;
+        conflicted_files.to_headers()
     } else {
-        conflicted_files = Default::default();
-        tree_oid = merged_index.write_tree_to(repository)?;
-    }
-
-    let conflicted_file_count = conflicted_files.total_entries() as u64;
-
-    let commit_headers = if conflicted_file_count > 0 {
-        CommitHeadersV2 {
-            conflicted: Some(conflicted_file_count),
-            ..Default::default()
-        }
-    } else {
-        CommitHeadersV2 {
-            conflicted: None,
-            ..Default::default()
-        }
+        tree_oid = gix_to_git2_oid(merged_tree_id);
+        CommitHeadersV2::default()
     };
 
     let (author, committer) = repository.signatures()?;
-
     let commit_oid = crate::RepositoryExt::commit_with_signature(
         repository,
         None,
@@ -450,212 +444,6 @@ impl ConflictEntries {
                 }
             }),
             ..Default::default()
-        }
-    }
-}
-
-/// Automatically resolves an index with a preferences for the "our" side
-///
-/// Within our rebasing and merging logic, "their" is the commit that is getting
-/// cherry picked, and "our" is the commit that it is getting cherry picked on
-/// to.
-///
-/// This means that if we experience a conflict, we drop the changes that are
-/// in the commit that is getting cherry picked in favor of what came before it
-fn resolve_index(
-    repository: &git2::Repository,
-    index: &mut git2::Index,
-) -> Result<ConflictEntries, anyhow::Error> {
-    fn bytes_to_path(path: &[u8]) -> Result<PathBuf> {
-        let path = std::str::from_utf8(path)?;
-        Ok(Path::new(path).to_owned())
-    }
-
-    let mut ancestor_entries = vec![];
-    let mut our_entries = vec![];
-    let mut their_entries = vec![];
-
-    // Set the index on an in-memory repository
-    let in_memory_repository = repository.in_memory_repo()?;
-    in_memory_repository.set_index(index)?;
-
-    let index_conflicts = index.conflicts()?.flatten().collect::<Vec<_>>();
-
-    for mut conflict in index_conflicts {
-        // There may be a case when there is an ancestor in the index without
-        // a "their" OR "our" side. This is probably caused by the same file
-        // getting renamed and modified in the two commits.
-        if let Some(ancestor) = &conflict.ancestor {
-            let path = bytes_to_path(&ancestor.path)?;
-            index.remove_path(&path)?;
-
-            ancestor_entries.push(path);
-        }
-
-        if let (Some(their), None) = (&conflict.their, &conflict.our) {
-            // Their (the commit we're rebasing)'s change gets dropped
-            let their_path = bytes_to_path(&their.path)?;
-            index.remove_path(&their_path)?;
-
-            their_entries.push(their_path);
-        } else if let (None, Some(our)) = (&conflict.their, &mut conflict.our) {
-            // Our (the commit we're rebasing onto)'s gets kept
-            let blob = repository.find_blob(our.id)?;
-            our.flags = 0; // For some unknown reason we need to set flags to 0
-            index.add_frombuffer(our, blob.content())?;
-
-            let our_path = bytes_to_path(&our.path)?;
-
-            our_entries.push(our_path);
-        } else if let (Some(their), Some(our)) = (&conflict.their, &mut conflict.our) {
-            // We keep our (the commit we're rebasing onto)'s side of the
-            // conflict
-            let their_path = bytes_to_path(&their.path)?;
-            let blob = repository.find_blob(our.id)?;
-
-            index.remove_path(&their_path)?;
-            our.flags = 0; // For some unknown reason we need to set flags to 0
-            index.add_frombuffer(our, blob.content())?;
-
-            let our_path = bytes_to_path(&our.path)?;
-
-            their_entries.push(their_path);
-            our_entries.push(our_path);
-        }
-    }
-
-    Ok(ConflictEntries {
-        ancestor_entries,
-        our_entries,
-        their_entries,
-    })
-}
-
-#[cfg(test)]
-mod test {
-    #[cfg(test)]
-    mod resolve_index {
-        use crate::rebase::resolve_index;
-        use gitbutler_testsupport::testing_repository::TestingRepository;
-
-        #[test]
-        fn test_same_file_twice() {
-            let test_repository = TestingRepository::open();
-
-            // Make some commits
-            let a = test_repository.commit_tree(None, &[("foo.txt", "a")]);
-            let b = test_repository.commit_tree(None, &[("foo.txt", "b")]);
-            let c = test_repository.commit_tree(None, &[("foo.txt", "c")]);
-            test_repository.commit_tree(None, &[("foo.txt", "asdfasdf")]);
-
-            // Merge the index
-            let mut index: git2::Index = test_repository
-                .repository
-                .merge_trees(
-                    &a.tree().unwrap(), // Base
-                    &b.tree().unwrap(), // Ours
-                    &c.tree().unwrap(), // Theirs
-                    None,
-                )
-                .unwrap();
-
-            assert!(index.has_conflicts());
-
-            // Call our index resolution function
-            resolve_index(&test_repository.repository, &mut index).unwrap();
-
-            // Ensure there are no conflicts
-            assert!(!index.has_conflicts());
-
-            let tree = index.write_tree_to(&test_repository.repository).unwrap();
-            let tree: git2::Tree = test_repository.repository.find_tree(tree).unwrap();
-
-            let blob = tree.get_name("foo.txt").unwrap().id(); // We fail here to get the entry because the tree is empty
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-
-            assert_eq!(blob.content(), b"b")
-        }
-
-        #[test]
-        fn test_diverging_renames() {
-            let test_repository = TestingRepository::open();
-
-            // Make some commits
-            let a = test_repository.commit_tree(None, &[("foo.txt", "a")]);
-            let b = test_repository.commit_tree(None, &[("bar.txt", "a")]);
-            let c = test_repository.commit_tree(None, &[("baz.txt", "a")]);
-            test_repository.commit_tree(None, &[("foo.txt", "asdfasdf")]);
-
-            // Merge the index
-            let mut index: git2::Index = test_repository
-                .repository
-                .merge_trees(
-                    &a.tree().unwrap(), // Base
-                    &b.tree().unwrap(), // Ours
-                    &c.tree().unwrap(), // Theirs
-                    None,
-                )
-                .unwrap();
-
-            assert!(index.has_conflicts());
-
-            // Call our index resolution function
-            resolve_index(&test_repository.repository, &mut index).unwrap();
-
-            // Ensure there are no conflicts
-            assert!(!index.has_conflicts());
-
-            let tree = index.write_tree_to(&test_repository.repository).unwrap();
-            let tree: git2::Tree = test_repository.repository.find_tree(tree).unwrap();
-
-            assert!(tree.get_name("foo.txt").is_none());
-            assert!(tree.get_name("baz.txt").is_none());
-
-            let blob = tree.get_name("bar.txt").unwrap().id(); // We fail here to get the entry because the tree is empty
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-
-            assert_eq!(blob.content(), b"a")
-        }
-
-        #[test]
-        fn test_converging_renames() {
-            let test_repository = TestingRepository::open();
-
-            // Make some commits
-            let a = test_repository.commit_tree(None, &[("foo.txt", "a"), ("bar.txt", "b")]);
-            let b = test_repository.commit_tree(None, &[("baz.txt", "a")]);
-            let c = test_repository.commit_tree(None, &[("baz.txt", "b")]);
-            test_repository.commit_tree(None, &[("foo.txt", "asdfasdf")]);
-
-            // Merge the index
-            let mut index: git2::Index = test_repository
-                .repository
-                .merge_trees(
-                    &a.tree().unwrap(), // Base
-                    &b.tree().unwrap(), // Ours
-                    &c.tree().unwrap(), // Theirs
-                    None,
-                )
-                .unwrap();
-
-            assert!(index.has_conflicts());
-
-            // Call our index resolution function
-            resolve_index(&test_repository.repository, &mut index).unwrap();
-
-            // Ensure there are no conflicts
-            assert!(!index.has_conflicts());
-
-            let tree = index.write_tree_to(&test_repository.repository).unwrap();
-            let tree: git2::Tree = test_repository.repository.find_tree(tree).unwrap();
-
-            assert!(tree.get_name("foo.txt").is_none());
-            assert!(tree.get_name("bar.txt").is_none());
-
-            let blob = tree.get_name("baz.txt").unwrap().id(); // We fail here to get the entry because the tree is empty
-            let blob: git2::Blob = test_repository.repository.find_blob(blob).unwrap();
-
-            assert_eq!(blob.content(), b"a")
         }
     }
 }
