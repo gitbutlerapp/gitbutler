@@ -53,3 +53,51 @@ pub fn gix_to_git2_signature(
         &time,
     )?)
 }
+
+/// Convert a `gix` index into a `git2` one, while skipping over entries that are marked for removal.
+///
+/// Note that this is quite inefficient as it will have to re-allocate all paths.
+///
+/// ## Note
+///
+/// * Flags aren't fully supported right now, they are truncated, but good enough to get the *stage* right.
+pub fn gix_to_git2_index(index: &gix::index::State) -> anyhow::Result<git2::Index> {
+    let mut out = git2::Index::new()?;
+    for entry @ gix::index::Entry {
+        stat:
+            gix::index::entry::Stat {
+                mtime,
+                ctime,
+                dev,
+                ino,
+                uid,
+                gid,
+                size,
+            },
+        id,
+        flags,
+        mode,
+        ..
+    } in index.entries()
+    {
+        if flags.contains(gix::index::entry::Flags::REMOVE) {
+            continue;
+        }
+        let git2_entry = git2::IndexEntry {
+            ctime: git2::IndexTime::new(ctime.secs as i32, ctime.nsecs),
+            mtime: git2::IndexTime::new(mtime.secs as i32, mtime.nsecs),
+            dev: *dev,
+            ino: *ino,
+            mode: mode.bits(),
+            uid: *uid,
+            gid: *gid,
+            file_size: *size,
+            id: gix_to_git2_oid(*id),
+            flags: flags.bits() as u16,
+            flags_extended: 0,
+            path: entry.path(index).to_owned().into(),
+        };
+        out.add(&git2_entry)?
+    }
+    Ok(out)
+}
