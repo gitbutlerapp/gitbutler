@@ -141,7 +141,7 @@
 		{#if icon || loading}
 			<div class="btn-icon">
 				{#if loading}
-					<Icon name="spinner" spinnerRadius={4.5} />
+					<Icon name="spinner" spinnerRadius={size === 'tag' ? 4 : 5} />
 				{:else if icon}
 					<Icon name={icon} />
 				{/if}
