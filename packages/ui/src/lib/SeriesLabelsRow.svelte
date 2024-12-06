@@ -4,11 +4,11 @@
 
 	interface Props {
 		series: string[];
-		showCounterLabel?: boolean;
+		showRestAmount?: boolean;
 		selected?: boolean;
 	}
 
-	const { series, selected, showCounterLabel }: Props = $props();
+	const { series, selected, showRestAmount }: Props = $props();
 </script>
 
 <div class="series-labels-row">
@@ -18,8 +18,21 @@
 		<span class="truncate">{series[0]}</span>
 	</div>
 
-	{#if showCounterLabel && series.length > 1}
-		<Tooltip text={'🠶 ' + series.slice(1).join(' 🠶 ')}>
+	{#if series.length > 1}
+		<svg
+			class="more-series-arrow"
+			width="14"
+			height="12"
+			viewBox="0 0 14 12"
+			fill="none"
+			xmlns="http://www.w3.org/2000/svg"
+		>
+			<path d="M2 6H12M12 6L6.6 1M12 6L6.6 11" stroke-width="1.5" />
+		</svg>
+	{/if}
+
+	{#if showRestAmount && series.length > 1}
+		<Tooltip text={'→ ' + series.slice(1).join(' → ')}>
 			<div class="series-name more-series text-12 text-semibold">
 				<span>{series.length - 1} more</span>
 			</div>
@@ -41,11 +54,7 @@
 		display: flex;
 		align-items: center;
 		color: var(--clr-text-2);
-		height: 22px;
-		padding: 2px 6px;
-		background-color: oklch(from var(--clr-core-ntrl-60) l c h / 0.15);
-		border-radius: var(--radius-m);
-		/* width: 100%; */
+		margin-left: 3px;
 		overflow: hidden;
 
 		&.contrast {
@@ -56,5 +65,10 @@
 	.more-series {
 		flex-shrink: 0;
 		max-width: fit-content;
+	}
+
+	.more-series-arrow {
+		stroke: var(--clr-text-2);
+		opacity: 0.6;
 	}
 </style>

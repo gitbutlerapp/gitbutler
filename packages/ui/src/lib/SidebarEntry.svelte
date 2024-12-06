@@ -66,7 +66,7 @@
 	bind:this={intersectionTarget}
 >
 	{#if series}
-		<SeriesLabelsRow {series} showCounterLabel {selected} />
+		<SeriesLabelsRow {series} showRestAmount {selected} />
 	{/if}
 
 	{#if title}

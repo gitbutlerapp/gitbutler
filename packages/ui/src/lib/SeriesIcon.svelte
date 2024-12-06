@@ -22,15 +22,8 @@
 		align-items: center;
 		justify-content: center;
 		flex-shrink: 0;
-		width: 20px;
-		height: 22px;
 		color: var(--clr-text-2);
-		background-color: oklch(from var(--clr-core-ntrl-60) l c h / 0.15);
+		border: 1px solid var(--clr-border-2);
 		border-radius: var(--radius-m);
-
-		&.outlined {
-			border: 1px solid var(--clr-border-2);
-			background: none;
-		}
 	}
 </style>

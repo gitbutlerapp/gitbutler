@@ -38,6 +38,7 @@
 		itemSnippet: Snippet<[{ item: SelectItem<T>; highlighted: boolean; idx: number }]>;
 		children?: Snippet;
 		onselect?: (value: T) => void;
+		ontoggle?: (isOpen: boolean) => void;
 	}
 
 	const {
@@ -58,7 +59,8 @@
 		customSelectButton,
 		itemSnippet,
 		children,
-		onselect
+		onselect,
+		ontoggle
 	}: SelectProps = $props();
 
 	let selectWrapperEl: HTMLElement;
@@ -83,10 +85,12 @@
 	function openList() {
 		setMaxHeight();
 		listOpen = true;
+		ontoggle?.(true);
 	}
 
 	function closeList() {
 		listOpen = false;
+		ontoggle?.(false);
 	}
 
 	function clickOutside(e: MouseEvent) {
