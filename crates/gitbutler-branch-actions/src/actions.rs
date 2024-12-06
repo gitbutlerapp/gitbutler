@@ -111,7 +111,7 @@ pub fn create_virtual_branch(project: &Project, create: &BranchCreateRequest) ->
 /// If there is no such local reference, this function will return an error.
 pub fn delete_local_branch(project: &Project, refname: &Refname, given_name: String) -> Result<()> {
     let ctx = open_with_verify(project)?;
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let handle = ctx.project().virtual_branches();
     let stack = handle.list_all_stacks()?.into_iter().find(|stack| {
         stack
@@ -149,7 +149,7 @@ pub fn list_commit_files(
     commit_oid: git2::Oid,
 ) -> Result<Vec<RemoteBranchFile>> {
     let ctx = CommandContext::open(project)?;
-    crate::file::list_commit_files(ctx.repository(), commit_oid).map_err(Into::into)
+    crate::file::list_commit_files(ctx.repo(), commit_oid).map_err(Into::into)
 }
 
 pub fn set_base_branch(project: &Project, target_branch: &RemoteRefname) -> Result<BaseBranch> {
@@ -247,7 +247,7 @@ pub fn unapply_without_saving_virtual_branch(project: &Project, stack_id: StackI
     let mut guard = project.exclusive_worktree_access();
     let state = ctx.project().virtual_branches();
     let default_target = state.get_default_target()?;
-    let target_commit = ctx.repository().find_commit(default_target.sha)?;
+    let target_commit = ctx.repo().find_commit(default_target.sha)?;
     // NB: unapply_without_saving is also called from save_and_unapply
     branch_manager.unapply(stack_id, guard.write_permission(), &target_commit, true)?;
     state.delete_branch_entry(&stack_id)
@@ -469,7 +469,7 @@ pub fn find_commit(project: &Project, commit_oid: git2::Oid) -> Result<Option<Re
 pub fn fetch_from_remotes(project: &Project, askpass: Option<String>) -> Result<FetchResult> {
     let ctx = CommandContext::open(project)?;
 
-    let remotes = ctx.repository().remotes_as_string()?;
+    let remotes = ctx.repo().remotes_as_string()?;
     let fetch_errors: Vec<_> = remotes
         .iter()
         .filter_map(|remote| {
@@ -490,7 +490,7 @@ pub fn fetch_from_remotes(project: &Project, askpass: Option<String>) -> Result<
     };
     let state = ctx.project().virtual_branches();
 
-    state.garbage_collect(ctx.repository())?;
+    state.garbage_collect(ctx.repo())?;
 
     Ok(project_data_last_fetched)
 }

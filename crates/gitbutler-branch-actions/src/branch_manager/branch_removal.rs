@@ -36,7 +36,7 @@ impl BranchManager<'_> {
         let vb_state = self.ctx.project().virtual_branches();
         let target_commit = self
             .ctx
-            .repository()
+            .repo()
             .find_commit(vb_state.get_default_target()?.sha)?;
 
         let mut target_stack = vb_state.get_stack(stack_id)?;
@@ -80,7 +80,7 @@ impl BranchManager<'_> {
             .project()
             .snapshot_branch_deletion(stack.name.clone(), perm);
 
-        let repo = self.ctx.repository();
+        let repo = self.ctx.repo();
 
         let base_tree_id = target_commit
             .tree()
@@ -163,7 +163,7 @@ impl BranchManager<'_> {
 impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, stack), err(Debug))]
     fn build_real_branch(&self, stack: &mut Stack) -> Result<git2::Branch<'_>> {
-        let repo = self.ctx.repository();
+        let repo = self.ctx.repo();
         let target_commit = repo.find_commit(stack.head())?;
         let branch_name = normalize_branch_name(&stack.id.to_string())?;
 
@@ -182,7 +182,7 @@ impl BranchManager<'_> {
         stack: &mut Stack,
         branch: &git2::Branch<'_>,
     ) -> Result<Option<git2::Oid>> {
-        let repo = self.ctx.repository();
+        let repo = self.ctx.repo();
 
         // Build wip tree as either any uncommitted changes or an empty tree
         let vbranch_wip_tree = repo.find_tree(stack.tree)?;

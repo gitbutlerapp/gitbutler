@@ -783,7 +783,7 @@ fn assert_hunk_lock_matches_by_message(
 }
 
 fn get_commit_message(ctx: &CommandContext, commit_id: git2::Oid) -> String {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let commit = repo.find_commit(commit_id).unwrap();
     let commit_message = commit.message().unwrap();
     commit_message.to_string()
@@ -846,7 +846,7 @@ fn extract_commit_messages(
     let mut actual_messages: HashMap<String, Vec<String>> = HashMap::new();
 
     for (oid_key, oid_values) in actual {
-        let repo = ctx.repository();
+        let repo = ctx.repo();
         let key_commit = repo.find_commit(*oid_key).unwrap();
         let key_message = key_commit.message().unwrap().trim().to_string();
         let actual_values: Vec<String> = oid_values

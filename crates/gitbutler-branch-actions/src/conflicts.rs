@@ -46,11 +46,11 @@ pub(crate) fn mark<P: AsRef<Path>, A: AsRef<[P]>>(
 }
 
 fn conflicts_path(ctx: &CommandContext) -> PathBuf {
-    ctx.repository().path().join("conflicts")
+    ctx.repo().path().join("conflicts")
 }
 
 fn merge_parent_path(ctx: &CommandContext) -> PathBuf {
-    ctx.repository().path().join("base_merge_parent")
+    ctx.repo().path().join("base_merge_parent")
 }
 
 pub(crate) fn merge_parent(ctx: &CommandContext) -> Result<Option<git2::Oid>> {

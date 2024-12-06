@@ -37,7 +37,7 @@ impl BranchManager<'_> {
 
         let commit = self
             .ctx
-            .repository()
+            .repo()
             .find_commit(default_target.sha)
             .context("failed to find default target commit")?;
 
@@ -161,7 +161,7 @@ impl BranchManager<'_> {
             }
         }
 
-        let repo = self.ctx.repository();
+        let repo = self.ctx.repo();
         let head_reference = repo
             .find_reference(&target.to_string())
             .map_err(|err| match err {
@@ -192,12 +192,8 @@ impl BranchManager<'_> {
         let merge_base_tree = repo.find_commit(merge_base_oid)?.tree()?;
 
         // do a diff between the head of this branch and the target base
-        let diff = gitbutler_diff::trees(
-            self.ctx.repository(),
-            &merge_base_tree,
-            &head_commit_tree,
-            true,
-        )?;
+        let diff =
+            gitbutler_diff::trees(self.ctx.repo(), &merge_base_tree, &head_commit_tree, true)?;
 
         // assign ownership to the branch
         let ownership = diff.iter().fold(
@@ -280,7 +276,7 @@ impl BranchManager<'_> {
     ) -> Result<String> {
         self.ctx.assure_resolved()?;
         self.ctx.assure_unconflicted()?;
-        let repo = self.ctx.repository();
+        let repo = self.ctx.repo();
 
         let vb_state = self.ctx.project().virtual_branches();
         let default_target = vb_state.get_default_target()?;

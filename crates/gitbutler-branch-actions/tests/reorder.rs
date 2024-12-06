@@ -317,7 +317,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     // MB:       a    : MB:        a    :
 
     let (ctx, _temp_dir) = command_ctx("overlapping-commits")?;
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let test = test_ctx(&ctx)?;
 
     // There is a stack of 2:
@@ -452,7 +452,7 @@ fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>>
 }
 
 fn file(ctx: &CommandContext, commit_id: git2::Oid) -> String {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let commit = repo.find_commit(commit_id).unwrap();
     let tree = commit.tree().unwrap();
     let entry = tree.get_name("file").unwrap();

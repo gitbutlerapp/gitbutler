@@ -38,7 +38,7 @@ impl App {
     pub fn git_remote_branches(&self, project_id: ProjectId) -> Result<Vec<RemoteRefname>> {
         let project = self.projects().get(project_id)?;
         let ctx = CommandContext::open(&project)?;
-        ctx.repository().remote_branches()
+        ctx.repo().remote_branches()
     }
 
     pub fn git_test_push(
@@ -68,7 +68,7 @@ impl App {
         let project = self.projects().get(project_id)?;
         let ctx = CommandContext::open(&project)?;
         let size = ctx
-            .repository()
+            .repo()
             .index()
             .context("failed to get index size")?
             .len();
@@ -78,10 +78,7 @@ impl App {
     pub fn git_head(&self, project_id: ProjectId) -> Result<String> {
         let project = self.projects().get(project_id)?;
         let ctx = CommandContext::open(&project)?;
-        let head = ctx
-            .repository()
-            .head()
-            .context("failed to get repository head")?;
+        let head = ctx.repo().head().context("failed to get repository head")?;
         Ok(head.name().unwrap().to_string())
     }
 

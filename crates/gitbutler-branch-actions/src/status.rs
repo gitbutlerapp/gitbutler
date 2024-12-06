@@ -56,7 +56,7 @@ pub fn get_applied_status_cached(
         .virtual_branches()
         .list_stacks_in_workspace()?;
     let base_file_diffs = worktree_changes.map(Ok).unwrap_or_else(|| {
-        gitbutler_diff::workdir(ctx.repository(), workspace_head.to_owned())
+        gitbutler_diff::workdir(ctx.repo(), workspace_head.to_owned())
             .context("failed to diff workdir")
     })?;
 

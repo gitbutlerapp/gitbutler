@@ -31,6 +31,6 @@ impl CommandContextExt for CommandContext {
         let virtual_branch_state = VirtualBranchesHandle::new(self.project().gb_dir());
         let default_target = virtual_branch_state.get_default_target()?;
 
-        Ok(StackContext::new(self.repository(), default_target))
+        Ok(StackContext::new(self.repo(), default_target))
     }
 }

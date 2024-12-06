@@ -109,7 +109,7 @@ fn push_target(
     batch_size: usize,
 ) -> Result<()> {
     let ids = batch_rev_walk(
-        ctx.repository(),
+        ctx.repo(),
         batch_size,
         default_target.sha,
         gb_code_last_commit,
@@ -182,7 +182,7 @@ fn batch_rev_walk(
 
 fn collect_refs(ctx: &CommandContext) -> anyhow::Result<Vec<Refname>> {
     Ok(ctx
-        .repository()
+        .repo()
         .references_glob("refs/*")?
         .flatten()
         .filter_map(|r| {
@@ -315,7 +315,7 @@ fn remote(ctx: &CommandContext, kind: RemoteKind) -> Result<git2::Remote> {
         }
         RemoteKind::Oplog => api_project.git_url.as_str().parse::<Url>(),
     }?;
-    ctx.repository()
+    ctx.repo()
         .remote_anonymous(&url.to_string())
         .map_err(Into::into)
 }

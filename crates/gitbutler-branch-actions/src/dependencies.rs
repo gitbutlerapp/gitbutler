@@ -22,7 +22,7 @@ pub fn compute_workspace_dependencies(
     base_diffs: &BranchStatus,
     stacks: &Vec<Stack>,
 ) -> Result<HunkDependencyResult> {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
 
     let mut stacks_input: Vec<InputStack> = vec![];
     for stack in stacks {

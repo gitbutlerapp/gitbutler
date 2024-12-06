@@ -34,7 +34,7 @@ where
     T: Into<GitHunk> + Clone,
 {
     // read the base sha into an index
-    let git_repository: &git2::Repository = ctx.repository();
+    let git_repository: &git2::Repository = ctx.repo();
 
     let head_commit = git_repository.find_commit(commit_oid)?;
     let base_tree = git_repository.find_real_tree(&head_commit, Default::default())?;
@@ -51,7 +51,7 @@ pub fn hunks_onto_tree<T>(
 where
     T: Into<GitHunk> + Clone,
 {
-    let git_repository = ctx.repository();
+    let git_repository = ctx.repo();
     let mut builder = git2::build::TreeUpdateBuilder::new();
     // now update the index with content in the working directory for each file
     for (rel_path, hunks) in files {
@@ -223,7 +223,7 @@ where
 
     // now write out the tree
     let tree_oid = builder
-        .create_updated(ctx.repository(), base_tree)
+        .create_updated(ctx.repo(), base_tree)
         .context("failed to write updated tree")?;
 
     Ok(tree_oid)

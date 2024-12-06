@@ -22,12 +22,12 @@ pub fn enter_edit_mode(
         .context("Entering edit mode may only be done when the workspace is open")?;
 
     let commit = ctx
-        .repository()
+        .repo()
         .find_commit(commit_oid)
         .context("Failed to find commit")?;
 
     let branch = ctx
-        .repository()
+        .repo()
         .find_reference(&branch_reference_name)
         .context("Failed to find branch reference")?;
 

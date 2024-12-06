@@ -34,7 +34,7 @@ pub mod virtual_branches {
         let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
         let (remote_repo, _tmp) = empty_bare_repository();
         let mut remote = ctx
-            .repository()
+            .repo()
             .remote("origin", remote_repo.path().to_str().unwrap())
             .expect("failed to add remote");
         remote.push(&["refs/heads/master:refs/heads/master"], None)?;

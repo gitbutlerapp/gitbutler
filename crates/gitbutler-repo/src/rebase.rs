@@ -27,16 +27,15 @@ pub fn cherry_rebase(
     from_commit_oid: git2::Oid,
 ) -> Result<Option<git2::Oid>> {
     // get a list of the commits to rebase
-    let ids_to_rebase =
-        ctx.repository()
-            .l(from_commit_oid, LogUntil::Commit(to_commit_oid), false)?;
+    let ids_to_rebase = ctx
+        .repo()
+        .l(from_commit_oid, LogUntil::Commit(to_commit_oid), false)?;
 
     if ids_to_rebase.is_empty() {
         return Ok(None);
     }
 
-    let new_head_id =
-        cherry_rebase_group(ctx.repository(), target_commit_oid, &ids_to_rebase, false)?;
+    let new_head_id = cherry_rebase_group(ctx.repo(), target_commit_oid, &ids_to_rebase, false)?;
 
     Ok(Some(new_head_id))
 }

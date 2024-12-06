@@ -34,7 +34,7 @@ pub(crate) fn get_uncommited_files_raw(
     ctx: &CommandContext,
     _permission: &WorktreeReadPermission,
 ) -> Result<DiffByPathMap> {
-    gitbutler_diff::workdir(ctx.repository(), ctx.repository().head_commit()?.id())
+    gitbutler_diff::workdir(ctx.repo(), ctx.repo().head_commit()?.id())
         .context("Failed to list uncommited files")
 }
 

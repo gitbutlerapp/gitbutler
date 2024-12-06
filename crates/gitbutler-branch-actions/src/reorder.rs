@@ -36,7 +36,7 @@ pub fn reorder_stack(
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let state = ctx.project().virtual_branches();
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let mut stack = state.get_stack(stack_id)?;
     let current_order = commits_order(&ctx.to_stack_context()?, &stack)?;
     new_order.validate(current_order.clone())?;
