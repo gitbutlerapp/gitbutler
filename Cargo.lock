@@ -2454,13 +2454,15 @@ dependencies = [
  "gitbutler-diff",
  "gitbutler-operating-modes",
  "gitbutler-oplog",
+ "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-stack",
- "gitbutler-time",
  "gitbutler-workspace",
+ "gix",
  "serde",
+ "tracing",
 ]
 
 [[package]]
