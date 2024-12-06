@@ -364,7 +364,12 @@ impl PathRanges {
                         commit_id: last_intersecting_hunk.commit_id,
                         start: incoming_hunk.new_start + incoming_hunk.new_lines,
                         lines: self
-                            .calculate_lines_of_trimmed_hunk(last_intersecting_hunk, incoming_hunk),
+                            .calculate_lines_of_trimmed_hunk(
+                                last_intersecting_hunk,
+                                incoming_hunk,
+                                "While calculating the lines of the bottom hunk range when incoming hunk overlaps the beginning of the second intersecting hunk range."
+
+                            )?,
                         line_shift: last_intersecting_hunk.line_shift,
                     },
                 ],
@@ -391,7 +396,11 @@ impl PathRanges {
                         stack_id: first_intersecting_hunk.stack_id,
                         commit_id: first_intersecting_hunk.commit_id,
                         start: first_intersecting_hunk.start,
-                        lines: incoming_hunk.new_start - first_intersecting_hunk.start,
+                        lines: panicless_subtraction(
+                            incoming_hunk.new_start,
+                            first_intersecting_hunk.start,
+                            "While calculating the lines when incoming hunk overlaps the end of the first intersecting hunk range."
+                        )?,
                         line_shift: first_intersecting_hunk.line_shift,
                     },
                     HunkRange {
@@ -421,7 +430,11 @@ impl PathRanges {
                     stack_id: first_intersecting_hunk.stack_id,
                     commit_id: first_intersecting_hunk.commit_id,
                     start: first_intersecting_hunk.start,
-                    lines: incoming_hunk.new_start - first_intersecting_hunk.start,
+                    lines: panicless_subtraction(
+                        incoming_hunk.new_start,
+                        first_intersecting_hunk.start,
+                        "While calculating the lines of the top hunk range when incoming hunk is contained in the intersecting hunk ranges."
+                    )?,
                     line_shift: first_intersecting_hunk.line_shift,
                 },
                 HunkRange {
@@ -438,7 +451,11 @@ impl PathRanges {
                     commit_id: last_intersecting_hunk.commit_id,
                     start: incoming_hunk.new_start + incoming_hunk.new_lines,
                     lines: self
-                        .calculate_lines_of_trimmed_hunk(last_intersecting_hunk, incoming_hunk),
+                        .calculate_lines_of_trimmed_hunk(
+                            last_intersecting_hunk,
+                            incoming_hunk,
+                            "While calculating the lines of the bottom hunk range when incoming hunk is contained in the intersecting hunk ranges."
+                        )?,
                     line_shift: last_intersecting_hunk.line_shift,
                 },
             ],
@@ -501,7 +518,11 @@ impl PathRanges {
                         stack_id: hunk.stack_id,
                         commit_id: hunk.commit_id,
                         start: hunk.start,
-                        lines: incoming_hunk.new_start - hunk.start,
+                        lines: panicless_subtraction(
+                            incoming_hunk.new_start,
+                            hunk.start,
+                            "When calculating the top lines of the hunk range being split.",
+                        )?,
                         line_shift: hunk.line_shift,
                     },
                     HunkRange {
@@ -517,7 +538,11 @@ impl PathRanges {
                         stack_id: hunk.stack_id,
                         commit_id: hunk.commit_id,
                         start: incoming_hunk.new_start + incoming_hunk.new_lines,
-                        lines: self.calculate_lines_of_trimmed_hunk(&hunk, incoming_hunk),
+                        lines: self.calculate_lines_of_trimmed_hunk(
+                            &hunk,
+                            incoming_hunk,
+                            "When calculating the bottom lines of the hunk range being split.",
+                        )?,
                         line_shift: hunk.line_shift,
                     },
                 ],
@@ -530,10 +555,12 @@ impl PathRanges {
         }
 
         // 3. The incoming hunk partially overwrites the intersecting hunk range.
-        let (i_next_hunk_to_visit, i_first_hunk_to_shift) =
-            if self.get_shifted_old_start(incoming_hunk.old_start) <= hunk.start {
-                // The incoming hunk overlaps the beginning of the intersecting hunk range.
-                self.replace_hunk_ranges_at(
+        let (i_next_hunk_to_visit, i_first_hunk_to_shift) = if self
+            .get_shifted_old_start(incoming_hunk.old_start)
+            <= hunk.start
+        {
+            // The incoming hunk overlaps the beginning of the intersecting hunk range.
+            self.replace_hunk_ranges_at(
                     index,
                     vec![
                         HunkRange {
@@ -549,37 +576,45 @@ impl PathRanges {
                             stack_id: hunk.stack_id,
                             commit_id: hunk.commit_id,
                             start: incoming_hunk.new_start + incoming_hunk.new_lines,
-                            lines: self.calculate_lines_of_trimmed_hunk(&hunk, incoming_hunk),
+                            lines: self.calculate_lines_of_trimmed_hunk(
+                                &hunk,
+                                incoming_hunk,
+                                "When calculating the lines of the hunk range's beginning being trimmed.",
+                            )?,
                             line_shift: net_lines,
                         },
                     ],
                     0,
                 )
-            } else {
-                // The incoming hunk overlaps the end of the intersecting hunk range.
-                self.replace_hunk_ranges_at(
-                    index,
-                    vec![
-                        HunkRange {
-                            change_type: hunk.change_type,
-                            stack_id: hunk.stack_id,
-                            commit_id: hunk.commit_id,
-                            start: hunk.start,
-                            lines: incoming_hunk.new_start - hunk.start,
-                            line_shift: hunk.line_shift,
-                        },
-                        HunkRange {
-                            change_type: incoming_hunk.change_type,
-                            stack_id,
-                            commit_id,
-                            start: incoming_hunk.new_start,
-                            lines: incoming_hunk.new_lines,
-                            line_shift: net_lines,
-                        },
-                    ],
-                    1,
-                )
-            };
+        } else {
+            // The incoming hunk overlaps the end of the intersecting hunk range.
+            self.replace_hunk_ranges_at(
+                index,
+                vec![
+                    HunkRange {
+                        change_type: hunk.change_type,
+                        stack_id: hunk.stack_id,
+                        commit_id: hunk.commit_id,
+                        start: hunk.start,
+                        lines: panicless_subtraction(
+                            incoming_hunk.new_start,
+                            hunk.start,
+                            "When calculating the lines of the hunk range's end being trimmed.",
+                        )?,
+                        line_shift: hunk.line_shift,
+                    },
+                    HunkRange {
+                        change_type: incoming_hunk.change_type,
+                        stack_id,
+                        commit_id,
+                        start: incoming_hunk.new_start,
+                        lines: incoming_hunk.new_lines,
+                        line_shift: net_lines,
+                    },
+                ],
+                1,
+            )
+        };
 
         self.track_commit_dependency(commit_id, vec![hunk.commit_id])?;
         *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
@@ -591,7 +626,12 @@ impl PathRanges {
     /// Calculate the number of lines of a hunk range that was trimmed from the top.
     ///
     /// Will handle the case where the incoming hunk is a modification and only adds or only deletes lines.
-    fn calculate_lines_of_trimmed_hunk(&self, hunk: &HunkRange, incoming_hunk: &InputDiff) -> u32 {
+    fn calculate_lines_of_trimmed_hunk(
+        &self,
+        hunk: &HunkRange,
+        incoming_hunk: &InputDiff,
+        context: &str,
+    ) -> anyhow::Result<u32> {
         let old_start = self.get_shifted_old_start(incoming_hunk.old_start);
         let addition_shift = if self.is_addition_only_hunk(incoming_hunk) {
             // If the incoming hunk is an addition, we need to subtract one more line.
@@ -607,8 +647,11 @@ impl PathRanges {
             0
         };
 
-        ((hunk.start + hunk.lines - old_start - incoming_hunk.old_lines) - addition_shift)
-            + deletion_shift
+        let result = hunk.start + hunk.lines;
+        let result = panicless_subtraction(result, old_start, context)?;
+        let result = panicless_subtraction(result, incoming_hunk.old_lines, context)?;
+        let result = panicless_subtraction(result, addition_shift, context)?;
+        Ok(result + deletion_shift)
     }
 
     /// Determine whether the incoming hunk is of modification type and only adds lines.
@@ -744,6 +787,12 @@ impl PathRanges {
             .filter(|hunk| hunk.intersects(start, lines))
             .collect()
     }
+}
+
+/// Subtract two unsigned integers and return an error if the result is negative.
+fn panicless_subtraction(a: u32, b: u32, context: &str) -> anyhow::Result<u32> {
+    a.checked_sub(b)
+        .ok_or_else(|| anyhow::anyhow!("Subtraction overflow: {} - {}. {}", a, b, context))
 }
 
 /// Update the hunk ranges by inserting the new hunks at the given start and end indices.
