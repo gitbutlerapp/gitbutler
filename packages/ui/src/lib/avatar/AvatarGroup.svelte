@@ -12,7 +12,7 @@
 	import Avatar from './Avatar.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
 
-	const { avatars, maxAvatars = 5 }: Props = $props();
+	const { avatars, maxAvatars = 3 }: Props = $props();
 
 	const maxTooltipLength = 10;
 	const leftAvatars = $derived(avatars.length - maxAvatars);
