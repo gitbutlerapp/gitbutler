@@ -2,6 +2,7 @@ use super::r#virtual as vbranch;
 use crate::branch_upstream_integration;
 use crate::branch_upstream_integration::IntegrationStrategy;
 use crate::move_commits;
+use crate::r#virtual::StackListResult;
 use crate::reorder::{self, StackOrder};
 use crate::upstream_integration::{
     self, BaseBranchResolution, BaseBranchResolutionApproach, Resolution, StackStatuses,
@@ -66,9 +67,7 @@ pub fn can_apply_remote_branch(project: &Project, branch_name: &RemoteRefname) -
     vbranch::is_remote_branch_mergeable(&ctx, branch_name).map_err(Into::into)
 }
 
-pub fn list_virtual_branches(
-    project: &Project,
-) -> Result<(Vec<vbranch::VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
+pub fn list_virtual_branches(project: &Project) -> Result<StackListResult> {
     let ctx = open_with_verify(project)?;
 
     assure_open_workspace_mode(&ctx)
@@ -81,7 +80,7 @@ pub fn list_virtual_branches(
 pub fn list_virtual_branches_cached(
     project: &Project,
     worktree_changes: Option<DiffByPathMap>,
-) -> Result<(Vec<vbranch::VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
+) -> Result<StackListResult> {
     let ctx = open_with_verify(project)?;
 
     assure_open_workspace_mode(&ctx)

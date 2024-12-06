@@ -12,5 +12,6 @@ pub use {
     locks::{calculate_hunk_dependencies, HunkDependencyOptions, HunkLock},
     path::PathRanges,
     stack::StackRanges,
+    workspace::RangeCalculationError,
     workspace::WorkspaceRanges,
 };

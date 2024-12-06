@@ -5,14 +5,26 @@ use std::{
 
 use gitbutler_stack::StackId;
 use itertools::Itertools;
+use serde::Serialize;
 
 use crate::{HunkRange, InputCommit, InputStack, StackRanges};
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RangeCalculationError {
+    pub error_message: String,
+    pub stack_id: StackId,
+    #[serde(with = "gitbutler_serde::oid")]
+    pub commit_id: git2::Oid,
+    pub path: PathBuf,
+}
 
 #[derive(Debug)]
 pub struct WorkspaceRanges {
     paths: HashMap<PathBuf, Vec<HunkRange>>,
     pub commit_dependencies: HashMap<StackId, HashMap<git2::Oid, HashSet<git2::Oid>>>,
     pub inverse_commit_dependencies: HashMap<StackId, HashMap<git2::Oid, HashSet<git2::Oid>>>,
+    pub errors: Vec<RangeCalculationError>,
 }
 
 /// Provides blame-like functionality for looking up what commit(s) have touched a specific line
@@ -27,8 +39,9 @@ pub struct WorkspaceRanges {
 impl WorkspaceRanges {
     pub fn create(input_stacks: Vec<InputStack>) -> anyhow::Result<WorkspaceRanges> {
         let mut stacks = vec![];
+        let mut errors = vec![];
         for input_stack in input_stacks {
-            let mut stack = StackRanges {
+            let mut stack_ranges = StackRanges {
                 stack_id: input_stack.stack_id,
                 ..Default::default()
             };
@@ -36,10 +49,20 @@ impl WorkspaceRanges {
             for commit in commits {
                 let InputCommit { commit_id, files } = commit;
                 for file in files {
-                    stack.add(stack_id, commit_id, &file.path, file.diffs)?;
+                    if let Some(error) = stack_ranges
+                        .add(stack_id, commit_id, &file.path, file.diffs)
+                        .err()
+                    {
+                        errors.push(RangeCalculationError {
+                            error_message: error.to_string(),
+                            stack_id,
+                            commit_id,
+                            path: file.path,
+                        });
+                    }
                 }
             }
-            stacks.push(stack);
+            stacks.push(stack_ranges);
         }
         let paths = stacks
             .iter()
@@ -60,6 +83,7 @@ impl WorkspaceRanges {
                 .collect(),
             commit_dependencies,
             inverse_commit_dependencies,
+            errors,
         })
     }
 
