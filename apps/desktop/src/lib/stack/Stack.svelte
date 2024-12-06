@@ -111,8 +111,6 @@
 	}
 
 	async function checkMergeable() {
-		// TODO: Find a way to rerun once checks have completed, otherwise the "merge all" btn
-		// won't appear until another action is taken in the UI
 		const seriesMergeResponse = await Promise.allSettled(
 			branch.validSeries
 				.filter((s) => !s.archived)
