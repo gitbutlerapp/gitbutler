@@ -3,7 +3,8 @@
 	import Icon from '$lib/Icon.svelte';
 	import SeriesLabelsRow from '$lib/SeriesLabelsRow.svelte';
 	import TimeAgo from '$lib/TimeAgo.svelte';
-	import { onMount, type Snippet } from 'svelte';
+	import AvatarGroup from '$lib/avatar/AvatarGroup.svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		onMouseDown?: () => void;
@@ -17,7 +18,7 @@
 		branchDetails?: { commitCount: number; linesAdded: number; linesRemoved: number };
 		remotes?: string[];
 		local?: boolean;
-		authorAvatars: Snippet;
+		avatars?: { name: string; srcUrl: string }[];
 	}
 
 	const {
@@ -32,7 +33,7 @@
 		branchDetails,
 		remotes = [],
 		local = false,
-		authorAvatars
+		avatars
 	}: Props = $props();
 
 	let intersectionTarget = $state<HTMLButtonElement>();
@@ -77,7 +78,10 @@
 
 	<div class="row">
 		<div class="authors-and-tags">
-			{@render authorAvatars()}
+			{#if avatars}
+				<AvatarGroup {avatars} />
+			{/if}
+
 			<div class="branch-remotes">
 				<!-- NEED API -->
 				{#each remotes as remote}
@@ -137,27 +141,27 @@
 		<div class="stats">
 			{#if branchDetails}
 				<Tooltip text="Code changes">
-					<div class="code-changes">
-						<span class="text-10 text-bold">+{branchDetails.linesAdded}</span>
-						<span class="text-10 text-bold">-{branchDetails.linesRemoved}</span>
+					<div class="stats-group text-11">
+						<span>+{branchDetails.linesAdded}</span>
+						<span>-{branchDetails.linesRemoved}</span>
 					</div>
 				</Tooltip>
 
 				<Tooltip text="Number of commits">
-					<div class="branch-tag tag-commits">
+					<div class="stats-group">
 						<svg
-							width="12"
-							height="8"
-							viewBox="0 0 12 8"
+							width="14"
+							height="13"
+							viewBox="0 0 14 13"
 							fill="none"
 							xmlns="http://www.w3.org/2000/svg"
 						>
-							<circle cx="6.16675" cy="4" r="2.5" stroke="currentColor" stroke-width="1.5" />
-							<path d="M8.66675 4H12.0001" stroke="currentColor" stroke-width="1.5" />
-							<path d="M0.333374 4H3.66671" stroke="currentColor" stroke-width="1.5" />
+							<circle cx="7" cy="6.5" r="3" stroke="currentColor" />
+							<path d="M10 6.5H14" stroke="currentColor" />
+							<path d="M0 6.5H4" stroke="currentColor" />
 						</svg>
 
-						<span class="text-10 text-bold">{branchDetails.commitCount}</span>
+						<span class="text-11">{branchDetails.commitCount}</span>
 					</div>
 				</Tooltip>
 			{/if}
@@ -270,36 +274,20 @@
 		}
 	}
 
-	.tag-commits {
-		border: 1px solid var(--clr-border-2);
-		color: var(--clr-text-2);
-		gap: 4px;
-	}
-
 	/*  */
-
-	.code-changes {
-		display: flex;
-		align-items: center;
-		height: 16px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-s);
-		overflow: hidden;
-
-		& span {
-			padding: 0 4px;
-			color: var(--clr-text-2);
-		}
-
-		& span:first-child {
-			border-right: 1px solid var(--clr-border-2);
-		}
-	}
-
 	.stats {
 		display: flex;
 		align-items: center;
 		gap: 4px;
+	}
+
+	.stats-group {
+		display: flex;
+		gap: 3px;
+		align-items: center;
+		overflow: hidden;
+		color: var(--clr-text-2);
+		margin-left: 2px;
 	}
 
 	.branch-remotes {
