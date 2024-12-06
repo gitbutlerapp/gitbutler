@@ -3,7 +3,6 @@
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import type { PullRequest } from '$lib/forge/interface/types';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
@@ -39,7 +38,7 @@
 </script>
 
 <SidebarEntry
-	title={pullRequest.title}
+	prTitle={pullRequest.title}
 	remotes={[]}
 	local={false}
 	applied={false}
@@ -53,17 +52,10 @@
 	}}
 	{onMouseDown}
 	{selected}
->
-	{#snippet authorAvatars()}
-		{#if authorImgUrl}
-			<AvatarGroup
-				avatars={[
-					{
-						srcUrl: authorImgUrl,
-						name: pullRequest.author?.name || 'unknown'
-					}
-				]}
-			/>
-		{/if}
-	{/snippet}
-</SidebarEntry>
+	avatars={[
+		{
+			name: pullRequest.author?.name || 'unknown',
+			srcUrl: authorImgUrl || ''
+		}
+	]}
+/>

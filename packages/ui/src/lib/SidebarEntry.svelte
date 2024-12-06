@@ -1,14 +1,14 @@
 <script lang="ts">
 	import Tooltip from './Tooltip.svelte';
-	import Icon from '$lib/Icon.svelte';
 	import SeriesLabelsRow from '$lib/SeriesLabelsRow.svelte';
 	import TimeAgo from '$lib/TimeAgo.svelte';
-	import { onMount, type Snippet } from 'svelte';
+	import AvatarGroup from '$lib/avatar/AvatarGroup.svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		onMouseDown?: () => void;
 		onFirstSeen?: () => void;
-		title?: string;
+		prTitle?: string;
 		series?: string[];
 		selected?: boolean;
 		applied?: boolean;
@@ -17,13 +17,13 @@
 		branchDetails?: { commitCount: number; linesAdded: number; linesRemoved: number };
 		remotes?: string[];
 		local?: boolean;
-		authorAvatars: Snippet;
+		avatars?: { name: string; srcUrl: string }[];
 	}
 
 	const {
 		onMouseDown = () => {},
 		onFirstSeen = () => {},
-		title,
+		prTitle,
 		series,
 		selected = false,
 		applied = false,
@@ -32,7 +32,7 @@
 		branchDetails,
 		remotes = [],
 		local = false,
-		authorAvatars
+		avatars
 	}: Props = $props();
 
 	let intersectionTarget = $state<HTMLButtonElement>();
@@ -60,40 +60,13 @@
 
 <button
 	type="button"
-	class="branch"
+	class="sidebar-entry"
 	class:selected
 	onmousedown={onMouseDown}
 	bind:this={intersectionTarget}
 >
-	{#if series}
-		<SeriesLabelsRow {series} showRestAmount {selected} />
-	{/if}
-
-	{#if title}
-		<h4 class="text-13 text-semibold branch-name">
-			{title}
-		</h4>
-	{/if}
-
 	<div class="row">
-		<div class="authors-and-tags">
-			{@render authorAvatars()}
-			<div class="branch-remotes">
-				<!-- NEED API -->
-				{#each remotes as remote}
-					<div class="branch-tag tag-remote">
-						<span class="text-10 text-semibold">{remote}</span>
-					</div>
-				{/each}
-				{#if local}
-					<div class="branch-tag tag-local">
-						<span class="text-10 text-semibold">local</span>
-					</div>
-				{/if}
-			</div>
-		</div>
-
-		<div class="row-group">
+		<div class="title">
 			{#if pullRequestDetails}
 				<Tooltip text={pullRequestDetails.title}>
 					<div
@@ -102,17 +75,51 @@
 						class:tag-draft-pr={pullRequestDetails.draft}
 					>
 						<span class="text-10 text-semibold">
-							{#if !pullRequestDetails.draft}PR{:else}Draft{/if}
+							{#if !pullRequestDetails.draft}PR{:else}PR Draft{/if}
 						</span>
-						<Icon name="pr-small" />
 					</div>
 				</Tooltip>
 			{/if}
-			{#if applied}
-				<div class="branch-tag tag-applied">
-					<span class="text-10 text-semibold">Workspace</span>
-				</div>
+
+			{#if series}
+				<SeriesLabelsRow {series} showRestAmount {selected} />
 			{/if}
+
+			{#if prTitle}
+				<h4 class="text-12 text-semibold branch-name">
+					{prTitle}
+				</h4>
+			{/if}
+		</div>
+
+		{#if applied}
+			<div class="branch-tag tag-applied">
+				<span class="text-10 text-semibold">Workspace</span>
+			</div>
+		{/if}
+	</div>
+
+	<div class="row">
+		<div class="authors-and-tags">
+			{#if avatars}
+				<AvatarGroup {avatars} />
+			{/if}
+
+			<div class="branch-remotes text-11">
+				<!-- NEED API -->
+				{#each remotes as remote}
+					<span>•</span>
+					<span>{remote}</span>
+				{/each}
+				{#if local}
+					<span>•</span>
+					<span>local</span>
+				{/if}
+				{#if prTitle}
+					<span>•</span>
+					<span>No remotes</span>
+				{/if}
+			</div>
 		</div>
 	</div>
 
@@ -137,27 +144,27 @@
 		<div class="stats">
 			{#if branchDetails}
 				<Tooltip text="Code changes">
-					<div class="code-changes">
-						<span class="text-10 text-bold">+{branchDetails.linesAdded}</span>
-						<span class="text-10 text-bold">-{branchDetails.linesRemoved}</span>
+					<div class="stats-group text-11">
+						<span>+{branchDetails.linesAdded}</span>
+						<span>-{branchDetails.linesRemoved}</span>
 					</div>
 				</Tooltip>
 
 				<Tooltip text="Number of commits">
-					<div class="branch-tag tag-commits">
+					<div class="stats-group">
 						<svg
-							width="12"
-							height="8"
-							viewBox="0 0 12 8"
+							width="14"
+							height="13"
+							viewBox="0 0 14 13"
 							fill="none"
 							xmlns="http://www.w3.org/2000/svg"
 						>
-							<circle cx="6.16675" cy="4" r="2.5" stroke="currentColor" stroke-width="1.5" />
-							<path d="M8.66675 4H12.0001" stroke="currentColor" stroke-width="1.5" />
-							<path d="M0.333374 4H3.66671" stroke="currentColor" stroke-width="1.5" />
+							<circle cx="7" cy="6.5" r="3" stroke="currentColor" />
+							<path d="M10 6.5H14" stroke="currentColor" />
+							<path d="M0 6.5H4" stroke="currentColor" />
 						</svg>
 
-						<span class="text-10 text-bold">{branchDetails.commitCount}</span>
+						<span class="text-11">{branchDetails.commitCount}</span>
 					</div>
 				</Tooltip>
 			{/if}
@@ -166,7 +173,7 @@
 </button>
 
 <style lang="postcss">
-	.branch {
+	.sidebar-entry {
 		position: relative;
 		display: flex;
 		flex-direction: column;
@@ -203,28 +210,27 @@
 				transform: translateX(0);
 			}
 		}
-	}
 
-	/* ROW */
+		& .row {
+			display: flex;
+			align-items: center;
+			width: 100%;
+			gap: 6px;
+			justify-content: space-between;
+		}
 
-	.row {
-		display: flex;
-		align-items: center;
-		width: 100%;
-		gap: 6px;
-		justify-content: space-between;
-	}
-
-	.row-group {
-		display: flex;
-		align-items: center;
-		gap: 4px;
+		& .title {
+			display: flex;
+			align-items: center;
+			gap: 6px;
+			overflow: hidden;
+		}
 	}
 
 	.authors-and-tags {
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 10px;
 		overflow: hidden;
 	}
 
@@ -235,19 +241,10 @@
 		align-items: center;
 		justify-content: center;
 		gap: 2px;
-		padding: 4px;
+		padding: 2px 4px;
 		height: 16px;
+		white-space: nowrap;
 		border-radius: var(--radius-s);
-	}
-
-	.tag-local,
-	.tag-remote {
-		border: 1px solid var(--clr-border-2);
-	}
-
-	.tag-pr,
-	.tag-draft-pr {
-		padding: 0 2px 0 4px;
 	}
 
 	.tag-pr {
@@ -257,7 +254,7 @@
 
 	.tag-draft-pr {
 		background-color: var(--clr-theme-ntrl-soft);
-		color: var(--clr-text-2);
+		color: var(--clr-text-1);
 		border: 1px solid var(--clr-border-2);
 	}
 
@@ -270,42 +267,28 @@
 		}
 	}
 
-	.tag-commits {
-		border: 1px solid var(--clr-border-2);
-		color: var(--clr-text-2);
-		gap: 4px;
-	}
-
 	/*  */
-
-	.code-changes {
-		display: flex;
-		align-items: center;
-		height: 16px;
-		border: 1px solid var(--clr-border-2);
-		border-radius: var(--radius-s);
-		overflow: hidden;
-
-		& span {
-			padding: 0 4px;
-			color: var(--clr-text-2);
-		}
-
-		& span:first-child {
-			border-right: 1px solid var(--clr-border-2);
-		}
-	}
-
 	.stats {
 		display: flex;
 		align-items: center;
 		gap: 4px;
 	}
 
+	.stats-group {
+		display: flex;
+		gap: 3px;
+		align-items: center;
+		overflow: hidden;
+		color: var(--clr-text-2);
+		margin-left: 2px;
+	}
+
 	.branch-remotes {
 		display: flex;
+		align-items: center;
 		gap: 4px;
 		overflow: hidden;
+		color: var(--clr-text-2);
 	}
 
 	.branch-name {
