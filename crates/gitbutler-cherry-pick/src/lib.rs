@@ -108,18 +108,13 @@ impl GixRepositoryExt for gix::Repository {
             ConflictedTreeKey::Theirs,
         )?;
 
+        use gitbutler_oxidize::GixRepositoryExt;
         self.merge_trees(
             base,
             ours,
             theirs,
-            gix::merge::blob::builtin_driver::text::Labels {
-                ancestor: Some("base".into()),
-                current: Some("ours".into()),
-                other: Some("theirs".into()),
-            },
-            self.tree_merge_options()?
-                .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours))
-                .with_file_favor(Some(gix::merge::tree::FileFavor::Ours)),
+            self.default_merge_labels(),
+            self.merge_options_force_ours()?,
         )
         .context("failed to merge trees for cherry pick")
     }

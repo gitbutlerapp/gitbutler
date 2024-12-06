@@ -4,6 +4,9 @@ use anyhow::Context;
 use gix::bstr::ByteSlice;
 use std::borrow::Borrow;
 
+mod ext;
+pub use ext::GixRepositoryExt;
+
 pub fn gix_time_to_git2(time: gix::date::Time) -> git2::Time {
     git2::Time::new(time.seconds, time.offset)
 }

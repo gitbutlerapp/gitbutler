@@ -1,7 +1,7 @@
 use crate::{init_opts, VAR_NO_CLEANUP};
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt};
 use gitbutler_reference::{LocalRefname, Refname};
-use gitbutler_repo::{GixRepositoryExt, RepositoryExt};
+use gitbutler_repo::RepositoryExt;
 use std::{fs, path, path::PathBuf};
 use tempfile::TempDir;
 
