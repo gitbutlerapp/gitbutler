@@ -28,7 +28,8 @@ fn unapplying_selected_branch_selects_anther() {
         gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
             .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
 
     let b = branches.iter().find(|b| b.id == b_id).unwrap();
 
@@ -39,7 +40,8 @@ fn unapplying_selected_branch_selects_anther() {
 
     gitbutler_branch_actions::save_and_unapply_virutal_branch(project, b_id).unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
 
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, b2.id);
@@ -67,7 +69,8 @@ fn deleting_selected_branch_selects_anther() {
         gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
             .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
 
     let b = branches.iter().find(|b| b.id == b_id).unwrap();
 
@@ -78,7 +81,8 @@ fn deleting_selected_branch_selects_anther() {
 
     gitbutler_branch_actions::unapply_without_saving_virtual_branch(project, b_id).unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
 
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, b2.id);
@@ -101,7 +105,7 @@ fn create_virtual_branch_should_set_selected_for_changes() {
             .unwrap();
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == b_id)
         .unwrap();
@@ -113,7 +117,7 @@ fn create_virtual_branch_should_set_selected_for_changes() {
             .unwrap();
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == b_id)
         .unwrap();
@@ -130,7 +134,7 @@ fn create_virtual_branch_should_set_selected_for_changes() {
     .unwrap();
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == b_id)
         .unwrap();
@@ -147,7 +151,7 @@ fn create_virtual_branch_should_set_selected_for_changes() {
     .unwrap();
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == b_id)
         .unwrap();
@@ -169,7 +173,7 @@ fn update_virtual_branch_should_reset_selected_for_changes() {
             .unwrap();
     let b1 = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == b1_id)
         .unwrap();
@@ -180,7 +184,7 @@ fn update_virtual_branch_should_reset_selected_for_changes() {
             .unwrap();
     let b2 = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == b2_id)
         .unwrap();
@@ -198,7 +202,7 @@ fn update_virtual_branch_should_reset_selected_for_changes() {
 
     let b1 = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == b1_id)
         .unwrap();
@@ -206,7 +210,7 @@ fn update_virtual_branch_should_reset_selected_for_changes() {
 
     let b2 = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == b2_id)
         .unwrap();
@@ -234,7 +238,7 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
 
     let b1 = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == b1_id)
         .unwrap();
@@ -246,7 +250,7 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
 
     let b2 = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == b2_id)
         .unwrap();
@@ -256,7 +260,7 @@ fn unapply_virtual_branch_should_reset_selected_for_changes() {
 
     assert!(gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .any(|b| b.selected_for_changes && b.id != b1_id))
 }
@@ -277,7 +281,8 @@ fn hunks_distribution() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 1);
 
     gitbutler_branch_actions::create_virtual_branch(
@@ -289,7 +294,8 @@ fn hunks_distribution() {
     )
     .unwrap();
     std::fs::write(repository.path().join("another_file.txt"), "content").unwrap();
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[1].files.len(), 1);
 }
@@ -310,7 +316,8 @@ fn applying_first_branch() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let unapplied_branch =
@@ -324,7 +331,8 @@ fn applying_first_branch() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert!(branches[0].active);
     assert!(branches[0].selected_for_changes);
@@ -353,13 +361,15 @@ fn new_locked_hunk_without_modifying_existing() {
     lines[0] = "modification 1".to_string();
     repository.write_file("file.txt", &lines);
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 1);
 
     gitbutler_branch_actions::create_commit(project, branches[0].id, "second commit", None, false)
         .expect("failed to create commit");
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
 
@@ -375,13 +385,15 @@ fn new_locked_hunk_without_modifying_existing() {
     lines[8] = "modification 2".to_string();
     repository.write_file("file.txt", &lines);
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[1].files.len(), 1);
 
     lines[0] = "modification 3".to_string();
     repository.write_file("file.txt", &lines);
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[1].files.len(), 1);
 }

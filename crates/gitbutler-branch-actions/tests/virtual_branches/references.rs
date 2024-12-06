@@ -26,7 +26,8 @@ mod create_virtual_branch {
         )
         .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
         assert_eq!(branches[0].name, "Lane");
@@ -72,7 +73,8 @@ mod create_virtual_branch {
         )
         .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
@@ -128,7 +130,8 @@ mod update_virtual_branch {
         )
         .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch_id);
         assert_eq!(branches[0].name, "new name");
@@ -184,7 +187,8 @@ mod update_virtual_branch {
         )
         .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 2);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
@@ -235,7 +239,8 @@ mod push_virtual_branch {
         gitbutler_branch_actions::create_commit(project, branch1_id, "test", None, false).unwrap();
         gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None).unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
@@ -314,7 +319,8 @@ mod push_virtual_branch {
             branch2_id
         };
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 2);
         // first branch is pushing to old ref remotely
         assert_eq!(branches[0].id, branch1_id);

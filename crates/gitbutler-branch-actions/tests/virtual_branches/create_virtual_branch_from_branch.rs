@@ -32,7 +32,7 @@ fn integration() {
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
-            .0
+            .branches
             .into_iter()
             .find(|branch| branch.id == branch_id)
             .unwrap();
@@ -76,7 +76,7 @@ fn integration() {
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
-            .0
+            .branches
             .into_iter()
             .find(|branch| branch.id == branch_id)
             .unwrap();
@@ -95,7 +95,7 @@ fn integration() {
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
-            .0
+            .branches
             .into_iter()
             .find(|branch| branch.id == branch_id)
             .unwrap();
@@ -136,7 +136,9 @@ fn no_conflicts() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
+
     assert!(branches.is_empty());
 
     let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
@@ -147,7 +149,8 @@ fn no_conflicts() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, branch_id);
     assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
@@ -185,7 +188,8 @@ fn conflicts_with_uncommited() {
     {
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
     };
 
@@ -200,7 +204,7 @@ fn conflicts_with_uncommited() {
     .unwrap();
     let new_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|branch| branch.id == new_branch_id)
         .unwrap();
@@ -237,7 +241,8 @@ fn conflicts_with_commited() {
     {
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
 
         gitbutler_branch_actions::create_commit(project, branches[0].id, "hej", None, false)
@@ -255,7 +260,7 @@ fn conflicts_with_commited() {
     .unwrap();
     let new_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|branch| branch.id == new_branch_id)
         .unwrap();
@@ -351,7 +356,8 @@ fn from_state_remote_branch() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, branch_id);
     assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
@@ -403,7 +409,8 @@ mod conflict_cases {
         fs::write(repository.path().join("bar.txt"), "b").unwrap();
         repository.commit_all("B");
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         let branch = branches[0].clone();
 
         let branch_refname =
@@ -446,7 +453,8 @@ mod conflict_cases {
         .unwrap();
 
         // We should see a merge commit
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         let branch = branches[0].clone();
 
         assert_eq!(

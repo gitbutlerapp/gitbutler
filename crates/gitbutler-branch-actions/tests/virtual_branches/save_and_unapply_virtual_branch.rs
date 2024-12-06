@@ -16,14 +16,17 @@ fn unapply_with_data() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
+
     assert_eq!(branches.len(), 1);
 
     gitbutler_branch_actions::save_and_unapply_virutal_branch(project, branches[0].id).unwrap();
 
     assert!(!repository.path().join("file.txt").exists());
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 0);
 }
 
@@ -40,11 +43,13 @@ fn delete_if_empty() {
     gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
         .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     gitbutler_branch_actions::save_and_unapply_virutal_branch(project, branches[0].id).unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 0);
 }

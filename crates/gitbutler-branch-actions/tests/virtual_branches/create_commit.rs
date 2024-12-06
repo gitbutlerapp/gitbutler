@@ -42,7 +42,7 @@ fn should_lock_updated_hunks() {
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
-            .0
+            .branches
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
@@ -123,7 +123,7 @@ fn commit_and_push_initial(repository: &TestProject) {
 fn get_virtual_branch(project: &Project, branch_id: Id<Stack>) -> VirtualBranch {
     gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap()

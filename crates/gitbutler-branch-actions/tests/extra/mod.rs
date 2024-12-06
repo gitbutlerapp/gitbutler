@@ -47,7 +47,9 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
         "line0\nline1\nline2\nline3\nline4\n",
     )?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
+
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.series[0].clone()?.patches.len(), 0);
@@ -56,7 +58,8 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     internal::commit(ctx, stack1_id, "test commit", None, false)?;
 
     // status (no files)
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 0);
     assert_eq!(branch.series[0].clone()?.patches.len(), 1);
@@ -67,7 +70,8 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     )?;
 
     // should have just the last change now, the other line is committed
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 1);
     assert_eq!(branch.series[0].clone()?.patches.len(), 1);
@@ -126,7 +130,8 @@ fn track_binary_files() -> Result<()> {
     let mut file = std::fs::File::create(Path::new(&project.path).join("image.bin"))?;
     file.write_all(&image_data)?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches[0];
     assert_eq!(branch.files.len(), 2);
     let img_file = &branch
@@ -146,7 +151,8 @@ fn track_binary_files() -> Result<()> {
     internal::commit(ctx, stack1_id, "test commit", None, false)?;
 
     // status (no files)
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission()).unwrap();
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission()).unwrap();
+    let branches = list_result.branches;
     let commit_id = &branches[0].series[0].clone()?.patches[0].id;
     let commit_obj = ctx.repo().find_commit(commit_id.to_owned())?;
     let tree = commit_obj.tree()?;
@@ -169,7 +175,9 @@ fn track_binary_files() -> Result<()> {
     // commit
     internal::commit(ctx, stack1_id, "test commit", None, false)?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission()).unwrap();
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission()).unwrap();
+    let branches = list_result.branches;
+
     let commit_id = &branches[0].series[0].clone()?.patches[0].id;
     // get tree from commit_id
     let commit_obj = ctx.repo().find_commit(commit_id.to_owned())?;
@@ -848,7 +856,8 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
     branch.set_stack_head(ctx, last_push, None)?;
 
     // create the branch
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     let branch1 = &branches[0];
 
@@ -883,7 +892,8 @@ fn merge_vbranch_upstream_clean_rebase() -> Result<()> {
         guard.write_permission(),
     )?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch1 = &branches[0];
 
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
@@ -984,7 +994,8 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
     .unwrap();
 
     // create the branch
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch1 = &branches[0];
 
     assert_eq!(branch1.files.len(), 1);
@@ -997,7 +1008,8 @@ fn merge_vbranch_upstream_conflict() -> Result<()> {
         guard.write_permission(),
     )?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch1 = &branches[0];
     let contents = std::fs::read(Path::new(&project.path).join(file_path))?;
 
@@ -1036,7 +1048,8 @@ fn unapply_ownership_partial() -> Result<()> {
         .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
         .expect("failed to create virtual branch");
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].ownership.claims.len(), 1);
@@ -1055,7 +1068,8 @@ fn unapply_ownership_partial() -> Result<()> {
     )
     .unwrap();
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[0].ownership.claims.len(), 0);
@@ -1117,7 +1131,8 @@ fn unapply_branch() -> Result<()> {
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
     assert_eq!(branch.files.len(), 1);
     assert!(branch.active);
@@ -1130,7 +1145,8 @@ fn unapply_branch() -> Result<()> {
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     assert!(!branches.iter().any(|b| b.id == stack1_id));
 
     let branch_manager = ctx.branch_manager();
@@ -1148,7 +1164,8 @@ fn unapply_branch() -> Result<()> {
     let contents = std::fs::read(Path::new(&project.path).join(file_path2))?;
     assert_eq!("line5\nline6\n", String::from_utf8(contents)?);
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
     assert_eq!(branch.files.len(), 1);
     assert!(branch.active);
@@ -1478,7 +1495,8 @@ fn upstream_integrated_vbranch() -> Result<()> {
     internal::commit(ctx, stack1_id, "integrated commit", None, false)?;
     internal::commit(ctx, stack2_id, "non-integrated commit", None, false)?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
 
     let branch1 = &branches.iter().find(|b| b.id == stack1_id).unwrap();
     assert!(branch1.series[0]
@@ -1536,7 +1554,8 @@ fn commit_same_hunk_twice() -> Result<()> {
         "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
@@ -1546,7 +1565,8 @@ fn commit_same_hunk_twice() -> Result<()> {
     // commit
     internal::commit(ctx, stack1_id, "first commit to test.txt", None, false)?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
 
     assert_eq!(branch.files.len(), 0, "no files expected");
@@ -1572,7 +1592,8 @@ fn commit_same_hunk_twice() -> Result<()> {
         "line1\nPATCH1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1, "one file should be changed");
@@ -1584,7 +1605,8 @@ fn commit_same_hunk_twice() -> Result<()> {
 
     internal::commit(ctx, stack1_id, "second commit to test.txt", None, false)?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
 
     assert_eq!(
@@ -1634,7 +1656,8 @@ fn commit_same_file_twice() -> Result<()> {
         "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\nline11\nline12\n",
     )?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
@@ -1644,7 +1667,8 @@ fn commit_same_file_twice() -> Result<()> {
     // commit
     internal::commit(ctx, stack1_id, "first commit to test.txt", None, false)?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
 
     assert_eq!(branch.files.len(), 0, "no files expected");
@@ -1669,7 +1693,8 @@ fn commit_same_file_twice() -> Result<()> {
         "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\npatch2\nline11\nline12\n",
     )?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1, "one file should be changed");
@@ -1681,7 +1706,8 @@ fn commit_same_file_twice() -> Result<()> {
 
     internal::commit(ctx, stack1_id, "second commit to test.txt", None, false)?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
 
     assert_eq!(
@@ -1731,7 +1757,8 @@ fn commit_partial_by_hunk() -> Result<()> {
         "line1\npatch1\nline2\nline3\nline4\nline5\nmiddle\nmiddle\nmiddle\nmiddle\nline6\nline7\nline8\nline9\nline10\nmiddle\nmiddle\nmiddle\npatch2\nline11\nline12\n",
     )?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
 
     assert_eq!(branch.files.len(), 1);
@@ -1747,7 +1774,8 @@ fn commit_partial_by_hunk() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
     let commit1_files = list_commit_files(project, branch.series[0].clone()?.patches[0].id)?;
 
@@ -1765,7 +1793,8 @@ fn commit_partial_by_hunk() -> Result<()> {
         false,
     )?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch = &branches.iter().find(|b| b.id == stack1_id).unwrap();
     let commit1_files = list_commit_files(project, branch.series[0].clone()?.patches[0].id)?;
     let commit2_files = list_commit_files(project, branch.series[0].clone()?.patches[1].id)?;
@@ -1809,7 +1838,8 @@ fn commit_partial_by_file() -> Result<()> {
     // commit
     internal::commit(ctx, stack1_id, "branch1 commit", None, false)?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch1 = &branches.iter().find(|b| b.id == stack1_id).unwrap();
 
     // branch one test.txt has just the 1st and 3rd hunks applied
@@ -1860,7 +1890,8 @@ fn commit_add_and_delete_files() -> Result<()> {
     // commit
     internal::commit(ctx, stack1_id, "branch1 commit", None, false)?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch1 = &branches.iter().find(|b| b.id == stack1_id).unwrap();
 
     // branch one test.txt has just the 1st and 3rd hunks applied
@@ -1917,7 +1948,8 @@ fn commit_executable_and_symlinks() -> Result<()> {
     // commit
     internal::commit(ctx, stack1_id, "branch1 commit", None, false)?;
 
-    let (branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let branches = list_result.branches;
     let branch1 = &branches.iter().find(|b| b.id == stack1_id).unwrap();
 
     let commit = &branch1.series[0].clone()?.patches[0].id;
@@ -2013,7 +2045,8 @@ fn verify_branch_commits_to_workspace() -> Result<()> {
     verify_branch(ctx, guard.write_permission()).unwrap();
 
     // one virtual branch with two commits was created
-    let (virtual_branches, _) = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
+    let virtual_branches = list_result.branches;
     assert_eq!(virtual_branches.len(), 1);
 
     let branch = &virtual_branches.first().unwrap();

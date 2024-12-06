@@ -67,7 +67,9 @@ mod go_back_to_workspace {
         std::fs::write(repository.path().join("another file.txt"), "content").unwrap();
         gitbutler_branch_actions::create_commit(project, vbranch_id, "one", None, false).unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
+
         assert_eq!(branches.len(), 1);
 
         repository.checkout_commit(oid_one);
@@ -78,7 +80,8 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, vbranch_id);
         assert!(branches[0].active);
@@ -104,7 +107,9 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
+
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
@@ -141,7 +146,8 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
@@ -178,7 +184,8 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
@@ -191,7 +198,8 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 0);
         assert_eq!(base_two, base);
     }
@@ -216,7 +224,8 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert!(branches.is_empty());
 
         repository.checkout_commit(oid_one);
@@ -227,7 +236,8 @@ mod go_back_to_workspace {
         )
         .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 0);
         assert_eq!(base_two, base);
     }

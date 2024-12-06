@@ -18,7 +18,7 @@ fn twice() {
         .unwrap();
         assert!(gitbutler_branch_actions::list_virtual_branches(&project)
             .unwrap()
-            .0
+            .branches
             .is_empty());
         projects.delete(project.id).unwrap();
         gitbutler_branch_actions::list_virtual_branches(&project).unwrap_err();
@@ -35,7 +35,7 @@ fn twice() {
         // even though project is on gitbutler/workspace, we should not import it
         assert!(gitbutler_branch_actions::list_virtual_branches(&project)
             .unwrap()
-            .0
+            .branches
             .is_empty());
     }
 }
@@ -60,7 +60,8 @@ fn dirty_non_target() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -86,7 +87,8 @@ fn dirty_target() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
@@ -112,7 +114,8 @@ fn commit_on_non_target_local() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
@@ -139,7 +142,8 @@ fn commit_on_non_target_remote() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
@@ -164,7 +168,8 @@ fn commit_on_target() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
@@ -191,7 +196,8 @@ fn submodule() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
