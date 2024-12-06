@@ -401,8 +401,9 @@ impl RepositoryExt for git2::Repository {
                     gpg_program = "ssh-keygen".to_string();
                 }
 
-                let mut cmd = std::process::Command::new(gpg_program);
-                cmd.args(["-Y", "sign", "-n", "git", "-f"]);
+                let mut cmd = std::process::Command::new("bash");
+                cmd.arg("-c");
+                let gpg_cmd = format!("{} -Y sign -n git -f", gpg_program);
 
                 #[cfg(windows)]
                 cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
@@ -425,9 +426,13 @@ impl RepositoryExt for git2::Repository {
 
                     let key_file_path = key_storage.into_temp_path();
 
-                    cmd.arg(&key_file_path);
-                    cmd.arg("-U");
-                    cmd.arg(&buffer_file_to_sign_path);
+                    cmd.arg(format!(
+                        "{} {} {} {}",
+                        gpg_cmd,
+                        &key_file_path.to_str().unwrap(),
+                        "-U",
+                        buffer_file_to_sign_path.to_str().unwrap()
+                    ));
                     cmd.stderr(Stdio::piped());
                     cmd.stdout(Stdio::piped());
                     cmd.stdin(Stdio::null());
@@ -435,8 +440,12 @@ impl RepositoryExt for git2::Repository {
                     let child = cmd.spawn()?;
                     output = child.wait_with_output()?;
                 } else {
-                    cmd.arg(signing_key);
-                    cmd.arg(&buffer_file_to_sign_path);
+                    cmd.arg(format!(
+                        "{} {} {}",
+                        gpg_cmd,
+                        signing_key,
+                        buffer_file_to_sign_path.to_str().unwrap()
+                    ));
                     cmd.stderr(Stdio::piped());
                     cmd.stdout(Stdio::piped());
                     cmd.stdin(Stdio::null());
