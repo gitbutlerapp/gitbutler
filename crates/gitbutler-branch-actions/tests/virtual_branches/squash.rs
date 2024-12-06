@@ -48,7 +48,7 @@ fn head() {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
@@ -112,7 +112,7 @@ fn middle() {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
@@ -187,7 +187,7 @@ fn forcepush_allowed() {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();

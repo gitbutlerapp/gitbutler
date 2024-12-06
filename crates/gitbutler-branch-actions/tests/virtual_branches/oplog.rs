@@ -148,13 +148,13 @@ fn basic_oplog() -> anyhow::Result<()> {
         gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None, false)?;
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)?
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
     let branches = gitbutler_branch_actions::list_virtual_branches(project)?;
-    assert_eq!(branches.0.len(), 2);
+    assert_eq!(branches.branches.len(), 2);
 
     assert_eq!(branch.series[0].clone()?.patches.len(), 3);
     assert_eq!(
@@ -199,7 +199,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     // the restore removed our new branch
     let branches = gitbutler_branch_actions::list_virtual_branches(project)?;
-    assert_eq!(branches.0.len(), 1);
+    assert_eq!(branches.branches.len(), 1);
 
     // assert that the conflicts file was removed
     assert!(!&conflicts_path.try_exists()?);

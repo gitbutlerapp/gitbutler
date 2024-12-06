@@ -54,7 +54,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
-            .0
+            .branches
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
@@ -143,7 +143,7 @@ fn non_locked_hunk() -> anyhow::Result<()> {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
@@ -158,7 +158,7 @@ fn non_locked_hunk() -> anyhow::Result<()> {
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
-            .0
+            .branches
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
@@ -198,7 +198,7 @@ fn locked_hunk() -> anyhow::Result<()> {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
@@ -217,7 +217,7 @@ fn locked_hunk() -> anyhow::Result<()> {
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
-            .0
+            .branches
             .into_iter()
             .find(|b| b.id == branch_id)
             .unwrap();
@@ -259,7 +259,7 @@ fn non_existing_ownership() {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
