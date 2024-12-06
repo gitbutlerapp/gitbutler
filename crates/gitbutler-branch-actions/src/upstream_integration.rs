@@ -161,7 +161,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
     ) -> Result<Self> {
         let virtual_branches_handle = command_context.project().virtual_branches();
         let target = virtual_branches_handle.get_default_target()?;
-        let repository = command_context.repository();
+        let repository = command_context.repo();
         let target_branch = repository
             .maybe_find_branch_by_refname(&target.branch.clone().into())?
             .ok_or(anyhow!("Branch not found"))?;
@@ -497,7 +497,7 @@ pub(crate) fn resolve_upstream_integration(
     permission: &mut WorktreeWritePermission,
 ) -> Result<git2::Oid> {
     let context = UpstreamIntegrationContext::open(command_context, None, permission)?;
-    let repo = command_context.repository();
+    let repo = command_context.repo();
     let new_target_id = context.new_target.id();
     let old_target_id = context.target.sha;
     let fork_point = repo.merge_base(old_target_id, new_target_id)?;

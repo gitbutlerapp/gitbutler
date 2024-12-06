@@ -195,14 +195,14 @@ impl Handler {
                     // If the user has left gitbutler/workspace, we want to delete the reference.
                     // TODO: why do we want to do this?
                     if in_outside_workspace_mode(&ctx) {
-                        let mut workspace_reference = ctx.repository().find_reference(
+                        let mut workspace_reference = ctx.repo().find_reference(
                             &Refname::from(LocalRefname::new("gitbutler/workspace", None))
                                 .to_string(),
                         )?;
                         workspace_reference.delete()?;
                     }
 
-                    let head_ref = ctx.repository().head().context("failed to get head")?;
+                    let head_ref = ctx.repo().head().context("failed to get head")?;
                     if let Some(head) = head_ref.name() {
                         self.emit_app_event(Change::GitHead {
                             project_id,

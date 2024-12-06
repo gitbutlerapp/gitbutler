@@ -36,7 +36,7 @@ pub(crate) fn get_workspace_head(ctx: &CommandContext) -> Result<git2::Oid> {
     let target = vb_state
         .get_default_target()
         .context("failed to get target")?;
-    let repo: &git2::Repository = ctx.repository();
+    let repo: &git2::Repository = ctx.repo();
 
     let mut stacks: Vec<Stack> = vb_state.list_stacks_in_workspace()?;
 
@@ -144,7 +144,7 @@ pub fn update_workspace_commit(
         .get_default_target()
         .context("failed to get target")?;
 
-    let repo: &git2::Repository = ctx.repository();
+    let repo: &git2::Repository = ctx.repo();
 
     // get current repo head for reference
     let head_ref = repo.head()?;
@@ -297,12 +297,7 @@ pub fn verify_branch(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -
 }
 
 fn verify_head_is_set(ctx: &CommandContext) -> Result<()> {
-    match ctx
-        .repository()
-        .head()
-        .context("failed to get head")?
-        .name()
-    {
+    match ctx.repo().head().context("failed to get head")?.name() {
         Some(refname) if OPEN_WORKSPACE_REFS.contains(&refname) => Ok(()),
         Some(head_name) => Err(invalid_head_err(head_name)),
         None => Err(anyhow!(
@@ -314,7 +309,7 @@ fn verify_head_is_set(ctx: &CommandContext) -> Result<()> {
 
 // Returns an error if repo head is not pointing to the workspace branch.
 fn verify_current_branch_name(ctx: &CommandContext) -> Result<&CommandContext> {
-    match ctx.repository().head()?.name() {
+    match ctx.repo().head()?.name() {
         Some(head) => {
             let head_name = head.to_string();
             if !OPEN_WORKSPACE_REFS.contains(&head_name.as_str()) {
@@ -329,7 +324,7 @@ fn verify_current_branch_name(ctx: &CommandContext) -> Result<&CommandContext> {
 // TODO(ST): Probably there should not be an implicit vbranch creation here.
 fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission) -> Result<()> {
     let head_commit = ctx
-        .repository()
+        .repo()
         .head()
         .context("failed to get head")?
         .peel_to_commit()
@@ -341,7 +336,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
         .context("failed to get default target")?;
 
     let commits = ctx
-        .repository()
+        .repo()
         .log(
             head_commit.id(),
             LogUntil::Commit(default_target.sha),
@@ -367,7 +362,7 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
         return Ok(());
     }
 
-    ctx.repository()
+    ctx.repo()
         .reset(workspace_commit.as_object(), git2::ResetType::Soft, None)
         .context("failed to reset to workspace commit")?;
 
@@ -388,12 +383,12 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
     let mut head = new_branch.head();
     for commit in extra_commits {
         let new_branch_head = ctx
-            .repository()
+            .repo()
             .find_commit(head)
             .context("failed to find new branch head")?;
 
         let rebased_commit_oid = ctx
-            .repository()
+            .repo()
             .commit_with_signature(
                 None,
                 &commit.author(),
@@ -408,13 +403,10 @@ fn verify_head_is_clean(ctx: &CommandContext, perm: &mut WorktreeWritePermission
                 commit.id()
             ))?;
 
-        let rebased_commit = ctx
-            .repository()
-            .find_commit(rebased_commit_oid)
-            .context(format!(
-                "failed to find rebased commit {}",
-                rebased_commit_oid
-            ))?;
+        let rebased_commit = ctx.repo().find_commit(rebased_commit_oid).context(format!(
+            "failed to find rebased commit {}",
+            rebased_commit_oid
+        ))?;
 
         new_branch.set_stack_head(ctx, rebased_commit.id(), Some(rebased_commit.tree_id()))?;
 

@@ -126,19 +126,19 @@ pub trait RepoCommands {
 impl RepoCommands for Project {
     fn get_local_config(&self, key: &str) -> Result<Option<String>> {
         let ctx = CommandContext::open(self)?;
-        let config: Config = ctx.repository().into();
+        let config: Config = ctx.repo().into();
         config.get_local(key)
     }
 
     fn set_local_config(&self, key: &str, value: &str) -> Result<()> {
         let ctx = CommandContext::open(self)?;
-        let config: Config = ctx.repository().into();
+        let config: Config = ctx.repo().into();
         config.set_local(key, value)
     }
 
     fn check_signing_settings(&self) -> Result<bool> {
         let ctx = CommandContext::open(self)?;
-        let signed = ctx.repository().sign_buffer(b"test");
+        let signed = ctx.repo().sign_buffer(b"test");
         match signed {
             Ok(_) => Ok(true),
             Err(e) => Err(e),
@@ -147,7 +147,7 @@ impl RepoCommands for Project {
 
     fn remotes(&self) -> anyhow::Result<Vec<GitRemote>> {
         let ctx = CommandContext::open(self)?;
-        let repo = ctx.repository();
+        let repo = ctx.repo();
         let remotes = repo
             .remotes_as_string()?
             .iter()
@@ -161,7 +161,7 @@ impl RepoCommands for Project {
 
     fn add_remote(&self, name: &str, url: &str) -> Result<()> {
         let ctx = CommandContext::open(self)?;
-        let repo = ctx.repository();
+        let repo = ctx.repo();
 
         // Bail if remote with given name already exists.
         if repo.find_remote(name).is_ok() {
@@ -188,7 +188,7 @@ impl RepoCommands for Project {
         probably_relative_path: &Path,
     ) -> Result<FileInfo> {
         let ctx = CommandContext::open(self)?;
-        let repo = ctx.repository();
+        let repo = ctx.repo();
 
         if let Some(treeish) = treeish {
             if !probably_relative_path.is_relative() {

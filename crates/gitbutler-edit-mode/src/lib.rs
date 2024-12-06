@@ -69,7 +69,7 @@ fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Res
 }
 
 fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<()> {
-    let repository = ctx.repository();
+    let repository = ctx.repo();
 
     let author_signature = signature(SignaturePurpose::Author)?;
     let committer_signature = signature(SignaturePurpose::Committer)?;
@@ -161,7 +161,7 @@ pub(crate) fn abort_and_return_to_workspace(
     ctx: &CommandContext,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    let repository = ctx.repository();
+    let repository = ctx.repo();
 
     // Checkout gitbutler workspace branch
     repository
@@ -178,7 +178,7 @@ pub(crate) fn save_and_return_to_workspace(
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
-    let repository = ctx.repository();
+    let repository = ctx.repo();
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
 
     // Get important references
@@ -205,7 +205,7 @@ pub(crate) fn save_and_return_to_workspace(
             ..commit_headers
         });
     let new_commit_oid = ctx
-        .repository()
+        .repo()
         .commit_with_signature(
             None,
             &commit.author(),
@@ -259,7 +259,7 @@ pub(crate) fn starting_index_state(
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
-    let repository = ctx.repository();
+    let repository = ctx.repo();
 
     let commit = repository.find_commit(metadata.commit_oid)?;
     let commit_parent_tree = if commit.is_conflicted() {

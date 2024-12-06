@@ -301,14 +301,14 @@ impl Stack {
         ctx: &CommandContext,
         allow_duplicate_refs: bool,
     ) -> Result<StackBranch> {
-        let commit = ctx.repository().find_commit(self.head())?;
+        let commit = ctx.repo().find_commit(self.head())?;
 
         let mut reference = StackBranch {
             head: commit.into(),
             name: if let Some(refname) = self.upstream.as_ref() {
                 refname.branch().to_string()
             } else {
-                let (author, _committer) = ctx.repository().signatures()?;
+                let (author, _committer) = ctx.repo().signatures()?;
                 generate_branch_name(author)?
             },
             description: None,
@@ -373,7 +373,7 @@ impl Stack {
         let state = branch_state(ctx);
         let patches = self.stack_patches(&ctx.to_stack_context()?, true)?;
         validate_name(&new_head, &state)?;
-        validate_target(&new_head, ctx.repository(), self.head(), &state)?;
+        validate_target(&new_head, ctx.repo(), self.head(), &state)?;
         let updated_heads = add_head(self.heads.clone(), new_head, preceding_head, patches)?;
         self.heads = updated_heads;
         state.set_stack(self.clone())
@@ -441,7 +441,7 @@ impl Stack {
                 .find(|h| h.name == branch_name)
                 .ok_or_else(|| anyhow!("Series with name {} not found", branch_name))?;
             new_head.head = target_update.target.clone();
-            validate_target(&new_head, ctx.repository(), self.head(), &state)?;
+            validate_target(&new_head, ctx.repo(), self.head(), &state)?;
             let preceding_head = if let Some(preceding_head_name) = update
                 .target_update
                 .clone()
@@ -510,7 +510,7 @@ impl Stack {
         if let Some(tree) = tree {
             self.tree = tree;
         }
-        let commit = ctx.repository().find_commit(commit_id)?;
+        let commit = ctx.repo().find_commit(commit_id)?;
         // let patch: CommitOrChangeId = commit.into();
 
         let state = branch_state(ctx);
@@ -520,7 +520,7 @@ impl Stack {
             .last_mut()
             .ok_or_else(|| anyhow!("Invalid state: no heads found"))?;
         head.head = commit.into();
-        validate_target(head, ctx.repository(), stack_head, &state)?;
+        validate_target(head, ctx.repo(), stack_head, &state)?;
         state.set_stack(self.clone())
     }
 
@@ -557,7 +557,7 @@ impl Stack {
         let (_, reference) = get_head(&self.heads, &branch_name)?;
         let commit = commit_by_oid_or_change_id(
             &reference.head,
-            ctx.repository(),
+            ctx.repo(),
             self.head(),
             self.merge_base(&ctx.to_stack_context()?)?,
         )?
@@ -627,7 +627,7 @@ impl Stack {
                 let mut new_head = head.clone();
                 new_head.head = to.clone().into();
                 // validate the updated head
-                validate_target(&new_head, ctx.repository(), self.head(), &state)?;
+                validate_target(&new_head, ctx.repo(), self.head(), &state)?;
                 // add it to the list of updated heads
                 updated_heads.push(new_head);
             }
@@ -664,7 +664,7 @@ impl Stack {
         }
         let stack_head = self.head();
         for head in self.heads.iter_mut() {
-            validate_target(head, ctx.repository(), stack_head, &state)?;
+            validate_target(head, ctx.repo(), stack_head, &state)?;
             if let Some(commit) = new_heads.get(&head.name).cloned() {
                 head.head = commit.clone().into();
             }

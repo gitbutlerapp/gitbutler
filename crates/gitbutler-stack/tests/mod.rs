@@ -66,8 +66,8 @@ fn add_series_top_of_stack() -> Result<()> {
 fn add_series_top_base() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
-    let merge_base = ctx.repository().find_commit(
-        ctx.repository()
+    let merge_base = ctx.repo().find_commit(
+        ctx.repo()
             .merge_base(test_ctx.stack.head(), test_ctx.default_target.sha)?,
     )?;
     let reference = StackBranch {
@@ -817,8 +817,8 @@ fn replace_head_single_with_merge_base() -> Result<()> {
     };
     test_ctx.stack.add_series(&ctx, from_head, None)?;
     // replace with merge base
-    let merge_base = ctx.repository().find_commit(
-        ctx.repository()
+    let merge_base = ctx.repo().find_commit(
+        ctx.repo()
             .merge_base(test_ctx.stack.head(), test_ctx.default_target.sha)?,
     )?;
     let result = test_ctx
@@ -934,7 +934,7 @@ fn replace_non_member_commit_noop_no_error() -> Result<()> {
 fn replace_top_of_stack_single() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
-    let initial_head = ctx.repository().find_commit(test_ctx.stack.head())?;
+    let initial_head = ctx.repo().find_commit(test_ctx.stack.head())?;
 
     let result = test_ctx
         .stack
@@ -1007,7 +1007,7 @@ fn replace_head_multiple() -> Result<()> {
 fn replace_head_top_of_stack_multiple() -> Result<()> {
     let (ctx, _temp_dir) = command_ctx("multiple-commits")?;
     let mut test_ctx = test_ctx(&ctx)?;
-    let initial_head = ctx.repository().find_commit(test_ctx.stack.head())?;
+    let initial_head = ctx.repo().find_commit(test_ctx.stack.head())?;
     let extra_head = StackBranch {
         name: "extra_head".into(),
         head: CommitOrChangeId::ChangeId(test_ctx.commits[1].change_id().unwrap()),
@@ -1165,12 +1165,12 @@ fn test_ctx(ctx: &CommandContext) -> Result<TestContext> {
     let stack = stacks.iter().find(|b| b.name == "virtual").unwrap();
     let other_stack = stacks.iter().find(|b| b.name != "virtual").unwrap();
     let target = handle.get_default_target()?;
-    let mut branch_commits =
-        ctx.repository()
-            .log(stack.head(), LogUntil::Commit(target.sha), false)?;
+    let mut branch_commits = ctx
+        .repo()
+        .log(stack.head(), LogUntil::Commit(target.sha), false)?;
     branch_commits.reverse();
     let mut other_commits =
-        ctx.repository()
+        ctx.repo()
             .log(other_stack.head(), LogUntil::Commit(target.sha), false)?;
     other_commits.reverse();
     Ok(TestContext {

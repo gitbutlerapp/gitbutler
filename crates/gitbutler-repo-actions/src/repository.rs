@@ -48,7 +48,7 @@ impl RepoActionsExt for CommandContext {
         let target_branch_refname =
             Refname::from_str(&format!("refs/remotes/{}/{}", remote_name, branch_name))?;
         let branch = self
-            .repository()
+            .repo()
             .maybe_find_branch_by_refname(&target_branch_refname)?
             .ok_or(anyhow!("failed to find branch {}", target_branch_refname))?;
 
@@ -75,23 +75,21 @@ impl RepoActionsExt for CommandContext {
     }
 
     fn add_branch_reference(&self, stack: &Stack) -> Result<()> {
-        let (should_write, with_force) = match self
-            .repository()
-            .find_reference(&stack.refname()?.to_string())
-        {
-            Ok(reference) => match reference.target() {
-                Some(head_oid) => Ok((head_oid != stack.head(), true)),
-                None => Ok((true, true)),
-            },
-            Err(err) => match err.code() {
-                git2::ErrorCode::NotFound => Ok((true, false)),
-                _ => Err(err),
-            },
-        }
-        .context("failed to lookup reference")?;
+        let (should_write, with_force) =
+            match self.repo().find_reference(&stack.refname()?.to_string()) {
+                Ok(reference) => match reference.target() {
+                    Some(head_oid) => Ok((head_oid != stack.head(), true)),
+                    None => Ok((true, true)),
+                },
+                Err(err) => match err.code() {
+                    git2::ErrorCode::NotFound => Ok((true, false)),
+                    _ => Err(err),
+                },
+            }
+            .context("failed to lookup reference")?;
 
         if should_write {
-            self.repository()
+            self.repo()
                 .reference(
                     &stack.refname()?.to_string(),
                     stack.head(),
@@ -105,10 +103,7 @@ impl RepoActionsExt for CommandContext {
     }
 
     fn delete_branch_reference(&self, stack: &Stack) -> Result<()> {
-        match self
-            .repository()
-            .find_reference(&stack.refname()?.to_string())
-        {
+        match self.repo().find_reference(&stack.refname()?.to_string()) {
             Ok(mut reference) => {
                 reference
                     .delete()
@@ -125,7 +120,7 @@ impl RepoActionsExt for CommandContext {
 
     // returns the number of commits between the first oid to the second oid
     fn distance(&self, from: git2::Oid, to: git2::Oid) -> Result<u32> {
-        let oids = self.repository().l(from, LogUntil::Commit(to), false)?;
+        let oids = self.repo().l(from, LogUntil::Commit(to), false)?;
         Ok(oids.len().try_into()?)
     }
 
@@ -137,10 +132,10 @@ impl RepoActionsExt for CommandContext {
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
         let (author, committer) = self
-            .repository()
+            .repo()
             .signatures()
             .context("failed to get signatures")?;
-        self.repository()
+        self.repo()
             .commit_with_signature(
                 None,
                 &author,

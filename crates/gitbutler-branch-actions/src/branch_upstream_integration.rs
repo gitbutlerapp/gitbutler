@@ -27,7 +27,7 @@ pub fn integrate_upstream_commits_for_series(
 ) -> Result<()> {
     conflicts::is_conflicting(ctx, None)?;
 
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let vb_state = ctx.project().virtual_branches();
 
     let stack = vb_state.get_stack_in_workspace(stack_id)?;
@@ -92,7 +92,7 @@ pub fn integrate_upstream_commits(
 ) -> Result<()> {
     conflicts::is_conflicting(ctx, None)?;
 
-    let repository = ctx.repository();
+    let repository = ctx.repo();
     let project = ctx.project();
     let vb_state = project.virtual_branches();
 

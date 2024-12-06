@@ -175,7 +175,7 @@ pub fn push_stack(project: &Project, stack_id: StackId, with_force: bool) -> Res
     let state = ctx.project().virtual_branches();
     let stack = state.get_stack(stack_id)?;
 
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let default_target = state.get_default_target()?;
     let merge_base = repo.find_commit(repo.merge_base(stack.head(), default_target.sha)?)?;
     let merge_base = if let Some(change_id) = merge_base.change_id() {

@@ -26,7 +26,7 @@ pub(crate) fn move_commit(
 ) -> Result<()> {
     ctx.assure_resolved()?;
     let vb_state = ctx.project().virtual_branches();
-    let repo = ctx.repository();
+    let repo = ctx.repo();
 
     let applied_stacks = vb_state
         .list_stacks_in_workspace()
@@ -82,7 +82,7 @@ fn get_source_branch_diffs(
     ctx: &CommandContext,
     source_stack: &gitbutler_stack::Stack,
 ) -> Result<BranchStatus> {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let source_stack_head = repo.find_commit(source_stack.head())?;
     let source_stack_head_tree = source_stack_head.tree()?;
     let uncommitted_changes_tree = repo.find_tree(source_stack.tree)?;
