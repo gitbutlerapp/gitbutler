@@ -9,7 +9,7 @@ use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
 };
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt as _};
 use serde::{Deserialize, Serialize};
 
 /// cherry-pick based rebase, which handles empty commits
@@ -328,15 +328,8 @@ pub fn gitbutler_merge_commits<'repository>(
         git2_to_gix_object_id(base_tree.id()),
         git2_to_gix_object_id(incoming_merge_tree.id()),
         git2_to_gix_object_id(target_merge_tree.id()),
-        gix::merge::blob::builtin_driver::text::Labels {
-            ancestor: Some("base".into()),
-            current: Some("ours".into()),
-            other: Some("theirs".into()),
-        },
-        gix_repo
-            .tree_merge_options()?
-            .with_tree_favor(Some(gix::merge::tree::TreeFavor::Ours))
-            .with_file_favor(Some(gix::merge::tree::FileFavor::Ours)),
+        gix_repo.default_merge_labels(),
+        gix_repo.merge_options_force_ours()?,
     )?;
     let merged_tree_id = merge_result.tree.write()?;
 

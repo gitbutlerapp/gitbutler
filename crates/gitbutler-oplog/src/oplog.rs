@@ -15,13 +15,15 @@ use anyhow::{anyhow, bail, Context, Result};
 use git2::FileMode;
 use gitbutler_command_context::RepositoryExtLite;
 use gitbutler_diff::{hunks_by_filepath, FileDiff};
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_time_to_git2, gix_to_git2_oid};
+use gitbutler_oxidize::{
+    git2_to_gix_object_id, gix_time_to_git2, gix_to_git2_oid, GixRepositoryExt,
+};
 use gitbutler_project::{
     access::{WorktreeReadPermission, WorktreeWritePermission},
     Project,
 };
+use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
-use gitbutler_repo::{GixRepositoryExt, RepositoryExt};
 use gitbutler_stack::{Stack, VirtualBranchesHandle, VirtualBranchesState};
 use gix::bstr::ByteSlice;
 use gix::object::tree::diff::Change;
