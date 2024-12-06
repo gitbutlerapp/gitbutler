@@ -59,7 +59,10 @@ export const SidebarEntry: Story = {
 		series: dummySeries,
 		selected: false,
 		applied: false,
-		pullRequestDetails: undefined,
+		pullRequestDetails: {
+			title: 'bestest pr',
+			draft: false
+		},
 		lastCommitDetails: {
 			authorName: 'Caleb',
 			lastCommitAt: '2024-07-31T15:39:14.540Z'
