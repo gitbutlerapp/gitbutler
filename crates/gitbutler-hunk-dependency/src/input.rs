@@ -26,7 +26,7 @@ pub struct InputFile {
 
 /// Please note that the From conversions and parsing of diffs exists to facilitate testing, in
 /// the client code we get the line numbers from elsewhere.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct InputDiff {
     pub old_start: u32,
     pub old_lines: u32,

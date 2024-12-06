@@ -8,7 +8,7 @@ use gitbutler_stack::StackId;
 use itertools::Itertools;
 use serde::Serialize;
 
-use crate::{InputStack, WorkspaceRanges};
+use crate::{InputStack, RangeCalculationError, WorkspaceRanges};
 
 // A hunk is locked when it depends on changes in commits that are in your workspace. A hunk can
 // be locked to more than one branch if it overlaps with more than one committed hunk.
@@ -42,6 +42,8 @@ pub struct HunkDependencyResult {
     /// A map from stack id to dependent commit dependent diffs.
     /// Commit dependent diffs map commit id to diffs that depend on it.
     pub commit_dependent_diffs: HashMap<StackId, HashMap<git2::Oid, HashSet<HunkHash>>>,
+    /// Errors that occurred during the calculation.
+    pub errors: Vec<RangeCalculationError>,
 }
 
 /// Returns a map from hunk hash to hunk locks.
@@ -95,11 +97,13 @@ pub fn calculate_hunk_dependencies(
 
     let commit_dependencies = ranges.commit_dependencies;
     let inverse_commit_dependencies = ranges.inverse_commit_dependencies;
+    let errors = ranges.errors;
 
     Ok(HunkDependencyResult {
         diffs,
         commit_dependencies,
         inverse_commit_dependencies,
         commit_dependent_diffs,
+        errors,
     })
 }
