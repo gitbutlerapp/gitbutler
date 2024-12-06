@@ -36,6 +36,7 @@ use gitbutler_stack::{
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use itertools::Itertools;
 use serde::Serialize;
+use std::borrow::Cow;
 use std::{collections::HashMap, path::PathBuf, vec};
 use tracing::instrument;
 
@@ -718,6 +719,15 @@ pub fn commit(
 ) -> Result<git2::Oid> {
     let mut message_buffer = message.to_owned();
 
+    fn join_output<'a>(stdout: &'a str, stderr: &'a str) -> Cow<'a, str> {
+        let stdout = stdout.trim();
+        if stdout.is_empty() {
+            stderr.trim().into()
+        } else {
+            stdout.into()
+        }
+    }
+
     if run_hooks {
         let hook_result = git2_hooks::hooks_commit_msg(
             ctx.repository(),
@@ -727,18 +737,21 @@ pub fn commit(
         .context("failed to run hook")
         .context(Code::CommitHookFailed)?;
 
-        if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
-            return Err(anyhow!("commit-msg hook rejected: {}", stdout.trim())
-                .context(Code::CommitHookFailed));
+        if let HookResult::RunNotSuccessful { stdout, stderr, .. } = &hook_result {
+            return Err(
+                anyhow!("commit-msg hook rejected: {}", join_output(stdout, stderr))
+                    .context(Code::CommitHookFailed),
+            );
         }
 
         let hook_result = git2_hooks::hooks_pre_commit(ctx.repository(), Some(&["../.husky"]))
             .context("failed to run hook")
             .context(Code::CommitHookFailed)?;
 
-        if let HookResult::RunNotSuccessful { stdout, .. } = hook_result {
+        if let HookResult::RunNotSuccessful { stdout, stderr, .. } = &hook_result {
             return Err(
-                anyhow!("commit hook rejected: {}", stdout.trim()).context(Code::CommitHookFailed)
+                anyhow!("commit hook rejected: {}", join_output(stdout, stderr))
+                    .context(Code::CommitHookFailed),
             );
         }
     }
