@@ -105,7 +105,7 @@
 				<AvatarGroup {avatars} />
 			{/if}
 
-			<div class="branch-remotes text-11 text-semibold">
+			<div class="branch-remotes text-11">
 				<!-- NEED API -->
 				{#each remotes as remote}
 					<span>•</span>
