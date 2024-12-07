@@ -3,7 +3,7 @@
 	"identifier": "com.gitbutler.app.dev",
 	"build": {
 		"beforeDevCommand": "pnpm dev:internal-tauri",
-		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode development",
+		"beforeBuildCommand": "[ \"$CI\" = \"true\" ] || pnpm build:desktop -- --mode development",
 		"frontendDist": "../../apps/desktop/build",
 		"devUrl": "http://localhost:1420"
 	},
