@@ -36,7 +36,7 @@ pub fn enter_edit_mode(
         .context("Failed to prepare snapshot")?;
 
     let edit_mode_metadata =
-        crate::enter_edit_mode(&ctx, &commit, &branch, guard.write_permission())?;
+        crate::enter_edit_mode(&ctx, commit, &branch, guard.write_permission())?;
 
     let _ = project.commit_snapshot(
         snapshot,
