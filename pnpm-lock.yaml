@@ -326,6 +326,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@fontsource-variable/spline-sans-mono':
+        specifier: ^5.1.0
+        version: 5.1.0
       '@sentry/sveltekit':
         specifier: ^8.9.2
         version: 8.9.2(@opentelemetry/api@1.9.0)(@opentelemetry/core@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/instrumentation@0.52.0(@opentelemetry/api@1.9.0))(@opentelemetry/sdk-trace-base@1.25.0(@opentelemetry/api@1.9.0))(@opentelemetry/semantic-conventions@1.25.0)(@sveltejs/kit@2.8.1(@sveltejs/vite-plugin-svelte@4.0.1(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0)))(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0)))(svelte@5.2.1)
@@ -995,6 +998,9 @@ packages:
   '@eslint/plugin-kit@0.2.1':
     resolution: {integrity: sha512-HFZ4Mp26nbWk9d/BpvP0YNL6W4UoZF0VFcTw/aPPA8RpOxeFQgK+ClABGgAUXs9Y/RGX/l1vOmrqz1MQt9MNuw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+
+  '@fontsource-variable/spline-sans-mono@5.1.0':
+    resolution: {integrity: sha512-B9rWuTg1/G9/sKTxWb7CHVabv0tSFw5ETEmMpY8RU10nZq09JzWdMJO7Fj4cx61S0DvAOaM1F/uyTpFRmd+KWQ==}
 
   '@fontsource/fira-mono@4.5.10':
     resolution: {integrity: sha512-bxUnRP8xptGRo8YXeY073DSpfK74XpSb0ZyRNpHV9WvLnJ7TwPOjZll8hTMin7zLC6iOp59pDZ8EQDj1gzgAQQ==}
@@ -6841,6 +6847,8 @@ snapshots:
   '@eslint/plugin-kit@0.2.1':
     dependencies:
       levn: 0.4.1
+
+  '@fontsource-variable/spline-sans-mono@5.1.0': {}
 
   '@fontsource/fira-mono@4.5.10': {}
 

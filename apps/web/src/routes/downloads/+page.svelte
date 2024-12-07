@@ -1,15 +1,16 @@
 <script lang="ts">
+	import { marked } from 'marked';
 	import { onMount } from 'svelte';
-	import { env } from '$env/dynamic/public';
 
 	let loading = $state(true);
 	let releases: any[] = $state([]);
 	let nightlies: any[] = $state([]);
 
 	onMount(() => {
-		fetch(env.PUBLIC_APP_HOST + 'api/downloads?limit=40')
+		fetch('https://gitbutler.com/api/downloads?limit=40')
 			.then(async (response) => await response.json())
 			.then((data) => {
+				console.log(data);
 				releases = data.filter((release: any) => release.channel === 'release');
 				nightlies = data.filter((release: any) => release.channel === 'nightly');
 				loading = false;
@@ -26,17 +27,19 @@
 {:else}
 	<div class="releases">
 		<div class="release-lane">
-			<h2>Stable Release</h2>
+			<h2>Stable Releases</h2>
 			{#each releases as release}
 				<div class="release">
 					<div class="release__version">
-						Version: <b>{release.version}</b> <span class="release__sha">{release.sha}</span>
+						Version: <b>{release.version}</b> <span class="release__sha">{release.sha.substring(0, 6)}</span>
 					</div>
 					<div>Released: {new Date(release.released_at).toLocaleString()}</div>
-					<div class="release__notes">{release.notes}</div>
+					{#if release.notes}
+						<div class="release__notes dotted">{@html marked(release.notes)}</div>
+					{/if}
 					<div class="builds">
 						{#each release.builds as build}
-							<li><a href={build.url}>{build.platform}</a></li>
+							<li><a class="linked" href={build.url}>{build.platform}</a></li>
 						{/each}
 					</div>
 				</div>
@@ -44,19 +47,19 @@
 			{/each}
 		</div>
 		<div class="release-lane">
-			<h2>Nightly Release</h2>
+			<h2>Nightly Releases</h2>
 			{#each nightlies as release}
 				<div class="release">
 					<div class="release__version">
-						Version: <b>{release.version}</b> <span class="release__sha">{release.sha}</span>
+						Version: <b>{release.version}</b> <span class="release__sha">{release.sha.substring(0, 6)}</span>
 					</div>
 					<div>Released: {new Date(release.released_at).toLocaleString()}</div>
 					{#if release.notes}
-						<div>{release.notes}</div>
+						<div class="release__notes dotted">{@html marked(release.notes)}</div>
 					{/if}
 					<div class="builds">
 						{#each release.builds as build}
-							<li><a href={build.url}>{build.platform}</a></li>
+							<li><a class="linked" href={build.url}>{build.platform}</a></li>
 						{/each}
 					</div>
 				</div>
@@ -87,11 +90,11 @@
 
 	.release__notes {
 		margin-block: 0.5rem;
-		overflow: hidden;
-		display: -webkit-box;
-		line-clamp: 5;
-		-webkit-box-orient: vertical;
-		-webkit-line-clamp: 5;
+		background-color: #ddd;
+		padding: 1rem;
+		border-radius: 0.5rem;
+		color: #444;
+		font-size: 0.9rem;
 	}
 
 	.release__version {
@@ -119,4 +122,5 @@
 		border: 1px solid #cccccca9;
 		border-radius: 0.5rem;
 	}
+
 </style>

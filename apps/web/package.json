@@ -18,16 +18,17 @@
 		"@gitbutler/ui": "workspace:*",
 		"@neoconfetti/svelte": "^1.0.0",
 		"@playwright/test": "1.47.0",
+		"@reduxjs/toolkit": "catalog:redux",
 		"@sveltejs/adapter-auto": "^3.0.0",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"@types/node": "^22.3.0",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
-		"vite": "catalog:",
-		"@reduxjs/toolkit": "catalog:redux"
+		"vite": "catalog:"
 	},
 	"dependencies": {
+		"@fontsource-variable/spline-sans-mono": "^5.1.0",
 		"@sentry/sveltekit": "^8.9.2",
 		"dayjs": "^1.11.13",
 		"highlight.js": "^11.10.0",

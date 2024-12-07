@@ -1,10 +1,15 @@
+<!-- TODO: go to marketing page if we're not logged in -->
+
 <svelte:head>
 	<title>Home</title>
-	<meta name="description" content="Svelte demo app" />
 </svelte:head>
 
 <section>
-	<h1>Hello</h1>
+	<h1>Welcome to GitButler</h1>
+	<p>GitButler is a platform for managing your repositories and projects.</p>
+	<div>
+		<a href="/login">Log In</a>
+	</div>
 </section>
 
 <style>

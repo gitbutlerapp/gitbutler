@@ -2,6 +2,7 @@
 	import '$lib/styles/global.css';
 	import { AuthService } from '$lib/auth/authService';
 	import Navigation from '$lib/components/Navigation.svelte';
+	import LoggedOutNavigation from '$lib/components/LoggedOutNavigation.svelte';
 	import { UserService } from '$lib/user/userService';
 	import {
 		CloudRepositoriesService,
@@ -30,6 +31,7 @@
 
 	const authService = new AuthService();
 	setContext(AuthService, authService);
+	const token = $derived(authService.token);
 
 	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.token);
 	setContext(HttpClient, httpClient);
@@ -52,6 +54,7 @@
 	const newUserService = new NewUserService(httpClient, appState.appDispatch);
 	setContext(NewUserService, newUserService);
 
+
 	$effect(() => {
 		if ($page.url.searchParams.get('gb_access_token')) {
 			const token = $page.url.searchParams.get('gb_access_token');
@@ -65,46 +68,49 @@
 	});
 </script>
 
+{#if $token}
 <div class="app">
-	<Navigation />
-
+	<div class="sidebar-nav">
+		<Navigation />
+	</div>
+	<main class="main-w-nav">
+		{@render children()}
+	</main>
+</div>
+{:else}
+	<LoggedOutNavigation />
 	<main>
 		{@render children()}
 	</main>
-
-	<footer>
-		<p>GitButler</p>
-	</footer>
-</div>
+{/if}
 
 <style>
+	.sidebar-nav {
+		position: fixed;
+		top: 0;
+		left: 0;
+		bottom: 0;
+		width: 36px;
+		max-width: 36px;
+		background-color: var(--color-background);
+	}
+
 	.app {
 		display: flex;
 		flex-direction: column;
 		min-height: 100vh;
+		width: 90%;
 	}
 
 	main {
 		flex: 1;
 		display: flex;
 		flex-direction: column;
-		padding: 1rem;
-		width: 100%;
-		max-width: 84rem;
+		padding: 20px;
 		margin: 0 auto;
+		width: 100%;
 	}
-
-	footer {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		padding: 12px;
-	}
-
-	@media (min-width: 480px) {
-		footer {
-			padding: 12px 0;
-		}
+	.main-w-nav {
+		margin-left: 64px;
 	}
 </style>
