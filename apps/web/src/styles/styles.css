@@ -1,0 +1,109 @@
+@import './reset.min.css';
+@import './fonts.css';
+
+:root {
+	--off-white: #f5f5f3;
+	--clr-bg: var(--off-white);
+	/* gray */
+	--clr-white: #ffffff;
+	--clr-black: #000000;
+	--clr-dark-gray: #707070;
+	--clr-gray: #d0cfcb;
+	--clr-light-gray: #f1f1ed;
+	/* accent */
+	--clr-accent: #97eae5;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+/* change selection */
+::selection {
+	background-color: var(--clr-accent);
+	color: var(--clr-black);
+}
+
+body {
+	overflow-x: hidden;
+	width: 100%;
+	background-color: var(--clr-bg);
+	font-family: 'Spline Sans Mono', monospace;
+
+	/* optimise font rendering */
+	-webkit-font-smoothing: antialiased;
+	text-rendering: optimizeLegibility;
+	color: var(--clr-black);
+
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	text-rendering: optimizeLegibility;
+
+	width: 100%;
+	overflow-x: hidden;
+
+	&::-webkit-scrollbar {
+		width: 8px; /* Mostly for vertical scrollbars */
+		height: 8px; /* Mostly for horizontal scrollbars */
+	}
+
+	&::-webkit-scrollbar-thumb {
+		background: color-mix(in srgb, var(--clr-accent) 96%, var(--clr-black));
+	}
+}
+
+button {
+	font-family: 'Spline Sans Mono', monospace;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
+	margin: 0;
+}
+
+h1 {
+	font-family: 'PP Editorial New', serif;
+	font-size: 86px;
+	font-weight: 400;
+	line-height: 92%;
+	margin: 0;
+}
+
+.btn {
+	background-color: var(--clr-accent);
+	transition: background-color 0.1s ease-in-out;
+
+	&:hover {
+		background-color: color-mix(in srgb, var(--clr-accent) 95%, var(--clr-black));
+	}
+}
+
+.btn-white {
+	background-color: var(--clr-white);
+	transition: background-color 0.1s ease-in-out;
+
+	&:hover {
+		background-color: var(--clr-light-gray);
+	}
+}
+
+.page-wrapper {
+	position: relative;
+	max-width: 1480px;
+	width: 100%;
+	margin: 0 auto;
+	padding: 0 60px;
+
+	@media (max-width: 1200px) {
+		padding: 0 40px;
+	}
+
+	@media (max-width: 800px) {
+		padding: 0 20px;
+	}
+}

@@ -27,7 +27,7 @@
     {#if $token}
       <div class="link">
         <a class="nav-link nav-button" href="/organizations" aria-label="organizations">
-          Orgs
+          Organizations
         </a>
       </div>
       <div class="link">
@@ -39,11 +39,6 @@
       <div class="link">
         <a class="nav-link nav-button" href="/downloads" aria-label="downloads" title="Downloads">
           Downloads
-        </a>
-      </div>
-      <div class="link">
-        <a class="nav-link nav-button" href="https://docs.gitbutler.com" aria-label="docs" title="Documentation">
-          Docs
         </a>
       </div>
   </div>
@@ -87,7 +82,6 @@
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
-    gap: 26px;
     width: fit-content;
   }
 
@@ -97,7 +91,7 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin-left: 16px;
+    min-width: 120px;
   }
 
   .nav-link {

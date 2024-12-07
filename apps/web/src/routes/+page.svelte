@@ -1,13 +1,23 @@
-<!-- TODO: go to marketing page if we're not logged in -->
+<script lang="ts">
+  import { AuthService } from '$lib/auth/authService';
+	import LandingPage from '$lib/components/LandingPage.svelte';
+	import UserPage from '$lib/components/UserPage.svelte';
+	import { getContext } from '@gitbutler/shared/context';
+	import { page } from '$app/stores';
 
-<svelte:head>
-	<title>Home</title>
-</svelte:head>
+  const authService = getContext(AuthService);
+  const token = $derived(authService.token);
+</script>
 
-<section>
-	<h1>Your Dashboard</h1>
-	<p>You rock. Here is your stuff.</p>
-</section>
+{#if !$token && $page.url.pathname === '/'}
+	<LandingPage />
+{:else}
+	<section>
+		<h1>Your Dashboard</h1>
+		<p>You rock. Here is your stuff.</p>
+		<UserPage />
+	</section>
+{/if}
 
 <style>
 	section {
@@ -16,5 +26,8 @@
 		justify-content: center;
 		align-items: center;
 		flex: 0.6;
+	}
+	h1 { 
+		font-size: 5rem;
 	}
 </style>

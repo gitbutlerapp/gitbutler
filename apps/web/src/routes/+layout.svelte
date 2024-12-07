@@ -1,7 +1,6 @@
 <script lang="ts">
 	import '$lib/styles/global.css';
 	import { AuthService } from '$lib/auth/authService';
-	import HomePage from '$lib/components/HomePage.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
 	import { UserService } from '$lib/user/userService';
 	import {
@@ -31,7 +30,7 @@
 
 	const authService = new AuthService();
 	setContext(AuthService, authService);
-	const token = $derived(authService.token);
+	let token = $derived(authService.token);
 
 	const httpClient = new HttpClient(window.fetch, env.PUBLIC_APP_HOST, authService.token);
 	setContext(HttpClient, httpClient);
@@ -67,8 +66,10 @@
 	});
 </script>
 
-{#if !$token && $page.url.pathname === '/'}
-	<HomePage />
+{#if (!$token && ($page.url.pathname === '/')) || $page.url.pathname === '/home'}
+	<section class="page-wrapper">
+		{@render children()}
+	</section>
 {:else}
 	<div class="app">
 		<Navigation />
@@ -93,4 +94,10 @@
 		margin: 0 auto;
 		width: 100%;
 	}
+
+	.page-wrapper {
+		display: flex;
+		flex-direction: column;
+	}
 </style>
+
