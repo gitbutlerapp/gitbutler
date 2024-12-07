@@ -5,11 +5,8 @@
 </svelte:head>
 
 <section>
-	<h1>Welcome to GitButler</h1>
-	<p>GitButler is a platform for managing your repositories and projects.</p>
-	<div>
-		<a href="/login">Log In</a>
-	</div>
+	<h1>Your Dashboard</h1>
+	<p>You rock. Here is your stuff.</p>
 </section>
 
 <style>
@@ -19,9 +16,5 @@
 		justify-content: center;
 		align-items: center;
 		flex: 0.6;
-	}
-
-	h1 {
-		width: 100%;
 	}
 </style>

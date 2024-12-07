@@ -1,8 +1,8 @@
 <script lang="ts">
 	import '$lib/styles/global.css';
 	import { AuthService } from '$lib/auth/authService';
+	import HomePage from '$lib/components/HomePage.svelte';
 	import Navigation from '$lib/components/Navigation.svelte';
-	import LoggedOutNavigation from '$lib/components/LoggedOutNavigation.svelte';
 	import { UserService } from '$lib/user/userService';
 	import {
 		CloudRepositoriesService,
@@ -54,7 +54,6 @@
 	const newUserService = new NewUserService(httpClient, appState.appDispatch);
 	setContext(NewUserService, newUserService);
 
-
 	$effect(() => {
 		if ($page.url.searchParams.get('gb_access_token')) {
 			const token = $page.url.searchParams.get('gb_access_token');
@@ -68,38 +67,22 @@
 	});
 </script>
 
-{#if $token}
-<div class="app">
-	<div class="sidebar-nav">
-		<Navigation />
-	</div>
-	<main class="main-w-nav">
-		{@render children()}
-	</main>
-</div>
+{#if !$token && $page.url.pathname === '/'}
+	<HomePage />
 {:else}
-	<LoggedOutNavigation />
-	<main>
-		{@render children()}
-	</main>
+	<div class="app">
+		<Navigation />
+		<main>
+			{@render children()}
+		</main>
+	</div>
 {/if}
 
 <style>
-	.sidebar-nav {
-		position: fixed;
-		top: 0;
-		left: 0;
-		bottom: 0;
-		width: 36px;
-		max-width: 36px;
-		background-color: var(--color-background);
-	}
-
 	.app {
 		display: flex;
 		flex-direction: column;
 		min-height: 100vh;
-		width: 90%;
 	}
 
 	main {
@@ -109,8 +92,5 @@
 		padding: 20px;
 		margin: 0 auto;
 		width: 100%;
-	}
-	.main-w-nav {
-		margin-left: 64px;
 	}
 </style>

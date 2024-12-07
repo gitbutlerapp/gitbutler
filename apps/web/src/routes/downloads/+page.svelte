@@ -7,11 +7,15 @@
 	let nightlies: any[] = $state([]);
 
 	onMount(() => {
-		fetch('https://gitbutler.com/api/downloads?limit=40')
+		fetch('https://gitbutler.com/api/downloads?limit=4&channel=release')
 			.then(async (response) => await response.json())
 			.then((data) => {
-				console.log(data);
 				releases = data.filter((release: any) => release.channel === 'release');
+				loading = false;
+			});
+		fetch('https://gitbutler.com/api/downloads?limit=9&channel=nightly')
+			.then(async (response) => await response.json())
+			.then((data) => {
 				nightlies = data.filter((release: any) => release.channel === 'nightly');
 				loading = false;
 			});
