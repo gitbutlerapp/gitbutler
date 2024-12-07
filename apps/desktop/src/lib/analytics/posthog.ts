@@ -14,6 +14,7 @@ export class PostHogWrapper {
 	async init(appName: string, appVersion: string) {
 		this._instance = posthog.init(PUBLIC_POSTHOG_API_KEY, {
 			api_host: 'https://eu.posthog.com',
+			autocapture: false,
 			disable_session_recording: true,
 			capture_performance: false,
 			request_batching: true,
