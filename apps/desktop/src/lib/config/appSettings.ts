@@ -8,39 +8,46 @@
 import { Store } from '@tauri-apps/plugin-store';
 import { writable, type Writable } from 'svelte/store';
 
+type DiskWritable<T> = Writable<T> & { onDisk: () => Promise<T> };
+
 export async function loadAppSettings() {
 	const diskStore = await Store.load('settings.json', { autoSave: true });
 	return new AppSettings(diskStore);
 }
 
 export class AppSettings {
-	constructor(private diskStore: Store) {}
-
 	/**
 	 * Persisted confirmation that user has confirmed their analytics settings.
 	 */
-	readonly appAnalyticsConfirmed = this.persisted(false, 'appAnalyticsConfirmed');
+	readonly appAnalyticsConfirmed: DiskWritable<boolean>;
 
 	/**
 	 * Provides a writable store for obtaining or setting the current state of application metrics.
 	 * The application metrics can be enabled or disabled by setting the value of the store to true or false.
 	 * @returns A writable store with the appMetricsEnabled config.
 	 */
-	readonly appMetricsEnabled = this.persisted(true, 'appMetricsEnabled');
+	readonly appMetricsEnabled: DiskWritable<boolean>;
 
 	/**
 	 * Provides a writable store for obtaining or setting the current state of application error reporting.
 	 * The application error reporting can be enabled or disabled by setting the value of the store to true or false.
 	 * @returns A writable store with the appErrorReportingEnabled config.
 	 */
-	readonly appErrorReportingEnabled = this.persisted(true, 'appErrorReportingEnabled');
+	readonly appErrorReportingEnabled: DiskWritable<boolean>;
 
 	/**
 	 * Provides a writable store for obtaining or setting the current state of non-anonemous application metrics.
 	 * The setting can be enabled or disabled by setting the value of the store to true or false.
 	 * @returns A writable store with the appNonAnonMetricsEnabled config.
 	 */
-	readonly appNonAnonMetricsEnabled = this.persisted(false, 'appNonAnonMetricsEnabled');
+	readonly appNonAnonMetricsEnabled: DiskWritable<boolean>;
+
+	constructor(private diskStore: Store) {
+		this.appAnalyticsConfirmed = this.persisted(false, 'appAnalyticsConfirmed');
+		this.appMetricsEnabled = this.persisted(true, 'appMetricsEnabled');
+		this.appErrorReportingEnabled = this.persisted(true, 'appErrorReportingEnabled');
+		this.appNonAnonMetricsEnabled = this.persisted(false, 'appNonAnonMetricsEnabled');
+	}
 
 	private persisted<T>(initial: T, key: string): Writable<T> & { onDisk: () => Promise<T> } {
 		const diskStore = this.diskStore;
