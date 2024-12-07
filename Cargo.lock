@@ -2830,6 +2830,11 @@ dependencies = [
 [[package]]
 name = "gitbutler-settings"
 version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "gitbutler-stack"

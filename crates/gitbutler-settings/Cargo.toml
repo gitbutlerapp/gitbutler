@@ -6,3 +6,6 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [dependencies]
+anyhow = "1.0.93"
+serde = { workspace = true, features = ["std"]}
+serde_json = { version = "1.0", features = [ "std", "arbitrary_precision" ] }
