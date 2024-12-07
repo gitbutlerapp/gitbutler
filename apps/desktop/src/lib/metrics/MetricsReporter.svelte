@@ -1,6 +1,7 @@
 <script lang="ts" module>
 	export const HOUR_MS = 60 * 60 * 1000;
 	export const INTERVAL_MS = 24 * HOUR_MS;
+	export const DELAY_MS = 30 * 1000;
 </script>
 
 <script lang="ts">
@@ -40,7 +41,11 @@
 	}
 
 	function startInterval() {
-		reportMetrics();
+		// Delay to avoid first report happening before services have had time
+		// to update the project metrics.
+		timeoutId = setTimeout(async () => {
+			reportMetrics();
+		}, DELAY_MS);
 		intervalId = setInterval(() => {
 			reportMetrics();
 		}, INTERVAL_MS);

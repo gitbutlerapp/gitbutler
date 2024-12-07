@@ -1,4 +1,4 @@
-import MetricsReporter, { HOUR_MS, INTERVAL_MS } from './MetricsReporter.svelte';
+import MetricsReporter, { HOUR_MS, DELAY_MS, INTERVAL_MS } from './MetricsReporter.svelte';
 import { ProjectMetrics } from './projectMetrics';
 import { PostHogWrapper } from '$lib/analytics/posthog';
 import { render } from '@testing-library/svelte';
@@ -30,8 +30,13 @@ describe('MetricsReporter', () => {
 		projectMetrics.setMetric(METRIC_NAME, 1);
 		render(MetricsReporter, { props: { projectMetrics }, context });
 
-		// Ensure first-run capture works.
+		// Verify nothing happens immediately.
+		assert.equal(posthogMock.calls.length, 0);
+
+		// Verify metric has been reported after initial delay.
+		await vi.advanceTimersByTimeAsync(DELAY_MS);
 		assert.equal(posthogMock.calls.length, 1);
+
 		assert.equal(posthogMock.lastCall?.[0], 'metrics:' + METRIC_NAME);
 		assert.deepEqual(posthogMock.lastCall?.[1], {
 			project_id: PROJECT_ID,
@@ -48,7 +53,7 @@ describe('MetricsReporter', () => {
 
 		// Stop just one millisecond short of the reporting interval, and verify
 		// it has not run again.
-		await vi.advanceTimersByTimeAsync(INTERVAL_MS - 1);
+		await vi.advanceTimersByTimeAsync(INTERVAL_MS - DELAY_MS - 1);
 		assert.equal(posthogMock.calls.length, 1);
 
 		// Advance one millisecond and verify newly reported metrics.
