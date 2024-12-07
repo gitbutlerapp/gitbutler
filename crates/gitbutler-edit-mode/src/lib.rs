@@ -68,34 +68,41 @@ fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Res
     }
 }
 
-fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<()> {
+fn checkout_edit_branch(ctx: &CommandContext, commit: git2::Commit) -> Result<()> {
     let repository = ctx.repo();
 
     let author_signature = signature(SignaturePurpose::Author)?;
     let committer_signature = signature(SignaturePurpose::Committer)?;
+    let maybe_conflicted_parent_commit = if commit.is_conflicted() {
+        Err(commit.clone())
+    } else if commit.parent(0)?.is_conflicted() {
+        Err(commit.parent(0)?)
+    } else {
+        Ok(commit.parent(0)?)
+    };
 
     // Checkout commits's parent
-    let commit_parent = if commit.is_conflicted() {
-        let base_tree = repository.find_real_tree(commit, ConflictedTreeKey::Ours)?;
-
-        let base = repository.commit(
-            None,
-            &author_signature,
-            &committer_signature,
-            "Conflict base",
-            &base_tree,
-            &[],
-        )?;
-        repository.find_commit(base)?
-    } else {
-        commit.parent(0)?
+    let commit_parent = match maybe_conflicted_parent_commit {
+        Err(conflicted) => {
+            let base_tree = repository.find_real_tree(&conflicted, ConflictedTreeKey::Ours)?;
+            let base = repository.commit(
+                None,
+                &author_signature,
+                &committer_signature,
+                "Conflict base",
+                &base_tree,
+                &[],
+            )?;
+            repository.find_commit(base)?
+        }
+        Ok(unconflicted) => unconflicted,
     };
     repository.reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")?;
     repository.set_head(EDIT_BRANCH_REF)?;
     repository.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
 
     // Checkout the commit as unstaged changes
-    let mut index = get_commit_index(repository, commit)?;
+    let mut index = get_commit_index(repository, &commit)?;
 
     repository.checkout_index(
         Some(&mut index),
@@ -134,7 +141,7 @@ fn find_virtual_branch_by_reference(
 
 pub(crate) fn enter_edit_mode(
     ctx: &CommandContext,
-    commit: &git2::Commit,
+    commit: git2::Commit,
     branch: &git2::Reference,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<EditModeMetadata> {
