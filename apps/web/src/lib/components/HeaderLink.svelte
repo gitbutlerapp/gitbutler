@@ -1,9 +1,21 @@
 <script lang="ts">
-	export let label = 'Label';
-	export let icon: 'github' | 'discord' | undefined = undefined;
-	export let hideTextOnTablet = false;
-	export let href = '#';
-	export let hrefTarget = '_self';
+	interface Props {
+		label?: string;
+		icon?: 'github' | 'discord' | undefined;
+		hideTextOnTablet?: boolean;
+		href?: string;
+		hrefTarget?: string;
+		dropdown?: import('svelte').Snippet;
+	}
+
+	let {
+		label = 'Label',
+		icon = undefined,
+		hideTextOnTablet = false,
+		href = '#',
+		hrefTarget = '_self',
+		dropdown
+	}: Props = $props();
 
 	const icons = {
 		github:
@@ -13,7 +25,7 @@
 	};
 </script>
 
-{#if $$slots['dropdown']}
+{#if dropdown}
 	<div class="link link-dropdown" role="button" tabindex="0">
 		<span> {label} </span>
 
@@ -40,7 +52,7 @@
 
 		<div class="dropdown-wrapper">
 			<div class="dropdown-container">
-				<slot name="dropdown" />
+				{@render dropdown?.()}
 			</div>
 		</div>
 	</div>
