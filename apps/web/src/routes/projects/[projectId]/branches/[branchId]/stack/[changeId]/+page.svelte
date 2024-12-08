@@ -1,7 +1,10 @@
 <script lang="ts">
+	import { AuthService } from '$lib/auth/authService';
+	import { getContext } from '@gitbutler/shared/context';
 	import hljs from 'highlight.js';
 	import { marked } from 'marked';
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { env } from '$env/dynamic/public';
 
 	let state = 'loading';
@@ -12,8 +15,10 @@
 
 	export let data: any;
 
+	const authService = getContext(AuthService);
+
 	onMount(() => {
-		key = localStorage.getItem('gb_access_token');
+		key = get(authService.token);
 		let projectId = data.projectId;
 		let branchId = data.branchId;
 		let changeId = data.changeId;

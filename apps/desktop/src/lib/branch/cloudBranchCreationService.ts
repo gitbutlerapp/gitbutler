@@ -1,6 +1,7 @@
 import { derived, type Readable } from 'svelte/store';
 import type { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
-import type { CloudBranch, CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
+import type { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
+import type { CloudBranch } from '@gitbutler/shared/cloud/types';
 
 /**
  * This service is responsible for integrating the client side oplog

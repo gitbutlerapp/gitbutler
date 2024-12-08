@@ -1,7 +1,10 @@
 <script lang="ts">
+	import { AuthService } from '$lib/auth/authService';
+	import { getContext } from '@gitbutler/shared/context';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { env } from '$env/dynamic/public';
 
 	dayjs.extend(relativeTime);
@@ -9,8 +12,10 @@
 	let state = 'loading';
 	let projects: any = {};
 
+	const authService = getContext(AuthService);
+
 	onMount(() => {
-		let key = localStorage.getItem('gb_access_token');
+		const key = get(authService.token);
 		if (key) {
 			fetch(env.PUBLIC_APP_HOST + 'api/projects', {
 				method: 'GET',

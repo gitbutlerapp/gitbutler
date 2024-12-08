@@ -1,5 +1,8 @@
 <script lang="ts">
+	import { AuthService } from '$lib/auth/authService';
+	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
+	import { get } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 
@@ -11,8 +14,11 @@
 
 	export let data: any;
 
+	const authService = getContext(AuthService);
+
 	function createPatchStack(branch: string, sha: string) {
-		let key = localStorage.getItem('gb_access_token');
+		const key = get(authService.token);
+
 		let opts = {
 			method: 'POST',
 			headers: {
@@ -38,7 +44,7 @@
 	}
 
 	onMount(() => {
-		let key = localStorage.getItem('gb_access_token');
+		const key = get(authService.token);
 		projectId = data.projectId;
 		console.log(projectId);
 		if (key) {
