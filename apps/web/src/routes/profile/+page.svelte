@@ -8,11 +8,6 @@
 
 	const user = $derived(userService.user);
 	const token = $derived(authService.token);
-	let userAvatarUrl = $state($user?.picture);
-
-	function handleImageLoadError() {
-		userAvatarUrl = `https://unavatar.io/${$user?.email}`;
-	}
 </script>
 
 <svelte:head>

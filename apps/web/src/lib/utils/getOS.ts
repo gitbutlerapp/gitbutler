@@ -5,7 +5,7 @@
 
 declare const navigator: any;
 
-export const getOS = (): string => {
+export function getOS(): string {
 	if (navigator.userAgentData) return 'unknown';
 
 	// Use the modern 'web hints' provided by
@@ -17,4 +17,4 @@ export const getOS = (): string => {
 	if (platform.startsWith('mac')) return 'macos';
 	if (platform.startsWith('linux')) return 'linux';
 	return 'unknown';
-};
+}

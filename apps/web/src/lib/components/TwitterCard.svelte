@@ -16,7 +16,7 @@
 		const text = textElement.innerText;
 		const textArray = text.split(' ');
 
-		const handleLink = (word: string) => {
+		function handleLink(word: string) {
 			const isHandle = word.startsWith('@') || word.startsWith('#');
 
 			if (isHandle) {
@@ -24,7 +24,7 @@
 			}
 
 			return word;
-		};
+		}
 
 		const textWithLinks = textArray.map((word) => handleLink(word)).join(' ');
 
@@ -52,7 +52,7 @@
 		</p>
 		<span class="date">{tweet.date}</span>
 	</div>
-	<div class="divider" />
+	<div class="divider"></div>
 	<div class="cta">Read more on X</div>
 </a>
 
@@ -68,7 +68,10 @@
 		padding: 24px;
 		border-radius: 20px;
 		text-decoration: none;
-		transition: transform 0.1s ease-in-out, box-shadow 0.1s ease-in-out, opacity 0.1s ease-in-out;
+		transition:
+			transform 0.1s ease-in-out,
+			box-shadow 0.1s ease-in-out,
+			opacity 0.1s ease-in-out;
 
 		@media (min-width: 1100px) {
 			flex: none;

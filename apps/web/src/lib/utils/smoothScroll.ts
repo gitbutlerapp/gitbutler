@@ -1,4 +1,4 @@
-export const smoothScroll = (event: MouseEvent) => {
+export function smoothScroll(event: MouseEvent) {
 	event.preventDefault();
 	const link = event.currentTarget as HTMLAnchorElement;
 
@@ -17,4 +17,4 @@ export const smoothScroll = (event: MouseEvent) => {
 		top: anchor.offsetTop,
 		behavior: 'smooth'
 	});
-};
+}

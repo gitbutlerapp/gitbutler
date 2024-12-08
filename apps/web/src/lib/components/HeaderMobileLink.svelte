@@ -16,9 +16,9 @@
 
 	let isOpen = false;
 
-	const handleClick = () => {
+	function handleClick() {
 		isOpen = !isOpen;
-	};
+	}
 </script>
 
 {#if $$slots['dropdown']}

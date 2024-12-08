@@ -66,7 +66,7 @@
 	});
 </script>
 
-{#if (!$token && ($page.url.pathname === '/')) || $page.url.pathname === '/home'}
+{#if (!$token && $page.url.pathname === '/') || $page.url.pathname === '/home'}
 	<section class="page-wrapper">
 		{@render children()}
 	</section>
@@ -100,4 +100,3 @@
 		flex-direction: column;
 	}
 </style>
-

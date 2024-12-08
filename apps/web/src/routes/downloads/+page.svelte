@@ -5,7 +5,7 @@
 	let loading = $state(true);
 	let releases: any[] = $state([]);
 	let nightlies: any[] = $state([]);
-	let latest: any;
+	let latest: any = $state(null);
 	let build: any = {};
 
 	onMount(() => {
@@ -16,7 +16,10 @@
 				releases.forEach((release: any) => {
 					release.builds = release.builds.filter((build: any) => !build.url.endsWith('.zip'));
 					// and deduplicate by url
-					release.builds = release.builds.filter((build: any, index: number, self: any) => self.findIndex((b: any) => b.url === build.url) === index);
+					release.builds = release.builds.filter(
+						(build: any, index: number, self: any) =>
+							self.findIndex((b: any) => b.url === build.url) === index
+					);
 					// and sort by platform, reverse order
 					release.builds.sort((a: any, b: any) => b.platform.localeCompare(a.platform));
 				});
@@ -25,16 +28,28 @@
 				console.log(latest);
 
 				// find mac builds
-				build['darwin_x86_64'] = latest.builds.find((build: any) => build.os === 'darwin' && build.arch === 'x86_64');
-				build['darwin_aarch64'] = latest.builds.find((build: any) => build.os === 'darwin' && build.arch === 'aarch64');
+				build['darwin_x86_64'] = latest.builds.find(
+					(build: any) => build.os === 'darwin' && build.arch === 'x86_64'
+				);
+				build['darwin_aarch64'] = latest.builds.find(
+					(build: any) => build.os === 'darwin' && build.arch === 'aarch64'
+				);
 
 				// find windows builds
-				build['windows_x86_64'] = latest.builds.find((build: any) => build.os === 'windows' && build.arch === 'x86_64');
+				build['windows_x86_64'] = latest.builds.find(
+					(build: any) => build.os === 'windows' && build.arch === 'x86_64'
+				);
 
 				// find linux builds
-				build['linux_appimage'] = latest.builds.find((build: any) => build.os === 'linux' && build.file.includes('AppImage'));
-				build['linux_deb'] = latest.builds.find((build: any) => build.os === 'linux' && build.file.includes('deb'));
-				build['linux_rpm'] = latest.builds.find((build: any) => build.os === 'linux' && build.file.includes('rpm'));
+				build['linux_appimage'] = latest.builds.find(
+					(build: any) => build.os === 'linux' && build.file.includes('AppImage')
+				);
+				build['linux_deb'] = latest.builds.find(
+					(build: any) => build.os === 'linux' && build.file.includes('deb')
+				);
+				build['linux_rpm'] = latest.builds.find(
+					(build: any) => build.os === 'linux' && build.file.includes('rpm')
+				);
 
 				loading = false;
 			});
@@ -47,7 +62,10 @@
 				nightlies.forEach((release: any) => {
 					release.builds = release.builds.filter((build: any) => !build.url.endsWith('.zip'));
 					// and deduplicate by url
-					release.builds = release.builds.filter((build: any, index: number, self: any) => self.findIndex((b: any) => b.url === build.url) === index);
+					release.builds = release.builds.filter(
+						(build: any, index: number, self: any) =>
+							self.findIndex((b: any) => b.url === build.url) === index
+					);
 					// and sort by platform, reverse order
 					release.builds.sort((a: any, b: any) => b.platform.localeCompare(a.platform));
 				});
@@ -69,23 +87,23 @@
 		<div class="current-release">
 			<div class="current-release__group">
 				<div>
-					<img src="/images/icon.png" width="200px" alt="GitButler"/>
+					<img src="/images/icon.png" width="200px" alt="GitButler" />
 				</div>
 				<div class="current-builds">
 					<div class="version">
-						<div class="current__version">{latest.version}</div> 
+						<div class="current__version">{latest.version}</div>
 						<div class="current__version-date">{latest.released_at.substring(0, 10)}</div>
 					</div>
 					<div class="current-builds-group">
 						<div>
 							<div class="os windows">
 								<div class="os__name">
-								<img
+									<img
 										class="os-select__section-os-icon"
 										src="/images/os-icons/windows-small-logo.svg"
 										alt=""
 									/>
-								Windows
+									Windows
 								</div>
 								<div class="os__downloads">
 									{#if build['windows_x86_64']}
@@ -96,10 +114,10 @@
 							<div class="os apple">
 								<div class="os__name">
 									<img
-											class="os-select__section-os-icon"
-											src="/images/os-icons/apple-small-logo.svg"
-											alt=""
-										/>
+										class="os-select__section-os-icon"
+										src="/images/os-icons/apple-small-logo.svg"
+										alt=""
+									/>
 									macOS
 								</div>
 								<div class="os__downloads">
@@ -112,33 +130,32 @@
 								</div>
 							</div>
 						</div>
-			<div>
-				<div class="os linux">
-					<div class="os__name">
-						<img
-								class="os-select__section-os-icon"
-								src="/images/os-icons/linux-small-logo.svg"
-								alt=""
-							/>
-						Linux
-					</div>
-					<div class="os__downloads">
-						{#if build['linux_appimage']}
-							<a href={build['linux_appimage'].url}>Download AppImage</a>
-						{/if}
-						{#if build['linux_deb']}
-							<a href={build['linux_deb'].url}>Download Deb</a>
-						{/if}
-						{#if build['linux_rpm']}
-							<a href={build['linux_rpm'].url}>Download RPM</a>
-						{/if}
+						<div>
+							<div class="os linux">
+								<div class="os__name">
+									<img
+										class="os-select__section-os-icon"
+										src="/images/os-icons/linux-small-logo.svg"
+										alt=""
+									/>
+									Linux
+								</div>
+								<div class="os__downloads">
+									{#if build['linux_appimage']}
+										<a href={build['linux_appimage'].url}>Download AppImage</a>
+									{/if}
+									{#if build['linux_deb']}
+										<a href={build['linux_deb'].url}>Download Deb</a>
+									{/if}
+									{#if build['linux_rpm']}
+										<a href={build['linux_rpm'].url}>Download RPM</a>
+									{/if}
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
-					</div>
-				</div>
-			</div>
-
 		</div>
 
 		<h1>All Recent Releases</h1>
@@ -148,7 +165,8 @@
 				{#each releases as release}
 					<div class="release">
 						<div class="release__version">
-							Version: <b>{release.version}</b> <span class="release__sha">{release.sha.substring(0, 6)}</span>
+							Version: <b>{release.version}</b>
+							<span class="release__sha">{release.sha.substring(0, 6)}</span>
 						</div>
 						<div>Released: {new Date(release.released_at).toLocaleString()}</div>
 						{#if release.notes}
@@ -166,13 +184,14 @@
 			<div class="release-lane">
 				<h2>Nightly Releases</h2>
 				<div class="nightly-warning">
-					These are nightly builds that are automatically built from the master
-					branch each night and may be unstable.
+					These are nightly builds that are automatically built from the master branch each night
+					and may be unstable.
 				</div>
 				{#each nightlies as release}
 					<div class="release">
 						<div class="release__version">
-							Version: <b>{release.version}</b> <span class="release__sha">{release.sha.substring(0, 6)}</span>
+							Version: <b>{release.version}</b>
+							<span class="release__sha">{release.sha.substring(0, 6)}</span>
 						</div>
 						<div>Released: {new Date(release.released_at).toLocaleString()}</div>
 						{#if release.notes}
@@ -334,5 +353,4 @@
 		padding: 1rem;
 		margin-bottom: 20px;
 	}
-
 </style>

@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { isMobile } from '$lib/utils/isMobile';
 	import { smoothScroll } from '$lib/utils/smoothScroll';
 	import { onMount } from 'svelte';
-	import { isMobile } from '$lib/utils/isMobile';
 
 	export let videoUrl: string;
 	export let posterUrl: string;
@@ -17,17 +17,17 @@
 	$: isMobileBrekpoint = isMobile(windowWidth);
 	$: isVideoPlayingOnMobile = false;
 
-	const handleMouseEnter = () => {
+	function handleMouseEnter() {
 		if (isMobileBrekpoint) return;
 
 		videoElement.play();
-	};
+	}
 
-	const handleMouseLeave = () => {
+	function handleMouseLeave() {
 		if (isMobileBrekpoint) return;
 
 		videoElement.pause();
-	};
+	}
 
 	$: if (videoCurrentTime) {
 		const videoDuration = videoElement.duration;
@@ -80,7 +80,7 @@
 				class="progress-scale"
 				class:showProgress={isVideoPlayingOnMobile}
 				style="width: {progressScaleProcentage}%"
-			/>
+			></div>
 			<div
 				class="video-poster"
 				class:hidePoster={isVideoPlayingOnMobile}
@@ -107,7 +107,7 @@
 				playsinline
 				preload="auto"
 				src={`${videoUrl}#t=0.1`}
-			/>
+			></video>
 		</div>
 		<div class="content">
 			<h3 class="title">{title}</h3>
@@ -130,7 +130,7 @@
 			</a>
 		</div>
 	</article>
-	<div class="shadow" />
+	<div class="shadow"></div>
 </div>
 
 <style lang="scss">
@@ -213,7 +213,9 @@
 		opacity: 0;
 		transform: scaleY(0.3) translateY(5px);
 
-		transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
+		transition:
+			opacity 0.1s ease-in-out,
+			transform 0.1s ease-in-out;
 	}
 
 	.showProgress {
@@ -231,7 +233,9 @@
 		border-radius: 16px;
 		z-index: -1;
 		opacity: 0;
-		transition: transform 0.1s ease, opacity 0.1s ease;
+		transition:
+			transform 0.1s ease,
+			opacity 0.1s ease;
 	}
 
 	.video-wrappper {
@@ -289,7 +293,9 @@
 
 		opacity: 0;
 		transform: translate(0, 10px);
-		transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
+		transition:
+			opacity 0.1s ease-in-out,
+			transform 0.1s ease-in-out;
 
 		span {
 			font-size: 14px;

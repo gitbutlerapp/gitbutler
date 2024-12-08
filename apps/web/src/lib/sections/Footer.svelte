@@ -1,6 +1,6 @@
 <script>
-	import * as jsonLinks from '$lib/data/links.json';
 	import CtaBlock from '$lib/components/CtaBlock.svelte';
+	import * as jsonLinks from '$lib/data/links.json';
 </script>
 
 <footer class="footer" id="footer">
@@ -218,7 +218,9 @@
 		right: -20px;
 		opacity: 0;
 		transform: translate(-3px, 3px) scale(0.8);
-		transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
+		transition:
+			opacity 0.1s ease-in-out,
+			transform 0.1s ease-in-out;
 	}
 
 	.link {
@@ -240,8 +242,11 @@
 				z-index: 1;
 				color: var(--clr-black);
 				text-wrap: nowrap;
-				text-shadow: -1px -1px 0 var(--clr-white), 1px -1px 0 var(--clr-white),
-					-1px 1px 0 var(--clr-white), 1px 1px 0 var(--clr-white);
+				text-shadow:
+					-1px -1px 0 var(--clr-white),
+					1px -1px 0 var(--clr-white),
+					-1px 1px 0 var(--clr-white),
+					1px 1px 0 var(--clr-white);
 			}
 
 			//underline

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { AuthService } from '$lib/auth/authService';
+	import { AuthService } from '$lib/auth/authService';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { env } from '$env/dynamic/public';
@@ -13,136 +13,135 @@
 	function login() {
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login`;
 	}
- 	function logout() {
+	function logout() {
 		authService.clearToken();
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
 	}
 </script>
 
 <div class="navigation">
-  <div class="main-links">
-    <div class="link">
-      <a href="/" class="main-nav" aria-label="main nav" title="Home">
-        <svg xmlns="http://www.w3.org/2000/svg" width="23" height="24" viewBox="0 0 23 24" fill="none">
-          <path d="M0 24V0L11.4819 10.5091L23 0V24L11.4819 13.5273L0 24Z" fill="black"/>
-        </svg>
-      </a>
-    </div>
-    {#if $token}
-      <div class="link">
-        <a class="nav-link nav-button" href="/organizations" aria-label="organizations">
-          Organizations
-        </a>
-      </div>
-      <div class="link">
-        <a class="nav-link nav-button" href="/repositories" aria-label="projects">
-          Projects
-        </a>
-      </div>
-    {/if}
-      <div class="link">
-        <a class="nav-link nav-button" href="/downloads" aria-label="downloads" title="Downloads">
-          Downloads
-        </a>
-      </div>
-  </div>
+	<div class="main-links">
+		<div class="link">
+			<a href="/" class="main-nav" aria-label="main nav" title="Home">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="23"
+					height="24"
+					viewBox="0 0 23 24"
+					fill="none"
+				>
+					<path d="M0 24V0L11.4819 10.5091L23 0V24L11.4819 13.5273L0 24Z" fill="black" />
+				</svg>
+			</a>
+		</div>
+		{#if $token}
+			<div class="link">
+				<a class="nav-link nav-button" href="/organizations" aria-label="organizations">
+					Organizations
+				</a>
+			</div>
+			<div class="link">
+				<a class="nav-link nav-button" href="/repositories" aria-label="projects"> Projects </a>
+			</div>
+		{/if}
+		<div class="link">
+			<a class="nav-link nav-button" href="/downloads" aria-label="downloads" title="Downloads">
+				Downloads
+			</a>
+		</div>
+	</div>
 
-  <div class="account-links">
-    {#if $user}
-    <div>
-      <a href="/profile" class="nav-link nav-button" aria-label="profile">
-        <img
-          class="user__id--img"
-          alt="User Avatar"
-          width="48"
-          src={$user.picture}
-        />
-      </a>
-    </div>
-    {/if}
+	<div class="account-links">
+		{#if $user}
+			<div>
+				<a href="/profile" class="nav-link nav-button" aria-label="profile">
+					<img class="user__id--img" alt="User Avatar" width="48" src={$user.picture} />
+				</a>
+			</div>
+		{/if}
 
-    <div>
-      <button
-        type="button"
-        class="nav-link nav-button"
-        onclick={() => {
-          if ($token) {
-            logout();
-          } else {
-            login();
-          }
-        }}
-      >
-        {#if $token}
-          Log Out
-        {:else}
-          Log In
-        {/if}
-      </button>
-    </div>
-  </div>
+		<div>
+			<button
+				type="button"
+				class="nav-link nav-button"
+				onclick={() => {
+					if ($token) {
+						logout();
+					} else {
+						login();
+					}
+				}}
+			>
+				{#if $token}
+					Log Out
+				{:else}
+					Log In
+				{/if}
+			</button>
+		</div>
+	</div>
 </div>
 
 <style>
-  .navigation {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-items: center;
-    justify-content: space-between;
-    width: 100%;
-    padding: 0 16px;
-    margin: 0 auto;
-  }
+	.navigation {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-items: center;
+		justify-content: space-between;
+		width: 100%;
+		padding: 0 16px;
+		margin: 0 auto;
+	}
 
-  .user__id--img {
-    width: 28px;
-    height: 28px;
-    border-radius: 0.5rem;
-  }
+	.user__id--img {
+		width: 28px;
+		height: 28px;
+		border-radius: 0.5rem;
+	}
 
-  .account-links {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
+	.account-links {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		gap: 12px;
+	}
 
-  .main-nav {
-    margin-top: 16px;
-    margin-right: 30px;
-  }
+	.main-nav {
+		margin-top: 16px;
+		margin-right: 30px;
+	}
 
-  .main-links {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    width: fit-content;
-  }
+	.main-links {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: space-between;
+		width: fit-content;
+	}
 
-  .link {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    min-width: 120px;
-  }
+	.link {
+		display: flex;
+		flex-direction: row;
+		align-items: center;
+		justify-content: center;
+		gap: 8px;
+		min-width: 120px;
+	}
 
-  .nav-link {
-    margin-top: 16px;
-  }
+	.nav-link {
+		margin-top: 16px;
+	}
 
-  .nav-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-s);
-    height: 40px;
-    width: 40px;
-    white-space: nowrap;
-    margin-right: 20px;
-  }
+	.nav-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		border-radius: var(--radius-s);
+		height: 40px;
+		width: 40px;
+		white-space: nowrap;
+		margin-right: 20px;
+	}
 </style>

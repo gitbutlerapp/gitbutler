@@ -9,9 +9,6 @@
 	const user = $derived(userService.user);
 	const token = $derived(authService.token);
 	let userAvatarUrl = $state($user?.picture);
-  $effect(() => {
-	  console.log(userAvatarUrl);
-  });
 
 	function handleImageLoadError() {
 		userAvatarUrl = `https://unavatar.io/${$user?.email}`;
@@ -25,15 +22,15 @@
 {:else}
 	<div class="user__wrapper">
 		<div class="user__id">
-      {#if $user?.picture}
-        <img
-          class="user__id--img"
-          alt="User Avatar"
-          width="48"
-          src={userAvatarUrl}
-          onerror={handleImageLoadError}
-        />
-      {/if}
+			{#if $user?.picture}
+				<img
+					class="user__id--img"
+					alt="User Avatar"
+					width="48"
+					src={userAvatarUrl}
+					onerror={handleImageLoadError}
+				/>
+			{/if}
 			<div class="user__id--name">{$user?.name}</div>
 		</div>
 		<div><b>Email</b>: {$user?.email}</div>

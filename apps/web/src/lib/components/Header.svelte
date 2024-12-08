@@ -1,7 +1,7 @@
 <script lang="ts">
 	import HeaderLink from './HeaderLink.svelte';
 	import HeaderMobileLink from './HeaderMobileLink.svelte';
-  import { AuthService } from '$lib/auth/authService';
+	import { AuthService } from '$lib/auth/authService';
 	import * as jsonLinks from '$lib/data/links.json';
 	import { getContext } from '@gitbutler/shared/context';
 	import { fly } from 'svelte/transition';
@@ -9,12 +9,12 @@
 	// svelte-ignore non_reactive_update
 	let isMobileMenuOpen = false;
 
-  const authService = getContext(AuthService);
-  const token = $derived(authService.token);
+	const authService = getContext(AuthService);
+	const token = $derived(authService.token);
 
 	function handleBurgerClick() {
 		isMobileMenuOpen = !isMobileMenuOpen;
-	};
+	}
 </script>
 
 <header class="header">
@@ -110,16 +110,13 @@
 				href={jsonLinks.social.discord.url}
 				hrefTarget="_blank"
 			/>
-			<HeaderLink
-				label={$token ? 'Log Out' : 'Log In'}
-				hideTextOnTablet
-				href="/log"
-			/>
+			<HeaderLink label={$token ? 'Log Out' : 'Log In'} hideTextOnTablet href="/log" />
 		</section>
 	</nav>
 
 	<section class="navigation-mobile">
-		<button type="button" aria-label="burger menu" class="burger" onclick={handleBurgerClick}></button>
+		<button type="button" aria-label="burger menu" class="burger" onclick={handleBurgerClick}
+		></button>
 
 		{#if isMobileMenuOpen}
 			<nav class="mobile-menu" transition:fly={{ duration: 100, y: 10 }}>

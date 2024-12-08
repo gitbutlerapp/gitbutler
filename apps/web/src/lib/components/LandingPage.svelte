@@ -13,25 +13,25 @@
 	import GhostContentAPI from '@tryghost/content-api';
 	import { onMount } from 'svelte';
 
-  const GHOST_URL = 'https://gitbutler.ghost.io';
-  const GHOST_KEY = '80bbdca8b933f3d98780c7cc1b';
-  const GHOST_VERSION = 'v5.0';
+	const GHOST_URL = 'https://gitbutler.ghost.io';
+	const GHOST_KEY = '80bbdca8b933f3d98780c7cc1b';
+	const GHOST_VERSION = 'v5.0';
 
-  let data: any;
-  onMount(async () => {
-    const { postsJson } = await loadBlog();
-    data = { postsJson };
-  });
+	let data: any;
+	onMount(async () => {
+		const { postsJson } = await loadBlog();
+		data = { postsJson };
+	});
 
-  export async function loadBlog() {
-    const api = GhostContentAPI({
-      url: GHOST_URL,
-      key: GHOST_KEY,
-      version: GHOST_VERSION
-    });
-    const postsJson = await api.posts.browse({ limit: 3, include: 'authors' });
-    return { postsJson };
-  }
+	export async function loadBlog() {
+		const api = GhostContentAPI({
+			url: GHOST_URL,
+			key: GHOST_KEY,
+			version: GHOST_VERSION
+		});
+		const postsJson = await api.posts.browse({ limit: 3, include: 'authors' });
+		return { postsJson };
+	}
 
 	import '../../styles/styles.css';
 
@@ -55,7 +55,6 @@
 				latestClientVersion.set(data);
 			});
 	});
-
 </script>
 
 <Header />

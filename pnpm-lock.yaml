@@ -335,6 +335,9 @@ importers:
       '@tryghost/content-api':
         specifier: ^1.11.21
         version: 1.11.21
+      '@types/tryghost__content-api':
+        specifier: ^1.3.17
+        version: 1.3.17
       dayjs:
         specifier: ^1.11.13
         version: 1.11.13
@@ -2314,6 +2317,9 @@ packages:
 
   '@types/tough-cookie@4.0.5':
     resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
+
+  '@types/tryghost__content-api@1.3.17':
+    resolution: {integrity: sha512-4DASYoK0hP1+XDyLS/8IZevalQRJuPmyPmfxdT1hnYRjxnJkgusATeDc/7QXA2izMZ/+cWkgdZDeTN2cBW+EoA==}
 
   '@types/uuid@9.0.8':
     resolution: {integrity: sha512-jg+97EGIcY9AGHJJRaaPVgetKDsrTgbRjQ5Msgjh/DQKEFl0DtyRr/VCOyD1T2R1MNeWPK/u7JoGhlDZnKBAfA==}
@@ -8668,6 +8674,8 @@ snapshots:
   '@types/statuses@2.0.5': {}
 
   '@types/tough-cookie@4.0.5': {}
+
+  '@types/tryghost__content-api@1.3.17': {}
 
   '@types/uuid@9.0.8': {}
 

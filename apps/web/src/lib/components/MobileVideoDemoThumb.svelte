@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import * as jsonLinks from '$lib/data/links.json';
+	import { onMount } from 'svelte';
 
 	// HANDLE VIDEO
 	let videoElement: HTMLVideoElement;
@@ -37,7 +37,7 @@
 <a href={jsonLinks.other['youtube-demo'].url} target="_blank" class="yt-preview">
 	<img class="yt-preview__btn" src="/images/video-thumb/watch-btn.svg" alt="" />
 
-	<div class="yt-preview__overlay-patttern" />
+	<div class="yt-preview__overlay-patttern"></div>
 
 	<video
 		bind:this={videoElement}
@@ -47,7 +47,7 @@
 		playsinline
 		preload="auto"
 		src="/images/video-thumb/video-thumb-loop.mp4#t=0.1"
-	/>
+	></video>
 </a>
 
 <style lang="scss">

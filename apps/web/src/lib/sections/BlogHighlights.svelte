@@ -129,7 +129,9 @@
 		text-wrap: balance;
 		text-transform: uppercase;
 		text-decoration: underline;
-		transition: color 0.1s ease-in-out, filter 0.1s ease-in-out;
+		transition:
+			color 0.1s ease-in-out,
+			filter 0.1s ease-in-out;
 	}
 
 	.post-title-caption {
@@ -156,7 +158,9 @@
 		overflow: hidden;
 		border: 1px solid var(--clr-gray);
 		text-decoration: none;
-		transition: transform 0.1s ease-in-out, background-color 0.1s ease-in-out;
+		transition:
+			transform 0.1s ease-in-out,
+			background-color 0.1s ease-in-out;
 
 		&:hover {
 			// transform: translateY(-2px);

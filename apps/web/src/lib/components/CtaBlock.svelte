@@ -1,12 +1,12 @@
 <script lang="ts">
+	import * as jsonLinks from '$lib/data/links.json';
+	import { clickOutside } from '$lib/hooks/clickOutside';
 	import { targetDownload } from '$lib/store';
 	import { latestClientVersion } from '$lib/store';
 	// animtion
-	import { fly } from 'svelte/transition';
 	import { quadIn } from 'svelte/easing';
+	import { fly } from 'svelte/transition';
 	// other
-	import { clickOutside } from '$lib/hooks/clickOutside';
-	import * as jsonLinks from '$lib/data/links.json';
 
 	export let secondButton: {
 		label: string;
@@ -20,17 +20,17 @@
 	let showSelect = false;
 	let selectElement: HTMLElement;
 
-	const handleShowSelect = (e: MouseEvent | KeyboardEvent) => {
+	function handleShowSelect(e: MouseEvent | KeyboardEvent) {
 		e.stopPropagation();
 		showSelect = !showSelect;
-	};
+	}
 
-	const handleChangeDownloadLink = (e: MouseEvent) => {
+	function handleChangeDownloadLink(e: MouseEvent) {
 		const target = e.target as HTMLButtonElement;
 		const targetOsId = target.getAttribute('data-targetOsId');
 		if (targetOsId) {
 			const entries = Object.entries(jsonLinks.downloads);
-			const newTarget = entries.find(([k, v]) => k == targetOsId);
+			const newTarget = entries.find(([k, _]) => k === targetOsId);
 			if (newTarget) {
 				targetDownload.set(newTarget[1]);
 			}
@@ -39,12 +39,11 @@
 		if (!targetOsId) return;
 
 		showSelect = false;
-	};
+	}
 
-	const handleClickOutside = (e: MouseEvent) => {
-		e.stopPropagation();
+	function handleClickOutside() {
 		showSelect = false;
-	};
+	}
 </script>
 
 <section class="wrapper">
@@ -59,7 +58,7 @@
 				on:introstart={() => {
 					selectElement.focus();
 				}}
-				use:clickOutside={handleClickOutside}
+				use:clickOutside={{ handler: handleClickOutside }}
 			>
 				<div class="os-select__section">
 					<img
@@ -69,6 +68,7 @@
 					/>
 					<div class="os-select__subsection">
 						<button
+							type="button"
 							class="os-select__item"
 							data-targetOsId={jsonLinks.downloads.appleSilicon.id}
 							on:click={handleChangeDownloadLink}
@@ -76,6 +76,7 @@
 							{jsonLinks.downloads.appleSilicon.label}
 						</button>
 						<button
+							type="button"
 							class="os-select__item"
 							data-targetOsId={jsonLinks.downloads.intelMac.id}
 							on:click={handleChangeDownloadLink}
@@ -83,7 +84,7 @@
 							{jsonLinks.downloads.intelMac.label}
 						</button>
 
-						<div class="os-select__divider" />
+						<div class="os-select__divider"></div>
 					</div>
 				</div>
 				<div class="os-select__section">
@@ -94,13 +95,14 @@
 					/>
 					<div class="os-select__subsection">
 						<button
+							type="button"
 							class="os-select__item"
 							data-targetOsId={jsonLinks.downloads.windowsMsi.id}
 							on:click={handleChangeDownloadLink}
 						>
 							{jsonLinks.downloads.windowsMsi.label}
 						</button>
-						<div class="os-select__divider" />
+						<div class="os-select__divider"></div>
 					</div>
 				</div>
 				<div class="os-select__section">
@@ -111,6 +113,7 @@
 					/>
 					<div class="os-select__subsection">
 						<button
+							type="button"
 							class="os-select__item"
 							data-targetOsId={jsonLinks.downloads.linuxDeb.id}
 							on:click={handleChangeDownloadLink}
@@ -118,6 +121,7 @@
 							{jsonLinks.downloads.linuxDeb.label}
 						</button>
 						<button
+							type="button"
 							class="os-select__item"
 							data-targetOsId={jsonLinks.downloads.linuxAppimage.id}
 							on:click={handleChangeDownloadLink}
@@ -148,7 +152,7 @@
 				on:click={handleShowSelect}
 				on:keydown={handleShowSelect}
 			>
-				<div class="divider" />
+				<div class="divider"></div>
 				<span>{$targetDownload.label}</span>
 				<svg
 					width="20"
@@ -213,7 +217,7 @@
 						playsinline
 						preload="auto"
 						src="/images/video-thumb/video-thumb-loop.mp4#t=0.1"
-					/>
+					></video>
 				</a>
 			{/if}
 

@@ -100,7 +100,9 @@
 		opacity: 0;
 		transform: translateY(-8px);
 
-		transition: opacity 0.1s ease-in-out, transform 0.1s ease-in-out;
+		transition:
+			opacity 0.1s ease-in-out,
+			transform 0.1s ease-in-out;
 	}
 
 	.dropdown-container {
@@ -140,7 +142,9 @@
 		:global(svg) {
 			opacity: 0;
 			transform: scale(0.8);
-			transition: opacity 0.05s ease-in-out, transform 0.2s ease-in-out;
+			transition:
+				opacity 0.05s ease-in-out,
+				transform 0.2s ease-in-out;
 		}
 	}
 

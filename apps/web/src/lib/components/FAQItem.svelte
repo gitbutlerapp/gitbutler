@@ -26,7 +26,7 @@
 		}}
 	>
 		<h3 class="faq-item__title">{faqItem.label}</h3>
-		<div class="faq-item__plus" class:show-minus={isOpen} />
+		<div class="faq-item__plus" class:show-minus={isOpen}></div>
 	</div>
 	{#if isOpen}
 		<div class="faq-item__content" transition:slide={{ duration: 150 }}>
