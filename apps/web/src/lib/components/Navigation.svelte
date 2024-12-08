@@ -1,10 +1,14 @@
 <script lang="ts">
   import { AuthService } from '$lib/auth/authService';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { env } from '$env/dynamic/public';
 
 	const authService = getContext(AuthService);
 	const token = $derived(authService.token);
+
+	const userService = getContext(UserService);
+	const user = $derived(userService.user);
 
 	function login() {
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login`;
@@ -42,23 +46,41 @@
         </a>
       </div>
   </div>
-  <button
-    type="button"
-    class="nav-link nav-button"
-   	onclick={() => {
-      if ($token) {
-        logout();
-      } else {
-        login();
-      }
-		}}
-  >
-    {#if $token}
-      Log Out
-    {:else}
-      Log In
+
+  <div class="account-links">
+    {#if $user}
+    <div>
+      <a href="/profile" class="nav-link nav-button" aria-label="profile">
+        <img
+          class="user__id--img"
+          alt="User Avatar"
+          width="48"
+          src={$user.picture}
+        />
+      </a>
+    </div>
     {/if}
-  </button>
+
+    <div>
+      <button
+        type="button"
+        class="nav-link nav-button"
+        onclick={() => {
+          if ($token) {
+            logout();
+          } else {
+            login();
+          }
+        }}
+      >
+        {#if $token}
+          Log Out
+        {:else}
+          Log In
+        {/if}
+      </button>
+    </div>
+  </div>
 </div>
 
 <style>
@@ -66,10 +88,25 @@
     display: flex;
     flex-direction: row;
     align-items: center;
+    justify-items: center;
     justify-content: space-between;
     width: 100%;
     padding: 0 16px;
     margin: 0 auto;
+  }
+
+  .user__id--img {
+    width: 28px;
+    height: 28px;
+    border-radius: 0.5rem;
+  }
+
+  .account-links {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
   }
 
   .main-nav {

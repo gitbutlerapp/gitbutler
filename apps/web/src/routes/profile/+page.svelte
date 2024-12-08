@@ -24,17 +24,9 @@
 {:else if !$user?.id}
 	<p>Loading...</p>
 {:else}
-	<div class="user__wrapper">
-		<div class="user__id">
-			<img
-				class="user__id--img"
-				alt="User Avatar"
-				width="48"
-				src={userAvatarUrl}
-				onerror={handleImageLoadError}
-			/>
-			<div class="user__id--name">{$user?.name}</div>
-		</div>
+	<div class="profile">
+		<h1>Your Profile</h1>
+		<div><b>Login</b>: {$user?.login}</div>
 		<div><b>Email</b>: {$user?.email}</div>
 		<div><b>Joined</b>: {$user?.created_at}</div>
 		<div><b>Supporter</b>: {$user?.supporter}</div>
@@ -42,18 +34,14 @@
 {/if}
 
 <style>
-	.user__wrapper {
+	h1 {
+		font-size: 1.5rem;
+		margin-bottom: 10px;
+	}
+	.profile {
 		display: flex;
 		flex-direction: column;
 		gap: 0.5rem;
-	}
-	.user__id {
-		display: flex;
-		align-items: center;
-		gap: 0.5rem;
-
-		.user__id--img {
-			border-radius: 0.5rem;
-		}
+		padding: 32px;
 	}
 </style>
