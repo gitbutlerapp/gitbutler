@@ -6,16 +6,14 @@
 	// animtion
 	import { quadIn } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	
-
 
 	let videoElement: HTMLVideoElement = $state();
 	interface Props {
 		// other
 		secondButton?: {
-		label: string;
-		url: string;
-	} | null;
+			label: string;
+			url: string;
+		} | null;
 		lightTheme?: boolean;
 		showVideoDemo?: boolean;
 	}
