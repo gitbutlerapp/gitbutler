@@ -126,7 +126,7 @@ You'll have to re-run this occasionally when our deps change.
 
 ### Run the app
 
-First, run cargo build such that supplementary bins such as `gitbutler-git-askpass` and `gitbutler-git-setsid` are created:
+First, run cargo build such that supplementary bins such as `gitbutler-git-askpass` and `gitbutler-git-setsid` are created (Note the default folder (`target`) will be used for the build):
 
 ```bash
 $ cargo build
