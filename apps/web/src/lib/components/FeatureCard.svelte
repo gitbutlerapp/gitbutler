@@ -13,13 +13,7 @@
 		readMoreUrl: string;
 	}
 
-	let {
-		videoUrl,
-		posterUrl,
-		title,
-		description,
-		readMoreUrl
-	}: Props = $props();
+	let { videoUrl, posterUrl, title, description, readMoreUrl }: Props = $props();
 
 	let videoElement: HTMLVideoElement = $state();
 	let posterElement: HTMLDivElement = $state();
@@ -28,7 +22,6 @@
 	let windowWidth = $state(0);
 	let isMobileBrekpoint = $derived(isMobile(windowWidth));
 	let isVideoPlayingOnMobile = $state(false);
-	
 
 	function handleMouseEnter() {
 		if (isMobileBrekpoint) return;

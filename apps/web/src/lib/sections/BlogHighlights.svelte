@@ -17,8 +17,6 @@
 	}
 
 	let { posts }: Props = $props();
-
-	
 </script>
 
 <section class="posts-preview" id="blog">

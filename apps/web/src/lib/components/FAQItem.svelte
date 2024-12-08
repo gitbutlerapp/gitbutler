@@ -3,10 +3,10 @@
 
 	interface Props {
 		faqItem: {
-		label: string;
-		content: string;
-		bgIndex: string;
-	};
+			label: string;
+			content: string;
+			bgIndex: string;
+		};
 	}
 
 	let { faqItem }: Props = $props();
