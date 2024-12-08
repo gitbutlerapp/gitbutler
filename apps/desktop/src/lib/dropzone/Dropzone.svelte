@@ -5,6 +5,7 @@
 	interface Props {
 		disabled?: boolean;
 		fillHeight?: boolean;
+		id?: string;
 		accepts: (data: any) => boolean;
 		ondrop: (data: any) => Promise<void> | void;
 		overlay?: Snippet<[{ hovered: boolean; activated: boolean }]>;
@@ -14,6 +15,7 @@
 	const {
 		disabled = false,
 		fillHeight = false,
+		id,
 		accepts,
 		ondrop,
 		overlay,
@@ -53,6 +55,7 @@
 		target: '.dropzone-target'
 	}}
 	class:fill-height={fillHeight}
+	data-testid={id}
 	class="dropzone-container"
 >
 	{#if overlay}

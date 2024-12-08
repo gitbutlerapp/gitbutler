@@ -53,3 +53,6 @@ storybook-static
 
 # Rust analyzer
 .rust-analyzer/
+
+# gitbutler-tauri generated
+crates/gitbutler-tauri/gen/*

@@ -73,6 +73,7 @@
 		"diff-match-patch": "^1.0.5",
 		"fuse.js": "^7.0.0",
 		"git-url-parse": "^14.0.0",
+		"html-dnd": "^1.2.1",
 		"jsdom": "^24.1.1",
 		"lscache": "^1.3.2",
 		"marked": "^10.0.0",

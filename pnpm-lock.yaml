@@ -214,7 +214,7 @@ importers:
         version: 6.4.8
       '@testing-library/svelte':
         specifier: 5.2.5
-        version: 5.2.5(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0))(vitest@2.0.5)
+        version: 5.2.5(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0))(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))
       '@types/diff-match-patch':
         specifier: ^1.0.36
         version: 1.0.36
@@ -269,6 +269,9 @@ importers:
       git-url-parse:
         specifier: ^14.0.0
         version: 14.0.0
+      html-dnd:
+        specifier: ^1.2.1
+        version: 1.2.1
       jsdom:
         specifier: ^24.1.1
         version: 24.1.1
@@ -483,7 +486,7 @@ importers:
         version: 8.4.5(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))
       '@storybook/experimental-addon-test':
         specifier: ^8.4.5
-        version: 8.4.5(@vitest/browser@2.1.6)(@vitest/runner@2.1.6)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@2.1.6)
+        version: 8.4.5(@vitest/browser@2.1.6(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.4.5)(vite@5.4.11(@types/node@22.3.0))(vitest@2.1.6)(webdriverio@8.40.2))(@vitest/runner@2.1.6)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@2.1.6(@types/node@22.3.0)(@vitest/browser@2.1.6)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.6.6(@types/node@22.3.0)(typescript@5.4.5)))
       '@storybook/svelte':
         specifier: ^8.4.5
         version: 8.4.5(storybook@8.4.5(prettier@3.3.2))(svelte@5.2.1)
@@ -3797,6 +3800,10 @@ packages:
     resolution: {integrity: sha512-QB9NKEeDg3xxVwCCwJQ9+xycaz6pBB6iQ76wiWMl1927n0Kir6alPiP+yuiICLLU4jpMe08dXfpebuQppFA2zw==}
     engines: {node: '>=16'}
 
+  get-stdin@4.0.1:
+    resolution: {integrity: sha512-F5aQMywwJ2n85s4hJPTT9RPxGmubonuB10MNYo17/xph174n2MIR33HRguhzVag10O/npM7SPk73LMZNP+FaWw==}
+    engines: {node: '>=0.10.0'}
+
   get-stdin@9.0.0:
     resolution: {integrity: sha512-dVKBjfWisLAicarI2Sf+JuBE/DghV4UzNAVe9yhEJuzeREd3JhOTE9cUaJTeSa77fsbQUK3pcOpJfM59+VKZaA==}
     engines: {node: '>=12'}
@@ -3978,6 +3985,9 @@ packages:
   hosted-git-info@7.0.2:
     resolution: {integrity: sha512-puUZAUKT5m8Zzvs72XWy3HtvVbTWljRE66cP60bxJzAqf2DgICo7lYTY2IHUmLnNpjYvw5bvmoHvPc0QO2a62w==}
     engines: {node: ^16.14.0 || >=18.0.0}
+
+  html-dnd@1.2.1:
+    resolution: {integrity: sha512-yO4Jg4TqFCEGVxvmAXZ8EpgQFF8YACuPiK2DXMgWGQ73bTdtZm6AgyFa/NUrmD3TyQXd4F2U3IoNWmR5cXzvgg==}
 
   html-encoding-sniffer@4.0.0:
     resolution: {integrity: sha512-Y22oTqIU4uuPgEemfz7NDJz6OeKf12Lsu+QC+s3BVpda64lTiMYCyGwg5ki4vFxkMwQdeZDl2adZoqUgdFuTgQ==}
@@ -4646,6 +4656,10 @@ packages:
     peerDependenciesMeta:
       typescript:
         optional: true
+
+  multiline@1.0.2:
+    resolution: {integrity: sha512-DGpmDIZKKQ+EVx0sh0757V6qlb+ouuByoC5CWH7J0bOd6KRM6ka6l9LGHWfe17OKxm+4AsLs1tgiK4vZIx66RQ==}
+    engines: {node: '>=0.10.0'}
 
   mute-stream@1.0.0:
     resolution: {integrity: sha512-avsJQhyd+680gKXyG/sQc0nXaC6rBkPOfyHYcFb9+hdkqQkR9bdnkJ0AMZhke0oesPqIO+mFFJ+IdBc7mst4IA==}
@@ -5603,6 +5617,11 @@ packages:
   strip-final-newline@3.0.0:
     resolution: {integrity: sha512-dOESqjYr96iWYylGObzd39EuNTa5VJxyvVAEm5Jnh7KGo75V43Hk1odPQkNDyXNmUR6k+gEiDVXnjB8HJ3crXw==}
     engines: {node: '>=12'}
+
+  strip-indent@1.0.1:
+    resolution: {integrity: sha512-I5iQq6aFMM62fBEAIB/hXzwJD6EEZ0xEGCX2t7oXqaKPIRgt4WruAQ285BISgdkP+HLGWyeGmNJcpIwFeRYRUA==}
+    engines: {node: '>=0.10.0'}
+    hasBin: true
 
   strip-indent@3.0.0:
     resolution: {integrity: sha512-laJTa3Jb+VQpaC6DseHhF7dXVqHTfJPCRDaEbid/drOhgitgYku/letMUqOXFoWV0zIIUbjpdH2t+tYj4bQMRQ==}
@@ -7831,7 +7850,7 @@ snapshots:
     dependencies:
       storybook: 8.4.5(prettier@3.3.2)
 
-  '@storybook/experimental-addon-test@8.4.5(@vitest/browser@2.1.6)(@vitest/runner@2.1.6)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@2.1.6)':
+  '@storybook/experimental-addon-test@8.4.5(@vitest/browser@2.1.6(@types/node@22.3.0)(playwright@1.47.0)(typescript@5.4.5)(vite@5.4.11(@types/node@22.3.0))(vitest@2.1.6)(webdriverio@8.40.2))(@vitest/runner@2.1.6)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)(storybook@8.4.5(prettier@3.3.2))(vitest@2.1.6(@types/node@22.3.0)(@vitest/browser@2.1.6)(happy-dom@14.12.3)(jsdom@24.1.1)(msw@2.6.6(@types/node@22.3.0)(typescript@5.4.5)))':
     dependencies:
       '@storybook/csf': 0.1.11
       '@storybook/global': 5.0.0
@@ -8271,7 +8290,7 @@ snapshots:
       lodash: 4.17.21
       redent: 3.0.0
 
-  '@testing-library/svelte@5.2.5(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0))(vitest@2.0.5)':
+  '@testing-library/svelte@5.2.5(svelte@5.2.1)(vite@5.4.11(@types/node@22.3.0))(vitest@2.0.5(@types/node@22.3.0)(@vitest/browser@2.0.5)(@vitest/ui@2.0.5)(happy-dom@14.12.3)(jsdom@24.1.1))':
     dependencies:
       '@testing-library/dom': 10.4.0
       svelte: 5.2.1
@@ -9882,7 +9901,7 @@ snapshots:
       debug: 4.3.4
       enhanced-resolve: 5.17.0
       eslint: 9.13.0
-      eslint-module-utils: 2.8.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-typescript@3.6.1)(eslint@9.13.0)
+      eslint-module-utils: 2.8.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.13.0))(eslint@9.13.0)
       eslint-plugin-import: 2.29.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-typescript@3.6.1)(eslint@9.13.0)
       fast-glob: 3.3.1
       get-tsconfig: 4.7.5
@@ -9894,7 +9913,7 @@ snapshots:
       - eslint-import-resolver-webpack
       - supports-color
 
-  eslint-module-utils@2.12.0(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@9.13.0):
+  eslint-module-utils@2.12.0(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.13.0))(eslint@9.13.0):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -9905,7 +9924,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  eslint-module-utils@2.8.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-typescript@3.6.1)(eslint@9.13.0):
+  eslint-module-utils@2.8.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.13.0))(eslint@9.13.0):
     dependencies:
       debug: 3.2.7
     optionalDependencies:
@@ -9941,7 +9960,7 @@ snapshots:
       doctrine: 2.1.0
       eslint: 9.13.0
       eslint-import-resolver-node: 0.3.9
-      eslint-module-utils: 2.12.0(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1)(eslint@9.13.0)
+      eslint-module-utils: 2.12.0(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-import-resolver-node@0.3.9)(eslint-import-resolver-typescript@3.6.1(@typescript-eslint/parser@7.13.1(eslint@9.13.0)(typescript@5.4.5))(eslint-plugin-import@2.29.1)(eslint@9.13.0))(eslint@9.13.0)
       hasown: 2.0.2
       is-core-module: 2.15.1
       is-glob: 4.0.3
@@ -10376,6 +10395,8 @@ snapshots:
 
   get-port@7.1.0: {}
 
+  get-stdin@4.0.1: {}
+
   get-stdin@9.0.0: {}
 
   get-stream@5.2.0:
@@ -10592,6 +10613,10 @@ snapshots:
   hosted-git-info@7.0.2:
     dependencies:
       lru-cache: 10.2.2
+
+  html-dnd@1.2.1:
+    dependencies:
+      multiline: 1.0.2
 
   html-encoding-sniffer@4.0.0:
     dependencies:
@@ -11267,6 +11292,10 @@ snapshots:
       typescript: 5.4.5
     transitivePeerDependencies:
       - '@types/node'
+
+  multiline@1.0.2:
+    dependencies:
+      strip-indent: 1.0.1
 
   mute-stream@1.0.0: {}
 
@@ -12315,6 +12344,10 @@ snapshots:
   strip-bom@3.0.0: {}
 
   strip-final-newline@3.0.0: {}
+
+  strip-indent@1.0.1:
+    dependencies:
+      get-stdin: 4.0.1
 
   strip-indent@3.0.0:
     dependencies:

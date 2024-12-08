@@ -66,7 +66,7 @@
 	});
 </script>
 
-<div class="wrapper">
+<div class="wrapper" data-testid="branch-{branch.name}">
 	<Stack {commitBoxOpen} {isLaneCollapsed} />
 
 	{#if selected}
