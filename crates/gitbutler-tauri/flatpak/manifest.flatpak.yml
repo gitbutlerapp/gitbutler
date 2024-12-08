@@ -1,0 +1,72 @@
+id: com.gitbutler.app
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+command: gitbutler-tauri
+finish-args:
+  - --share=ipc
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --device=dri
+  - --share=network
+  - --filesystem=/tmp
+  - --filesystem=host
+  - --filesystem=xdg-run/gvfsd
+  - --allow=devel
+  - --socket=system-bus
+  - --socket=session-bus
+  - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons:~/.icons
+  - --talk-name=org.freedesktop.portal.Fcitx
+  # Required for interacting with git
+  - --socket=ssh-auth
+  - --socket=gpg-agent
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.freedesktop.Flatpak # Required for flatpak-spawn
+  - --talk-name=org.kde.kwalletd6
+  - --talk-name=org.gnome.keyring.SystemPrompter
+
+separate-locales: false
+modules:
+  - name: binary
+    buildsystem: simple
+    build-options:
+      no-debuginfo: true
+    sources:
+      - type: file
+        path: com.gitbutler.app.metainfo.xml
+      - type: file
+        dest-filename: gitbutler.deb
+        path: ../../../target/debug/bundle/deb/GitButler Nightly_0.0.0_amd64.deb
+        sha256: 3a919c3ca743131af3f3faf3a9bfe1f9c08f581ec262f9ca3bd2fe1974cc1ff2
+    build-commands:
+      - ar -x gitbutler.deb
+      - tar -xf data.tar.gz
+      - install -Dm755 usr/bin/gitbutler-tauri /app/bin/gitbutler-tauri
+      - install -Dm755 usr/bin/gitbutler-git-askpass /app/bin/gitbutler-git-askpass
+      - install -Dm755 usr/bin/gitbutler-git-setsid /app/bin/gitbutler-git-setsid
+      - install -Dm644 usr/share/applications/*.desktop /app/share/applications/com.gitbutler.app.desktop
+      - desktop-file-edit --set-icon=com.gitbutler.app /app/share/applications/com.gitbutler.app.desktop
+      - |
+        for size in 32x32 128x128 256x256@2; do
+          install -Dm644 usr/share/icons/hicolor/${size}/apps/gitbutler-tauri.png /app/share/icons/hicolor/${size}/apps/com.gitbutler.app.png
+        done
+      - install -Dm644 com.gitbutler.app.metainfo.xml /app/share/metainfo/com.gitbutler.app.metainfo.xml
+      - rm -r *.deb control.tar.* data.tar.gz debian-binary usr
+
+  - name: host-spawn
+    buildsystem: simple
+    build-options:
+      no-debuginfo: true
+    build-commands:
+      - install -Dm755 host-spawn /app/bin/host-spawn
+    sources:
+      - type: file
+        url: https://github.com/1player/host-spawn/releases/download/1.5.0/host-spawn-x86_64
+        sha256: dbf67e7e111c4fe1edb0c642cbb4193064ca5b384aeb1054fc2befba6ed88b83
+        dest-filename: host-spawn
+        only-arches: [x86_64]
+      # - type: file
+      #   url: https://github.com/1player/host-spawn/releases/download/1.5.0/host-spawn-aarch64
+      #   sha256: c42c12be6cdd83e374b847bec836659fb45231215797777c9ee1c9c0ae9e3783
+      #   dest-filename: host-spawn
+      #   only-arches: [aarch64]

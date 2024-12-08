@@ -21,6 +21,7 @@
 		"build": "turbo run build --no-daemon",
 		"build:desktop": "turbo run --filter @gitbutler/desktop build --no-daemon",
 		"build:test": "pnpm exec tauri build --config crates/gitbutler-tauri/tauri.conf.test.json -- --profile dev",
+		"build:flatpak": "flatpak-builder --force-clean --user --install --install-deps-from=flathub --repo=repo builddir crates/gitbutler-tauri/flatpak/manifest.flatpak.yml",
 		"check": "turbo run check --no-daemon",
 		"tauri": "tauri",
 		"lint": "turbo run //#globallint --no-daemon",
