@@ -51,45 +51,49 @@
 	<nav class="navigation-desktop">
 		<section class="navigation-section">
 			<HeaderLink label="Download">
-				<svelte:fragment slot="dropdown">
-					{#each Object.values(jsonLinks.downloads) as download}
-						<a href={download.url} download>
-							<span>{download.label}</span>
-							<svg
-								width="16"
-								height="15"
-								viewBox="0 0 16 15"
-								fill="none"
-								xmlns="http://www.w3.org/2000/svg"
-							>
-								<path
-									d="M15 6.60504L8 13.2101M8 13.2101L1 6.60504M8 13.2101V0M1 14H15"
-									stroke="black"
-									stroke-width="1.5"
-								/>
-							</svg>
-						</a>
-					{/each}
-				</svelte:fragment>
+				{#snippet dropdown()}
+							
+						{#each Object.values(jsonLinks.downloads) as download}
+							<a href={download.url} download>
+								<span>{download.label}</span>
+								<svg
+									width="16"
+									height="15"
+									viewBox="0 0 16 15"
+									fill="none"
+									xmlns="http://www.w3.org/2000/svg"
+								>
+									<path
+										d="M15 6.60504L8 13.2101M8 13.2101L1 6.60504M8 13.2101V0M1 14H15"
+										stroke="black"
+										stroke-width="1.5"
+									/>
+								</svg>
+							</a>
+						{/each}
+					
+							{/snippet}
 			</HeaderLink>
 			<HeaderLink label="Docs" href={jsonLinks.resources.documentation.url} hrefTarget="_blank" />
 			<HeaderLink label="Community">
-				<svelte:fragment slot="dropdown">
-					{#each Object.values(jsonLinks.social) as communityLink}
-						<a href={communityLink.url} target="_blank">
-							<span>{communityLink.label}</span>
-							<svg
-								width="14"
-								height="14"
-								viewBox="0 0 14 14"
-								fill="none"
-								xmlns="http://www.w3.org/2000/svg"
-							>
-								<path d="M1 1L13 1M13 1L13 13M13 1L1 13" stroke="black" stroke-width="1.5" />
-							</svg>
-						</a>
-					{/each}
-				</svelte:fragment>
+				{#snippet dropdown()}
+							
+						{#each Object.values(jsonLinks.social) as communityLink}
+							<a href={communityLink.url} target="_blank">
+								<span>{communityLink.label}</span>
+								<svg
+									width="14"
+									height="14"
+									viewBox="0 0 14 14"
+									fill="none"
+									xmlns="http://www.w3.org/2000/svg"
+								>
+									<path d="M1 1L13 1M13 1L13 13M13 1L1 13" stroke="black" stroke-width="1.5" />
+								</svg>
+							</a>
+						{/each}
+					
+							{/snippet}
 			</HeaderLink>
 			<HeaderLink label="Blog" href={jsonLinks.resources.blog.url} />
 			<HeaderLink label="Jobs" href={jsonLinks.resources.jobs.url} />
@@ -121,11 +125,13 @@
 		{#if isMobileMenuOpen}
 			<nav class="mobile-menu" transition:fly={{ duration: 100, y: 10 }}>
 				<HeaderMobileLink label="Downloads">
-					<svelte:fragment slot="dropdown">
-						{#each Object.values(jsonLinks.downloads) as download}
-							<a href={download.url} target="_blank">{download.label}</a>
-						{/each}
-					</svelte:fragment>
+					{#snippet dropdown()}
+									
+							{#each Object.values(jsonLinks.downloads) as download}
+								<a href={download.url} target="_blank">{download.label}</a>
+							{/each}
+						
+									{/snippet}
 				</HeaderMobileLink>
 				<HeaderMobileLink
 					label="Docs"
@@ -133,11 +139,13 @@
 					hrefTarget="_blank"
 				/>
 				<HeaderMobileLink label="Community">
-					<svelte:fragment slot="dropdown">
-						{#each Object.values(jsonLinks.social) as communityLink}
-							<a href={communityLink.url} target="_blank">{communityLink.label}</a>
-						{/each}
-					</svelte:fragment>
+					{#snippet dropdown()}
+									
+							{#each Object.values(jsonLinks.social) as communityLink}
+								<a href={communityLink.url} target="_blank">{communityLink.label}</a>
+							{/each}
+						
+									{/snippet}
 				</HeaderMobileLink>
 				<HeaderMobileLink label="Blog" href={jsonLinks.resources.blog.url} />
 				<HeaderMobileLink label="Jobs" href={jsonLinks.resources.jobs.url} />

@@ -1,21 +1,34 @@
 <script lang="ts">
+	import { run } from 'svelte/legacy';
+
 	import { isMobile } from '$lib/utils/isMobile';
 	import { smoothScroll } from '$lib/utils/smoothScroll';
 	import { onMount } from 'svelte';
 
-	export let videoUrl: string;
-	export let posterUrl: string;
-	export let title: string;
-	export let description: string;
-	export let readMoreUrl: string;
+	interface Props {
+		videoUrl: string;
+		posterUrl: string;
+		title: string;
+		description: string;
+		readMoreUrl: string;
+	}
 
-	let videoElement: HTMLVideoElement;
-	let posterElement: HTMLDivElement;
-	let videoCurrentTime: number;
-	let progressScaleProcentage = 0;
-	let windowWidth = 0;
-	$: isMobileBrekpoint = isMobile(windowWidth);
-	$: isVideoPlayingOnMobile = false;
+	let {
+		videoUrl,
+		posterUrl,
+		title,
+		description,
+		readMoreUrl
+	}: Props = $props();
+
+	let videoElement: HTMLVideoElement = $state();
+	let posterElement: HTMLDivElement = $state();
+	let videoCurrentTime: number = $state();
+	let progressScaleProcentage = $state(0);
+	let windowWidth = $state(0);
+	let isMobileBrekpoint = $derived(isMobile(windowWidth));
+	let isVideoPlayingOnMobile = $state(false);
+	
 
 	function handleMouseEnter() {
 		if (isMobileBrekpoint) return;
@@ -29,10 +42,12 @@
 		videoElement.pause();
 	}
 
-	$: if (videoCurrentTime) {
-		const videoDuration = videoElement.duration;
-		progressScaleProcentage = (videoCurrentTime / videoDuration) * 100;
-	}
+	run(() => {
+		if (videoCurrentTime) {
+			const videoDuration = videoElement.duration;
+			progressScaleProcentage = (videoCurrentTime / videoDuration) * 100;
+		}
+	});
 
 	let io: IntersectionObserver;
 
@@ -74,7 +89,7 @@
 <svelte:window bind:innerWidth={windowWidth} />
 
 <div class="card-wrapper">
-	<article class="card" on:mouseenter={handleMouseEnter} on:mouseleave={handleMouseLeave}>
+	<article class="card" onmouseenter={handleMouseEnter} onmouseleave={handleMouseLeave}>
 		<div class="video-wrappper">
 			<div
 				class="progress-scale"
@@ -115,7 +130,7 @@
 				{description}
 			</p>
 
-			<a class="read-more-btn" href={readMoreUrl} on:click={smoothScroll}>
+			<a class="read-more-btn" href={readMoreUrl} onclick={smoothScroll}>
 				<span>More</span>
 
 				<svg

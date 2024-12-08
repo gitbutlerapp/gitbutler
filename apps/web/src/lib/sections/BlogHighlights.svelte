@@ -1,8 +1,7 @@
 <script lang="ts">
 	import { formatDate } from '$lib/utils/formatDate';
 
-	// decalre the type of the posts
-	interface PostI {
+	interface Post {
 		feature_image: string;
 		published_at: string;
 		title: string;
@@ -13,9 +12,13 @@
 		custom_excerpt: string;
 	}
 
-	export let posts: Array<PostI>;
+	interface Props {
+		posts: Post[];
+	}
 
-	// $: console.log(posts);
+	let { posts }: Props = $props();
+
+	
 </script>
 
 <section class="posts-preview" id="blog">

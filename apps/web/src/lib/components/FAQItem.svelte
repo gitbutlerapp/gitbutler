@@ -1,13 +1,17 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 
-	export let faqItem: {
+	interface Props {
+		faqItem: {
 		label: string;
 		content: string;
 		bgIndex: string;
 	};
+	}
 
-	let isOpen = false;
+	let { faqItem }: Props = $props();
+
+	let isOpen = $state(false);
 </script>
 
 <article class="faq-item">
@@ -16,12 +20,12 @@
 		tabindex="0"
 		class="faq-item__header"
 		style="background-image: url('/images/patterns/faq-{faqItem.bgIndex}.gif')"
-		on:keydown={(e) => {
+		onkeydown={(e) => {
 			if (e.key === 'Enter') {
 				isOpen = !isOpen;
 			}
 		}}
-		on:click={() => {
+		onclick={() => {
 			isOpen = !isOpen;
 		}}
 	>
