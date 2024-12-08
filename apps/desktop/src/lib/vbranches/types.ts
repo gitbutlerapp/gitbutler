@@ -106,11 +106,20 @@ export class SkippedFile {
 	newSizeBytes!: number;
 }
 
+export class DependecyCalculationError {
+    errorMessage!: string;
+    stackId!: string;
+    commitId!: string;
+    path!: string;
+}
+
 export class VirtualBranches {
 	@Type(() => VirtualBranch)
 	branches!: VirtualBranch[];
 	@Type(() => SkippedFile)
 	skippedFiles!: SkippedFile[];
+	@Type(() => DependecyCalculationError)
+	dependencyCalculationErrors!: DependecyCalculationError[];
 }
 
 export function isPatchSeries(item: PatchSeries | Error): item is PatchSeries {

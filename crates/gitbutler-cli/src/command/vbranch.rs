@@ -147,16 +147,17 @@ pub fn series(project: Project, stack_name: String, new_series_name: String) -> 
 
 pub fn commit(project: Project, branch_name: String, message: String) -> Result<()> {
     let stack = stack_by_name(&project, &branch_name)?;
-    let (info, skipped) = gitbutler_branch_actions::list_virtual_branches(&project)?;
+    let listing_result = gitbutler_branch_actions::list_virtual_branches(&project)?;
 
-    if !skipped.is_empty() {
+    if !listing_result.skipped_files.is_empty() {
         eprintln!(
             "{} files could not be processed (binary or large size)",
-            skipped.len()
+            listing_result.skipped_files.len()
         )
     }
 
-    let populated_branch = info
+    let populated_branch = listing_result
+        .branches
         .iter()
         .find(|b| b.id == stack.id)
         .expect("A populated branch exists for a branch we can list");
@@ -164,7 +165,8 @@ pub fn commit(project: Project, branch_name: String, message: String) -> Result<
         bail!(
             "Branch '{branch_name}' has no change to commit{hint}",
             hint = {
-                let candidate_names = info
+                let candidate_names = listing_result
+                    .branches
                     .iter()
                     .filter_map(|b| (!b.ownership.claims.is_empty()).then_some(b.name.as_str()))
                     .collect::<Vec<_>>();
