@@ -27,9 +27,9 @@
 			muted
 			playsinline
 			src="https://d3brppdydubvmf.cloudfront.net/videos/web/main-preview.mp4#t=0.1"
-		/>
+		></video>
 		<!-- svelte-ignore element_invalid_self_closing_tag -->
-		<div class="video-shadow" />
+		<div class="video-shadow"></div>
 	</div>
 
 	<div class="mobile-Ctas">

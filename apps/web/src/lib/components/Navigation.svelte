@@ -85,13 +85,10 @@
 <style>
 	.navigation {
 		display: flex;
-		flex-direction: row;
-		align-items: center;
-		justify-items: center;
 		justify-content: space-between;
 		width: 100%;
+		height: 64px;
 		padding: 0 16px;
-		margin: 0 auto;
 	}
 
 	.user__id--img {
@@ -108,40 +105,16 @@
 		gap: 12px;
 	}
 
-	.main-nav {
-		margin-top: 16px;
-		margin-right: 30px;
-	}
-
 	.main-links {
 		display: flex;
-		flex-direction: row;
 		align-items: center;
 		justify-content: space-between;
-		width: fit-content;
-	}
-
-	.link {
-		display: flex;
-		flex-direction: row;
-		align-items: center;
-		justify-content: center;
-		gap: 8px;
-		min-width: 120px;
-	}
-
-	.nav-link {
-		margin-top: 16px;
+		gap: 24px;
 	}
 
 	.nav-button {
 		display: flex;
-		align-items: center;
-		justify-content: center;
 		border-radius: var(--radius-s);
-		height: 40px;
-		width: 40px;
 		white-space: nowrap;
-		margin-right: 20px;
 	}
 </style>

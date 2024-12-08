@@ -20,9 +20,12 @@
 	<p>Loading...</p>
 {:else}
 	<div class="dashboard">
-		<div><b>Login</b>: {$user?.login}</div>
-		<div><b>Email</b>: {$user?.email}</div>
-		<div><b>Joined</b>: {$user?.created_at}</div>
-		<div><b>Supporter</b>: {$user?.supporter}</div>
+		<h1>Welcome to GitButler Cloud</h1>
 	</div>
 {/if}
+
+<style>
+	.dashboard h1 {
+		font-size: 2.5rem;
+	}
+</style>
