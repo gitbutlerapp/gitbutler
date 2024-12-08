@@ -118,16 +118,16 @@
 						<div>{event.time}</div>
 						<pre>{event.message}</pre>
 						<div>{event.trailers}</div>
-						{#if Object.keys(event.files).length > 0}
+						{#if event.files && Object.keys(event.files).length > 0}
 							<h3>Branches</h3>
 							{#each Object.keys(event.files) as branch}
-								{#if event.branch_data.branches[branch]}
+								{#if event.branch_data?.branches[branch]}
 									<h3>Branch {event.branch_data.branches[branch].name}</h3>
 									<button type="button" onclick={() => createPatchStack(branch, event.sha)}
 										>Create Patch Stack</button
 									>
-									{#each Object.keys(event.files[branch]) as file}
-										<li>{file} ({event.files[branch][file]})</li>
+									{#each Object.keys(event.files?.[branch]) as file}
+										<li>{file} ({event.files?.[branch][file]})</li>
 									{/each}
 								{/if}
 							{/each}

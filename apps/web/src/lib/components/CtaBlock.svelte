@@ -7,7 +7,7 @@
 	import { quadIn } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
 
-	let videoElement: HTMLVideoElement = $state();
+	let videoElement = $state<HTMLVideoElement>();
 	interface Props {
 		// other
 		secondButton?: {
@@ -21,7 +21,7 @@
 	let { secondButton = null, lightTheme = false, showVideoDemo = true }: Props = $props();
 
 	let showSelect = $state(false);
-	let selectElement: HTMLElement = $state();
+	let selectElement = $state<HTMLElement>();
 
 	function handleShowSelect(e: MouseEvent | KeyboardEvent) {
 		e.stopPropagation();
@@ -59,7 +59,7 @@
 				bind:this={selectElement}
 				transition:fly={{ duration: 50, easing: quadIn, y: 10, x: 0 }}
 				onintrostart={() => {
-					selectElement.focus();
+					selectElement?.focus();
 				}}
 				use:clickOutside={{ handler: handleClickOutside }}
 			>
@@ -203,11 +203,13 @@
 					target="_blank"
 					class="yt-button-preview"
 					onmouseenter={() => {
-						videoElement.play();
+						videoElement?.play();
 					}}
 					onmouseleave={() => {
-						videoElement.pause();
-						videoElement.currentTime = 0;
+						videoElement?.pause();
+						if (videoElement) {
+							videoElement.currentTime = 0;
+						}
 					}}
 				>
 					<img class="yt-button-preview__logo-btn" src="/images/video-thumb/yt-logo.svg" alt="" />

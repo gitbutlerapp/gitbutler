@@ -14,11 +14,11 @@
 
 	let { tweet }: Props = $props();
 
-	let textElement: HTMLParagraphElement = $state();
+	let textElement = $state<HTMLParagraphElement>();
 
 	onMount(() => {
-		const text = textElement.innerText;
-		const textArray = text.split(' ');
+		const text = textElement?.innerText;
+		const textArray = text?.split(' ');
 
 		function handleLink(word: string) {
 			const isHandle = word.startsWith('@') || word.startsWith('#');
@@ -30,9 +30,11 @@
 			return word;
 		}
 
-		const textWithLinks = textArray.map((word) => handleLink(word)).join(' ');
+		const textWithLinks = textArray?.map((word) => handleLink(word)).join(' ');
 
-		textElement.innerHTML = textWithLinks;
+		if (textElement) {
+			textElement.innerHTML = textWithLinks ?? '';
+		}
 	});
 </script>
 
