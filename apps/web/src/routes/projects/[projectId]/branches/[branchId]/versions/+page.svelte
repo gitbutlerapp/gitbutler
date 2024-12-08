@@ -49,7 +49,7 @@
 </script>
 
 {#if state === 'loading'}
-	<p>Loading...</p>
+	<p></p>
 {:else if state === 'unauthorized'}
 	<p>Unauthorized</p>
 {:else}

@@ -14,7 +14,6 @@
 	}
 
 	body {
-		font-family: var(--font-family-default);
 		line-height: inherit;
 		padding: 0;
 		margin: 0;
