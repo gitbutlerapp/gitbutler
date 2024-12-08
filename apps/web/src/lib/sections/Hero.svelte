@@ -19,7 +19,6 @@
 	</div>
 
 	<div class="preview">
-		<!-- svelte-ignore element_invalid_self_closing_tag -->
 		<video
 			class="video"
 			autoplay
@@ -28,7 +27,6 @@
 			playsinline
 			src="https://d3brppdydubvmf.cloudfront.net/videos/web/main-preview.mp4#t=0.1"
 		></video>
-		<!-- svelte-ignore element_invalid_self_closing_tag -->
 		<div class="video-shadow"></div>
 	</div>
 
