@@ -110,7 +110,7 @@
 				href={jsonLinks.social.discord.url}
 				hrefTarget="_blank"
 			/>
-			<HeaderLink label={$token ? 'Log Out' : 'Log In'} hideTextOnTablet href="/log" />
+			<HeaderLink label={$token ? 'Log Out' : 'Log In'} href="/log" />
 		</section>
 	</nav>
 
