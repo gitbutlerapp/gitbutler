@@ -4,16 +4,18 @@ export interface TimelineEntry {
 	time: string;
 	message: string;
 	trailers?: string;
-	// TODO: branch_data
-	// vb_blob = lookup(commit.tree['virtual_branches.toml'][:oid]).content
-	// PerfectTOML.parse(vb_blob)
+	// TODO: branch_data and files are best guesses
 	branch_data?: {
 		branches: {
-			[key: string]: unknown;
+			[key: string]: {
+				name: string;
+			};
 		};
 	};
 	files?: {
-		[key: string]: PatchFile;
+		[key: string]: {
+			[key: string]: PatchFile;
+		};
 	};
 }
 
