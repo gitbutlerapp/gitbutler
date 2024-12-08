@@ -1,5 +1,5 @@
-pub mod file_ownership;
-pub mod ownership;
+mod file_ownership;
+mod ownership;
 
 use anyhow::Result;
 use gitbutler_command_context::CommandContext;

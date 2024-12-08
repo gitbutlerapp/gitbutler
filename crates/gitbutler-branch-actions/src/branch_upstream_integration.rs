@@ -1083,7 +1083,7 @@ mod test {
         fn hard_reset_to_externally_amended_commit() {
             let test_repository = TestingRepository::open();
 
-            let base_commit = dbg!(test_repository.commit_tree(None, &[]));
+            let base_commit = test_repository.commit_tree(None, &[]);
             let local_a = test_repository.commit_tree_with_message(
                 Some(&base_commit),
                 "A",
@@ -1145,7 +1145,7 @@ mod test {
         fn hard_reset_to_externally_removed_commit() {
             let test_repository = TestingRepository::open();
 
-            let base_commit = dbg!(test_repository.commit_tree(None, &[]));
+            let base_commit = test_repository.commit_tree(None, &[]);
             let local_a = test_repository.commit_tree_with_message(
                 Some(&base_commit),
                 "A",
@@ -1212,7 +1212,7 @@ mod test {
         fn hard_reset_to_externally_amended_branch() {
             let test_repository = TestingRepository::open();
 
-            let base_commit = dbg!(test_repository.commit_tree(None, &[]));
+            let base_commit = test_repository.commit_tree(None, &[]);
             let local_a = test_repository.commit_tree_with_message(
                 Some(&base_commit),
                 "A",

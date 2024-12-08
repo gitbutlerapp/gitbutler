@@ -787,7 +787,6 @@ fn insert_hunk_ranges(
 }
 
 #[cfg(test)]
-
 mod tests {
     use super::*;
 
