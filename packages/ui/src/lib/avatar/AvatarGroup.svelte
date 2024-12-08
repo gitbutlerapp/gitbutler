@@ -5,6 +5,7 @@
 			name: string;
 		}[];
 		maxAvatars?: number;
+		size?: 'small' | 'medium' | 'large';
 	}
 </script>
 
@@ -12,7 +13,7 @@
 	import Avatar from './Avatar.svelte';
 	import Tooltip from '$lib/Tooltip.svelte';
 
-	const { avatars, maxAvatars = 3 }: Props = $props();
+	const { avatars, maxAvatars = 3, size = 'medium' }: Props = $props();
 
 	const maxTooltipLength = 10;
 	const leftAvatars = $derived(avatars.length - maxAvatars);
@@ -39,7 +40,7 @@
 <div class="avatar-grouping">
 	{#each avatars as avatar, i}
 		{#if i < maxAvatars}
-			<Avatar size="medium" srcUrl={avatar.srcUrl} tooltip={avatar.name} />
+			<Avatar {size} srcUrl={avatar.srcUrl} tooltip={avatar.name} />
 		{/if}
 	{/each}
 	{#if avatars.length > maxAvatars}
