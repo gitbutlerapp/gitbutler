@@ -1,7 +1,10 @@
-use gitbutler_settings::AppSettings;
+use crate::error::Error;
+use gitbutler_settings::{AppSettings, AppSettingsUpdateRequest};
 use std::sync::Arc;
+use tauri::State;
 use tauri::Wry;
 use tauri_plugin_store::Store;
+use tracing::instrument;
 
 pub struct SettingsStore {
     store: Arc<Store<Wry>>,
@@ -33,4 +36,23 @@ impl SettingsStore {
             .get(value)
             .and_then(|v| v.as_str().map(|s| s.to_string()))
     }
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub fn list_app_settings(app: State<'_, super::App>) -> Result<AppSettings, Error> {
+    let data_dir = &app.app_data_dir;
+    AppSettings::try_from_path(data_dir).map_err(|err| err.into())
+}
+
+#[tauri::command(async)]
+#[instrument(skip(app), err(Debug))]
+pub fn update_app_settings(
+    app: State<'_, super::App>,
+    request: AppSettingsUpdateRequest,
+) -> Result<(), Error> {
+    let data_dir = &app.app_data_dir;
+    let mut settings = AppSettings::try_from_path(data_dir)?;
+    settings.update(data_dir, request)?;
+    Ok(())
 }
