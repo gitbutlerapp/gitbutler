@@ -2,9 +2,7 @@
 	import * as jsonLinks from '$lib/data/links.json';
 	import { onMount } from 'svelte';
 
-	// HANDLE VIDEO
-	let videoElement: HTMLVideoElement;
-
+	let videoElement = $state<HTMLVideoElement>();
 	let io: IntersectionObserver;
 
 	onMount(() => {
@@ -17,16 +15,16 @@
 		io = new IntersectionObserver((entries) => {
 			entries.forEach((entry) => {
 				if (entry.isIntersecting) {
-					// console.log('play');
-					videoElement.play();
+					videoElement?.play();
 				} else {
-					// console.log('pause');
-					videoElement.pause();
+					videoElement?.pause();
 				}
 			});
 		}, ioOptions);
 
-		io.observe(videoElement);
+		if (videoElement) {
+			io.observe(videoElement);
+		}
 
 		return () => {
 			io.disconnect();

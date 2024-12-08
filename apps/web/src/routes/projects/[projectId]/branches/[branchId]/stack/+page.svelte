@@ -1,48 +1,50 @@
 <script lang="ts">
+	import { getContext } from '@gitbutler/shared/context';
+	import { HttpClient } from '@gitbutler/shared/httpClient';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
 	import { onMount } from 'svelte';
-	import { env } from '$env/dynamic/public';
+
+	const httpClient = getContext(HttpClient);
 
 	dayjs.extend(relativeTime);
 
-	let state = 'loading';
-	let stackData: any = {};
+	let pageState = $state('loading');
+	let stackData: any = $state({});
 
-	export let data: any;
+	interface Props {
+		data: any;
+	}
 
-	onMount(() => {
+	let { data }: Props = $props();
+
+	onMount(async () => {
 		let key = localStorage.getItem('gb_access_token');
 		let projectId = data.projectId;
 		let branchId = data.branchId;
 
 		if (key) {
-			fetch(env.PUBLIC_APP_HOST + 'api/patch_stack/' + projectId + '/' + branchId, {
-				method: 'GET',
+			const stackData = await httpClient.get('patch_stack/' + projectId + '/' + branchId, {
 				headers: {
 					'X-AUTH-TOKEN': key || ''
 				}
-			})
-				.then(async (response) => await response.json())
-				.then((data) => {
-					console.log(data);
-					stackData = data;
-					state = 'loaded';
-					let dtime = document.querySelectorAll('.dtime');
-					dtime.forEach((element) => {
-						console.log(element.innerHTML);
-						element.innerHTML = dayjs(element.innerHTML).fromNow();
-					});
-				});
+			});
+			console.log(stackData);
+			pageState = 'loaded';
+			let dtime = document.querySelectorAll('.dtime');
+			dtime.forEach((element) => {
+				console.log(element.innerHTML);
+				element.innerHTML = dayjs(element.innerHTML).fromNow();
+			});
 		} else {
-			state = 'unauthorized';
+			pageState = 'unauthorized';
 		}
 	});
 </script>
 
-{#if state === 'loading'}
+{#if pageState === 'loading'}
 	<p>Loading...</p>
-{:else if state === 'unauthorized'}
+{:else if pageState === 'unauthorized'}
 	<p>Unauthorized</p>
 {:else}
 	<div><a href="/projects/{data.projectId}">project</a></div>

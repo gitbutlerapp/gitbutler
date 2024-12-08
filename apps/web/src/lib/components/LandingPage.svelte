@@ -17,7 +17,7 @@
 	const GHOST_KEY = '80bbdca8b933f3d98780c7cc1b';
 	const GHOST_VERSION = 'v5.0';
 
-	let data: any;
+	let data: any = $state();
 	onMount(async () => {
 		const { postsJson } = await loadBlog();
 		data = { postsJson };
@@ -32,8 +32,6 @@
 		const postsJson = await api.posts.browse({ limit: 3, include: 'authors' });
 		return { postsJson };
 	}
-
-	import '../../styles/styles.css';
 
 	onMount(() => {
 		const os = getOS();
