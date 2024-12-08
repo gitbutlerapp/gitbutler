@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 
-	export let tweet: {
+	interface Props {
+		tweet: {
 		authorName: string;
 		authorHandle: string;
 		authorAvatar: string;
@@ -9,8 +10,11 @@
 		date: string;
 		link: string;
 	};
+	}
 
-	let textElement: HTMLParagraphElement;
+	let { tweet }: Props = $props();
+
+	let textElement: HTMLParagraphElement = $state();
 
 	onMount(() => {
 		const text = textElement.innerText;

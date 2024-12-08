@@ -1,11 +1,23 @@
 <script lang="ts">
 	import { slide } from 'svelte/transition';
 
-	export let label = 'Label';
-	export let icon: 'github' | 'discord' | undefined = undefined;
-	export let hideTextOnTablet = false;
-	export let href = '#';
-	export let hrefTarget = '_self';
+	interface Props {
+		label?: string;
+		icon?: 'github' | 'discord' | undefined;
+		hideTextOnTablet?: boolean;
+		href?: string;
+		hrefTarget?: string;
+		dropdown?: import('svelte').Snippet;
+	}
+
+	let {
+		label = 'Label',
+		icon = undefined,
+		hideTextOnTablet = false,
+		href = '#',
+		hrefTarget = '_self',
+		dropdown
+	}: Props = $props();
 
 	const icons = {
 		github:
@@ -14,15 +26,15 @@
 			'M16.9419 3.75623C15.6279 3.16091 14.2407 2.73857 12.8158 2.5C12.6208 2.84494 12.4443 3.19983 12.2872 3.5632C10.7694 3.33686 9.22584 3.33686 7.70801 3.5632C7.55079 3.19987 7.37437 2.84498 7.17946 2.5C5.75361 2.74059 4.3655 3.16393 3.05016 3.75934C0.43887 7.5825 -0.269009 11.3107 0.0849305 14.986C1.61417 16.1041 3.32582 16.9544 5.14548 17.5C5.55522 16.9547 5.91778 16.3761 6.22933 15.7705C5.63759 15.5518 5.06646 15.282 4.52255 14.9642C4.6657 14.8615 4.8057 14.7556 4.94099 14.6529C6.52364 15.3894 8.25103 15.7713 9.99997 15.7713C11.7489 15.7713 13.4763 15.3894 15.0589 14.6529C15.1958 14.7634 15.3358 14.8692 15.4774 14.9642C14.9324 15.2825 14.3602 15.5529 13.7675 15.7721C14.0786 16.3774 14.4412 16.9555 14.8513 17.5C16.6725 16.9566 18.3855 16.1067 19.915 14.9875C20.3303 10.7254 19.2055 7.03144 16.9419 3.75623ZM6.67765 12.7257C5.69134 12.7257 4.87649 11.84 4.87649 10.7503C4.87649 9.66065 5.66302 8.76712 6.6745 8.76712C7.68599 8.76712 8.49454 9.66065 8.47724 10.7503C8.45993 11.84 7.68284 12.7257 6.67765 12.7257ZM13.3223 12.7257C12.3344 12.7257 11.5227 11.84 11.5227 10.7503C11.5227 9.66065 12.3092 8.76712 13.3223 8.76712C14.3353 8.76712 15.1376 9.66065 15.1203 10.7503C15.103 11.84 14.3275 12.7257 13.3223 12.7257Z'
 	};
 
-	let isOpen = false;
+	let isOpen = $state(false);
 
 	function handleClick() {
 		isOpen = !isOpen;
 	}
 </script>
 
-{#if $$slots['dropdown']}
-	<div class="link" role="button" tabindex="0" on:click={handleClick} on:keydown={handleClick}>
+{#if dropdown}
+	<div class="link" role="button" tabindex="0" onclick={handleClick} onkeydown={handleClick}>
 		<span>{label}</span>
 		<svg
 			class="dropdown-icon"
@@ -47,7 +59,7 @@
 	</div>
 	{#if isOpen}
 		<div class="dropdown-container" transition:slide={{ duration: 150 }}>
-			<slot name="dropdown" />
+			{@render dropdown?.()}
 		</div>
 	{/if}
 {:else}

@@ -1,214 +1,151 @@
 <script lang="ts">
 	import { marked } from 'marked';
-	import { onMount } from 'svelte';
+	import type { Build, Release } from '$lib/types/releases';
 
-	let loading = $state(true);
-	let releases: any[] = $state([]);
-	let nightlies: any[] = $state([]);
-	let latest: any = $state(null);
-	let build: any = {};
+	interface Props {
+		data: {
+			releases: Release[];
+			nightlies: Release[];
+			latestRelease: Release;
+			latestReleaseBuilds: { [key: string]: Build };
+		};
+	}
 
-	onMount(() => {
-		fetch('https://gitbutler.com/api/downloads?limit=4&channel=release')
-			.then(async (response) => await response.json())
-			.then((data) => {
-				releases = data.filter((release: any) => release.channel === 'release');
-				releases.forEach((release: any) => {
-					release.builds = release.builds.filter((build: any) => !build.url.endsWith('.zip'));
-					// and deduplicate by url
-					release.builds = release.builds.filter(
-						(build: any, index: number, self: any) =>
-							self.findIndex((b: any) => b.url === build.url) === index
-					);
-					// and sort by platform, reverse order
-					release.builds.sort((a: any, b: any) => b.platform.localeCompare(a.platform));
-				});
+	const { data }: Props = $props();
 
-				latest = releases[0];
-				console.log(latest);
-
-				// find mac builds
-				build['darwin_x86_64'] = latest.builds.find(
-					(build: any) => build.os === 'darwin' && build.arch === 'x86_64'
-				);
-				build['darwin_aarch64'] = latest.builds.find(
-					(build: any) => build.os === 'darwin' && build.arch === 'aarch64'
-				);
-
-				// find windows builds
-				build['windows_x86_64'] = latest.builds.find(
-					(build: any) => build.os === 'windows' && build.arch === 'x86_64'
-				);
-
-				// find linux builds
-				build['linux_appimage'] = latest.builds.find(
-					(build: any) => build.os === 'linux' && build.file.includes('AppImage')
-				);
-				build['linux_deb'] = latest.builds.find(
-					(build: any) => build.os === 'linux' && build.file.includes('deb')
-				);
-				build['linux_rpm'] = latest.builds.find(
-					(build: any) => build.os === 'linux' && build.file.includes('rpm')
-				);
-
-				loading = false;
-			});
-
-		fetch('https://gitbutler.com/api/downloads?limit=9&channel=nightly')
-			.then(async (response) => await response.json())
-			.then((data) => {
-				nightlies = data.filter((release: any) => release.channel === 'nightly');
-				// filter out any build urls that end in zip
-				nightlies.forEach((release: any) => {
-					release.builds = release.builds.filter((build: any) => !build.url.endsWith('.zip'));
-					// and deduplicate by url
-					release.builds = release.builds.filter(
-						(build: any, index: number, self: any) =>
-							self.findIndex((b: any) => b.url === build.url) === index
-					);
-					// and sort by platform, reverse order
-					release.builds.sort((a: any, b: any) => b.platform.localeCompare(a.platform));
-				});
-
-				loading = false;
-			});
-	});
+	const { nightlies, releases, latestRelease, latestReleaseBuilds } = data;
 </script>
 
 <svelte:head>
 	<title>GitButler | Downloads</title>
 </svelte:head>
 
-{#if loading}
-	<p>Loading...</p>
-{:else}
-	<div class="downloads">
-		<h1>Latest Release</h1>
-		<div class="current-release">
-			<div class="current-release__group">
-				<div>
-					<img src="/images/icon.png" width="200px" alt="GitButler" />
-				</div>
-				<div class="current-builds">
-					<div class="version">
-						<div class="current__version">{latest.version}</div>
-						<div class="current__version-date">{latest.released_at.substring(0, 10)}</div>
-					</div>
-					<div class="current-builds-group">
-						<div>
-							<div class="os windows">
-								<div class="os__name">
-									<img
-										class="os-select__section-os-icon"
-										src="/images/os-icons/windows-small-logo.svg"
-										alt=""
-									/>
-									Windows
-								</div>
-								<div class="os__downloads">
-									{#if build['windows_x86_64']}
-										<a href={build['windows_x86_64'].url}>Download Windows (MSI)</a>
-									{/if}
-								</div>
-							</div>
-							<div class="os apple">
-								<div class="os__name">
-									<img
-										class="os-select__section-os-icon"
-										src="/images/os-icons/apple-small-logo.svg"
-										alt=""
-									/>
-									macOS
-								</div>
-								<div class="os__downloads">
-									{#if build['darwin_x86_64']}
-										<a href={build['darwin_x86_64'].url}>Download Intel</a>
-									{/if}
-									{#if build['darwin_aarch64']}
-										<a href={build['darwin_aarch64'].url}>Download Apple Silicon</a>
-									{/if}
-								</div>
-							</div>
-						</div>
-						<div>
-							<div class="os linux">
-								<div class="os__name">
-									<img
-										class="os-select__section-os-icon"
-										src="/images/os-icons/linux-small-logo.svg"
-										alt=""
-									/>
-									Linux
-								</div>
-								<div class="os__downloads">
-									{#if build['linux_appimage']}
-										<a href={build['linux_appimage'].url}>Download AppImage</a>
-									{/if}
-									{#if build['linux_deb']}
-										<a href={build['linux_deb'].url}>Download Deb</a>
-									{/if}
-									{#if build['linux_rpm']}
-										<a href={build['linux_rpm'].url}>Download RPM</a>
-									{/if}
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
+<div class="downloads">
+	<h1>Latest Release</h1>
+	<div class="current-release">
+		<div class="current-release__group">
+			<div>
+				<img src="/images/icon.png" width="200px" alt="GitButler" />
 			</div>
-		</div>
-
-		<h1>All Recent Releases</h1>
-		<div class="releases">
-			<div class="release-lane">
-				<h2>Stable Releases</h2>
-				{#each releases as release}
-					<div class="release">
-						<div class="release__version">
-							Version: <b>{release.version}</b>
-							<span class="release__sha">{release.sha.substring(0, 6)}</span>
-						</div>
-						<div>Released: {new Date(release.released_at).toLocaleString()}</div>
-						{#if release.notes}
-							<div class="release__notes dotted">{@html marked(release.notes)}</div>
-						{/if}
-						<div class="builds">
-							{#each release.builds as build}
-								<li><a class="linked" href={build.url}>{build.platform}</a></li>
-							{/each}
-						</div>
-					</div>
-					<hr />
-				{/each}
-			</div>
-			<div class="release-lane">
-				<h2>Nightly Releases</h2>
-				<div class="nightly-warning">
-					These are nightly builds that are automatically built from the master branch each night
-					and may be unstable.
+			<div class="current-builds">
+				<div class="version">
+					<div class="current__version">{latestRelease?.version}</div>
+					<div class="current__version-date">{latestRelease?.released_at.substring(0, 10)}</div>
 				</div>
-				{#each nightlies as release}
-					<div class="release">
-						<div class="release__version">
-							Version: <b>{release.version}</b>
-							<span class="release__sha">{release.sha.substring(0, 6)}</span>
+				<div class="current-builds-group">
+					<div>
+						<div class="os windows">
+							<div class="os__name">
+								<img
+									class="os-select__section-os-icon"
+									src="/images/os-icons/windows-small-logo.svg"
+									alt=""
+								/>
+								Windows
+							</div>
+							<div class="os__downloads">
+								{#if latestReleaseBuilds?.['windows_x86_64']}
+									<a href={latestReleaseBuilds['windows_x86_64'].url}>Download Windows (MSI)</a>
+								{/if}
+							</div>
 						</div>
-						<div>Released: {new Date(release.released_at).toLocaleString()}</div>
-						{#if release.notes}
-							<div class="release__notes dotted">{@html marked(release.notes)}</div>
-						{/if}
-						<div class="builds">
-							{#each release.builds as build}
-								<li><a class="linked" href={build.url}>{build.platform}</a></li>
-							{/each}
+						<div class="os apple">
+							<div class="os__name">
+								<img
+									class="os-select__section-os-icon"
+									src="/images/os-icons/apple-small-logo.svg"
+									alt=""
+								/>
+								macOS
+							</div>
+							<div class="os__downloads">
+								{#if latestReleaseBuilds?.['darwin_x86_64']}
+									<a href={latestReleaseBuilds['darwin_x86_64'].url}>Download Intel</a>
+								{/if}
+								{#if latestReleaseBuilds?.['darwin_aarch64']}
+									<a href={latestReleaseBuilds['darwin_aarch64'].url}>Download Apple Silicon</a>
+								{/if}
+							</div>
 						</div>
 					</div>
-					<hr />
-				{/each}
+					<div>
+						<div class="os linux">
+							<div class="os__name">
+								<img
+									class="os-select__section-os-icon"
+									src="/images/os-icons/linux-small-logo.svg"
+									alt=""
+								/>
+								Linux
+							</div>
+							<div class="os__downloads">
+								{#if latestReleaseBuilds?.['linux_appimage']}
+									<a href={latestReleaseBuilds['linux_appimage'].url}>Download AppImage</a>
+								{/if}
+								{#if latestReleaseBuilds?.['linux_deb']}
+									<a href={latestReleaseBuilds['linux_deb'].url}>Download Deb</a>
+								{/if}
+								{#if latestReleaseBuilds?.['linux_rpm']}
+									<a href={latestReleaseBuilds['linux_rpm'].url}>Download RPM</a>
+								{/if}
+							</div>
+						</div>
+					</div>
+				</div>
 			</div>
 		</div>
 	</div>
-{/if}
+
+	<h1>All Recent Releases</h1>
+	<div class="releases">
+		<div class="release-lane">
+			<h2>Stable Releases</h2>
+			{#each releases as release}
+				<div class="release">
+					<div class="release__version">
+						Version: <b>{release.version}</b>
+						<span class="release__sha">{release.sha.substring(0, 6)}</span>
+					</div>
+					<div>Released: {new Date(release.released_at).toLocaleString()}</div>
+					{#if release.notes}
+						<div class="release__notes dotted">{@html marked(release.notes)}</div>
+					{/if}
+					<div class="builds">
+						{#each release.builds as build}
+							<li><a class="linked" href={build.url}>{build.platform}</a></li>
+						{/each}
+					</div>
+				</div>
+				<hr />
+			{/each}
+		</div>
+		<div class="release-lane">
+			<h2>Nightly Releases</h2>
+			<div class="nightly-warning">
+				These are nightly builds that are automatically built from the master branch each night and
+				may be unstable.
+			</div>
+			{#each nightlies as release}
+				<div class="release">
+					<div class="release__version">
+						Version: <b>{release.version}</b>
+						<span class="release__sha">{release.sha.substring(0, 6)}</span>
+					</div>
+					<div>Released: {new Date(release.released_at).toLocaleString()}</div>
+					{#if release.notes}
+						<div class="release__notes dotted">{@html marked(release.notes)}</div>
+					{/if}
+					<div class="builds">
+						{#each release.builds as build}
+							<li><a class="linked" href={build.url}>{build.platform}</a></li>
+						{/each}
+					</div>
+				</div>
+				<hr />
+			{/each}
+		</div>
+	</div>
+</div>
 
 <style>
 	h1 {

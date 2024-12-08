@@ -1,4 +1,6 @@
+import type { PageLoad } from './$types';
+
 // eslint-disable-next-line func-style
-export const load = ({ params }) => {
+export const load: PageLoad = ({ params }) => {
 	return { projectId: params.projectId };
 };
