@@ -62,8 +62,11 @@ export async function guardReadableTrue(target: Readable<boolean>): Promise<bool
 	return await new Promise((resolve) => {
 		const unsubscribe = target.subscribe((value) => {
 			if (value) {
-				resolve(true);
-				unsubscribe();
+				resolve(value);
+
+				setTimeout(() => {
+					unsubscribe();
+				}, 0);
 			}
 		});
 	});
