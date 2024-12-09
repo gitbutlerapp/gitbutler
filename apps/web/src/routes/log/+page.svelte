@@ -9,13 +9,9 @@
 	function login() {
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.origin}`;
 	}
-	function logout() {
-		authService.clearToken();
-		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
-	}
 
 	if ($token) {
-		logout();
+		window.location.href = '/';
 	} else {
 		login();
 	}
