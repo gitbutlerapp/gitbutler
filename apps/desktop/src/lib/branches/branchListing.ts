@@ -9,6 +9,7 @@ import {
 	type SidebarEntrySubject
 } from '$lib/navigation/types';
 import { debouncedDerive } from '$lib/utils/debounce';
+import { msSinceDaysAgo } from '$lib/utils/time';
 import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 import { Transform, Type, plainToInstance } from 'class-transformer';
 import Fuse from 'fuse.js';
@@ -121,7 +122,6 @@ export class BranchListingService {
 	}
 }
 
-const oneDay = 1000 * 60 * 60 * 24;
 export type GroupedSidebarEntries = Record<
 	'applied' | 'today' | 'yesterday' | 'lastWeek' | 'older',
 	SidebarEntrySubject[]
@@ -283,11 +283,11 @@ export class CombinedBranchListingService {
 
 			if (getEntryWorkspaceStatus(b)) {
 				grouped.applied.push(b);
-			} else if (msSinceLastCommit < oneDay) {
+			} else if (msSinceLastCommit < msSinceDaysAgo(1)) {
 				grouped.today.push(b);
-			} else if (msSinceLastCommit < 2 * oneDay) {
+			} else if (msSinceLastCommit < msSinceDaysAgo(2)) {
 				grouped.yesterday.push(b);
-			} else if (msSinceLastCommit < 7 * oneDay) {
+			} else if (msSinceLastCommit < msSinceDaysAgo(7)) {
 				grouped.lastWeek.push(b);
 			} else {
 				grouped.older.push(b);
