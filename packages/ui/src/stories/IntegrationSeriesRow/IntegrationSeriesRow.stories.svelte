@@ -1,7 +1,8 @@
-<script lang="ts">
+<script module lang="ts">
 	import IntegrationSeriesListItem, {
 		type Props as SeriesProps
 	} from '$lib/IntegrationSeriesRow.svelte';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const items = [
 		{
@@ -29,20 +30,14 @@
 			]
 		}
 	] as SeriesProps[];
+
+	const { Story } = defineMeta({
+		title: 'List items / Integration Series Row'
+	});
 </script>
 
-<div class="wrapper">
+<Story name="Variants">
 	{#each items as item}
 		<IntegrationSeriesListItem {...item} />
 	{/each}
-</div>
-
-<style>
-	.wrapper {
-		display: flex;
-		flex-direction: column;
-		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
-		overflow: hidden;
-	}
-</style>
+</Story>
