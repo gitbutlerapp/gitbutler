@@ -401,10 +401,13 @@ impl RepositoryExt for git2::Repository {
                     gpg_program = "ssh-keygen".to_string();
                 }
 
-                let shell = std::env::var("SHELL");
-                let mut cmd = std::process::Command::new(shell.unwrap_or("sh".to_string()));
-                cmd.arg("-c");
-                let gpg_cmd = format!("{} -Y sign -n git -f", gpg_program);
+                let mut cmd = std::process::Command::new(gpg_program);
+                cmd.args(["-Y", "sign", "-n", "git", "-f"]);
+
+                let buffer_file_to_sign_path_str = buffer_file_to_sign_path
+                    .to_str()
+                    .ok_or_else(|| anyhow::anyhow!("Failed to convert path to string"))?
+                    .to_string();
 
                 #[cfg(windows)]
                 cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
@@ -427,31 +430,36 @@ impl RepositoryExt for git2::Repository {
 
                     let key_file_path = key_storage.into_temp_path();
 
-                    cmd.arg(format!(
-                        "{} {} {} {}",
-                        gpg_cmd,
-                        &key_file_path.to_str().unwrap(),
+                    cmd.args([
+                        key_file_path.to_str().unwrap(),
                         "-U",
-                        buffer_file_to_sign_path.to_str().unwrap()
-                    ));
-                    cmd.stderr(Stdio::piped());
-                    cmd.stdout(Stdio::piped());
-                    cmd.stdin(Stdio::null());
+                        buffer_file_to_sign_path.to_str().unwrap(),
+                    ]);
 
-                    let child = cmd.spawn()?;
+                    let mut gpg_cmd: std::process::Command =
+                        gix::command::prepare(format!("{:?}", cmd))
+                            .with_shell()
+                            .into();
+
+                    gpg_cmd.stderr(Stdio::piped());
+                    gpg_cmd.stdout(Stdio::piped());
+                    gpg_cmd.stdin(Stdio::null());
+
+                    let child = gpg_cmd.spawn()?;
                     output = child.wait_with_output()?;
                 } else {
-                    cmd.arg(format!(
-                        "{} {} {}",
-                        gpg_cmd,
-                        signing_key,
-                        buffer_file_to_sign_path.to_str().unwrap()
-                    ));
-                    cmd.stderr(Stdio::piped());
-                    cmd.stdout(Stdio::piped());
-                    cmd.stdin(Stdio::null());
+                    cmd.args([signing_key, buffer_file_to_sign_path_str]);
 
-                    let child = cmd.spawn()?;
+                    let mut gpg_cmd: std::process::Command =
+                        gix::command::prepare(format!("{:?}", cmd))
+                            .with_shell()
+                            .into();
+
+                    gpg_cmd.stderr(Stdio::piped());
+                    gpg_cmd.stdout(Stdio::piped());
+                    gpg_cmd.stdin(Stdio::null());
+
+                    let child = gpg_cmd.spawn()?;
                     output = child.wait_with_output()?;
                 }
 
