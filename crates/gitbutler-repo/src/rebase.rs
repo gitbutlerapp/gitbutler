@@ -242,18 +242,11 @@ fn extract_conflicted_files(
     );
     let (mut ancestor_entries, mut our_entries, mut their_entries) =
         (Vec::new(), Vec::new(), Vec::new());
-    let conflicting_entries = index.entries().iter().filter_map(|e| {
-        let stage = e.stage();
-        if stage == gix::index::entry::Stage::Unconflicted {
-            None
-        } else {
-            Some((stage, e))
-        }
-    });
-    for (stage, entry) in conflicting_entries {
+    for entry in index.entries() {
+        let stage = entry.stage();
         let storage = match stage {
             Stage::Unconflicted => {
-                unreachable!("BUG: filtered above to not contain unconflicted entries")
+                continue;
             }
             Stage::Base => &mut ancestor_entries,
             Stage::Ours => &mut our_entries,
