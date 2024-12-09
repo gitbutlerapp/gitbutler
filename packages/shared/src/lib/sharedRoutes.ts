@@ -5,6 +5,7 @@ export interface RoutesService {
 	repositories(): string;
 	repository(repositoryId: string): string;
 	cloudBranch(repositoryId: string, cloudBranchId: string): string;
+	patch(repositoryId: string, cloudBranchId: string, changeId: string): string;
 }
 
 export class WebRoutesService implements RoutesService {
@@ -23,6 +24,12 @@ export class WebRoutesService implements RoutesService {
 
 	cloudBranch(repositoryId: string, cloudBranchId: string): string {
 		return this.externalizePath(`/repositories/${repositoryId}/branches/${cloudBranchId}`);
+	}
+
+	patch(repositoryId: string, cloudBranchId: string, changeId: string): string {
+		return this.externalizePath(
+			`/repositories/${repositoryId}/branches/${cloudBranchId}/patches/${changeId}`
+		);
 	}
 
 	private externalizePath(path: string) {
@@ -55,6 +62,14 @@ export class DesktopRoutesService implements RoutesService {
 		const projectId = get(this.currentProjectId);
 		if (projectId) {
 			return `/${projectId}/series/branches/${cloudBranchId}`;
+		}
+		return this.webRoutesService.cloudBranch(repositoryId, cloudBranchId);
+	}
+
+	patch(repositoryId: string, cloudBranchId: string, changeId: string): string {
+		const projectId = get(this.currentProjectId);
+		if (projectId) {
+			return `/${projectId}/series/branches/${cloudBranchId}/patches/${changeId}`;
 		}
 		return this.webRoutesService.cloudBranch(repositoryId, cloudBranchId);
 	}

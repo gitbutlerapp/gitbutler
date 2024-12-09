@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { CloudBranchesService } from '$lib/cloud/stacks/service';
 	import { getContext } from '$lib/context';
+	import { getRoutesService } from '$lib/sharedRoutes';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
+	import { goto } from '$app/navigation';
 
 	dayjs.extend(relativeTime);
 
@@ -14,7 +16,10 @@
 	const { cloudBranchId }: Props = $props();
 
 	const cloudBranchesService = getContext(CloudBranchesService);
+	const repositoryId = cloudBranchesService.repositoryId;
 	const optionalBranch = $derived(cloudBranchesService.branchForId(cloudBranchId));
+
+	const routesService = getRoutesService();
 </script>
 
 {#if $optionalBranch.state === 'uninitialized'}
@@ -56,7 +61,15 @@
 					<p>Commit: {patch.commitSha.slice(0, 7)} - Change: {patch.changeId.slice(0, 7)}</p>
 					<p>Version: {patch.version}</p>
 				</div>
-				<Button style="pop" kind="solid">Visit</Button>
+				<Button
+					style="pop"
+					kind="solid"
+					onclick={() => {
+						if ($repositoryId) {
+							goto(routesService.patch($repositoryId, cloudBranchId, patch.changeId));
+						}
+					}}>Visit</Button
+				>
 			</div>
 		{/each}
 	</div>

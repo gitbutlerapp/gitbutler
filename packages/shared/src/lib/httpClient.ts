@@ -22,9 +22,9 @@ export class HttpClient {
 	readonly authenticationAvailable: Readable<boolean>;
 
 	constructor(
-		public fetch = window.fetch,
+		public readonly fetch = window.fetch,
 		publicApiBaseUrl: string,
-		private token: Readable<string | undefined>
+		private readonly token: Readable<string | undefined>
 	) {
 		this.apiUrl = new URL('/api/', publicApiBaseUrl);
 

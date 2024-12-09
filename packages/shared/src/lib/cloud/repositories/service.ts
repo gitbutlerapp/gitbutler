@@ -1,33 +1,7 @@
+import { type ApiRepository, CloudRepository } from '$lib/cloud/types';
 import { writableDerived } from '$lib/storeUtils';
 import { derived, get, type Readable, type Writable } from 'svelte/store';
 import type { HttpClient } from '$lib/httpClient';
-
-interface ApiRepository {
-	name: string;
-	description: string | null;
-	repository_id: string;
-	git_url: string;
-	created_at: string;
-	updated_at: string;
-}
-
-export class CloudRepository {
-	readonly name: string;
-	readonly description: string | null;
-	readonly repositoryId: string;
-	readonly gitUrl: string;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-
-	constructor(apiRepository: ApiRepository) {
-		this.name = apiRepository.name;
-		this.description = apiRepository.description;
-		this.repositoryId = apiRepository.repository_id;
-		this.gitUrl = apiRepository.git_url;
-		this.createdAt = new Date(apiRepository.created_at);
-		this.updatedAt = new Date(apiRepository.updated_at);
-	}
-}
 
 export class RepositoriesApiService {
 	readonly canGetRepositories: Readable<boolean>;
