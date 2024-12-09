@@ -5,6 +5,7 @@ import { plainToInstance } from 'class-transformer';
 import { writable } from 'svelte/store';
 import type { BranchListingService } from '$lib/branches/branchListing';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
+import type { ModeService } from '$lib/modes/service';
 
 export function allPreviousSeriesHavePrNumber(
 	seriesName: string,
@@ -45,14 +46,16 @@ export class VirtualBranchService {
 	});
 
 	constructor(
-		private projectId: string,
-		private projectMetrics: ProjectMetrics,
-		private branchListingService: BranchListingService
+		private readonly projectId: string,
+		private readonly projectMetrics: ProjectMetrics,
+		private readonly branchListingService: BranchListingService,
+		private readonly modeService: ModeService
 	) {}
 
 	async refresh() {
 		this.loading.set(true);
 		try {
+			await this.modeService.awaitNotEditing();
 			this.handlePayload(await this.listVirtualBranches());
 			this.branchListingService.refresh();
 		} catch (err: unknown) {
