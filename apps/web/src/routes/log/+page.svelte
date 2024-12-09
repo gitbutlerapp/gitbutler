@@ -7,7 +7,7 @@
 	const token = $derived(authService.token);
 
 	function login() {
-		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login`;
+		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.origin}`;
 	}
 	function logout() {
 		authService.clearToken();
