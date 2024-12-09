@@ -43,4 +43,4 @@
 	</Modal>
 {/snippet}
 
-<Story name="Default" />
+<Story name="Playground" />

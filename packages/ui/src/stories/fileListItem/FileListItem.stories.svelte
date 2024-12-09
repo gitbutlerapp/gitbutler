@@ -9,7 +9,7 @@
 </script>
 
 <Story
-	name="Default"
+	name="Playground"
 	args={{
 		filePath: '/path/to/file.svelte',
 		fileStatus: 'A',

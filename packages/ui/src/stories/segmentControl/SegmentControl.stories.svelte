@@ -47,4 +47,4 @@
 	</SegmentControl>
 {/snippet}
 
-<Story name="Default" />
+<Story name="Playground" />

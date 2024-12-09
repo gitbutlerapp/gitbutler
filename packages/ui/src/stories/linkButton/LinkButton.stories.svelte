@@ -21,4 +21,4 @@
 	});
 </script>
 
-<Story name="Default">Link button</Story>
+<Story name="Playground">Link button</Story>

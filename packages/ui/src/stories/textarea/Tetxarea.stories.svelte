@@ -43,7 +43,7 @@
 	</div>
 {/snippet}
 
-<Story name="Default" />
+<Story name="Playground" />
 
 <style lang="postcss">
 	.wrapper {

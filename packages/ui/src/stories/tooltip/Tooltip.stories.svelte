@@ -45,7 +45,7 @@
 	</div>
 {/snippet}
 
-<Story name="Default" />
+<Story name="Playground" />
 
 <style>
 	.wrapper {

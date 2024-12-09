@@ -85,4 +85,4 @@
 	});
 </script>
 
-<Story name="Default" />
+<Story name="Playground" />
