@@ -186,19 +186,25 @@
 	async function abort() {
 		modeServiceAborting = 'loading';
 
-		await modeService.abortEditAndReturnToWorkspace();
-		await modeService.awaitNotEditing();
-
-		modeServiceAborting = 'completed';
+		try {
+			await modeService.abortEditAndReturnToWorkspace();
+			await modeService.awaitNotEditing();
+			modeServiceAborting = 'completed';
+		} finally {
+			modeServiceAborting = 'inert';
+		}
 	}
 
 	async function save() {
 		modeServiceSaving = 'loading';
 
-		await modeService.saveEditAndReturnToWorkspace();
-		await modeService.awaitNotEditing();
-
-		modeServiceSaving = 'completed';
+		try {
+			await modeService.saveEditAndReturnToWorkspace();
+			await modeService.awaitNotEditing();
+			modeServiceSaving = 'completed';
+		} finally {
+			modeServiceAborting = 'inert';
+		}
 	}
 
 	async function handleSave() {

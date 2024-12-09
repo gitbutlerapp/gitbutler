@@ -79,7 +79,10 @@ export class ModeService {
 			const unsubscribe = this.mode.subscribe((operatingMode) => {
 				if (operatingMode && operatingMode?.type !== 'Edit') {
 					resolve();
-					unsubscribe();
+
+					setTimeout(() => {
+						unsubscribe();
+					}, 0);
 				}
 			});
 		});
