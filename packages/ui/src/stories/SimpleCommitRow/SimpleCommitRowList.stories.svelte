@@ -1,5 +1,6 @@
-<script lang="ts">
+<script module lang="ts">
 	import SimpleCommitRow, { type Props as SeriesProps } from '$lib/SimpleCommitRow.svelte';
+	import { defineMeta } from '@storybook/addon-svelte-csf';
 
 	const items = [
 		{
@@ -27,13 +28,19 @@
 			date: new Date('2021-10-21T17:00:00Z')
 		}
 	] as SeriesProps[];
+
+	const { Story } = defineMeta({
+		title: 'List items / Simple Commit Row'
+	});
 </script>
 
-<div class="wrapper">
-	{#each items as item}
-		<SimpleCommitRow {...item} />
-	{/each}
-</div>
+<Story name="Variants">
+	<div class="wrapper">
+		{#each items as item}
+			<SimpleCommitRow {...item} />
+		{/each}
+	</div>
+</Story>
 
 <style>
 	.wrapper {
