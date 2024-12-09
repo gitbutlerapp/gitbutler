@@ -6,8 +6,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { fly } from 'svelte/transition';
 
-	// svelte-ignore non_reactive_update
-	let isMobileMenuOpen = false;
+	let isMobileMenuOpen = $state(false);
 
 	const authService = getContext(AuthService);
 	const token = $derived(authService.token);
@@ -51,7 +50,7 @@
 	<nav class="navigation-desktop">
 		<section class="navigation-section">
 			<HeaderLink label="Download">
-				<svelte:fragment slot="dropdown">
+				{#snippet dropdown()}
 					{#each Object.values(jsonLinks.downloads) as download}
 						<a href={download.url} download>
 							<span>{download.label}</span>
@@ -70,11 +69,11 @@
 							</svg>
 						</a>
 					{/each}
-				</svelte:fragment>
+				{/snippet}
 			</HeaderLink>
 			<HeaderLink label="Docs" href={jsonLinks.resources.documentation.url} hrefTarget="_blank" />
 			<HeaderLink label="Community">
-				<svelte:fragment slot="dropdown">
+				{#snippet dropdown()}
 					{#each Object.values(jsonLinks.social) as communityLink}
 						<a href={communityLink.url} target="_blank">
 							<span>{communityLink.label}</span>
@@ -89,7 +88,7 @@
 							</svg>
 						</a>
 					{/each}
-				</svelte:fragment>
+				{/snippet}
 			</HeaderLink>
 			<HeaderLink label="Blog" href={jsonLinks.resources.blog.url} />
 			<HeaderLink label="Jobs" href={jsonLinks.resources.jobs.url} />
@@ -110,7 +109,7 @@
 				href={jsonLinks.social.discord.url}
 				hrefTarget="_blank"
 			/>
-			<HeaderLink label={$token ? 'Log Out' : 'Log In'} hideTextOnTablet href="/log" />
+			<HeaderLink label={$token ? 'Log Out' : 'Log In'} href="/auth" />
 		</section>
 	</nav>
 
@@ -121,11 +120,11 @@
 		{#if isMobileMenuOpen}
 			<nav class="mobile-menu" transition:fly={{ duration: 100, y: 10 }}>
 				<HeaderMobileLink label="Downloads">
-					<svelte:fragment slot="dropdown">
+					{#snippet dropdown()}
 						{#each Object.values(jsonLinks.downloads) as download}
 							<a href={download.url} target="_blank">{download.label}</a>
 						{/each}
-					</svelte:fragment>
+					{/snippet}
 				</HeaderMobileLink>
 				<HeaderMobileLink
 					label="Docs"
@@ -133,11 +132,11 @@
 					hrefTarget="_blank"
 				/>
 				<HeaderMobileLink label="Community">
-					<svelte:fragment slot="dropdown">
+					{#snippet dropdown()}
 						{#each Object.values(jsonLinks.social) as communityLink}
 							<a href={communityLink.url} target="_blank">{communityLink.label}</a>
 						{/each}
-					</svelte:fragment>
+					{/snippet}
 				</HeaderMobileLink>
 				<HeaderMobileLink label="Blog" href={jsonLinks.resources.blog.url} />
 				<HeaderMobileLink label="Jobs" href={jsonLinks.resources.jobs.url} />
@@ -153,6 +152,7 @@
 					href={jsonLinks.social.discord.url}
 					hrefTarget="_blank"
 				/>
+				<HeaderMobileLink label="Login" href="/auth" />
 			</nav>
 		{/if}
 	</section>

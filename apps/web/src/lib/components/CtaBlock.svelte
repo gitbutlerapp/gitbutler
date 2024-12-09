@@ -6,19 +6,22 @@
 	// animtion
 	import { quadIn } from 'svelte/easing';
 	import { fly } from 'svelte/transition';
-	// other
 
-	export let secondButton: {
-		label: string;
-		url: string;
-	} | null = null;
-	export let lightTheme = false;
+	let videoElement = $state<HTMLVideoElement>();
+	interface Props {
+		// other
+		secondButton?: {
+			label: string;
+			url: string;
+		} | null;
+		lightTheme?: boolean;
+		showVideoDemo?: boolean;
+	}
 
-	let videoElement: HTMLVideoElement;
-	export let showVideoDemo = true;
+	let { secondButton = null, lightTheme = false, showVideoDemo = true }: Props = $props();
 
-	let showSelect = false;
-	let selectElement: HTMLElement;
+	let showSelect = $state(false);
+	let selectElement = $state<HTMLElement>();
 
 	function handleShowSelect(e: MouseEvent | KeyboardEvent) {
 		e.stopPropagation();
@@ -55,8 +58,8 @@
 				tabindex="0"
 				bind:this={selectElement}
 				transition:fly={{ duration: 50, easing: quadIn, y: 10, x: 0 }}
-				on:introstart={() => {
-					selectElement.focus();
+				onintrostart={() => {
+					selectElement?.focus();
 				}}
 				use:clickOutside={{ handler: handleClickOutside }}
 			>
@@ -71,7 +74,7 @@
 							type="button"
 							class="os-select__item"
 							data-targetOsId={jsonLinks.downloads.appleSilicon.id}
-							on:click={handleChangeDownloadLink}
+							onclick={handleChangeDownloadLink}
 						>
 							{jsonLinks.downloads.appleSilicon.label}
 						</button>
@@ -79,7 +82,7 @@
 							type="button"
 							class="os-select__item"
 							data-targetOsId={jsonLinks.downloads.intelMac.id}
-							on:click={handleChangeDownloadLink}
+							onclick={handleChangeDownloadLink}
 						>
 							{jsonLinks.downloads.intelMac.label}
 						</button>
@@ -98,7 +101,7 @@
 							type="button"
 							class="os-select__item"
 							data-targetOsId={jsonLinks.downloads.windowsMsi.id}
-							on:click={handleChangeDownloadLink}
+							onclick={handleChangeDownloadLink}
 						>
 							{jsonLinks.downloads.windowsMsi.label}
 						</button>
@@ -116,7 +119,7 @@
 							type="button"
 							class="os-select__item"
 							data-targetOsId={jsonLinks.downloads.linuxDeb.id}
-							on:click={handleChangeDownloadLink}
+							onclick={handleChangeDownloadLink}
 						>
 							{jsonLinks.downloads.linuxDeb.label}
 						</button>
@@ -124,7 +127,7 @@
 							type="button"
 							class="os-select__item"
 							data-targetOsId={jsonLinks.downloads.linuxAppimage.id}
-							on:click={handleChangeDownloadLink}
+							onclick={handleChangeDownloadLink}
 						>
 							{jsonLinks.downloads.linuxAppimage.label}
 						</button>
@@ -149,8 +152,8 @@
 				class:btn={!lightTheme}
 				class:btn-white={lightTheme}
 				tabindex="0"
-				on:click={handleShowSelect}
-				on:keydown={handleShowSelect}
+				onclick={handleShowSelect}
+				onkeydown={handleShowSelect}
 			>
 				<div class="divider"></div>
 				<span>{$targetDownload.label}</span>
@@ -199,12 +202,14 @@
 					href={jsonLinks.other['youtube-demo'].url}
 					target="_blank"
 					class="yt-button-preview"
-					on:mouseenter={() => {
-						videoElement.play();
+					onmouseenter={() => {
+						videoElement?.play();
 					}}
-					on:mouseleave={() => {
-						videoElement.pause();
-						videoElement.currentTime = 0;
+					onmouseleave={() => {
+						videoElement?.pause();
+						if (videoElement) {
+							videoElement.currentTime = 0;
+						}
 					}}
 				>
 					<img class="yt-button-preview__logo-btn" src="/images/video-thumb/yt-logo.svg" alt="" />

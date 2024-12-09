@@ -1,4 +1,3 @@
-<!-- @migration-task Error while migrating Svelte code: Identifier 'Icon' has already been declared -->
 <script lang="ts" module>
 	import type { ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 	export type MessageStyle = Exclude<ComponentColor, 'ghost' | 'purple'>;
@@ -31,7 +30,7 @@
 	}
 
 	const {
-		icon = undefined,
+		icon: iconName = undefined,
 		style = 'neutral',
 		outlined = true,
 		filled = false,
@@ -78,7 +77,7 @@
 	class:has-background={filled}
 	class:shadow
 >
-	<Icon name={icon ? icon : iconMap[style]} color={iconColorMap[style]} />
+	<Icon name={iconName ? iconName : iconMap[style]} color={iconColorMap[style]} />
 	<div class="info-message__inner">
 		<div class="info-message__content">
 			{#if title}

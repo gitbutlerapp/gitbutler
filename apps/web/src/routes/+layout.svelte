@@ -15,6 +15,7 @@
 	import { WebRoutesService, setRoutesService } from '@gitbutler/shared/sharedRoutes';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import { setContext, type Snippet } from 'svelte';
+	import { get } from 'svelte/store';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import { env } from '$env/dynamic/public';
@@ -54,14 +55,12 @@
 	setContext(NewUserService, newUserService);
 
 	$effect(() => {
-		if ($page.url.searchParams.get('gb_access_token')) {
-			const token = $page.url.searchParams.get('gb_access_token');
-			if (token && token.length > 0) {
-				authService.setToken(token);
+		const token = get(authService.token) || $page.url.searchParams.get('gb_access_token');
+		if (token) {
+			authService.setToken(token);
 
-				$page.url.searchParams.delete('gb_access_token');
-				goto(`?${$page.url.searchParams.toString()}`);
-			}
+			$page.url.searchParams.delete('gb_access_token');
+			goto(`?${$page.url.searchParams.toString()}`);
 		}
 	});
 </script>
@@ -84,6 +83,8 @@
 		display: flex;
 		flex-direction: column;
 		min-height: 100vh;
+		max-width: 1280px;
+		margin: 0 auto;
 	}
 
 	main {
@@ -98,5 +99,11 @@
 	.page-wrapper {
 		display: flex;
 		flex-direction: column;
+		max-width: 1280px;
+		margin: 0 auto;
+
+		@media (max-width: 1280px) {
+			padding: 0 24px;
+		}
 	}
 </style>
