@@ -9,6 +9,8 @@ use tauri::State;
 use tracing::instrument;
 
 use crate::error::Error;
+use crate::virtual_branches::commands::emit_vbranches;
+use crate::WindowState;
 
 #[tauri::command(async)]
 #[instrument(skip(projects), err(Debug))]
@@ -37,25 +39,33 @@ pub fn enter_edit_mode(
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(windows, projects), err(Debug))]
 pub fn abort_edit_and_return_to_workspace(
+    windows: State<'_, WindowState>,
     projects: State<'_, Controller>,
     project_id: ProjectId,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
 
-    gitbutler_edit_mode::commands::abort_and_return_to_workspace(&project).map_err(Into::into)
+    gitbutler_edit_mode::commands::abort_and_return_to_workspace(&project)?;
+
+    emit_vbranches(&windows, project_id);
+    Ok(())
 }
 
 #[tauri::command(async)]
-#[instrument(skip(projects), err(Debug))]
+#[instrument(skip(windows, projects), err(Debug))]
 pub fn save_edit_and_return_to_workspace(
+    windows: State<'_, WindowState>,
     projects: State<'_, Controller>,
     project_id: ProjectId,
 ) -> Result<(), Error> {
     let project = projects.get(project_id)?;
 
-    gitbutler_edit_mode::commands::save_and_return_to_workspace(&project).map_err(Into::into)
+    gitbutler_edit_mode::commands::save_and_return_to_workspace(&project)?;
+
+    emit_vbranches(&windows, project_id);
+    Ok(())
 }
 
 #[tauri::command(async)]

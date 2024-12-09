@@ -187,6 +187,7 @@
 		modeServiceAborting = 'loading';
 
 		await modeService.abortEditAndReturnToWorkspace();
+		await modeService.awaitNotEditing();
 
 		modeServiceAborting = 'completed';
 	}
@@ -195,6 +196,7 @@
 		modeServiceSaving = 'loading';
 
 		await modeService.saveEditAndReturnToWorkspace();
+		await modeService.awaitNotEditing();
 
 		modeServiceSaving = 'completed';
 	}
@@ -219,6 +221,8 @@
 	}
 
 	let isCommitListScrolled = $state(false);
+
+	const loading = $derived(modeServiceSaving === 'loading' || modeServiceAborting === 'loading');
 </script>
 
 <div class="editmode__container">
@@ -302,9 +306,7 @@
 	</p>
 
 	<div class="editmode__actions">
-		<Button style="ghost" outline onclick={abort} disabled={modeServiceAborting === 'loading'}>
-			Cancel
-		</Button>
+		<Button style="ghost" outline onclick={abort} disabled={loading} {loading}>Cancel</Button>
 		{#if conflictedFiles.length > 0}
 			<Button
 				style="neutral"
@@ -323,7 +325,8 @@
 			kind="solid"
 			icon="tick-small"
 			onclick={handleSave}
-			disabled={modeServiceSaving === 'loading'}
+			disabled={loading}
+			{loading}
 		>
 			Save and exit
 		</Button>
