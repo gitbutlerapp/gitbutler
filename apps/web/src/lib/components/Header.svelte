@@ -6,8 +6,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { fly } from 'svelte/transition';
 
-	// svelte-ignore non_reactive_update
-	let isMobileMenuOpen = false;
+	let isMobileMenuOpen = $state(false);
 
 	const authService = getContext(AuthService);
 	const token = $derived(authService.token);
@@ -110,7 +109,7 @@
 				href={jsonLinks.social.discord.url}
 				hrefTarget="_blank"
 			/>
-			<HeaderLink label={$token ? 'Log Out' : 'Log In'} href="/log" />
+			<HeaderLink label={$token ? 'Log Out' : 'Log In'} href="/auth" />
 		</section>
 	</nav>
 
@@ -153,6 +152,7 @@
 					href={jsonLinks.social.discord.url}
 					hrefTarget="_blank"
 				/>
+				<HeaderMobileLink label="Login" href="/auth" />
 			</nav>
 		{/if}
 	</section>

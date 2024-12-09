@@ -99,5 +99,11 @@
 	.page-wrapper {
 		display: flex;
 		flex-direction: column;
+		max-width: 1280px;
+		margin: 0 auto;
+
+		@media (max-width: 1280px) {
+			padding: 0 24px;
+		}
 	}
 </style>
