@@ -1,13 +1,11 @@
-<script lang="ts" module>
-	export interface Props {
+<script lang="ts">
+	import { pxToRem } from '$lib/utils/pxToRem';
+
+	interface Props {
 		margin?: number;
 		noLine?: boolean;
 		dotted?: boolean;
 	}
-</script>
-
-<script lang="ts">
-	import { pxToRem } from '$lib/utils/pxToRem';
 
 	const { margin = 12, noLine = false, dotted = false }: Props = $props();
 

@@ -39,7 +39,6 @@
 		oncontextmenu?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		// Snippets
-		ignoreChildren?: boolean;
 		children?: Snippet;
 	}
 </script>
@@ -85,7 +84,6 @@
 		onmousedown,
 		oncontextmenu,
 		onkeydown,
-		ignoreChildren = false,
 		children
 	}: Props = $props();
 
@@ -128,7 +126,7 @@
 		tabindex={clickable ? tabindex : -1}
 		data-clickable={clickable}
 	>
-		{#if !ignoreChildren && children}
+		{#if children}
 			<span
 				class="label text-semibold"
 				class:text-12={size === 'button' || size === 'cta'}

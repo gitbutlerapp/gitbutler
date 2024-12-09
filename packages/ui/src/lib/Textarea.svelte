@@ -1,5 +1,8 @@
-<script lang="ts" module>
-	export interface Props extends HTMLTextareaAttributes {
+<script lang="ts">
+	import { pxToRem } from '$lib/utils/pxToRem';
+	import type { HTMLTextareaAttributes } from 'svelte/elements';
+
+	interface Props extends HTMLTextareaAttributes {
 		textBoxEl?: HTMLTextAreaElement;
 		label?: string;
 		value?: string;
@@ -22,11 +25,6 @@
 		borderLeft?: boolean;
 		unstyled?: boolean;
 	}
-</script>
-
-<script lang="ts">
-	import { pxToRem } from '$lib/utils/pxToRem';
-	import type { HTMLTextareaAttributes } from 'svelte/elements';
 
 	let {
 		id,
