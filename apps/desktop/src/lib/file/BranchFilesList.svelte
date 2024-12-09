@@ -75,7 +75,6 @@
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
-		e.preventDefault();
 		updateSelection({
 			allowMultiple,
 			metaKey: e.metaKey,
@@ -85,7 +84,8 @@
 			files: displayedFiles,
 			selectedFileIds: $fileIdSelection,
 			fileIdSelection,
-			commitId: $commit?.id
+			commitId: $commit?.id,
+			preventDefault: () => e.preventDefault()
 		});
 
 		switch (e.key) {
