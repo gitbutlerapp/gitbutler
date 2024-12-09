@@ -198,7 +198,7 @@ mod tests {
 
     use gitbutler_stack::StackId;
 
-    use crate::{input::InputFile, parse_diff_from_string};
+    use crate::{input::InputFile, parse_diff_from_string, InputDiff};
 
     use super::*;
 
@@ -527,6 +527,79 @@ mod tests {
         assert_eq!(dependencies_2.len(), 1);
         assert_eq!(dependencies_2[0].commit_id, commit2_id);
         assert_eq!(dependencies_2[0].stack_id, stack2_id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn gracefully_handle_invalid_input_commits() -> anyhow::Result<()> {
+        let path = PathBuf::from_str("/test.txt")?;
+
+        let stack_id = StackId::generate();
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+        let commit_c_id = git2::Oid::from_str("c")?;
+
+        // Invalid input, two subsequent commits with the same changes.
+        let workspace_ranges = WorkspaceRanges::create(vec![InputStack {
+            stack_id,
+            commits: vec![
+                InputCommit {
+                    commit_id: commit_a_id, // Delete file
+                    files: vec![InputFile {
+                        path: path.to_owned(),
+                        diffs: vec![InputDiff {
+                            change_type: gitbutler_diff::ChangeType::Deleted,
+                            old_start: 1,
+                            old_lines: 2,
+                            new_start: 0,
+                            new_lines: 0,
+                        }],
+                    }],
+                },
+                InputCommit {
+                    commit_id: commit_b_id, // Delete file, again
+                    files: vec![InputFile {
+                        path: path.to_owned(),
+                        diffs: vec![InputDiff {
+                            change_type: gitbutler_diff::ChangeType::Deleted,
+                            old_start: 1,
+                            old_lines: 2,
+                            new_start: 0,
+                            new_lines: 0,
+                        }],
+                    }],
+                },
+                InputCommit {
+                    commit_id: commit_c_id, // Re-add file
+                    files: vec![InputFile {
+                        path: path.to_owned(),
+                        diffs: vec![InputDiff {
+                            change_type: gitbutler_diff::ChangeType::Added,
+                            old_start: 0,
+                            old_lines: 0,
+                            new_start: 1,
+                            new_lines: 5,
+                        }],
+                    }],
+                },
+            ],
+        }])?;
+
+        let dependencies_1 = workspace_ranges.intersection(&path, 2, 1).unwrap();
+        assert_eq!(dependencies_1.len(), 1);
+        assert_eq!(dependencies_1[0].commit_id, commit_c_id);
+        assert_eq!(dependencies_1[0].stack_id, stack_id);
+
+        let errors = &workspace_ranges.errors;
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].commit_id, commit_b_id);
+        assert_eq!(errors[0].stack_id, stack_id);
+        assert_eq!(errors[0].path, path);
+        assert_eq!(
+            errors[0].error_message,
+            "File recreation must be an addition"
+        );
 
         Ok(())
     }
