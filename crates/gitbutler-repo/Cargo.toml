@@ -4,6 +4,7 @@ version = "0.0.0"
 edition = "2021"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
+autotests = false
 
 [dependencies]
 git2.workspace = true
@@ -18,7 +19,6 @@ resolve-path = "0.1.0"
 gitbutler-command-context.workspace = true
 gitbutler-config.workspace = true
 gitbutler-project.workspace = true
-# gitbutler-branch.workspace = true
 gitbutler-reference.workspace = true
 gitbutler-error.workspace = true
 gitbutler-commit.workspace = true
@@ -38,5 +38,4 @@ path = "tests/mod.rs"
 [dev-dependencies]
 gitbutler-testsupport.workspace = true
 gitbutler-user.workspace = true
-gitbutler-git = { workspace = true, features = ["test-askpass-path"] }
 serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }

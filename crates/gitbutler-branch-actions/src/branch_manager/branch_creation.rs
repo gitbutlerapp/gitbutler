@@ -1,4 +1,9 @@
+use super::BranchManager;
 use crate::r#virtual as vbranch;
+use crate::{
+    conflicts::RepoConflictsExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
+    VirtualBranchesExt,
+};
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch::{self, dedup};
@@ -6,9 +11,9 @@ use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
+use gitbutler_oxidize::GixRepositoryExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::GixRepositoryExt;
 use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
     LogUntil, RepositoryExt,
@@ -18,12 +23,6 @@ use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use gitbutler_workspace::checkout_branch_trees;
 use tracing::instrument;
-
-use super::BranchManager;
-use crate::{
-    conflicts::RepoConflictsExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
-    VirtualBranchesExt,
-};
 
 impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]

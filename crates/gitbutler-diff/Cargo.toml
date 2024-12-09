@@ -4,6 +4,7 @@ version = "0.0.0"
 edition = "2021"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
+autotests = false
 
 [dependencies]
 git2.workspace = true

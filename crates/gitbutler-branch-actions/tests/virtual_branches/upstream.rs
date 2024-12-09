@@ -98,7 +98,9 @@ fn detect_integrated_commits() {
             .into_iter()
             .find(|b| b.id == branch1_id)
             .unwrap();
-        repository.merge(&branch.upstream.as_ref().unwrap().name);
+        repository
+            .merge(&branch.upstream.as_ref().unwrap().name)
+            .unwrap();
         repository.fetch();
     }
 
