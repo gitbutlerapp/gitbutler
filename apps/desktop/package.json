@@ -38,6 +38,7 @@
 		"@lezer/common": "^1.2.1",
 		"@lezer/highlight": "^1.2.0",
 		"@octokit/rest": "^20.1.1",
+		"@reduxjs/toolkit": "catalog:redux",
 		"@replit/codemirror-lang-svelte": "^6.0.0",
 		"@sentry/sveltekit": "^8.9.2",
 		"@sveltejs/adapter-static": "catalog:svelte",
@@ -90,10 +91,10 @@
 		"tinykeys": "^2.1.0",
 		"ts-node": "^10.9.2",
 		"vite": "catalog:",
-		"vitest": "^2.0.5",
-		"@reduxjs/toolkit": "catalog:redux"
+		"vitest": "^2.0.5"
 	},
 	"dependencies": {
+		"dayjs": "^1.11.13",
 		"openai": "^4.47.3"
 	}
 }

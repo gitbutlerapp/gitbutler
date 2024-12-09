@@ -94,6 +94,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      dayjs:
+        specifier: ^1.11.13
+        version: 1.11.13
       openai:
         specifier: ^4.47.3
         version: 4.47.3
