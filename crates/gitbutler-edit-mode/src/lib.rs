@@ -68,35 +68,60 @@ fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Res
     }
 }
 
-fn checkout_edit_branch(ctx: &CommandContext, commit: git2::Commit) -> Result<()> {
-    let repository = ctx.repo();
+/// Returns a commit to be the HEAD of `gitbutler/edit`
+///
+/// This should a commit who's tree is what the commit getting edited
+/// (the editee) is based on.
+///
+/// If the editee is conflicted:
+/// We should checkout `.conflict-base-0`. This is because we will be setting
+/// the index to the merge of `.conflict-base-0`, `.conflict-side-0`, and
+/// `.conflict-side-1`.
+///
+/// If the parent is conflicted:
+/// We should checkout the parent's `.auto-resolution` because that is what
+/// the editee is based on
+///
+/// Otherwise:
+/// We can simply return the parent commit.
+fn find_or_create_base_commit<'a>(
+    repository: &'a git2::Repository,
+    commit: &git2::Commit<'a>,
+) -> Result<git2::Commit<'a>> {
+    let is_conflicted = commit.is_conflicted();
+    let is_parent_conflicted = commit.parent(0)?.is_conflicted();
+
+    // If neither is conflicted, we can use the old parent.
+    if !(is_conflicted || is_parent_conflicted) {
+        return Ok(commit.parent(0)?);
+    };
+
+    let base_tree = if is_conflicted {
+        repository.find_real_tree(commit, ConflictedTreeKey::Base)?
+    } else {
+        let parent = commit.parent(0)?;
+        repository.find_real_tree(&parent, ConflictedTreeKey::AutoResolution)?
+    };
 
     let author_signature = signature(SignaturePurpose::Author)?;
     let committer_signature = signature(SignaturePurpose::Committer)?;
-    let maybe_conflicted_parent_commit = if commit.is_conflicted() {
-        Err(commit.clone())
-    } else if commit.parent(0)?.is_conflicted() {
-        Err(commit.parent(0)?)
-    } else {
-        Ok(commit.parent(0)?)
-    };
+    let base = repository.commit(
+        None,
+        &author_signature,
+        &committer_signature,
+        "Conflict base",
+        &base_tree,
+        &[],
+    )?;
+
+    Ok(repository.find_commit(base)?)
+}
+
+fn checkout_edit_branch(ctx: &CommandContext, commit: git2::Commit) -> Result<()> {
+    let repository = ctx.repo();
 
     // Checkout commits's parent
-    let commit_parent = match maybe_conflicted_parent_commit {
-        Err(conflicted) => {
-            let base_tree = repository.find_real_tree(&conflicted, ConflictedTreeKey::Ours)?;
-            let base = repository.commit(
-                None,
-                &author_signature,
-                &committer_signature,
-                "Conflict base",
-                &base_tree,
-                &[],
-            )?;
-            repository.find_commit(base)?
-        }
-        Ok(unconflicted) => unconflicted,
-    };
+    let commit_parent = find_or_create_base_commit(repository, &commit)?;
     repository.reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")?;
     repository.set_head(EDIT_BRANCH_REF)?;
     repository.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
