@@ -6,7 +6,7 @@ use std::{
 
 use keyring::{
     credential::{CredentialApi, CredentialBuilderApi, CredentialPersistence},
-    Credential,
+    Credential, Result,
 };
 
 #[derive(Default)]
@@ -29,6 +29,10 @@ impl CredentialApi for Entry {
         Ok(())
     }
 
+    fn set_secret(&self, _password: &[u8]) -> Result<()> {
+        unreachable!("unused")
+    }
+
     fn get_password(&self) -> keyring::Result<String> {
         match self.store.lock().unwrap().0.get(&self.handle) {
             Some(secret) => Ok(secret.clone()),
@@ -36,7 +40,11 @@ impl CredentialApi for Entry {
         }
     }
 
-    fn delete_password(&self) -> keyring::Result<()> {
+    fn get_secret(&self) -> Result<Vec<u8>> {
+        unreachable!("unused")
+    }
+
+    fn delete_credential(&self) -> keyring::Result<()> {
         self.store.lock().unwrap().0.remove(&self.handle);
         Ok(())
     }
