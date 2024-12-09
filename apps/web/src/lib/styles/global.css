@@ -12,6 +12,17 @@
 	--column-margin-top: 4rem;
 	font-family: var(--font-body);
 	color: var(--color-text);
+
+	--off-white: #f5f5f3;
+	--clr-bg: var(--off-white);
+	/* gray */
+	--clr-white: #ffffff;
+	--clr-black: #000000;
+	--clr-dark-gray: #707070;
+	--clr-gray: #d0cfcb;
+	--clr-light-gray: #f1f1ed;
+	/* accent */
+	--clr-accent: #97eae5;
 }
 
 body {
