@@ -22,6 +22,18 @@
 					type: 'text'
 				}
 			},
+			align: {
+				options: ['center', 'start', 'end'],
+				control: {
+					type: 'select'
+				}
+			},
+			position: {
+				options: ['top', 'bottom'],
+				control: {
+					type: 'select'
+				}
+			},
 			disabled: {
 				control: {
 					type: 'boolean'
@@ -51,7 +63,7 @@
 	.wrapper {
 		display: flex;
 		flex-direction: column;
-		padding: 20px;
+		padding: 30px;
 	}
 
 	.text {
