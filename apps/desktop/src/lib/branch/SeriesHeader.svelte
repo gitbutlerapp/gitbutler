@@ -192,6 +192,9 @@
 					await updateStatusAndChecks();
 				})
 				.catch((err) => {
+					if (err.message.includes('Cannot change the base branch of a closed pull request'))
+						return;
+
 					showError('Failed to update PR target base', err.message ? err.message : err);
 					targetBaseError = err;
 				});
