@@ -106,11 +106,23 @@ export class SkippedFile {
 	newSizeBytes!: number;
 }
 
+/**
+ * Represents an error that occurred when calculating dependencies for a given file change.
+ */
+export class DependencyError {
+	errorMessage!: string;
+	stackId!: string;
+	commitId!: string;
+	path!: string;
+}
+
 export class VirtualBranches {
 	@Type(() => VirtualBranch)
 	branches!: VirtualBranch[];
 	@Type(() => SkippedFile)
 	skippedFiles!: SkippedFile[];
+	@Type(() => DependencyError)
+	dependencyErrors!: DependencyError[];
 }
 
 export function isPatchSeries(item: PatchSeries | Error): item is PatchSeries {

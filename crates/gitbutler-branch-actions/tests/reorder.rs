@@ -436,8 +436,12 @@ impl CommitHelpers for Vec<(Oid, String, bool, u128)> {
 
 /// Commits from list_virtual_branches
 fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>> {
-    let (vbranches, _) = list_virtual_branches(ctx.project()).unwrap();
-    let vbranch = vbranches.iter().find(|vb| vb.name == "my_stack").unwrap();
+    let list_result = list_virtual_branches(ctx.project()).unwrap();
+    let vbranch = list_result
+        .branches
+        .iter()
+        .find(|vb| vb.name == "my_stack")
+        .unwrap();
     let mut out = vec![];
     for series in vbranch.series.clone() {
         let messages = series

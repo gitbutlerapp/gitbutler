@@ -43,7 +43,8 @@ fn detect_upstream_commits() {
 
     {
         // should correctly detect pushed commits
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 3);
@@ -93,7 +94,7 @@ fn detect_integrated_commits() {
         // merge branch upstream
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
-            .0
+            .branches
             .into_iter()
             .find(|b| b.id == branch1_id)
             .unwrap();
@@ -109,7 +110,9 @@ fn detect_integrated_commits() {
 
     {
         // should correctly detect pushed commits
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
+
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 3);

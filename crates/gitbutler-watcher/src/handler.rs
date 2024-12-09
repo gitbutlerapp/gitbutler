@@ -1,7 +1,7 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Result};
-use gitbutler_branch_actions::VirtualBranches;
+use gitbutler_branch_actions::{internal::StackListResult, VirtualBranches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_error::error::Marker;
@@ -105,11 +105,16 @@ impl Handler {
             .get(project_id)
             .context("failed to get project")?;
         match gitbutler_branch_actions::list_virtual_branches_cached(&project, worktree_changes) {
-            Ok((branches, skipped_files)) => self.emit_app_event(Change::VirtualBranches {
+            Ok(StackListResult {
+                branches,
+                skipped_files,
+                dependency_errors,
+            }) => self.emit_app_event(Change::VirtualBranches {
                 project_id: project.id,
                 virtual_branches: VirtualBranches {
                     branches,
                     skipped_files,
+                    dependency_errors,
                 },
             }),
             Err(err)

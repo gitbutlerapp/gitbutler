@@ -27,10 +27,13 @@ async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
     repository.write_file("file.txt", &lines);
 
     // We're forced to call this before making a second commit.
-    let (branches, _) = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
+
     create_commit(project, branches[0].id, "first commit", None, false)?;
 
-    let (branches, _) = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[0].series[0].clone()?.patches.len(), 1);
 
@@ -52,11 +55,13 @@ async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
     repository.write_file("file.txt", &lines);
 
     // We're forced to call this before making a second commit.
-    let (branches, _) = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     create_commit(project, branches[1].id, "second commit", None, false)?;
 
     // At this point we expect no uncommitted files, and one commit per branch.
-    let (branches, _) = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches[0].series[0].clone()?.patches.len(), 1);
     assert_eq!(branches[0].files.len(), 0);
     assert_eq!(branches[1].series[0].clone()?.patches.len(), 1);
@@ -68,7 +73,8 @@ async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
 
     // And ensure that the new change is assigned to the first branch, despite the second
     // branch being default for new changes.
-    let (branches, _) = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 1);
 
     // For good measure, let's ensure the hunk lock points to the right branch.
@@ -103,10 +109,12 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
     repository.write_file("file.txt", &lines);
 
     // We have to do this before creating a commit.
-    let (branches, _) = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     create_commit(project, branches[0].id, "first commit", None, false)?;
 
-    let (branches, _) = list_virtual_branches(project).unwrap();
+    let list_result = list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches[0].series[0].clone()?.patches.len(), 1);
     assert_eq!(branches[0].files.len(), 0);
 
@@ -124,7 +132,8 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
     lines[1] = "modified line 2".to_string();
     repository.write_file("file.txt", &lines);
 
-    let (branches, _) = list_virtual_branches(project)?;
+    let list_result = list_virtual_branches(project)?;
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 2);
     let first_branch = branches.iter().find(|b| b.id != second_branch_id).unwrap();
     let second_branch = branches.iter().find(|b| b.id == second_branch_id).unwrap();

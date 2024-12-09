@@ -1,4 +1,4 @@
-import { PatchSeries, VirtualBranch, VirtualBranches } from './types';
+import { DependencyError, PatchSeries, VirtualBranch, VirtualBranches } from './types';
 import { invoke, listen } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { plainToInstance } from 'class-transformer';
@@ -99,10 +99,24 @@ export class VirtualBranchService {
 	}
 
 	private async listVirtualBranches(): Promise<VirtualBranch[]> {
-		return plainToInstance(
-			VirtualBranches,
-			await invoke<any>('list_virtual_branches', { projectId: this.projectId })
-		).branches;
+		const response = await invoke<any>('list_virtual_branches', { projectId: this.projectId });
+		const virtualBranches = plainToInstance(VirtualBranches, response);
+
+		if (virtualBranches.dependencyErrors.length > 0) {
+			this.handleDependencyErrors(virtualBranches.dependencyErrors);
+		}
+
+		return virtualBranches.branches;
+	}
+
+	private handleDependencyErrors(errors: DependencyError[]) {
+		for (const e of errors) {
+			console.error(`Error calculating dependencies:
+${e.errorMessage}
+Stack: ${e.stackId}
+Commit: ${e.commitId}
+Path: ${e.path}`);
+		}
 	}
 
 	private subscribe(callback: (branches: VirtualBranch[]) => void) {

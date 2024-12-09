@@ -20,6 +20,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_diff::{trees, GitHunk, Hunk};
 use gitbutler_error::error::Code;
+use gitbutler_hunk_dependency::RangeCalculationError;
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_oxidize::{git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid};
 use gitbutler_project::access::WorktreeWritePermission;
@@ -109,6 +110,7 @@ pub struct PatchSeries {
 pub struct VirtualBranches {
     pub branches: Vec<VirtualBranch>,
     pub skipped_files: Vec<gitbutler_diff::FileDiff>,
+    pub dependency_errors: Vec<RangeCalculationError>,
 }
 
 #[derive(Debug, PartialEq, Clone, Serialize)]
@@ -292,10 +294,17 @@ fn find_base_tree<'a>(
     Ok(base_tree)
 }
 
+#[derive(Debug)]
+pub struct StackListResult {
+    pub branches: Vec<VirtualBranch>,
+    pub skipped_files: Vec<gitbutler_diff::FileDiff>,
+    pub dependency_errors: Vec<RangeCalculationError>,
+}
+
 pub fn list_virtual_branches(
     ctx: &CommandContext,
     perm: &mut WorktreeWritePermission,
-) -> Result<(Vec<VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
+) -> Result<StackListResult> {
     list_virtual_branches_cached(ctx, perm, None)
 }
 
@@ -309,7 +318,7 @@ pub fn list_virtual_branches_cached(
     //           that conditionally write things.
     perm: &mut WorktreeWritePermission,
     worktree_changes: Option<gitbutler_diff::DiffByPathMap>,
-) -> Result<(Vec<VirtualBranch>, Vec<gitbutler_diff::FileDiff>)> {
+) -> Result<StackListResult> {
     assure_open_workspace_mode(ctx)
         .context("Listing virtual branches requires open workspace mode")?;
     let mut branches: Vec<VirtualBranch> = Vec::new();
@@ -441,7 +450,11 @@ pub fn list_virtual_branches_cached(
     let mut branches = branches_with_large_files_abridged(branches);
     branches.sort_by(|a, b| a.order.cmp(&b.order));
 
-    Ok((branches, status.skipped_files))
+    Ok(StackListResult {
+        branches,
+        skipped_files: status.skipped_files,
+        dependency_errors: status.workspace_dependencies.errors,
+    })
 }
 
 /// The commit-data we can use for comparison to see which remote-commit was used to craete
