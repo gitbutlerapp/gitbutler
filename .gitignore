@@ -53,3 +53,8 @@ storybook-static
 
 # Rust analyzer
 .rust-analyzer/
+
+# Flatpak
+.flatpak-builder
+/repo
+/builddir
