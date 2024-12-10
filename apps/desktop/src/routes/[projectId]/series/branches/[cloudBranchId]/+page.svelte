@@ -3,7 +3,6 @@
 	import { page } from '$app/stores';
 
 	const cloudBranchId = $derived($page.params.cloudBranchId);
-	$inspect(cloudBranchId);
 </script>
 
 <div class="patch-stack-container">
