@@ -73,9 +73,9 @@ export class BranchController {
 				showSignError(err);
 			} else {
 				showError('Failed to commit changes', err);
+				throw err;
 			}
 			this.posthog.capture('Commit Failed', err);
-			throw err;
 		}
 	}
 
