@@ -9,6 +9,7 @@
 	import { type ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { getForgeRepoService } from '$lib/forge/interface/forgeRepoService';
 	import { showError } from '$lib/notifications/toasts';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
@@ -19,6 +20,7 @@
 	import type { ForgePrMonitor } from '$lib/forge/interface/forgePrMonitor';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
+	import type { PatchSeries } from '$lib/vbranches/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	interface Props {
@@ -26,6 +28,7 @@
 		isPushed: boolean;
 		hasParent: boolean;
 		parentIsPushed: boolean;
+		child?: PatchSeries;
 		checksMonitor?: ForgeChecksMonitor;
 		prMonitor?: ForgePrMonitor;
 		reloadPR: () => void;
@@ -34,15 +37,16 @@
 	}
 
 	const {
-		pr,
 		checksMonitor,
-		prMonitor,
-		isPushed,
+		child,
 		hasParent,
+		isPushed,
+		openPrDetailsModal,
 		parentIsPushed,
+		pr,
+		prMonitor,
 		reloadPR,
-		reopenPr,
-		openPrDetailsModal
+		reopenPr
 	}: Props = $props();
 
 	type StatusInfo = {
@@ -59,12 +63,19 @@
 	const vbranchService = getContext(VirtualBranchService);
 	const baseBranchService = getContext(BaseBranchService);
 	const baseBranch = getContextStore(BaseBranch);
+	const repoService = getForgeRepoService();
 	const project = getContext(Project);
 
 	const forgeListingService = getForgeListingService();
 	const prService = getForgePrService();
 
 	const checks = $derived(checksMonitor?.status);
+	const repoInfoStore = $derived($repoService?.info);
+	const repoInfo = $derived(repoInfoStore && $repoInfoStore);
+	let shouldUpdateTargetBaseBranch = $state(false);
+	$effect(() => {
+		shouldUpdateTargetBaseBranch = repoInfo?.deleteBranchAfterMerge === false && !!child?.prNumber;
+	});
 
 	const baseBranchRepo = $derived(baseBranchService.repo);
 	const baseIsTargetBranch = $derived(
@@ -316,12 +327,21 @@
 						isMerging = true;
 						try {
 							await $prService?.merge(method, pr.number);
-							await baseBranchService.fetchFromRemotes();
+
+							// In a stack, after merging, update the new bottom PR target
+							// base branch to master if necessary
+							if (shouldUpdateTargetBaseBranch && $prService && child?.prNumber) {
+								const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
+								await $prService.update(child.prNumber, { targetBase });
+							}
+
 							await Promise.all([
+								baseBranchService.fetchFromRemotes(),
 								prMonitor?.refresh(),
 								$forgeListingService?.refresh(),
 								vbranchService.refresh(),
-								baseBranchService.refresh()
+								baseBranchService.refresh(),
+								checksMonitor?.update()
 							]);
 						} catch (err) {
 							console.error(err);

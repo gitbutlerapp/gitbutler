@@ -25,7 +25,11 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
-	import { allPreviousSeriesHavePrNumber, parentBranch } from '$lib/vbranches/virtualBranch';
+	import {
+		allPreviousSeriesHavePrNumber,
+		childBranch,
+		parentBranch
+	} from '$lib/vbranches/virtualBranch';
 	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -42,12 +46,7 @@
 		lastPush: Date | undefined;
 	}
 
-	const {
-		branch,
-		isTopBranch: isTopSeries,
-		isBottomBranch: isBottomSeries,
-		lastPush
-	}: Props = $props();
+	const { branch, isTopBranch: isTopSeries, isBottomBranch, lastPush }: Props = $props();
 
 	let descriptionVisible = $state(!!branch.description);
 
@@ -61,6 +60,12 @@
 		parentBranch(
 			branch,
 			stack.validSeries.filter((b) => b.archived)
+		)
+	);
+	const child = $derived(
+		childBranch(
+			branch,
+			stack.validSeries.filter((b) => !b.archived)
 		)
 	);
 
@@ -84,7 +89,6 @@
 	let kebabContextMenuTrigger = $state<HTMLButtonElement>();
 	let seriesHeaderEl = $state<HTMLDivElement>();
 	let seriesDescriptionEl = $state<HTMLTextAreaElement>();
-	let targetBaseError = $state<Error | undefined>();
 	let contextMenuOpened = $state(false);
 
 	const topPatch = $derived(branch?.patches[0]);
@@ -166,35 +170,6 @@
 			listedPr.number !== branch.prNumber
 		) {
 			branchController.updateBranchPrNumber(stack.id, branch.name, listedPr.number);
-		}
-	});
-
-	/**
-	 * If the repository does not have "delete after merged" enabled, we need to manually update the base
-	 * of the bottom most branch to point to the projects baseBranch of choice after its parent has been integrated,
-	 * and  it now is the bottom-most series.
-	 */
-	$effect(() => {
-		const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
-		if (
-			listedPr?.targetBranch !== targetBase &&
-			isBottomSeries &&
-			$prService &&
-			$forge?.name === 'github' &&
-			branch.prNumber &&
-			!targetBaseError &&
-			$pr?.state === 'open'
-		) {
-			$prService
-				?.update(branch.prNumber, { targetBase })
-				.then(async () => {
-					await $forgeListing?.refresh();
-					await updateStatusAndChecks();
-				})
-				.catch((err) => {
-					showError('Failed to update PR target base', err.message ? err.message : err);
-					targetBaseError = err;
-				});
 		}
 	});
 
@@ -422,6 +397,7 @@
 								{checksMonitor}
 								{prMonitor}
 								{isPushed}
+								{child}
 								{hasParent}
 								{parentIsPushed}
 							/>
