@@ -21,7 +21,7 @@
 		rightClickTrigger?: HTMLElement;
 		headName: string;
 		seriesCount: number;
-		isTopSeries: boolean;
+		isTopBranch: boolean;
 		hasForgeBranch: boolean;
 		pr?: DetailedPullRequest;
 		branchType: CommitStatus;
@@ -41,7 +41,7 @@
 		contextMenuEl = $bindable(),
 		leftClickTrigger,
 		rightClickTrigger,
-		isTopSeries,
+		isTopBranch,
 		seriesCount,
 		hasForgeBranch,
 		headName,
@@ -102,7 +102,7 @@
 		onMenuToggle?.(isOpen, isLeftClick);
 	}}
 >
-	{#if isOpenedByMouse && isTopSeries}
+	{#if isOpenedByMouse && isTopBranch}
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Add dependent branch"

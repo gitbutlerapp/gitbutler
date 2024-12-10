@@ -42,11 +42,10 @@
 	interface Props {
 		branch: PatchSeries;
 		isTopBranch: boolean;
-		isBottomBranch: boolean;
 		lastPush: Date | undefined;
 	}
 
-	const { branch, isTopBranch: isTopSeries, isBottomBranch, lastPush }: Props = $props();
+	const { branch, isTopBranch, lastPush }: Props = $props();
 
 	let descriptionVisible = $state(!!branch.description);
 
@@ -281,7 +280,7 @@
 	rightClickTrigger={seriesHeaderEl}
 	headName={branch.name}
 	seriesCount={stack.validSeries?.length ?? 0}
-	{isTopSeries}
+	{isTopBranch}
 	{toggleDescription}
 	description={branch.description ?? ''}
 	onGenerateBranchName={generateBranchName}
@@ -315,7 +314,7 @@
 >
 	<Dropzones type="commit">
 		<PopoverActionsContainer class="branch-actions-menu" stayOpen={contextMenuOpened}>
-			{#if isTopSeries}
+			{#if isTopBranch}
 				<PopoverActionsItem
 					icon="plus-small"
 					tooltip="Add dependent branch"
@@ -347,7 +346,7 @@
 
 		<div class="branch-info">
 			<SeriesHeaderStatusIcon
-				lineTop={isTopSeries ? false : true}
+				lineTop={isTopBranch ? false : true}
 				icon={branchType === 'integrated' ? 'tick-small' : 'branch-small'}
 				iconColor="var(--clr-core-ntrl-100)"
 				color={lineColor}
