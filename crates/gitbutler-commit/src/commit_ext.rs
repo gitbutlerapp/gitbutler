@@ -32,6 +32,29 @@ impl CommitExt for git2::Commit<'_> {
     }
 }
 
+impl CommitExt for gix::Commit<'_> {
+    fn message_bstr(&self) -> &BStr {
+        self.message_raw()
+            .expect("valid commit that can be parsed: TODO - allow it to return errors?")
+    }
+
+    fn change_id(&self) -> Option<String> {
+        self.gitbutler_headers().map(|headers| headers.change_id)
+    }
+
+    fn is_signed(&self) -> bool {
+        self.decode().map_or(false, |decoded| {
+            decoded.extra_headers().pgp_signature().is_some()
+        })
+    }
+
+    fn is_conflicted(&self) -> bool {
+        self.gitbutler_headers()
+            .and_then(|headers| headers.conflicted.map(|conflicted| conflicted > 0))
+            .unwrap_or(false)
+    }
+}
+
 fn contains<'a, I>(iter: I, item: &git2::Commit<'a>) -> bool
 where
     I: IntoIterator<Item = git2::Commit<'a>>,

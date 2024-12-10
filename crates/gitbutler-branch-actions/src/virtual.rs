@@ -22,12 +22,14 @@ use gitbutler_diff::{trees, GitHunk, Hunk};
 use gitbutler_error::error::Code;
 use gitbutler_hunk_dependency::RangeCalculationError;
 use gitbutler_operating_modes::assure_open_workspace_mode;
-use gitbutler_oxidize::{git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid};
+use gitbutler_oxidize::{
+    git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt,
+};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
     rebase::{cherry_rebase, cherry_rebase_group},
-    GixRepositoryExt, LogUntil, RepositoryExt,
+    LogUntil, RepositoryExt,
 };
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{
