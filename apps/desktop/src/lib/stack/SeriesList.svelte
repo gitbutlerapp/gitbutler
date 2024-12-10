@@ -71,7 +71,7 @@
 
 	{#if !isError(currentSeries)}
 		<CurrentSeries {currentSeries}>
-			<SeriesHeader branch={currentSeries} {isTopBranch} {isBottomBranch} {lastPush} />
+			<SeriesHeader branch={currentSeries} {isTopBranch} {lastPush} />
 
 			{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
 				<div>
