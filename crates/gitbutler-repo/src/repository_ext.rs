@@ -408,9 +408,6 @@ impl RepositoryExt for git2::Repository {
                     .ok_or_else(|| anyhow::anyhow!("Failed to convert path to string"))?
                     .to_string();
 
-                #[cfg(windows)]
-                cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
                 let output;
                 // support literal ssh key
                 if let (true, signing_key) = is_literal_ssh_key(&signing_key) {
@@ -439,6 +436,9 @@ impl RepositoryExt for git2::Repository {
                     let mut signing_cmd: std::process::Command =
                         gix::command::prepare(cmd_string).with_shell().into();
 
+                    #[cfg(windows)]
+                    signing_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
                     signing_cmd.stderr(Stdio::piped());
                     signing_cmd.stdout(Stdio::piped());
                     signing_cmd.stdin(Stdio::null());
@@ -451,6 +451,9 @@ impl RepositoryExt for git2::Repository {
 
                     let mut signing_cmd: std::process::Command =
                         gix::command::prepare(cmd_string).with_shell().into();
+
+                    #[cfg(windows)]
+                    signing_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
 
                     signing_cmd.stderr(Stdio::piped());
                     signing_cmd.stdout(Stdio::piped());
