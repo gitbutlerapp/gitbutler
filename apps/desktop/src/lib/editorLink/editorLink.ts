@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { invoke } from '$lib/backend/ipc';
 import { readable } from 'svelte/store';
 
 export const editor = readable<string>('vscode', (set) => {
