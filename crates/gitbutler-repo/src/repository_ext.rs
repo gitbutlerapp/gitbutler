@@ -14,6 +14,7 @@ use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::fs::is_executable;
 use gix::merge::tree::{Options, TreatAsUnresolved};
 use gix::objs::WriteTo;
+use std::io;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 #[cfg(windows)]
@@ -253,9 +254,10 @@ impl RepositoryExt for git2::Repository {
 
                     let blob = self.blob(path_str.as_bytes())?;
                     tree_update_builder.upsert(path, blob, git2::FileMode::Link);
-                } else {
-                    let file_for_git =
-                        pipeline.convert_to_git(std::fs::File::open(&file_path)?, path, &index)?;
+                } else if let io::Result::Ok(file) = std::fs::File::open(&file_path) {
+                    // We might have an entry for a file that does not exist on disk,
+                    // like in the case of a file conflict.
+                    let file_for_git = pipeline.convert_to_git(file, path, &index)?;
                     let data = match file_for_git {
                         ToGitOutcome::Unchanged(mut file) => {
                             buf.clear();
