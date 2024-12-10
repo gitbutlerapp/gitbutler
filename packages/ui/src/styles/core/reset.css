@@ -18,6 +18,16 @@
 		padding: 0;
 		margin: 0;
 		line-height: inherit;
+		font-family:
+			Inter,
+			-apple-system,
+			BlinkMacSystemFont,
+			'Segoe UI',
+			Roboto,
+			'Helvetica Neue',
+			Arial,
+			'Noto Sans',
+			sans-serif;
 
 		/* optimise font rendering */
 		-webkit-font-smoothing: antialiased;
