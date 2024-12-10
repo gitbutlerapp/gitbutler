@@ -74,9 +74,9 @@ fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Res
 /// (the editee) is based on.
 ///
 /// If the editee is conflicted:
-/// We should checkout `.conflict-base-0`. This is because we will be setting
-/// the index to the merge of `.conflict-base-0`, `.conflict-side-0`, and
-/// `.conflict-side-1`.
+/// We should checkout `.conflict-side-0`. This is because the resulting merge
+/// is always based on top of `.conflict-side-0`, so this is the preferable
+/// base.
 ///
 /// If the parent is conflicted:
 /// We should checkout the parent's `.auto-resolution` because that is what
@@ -97,7 +97,7 @@ fn find_or_create_base_commit<'a>(
     };
 
     let base_tree = if is_conflicted {
-        repository.find_real_tree(commit, ConflictedTreeKey::Base)?
+        repository.find_real_tree(commit, ConflictedTreeKey::Ours)?
     } else {
         let parent = commit.parent(0)?;
         repository.find_real_tree(&parent, ConflictedTreeKey::AutoResolution)?
