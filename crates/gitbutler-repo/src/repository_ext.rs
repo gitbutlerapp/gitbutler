@@ -436,11 +436,18 @@ impl RepositoryExt for git2::Repository {
                         buffer_file_to_sign_path.to_str().unwrap(),
                     ]);
 
-                    let mut gpg_cmd: std::process::Command =
-                        gix::command::prepare(format!("{:?}", cmd))
-                            .with_shell()
-                            .into();
+                    let cmd_str = cmd
+                        .get_args()
+                        .map(|arg| arg.to_str().unwrap_or(""))
+                        .collect::<Vec<&str>>()
+                        .join(" ");
+                    let full_cmd =
+                        format!("{} {}", cmd.get_program().to_str().unwrap_or(""), cmd_str);
 
+                    let mut gpg_cmd: std::process::Command =
+                        gix::command::prepare(full_cmd).with_shell().into();
+
+                    println!("GPG_CMD: {:?}", gpg_cmd);
                     gpg_cmd.stderr(Stdio::piped());
                     gpg_cmd.stdout(Stdio::piped());
                     gpg_cmd.stdin(Stdio::null());
@@ -450,10 +457,16 @@ impl RepositoryExt for git2::Repository {
                 } else {
                     cmd.args([signing_key, buffer_file_to_sign_path_str]);
 
+                    let cmd_str = cmd
+                        .get_args()
+                        .map(|arg| arg.to_str().unwrap_or(""))
+                        .collect::<Vec<&str>>()
+                        .join(" ");
+                    let full_cmd =
+                        format!("{} {}", cmd.get_program().to_str().unwrap_or(""), cmd_str);
+
                     let mut gpg_cmd: std::process::Command =
-                        gix::command::prepare(format!("{:?}", cmd))
-                            .with_shell()
-                            .into();
+                        gix::command::prepare(full_cmd).with_shell().into();
 
                     gpg_cmd.stderr(Stdio::piped());
                     gpg_cmd.stdout(Stdio::piped());
