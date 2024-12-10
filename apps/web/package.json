@@ -23,7 +23,6 @@
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
 		"@types/node": "^22.3.0",
-		"sass-embedded": "^1.82.0",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"vite": "catalog:"
