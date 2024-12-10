@@ -401,11 +401,12 @@ impl RepositoryExt for git2::Repository {
                     gpg_program = "ssh-keygen".to_string();
                 }
 
-                let mut cmd = std::process::Command::new(gpg_program);
-                cmd.args(["-Y", "sign", "-n", "git", "-f"]);
+                let mut cmd_string = format!("{} -Y sign -n git -f ", gpg_program);
 
-                #[cfg(windows)]
-                cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+                let buffer_file_to_sign_path_str = buffer_file_to_sign_path
+                    .to_str()
+                    .ok_or_else(|| anyhow::anyhow!("Failed to convert path to string"))?
+                    .to_string();
 
                 let output;
                 // support literal ssh key
@@ -425,23 +426,40 @@ impl RepositoryExt for git2::Repository {
 
                     let key_file_path = key_storage.into_temp_path();
 
-                    cmd.arg(&key_file_path);
-                    cmd.arg("-U");
-                    cmd.arg(&buffer_file_to_sign_path);
-                    cmd.stderr(Stdio::piped());
-                    cmd.stdout(Stdio::piped());
-                    cmd.stdin(Stdio::null());
+                    let args = format!(
+                        "{} -U {}",
+                        key_file_path.to_string_lossy(),
+                        buffer_file_to_sign_path.to_string_lossy()
+                    );
+                    cmd_string += &args;
 
-                    let child = cmd.spawn()?;
+                    let mut signing_cmd: std::process::Command =
+                        gix::command::prepare(cmd_string).with_shell().into();
+
+                    #[cfg(windows)]
+                    signing_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+                    signing_cmd.stderr(Stdio::piped());
+                    signing_cmd.stdout(Stdio::piped());
+                    signing_cmd.stdin(Stdio::null());
+
+                    let child = signing_cmd.spawn()?;
                     output = child.wait_with_output()?;
                 } else {
-                    cmd.arg(signing_key);
-                    cmd.arg(&buffer_file_to_sign_path);
-                    cmd.stderr(Stdio::piped());
-                    cmd.stdout(Stdio::piped());
-                    cmd.stdin(Stdio::null());
+                    let args = format!("{} {}", signing_key, buffer_file_to_sign_path_str);
+                    cmd_string += &args;
 
-                    let child = cmd.spawn()?;
+                    let mut signing_cmd: std::process::Command =
+                        gix::command::prepare(cmd_string).with_shell().into();
+
+                    #[cfg(windows)]
+                    signing_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+                    signing_cmd.stderr(Stdio::piped());
+                    signing_cmd.stdout(Stdio::piped());
+                    signing_cmd.stdin(Stdio::null());
+
+                    let child = signing_cmd.spawn()?;
                     output = child.wait_with_output()?;
                 }
 
