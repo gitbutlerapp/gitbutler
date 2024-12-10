@@ -24,9 +24,23 @@ window.onunhandledrejection = (e: PromiseRejectionEvent) => {
 	logError(e.reason);
 };
 
+interface Errorlike {
+	message: string;
+}
+
+function isErrorlike(target: unknown): target is Errorlike {
+	return (
+		(typeof target === 'object' &&
+			target &&
+			'message' in target &&
+			typeof target.message === 'string') ||
+		false
+	);
+}
+
 function logError(error: unknown) {
 	try {
-		let message = error instanceof Error ? error.message : String(error);
+		let message = error instanceof Error || isErrorlike(error) ? error.message : String(error);
 		const stack = error instanceof Error ? error.stack : undefined;
 
 		const id = captureException(message, {
