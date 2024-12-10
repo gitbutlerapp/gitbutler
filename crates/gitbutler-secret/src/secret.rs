@@ -27,7 +27,7 @@ pub enum Namespace {
 pub fn persist(handle: &str, secret: &Sensitive<String>, namespace: Namespace) -> Result<()> {
     let entry = entry_for(handle, namespace)?;
     if secret.0.is_empty() {
-        entry.delete_password()?;
+        entry.delete_credential()?;
     } else {
         entry.set_password(&secret.0)?;
     }
@@ -45,7 +45,7 @@ pub fn retrieve(handle: &str, namespace: Namespace) -> Result<Option<Sensitive<S
 
 /// Delete the secret at `handle` permanently from `namespace`.
 pub fn delete(handle: &str, namespace: Namespace) -> Result<()> {
-    Ok(entry_for(handle, namespace)?.delete_password()?)
+    Ok(entry_for(handle, namespace)?.delete_credential()?)
 }
 
 /// Use this `identifier` as 'namespace' for identifying secrets.
@@ -155,7 +155,7 @@ pub mod git_credentials {
         fn set_password(&self, password: &str) -> keyring::Result<()> {
             // credential helper on macos can't overwrite existing values apparently, workaround that.
             #[cfg(target_os = "macos")]
-            self.delete_password().ok();
+            self.delete_credential().ok();
             let (mut cascade, action, prompt) = self
                 .store
                 .credentials(&self.handle, Some(password))
@@ -184,8 +184,20 @@ pub mod git_credentials {
             }
         }
 
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
+        fn set_secret(&self, _password: &[u8]) -> keyring::Result<()> {
+            unreachable!("unused")
+        }
+
+        fn get_secret(&self) -> keyring::Result<Vec<u8>> {
+            unreachable!("unused")
+        }
+
         #[instrument(skip(self), err(Debug))]
-        fn delete_password(&self) -> keyring::Result<()> {
+        fn delete_credential(&self) -> keyring::Result<()> {
             let (mut cascade, action, prompt) = self
                 .store
                 .credentials(&self.handle, None)
@@ -196,10 +208,6 @@ pub mod git_credentials {
                 .invoke(action, prompt)
                 .map_err(|err| keyring::Error::PlatformFailure(err.into()))?;
             Ok(())
-        }
-
-        fn as_any(&self) -> &dyn Any {
-            self
         }
     }
 
