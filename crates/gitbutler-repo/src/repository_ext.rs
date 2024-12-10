@@ -401,8 +401,7 @@ impl RepositoryExt for git2::Repository {
                     gpg_program = "ssh-keygen".to_string();
                 }
 
-                let mut cmd = std::process::Command::new(gpg_program);
-                cmd.args(["-Y", "sign", "-n", "git", "-f"]);
+                let mut cmd_string = format!("{} -Y sign -n git -f ", gpg_program);
 
                 let buffer_file_to_sign_path_str = buffer_file_to_sign_path
                     .to_str()
@@ -430,49 +429,34 @@ impl RepositoryExt for git2::Repository {
 
                     let key_file_path = key_storage.into_temp_path();
 
-                    cmd.args([
-                        key_file_path.to_str().unwrap(),
-                        "-U",
-                        buffer_file_to_sign_path.to_str().unwrap(),
-                    ]);
+                    let args = format!(
+                        "{} -U {}",
+                        key_file_path.to_string_lossy(),
+                        buffer_file_to_sign_path.to_string_lossy()
+                    );
+                    cmd_string += &args;
 
-                    let cmd_str = cmd
-                        .get_args()
-                        .map(|arg| arg.to_str().unwrap_or(""))
-                        .collect::<Vec<&str>>()
-                        .join(" ");
-                    let full_cmd =
-                        format!("{} {}", cmd.get_program().to_str().unwrap_or(""), cmd_str);
+                    let mut signing_cmd: std::process::Command =
+                        gix::command::prepare(cmd_string).with_shell().into();
 
-                    let mut gpg_cmd: std::process::Command =
-                        gix::command::prepare(full_cmd).with_shell().into();
+                    signing_cmd.stderr(Stdio::piped());
+                    signing_cmd.stdout(Stdio::piped());
+                    signing_cmd.stdin(Stdio::null());
 
-                    println!("GPG_CMD: {:?}", gpg_cmd);
-                    gpg_cmd.stderr(Stdio::piped());
-                    gpg_cmd.stdout(Stdio::piped());
-                    gpg_cmd.stdin(Stdio::null());
-
-                    let child = gpg_cmd.spawn()?;
+                    let child = signing_cmd.spawn()?;
                     output = child.wait_with_output()?;
                 } else {
-                    cmd.args([signing_key, buffer_file_to_sign_path_str]);
+                    let args = format!("{} {}", signing_key, buffer_file_to_sign_path_str);
+                    cmd_string += &args;
 
-                    let cmd_str = cmd
-                        .get_args()
-                        .map(|arg| arg.to_str().unwrap_or(""))
-                        .collect::<Vec<&str>>()
-                        .join(" ");
-                    let full_cmd =
-                        format!("{} {}", cmd.get_program().to_str().unwrap_or(""), cmd_str);
+                    let mut signing_cmd: std::process::Command =
+                        gix::command::prepare(cmd_string).with_shell().into();
 
-                    let mut gpg_cmd: std::process::Command =
-                        gix::command::prepare(full_cmd).with_shell().into();
+                    signing_cmd.stderr(Stdio::piped());
+                    signing_cmd.stdout(Stdio::piped());
+                    signing_cmd.stdin(Stdio::null());
 
-                    gpg_cmd.stderr(Stdio::piped());
-                    gpg_cmd.stdout(Stdio::piped());
-                    gpg_cmd.stdin(Stdio::null());
-
-                    let child = gpg_cmd.spawn()?;
+                    let child = signing_cmd.spawn()?;
                     output = child.wait_with_output()?;
                 }
 
