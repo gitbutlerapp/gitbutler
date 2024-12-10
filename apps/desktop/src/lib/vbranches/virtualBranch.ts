@@ -23,6 +23,15 @@ export function allPreviousSeriesHavePrNumber(
 	return false;
 }
 
+export function childBranch(current: PatchSeries, all: PatchSeries[]): PatchSeries | undefined {
+	const index = all.indexOf(current);
+	if (index === -1 || index === 0) {
+		// Either not found or branch is first.
+		return undefined;
+	}
+	return all[index - 1];
+}
+
 export function parentBranch(current: PatchSeries, all: PatchSeries[]): PatchSeries | undefined {
 	const index = all.indexOf(current);
 	if (index === -1 || index === all.length - 1) {
