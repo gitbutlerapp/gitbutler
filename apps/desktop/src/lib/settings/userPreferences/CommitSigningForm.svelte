@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { GitConfigService } from '$lib/backend/gitConfigService';
+	import { invoke } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
 	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
 	import Select from '$lib/select/Select.svelte';
@@ -12,7 +13,6 @@
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
 
 	const project = getContext(Project);
