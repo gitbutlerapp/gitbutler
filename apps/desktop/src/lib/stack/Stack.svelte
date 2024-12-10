@@ -5,16 +5,25 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Dropzones from '$lib/branch/Dropzones.svelte';
+	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { type MergeMethod } from '$lib/forge/interface/types';
+	import { showError } from '$lib/notifications/toasts';
+	import MergeButton from '$lib/pr/MergeButton.svelte';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import CollapsedLane from '$lib/stack/CollapsedLane.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
+	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -29,17 +38,22 @@
 		commitBoxOpen
 	}: { isLaneCollapsed: Writable<boolean>; commitBoxOpen: Writable<boolean> } = $props();
 
+	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
 	const fileIdSelection = getContext(FileIdSelection);
 	const branchStore = getContextStore(VirtualBranch);
+	const baseBranchService = getContext(BaseBranchService);
+	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
+	const prService = getForgePrService();
+	const listingService = getForgeListingService();
 	const branch = $derived($branchStore);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
-	const laneWidthKey = 'laneWidth_';
 	let lastPush = $state<Date | undefined>();
 
+	const laneWidthKey = 'laneWidth_';
 	let laneWidth: number | undefined = $state();
 	let rsViewport = $state<HTMLElement>();
 
@@ -58,6 +72,7 @@
 
 	let scrollEndVisible = $state(true);
 	let isPushingCommits = $state(false);
+	let isMergingSeries = $state(false);
 
 	const { upstreamPatches, branchPatches, hasConflicts } = $derived.by(() => {
 		let hasConflicts = false;
@@ -78,13 +93,11 @@
 	});
 
 	const canPush = $derived.by(() => {
-		if (upstreamPatches.length > 0) return true;
+		if (upstreamPatches.filter((p) => !p.isIntegrated).length > 0) return true;
 		if (branchPatches.some((p) => !['localAndRemote', 'integrated'].includes(p.status)))
 			return true;
 		return false;
 	});
-
-	const listingService = getForgeListingService();
 
 	async function push() {
 		isPushingCommits = true;
@@ -94,6 +107,68 @@
 			lastPush = new Date();
 		} finally {
 			isPushingCommits = false;
+		}
+	}
+
+	async function checkMergeable() {
+		const seriesMergeResponse = await Promise.allSettled(
+			branch.validSeries
+				.filter((s) => !s.archived)
+				.map((series) => {
+					if (!series.prNumber) return Promise.reject();
+
+					const detailedPr = $prService?.get(series.prNumber);
+					return detailedPr;
+				})
+		);
+
+		return seriesMergeResponse.every((s) => {
+			if (s.status === 'fulfilled' && s.value) {
+				return s.value.mergeable === true;
+			}
+			return false;
+		});
+	}
+
+	// Create monitor on top series in order for us to trigger mergeabilitiy test once its
+	// checks have completed. Using the top branch as it's checks are most likely to have been
+	// started last and therefore complete last.
+	const forge = getForge();
+	const checksMonitor = $derived(
+		$forge?.checksMonitor(branch.validSeries.filter((s) => !s.archived)[0]?.name ?? '')
+	);
+	const checks = $derived(checksMonitor?.status);
+
+	let canMergeAll = $derived.by(() => {
+		// Force this to rerun once the checks have completed and we can check mergeability again
+		void $checks;
+		return checkMergeable();
+	});
+
+	async function mergeAll(method: MergeMethod) {
+		isMergingSeries = true;
+		try {
+			const topBranch = branch.validSeries[0];
+
+			if (topBranch?.prNumber && $prService) {
+				const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
+				await $prService.update(topBranch.prNumber, { targetBase });
+				await $prService.merge(method, topBranch.prNumber);
+				await baseBranchService.fetchFromRemotes();
+				toasts.success('Stack Merged Successfully');
+
+				await Promise.all([
+					$prService?.prMonitor(topBranch.prNumber).refresh(),
+					$listingService?.refresh(),
+					vbranchService.refresh(),
+					baseBranchService.refresh()
+				]);
+			}
+		} catch (e) {
+			console.error(e);
+			showError('Failed to merge PR', e);
+		} finally {
+			isMergingSeries = false;
 		}
 	}
 </script>
@@ -194,6 +269,38 @@
 									</Button>
 								</div>
 							{/if}
+							{#await canMergeAll then isMergeable}
+								{#if isMergeable}
+									<div
+										class="lane-branches__action merge-all"
+										class:scroll-end-visible={scrollEndVisible}
+										use:intersectionObserver={{
+											callback: (entry) => {
+												if (entry?.isIntersecting) {
+													scrollEndVisible = false;
+												} else {
+													scrollEndVisible = true;
+												}
+											},
+											options: {
+												root: null,
+												rootMargin: `-100% 0px 0px 0px`,
+												threshold: 0
+											}
+										}}
+									>
+										<MergeButton
+											style="neutral"
+											kind="solid"
+											wide
+											projectId={project.id}
+											tooltip="Merge all possible branches"
+											loading={isMergingSeries}
+											onclick={mergeAll}
+										/>
+									</div>
+								{/if}
+							{/await}
 						</div>
 					</div>
 				</div>
@@ -245,6 +352,10 @@
 		margin: 0 -12px 1px -12px;
 		bottom: 0;
 		transition: background-color var(--transition-fast);
+
+		&:global(.merge-all > button:not(:last-child)) {
+			margin-bottom: 8px;
+		}
 
 		&:after {
 			content: '';
