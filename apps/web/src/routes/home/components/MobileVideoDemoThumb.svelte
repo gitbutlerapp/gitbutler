@@ -43,12 +43,17 @@
 		loop
 		muted
 		playsinline
+		disablePictureInPicture={true}
 		preload="auto"
 		src="/images/video-thumb/video-thumb-loop.mp4#t=0.1"
 	></video>
 </a>
 
 <style lang="scss">
+	video::-webkit-media-controls-panel {
+		display: none !important;
+		opacity: 1 !important;
+	}
 	.yt-preview {
 		position: relative;
 		display: flex;
@@ -61,6 +66,7 @@
 		border-radius: 10px;
 		overflow: hidden;
 		transition: transform 0.2s ease-in-out;
+		pointer-events: none;
 
 		&__btn {
 			position: absolute;
@@ -87,6 +93,7 @@
 			z-index: 0;
 			width: calc(100% + 4px);
 			object-fit: cover;
+			pointer-events: none;
 		}
 
 		@media (min-width: 500px) {
