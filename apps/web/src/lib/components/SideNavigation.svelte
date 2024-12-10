@@ -12,7 +12,7 @@
 	}
 
 	function login() {
-		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login`;
+		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`;
 	}
 </script>
 
