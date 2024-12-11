@@ -1,15 +1,10 @@
 [package]
-name = "gitbutler-settings"
+name = "gitbutler-settings-util"
 version = "0.0.0"
 edition = "2021"
-authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [dependencies]
-anyhow = "1.0.93"
 serde = { workspace = true, features = ["std"] }
 serde_json = { version = "1.0", features = ["std", "arbitrary_precision"] }
 rust-embed = "8.4.0"
-serde_json_lenient = "0.2.3"
-gitbutler-settings-util.path = "vendor/util"
-gitbutler-fs.workspace = true
