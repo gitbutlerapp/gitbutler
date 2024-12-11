@@ -1,6 +1,6 @@
 <script lang="ts">
+	import LandingPage from '$home/LandingPage.svelte';
 	import { AuthService } from '$lib/auth/authService';
-	import LandingPage from './home/components/LandingPage.svelte';
 	import UserDashboard from '$lib/components/UserDashboard.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { page } from '$app/stores';
