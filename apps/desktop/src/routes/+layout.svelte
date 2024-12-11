@@ -38,16 +38,12 @@
 	import { User, UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
+	import { BranchReviewService } from '@gitbutler/shared/branchReviews/branchReviewService';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
-	import {
-		DesktopRoutesService,
-		setRoutesService,
-		WebRoutesService
-	} from '@gitbutler/shared/sharedRoutes';
 	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
@@ -58,7 +54,6 @@
 	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
-	import { env } from '$env/dynamic/public';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
 
@@ -70,6 +65,7 @@
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
 	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
+	const branchReviewService = new BranchReviewService(data.cloud, appState.appDispatch);
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
@@ -79,6 +75,7 @@
 	setContext(OrganizationService, organizationService);
 	setContext(CloudUserService, cloudUserService);
 	setContext(CloudProjectService, cloudProjectService);
+	setContext(BranchReviewService, branchReviewService);
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
@@ -98,10 +95,6 @@
 	setContext(LineManagerFactory, data.lineManagerFactory);
 	setContext(StackingLineManagerFactory, data.stackingLineManagerFactory);
 	setContext(AppSettings, data.appSettings);
-
-	const webRoutesService = new WebRoutesService(true, env.PUBLIC_CLOUD_BASE_URL);
-	const desktopRoutesService = new DesktopRoutesService(webRoutesService);
-	setRoutesService(desktopRoutesService);
 
 	setNameNormalizationServiceContext(new IpcNameNormalizationService(invoke));
 

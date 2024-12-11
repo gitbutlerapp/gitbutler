@@ -1,6 +1,18 @@
 import type { Interest } from '$lib/interest/intrestStore';
 
-export function registerInterest(interest: Interest) {
+export type InView = {
+	element?: HTMLElement;
+};
+
+export function registerInterest(interest: Interest, inView?: InView) {
+	if (inView) {
+		registerInterestInView(interest, inView.element);
+	} else {
+		registerInterestAlways(interest);
+	}
+}
+
+export function registerInterestAlways(interest: Interest) {
 	$effect(() => {
 		const unsubscribe = interest._subscribe();
 
@@ -36,7 +48,7 @@ export function registerInterestInView(interest: Interest, element?: HTMLElement
 	});
 
 	$effect(() => {
-		if (inView) {
+		if (inView && element) {
 			const unsubscribe = interest._subscribe();
 
 			// It is vitally important that we return the unsubscribe function

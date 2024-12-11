@@ -1,3 +1,6 @@
+import { branchReviewsReducer } from '@gitbutler/shared/branchReviews/branchReviewsSlice';
+import { commitReviewsReducer } from '@gitbutler/shared/branchReviews/commitReviewsSlice';
+import { reviewSectionsReducer } from '@gitbutler/shared/branchReviews/reviewSectionsSlice';
 import { feedsReducer } from '@gitbutler/shared/feeds/feedsSlice';
 import { postsReducer } from '@gitbutler/shared/feeds/postsSlice';
 import { organizationsReducer } from '@gitbutler/shared/organizations/organizationsSlice';
@@ -55,6 +58,9 @@ export class DesktopState extends AppState implements AppDesktopOnlyState {
 			orgnaizations: organizationsReducer,
 			users: usersReducer,
 			projects: projectsReducer,
+			branchReviews: branchReviewsReducer,
+			commitReviews: commitReviewsReducer,
+			reviewSections: reviewSectionsReducer,
 			desktopOnly: desktopOnly.reducer
 		}
 	});

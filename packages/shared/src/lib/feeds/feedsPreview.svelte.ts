@@ -1,9 +1,6 @@
 import { feedsSelectors } from '$lib/feeds/feedsSlice';
 import { postsSelectors } from '$lib/feeds/postsSlice';
-import {
-	registerInterest,
-	registerInterestInView
-} from '$lib/interest/registerInterestFunction.svelte';
+import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
 import { usersSelectors } from '$lib/users/usersSlice';
 import type { FeedService } from '$lib/feeds/service';
 import type { Feed, Post } from '$lib/feeds/types';
@@ -58,33 +55,41 @@ export function getFeedLastPost(
 	};
 }
 
+export function getPost(
+	appState: AppPostsState,
+	feedService: FeedService,
+	postId: string,
+	inView?: InView
+): Reactive<Post | undefined> {
+	$effect(() => {
+		const interest = feedService.getPostWithRepliesInterest(postId);
+		registerInterest(interest, inView);
+	});
+	const post = $derived(postsSelectors.selectById(appState.posts, postId));
+
+	return {
+		get current() {
+			return post;
+		}
+	};
+}
+
 export function getPostAuthor(
 	appState: AppPostsState & AppUsersState,
 	feedService: FeedService,
 	userService: UserService,
 	postId: string,
-	renderInView?: {
-		element?: HTMLElement;
-	}
+	inView?: InView
 ): Reactive<User | undefined> {
+	const post = getPost(appState, feedService, postId, inView);
+
 	const current = $derived.by(() => {
-		const postInterest = feedService.getPostWithRepliesInterest(postId);
-		if (renderInView) {
-			registerInterestInView(postInterest, renderInView.element);
-		} else {
-			registerInterest(postInterest);
-		}
-		const post = postsSelectors.selectById(appState.posts, postId);
+		if (!post.current) return;
 
-		if (!post) return;
+		const userInterest = userService.getUserInterest(post.current.userLogin);
+		registerInterest(userInterest, inView);
 
-		const userInterest = userService.getUserInterest(post.userLogin);
-		if (renderInView) {
-			registerInterestInView(userInterest, renderInView.element);
-		} else {
-			registerInterest(userInterest);
-		}
-		return usersSelectors.selectById(appState.users, post.userLogin);
+		return usersSelectors.selectById(appState.users, post.current.userLogin);
 	});
 
 	return {

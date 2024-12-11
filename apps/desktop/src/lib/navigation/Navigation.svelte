@@ -11,7 +11,7 @@
 		cloudReviewFunctionality
 	} from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/modes/service';
-	import CloudSeriesButton from '$lib/navigation/CloudSeriesButton.svelte';
+	import BranchReviewButton from '$lib/navigation/BranchReviewButton.svelte';
 	import EditButton from '$lib/navigation/EditButton.svelte';
 	import FeedButton from '$lib/navigation/FeedButton.svelte';
 	import { platformName } from '$lib/platform/platform';
@@ -26,6 +26,7 @@
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const projectService = getContext(ProjectService);
 	const projectId = projectService.projectId;
+	const project = projectService.project;
 	const defaultTrayWidthRem = persisted<number | undefined>(
 		undefined,
 		'defaulTrayWidth_ ' + projectId
@@ -128,10 +129,13 @@
 						<EditButton href={`/${projectId}/edit`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 
-					{#if $cloudReviewFunctionality}
-						<CloudSeriesButton href={`/${projectId}/series`} isNavCollapsed={$isNavCollapsed} />
+					{#if $cloudReviewFunctionality && $project?.api}
+						<BranchReviewButton
+							href={`/${projectId}/branchReview`}
+							isNavCollapsed={$isNavCollapsed}
+						/>
 					{/if}
-					{#if $cloudCommunicationFunctionality}
+					{#if $cloudCommunicationFunctionality && $project?.api}
 						<FeedButton href={`/${projectId}/feed`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 				</div>

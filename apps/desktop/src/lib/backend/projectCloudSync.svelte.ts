@@ -33,9 +33,9 @@ export function projectCloudSync(
 
 	$effect(() => {
 		if (!project.current?.api || !cloudProject) return;
-		const persistedProjectUpdatedAt = new Date(project.current.api.updated_at).getTime();
-		const cloudProjectUpdatedAt = new Date(cloudProject.updatedAt).getTime();
-		if (persistedProjectUpdatedAt >= cloudProjectUpdatedAt) return;
+		const codeGitUrlChanged = project.current.api.code_git_url !== cloudProject.codeGitUrl;
+		const gitUrlChanged = project.current.api.git_url !== cloudProject.gitUrl;
+		if (!(codeGitUrlChanged || gitUrlChanged)) return;
 
 		const mutableProject = structuredClone(project.current);
 		mutableProject.api = {
@@ -43,7 +43,7 @@ export function projectCloudSync(
 			description: cloudProject.description,
 			repository_id: cloudProject.repositoryId,
 			git_url: cloudProject.gitUrl,
-			git_code_url: cloudProject.codeGitUrl,
+			code_git_url: cloudProject.codeGitUrl,
 			created_at: cloudProject.createdAt,
 			updated_at: cloudProject.updatedAt,
 			sync: mutableProject.api?.sync ?? false,

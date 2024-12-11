@@ -15,9 +15,10 @@
 
 	type Props = {
 		replyTo?: string;
+		type?: 'reply' | 'post';
 	};
 
-	const { replyTo }: Props = $props();
+	const { replyTo, type = 'post' }: Props = $props();
 
 	const appState = getContext(AppState);
 	const feedService = getContext(FeedService);
@@ -151,7 +152,9 @@
 		{:else}
 			<Button kind="soft" onclick={() => pictureInput?.click()}>🖼️</Button>
 		{/if}
-		<Button onclick={createPost}>Create Bleep 🚀</Button>
+		<Button onclick={createPost}
+			>{type === 'reply' ? 'Reply to Bleep 🚀' : 'Create Bleep 🚀'}</Button
+		>
 	</div>
 </SectionCard>
 

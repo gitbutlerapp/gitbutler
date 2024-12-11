@@ -2,16 +2,15 @@
 	import { ProjectService } from '$lib/backend/projects';
 	import Markdown from '$lib/components/Markdown.svelte';
 	import { getContext } from '@gitbutler/shared/context';
-	import { getPostAuthor } from '@gitbutler/shared/feeds/feedsPreview.svelte';
-	import { postsSelectors } from '@gitbutler/shared/feeds/postsSlice';
+	import { getPost, getPostAuthor } from '@gitbutler/shared/feeds/feedsPreview.svelte';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
-	import { registerInterestInView } from '@gitbutler/shared/interest/registerInterestFunction.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { UserService } from '@gitbutler/shared/users/userService';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Avatar from '@gitbutler/ui/avatar/Avatar.svelte';
 	import { goto } from '$app/navigation';
+	import Link from '$lib/shared/Link.svelte';
 
 	type Props = {
 		postId: string;
@@ -25,20 +24,15 @@
 	const projectService = getContext(ProjectService);
 	const projectId = projectService.projectId;
 
-	// Register interest for posts
-	$effect(() => {
-		const interest = feedService.getPostWithRepliesInterest(postId);
-		registerInterestInView(interest, postCardRef);
-	});
-	const post = $derived(postsSelectors.selectById(appState.posts, postId));
-	$inspect(post);
-
-	const author = $derived(getPostAuthor(appState, feedService, userService, postId));
-
 	let postCardRef = $state<HTMLDivElement | undefined>(undefined);
+
+	const post = $derived(getPost(appState, feedService, postId, { element: postCardRef }));
+	const author = $derived(
+		getPostAuthor(appState, feedService, userService, postId, { element: postCardRef })
+	);
 </script>
 
-{#if post}
+{#if post.current}
 	<div bind:this={postCardRef}>
 		<SectionCard>
 			<div class="author">
@@ -47,29 +41,33 @@
 					tooltip={author.current?.name || 'Unknown'}
 					srcUrl={author.current?.avatarUrl || ''}
 				/>
-				<p>{author.current?.name}</p>
+				<p>
+					{#if post.current.postType === 'commit'}
+						<b>{author.current?.name}</b> committed <Link href={'urmom'}
+							>{post.current.metadata.commitSha.slice(0, 7)}</Link
+						>
+					{:else}
+						<b>{author.current?.name}</b>
+					{/if}
+				</p>
 			</div>
 
-			<Markdown content={post.content} />
+			<Markdown content={post.current.content} />
 
-			{#if post.pictureUrl}
+			{#if post.current.pictureUrl}
 				<div class="post-picture-container">
-					<img src={post.pictureUrl} alt="" referrerpolicy="no-referrer" />
+					<img src={post.current.pictureUrl} alt="" referrerpolicy="no-referrer" />
 				</div>
 			{/if}
 
-			{#if post.replyIds}
-				<div>
-					<Button
-						onclick={() => {
-							goto(`/${projectId}/feed/${postId}`);
-						}}
-						kind="soft">Replies: {post.replyIds.length}</Button
-					>
-				</div>
-			{:else}
-				<p>Loading...</p>
-			{/if}
+			<div class="post-actions">
+				<Button
+					onclick={() => {
+						goto(`/${projectId}/feed/${postId}`);
+					}}
+					kind="soft">Replies: {post.current.replyIds?.length || 0}</Button
+				>
+			</div>
 		</SectionCard>
 	</div>
 {:else}
@@ -94,5 +92,11 @@
 		img {
 			object-fit: contain;
 		}
+	}
+
+	.post-actions {
+		display: flex;
+
+		gap: 8px;
 	}
 </style>

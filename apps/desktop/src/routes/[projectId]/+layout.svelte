@@ -37,7 +37,6 @@
 	import { HttpClient } from '@gitbutler/shared/httpClient';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { DesktopRoutesService, getRoutesService } from '@gitbutler/shared/sharedRoutes';
 	import { onDestroy, setContext, type Snippet } from 'svelte';
 	import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 	import type { LayoutData } from './$types';
@@ -87,13 +86,6 @@
 		setContext(UpstreamIntegrationService, data.upstreamIntegrationService);
 		setContext(ProjectService, data.projectService);
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
-	});
-
-	const routesService = getRoutesService();
-	$effect(() => {
-		if (routesService instanceof DesktopRoutesService) {
-			routesService.currentProjectId.set(projectId);
-		}
 	});
 
 	let intervalId: any;

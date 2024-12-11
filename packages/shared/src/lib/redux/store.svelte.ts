@@ -1,3 +1,6 @@
+import { branchReviewsReducer } from '$lib/branchReviews/branchReviewsSlice';
+import { commitReviewsReducer } from '$lib/branchReviews/commitReviewsSlice';
+import { reviewSectionsReducer } from '$lib/branchReviews/reviewSectionsSlice';
 import { feedsReducer } from '$lib/feeds/feedsSlice';
 import { postsReducer } from '$lib/feeds/postsSlice';
 import { organizationsReducer } from '$lib/organizations/organizationsSlice';
@@ -34,6 +37,18 @@ export interface AppProjectsState {
 	readonly projects: ReturnType<typeof projectsReducer>;
 }
 
+export interface AppBranchReviewsState {
+	readonly branchReviews: ReturnType<typeof branchReviewsReducer>;
+}
+
+export interface AppReviewSectionsState {
+	readonly reviewSections: ReturnType<typeof reviewSectionsReducer>;
+}
+
+export interface AppCommitReviewsState {
+	readonly commitReviews: ReturnType<typeof commitReviewsReducer>;
+}
+
 export class AppDispatch {
 	constructor(readonly dispatch: typeof AppState.prototype._store.dispatch) {}
 }
@@ -45,7 +60,10 @@ export class AppState
 		AppFeedsState,
 		AppOrganizationsState,
 		AppUsersState,
-		AppProjectsState
+		AppProjectsState,
+		AppBranchReviewsState,
+		AppReviewSectionsState,
+		AppCommitReviewsState
 {
 	/**
 	 * The base store.
@@ -60,7 +78,10 @@ export class AppState
 			feeds: feedsReducer,
 			orgnaizations: organizationsReducer,
 			users: usersReducer,
-			projects: projectsReducer
+			projects: projectsReducer,
+			branchReviews: branchReviewsReducer,
+			reviewSections: reviewSectionsReducer,
+			commitReviews: commitReviewsReducer
 		}
 	});
 
@@ -90,6 +111,18 @@ export class AppState
 		[this.selectSelf],
 		(rootState) => rootState.projects
 	);
+	private readonly selectBranchReviews = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.branchReviews
+	);
+	private readonly selectReviewSections = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.reviewSections
+	);
+	private readonly selectCommitReviews = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.commitReviews
+	);
 
 	readonly example = $derived(this.selectExample(this.rootState));
 	readonly posts = $derived(this.selectPosts(this.rootState));
@@ -97,6 +130,9 @@ export class AppState
 	readonly organizations = $derived(this.selectOrganizations(this.rootState));
 	readonly users = $derived(this.selectUsers(this.rootState));
 	readonly projects = $derived(this.selectProjects(this.rootState));
+	readonly branchReviews = $derived(this.selectBranchReviews(this.rootState));
+	readonly reviewSections = $derived(this.selectReviewSections(this.rootState));
+	readonly commitReviews = $derived(this.selectCommitReviews(this.rootState));
 
 	constructor() {
 		$effect(() => {

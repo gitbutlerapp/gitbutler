@@ -8,7 +8,6 @@
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import { WebRoutesService, setRoutesService } from '@gitbutler/shared/sharedRoutes';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
 	import { setContext, type Snippet } from 'svelte';
 	import { get } from 'svelte/store';
@@ -21,9 +20,6 @@
 	}
 
 	const { children }: Props = $props();
-
-	const webRoutesService = new WebRoutesService();
-	setRoutesService(webRoutesService);
 
 	const authService = new AuthService();
 	setContext(AuthService, authService);
