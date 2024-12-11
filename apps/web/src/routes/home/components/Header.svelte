@@ -1,6 +1,6 @@
 <script lang="ts">
-	import HeaderLink from './HeaderLink.svelte';
-	import HeaderMobileLink from './HeaderMobileLink.svelte';
+	import HeaderLink from '$home/components/HeaderLink.svelte';
+	import HeaderMobileLink from '$home/components/HeaderMobileLink.svelte';
 	import { AuthService } from '$lib/auth/authService';
 	import * as jsonLinks from '$lib/data/links.json';
 	import { getContext } from '@gitbutler/shared/context';
