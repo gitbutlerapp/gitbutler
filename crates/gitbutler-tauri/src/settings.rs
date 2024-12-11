@@ -1,4 +1,5 @@
-use gitbutler_settings::AppSettings;
+#![allow(deprecated)]
+use gitbutler_settings::LegacySettings;
 use std::sync::Arc;
 use tauri::Wry;
 use tauri_plugin_store::Store;
@@ -14,8 +15,8 @@ impl From<Arc<Store<Wry>>> for SettingsStore {
 }
 
 impl SettingsStore {
-    pub fn app_settings(&self) -> AppSettings {
-        AppSettings {
+    pub fn app_settings(&self) -> LegacySettings {
+        LegacySettings {
             app_metrics_enabled: self.get_bool("appMetricsEnabled"),
             app_error_reporting_enabled: self.get_bool("appErrorReportingEnabled"),
             app_non_anon_metrics_enabled: self.get_bool("appNonAnonMetricsEnabled"),
