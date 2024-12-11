@@ -1,19 +1,9 @@
 <script lang="ts">
 	import { formatDate } from '$lib/utils/formatDate';
-
-	interface Post {
-		feature_image: string;
-		published_at: string;
-		title: string;
-		url: string;
-		primary_author: {
-			name: string;
-		};
-		custom_excerpt: string;
-	}
+	import { type PostOrPage } from '@tryghost/content-api';
 
 	interface Props {
-		posts: Post[];
+		posts: PostOrPage[];
 	}
 
 	let { posts }: Props = $props();
@@ -32,7 +22,8 @@
 						{posts[0].title}
 					</h3>
 					<span class="post-title-caption"
-						>{formatDate(posts[0].published_at)} by {posts[0].primary_author.name}</span
+						>{posts[0].published_at ? formatDate(posts[0].published_at) : ''} by {posts[0]
+							.primary_author?.name ?? ''}</span
 					>
 				</div>
 				<div class="main-post__content__caption-wrap">
@@ -47,7 +38,8 @@
 			<div class="secondary-post__content">
 				<h3 class="post-title">{posts[1].title}</h3>
 				<span class="post-title-caption"
-					>{formatDate(posts[1].published_at)} by {posts[1].primary_author.name}</span
+					>{posts[1].published_at ? formatDate(posts[1].published_at) : ''} by {posts[1]
+						.primary_author?.name ?? ''}</span
 				>
 			</div>
 		</a>
@@ -56,7 +48,8 @@
 			<div class="secondary-post__content">
 				<h3 class="post-title">{posts[2].title}</h3>
 				<span class="post-title-caption"
-					>{formatDate(posts[2].published_at)} by {posts[2].primary_author.name}</span
+					>{posts[2].published_at ? formatDate(posts[2].published_at) : ''} by {posts[2]
+						.primary_author?.name ?? ''}</span
 				>
 			</div>
 		</a>

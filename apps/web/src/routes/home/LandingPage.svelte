@@ -10,28 +10,23 @@
 	import { latestClientVersion } from '$lib/store';
 	import { targetDownload } from '$lib/store';
 	import { getOS } from '$lib/utils/getOS';
-	import GhostContentAPI from '@tryghost/content-api';
+	import GhostContentAPI, { type PostsOrPages } from '@tryghost/content-api';
 	import { onMount } from 'svelte';
 
 	const GHOST_URL = 'https://gitbutler.ghost.io';
 	const GHOST_KEY = '80bbdca8b933f3d98780c7cc1b';
 	const GHOST_VERSION = 'v5.0';
 
-	let data: any = $state();
-	onMount(async () => {
-		const { postsJson } = await loadBlog();
-		data = { postsJson };
-	});
+	let posts = $state<PostsOrPages>();
 
-	export async function loadBlog() {
+	onMount(async () => {
 		const api = GhostContentAPI({
 			url: GHOST_URL,
 			key: GHOST_KEY,
 			version: GHOST_VERSION
 		});
-		const postsJson = await api.posts.browse({ limit: 3, include: 'authors' });
-		return { postsJson };
-	}
+		posts = await api.posts.browse({ limit: 3, include: 'authors' });
+	});
 
 	onMount(() => {
 		const os = getOS();
@@ -59,8 +54,8 @@
 <Hero />
 <Features />
 <DevelopersReview />
-{#if data}
-	<BlogHighlights posts={data.postsJson} />
+{#if posts}
+	<BlogHighlights {posts} />
 {/if}
 <FAQ />
 <Footer />
