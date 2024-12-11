@@ -9,6 +9,7 @@
 <script lang="ts">
 	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
 	import PrTemplateSection from './PrTemplateSection.svelte';
+	import getPRContent from './prContent.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import { TemplateService } from '$lib/backend/templateService';
@@ -16,7 +17,7 @@
 	import Markdown from '$lib/components/Markdown.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { persistedPRBody, persistedPRTitle, projectAiGenEnabled } from '$lib/config/config';
+	import { persistedUsePRTemplate, projectAiGenEnabled } from '$lib/config/config';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
@@ -71,7 +72,6 @@
 	const templateService = getContext(TemplateService);
 
 	const branch = $derived($branchStore);
-	const branchName = $derived(props.type === 'preview' ? props.currentSeries.name : branch.name);
 	const commits = $derived(
 		props.type === 'preview'
 			? props.currentSeries.patches
@@ -90,7 +90,6 @@
 	let modal = $state<ReturnType<typeof Modal>>();
 	let isEditing = $state<boolean>(true);
 	let isLoading = $state<boolean>(false);
-	let templateBody = $state<string | undefined>(undefined);
 	let aiIsLoading = $state<boolean>(false);
 	let aiConfigurationValid = $state<boolean>(false);
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
@@ -98,53 +97,30 @@
 	const pushBeforeCreate = $derived(!forgeBranch || commits.some((c) => !c.isRemote));
 
 	// Displays template select component when true.
-	let useTemplate = persisted(false, `use-template-${project.id}`);
+	let useTemplate = persistedUsePRTemplate(project.id);
 	// Available pull request templates.
 	let templates = $state<string[]>([]);
+
+	const canUseAI = $derived(aiConfigurationValid && $aiGenEnabled);
+
+	const PRContent = $derived(
+		getPRContent({
+			isDisplay: props.type === 'display',
+			projectId: project.id,
+			seriesName: currentSeries?.name ?? '',
+			seriesDescription: currentSeries?.description ?? '',
+			existingTitle: props.type === 'display' ? props.pr.title : undefined,
+			existingBody: props.type === 'display' ? props.pr.body : undefined,
+			commits
+		})
+	);
 
 	async function handleToggleUseTemplate() {
 		useTemplate.set(!$useTemplate);
 		if (!$useTemplate) {
-			templateBody = undefined;
+			PRContent.templateBody = undefined;
 		}
 	}
-
-	const canUseAI = $derived(aiConfigurationValid && $aiGenEnabled);
-	const defaultTitle: string = $derived.by(() => {
-		if (props.type === 'display') return props.pr.title;
-
-		// In case of a single commit, use the commit summary for the title
-		if (commits.length === 1) {
-			const commit = commits[0];
-			return commit?.descriptionTitle ?? '';
-		} else {
-			return branchName;
-		}
-	});
-
-	const defaultBody: string = $derived.by(() => {
-		if (props.type === 'display') return props.pr.body ?? '';
-		if (currentSeries && currentSeries.description) return currentSeries.description;
-		if (templateBody) return templateBody;
-
-		// In case of a single commit, use the commit description for the body
-		if (commits.length === 1) {
-			const commit = commits[0];
-			return commit?.descriptionBody ?? '';
-		} else {
-			return '';
-		}
-	});
-
-	const inputBody = $derived(
-		props.type !== 'display' ? persistedPRBody(project.id, props.currentSeries.name) : undefined
-	);
-	const inputTitle = $derived(
-		props.type !== 'display' ? persistedPRTitle(project.id, props.currentSeries.name) : undefined
-	);
-
-	const actualBody = $derived<string>(inputBody && $inputBody ? $inputBody : defaultBody);
-	const actualTitle = $derived<string>(inputTitle && $inputTitle ? $inputTitle : defaultTitle);
 
 	$effect(() => {
 		if (modal?.imports.open) {
@@ -253,8 +229,8 @@
 	async function handleCreatePR(close: () => void) {
 		if (props.type === 'display') return;
 		await createPr({
-			title: actualTitle,
-			body: actualBody,
+			title: PRContent.title,
+			body: PRContent.body,
 			draft: $createDraft
 		});
 		close();
@@ -270,18 +246,17 @@
 		let firstToken = true;
 
 		const descriptionResult = await aiService?.describePR({
-			title: actualTitle,
-			body: actualBody,
+			title: PRContent.title,
+			body: PRContent.body,
 			directive: aiDescriptionDirective,
 			commitMessages: commits.map((c) => c.description),
-			prBodyTemplate: templateBody,
+			prBodyTemplate: PRContent.templateBody,
 			onToken: (t) => {
 				if (firstToken) {
-					inputBody?.set('');
+					PRContent.body = '';
 					firstToken = false;
 				}
-				const newInputBody = inputBody ? $inputBody + t : t;
-				inputBody?.set(newInputBody);
+				PRContent.body += t;
 			}
 		});
 
@@ -291,7 +266,7 @@
 			return;
 		}
 
-		inputBody?.set(descriptionResult.value);
+		PRContent.body = descriptionResult.value;
 		aiIsLoading = false;
 		aiDescriptionDirective = undefined;
 		await tick();
@@ -370,11 +345,11 @@
 			{#if isDisplay || !isEditing}
 				<div class="pr-preview" class:display={isDisplay} class:preview={!isDisplay}>
 					<h1 class="text-head-22 pr-preview-title">
-						{actualTitle}
+						{PRContent.title}
 					</h1>
-					{#if actualBody}
+					{#if PRContent.body}
 						<div class="pr-description-preview">
-							<Markdown content={actualBody} />
+							<Markdown content={PRContent.body} />
 						</div>
 					{/if}
 				</div>
@@ -382,10 +357,10 @@
 				<div class="pr-fields">
 					<Textbox
 						placeholder="PR title"
-						value={actualTitle}
+						value={PRContent.title}
 						readonly={!isEditing || isDisplay}
 						oninput={(value: string) => {
-							inputTitle?.set(value);
+							PRContent.title = value;
 						}}
 					/>
 
@@ -414,7 +389,7 @@
 					{#if $useTemplate}
 						<PrTemplateSection
 							onselected={(body) => {
-								templateBody = body;
+								PRContent.templateBody = body;
 							}}
 							{templates}
 						/>
@@ -424,14 +399,14 @@
 					<div class="pr-description-field text-input">
 						<Textarea
 							unstyled
-							value={actualBody}
+							value={PRContent.body}
 							minRows={4}
 							autofocus
 							padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
 							placeholder="Add description…"
 							oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 								const target = e.currentTarget as HTMLTextAreaElement;
-								inputBody?.set(target.value.trim());
+								PRContent.body = target.value;
 							}}
 						/>
 
@@ -481,7 +456,7 @@
 				bind:this={createPrDropDown}
 				style="pop"
 				kind="solid"
-				disabled={isLoading || aiIsLoading || !actualTitle}
+				disabled={isLoading || aiIsLoading || !PRContent.title}
 				loading={isLoading}
 				type="submit"
 				onclick={async () => await handleCreatePR(close)}

@@ -60,4 +60,8 @@ export function persistedPRTitle(projectId: string, seriesName: string): Persist
 	return persistWithExpiration('', 'seriesCurrentPRTitle_' + projectId + '_' + seriesName, 5);
 }
 
+export function persistedUsePRTemplate(projectId: string): Persisted<boolean> {
+	return persisted(false, 'projectUsePRTemplate_' + projectId);
+}
+
 export const showHistoryView = persisted(false, 'showHistoryView');
