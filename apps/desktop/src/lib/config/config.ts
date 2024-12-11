@@ -1,4 +1,4 @@
-import { persisted, type Persisted, persistWithExpiration } from '@gitbutler/shared/persisted';
+import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 
 export function projectHttpsWarningBannerDismissed(projectId: string): Persisted<boolean> {
 	const key = 'projectHttpsWarningBannerDismissed_';
@@ -50,18 +50,6 @@ export function projectLaneCollapsed(projectId: string, laneId: string): Persist
 
 export function persistedCommitMessage(projectId: string, branchId: string): Persisted<string> {
 	return persisted('', 'projectCurrentCommitMessage_' + projectId + '_' + branchId);
-}
-
-export function persistedPRBody(projectId: string, seriesName: string): Persisted<string> {
-	return persistWithExpiration('', 'seriesCurrentPRBody_' + projectId + '_' + seriesName, 5);
-}
-
-export function persistedPRTitle(projectId: string, seriesName: string): Persisted<string> {
-	return persistWithExpiration('', 'seriesCurrentPRTitle_' + projectId + '_' + seriesName, 5);
-}
-
-export function persistedUsePRTemplate(projectId: string): Persisted<boolean> {
-	return persisted(false, 'projectUsePRTemplate_' + projectId);
 }
 
 export const showHistoryView = persisted(false, 'showHistoryView');
