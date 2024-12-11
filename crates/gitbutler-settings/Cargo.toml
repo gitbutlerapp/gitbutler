@@ -13,3 +13,10 @@ rust-embed = "8.4.0"
 serde_json_lenient = "0.2.3"
 gitbutler-settings-util.path = "vendor/util"
 gitbutler-fs.workspace = true
+
+[[test]]
+name = "settings"
+path = "tests/mod.rs"
+
+[dev-dependencies]
+gitbutler-settings.workspace = true
