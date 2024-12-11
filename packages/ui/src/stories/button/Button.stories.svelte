@@ -44,7 +44,7 @@
 </script>
 
 <Story
-	name="Single"
+	name="Playground"
 	play={async ({ args, canvasElement }) => {
 		const canvas = within(canvasElement);
 		const submitButton = canvas.getByRole('button');
