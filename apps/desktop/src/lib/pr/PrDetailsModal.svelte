@@ -192,7 +192,7 @@
 			let base = baseBranchName;
 			let parent = parentBranch(currentSeries, branches);
 
-			if (parent && !parent.integrated) {
+			if (parent && !parent.integrated && !parent.archived) {
 				base = parent.branchName;
 			}
 
