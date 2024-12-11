@@ -4,4 +4,5 @@ pub use legacy::LegacySettings;
 
 mod app_settings;
 mod json;
-mod persistence;
+pub mod persistence;
+pub use app_settings::AppSettings;
