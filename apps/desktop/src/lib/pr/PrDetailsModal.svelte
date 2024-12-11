@@ -17,7 +17,7 @@
 	import Markdown from '$lib/components/Markdown.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { persistedUsePRTemplate, projectAiGenEnabled } from '$lib/config/config';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
@@ -97,7 +97,7 @@
 	const pushBeforeCreate = $derived(!forgeBranch || commits.some((c) => !c.isRemote));
 
 	// Displays template select component when true.
-	let useTemplate = persistedUsePRTemplate(project.id);
+	let useTemplate = persisted(false, `use-template-${project.id}`);
 	// Available pull request templates.
 	let templates = $state<string[]>([]);
 

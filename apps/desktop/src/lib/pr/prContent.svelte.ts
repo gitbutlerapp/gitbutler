@@ -1,5 +1,13 @@
-import { persistedPRBody, persistedPRTitle } from '$lib/config/config';
+import { persistWithExpiration, type Persisted } from '@gitbutler/shared/persisted';
 import type { DetailedCommit } from '$lib/vbranches/types';
+
+export function persistedPRBody(projectId: string, seriesName: string): Persisted<string> {
+	return persistWithExpiration('', 'seriesCurrentPRBody_' + projectId + '_' + seriesName, 5);
+}
+
+export function persistedPRTitle(projectId: string, seriesName: string): Persisted<string> {
+	return persistWithExpiration('', 'seriesCurrentPRTitle_' + projectId + '_' + seriesName, 5);
+}
 
 export interface PRContent {
 	title: string;
