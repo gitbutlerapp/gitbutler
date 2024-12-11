@@ -37,13 +37,15 @@
 	let isDeleting = $state(false);
 
 	const branch = $derived($branchStore);
-	const commits = $derived(branch.validSeries.flatMap((s) => s.patches));
+	const commits = $derived(branch.validBranches.flatMap((s) => s.patches));
 
 	$effect(() => {
 		allowRebasing = branch.allowRebasing;
 	});
 
-	const allPrIds = $derived(branch.validSeries.map((series) => series.prNumber).filter(isDefined));
+	const allPrIds = $derived(
+		branch.validBranches.map((series) => series.prNumber).filter(isDefined)
+	);
 
 	async function toggleAllowRebasing() {
 		branchController.updateBranchAllowRebasing(branch.id, !allowRebasing);
@@ -123,13 +125,15 @@
 	</ContextMenuSection>
 	{#if $user && $user.role?.includes('admin')}
 		<!-- TODO: Remove after iterating on the pull request footer. -->
-		<ContextMenuSection title="Admin only">
+		<ContextMenuSection>
 			<ContextMenuItem
 				label="Update PR footers"
 				disabled={allPrIds.length === 0}
 				onclick={() => {
 					if ($prService && branch) {
-						const allPrIds = branch.validSeries.map((series) => series.prNumber).filter(isDefined);
+						const allPrIds = branch.validBranches
+							.map((series) => series.prNumber)
+							.filter(isDefined);
 						updatePrDescriptionTables($prService, allPrIds);
 					}
 					contextMenuEl?.close();

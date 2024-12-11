@@ -27,7 +27,7 @@
 		<BranchFiles
 			isUnapplied={false}
 			files={branch.files}
-			branches={branch.validSeries}
+			branches={branch.validBranches}
 			showCheckboxes={$commitBoxOpen}
 			allowMultiple
 			commitDialogExpanded={commitBoxOpen}
@@ -53,7 +53,7 @@
 		bind:this={commitDialog}
 		projectId={project.id}
 		expanded={commitBoxOpen}
-		hasSectionsAfter={branch.validSeries.flatMap((s) => s.patches).length > 0}
+		hasSectionsAfter={branch.validBranches.flatMap((s) => s.patches).length > 0}
 	/>
 </div>
 

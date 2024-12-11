@@ -58,15 +58,10 @@
 	const parent = $derived(
 		parentBranch(
 			branch,
-			stack.validSeries.filter((b) => b.archived)
+			stack.validBranches.filter((b) => b.archived)
 		)
 	);
-	const child = $derived(
-		childBranch(
-			branch,
-			stack.validSeries.filter((b) => !b.archived)
-		)
-	);
+	const child = $derived(childBranch(branch, stack.validNonArchivedBranches));
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const branchController = getContext(BranchController);
@@ -77,7 +72,7 @@
 	const upstreamName = $derived(branch.upstreamReference ? branch.name : undefined);
 	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
 	const previousSeriesHavePrNumber = $derived(
-		allPreviousSeriesHavePrNumber(branch.name, stack.validSeries)
+		allPreviousSeriesHavePrNumber(branch.name, stack.validBranches)
 	);
 
 	let stackingAddSeriesModal = $state<ReturnType<typeof AddSeriesModal>>();
@@ -279,7 +274,7 @@
 	leftClickTrigger={kebabContextMenuTrigger}
 	rightClickTrigger={seriesHeaderEl}
 	headName={branch.name}
-	seriesCount={stack.validSeries?.length ?? 0}
+	seriesCount={stack.validBranches?.length ?? 0}
 	{isTopBranch}
 	{toggleDescription}
 	description={branch.description ?? ''}

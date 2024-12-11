@@ -58,7 +58,7 @@
 	let rsViewport = $state<HTMLElement>();
 
 	const branchHasFiles = $derived(branch.files !== undefined && branch.files.length > 0);
-	const branchHasNoCommits = $derived(branch.validSeries.flatMap((s) => s.patches).length === 0);
+	const branchHasNoCommits = $derived(branch.validBranches.flatMap((s) => s.patches).length === 0);
 
 	$effect(() => {
 		if ($commitBoxOpen && branch.files.length === 0) {
@@ -79,7 +79,7 @@
 		const upstreamPatches: DetailedCommit[] = [];
 		const branchPatches: DetailedCommit[] = [];
 
-		branch.validSeries.map((series) => {
+		branch.validBranches.map((series) => {
 			upstreamPatches.push(...series.upstreamPatches);
 			branchPatches.push(...series.patches);
 			hasConflicts = branchPatches.some((patch) => patch.conflicted);
@@ -111,7 +111,7 @@
 	}
 
 	async function checkMergeable() {
-		const nonArchivedBranches = branch.validSeries.filter((s) => !s.archived);
+		const nonArchivedBranches = branch.validNonArchivedBranches;
 		if (nonArchivedBranches.length <= 1) return false;
 
 		const seriesMergeResponse = await Promise.allSettled(
@@ -136,7 +136,7 @@
 	// started last and therefore complete last.
 	const forge = getForge();
 	const checksMonitor = $derived(
-		$forge?.checksMonitor(branch.validSeries.filter((s) => !s.archived)[0]?.name ?? '')
+		$forge?.checksMonitor(branch.validNonArchivedBranches[0]?.name ?? '')
 	);
 	const checks = $derived(checksMonitor?.status);
 
@@ -149,7 +149,7 @@
 	async function mergeAll(method: MergeMethod) {
 		isMergingSeries = true;
 		try {
-			const topBranch = branch.validSeries[0];
+			const topBranch = branch.validBranches[0];
 
 			if (topBranch?.prNumber && $prService) {
 				const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
@@ -264,7 +264,7 @@
 									>
 										{branch.requiresForce
 											? 'Force push'
-											: branch.validSeries.length > 1
+											: branch.validBranches.length > 1
 												? 'Push All'
 												: 'Push'}
 									</Button>
