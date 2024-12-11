@@ -451,6 +451,7 @@
 			border-bottom-right-radius: 0;
 			border-right: none;
 
+			&.neutral,
 			&.pop,
 			&.success,
 			&.error,
