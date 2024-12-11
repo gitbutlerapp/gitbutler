@@ -1,5 +1,5 @@
 <script>
-	import Footer from '$lib/sections/Footer.svelte';
+	import Footer from '$home/sections/Footer.svelte';
 	import { page } from '$app/stores';
 </script>
 

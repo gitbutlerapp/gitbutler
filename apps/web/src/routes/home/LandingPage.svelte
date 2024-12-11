@@ -1,17 +1,17 @@
 <script lang="ts">
-	import Header from './Header.svelte';
+	import Header from '$home/components/Header.svelte';
+	import BlogHighlights from '$home/sections/BlogHighlights.svelte';
+	import DevelopersReview from '$home/sections/DevelopersReview.svelte';
+	import FAQ from '$home/sections/FAQ.svelte';
+	import Features from '$home/sections/Features.svelte';
+	import Footer from '$home/sections/Footer.svelte';
+	import Hero from '$home/sections/Hero.svelte';
 	import * as jsonLinks from '$lib/data/links.json';
-	import { targetDownload } from '$lib/store';
 	import { latestClientVersion } from '$lib/store';
+	import { targetDownload } from '$lib/store';
 	import { getOS } from '$lib/utils/getOS';
 	import GhostContentAPI from '@tryghost/content-api';
 	import { onMount } from 'svelte';
-	import BlogHighlights from '../sections/BlogHighlights.svelte';
-	import DevelopersReview from '../sections/DevelopersReview.svelte';
-	import FAQ from '../sections/FAQ.svelte';
-	import Features from '../sections/Features.svelte';
-	import Footer from '../sections/Footer.svelte';
-	import Hero from '../sections/Hero.svelte';
 
 	const GHOST_URL = 'https://gitbutler.ghost.io';
 	const GHOST_KEY = '80bbdca8b933f3d98780c7cc1b';
