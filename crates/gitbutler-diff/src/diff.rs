@@ -155,7 +155,7 @@ pub fn workdir(repo: &git2::Repository, commit_oid: git2::Oid) -> Result<DiffByP
         })
         .collect();
     for conflict_path_to_resolve in paths_to_add {
-        index.add_path(conflict_path_to_resolve.as_ref())?;
+        index.add_path(conflict_path_to_resolve.as_ref()).ok();
     }
     repo.ignore_large_files_in_diffs(50_000_000)?;
     let diff = repo.diff_tree_to_workdir_with_index(Some(&old_tree), Some(&mut diff_opts))?;
