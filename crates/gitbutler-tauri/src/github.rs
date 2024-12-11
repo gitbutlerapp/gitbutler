@@ -1,3 +1,4 @@
+#![allow(deprecated)] // LegacySettings
 pub mod commands {
     use std::collections::HashMap;
     use tauri::State;
