@@ -111,15 +111,16 @@
 	}
 
 	async function checkMergeable() {
-		const seriesMergeResponse = await Promise.allSettled(
-			branch.validSeries
-				.filter((s) => !s.archived)
-				.map((series) => {
-					if (!series.prNumber) return Promise.reject();
+		const nonArchivedBranches = branch.validSeries.filter((s) => !s.archived);
+		if (nonArchivedBranches.length <= 1) return false;
 
-					const detailedPr = $prService?.get(series.prNumber);
-					return detailedPr;
-				})
+		const seriesMergeResponse = await Promise.allSettled(
+			nonArchivedBranches.map((series) => {
+				if (!series.prNumber) return Promise.reject();
+
+				const detailedPr = $prService?.get(series.prNumber);
+				return detailedPr;
+			})
 		);
 
 		return seriesMergeResponse.every((s) => {
