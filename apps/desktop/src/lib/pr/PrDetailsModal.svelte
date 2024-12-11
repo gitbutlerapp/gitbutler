@@ -9,7 +9,7 @@
 <script lang="ts">
 	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
 	import PrTemplateSection from './PrTemplateSection.svelte';
-	import getPRContent from './prContent.svelte';
+	import { ReactivePRBody, ReactivePRTitle } from './prContent.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import { TemplateService } from '$lib/backend/templateService';
@@ -94,6 +94,7 @@
 	let aiConfigurationValid = $state<boolean>(false);
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
 	let showAiBox = $state<boolean>(false);
+	let templateBody = $state<string | undefined>(undefined);
 	const pushBeforeCreate = $derived(!forgeBranch || commits.some((c) => !c.isRemote));
 
 	// Displays template select component when true.
@@ -103,22 +104,29 @@
 
 	const canUseAI = $derived(aiConfigurationValid && $aiGenEnabled);
 
-	const PRContent = $derived(
-		getPRContent({
-			isDisplay: props.type === 'display',
-			projectId: project.id,
-			seriesName: currentSeries?.name ?? '',
-			seriesDescription: currentSeries?.description ?? '',
-			existingTitle: props.type === 'display' ? props.pr.title : undefined,
-			existingBody: props.type === 'display' ? props.pr.body : undefined,
-			commits
-		})
+	const prTitle = $derived(
+		new ReactivePRTitle(
+			props.type === 'display',
+			props.type === 'display' ? props.pr.title : undefined,
+			commits,
+			currentSeries?.name ?? ''
+		)
+	);
+
+	const prBody = $derived(
+		new ReactivePRBody(
+			props.type === 'display',
+			currentSeries?.description ?? '',
+			props.type === 'display' ? props.pr.body : undefined,
+			commits,
+			templateBody
+		)
 	);
 
 	async function handleToggleUseTemplate() {
 		useTemplate.set(!$useTemplate);
 		if (!$useTemplate) {
-			PRContent.templateBody = undefined;
+			templateBody = undefined;
 		}
 	}
 
@@ -229,8 +237,8 @@
 	async function handleCreatePR(close: () => void) {
 		if (props.type === 'display') return;
 		await createPr({
-			title: PRContent.title,
-			body: PRContent.body,
+			title: prTitle.value,
+			body: prBody.value,
 			draft: $createDraft
 		});
 		close();
@@ -246,17 +254,17 @@
 		let firstToken = true;
 
 		const descriptionResult = await aiService?.describePR({
-			title: PRContent.title,
-			body: PRContent.body,
+			title: prTitle.value,
+			body: prBody.value,
 			directive: aiDescriptionDirective,
 			commitMessages: commits.map((c) => c.description),
-			prBodyTemplate: PRContent.templateBody,
-			onToken: (t) => {
+			prBodyTemplate: templateBody,
+			onToken: (token) => {
 				if (firstToken) {
-					PRContent.body = '';
+					prBody.reset();
 					firstToken = false;
 				}
-				PRContent.body += t;
+				prBody.append(token);
 			}
 		});
 
@@ -266,7 +274,7 @@
 			return;
 		}
 
-		PRContent.body = descriptionResult.value;
+		prBody.set(descriptionResult.value);
 		aiIsLoading = false;
 		aiDescriptionDirective = undefined;
 		await tick();
@@ -345,11 +353,11 @@
 			{#if isDisplay || !isEditing}
 				<div class="pr-preview" class:display={isDisplay} class:preview={!isDisplay}>
 					<h1 class="text-head-22 pr-preview-title">
-						{PRContent.title}
+						{prTitle.value}
 					</h1>
-					{#if PRContent.body}
+					{#if prBody.value}
 						<div class="pr-description-preview">
-							<Markdown content={PRContent.body} />
+							<Markdown content={prBody.value} />
 						</div>
 					{/if}
 				</div>
@@ -357,10 +365,10 @@
 				<div class="pr-fields">
 					<Textbox
 						placeholder="PR title"
-						value={PRContent.title}
+						value={prTitle.value}
 						readonly={!isEditing || isDisplay}
 						oninput={(value: string) => {
-							PRContent.title = value;
+							prTitle.set(value);
 						}}
 					/>
 
@@ -389,7 +397,7 @@
 					{#if $useTemplate}
 						<PrTemplateSection
 							onselected={(body) => {
-								PRContent.templateBody = body;
+								templateBody = body;
 							}}
 							{templates}
 						/>
@@ -399,14 +407,14 @@
 					<div class="pr-description-field text-input">
 						<Textarea
 							unstyled
-							value={PRContent.body}
+							value={prBody.value}
 							minRows={4}
 							autofocus
 							padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
 							placeholder="Add description…"
 							oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 								const target = e.currentTarget as HTMLTextAreaElement;
-								PRContent.body = target.value;
+								prBody.set(target.value);
 							}}
 						/>
 
@@ -456,7 +464,7 @@
 				bind:this={createPrDropDown}
 				style="pop"
 				kind="solid"
-				disabled={isLoading || aiIsLoading || !PRContent.title}
+				disabled={isLoading || aiIsLoading || !prTitle.value}
 				loading={isLoading}
 				type="submit"
 				onclick={async () => await handleCreatePR(close)}
