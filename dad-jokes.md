@@ -21,7 +21,7 @@
 ### Community dad jokes
 
 <details>
-  <summary>Which computer serial interface has exactly 666MB/s of bandwith?</summary>
+  <summary>Which computer serial interface has exactly 666MB/s of bandwidth?</summary>
   <b>SATA-N</b>
 </details>
 
