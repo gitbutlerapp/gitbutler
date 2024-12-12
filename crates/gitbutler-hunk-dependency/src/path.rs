@@ -3,10 +3,10 @@ use std::{
     vec,
 };
 
-use anyhow::bail;
+use anyhow::{bail, Context};
 use gitbutler_stack::StackId;
 
-use crate::{utils::panicless_subtraction, HunkRange, InputDiff};
+use crate::{utils::PaniclessSubtraction, HunkRange, InputDiff};
 
 /// Adds sequential diffs from sequential commits for a specific path, and shifts line numbers
 /// with additions and deletions. It is expected that diffs are added one commit at a time,
@@ -405,11 +405,10 @@ impl PathRanges {
                         stack_id: first_intersecting_hunk.stack_id,
                         commit_id: first_intersecting_hunk.commit_id,
                         start: first_intersecting_hunk.start,
-                        lines: panicless_subtraction(
-                            incoming_hunk.new_start,
-                            first_intersecting_hunk.start,
-                            "While calculating the lines when incoming hunk overlaps the end of the first intersecting hunk range."
-                        )?,
+                        lines: incoming_hunk
+                            .new_start
+                            .sub_or_err(first_intersecting_hunk.start)
+                            .context("While calculating the lines when incoming hunk overlaps the end of the first intersecting hunk range.")?,
                         line_shift: first_intersecting_hunk.line_shift,
                     },
                     HunkRange {
@@ -439,11 +438,10 @@ impl PathRanges {
                     stack_id: first_intersecting_hunk.stack_id,
                     commit_id: first_intersecting_hunk.commit_id,
                     start: first_intersecting_hunk.start,
-                    lines: panicless_subtraction(
-                        incoming_hunk.new_start,
-                        first_intersecting_hunk.start,
-                        "While calculating the lines of the top hunk range when incoming hunk is contained in the intersecting hunk ranges."
-                    )?,
+                    lines: incoming_hunk
+                        .new_start
+                        .sub_or_err(first_intersecting_hunk.start)
+                        .context("While calculating the lines of the top hunk range when incoming hunk is contained in the intersecting hunk ranges.")?,
                     line_shift: first_intersecting_hunk.line_shift,
                 },
                 HunkRange {
@@ -527,9 +525,7 @@ impl PathRanges {
                         stack_id: hunk.stack_id,
                         commit_id: hunk.commit_id,
                         start: hunk.start,
-                        lines: panicless_subtraction(
-                            incoming_hunk.new_start,
-                            hunk.start,
+                        lines: incoming_hunk.new_start.sub_or_err(hunk.start).context(
                             "When calculating the top lines of the hunk range being split.",
                         )?,
                         line_shift: hunk.line_shift,
@@ -605,9 +601,7 @@ impl PathRanges {
                         stack_id: hunk.stack_id,
                         commit_id: hunk.commit_id,
                         start: hunk.start,
-                        lines: panicless_subtraction(
-                            incoming_hunk.new_start,
-                            hunk.start,
+                        lines: incoming_hunk.new_start.sub_or_err(hunk.start).context(
                             "When calculating the lines of the hunk range's end being trimmed.",
                         )?,
                         line_shift: hunk.line_shift,
@@ -639,7 +633,7 @@ impl PathRanges {
         &self,
         hunk: &HunkRange,
         incoming_hunk: &InputDiff,
-        context: &str,
+        context: &'static str,
     ) -> anyhow::Result<u32> {
         let old_start = self.get_shifted_old_start(incoming_hunk.old_start);
         let addition_shift = if self.is_addition_only_hunk(incoming_hunk) {
@@ -657,9 +651,11 @@ impl PathRanges {
         };
 
         let result = hunk.start + hunk.lines;
-        let result = panicless_subtraction(result, old_start, context)?;
-        let result = panicless_subtraction(result, incoming_hunk.old_lines, context)?;
-        let result = panicless_subtraction(result, addition_shift, context)?;
+        let result = result.sub_or_err(old_start).context(context)?;
+        let result = result
+            .sub_or_err(incoming_hunk.old_lines)
+            .context(context)?;
+        let result = result.sub_or_err(addition_shift).context(context)?;
         Ok(result + deletion_shift)
     }
 

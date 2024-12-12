@@ -1,7 +1,7 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use gitbutler_stack::StackId;
 
-use crate::utils::panicless_subtraction;
+use crate::utils::PaniclessSubtraction;
 
 /// A struct for tracking what stack and commit a hunk belongs to as its line numbers shift with
 /// new changes come in from other commits and/or stacks.
@@ -32,17 +32,13 @@ impl HunkRange {
             return Ok(self.start <= start && self.start + self.lines > start);
         }
 
-        let last_line = panicless_subtraction(
-            self.start + self.lines,
-            1,
-            "While calculating the last line",
-        )?;
+        let last_line = (self.start + self.lines)
+            .sub_or_err(1)
+            .context("While calculating the last line")?;
 
-        let incoming_last_line = panicless_subtraction(
-            start + lines,
-            1,
-            "While calculating the last line of the incoming hunk",
-        )?;
+        let incoming_last_line = (start + lines)
+            .sub_or_err(1)
+            .context("While calculating the last line of the incoming hunk")?;
 
         if self.lines == 0 {
             // Special case when point is inside a range, happens
@@ -79,11 +75,9 @@ impl HunkRange {
     }
 
     pub fn precedes(&self, start: u32) -> Result<bool> {
-        let last_line = panicless_subtraction(
-            self.start + self.lines,
-            1,
-            "While calculating the last line",
-        )?;
+        let last_line = (self.start + self.lines)
+            .sub_or_err(1)
+            .context("While calculating the last line")?;
 
         Ok(last_line < start)
     }
@@ -99,11 +93,9 @@ impl HunkRange {
             return Ok(self.start > start);
         }
 
-        let incoming_last_line = panicless_subtraction(
-            start + lines,
-            1,
-            "While calculating the last line of the incoming hunk",
-        )?;
+        let incoming_last_line = (start + lines)
+            .sub_or_err(1)
+            .context("While calculating the last line of the incoming hunk")?;
 
         Ok(self.start > incoming_last_line)
     }
