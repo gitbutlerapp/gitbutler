@@ -8,6 +8,5 @@ export const [getForgeListingService, createForgeListingServiceStore] = buildCon
 
 export interface ForgeListingService {
 	prs: Readable<PullRequest[]>;
-	fetch(): Promise<PullRequest[]>;
 	refresh(): Promise<void>;
 }
