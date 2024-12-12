@@ -44,10 +44,7 @@ describe.concurrent('GitHubListingService', () => {
 				data: [{ title, labels: [] as Labels }]
 			} as PrListResponse)
 		);
-		const prs = await service?.fetch();
-		expect(prs?.length).toEqual(1);
-		expect(prs?.[0]?.title).toEqual(title);
-
+		await service?.refresh();
 		const metrics = projectMetrics.getReport();
 		expect(metrics['pr_count']?.value).toEqual(1);
 		expect(metrics['pr_count']?.maxValue).toEqual(1);

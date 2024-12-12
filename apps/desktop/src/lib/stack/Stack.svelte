@@ -8,7 +8,6 @@
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Dropzones from '$lib/branch/Dropzones.svelte';
-	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { type MergeMethod } from '$lib/forge/interface/types';
@@ -131,20 +130,7 @@
 		});
 	}
 
-	// Create monitor on top series in order for us to trigger mergeabilitiy test once its
-	// checks have completed. Using the top branch as it's checks are most likely to have been
-	// started last and therefore complete last.
-	const forge = getForge();
-	const checksMonitor = $derived(
-		$forge?.checksMonitor(branch.validNonArchivedBranches[0]?.name ?? '')
-	);
-	const checks = $derived(checksMonitor?.status);
-
-	let canMergeAll = $derived.by(() => {
-		// Force this to rerun once the checks have completed and we can check mergeability again
-		void $checks;
-		return checkMergeable();
-	});
+	let canMergeAll = $derived(checkMergeable());
 
 	async function mergeAll(method: MergeMethod) {
 		isMergingSeries = true;

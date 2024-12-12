@@ -1,114 +1,66 @@
-import { persistWithExpiration, type Persisted } from '@gitbutler/shared/persisted';
 import type { DetailedCommit } from '$lib/vbranches/types';
 
-export function persistedPRBody(projectId: string, seriesName: string): Persisted<string> {
-	return persistWithExpiration('', 'seriesCurrentPRBody_' + projectId + '_' + seriesName, 5);
-}
+export class ReactivePRTitle {
+	value = $state<string>('');
 
-export function persistedPRTitle(projectId: string, seriesName: string): Persisted<string> {
-	return persistWithExpiration('', 'seriesCurrentPRTitle_' + projectId + '_' + seriesName, 5);
-}
+	constructor(
+		private isDisplay: boolean,
+		private existingTitle: string | undefined,
+		private commits: DetailedCommit[],
+		private branchName: string
+	) {
+		this.value = this.getDefaultTitle();
+	}
 
-export interface PRContent {
-	title: string;
-	body: string;
-	templateBody: string | undefined;
-}
-
-export interface PRContentParams {
-	isDisplay: boolean;
-	projectId: string;
-	seriesName: string;
-	seriesDescription: string | undefined;
-	existingTitle: string | undefined;
-	existingBody: string | undefined;
-	commits: DetailedCommit[];
-}
-
-export default function getPRContent(params: PRContentParams): PRContent {
-	let templateBody = $state<string | undefined>(undefined);
-	const defaultTitle: string = $derived.by(() => {
-		if (params.isDisplay) return params.existingTitle ?? '';
-
+	private getDefaultTitle(): string {
+		if (this.isDisplay) return this.existingTitle ?? '';
 		// In case of a single commit, use the commit summary for the title
-		if (params.commits.length === 1) {
-			const commit = params.commits[0];
+		if (this.commits.length === 1) {
+			const commit = this.commits[0];
 			return commit?.descriptionTitle ?? '';
 		}
+		return this.branchName;
+	}
 
-		return params.seriesName;
-	});
+	set(value: string) {
+		this.value = value;
+	}
+}
 
-	const defaultBody: string = $derived.by(() => {
-		if (params.isDisplay) return params.existingBody ?? '';
-		if (params.seriesDescription) return params.seriesDescription;
-		if (templateBody) return templateBody;
+export class ReactivePRBody {
+	value = $state<string>('');
 
+	constructor(
+		private isDisplay: boolean,
+		private branchDescription: string | undefined,
+		private existingBody: string | undefined,
+		private commits: DetailedCommit[],
+		private templateBody: string | undefined
+	) {
+		this.value = this.getDefaultBody();
+	}
+
+	getDefaultBody(): string {
+		if (this.isDisplay) return this.existingBody ?? '';
+		if (this.branchDescription) return this.branchDescription;
+		if (this.templateBody) return this.templateBody;
 		// In case of a single commit, use the commit description for the body
-		if (params.commits.length === 1) {
-			const commit = params.commits[0];
+		if (this.commits.length === 1) {
+			const commit = this.commits[0];
 			return commit?.descriptionBody ?? '';
 		}
-
 		return '';
-	});
+	}
 
-	const persistedBody = persistedPRBody(params.projectId, params.seriesName);
-	const persistedTitle = persistedPRTitle(params.projectId, params.seriesName);
+	set(value: string) {
+		this.value = value;
+	}
 
-	let inputBody = $state<string>();
-	let inputTitle = $state<string>();
+	append(value: string) {
+		this.value += value;
+	}
 
-	let actualBody = $state<string>('');
-	let actualTitle = $state<string>('');
-
-	$effect(() => {
-		actualBody = defaultBody;
-	});
-
-	$effect(() => {
-		actualBody = inputBody || '';
-	});
-
-	persistedBody.subscribe((value) => {
-		inputBody = value;
-	});
-
-	$effect(() => {
-		actualTitle = defaultTitle;
-	});
-
-	$effect(() => {
-		actualTitle = inputTitle || '';
-	});
-
-	persistedTitle.subscribe((value) => {
-		inputTitle = value;
-	});
-
-	return {
-		get title() {
-			return actualTitle;
-		},
-
-		set title(value: string) {
-			inputTitle = value;
-		},
-
-		get body() {
-			return actualBody;
-		},
-
-		set body(value: string) {
-			inputBody = value;
-		},
-
-		get templateBody() {
-			return templateBody;
-		},
-
-		set templateBody(value: string | undefined) {
-			templateBody = value;
-		}
-	};
+	reset() {
+		this.value = '';
+	}
 }
