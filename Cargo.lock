@@ -2731,7 +2731,6 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "gitbutler-fs",
- "gitbutler-settings",
  "gitbutler-settings-util",
  "rust-embed",
  "serde",
