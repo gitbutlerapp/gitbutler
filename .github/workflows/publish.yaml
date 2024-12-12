@@ -243,7 +243,10 @@ jobs:
         env:
           EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
       - name: Compress signed msi
-        run: find release -name "*.msi" -type f -print0 | zip "release/$(find release -name "*.msi" -type f -printf '%P\n').zip" -@
+        shell: bash
+        run: |
+          apt update && apt install -y zip
+          find release -name "*.msi" -type f -print0 | zip "release/$(find release -name "*.msi" -type f -printf '%P\n').zip" -@
       - name: Upload signed artifacts
         uses: actions/upload-artifact@v4
         with:
