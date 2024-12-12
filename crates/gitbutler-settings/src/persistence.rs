@@ -1,9 +1,8 @@
 use std::path::PathBuf;
 
 use crate::app_settings::AppSettings;
-use crate::json::json_difference;
+use crate::json::{json_difference, merge_non_null_json_value};
 use anyhow::Result;
-use gitbutler_settings_util::merge_non_null_json_value_into;
 use serde_json::json;
 
 static DEFAULTS: &str = include_str!("../assets/defaults.jsonc");
@@ -21,7 +20,7 @@ impl AppSettings {
         let customizations = serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
 
         // Merge the customizations into the settings
-        merge_non_null_json_value_into(customizations, &mut settings);
+        merge_non_null_json_value(customizations, &mut settings);
         Ok(serde_json::from_value(settings)?)
     }
 
@@ -48,7 +47,7 @@ impl AppSettings {
 
         // Merge the new customizations into the existing ones
         // TODO: This will nuke any comments in the file
-        merge_non_null_json_value_into(diff, &mut customizations);
+        merge_non_null_json_value(diff, &mut customizations);
         gitbutler_fs::write(config_path, customizations.to_string())?;
         Ok(())
     }
