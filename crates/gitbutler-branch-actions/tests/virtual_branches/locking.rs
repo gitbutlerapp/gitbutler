@@ -129,9 +129,6 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
     )
     .unwrap();
 
-    // These changes now intersect the changes in the default commit and not with the ones in the
-    // first branch.
-    // They should be assigned to the default branch (second branch).
     lines[1] = "modified line 2".to_string();
     repository.write_file("file.txt", &lines);
 
@@ -140,7 +137,7 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
     assert_eq!(branches.len(), 2);
     let first_branch = branches.iter().find(|b| b.id != second_branch_id).unwrap();
     let second_branch = branches.iter().find(|b| b.id == second_branch_id).unwrap();
-    assert_eq!(first_branch.files.len(), 0);
-    assert_eq!(second_branch.files.len(), 1);
+    assert_eq!(first_branch.files.len(), 1);
+    assert_eq!(second_branch.files.len(), 0);
     Ok(())
 }

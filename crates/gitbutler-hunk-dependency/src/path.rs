@@ -109,6 +109,11 @@ impl PathRanges {
             while i < self.hunk_ranges.len() {
                 let current_hunk = self.hunk_ranges[i];
 
+                if current_hunk.lines == 0 {
+                    i += 1;
+                    continue;
+                }
+
                 // Current hunk range starts after the end of the incoming hunk.
                 // -> we can stop looking for intersecting hunks
                 if current_hunk.follows(
@@ -274,9 +279,9 @@ impl PathRanges {
         incoming_hunks: Vec<InputDiff>,
     ) -> anyhow::Result<()> {
         for hunk in incoming_hunks {
-            if hunk.new_lines == 0 {
-                continue;
-            }
+            // if hunk.new_lines == 0 {
+            //     continue;
+            // }
 
             self.hunk_ranges.push(HunkRange {
                 change_type: hunk.change_type,
@@ -813,11 +818,11 @@ fn insert_hunk_ranges(
     let mut index_after_last_added = start;
     let mut index_after_interest = start;
     for (i, hunk) in hunks.iter().enumerate() {
-        if hunk.lines > 0 {
-            // Only add hunk ranges that have lines.
-            new_hunks.push(*hunk);
-            index_after_last_added += 1;
-        }
+        // if hunk.lines > 0 {
+        // }
+        // Only add hunk ranges that have lines.
+        new_hunks.push(*hunk);
+        index_after_last_added += 1;
 
         if i == index_of_interest {
             index_after_interest = new_hunks.len();
@@ -912,7 +917,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_a_id,
                 start: 1,
-                lines: 0, // this range will be ignored
+                lines: 0,
                 line_shift: 9,
             },
             HunkRange {
@@ -936,11 +941,12 @@ mod tests {
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 1);
 
-        assert_eq!(hunk_ranges.len(), 2);
-        assert_eq!(index_after_interest, 1);
-        assert_eq!(index_after_last_added, 2);
-        assert_eq!(hunk_ranges[0].commit_id, commit_b_id);
-        assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges.len(), 3);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 3);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_a_id);
 
         Ok(())
     }
@@ -981,15 +987,15 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_a_id,
                 start: 5,
-                lines: 0, // this range will be ignored
+                lines: 0,
                 line_shift: 9,
             },
             HunkRange {
                 change_type: gitbutler_diff::ChangeType::Added,
                 stack_id: StackId::generate(),
                 commit_id: commit_a_id,
-                start: 5,
-                lines: 0, // this range will be ignored
+                start: 6,
+                lines: 0,
                 line_shift: 9,
             },
         ];
@@ -997,11 +1003,17 @@ mod tests {
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 1);
 
-        assert_eq!(hunk_ranges.len(), 2);
+        assert_eq!(hunk_ranges.len(), 4);
         assert_eq!(index_after_interest, 2);
-        assert_eq!(index_after_last_added, 2);
+        assert_eq!(index_after_last_added, 4);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[0].start, 1);
         assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[1].start, 4);
+        assert_eq!(hunk_ranges[2].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[2].start, 5);
+        assert_eq!(hunk_ranges[3].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[3].start, 6);
 
         Ok(())
     }
@@ -1026,7 +1038,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_b_id,
                 start: 4,
-                lines: 0, // this range will be ignored
+                lines: 0,
                 line_shift: 0,
             },
             HunkRange {
@@ -1042,7 +1054,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_b_id,
                 start: 4,
-                lines: 0, // this range will be ignored,
+                lines: 0,
                 line_shift: 0,
             },
             HunkRange {
@@ -1058,13 +1070,17 @@ mod tests {
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 2);
 
-        assert_eq!(hunk_ranges.len(), 2);
-        assert_eq!(index_after_interest, 1);
-        assert_eq!(index_after_last_added, 2);
-        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
-        assert_eq!(hunk_ranges[0].start, 1);
+        assert_eq!(hunk_ranges.len(), 4);
+        assert_eq!(index_after_interest, 3);
+        assert_eq!(index_after_last_added, 4);
+        assert_eq!(hunk_ranges[0].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[0].start, 4);
         assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
-        assert_eq!(hunk_ranges[1].start, 5);
+        assert_eq!(hunk_ranges[1].start, 1);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].start, 4);
+        assert_eq!(hunk_ranges[3].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[3].start, 5);
 
         Ok(())
     }
@@ -1099,7 +1115,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_b_id,
                 start: 4,
-                lines: 0, // this range will be ignored
+                lines: 0,
                 line_shift: 0,
             },
             HunkRange {
@@ -1115,7 +1131,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_b_id,
                 start: 4,
-                lines: 0, // this range will be ignored,
+                lines: 0,
                 line_shift: 0,
             },
             HunkRange {
@@ -1131,11 +1147,19 @@ mod tests {
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 2);
 
-        assert_eq!(hunk_ranges.len(), 1);
-        assert_eq!(index_after_interest, 0);
-        assert_eq!(index_after_last_added, 0);
-        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
-        assert_eq!(hunk_ranges[0].start, 11);
+        assert_eq!(hunk_ranges.len(), 5);
+        assert_eq!(index_after_interest, 3);
+        assert_eq!(index_after_last_added, 4);
+        assert_eq!(hunk_ranges[0].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[0].start, 4);
+        assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].start, 1);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].start, 4);
+        assert_eq!(hunk_ranges[3].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[3].start, 5);
+        assert_eq!(hunk_ranges[4].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[4].start, 11);
 
         Ok(())
     }
@@ -1169,20 +1193,22 @@ mod tests {
             stack_id: StackId::generate(),
             commit_id: commit_b_id,
             start: 4,
-            lines: 0, // this range will be ignored
+            lines: 0,
             line_shift: 0,
         }];
 
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 2, 2, hunks, 0);
 
-        assert_eq!(hunk_ranges.len(), 2);
-        assert_eq!(index_after_interest, 2);
-        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges.len(), 3);
+        assert_eq!(index_after_interest, 3);
+        assert_eq!(index_after_last_added, 3);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[0].start, 1);
         assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].start, 11);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].start, 4);
 
         Ok(())
     }
@@ -1529,18 +1555,19 @@ mod tests {
             stack_id: StackId::generate(),
             commit_id: commit_c_id,
             start: 4,
-            lines: 0, // ranges with 0 lines are filtered out
+            lines: 0,
             line_shift: 1,
         }];
 
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks, 0);
-        assert_eq!(hunk_ranges.len(), 2);
-        assert_eq!(index_after_interest, 1);
-        assert_eq!(index_after_last_added, 1);
+        assert_eq!(hunk_ranges.len(), 3);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 2);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
-        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
-        assert_eq!(hunk_ranges[1].start, 5);
+        assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].start, 5);
 
         Ok(())
     }
@@ -1584,7 +1611,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_c_id,
                 start: 4,
-                lines: 0, // ranges with 0 lines are filtered out
+                lines: 0,
                 line_shift: 1,
             },
             HunkRange {
@@ -1600,20 +1627,25 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_c_id,
                 start: 6,
-                lines: 0, // ranges with 0 lines are filtered out
+                lines: 0,
                 line_shift: 1,
             },
         ];
 
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks, 2);
-        assert_eq!(hunk_ranges.len(), 3);
-        assert_eq!(index_after_interest, 2);
-        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges.len(), 5);
+        assert_eq!(index_after_interest, 4);
+        assert_eq!(index_after_last_added, 4);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
-        assert_eq!(hunk_ranges[1].start, 5);
-        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[1].start, 4);
+        assert_eq!(hunk_ranges[2].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[2].start, 5);
+        assert_eq!(hunk_ranges[3].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[3].start, 6);
+        assert_eq!(hunk_ranges[4].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[4].start, 5);
 
         Ok(())
     }
@@ -1656,18 +1688,21 @@ mod tests {
             stack_id: StackId::generate(),
             commit_id: commit_c_id,
             start: 4,
-            lines: 0, // ranges with 0 lines are filtered out
+            lines: 0,
             line_shift: 1,
         }];
 
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 1, 1, hunks, 0);
-        assert_eq!(hunk_ranges.len(), 3);
-        assert_eq!(index_after_interest, 1);
-        assert_eq!(index_after_last_added, 1);
+        assert_eq!(hunk_ranges.len(), 4);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 2);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
-        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
         assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].start, 3);
+        assert_eq!(hunk_ranges[3].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[3].start, 5);
 
         Ok(())
     }
@@ -1711,7 +1746,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_c_id,
                 start: 4,
-                lines: 0, // ranges with 0 lines are filtered out
+                lines: 0,
                 line_shift: 1,
             },
             HunkRange {
@@ -1727,7 +1762,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_c_id,
                 start: 6,
-                lines: 0, // ranges with 0 lines are filtered out
+                lines: 0,
                 line_shift: 1,
             },
             HunkRange {
@@ -1742,14 +1777,22 @@ mod tests {
 
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 1, 1, hunks, 3);
-        assert_eq!(hunk_ranges.len(), 5);
-        assert_eq!(index_after_interest, 3);
-        assert_eq!(index_after_last_added, 3);
+        assert_eq!(hunk_ranges.len(), 7);
+        assert_eq!(index_after_interest, 5);
+        assert_eq!(index_after_last_added, 5);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[1].start, 4);
         assert_eq!(hunk_ranges[2].commit_id, commit_c_id);
-        assert_eq!(hunk_ranges[3].commit_id, commit_b_id);
-        assert_eq!(hunk_ranges[4].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].start, 5);
+        assert_eq!(hunk_ranges[3].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[3].start, 6);
+        assert_eq!(hunk_ranges[4].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[4].start, 8);
+        assert_eq!(hunk_ranges[5].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[5].start, 3);
+        assert_eq!(hunk_ranges[6].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[6].start, 5);
 
         Ok(())
     }

@@ -468,18 +468,13 @@ mod tests {
                     commit_id: commit1_id,
                     files: vec![InputFile {
                         path: path.to_owned(),
-                        diffs: vec![parse_diff_from_string(
-                            "@@ -1,6 +1,7 @@
-1
-2
-3
-+4
-5
-6
-7
-",
-                            gitbutler_diff::ChangeType::Modified,
-                        )?],
+                        diffs: vec![InputDiff {
+                            change_type: gitbutler_diff::ChangeType::Modified,
+                            old_start: 2,
+                            old_lines: 1,
+                            new_start: 2,
+                            new_lines: 1,
+                        }],
                     }],
                 }],
             },
@@ -491,24 +486,28 @@ mod tests {
                         path: path.to_owned(),
                         diffs: vec![
                             parse_diff_from_string(
-                                "@@ -1,5 +1,3 @@
--1
--2
-3
-5
+                                "@@ -6,8 +6,6 @@
+
 6
+7
+8
+-9
+-10
+11
+12
+13
 ",
                                 gitbutler_diff::ChangeType::Modified,
                             )?,
                             parse_diff_from_string(
-                                "@@ -10,6 +8,7 @@
-10
-11
-12
-+13
+                                "@@ -14,6 +12,7 @@
 14
 15
 16
++17
+18
+19
+20
 ",
                                 gitbutler_diff::ChangeType::Modified,
                             )?,
@@ -518,15 +517,20 @@ mod tests {
             },
         ])?;
 
-        let dependencies_1 = workspace_ranges.intersection(&path, 4, 1).unwrap();
+        let dependencies_1 = workspace_ranges.intersection(&path, 2, 1).unwrap();
         assert_eq!(dependencies_1.len(), 1);
         assert_eq!(dependencies_1[0].commit_id, commit1_id);
         assert_eq!(dependencies_1[0].stack_id, stack1_id);
 
-        let dependencies_2 = workspace_ranges.intersection(&path, 12, 1).unwrap();
+        let dependencies_2 = workspace_ranges.intersection(&path, 10, 1).unwrap();
         assert_eq!(dependencies_2.len(), 1);
         assert_eq!(dependencies_2[0].commit_id, commit2_id);
         assert_eq!(dependencies_2[0].stack_id, stack2_id);
+
+        let dependencies_3 = workspace_ranges.intersection(&path, 15, 1).unwrap();
+        assert_eq!(dependencies_3.len(), 1);
+        assert_eq!(dependencies_3[0].commit_id, commit2_id);
+        assert_eq!(dependencies_3[0].stack_id, stack2_id);
 
         Ok(())
     }
