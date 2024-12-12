@@ -32,8 +32,9 @@ impl AppSettings {
     }
 
     /// Save the updated fields of the AppSettings in the custom configuration file.
-    pub fn save(&self, config_dir: impl Into<PathBuf> + Clone) -> Result<()> {
-        let config_path = config_dir.clone().into().join(SETTINGS_FILE);
+    pub fn save(&self, config_dir: impl Into<PathBuf>) -> Result<()> {
+        let config_dir = config_dir.into();
+        let config_path = config_dir.clone().join(SETTINGS_FILE);
 
         // Load the current settings
         let current = serde_json::to_value(AppSettings::load(config_dir)?)?;
