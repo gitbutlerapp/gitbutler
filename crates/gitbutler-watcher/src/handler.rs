@@ -5,15 +5,12 @@ use gitbutler_branch_actions::{internal::StackListResult, VirtualBranches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_error::error::Marker;
-use gitbutler_operating_modes::{
-    in_open_workspace_mode, in_outside_workspace_mode, operating_mode,
-};
+use gitbutler_operating_modes::{in_open_workspace_mode, operating_mode};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt,
 };
 use gitbutler_project::{self as projects, Project, ProjectId};
-use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
 use tracing::instrument;
@@ -196,16 +193,6 @@ impl Handler {
                 "HEAD" => {
                     let ctx = CommandContext::open(&project)
                         .context("Failed to create a command context")?;
-
-                    // If the user has left gitbutler/workspace, we want to delete the reference.
-                    // TODO: why do we want to do this?
-                    if in_outside_workspace_mode(&ctx) {
-                        let mut workspace_reference = ctx.repo().find_reference(
-                            &Refname::from(LocalRefname::new("gitbutler/workspace", None))
-                                .to_string(),
-                        )?;
-                        workspace_reference.delete()?;
-                    }
 
                     let head_ref = ctx.repo().head().context("failed to get head")?;
                     if let Some(head) = head_ref.name() {
