@@ -19,4 +19,3 @@ name = "settings"
 path = "tests/mod.rs"
 
 [dev-dependencies]
-gitbutler-settings.workspace = true
