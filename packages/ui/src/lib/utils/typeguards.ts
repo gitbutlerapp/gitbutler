@@ -30,3 +30,22 @@ export function isNonEmptyObject(something: unknown): something is UnknownObject
 export function isError(value: unknown): value is Error {
 	return value instanceof Error;
 }
+
+interface Errorlike {
+	message: string;
+}
+
+/**
+ * Checks if the provided value is an error like, i.e. it has a message.
+ * @param value - The value to be checked.
+ * @returns A boolean indicating whether the value is an Error.
+ */
+export function isErrorlike(target: unknown): target is Errorlike {
+	return (
+		(typeof target === 'object' &&
+			target &&
+			'message' in target &&
+			typeof target.message === 'string') ||
+		false
+	);
+}
