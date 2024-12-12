@@ -183,8 +183,8 @@ pub(crate) fn enter_edit_mode(
         bail!("Can not enter edit mode for a reference which does not have a cooresponding virtual branch")
     }
 
-    checkout_edit_branch(ctx, commit).context("Failed to checkout edit branch")?;
     write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
+    checkout_edit_branch(ctx, commit).context("Failed to checkout edit branch")?;
 
     Ok(edit_mode_metadata)
 }
