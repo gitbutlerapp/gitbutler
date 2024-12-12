@@ -18,11 +18,11 @@
 </details>
 
 
-### Comunity dad jokes
+### Community dad jokes
 
 <details>
   <summary>Which computer serial interface has exactly 666MB/s of bandwith?</summary>
-  <b>SATA-n</b>
+  <b>SATA-N</b>
 </details>
 
 <br>
