@@ -4,6 +4,7 @@ pub mod input;
 pub mod locks;
 pub(crate) mod path;
 pub(crate) mod stack;
+pub mod utils;
 pub(crate) mod workspace;
 
 pub use {

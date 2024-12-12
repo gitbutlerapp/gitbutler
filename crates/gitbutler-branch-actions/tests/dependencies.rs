@@ -625,18 +625,40 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> Result
     let file_hunk_3_hash = Hunk::hash_diff(&file_hunk_3.diff_lines);
 
     let hunk_1_locks = dependencies.diffs.get(&file_hunk_1_hash).unwrap();
-    assert_eq!(hunk_1_locks.len(), 1);
-    assert_hunk_lock_matches_by_message(hunk_1_locks[0], "create file", &ctx, "hunk 1");
+    assert_eq!(hunk_1_locks.len(), 2);
+    assert_hunk_lock_matches_by_message(
+        hunk_1_locks[0],
+        "create file",
+        &ctx,
+        "Hunk depends on the commit that created the file",
+    );
+    assert_hunk_lock_matches_by_message(
+        hunk_1_locks[1],
+        "insert 1 line at the top and bottom, remove lines 3 and 4 and update line 7",
+        &ctx,
+        "Hunk depends on the commit that deleted lines 3 and 4",
+    );
 
     let hunk_2_locks = dependencies.diffs.get(&file_hunk_2_hash).unwrap();
-    assert_eq!(hunk_2_locks.len(), 2);
+    assert_eq!(hunk_2_locks.len(), 3);
     assert_hunk_lock_matches_by_message(
         hunk_2_locks[0],
         "insert 1 line at the top and bottom, remove lines 3 and 4 and update line 7",
         &ctx,
-        "hunk 2",
+        "Hunk depends on the commit that updated the line 7",
     );
-    assert_hunk_lock_matches_by_message(hunk_2_locks[1], "modify lines 4 and 8", &ctx, "hunk 2");
+    assert_hunk_lock_matches_by_message(
+        hunk_2_locks[1],
+        "create file",
+        &ctx,
+        "Hunk depends on the commit that created the file",
+    );
+    assert_hunk_lock_matches_by_message(
+        hunk_2_locks[2],
+        "modify lines 4 and 8",
+        &ctx,
+        "Hunk depends on the commit updated line 8",
+    );
 
     let hunk_3_locks = dependencies.diffs.get(&file_hunk_3_hash).unwrap();
     assert_eq!(hunk_3_locks.len(), 1);
