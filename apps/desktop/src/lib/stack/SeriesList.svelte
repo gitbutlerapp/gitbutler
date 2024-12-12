@@ -35,7 +35,7 @@
 	);
 
 	// All non-errored non-archived series for consumption elsewhere
-	const nonArchivedValidSeries = $derived(branch.validSeries.filter((s) => !s.archived));
+	const validNonArchivedBranches = $derived(branch.validNonArchivedBranches);
 
 	const stackingReorderDropzoneManagerFactory = getContext(StackingReorderDropzoneManagerFactory);
 	const stackingReorderDropzoneManager = $derived(
@@ -77,7 +77,7 @@
 				<div>
 					<Dropzone
 						{accepts}
-						ondrop={(data) => onDrop(data, nonArchivedValidSeries, currentSeries)}
+						ondrop={(data) => onDrop(data, validNonArchivedBranches, currentSeries)}
 					>
 						{#snippet overlay({ hovered, activated })}
 							<CardOverlay {hovered} {activated} label="Move here" />

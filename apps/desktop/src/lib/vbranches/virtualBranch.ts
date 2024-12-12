@@ -9,9 +9,9 @@ import type { ModeService } from '$lib/modes/service';
 
 export function allPreviousSeriesHavePrNumber(
 	seriesName: string,
-	validSeries: PatchSeries[]
+	validBranches: PatchSeries[]
 ): boolean {
-	const unarchivedSeries = validSeries.filter((series) => !series.archived);
+	const unarchivedSeries = validBranches.filter((series) => !series.archived);
 	for (let i = unarchivedSeries.length - 1; i >= 0; i--) {
 		const series = unarchivedSeries[i]!;
 		if (series.name === seriesName) return true;
@@ -92,8 +92,8 @@ export class VirtualBranchService {
 		branches.forEach(async (branch) => {
 			const upstreamName = branch.upstream?.name;
 			if (upstreamName) {
-				const upstreamCommits = branch.validSeries.flatMap((series) => series.upstreamPatches);
-				const commits = branch.validSeries.flatMap((series) => series.patches);
+				const upstreamCommits = branch.validBranches.flatMap((series) => series.upstreamPatches);
+				const commits = branch.validBranches.flatMap((series) => series.patches);
 				commits.forEach((commit) => {
 					const upstreamMatch = upstreamCommits.find(
 						(upstreamCommit) => commit.remoteCommitId === upstreamCommit.id

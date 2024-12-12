@@ -51,7 +51,7 @@ export class StackingReorderDropzoneManager {
 		private branch: VirtualBranch
 	) {
 		const seriesMap = new Map();
-		this.branch.validSeries.forEach((series) => {
+		this.branch.validBranches.forEach((series) => {
 			seriesMap.set(series.name, series);
 		});
 		this.series = seriesMap;
@@ -67,7 +67,7 @@ export class StackingReorderDropzoneManager {
 			this.branch.id,
 			this.branchController,
 			currentSeries,
-			this.branch.validSeries,
+			this.branch.validBranches,
 			'top'
 		);
 	}
@@ -82,7 +82,7 @@ export class StackingReorderDropzoneManager {
 			this.branch.id,
 			this.branchController,
 			currentSeries,
-			this.branch.validSeries,
+			this.branch.validBranches,
 			commitId
 		);
 	}
