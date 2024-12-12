@@ -1,4 +1,7 @@
+use anyhow::Result;
 use gitbutler_stack::StackId;
+
+use crate::utils::panicless_subtraction;
 
 /// A struct for tracking what stack and commit a hunk belongs to as its line numbers shift with
 /// new changes come in from other commits and/or stacks.
@@ -13,29 +16,41 @@ pub struct HunkRange {
 }
 
 impl HunkRange {
-    pub fn intersects(&self, start: u32, lines: u32) -> bool {
+    pub fn intersects(&self, start: u32, lines: u32) -> Result<bool> {
         if self.change_type == gitbutler_diff::ChangeType::Deleted {
             // Special case when file is deleted.
-            return true;
+            return Ok(true);
         }
 
         if self.lines == 0 {
             // Special case when point is inside a range, happens
             // when a change contains only deletions.
-            return self.start >= start && self.start < start + lines;
+            return Ok(self.start >= start && self.start < start + lines);
         }
 
         if start == 0 && lines == 0 {
             // Special case when adding lines at the top of the file.
-            return false;
+            return Ok(false);
         }
 
         if lines == 0 {
             // Special case when only adding lines.
-            return self.start <= start && self.start + self.lines > start;
+            return Ok(self.start <= start && self.start + self.lines > start);
         }
 
-        self.start <= (start + lines - 1) && (self.start + self.lines - 1) >= start
+        let last_line = panicless_subtraction(
+            self.start + self.lines,
+            1,
+            "While calculating the last line",
+        )?;
+
+        let incoming_last_line = panicless_subtraction(
+            start + lines,
+            1,
+            "While calculating the last line of the incoming hunk",
+        )?;
+
+        Ok(self.start <= incoming_last_line && last_line >= start)
     }
 
     pub fn contains(&self, start: u32, lines: u32) -> bool {
@@ -54,22 +69,34 @@ impl HunkRange {
         self.start >= start && self.start + self.lines <= start + lines
     }
 
-    pub fn precedes(&self, start: u32) -> bool {
-        (self.start + self.lines - 1) < start
+    pub fn precedes(&self, start: u32) -> Result<bool> {
+        let last_line = panicless_subtraction(
+            self.start + self.lines,
+            1,
+            "While calculating the last line",
+        )?;
+
+        Ok(last_line < start)
     }
 
-    pub fn follows(&self, start: u32, lines: u32) -> bool {
+    pub fn follows(&self, start: u32, lines: u32) -> Result<bool> {
         if start == 0 && lines == 0 {
             // Special case when adding lines at the top of the file.
-            return true;
+            return Ok(true);
         }
 
         if lines == 0 {
             // Special case when only adding lines.
-            return self.start > start;
+            return Ok(self.start > start);
         }
 
-        self.start > (start + lines - 1)
+        let incoming_last_line = panicless_subtraction(
+            start + lines,
+            1,
+            "While calculating the last line of the incoming hunk",
+        )?;
+
+        Ok(self.start > incoming_last_line)
     }
 }
 
@@ -88,12 +115,12 @@ mod test {
             line_shift: 0,
         };
 
-        assert!(range.intersects(1, 1));
-        assert!(range.intersects(2, 2));
-        assert!(range.intersects(1, 1));
-        assert!(range.intersects(12, 10));
-        assert!(range.intersects(4, 0));
-        assert!(range.intersects(0, 0));
+        assert!(range.intersects(1, 1).unwrap());
+        assert!(range.intersects(2, 2).unwrap());
+        assert!(range.intersects(1, 1).unwrap());
+        assert!(range.intersects(12, 10).unwrap());
+        assert!(range.intersects(4, 0).unwrap());
+        assert!(range.intersects(0, 0).unwrap());
     }
 
     #[test]
@@ -107,16 +134,16 @@ mod test {
             line_shift: 0,
         };
 
-        assert!(range.intersects(1, 1));
-        assert!(range.intersects(1, 10));
-        assert!(range.intersects(4, 2));
-        assert!(range.intersects(10, 20));
-        assert!(range.intersects(4, 0));
+        assert!(range.intersects(1, 1).unwrap());
+        assert!(range.intersects(1, 10).unwrap());
+        assert!(range.intersects(4, 2).unwrap());
+        assert!(range.intersects(10, 20).unwrap());
+        assert!(range.intersects(4, 0).unwrap());
         // Adding lines at the beginning of the file.
-        assert!(!range.intersects(0, 0));
+        assert!(!range.intersects(0, 0).unwrap());
 
-        assert!(!range.intersects(11, 20));
-        assert!(!range.intersects(30, 1));
+        assert!(!range.intersects(11, 20).unwrap());
+        assert!(!range.intersects(30, 1).unwrap());
     }
 
     #[test]
@@ -130,25 +157,25 @@ mod test {
             line_shift: 0,
         };
 
-        assert!(range.intersects(1, 10));
-        assert!(range.intersects(1, 20));
-        assert!(range.intersects(1, 30));
-        assert!(range.intersects(4, 10));
-        assert!(range.intersects(19, 0));
-        assert!(range.intersects(10, 0));
-        assert!(range.intersects(10, 10));
-        assert!(range.intersects(10, 20));
-        assert!(range.intersects(11, 20));
-        assert!(range.intersects(15, 1));
+        assert!(range.intersects(1, 10).unwrap());
+        assert!(range.intersects(1, 20).unwrap());
+        assert!(range.intersects(1, 30).unwrap());
+        assert!(range.intersects(4, 10).unwrap());
+        assert!(range.intersects(19, 0).unwrap());
+        assert!(range.intersects(10, 0).unwrap());
+        assert!(range.intersects(10, 10).unwrap());
+        assert!(range.intersects(10, 20).unwrap());
+        assert!(range.intersects(11, 20).unwrap());
+        assert!(range.intersects(15, 1).unwrap());
 
         // Adding lines at the beginning of the file.
-        assert!(!range.intersects(0, 0));
+        assert!(!range.intersects(0, 0).unwrap());
 
-        assert!(!range.intersects(20, 0));
-        assert!(!range.intersects(1, 1));
-        assert!(!range.intersects(1, 9));
-        assert!(!range.intersects(20, 1));
-        assert!(!range.intersects(30, 1));
+        assert!(!range.intersects(20, 0).unwrap());
+        assert!(!range.intersects(1, 1).unwrap());
+        assert!(!range.intersects(1, 9).unwrap());
+        assert!(!range.intersects(20, 1).unwrap());
+        assert!(!range.intersects(30, 1).unwrap());
     }
 
     #[test]
@@ -213,13 +240,13 @@ mod test {
             line_shift: 0,
         };
 
-        assert!(range.follows(0, 0));
-        assert!(range.follows(1, 9));
-        assert!(range.follows(9, 1));
-        assert!(!range.follows(10, 0));
-        assert!(!range.follows(11, 0));
-        assert!(!range.follows(10, 1));
-        assert!(!range.follows(11, 1));
-        assert!(!range.follows(20, 1));
+        assert!(range.follows(0, 0).unwrap());
+        assert!(range.follows(1, 9).unwrap());
+        assert!(range.follows(9, 1).unwrap());
+        assert!(!range.follows(10, 0).unwrap());
+        assert!(!range.follows(11, 0).unwrap());
+        assert!(!range.follows(10, 1).unwrap());
+        assert!(!range.follows(11, 1).unwrap());
+        assert!(!range.follows(20, 1).unwrap());
     }
 }

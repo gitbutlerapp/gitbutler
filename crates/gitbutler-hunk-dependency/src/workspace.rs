@@ -92,7 +92,7 @@ impl WorkspaceRanges {
         if let Some(hunk_range) = self.paths.get(path) {
             let intersection = hunk_range
                 .iter()
-                .filter(|hunk| hunk.intersects(start, lines))
+                .filter(|hunk| hunk.intersects(start, lines).unwrap_or(false))
                 .collect_vec();
             if !intersection.is_empty() {
                 return Some(intersection);

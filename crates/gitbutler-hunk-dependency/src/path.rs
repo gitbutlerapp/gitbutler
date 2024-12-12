@@ -6,7 +6,7 @@ use std::{
 use anyhow::bail;
 use gitbutler_stack::StackId;
 
-use crate::{HunkRange, InputDiff};
+use crate::{utils::panicless_subtraction, HunkRange, InputDiff};
 
 /// Adds sequential diffs from sequential commits for a specific path, and shifts line numbers
 /// with additions and deletions. It is expected that diffs are added one commit at a time,
@@ -114,12 +114,12 @@ impl PathRanges {
                 if current_hunk.follows(
                     self.get_shifted_old_start(incoming_hunk.old_start),
                     incoming_hunk.old_lines,
-                ) {
+                )? {
                     break;
                 }
 
                 // Current hunk range is ends before the start of the incoming hunk.
-                if current_hunk.precedes(self.get_shifted_old_start(incoming_hunk.old_start)) {
+                if current_hunk.precedes(self.get_shifted_old_start(incoming_hunk.old_start))? {
                     i += 1;
                     continue;
                 }
@@ -127,7 +127,7 @@ impl PathRanges {
                 if current_hunk.intersects(
                     self.get_shifted_old_start(incoming_hunk.old_start),
                     incoming_hunk.old_lines,
-                ) {
+                )? {
                     intersecting_hunks.push((i, current_hunk));
                 }
 
@@ -788,15 +788,9 @@ impl PathRanges {
     pub fn intersection(&self, start: u32, lines: u32) -> Vec<&HunkRange> {
         self.hunk_ranges
             .iter()
-            .filter(|hunk| hunk.intersects(start, lines))
+            .filter(|hunk| hunk.intersects(start, lines).unwrap_or(false))
             .collect()
     }
-}
-
-/// Subtract two unsigned integers and return an error if the result is negative.
-fn panicless_subtraction(a: u32, b: u32, context: &str) -> anyhow::Result<u32> {
-    a.checked_sub(b)
-        .ok_or_else(|| anyhow::anyhow!("Subtraction overflow: {} - {}. {}", a, b, context))
 }
 
 /// Update the hunk ranges by inserting the new hunks at the given start and end indices.
