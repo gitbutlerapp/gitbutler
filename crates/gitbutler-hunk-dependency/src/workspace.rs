@@ -518,7 +518,7 @@ mod tests {
             },
         ])?;
 
-        let dependencies_1 = workspace_ranges.intersection(&path, 2, 1).unwrap();
+        let dependencies_1 = workspace_ranges.intersection(&path, 4, 1).unwrap();
         assert_eq!(dependencies_1.len(), 1);
         assert_eq!(dependencies_1[0].commit_id, commit1_id);
         assert_eq!(dependencies_1[0].stack_id, stack1_id);

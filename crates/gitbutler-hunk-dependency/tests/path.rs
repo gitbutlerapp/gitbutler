@@ -29,19 +29,14 @@ fn stack_simple() -> anyhow::Result<()> {
 
 #[test]
 fn stack_simple_update() -> anyhow::Result<()> {
-    let diff = parse_diff_from_string(
-        "@@ -1,6 +1,6 @@
-1
-2
-3
--4
-+a
-5
-6
-7
-",
-        gitbutler_diff::ChangeType::Modified,
-    )?;
+    let diff = InputDiff {
+        old_start: 4,
+        old_lines: 1,
+        new_start: 4,
+        new_lines: 1,
+        change_type: gitbutler_diff::ChangeType::Modified,
+    };
+
     let stack_ranges = &mut PathRanges::default();
     let stack_id = StackId::generate();
     let commit_id = git2::Oid::from_str("a")?;
@@ -841,11 +836,11 @@ a
 ",
         gitbutler_diff::ChangeType::Modified,
     )?;
+
     stack_ranges.add(stack_id, commit1_id, vec![diff_1])?;
 
     let result = stack_ranges.intersection(3, 2);
-    assert_eq!(result.len(), 1);
-    assert_eq!(result[0].commit_id, commit1_id);
+    assert_eq!(result.len(), 0);
 
     Ok(())
 }

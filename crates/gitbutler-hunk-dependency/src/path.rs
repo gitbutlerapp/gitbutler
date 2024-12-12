@@ -274,6 +274,10 @@ impl PathRanges {
         incoming_hunks: Vec<InputDiff>,
     ) -> anyhow::Result<()> {
         for hunk in incoming_hunks {
+            if hunk.new_lines == 0 {
+                continue;
+            }
+
             self.hunk_ranges.push(HunkRange {
                 change_type: hunk.change_type,
                 stack_id,
