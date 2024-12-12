@@ -242,6 +242,8 @@ jobs:
           find release -name "*.msi" -type f -print0 | xargs -0 -n1 -I{} python3 /sign-with-evcodesignd.py "{}"
         env:
           EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
+      - name: Compress signed msi
+        run: find release -name "*.msi" -type f -print0 | zip "release/$(find release -name "*.msi" -type f -printf '%P\n').zip" -@
       - name: Upload signed artifacts
         uses: actions/upload-artifact@v4
         with:
