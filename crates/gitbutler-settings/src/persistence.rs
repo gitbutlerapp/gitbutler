@@ -3,15 +3,10 @@ use std::path::PathBuf;
 use crate::app_settings::AppSettings;
 use crate::json::json_difference;
 use anyhow::Result;
-use gitbutler_settings_util::{asset_str, merge_non_null_json_value_into};
-use rust_embed::Embed;
+use gitbutler_settings_util::merge_non_null_json_value_into;
 use serde_json::json;
 
-#[derive(Embed)]
-#[folder = "assets/"]
-pub struct Assets;
-
-const DEFAULTS_FILE: &str = "defaults.jsonc";
+static DEFAULTS: &str = include_str!("../assets/defaults.jsonc");
 const SETTINGS_FILE: &str = "settings.json";
 
 impl AppSettings {
@@ -20,8 +15,7 @@ impl AppSettings {
         let config_path = config_dir.into().join(SETTINGS_FILE);
 
         // Load the defaults
-        let mut settings: serde_json::Value =
-            serde_json_lenient::from_str(&asset_str::<Assets>(DEFAULTS_FILE))?;
+        let mut settings: serde_json::Value = serde_json_lenient::from_str(DEFAULTS)?;
 
         // Load customizations
         let customizations = serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
@@ -64,8 +58,7 @@ mod tests {
     #[test]
     fn ensure_default_settings_covers_all_fields() {
         let settings: serde_json::Value =
-            serde_json_lenient::from_str(&super::asset_str::<super::Assets>(super::DEFAULTS_FILE))
-                .unwrap();
+            serde_json_lenient::from_str(crate::persistence::DEFAULTS).unwrap();
         let app_settings: Result<super::AppSettings, serde_json::Error> =
             serde_json::from_value(settings.clone());
         if app_settings.is_err() {
