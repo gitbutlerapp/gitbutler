@@ -1,4 +1,5 @@
 import { showError } from '$lib/notifications/toasts';
+import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import { captureException } from '@sentry/sveltekit';
 import { error as logErrorToFile } from '@tauri-apps/plugin-log';
 import type { HandleClientError } from '@sveltejs/kit';
@@ -23,20 +24,6 @@ export function handleError({
 window.onunhandledrejection = (e: PromiseRejectionEvent) => {
 	logError(e.reason);
 };
-
-interface Errorlike {
-	message: string;
-}
-
-function isErrorlike(target: unknown): target is Errorlike {
-	return (
-		(typeof target === 'object' &&
-			target &&
-			'message' in target &&
-			typeof target.message === 'string') ||
-		false
-	);
-}
 
 function logError(error: unknown) {
 	try {
