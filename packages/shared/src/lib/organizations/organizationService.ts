@@ -1,6 +1,6 @@
 import { InterestStore, type Interest } from '$lib/interest/intrestStore';
 import { type HttpClient } from '$lib/network/httpClient';
-import { ApiError } from '$lib/network/types';
+import { errorToLoadable } from '$lib/network/loadable';
 import {
 	addOrganization,
 	upsertOrganization,
@@ -13,6 +13,7 @@ import {
 	type ApiOrganization,
 	type ApiOrganizationWithDetails,
 	type LoadableOrganization,
+	type LoadableProject,
 	type Organization
 } from '$lib/organizations/types';
 import { POLLING_REGULAR, POLLING_SLOW } from '$lib/polling';
@@ -31,14 +32,11 @@ export class OrganizationService {
 		return this.organizationListingInterests
 			.findOrCreateSubscribable(undefined, async () => {
 				const apiOrganizations = await this.httpClient.get<ApiOrganization[]>('organization');
-				const organizations = apiOrganizations.map(
-					(apiOrganizations) =>
-						({
-							type: 'found',
-							id: apiOrganizations.slug,
-							value: apiToOrganization(apiOrganizations)
-						}) as LoadableOrganization
-				);
+				const organizations = apiOrganizations.map<LoadableOrganization>((apiOrganizations) => ({
+					type: 'found',
+					id: apiOrganizations.slug,
+					value: apiToOrganization(apiOrganizations)
+				}));
 
 				this.appDispatch.dispatch(upsertOrganizations(organizations));
 			})
@@ -54,19 +52,23 @@ export class OrganizationService {
 					const apiOrganization = await this.httpClient.get<ApiOrganizationWithDetails>(
 						`organization/${slug}`
 					);
-					const organization = apiToOrganization(apiOrganization);
-					const projects = apiOrganization.projects.map(apiToProject);
+
+					const projects = apiOrganization.projects.map<LoadableProject>((apiProject) => ({
+						type: 'found',
+						id: apiProject.repository_id,
+						value: apiToProject(apiProject)
+					}));
+					this.appDispatch.dispatch(upsertProjects(projects));
 
 					this.appDispatch.dispatch(
-						upsertOrganization({ type: 'found', id: slug, value: organization })
+						upsertOrganization({
+							type: 'found',
+							id: slug,
+							value: apiToOrganization(apiOrganization)
+						})
 					);
-					this.appDispatch.dispatch(upsertProjects(projects));
 				} catch (error: unknown) {
-					if (error instanceof ApiError && error.response.status === 404) {
-						this.appDispatch.dispatch(upsertOrganization({ type: 'not-found', id: slug }));
-					} else if (error instanceof Error) {
-						this.appDispatch.dispatch(upsertOrganization({ type: 'error', id: slug, error }));
-					}
+					this.appDispatch.dispatch(upsertOrganization(errorToLoadable(error, slug)));
 				}
 			})
 			.createInterest();

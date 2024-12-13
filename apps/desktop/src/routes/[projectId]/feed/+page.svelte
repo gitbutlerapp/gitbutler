@@ -22,18 +22,25 @@
 			: undefined
 	);
 
-	const feed = $derived(getFeed(appState, feedService, feedIdentity?.current));
+	const feed = $derived.by(() => {
+		if (feedIdentity?.current.type !== 'found') return;
+		return getFeed(appState, feedService, feedIdentity?.current.value);
+	});
 
 	// Infinite scrolling
-	const lastPost = $derived(getFeedLastPost(appState, feedService, feed.current));
+	const lastPost = $derived(getFeedLastPost(appState, feedService, feed?.current));
 
 	let lastElement = $state<HTMLElement | undefined>();
 	$effect(() => {
 		if (!lastElement) return;
 
 		const observer = new IntersectionObserver((entries) => {
-			if (entries[0]?.isIntersecting && lastPost.current?.createdAt && feedIdentity?.current) {
-				feedService.getFeedPage(feedIdentity.current, lastPost.current.createdAt);
+			if (
+				entries[0]?.isIntersecting &&
+				lastPost.current?.createdAt &&
+				feedIdentity?.current.type === 'found'
+			) {
+				feedService.getFeedPage(feedIdentity.current.value, lastPost.current.createdAt);
 			}
 		});
 
@@ -51,7 +58,7 @@
 
 			<hr />
 
-			{#if feed.current}
+			{#if feed?.current}
 				{#each feed.current.postIds as postId, index (postId)}
 					<div class="bleep-container">
 						{#if index < feed.current.postIds.length - 1 && lastPost.current && feedIdentity?.current}

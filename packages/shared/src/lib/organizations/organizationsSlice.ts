@@ -1,3 +1,4 @@
+import { loadableUpsert, loadableUpsertMany } from '$lib/network/loadable';
 import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
 import type { LoadableOrganization } from '$lib/organizations/types';
 
@@ -13,8 +14,8 @@ const organizationsSlice = createSlice({
 		addOrganizations: organizationsAdapter.addMany,
 		removeOrganization: organizationsAdapter.removeOne,
 		removeOrganizations: organizationsAdapter.removeMany,
-		upsertOrganization: organizationsAdapter.upsertOne,
-		upsertOrganizations: organizationsAdapter.upsertMany
+		upsertOrganization: loadableUpsert(organizationsAdapter),
+		upsertOrganizations: loadableUpsertMany(organizationsAdapter)
 	}
 });
 

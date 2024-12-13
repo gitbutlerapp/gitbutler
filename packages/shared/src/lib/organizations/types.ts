@@ -34,6 +34,8 @@ export type Project = {
 	updatedAt: string;
 };
 
+export type LoadableProject = LoadableData<Project, Project['repositoryId']>;
+
 export function apiToProject(apiProject: ApiProject): Project {
 	return {
 		repositoryId: apiProject.repository_id,
@@ -80,7 +82,7 @@ export type Organization = {
 	projectRepositoryIds?: string[];
 };
 
-export type LoadableOrganization = LoadableData<Organization, string>;
+export type LoadableOrganization = LoadableData<Organization, Organization['slug']>;
 
 export function apiToOrganization(
 	apiOrganization: ApiOrganization | ApiOrganizationWithDetails

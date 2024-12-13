@@ -110,7 +110,11 @@
 						roundedTop={index === 0}
 						orientation="row"
 					>
-						<p>{project?.name}</p>
+						<Loading loadable={project}>
+							{#snippet children(project)}
+								<p>{project.name}</p>
+							{/snippet}
+						</Loading>
 					</SectionCard>
 				{/each}
 			</div>

@@ -25,14 +25,17 @@ export function projectCloudSync(
 		registerInterest(cloudProjectInterest);
 	});
 
-	const cloudProject = $derived(
+	const loadableCloudProject = $derived(
 		project.current?.api
 			? projectsSelectors.selectById(appState.projects, project.current.api.repository_id)
 			: undefined
 	);
 
 	$effect(() => {
-		if (!project.current?.api || !cloudProject) return;
+		if (!project.current?.api || !loadableCloudProject || loadableCloudProject.type !== 'found')
+			return;
+
+		const cloudProject = loadableCloudProject.value;
 		const persistedProjectUpdatedAt = new Date(project.current.api.updated_at).getTime();
 		const cloudProjectUpdatedAt = new Date(cloudProject.updatedAt).getTime();
 		if (persistedProjectUpdatedAt >= cloudProjectUpdatedAt) return;

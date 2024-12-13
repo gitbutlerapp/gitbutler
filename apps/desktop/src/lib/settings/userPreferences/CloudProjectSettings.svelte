@@ -7,6 +7,7 @@
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
+	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { organizationsSelectors } from '@gitbutler/shared/organizations/organizationsSlice';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -138,36 +139,44 @@
 		{/snippet}
 	</Section>
 
-	{#if !cloudProject?.parentProjectRepositoryId}
-		<Section>
-			{#snippet title()}
-				Link your project with an organization
-			{/snippet}
+	<Loading loadable={cloudProject}>
+		{#snippet children(cloudProject)}
+			<Section>
+				{#snippet title()}
+					Link your project with an organization
+				{/snippet}
 
-			<RegisterInterest interest={usersOrganizationsInterest} />
+				<RegisterInterest interest={usersOrganizationsInterest} />
 
-			<div>
-				{#each usersOrganizations as organization, index}
-					<SectionCard
-						roundedBottom={index === usersOrganizations.length - 1}
-						roundedTop={index === 0}
-						orientation="row"
-						centerAlign
-					>
-						{#snippet children()}
-							<h5 class="text-15 text-bold flex-grow">{organization.name || organization.slug}</h5>
-						{/snippet}
-						{#snippet actions()}
-							<ProjectConnectModal
-								organizationSlug={organization.slug}
-								projectRepositoryId={cloudProject.repositoryId}
-							/>
-						{/snippet}
-					</SectionCard>
-				{/each}
-			</div>
-		</Section>
-	{/if}
+				<div>
+					{#each usersOrganizations as loadableOrganization, index}
+						<SectionCard
+							roundedBottom={index === usersOrganizations.length - 1}
+							roundedTop={index === 0}
+							orientation="row"
+							centerAlign
+						>
+							{#snippet children()}
+								<Loading loadable={loadableOrganization}>
+									{#snippet children(organization)}
+										<h5 class="text-15 text-bold flex-grow">
+											{organization.name || organization.slug}
+										</h5>
+									{/snippet}
+								</Loading>
+							{/snippet}
+							{#snippet actions()}
+								<ProjectConnectModal
+									organizationSlug={loadableOrganization.id}
+									projectRepositoryId={cloudProject.repositoryId}
+								/>
+							{/snippet}
+						</SectionCard>
+					{/each}
+				</div>
+			</Section>
+		{/snippet}
+	</Loading>
 {:else if !$project?.api?.repository_id}
 	<Section>
 		<Button onclick={createProject}>Create Gitbutler Project</Button>

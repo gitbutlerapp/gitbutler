@@ -1,5 +1,6 @@
 import { InterestStore, type Interest } from '$lib/interest/intrestStore';
-import { upsertProject } from '$lib/organizations/projectsSlice';
+import { errorToLoadable } from '$lib/network/loadable';
+import { addProject, upsertProject } from '$lib/organizations/projectsSlice';
 import { type ApiProject, apiToProject } from '$lib/organizations/types';
 import { POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';
@@ -16,10 +17,17 @@ export class ProjectService {
 	getProjectInterest(repositoryId: string): Interest {
 		return this.projectInterests
 			.findOrCreateSubscribable({ repositoryId }, async () => {
-				const apiProject = await this.httpClient.get<ApiProject>(`projects/${repositoryId}`);
-				const project = apiToProject(apiProject);
+				this.appDispatch.dispatch(addProject({ type: 'loading', id: repositoryId }));
 
-				this.appDispatch.dispatch(upsertProject(project));
+				try {
+					const apiProject = await this.httpClient.get<ApiProject>(`projects/${repositoryId}`);
+
+					this.appDispatch.dispatch(
+						upsertProject({ type: 'found', id: repositoryId, value: apiToProject(apiProject) })
+					);
+				} catch (error: unknown) {
+					this.appDispatch.dispatch(upsertProject(errorToLoadable(error, repositoryId)));
+				}
 			})
 			.createInterest();
 	}
@@ -30,7 +38,10 @@ export class ProjectService {
 		});
 		const project = apiToProject(apiProject);
 
-		this.appDispatch.dispatch(upsertProject(project));
+		this.appDispatch.dispatch(
+			upsertProject({ type: 'found', id: project.repositoryId, value: project })
+		);
+
 		return project;
 	}
 
@@ -47,7 +58,10 @@ export class ProjectService {
 		});
 		const project = apiToProject(apiProject);
 
-		this.appDispatch.dispatch(upsertProject(project));
+		this.appDispatch.dispatch(
+			upsertProject({ type: 'found', id: project.repositoryId, value: project })
+		);
+
 		return project;
 	}
 }
