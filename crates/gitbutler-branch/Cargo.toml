@@ -4,27 +4,18 @@ version = "0.0.0"
 edition = "2021"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
+autotests = false
 
 [dependencies]
 anyhow = "1.0.93"
 git2.workspace = true
 gix = { workspace = true, features = [] }
 gitbutler-reference.workspace = true
-gitbutler-serde.workspace = true
-gitbutler-id.workspace = true
-gitbutler-error.workspace = true
-gitbutler-fs.workspace = true
 gitbutler-diff.workspace = true
-gitbutler-oxidize.workspace = true
-gitbutler-time.workspace = true
 gitbutler-stack.workspace = true
 itertools = "0.13"
-toml.workspace = true
 serde = { workspace = true, features = ["std"] }
 bstr.workspace = true
-md5 = "0.7.0"
-hex = "0.4.3"
-tracing.workspace = true
 lazy_static = "1.4.0"
 
 [[test]]

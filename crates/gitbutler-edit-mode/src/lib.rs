@@ -8,7 +8,7 @@ use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::internal::list_virtual_branches;
 use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
-use gitbutler_command_context::CommandContext;
+use gitbutler_command_context::{gix_repository_for_merging, CommandContext};
 use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
@@ -18,6 +18,7 @@ use gitbutler_operating_modes::{
     operating_mode, read_edit_mode_metadata, write_edit_mode_metadata, EditModeMetadata,
     OperatingMode, EDIT_BRANCH_REF, WORKSPACE_BRANCH_REF,
 };
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_index, GixRepositoryExt};
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::{rebase::cherry_rebase, RepositoryExt};
@@ -28,42 +29,48 @@ use serde::Serialize;
 
 pub mod commands;
 
+/// Returns an index of the the tree of `commit` if it is unconflicted, *or* produce a merged tree
+/// if `commit` is conflicted. That tree is turned into an index that records the conflicts that occurred
+/// during the merge.
 fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Result<git2::Index> {
     let commit_tree = commit.tree().context("Failed to get commit's tree")?;
     // Checkout the commit as unstaged changes
     if commit.is_conflicted() {
         let base = commit_tree
             .get_name(".conflict-base-0")
-            .context("Failed to get base")?;
-        let base = repository
-            .find_tree(base.id())
-            .context("Failed to find base tree")?;
-        // Ours
+            .context("Failed to get base")?
+            .id();
         let ours = commit_tree
             .get_name(".conflict-side-0")
-            .context("Failed to get base")?;
-        let ours = repository
-            .find_tree(ours.id())
-            .context("Failed to find base tree")?;
-        // Theirs
+            .context("Failed to get base")?
+            .id();
         let theirs = commit_tree
             .get_name(".conflict-side-1")
-            .context("Failed to get base")?;
-        let theirs = repository
-            .find_tree(theirs.id())
-            .context("Failed to find base tree")?;
+            .context("Failed to get base")?
+            .id();
 
-        let index = repository
-            .merge_trees(&base, &ours, &theirs, None)
-            .context("Failed to merge trees")?;
-
-        Ok(index)
+        let gix_repo = gix_repository_for_merging(repository.path())?;
+        // Merge without favoring a side this time to get a tree containing the actual conflicts.
+        let mut merge_result = gix_repo.merge_trees(
+            git2_to_gix_object_id(base),
+            git2_to_gix_object_id(ours),
+            git2_to_gix_object_id(theirs),
+            gix_repo.default_merge_labels(),
+            gix_repo.tree_merge_options()?,
+        )?;
+        let merged_tree_id = merge_result.tree.write()?;
+        let mut index = gix_repo.index_from_tree(&merged_tree_id)?;
+        if !merge_result.index_changed_after_applying_conflicts(
+            &mut index,
+            gix::merge::tree::TreatAsUnresolved::git(),
+            gix::merge::tree::apply_index_entries::RemovalMode::Mark,
+        ) {
+            tracing::warn!("There must be an issue with conflict-commit creation as re-merging the conflicting trees didn't yield a conflicting index.");
+        }
+        gix_to_git2_index(&index)
     } else {
         let mut index = git2::Index::new()?;
-        index
-            .read_tree(&commit_tree)
-            .context("Failed to set index tree")?;
-
+        index.read_tree(&commit_tree)?;
         Ok(index)
     }
 }

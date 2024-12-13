@@ -1,9 +1,9 @@
+use crate::{init_opts, VAR_NO_CLEANUP};
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt};
 use gitbutler_reference::{LocalRefname, Refname};
 use gitbutler_repo::RepositoryExt;
 use std::{fs, path, path::PathBuf};
 use tempfile::TempDir;
-
-use crate::{init_opts, VAR_NO_CLEANUP};
 
 pub fn temp_dir() -> TempDir {
     tempfile::tempdir().unwrap()
@@ -214,64 +214,60 @@ impl TestProject {
     }
 
     /// works like if we'd open and merge a PR on github. does not update local.
-    pub fn merge(&self, branch_name: &Refname) {
+    pub fn merge(&self, branch_name: &Refname) -> anyhow::Result<()> {
         let branch_name: Refname = match branch_name {
-            Refname::Local(local) => format!("refs/heads/{}", local.branch()).parse().unwrap(),
-            Refname::Remote(remote) => format!("refs/heads/{}", remote.branch()).parse().unwrap(),
-            _ => "INVALID".parse().unwrap(), // todo
+            Refname::Local(local) => format!("refs/heads/{}", local.branch()).parse()?,
+            Refname::Remote(remote) => format!("refs/heads/{}", remote.branch()).parse()?,
+            _ => "INVALID".parse()?, // todo
         };
         let branch = self
             .remote_repository
-            .maybe_find_branch_by_refname(&branch_name)
-            .unwrap();
-        let branch_commit = branch.as_ref().unwrap().get().peel_to_commit().unwrap();
+            .maybe_find_branch_by_refname(&branch_name)?
+            .expect("branch exists");
+        let branch_commit = branch.get().peel_to_commit()?;
 
         let master_branch = {
-            let name: Refname = "refs/heads/master".parse().unwrap();
-            self.remote_repository
-                .maybe_find_branch_by_refname(&name)
-                .unwrap()
+            let name: Refname = "refs/heads/master".parse()?;
+            self.remote_repository.maybe_find_branch_by_refname(&name)?
         };
         let master_branch_commit = master_branch
             .as_ref()
-            .unwrap()
+            .expect("master branch exists")
             .get()
-            .peel_to_commit()
-            .unwrap();
+            .peel_to_commit()?;
 
-        let merge_base = {
-            let oid = self
-                .remote_repository
-                .merge_base(branch_commit.id(), master_branch_commit.id())
-                .unwrap();
-            self.remote_repository.find_commit(oid).unwrap()
-        };
+        let gix_repo = gix::open_opts(
+            self.remote_repository.path(),
+            gix::open::Options::isolated(),
+        )?;
         let merge_tree = {
-            let mut merge_index = self
-                .remote_repository
-                .merge_trees(
-                    &merge_base.tree().unwrap(),
-                    &master_branch.unwrap().get().peel_to_tree().unwrap(),
-                    &branch.unwrap().get().peel_to_tree().unwrap(),
-                    None,
-                )
-                .unwrap();
-            let repo: &git2::Repository = &self.remote_repository;
-            let oid = merge_index.write_tree_to(repo).unwrap();
-            self.remote_repository.find_tree(oid).unwrap()
+            let mut merge_result = gix_repo.merge_commits(
+                git2_to_gix_object_id(master_branch_commit.id()),
+                git2_to_gix_object_id(branch.get().peel_to_commit()?.id()),
+                gix_repo.default_merge_labels(),
+                gix::merge::commit::Options::default(),
+            )?;
+            assert!(
+                !merge_result
+                    .tree_merge
+                    .has_unresolved_conflicts(Default::default()),
+                "test-merges should have non-conflicting trees"
+            );
+            let tree_id = merge_result.tree_merge.tree.write()?;
+            self.remote_repository.find_tree(gix_to_git2_oid(tree_id))?
         };
 
         let repo: &git2::Repository = &self.remote_repository;
         repo.commit_with_signature(
-            Some(&"refs/heads/master".parse().unwrap()),
+            Some(&"refs/heads/master".parse()?),
             &branch_commit.author(),
             &branch_commit.committer(),
             &format!("Merge pull request from {}", branch_name),
             &merge_tree,
             &[&master_branch_commit, &branch_commit],
             None,
-        )
-        .unwrap();
+        )?;
+        Ok(())
     }
 
     pub fn find_commit(&self, oid: git2::Oid) -> Result<git2::Commit<'_>, git2::Error> {
