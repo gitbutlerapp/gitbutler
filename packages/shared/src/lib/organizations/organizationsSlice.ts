@@ -1,9 +1,8 @@
 import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
-import type { Organization } from '$lib/organizations/types';
+import type { LoadableOrganization } from '$lib/organizations/types';
 
-const organizationsAdapter = createEntityAdapter({
-	selectId: (organization: Organization) => organization.slug,
-	sortComparer: (a: Organization, b: Organization) => a.slug.localeCompare(b.slug)
+const organizationsAdapter = createEntityAdapter<LoadableOrganization, LoadableOrganization['id']>({
+	selectId: (organization: LoadableOrganization) => organization.id
 });
 
 const organizationsSlice = createSlice({

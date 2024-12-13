@@ -2,7 +2,7 @@ import { InterestStore, type Interest } from '$lib/interest/intrestStore';
 import { upsertProject } from '$lib/organizations/projectsSlice';
 import { type ApiProject, apiToProject } from '$lib/organizations/types';
 import { POLLING_REGULAR } from '$lib/polling';
-import type { HttpClient } from '$lib/httpClient';
+import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
 export class ProjectService {

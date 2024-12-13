@@ -2,7 +2,7 @@ import { registerInterest } from '@gitbutler/shared/interest/registerInterestFun
 import { projectsSelectors } from '@gitbutler/shared/organizations/projectsSlice';
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import type { ProjectService, ProjectsService } from '$lib/backend/projects';
-import type { HttpClient } from '@gitbutler/shared/httpClient';
+import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 import type { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 import type { AppProjectsState } from '@gitbutler/shared/redux/store.svelte';
 

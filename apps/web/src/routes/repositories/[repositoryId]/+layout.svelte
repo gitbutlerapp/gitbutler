@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { CloudBranchesService, BranchesApiService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext } from '@gitbutler/shared/context';
-	import { HttpClient } from '@gitbutler/shared/httpClient';
+	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { setContext, type Snippet } from 'svelte';
 	import { writable } from 'svelte/store';
 	import { page } from '$app/stores';

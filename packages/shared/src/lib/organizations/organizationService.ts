@@ -1,15 +1,21 @@
 import { InterestStore, type Interest } from '$lib/interest/intrestStore';
-import { upsertOrganization, upsertOrganizations } from '$lib/organizations/organizationsSlice';
+import { type HttpClient } from '$lib/network/httpClient';
+import { ApiError } from '$lib/network/types';
+import {
+	addOrganization,
+	upsertOrganization,
+	upsertOrganizations
+} from '$lib/organizations/organizationsSlice';
 import { upsertProjects } from '$lib/organizations/projectsSlice';
 import {
 	apiToOrganization,
 	apiToProject,
 	type ApiOrganization,
 	type ApiOrganizationWithDetails,
+	type LoadableOrganization,
 	type Organization
 } from '$lib/organizations/types';
 import { POLLING_REGULAR, POLLING_SLOW } from '$lib/polling';
-import type { HttpClient } from '$lib/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
 export class OrganizationService {
@@ -25,7 +31,14 @@ export class OrganizationService {
 		return this.organizationListingInterests
 			.findOrCreateSubscribable(undefined, async () => {
 				const apiOrganizations = await this.httpClient.get<ApiOrganization[]>('organization');
-				const organizations = apiOrganizations.map(apiToOrganization);
+				const organizations = apiOrganizations.map(
+					(apiOrganizations) =>
+						({
+							type: 'found',
+							id: apiOrganizations.slug,
+							value: apiToOrganization(apiOrganizations)
+						}) as LoadableOrganization
+				);
 
 				this.appDispatch.dispatch(upsertOrganizations(organizations));
 			})
@@ -35,14 +48,26 @@ export class OrganizationService {
 	getOrganizationWithDetailsInterest(slug: string): Interest {
 		return this.orgnaizationInterests
 			.findOrCreateSubscribable({ slug }, async () => {
-				const apiOrganization = await this.httpClient.get<ApiOrganizationWithDetails>(
-					`organization/${slug}`
-				);
-				const organization = apiToOrganization(apiOrganization);
-				const projects = apiOrganization.projects.map(apiToProject);
+				this.appDispatch.dispatch(addOrganization({ type: 'loading', id: slug }));
 
-				this.appDispatch.dispatch(upsertOrganization(organization));
-				this.appDispatch.dispatch(upsertProjects(projects));
+				try {
+					const apiOrganization = await this.httpClient.get<ApiOrganizationWithDetails>(
+						`organization/${slug}`
+					);
+					const organization = apiToOrganization(apiOrganization);
+					const projects = apiOrganization.projects.map(apiToProject);
+
+					this.appDispatch.dispatch(
+						upsertOrganization({ type: 'found', id: slug, value: organization })
+					);
+					this.appDispatch.dispatch(upsertProjects(projects));
+				} catch (error: unknown) {
+					if (error instanceof ApiError && error.response.status === 404) {
+						this.appDispatch.dispatch(upsertOrganization({ type: 'not-found', id: slug }));
+					} else if (error instanceof Error) {
+						this.appDispatch.dispatch(upsertOrganization({ type: 'error', id: slug, error }));
+					}
+				}
 			})
 			.createInterest();
 	}
@@ -59,10 +84,10 @@ export class OrganizationService {
 				description
 			}
 		});
-		const orgnaization = apiToOrganization(apiOrganization);
-		this.appDispatch.dispatch(upsertOrganization(orgnaization));
+		const organization = apiToOrganization(apiOrganization);
+		this.appDispatch.dispatch(upsertOrganization({ type: 'found', id: slug, value: organization }));
 
-		return orgnaization;
+		return organization;
 	}
 
 	async joinOrganization(slug: string, joinCode: string) {
@@ -73,9 +98,9 @@ export class OrganizationService {
 			}
 		);
 
-		const orgnaization = apiToOrganization(apiOrganization);
-		this.appDispatch.dispatch(upsertOrganization(orgnaization));
+		const organization = apiToOrganization(apiOrganization);
+		this.appDispatch.dispatch(upsertOrganization({ type: 'found', id: slug, value: organization }));
 
-		return orgnaization;
+		return organization;
 	}
 }

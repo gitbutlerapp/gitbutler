@@ -1,3 +1,4 @@
+import { ApiError } from '$lib/network/types';
 import { derived, get, type Readable } from 'svelte/store';
 
 export const DEFAULT_HEADERS = {
@@ -100,7 +101,7 @@ async function parseResponseJSON(response: Response) {
 	if (response.status === 204 || response.status === 205) {
 		return null;
 	} else if (response.status >= 400) {
-		throw new Error(`HTTP Error ${response.statusText}: ${await response.text()}`);
+		throw new ApiError(`HTTP Error ${response.statusText}: ${await response.text()}`, response);
 	} else {
 		return await response.json();
 	}

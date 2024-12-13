@@ -37,7 +37,7 @@
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext } from '@gitbutler/shared/context';
-	import { HttpClient } from '@gitbutler/shared/httpClient';
+	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { DesktopRoutesService, getRoutesService } from '@gitbutler/shared/sharedRoutes';

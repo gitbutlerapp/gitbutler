@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext } from '@gitbutler/shared/context';
-	import { HttpClient } from '@gitbutler/shared/httpClient';
+	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import CreateOrganizationModal from '@gitbutler/shared/organizations/CreateOrganizationModal.svelte';
 	import JoinOrganizationModal from '@gitbutler/shared/organizations/JoinOrganizationModal.svelte';

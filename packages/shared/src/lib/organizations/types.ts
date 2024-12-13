@@ -1,3 +1,5 @@
+import type { LoadableData } from '$lib/network/loadable';
+
 export type ApiProject = {
 	slug: string;
 	owner: string;
@@ -77,6 +79,8 @@ export type Organization = {
 	memberLogins?: string[];
 	projectRepositoryIds?: string[];
 };
+
+export type LoadableOrganization = LoadableData<Organization, string>;
 
 export function apiToOrganization(
 	apiOrganization: ApiOrganization | ApiOrganizationWithDetails

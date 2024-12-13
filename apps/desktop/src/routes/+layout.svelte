@@ -39,7 +39,7 @@
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
-	import { HttpClient } from '@gitbutler/shared/httpClient';
+	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
