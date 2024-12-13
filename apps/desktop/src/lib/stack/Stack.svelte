@@ -5,24 +5,24 @@
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
 	import { Project } from '$lib/backend/projects';
-	import { BaseBranch } from '$lib/baseBranch/baseBranch';
-	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	// import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	// import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import Dropzones from '$lib/branch/Dropzones.svelte';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { getForgePrService } from '$lib/forge/interface/forgePrService';
-	import { type MergeMethod } from '$lib/forge/interface/types';
-	import { showError } from '$lib/notifications/toasts';
-	import MergeButton from '$lib/pr/MergeButton.svelte';
+	// import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	// import { type MergeMethod } from '$lib/forge/interface/types';
+	// import { showError } from '$lib/notifications/toasts';
+	// import MergeButton from '$lib/pr/MergeButton.svelte';
 	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import CollapsedLane from '$lib/stack/CollapsedLane.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
-	import * as toasts from '$lib/utils/toasts';
+	// import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
-	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+	// import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -37,14 +37,14 @@
 		commitBoxOpen
 	}: { isLaneCollapsed: Writable<boolean>; commitBoxOpen: Writable<boolean> } = $props();
 
-	const vbranchService = getContext(VirtualBranchService);
+	// const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
 	const fileIdSelection = getContext(FileIdSelection);
 	const branchStore = getContextStore(VirtualBranch);
-	const baseBranchService = getContext(BaseBranchService);
-	const baseBranch = getContextStore(BaseBranch);
+	// const baseBranchService = getContext(BaseBranchService);
+	// const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
-	const prService = getForgePrService();
+	// const prService = getForgePrService();
 	const listingService = getForgeListingService();
 	const branch = $derived($branchStore);
 
@@ -71,7 +71,7 @@
 
 	let scrollEndVisible = $state(true);
 	let isPushingCommits = $state(false);
-	let isMergingSeries = $state(false);
+	// let isMergingSeries = $state(false);
 
 	const { upstreamPatches, branchPatches, hasConflicts } = $derived.by(() => {
 		let hasConflicts = false;
@@ -109,55 +109,55 @@
 		}
 	}
 
-	async function checkMergeable() {
-		const nonArchivedBranches = branch.validSeries.filter((s) => !s.archived);
-		if (nonArchivedBranches.length <= 1) return false;
+	// async function checkMergeable() {
+	// 	const nonArchivedBranches = branch.validSeries.filter((s) => !s.archived);
+	// 	if (nonArchivedBranches.length <= 1) return false;
 
-		const seriesMergeResponse = await Promise.allSettled(
-			nonArchivedBranches.map((series) => {
-				if (!series.prNumber) return Promise.reject();
+	// 	const seriesMergeResponse = await Promise.allSettled(
+	// 		nonArchivedBranches.map((series) => {
+	// 			if (!series.prNumber) return Promise.reject();
 
-				const detailedPr = $prService?.get(series.prNumber);
-				return detailedPr;
-			})
-		);
+	// 			const detailedPr = $prService?.get(series.prNumber);
+	// 			return detailedPr;
+	// 		})
+	// 	);
 
-		return seriesMergeResponse.every((s) => {
-			if (s.status === 'fulfilled' && s.value) {
-				return s.value.mergeable === true;
-			}
-			return false;
-		});
-	}
+	// 	return seriesMergeResponse.every((s) => {
+	// 		if (s.status === 'fulfilled' && s.value) {
+	// 			return s.value.mergeable === true;
+	// 		}
+	// 		return false;
+	// 	});
+	// }
 
-	let canMergeAll = $derived(checkMergeable());
+	// let canMergeAll = $derived(checkMergeable());
 
-	async function mergeAll(method: MergeMethod) {
-		isMergingSeries = true;
-		try {
-			const topBranch = branch.validSeries[0];
+	// async function mergeAll(method: MergeMethod) {
+	// 	isMergingSeries = true;
+	// 	try {
+	// 		const topBranch = branch.validSeries[0];
 
-			if (topBranch?.prNumber && $prService) {
-				const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
-				await $prService.update(topBranch.prNumber, { targetBase });
-				await $prService.merge(method, topBranch.prNumber);
-				await baseBranchService.fetchFromRemotes();
-				toasts.success('Stack Merged Successfully');
+	// 		if (topBranch?.prNumber && $prService) {
+	// 			const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
+	// 			await $prService.update(topBranch.prNumber, { targetBase });
+	// 			await $prService.merge(method, topBranch.prNumber);
+	// 			await baseBranchService.fetchFromRemotes();
+	// 			toasts.success('Stack Merged Successfully');
 
-				await Promise.all([
-					$prService?.prMonitor(topBranch.prNumber).refresh(),
-					$listingService?.refresh(),
-					vbranchService.refresh(),
-					baseBranchService.refresh()
-				]);
-			}
-		} catch (e) {
-			console.error(e);
-			showError('Failed to merge PR', e);
-		} finally {
-			isMergingSeries = false;
-		}
-	}
+	// 			await Promise.all([
+	// 				$prService?.prMonitor(topBranch.prNumber).refresh(),
+	// 				$listingService?.refresh(),
+	// 				vbranchService.refresh(),
+	// 				baseBranchService.refresh()
+	// 			]);
+	// 		}
+	// 	} catch (e) {
+	// 		console.error(e);
+	// 		showError('Failed to merge PR', e);
+	// 	} finally {
+	// 		isMergingSeries = false;
+	// 	}
+	// }
 </script>
 
 {#if $isLaneCollapsed}
@@ -256,7 +256,7 @@
 									</Button>
 								</div>
 							{/if}
-							{#await canMergeAll then isMergeable}
+							<!-- {#await canMergeAll then isMergeable}
 								{#if isMergeable}
 									<div
 										class="lane-branches__action merge-all"
@@ -287,7 +287,7 @@
 										/>
 									</div>
 								{/if}
-							{/await}
+							{/await} -->
 						</div>
 					</div>
 				</div>
