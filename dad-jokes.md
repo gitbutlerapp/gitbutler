@@ -17,7 +17,6 @@
   <b>They don't CI to eye</b>
 </details>
 
-
 ### Community dad jokes
 
 <details>
@@ -26,4 +25,3 @@
 </details>
 
 <br>
-
