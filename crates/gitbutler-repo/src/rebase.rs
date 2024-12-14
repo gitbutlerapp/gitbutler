@@ -1,8 +1,9 @@
 use std::{collections::HashSet, path::PathBuf};
 
 use crate::{
+    committing::RepositoryExt as _,
+    identity::RepositoryExt as _,
     logging::{LogUntil, RepositoryExt as _},
-    RepositoryExt as _,
 };
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
@@ -130,17 +131,17 @@ fn commit_unconflicted_cherry_result<'repository>(
 
     let (_, committer) = repository.signatures()?;
 
-    let commit_oid = crate::RepositoryExt::commit_with_signature(
-        repository,
-        None,
-        &to_rebase.author(),
-        &committer,
-        &to_rebase.message_bstr().to_str_lossy(),
-        &merge_tree,
-        &[&head],
-        commit_headers,
-    )
-    .context("failed to create commit")?;
+    let commit_oid = repository
+        .commit_with_signature(
+            None,
+            &to_rebase.author(),
+            &committer,
+            &to_rebase.message_bstr().to_str_lossy(),
+            &merge_tree,
+            &[&head],
+            commit_headers,
+        )
+        .context("failed to create commit")?;
 
     repository
         .find_commit(commit_oid)
@@ -211,19 +212,19 @@ fn commit_conflicted_cherry_result<'repository>(
 
     let (_, committer) = repository.signatures()?;
 
-    let commit_oid = crate::RepositoryExt::commit_with_signature(
-        repository,
-        None,
-        &to_rebase.author(),
-        &committer,
-        &to_rebase.message_bstr().to_str_lossy(),
-        &repository
-            .find_tree(tree_oid)
-            .context("failed to find tree")?,
-        &[&head],
-        commit_headers,
-    )
-    .context("failed to create commit")?;
+    let commit_oid = repository
+        .commit_with_signature(
+            None,
+            &to_rebase.author(),
+            &committer,
+            &to_rebase.message_bstr().to_str_lossy(),
+            &repository
+                .find_tree(tree_oid)
+                .context("failed to find tree")?,
+            &[&head],
+            commit_headers,
+        )
+        .context("failed to create commit")?;
 
     repository
         .find_commit(commit_oid)
@@ -371,22 +372,22 @@ pub fn gitbutler_merge_commits<'repository>(
     };
 
     let (author, committer) = repository.signatures()?;
-    let commit_oid = crate::RepositoryExt::commit_with_signature(
-        repository,
-        None,
-        &author,
-        &committer,
-        &format!(
-            "Merge `{}` into `{}`",
-            incoming_branch_name, target_branch_name
-        ),
-        &repository
-            .find_tree(tree_oid)
-            .context("failed to find tree")?,
-        &[&target_commit, &incoming_commit],
-        Some(commit_headers),
-    )
-    .context("failed to create commit")?;
+    let commit_oid = repository
+        .commit_with_signature(
+            None,
+            &author,
+            &committer,
+            &format!(
+                "Merge `{}` into `{}`",
+                incoming_branch_name, target_branch_name
+            ),
+            &repository
+                .find_tree(tree_oid)
+                .context("failed to find tree")?,
+            &[&target_commit, &incoming_commit],
+            Some(commit_headers),
+        )
+        .context("failed to create commit")?;
 
     Ok(repository.find_commit(commit_oid)?)
 }

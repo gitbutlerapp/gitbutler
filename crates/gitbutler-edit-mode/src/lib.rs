@@ -21,6 +21,8 @@ use gitbutler_operating_modes::{
 use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_index, GixRepositoryExt};
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_reference::{ReferenceName, Refname};
+use gitbutler_repo::committing::RepositoryExt as _;
+use gitbutler_repo::identity::RepositoryExt as _;
 use gitbutler_repo::{rebase::cherry_rebase, RepositoryExt};
 use gitbutler_repo::{signature, SignaturePurpose};
 use gitbutler_stack::{Stack, VirtualBranchesHandle};

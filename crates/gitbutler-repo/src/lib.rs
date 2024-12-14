@@ -16,7 +16,10 @@ pub use config::Config;
 
 pub mod temporary_workdir;
 
+pub mod committing;
+pub mod identity;
 pub mod logging;
+mod sigining;
 
 use gitbutler_oxidize::gix_to_git2_signature;
 pub const GITBUTLER_COMMIT_AUTHOR_NAME: &str = "GitButler";

@@ -1,24 +1,12 @@
-use crate::Config;
-use crate::SignaturePurpose;
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::BString;
 use git2::{StatusOptions, Tree};
-use gitbutler_commit::commit_headers::CommitHeadersV2;
-use gitbutler_config::git::{GbConfig, GitConfig};
-use gitbutler_error::error::Code;
-use gitbutler_oxidize::{
-    git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, gix_to_git2_signature,
-};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::fs::is_executable;
-use gix::objs::WriteTo;
 use std::io;
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
-use std::{io::Write, path::Path, process::Stdio, str};
+use std::{path::Path, str};
 use tracing::instrument;
 
 /// Extension trait for `git2::Repository`.
@@ -34,13 +22,9 @@ pub trait RepositoryExt {
     /// conflict with the libgit2 binding I upstreamed when it eventually
     /// gets merged.
     fn merge_base_octopussy(&self, ids: &[git2::Oid]) -> Result<git2::Oid>;
-    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
 
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
-    /// `buffer` is the commit object to sign, but in theory could be anything to compute the signature for.
-    /// Returns the computed signature.
-    fn sign_buffer(&self, buffer: &[u8]) -> Result<BString>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a>;
     fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
     /// Based on the index, add all data similar to `git add .` and create a tree from it, which is returned.
@@ -52,18 +36,6 @@ pub trait RepositoryExt {
     ///
     /// This is for safety to assure the repository actually is in 'gitbutler mode'.
     fn workspace_ref_from_head(&self) -> Result<git2::Reference<'_>>;
-
-    #[allow(clippy::too_many_arguments)]
-    fn commit_with_signature(
-        &self,
-        update_ref: Option<&Refname>,
-        author: &git2::Signature<'_>,
-        committer: &git2::Signature<'_>,
-        message: &str,
-        tree: &git2::Tree<'_>,
-        parents: &[&git2::Commit<'_>],
-        commit_headers: Option<CommitHeadersV2>,
-    ) -> Result<git2::Oid>;
 }
 
 impl RepositoryExt for git2::Repository {
@@ -220,207 +192,6 @@ impl RepositoryExt for git2::Repository {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
-    fn commit_with_signature(
-        &self,
-        update_ref: Option<&Refname>,
-        author: &git2::Signature<'_>,
-        committer: &git2::Signature<'_>,
-        message: &str,
-        tree: &git2::Tree<'_>,
-        parents: &[&git2::Commit<'_>],
-        commit_headers: Option<CommitHeadersV2>,
-    ) -> Result<git2::Oid> {
-        let repo = gix::open(self.path())?;
-        let mut commit = gix::objs::Commit {
-            message: message.into(),
-            tree: git2_to_gix_object_id(tree.id()),
-            author: git2_signature_to_gix_signature(author),
-            committer: git2_signature_to_gix_signature(committer),
-            encoding: None,
-            parents: parents
-                .iter()
-                .map(|commit| git2_to_gix_object_id(commit.id()))
-                .collect(),
-            extra_headers: commit_headers.unwrap_or_default().into(),
-        };
-
-        if self.gb_config()?.sign_commits.unwrap_or(false) {
-            let mut buf = Vec::new();
-            commit.write_to(&mut buf)?;
-            let signature = self.sign_buffer(&buf);
-            match signature {
-                Ok(signature) => {
-                    commit.extra_headers.push(("gpgsig".into(), signature));
-                }
-                Err(e) => {
-                    // If signing fails, set the "gitbutler.signCommits" config to false before erroring out
-                    self.set_gb_config(GbConfig {
-                        sign_commits: Some(false),
-                        ..GbConfig::default()
-                    })?;
-                    return Err(
-                        anyhow!("Failed to sign commit: {}", e).context(Code::CommitSigningFailed)
-                    );
-                }
-            }
-        }
-        // TODO: extra-headers should be supported in `gix` directly.
-        let oid = gix_to_git2_oid(repo.write_object(&commit)?);
-
-        // update reference
-        if let Some(refname) = update_ref {
-            self.reference(&refname.to_string(), oid, true, message)?;
-        }
-        Ok(oid)
-    }
-
-    fn sign_buffer(&self, buffer: &[u8]) -> Result<BString> {
-        // check git config for gpg.signingkey
-        // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
-        let signing_key = self.config()?.get_string("user.signingkey");
-        if let Ok(signing_key) = signing_key {
-            let sign_format = self.config()?.get_string("gpg.format");
-            let is_ssh = if let Ok(sign_format) = sign_format {
-                sign_format == "ssh"
-            } else {
-                false
-            };
-
-            if is_ssh {
-                // write commit data to a temp file so we can sign it
-                let mut signature_storage = tempfile::NamedTempFile::new()?;
-                signature_storage.write_all(buffer)?;
-                let buffer_file_to_sign_path = signature_storage.into_temp_path();
-
-                let gpg_program = self.config()?.get_string("gpg.ssh.program");
-                let mut gpg_program = gpg_program.unwrap_or("ssh-keygen".to_string());
-                // if cmd is "", use gpg
-                if gpg_program.is_empty() {
-                    gpg_program = "ssh-keygen".to_string();
-                }
-
-                let mut cmd_string = format!("{} -Y sign -n git -f ", gpg_program);
-
-                let buffer_file_to_sign_path_str = buffer_file_to_sign_path
-                    .to_str()
-                    .ok_or_else(|| anyhow::anyhow!("Failed to convert path to string"))?
-                    .to_string();
-
-                let output;
-                // support literal ssh key
-                if let (true, signing_key) = is_literal_ssh_key(&signing_key) {
-                    // write the key to a temp file
-                    let mut key_storage = tempfile::NamedTempFile::new()?;
-                    key_storage.write_all(signing_key.as_bytes())?;
-
-                    // if on unix
-                    #[cfg(unix)]
-                    {
-                        // make sure the tempfile permissions are acceptable for a private ssh key
-                        let mut permissions = key_storage.as_file().metadata()?.permissions();
-                        permissions.set_mode(0o600);
-                        key_storage.as_file().set_permissions(permissions)?;
-                    }
-
-                    let key_file_path = key_storage.into_temp_path();
-
-                    let args = format!(
-                        "{} -U {}",
-                        key_file_path.to_string_lossy(),
-                        buffer_file_to_sign_path.to_string_lossy()
-                    );
-                    cmd_string += &args;
-
-                    let mut signing_cmd: std::process::Command =
-                        gix::command::prepare(cmd_string).with_shell().into();
-
-                    #[cfg(windows)]
-                    signing_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
-                    signing_cmd.stderr(Stdio::piped());
-                    signing_cmd.stdout(Stdio::piped());
-                    signing_cmd.stdin(Stdio::null());
-
-                    let child = signing_cmd.spawn()?;
-                    output = child.wait_with_output()?;
-                } else {
-                    let args = format!("{} {}", signing_key, buffer_file_to_sign_path_str);
-                    cmd_string += &args;
-
-                    let mut signing_cmd: std::process::Command =
-                        gix::command::prepare(cmd_string).with_shell().into();
-
-                    #[cfg(windows)]
-                    signing_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
-                    signing_cmd.stderr(Stdio::piped());
-                    signing_cmd.stdout(Stdio::piped());
-                    signing_cmd.stdin(Stdio::null());
-
-                    let child = signing_cmd.spawn()?;
-                    output = child.wait_with_output()?;
-                }
-
-                if output.status.success() {
-                    // read signed_storage path plus .sig
-                    let signature_path = buffer_file_to_sign_path.with_extension("sig");
-                    let sig_data = std::fs::read(signature_path)?;
-                    let signature = BString::new(sig_data);
-                    return Ok(signature);
-                } else {
-                    let stderr = BString::new(output.stderr);
-                    let stdout = BString::new(output.stdout);
-                    let std_both = format!("{} {}", stdout, stderr);
-                    bail!("Failed to sign SSH: {}", std_both);
-                }
-            } else {
-                let gpg_program = self
-                    .config()?
-                    .get_path("gpg.program")
-                    .ok()
-                    .filter(|gpg| !gpg.as_os_str().is_empty())
-                    .unwrap_or_else(|| "gpg".into());
-
-                let mut cmd = std::process::Command::new(&gpg_program);
-
-                cmd.args(["--status-fd=2", "-bsau", &signing_key])
-                    .arg("-")
-                    .stdout(Stdio::piped())
-                    .stderr(Stdio::piped())
-                    .stdin(Stdio::piped());
-
-                #[cfg(windows)]
-                cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
-                let mut child = match cmd.spawn() {
-                    Ok(child) => child,
-                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                        bail!("Could not find '{}'. Please make sure it is in your `PATH` or configure the full path using `gpg.program` in the Git configuration", gpg_program.display())
-                    }
-                    Err(err) => {
-                        return Err(err)
-                            .context(format!("Could not execute GPG program using {:?}", cmd))
-                    }
-                };
-                child.stdin.take().expect("configured").write_all(buffer)?;
-
-                let output = child.wait_with_output()?;
-                if output.status.success() {
-                    // read stdout
-                    let signature = BString::new(output.stdout);
-                    return Ok(signature);
-                } else {
-                    let stderr = BString::new(output.stderr);
-                    let stdout = BString::new(output.stdout);
-                    let std_both = format!("{} {}", stdout, stderr);
-                    bail!("Failed to sign GPG: {}", std_both);
-                }
-            }
-        }
-        Err(anyhow::anyhow!("No signing key found"))
-    }
-
     fn remotes_as_string(&self) -> Result<Vec<String>> {
         Ok(self.remotes().map(|string_array| {
             string_array
@@ -437,30 +208,6 @@ impl RepositoryExt for git2::Repository {
                 RemoteRefname::try_from(&branch).context("failed to convert branch to remote name")
             })
             .collect::<Result<Vec<_>>>()
-    }
-
-    fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
-        let repo = gix::open(self.path())?;
-
-        let author = repo
-            .author()
-            .transpose()?
-            .map(gix_to_git2_signature)
-            .transpose()?
-            .context("No author is configured in Git")
-            .context(Code::AuthorMissing)?;
-
-        let config: Config = self.into();
-        let committer = if config.user_real_comitter()? {
-            repo.committer()
-                .transpose()?
-                .map(gix_to_git2_signature)
-                .unwrap_or_else(|| crate::signature(SignaturePurpose::Committer))
-        } else {
-            crate::signature(SignaturePurpose::Committer)
-        }?;
-
-        Ok((author, committer))
     }
 
     fn merge_base_octopussy(&self, ids: &[git2::Oid]) -> Result<git2::Oid> {
