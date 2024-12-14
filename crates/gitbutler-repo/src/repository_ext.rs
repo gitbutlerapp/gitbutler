@@ -36,11 +36,6 @@ pub trait RepositoryExt {
     fn merge_base_octopussy(&self, ids: &[git2::Oid]) -> Result<git2::Oid>;
     fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
 
-    /// Return `HEAD^{commit}` - ideal for obtaining the integration branch commit in open-workspace mode
-    /// when it's clear that it's representing the current state.
-    ///
-    /// Ideally, this is used in places of `get_workspace_head()`.
-    fn head_commit(&self) -> Result<git2::Commit<'_>>;
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
     /// Returns a version of `&self` that writes new objects into memory, allowing to prevent touching
@@ -76,13 +71,6 @@ pub trait RepositoryExt {
 }
 
 impl RepositoryExt for git2::Repository {
-    fn head_commit(&self) -> Result<git2::Commit<'_>> {
-        self.head()
-            .context("Failed to get head")?
-            .peel_to_commit()
-            .context("Failed to get head commit")
-    }
-
     fn in_memory_repo(&self) -> Result<git2::Repository> {
         let repo = git2::Repository::open(self.path())?;
         repo.odb()?.add_new_mempack_backend(999)?;
@@ -225,7 +213,7 @@ impl RepositoryExt for git2::Repository {
             }
         }
 
-        let head_tree = self.head_commit()?.tree()?;
+        let head_tree = self.head()?.peel_to_tree()?;
         let tree_oid = tree_update_builder.create_updated(self, &head_tree)?;
 
         Ok(self.find_tree(tree_oid)?)

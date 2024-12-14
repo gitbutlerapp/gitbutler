@@ -11,7 +11,6 @@ use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt
 use gitbutler_project::access::WorktreeReadPermission;
 use gitbutler_reference::normalize_branch_name;
 use gitbutler_reference::RemoteRefname;
-use gitbutler_repo::RepositoryExt as _;
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Stack as GitButlerBranch, StackId, Target};
 use gix::object::tree::diff::Action;
@@ -34,7 +33,7 @@ pub(crate) fn get_uncommited_files_raw(
     ctx: &CommandContext,
     _permission: &WorktreeReadPermission,
 ) -> Result<DiffByPathMap> {
-    gitbutler_diff::workdir(ctx.repo(), ctx.repo().head_commit()?.id())
+    gitbutler_diff::workdir(ctx.repo(), ctx.repo().head()?.peel_to_commit()?.id())
         .context("Failed to list uncommited files")
 }
 
