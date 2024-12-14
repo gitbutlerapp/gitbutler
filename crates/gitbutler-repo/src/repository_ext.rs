@@ -47,8 +47,6 @@ pub trait RepositoryExt {
     /// disk when doing merges.
     /// Note that these written objects don't persist and will vanish with the returned instance.
     fn in_memory_repo(&self) -> Result<git2::Repository>;
-    /// Fetches the workspace commit from the gitbutler/workspace branch
-    fn workspace_commit(&self) -> Result<git2::Commit<'_>>;
     /// `buffer` is the commit object to sign, but in theory could be anything to compute the signature for.
     /// Returns the computed signature.
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString>;
@@ -242,11 +240,6 @@ impl RepositoryExt for git2::Repository {
                 "Unexpected state: cannot perform operation on non-workspace branch"
             ))
         }
-    }
-
-    fn workspace_commit(&self) -> Result<git2::Commit<'_>> {
-        let workspace_ref = self.workspace_ref_from_head()?;
-        Ok(workspace_ref.peel_to_commit()?)
     }
 
     #[allow(clippy::too_many_arguments)]
