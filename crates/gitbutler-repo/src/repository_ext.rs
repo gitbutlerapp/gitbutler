@@ -38,10 +38,6 @@ pub trait RepositoryExt {
 
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
-    /// Returns a version of `&self` that writes new objects into memory, allowing to prevent touching
-    /// disk when doing merges.
-    /// Note that these written objects don't persist and will vanish with the returned instance.
-    fn in_memory_repo(&self) -> Result<git2::Repository>;
     /// `buffer` is the commit object to sign, but in theory could be anything to compute the signature for.
     /// Returns the computed signature.
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString>;
@@ -71,12 +67,6 @@ pub trait RepositoryExt {
 }
 
 impl RepositoryExt for git2::Repository {
-    fn in_memory_repo(&self) -> Result<git2::Repository> {
-        let repo = git2::Repository::open(self.path())?;
-        repo.odb()?.add_new_mempack_backend(999)?;
-        Ok(repo)
-    }
-
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a> {
         CheckoutTreeBuidler {
             tree,
