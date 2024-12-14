@@ -2,7 +2,7 @@ use crate::Config;
 use crate::SignaturePurpose;
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::BString;
-use git2::{BlameOptions, StatusOptions, Tree};
+use git2::{StatusOptions, Tree};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
@@ -59,9 +59,6 @@ pub trait RepositoryExt {
     /// `buffer` is the commit object to sign, but in theory could be anything to compute the signature for.
     /// Returns the computed signature.
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString>;
-
-    fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index)
-        -> CheckoutIndexBuilder<'a>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a>;
     fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
     /// Based on the index, add all data similar to `git add .` and create a tree from it, which is returned.
@@ -106,17 +103,6 @@ impl RepositoryExt for git2::Repository {
         let repo = git2::Repository::open(self.path())?;
         repo.odb()?.add_new_mempack_backend(999)?;
         Ok(repo)
-    }
-
-    fn checkout_index_builder<'a>(
-        &'a self,
-        index: &'a mut git2::Index,
-    ) -> CheckoutIndexBuilder<'a> {
-        CheckoutIndexBuilder {
-            index,
-            repo: self,
-            checkout_builder: git2::build::CheckoutBuilder::new(),
-        }
     }
 
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a> {
@@ -567,35 +553,6 @@ impl CheckoutTreeBuidler<'_> {
     pub fn checkout(&mut self) -> Result<()> {
         self.repo
             .checkout_tree(self.tree.as_object(), Some(&mut self.checkout_builder))
-            .map_err(Into::into)
-    }
-}
-
-pub struct CheckoutIndexBuilder<'a> {
-    repo: &'a git2::Repository,
-    index: &'a mut git2::Index,
-    checkout_builder: git2::build::CheckoutBuilder<'a>,
-}
-
-impl CheckoutIndexBuilder<'_> {
-    pub fn force(&mut self) -> &mut Self {
-        self.checkout_builder.force();
-        self
-    }
-
-    pub fn allow_conflicts(&mut self) -> &mut Self {
-        self.checkout_builder.allow_conflicts(true);
-        self
-    }
-
-    pub fn conflict_style_merge(&mut self) -> &mut Self {
-        self.checkout_builder.conflict_style_merge(true);
-        self
-    }
-
-    pub fn checkout(&mut self) -> Result<()> {
-        self.repo
-            .checkout_index(Some(&mut self.index), Some(&mut self.checkout_builder))
             .map_err(Into::into)
     }
 }
