@@ -43,13 +43,6 @@ pub trait RepositoryExt {
     fn head_commit(&self) -> Result<git2::Commit<'_>>;
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
-    /// Open a new in-memory repository and executes the provided closure using it.
-    /// This is useful when temporary objects are created for the purpose of comparing or getting a diff.
-    /// Note that it's the odb that is in-memory, not the working directory.
-    /// Data is never persisted to disk, therefore any Oid that are obtained from this closure are not valid outside of it.
-    fn in_memory<T, F>(&self, f: F) -> Result<T>
-    where
-        F: FnOnce(&git2::Repository) -> Result<T>;
     /// Returns a version of `&self` that writes new objects into memory, allowing to prevent touching
     /// disk when doing merges.
     /// Note that these written objects don't persist and will vanish with the returned instance.
@@ -90,13 +83,6 @@ impl RepositoryExt for git2::Repository {
             .context("Failed to get head")?
             .peel_to_commit()
             .context("Failed to get head commit")
-    }
-
-    fn in_memory<T, F>(&self, f: F) -> Result<T>
-    where
-        F: FnOnce(&git2::Repository) -> Result<T>,
-    {
-        f(&self.in_memory_repo()?)
     }
 
     fn in_memory_repo(&self) -> Result<git2::Repository> {
