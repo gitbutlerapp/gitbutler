@@ -88,7 +88,7 @@ fn detect_integrated_commits() {
     };
 
     // push
-    gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(project, branch1_id, false).unwrap();
 
     {
         // merge branch upstream
@@ -99,7 +99,15 @@ fn detect_integrated_commits() {
             .find(|b| b.id == branch1_id)
             .unwrap();
         repository
-            .merge(&branch.upstream.as_ref().unwrap().name)
+            .merge(
+                &branch.series[0]
+                    .clone()
+                    .unwrap()
+                    .upstream_reference
+                    .unwrap()
+                    .parse()
+                    .unwrap(),
+            )
             .unwrap();
         repository.fetch();
     }

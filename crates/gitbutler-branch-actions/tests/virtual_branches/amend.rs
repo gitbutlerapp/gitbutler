@@ -44,7 +44,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
             .unwrap();
 
-    gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(project, branch_id, false).unwrap();
 
     {
         // amend another hunk
@@ -103,7 +103,7 @@ fn forcepush_forbidden() {
         gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
             .unwrap();
 
-    gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(project, branch_id, false).unwrap();
 
     {
         fs::write(repository.path().join("file2.txt"), "content2").unwrap();

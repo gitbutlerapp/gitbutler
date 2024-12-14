@@ -237,7 +237,7 @@ mod push_virtual_branch {
         fs::write(repository.path().join("file.txt"), "content").unwrap();
 
         gitbutler_branch_actions::create_commit(project, branch1_id, "test", None, false).unwrap();
-        gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None).unwrap();
+        gitbutler_branch_actions::stack::push_stack(project, branch1_id, false).unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         let branches = list_result.branches;
@@ -245,7 +245,7 @@ mod push_virtual_branch {
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "name");
         assert_eq!(
-            branches[0].upstream.as_ref().unwrap().name.to_string(),
+            branches[0].series[0].clone().unwrap().name,
             "refs/remotes/origin/name"
         );
 
@@ -254,7 +254,7 @@ mod push_virtual_branch {
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))
             .collect::<Vec<_>>();
-        assert!(refnames.contains(&branches[0].upstream.clone().unwrap().name.to_string()));
+        assert!(refnames.contains(&branches[0].series[0].clone().unwrap().name));
     }
 
     #[test]
@@ -285,8 +285,7 @@ mod push_virtual_branch {
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             gitbutler_branch_actions::create_commit(project, branch1_id, "test", None, false)
                 .unwrap();
-            gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None)
-                .unwrap();
+            gitbutler_branch_actions::stack::push_stack(project, branch1_id, false).unwrap();
             branch1_id
         };
 
@@ -314,8 +313,7 @@ mod push_virtual_branch {
             fs::write(repository.path().join("file.txt"), "updated content").unwrap();
             gitbutler_branch_actions::create_commit(project, branch2_id, "test", None, false)
                 .unwrap();
-            gitbutler_branch_actions::push_virtual_branch(project, branch2_id, false, None)
-                .unwrap();
+            gitbutler_branch_actions::stack::push_stack(project, branch2_id, false).unwrap();
             branch2_id
         };
 
@@ -326,15 +324,15 @@ mod push_virtual_branch {
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].name, "updated name");
         assert_eq!(
-            branches[0].upstream.as_ref().unwrap().name,
-            "refs/remotes/origin/name".parse().unwrap()
+            branches[0].series[0].clone().unwrap().name,
+            "refs/remotes/origin/name"
         );
         // new branch is pushing to new ref remotely
         assert_eq!(branches[1].id, branch2_id);
         assert_eq!(branches[1].name, "name");
         assert_eq!(
-            branches[1].upstream.as_ref().unwrap().name,
-            "refs/remotes/origin/name-1".parse().unwrap()
+            branches[1].series[0].clone().unwrap().name,
+            "refs/remotes/origin/name-1"
         );
 
         let refnames = repository
@@ -342,7 +340,7 @@ mod push_virtual_branch {
             .into_iter()
             .filter_map(|reference| reference.name().map(|name| name.to_string()))
             .collect::<Vec<_>>();
-        assert!(refnames.contains(&branches[0].upstream.clone().unwrap().name.to_string()));
-        assert!(refnames.contains(&branches[1].upstream.clone().unwrap().name.to_string()));
+        assert!(refnames.contains(&branches[0].series[0].clone().unwrap().name));
+        assert!(refnames.contains(&branches[1].series[0].clone().unwrap().name));
     }
 }

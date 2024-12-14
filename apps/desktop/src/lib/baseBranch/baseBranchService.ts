@@ -109,7 +109,7 @@ export async function getRemoteBranches(
 	projectId: string | undefined
 ): Promise<RemoteBranchInfo[]> {
 	if (!projectId) return [];
-	return await invoke<Array<string>>('git_remote_branches', { projectId }).then((branches) =>
+	return await invoke<string[]>('git_remote_branches', { projectId }).then((branches) =>
 		branches
 			.map((name) => name.substring(13))
 			.sort((a, b) => a.localeCompare(b))

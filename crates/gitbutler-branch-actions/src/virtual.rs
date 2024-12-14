@@ -5,16 +5,15 @@ use crate::{
     file::VirtualBranchFile,
     hunk::VirtualBranchHunk,
     integration::get_workspace_head,
-    remote::branch_to_remote_branch,
     stack::stack_series,
     status::{get_applied_status, get_applied_status_cached},
-    Get, RemoteBranchData, VirtualBranchHunkRange, VirtualBranchHunkRangeMap, VirtualBranchesExt,
+    Get, VirtualBranchHunkRange, VirtualBranchHunkRangeMap, VirtualBranchesExt,
 };
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
 use git2_hooks::HookResult;
+use gitbutler_branch::dedup;
 use gitbutler_branch::BranchUpdateRequest;
-use gitbutler_branch::{dedup, dedup_fmt};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
@@ -62,8 +61,6 @@ pub struct VirtualBranch {
     pub requires_force: bool, // does this branch require a force push to the upstream?
     pub conflicted: bool, // is this branch currently in a conflicted state (only for the workspace)
     pub order: usize,     // the order in which this branch should be displayed in the UI
-    pub upstream: Option<RemoteBranchData>, // the upstream branch where this branch pushes to, if any
-    pub upstream_name: Option<String>, // the upstream branch where this branch will push to on next push
     pub base_current: bool, // is this vbranch based on the current base branch? if false, this needs to be manually merged with conflicts
     /// The hunks (as `[(file, [hunks])]`) which are uncommitted but assigned to this branch.
     /// This makes them committable.
@@ -350,11 +347,6 @@ pub fn list_virtual_branches_cached(
     for (mut branch, mut files) in status.branches {
         update_conflict_markers(ctx, files.clone())?;
 
-        let upstream_branch = match &branch.upstream {
-            Some(upstream) => repo.maybe_find_branch_by_refname(&Refname::from(upstream))?,
-            None => None,
-        };
-
         // find all commits on head that are not on target.sha
         let commits = repo.log(branch.head(), LogUntil::Commit(default_target.sha), false)?;
         let mut check_commit =
@@ -369,12 +361,6 @@ pub fn list_virtual_branches_cached(
             .context("failed to find merge base")?;
         let merge_base = gix_to_git2_oid(merge_base);
         let base_current = true;
-
-        let raw_remotes = repo.remotes()?;
-        let remotes: Vec<_> = raw_remotes.into_iter().flatten().collect();
-        let upstream = upstream_branch
-            .map(|upstream_branch| branch_to_remote_branch(ctx, &upstream_branch, &remotes))
-            .transpose()?;
 
         let path_claim_positions: HashMap<&PathBuf, usize> = branch
             .ownership
@@ -429,10 +415,6 @@ pub fn list_virtual_branches_cached(
             files,
             order: branch.order,
             requires_force,
-            upstream,
-            upstream_name: branch
-                .upstream
-                .and_then(|r| Refname::from(r).branch().map(Into::into)),
             conflicted: conflicts::is_resolving(ctx),
             base_current,
             ownership: branch.ownership,
@@ -857,64 +839,6 @@ pub fn commit(
         .context("failed to update gitbutler workspace")?;
 
     Ok(commit_oid)
-}
-
-pub(crate) fn push(
-    ctx: &CommandContext,
-    stack_id: StackId,
-    with_force: bool,
-    askpass: Option<Option<StackId>>,
-) -> Result<PushResult> {
-    let vb_state = ctx.project().virtual_branches();
-
-    let default_target = vb_state.get_default_target()?;
-    let upstream_remote = match default_target.push_remote_name {
-        Some(remote) => remote.clone(),
-        None => default_target.branch.remote().to_owned(),
-    };
-
-    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let remote_branch = if let Some(upstream_branch) = &stack.upstream {
-        upstream_branch.clone()
-    } else {
-        let remote_branch = format!(
-            "refs/remotes/{}/{}",
-            upstream_remote,
-            normalize_branch_name(&stack.name)?
-        )
-        .parse::<RemoteRefname>()
-        .context("failed to parse remote branch name")?;
-
-        let remote_branches = ctx.repo().remote_branches()?;
-        let existing_branches = remote_branches
-            .iter()
-            .map(RemoteRefname::branch)
-            .map(str::to_lowercase) // git is weird about case sensitivity here, assume not case sensitive
-            .collect::<Vec<_>>();
-
-        remote_branch.with_branch(&dedup_fmt(
-            &existing_branches
-                .iter()
-                .map(String::as_str)
-                .collect::<Vec<_>>(),
-            remote_branch.branch(),
-            "-",
-        ))
-    };
-
-    ctx.push(stack.head(), &remote_branch, with_force, None, askpass)?;
-
-    stack.upstream = Some(remote_branch.clone());
-    stack.upstream_head = Some(stack.head());
-    vb_state
-        .set_stack(stack.clone())
-        .context("failed to write target branch after push")?;
-    ctx.fetch(remote_branch.remote(), askpass.map(|_| "modal".to_string()))?;
-
-    Ok(PushResult {
-        remote: upstream_remote,
-        refname: gitbutler_reference::Refname::Remote(remote_branch),
-    })
 }
 
 type MergeBaseCommitGraph<'repo, 'cache> = gix::revwalk::Graph<
@@ -1657,11 +1581,14 @@ pub(crate) fn update_commit_message(
         bail!("commit {commit_id} not in the branch");
     }
 
-    let pushed_commit_oids = stack.upstream_head.map_or_else(
+    let pushed_commit_oids = stack.branches().first().map_or_else(
         || Ok(vec![]),
-        |upstream_head| {
-            ctx.repo()
-                .l(upstream_head, LogUntil::Commit(default_target.sha), false)
+        |branch| {
+            ctx.repo().l(
+                branch.remote_reference(stack.refname()),
+                LogUntil::Commit(default_target.sha),
+                false,
+            )
         },
     )?;
 
