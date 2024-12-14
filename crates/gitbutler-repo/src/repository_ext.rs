@@ -62,7 +62,6 @@ pub trait RepositoryExt {
 
     fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index)
         -> CheckoutIndexBuilder<'a>;
-    fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a>;
     fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
     /// Based on the index, add all data similar to `git add .` and create a tree from it, which is returned.
@@ -120,16 +119,6 @@ impl RepositoryExt for git2::Repository {
         }
     }
 
-    fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let mut builder = git2::build::CheckoutBuilder::new();
-        builder.path(path.as_ref());
-        builder.force();
-
-        let mut index = self.index()?;
-        self.checkout_index(Some(&mut index), Some(&mut builder))?;
-
-        Ok(())
-    }
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a> {
         CheckoutTreeBuidler {
             tree,
