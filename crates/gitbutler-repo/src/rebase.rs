@@ -1,6 +1,9 @@
 use std::{collections::HashSet, path::PathBuf};
 
-use crate::{LogUntil, RepositoryExt as _};
+use crate::{
+    logging::{LogUntil, RepositoryExt as _},
+    RepositoryExt as _,
+};
 use anyhow::{Context, Result};
 use bstr::ByteSlice;
 use gitbutler_cherry_pick::{ConflictedTreeKey, GixRepositoryExt, RepositoryExt};

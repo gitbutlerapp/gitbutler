@@ -9,7 +9,11 @@ use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_stack::{Stack, StackId};
 
 use crate::askpass;
-use gitbutler_repo::{credentials, LogUntil, RepositoryExt};
+use gitbutler_repo::{
+    credentials,
+    logging::{LogUntil, RepositoryExt as _},
+    RepositoryExt,
+};
 pub trait RepoActionsExt {
     fn fetch(&self, remote_name: &str, askpass: Option<String>) -> Result<()>;
     fn push(

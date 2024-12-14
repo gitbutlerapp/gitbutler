@@ -5,8 +5,9 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
+    logging::{LogUntil, RepositoryExt as _},
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
-    LogUntil, RepositoryExt as _,
+    RepositoryExt as _,
 };
 use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::StackId;
@@ -595,8 +596,8 @@ mod test {
 
     mod inner_integrate_upstream_commits {
         use gitbutler_commit::commit_ext::CommitExt as _;
-        use gitbutler_repo::LogUntil;
-        use gitbutler_repo::RepositoryExt as _;
+        use gitbutler_repo::logging::LogUntil;
+        use gitbutler_repo::logging::RepositoryExt as _;
         use gitbutler_workspace::BranchHeadAndTree;
 
         use crate::branch_upstream_integration::IntegrationStrategy;

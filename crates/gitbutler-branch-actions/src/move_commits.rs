@@ -5,8 +5,8 @@ use anyhow::{Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo::rebase::cherry_rebase_group;
-use gitbutler_repo::{LogUntil, RepositoryExt};
 use gitbutler_stack::StackId;
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
 

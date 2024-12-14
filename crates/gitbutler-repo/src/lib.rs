@@ -5,7 +5,7 @@ pub use commands::{FileInfo, RepoCommands};
 pub use remote::GitRemote;
 
 mod repository_ext;
-pub use repository_ext::{LogUntil, RepositoryExt};
+pub use repository_ext::RepositoryExt;
 
 pub mod credentials;
 
@@ -15,6 +15,8 @@ mod remote;
 pub use config::Config;
 
 pub mod temporary_workdir;
+
+pub mod logging;
 
 use gitbutler_oxidize::gix_to_git2_signature;
 pub const GITBUTLER_COMMIT_AUTHOR_NAME: &str = "GitButler";

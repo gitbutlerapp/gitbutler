@@ -4,7 +4,7 @@ mod ownership;
 use anyhow::Result;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
-use gitbutler_repo::{LogUntil, RepositoryExt as _};
+use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::stack_context::CommandContextExt;
 use gitbutler_stack::{CommitOrChangeId, StackBranch, VirtualBranchesHandle};

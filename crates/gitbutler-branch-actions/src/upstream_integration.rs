@@ -6,10 +6,11 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt};
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo::{
+    logging::LogUntil,
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
-    LogUntil,
 };
 use gitbutler_repo_actions::RepoActionsExt as _;
 use gitbutler_stack::stack_context::StackContext;
