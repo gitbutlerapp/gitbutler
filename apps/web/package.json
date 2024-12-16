@@ -17,23 +17,23 @@
 		"@gitbutler/shared": "workspace:*",
 		"@gitbutler/ui": "workspace:*",
 		"@neoconfetti/svelte": "^1.0.0",
-		"@playwright/test": "1.47.0",
+		"@playwright/test": "1.49.1",
 		"@reduxjs/toolkit": "catalog:redux",
-		"@sveltejs/adapter-auto": "^3.0.0",
+		"@sveltejs/adapter-auto": "^3.3.1",
 		"@sveltejs/kit": "catalog:svelte",
 		"@sveltejs/vite-plugin-svelte": "catalog:svelte",
-		"@types/node": "^22.3.0",
+		"@types/node": "^22.10.2",
 		"svelte": "catalog:svelte",
 		"svelte-check": "catalog:svelte",
 		"vite": "catalog:"
 	},
 	"dependencies": {
 		"@fontsource-variable/spline-sans-mono": "^5.1.0",
-		"@sentry/sveltekit": "^8.9.2",
+		"@sentry/sveltekit": "^8.45.1",
 		"@tryghost/content-api": "^1.11.21",
 		"@types/tryghost__content-api": "^1.3.17",
 		"dayjs": "^1.11.13",
-		"highlight.js": "^11.10.0",
+		"highlight.js": "^11.11.0",
 		"marked": "^10.0.0"
 	}
 }
