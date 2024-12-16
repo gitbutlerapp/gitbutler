@@ -8,7 +8,8 @@ use gitbutler_hunk_dependency::{
     calculate_hunk_dependencies, HunkDependencyOptions, InputCommit, InputDiff, InputFile,
     InputStack,
 };
-use gitbutler_repo::{LogUntil, RepositoryExt as _};
+use gitbutler_repo::logging::LogUntil;
+use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_stack::Stack;
 use gitbutler_stack::StackId;
 use md5::Digest;

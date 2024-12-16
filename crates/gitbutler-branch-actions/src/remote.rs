@@ -7,7 +7,7 @@ use gitbutler_branch::ReferenceExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{LogUntil, RepositoryExt};
+use gitbutler_repo::logging::{LogUntil, RepositoryExt};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Target, VirtualBranchesHandle};

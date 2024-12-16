@@ -1,11 +1,11 @@
 mod cherry_rebase_group {
     use gitbutler_commit::commit_ext::CommitExt;
-    use gitbutler_repo::RepositoryExt as _;
+    use gitbutler_repo::logging::RepositoryExt as _;
     use gitbutler_testsupport::testing_repository::{
         assert_commit_tree_matches, TestingRepository,
     };
 
-    use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil};
+    use gitbutler_repo::{logging::LogUntil, rebase::cherry_rebase_group};
 
     #[test]
     fn unconflicting_rebase() {

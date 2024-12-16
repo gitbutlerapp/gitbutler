@@ -1,7 +1,7 @@
 use anyhow::Result;
 use git2::{Commit, Oid};
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
-use gitbutler_repo::{LogUntil, RepositoryExt as _};
+use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
