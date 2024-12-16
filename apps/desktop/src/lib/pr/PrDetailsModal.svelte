@@ -106,6 +106,7 @@
 
 	const prTitle = $derived(
 		new ReactivePRTitle(
+			project.id,
 			props.type === 'display',
 			props.type === 'display' ? props.pr.title : undefined,
 			commits,
@@ -115,11 +116,13 @@
 
 	const prBody = $derived(
 		new ReactivePRBody(
+			project.id,
 			props.type === 'display',
 			currentSeries?.description ?? '',
 			props.type === 'display' ? props.pr.body : undefined,
 			commits,
-			templateBody
+			templateBody,
+			currentSeries?.name ?? ''
 		)
 	);
 
