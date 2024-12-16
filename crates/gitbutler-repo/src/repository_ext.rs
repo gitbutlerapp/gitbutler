@@ -333,8 +333,9 @@ impl RepositoryExt for git2::Repository {
                     let args = format!("{} {}", signing_key, buffer_file_to_sign_path_str);
                     cmd_string += &args;
                 };
-                let mut signing_cmd: std::process::Command =
-                    gix::command::prepare(cmd_string).with_shell().into();
+                let mut signing_cmd: std::process::Command = gix::command::prepare(cmd_string)
+                    .with_shell_disallow_manual_argument_splitting()
+                    .into();
                 let output = signing_cmd
                     .stderr(Stdio::piped())
                     .stdout(Stdio::piped())
