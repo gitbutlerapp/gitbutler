@@ -1,5 +1,4 @@
 use gitbutler_project::ProjectId;
-use gitbutler_reference::RemoteRefname;
 use tauri::State;
 use tracing::instrument;
 
@@ -10,7 +9,7 @@ use crate::{error::Error, App};
 pub fn git_remote_branches(
     app: State<'_, App>,
     project_id: ProjectId,
-) -> Result<Vec<RemoteRefname>, Error> {
+) -> Result<Vec<String>, Error> {
     Ok(app.git_remote_branches(project_id)?)
 }
 
