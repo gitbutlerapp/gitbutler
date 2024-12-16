@@ -2,7 +2,7 @@ use crate::Config;
 use crate::SignaturePurpose;
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::BString;
-use git2::{BlameOptions, StatusOptions, Tree};
+use git2::{StatusOptions, Tree};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
@@ -36,33 +36,11 @@ pub trait RepositoryExt {
     fn merge_base_octopussy(&self, ids: &[git2::Oid]) -> Result<git2::Oid>;
     fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
 
-    /// Return `HEAD^{commit}` - ideal for obtaining the integration branch commit in open-workspace mode
-    /// when it's clear that it's representing the current state.
-    ///
-    /// Ideally, this is used in places of `get_workspace_head()`.
-    fn head_commit(&self) -> Result<git2::Commit<'_>>;
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
-    /// Open a new in-memory repository and executes the provided closure using it.
-    /// This is useful when temporary objects are created for the purpose of comparing or getting a diff.
-    /// Note that it's the odb that is in-memory, not the working directory.
-    /// Data is never persisted to disk, therefore any Oid that are obtained from this closure are not valid outside of it.
-    fn in_memory<T, F>(&self, f: F) -> Result<T>
-    where
-        F: FnOnce(&git2::Repository) -> Result<T>;
-    /// Returns a version of `&self` that writes new objects into memory, allowing to prevent touching
-    /// disk when doing merges.
-    /// Note that these written objects don't persist and will vanish with the returned instance.
-    fn in_memory_repo(&self) -> Result<git2::Repository>;
-    /// Fetches the workspace commit from the gitbutler/workspace branch
-    fn workspace_commit(&self) -> Result<git2::Commit<'_>>;
     /// `buffer` is the commit object to sign, but in theory could be anything to compute the signature for.
     /// Returns the computed signature.
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString>;
-
-    fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index)
-        -> CheckoutIndexBuilder<'a>;
-    fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a>;
     fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
     /// Based on the index, add all data similar to `git add .` and create a tree from it, which is returned.
@@ -86,59 +64,9 @@ pub trait RepositoryExt {
         parents: &[&git2::Commit<'_>],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid>;
-
-    fn blame(
-        &self,
-        path: &Path,
-        min_line: u32,
-        max_line: u32,
-        oldest_commit: git2::Oid,
-        newest_commit: git2::Oid,
-    ) -> Result<git2::Blame, git2::Error>;
 }
 
 impl RepositoryExt for git2::Repository {
-    fn head_commit(&self) -> Result<git2::Commit<'_>> {
-        self.head()
-            .context("Failed to get head")?
-            .peel_to_commit()
-            .context("Failed to get head commit")
-    }
-
-    fn in_memory<T, F>(&self, f: F) -> Result<T>
-    where
-        F: FnOnce(&git2::Repository) -> Result<T>,
-    {
-        f(&self.in_memory_repo()?)
-    }
-
-    fn in_memory_repo(&self) -> Result<git2::Repository> {
-        let repo = git2::Repository::open(self.path())?;
-        repo.odb()?.add_new_mempack_backend(999)?;
-        Ok(repo)
-    }
-
-    fn checkout_index_builder<'a>(
-        &'a self,
-        index: &'a mut git2::Index,
-    ) -> CheckoutIndexBuilder<'a> {
-        CheckoutIndexBuilder {
-            index,
-            repo: self,
-            checkout_builder: git2::build::CheckoutBuilder::new(),
-        }
-    }
-
-    fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let mut builder = git2::build::CheckoutBuilder::new();
-        builder.path(path.as_ref());
-        builder.force();
-
-        let mut index = self.index()?;
-        self.checkout_index(Some(&mut index), Some(&mut builder))?;
-
-        Ok(())
-    }
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a> {
         CheckoutTreeBuidler {
             tree,
@@ -275,7 +203,7 @@ impl RepositoryExt for git2::Repository {
             }
         }
 
-        let head_tree = self.head_commit()?.tree()?;
+        let head_tree = self.head()?.peel_to_tree()?;
         let tree_oid = tree_update_builder.create_updated(self, &head_tree)?;
 
         Ok(self.find_tree(tree_oid)?)
@@ -290,11 +218,6 @@ impl RepositoryExt for git2::Repository {
                 "Unexpected state: cannot perform operation on non-workspace branch"
             ))
         }
-    }
-
-    fn workspace_commit(&self) -> Result<git2::Commit<'_>> {
-        let workspace_ref = self.workspace_ref_from_head()?;
-        Ok(workspace_ref.peel_to_commit()?)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -350,23 +273,6 @@ impl RepositoryExt for git2::Repository {
             self.reference(&refname.to_string(), oid, true, message)?;
         }
         Ok(oid)
-    }
-
-    fn blame(
-        &self,
-        path: &Path,
-        min_line: u32,
-        max_line: u32,
-        oldest_commit: git2::Oid,
-        newest_commit: git2::Oid,
-    ) -> Result<git2::Blame, git2::Error> {
-        let mut opts = BlameOptions::new();
-        opts.min_line(min_line as usize)
-            .max_line(max_line as usize)
-            .newest_commit(newest_commit)
-            .oldest_commit(oldest_commit)
-            .first_parent(true);
-        self.blame_file(path, Some(&mut opts))
     }
 
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString> {
@@ -604,35 +510,6 @@ impl CheckoutTreeBuidler<'_> {
     pub fn checkout(&mut self) -> Result<()> {
         self.repo
             .checkout_tree(self.tree.as_object(), Some(&mut self.checkout_builder))
-            .map_err(Into::into)
-    }
-}
-
-pub struct CheckoutIndexBuilder<'a> {
-    repo: &'a git2::Repository,
-    index: &'a mut git2::Index,
-    checkout_builder: git2::build::CheckoutBuilder<'a>,
-}
-
-impl CheckoutIndexBuilder<'_> {
-    pub fn force(&mut self) -> &mut Self {
-        self.checkout_builder.force();
-        self
-    }
-
-    pub fn allow_conflicts(&mut self) -> &mut Self {
-        self.checkout_builder.allow_conflicts(true);
-        self
-    }
-
-    pub fn conflict_style_merge(&mut self) -> &mut Self {
-        self.checkout_builder.conflict_style_merge(true);
-        self
-    }
-
-    pub fn checkout(&mut self) -> Result<()> {
-        self.repo
-            .checkout_index(Some(&mut self.index), Some(&mut self.checkout_builder))
             .map_err(Into::into)
     }
 }
