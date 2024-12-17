@@ -161,25 +161,25 @@
 		let disabled = true;
 		let tooltip = undefined;
 		if (isPushed && hasParent && !parentIsPushed) {
-			tooltip = 'Remote parent branch seems to have been deleted.';
+			tooltip = 'Remote parent branch seems to have been deleted';
 		} else if (!baseIsTargetBranch) {
-			tooltip = 'Pull request is not next in stack.';
+			tooltip = 'Pull request is not next in stack';
 		} else if ($mrLoading) {
-			tooltip = 'Reloading pull request data.';
+			tooltip = 'Reloading pull request data';
 		} else if ($checksLoading) {
-			tooltip = 'Reloading checks data.';
+			tooltip = 'Reloading checks data';
 		} else if (pr?.draft) {
-			tooltip = 'Pull request is a draft.';
+			tooltip = 'Pull request is a draft';
 		} else if (pr?.mergeableState === 'blocked') {
-			tooltip = 'Pull request needs approval.';
+			tooltip = 'Pull request needs approval';
 		} else if (pr?.mergeableState === 'unknown') {
-			tooltip = 'Pull request mergeability is unknown.';
+			tooltip = 'Pull request mergeability is unknown';
 		} else if (pr?.mergeableState === 'behind') {
-			tooltip = 'Pull request base is too far behind.';
+			tooltip = 'Pull request base is too far behind';
 		} else if (pr?.mergeableState === 'dirty') {
-			tooltip = 'Pull request has conflicts.';
+			tooltip = 'Pull request has conflicts';
 		} else if (!pr?.mergeable) {
-			tooltip = 'Pull request is not mergeable.';
+			tooltip = 'Pull request is not mergeable';
 		} else {
 			disabled = false;
 		}
@@ -190,7 +190,7 @@
 		let disabled = true;
 		let tooltip = undefined;
 		if (isPushed && hasParent && !parentIsPushed) {
-			tooltip = 'Remote parent branch seems to have been deleted.';
+			tooltip = 'Remote parent branch seems to have been deleted';
 		} else {
 			disabled = false;
 		}
