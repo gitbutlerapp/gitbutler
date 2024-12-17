@@ -16,7 +16,6 @@
 		</p>
 		<div class="actions">
 			<Button
-				color="primary"
 				outline
 				style="ghost"
 				icon="update"
