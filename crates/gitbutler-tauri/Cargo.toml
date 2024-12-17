@@ -15,15 +15,15 @@ path = "src/main.rs"
 test = false
 
 [build-dependencies]
-tauri-build = { version = "2.0.2", features = [] }
+tauri-build = { version = "2.0.3", features = [] }
 
 [dev-dependencies]
 pretty_assertions = "1.4"
-tempfile = "3.13"
+tempfile = "3.14"
 gitbutler-testsupport.workspace = true
 
 [dependencies]
-anyhow = "1.0.92"
+anyhow = "1.0.93"
 backtrace = { version = "0.3.74", optional = true }
 console-subscriber = "0.4.1"
 dirs = "5.0.1"
@@ -42,14 +42,14 @@ tauri = { version = "^2.0.6", features = ["unstable"] }
 tauri-plugin-dialog = "2.0.3"
 tauri-plugin-fs = "2.0.3"
 tauri-plugin-http = "2.0.3"
-tauri-plugin-log = "2.0.1"
+tauri-plugin-log = "2.0.2"
 tauri-plugin-os = "2.0.1"
 tauri-plugin-process = "2.0.1"
 tauri-plugin-shell = "2.0.2"
 tauri-plugin-single-instance = "2.0.1"
 tauri-plugin-store = "2.1.0"
 tauri-plugin-updater = "2.0.2"
-tauri-plugin-window-state = "2.0.1"
+tauri-plugin-window-state = "2.0.2"
 parking_lot.workspace = true
 log = "^0.4"
 thiserror.workspace = true
@@ -84,7 +84,7 @@ gitbutler-sync.workspace = true
 gitbutler-forge.workspace = true
 gitbutler-settings.workspace = true
 open = "5"
-url = "2.5.2"
+url = "2.5.4"
 
 [lints.clippy]
 all = "deny"

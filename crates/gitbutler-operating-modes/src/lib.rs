@@ -74,7 +74,7 @@ pub enum OperatingMode {
 }
 
 pub fn operating_mode(ctx: &CommandContext) -> OperatingMode {
-    let Ok(head_ref) = ctx.repository().head() else {
+    let Ok(head_ref) = ctx.repo().head() else {
         return OperatingMode::OutsideWorkspace;
     };
 

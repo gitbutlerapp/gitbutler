@@ -6,7 +6,6 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { RemotesService } from '$lib/remotes/service';
 	import Link from '$lib/shared/Link.svelte';
-	import { remoteUrlIsHttp } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext } from '@gitbutler/shared/context';
@@ -23,7 +22,7 @@
 	const remotesService = getContext(RemotesService);
 	const baseBranchService = getContext(BaseBranchService);
 	const virtualBranchService = getContext(VirtualBranchService);
-	const baseBranch = $derived(baseBranchService.base);
+	const baseRepo = $derived(baseBranchService.repo);
 
 	let inputRemoteName = $state<string>(pr.repoOwner || '');
 
@@ -36,10 +35,10 @@
 	}
 
 	function getRemoteUrl() {
-		const baseRemoteUrl = $baseBranch?.remoteUrl;
-		if (!baseRemoteUrl) return;
+		const repo = $baseRepo;
+		if (!repo) return;
 
-		if (remoteUrlIsHttp(baseRemoteUrl)) {
+		if ($baseRepo?.protocol?.startsWith('http')) {
 			return pr.repositoryHttpsUrl;
 		} else {
 			return pr.repositorySshUrl;

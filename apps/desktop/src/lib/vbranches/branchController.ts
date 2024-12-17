@@ -1,7 +1,7 @@
 import { invoke } from '$lib/backend/ipc';
 import { showError, showToast } from '$lib/notifications/toasts';
 import * as toasts from '$lib/utils/toasts';
-import posthog from 'posthog-js';
+import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { BranchListingService } from '$lib/branches/branchListing';
 import type { BranchPushResult, Hunk, LocalFile, StackOrder } from './types';
@@ -15,7 +15,8 @@ export class BranchController {
 		private readonly projectId: string,
 		private readonly vbranchService: VirtualBranchService,
 		private readonly baseBranchService: BaseBranchService,
-		private readonly branchListingService: BranchListingService
+		private readonly branchListingService: BranchListingService,
+		private readonly posthog: PostHogWrapper
 	) {}
 
 	async setTarget(branch: string, pushRemote: string | undefined = undefined) {
@@ -66,15 +67,15 @@ export class BranchController {
 				ownership,
 				runHooks: runHooks
 			});
-			posthog.capture('Commit Successful');
+			this.posthog.capture('Commit Successful');
 		} catch (err: any) {
 			if (err.code === 'errors.commit.signing_failed') {
 				showSignError(err);
 			} else {
 				showError('Failed to commit changes', err);
+				throw err;
 			}
-			posthog.capture('Commit Failed', err);
-			throw err;
+			this.posthog.capture('Commit Failed', err);
 		}
 	}
 
@@ -161,7 +162,7 @@ export class BranchController {
 	 * @param headName The branch name to update.
 	 * @param prNumber New pull request number to be set for the branch.
 	 */
-	async updateBranchPrNumber(stackId: string, headName: string, prNumber: number | undefined) {
+	async updateBranchPrNumber(stackId: string, headName: string, prNumber: number | null) {
 		try {
 			await invoke<void>('update_series_pr_number', {
 				projectId: this.projectId,
@@ -170,7 +171,7 @@ export class BranchController {
 				prNumber
 			});
 		} catch (err) {
-			showError('Failed to update branch forge ids', err);
+			showError('Failed to update pr number', err);
 		}
 	}
 
@@ -389,13 +390,13 @@ export class BranchController {
 				branchId,
 				withForce
 			});
-			posthog.capture('Push Successful');
+			this.posthog.capture('Push Successful');
 			await this.vbranchService.refresh();
 			return pushResult;
 		} catch (err: any) {
 			console.error(err);
 			const { code, message } = err;
-			posthog.capture('Push Failed', { error: { code, message } });
+			this.posthog.capture('Push Failed', { error: { code, message } });
 
 			if (code === 'errors.git.authentication') {
 				showToast({

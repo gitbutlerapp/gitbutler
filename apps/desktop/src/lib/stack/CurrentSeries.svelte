@@ -1,6 +1,11 @@
 <script lang="ts">
+	import {
+		createIntegratedCommitsContextStore,
+		createLocalCommitsContextStore,
+		createLocalAndRemoteCommitsContextStore
+	} from '$lib/vbranches/contexts';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
-	import type { PatchSeries } from '$lib/vbranches/types';
+	import type { PatchSeries, DetailedCommit } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -10,6 +15,18 @@
 
 	const { currentSeries, children }: Props = $props();
 	const seriesType = currentSeries.patches[0] ? currentSeries.patches[0].status : 'local';
+
+	const localCommits = createLocalCommitsContextStore([]);
+	const localAndRemoteCommits = createLocalAndRemoteCommitsContextStore([]);
+	const integratedCommits = createIntegratedCommitsContextStore([]);
+
+	$effect(() => {
+		localCommits.set(currentSeries.patches);
+		localAndRemoteCommits.set(currentSeries.upstreamPatches);
+		integratedCommits.set(
+			currentSeries.patches.filter((p: DetailedCommit) => p.status === 'integrated')
+		);
+	});
 </script>
 
 <div

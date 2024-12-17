@@ -5,8 +5,8 @@ use anyhow::{Context, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_hunk_dependency::locks::HunkDependencyResult;
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo::rebase::cherry_rebase_group;
-use gitbutler_repo::{LogUntil, RepositoryExt};
 use gitbutler_stack::StackId;
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
 
@@ -26,7 +26,7 @@ pub(crate) fn move_commit(
 ) -> Result<()> {
     ctx.assure_resolved()?;
     let vb_state = ctx.project().virtual_branches();
-    let repo = ctx.repository();
+    let repo = ctx.repo();
 
     let applied_stacks = vb_state
         .list_stacks_in_workspace()
@@ -82,7 +82,7 @@ fn get_source_branch_diffs(
     ctx: &CommandContext,
     source_stack: &gitbutler_stack::Stack,
 ) -> Result<BranchStatus> {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let source_stack_head = repo.find_commit(source_stack.head())?;
     let source_stack_head_tree = source_stack_head.tree()?;
     let uncommitted_changes_tree = repo.find_tree(source_stack.tree)?;
@@ -131,8 +131,12 @@ fn take_commit_from_source_stack(
     let source_commits_without_subject =
         filter_out_commit(repo, source_stack, source_merge_base_oid, &subject_commit)?;
 
-    let new_source_head =
-        cherry_rebase_group(repo, source_merge_base_oid, &source_commits_without_subject)?;
+    let new_source_head = cherry_rebase_group(
+        repo,
+        source_merge_base_oid,
+        &source_commits_without_subject,
+        false,
+    )?;
 
     let BranchHeadAndTree {
         head: new_head_oid,
@@ -154,7 +158,7 @@ fn move_commit_to_destination_stack(
 ) -> Result<(), anyhow::Error> {
     let destination_head_commit_oid = destination_stack.head();
     let new_destination_head_oid =
-        cherry_rebase_group(repo, destination_head_commit_oid, &[commit_id])?;
+        cherry_rebase_group(repo, destination_head_commit_oid, &[commit_id], false)?;
 
     let BranchHeadAndTree {
         head: new_destination_head_oid,

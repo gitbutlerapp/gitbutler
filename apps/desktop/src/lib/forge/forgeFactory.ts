@@ -3,6 +3,7 @@ import { BitBucket, BITBUCKET_DOMAIN } from './bitbucket/bitbucket';
 import { GitHub, GITHUB_DOMAIN } from './github/github';
 import { GitLab, GITLAB_DOMAIN, GITLAB_SUB_DOMAIN } from './gitlab/gitlab';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
+import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Forge } from './interface/forge';
 import type { Octokit } from '@octokit/rest';
@@ -14,11 +15,16 @@ export interface ForgeFactory {
 }
 
 export class DefaultForgeFactory implements ForgeFactory {
-	constructor(private octokit: Octokit | undefined) {}
+	constructor(
+		private octokit: Octokit | undefined,
+		private posthog: PostHogWrapper,
+		private projectMetrics: ProjectMetrics
+	) {}
 
-	build(repo: RepoInfo, baseBranch: string, fork?: RepoInfo) {
+	build(repo: RepoInfo, baseBranch: string, pushRepo?: RepoInfo) {
 		const domain = repo.domain;
-		const forkStr = fork ? `${fork.owner}:${fork.name}` : undefined;
+		const forkStr =
+			pushRepo && pushRepo.hash !== repo.hash ? `${pushRepo.owner}:${pushRepo.name}` : undefined;
 
 		if (domain.includes(GITHUB_DOMAIN)) {
 			return new GitHub({
@@ -26,7 +32,8 @@ export class DefaultForgeFactory implements ForgeFactory {
 				baseBranch,
 				forkStr,
 				octokit: this.octokit,
-				projectMetrics: new ProjectMetrics()
+				projectMetrics: this.projectMetrics,
+				posthog: this.posthog
 			});
 		}
 		if (domain === GITLAB_DOMAIN || domain.startsWith(GITLAB_SUB_DOMAIN + '.')) {

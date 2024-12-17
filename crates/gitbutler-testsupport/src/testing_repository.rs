@@ -1,7 +1,9 @@
 use std::fs;
 
 use crate::init_opts;
+use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_oxidize::git2_to_gix_object_id;
+use gitbutler_repo::RepositoryExt;
 use gix_testtools::bstr::ByteSlice as _;
 use tempfile::{tempdir, TempDir};
 use uuid::Uuid;
@@ -80,12 +82,20 @@ impl TestingRepository {
         repository
     }
 
+    pub fn commit_tree_with_change_id<'a>(
+        &'a self,
+        parent: Option<&git2::Commit<'_>>,
+        change_id: &str,
+        files: &[(&str, &str)],
+    ) -> git2::Commit<'a> {
+        self.commit_tree_inner(parent, &Uuid::new_v4().to_string(), files, Some(change_id))
+    }
     pub fn commit_tree<'a>(
         &'a self,
         parent: Option<&git2::Commit<'_>>,
         files: &[(&str, &str)],
     ) -> git2::Commit<'a> {
-        self.commit_tree_with_message(parent, &Uuid::new_v4().to_string(), files)
+        self.commit_tree_inner(parent, &Uuid::new_v4().to_string(), files, None)
     }
 
     pub fn commit_tree_with_message<'a>(
@@ -93,6 +103,16 @@ impl TestingRepository {
         parent: Option<&git2::Commit<'_>>,
         message: &str,
         files: &[(&str, &str)],
+    ) -> git2::Commit<'a> {
+        self.commit_tree_inner(parent, message, files, None)
+    }
+
+    pub fn commit_tree_inner<'a>(
+        &'a self,
+        parent: Option<&git2::Commit<'_>>,
+        message: &str,
+        files: &[(&str, &str)],
+        change_id: Option<&str>,
     ) -> git2::Commit<'a> {
         // Remove everything other than the .git folder
         for entry in fs::read_dir(self.tempdir.path()).unwrap() {
@@ -127,9 +147,15 @@ impl TestingRepository {
             .unwrap();
 
         let signature = git2::Signature::now("Caleb", "caleb@gitbutler.com").unwrap();
+        let commit_headers =
+            change_id.map_or(CommitHeadersV2::new(), |change_id| CommitHeadersV2 {
+                change_id: change_id.to_string(),
+                conflicted: None,
+            });
+
         let commit = self
             .repository
-            .commit(
+            .commit_with_signature(
                 None,
                 &signature,
                 &signature,
@@ -139,6 +165,7 @@ impl TestingRepository {
                     .find_tree(index.write_tree().unwrap())
                     .unwrap(),
                 parent.map(|c| vec![c]).unwrap_or_default().as_slice(),
+                Some(commit_headers),
             )
             .unwrap();
 

@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { GitConfigService } from '$lib/backend/gitConfigService';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import Link from '$lib/shared/Link.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 	import { onMount } from 'svelte';
 
 	const gitConfig = getContext(GitConfigService);
 
-	let annotateCommits = true;
+	let annotateCommits = $state(true);
 
 	function toggleCommitterSigning() {
 		annotateCommits = !annotateCommits;
@@ -23,8 +23,10 @@
 
 <SettingsPage title="Git stuff">
 	<SectionCard labelFor="committerSigning" orientation="row">
-		<svelte:fragment slot="title">Credit GitButler as the committer</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Credit GitButler as the committer
+		{/snippet}
+		{#snippet caption()}
 			By default, everything in the GitButler client is free to use. You can opt in to crediting us
 			as the committer in your virtual branch commits to help spread the word.
 			<Link
@@ -34,9 +36,9 @@
 			>
 				Learn more
 			</Link>
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle id="committerSigning" checked={annotateCommits} onclick={toggleCommitterSigning} />
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 </SettingsPage>

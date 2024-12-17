@@ -1,25 +1,63 @@
 <script lang="ts">
 	import BranchFilesList from './BranchFilesList.svelte';
-	import { createCommitStore } from '$lib/vbranches/contexts';
+	import {
+		createCommitStore,
+		createIntegratedCommitsContextStore,
+		createLocalCommitsContextStore,
+		createLocalAndRemoteCommitsContextStore
+	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { getContext } from '@gitbutler/shared/context';
-	import type { LocalFile, RemoteFile } from '$lib/vbranches/types';
+	import type { DetailedCommit, LocalFile, PatchSeries, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
-	export let files: LocalFile[] | RemoteFile[];
-	export let isUnapplied: boolean;
-	export let showCheckboxes = false;
-	export let commitDialogExpanded: Writable<boolean>;
-	export let focusCommitDialog: () => void;
+	interface Props {
+		files: LocalFile[] | RemoteFile[];
+		isUnapplied: boolean;
+		showCheckboxes?: boolean;
+		commitDialogExpanded: Writable<boolean>;
+		focusCommitDialog: () => void;
+		allowMultiple?: boolean;
+		readonly?: boolean;
+		branches?: PatchSeries[];
+	}
 
-	export let allowMultiple = false;
-	export let readonly = false;
+	const {
+		files,
+		isUnapplied,
+		showCheckboxes = false,
+		commitDialogExpanded,
+		focusCommitDialog,
+		allowMultiple = false,
+		readonly = false,
+		branches
+	}: Props = $props();
 
 	createCommitStore(undefined);
+	const localCommits = createLocalCommitsContextStore([]);
+	const localAndRemoteCommits = createLocalAndRemoteCommitsContextStore([]);
+	const integratedCommits = createIntegratedCommitsContextStore([]);
+
+	$effect(() => {
+		if (branches) {
+			const upstreamPatches: DetailedCommit[] = [];
+			const localPatches: DetailedCommit[] = [];
+
+			for (const branch of branches) {
+				localPatches.push(...branch.patches);
+				upstreamPatches.push(...branch.upstreamPatches);
+			}
+
+			localCommits.set(localPatches);
+			localAndRemoteCommits.set(upstreamPatches);
+			integratedCommits.set(localPatches.filter((p) => p.status === 'integrated'));
+		}
+	});
+
 	const fileIdSelection = getContext(FileIdSelection);
 </script>
 
-<div class="branch-files" role="presentation" on:click={() => fileIdSelection.clear()}>
+<div class="branch-files" role="presentation" onclick={() => fileIdSelection.clear()}>
 	{#if files.length > 0}
 		<BranchFilesList
 			{allowMultiple}

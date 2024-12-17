@@ -1,40 +1,55 @@
 <script lang="ts">
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { createEventDispatcher } from 'svelte';
 
-	// The element that is being resized
-	export let viewport: HTMLElement;
+	interface Props {
+		// The element that is being resized
+		viewport: HTMLElement;
+		// Sets direction of resizing for viewport
+		direction: 'left' | 'right' | 'up' | 'down';
+		// Sets the color of the line
+		defaultLineColor?: string;
+		defaultLineThickness?: number;
+		hoverLineThickness?: number;
+		// Needed when overflow is hidden
+		sticky?: boolean;
+		// Custom z-index in case of overlapping with other elements
+		zIndex?: string;
+		//
+		minWidth?: number;
+		minHeight?: number;
 
-	// Sets direction of resizing for viewport
-	export let direction: 'left' | 'right' | 'up' | 'down';
+		// Actions
+		onHeight?: (height: number) => void;
+		onWidth?: (width: number) => void;
+		onResizing?: (isResizing: boolean) => void;
+		onOverflow?: (value: number) => void;
+		onHover?: (isHovering: boolean) => void;
+		onDblClick?: () => void;
+	}
 
-	// Sets the color of the line
-	export let defaultLineColor: string = 'none';
-	export let defaultLineThickness: number = 1;
-	export let hoverLineThickness: number = 2;
+	const {
+		viewport,
+		direction,
+		defaultLineColor = 'none',
+		defaultLineThickness = 1,
+		hoverLineThickness = 2,
+		sticky = false,
+		zIndex = 'var(--z-lifted)',
+		minWidth = 0,
+		minHeight = 0,
 
-	// Needed when overflow is hidden
-	export let sticky = false;
+		onHeight,
+		onWidth,
+		onResizing,
+		onOverflow,
+		onHover,
+		onDblClick
+	}: Props = $props();
 
-	// Custom z-index in case of overlapping with other elements
-	export let zIndex = 'var(--z-lifted)';
-
-	//
-	export let minWidth = 0;
-	export let minHeight = 0;
-
-	$: orientation = ['left', 'right'].includes(direction) ? 'horizontal' : 'vertical';
+	const orientation = $derived(['left', 'right'].includes(direction) ? 'horizontal' : 'vertical');
 
 	let initial = 0;
-	let dragging = false;
-
-	const dispatch = createEventDispatcher<{
-		height: number;
-		width: number;
-		resizing: boolean;
-		overflowValue: number;
-		hover: boolean;
-	}>();
+	let dragging = $state(false);
 
 	function onMouseDown(e: MouseEvent) {
 		e.stopPropagation();
@@ -47,12 +62,12 @@
 		if (direction === 'down') initial = e.clientY - viewport.clientHeight;
 		if (direction === 'up') initial = window.innerHeight - e.clientY - viewport.clientHeight;
 
-		dispatch('resizing', true);
+		onResizing?.(true);
 	}
 
 	function onOverflowValue(currentValue: number, minVal: number) {
 		if (currentValue < minVal) {
-			dispatch('overflowValue', minVal - currentValue);
+			onOverflow?.(minVal - currentValue);
 		}
 	}
 
@@ -60,25 +75,25 @@
 		dragging = true;
 		if (direction === 'down') {
 			let height = e.clientY - initial;
-			dispatch('height', Math.max(height, minHeight));
+			onHeight?.(Math.max(height, minHeight));
 
 			onOverflowValue(height, minHeight);
 		}
 		if (direction === 'up') {
 			let height = document.body.scrollHeight - e.clientY - initial;
-			dispatch('height', Math.max(height, minHeight));
+			onHeight?.(Math.max(height, minHeight));
 
 			onOverflowValue(height, minHeight);
 		}
 		if (direction === 'right') {
 			let width = e.clientX - initial + 2;
-			dispatch('width', Math.max(width, minWidth));
+			onWidth?.(Math.max(width, minWidth));
 
 			onOverflowValue(width, minWidth);
 		}
 		if (direction === 'left') {
 			let width = document.body.scrollWidth - e.clientX - initial;
-			dispatch('width', Math.max(width, minWidth));
+			onWidth?.(Math.max(width, minWidth));
 
 			onOverflowValue(width, minWidth);
 		}
@@ -88,22 +103,20 @@
 		dragging = false;
 		document.removeEventListener('mouseup', onMouseUp);
 		document.removeEventListener('mousemove', onMouseMove);
-		dispatch('resizing', false);
+		onResizing?.(false);
 	}
 
 	function isHovered(isHovered: boolean) {
-		dispatch('hover', isHovered);
+		onHover?.(isHovered);
 	}
 </script>
 
 <div
 	data-remove-from-draggable
-	on:mousedown={onMouseDown}
-	on:click|stopPropagation
-	on:dblclick|stopPropagation
-	on:keydown|stopPropagation
-	on:mouseenter={() => isHovered(true)}
-	on:mouseleave={() => isHovered(false)}
+	onmousedown={onMouseDown}
+	ondblclick={onDblClick}
+	onmouseenter={() => isHovered(true)}
+	onmouseleave={() => isHovered(false)}
 	tabindex="0"
 	role="slider"
 	aria-valuenow={viewport?.clientHeight}

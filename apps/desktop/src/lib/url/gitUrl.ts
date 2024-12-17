@@ -10,10 +10,13 @@ export type RepoInfo = {
 	hash?: string;
 };
 
-export function parseRemoteUrl(url: string): RepoInfo | undefined {
+export function parseRemoteUrl(url?: string): RepoInfo | undefined {
+	if (!url) {
+		return;
+	}
 	try {
 		const { protocol, name, owner, organization, resource } = gitUrlParse(url);
-		const hash = hashCode(name + '|' + owner + '|' + name + '|' + organization);
+		const hash = hashCode(name + '|' + owner + '|' + organization);
 
 		return {
 			protocol,

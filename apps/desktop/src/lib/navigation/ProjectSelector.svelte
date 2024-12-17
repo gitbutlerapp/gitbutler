@@ -10,7 +10,7 @@
 		isNavCollapsed: boolean;
 	}
 
-	let { isNavCollapsed }: Props = $props();
+	const { isNavCollapsed }: Props = $props();
 
 	const project = getContext(Project);
 
@@ -18,7 +18,7 @@
 	let popup = $state<ReturnType<typeof ProjectsPopup>>();
 </script>
 
-<div class="wrapper">
+<div class="project-selector">
 	<Tooltip text={isNavCollapsed ? project?.title : ''} align="start">
 		<button
 			type="button"
@@ -42,10 +42,10 @@
 </div>
 
 <style lang="postcss">
-	.wrapper {
+	.project-selector {
 		position: relative;
 		margin-top: 4px;
-		margin-bottom: 16px;
+		margin-bottom: 14px;
 		height: fit-content;
 
 		&:hover {

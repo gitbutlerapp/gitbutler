@@ -1,18 +1,15 @@
-<script lang="ts" module>
-	export interface Props {
-		id?: string;
+<script lang="ts">
+	import { pxToRem } from '$lib/utils/pxToRem';
+	import type { HTMLTextareaAttributes } from 'svelte/elements';
+
+	interface Props extends HTMLTextareaAttributes {
 		textBoxEl?: HTMLTextAreaElement;
 		label?: string;
 		value?: string;
-		placeholder?: string;
-		disabled?: boolean;
 		fontWeight?: 'regular' | 'bold' | 'semibold';
 		fontSize?: number;
 		minRows?: number;
 		maxRows?: number;
-		autofocus?: boolean;
-		spellcheck?: boolean;
-		autoComplete?: string;
 		class?: string;
 		flex?: string;
 		padding?: {
@@ -27,22 +24,7 @@
 		borderBottom?: boolean;
 		borderLeft?: boolean;
 		unstyled?: boolean;
-		oninput?: (e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
-		onchange?: (e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
-		onfocus?: (
-			this: void,
-			e: FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement }
-		) => void;
-		onblur?: (
-			this: void,
-			e: FocusEvent & { currentTarget: EventTarget & HTMLTextAreaElement }
-		) => void;
-		onkeydown?: (e: KeyboardEvent & { currentTarget: EventTarget & HTMLTextAreaElement }) => void;
 	}
-</script>
-
-<script lang="ts">
-	import { pxToRem } from '$lib/utils/pxToRem';
 
 	let {
 		id,
@@ -97,8 +79,8 @@
 
 	const lineHeight = 1.6;
 
-	let maxHeight = $derived(fontSize * maxRows + padding.top + padding.bottom);
-	let minHeight = $derived(fontSize * minRows + padding.top + padding.bottom);
+	const maxHeight = $derived(fontSize * maxRows + padding.top + padding.bottom);
+	const minHeight = $derived(fontSize * minRows + padding.top + padding.bottom);
 
 	let measureElHeight = $state(0);
 </script>
@@ -213,7 +195,7 @@
 	}
 
 	.textarea {
-		font-family: var(--base-font-family);
+		font-family: var(--font-family-default);
 		cursor: text;
 		resize: none;
 		overflow-y: auto; /* Enable scrolling when max height is reached */
@@ -239,7 +221,7 @@
 	}
 
 	.text-regular {
-		font-weight: var(--base-font-weight);
+		font-weight: var(--text-weight-regular);
 	}
 
 	.textarea-label {

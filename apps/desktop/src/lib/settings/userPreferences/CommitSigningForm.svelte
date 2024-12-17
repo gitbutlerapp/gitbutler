@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { GitConfigService } from '$lib/backend/gitConfigService';
+	import { invoke } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import SectionCardDisclaimer from '$lib/components/SectionCardDisclaimer.svelte';
 	import Select from '$lib/select/Select.svelte';
 	import SelectItem from '$lib/select/SelectItem.svelte';
@@ -10,16 +10,15 @@
 	import Link from '$lib/shared/Link.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
-	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
 
 	const project = getContext(Project);
-
-	let signCommits = false;
-
 	const gitConfig = getContext(GitConfigService);
+
+	let signCommits = $state(false);
 
 	async function setSignCommits(targetState: boolean) {
 		signCommits = targetState;
@@ -27,27 +26,37 @@
 	}
 
 	// gpg.format
-	let signingFormat = 'openpgp';
+	let signingFormat = $state('openpgp');
 	// user.signingkey
-	let signingKey = '';
+	let signingKey = $state('');
 	// gpg.ssh.program / gpg.program
-	let signingProgram = '';
+	let signingProgram = $state('');
 
 	const signingFormatOptions = [
 		{
 			label: 'GPG',
-			value: 'openpgp'
+			value: 'openpgp',
+			keyPlaceholder: 'ex: 723CCA3AC13CF28D',
+			programPlaceholder: 'ex: /usr/local/bin/gpg'
 		},
 		{
 			label: 'SSH',
-			value: 'ssh'
+			value: 'ssh',
+			keyPlaceholder: 'ex: /Users/bob/.ssh/id_rsa.pub',
+			programPlaceholder: 'ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign'
 		}
-	];
+	] as const;
 
-	let checked = false;
-	let loading = true;
-	let signCheckResult = false;
-	let errorMessage = '';
+	const selectedOption = $derived(
+		signingFormatOptions.find((option) => option.value === signingFormat)
+	);
+	const keyPlaceholder = $derived(selectedOption?.keyPlaceholder);
+	const programPlaceholder = $derived(selectedOption?.programPlaceholder);
+
+	let checked = $state(false);
+	let loading = $state(true);
+	let signCheckResult = $state(false);
+	let errorMessage = $state('');
 
 	async function checkSigning() {
 		errorMessage = '';
@@ -95,15 +104,17 @@
 
 <Section>
 	<SectionCard orientation="row" labelFor="signCommits">
-		<svelte:fragment slot="title">Sign commits</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Sign commits
+		{/snippet}
+		{#snippet caption()}
 			Use GPG or SSH to sign your commits so they can be verified as authentic.
 			<br />
 			GitButler will sign commits as per your git configuration.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle id="signCommits" checked={signCommits} onclick={handleSignCommitsClick} />
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 	{#if signCommits}
 		<SectionCard orientation="column">
@@ -128,14 +139,14 @@
 				bind:value={signingKey}
 				required
 				onchange={updateSigningInfo}
-				placeholder="ex: /Users/bob/.ssh/id_rsa.pub"
+				placeholder={keyPlaceholder}
 			/>
 
 			<Textbox
 				label="Signing program (optional)"
 				bind:value={signingProgram}
 				onchange={updateSigningInfo}
-				placeholder="ex: /Applications/1Password.app/Contents/MacOS/op-ssh-sign"
+				placeholder={programPlaceholder}
 			/>
 
 			{#if checked}
@@ -144,7 +155,7 @@
 					filled
 					outlined={false}
 				>
-					<svelte:fragment slot="title">
+					{#snippet title()}
 						{#if loading}
 							<p>Checking signing</p>
 						{:else if signCheckResult}
@@ -152,13 +163,13 @@
 						{:else}
 							<p>Signing is not working correctly</p>
 						{/if}
-					</svelte:fragment>
+					{/snippet}
 
-					<svelte:fragment slot="content">
+					{#snippet content()}
 						{#if errorMessage}
 							<pre>{errorMessage}</pre>
 						{/if}
-					</svelte:fragment>
+					{/snippet}
 				</InfoMessage>
 			{/if}
 

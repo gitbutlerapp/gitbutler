@@ -50,6 +50,7 @@ interface UpdateSelectionParams {
 	selectedFileIds: string[];
 	fileIdSelection: FileIdSelection;
 	commitId?: string;
+	preventDefault: () => void;
 }
 
 export function updateSelection({
@@ -61,7 +62,8 @@ export function updateSelection({
 	files,
 	selectedFileIds,
 	fileIdSelection,
-	commitId
+	commitId,
+	preventDefault
 }: UpdateSelectionParams) {
 	if (!selectedFileIds[0] || selectedFileIds.length === 0) return;
 
@@ -102,6 +104,7 @@ export function updateSelection({
 	switch (key) {
 		case 'a':
 			if (allowMultiple && metaKey) {
+				preventDefault();
 				for (const file of files) {
 					fileIdSelection.add(file, commitId);
 				}
@@ -109,6 +112,7 @@ export function updateSelection({
 			break;
 		case 'k':
 		case KeyName.Up:
+			preventDefault();
 			if (shiftKey && allowMultiple) {
 				// Handle case if only one file is selected
 				// we should update the selection direction
@@ -133,6 +137,7 @@ export function updateSelection({
 
 		case 'j':
 		case KeyName.Down:
+			preventDefault();
 			if (shiftKey && allowMultiple) {
 				// Handle case if only one file is selected
 				// we should update the selection direction
@@ -156,6 +161,7 @@ export function updateSelection({
 			}
 			break;
 		case KeyName.Escape:
+			preventDefault();
 			fileIdSelection.clear();
 			targetElement.blur();
 			break;

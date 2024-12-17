@@ -74,7 +74,7 @@ pub mod workspace {
             UpdateMode::Delete => upstream_integration::ResolutionApproach::Delete,
         };
         let resolutions: Vec<_> = gitbutler_branch_actions::list_virtual_branches(&project)?
-            .0
+            .branches
             .into_iter()
             .map(|b| upstream_integration::Resolution {
                 branch_id: b.id,

@@ -1,15 +1,16 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import type { Project, PatchStack, TimelineEntry } from '$lib/types/index.js';
 	import { goto } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 
-	let state = 'loading';
-	let timeline: any = {};
-	let patchStacks: any = {};
-	let project: any = {};
-	let projectId: string;
+	let pageState = $state('loading');
+	let timeline = $state<TimelineEntry[]>();
+	let patchStacks = $state<PatchStack[]>([]);
+	let project = $state<Project>();
+	let projectId = $state<string>();
 
-	export let data: any;
+	const { data } = $props();
 
 	function createPatchStack(branch: string, sha: string) {
 		let key = localStorage.getItem('gb_access_token');
@@ -33,7 +34,7 @@
 					goto('/projects/' + projectId + '/branches/' + data.branch_id + '/stack');
 				});
 		} else {
-			state = 'unauthorized';
+			pageState = 'unauthorized';
 		}
 	}
 
@@ -52,7 +53,7 @@
 				.then((data) => {
 					console.log(data);
 					project = data;
-					state = 'loaded';
+					pageState = 'loaded';
 				});
 
 			fetch(env.PUBLIC_APP_HOST + 'api/patch_stack/' + projectId, {
@@ -77,21 +78,21 @@
 				.then((data) => {
 					console.log(data);
 					timeline = data;
-					state = 'loaded';
+					pageState = 'loaded';
 				});
 		} else {
-			state = 'unauthorized';
+			pageState = 'unauthorized';
 		}
 	});
 </script>
 
-{#if state === 'loading'}
+{#if pageState === 'loading'}
 	<p>Loading...</p>
-{:else if state === 'unauthorized'}
+{:else if pageState === 'unauthorized'}
 	<p>Unauthorized</p>
 {:else}
 	<h2>Project</h2>
-	<div>{project.name}</div>
+	<div>{project?.name}</div>
 	<div class="columns">
 		<div class="column">
 			<h2>Branches</h2>
@@ -110,29 +111,31 @@
 		</div>
 		<div class="column">
 			<h2>Timeline</h2>
-			{#each timeline as event}
-				<div class="event">
-					<pre>{event.sha}</pre>
-					<div>{event.time}</div>
-					<pre>{event.message}</pre>
-					<div>{event.trailers}</div>
-					{#if Object.keys(event.files).length > 0}
-						<h3>Branches</h3>
-						{#each Object.keys(event.files) as branch}
-							{#if event.branch_data.branches[branch]}
-								<h3>Branch {event.branch_data.branches[branch].name}</h3>
-								<button type="button" on:click={() => createPatchStack(branch, event.sha)}
-									>Create Patch Stack</button
-								>
-								{#each Object.keys(event.files[branch]) as file}
-									<li>{file} ({event.files[branch][file]})</li>
-								{/each}
-							{/if}
-						{/each}
-					{/if}
-				</div>
-				<hr />
-			{/each}
+			{#if timeline}
+				{#each timeline as event}
+					<div class="event">
+						<pre>{event.sha}</pre>
+						<div>{event.time}</div>
+						<pre>{event.message}</pre>
+						<div>{event.trailers}</div>
+						{#if event.files && Object.keys(event.files).length > 0}
+							<h3>Branches</h3>
+							{#each Object.keys(event.files) as branch}
+								{#if event.branch_data?.branches[branch]}
+									<h3>Branch {event.branch_data.branches[branch].name}</h3>
+									<button type="button" onclick={() => createPatchStack(branch, event.sha)}
+										>Create Patch Stack</button
+									>
+									{#each Object.keys(event.files?.[branch]) as file}
+										<li>{file} ({event.files?.[branch][file]})</li>
+									{/each}
+								{/if}
+							{/each}
+						{/if}
+					</div>
+					<hr />
+				{/each}
+			{/if}
 		</div>
 	</div>
 {/if}

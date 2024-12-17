@@ -3,7 +3,7 @@ use gitbutler_operating_modes::{write_edit_mode_metadata, EditModeMetadata};
 
 /// Creates a branch from the head commit
 fn create_and_checkout_branch(ctx: &CommandContext, branch_name: &str) {
-    let repository = ctx.repository();
+    let repository = ctx.repo();
     repository
         .branch(
             branch_name,

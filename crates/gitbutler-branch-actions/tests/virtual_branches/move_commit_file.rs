@@ -47,20 +47,32 @@ fn move_file_down() -> anyhow::Result<()> {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
     // shas changed but change_id is the same
-    assert_eq!(&commit1.change_id(), &branch.commits[1].change_id);
-    assert_ne!(&commit1.id(), &branch.commits[1].id);
-    assert_eq!(&commit2.change_id(), &branch.commits[0].change_id);
-    assert_ne!(&commit2.id(), &branch.commits[0].id);
+    assert_eq!(
+        &commit1.change_id(),
+        &branch.series[0].clone()?.patches[1].change_id
+    );
+    assert_ne!(&commit1.id(), &branch.series[0].clone()?.patches[1].id);
+    assert_eq!(
+        &commit2.change_id(),
+        &branch.series[0].clone()?.patches[0].change_id
+    );
+    assert_ne!(&commit2.id(), &branch.series[0].clone()?.patches[0].id);
 
-    assert_eq!(branch.commits.len(), 2);
-    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 1);
-    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 2); // this now has both file changes
+    assert_eq!(branch.series[0].clone()?.patches.len(), 2);
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone()?.patches[0].id)?.len(),
+        1
+    );
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone()?.patches[1].id)?.len(),
+        2
+    ); // this now has both file changes
     Ok(())
 }
 
@@ -104,14 +116,20 @@ fn move_file_up() -> anyhow::Result<()> {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    assert_eq!(branch.commits.len(), 2);
-    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 2); // this now has both file changes
-    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 1);
+    assert_eq!(branch.series[0].clone()?.patches.len(), 2);
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone()?.patches[0].id)?.len(),
+        2
+    ); // this now has both file changes
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone()?.patches[1].id)?.len(),
+        1
+    );
     Ok(())
 }
 

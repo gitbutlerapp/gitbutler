@@ -1,22 +1,16 @@
-<svelte:head>
-	<title>Home</title>
-	<meta name="description" content="Svelte demo app" />
-</svelte:head>
+<script lang="ts">
+	import LandingPage from '$home/LandingPage.svelte';
+	import { AuthService } from '$lib/auth/authService';
+	import UserDashboard from '$lib/components/UserDashboard.svelte';
+	import { getContext } from '@gitbutler/shared/context';
+	import { page } from '$app/stores';
 
-<section>
-	<h1>Hello</h1>
-</section>
+	const authService = getContext(AuthService);
+	const token = $derived(authService.token);
+</script>
 
-<style>
-	section {
-		display: flex;
-		flex-direction: column;
-		justify-content: center;
-		align-items: center;
-		flex: 0.6;
-	}
-
-	h1 {
-		width: 100%;
-	}
-</style>
+{#if !$token && $page.url.pathname === '/'}
+	<LandingPage />
+{:else}
+	<UserDashboard />
+{/if}

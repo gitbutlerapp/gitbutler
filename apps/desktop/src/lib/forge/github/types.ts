@@ -1,3 +1,4 @@
+import { parseRemoteUrl } from '$lib/url/gitUrl';
 import type { CheckSuite, DetailedPullRequest, Label, PullRequest } from '../interface/types';
 import type { RestEndpointMethodTypes } from '@octokit/rest';
 
@@ -11,6 +12,8 @@ export function parseGitHubDetailedPullRequest(
 		number: data.number,
 		title: data.title,
 		body: data.body ?? undefined,
+		baseRepo: parseRemoteUrl(data.base?.repo.git_url),
+		baseBranch: data.base?.ref,
 		sourceBranch: data.head?.ref,
 		draft: data.draft,
 		htmlUrl: data.html_url,

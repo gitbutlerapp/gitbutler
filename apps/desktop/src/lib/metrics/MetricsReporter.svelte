@@ -1,51 +1,77 @@
+<script lang="ts" module>
+	export const HOUR_MS = 60 * 60 * 1000;
+	export const INTERVAL_MS = 24 * HOUR_MS;
+	export const DELAY_MS = 30 * 1000;
+</script>
+
 <script lang="ts">
-	import { ProjectMetrics, type ProjectMetricsReport } from './projectMetrics';
+	import { type ProjectMetrics } from './projectMetrics';
+	import { PostHogWrapper } from '$lib/analytics/posthog';
+	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
-	import posthog from 'posthog-js';
 	import { onMount } from 'svelte';
 
 	const { projectMetrics }: { projectMetrics: ProjectMetrics } = $props();
+
 	const projectId = projectMetrics.projectId;
+	const posthog = getContext(PostHogWrapper);
+	const lastReportMs = persisted<number | undefined>(undefined, `lastMetricsTs-${projectId}`);
 
-	// Storing the last known values so we don't report same metrics twice
-	const lastReport = persisted<ProjectMetricsReport>({}, `projectMetrics-${projectId}`);
-	const hourMs = 60 * 60 * 1000;
-
-	let lastCapture: { [key: string]: number | undefined } = {};
+	// Any interval or timeout must be cleared on unmount.
 	let intervalId: any;
+	let timeoutId: any;
 
-	function sample() {
-		const metrics = projectMetrics.getMetrics();
-		if (!metrics) return;
+	function reportMetrics() {
+		// So we know if we should run on next onMount.
+		lastReportMs.set(Date.now());
+
+		const report = projectMetrics.getReport();
+		if (!report) return;
 
 		// Capture only individual changes.
-		for (let [name, metric] of Object.entries(metrics)) {
-			const lastCaptureMs = lastCapture[name];
-			if (
-				// If no previously recorded value.
-				!$lastReport[name] ||
-				// Or the value has changed.
-				$lastReport[name]?.value !== metric?.value ||
-				// Or 24h have passed since metric was last caprured
-				(lastCaptureMs && lastCaptureMs - Date.now() > 24 * hourMs)
-			) {
-				posthog.capture(`metrics:${name}`, {
-					project_id: projectId,
-					...metric
-				});
-				lastCapture[name] = Date.now();
-				projectMetrics.resetMetric(name);
-			}
+		for (let [name, metric] of Object.entries(report)) {
+			posthog.capture(`metrics:${name}`, {
+				project_id: projectId,
+				...metric
+			});
+			// We don't want to report the same static value over and over
+			// again, so after successfully reporting a metric we reset it.
+			projectMetrics.resetMetric(name);
 		}
-		lastReport.set(metrics);
+	}
+
+	function startInterval() {
+		// Delay to avoid first report happening before services have had time
+		// to update the project metrics.
+		timeoutId = setTimeout(async () => {
+			reportMetrics();
+		}, DELAY_MS);
+		intervalId = setInterval(() => {
+			reportMetrics();
+		}, INTERVAL_MS);
+	}
+
+	function scheduleFirstReport() {
+		const now = Date.now();
+		const lastMs = $lastReportMs;
+
+		if (!lastMs || now - lastMs > INTERVAL_MS) {
+			// It's been a while, start immediately.
+			startInterval();
+		} else {
+			// Wait until full interval has passed then start.
+			const duration = lastMs - now + INTERVAL_MS;
+			timeoutId = setTimeout(() => {
+				startInterval();
+			}, duration);
+		}
 	}
 
 	onMount(() => {
-		intervalId = setInterval(() => {
-			sample();
-		}, 4 * hourMs);
+		scheduleFirstReport();
 		return () => {
 			if (intervalId) clearInterval(intervalId);
+			if (timeoutId) clearTimeout(timeoutId);
 		};
 	});
 </script>

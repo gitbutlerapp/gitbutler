@@ -2,6 +2,7 @@
 	import BoardEmptyState from './BoardEmptyState.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
 	import PageLoadFailed from './PageLoadFailed.svelte';
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
 	import BranchLane from '$lib/branch/BranchLane.svelte';
 	import { showHistoryView } from '$lib/config/config';
@@ -11,22 +12,31 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext } from '@gitbutler/shared/context';
+	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
+	import type { VirtualBranch } from '$lib/vbranches/types';
 
 	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
+	const posthog = getContext(PostHogWrapper);
 	const error = vbranchService.error;
 	const branches = vbranchService.branches;
 
-	let dragged: HTMLDivElement | undefined;
-	let dropZone: HTMLDivElement;
+	let dragged = $state<HTMLDivElement>();
+	let dropZone = $state<HTMLDivElement>();
 
-	let dragHandle: any;
-	let clone: any;
-	$: if ($error) {
-		$showHistoryView = true;
-	}
-	$: sortedBranches = $branches?.sort((a, b) => a.order - b.order) || [];
+	let dragHandle: any = $state();
+	let clone: any = $state();
+	$effect(() => {
+		if ($error) {
+			$showHistoryView = true;
+		}
+	});
+
+	let sortedBranches = $state<VirtualBranch[]>([]);
+	$effect(() => {
+		sortedBranches = $branches?.sort((a, b) => a.order - b.order) || [];
+	});
 
 	const handleDragOver = throttle((e: MouseEvent & { currentTarget: HTMLDivElement }) => {
 		e.preventDefault();
@@ -38,8 +48,8 @@
 		const currentPosition = children.indexOf(dragged);
 
 		let dropPosition = 0;
-		let mouseLeft = e.clientX - dropZone.getBoundingClientRect().left;
-		let cumulativeWidth = dropZone.offsetLeft;
+		let mouseLeft = e.clientX - (dropZone?.getBoundingClientRect().left ?? 0);
+		let cumulativeWidth = dropZone?.offsetLeft ?? 0;
 
 		for (let i = 0; i < children.length; i++) {
 			if (i === currentPosition) {
@@ -72,9 +82,13 @@
 			$showHistoryView = !$showHistoryView;
 		}
 	});
+
+	onMount(() => {
+		posthog.capture('Workspace Open');
+	});
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
+<svelte:window onkeydown={handleKeyDown} />
 {#if $error}
 	<PageLoadFailed error={$error} />
 {:else if !$branches}
@@ -83,7 +97,7 @@
 	<div
 		class="board"
 		role="group"
-		on:drop={(e) => {
+		ondrop={(e) => {
 			e.preventDefault();
 			if (!dragged) {
 				return; // Something other than a lane was dropped.
@@ -91,7 +105,7 @@
 			branchController.updateBranchOrder(sortedBranches.map((b, i) => ({ id: b.id, order: i })));
 		}}
 	>
-		<div role="group" class="branches" bind:this={dropZone} on:dragover={(e) => handleDragOver(e)}>
+		<div role="group" class="branches" bind:this={dropZone} ondragover={(e) => handleDragOver(e)}>
 			{#each sortedBranches as branch (branch.id)}
 				<div
 					role="presentation"
@@ -100,8 +114,8 @@
 					class="branch draggable-branch"
 					draggable="true"
 					animate:flip={{ duration: 150 }}
-					on:mousedown={(e) => (dragHandle = e.target)}
-					on:dragstart={(e) => {
+					onmousedown={(e) => (dragHandle = e.target)}
+					ondragstart={(e) => {
 						if (dragHandle.dataset.dragHandle === undefined) {
 							// We rely on elements with id `drag-handle` to initiate this drag
 							e.preventDefault();
@@ -117,7 +131,7 @@
 						dragged = e.currentTarget;
 						dragged.style.opacity = '0.6';
 					}}
-					on:dragend={() => {
+					ondragend={() => {
 						if (dragged) {
 							dragged.style.opacity = '1';
 							dragged = undefined;

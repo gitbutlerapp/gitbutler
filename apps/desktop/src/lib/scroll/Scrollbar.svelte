@@ -70,7 +70,7 @@
 	let startX = $state(0);
 	let isDragging = $state(false);
 
-	let vert = $derived(!horz);
+	const vert = $derived(!horz);
 
 	let paddingTop = $state(pxToRem(padding.top ?? 0));
 	let paddingBottom = $state(pxToRem(padding.bottom ?? 0));
@@ -84,19 +84,19 @@
 	let trackHeight = $state(viewport?.clientHeight ?? 0);
 	let trackWidth = $state(viewport?.clientHeight ?? 0);
 
-	let thumbHeight = $derived(wholeHeight > 0 ? (trackHeight / wholeHeight) * trackHeight : 0);
-	let thumbWidth = $derived(wholeWidth > 0 ? (trackWidth / wholeWidth) * trackWidth : 0);
-	let thumbTop = $derived(wholeHeight > 0 ? (scrollTop / wholeHeight) * trackHeight : 0);
-	let thumbLeft = $derived(wholeHeight > 0 ? (scrollLeft / wholeWidth) * trackWidth : 0);
+	const thumbHeight = $derived(wholeHeight > 0 ? (trackHeight / wholeHeight) * trackHeight : 0);
+	const thumbWidth = $derived(wholeWidth > 0 ? (trackWidth / wholeWidth) * trackWidth : 0);
+	const thumbTop = $derived(wholeHeight > 0 ? (scrollTop / wholeHeight) * trackHeight : 0);
+	const thumbLeft = $derived(wholeHeight > 0 ? (scrollLeft / wholeWidth) * trackWidth : 0);
 
-	let scrollableY = $derived(wholeHeight > trackHeight);
-	let scrollableX = $derived(wholeWidth > trackWidth);
-	let isScrollable = $derived(scrollableY || scrollableX);
-	let shouldShowInitially = $derived(initiallyVisible && isScrollable);
-	let shouldShowOnHover = $derived(
+	const scrollableY = $derived(wholeHeight > trackHeight);
+	const scrollableX = $derived(wholeWidth > trackWidth);
+	const isScrollable = $derived(scrollableY || scrollableX);
+	const shouldShowInitially = $derived(initiallyVisible && isScrollable);
+	const shouldShowOnHover = $derived(
 		$userSettings.scrollbarVisibilityState === 'hover' && isScrollable
 	);
-	let shouldAlwaysShow = $derived(
+	const shouldAlwaysShow = $derived(
 		$userSettings.scrollbarVisibilityState === 'always' && isScrollable
 	);
 

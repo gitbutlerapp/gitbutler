@@ -23,11 +23,11 @@
 
 	const selectedFile = fileIdSelection.selectedFile;
 
-	$: commitId = $selectedFile?.commitId;
-	$: selected = $selectedFile?.file;
+	const commitId = $derived($selectedFile?.commitId);
+	const selected = $derived($selectedFile?.file);
 
-	let rsViewport: HTMLDivElement;
-	let laneWidth: number;
+	let rsViewport = $state<HTMLDivElement>();
+	let laneWidth = $state<number>();
 
 	const error = baseBranchService.error;
 
@@ -56,8 +56,8 @@
 				viewport={rsViewport}
 				direction="right"
 				minWidth={320}
-				on:width={(e) => {
-					laneWidth = e.detail / (16 * $userSettings.zoom);
+				onWidth={(value) => {
+					laneWidth = value / (16 * $userSettings.zoom);
 					lscache.set(laneWidthKey, laneWidth, 7 * 1440); // 7 day ttl
 				}}
 			/>
@@ -70,7 +70,7 @@
 					isUnapplied={false}
 					readonly={true}
 					{commitId}
-					on:close={() => {
+					onClose={() => {
 						fileIdSelection.clear();
 					}}
 				/>

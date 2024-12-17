@@ -19,7 +19,7 @@
 		onscroll?: (e: Event) => void;
 	}
 
-	let {
+	const {
 		height,
 		fillViewport,
 		maxHeight,

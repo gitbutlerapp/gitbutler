@@ -44,19 +44,27 @@ fn undo_commit_simple() -> anyhow::Result<()> {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
     // should be two uncommitted files now (file2.txt and file3.txt)
     assert_eq!(branch.files.len(), 2);
-    assert_eq!(branch.commits.len(), 2);
-    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 1);
-    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 1);
+    assert_eq!(branch.series[0].clone().unwrap().patches.len(), 2);
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone().unwrap().patches[0].id)?.len(),
+        1
+    );
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone().unwrap().patches[1].id)?.len(),
+        1
+    );
 
-    let descriptions = branch
-        .commits
+    let descriptions = branch.series[0]
+        .clone()
+        .unwrap()
+        .patches
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();
@@ -117,7 +125,7 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
 
     let mut branches = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter();
 
     let branch = &branches.find(|b| b.id == branch_id).unwrap();
@@ -125,14 +133,22 @@ fn undo_commit_in_non_default_branch() -> anyhow::Result<()> {
 
     // should be two uncommitted files now (file2.txt and file3.txt)
     assert_eq!(branch.files.len(), 2);
-    assert_eq!(branch.commits.len(), 2);
-    assert_eq!(list_commit_files(project, branch.commits[0].id)?.len(), 1);
-    assert_eq!(list_commit_files(project, branch.commits[1].id)?.len(), 1);
+    assert_eq!(branch.series[0].clone().unwrap().patches.len(), 2);
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone().unwrap().patches[0].id)?.len(),
+        1
+    );
+    assert_eq!(
+        list_commit_files(project, branch.series[0].clone().unwrap().patches[1].id)?.len(),
+        1
+    );
     assert_eq!(default_branch.files.len(), 0);
-    assert_eq!(default_branch.commits.len(), 0);
+    assert_eq!(default_branch.series[0].clone().unwrap().patches.len(), 0);
 
-    let descriptions = branch
-        .commits
+    let descriptions = branch.series[0]
+        .clone()
+        .unwrap()
+        .patches
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();

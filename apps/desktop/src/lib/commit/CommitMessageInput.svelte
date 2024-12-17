@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { PromptService } from '$lib/ai/promptService';
-	import { AIService } from '$lib/ai/service';
+	import { AIService, type DiffInput } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
@@ -15,15 +15,17 @@
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
-	import { VirtualBranch, LocalFile } from '$lib/vbranches/types';
+	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
+	import { VirtualBranch, DetailedCommit, Commit } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { isWhiteSpaceString } from '@gitbutler/ui/utils/string';
-	import { createEventDispatcher, onMount, tick } from 'svelte';
+	import { onMount, tick } from 'svelte';
 
 	interface Props {
+		existingCommit?: DetailedCommit | Commit;
 		isExpanded: boolean;
 		commitMessage: string;
 		valid?: boolean;
@@ -33,6 +35,7 @@
 
 	let {
 		isExpanded,
+		existingCommit,
 		commitMessage = $bindable(),
 		valid = $bindable(false),
 		commit = undefined,
@@ -45,10 +48,6 @@
 	const project = getContext(Project);
 	const promptService = getContext(PromptService);
 
-	const dispatch = createEventDispatcher<{
-		action: 'generate-branch-name';
-	}>();
-
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(project.id);
 	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(project.id);
@@ -59,7 +58,7 @@
 	let titleTextArea: HTMLTextAreaElement | undefined = $state();
 	let descriptionTextArea: HTMLTextAreaElement | undefined = $state();
 
-	let { title, description } = $derived(splitMessage(commitMessage));
+	const { title, description } = $derived(splitMessage(commitMessage));
 	$effect(() => {
 		valid = !!title;
 	});
@@ -68,17 +67,29 @@
 		return `${title}\n\n${description}`;
 	}
 
-	async function generateCommitMessage(files: LocalFile[]) {
-		const hunks = files.flatMap((f) =>
-			f.hunks.filter((h) => $selectedOwnership.isSelected(f.id, h.id))
-		);
-		// Branches get their names generated only if there are at least 4 lines of code
-		// If the change is a 'one-liner', the branch name is either left as "virtual branch"
-		// or the user has to manually trigger the name generation from the meatball menu
-		// This saves people this extra click
-		if ($branch.name.toLowerCase().includes('lane')) {
-			dispatch('action', 'generate-branch-name');
+	async function getDiffInput(): Promise<DiffInput[]> {
+		if (!existingCommit) {
+			return $branch.files.flatMap((f) =>
+				f.hunks
+					.filter((h) => $selectedOwnership.isSelected(f.id, h.id))
+					.map((h) => ({
+						filePath: f.path,
+						diff: h.diff
+					}))
+			);
 		}
+
+		const files = await listCommitFiles(project.id, existingCommit.id);
+		return files.flatMap((file) =>
+			file.hunks.map((hunk) => ({
+				filePath: file.path,
+				diff: hunk.diff
+			}))
+		);
+	}
+
+	async function generateCommitMessage() {
+		const diffInput = await getDiffInput();
 
 		aiLoading = true;
 
@@ -87,11 +98,11 @@
 		let firstToken = true;
 
 		const generatedMessageResult = await aiService.summarizeCommit({
-			hunks,
+			diffInput,
 			useEmojiStyle: $commitGenerationUseEmojis,
 			useBriefStyle: $commitGenerationExtraConcise,
 			commitTemplate: prompt,
-			branchName: $branch.name,
+			branchName: $branch.series[0]?.name,
 			onToken: (t) => {
 				if (firstToken) {
 					commitMessage = '';
@@ -112,8 +123,7 @@
 		if (generatedMessage) {
 			commitMessage = generatedMessage;
 		} else {
-			const errorMessage = 'Prompt generated no response';
-			showError(errorMessage, undefined);
+			showError('Failed to generate commit message', 'Prompt returned no response');
 			aiLoading = false;
 			return;
 		}
@@ -206,13 +216,13 @@
 			fontSize={13}
 			padding={{ top: 12, right: 28, bottom: 0, left: 12 }}
 			fontWeight="semibold"
-			spellcheck="false"
+			spellcheck={false}
 			flex="1"
 			minRows={1}
 			maxRows={10}
 			bind:textBoxEl={titleTextArea}
 			autofocus
-			oninput={(e: InputEvent & { currentTarget: HTMLTextAreaElement }) => {
+			oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 				const target = e.currentTarget;
 				commitMessage = concatMessage(target.value, description);
 			}}
@@ -227,11 +237,11 @@
 				disabled={aiLoading}
 				fontSize={13}
 				padding={{ top: 0, right: 12, bottom: 0, left: 12 }}
-				spellcheck="false"
+				spellcheck={false}
 				minRows={1}
 				maxRows={30}
 				bind:textBoxEl={descriptionTextArea}
-				oninput={(e: InputEvent & { currentTarget: HTMLTextAreaElement }) => {
+				oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 					const target = e.currentTarget;
 					commitMessage = concatMessage(title, target.value);
 				}}
@@ -266,7 +276,7 @@
 					disabled={!($aiGenEnabled && aiConfigurationValid)}
 					loading={aiLoading}
 					menuPosition="top"
-					onclick={async () => await generateCommitMessage($branch.files)}
+					onclick={async () => await generateCommitMessage()}
 				>
 					Generate message
 
@@ -335,7 +345,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		
+
 		position: absolute;
 		bottom: 12px;
 		left: 12px;
@@ -344,18 +354,18 @@
 		min-width: 20px;
 		color: var(--clr-text-2);
 		border-radius: var(--radius-m);
-		
+
 
 		background: var(--clr-theme-ntrl-soft);
 	}
 
 	.textarea-char-counter_exsceeded {
-		
+
 		padding: 4px 7px 4px 4px;
 
 		& .commit-box__textarea-char-counter-label {
 			margin-left: 4px;
-			
+
 		}
 	} */
 

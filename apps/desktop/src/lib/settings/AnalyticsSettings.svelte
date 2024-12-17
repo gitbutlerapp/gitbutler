@@ -1,8 +1,8 @@
 <script lang="ts">
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { AppSettings } from '$lib/config/appSettings';
 	import Link from '$lib/shared/Link.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
 	const appSettings = getContext(AppSettings);
@@ -36,43 +36,51 @@
 
 <div class="analytics-settings__actions">
 	<SectionCard labelFor="errorReportingToggle" orientation="row">
-		<svelte:fragment slot="title">Error reporting</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Error reporting
+		{/snippet}
+		{#snippet caption()}
 			Toggle reporting of application crashes and errors.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle
 				id="errorReportingToggle"
 				checked={$errorReportingEnabled}
 				onclick={() => ($errorReportingEnabled = !$errorReportingEnabled)}
 			/>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 
 	<SectionCard labelFor="metricsEnabledToggle" orientation="row">
-		<svelte:fragment slot="title">Usage metrics</svelte:fragment>
-		<svelte:fragment slot="caption">Toggle sharing of usage statistics.</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{#snippet title()}
+			Usage metrics
+		{/snippet}
+		{#snippet caption()}
+			Toggle sharing of usage statistics.
+		{/snippet}
+		{#snippet actions()}
 			<Toggle
 				id="metricsEnabledToggle"
 				checked={$metricsEnabled}
 				onclick={() => ($metricsEnabled = !$metricsEnabled)}
 			/>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 
 	<SectionCard labelFor="nonAnonMetricsEnabledToggle" orientation="row">
-		<svelte:fragment slot="title">Non-anonymous usage metrics</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Non-anonymous usage metrics
+		{/snippet}
+		{#snippet caption()}
 			Toggle sharing of identifiable usage statistics.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle
 				id="nonAnonMetricsEnabledToggle"
 				checked={$nonAnonMetricsEnabled}
 				onclick={() => ($nonAnonMetricsEnabled = !$nonAnonMetricsEnabled)}
 			/>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 </div>
 

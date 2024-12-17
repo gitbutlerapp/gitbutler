@@ -625,18 +625,40 @@ fn complex_file_manipulation_multiple_hunks_with_uncommitted_changes() -> Result
     let file_hunk_3_hash = Hunk::hash_diff(&file_hunk_3.diff_lines);
 
     let hunk_1_locks = dependencies.diffs.get(&file_hunk_1_hash).unwrap();
-    assert_eq!(hunk_1_locks.len(), 1);
-    assert_hunk_lock_matches_by_message(hunk_1_locks[0], "create file", &ctx, "hunk 1");
+    assert_eq!(hunk_1_locks.len(), 2);
+    assert_hunk_lock_matches_by_message(
+        hunk_1_locks[0],
+        "create file",
+        &ctx,
+        "Hunk depends on the commit that created the file",
+    );
+    assert_hunk_lock_matches_by_message(
+        hunk_1_locks[1],
+        "insert 1 line at the top and bottom, remove lines 3 and 4 and update line 7",
+        &ctx,
+        "Hunk depends on the commit that deleted lines 3 and 4",
+    );
 
     let hunk_2_locks = dependencies.diffs.get(&file_hunk_2_hash).unwrap();
-    assert_eq!(hunk_2_locks.len(), 2);
+    assert_eq!(hunk_2_locks.len(), 3);
     assert_hunk_lock_matches_by_message(
         hunk_2_locks[0],
         "insert 1 line at the top and bottom, remove lines 3 and 4 and update line 7",
         &ctx,
-        "hunk 2",
+        "Hunk depends on the commit that updated the line 7",
     );
-    assert_hunk_lock_matches_by_message(hunk_2_locks[1], "modify lines 4 and 8", &ctx, "hunk 2");
+    assert_hunk_lock_matches_by_message(
+        hunk_2_locks[1],
+        "create file",
+        &ctx,
+        "Hunk depends on the commit that created the file",
+    );
+    assert_hunk_lock_matches_by_message(
+        hunk_2_locks[2],
+        "modify lines 4 and 8",
+        &ctx,
+        "Hunk depends on the commit updated line 8",
+    );
 
     let hunk_3_locks = dependencies.diffs.get(&file_hunk_3_hash).unwrap();
     assert_eq!(hunk_3_locks.len(), 1);
@@ -699,22 +721,67 @@ fn dependecies_ignore_merge_commits() -> Result<()> {
     )?;
 
     let commit_dependencies = dependencies.commit_dependencies.get(&my_stack.id).unwrap();
-    assert_eq!(commit_dependencies.len(), 0);
+    assert_eq!(
+        commit_dependencies.len(),
+        0,
+        "There are no commit interdependencies"
+    );
 
-    assert_eq!(dependencies.diffs.len(), 1);
+    assert_eq!(
+        dependencies.diffs.len(),
+        1,
+        "Only one diff depends on commits"
+    );
     let file_hunk_1_hash = Hunk::hash_diff(&file_hunk_1.diff_lines);
     let file_hunk_2_hash = Hunk::hash_diff(&file_hunk_2.diff_lines);
 
     let hunk_1_locks = dependencies.diffs.get(&file_hunk_1_hash);
-    assert_eq!(hunk_1_locks, None);
+    assert_eq!(
+        hunk_1_locks, None,
+        "Hunk 1 should not have any dependencies, because it only intersects with a merge commit"
+    );
 
     let hunk_2_locks = dependencies.diffs.get(&file_hunk_2_hash).unwrap();
-    assert_eq!(hunk_2_locks.len(), 1);
+    assert_eq!(hunk_2_locks.len(), 1, "Hunk 2 should have one dependency");
     assert_hunk_lock_matches_by_message(
         hunk_2_locks[0],
         "update line 8 and delete the line after 7",
         &ctx,
         "hunk 2",
+    );
+
+    Ok(())
+}
+
+#[test]
+fn dependencies_handle_complex_branch_checkout() -> Result<()> {
+    // This test ensures that checking out branches with *complex* histories
+    // does not cause the dependency calculation to fail.
+    //
+    // The *complexity* of the branch is that is contains a merge commit from itself to itself,
+    // mimicking checking-out a remote branch that had PRs merged to it.
+    let ctx = command_ctx("complex-branch-checkout")?;
+    let test_ctx = test_ctx(&ctx)?;
+    let default_target = test_ctx.virtual_branches.get_default_target()?;
+    let my_stack = &test_ctx.stack;
+
+    let dependencies = compute_workspace_dependencies(
+        &ctx,
+        &default_target.sha,
+        &HashMap::new(),
+        &test_ctx.all_stacks,
+    )?;
+
+    let commit_dependencies = dependencies.commit_dependencies.get(&my_stack.id).unwrap();
+    assert_commit_map_matches_by_message(
+        commit_dependencies,
+        HashMap::from([
+            ("update a again", vec!["update a"]),
+            ("update a", vec!["add a"]),
+            ("Merge branch 'delete-b' into my_stack", vec!["add b"]),
+        ]),
+        &ctx,
+        "Commit interdependencies correctly calculated. They should only pick up the merge commit when calculating dependencies",
     );
 
     Ok(())
@@ -738,7 +805,7 @@ fn assert_hunk_lock_matches_by_message(
 }
 
 fn get_commit_message(ctx: &CommandContext, commit_id: git2::Oid) -> String {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let commit = repo.find_commit(commit_id).unwrap();
     let commit_message = commit.message().unwrap();
     commit_message.to_string()
@@ -801,14 +868,14 @@ fn extract_commit_messages(
     let mut actual_messages: HashMap<String, Vec<String>> = HashMap::new();
 
     for (oid_key, oid_values) in actual {
-        let repo = ctx.repository();
+        let repo = ctx.repo();
         let key_commit = repo.find_commit(*oid_key).unwrap();
-        let key_message = key_commit.message().unwrap().to_string();
+        let key_message = key_commit.message().unwrap().trim().to_string();
         let actual_values: Vec<String> = oid_values
             .iter()
             .map(|oid| {
                 let value_commit = repo.find_commit(*oid).unwrap();
-                let value_commit_message = value_commit.message().unwrap();
+                let value_commit_message = value_commit.message().unwrap().trim();
                 value_commit_message.to_string()
             })
             .collect();

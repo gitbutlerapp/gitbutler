@@ -36,7 +36,7 @@ pub fn reorder_stack(
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let state = ctx.project().virtual_branches();
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let mut stack = state.get_stack(stack_id)?;
     let current_order = commits_order(&ctx.to_stack_context()?, &stack)?;
     new_order.validate(current_order.clone())?;
@@ -54,12 +54,12 @@ pub fn reorder_stack(
         .flat_map(|s| s.commit_ids.iter())
         .cloned()
         .collect_vec();
-    let new_head = cherry_rebase_group(repo, merge_base, &ids_to_rebase)?;
+    let new_head = cherry_rebase_group(repo, merge_base, &ids_to_rebase, false)?;
     // Calculate the new head and tree
     let BranchHeadAndTree {
         head: new_head_oid,
         tree: new_tree_oid,
-    } = compute_updated_branch_head_for_commits(repo, old_head.id(), old_head.tree_id(), new_head)?;
+    } = compute_updated_branch_head_for_commits(repo, old_head.id(), stack.tree, new_head)?;
 
     // Ensure the stack head is set to the new oid after rebasing
     stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;

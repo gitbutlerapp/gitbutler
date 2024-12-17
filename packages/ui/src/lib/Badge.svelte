@@ -1,14 +1,12 @@
-<script lang="ts" module>
+<script lang="ts">
 	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
 
-	export interface Props {
+	interface Props {
 		label: string | number;
 		style?: ComponentColor;
 		kind?: ComponentStyleKind;
 	}
-</script>
 
-<script lang="ts">
 	const { label, style = 'neutral', kind = 'solid' }: Props = $props();
 </script>
 
@@ -22,8 +20,8 @@
 		align-items: center;
 		justify-content: center;
 		text-align: center;
-		height: 14px;
-		min-width: 14px;
+		height: var(--size-icon);
+		min-width: var(--size-icon);
 		border-radius: 14px;
 		padding: 0 4px;
 		line-height: 90%;

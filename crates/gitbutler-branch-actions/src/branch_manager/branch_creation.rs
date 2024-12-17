@@ -1,4 +1,9 @@
+use super::BranchManager;
 use crate::r#virtual as vbranch;
+use crate::{
+    conflicts::RepoConflictsExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
+    VirtualBranchesExt,
+};
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::BranchCreateRequest;
 use gitbutler_branch::{self, dedup};
@@ -6,24 +11,19 @@ use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
 use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
+use gitbutler_oxidize::GixRepositoryExt;
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::GixRepositoryExt;
+use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo::{
     rebase::{cherry_rebase_group, gitbutler_merge_commits},
-    LogUntil, RepositoryExt,
+    RepositoryExt,
 };
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, StackId};
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use gitbutler_workspace::checkout_branch_trees;
 use tracing::instrument;
-
-use super::BranchManager;
-use crate::{
-    conflicts::RepoConflictsExt, hunk::VirtualBranchHunk, integration::update_workspace_commit,
-    VirtualBranchesExt,
-};
 
 impl BranchManager<'_> {
     #[instrument(level = tracing::Level::DEBUG, skip(self, perm), err(Debug))]
@@ -37,7 +37,7 @@ impl BranchManager<'_> {
 
         let commit = self
             .ctx
-            .repository()
+            .repo()
             .find_commit(default_target.sha)
             .context("failed to find default target commit")?;
 
@@ -161,7 +161,7 @@ impl BranchManager<'_> {
             }
         }
 
-        let repo = self.ctx.repository();
+        let repo = self.ctx.repo();
         let head_reference = repo
             .find_reference(&target.to_string())
             .map_err(|err| match err {
@@ -192,12 +192,8 @@ impl BranchManager<'_> {
         let merge_base_tree = repo.find_commit(merge_base_oid)?.tree()?;
 
         // do a diff between the head of this branch and the target base
-        let diff = gitbutler_diff::trees(
-            self.ctx.repository(),
-            &merge_base_tree,
-            &head_commit_tree,
-            true,
-        )?;
+        let diff =
+            gitbutler_diff::trees(self.ctx.repo(), &merge_base_tree, &head_commit_tree, true)?;
 
         // assign ownership to the branch
         let ownership = diff.iter().fold(
@@ -222,7 +218,7 @@ impl BranchManager<'_> {
             vb_state.find_by_source_refname_where_not_in_workspace(target)
         {
             branch.upstream_head = upstream_branch.is_some().then_some(head_commit.id());
-            branch.upstream = upstream_branch;
+            branch.upstream = upstream_branch; // Used as remote when listing commits.
             branch.ownership = ownership;
             branch.order = order;
             branch.selected_for_changes = selected_for_changes;
@@ -280,7 +276,7 @@ impl BranchManager<'_> {
     ) -> Result<String> {
         self.ctx.assure_resolved()?;
         self.ctx.assure_unconflicted()?;
-        let repo = self.ctx.repository();
+        let repo = self.ctx.repo();
 
         let vb_state = self.ctx.project().virtual_branches();
         let default_target = vb_state.get_default_target()?;
@@ -331,12 +327,17 @@ impl BranchManager<'_> {
         }
 
         // Do we need to rebase the branch on top of the default target?
-        if merge_base != default_target.sha {
+
+        let has_change_id = repo.find_commit(stack.head())?.change_id().is_some();
+        // If the branch has no change ID for the head commit, we want to rebase it even if the base is the same
+        // This way stacking functionality which relies on change IDs will work as expected
+        if merge_base != default_target.sha || !has_change_id {
             let new_head = if stack.allow_rebasing {
                 let commits_to_rebase =
                     repo.l(stack.head(), LogUntil::Commit(merge_base), false)?;
 
-                let head_oid = cherry_rebase_group(repo, default_target.sha, &commits_to_rebase)?;
+                let head_oid =
+                    cherry_rebase_group(repo, default_target.sha, &commits_to_rebase, true)?;
 
                 repo.find_commit(head_oid)?
             } else {

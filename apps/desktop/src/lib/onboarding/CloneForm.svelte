@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { invoke } from '$lib/backend/ipc';
 	import { ProjectsService } from '$lib/backend/projects';
 	import Section from '$lib/settings/Section.svelte';
@@ -13,11 +14,11 @@
 	import { documentDir } from '@tauri-apps/api/path';
 	import { join } from '@tauri-apps/api/path';
 	import { open } from '@tauri-apps/plugin-dialog';
-	import { posthog } from 'posthog-js';
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
 	const projectsService = getContext(ProjectsService);
+	const posthog = getContext(PostHogWrapper);
 
 	let loading = $state(false);
 	let errors = $state<{ label: string }[]>([]);
@@ -142,7 +143,7 @@
 </div>
 
 {#snippet Notification({
-	title,
+	title: titleLabel,
 	items,
 	style
 }: {
@@ -152,16 +153,16 @@
 })}
 	<div class="clone__info-message">
 		<InfoMessage {style} filled outlined={false}>
-			<svelte:fragment slot="title">
-				{title}
-			</svelte:fragment>
-			<svelte:fragment slot="content">
+			{#snippet title()}
+				{titleLabel}
+			{/snippet}
+			{#snippet content()}
 				{#if items && items.length > 0}
 					{#each items as item}
 						{@html item.label}
 					{/each}
 				{/if}
-			</svelte:fragment>
+			{/snippet}
 		</InfoMessage>
 	</div>
 {/snippet}

@@ -45,6 +45,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
+    #[instrument]
     pub fn git_clone_repository(
         repository_url: &str,
         target_dir: &Path,
@@ -59,6 +60,7 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
+    #[instrument(skip(projects))]
     pub fn get_uncommited_files(
         projects: State<'_, projects::Controller>,
         id: ProjectId,

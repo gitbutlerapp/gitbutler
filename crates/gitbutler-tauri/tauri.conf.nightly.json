@@ -2,7 +2,7 @@
 	"productName": "GitButler Nightly",
 	"identifier": "com.gitbutler.app.nightly",
 	"build": {
-		"beforeBuildCommand": "[ $CI = true ] || pnpm build:desktop -- --mode nightly && cargo build --release -p gitbutler-git && bash ./crates/gitbutler-tauri/inject-git-binaries.sh"
+		"beforeBuildCommand": "[ \"$CI\" = \"true\" ] || pnpm build:desktop -- --mode nightly && cargo build --release -p gitbutler-git && bash ./crates/gitbutler-tauri/inject-git-binaries.sh"
 	},
 	"bundle": {
 		"active": true,

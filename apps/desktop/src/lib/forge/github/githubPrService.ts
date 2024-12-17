@@ -2,8 +2,8 @@ import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
 import { sleep } from '$lib/utils/sleep';
-import posthog from 'posthog-js';
 import { writable } from 'svelte/store';
+import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { ForgePrService } from '$lib/forge/interface/forgePrService';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type {
@@ -19,7 +19,9 @@ export class GitHubPrService implements ForgePrService {
 
 	constructor(
 		private octokit: Octokit,
-		private repo: RepoInfo
+		private repo: RepoInfo,
+		private baseBranch: string,
+		private posthog?: PostHogWrapper
 	) {}
 
 	async createPr({
@@ -52,7 +54,7 @@ export class GitHubPrService implements ForgePrService {
 		while (attempts < 4) {
 			try {
 				pr = await request();
-				posthog.capture('PR Successful');
+				this.posthog?.capture('PR Successful');
 				return pr;
 			} catch (err: any) {
 				lastError = err;
@@ -94,17 +96,21 @@ export class GitHubPrService implements ForgePrService {
 	}
 
 	prMonitor(prNumber: number): GitHubPrMonitor {
-		return new GitHubPrMonitor(this, prNumber);
+		return new GitHubPrMonitor(this, this.repo, prNumber, this.baseBranch);
 	}
 
-	async update(prNumber: number, details: { description?: string; state?: 'open' | 'closed' }) {
-		const { description, state } = details;
+	async update(
+		prNumber: number,
+		details: { description?: string; state?: 'open' | 'closed'; targetBase?: string }
+	) {
+		const { description, state, targetBase } = details;
 		await this.octokit.pulls.update({
 			owner: this.repo.owner,
 			repo: this.repo.name,
 			pull_number: prNumber,
 			body: description,
-			state: state
+			state: state,
+			base: targetBase
 		});
 	}
 }

@@ -1,10 +1,17 @@
 <script lang="ts">
 	import Sidebar from '$lib/settings/Sidebar.svelte';
+	import type { Snippet } from 'svelte';
+
+	interface Props {
+		children?: Snippet;
+	}
+
+	const { children }: Props = $props();
 </script>
 
 <section class="profile-page">
 	<Sidebar />
-	<slot />
+	{@render children?.()}
 </section>
 
 <style lang="postcss">

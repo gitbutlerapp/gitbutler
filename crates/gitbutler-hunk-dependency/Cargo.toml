@@ -4,21 +4,17 @@ version = "0.0.0"
 edition = "2021"
 authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
+autotests = false
 
 [dependencies]
-anyhow = "1.0.92"
+anyhow = "1.0.93"
 git2.workspace = true
-gix = { workspace = true, features = [] }
 gitbutler-diff.workspace = true
-gitbutler-reference.workspace = true
 gitbutler-serde.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-id.workspace = true
 itertools = "0.13"
 serde = { workspace = true, features = ["std"] }
-bstr.workspace = true
-tokio.workspace = true
-uuid = { workspace = true, features = ["fast-rng"] }
 
 [[test]]
 name = "hunk-dependency"

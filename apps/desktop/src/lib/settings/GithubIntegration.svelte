@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { getGitHubUserServiceStore } from '$lib/forge/github/githubUserService';
 	import { UserService } from '$lib/stores/user';
 	import { copyToClipboard } from '$lib/utils/clipboard';
@@ -10,24 +9,29 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import { fade } from 'svelte/transition';
 
-	export let minimal = false;
-	export let disabled = false;
+	interface Props {
+		minimal?: boolean;
+		disabled?: boolean;
+	}
+
+	const { minimal = false, disabled = false }: Props = $props();
 
 	const githubUserService = getGitHubUserServiceStore();
 	const userService = getContext(UserService);
 	const user = userService.user;
 
 	// step flags
-	let codeCopied = false;
-	let GhActivationLinkPressed = false;
-	let GhActivationPageOpened = false;
+	let codeCopied = $state(false);
+	let GhActivationLinkPressed = $state(false);
+	let GhActivationPageOpened = $state(false);
 
-	let loading = false;
-	let userCode = '';
-	let deviceCode = '';
-	let gitHubOauthModal: ReturnType<typeof Modal> | undefined;
+	let loading = $state(false);
+	let userCode = $state('');
+	let deviceCode = $state('');
+	let gitHubOauthModal: ReturnType<typeof Modal> | undefined = $state();
 
 	function gitHubStartOauth() {
 		initDeviceOauth().then((verification) => {
@@ -70,7 +74,7 @@
 	<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 {:else}
 	<SectionCard orientation="row">
-		<svelte:fragment slot="iconSide">
+		{#snippet iconSide()}
 			<div class="icon-wrapper">
 				{#if $user?.github_access_token}
 					<div class="icon-wrapper__tick">
@@ -91,9 +95,13 @@
 					/>
 				</svg>
 			</div>
-		</svelte:fragment>
-		<svelte:fragment slot="title">GitHub</svelte:fragment>
-		<svelte:fragment slot="caption">Allows you to view and create Pull Requests.</svelte:fragment>
+		{/snippet}
+		{#snippet title()}
+			GitHub
+		{/snippet}
+		{#snippet caption()}
+			Allows you to view and create Pull Requests.
+		{/snippet}
 		{#if $user?.github_access_token}
 			<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}>
 				Forget

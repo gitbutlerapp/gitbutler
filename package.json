@@ -6,7 +6,7 @@
 		"node": ">=20.11"
 	},
 	"type": "module",
-	"packageManager": "pnpm@9.5.0",
+	"packageManager": "pnpm@9.12.0",
 	"scripts": {
 		"dev:ui": "pnpm --filter @gitbutler/ui storybook",
 		"dev:web": "turbo watch --filter @gitbutler/web dev",
@@ -25,6 +25,7 @@
 		"tauri": "tauri",
 		"lint": "turbo run //#globallint --no-daemon",
 		"globallint": "prettier --check . && eslint .",
+		"prettier": "prettier --check",
 		"format": "prettier --write .",
 		"fix": "eslint --fix .",
 		"prepare": "pnpm --filter @gitbutler/desktop run prepare",

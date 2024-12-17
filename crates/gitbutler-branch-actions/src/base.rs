@@ -11,10 +11,13 @@ use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_branch::GITBUTLER_WORKSPACE_REFERENCE;
 use gitbutler_command_context::CommandContext;
 use gitbutler_error::error::Marker;
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt};
 use gitbutler_project::FetchResult;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{GixRepositoryExt, LogUntil, RepositoryExt};
+use gitbutler_repo::{
+    logging::{LogUntil, RepositoryExt as _},
+    RepositoryExt,
+};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, Stack, Target, VirtualBranchesHandle};
 use serde::Serialize;
@@ -50,7 +53,7 @@ pub(crate) fn get_base_branch_data(ctx: &CommandContext) -> Result<BaseBranch> {
 }
 
 fn go_back_to_integration(ctx: &CommandContext, default_target: &Target) -> Result<BaseBranch> {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let statuses = repo
         .statuses(Some(
             git2::StatusOptions::new()
@@ -110,7 +113,7 @@ pub(crate) fn set_base_branch(
     ctx: &CommandContext,
     target_branch_ref: &RemoteRefname,
 ) -> Result<BaseBranch> {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
 
     // if target exists, and it is the same as the requested branch, we should go back
     if let Ok(target) = default_target(&ctx.project().gb_dir()) {
@@ -258,7 +261,7 @@ pub(crate) fn set_base_branch(
 
 pub(crate) fn set_target_push_remote(ctx: &CommandContext, push_remote_name: &str) -> Result<()> {
     let remote = ctx
-        .repository()
+        .repo()
         .find_remote(push_remote_name)
         .context(format!("failed to find remote {}", push_remote_name))?;
 
@@ -276,7 +279,7 @@ pub(crate) fn set_target_push_remote(ctx: &CommandContext, push_remote_name: &st
 }
 
 fn set_exclude_decoration(ctx: &CommandContext) -> Result<()> {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let mut config = repo.config()?;
     config
         .set_multivar("log.excludeDecoration", "refs/gitbutler", "refs/gitbutler")
@@ -306,7 +309,7 @@ fn _print_tree(repo: &git2::Repository, tree: &git2::Tree) -> Result<()> {
 }
 
 pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Result<BaseBranch> {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let branch = repo
         .maybe_find_branch_by_refname(&target.branch.clone().into())?
         .ok_or(anyhow!("failed to get branch"))?;
@@ -365,7 +368,7 @@ pub(crate) fn target_to_base_branch(ctx: &CommandContext, target: &Target) -> Re
     };
 
     let base = BaseBranch {
-        branch_name: format!("{}/{}", target.branch.remote(), target.branch.branch()),
+        branch_name: target.branch.fullname(),
         remote_name: target.branch.remote().to_string(),
         remote_url: target.remote_url.clone(),
         push_remote_name: target.push_remote_name.clone(),

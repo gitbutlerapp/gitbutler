@@ -19,7 +19,8 @@ fn should_unapply_diff() {
     // write some
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_details = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_details.branches;
     let c = gitbutler_branch_actions::create_commit(
         project,
         branches.first().unwrap().id,
@@ -32,7 +33,8 @@ fn should_unapply_diff() {
     gitbutler_branch_actions::unapply_without_saving_virtual_branch(project, branches[0].id)
         .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 0);
     assert!(!repository.path().join("file.txt").exists());
 
@@ -77,7 +79,9 @@ fn should_remove_reference() {
 
     gitbutler_branch_actions::unapply_without_saving_virtual_branch(project, id).unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
+
     assert_eq!(branches.len(), 0);
 
     let refnames = repository

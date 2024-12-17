@@ -12,8 +12,8 @@
 	import { page } from '$app/stores';
 
 	const forgeListing = getForgeListingService();
-	let prs = $derived<Readable<PullRequest[]> | undefined>($forgeListing?.prs);
-	let pr = $derived<PullRequest | undefined>(
+	const prs = $derived<Readable<PullRequest[]> | undefined>($forgeListing?.prs);
+	const pr = $derived<PullRequest | undefined>(
 		$prs?.find((b) => b.number.toString() === $page.params.number)
 	);
 </script>

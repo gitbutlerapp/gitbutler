@@ -2,7 +2,7 @@
 	import { clickOutside } from '$lib/utils/clickOutside';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-	import { onMount } from 'svelte';
+	import { onMount, tick } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	interface Props {
@@ -91,7 +91,11 @@
 
 	onMount(() => {
 		if (selectall) htmlInput.select();
-		else if (autofocus) htmlInput.focus();
+		else if (autofocus) {
+			tick().then(() => {
+				htmlInput.focus();
+			});
+		}
 	});
 </script>
 

@@ -27,7 +27,8 @@ export const prerender = false;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async ({ params, parent }) => {
-	const { authService, projectsService, cloud, commandService, userService } = await parent();
+	const { authService, projectsService, cloud, commandService, userService, posthog } =
+		await parent();
 
 	const projectId = params.projectId;
 	projectsService.setLastOpenedProject(projectId);
@@ -64,13 +65,19 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 	const branchListingService = new BranchListingService(projectId);
 	const gitBranchService = new GitBranchService(projectId);
 
-	const vbranchService = new VirtualBranchService(projectId, projectMetrics, branchListingService);
+	const vbranchService = new VirtualBranchService(
+		projectId,
+		projectMetrics,
+		branchListingService,
+		modeService
+	);
 
 	const branchController = new BranchController(
 		projectId,
 		vbranchService,
 		baseBranchService,
-		branchListingService
+		branchListingService,
+		posthog
 	);
 
 	const branchDragActionsFactory = new BranchDragActionsFactory(branchController);

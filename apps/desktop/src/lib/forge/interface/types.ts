@@ -45,18 +45,14 @@ export interface DetailedPullRequest {
 	rebaseable: boolean;
 	squashable: boolean;
 	state: 'open' | 'closed';
+	baseRepo: RepoInfo | undefined;
+	baseBranch: string;
 }
 
 export type ChecksStatus = {
 	startedAt: Date;
 	completed: boolean;
 	success: boolean;
-	hasChecks: boolean;
-	failed: number;
-	queued: number;
-	totalCount: number;
-	skipped: number;
-	finished: number;
 };
 
 export enum MergeMethod {

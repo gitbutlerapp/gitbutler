@@ -84,7 +84,7 @@ describe('GitHubChecksMonitor', () => {
 		expect(mock).toHaveBeenCalledOnce();
 
 		let status = monitor?.getLastStatus();
-		expect(status?.finished).toBeFalsy();
+		expect(status?.completed).toBeFalsy();
 
 		// Verify that checks are re-fetchd after some timeout.
 		await vi.runOnlyPendingTimersAsync();

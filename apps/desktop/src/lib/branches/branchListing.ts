@@ -9,6 +9,7 @@ import {
 	type SidebarEntrySubject
 } from '$lib/navigation/types';
 import { debouncedDerive } from '$lib/utils/debounce';
+import { msSinceDaysAgo } from '$lib/utils/time';
 import { persisted, type Persisted } from '@gitbutler/shared/persisted';
 import { Transform, Type, plainToInstance } from 'class-transformer';
 import Fuse from 'fuse.js';
@@ -121,7 +122,6 @@ export class BranchListingService {
 	}
 }
 
-const oneDay = 1000 * 60 * 60 * 24;
 export type GroupedSidebarEntries = Record<
 	'applied' | 'today' | 'yesterday' | 'lastWeek' | 'older',
 	SidebarEntrySubject[]
@@ -228,35 +228,40 @@ export class CombinedBranchListingService {
 	}
 
 	search(searchTerm: Readable<string | undefined>) {
-		return derived(
-			[searchTerm, this.combinedSidebarEntries],
-			([searchTerm, combinedSidebarEntries]) => {
-				if (!searchTerm) return [];
-
-				const fuse = new Fuse(combinedSidebarEntries, {
-					keys: [
-						// Subject is branch listing
-						'subject.name',
-						'subject.lastCommiter.email',
-						'subject.lastCommiter.name',
-						// Subject is pull request
-						'subject.title',
-						'subject.author.email',
-						'subject.author.name'
-					],
-					threshold: 0.3, // 0 is the strictest.
-					sortFn: (a, b) => {
-						// Sort results by when the item was last modified.
-						const dateA = (a.item.modifiedAt || a.item.updatedAt) as Date | undefined;
-						const dateB = (b.item.modifiedAt || b.item.updatedAt) as Date | undefined;
-						if (dateA && dateB) {
-							return dateA < dateB ? -1 : 1;
-						}
-						return 0;
+		const engine = derived(this.combinedSidebarEntries, (combinedSidebarEntries) => {
+			return new Fuse(combinedSidebarEntries, {
+				keys: [
+					// Subject is branch listing
+					'subject.name',
+					'subject.lastCommiter.email',
+					'subject.lastCommiter.name',
+					// Subject is pull request
+					'subject.title',
+					'subject.author.email',
+					'subject.author.name'
+				],
+				threshold: 0.3, // 0 is the strictest.
+				ignoreLocation: true,
+				isCaseSensitive: false,
+				sortFn: (a, b) => {
+					// Sort results by when the item was last modified.
+					const dateA = (a.item.modifiedAt ?? a.item.updatedAt) as Date | undefined;
+					const dateB = (b.item.modifiedAt ?? b.item.updatedAt) as Date | undefined;
+					if (dateA !== undefined && dateB !== undefined && dateA !== dateB) {
+						return dateA < dateB ? -1 : 1;
 					}
-				});
+					// If there are no dates or they're the same, sort by score
+					return a.score < b.score ? -1 : 1;
+				}
+			});
+		});
 
-				return fuse.search(searchTerm, { limit: 100 }).map((result) => result.item);
+		return derived(
+			[searchTerm, engine, this.combinedSidebarEntries],
+			([searchTerm, engine, combinedSidebarEntries]) => {
+				if (!searchTerm) return combinedSidebarEntries;
+				const results = engine.search(searchTerm);
+				return results.map((result) => result.item);
 			},
 			[] as SidebarEntrySubject[]
 		);
@@ -283,11 +288,11 @@ export class CombinedBranchListingService {
 
 			if (getEntryWorkspaceStatus(b)) {
 				grouped.applied.push(b);
-			} else if (msSinceLastCommit < oneDay) {
+			} else if (msSinceLastCommit < msSinceDaysAgo(1)) {
 				grouped.today.push(b);
-			} else if (msSinceLastCommit < 2 * oneDay) {
+			} else if (msSinceLastCommit < msSinceDaysAgo(2)) {
 				grouped.yesterday.push(b);
-			} else if (msSinceLastCommit < 7 * oneDay) {
+			} else if (msSinceLastCommit < msSinceDaysAgo(7)) {
 				grouped.lastWeek.push(b);
 			} else {
 				grouped.older.push(b);

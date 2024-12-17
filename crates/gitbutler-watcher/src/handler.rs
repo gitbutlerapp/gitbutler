@@ -1,24 +1,21 @@
 use std::{path::PathBuf, sync::Arc};
 
-use super::{events, Change};
 use anyhow::{Context, Result};
-use gitbutler_branch_actions::VirtualBranches;
+use gitbutler_branch_actions::{internal::StackListResult, VirtualBranches};
 use gitbutler_command_context::CommandContext;
 use gitbutler_diff::DiffByPathMap;
 use gitbutler_error::error::Marker;
-use gitbutler_operating_modes::{
-    in_open_workspace_mode, in_outside_workspace_mode, operating_mode,
-};
+use gitbutler_operating_modes::{in_open_workspace_mode, operating_mode};
 use gitbutler_oplog::{
     entry::{OperationKind, SnapshotDetails},
     OplogExt,
 };
-use gitbutler_project::ProjectId;
-use gitbutler_project::{self as projects, Project};
-use gitbutler_reference::{LocalRefname, Refname};
+use gitbutler_project::{self as projects, Project, ProjectId};
 use gitbutler_sync::cloud::{push_oplog, push_repo};
 use gitbutler_user as users;
 use tracing::instrument;
+
+use super::{events, Change};
 
 /// A type that contains enough state to make decisions based on changes in the filesystem, which themselves
 /// may trigger [Changes](Change)
@@ -105,11 +102,16 @@ impl Handler {
             .get(project_id)
             .context("failed to get project")?;
         match gitbutler_branch_actions::list_virtual_branches_cached(&project, worktree_changes) {
-            Ok((branches, skipped_files)) => self.emit_app_event(Change::VirtualBranches {
+            Ok(StackListResult {
+                branches,
+                skipped_files,
+                dependency_errors,
+            }) => self.emit_app_event(Change::VirtualBranches {
                 project_id: project.id,
                 virtual_branches: VirtualBranches {
                     branches,
                     skipped_files,
+                    dependency_errors,
                 },
             }),
             Err(err)
@@ -192,17 +194,7 @@ impl Handler {
                     let ctx = CommandContext::open(&project)
                         .context("Failed to create a command context")?;
 
-                    // If the user has left gitbutler/workspace, we want to delete the reference.
-                    // TODO: why do we want to do this?
-                    if in_outside_workspace_mode(&ctx) {
-                        let mut workspace_reference = ctx.repository().find_reference(
-                            &Refname::from(LocalRefname::new("gitbutler/workspace", None))
-                                .to_string(),
-                        )?;
-                        workspace_reference.delete()?;
-                    }
-
-                    let head_ref = ctx.repository().head().context("failed to get head")?;
+                    let head_ref = ctx.repo().head().context("failed to get head")?;
                     if let Some(head) = head_ref.name() {
                         self.emit_app_event(Change::GitHead {
                             project_id,

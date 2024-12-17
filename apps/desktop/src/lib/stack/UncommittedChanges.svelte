@@ -12,7 +12,7 @@
 		commitBoxOpen: Writable<boolean>;
 	}
 
-	let { commitBoxOpen }: Props = $props();
+	const { commitBoxOpen }: Props = $props();
 
 	const project = getContext(Project);
 	const branchStore = getContextStore(VirtualBranch);
@@ -27,6 +27,7 @@
 		<BranchFiles
 			isUnapplied={false}
 			files={branch.files}
+			branches={branch.validSeries}
 			showCheckboxes={$commitBoxOpen}
 			allowMultiple
 			commitDialogExpanded={commitBoxOpen}
@@ -35,14 +36,14 @@
 		{#if branch.conflicted}
 			<div class="card-notifications">
 				<InfoMessage filled outlined={false} style="error">
-					<svelte:fragment slot="title">
+					{#snippet title()}
 						{#if branch.files.some((f) => f.conflicted)}
 							This virtual branch conflicts with upstream changes. Please resolve all conflicts and
 							commit before you can continue.
 						{:else}
 							Please commit your resolved conflicts to continue.
 						{/if}
-					</svelte:fragment>
+					{/snippet}
 				</InfoMessage>
 			</div>
 		{/if}
@@ -52,7 +53,7 @@
 		bind:this={commitDialog}
 		projectId={project.id}
 		expanded={commitBoxOpen}
-		hasSectionsAfter={branch.commits.length > 0}
+		hasSectionsAfter={branch.validSeries.flatMap((s) => s.patches).length > 0}
 	/>
 </div>
 

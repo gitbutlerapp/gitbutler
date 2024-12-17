@@ -6,9 +6,14 @@
 	import WorkspaceButton from './WorkspaceButton.svelte';
 	import Resizer from '../shared/Resizer.svelte';
 	import { ProjectService } from '$lib/backend/projects';
+	import {
+		cloudCommunicationFunctionality,
+		cloudReviewFunctionality
+	} from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/modes/service';
 	import CloudSeriesButton from '$lib/navigation/CloudSeriesButton.svelte';
 	import EditButton from '$lib/navigation/EditButton.svelte';
+	import FeedButton from '$lib/navigation/FeedButton.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { createKeybind } from '$lib/utils/hotkeys';
@@ -20,16 +25,15 @@
 	const minResizerRatio = 150;
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const projectService = getContext(ProjectService);
-	const cloudEnabled = projectService.cloudEnabled;
 	const projectId = projectService.projectId;
 	const defaultTrayWidthRem = persisted<number | undefined>(
 		undefined,
 		'defaulTrayWidth_ ' + projectId
 	);
 
-	let viewport: HTMLDivElement;
-	let isResizerHovered = false;
-	let isResizerDragging = false;
+	let viewport = $state<HTMLDivElement>();
+	let isResizerHovered = $state(false);
+	let isResizerDragging = $state(false);
 
 	const isNavCollapsed = persisted<boolean>(false, 'projectNavCollapsed_' + projectId);
 
@@ -47,7 +51,7 @@
 	const mode = modeService.mode;
 </script>
 
-<svelte:window on:keydown={handleKeyDown} />
+<svelte:window onkeydown={handleKeyDown} />
 
 <aside class="navigation-wrapper">
 	<div
@@ -56,40 +60,41 @@
 		role="button"
 		class:folding-button_folded={$isNavCollapsed}
 	>
-		<Resizer
-			{viewport}
-			direction="right"
-			minWidth={minResizerWidth}
-			defaultLineColor="var(--clr-border-2)"
-			zIndex="var(--z-floating)"
-			on:dblclick={toggleNavCollapse}
-			on:width={(e) => {
-				$defaultTrayWidthRem = e.detail / (16 * $userSettings.zoom);
-			}}
-			on:hover={(e) => {
-				isResizerHovered = e.detail;
-			}}
-			on:resizing={(e) => {
-				isResizerDragging = e.detail;
-			}}
-			on:overflowValue={(e) => {
-				const overflowValue = e.detail;
+		{#if viewport}
+			<Resizer
+				{viewport}
+				direction="right"
+				minWidth={minResizerWidth}
+				defaultLineColor="var(--clr-border-2)"
+				zIndex="var(--z-floating)"
+				onDblClick={toggleNavCollapse}
+				onWidth={(value) => {
+					$defaultTrayWidthRem = value / (16 * $userSettings.zoom);
+				}}
+				onHover={(isHovering) => {
+					isResizerHovered = isHovering;
+				}}
+				onResizing={(isDragging) => {
+					isResizerDragging = isDragging;
+				}}
+				onOverflow={(overflowValue) => {
+					if (!$isNavCollapsed && overflowValue > minResizerRatio) {
+						$isNavCollapsed = true;
+					}
 
-				if (!$isNavCollapsed && overflowValue > minResizerRatio) {
-					$isNavCollapsed = true;
-				}
-
-				if ($isNavCollapsed && overflowValue < minResizerRatio) {
-					$isNavCollapsed = false;
-				}
-			}}
-		/>
+					if ($isNavCollapsed && overflowValue < minResizerRatio) {
+						$isNavCollapsed = false;
+					}
+				}}
+			/>
+		{/if}
 
 		<button
 			type="button"
+			aria-label="Collapse Navigation"
 			class="folding-button"
 			class:resizer-hovered={isResizerHovered || isResizerDragging}
-			on:mousedown={toggleNavCollapse}
+			onmousedown={toggleNavCollapse}
 		>
 			<svg viewBox="0 0 6 11" fill="none" xmlns="http://www.w3.org/2000/svg">
 				<path
@@ -123,8 +128,11 @@
 						<EditButton href={`/${projectId}/edit`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 
-					{#if $cloudEnabled}
+					{#if $cloudReviewFunctionality}
 						<CloudSeriesButton href={`/${projectId}/series`} isNavCollapsed={$isNavCollapsed} />
+					{/if}
+					{#if $cloudCommunicationFunctionality}
+						<FeedButton href={`/${projectId}/feed`} isNavCollapsed={$isNavCollapsed} />
 					{/if}
 				</div>
 			</div>
@@ -164,9 +172,7 @@
 	.navigation-top {
 		display: flex;
 		flex-direction: column;
-		padding-bottom: 24px;
-		padding-left: 14px;
-		padding-right: 14px;
+		padding: 0 14px 14px 14px;
 	}
 	.domains {
 		display: flex;

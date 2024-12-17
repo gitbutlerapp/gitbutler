@@ -6,11 +6,11 @@ authors = ["GitButler <gitbutler@gitbutler.com>"]
 publish = false
 
 [dependencies]
-anyhow = "1.0.92"
+anyhow = "1.0.93"
 zip = "0.6.5"
 walkdir = "2.5.0"
 sha2 = "0.10.8"
 gitbutler-project.workspace = true
 
 [dev-dependencies]
-tempfile = "3.13"
+tempfile = "3.14"

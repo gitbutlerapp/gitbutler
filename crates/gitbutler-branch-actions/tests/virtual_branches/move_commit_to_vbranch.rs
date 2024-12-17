@@ -21,7 +21,8 @@ fn no_diffs() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -39,21 +40,24 @@ fn no_diffs() {
 
     let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == target_branch_id)
         .unwrap();
 
     let source_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == source_branch_id)
         .unwrap();
 
-    assert_eq!(destination_branch.commits.len(), 1);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        1
+    );
     assert_eq!(destination_branch.files.len(), 0);
-    assert_eq!(source_branch.commits.len(), 0);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 0);
     assert_eq!(source_branch.files.len(), 0);
 }
 
@@ -73,7 +77,8 @@ fn multiple_commits() {
 
     std::fs::write(repository.path().join("a.txt"), "This is a").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -115,15 +120,21 @@ fn multiple_commits() {
     gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
         .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
     let destination_branch = branches.iter().find(|b| b.id == target_branch_id).unwrap();
 
-    assert_eq!(destination_branch.commits.len(), 2);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        2
+    );
     assert_eq!(destination_branch.files.len(), 0);
     assert_eq!(
-        destination_branch
-            .commits
+        destination_branch.series[0]
+            .clone()
+            .unwrap()
+            .patches
             .clone()
             .into_iter()
             .map(|c| c.description.to_str_lossy().into_owned())
@@ -131,11 +142,13 @@ fn multiple_commits() {
         vec!["Add b", "Add d"]
     );
 
-    assert_eq!(source_branch.commits.len(), 2);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 2);
     assert_eq!(source_branch.files.len(), 0);
     assert_eq!(
-        source_branch
-            .commits
+        source_branch.series[0]
+            .clone()
+            .unwrap()
+            .patches
             .clone()
             .into_iter()
             .map(|c| c.description.to_str_lossy().into_owned())
@@ -160,7 +173,8 @@ fn multiple_commits_with_diffs() {
 
     std::fs::write(repository.path().join("a.txt"), "This is a").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -181,13 +195,13 @@ fn multiple_commits_with_diffs() {
 
     let source_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == source_branch_id)
         .unwrap();
 
     // State of source branch after the two commits
-    assert_eq!(source_branch.commits.len(), 2);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 2);
     assert_eq!(source_branch.files.len(), 1);
 
     let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
@@ -210,28 +224,37 @@ fn multiple_commits_with_diffs() {
 
     let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == target_branch_id)
         .unwrap();
 
     // State of destination branch before the commit is moved
-    assert_eq!(destination_branch.commits.len(), 1);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        1
+    );
     assert_eq!(destination_branch.files.len(), 1);
 
     // Move the top commit from the source branch to the destination branch
     gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
         .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
     let destination_branch = branches.iter().find(|b| b.id == target_branch_id).unwrap();
 
-    assert_eq!(destination_branch.commits.len(), 2);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        2
+    );
     assert_eq!(destination_branch.files.len(), 1);
     assert_eq!(
-        destination_branch
-            .commits
+        destination_branch.series[0]
+            .clone()
+            .unwrap()
+            .patches
             .clone()
             .into_iter()
             .map(|c| c.description.to_str_lossy().into_owned())
@@ -248,9 +271,14 @@ fn multiple_commits_with_diffs() {
         "@@ -0,0 +1 @@\n+This is e\n\\ No newline at end of file\n"
     );
 
-    assert_eq!(source_branch.commits.len(), 1);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 1);
     assert_eq!(source_branch.files.len(), 1);
-    assert_eq!(source_branch.commits[0].description.to_str_lossy(), "Add a");
+    assert_eq!(
+        source_branch.series[0].clone().unwrap().patches[0]
+            .description
+            .to_str_lossy(),
+        "Add a"
+    );
     assert_eq!(
         source_branch.files[0].path,
         PathBuf::from_str("c.txt").unwrap()
@@ -278,7 +306,8 @@ fn diffs_on_source_branch() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -305,21 +334,24 @@ fn diffs_on_source_branch() {
 
     let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == target_branch_id)
         .unwrap();
 
     let source_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == source_branch_id)
         .unwrap();
 
-    assert_eq!(destination_branch.commits.len(), 1);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        1
+    );
     assert_eq!(destination_branch.files.len(), 0);
-    assert_eq!(source_branch.commits.len(), 0);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 0);
     assert_eq!(source_branch.files.len(), 1);
     assert_eq!(
         source_branch.files[0].path,
@@ -348,7 +380,8 @@ fn diffs_on_target_branch() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -380,19 +413,22 @@ fn diffs_on_target_branch() {
 
     let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == target_branch_id)
         .unwrap();
 
     let source_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == source_branch_id)
         .unwrap();
 
-    assert_eq!(destination_branch.commits.len(), 1);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        1
+    );
     assert_eq!(destination_branch.files.len(), 1);
     assert_eq!(
         destination_branch.files[0].path,
@@ -403,7 +439,7 @@ fn diffs_on_target_branch() {
         destination_branch.files[0].hunks[0].diff.to_str_lossy(),
         "@@ -0,0 +1 @@\n+another content\n\\ No newline at end of file\n"
     );
-    assert_eq!(source_branch.commits.len(), 0);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 0);
     assert_eq!(source_branch.files.len(), 0);
 }
 
@@ -423,7 +459,8 @@ fn diffs_on_both_branches() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -442,13 +479,13 @@ fn diffs_on_both_branches() {
     // Note: Calling `list_virtual_branches` actually is *needed* to correctly update the state of the virtual branches.
     let source_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == source_branch_id)
         .unwrap();
 
     // State of source branch after the first commit
-    assert_eq!(source_branch.commits.len(), 1);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 1);
     assert_eq!(source_branch.files.len(), 1);
     assert_eq!(
         source_branch.files[0].path,
@@ -478,13 +515,16 @@ fn diffs_on_both_branches() {
 
     let destination_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == target_branch_id)
         .unwrap();
 
     // State of the destination branch before the commit is moved
-    assert_eq!(destination_branch.commits.len(), 0);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        0
+    );
     assert_eq!(destination_branch.files.len(), 1);
     assert_eq!(
         destination_branch.files[0].path,
@@ -499,11 +539,15 @@ fn diffs_on_both_branches() {
     gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
         .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     let source_branch = branches.iter().find(|b| b.id == source_branch_id).unwrap();
     let destination_branch = branches.iter().find(|b| b.id == target_branch_id).unwrap();
 
-    assert_eq!(destination_branch.commits.len(), 1);
+    assert_eq!(
+        destination_branch.series[0].clone().unwrap().patches.len(),
+        1
+    );
     assert_eq!(destination_branch.files.len(), 1);
     assert_eq!(
         destination_branch.files[0].path,
@@ -515,7 +559,7 @@ fn diffs_on_both_branches() {
         "@@ -0,0 +1 @@\n+yet another content\n\\ No newline at end of file\n"
     );
 
-    assert_eq!(source_branch.commits.len(), 0);
+    assert_eq!(source_branch.series[0].clone().unwrap().patches.len(), 0);
     assert_eq!(source_branch.files.len(), 1);
     assert_eq!(
         source_branch.files[0].path,
@@ -544,7 +588,8 @@ fn target_commit_locked_to_ancestors() {
 
     std::fs::write(repository.path().join("a.txt"), "This is a").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -597,7 +642,8 @@ fn target_commit_locked_to_descendants() {
 
     std::fs::write(repository.path().join("a.txt"), "This is a").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -654,7 +700,8 @@ fn locked_hunks_on_source_branch() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -700,7 +747,8 @@ fn no_commit() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;
@@ -742,7 +790,8 @@ fn no_branch() {
 
     std::fs::write(repository.path().join("file.txt"), "content").unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
 
     let source_branch_id = branches[0].id;

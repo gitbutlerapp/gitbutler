@@ -2,6 +2,7 @@
 	import DecorativeSplitView from './DecorativeSplitView.svelte';
 	import ProjectSwitcher from './ProjectSwitcher.svelte';
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import { ProjectsService, Project } from '$lib/backend/projects';
 	import { showError } from '$lib/notifications/toasts';
@@ -10,15 +11,21 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
-	export let error: any = undefined;
+	interface Props {
+		error?: any;
+	}
+
+	const { error = undefined }: Props = $props();
 
 	const projectsService = getContext(ProjectsService);
+	const posthog = getContext(PostHogWrapper);
 	const project = getContext(Project);
 
-	let loading = false;
-	let deleteConfirmationModal: ReturnType<typeof RemoveProjectButton> | undefined;
+	let loading = $state(false);
+	let deleteConfirmationModal: ReturnType<typeof RemoveProjectButton> | undefined = $state();
 
 	async function onDeleteClicked() {
 		loading = true;
@@ -35,6 +42,10 @@
 			projectsService.reload();
 		}
 	}
+
+	onMount(() => {
+		posthog.capture('repo:load_failed', { error_message: String(error) });
+	});
 </script>
 
 <DecorativeSplitView img={loadErrorSvg}>

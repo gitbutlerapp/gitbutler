@@ -1,39 +1,42 @@
 <script lang="ts">
+	import { getContext } from '@gitbutler/shared/context';
+	import { HttpClient } from '@gitbutler/shared/httpClient';
 	import hljs from 'highlight.js';
 	import { marked } from 'marked';
 	import { onMount } from 'svelte';
 	import { env } from '$env/dynamic/public';
 
-	let state = 'loading';
-	let patch: any = {};
-	let stack: any = {};
+	const httpClient = getContext(HttpClient);
+
+	let pageState = $state('loading');
+	let patch: any = $state({});
+	let stack: any = $state({});
 	let key: any = '';
 	let uuid: any = '';
 
-	export let data: any;
+	interface Props {
+		data: any;
+	}
 
-	onMount(() => {
+	let { data }: Props = $props();
+
+	onMount(async () => {
 		key = localStorage.getItem('gb_access_token');
 		let projectId = data.projectId;
 		let branchId = data.branchId;
 		let changeId = data.changeId;
 
 		if (key) {
-			fetch(env.PUBLIC_APP_HOST + 'api/patch_stack/' + projectId + '/' + branchId, {
-				method: 'GET',
+			const stack = await httpClient.get('patch_stack/' + projectId + '/' + branchId, {
 				headers: {
 					'X-AUTH-TOKEN': key || ''
 				}
-			})
-				.then(async (response) => await response.json())
-				.then((data) => {
-					console.log(data);
-					stack = data;
-					uuid = data.uuid;
-					fetchPatch(data.uuid, changeId, key);
-				});
+			});
+			console.log(stack);
+			uuid = data.uuid;
+			fetchPatch(data.uuid, changeId, key);
 		} else {
-			state = 'unauthorized';
+			pageState = 'unauthorized';
 		}
 	});
 
@@ -48,7 +51,7 @@
 			.then((data) => {
 				console.log(data);
 				patch = data;
-				state = 'loaded';
+				pageState = 'loaded';
 				// wait a second
 				setTimeout(() => {
 					console.log('Highlighting code');
@@ -216,9 +219,9 @@
 	}
 </script>
 
-{#if state === 'loading'}
+{#if pageState === 'loading'}
 	<p>Loading...</p>
-{:else if state === 'unauthorized'}
+{:else if pageState === 'unauthorized'}
 	<p>Unauthorized</p>
 {:else}
 	<h2>Branch: <a href="../stack">{stack.title}</a></h2>
@@ -278,18 +281,18 @@
 					<div id="section-{section.id}">
 						{#if section.section_type === 'diff'}
 							<div class="right">
-								<button type="button" class="action" on:click={() => addSection(section.position)}
+								<button type="button" class="action" onclick={() => addSection(section.position)}
 									>add</button
 								>
 								[<button
 									type="button"
 									class="action"
-									on:click={() => moveSection(section.position, -1)}>up</button
+									onclick={() => moveSection(section.position, -1)}>up</button
 								>
 								<button
 									type="button"
 									class="action"
-									on:click={() => moveSection(section.position, 1)}>down</button
+									onclick={() => moveSection(section.position, 1)}>down</button
 								>]
 							</div>
 							<div>
@@ -298,38 +301,38 @@
 							<div><pre><code>{section.diff_patch}</code></pre></div>
 						{:else}
 							<div class="right">
-								<button type="button" class="action" on:click={() => addSection(section.position)}
+								<button type="button" class="action" onclick={() => addSection(section.position)}
 									>add</button
 								>
 								[
-								<button type="button" class="action" on:click={() => editSection(section.code)}
+								<button type="button" class="action" onclick={() => editSection(section.code)}
 									>edit</button
 								>] [
-								<button type="button" class="action" on:click={() => deleteSection(section.code)}
+								<button type="button" class="action" onclick={() => deleteSection(section.code)}
 									>del</button
 								>] [
 								<button
 									type="button"
 									class="action"
-									on:click={() => moveSection(section.position, -1)}>up</button
+									onclick={() => moveSection(section.position, -1)}>up</button
 								>
 								<button
 									type="button"
 									class="action"
-									on:click={() => moveSection(section.position, 1)}>down</button
+									onclick={() => moveSection(section.position, 1)}>down</button
 								>
 								]
 							</div>
 							<div class="editor edit-{section.code}">
 								<textarea class="editing">{section.data.text}</textarea>
-								<button type="button" on:click={() => saveSection(section.code)}>Save</button>
+								<button type="button" onclick={() => saveSection(section.code)}>Save</button>
 							</div>
 							<div class="markdown display-{section.code}">{section.data.text}</div>
 						{/if}
 					</div>
 				{/each}
 				<div class="right">
-					<button type="button" class="action" on:click={() => addSection(patch.sections.length)}
+					<button type="button" class="action" onclick={() => addSection(patch.sections.length)}
 						>add</button
 					>
 				</div>

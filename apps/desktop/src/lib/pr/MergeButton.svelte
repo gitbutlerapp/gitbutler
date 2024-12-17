@@ -4,20 +4,37 @@
 	import { MergeMethod } from '$lib/forge/interface/types';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { persisted, type Persisted } from '@gitbutler/shared/persisted';
-	import { createEventDispatcher } from 'svelte';
+	import type { Props as ButtonProps } from '@gitbutler/ui/Button.svelte';
 
-	export let projectId: string;
-	export let loading = false;
-	export let disabled = false;
-	export let wide = false;
-	export let tooltip = '';
+	interface Props {
+		projectId: string;
+		onclick: (method: MergeMethod) => void;
+		loading?: boolean;
+		disabled?: boolean;
+		wide?: boolean;
+		tooltip?: string;
+		style?: ButtonProps['style'];
+		kind?: ButtonProps['kind'];
+		outline?: boolean;
+	}
+
+	const {
+		projectId,
+		onclick,
+		loading = false,
+		disabled = false,
+		wide = false,
+		tooltip = '',
+		style = 'ghost',
+		kind = 'soft',
+		outline = true
+	}: Props = $props();
 
 	function persistedAction(projectId: string): Persisted<MergeMethod> {
 		const key = 'projectMergeMethod';
 		return persisted<MergeMethod>(MergeMethod.Merge, key + projectId);
 	}
 
-	const dispatch = createEventDispatcher<{ click: { method: MergeMethod } }>();
 	const action = persistedAction(projectId);
 
 	let dropDown: ReturnType<typeof DropDownButton> | undefined;
@@ -30,16 +47,15 @@
 </script>
 
 <DropDownButton
-	style="ghost"
-	outline
-	{loading}
 	bind:this={dropDown}
+	onclick={() => onclick?.($action)}
+	{outline}
+	{style}
+	{kind}
+	{loading}
 	{wide}
 	{tooltip}
 	{disabled}
-	onclick={() => {
-		dispatch('click', { method: $action });
-	}}
 >
 	{labels[$action]}
 	{#snippet contextMenuSlot()}

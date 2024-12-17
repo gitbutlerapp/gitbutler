@@ -135,7 +135,7 @@
 							<Icon name="success" color="success" />
 						{/if}
 
-						<h2 class="text-14 text-semibold">
+						<h2 class="text-14 text-bold">
 							{title}
 						</h2>
 					</div>

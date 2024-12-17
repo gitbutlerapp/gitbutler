@@ -18,20 +18,46 @@
 		children: Snippet;
 	}
 
-	const { text, delay = 700, disabled, align, position, children }: Props = $props();
+	const {
+		text,
+		delay = 700,
+		disabled,
+		align,
+		position: requestedPosition = 'bottom',
+		children
+	}: Props = $props();
 
+	const TOOLTIP_VIEWPORT_EDGE_MARGIN = 100; // px
 	let targetEl: HTMLElement | undefined = $state();
-
+	let position = $state(requestedPosition);
 	let show = $state(false);
 	let timeoutId: undefined | ReturnType<typeof setTimeout> = $state();
 
 	const isTextEmpty = $derived(!text || text === '');
 
+	$effect(() => {
+		if (targetEl && window.visualViewport) {
+			// Use child of tooltip wrapper; since tooltip wrapper is 'display:contents'
+			// which results in boundingClientRect values all being 0. Plus we care
+			// about the child button, icon, etc. anyway
+			const { top, bottom } = targetEl.children[0].getBoundingClientRect();
+
+			// Force tooltip to top if within MARGIN of bottom of viewport
+			if (window.visualViewport.height - bottom < TOOLTIP_VIEWPORT_EDGE_MARGIN) {
+				position = 'top';
+			}
+
+			// Force tooltip to bottom if within MARGIN of top of viewport
+			if (top < TOOLTIP_VIEWPORT_EDGE_MARGIN) {
+				position = 'bottom';
+			}
+		}
+	});
+
 	function handleMouseEnter() {
 		if (disabled) return;
 		timeoutId = setTimeout(() => {
 			show = true;
-			// console.log('showing tooltip');
 		}, delay);
 	}
 

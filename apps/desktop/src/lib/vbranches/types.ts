@@ -106,11 +106,23 @@ export class SkippedFile {
 	newSizeBytes!: number;
 }
 
+/**
+ * Represents an error that occurred when calculating dependencies for a given file change.
+ */
+export class DependencyError {
+	errorMessage!: string;
+	stackId!: string;
+	commitId!: string;
+	path!: string;
+}
+
 export class VirtualBranches {
 	@Type(() => VirtualBranch)
 	branches!: VirtualBranch[];
 	@Type(() => SkippedFile)
 	skippedFiles!: SkippedFile[];
+	@Type(() => DependencyError)
+	dependencyErrors!: DependencyError[];
 }
 
 export function isPatchSeries(item: PatchSeries | Error): item is PatchSeries {
@@ -123,8 +135,6 @@ export class VirtualBranch {
 	notes!: string;
 	@Type(() => LocalFile)
 	files!: LocalFile[];
-	@Type(() => DetailedCommit)
-	commits!: DetailedCommit[];
 	requiresForce!: boolean;
 	description!: string;
 	head!: string;
@@ -155,7 +165,10 @@ export class VirtualBranch {
 	refname!: string;
 	tree!: string;
 
-	// Used in the stacking context where VirtualBranch === Stack
+	/**
+	 * @desc Used in the stacking context where VirtualBranch === Stack
+	 * @warning You probably want 'validSeries' instead
+	 */
 	@Transform(({ value }) => transformResultToType(PatchSeries, value))
 	series!: (PatchSeries | Error)[];
 
@@ -163,48 +176,16 @@ export class VirtualBranch {
 		return this.series.filter(isPatchSeries);
 	}
 
-	get localCommits() {
-		return this.commits.filter((c) => c.status === 'local');
-	}
-
-	get remoteCommits() {
-		return this.commits.filter((c) => c.status === 'localAndRemote');
-	}
-
-	get integratedCommits() {
-		return this.commits.filter((c) => c.status === 'integrated');
-	}
-
 	get displayName() {
 		if (this.upstream?.displayName) return this.upstream?.displayName;
 
 		return this.upstreamName || this.name;
 	}
-
-	get ancestorMostConflictedCommit(): DetailedCommit | undefined {
-		if (this.commits.length === 0) return undefined;
-		for (let i = this.commits.length - 1; i >= 0; i--) {
-			const commit = this.commits[i];
-			if (commit?.conflicted) return commit;
-		}
-	}
-
-	allPreviousSeriesHavePrNumber(seriesName: string): boolean {
-		for (let i = this.validSeries.length - 1; i >= 0; i--) {
-			const series = this.validSeries[i]!;
-			if (series.name === seriesName) return true;
-			if (series.prNumber === null) return false;
-		}
-
-		// Will only happen if the series name is invalid
-		// or if the series failed to be fetched.
-		return false;
-	}
 }
 
 // Used for dependency injection
 export const BRANCH = Symbol('branch');
-export type CommitStatus = 'local' | 'localAndRemote' | 'localAndShadow' | 'integrated' | 'remote';
+export type CommitStatus = 'local' | 'localAndRemote' | 'integrated' | 'remote';
 
 export class ConflictEntries {
 	public entries: Map<string, ConflictEntryPresence> = new Map();
@@ -234,6 +215,7 @@ export class DetailedCommit {
 	@Transform((obj) => new Date(obj.value))
 	createdAt!: Date;
 	isRemote!: boolean;
+	isLocalAndRemote!: boolean;
 	isIntegrated!: boolean;
 	parentIds!: string[];
 	branchId!: string;
@@ -282,12 +264,8 @@ export class DetailedCommit {
 
 	get status(): CommitStatus {
 		if (this.isIntegrated) return 'integrated';
-		if (this.remoteCommitId) {
-			if (this.remoteCommitId !== this.id) {
-				return 'localAndShadow';
-			}
-			return 'localAndRemote';
-		}
+		if (this.isLocalAndRemote) return 'localAndRemote';
+		if (this.isRemote) return 'remote';
 		return 'local';
 	}
 
@@ -351,6 +329,7 @@ export class RemoteHunk {
 	hash?: string;
 	new_start!: number;
 	new_lines!: number;
+	changeType!: ChangeType;
 
 	get id(): string {
 		return hashCode(this.diff);
@@ -475,10 +454,6 @@ export class PatchSeries {
 		return this.patches.filter((c) => c.status === 'localAndRemote');
 	}
 
-	get shadowCommits() {
-		return this.patches.filter((c) => c.status === 'localAndShadow');
-	}
-
 	get integratedCommits() {
 		return this.patches.filter((c) => c.status === 'integrated');
 	}
@@ -489,6 +464,19 @@ export class PatchSeries {
 
 	get conflicted() {
 		return this.patches.some((c) => c.conflicted);
+	}
+
+	get integrated() {
+		return this.patches.length > 0 && this.patches.length === this.integratedCommits.length;
+	}
+
+	get ancestorMostConflictedCommit(): DetailedCommit | undefined {
+		if (this.patches.length === 0) return undefined;
+
+		for (let i = this.patches.length - 1; i >= 0; i--) {
+			const commit = this.patches[i];
+			if (commit?.conflicted) return commit;
+		}
 	}
 }
 

@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { Project, ProjectsService } from '$lib/backend/projects';
 	import RemoveProjectButton from '$lib/components/RemoveProjectButton.svelte';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext } from '@gitbutler/shared/context';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import { goto } from '$app/navigation';
 
 	const projectsService = getContext(ProjectsService);
@@ -29,11 +29,13 @@
 </script>
 
 <SectionCard>
-	<svelte:fragment slot="title">Remove project</svelte:fragment>
-	<svelte:fragment slot="caption">
+	{#snippet title()}
+		Remove project
+	{/snippet}
+	{#snippet caption()}
 		You can remove projects from GitButler, your code remains safe as this only clears
 		configuration.
-	</svelte:fragment>
+	{/snippet}
 	<div>
 		<RemoveProjectButton projectTitle={project.title} {isDeleting} {onDeleteClicked} />
 	</div>

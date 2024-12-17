@@ -153,7 +153,7 @@
 	<div class="message-wrapper">
 		{#if !onlyLocalAhead}
 			<InfoMessage style="warning" filled outlined={false}>
-				<svelte:fragment slot="content">
+				{#snippet content()}
 					Your local target branch has diverged from upstream.
 					<br />
 					Target branch is
@@ -165,17 +165,17 @@
 						{`behind by ${base.divergedBehind.length}`}
 					</b>
 					commits
-				</svelte:fragment>
+				{/snippet}
 			</InfoMessage>
 		{:else}
 			<InfoMessage style="neutral" filled outlined={false}>
-				<svelte:fragment slot="content">
+				{#snippet content()}
 					Your local target branch is
 					<b>
 						{`ahead by ${base.divergedAhead.length}`}
 					</b>
 					commits
-				</svelte:fragment>
+				{/snippet}
 			</InfoMessage>
 		{/if}
 	</div>
@@ -305,7 +305,7 @@
 			disableCommitActions={true}
 		>
 			{#snippet lines()}
-				<Line typeOverride="local" line={lineManager.get(commit.id)} />
+				<Line line={lineManager.get(commit.id)} />
 			{/snippet}
 		</CommitCard>
 	{/each}

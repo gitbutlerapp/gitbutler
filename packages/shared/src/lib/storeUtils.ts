@@ -55,3 +55,19 @@ export function writableDerived<A, B>(
 
 	return derivedStore;
 }
+
+export type Reactive<T> = { current: T };
+
+export async function guardReadableTrue(target: Readable<boolean>): Promise<boolean> {
+	return await new Promise((resolve) => {
+		const unsubscribe = target.subscribe((value) => {
+			if (value) {
+				resolve(value);
+
+				setTimeout(() => {
+					unsubscribe();
+				}, 0);
+			}
+		});
+	});
+}

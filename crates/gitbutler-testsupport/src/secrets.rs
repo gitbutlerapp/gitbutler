@@ -1,3 +1,4 @@
+use keyring::Result;
 use std::any::Any;
 
 /// Assure we have a mock secrets store so tests don't start writing secrets into the user's actual store,
@@ -16,11 +17,19 @@ impl keyring::credential::CredentialApi for BlackholeCredential {
         Ok(())
     }
 
+    fn set_secret(&self, _password: &[u8]) -> Result<()> {
+        unreachable!("unused")
+    }
+
     fn get_password(&self) -> keyring::Result<String> {
         Err(keyring::Error::NoEntry)
     }
 
-    fn delete_password(&self) -> keyring::Result<()> {
+    fn get_secret(&self) -> Result<Vec<u8>> {
+        unreachable!("unused")
+    }
+
+    fn delete_credential(&self) -> keyring::Result<()> {
         Ok(())
     }
 

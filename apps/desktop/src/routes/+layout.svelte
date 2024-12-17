@@ -5,6 +5,7 @@
 
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { AuthService } from '$lib/backend/auth';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { CommandService, invoke } from '$lib/backend/ipc';
@@ -30,25 +31,33 @@
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { platformName } from '$lib/platform/platform';
+	import { DesktopDispatch, DesktopState } from '$lib/redux/store.svelte';
 	import { RemotesService } from '$lib/remotes/service';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { User, UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
+	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/httpClient';
+	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
+	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		DesktopRoutesService,
 		setRoutesService,
 		WebRoutesService
 	} from '@gitbutler/shared/sharedRoutes';
+	import { UserService as CloudUserService } from '@gitbutler/shared/users/userService';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 	import { onMount, setContext, type Snippet } from 'svelte';
 	import { Toaster } from 'svelte-french-toast';
 	import type { LayoutData } from './$types';
 	import { dev } from '$app/environment';
+	import { browser } from '$app/environment';
 	import { goto } from '$app/navigation';
+	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { env } from '$env/dynamic/public';
 
 	const { data, children }: { data: LayoutData; children: Snippet } = $props();
@@ -56,8 +65,24 @@
 	const userSettings = loadUserSettings();
 	setContext(SETTINGS, userSettings);
 
+	const appState = new DesktopState();
+	const feedService = new FeedService(data.cloud, appState.appDispatch);
+	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
+	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
+	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
+
+	setContext(AppState, appState);
+	setContext(AppDispatch, appState.appDispatch);
+	setContext(DesktopState, appState);
+	setContext(DesktopDispatch, appState.appDispatch);
+	setContext(FeedService, feedService);
+	setContext(OrganizationService, organizationService);
+	setContext(CloudUserService, cloudUserService);
+	setContext(CloudProjectService, cloudProjectService);
+
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
+	setContext(PostHogWrapper, data.posthog);
 	setContext(CommandService, data.commandService);
 	setContext(UserService, data.userService);
 	setContext(ProjectsService, data.projectsService);
@@ -84,6 +109,12 @@
 	const accessToken = $derived($user?.github_access_token);
 	const octokit = $derived(accessToken ? octokitFromAccessToken(accessToken) : undefined);
 
+	// Special initialization to capture pageviews for single page apps.
+	if (browser) {
+		beforeNavigate(() => data.posthog.capture('$pageleave'));
+		afterNavigate(() => data.posthog.capture('$pageview'));
+	}
+
 	// This store is literally only used once, on GitHub oauth, to set the
 	// gh username on the user object. Furthermore, it isn't used anywhere.
 	// TODO: Remove the gh username completely?
@@ -102,7 +133,7 @@
 	});
 </script>
 
-<svelte:window on:drop={(e) => e.preventDefault()} on:dragover={(e) => e.preventDefault()} />
+<svelte:window ondrop={(e) => e.preventDefault()} ondragover={(e) => e.preventDefault()} />
 
 <div class="app-root" role="application" oncontextmenu={(e) => !dev && e.preventDefault()}>
 	{#if platformName === 'macos'}

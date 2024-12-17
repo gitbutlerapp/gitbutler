@@ -18,6 +18,7 @@
 	import {
 		Commit,
 		DetailedCommit,
+		PatchSeries,
 		RemoteFile,
 		VirtualBranch,
 		type CommitStatus
@@ -37,6 +38,7 @@
 
 	interface Props {
 		branch?: VirtualBranch | undefined;
+		currentSeries?: PatchSeries | undefined;
 		commit: DetailedCommit | Commit;
 		commitUrl?: string | undefined;
 		isHeadCommit?: boolean;
@@ -46,12 +48,12 @@
 		type: CommitStatus;
 		lines?: Snippet | undefined;
 		filesToggleable?: boolean;
-		seriesName?: string;
 		disableCommitActions?: boolean;
 	}
 
 	const {
 		branch = undefined,
+		currentSeries,
 		commit,
 		commitUrl = undefined,
 		isHeadCommit = false,
@@ -61,7 +63,6 @@
 		type,
 		lines = undefined,
 		filesToggleable = true,
-		seriesName = '',
 		disableCommitActions = false
 	}: Props = $props();
 
@@ -71,6 +72,7 @@
 	const modeService = maybeGetContext(ModeService);
 
 	const commitStore = createCommitStore(commit);
+
 	$effect(() => {
 		commitStore.set(commit);
 	});
@@ -89,7 +91,9 @@
 	let conflictResolutionConfirmationModal = $state<ReturnType<typeof Modal>>();
 
 	const conflicted = $derived(commit.conflicted);
-	const isAncestorMostConflicted = $derived(branch?.ancestorMostConflictedCommit?.id === commit.id);
+	const isAncestorMostConflicted = $derived(
+		currentSeries?.ancestorMostConflictedCommit?.id === commit.id
+	);
 
 	async function loadFiles() {
 		files = await listCommitFiles(project.id, commit.id);
@@ -116,7 +120,7 @@
 		branchController.undoCommit(branch.id, branch.name, commit.id);
 	}
 
-	let isUndoable = commit instanceof DetailedCommit && type !== 'remote';
+	let isUndoable = commit instanceof DetailedCommit && type !== 'remote' && type !== 'integrated';
 
 	let commitMessageModal: ReturnType<typeof Modal> | undefined;
 	let commitMessageValid = $state(false);
@@ -181,6 +185,7 @@
 		<CommitMessageInput
 			bind:commitMessage={description}
 			bind:valid={commitMessageValid}
+			existingCommit={commit}
 			isExpanded={true}
 			cancel={close}
 			commit={submitCommitMessageModal}
@@ -256,7 +261,7 @@
 				date: getTimeAgo(commit.createdAt),
 				authorImgUrl: authorImgUrl,
 				commitType: type,
-				data: new DraggableCommit(commit.branchId, commit, isHeadCommit, seriesName),
+				data: new DraggableCommit(commit.branchId, commit, isHeadCommit, currentSeries?.name),
 				viewportId: 'board-viewport'
 			}
 		: nonDraggable()}
@@ -299,7 +304,7 @@
 					{commit.descriptionTitle}
 				</h5>
 
-				<div class="text-11 commit__subtitle">
+				<div class="text-11 text-semibold commit__subtitle">
 					{#if commit.isSigned}
 						<Tooltip text="Signed">
 							<div class="commit__signed">
@@ -317,7 +322,7 @@
 							<div class="commit__conflicted">
 								<Icon name="warning-small" />
 
-								Conflicted
+								<span>Conflicted</span>
 							</div>
 						</Tooltip>
 
@@ -338,7 +343,7 @@
 							copyToClipboard(commit.id);
 						}}
 					>
-						{commitShortSha}
+						<span>{commitShortSha}</span>
 
 						<div class="commit__subtitle-btn__icon">
 							<Icon name="copy-small" />
@@ -408,7 +413,7 @@
 									{#if conflicted}
 										Resolve conflicts
 									{:else}
-										Edit patch
+										Edit commit
 									{/if}
 								</Button>
 							{/if}

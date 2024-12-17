@@ -1,6 +1,7 @@
 <script lang="ts">
 	import MergeButton from './MergeButton.svelte';
 	import { Project } from '$lib/backend/projects';
+	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
@@ -8,28 +9,45 @@
 	import { type ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
+	import { getForgeRepoService } from '$lib/forge/interface/forgeRepoService';
 	import { showError } from '$lib/notifications/toasts';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import { getContext } from '@gitbutler/shared/context';
+	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
+	import type { ForgePrMonitor } from '$lib/forge/interface/forgePrMonitor';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
+	import type { PatchSeries } from '$lib/vbranches/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 
 	interface Props {
-		upstreamName: string;
 		pr: DetailedPullRequest;
+		isPushed: boolean;
+		hasParent: boolean;
+		parentIsPushed: boolean;
+		child?: PatchSeries;
 		checksMonitor?: ForgeChecksMonitor;
+		prMonitor?: ForgePrMonitor;
 		reloadPR: () => void;
 		reopenPr: () => Promise<void>;
 		openPrDetailsModal: () => void;
 	}
 
-	const { upstreamName, pr, checksMonitor, reloadPR, reopenPr, openPrDetailsModal }: Props =
-		$props();
+	const {
+		checksMonitor,
+		child,
+		hasParent,
+		isPushed,
+		openPrDetailsModal,
+		parentIsPushed,
+		pr,
+		prMonitor,
+		reloadPR,
+		reopenPr
+	}: Props = $props();
 
 	type StatusInfo = {
 		text: string;
@@ -44,19 +62,27 @@
 
 	const vbranchService = getContext(VirtualBranchService);
 	const baseBranchService = getContext(BaseBranchService);
+	const baseBranch = getContextStore(BaseBranch);
+	const repoService = getForgeRepoService();
 	const project = getContext(Project);
 
 	const forgeListingService = getForgeListingService();
-	const prStore = $derived($forgeListingService?.prs);
-	const prs = $derived(prStore ? $prStore : undefined);
-
-	const listedPr = $derived(prs?.find((pr) => pr.sourceBranch === upstreamName));
-	const prNumber = $derived(listedPr?.number);
-
 	const prService = getForgePrService();
-	const prMonitor = $derived(prNumber ? $prService?.prMonitor(prNumber) : undefined);
 
 	const checks = $derived(checksMonitor?.status);
+	const repoInfoStore = $derived($repoService?.info);
+	const repoInfo = $derived(repoInfoStore && $repoInfoStore);
+	let shouldUpdateTargetBaseBranch = $state(false);
+	$effect(() => {
+		shouldUpdateTargetBaseBranch = repoInfo?.deleteBranchAfterMerge === false && !!child?.prNumber;
+	});
+
+	const baseBranchRepo = $derived(baseBranchService.repo);
+	const baseIsTargetBranch = $derived(
+		pr
+			? $baseBranch.shortName === pr.baseBranch && $baseBranchRepo?.hash === pr?.baseRepo?.hash
+			: false
+	);
 
 	// While the pr monitor is set to fetch updates by interval, we want
 	// frequent updates while checks are running.
@@ -129,6 +155,46 @@
 		}
 
 		return { text: 'Open', icon: 'pr-small', style: 'success' };
+	});
+
+	const mergeStatus = $derived.by(() => {
+		let disabled = true;
+		let tooltip = undefined;
+		if (isPushed && hasParent && !parentIsPushed) {
+			tooltip = 'Remote parent branch seems to have been deleted.';
+		} else if (!baseIsTargetBranch) {
+			tooltip = 'Pull request is not next in stack.';
+		} else if ($mrLoading) {
+			tooltip = 'Reloading pull request data.';
+		} else if ($checksLoading) {
+			tooltip = 'Reloading checks data.';
+		} else if (pr?.draft) {
+			tooltip = 'Pull request is a draft.';
+		} else if (pr?.mergeableState === 'blocked') {
+			tooltip = 'Pull request needs approval.';
+		} else if (pr?.mergeableState === 'unknown') {
+			tooltip = 'Pull request mergeability is unknown.';
+		} else if (pr?.mergeableState === 'behind') {
+			tooltip = 'Pull request base is too far behind.';
+		} else if (pr?.mergeableState === 'dirty') {
+			tooltip = 'Pull request has conflicts.';
+		} else if (!pr?.mergeable) {
+			tooltip = 'Pull request is not mergeable.';
+		} else {
+			disabled = false;
+		}
+		return { disabled, tooltip };
+	});
+
+	const reopenStatus = $derived.by(() => {
+		let disabled = true;
+		let tooltip = undefined;
+		if (isPushed && hasParent && !parentIsPushed) {
+			tooltip = 'Remote parent branch seems to have been deleted.';
+		} else {
+			disabled = false;
+		}
+		return { disabled, tooltip };
 	});
 </script>
 
@@ -212,7 +278,7 @@
 			>
 				{prStatusInfo.text}
 			</Button>
-			{#if !pr?.closedAt && checksTagInfo}
+			{#if !pr.closedAt && checksTagInfo}
 				<Button
 					size="tag"
 					clickable={false}
@@ -224,7 +290,7 @@
 					{checksTagInfo.text}
 				</Button>
 			{/if}
-			{#if pr?.htmlUrl}
+			{#if pr.htmlUrl}
 				<Button
 					icon="open-link"
 					size="tag"
@@ -253,24 +319,29 @@
 				<MergeButton
 					wide
 					projectId={project.id}
-					disabled={$mrLoading ||
-						$checksLoading ||
-						pr?.draft ||
-						!pr?.mergeable ||
-						['dirty', 'unknown', 'blocked', 'behind'].includes(pr?.mergeableState)}
+					disabled={mergeStatus.disabled}
+					tooltip={mergeStatus.tooltip}
 					loading={isMerging}
-					on:click={async (e) => {
+					onclick={async (method) => {
 						if (!pr) return;
 						isMerging = true;
-						const method = e.detail.method;
 						try {
 							await $prService?.merge(method, pr.number);
-							await baseBranchService.fetchFromRemotes();
+
+							// In a stack, after merging, update the new bottom PR target
+							// base branch to master if necessary
+							if (shouldUpdateTargetBaseBranch && $prService && child?.prNumber) {
+								const targetBase = $baseBranch.branchName.replace(`${$baseBranch.remoteName}/`, '');
+								await $prService.update(child.prNumber, { targetBase });
+							}
+
 							await Promise.all([
+								baseBranchService.fetchFromRemotes(),
 								prMonitor?.refresh(),
 								$forgeListingService?.refresh(),
 								vbranchService.refresh(),
-								baseBranchService.refresh()
+								baseBranchService.refresh(),
+								checksMonitor?.update()
 							]);
 						} catch (err) {
 							console.error(err);
@@ -280,10 +351,12 @@
 						}
 					}}
 				/>
-			{:else}
+			{:else if !pr.merged}
 				<Button
 					style="ghost"
 					outline
+					disabled={reopenStatus.disabled}
+					tooltip={reopenStatus.tooltip}
 					{loading}
 					onclick={async () => {
 						loading = true;
@@ -328,5 +401,10 @@
 		flex-direction: column;
 		gap: 8px;
 		padding: 0 14px 12px 14px;
+
+		/* don't display if empty */
+		&:empty {
+			display: none;
+		}
 	}
 </style>

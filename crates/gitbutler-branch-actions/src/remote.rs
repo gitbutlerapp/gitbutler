@@ -7,7 +7,7 @@ use gitbutler_branch::ReferenceExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_reference::{Refname, RemoteRefname};
-use gitbutler_repo::{LogUntil, RepositoryExt};
+use gitbutler_repo::logging::{LogUntil, RepositoryExt};
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_serde::BStringForFrontend;
 use gitbutler_stack::{Target, VirtualBranchesHandle};
@@ -48,7 +48,7 @@ pub struct RemoteCommit {
 /// For legacy purposes, this is still named "remote" branches, but it's actually
 /// a list of all the normal (non-gitbutler) git branches.
 pub fn find_git_branches(ctx: &CommandContext, branch_name: &str) -> Result<Vec<RemoteBranchData>> {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let remotes_raw = repo.remotes()?;
     let remotes: Vec<_> = remotes_raw.iter().flatten().collect();
 
@@ -92,7 +92,7 @@ pub(crate) fn get_commit_data(
     ctx: &CommandContext,
     sha: git2::Oid,
 ) -> Result<Option<RemoteCommit>> {
-    let commit = match ctx.repository().find_commit(sha) {
+    let commit = match ctx.repo().find_commit(sha) {
         Ok(commit) => commit,
         Err(error) => {
             if error.code() == git2::ErrorCode::NotFound {
@@ -118,8 +118,8 @@ pub(crate) fn branch_to_remote_branch(
     let sha = commit.id();
     let is_remote = reference.is_remote();
 
-    let base = default_target(&ctx.project().gb_dir())?.remote_head(ctx.repository())?;
-    let ahead = ctx.repository().log(sha, LogUntil::Commit(base), false)?;
+    let base = default_target(&ctx.project().gb_dir())?.remote_head(ctx.repo())?;
+    let ahead = ctx.repo().log(sha, LogUntil::Commit(base), false)?;
     let fork_point = ahead.last().and_then(|c| c.parent(0).ok()).map(|c| c.id());
     let behind = ctx.distance(base, sha)?;
 

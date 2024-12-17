@@ -1,4 +1,5 @@
 import { GitHub } from './github';
+import { PostHogWrapper } from '$lib/analytics/posthog';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { Octokit, type RestEndpointMethodTypes } from '@octokit/rest';
 import { test, describe, vi, beforeEach, afterEach, expect } from 'vitest';
@@ -18,6 +19,7 @@ describe.concurrent('GitHubListingService', () => {
 	let gh: GitHub;
 	let service: ForgeListingService | undefined;
 	let projectMetrics: ProjectMetrics;
+	const posthog = new PostHogWrapper();
 
 	beforeEach(() => {
 		vi.useFakeTimers();
@@ -29,9 +31,9 @@ describe.concurrent('GitHubListingService', () => {
 
 	beforeEach(() => {
 		octokit = new Octokit();
-		projectMetrics = new ProjectMetrics();
+		projectMetrics = new ProjectMetrics('test-project');
 
-		gh = new GitHub({ repo: repoInfo, baseBranch: 'some-base', octokit, projectMetrics });
+		gh = new GitHub({ repo: repoInfo, baseBranch: 'some-base', octokit, projectMetrics, posthog });
 		service = gh.listService();
 	});
 
@@ -42,11 +44,8 @@ describe.concurrent('GitHubListingService', () => {
 				data: [{ title, labels: [] as Labels }]
 			} as PrListResponse)
 		);
-		const prs = await service?.fetch();
-		expect(prs?.length).toEqual(1);
-		expect(prs?.[0]?.title).toEqual(title);
-
-		const metrics = projectMetrics.getMetrics();
+		await service?.refresh();
+		const metrics = projectMetrics.getReport();
 		expect(metrics['pr_count']?.value).toEqual(1);
 		expect(metrics['pr_count']?.maxValue).toEqual(1);
 		expect(metrics['pr_count']?.minValue).toEqual(1);

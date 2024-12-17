@@ -13,6 +13,7 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 
 	interface Props {
 		contextMenuEl?: ReturnType<typeof ContextMenu>;
@@ -20,15 +21,18 @@
 		rightClickTrigger?: HTMLElement;
 		headName: string;
 		seriesCount: number;
-		isTopSeries: boolean;
+		isTopBranch: boolean;
 		hasForgeBranch: boolean;
-		prUrl?: string;
+		pr?: DetailedPullRequest;
 		branchType: CommitStatus;
 		description: string;
+		parentIsPushed: boolean;
+		hasParent: boolean;
 		toggleDescription: () => Promise<void>;
 		onGenerateBranchName: () => void;
 		openPrDetailsModal: () => void;
 		onAddDependentSeries?: () => void;
+		onCreateNewPr?: () => Promise<void>;
 		onOpenInBrowser?: () => void;
 		onMenuToggle?: (isOpen: boolean, isLeftClick: boolean) => void;
 	}
@@ -37,16 +41,19 @@
 		contextMenuEl = $bindable(),
 		leftClickTrigger,
 		rightClickTrigger,
-		isTopSeries,
+		isTopBranch,
 		seriesCount,
 		hasForgeBranch,
 		headName,
-		prUrl,
+		pr,
 		branchType,
 		description,
+		parentIsPushed,
+		hasParent,
 		toggleDescription,
 		onGenerateBranchName,
 		openPrDetailsModal,
+		onCreateNewPr,
 		onAddDependentSeries,
 		onOpenInBrowser,
 		onMenuToggle
@@ -95,7 +102,7 @@
 		onMenuToggle?.(isOpen, isLeftClick);
 	}}
 >
-	{#if isOpenedByMouse && isTopSeries}
+	{#if isOpenedByMouse && isTopBranch}
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Add dependent branch"
@@ -160,19 +167,19 @@
 			/>
 		{/if}
 	</ContextMenuSection>
-	{#if prUrl}
+	{#if pr?.htmlUrl}
 		<ContextMenuSection>
 			<ContextMenuItem
 				label="Open PR in browser"
 				onclick={() => {
-					openExternalUrl(prUrl);
+					openExternalUrl(pr.htmlUrl);
 					contextMenuEl?.close();
 				}}
 			/>
 			<ContextMenuItem
 				label="Copy PR link"
 				onclick={() => {
-					copyToClipboard(prUrl);
+					copyToClipboard(pr.htmlUrl);
 					contextMenuEl?.close();
 				}}
 			/>
@@ -181,6 +188,17 @@
 				onclick={() => {
 					openPrDetailsModal();
 					contextMenuEl?.close();
+				}}
+			/>
+		</ContextMenuSection>
+	{/if}
+	{#if onCreateNewPr && pr?.state === 'closed'}
+		<ContextMenuSection>
+			<ContextMenuItem
+				disabled={hasParent && !parentIsPushed}
+				label="Create new PR"
+				onclick={async () => {
+					await onCreateNewPr();
 				}}
 			/>
 		</ContextMenuSection>
@@ -202,7 +220,7 @@
 	<Textbox placeholder="New name" id="newSeriesName" bind:value={newHeadName} autofocus />
 
 	{#if hasForgeBranch}
-		<div class="text-12 text-light helper-text">
+		<div class="text-12 helper-text">
 			Renaming a branch that has already been pushed will create a new branch at the remote. The old
 			one will remain untouched but will be disassociated from this branch.
 		</div>

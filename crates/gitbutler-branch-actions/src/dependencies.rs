@@ -8,10 +8,10 @@ use gitbutler_hunk_dependency::{
     calculate_hunk_dependencies, HunkDependencyOptions, InputCommit, InputDiff, InputFile,
     InputStack,
 };
-use gitbutler_repo::{LogUntil, RepositoryExt as _};
+use gitbutler_repo::logging::LogUntil;
+use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_stack::Stack;
 use gitbutler_stack::StackId;
-use itertools::Itertools;
 use md5::Digest;
 
 use crate::file::list_virtual_commit_files;
@@ -23,7 +23,7 @@ pub fn compute_workspace_dependencies(
     base_diffs: &BranchStatus,
     stacks: &Vec<Stack>,
 ) -> Result<HunkDependencyResult> {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
 
     let mut stacks_input: Vec<InputStack> = vec![];
     for stack in stacks {
@@ -71,13 +71,13 @@ pub fn compute_workspace_dependencies(
 ///
 /// Commit IDs are in the order that they are applied (parent first).
 /// Merge commits to the target branch are not included.
-fn get_commits_to_process(
-    repo: &git2::Repository,
-    stack: &Stack,
-    target_sha: &git2::Oid,
-) -> Result<Vec<git2::Oid>, anyhow::Error> {
+fn get_commits_to_process<'a>(
+    repo: &'a git2::Repository,
+    stack: &'a Stack,
+    target_sha: &'a git2::Oid,
+) -> Result<impl Iterator<Item = git2::Oid> + 'a, anyhow::Error> {
     let commit_ids = repo
-        .l(stack.head(), LogUntil::Commit(*target_sha), true)
+        .l(stack.head(), LogUntil::Commit(*target_sha), false)
         .context("failed to list commits")?
         .into_iter()
         .rev()
@@ -88,17 +88,12 @@ fn get_commits_to_process(
             }
 
             let has_integrated_parent = commit.parent_ids().any(|id| {
-                let (number_commits_ahead, _) = repo.graph_ahead_behind(id, *target_sha).unwrap();
-                number_commits_ahead == 0
+                repo.graph_ahead_behind(id, *target_sha)
+                    .map_or(false, |(number_commits_ahead, _)| number_commits_ahead == 0)
             });
 
-            if has_integrated_parent {
-                None
-            } else {
-                Some(commit_id)
-            }
-        })
-        .collect_vec();
+            (!has_integrated_parent).then_some(commit_id)
+        });
     Ok(commit_ids)
 }
 

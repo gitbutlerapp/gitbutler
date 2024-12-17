@@ -6,10 +6,14 @@
 
 	dayjs.extend(relativeTime);
 
-	let state = 'loading';
-	let stackData: any = {};
+	let pageState = $state('loading');
+	let stackData: any = $state({});
 
-	export let data: any;
+	interface Props {
+		data: any;
+	}
+
+	let { data }: Props = $props();
 
 	onMount(() => {
 		let key = localStorage.getItem('gb_access_token');
@@ -35,7 +39,7 @@
 				.then((data) => {
 					console.log(data);
 					stackData = data;
-					state = 'loaded';
+					pageState = 'loaded';
 					let dtime = document.querySelectorAll('.dtime');
 					dtime.forEach((element) => {
 						console.log(element.innerHTML);
@@ -43,14 +47,14 @@
 					});
 				});
 		} else {
-			state = 'unauthorized';
+			pageState = 'unauthorized';
 		}
 	});
 </script>
 
-{#if state === 'loading'}
-	<p>Loading...</p>
-{:else if state === 'unauthorized'}
+{#if pageState === 'loading'}
+	<p></p>
+{:else if pageState === 'unauthorized'}
 	<p>Unauthorized</p>
 {:else}
 	<div><a href="/projects/{data.projectId}">project</a></div>

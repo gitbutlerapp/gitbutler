@@ -1,0 +1,88 @@
+<script lang="ts">
+	import { ProjectService } from '$lib/backend/projects';
+	import CreatePost from '$lib/feeds/CreatePost.svelte';
+	import Post from '$lib/feeds/Post.svelte';
+	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
+	import { getContext } from '@gitbutler/shared/context';
+	import { getFeed, getFeedLastPost } from '@gitbutler/shared/feeds/feedsPreview.svelte';
+	import { FeedService } from '@gitbutler/shared/feeds/service';
+	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { getFeedIdentityForRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
+	import { AppState } from '@gitbutler/shared/redux/store.svelte';
+
+	const appState = getContext(AppState);
+	const feedService = getContext(FeedService);
+	const projectService = getContext(ProjectService);
+	const project = projectService.project;
+	const cloudProjectService = getContext(CloudProjectService);
+
+	const feedIdentity = $derived(
+		$project?.api
+			? getFeedIdentityForRepositoryId(appState, cloudProjectService, $project.api.repository_id)
+			: undefined
+	);
+
+	const feed = $derived(getFeed(appState, feedService, feedIdentity?.current));
+
+	// Infinite scrolling
+	const lastPost = $derived(getFeedLastPost(appState, feedService, feed.current));
+
+	let lastElement = $state<HTMLElement | undefined>();
+	$effect(() => {
+		if (!lastElement) return;
+
+		const observer = new IntersectionObserver((entries) => {
+			if (entries[0]?.isIntersecting && lastPost.current?.createdAt && feedIdentity?.current) {
+				feedService.getFeedPage(feedIdentity.current, lastPost.current.createdAt);
+			}
+		});
+
+		observer.observe(lastElement);
+		return () => observer.disconnect();
+	});
+</script>
+
+<div class="page">
+	<div class="page-content">
+		<ScrollableContainer>
+			<div class="bleep-container">
+				<CreatePost />
+			</div>
+
+			<hr />
+
+			{#if feed.current}
+				{#each feed.current.postIds as postId, index (postId)}
+					<div class="bleep-container">
+						{#if index < feed.current.postIds.length - 1 && lastPost.current && feedIdentity?.current}
+							<div bind:this={lastElement}></div>
+						{/if}
+
+						<Post {postId} />
+					</div>
+				{/each}
+			{/if}
+		</ScrollableContainer>
+	</div>
+</div>
+
+<style lang="postcss">
+	.page {
+		display: flex;
+		justify-content: center;
+
+		width: 100%;
+
+		margin-top: 16px;
+	}
+	hr {
+		margin-bottom: 16px;
+	}
+	.page-content {
+		width: 100%;
+		max-width: 600px;
+	}
+	.bleep-container {
+		margin-bottom: 16px;
+	}
+</style>

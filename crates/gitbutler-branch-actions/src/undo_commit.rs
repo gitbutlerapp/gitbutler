@@ -4,7 +4,10 @@ use anyhow::{bail, Context as _, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_diff::Hunk;
-use gitbutler_repo::{rebase::cherry_rebase_group, LogUntil, RepositoryExt as _};
+use gitbutler_repo::{
+    logging::{LogUntil, RepositoryExt as _},
+    rebase::cherry_rebase_group,
+};
 use gitbutler_stack::{OwnershipClaim, Stack, StackId};
 
 use crate::VirtualBranchesExt as _;
@@ -32,7 +35,7 @@ pub(crate) fn undo_commit(
     let UndoResult {
         new_head: new_head_commit,
         ownership_update,
-    } = inner_undo_commit(ctx.repository(), stack.head(), commit_oid)?;
+    } = inner_undo_commit(ctx.repo(), stack.head(), commit_oid)?;
 
     for ownership in ownership_update {
         stack.ownership.put(ownership);
@@ -40,7 +43,7 @@ pub(crate) fn undo_commit(
 
     stack.set_stack_head(ctx, new_head_commit, None)?;
 
-    let removed_commit = ctx.repository().find_commit(commit_oid)?;
+    let removed_commit = ctx.repo().find_commit(commit_oid)?;
     stack.replace_head(ctx, &removed_commit, &removed_commit.parent(0)?)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
@@ -109,6 +112,7 @@ fn inner_undo_commit(
         repository,
         commit_to_remove.parent_id(0)?,
         &commits_to_rebase,
+        false,
     )?;
 
     Ok(UndoResult {

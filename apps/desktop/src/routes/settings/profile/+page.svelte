@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { deleteAllData } from '$lib/backend/data';
 	import Login from '$lib/components/Login.svelte';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
 	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
@@ -10,8 +9,10 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
+	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
 	const userService = getContext(UserService);
@@ -19,23 +20,25 @@
 
 	const fileTypes = ['image/jpeg', 'image/png'];
 
-	let saving = false;
-	let newName = '';
-	let isDeleting = false;
-	let loaded = false;
+	let saving = $state(false);
+	let newName = $state('');
+	let isDeleting = $state(false);
+	let loaded = $state(false);
 
-	$: userPicture = $user?.picture;
+	let userPicture = $state($user?.picture);
 
-	let deleteConfirmationModal: ReturnType<typeof Modal> | undefined;
+	let deleteConfirmationModal: ReturnType<typeof Modal> | undefined = $state();
 
-	$: if ($user && !loaded) {
-		loaded = true;
-		userService.getUser().then((cloudUser) => {
-			cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
-			userService.setUser(cloudUser);
-		});
-		newName = $user?.name || '';
-	}
+	onMount(() => {
+		if ($user && !loaded) {
+			loaded = true;
+			userService.getUser().then((cloudUser) => {
+				cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
+				userService.setUser(cloudUser);
+			});
+			newName = $user?.name || '';
+		}
+	});
 
 	async function onSubmit(e: SubmitEvent) {
 		if (!$user) return;
@@ -93,10 +96,10 @@
 <SettingsPage title="Profile">
 	{#if $user}
 		<SectionCard>
-			<form on:submit={onSubmit} class="profile-form">
+			<form onsubmit={onSubmit} class="profile-form">
 				<label id="profile-picture" class="profile-pic-wrapper focus-state" for="picture">
 					<input
-						on:change={onPictureChange}
+						onchange={onPictureChange}
 						type="file"
 						id="picture"
 						name="picture"
@@ -128,22 +131,26 @@
 
 	{#if $user}
 		<SectionCard orientation="row">
-			<svelte:fragment slot="title">Signing out</svelte:fragment>
-			<svelte:fragment slot="caption">
+			{#snippet title()}
+				Signing out
+			{/snippet}
+			{#snippet caption()}
 				Ready to take a break? Click here to log out and unwind.
-			</svelte:fragment>
+			{/snippet}
 
 			<Login />
 		</SectionCard>
 	{/if}
 
 	<SectionCard orientation="row">
-		<svelte:fragment slot="title">Remove all projects</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Remove all projects
+		{/snippet}
+		{#snippet caption()}
 			You can delete all projects from the GitButler app.
 			<br />
 			Your code remains safe. it only clears the configuration.
-		</svelte:fragment>
+		{/snippet}
 
 		<Button style="error" kind="soft" onclick={() => deleteConfirmationModal?.show()}>
 			Remove projects…

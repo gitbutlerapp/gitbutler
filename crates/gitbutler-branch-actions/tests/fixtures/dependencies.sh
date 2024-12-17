@@ -2,6 +2,54 @@
 set -eu -o pipefail
 CLI=${1:?The first argument is the GitButler CLI}
 
+# Add change ID to a commit.
+#
+# Example usage:
+# set_change_id adbb3234 "change-id-1" "my_stack"
+set_change_id() {
+    local commit_hash=$1
+    local change_id=$2
+    local branch_name=$3
+
+    local change_id_key="gitbutler-change-id"
+    local gitbutler_header_version_key="gitbutler-headers-version"
+    local gitbutler_header_version_value="2"
+
+    if [ -z "$commit_hash" ] || [ -z "$change_id" ] || [ -z "$branch_name" ]; then
+        echo "Usage: set_change_id <commit_hash> <change_id> <branch_name>"
+        return 1
+    fi
+
+    local tree=$(git cat-file -p "$commit_hash" | grep "^tree" | awk '{print $2}')
+    local parent=$(git cat-file -p "$commit_hash" | grep "^parent" | awk '{print $2}')
+    local author=$(git cat-file -p "$commit_hash" | grep "^author" | cut -d' ' -f2-)
+    local committer=$(git cat-file -p "$commit_hash" | grep "^committer" | cut -d' ' -f2-)
+
+    local message_start=$(git cat-file -p "$commit_hash" | grep -n '^$' | head -n 1 | cut -d: -f1)
+    local message=$(git cat-file -p "$commit_hash" | tail -n +"$((message_start + 1))")
+
+    {
+        echo "tree $tree"
+        if [ -n "$parent" ]; then
+            echo "parent $parent"
+        fi
+        echo "author $author"
+        echo "committer $committer"
+        echo "$gitbutler_header_version_key $gitbutler_header_version_value"
+        echo "$change_id_key $change_id"
+        echo ""
+        echo "$message"
+    } > new_commit
+
+    local new_commit_hash=$(git hash-object -t commit -w new_commit)
+
+    git update-ref "refs/heads/$branch_name" "$new_commit_hash"
+
+    rm new_commit
+}
+
+
+
 git init remote
 (cd remote
   echo first > file
@@ -343,4 +391,45 @@ update 8
 added at the bottom
 " > file
   $CLI branch commit my_stack -m "insert 1 line at the top and bottom, remove lines 3 and 4 and update line 7"
+)
+
+git clone remote complex-branch-checkout
+(cd complex-branch-checkout
+  git config user.name "Author"
+  git config user.email "author@example.com"
+
+  git switch -c my_stack
+  echo "this is a" > a
+  git add a && git commit -m "add a" --trailer ""
+  set_change_id "$(git rev-parse HEAD)" "change-id-1" "my_stack"
+
+  echo "this is b" > b
+  git add b && git commit -m "add b"
+  set_change_id "$(git rev-parse HEAD)" "change-id-2" "my_stack"
+
+  echo "this updates a" > a
+  git add . && git commit -m "update a"
+  set_change_id "$(git rev-parse HEAD)" "change-id-3" "my_stack"
+
+  git switch -c delete-b
+  rm -rf b
+  git add . && git commit -m "delete b"
+  set_change_id "$(git rev-parse HEAD)" "change-id-4" "delete-b"
+
+  git checkout my_stack
+  git merge delete-b --no-edit --no-ff
+  git branch -D delete-b
+
+  echo "this is c" > c
+  git add c && git commit -m "add c"
+  set_change_id "$(git rev-parse HEAD)" "change-id-5" "my_stack"
+
+  echo "update a again" > a
+  git add . && git commit -m "update a again"
+  set_change_id "$(git rev-parse HEAD)" "change-id-6" "my_stack"
+
+  git checkout main
+
+  $CLI project add --switch-to-workspace "$(git rev-parse --symbolic-full-name @{u})"
+  $CLI branch apply -b my_stack
 )

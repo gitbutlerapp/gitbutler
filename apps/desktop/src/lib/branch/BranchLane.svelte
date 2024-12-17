@@ -5,11 +5,6 @@
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import Resizer from '$lib/shared/Resizer.svelte';
 	import Stack from '$lib/stack/Stack.svelte';
-	import {
-		createIntegratedCommitsContextStore,
-		createLocalCommitsContextStore,
-		createLocalAndRemoteCommitsContextStore
-	} from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { RemoteFile, VirtualBranch } from '$lib/vbranches/types';
@@ -39,17 +34,6 @@
 		branchStore.set(branch);
 		selectedOwnershipStore.update((o) => o?.update(branch));
 		uncommittedFiles.set(branch.files);
-	});
-
-	// COMMITS
-	const localCommits = createLocalCommitsContextStore([]);
-	const localAndRemoteCommits = createLocalAndRemoteCommitsContextStore([]);
-	const integratedCommits = createIntegratedCommitsContextStore([]);
-
-	$effect(() => {
-		localCommits.set(branch.localCommits);
-		localAndRemoteCommits.set(branch.remoteCommits);
-		integratedCommits.set(branch.integratedCommits);
 	});
 
 	const project = getContext(Project);
@@ -99,7 +83,7 @@
 				readonly={selected instanceof RemoteFile}
 				selectable={$commitBoxOpen && commitId === undefined}
 				{commitId}
-				on:close={() => {
+				onClose={() => {
 					fileIdSelection.clear();
 				}}
 			/>
@@ -108,8 +92,8 @@
 				direction="right"
 				minWidth={400}
 				defaultLineColor="var(--clr-border-2)"
-				on:width={(e) => {
-					fileWidth = e.detail / (16 * $userSettings.zoom);
+				onWidth={(value) => {
+					fileWidth = value / (16 * $userSettings.zoom);
 					lscache.set(fileWidthKey + branch.id, fileWidth, 7 * 1440); // 7 day ttl
 					$defaultFileWidthRem = fileWidth;
 				}}

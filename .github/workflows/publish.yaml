@@ -220,7 +220,7 @@ jobs:
           path: tauri-aux-artifacts/
           if-no-files-found: error
 
-  sign-tauri:
+  sign-windows:
     needs: build-tauri
     runs-on: [self-hosted, evcodesignd]
     strategy:
@@ -243,6 +243,55 @@ jobs:
         env:
           EVCODESIGND_PSK: ${{ secrets.EVCODESIGND_PSK }}
       - name: Upload signed artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          path: release/
+          if-no-files-found: error
+          overwrite: true
+
+  sign-tauri:
+    needs: [sign-windows, build-tauri]
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        platform:
+          - windows-latest # [windows, x64]
+    steps:
+      - name: Clean artifact directory
+        shell: bash
+        run: rm -rf release
+      - name: Download ev-signed artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'
+          path: release
+      - name: Set file as a variable
+        shell: bash
+        id: set-path
+        run: |
+          msi_file=$(find release -name "*.msi" -type f -printf '%P\n')
+          echo "msi_file=$msi_file" >> $GITHUB_OUTPUT
+      - name: Sign our EV signed file
+        shell: bash
+        run: |
+          set -x  
+          curl -O https://gitbutler-public.s3.us-east-1.amazonaws.com/_win/minisign.exe
+          chmod +x minisign.exe  # Add this line to make the file executable
+          echo "sign release/${{ steps.set-path.outputs.msi_file }}"
+          timestamp=$(date +%s)
+          TRUSTED_COMMENT="timestamp:$timestamp	file:${{ steps.set-path.outputs.msi_file }}"
+          UNTRUSTED_COMMENT="signature from tauri secret key"
+          echo "${{ secrets.TAURI_PRIVATE_KEY }}" >> ./minisign.key.b64
+          perl -MMIME::Base64 -ne 'print decode_base64($_)' ./minisign.key.b64 > minisign.key
+          echo ${{ secrets.TAURI_KEY_PASSWORD }} | ./minisign.exe -S -s minisign.key -t "$TRUSTED_COMMENT" -c "$UNTRUSTED_COMMENT" -m "release/${{ steps.set-path.outputs.msi_file }}"
+          perl -MMIME::Base64 -0777 -ne 'print encode_base64($_, "")' < "release/${{ steps.set-path.outputs.msi_file }}.minisig" > "release/${{ steps.set-path.outputs.msi_file }}.sig"
+          rm "release/${{ steps.set-path.outputs.msi_file }}.minisig"
+          rm "release/${{ steps.set-path.outputs.msi_file }}.zip"
+      - name: Compress files into a ZIP archive
+        run: |
+          Compress-Archive -Force -Path "release/${{ steps.set-path.outputs.msi_file }}" -DestinationPath "release/${{ steps.set-path.outputs.msi_file }}.zip"
+      - name: Upload re-signed artifacts
         uses: actions/upload-artifact@v4
         with:
           name: '${{ needs.build-tauri.outputs.channel }}-${{ matrix.platform }}-${{ github.run_number }}'

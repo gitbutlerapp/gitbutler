@@ -1,9 +1,9 @@
 <script lang="ts">
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 
 	interface Props {
 		title?: string;
@@ -14,22 +14,22 @@
 	const loading = userService.loading;
 
 	const {
-		title = 'Authorization Required',
+		title: titleLabel = 'Authorization Required',
 		message = 'You need to authorize GitButler to access this service.'
 	}: Props = $props();
 </script>
 
 <SectionCard orientation="row">
-	<svelte:fragment slot="iconSide">
+	{#snippet iconSide()}
 		<Icon name="warning" color="warning" />
-	</svelte:fragment>
-	<svelte:fragment slot="title">
-		{title}
-	</svelte:fragment>
-	<svelte:fragment slot="caption">
+	{/snippet}
+	{#snippet title()}
+		{titleLabel}
+	{/snippet}
+	{#snippet caption()}
 		{message}
-	</svelte:fragment>
-	<svelte:fragment slot="actions">
+	{/snippet}
+	{#snippet actions()}
 		<Button
 			loading={$loading}
 			style="pop"
@@ -38,5 +38,5 @@
 				await userService.login();
 			}}>Log in or Sign up</Button
 		>
-	</svelte:fragment>
+	{/snippet}
 </SectionCard>

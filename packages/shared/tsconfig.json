@@ -14,7 +14,9 @@
 		"experimentalDecorators": true,
 		"declaration": true,
 		"composite": true,
-		"declarationMap": true
+		"declarationMap": true,
+		"mapRoot": "../../dist",
+		"noUncheckedIndexedAccess": true
 	},
 	"include": [
 		".svelte-kit/ambient.d.ts",

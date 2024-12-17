@@ -1,34 +1,48 @@
 @import '@fontsource/fira-mono';
+@import '@fontsource-variable/spline-sans-mono';
 @import '@gitbutler/ui/main.css';
 @import '@gitbutler/ui/fonts.css';
 
 :root {
-	--font-body: Arial, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu,
-		Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+	--text-font-family-default: 'Spline Sans Mono Variable';
+	--font-body: 'Spline Sans Mono Variable', monospace, ui-sans-serif, system-ui, sans-serif,
+		'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
 	--font-mono: 'Fira Mono', monospace;
-	--color-bg-0: rgb(202, 216, 228);
-	--color-bg-1: hsl(209, 36%, 86%);
-	--color-bg-2: hsl(224, 44%, 95%);
-	--color-theme-1: var(--clr-core-pop-40);
-	--color-text: rgba(0, 0, 0, 0.7);
 	--column-width: 42rem;
 	--column-margin-top: 4rem;
 	font-family: var(--font-body);
 	color: var(--color-text);
+
+	--off-white: #f5f5f3;
+	--clr-bg: var(--off-white);
+	/* gray */
+	--clr-white: #ffffff;
+	--clr-black: #000000;
+	--clr-dark-gray: #707070;
+	--clr-gray: #d0cfcb;
+	--clr-light-gray: #f1f1ed;
+	/* accent */
+	--clr-accent: #97eae5;
 }
 
 body {
+	width: 1440px;
+	height: 908px;
+	flex-shrink: 0;
 	min-height: 100vh;
-	margin: 0;
-	background-attachment: fixed;
-	background-color: var(--color-bg-1);
-	background-size: 100vw 100vh;
-	background-image: radial-gradient(
-			50% 50% at 50% 50%,
-			rgba(255, 255, 255, 0.75) 0%,
-			rgba(255, 255, 255, 0) 100%
-		),
-		linear-gradient(180deg, var(--color-bg-0) 0%, var(--color-bg-1) 15%, var(--color-bg-2) 50%);
+	width: 100%;
+	background: var(--bg-2, #f3f3f2);
+
+	&::-webkit-scrollbar {
+		width: 8px;
+		/* Mostly for vertical scrollbars */
+		height: 8px;
+		/* Mostly for horizontal scrollbars */
+	}
+
+	&::-webkit-scrollbar-thumb {
+		background: color-mix(in srgb, var(--clr-accent) 96%, var(--clr-black));
+	}
 }
 
 h1,
@@ -51,7 +65,11 @@ a:hover {
 }
 
 h1 {
-	font-size: 2rem;
+	font-family: 'PP Editorial New', serif;
+	font-size: 86px;
+	font-weight: 400;
+	line-height: 92%;
+	margin: 0;
 }
 
 h2 {
@@ -107,4 +125,19 @@ button:focus:not(:focus-visible) {
 	position: absolute;
 	width: 1px;
 	white-space: nowrap;
+}
+
+/* make ul's show up again after the reset */
+.dotted ul {
+	list-style-type: disc;
+	padding: 0 0 0 1em;
+}
+
+.dotted ul li {
+	margin: 0.5em 0;
+}
+
+a.linked {
+	color: #44c;
+	text-decoration: underline;
 }

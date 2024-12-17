@@ -32,7 +32,7 @@ fn integration() {
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
-            .0
+            .branches
             .into_iter()
             .find(|branch| branch.id == branch_id)
             .unwrap();
@@ -76,15 +76,15 @@ fn integration() {
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
-            .0
+            .branches
             .into_iter()
             .find(|branch| branch.id == branch_id)
             .unwrap();
 
-        assert!(branch.commits[0].is_remote);
-        assert!(!branch.commits[0].is_integrated);
-        assert!(branch.commits[1].is_remote);
-        assert!(!branch.commits[1].is_integrated);
+        assert!(branch.series[0].clone().unwrap().patches[0].is_local_and_remote);
+        assert!(!branch.series[0].clone().unwrap().patches[0].is_integrated);
+        assert!(branch.series[0].clone().unwrap().patches[1].is_local_and_remote);
+        assert!(!branch.series[0].clone().unwrap().patches[1].is_integrated);
 
         repository.rebase_and_merge(&branch_name);
     }
@@ -95,7 +95,7 @@ fn integration() {
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
-            .0
+            .branches
             .into_iter()
             .find(|branch| branch.id == branch_id)
             .unwrap();
@@ -105,10 +105,10 @@ fn integration() {
             Some(123)
         );
 
-        assert!(branch.commits[0].is_remote);
-        assert!(branch.commits[0].is_integrated);
-        assert!(branch.commits[1].is_remote);
-        assert!(branch.commits[1].is_integrated);
+        assert!(branch.series[0].clone().unwrap().patches[0].is_local_and_remote);
+        assert!(branch.series[0].clone().unwrap().patches[0].is_integrated);
+        assert!(branch.series[0].clone().unwrap().patches[1].is_local_and_remote);
+        assert!(branch.series[0].clone().unwrap().patches[1].is_integrated);
     }
 }
 
@@ -136,7 +136,9 @@ fn no_conflicts() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
+
     assert!(branches.is_empty());
 
     let branch_id = gitbutler_branch_actions::create_virtual_branch_from_branch(
@@ -147,11 +149,15 @@ fn no_conflicts() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, branch_id);
-    assert_eq!(branches[0].commits.len(), 1);
-    assert_eq!(branches[0].commits[0].description, "first");
+    assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
+    assert_eq!(
+        branches[0].series[0].clone().unwrap().patches[0].description,
+        "first"
+    );
 }
 
 #[test]
@@ -182,7 +188,8 @@ fn conflicts_with_uncommited() {
     {
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
     };
 
@@ -197,12 +204,12 @@ fn conflicts_with_uncommited() {
     .unwrap();
     let new_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|branch| branch.id == new_branch_id)
         .unwrap();
     assert_eq!(new_branch_id, new_branch.id);
-    assert_eq!(new_branch.commits.len(), 1);
+    assert_eq!(new_branch.series[0].clone().unwrap().patches.len(), 1);
     assert!(new_branch.upstream.is_some());
 }
 
@@ -234,7 +241,8 @@ fn conflicts_with_commited() {
     {
         std::fs::write(repository.path().join("file.txt"), "conflict").unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
 
         gitbutler_branch_actions::create_commit(project, branches[0].id, "hej", None, false)
@@ -252,12 +260,12 @@ fn conflicts_with_commited() {
     .unwrap();
     let new_branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|branch| branch.id == new_branch_id)
         .unwrap();
     assert_eq!(new_branch_id, new_branch.id);
-    assert_eq!(new_branch.commits.len(), 1);
+    assert_eq!(new_branch.series[0].clone().unwrap().patches.len(), 1);
     assert!(new_branch.upstream.is_some());
 }
 
@@ -348,12 +356,16 @@ fn from_state_remote_branch() {
     )
     .unwrap();
 
-    let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+    let branches = list_result.branches;
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].id, branch_id);
-    assert_eq!(branches[0].commits.len(), 1);
+    assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
     assert!(branches[0].files.is_empty());
-    assert_eq!(branches[0].commits[0].description, "branch commit");
+    assert_eq!(
+        branches[0].series[0].clone().unwrap().patches[0].description,
+        "branch commit"
+    );
 }
 
 #[cfg(test)]
@@ -397,7 +409,8 @@ mod conflict_cases {
         fs::write(repository.path().join("bar.txt"), "b").unwrap();
         repository.commit_all("B");
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         let branch = branches[0].clone();
 
         let branch_refname =
@@ -440,15 +453,26 @@ mod conflict_cases {
         .unwrap();
 
         // We should see a merge commit
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         let branch = branches[0].clone();
 
-        assert_eq!(branch.commits.len(), 2, "Should have B' and A'");
+        assert_eq!(
+            branch.series[0].clone().unwrap().patches.len(),
+            2,
+            "Should have B' and A'"
+        );
 
-        assert_eq!(branch.commits[0].description.to_str().unwrap(), "B");
-        assert!(branch.commits[0].conflicted);
+        assert_eq!(
+            branch.series[0].clone().unwrap().patches[0]
+                .description
+                .to_str()
+                .unwrap(),
+            "B"
+        );
+        assert!(branch.series[0].clone().unwrap().patches[0].conflicted);
         let tree = repository
-            .find_commit(branch.commits[0].id)
+            .find_commit(branch.series[0].clone().unwrap().patches[0].id)
             .unwrap()
             .tree()
             .unwrap();
@@ -465,11 +489,19 @@ mod conflict_cases {
             ],
         );
 
-        assert_eq!(branch.commits[1].description.to_str().unwrap(), "A");
-        assert!(branch.commits[1].conflicted);
+        assert_eq!(
+            branch.series[0].clone().unwrap().patches[1]
+                .description
+                .to_str()
+                .unwrap(),
+            "A"
+        );
+        assert!(branch.series[0].clone().unwrap().patches[1].conflicted);
         assert_commit_tree_matches(
             git_repository,
-            &repository.find_commit(branch.commits[1].id).unwrap(),
+            &repository
+                .find_commit(branch.series[0].clone().unwrap().patches[1].id)
+                .unwrap(),
             &[
                 (".auto-resolution/foo.txt", b"x"), // Auto-resolves to X
                 (".conflict-side-0/foo.txt", b"x"), // "Ours" is X

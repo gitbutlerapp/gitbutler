@@ -4,6 +4,7 @@ import type { HttpClient } from '@gitbutler/shared/httpClient';
 
 export interface User {
 	id: string;
+	login: any;
 	name: string;
 	email: string;
 	created_at: Date;
@@ -28,7 +29,7 @@ export class UserService {
 	constructor(private readonly httpClient: HttpClient) {}
 
 	private async fetchUser() {
-		const user = await this.httpClient.get<User>('/user');
+		const user = await this.httpClient.get<User>('/api/user');
 		setSentryUser(user);
 
 		return user;

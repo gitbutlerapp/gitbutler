@@ -27,6 +27,7 @@ export class Project {
 	omit_certificate_check: boolean | undefined;
 	use_diff_context: boolean | undefined;
 	snapshot_lines_threshold!: number | undefined;
+	use_new_branch_integration_algorithm: boolean | undefined;
 	// Produced just for the frontend to determine if the project is open in any window.
 	is_open!: boolean;
 
@@ -40,6 +41,7 @@ export type CloudProject = {
 	description: string | null;
 	repository_id: string;
 	git_url: string;
+	git_code_url: string;
 	created_at: string;
 	updated_at: string;
 };
@@ -148,7 +150,7 @@ export class ProjectsService {
 			// linkProjectModal?.show(project.id);
 			goto(`/${project.id}/board`);
 		} catch (e: any) {
-			showError('There was a problem', e.message);
+			showError('There was an error while adding project', e.message);
 		}
 	}
 
@@ -223,16 +225,11 @@ export class ProjectsService {
  */
 export class ProjectService {
 	project: Readable<Project | undefined>;
-	cloudEnabled: Readable<boolean>;
 
 	constructor(
 		projectsService: ProjectsService,
 		readonly projectId: string
 	) {
 		this.project = projectsService.getProjectStore(projectId);
-
-		this.cloudEnabled = derived(this.project, (project) => {
-			return !!project?.api?.sync;
-		});
 	}
 }

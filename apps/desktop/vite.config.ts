@@ -66,6 +66,9 @@ export default defineConfig({
 		includeSource: ['src/**/*.{js,ts}'],
 		exclude: ['node_modules/**/*', 'e2e/**/*'],
 		environment: 'jsdom',
-		setupFiles: ['./vitest-setup.js']
+		setupFiles: ['./vitest-setup.js'],
+		alias: {
+			'@testing-library/svelte': '@testing-library/svelte/svelte5'
+		}
 	}
 });

@@ -6,23 +6,47 @@
 <script lang="ts">
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
-	import { createEventDispatcher } from 'svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
+	import type { Snippet } from 'svelte';
 
 	type IconColor = ComponentColor | undefined;
+	type IconName = keyof typeof iconsJson;
 
-	export let icon: keyof typeof iconsJson | undefined = undefined;
-	export let style: MessageStyle = 'neutral';
-	export let outlined: boolean = true;
-	export let filled: boolean = false;
-	export let primary: string | undefined = undefined;
-	export let secondary: string | undefined = undefined;
-	export let shadow = false;
-	export let error: string | undefined = undefined;
+	interface Props {
+		icon?: IconName | undefined;
+		style?: MessageStyle;
+		outlined?: boolean;
+		filled?: boolean;
+		primaryLabel?: string | undefined;
+		primaryIcon?: IconName | undefined;
+		primaryAction?: () => void;
+		secondaryLabel?: string | undefined;
+		secondaryIcon?: IconName | undefined;
+		secondaryAction?: () => void;
+		shadow?: boolean;
+		error?: string | undefined;
+		title?: Snippet;
+		content?: Snippet;
+	}
 
-	const dispatch = createEventDispatcher<{ primary: void; secondary: void }>();
+	const {
+		icon: iconName = undefined,
+		style = 'neutral',
+		outlined = true,
+		filled = false,
+		primaryLabel = '',
+		primaryIcon = undefined,
+		primaryAction,
+		secondaryLabel = '',
+		secondaryIcon = undefined,
+		secondaryAction,
+		shadow = false,
+		error = undefined,
+		title,
+		content
+	}: Props = $props();
 
-	const iconMap: { [Key in MessageStyle]: keyof typeof iconsJson } = {
+	const iconMap: { [Key in MessageStyle]: IconName } = {
 		neutral: 'info',
 		pop: 'info',
 		warning: 'warning',
@@ -53,18 +77,18 @@
 	class:has-background={filled}
 	class:shadow
 >
-	<Icon name={icon ? icon : iconMap[style]} color={iconColorMap[style]} />
+	<Icon name={iconName ? iconName : iconMap[style]} color={iconColorMap[style]} />
 	<div class="info-message__inner">
 		<div class="info-message__content">
-			{#if $$slots.title}
+			{#if title}
 				<div class="info-message__title text-13 text-body text-semibold">
-					<slot name="title" />
+					{@render title()}
 				</div>
 			{/if}
 
-			{#if $$slots.content}
+			{#if content}
 				<div class="info-message__text text-12 text-body">
-					<slot name="content" />
+					{@render content()}
 				</div>
 			{/if}
 		</div>
@@ -75,16 +99,21 @@
 			</code>
 		{/if}
 
-		{#if primary || secondary}
+		{#if primaryLabel || secondaryLabel}
 			<div class="info-message__actions">
-				{#if secondary}
-					<Button style="ghost" outline onclick={() => dispatch('secondary')}>
-						{secondary}
+				{#if secondaryLabel}
+					<Button style="ghost" outline onclick={() => secondaryAction?.()} icon={secondaryIcon}>
+						{secondaryLabel}
 					</Button>
 				{/if}
-				{#if primary}
-					<Button style={primaryButtonMap[style]} kind="solid" onclick={() => dispatch('primary')}>
-						{primary}
+				{#if primaryLabel}
+					<Button
+						style={primaryButtonMap[style]}
+						kind="solid"
+						onclick={() => primaryAction?.()}
+						icon={primaryIcon}
+					>
+						{primaryLabel}
 					</Button>
 				{/if}
 			</div>

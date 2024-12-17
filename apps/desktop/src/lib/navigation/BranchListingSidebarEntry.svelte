@@ -10,7 +10,6 @@
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
-	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 	import type { Readable } from 'svelte/store';
 	import { goto } from '$app/navigation';
@@ -147,8 +146,5 @@
 	onFirstSeen={() => (hasBeenSeen = true)}
 	{onMouseDown}
 	{selected}
->
-	{#snippet authorAvatars()}
-		<AvatarGroup {avatars} />
-	{/snippet}
-</SidebarEntry>
+	{avatars}
+/>

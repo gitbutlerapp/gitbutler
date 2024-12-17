@@ -1,8 +1,8 @@
 use anyhow::Result;
 use git2::{Commit, Oid};
 use gitbutler_commit::commit_ext::{CommitExt, CommitVecExt};
-use gitbutler_repo::{LogUntil, RepositoryExt as _};
-use itertools::Itertools as _;
+use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 
@@ -83,14 +83,15 @@ impl StackBranch {
         Ok(head_commit)
     }
     /// Returns a fully qualified reference with the supplied remote e.g. `refs/remotes/origin/base-branch-improvements`
-    pub fn remote_reference(&self, remote: &str) -> Result<String> {
-        Ok(format!("refs/remotes/{}/{}", remote, self.name))
+    pub fn remote_reference(&self, remote: &str) -> String {
+        format!("refs/remotes/{}/{}", remote, self.name)
     }
 
     /// Returns `true` if the reference is pushed to the provided remote
-    pub fn pushed(&self, remote: &str, repository: &git2::Repository) -> Result<bool> {
-        let remote_ref = self.remote_reference(remote)?; // todo: this should probably just return false
-        Ok(repository.find_reference(&remote_ref).is_ok())
+    pub fn pushed(&self, remote: &str, repository: &git2::Repository) -> bool {
+        repository
+            .find_reference(&self.remote_reference(remote))
+            .is_ok()
     }
 
     /// Returns the commits that are part of the branch.
@@ -104,11 +105,10 @@ impl StackBranch {
 
         let head_commit =
             commit_by_oid_or_change_id(&self.head, repository, stack.head(), merge_base);
-        if self.archived || head_commit.is_err() {
+        if head_commit.is_err() {
             return Ok(BranchCommits {
                 local_commits: vec![],
                 remote_commits: vec![],
-                upstream_only_commits: vec![],
             });
         }
         let head_commit = head_commit?.head.id();
@@ -124,28 +124,28 @@ impl StackBranch {
                     .unwrap_or(merge_base)
             });
 
-        let mut local_patches = vec![];
-        for commit in repository
+        let local_patches = repository
             .log(head_commit, LogUntil::Commit(previous_head), false)?
             .into_iter()
             .rev()
-        {
-            local_patches.push(commit);
-        }
+            .collect_vec();
 
         let default_target = stack_context.target();
         let mut remote_patches: Vec<Commit<'_>> = vec![];
-        let remote_name = default_target.push_remote_name();
-        if self.pushed(&remote_name, repository).unwrap_or_default() {
-            let head_commit = repository
-                .find_reference(&self.remote_reference(&remote_name)?)?
+
+        // Use remote from upstream if available, otherwise default to push remote.
+        let remote = stack
+            .upstream
+            .clone()
+            .map(|ref_name| ref_name.remote().to_owned())
+            .unwrap_or(default_target.push_remote_name());
+
+        if self.pushed(&remote, repository) {
+            let upstream_head = repository
+                .find_reference(self.remote_reference(&remote).as_str())?
                 .peel_to_commit()?;
-            let target_commit = repository
-                .find_reference(default_target.branch.to_string().as_str())?
-                .peel_to_commit()?;
-            let merge_base = repository.merge_base(head_commit.id(), target_commit.id())?;
             repository
-                .log(head_commit.id(), LogUntil::Commit(merge_base), false)?
+                .log(upstream_head.id(), LogUntil::Commit(previous_head), false)?
                 .into_iter()
                 .rev()
                 .for_each(|c| {
@@ -153,23 +153,9 @@ impl StackBranch {
                 });
         }
 
-        // compute the commits that are only in the upstream
-        let local_patches_including_merge = repository
-            .log(head_commit, LogUntil::Commit(merge_base), true)?
-            .into_iter()
-            .rev() // oldest commit first
-            .collect_vec();
-        let mut upstream_only = vec![];
-        for patch in remote_patches.iter() {
-            if !local_patches_including_merge.contains_by_commit_or_change_id(patch) {
-                upstream_only.push(patch.clone());
-            }
-        }
-
         Ok(BranchCommits {
             local_commits: local_patches,
             remote_commits: remote_patches,
-            upstream_only_commits: upstream_only,
         })
     }
 }
@@ -185,9 +171,6 @@ pub struct BranchCommits<'a> {
     /// If the branch/series have never been pushed, this list will be empty.
     /// Topologically ordered, the first entry is the newest in the series.
     pub remote_commits: Vec<Commit<'a>>,
-    /// The list of patches that are only in the upstream (remote) and not in the local commits,
-    /// as determined by the commit ID or change ID.
-    pub upstream_only_commits: Vec<Commit<'a>>,
 }
 
 impl BranchCommits<'_> {

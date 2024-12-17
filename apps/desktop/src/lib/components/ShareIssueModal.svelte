@@ -36,14 +36,14 @@
 		});
 	}
 
-	let modal: ReturnType<typeof Modal> | undefined;
+	let modal: ReturnType<typeof Modal> | undefined = $state();
 
-	let messageInputValue = '';
-	let emailInputValue = '';
-	let sendLogs = false;
-	let sendProjectRepository = false;
+	let messageInputValue = $state('');
+	let emailInputValue = $state('');
+	let sendLogs = $state(false);
+	let sendProjectRepository = $state(false);
 
-	$: projectId = $page.params.projectId!;
+	const projectId = $derived($page.params.projectId!);
 
 	function reset() {
 		messageInputValue = '';
@@ -168,8 +168,6 @@
 		<Textarea
 			label="Comments"
 			placeholder="Provide any steps necessary to reproduce the problem."
-			autocomplete="off"
-			autocorrect="off"
 			spellcheck
 			id="comments"
 			minRows={6}

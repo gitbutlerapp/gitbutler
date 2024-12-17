@@ -9,6 +9,7 @@
 <script lang="ts">
 	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
 	import PrTemplateSection from './PrTemplateSection.svelte';
+	import { ReactivePRBody, ReactivePRTitle } from './prContent.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import { TemplateService } from '$lib/backend/templateService';
@@ -16,7 +17,7 @@
 	import Markdown from '$lib/components/Markdown.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { persistedPRBody, persistedPRTitle, projectAiGenEnabled } from '$lib/config/config';
+	import { projectAiGenEnabled } from '$lib/config/config';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
@@ -34,6 +35,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
+	import { parentBranch } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -44,22 +46,17 @@
 	import { isDefined } from '@gitbutler/ui/utils/typeguards';
 	import { tick } from 'svelte';
 
-	interface BaseProps {
-		type: 'display' | 'preview';
-	}
-
-	interface DisplayProps extends BaseProps {
-		type: 'display';
-		pr: DetailedPullRequest;
-	}
-
-	interface PreviewProps extends BaseProps {
-		type: 'preview';
-		currentSeries: PatchSeries;
-		stackId: string;
-	}
-
-	type Props = DisplayProps | PreviewProps;
+	type Props =
+		| {
+				type: 'preview';
+				currentSeries: PatchSeries;
+				stackId: string;
+		  }
+		| {
+				type: 'display';
+				currentSeries: PatchSeries;
+				pr: DetailedPullRequest;
+		  };
 
 	let props: Props = $props();
 
@@ -75,11 +72,15 @@
 	const templateService = getContext(TemplateService);
 
 	const branch = $derived($branchStore);
-	const branchName = $derived(props.type === 'preview' ? props.currentSeries.name : branch.name);
-	const commits = $derived(props.type === 'preview' ? props.currentSeries.patches : branch.commits);
+	const commits = $derived(
+		props.type === 'preview'
+			? props.currentSeries.patches
+			: [...props.currentSeries.patches, ...props.currentSeries.upstreamPatches]
+	);
 	const upstreamName = $derived(
 		props.type === 'preview' ? props.currentSeries.name : branch.upstreamName
 	);
+	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
 	const baseBranchName = $derived($baseBranch.shortName);
 	const currentSeries = $derived(props.type === 'preview' ? props.currentSeries : undefined);
 
@@ -87,20 +88,43 @@
 	const createDraft = persisted<boolean>(false, 'createDraftPr');
 
 	let modal = $state<ReturnType<typeof Modal>>();
-	let templateSelector = $state<ReturnType<typeof PrTemplateSection>>();
 	let isEditing = $state<boolean>(true);
 	let isLoading = $state<boolean>(false);
-	let templateBody = $state<string | undefined>(undefined);
 	let aiIsLoading = $state<boolean>(false);
 	let aiConfigurationValid = $state<boolean>(false);
 	let aiDescriptionDirective = $state<string | undefined>(undefined);
 	let showAiBox = $state<boolean>(false);
-	let pushBeforeCreate = $state(false);
+	let templateBody = $state<string | undefined>(undefined);
+	const pushBeforeCreate = $derived(!forgeBranch || commits.some((c) => !c.isRemote));
 
 	// Displays template select component when true.
 	let useTemplate = persisted(false, `use-template-${project.id}`);
 	// Available pull request templates.
 	let templates = $state<string[]>([]);
+
+	const canUseAI = $derived(aiConfigurationValid && $aiGenEnabled);
+
+	const prTitle = $derived(
+		new ReactivePRTitle(
+			project.id,
+			props.type === 'display',
+			props.type === 'display' ? props.pr.title : undefined,
+			commits,
+			currentSeries?.name ?? ''
+		)
+	);
+
+	const prBody = $derived(
+		new ReactivePRBody(
+			project.id,
+			props.type === 'display',
+			currentSeries?.description ?? '',
+			props.type === 'display' ? props.pr.body : undefined,
+			commits,
+			templateBody,
+			currentSeries?.name ?? ''
+		)
+	);
 
 	async function handleToggleUseTemplate() {
 		useTemplate.set(!$useTemplate);
@@ -108,43 +132,6 @@
 			templateBody = undefined;
 		}
 	}
-
-	const canUseAI = $derived(aiConfigurationValid && $aiGenEnabled);
-	const defaultTitle: string = $derived.by(() => {
-		if (props.type === 'display') return props.pr.title;
-
-		// In case of a single commit, use the commit summary for the title
-		if (commits.length === 1) {
-			const commit = commits[0];
-			return commit?.descriptionTitle ?? '';
-		} else {
-			return branchName;
-		}
-	});
-
-	const defaultBody: string = $derived.by(() => {
-		if (props.type === 'display') return props.pr.body ?? '';
-		if (currentSeries && currentSeries.description) return currentSeries.description;
-		if (templateBody) return templateBody;
-
-		// In case of a single commit, use the commit description for the body
-		if (commits.length === 1) {
-			const commit = commits[0];
-			return commit?.descriptionBody ?? '';
-		} else {
-			return '';
-		}
-	});
-
-	let inputBody = $derived(
-		props.type !== 'display' ? persistedPRBody(project.id, props.currentSeries.name) : undefined
-	);
-	let inputTitle = $derived(
-		props.type !== 'display' ? persistedPRTitle(project.id, props.currentSeries.name) : undefined
-	);
-
-	const actualBody = $derived<string>(inputBody && $inputBody ? $inputBody : defaultBody);
-	const actualTitle = $derived<string>(inputTitle && $inputTitle ? $inputTitle : defaultTitle);
 
 	$effect(() => {
 		if (modal?.imports.open) {
@@ -175,7 +162,7 @@
 		try {
 			let upstreamBranchName = upstreamName;
 
-			if (pushBeforeCreate || commits.some((c) => !c.isRemote)) {
+			if (pushBeforeCreate) {
 				const firstPush = !branch.upstream;
 				const pushResult = await branchController.pushBranch(branch.id, branch.requiresForce);
 
@@ -212,10 +199,12 @@
 			}
 
 			// Use base branch as base unless it's part of stack and should be be pointing
-			// to the preceding branch.
+			// to the preceding branch. Ensuring we're not using `archived` branches as base.
 			let base = baseBranchName;
-			if (currentIndex < branches.length - 1) {
-				base = branches[currentIndex + 1]!.branchName;
+			let parent = parentBranch(currentSeries, branches);
+
+			if (parent && !parent.integrated && !parent.archived) {
+				base = parent.branchName;
 			}
 
 			const pr = await $prService.createPr({
@@ -251,8 +240,8 @@
 	async function handleCreatePR(close: () => void) {
 		if (props.type === 'display') return;
 		await createPr({
-			title: actualTitle,
-			body: actualBody,
+			title: prTitle.value,
+			body: prBody.value,
 			draft: $createDraft
 		});
 		close();
@@ -268,18 +257,17 @@
 		let firstToken = true;
 
 		const descriptionResult = await aiService?.describePR({
-			title: actualTitle,
-			body: actualBody,
+			title: prTitle.value,
+			body: prBody.value,
 			directive: aiDescriptionDirective,
 			commitMessages: commits.map((c) => c.description),
 			prBodyTemplate: templateBody,
-			onToken: (t) => {
+			onToken: (token) => {
 				if (firstToken) {
-					inputBody?.set('');
+					prBody.reset();
 					firstToken = false;
 				}
-				const newInputBody = inputBody ? $inputBody + t : t;
-				inputBody?.set(newInputBody);
+				prBody.append(token);
 			}
 		});
 
@@ -289,7 +277,7 @@
 			return;
 		}
 
-		inputBody?.set(descriptionResult.value);
+		prBody.set(descriptionResult.value);
 		aiIsLoading = false;
 		aiDescriptionDirective = undefined;
 		await tick();
@@ -343,11 +331,7 @@
 		}, 2000);
 	}
 
-	/**
-	 * @param {boolean} pushAndCreate - Whether or not the commits need pushed before opening a PR
-	 */
-	export function show(pushAndCreate = false) {
-		pushBeforeCreate = pushAndCreate;
+	export function show() {
 		modal?.show();
 	}
 
@@ -372,11 +356,11 @@
 			{#if isDisplay || !isEditing}
 				<div class="pr-preview" class:display={isDisplay} class:preview={!isDisplay}>
 					<h1 class="text-head-22 pr-preview-title">
-						{actualTitle}
+						{prTitle.value}
 					</h1>
-					{#if actualBody}
+					{#if prBody.value}
 						<div class="pr-description-preview">
-							<Markdown content={actualBody} />
+							<Markdown content={prBody.value} />
 						</div>
 					{/if}
 				</div>
@@ -384,10 +368,10 @@
 				<div class="pr-fields">
 					<Textbox
 						placeholder="PR title"
-						value={actualTitle}
+						value={prTitle.value}
 						readonly={!isEditing || isDisplay}
 						oninput={(value: string) => {
-							inputTitle?.set(value);
+							prTitle.set(value);
 						}}
 					/>
 
@@ -415,7 +399,6 @@
 					<!-- PR TEMPLATE SELECT -->
 					{#if $useTemplate}
 						<PrTemplateSection
-							bind:this={templateSelector}
 							onselected={(body) => {
 								templateBody = body;
 							}}
@@ -427,14 +410,14 @@
 					<div class="pr-description-field text-input">
 						<Textarea
 							unstyled
-							value={actualBody}
+							value={prBody.value}
 							minRows={4}
 							autofocus
 							padding={{ top: 12, right: 12, bottom: 12, left: 12 }}
 							placeholder="Add description…"
-							onchange={(e: InputEvent) => {
+							oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 								const target = e.currentTarget as HTMLTextAreaElement;
-								inputBody?.set(target.value.trim());
+								prBody.set(target.value);
 							}}
 						/>
 
@@ -484,7 +467,7 @@
 				bind:this={createPrDropDown}
 				style="pop"
 				kind="solid"
-				disabled={isLoading || aiIsLoading || !actualTitle}
+				disabled={isLoading || aiIsLoading || !prTitle.value}
 				loading={isLoading}
 				type="submit"
 				onclick={async () => await handleCreatePR(close)}

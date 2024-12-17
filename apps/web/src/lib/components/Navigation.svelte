@@ -1,102 +1,120 @@
 <script lang="ts">
-	import GitButler from '../images/gitbutler.svg';
 	import { AuthService } from '$lib/auth/authService';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { env } from '$env/dynamic/public';
 
 	const authService = getContext(AuthService);
 	const token = $derived(authService.token);
 
+	const userService = getContext(UserService);
+	const user = $derived(userService.user);
+
+	function login() {
+		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login?callback=${window.location.href}`;
+	}
 	function logout() {
 		authService.clearToken();
 		window.location.href = `${env.PUBLIC_APP_HOST}cloud/logout`;
 	}
-
-	function login() {
-		console.log(env.PUBLIC_APP_HOST);
-		window.location.href = `${env.PUBLIC_APP_HOST}cloud/login`;
-	}
 </script>
 
-<header>
-	<a href="/" class="nav__left">
-		<img src={GitButler} width="48" alt="github" />
-		<h2>GitButler</h2>
-	</a>
-	<div>
-		<a href="/downloads">Downloads</a>
+<div class="navigation">
+	<div class="main-links">
+		<div class="link">
+			<a href="/" class="main-nav" aria-label="main nav" title="Home">
+				<svg
+					xmlns="http://www.w3.org/2000/svg"
+					width="23"
+					height="24"
+					viewBox="0 0 23 24"
+					fill="none"
+				>
+					<path d="M0 24V0L11.4819 10.5091L23 0V24L11.4819 13.5273L0 24Z" fill="black" />
+				</svg>
+			</a>
+		</div>
 		{#if $token}
-			|
-			<a href="/projects">Projects</a>
-			|
-			<a href="/repositories">Repositories</a>
-			|
-			<a href="/user">User</a>
+			<div class="link">
+				<a class="nav-link nav-button" href="/organizations" aria-label="organizations">
+					Organizations
+				</a>
+			</div>
+			<div class="link">
+				<a class="nav-link nav-button" href="/repositories" aria-label="projects"> Projects </a>
+			</div>
 		{/if}
+		<div class="link">
+			<a class="nav-link nav-button" href="/downloads" aria-label="downloads" title="Downloads">
+				Downloads
+			</a>
+		</div>
 	</div>
-	<div class="nav__right">
-		<button
-			type="button"
-			class="nav__right--button"
-			onclick={() => {
-				if ($token) {
-					logout();
-				} else {
-					login();
-				}
-			}}
-		>
-			{$token ? 'Log Out' : 'Log In'}
-		</button>
+
+	<div class="account-links">
+		{#if $user}
+			<div>
+				<a href="/profile" class="nav-link nav-button" aria-label="profile">
+					<img class="user__id--img" alt="User Avatar" width="48" src={$user.picture} />
+				</a>
+			</div>
+		{/if}
+
+		<div>
+			<button
+				type="button"
+				class="nav-link nav-button"
+				onclick={() => {
+					if ($token) {
+						logout();
+					} else {
+						login();
+					}
+				}}
+			>
+				{#if $token}
+					Log Out
+				{:else}
+					Log In
+				{/if}
+			</button>
+		</div>
 	</div>
-</header>
+</div>
 
 <style>
-	header {
-		max-width: 64rem;
-		width: 100%;
-		margin: 0 auto;
+	.navigation {
 		display: flex;
 		justify-content: space-between;
+		width: 100%;
+		height: 64px;
+		padding: 0 16px;
+	}
+
+	.user__id--img {
+		width: 28px;
+		height: 28px;
+		border-radius: 0.5rem;
+	}
+
+	.account-links {
+		display: flex;
+		flex-direction: row;
 		align-items: center;
-		padding: 16px;
+		justify-content: space-between;
+		gap: 12px;
 	}
 
-	a {
-		color: unset;
-	}
-
-	.nav__left {
+	.main-links {
 		display: flex;
 		align-items: center;
-		gap: 1rem;
+		justify-content: space-between;
+		gap: 24px;
 	}
 
-	.nav__right--button {
-		/* Size */
-		padding: 8px 16px;
-
-		/* Style */
-		--btn-text-clr: var(--clr-theme-pop-on-element);
-		--btn-bg: var(--clr-theme-pop-element);
-
-		font-size: 0.8rem;
-
-		/* Btn Defaults */
-		user-select: none;
-		position: relative;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		border-radius: var(--radius-m);
-		cursor: pointer;
-		color: var(--btn-text-clr);
-		background: var(--btn-bg);
-		transform-style: preserve-3d;
-		backface-visibility: hidden;
-		transition:
-			background var(--transition-fast),
-			opacity var(--transition-fast),
-			color var(--transition-fast);
+	.nav-button {
+		display: flex;
+		border-radius: var(--radius-s);
+		white-space: nowrap;
 	}
 </style>

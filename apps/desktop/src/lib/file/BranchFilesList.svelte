@@ -1,6 +1,6 @@
 <script lang="ts">
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
-	import FileListItemSmart from './FileListItem.svelte';
+	import FileListItemSmart from './FileListItemWrapper.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import LazyloadContainer from '$lib/shared/LazyloadContainer.svelte';
 	import { chunk } from '$lib/utils/array';
@@ -48,9 +48,9 @@
 		maybeGetContextStore(SelectedOwnership);
 	const commit = getCommitStore();
 
-	let chunkedFiles: AnyFile[][] = $derived(chunk(sortLikeFileTree(files), 100));
+	const chunkedFiles: AnyFile[][] = $derived(chunk(sortLikeFileTree(files), 100));
 	let currentDisplayIndex = $state(0);
-	let displayedFiles: AnyFile[] = $derived(chunkedFiles.slice(0, currentDisplayIndex + 1).flat());
+	const displayedFiles: AnyFile[] = $derived(chunkedFiles.slice(0, currentDisplayIndex + 1).flat());
 
 	function handleSpace() {
 		if (commitDialogExpanded === undefined) return;
@@ -75,7 +75,6 @@
 	}
 
 	function handleKeyDown(e: KeyboardEvent) {
-		e.preventDefault();
 		updateSelection({
 			allowMultiple,
 			metaKey: e.metaKey,
@@ -85,7 +84,8 @@
 			files: displayedFiles,
 			selectedFileIds: $fileIdSelection,
 			fileIdSelection,
-			commitId: $commit?.id
+			commitId: $commit?.id,
+			preventDefault: () => e.preventDefault()
 		});
 
 		switch (e.key) {

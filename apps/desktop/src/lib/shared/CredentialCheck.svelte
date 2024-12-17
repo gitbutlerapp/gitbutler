@@ -8,17 +8,21 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { slide } from 'svelte/transition';
 
-	export let projectId: string;
-	export let remoteName: string | null | undefined;
-	export let branchName: string | null | undefined;
+	interface Props {
+		projectId: string;
+		remoteName: string | null | undefined;
+		branchName: string | null | undefined;
+	}
+
+	const { projectId, remoteName, branchName }: Props = $props();
 
 	const authService = getContext(AuthService);
 
 	type Check = { name: string; promise: Promise<any> };
-	$: checks = [] as Check[];
+	let checks = $state<Check[]>();
+	let errors = $state(0);
 
-	$: errors = 0;
-	$: loading = false;
+	let loading = $state(false);
 
 	async function checkCredentials() {
 		if (!remoteName || !branchName) return;
@@ -46,14 +50,14 @@
 </script>
 
 <div class="credential-check">
-	{#if checks.length > 0}
+	{#if checks && checks.length > 0}
 		<div transition:slide={{ duration: 250 }}>
 			<InfoMessage
 				style={errors > 0 ? 'warning' : loading ? 'neutral' : 'success'}
 				filled
 				outlined={false}
 			>
-				<svelte:fragment slot="title">
+				{#snippet title()}
 					{#if loading}
 						Checking git credentials …
 					{:else if errors > 0}
@@ -61,27 +65,29 @@
 					{:else}
 						All checks passed successfully
 					{/if}
-				</svelte:fragment>
+				{/snippet}
 
-				<svelte:fragment slot="content">
+				{#snippet content()}
 					<div class="checks-list" transition:slide={{ duration: 250, delay: 1000 }}>
-						{#each checks as check}
-							<div class="text-12 text-body check-result">
-								<i class="check-icon">
-									{#await check.promise}
-										<Icon name="spinner" spinnerRadius={4} />
-									{:then}
-										<Icon name="success-small" color="success" />
-									{:catch}
-										<Icon name="error-small" color="error" />
-									{/await}
-								</i>{check.name}
+						{#if checks}
+							{#each checks as check}
+								<div class="text-12 text-body check-result">
+									<i class="check-icon">
+										{#await check.promise}
+											<Icon name="spinner" spinnerRadius={4} />
+										{:then}
+											<Icon name="success-small" color="success" />
+										{:catch}
+											<Icon name="error-small" color="error" />
+										{/await}
+									</i>{check.name}
 
-								{#await check.promise catch err}
-									- {err}
-								{/await}
-							</div>
-						{/each}
+									{#await check.promise catch err}
+										- {err}
+									{/await}
+								</div>
+							{/each}
+						{/if}
 					</div>
 
 					{#if errors > 0}
@@ -97,7 +103,7 @@
 							</span>
 						</div>
 					{/if}
-				</svelte:fragment>
+				{/snippet}
 			</InfoMessage>
 		</div>
 	{/if}
@@ -109,7 +115,7 @@
 		disabled={loading}
 		onclick={checkCredentials}
 	>
-		{#if loading || checks.length === 0}
+		{#if loading || checks?.length === 0}
 			Test credentials
 		{:else}
 			Re-test credentials

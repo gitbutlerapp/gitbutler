@@ -14,19 +14,37 @@ use gitbutler_oplog::{
 use gitbutler_project as projects;
 use gitbutler_project::{CodePushState, Project};
 use gitbutler_reference::Refname;
-use gitbutler_stack::{Target, VirtualBranchesHandle};
+use gitbutler_stack::{StackId, Target, VirtualBranchesHandle};
 use gitbutler_url::Url;
 use gitbutler_user as users;
 use itertools::Itertools;
 
-pub fn take_synced_snapshot(project: &Project, user: &users::User) -> Result<git2::Oid> {
+pub fn take_synced_snapshot(
+    project: &Project,
+    user: &users::User,
+    stack_id: Option<StackId>,
+) -> Result<git2::Oid> {
     let mut guard = project.exclusive_worktree_access();
+
+    let virtual_branches_handle = VirtualBranchesHandle::new(project.gb_dir());
+    if let Some(stack_id) = stack_id {
+        let mut stack = virtual_branches_handle.get_stack_in_workspace(stack_id)?;
+        stack.post_commits = true;
+        virtual_branches_handle.set_stack(stack)?;
+    }
+
     let command_context = CommandContext::open(project)?;
     let snapshot = project.create_snapshot(
         SnapshotDetails::new(OperationKind::SyncWorkspace),
         guard.write_permission(),
     )?;
     push_oplog(&command_context, user)?;
+
+    if let Some(stack_id) = stack_id {
+        let mut stack = virtual_branches_handle.get_stack_in_workspace(stack_id)?;
+        stack.post_commits = true;
+        virtual_branches_handle.set_stack(stack)?;
+    }
 
     Ok(snapshot)
 }
@@ -91,7 +109,7 @@ fn push_target(
     batch_size: usize,
 ) -> Result<()> {
     let ids = batch_rev_walk(
-        ctx.repository(),
+        ctx.repo(),
         batch_size,
         default_target.sha,
         gb_code_last_commit,
@@ -164,7 +182,7 @@ fn batch_rev_walk(
 
 fn collect_refs(ctx: &CommandContext) -> anyhow::Result<Vec<Refname>> {
     Ok(ctx
-        .repository()
+        .repo()
         .references_glob("refs/*")?
         .flatten()
         .filter_map(|r| {
@@ -297,7 +315,7 @@ fn remote(ctx: &CommandContext, kind: RemoteKind) -> Result<git2::Remote> {
         }
         RemoteKind::Oplog => api_project.git_url.as_str().parse::<Url>(),
     }?;
-    ctx.repository()
+    ctx.repo()
         .remote_anonymous(&url.to_string())
         .map_err(Into::into)
 }

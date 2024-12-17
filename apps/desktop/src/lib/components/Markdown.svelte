@@ -7,7 +7,7 @@
 		content: string | undefined;
 	}
 
-	let { content }: Props = $props();
+	const { content }: Props = $props();
 
 	const tokens = $derived.by(() => {
 		const lexer = new Lexer(options);

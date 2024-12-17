@@ -60,10 +60,10 @@
 	}
 </script>
 
-{#each nonArchivedSeries as currentSeries, idx (currentSeries)}
-	{@const isTopSeries = idx === 0}
-	{@const isBottomSeries = idx === branch.series.length - 1}
-	{#if !isTopSeries}
+{#each nonArchivedSeries as currentSeries, idx ('name' in currentSeries ? currentSeries.name : undefined)}
+	{@const isTopBranch = idx === 0}
+	{@const isBottomBranch = idx === nonArchivedSeries.length - 1}
+	{#if !isTopBranch}
 		<SeriesDividerLine
 			topPatchStatus={isPatchSeries(currentSeries) ? currentSeries?.patches?.[0]?.status : 'error'}
 		/>
@@ -71,7 +71,7 @@
 
 	{#if !isError(currentSeries)}
 		<CurrentSeries {currentSeries}>
-			<SeriesHeader {currentSeries} {isTopSeries} {lastPush} />
+			<SeriesHeader branch={currentSeries} {isTopBranch} {lastPush} />
 
 			{#if currentSeries.upstreamPatches.length === 0 && currentSeries.patches.length === 0}
 				<div>
@@ -82,16 +82,14 @@
 						{#snippet overlay({ hovered, activated })}
 							<CardOverlay {hovered} {activated} label="Move here" />
 						{/snippet}
-						<EmptySeries isBottom={isBottomSeries} />
+						<EmptySeries {isBottomBranch} />
 					</Dropzone>
 				</div>
 			{/if}
 
 			{#if currentSeries.upstreamPatches.length > 0 || currentSeries.patches.length > 0}
 				<CommitList
-					remoteOnlyPatches={currentSeries.upstreamPatches.filter((p) => !p.relatedTo)}
-					patches={currentSeries.patches}
-					seriesName={currentSeries.name}
+					{currentSeries}
 					isUnapplied={false}
 					isBottom={idx === branch.series.length - 1}
 					{stackingReorderDropzoneManager}

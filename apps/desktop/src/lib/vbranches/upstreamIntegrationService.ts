@@ -1,7 +1,7 @@
 import { invoke } from '$lib/backend/ipc';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
-import { derived, readable, type Readable } from 'svelte/store';
+import { get } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';
 import type { VirtualBranch } from '$lib/vbranches/types';
 
@@ -119,40 +119,34 @@ export class UpstreamIntegrationService {
 		private virtualBranchService: VirtualBranchService
 	) {}
 
-	upstreamStatuses(targetCommitOid?: string): Readable<StackStatusesWithBranches | undefined> {
-		const branchStatuses = readable<BranchStatusesResponse | undefined>(undefined, (set) => {
-			invoke<BranchStatusesResponse>('upstream_integration_statuses', {
-				projectId: this.project.id,
-				targetCommitOid
-			}).then(set);
+	async upstreamStatuses(targetCommitOid?: string): Promise<StackStatusesWithBranches | undefined> {
+		const branchStatuses = await invoke<BranchStatusesResponse>('upstream_integration_statuses', {
+			projectId: this.project.id,
+			targetCommitOid
 		});
 
-		const branchStatusesWithBranches = derived(
-			[branchStatuses, this.virtualBranchService.branches],
-			([branchStatuses, branches]): StackStatusesWithBranches | undefined => {
-				if (!branchStatuses || !branches) return;
-				console.log('branchStatuses', branchStatuses);
-				if (branchStatuses.type === 'upToDate') return branchStatuses;
+		const branches = get(this.virtualBranchService.branches);
 
-				return {
-					type: 'updatesRequired',
-					subject: branchStatuses.subject
-						.map((status) => {
-							const stack = branches.find((appliedBranch) => appliedBranch.id === status[0]);
+		if (!branchStatuses || !branches) return;
+		if (branchStatuses.type === 'upToDate') return branchStatuses;
 
-							if (!stack) return;
+		const stackStatusesWithBranches: StackStatusesWithBranches = {
+			type: 'updatesRequired',
+			subject: branchStatuses.subject
+				.map((status) => {
+					const stack = branches.find((appliedBranch) => appliedBranch.id === status[0]);
 
-							return {
-								stack,
-								status: status[1]
-							};
-						})
-						.filter(isDefined)
-				};
-			}
-		);
+					if (!stack) return;
 
-		return branchStatusesWithBranches;
+					return {
+						stack,
+						status: status[1]
+					};
+				})
+				.filter(isDefined)
+		};
+
+		return stackStatusesWithBranches;
 	}
 
 	async integrateUpstream(resolutions: Resolution[], baseBranchResolution?: BaseBranchResolution) {

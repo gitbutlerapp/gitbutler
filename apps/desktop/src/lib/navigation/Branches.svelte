@@ -139,25 +139,27 @@
 
 	{#if $branchListings.length > 0}
 		{#if $searchedBranches.length > 0 || $searchTerm === undefined}
-			<ScrollableContainer fillViewport={$searchedBranches.length === 0}>
-				{#if $searchTerm}
-					<div class="group">
-						{#each $searchedBranches as sidebarEntrySubject}
-							{#if sidebarEntrySubject.type === 'branchListing'}
-								<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
-							{:else}
-								<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
-							{/if}
-						{/each}
-					</div>
-				{:else}
-					{@render branchGroup({ title: 'Applied', children: $groupedBranches.applied })}
-					{@render branchGroup({ title: 'Today', children: $groupedBranches.today })}
-					{@render branchGroup({ title: 'Yesterday', children: $groupedBranches.yesterday })}
-					{@render branchGroup({ title: 'Last week', children: $groupedBranches.lastWeek })}
-					{@render branchGroup({ title: 'Older', children: $groupedBranches.older })}
-				{/if}
-			</ScrollableContainer>
+			<div class="branch-entries-list">
+				<ScrollableContainer fillViewport={$searchedBranches.length === 0}>
+					{#if $searchTerm}
+						<div class="group">
+							{#each $searchedBranches as sidebarEntrySubject}
+								{#if sidebarEntrySubject.type === 'branchListing'}
+									<BranchListingSidebarEntry branchListing={sidebarEntrySubject.subject} />
+								{:else}
+									<PullRequestSidebarEntry pullRequest={sidebarEntrySubject.subject} />
+								{/if}
+							{/each}
+						</div>
+					{:else}
+						{@render branchGroup({ title: 'Applied', children: $groupedBranches.applied })}
+						{@render branchGroup({ title: 'Today', children: $groupedBranches.today })}
+						{@render branchGroup({ title: 'Yesterday', children: $groupedBranches.yesterday })}
+						{@render branchGroup({ title: 'Last week', children: $groupedBranches.lastWeek })}
+						{@render branchGroup({ title: 'Older', children: $groupedBranches.older })}
+					{/if}
+				</ScrollableContainer>
+			</div>
 		{:else}
 			<EmptyStatePlaceholder image={noBranchesSvg} width={180} bottomMargin={48}>
 				{#snippet caption()}
@@ -192,6 +194,7 @@
 		display: flex;
 		flex-direction: column;
 		padding: 14px;
+		border-bottom: 1px solid var(--clr-border-3);
 	}
 
 	.header-info {
@@ -218,7 +221,6 @@
 	}
 
 	/* SEARCH */
-
 	.search-container {
 		position: relative;
 		height: var(--size-cta);
@@ -306,11 +308,17 @@
 	}
 
 	/* BRANCHES LIST */
+	.branch-entries-list {
+		margin-top: -1px;
+		overflow: hidden;
+		width: 100%;
+	}
+
 	.group {
 		display: flex;
 		flex-direction: column;
-		border-bottom: 1px solid var(--clr-border-2);
-		margin-bottom: 12px;
+		/* border-bottom: 1px solid var(--clr-border-3); */
+		/* margin-bottom: 12px; */
 
 		&:last-child {
 			border-bottom: none;

@@ -64,8 +64,8 @@ On Mac OS, ensure you've installed XCode and `cmake`. On Linux, if you're on Deb
 <summary>Linux Tauri dependencies</summary>
 
 ```bash
-sudo apt update
-sudo apt install libwebkit2gtk-4.1-dev \
+$ sudo apt update
+$ sudo apt install libwebkit2gtk-4.1-dev \
   build-essential \
   curl \
   wget \
@@ -81,11 +81,11 @@ sudo apt install libwebkit2gtk-4.1-dev \
 
 2. Rust
 
-For both Mac OS and Linux, you can use the following `rustup` quick install scripti to get all the necessary tools.
+For both Mac OS and Linux, you can use the following `rustup` quick install script to get all the necessary tools.
 
 ```bash
-cd gitbutler-repo
-curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
+$ cd gitbutler-repo
+$ curl --proto '=https' --tlsv1.2 https://sh.rustup.rs -sSf | sh
 ```
 
 3. Node
@@ -95,8 +95,8 @@ Next, ensure you've got at least Node 20 installed. If you're on Mac OS or Linux
 Alternatively, you can use the following Node installer from Vercel to get the latest version.
 
 ```bash
-curl https://install-node.vercel.app/latest > install_node.sh
-sudo ./install_node.sh
+$ curl https://install-node.vercel.app/latest > install_node.sh
+$ sudo ./install_node.sh
 ```
 
 4. pnpm
@@ -104,9 +104,8 @@ sudo ./install_node.sh
 Finally, we use `pnpm` as our javascript package manager. You can leverage `corepack`, which comes shipped with `node`, to install and use the `pnpm` version we defined in our `package.json`.
 
 ```bash
-cd gitbutler-repo
-corepack enable
-pnpm install # This should now ask you to confirm download, install, and use of pnpm
+$ cd gitbutler-repo
+$ corepack enable
 ```
 
 ### Install dependencies
@@ -117,7 +116,7 @@ I hope you have some disk space for 300M of `node_modules`, because this bad
 boy will fill er up:
 
 ```bash
-$ pnpm install
+$ pnpm install # This should now ask you to confirm the download, installation, and use of pnpm via corepack
 ```
 
 You'll have to re-run this occasionally when our deps change.
@@ -127,7 +126,7 @@ You'll have to re-run this occasionally when our deps change.
 
 ### Run the app
 
-First, run cargo build such that supplementary bins such as `gitbutler-git-askpass` and `gitbutler-git-setsid` are created:
+First, run cargo build such that supplementary bins such as `gitbutler-git-askpass` and `gitbutler-git-setsid` are created (Note the default folder (`target`) will be used for the build):
 
 ```bash
 $ cargo build

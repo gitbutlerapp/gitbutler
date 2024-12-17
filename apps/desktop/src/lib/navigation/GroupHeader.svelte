@@ -1,6 +1,4 @@
 <script lang="ts">
-	import { intersectionObserver } from '$lib/utils/intersectionObserver';
-
 	interface Props {
 		title: string;
 	}
@@ -10,24 +8,7 @@
 	let isIntersected = $state(false);
 </script>
 
-<div
-	class="group-header"
-	class:intersected={isIntersected}
-	use:intersectionObserver={{
-		callback: (entry) => {
-			if (entry?.isIntersecting) {
-				isIntersected = false;
-			} else {
-				isIntersected = true;
-			}
-		},
-		options: {
-			root: null,
-			rootMargin: '-100% 0px 0px 0px',
-			threshold: 0
-		}
-	}}
->
+<div class="group-header" class:intersected={isIntersected}>
 	<h3 class="text-12 text-semibold">{title}</h3>
 </div>
 
@@ -35,13 +16,11 @@
 	.group-header {
 		z-index: var(--z-lifted);
 		position: sticky;
-		top: -10px;
-		padding: 10px 14px;
+		top: 0;
+		padding: 12px 12px 8px;
 		color: var(--clr-text-2);
-		background-color: var(--clr-bg-1);
-	}
-
-	.group-header.intersected {
-		border-bottom: 1px solid var(--clr-border-2);
+		background-color: var(--clr-bg-2);
+		border-top: 1px solid var(--clr-border-3);
+		border-bottom: 1px solid var(--clr-border-3);
 	}
 </style>

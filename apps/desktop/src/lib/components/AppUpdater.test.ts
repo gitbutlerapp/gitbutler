@@ -1,4 +1,5 @@
 import AppUpdater from './AppUpdater.svelte';
+import { PostHogWrapper } from '$lib/analytics/posthog';
 import { Tauri } from '$lib/backend/tauri';
 import { UpdaterService } from '$lib/backend/updater';
 import { render, screen } from '@testing-library/svelte';
@@ -9,11 +10,12 @@ describe('AppUpdater', () => {
 	let tauri: Tauri;
 	let updater: UpdaterService;
 	let context: Map<any, any>;
+	const posthog = new PostHogWrapper();
 
 	beforeEach(() => {
 		vi.useFakeTimers();
 		tauri = new Tauri();
-		updater = new UpdaterService(tauri);
+		updater = new UpdaterService(tauri, posthog);
 		context = new Map([[UpdaterService, updater]]);
 		vi.spyOn(tauri, 'listen').mockReturnValue(async () => {});
 	});

@@ -49,6 +49,10 @@ export class BitBucket implements Forge {
 		return undefined;
 	}
 
+	repoService() {
+		return undefined;
+	}
+
 	checksMonitor(_sourceBranch: string) {
 		return undefined;
 	}

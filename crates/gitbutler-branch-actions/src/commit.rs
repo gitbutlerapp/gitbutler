@@ -24,8 +24,12 @@ pub struct VirtualBranchCommit {
     pub description: BStringForFrontend,
     pub created_at: u128,
     pub author: Author,
-    /// Dont use, favor `remote_commit_id` instead
+    /// If the commit is remote AND ONLY REMOTE
     pub is_remote: bool,
+    /// If the commit is both local and remote
+    pub is_local_and_remote: bool,
+    /// If the commit is integrated. A commit may be local_and_remote, local,
+    /// or remote, and be integrated.
     pub is_integrated: bool,
     #[serde(with = "gitbutler_serde::oid_vec")]
     pub parent_ids: Vec<git2::Oid>,
@@ -68,6 +72,7 @@ pub(crate) fn commit_to_vbranch_commit(
     commit: &git2::Commit,
     is_integrated: bool,
     is_remote: bool,
+    is_local_and_remote: bool,
     copied_from_remote_id: Option<git2::Oid>,
     remote_commit_id: Option<git2::Oid>,
     commit_dependencies: CommitDependencies,
@@ -111,6 +116,7 @@ pub(crate) fn commit_to_vbranch_commit(
         description: message.into(),
         is_remote,
         is_integrated,
+        is_local_and_remote,
         parent_ids,
         branch_id: stack.id,
         change_id: commit.change_id(),

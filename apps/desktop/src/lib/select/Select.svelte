@@ -25,8 +25,9 @@
 		disabled?: boolean;
 		loading?: boolean;
 		wide?: boolean;
+		maxWidth?: number;
 		flex?: string;
-		options: SelectItem<T>[];
+		options: readonly SelectItem<T>[];
 		value?: T;
 		placeholder?: string;
 		maxHeight?: number;
@@ -37,6 +38,7 @@
 		itemSnippet: Snippet<[{ item: SelectItem<T>; highlighted: boolean; idx: number }]>;
 		children?: Snippet;
 		onselect?: (value: T) => void;
+		ontoggle?: (isOpen: boolean) => void;
 	}
 
 	const {
@@ -45,6 +47,7 @@
 		disabled,
 		loading,
 		wide,
+		maxWidth,
 		flex,
 		options = [],
 		value,
@@ -56,14 +59,15 @@
 		customSelectButton,
 		itemSnippet,
 		children,
-		onselect
+		onselect,
+		ontoggle
 	}: SelectProps = $props();
 
 	let selectWrapperEl: HTMLElement;
 
 	let highlightedIndex: number | undefined = $state(undefined);
 	let searchValue = $state('');
-	let filteredOptions = $derived(
+	const filteredOptions = $derived(
 		options.filter((item) => item.label.toLowerCase().includes(searchValue.toLowerCase()))
 	);
 	let maxHeightState = $state(maxHeight);
@@ -81,10 +85,12 @@
 	function openList() {
 		setMaxHeight();
 		listOpen = true;
+		ontoggle?.(true);
 	}
 
 	function closeList() {
 		listOpen = false;
+		ontoggle?.(false);
 	}
 
 	function clickOutside(e: MouseEvent) {
@@ -161,7 +167,13 @@
 	}
 </script>
 
-<div class="select-wrapper" class:wide bind:this={selectWrapperEl} style:flex>
+<div
+	class="select-wrapper"
+	class:wide
+	bind:this={selectWrapperEl}
+	style:flex
+	style:max-width={maxWidth ? pxToRem(maxWidth) : undefined}
+>
 	{#if label}
 		<label for={id} class="select__label text-13 text-body text-semibold">{label}</label>
 	{/if}

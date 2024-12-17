@@ -30,11 +30,12 @@ fn to_head() {
             gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false)
                 .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        assert_eq!(branches[0].commits.len(), 1);
-        assert_eq!(branches[0].commits[0].id, oid);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid);
         assert_eq!(branches[0].files.len(), 0);
         assert_eq!(
             fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -48,11 +49,12 @@ fn to_head() {
         // reset changes to head
         gitbutler_branch_actions::reset_virtual_branch(project, branch1_id, oid).unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        assert_eq!(branches[0].commits.len(), 1);
-        assert_eq!(branches[0].commits[0].id, oid);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid);
         assert_eq!(branches[0].files.len(), 0);
         assert_eq!(
             fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -87,11 +89,12 @@ fn to_target() {
             gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false)
                 .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        assert_eq!(branches[0].commits.len(), 1);
-        assert_eq!(branches[0].commits[0].id, oid);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid);
         assert_eq!(branches[0].files.len(), 0);
         assert_eq!(
             fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -104,10 +107,11 @@ fn to_target() {
         gitbutler_branch_actions::reset_virtual_branch(project, branch1_id, base_branch.base_sha)
             .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        assert_eq!(branches[0].commits.len(), 0);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 0);
         assert_eq!(branches[0].files.len(), 1);
         assert_eq!(
             fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -143,11 +147,12 @@ fn to_commit() {
             gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false)
                 .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        assert_eq!(branches[0].commits.len(), 1);
-        assert_eq!(branches[0].commits[0].id, oid);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid);
         assert_eq!(branches[0].files.len(), 0);
         assert_eq!(
             fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -165,12 +170,19 @@ fn to_commit() {
             gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false)
                 .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        assert_eq!(branches[0].commits.len(), 2);
-        assert_eq!(branches[0].commits[0].id, second_commit_oid);
-        assert_eq!(branches[0].commits[1].id, first_commit_oid);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 2);
+        assert_eq!(
+            branches[0].series[0].clone().unwrap().patches[0].id,
+            second_commit_oid
+        );
+        assert_eq!(
+            branches[0].series[0].clone().unwrap().patches[1].id,
+            first_commit_oid
+        );
         assert_eq!(branches[0].files.len(), 0);
         assert_eq!(
             fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -183,11 +195,15 @@ fn to_commit() {
         gitbutler_branch_actions::reset_virtual_branch(project, branch1_id, first_commit_oid)
             .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        assert_eq!(branches[0].commits.len(), 1);
-        assert_eq!(branches[0].commits[0].id, first_commit_oid);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
+        assert_eq!(
+            branches[0].series[0].clone().unwrap().patches[0].id,
+            first_commit_oid
+        );
         assert_eq!(branches[0].files.len(), 1);
         assert_eq!(
             fs::read_to_string(repository.path().join("file.txt")).unwrap(),
@@ -222,11 +238,12 @@ fn to_non_existing() {
             gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false)
                 .unwrap();
 
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        assert_eq!(branches[0].commits.len(), 1);
-        assert_eq!(branches[0].commits[0].id, oid);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid);
         assert_eq!(branches[0].files.len(), 0);
         assert_eq!(
             fs::read_to_string(repository.path().join("file.txt")).unwrap(),

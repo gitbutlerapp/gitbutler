@@ -2,10 +2,10 @@ use anyhow::{bail, Result};
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid};
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::rebase::cherry_rebase_group;
-use gitbutler_repo::{GixRepositoryExt, RepositoryExt as _};
+use gitbutler_repo::RepositoryExt as _;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
 use tracing::instrument;
 
@@ -17,7 +17,7 @@ pub fn checkout_branch_trees<'a>(
     ctx: &'a CommandContext,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<git2::Tree<'a>> {
-    let repository = ctx.repository();
+    let repository = ctx.repo();
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
     let stacks = vb_state.list_stacks_in_workspace()?;
 
@@ -129,7 +129,7 @@ pub fn compute_updated_branch_head_for_commits(
         Default::default(),
     )?;
 
-    let rebased_tree = cherry_rebase_group(repository, new_head, &[commited_tree])?;
+    let rebased_tree = cherry_rebase_group(repository, new_head, &[commited_tree], false)?;
     let rebased_tree = repository.find_commit(rebased_tree)?;
 
     if rebased_tree.is_conflicted() {

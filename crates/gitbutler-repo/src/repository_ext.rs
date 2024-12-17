@@ -2,7 +2,7 @@ use crate::Config;
 use crate::SignaturePurpose;
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::BString;
-use git2::{BlameOptions, StatusOptions, Tree};
+use git2::{StatusOptions, Tree};
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
@@ -12,8 +12,8 @@ use gitbutler_oxidize::{
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::fs::is_executable;
-use gix::merge::tree::{Options, UnresolvedConflict};
 use gix::objs::WriteTo;
+use std::io;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 #[cfg(windows)]
@@ -35,42 +35,12 @@ pub trait RepositoryExt {
     /// gets merged.
     fn merge_base_octopussy(&self, ids: &[git2::Oid]) -> Result<git2::Oid>;
     fn signatures(&self) -> Result<(git2::Signature, git2::Signature)>;
-    fn l(&self, from: git2::Oid, to: LogUntil, include_all_parents: bool)
-        -> Result<Vec<git2::Oid>>;
-    fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>>;
-    fn log(
-        &self,
-        from: git2::Oid,
-        to: LogUntil,
-        include_all_parents: bool,
-    ) -> Result<Vec<git2::Commit>>;
-    /// Return `HEAD^{commit}` - ideal for obtaining the integration branch commit in open-workspace mode
-    /// when it's clear that it's representing the current state.
-    ///
-    /// Ideally, this is used in places of `get_workspace_head()`.
-    fn head_commit(&self) -> Result<git2::Commit<'_>>;
+
     fn remote_branches(&self) -> Result<Vec<RemoteRefname>>;
     fn remotes_as_string(&self) -> Result<Vec<String>>;
-    /// Open a new in-memory repository and executes the provided closure using it.
-    /// This is useful when temporary objects are created for the purpose of comparing or getting a diff.
-    /// Note that it's the odb that is in-memory, not the working directory.
-    /// Data is never persisted to disk, therefore any Oid that are obtained from this closure are not valid outside of it.
-    fn in_memory<T, F>(&self, f: F) -> Result<T>
-    where
-        F: FnOnce(&git2::Repository) -> Result<T>;
-    /// Returns a version of `&self` that writes new objects into memory, allowing to prevent touching
-    /// disk when doing merges.
-    /// Note that these written objects don't persist and will vanish with the returned instance.
-    fn in_memory_repo(&self) -> Result<git2::Repository>;
-    /// Fetches the workspace commit from the gitbutler/workspace branch
-    fn workspace_commit(&self) -> Result<git2::Commit<'_>>;
     /// `buffer` is the commit object to sign, but in theory could be anything to compute the signature for.
     /// Returns the computed signature.
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString>;
-
-    fn checkout_index_builder<'a>(&'a self, index: &'a mut git2::Index)
-        -> CheckoutIndexBuilder<'a>;
-    fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a>;
     fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
     /// Based on the index, add all data similar to `git add .` and create a tree from it, which is returned.
@@ -94,59 +64,9 @@ pub trait RepositoryExt {
         parents: &[&git2::Commit<'_>],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid>;
-
-    fn blame(
-        &self,
-        path: &Path,
-        min_line: u32,
-        max_line: u32,
-        oldest_commit: git2::Oid,
-        newest_commit: git2::Oid,
-    ) -> Result<git2::Blame, git2::Error>;
 }
 
 impl RepositoryExt for git2::Repository {
-    fn head_commit(&self) -> Result<git2::Commit<'_>> {
-        self.head()
-            .context("Failed to get head")?
-            .peel_to_commit()
-            .context("Failed to get head commit")
-    }
-
-    fn in_memory<T, F>(&self, f: F) -> Result<T>
-    where
-        F: FnOnce(&git2::Repository) -> Result<T>,
-    {
-        f(&self.in_memory_repo()?)
-    }
-
-    fn in_memory_repo(&self) -> Result<git2::Repository> {
-        let repo = git2::Repository::open(self.path())?;
-        repo.odb()?.add_new_mempack_backend(999)?;
-        Ok(repo)
-    }
-
-    fn checkout_index_builder<'a>(
-        &'a self,
-        index: &'a mut git2::Index,
-    ) -> CheckoutIndexBuilder<'a> {
-        CheckoutIndexBuilder {
-            index,
-            repo: self,
-            checkout_builder: git2::build::CheckoutBuilder::new(),
-        }
-    }
-
-    fn checkout_index_path_builder<P: AsRef<Path>>(&self, path: P) -> Result<()> {
-        let mut builder = git2::build::CheckoutBuilder::new();
-        builder.path(path.as_ref());
-        builder.force();
-
-        let mut index = self.index()?;
-        self.checkout_index(Some(&mut index), Some(&mut builder))?;
-
-        Ok(())
-    }
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a> {
         CheckoutTreeBuidler {
             tree,
@@ -253,9 +173,10 @@ impl RepositoryExt for git2::Repository {
 
                     let blob = self.blob(path_str.as_bytes())?;
                     tree_update_builder.upsert(path, blob, git2::FileMode::Link);
-                } else {
-                    let file_for_git =
-                        pipeline.convert_to_git(std::fs::File::open(&file_path)?, path, &index)?;
+                } else if let io::Result::Ok(file) = std::fs::File::open(&file_path) {
+                    // We might have an entry for a file that does not exist on disk,
+                    // like in the case of a file conflict.
+                    let file_for_git = pipeline.convert_to_git(file, path, &index)?;
                     let data = match file_for_git {
                         ToGitOutcome::Unchanged(mut file) => {
                             buf.clear();
@@ -282,7 +203,7 @@ impl RepositoryExt for git2::Repository {
             }
         }
 
-        let head_tree = self.head_commit()?.tree()?;
+        let head_tree = self.head()?.peel_to_tree()?;
         let tree_oid = tree_update_builder.create_updated(self, &head_tree)?;
 
         Ok(self.find_tree(tree_oid)?)
@@ -297,11 +218,6 @@ impl RepositoryExt for git2::Repository {
                 "Unexpected state: cannot perform operation on non-workspace branch"
             ))
         }
-    }
-
-    fn workspace_commit(&self) -> Result<git2::Commit<'_>> {
-        let workspace_ref = self.workspace_ref_from_head()?;
-        Ok(workspace_ref.peel_to_commit()?)
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -359,23 +275,6 @@ impl RepositoryExt for git2::Repository {
         Ok(oid)
     }
 
-    fn blame(
-        &self,
-        path: &Path,
-        min_line: u32,
-        max_line: u32,
-        oldest_commit: git2::Oid,
-        newest_commit: git2::Oid,
-    ) -> Result<git2::Blame, git2::Error> {
-        let mut opts = BlameOptions::new();
-        opts.min_line(min_line as usize)
-            .max_line(max_line as usize)
-            .newest_commit(newest_commit)
-            .oldest_commit(oldest_commit)
-            .first_parent(true);
-        self.blame_file(path, Some(&mut opts))
-    }
-
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString> {
         // check git config for gpg.signingkey
         // TODO: support gpg.ssh.defaultKeyCommand to get the signing key if this value doesn't exist
@@ -401,11 +300,12 @@ impl RepositoryExt for git2::Repository {
                     gpg_program = "ssh-keygen".to_string();
                 }
 
-                let mut cmd = std::process::Command::new(gpg_program);
-                cmd.args(["-Y", "sign", "-n", "git", "-f"]);
+                let mut cmd_string = format!("{} -Y sign -n git -f ", gpg_program);
 
-                #[cfg(windows)]
-                cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+                let buffer_file_to_sign_path_str = buffer_file_to_sign_path
+                    .to_str()
+                    .ok_or_else(|| anyhow::anyhow!("Failed to convert path to string"))?
+                    .to_string();
 
                 let output;
                 // support literal ssh key
@@ -425,23 +325,40 @@ impl RepositoryExt for git2::Repository {
 
                     let key_file_path = key_storage.into_temp_path();
 
-                    cmd.arg(&key_file_path);
-                    cmd.arg("-U");
-                    cmd.arg(&buffer_file_to_sign_path);
-                    cmd.stderr(Stdio::piped());
-                    cmd.stdout(Stdio::piped());
-                    cmd.stdin(Stdio::null());
+                    let args = format!(
+                        "{} -U {}",
+                        key_file_path.to_string_lossy(),
+                        buffer_file_to_sign_path.to_string_lossy()
+                    );
+                    cmd_string += &args;
 
-                    let child = cmd.spawn()?;
+                    let mut signing_cmd: std::process::Command =
+                        gix::command::prepare(cmd_string).with_shell().into();
+
+                    #[cfg(windows)]
+                    signing_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+                    signing_cmd.stderr(Stdio::piped());
+                    signing_cmd.stdout(Stdio::piped());
+                    signing_cmd.stdin(Stdio::null());
+
+                    let child = signing_cmd.spawn()?;
                     output = child.wait_with_output()?;
                 } else {
-                    cmd.arg(signing_key);
-                    cmd.arg(&buffer_file_to_sign_path);
-                    cmd.stderr(Stdio::piped());
-                    cmd.stdout(Stdio::piped());
-                    cmd.stdin(Stdio::null());
+                    let args = format!("{} {}", signing_key, buffer_file_to_sign_path_str);
+                    cmd_string += &args;
 
-                    let child = cmd.spawn()?;
+                    let mut signing_cmd: std::process::Command =
+                        gix::command::prepare(cmd_string).with_shell().into();
+
+                    #[cfg(windows)]
+                    signing_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+                    signing_cmd.stderr(Stdio::piped());
+                    signing_cmd.stdout(Stdio::piped());
+                    signing_cmd.stdin(Stdio::null());
+
+                    let child = signing_cmd.spawn()?;
                     output = child.wait_with_output()?;
                 }
 
@@ -522,103 +439,6 @@ impl RepositoryExt for git2::Repository {
             .collect::<Result<Vec<_>>>()
     }
 
-    // returns a list of commit oids from the first oid to the second oid
-    // if `include_all_parents` is true it will include commits from all sides of merge commits,
-    // otherwise, only the first parent of each commit is considered
-    fn l(
-        &self,
-        from: git2::Oid,
-        to: LogUntil,
-        include_all_parents: bool,
-    ) -> Result<Vec<git2::Oid>> {
-        match to {
-            LogUntil::Commit(oid) => {
-                let mut revwalk = self.revwalk().context("failed to create revwalk")?;
-                if !include_all_parents {
-                    revwalk.simplify_first_parent()?;
-                }
-                revwalk
-                    .push(from)
-                    .context(format!("failed to push {}", from))?;
-                revwalk
-                    .hide(oid)
-                    .context(format!("failed to hide {}", oid))?;
-                revwalk
-                    .map(|oid| oid.map(Into::into))
-                    .collect::<Result<Vec<_>, _>>()
-            }
-            LogUntil::Take(n) => {
-                let mut revwalk = self.revwalk().context("failed to create revwalk")?;
-                if !include_all_parents {
-                    revwalk.simplify_first_parent()?;
-                }
-                revwalk
-                    .push(from)
-                    .context(format!("failed to push {}", from))?;
-                revwalk
-                    .take(n)
-                    .map(|oid| oid.map(Into::into))
-                    .collect::<Result<Vec<_>, _>>()
-            }
-            LogUntil::When(cond) => {
-                let mut revwalk = self.revwalk().context("failed to create revwalk")?;
-                if !include_all_parents {
-                    revwalk.simplify_first_parent()?;
-                }
-                revwalk
-                    .push(from)
-                    .context(format!("failed to push {}", from))?;
-                let mut oids: Vec<git2::Oid> = vec![];
-                for oid in revwalk {
-                    let oid = oid.context("failed to get oid")?;
-                    oids.push(oid);
-
-                    let commit = self.find_commit(oid).context("failed to find commit")?;
-
-                    if cond(&commit).context("failed to check condition")? {
-                        break;
-                    }
-                }
-                Ok(oids)
-            }
-            LogUntil::End => {
-                let mut revwalk = self.revwalk().context("failed to create revwalk")?;
-                if !include_all_parents {
-                    revwalk.simplify_first_parent()?;
-                }
-                revwalk
-                    .push(from)
-                    .context(format!("failed to push {}", from))?;
-                revwalk
-                    .map(|oid| oid.map(Into::into))
-                    .collect::<Result<Vec<_>, _>>()
-            }
-        }
-        .context("failed to collect oids")
-    }
-
-    fn list_commits(&self, from: git2::Oid, to: git2::Oid) -> Result<Vec<git2::Commit>> {
-        Ok(self
-            .l(from, LogUntil::Commit(to), false)?
-            .into_iter()
-            .map(|oid| self.find_commit(oid))
-            .collect::<Result<Vec<_>, _>>()?)
-    }
-
-    // returns a list of commits from the first oid to the second oid
-    fn log(
-        &self,
-        from: git2::Oid,
-        to: LogUntil,
-        include_all_parents: bool,
-    ) -> Result<Vec<git2::Commit>> {
-        self.l(from, to, include_all_parents)?
-            .into_iter()
-            .map(|oid| self.find_commit(oid))
-            .collect::<Result<Vec<_>, _>>()
-            .context("failed to collect commits")
-    }
-
     fn signatures(&self) -> Result<(git2::Signature, git2::Signature)> {
         let repo = gix::open(self.path())?;
 
@@ -692,144 +512,4 @@ impl CheckoutTreeBuidler<'_> {
             .checkout_tree(self.tree.as_object(), Some(&mut self.checkout_builder))
             .map_err(Into::into)
     }
-}
-
-pub struct CheckoutIndexBuilder<'a> {
-    repo: &'a git2::Repository,
-    index: &'a mut git2::Index,
-    checkout_builder: git2::build::CheckoutBuilder<'a>,
-}
-
-impl CheckoutIndexBuilder<'_> {
-    pub fn force(&mut self) -> &mut Self {
-        self.checkout_builder.force();
-        self
-    }
-
-    pub fn allow_conflicts(&mut self) -> &mut Self {
-        self.checkout_builder.allow_conflicts(true);
-        self
-    }
-
-    pub fn conflict_style_merge(&mut self) -> &mut Self {
-        self.checkout_builder.conflict_style_merge(true);
-        self
-    }
-
-    pub fn checkout(&mut self) -> Result<()> {
-        self.repo
-            .checkout_index(Some(&mut self.index), Some(&mut self.checkout_builder))
-            .map_err(Into::into)
-    }
-}
-
-pub trait GixRepositoryExt: Sized {
-    /// Configure the repository for diff operations between trees.
-    /// This means it needs an object cache relative to the amount of files in the repository.
-    fn for_tree_diffing(self) -> Result<Self>;
-
-    /// Returns `true` if the merge between `our_tree` and `their_tree` is free of conflicts.
-    /// Conflicts entail content merges with conflict markers, or anything else that doesn't merge cleanly in the tree.
-    ///
-    /// # Important
-    ///
-    /// Make sure the repository is configured [`with_object_memory()`](gix::Repository::with_object_memory()).
-    fn merges_cleanly_compat(
-        &self,
-        ancestor_tree: git2::Oid,
-        our_tree: git2::Oid,
-        their_tree: git2::Oid,
-    ) -> Result<bool>;
-
-    /// Just like the above, but with `gix` types.
-    fn merges_cleanly(
-        &self,
-        ancestor_tree: gix::ObjectId,
-        our_tree: gix::ObjectId,
-        their_tree: gix::ObjectId,
-    ) -> Result<bool>;
-
-    /// Return default lable names when merging trees.
-    ///
-    /// Note that these should probably rather be branch names, but that's for another day.
-    fn default_merge_labels(&self) -> gix::merge::blob::builtin_driver::text::Labels<'static> {
-        gix::merge::blob::builtin_driver::text::Labels {
-            ancestor: Some("base".into()),
-            current: Some("ours".into()),
-            other: Some("theirs".into()),
-        }
-    }
-
-    /// Return options suitable for merging so that the merge stops immediately after the first conflict.
-    /// It also returns the conflict kind to use when checking for unresolved conflicts.
-    fn merge_options_fail_fast(
-        &self,
-    ) -> Result<(
-        gix::merge::tree::Options,
-        gix::merge::tree::UnresolvedConflict,
-    )>;
-}
-
-impl GixRepositoryExt for gix::Repository {
-    fn for_tree_diffing(mut self) -> anyhow::Result<Self> {
-        let bytes = self.compute_object_cache_size_for_tree_diffs(&***self.index_or_empty()?);
-        self.object_cache_size_if_unset(bytes);
-        Ok(self)
-    }
-
-    fn merges_cleanly_compat(
-        &self,
-        ancestor_tree: git2::Oid,
-        our_tree: git2::Oid,
-        their_tree: git2::Oid,
-    ) -> Result<bool> {
-        self.merges_cleanly(
-            git2_to_gix_object_id(ancestor_tree),
-            git2_to_gix_object_id(our_tree),
-            git2_to_gix_object_id(their_tree),
-        )
-    }
-
-    fn merges_cleanly(
-        &self,
-        ancestor_tree: gix::ObjectId,
-        our_tree: gix::ObjectId,
-        their_tree: gix::ObjectId,
-    ) -> Result<bool> {
-        let (options, conflict_kind) = self.merge_options_fail_fast()?;
-        let merge_outcome = self
-            .merge_trees(
-                ancestor_tree,
-                our_tree,
-                their_tree,
-                Default::default(),
-                options,
-            )
-            .context("failed to merge trees")?;
-        Ok(!merge_outcome.has_unresolved_conflicts(conflict_kind))
-    }
-
-    fn merge_options_fail_fast(&self) -> Result<(Options, UnresolvedConflict)> {
-        let conflict_kind = gix::merge::tree::UnresolvedConflict::Renames;
-        let options = self
-            .tree_merge_options()?
-            .with_fail_on_conflict(Some(conflict_kind));
-        Ok((options, conflict_kind))
-    }
-}
-
-type OidFilter = dyn Fn(&git2::Commit) -> Result<bool>;
-
-/// Generally, all traversals will use no particular ordering, it's implementation defined in `git2`.
-pub enum LogUntil {
-    /// Traverse until one sees (or gets commits older than) the given commit.
-    /// Do not return that commit or anything older than that.
-    Commit(git2::Oid),
-    /// Traverse the given `n` commits.
-    Take(usize),
-    /// Traverse all commits until the given condition returns `false` for a commit.
-    /// Note that this commit-id will also be returned.
-    When(Box<OidFilter>),
-    /// Traverse the whole graph until it is exhausted.
-    End,
 }

@@ -28,7 +28,7 @@
 		commitId?: string | undefined;
 	}
 
-	let {
+	const {
 		filePath,
 		section,
 		linesModified,
@@ -99,6 +99,7 @@
 				wrapText={$userSettings.wrapText}
 				diffFont={$userSettings.diffFont}
 				diffLigatures={$userSettings.diffLigatures}
+				diffContrast={$userSettings.diffContrast}
 				inlineUnifiedDiffs={$userSettings.inlineUnifiedDiffs}
 				hunk={section.hunk}
 				onclick={() => {

@@ -1,6 +1,7 @@
 import { PromptService as AIPromptService } from '$lib/ai/promptService';
 import { AIService } from '$lib/ai/service';
 import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
+import { PostHogWrapper } from '$lib/analytics/posthog';
 import { AuthService } from '$lib/backend/auth';
 import { GitConfigService } from '$lib/backend/gitConfigService';
 import { CommandService } from '$lib/backend/ipc';
@@ -31,8 +32,9 @@ export const csr = true;
 export const load: LayoutLoad = async () => {
 	// Awaited and will block initial render, but it is necessary in order to respect the user
 	// settings on telemetry.
+	const posthog = new PostHogWrapper();
 	const appSettings = await loadAppSettings();
-	initAnalyticsIfEnabled(appSettings);
+	initAnalyticsIfEnabled(appSettings, posthog);
 
 	// TODO: Find a workaround to avoid this dynamic import
 	// https://github.com/sveltejs/kit/issues/905
@@ -43,10 +45,10 @@ export const load: LayoutLoad = async () => {
 	const tokenMemoryService = new TokenMemoryService();
 	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
 	const authService = new AuthService();
-	const updaterService = new UpdaterService(new Tauri());
+	const updaterService = new UpdaterService(new Tauri(), posthog);
 	const promptService = new PromptService();
 
-	const userService = new UserService(httpClient, tokenMemoryService);
+	const userService = new UserService(httpClient, tokenMemoryService, posthog);
 
 	const projectsService = new ProjectsService(defaultPath, httpClient);
 
@@ -74,6 +76,7 @@ export const load: LayoutLoad = async () => {
 		aiPromptService,
 		lineManagerFactory,
 		stackingLineManagerFactory,
-		secretsService
+		secretsService,
+		posthog
 	};
 };

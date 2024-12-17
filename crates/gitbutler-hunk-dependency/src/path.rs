@@ -3,10 +3,10 @@ use std::{
     vec,
 };
 
-use anyhow::bail;
+use anyhow::{bail, Context};
 use gitbutler_stack::StackId;
 
-use crate::{HunkRange, InputDiff};
+use crate::{utils::PaniclessSubtraction, HunkRange, InputDiff};
 
 /// Adds sequential diffs from sequential commits for a specific path, and shifts line numbers
 /// with additions and deletions. It is expected that diffs are added one commit at a time,
@@ -109,17 +109,22 @@ impl PathRanges {
             while i < self.hunk_ranges.len() {
                 let current_hunk = self.hunk_ranges[i];
 
+                if current_hunk.lines == 0 {
+                    i += 1;
+                    continue;
+                }
+
                 // Current hunk range starts after the end of the incoming hunk.
                 // -> we can stop looking for intersecting hunks
                 if current_hunk.follows(
                     self.get_shifted_old_start(incoming_hunk.old_start),
                     incoming_hunk.old_lines,
-                ) {
+                )? {
                     break;
                 }
 
                 // Current hunk range is ends before the start of the incoming hunk.
-                if current_hunk.precedes(self.get_shifted_old_start(incoming_hunk.old_start)) {
+                if current_hunk.precedes(self.get_shifted_old_start(incoming_hunk.old_start))? {
                     i += 1;
                     continue;
                 }
@@ -127,7 +132,7 @@ impl PathRanges {
                 if current_hunk.intersects(
                     self.get_shifted_old_start(incoming_hunk.old_start),
                     incoming_hunk.old_lines,
-                ) {
+                )? {
                     intersecting_hunks.push((i, current_hunk));
                 }
 
@@ -274,6 +279,10 @@ impl PathRanges {
         incoming_hunks: Vec<InputDiff>,
     ) -> anyhow::Result<()> {
         for hunk in incoming_hunks {
+            // if hunk.new_lines == 0 {
+            //     continue;
+            // }
+
             self.hunk_ranges.push(HunkRange {
                 change_type: hunk.change_type,
                 stack_id,
@@ -364,7 +373,12 @@ impl PathRanges {
                         commit_id: last_intersecting_hunk.commit_id,
                         start: incoming_hunk.new_start + incoming_hunk.new_lines,
                         lines: self
-                            .calculate_lines_of_trimmed_hunk(last_intersecting_hunk, incoming_hunk),
+                            .calculate_lines_of_trimmed_hunk(
+                                last_intersecting_hunk,
+                                incoming_hunk,
+                                "While calculating the lines of the bottom hunk range when incoming hunk overlaps the beginning of the second intersecting hunk range."
+
+                            )?,
                         line_shift: last_intersecting_hunk.line_shift,
                     },
                 ],
@@ -391,7 +405,10 @@ impl PathRanges {
                         stack_id: first_intersecting_hunk.stack_id,
                         commit_id: first_intersecting_hunk.commit_id,
                         start: first_intersecting_hunk.start,
-                        lines: incoming_hunk.new_start - first_intersecting_hunk.start,
+                        lines: incoming_hunk
+                            .new_start
+                            .sub_or_err(first_intersecting_hunk.start)
+                            .context("While calculating the lines when incoming hunk overlaps the end of the first intersecting hunk range.")?,
                         line_shift: first_intersecting_hunk.line_shift,
                     },
                     HunkRange {
@@ -421,7 +438,10 @@ impl PathRanges {
                     stack_id: first_intersecting_hunk.stack_id,
                     commit_id: first_intersecting_hunk.commit_id,
                     start: first_intersecting_hunk.start,
-                    lines: incoming_hunk.new_start - first_intersecting_hunk.start,
+                    lines: incoming_hunk
+                        .new_start
+                        .sub_or_err(first_intersecting_hunk.start)
+                        .context("While calculating the lines of the top hunk range when incoming hunk is contained in the intersecting hunk ranges.")?,
                     line_shift: first_intersecting_hunk.line_shift,
                 },
                 HunkRange {
@@ -438,7 +458,11 @@ impl PathRanges {
                     commit_id: last_intersecting_hunk.commit_id,
                     start: incoming_hunk.new_start + incoming_hunk.new_lines,
                     lines: self
-                        .calculate_lines_of_trimmed_hunk(last_intersecting_hunk, incoming_hunk),
+                        .calculate_lines_of_trimmed_hunk(
+                            last_intersecting_hunk,
+                            incoming_hunk,
+                            "While calculating the lines of the bottom hunk range when incoming hunk is contained in the intersecting hunk ranges."
+                        )?,
                     line_shift: last_intersecting_hunk.line_shift,
                 },
             ],
@@ -501,7 +525,9 @@ impl PathRanges {
                         stack_id: hunk.stack_id,
                         commit_id: hunk.commit_id,
                         start: hunk.start,
-                        lines: incoming_hunk.new_start - hunk.start,
+                        lines: incoming_hunk.new_start.sub_or_err(hunk.start).context(
+                            "When calculating the top lines of the hunk range being split.",
+                        )?,
                         line_shift: hunk.line_shift,
                     },
                     HunkRange {
@@ -517,7 +543,11 @@ impl PathRanges {
                         stack_id: hunk.stack_id,
                         commit_id: hunk.commit_id,
                         start: incoming_hunk.new_start + incoming_hunk.new_lines,
-                        lines: self.calculate_lines_of_trimmed_hunk(&hunk, incoming_hunk),
+                        lines: self.calculate_lines_of_trimmed_hunk(
+                            &hunk,
+                            incoming_hunk,
+                            "When calculating the bottom lines of the hunk range being split.",
+                        )?,
                         line_shift: hunk.line_shift,
                     },
                 ],
@@ -530,10 +560,12 @@ impl PathRanges {
         }
 
         // 3. The incoming hunk partially overwrites the intersecting hunk range.
-        let (i_next_hunk_to_visit, i_first_hunk_to_shift) =
-            if self.get_shifted_old_start(incoming_hunk.old_start) <= hunk.start {
-                // The incoming hunk overlaps the beginning of the intersecting hunk range.
-                self.replace_hunk_ranges_at(
+        let (i_next_hunk_to_visit, i_first_hunk_to_shift) = if self
+            .get_shifted_old_start(incoming_hunk.old_start)
+            <= hunk.start
+        {
+            // The incoming hunk overlaps the beginning of the intersecting hunk range.
+            self.replace_hunk_ranges_at(
                     index,
                     vec![
                         HunkRange {
@@ -549,37 +581,43 @@ impl PathRanges {
                             stack_id: hunk.stack_id,
                             commit_id: hunk.commit_id,
                             start: incoming_hunk.new_start + incoming_hunk.new_lines,
-                            lines: self.calculate_lines_of_trimmed_hunk(&hunk, incoming_hunk),
+                            lines: self.calculate_lines_of_trimmed_hunk(
+                                &hunk,
+                                incoming_hunk,
+                                "When calculating the lines of the hunk range's beginning being trimmed.",
+                            )?,
                             line_shift: net_lines,
                         },
                     ],
                     0,
                 )
-            } else {
-                // The incoming hunk overlaps the end of the intersecting hunk range.
-                self.replace_hunk_ranges_at(
-                    index,
-                    vec![
-                        HunkRange {
-                            change_type: hunk.change_type,
-                            stack_id: hunk.stack_id,
-                            commit_id: hunk.commit_id,
-                            start: hunk.start,
-                            lines: incoming_hunk.new_start - hunk.start,
-                            line_shift: hunk.line_shift,
-                        },
-                        HunkRange {
-                            change_type: incoming_hunk.change_type,
-                            stack_id,
-                            commit_id,
-                            start: incoming_hunk.new_start,
-                            lines: incoming_hunk.new_lines,
-                            line_shift: net_lines,
-                        },
-                    ],
-                    1,
-                )
-            };
+        } else {
+            // The incoming hunk overlaps the end of the intersecting hunk range.
+            self.replace_hunk_ranges_at(
+                index,
+                vec![
+                    HunkRange {
+                        change_type: hunk.change_type,
+                        stack_id: hunk.stack_id,
+                        commit_id: hunk.commit_id,
+                        start: hunk.start,
+                        lines: incoming_hunk.new_start.sub_or_err(hunk.start).context(
+                            "When calculating the lines of the hunk range's end being trimmed.",
+                        )?,
+                        line_shift: hunk.line_shift,
+                    },
+                    HunkRange {
+                        change_type: incoming_hunk.change_type,
+                        stack_id,
+                        commit_id,
+                        start: incoming_hunk.new_start,
+                        lines: incoming_hunk.new_lines,
+                        line_shift: net_lines,
+                    },
+                ],
+                1,
+            )
+        };
 
         self.track_commit_dependency(commit_id, vec![hunk.commit_id])?;
         *index_next_hunk_to_visit = Some(i_next_hunk_to_visit);
@@ -591,7 +629,12 @@ impl PathRanges {
     /// Calculate the number of lines of a hunk range that was trimmed from the top.
     ///
     /// Will handle the case where the incoming hunk is a modification and only adds or only deletes lines.
-    fn calculate_lines_of_trimmed_hunk(&self, hunk: &HunkRange, incoming_hunk: &InputDiff) -> u32 {
+    fn calculate_lines_of_trimmed_hunk(
+        &self,
+        hunk: &HunkRange,
+        incoming_hunk: &InputDiff,
+        context: &'static str,
+    ) -> anyhow::Result<u32> {
         let old_start = self.get_shifted_old_start(incoming_hunk.old_start);
         let addition_shift = if self.is_addition_only_hunk(incoming_hunk) {
             // If the incoming hunk is an addition, we need to subtract one more line.
@@ -607,8 +650,13 @@ impl PathRanges {
             0
         };
 
-        ((hunk.start + hunk.lines - old_start - incoming_hunk.old_lines) - addition_shift)
-            + deletion_shift
+        let result = hunk.start + hunk.lines;
+        let result = result.sub_or_err(old_start).context(context)?;
+        let result = result
+            .sub_or_err(incoming_hunk.old_lines)
+            .context(context)?;
+        let result = result.sub_or_err(addition_shift).context(context)?;
+        Ok(result + deletion_shift)
     }
 
     /// Determine whether the incoming hunk is of modification type and only adds lines.
@@ -741,7 +789,7 @@ impl PathRanges {
     pub fn intersection(&self, start: u32, lines: u32) -> Vec<&HunkRange> {
         self.hunk_ranges
             .iter()
-            .filter(|hunk| hunk.intersects(start, lines))
+            .filter(|hunk| hunk.intersects(start, lines).unwrap_or(false))
             .collect()
     }
 }
@@ -766,11 +814,11 @@ fn insert_hunk_ranges(
     let mut index_after_last_added = start;
     let mut index_after_interest = start;
     for (i, hunk) in hunks.iter().enumerate() {
-        if hunk.lines > 0 {
-            // Only add hunk ranges that have lines.
-            new_hunks.push(*hunk);
-            index_after_last_added += 1;
-        }
+        // if hunk.lines > 0 {
+        // }
+        // Only add hunk ranges that have lines.
+        new_hunks.push(*hunk);
+        index_after_last_added += 1;
 
         if i == index_of_interest {
             index_after_interest = new_hunks.len();
@@ -787,7 +835,6 @@ fn insert_hunk_ranges(
 }
 
 #[cfg(test)]
-
 mod tests {
     use super::*;
 
@@ -865,7 +912,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_a_id,
                 start: 1,
-                lines: 0, // this range will be ignored
+                lines: 0,
                 line_shift: 9,
             },
             HunkRange {
@@ -889,11 +936,12 @@ mod tests {
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 1);
 
-        assert_eq!(hunk_ranges.len(), 2);
-        assert_eq!(index_after_interest, 1);
-        assert_eq!(index_after_last_added, 2);
-        assert_eq!(hunk_ranges[0].commit_id, commit_b_id);
-        assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges.len(), 3);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 3);
+        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_a_id);
 
         Ok(())
     }
@@ -934,15 +982,15 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_a_id,
                 start: 5,
-                lines: 0, // this range will be ignored
+                lines: 0,
                 line_shift: 9,
             },
             HunkRange {
                 change_type: gitbutler_diff::ChangeType::Added,
                 stack_id: StackId::generate(),
                 commit_id: commit_a_id,
-                start: 5,
-                lines: 0, // this range will be ignored
+                start: 6,
+                lines: 0,
                 line_shift: 9,
             },
         ];
@@ -950,11 +998,17 @@ mod tests {
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 1);
 
-        assert_eq!(hunk_ranges.len(), 2);
+        assert_eq!(hunk_ranges.len(), 4);
         assert_eq!(index_after_interest, 2);
-        assert_eq!(index_after_last_added, 2);
+        assert_eq!(index_after_last_added, 4);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[0].start, 1);
         assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[1].start, 4);
+        assert_eq!(hunk_ranges[2].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[2].start, 5);
+        assert_eq!(hunk_ranges[3].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[3].start, 6);
 
         Ok(())
     }
@@ -979,7 +1033,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_b_id,
                 start: 4,
-                lines: 0, // this range will be ignored
+                lines: 0,
                 line_shift: 0,
             },
             HunkRange {
@@ -995,7 +1049,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_b_id,
                 start: 4,
-                lines: 0, // this range will be ignored,
+                lines: 0,
                 line_shift: 0,
             },
             HunkRange {
@@ -1011,13 +1065,17 @@ mod tests {
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 2);
 
-        assert_eq!(hunk_ranges.len(), 2);
-        assert_eq!(index_after_interest, 1);
-        assert_eq!(index_after_last_added, 2);
-        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
-        assert_eq!(hunk_ranges[0].start, 1);
+        assert_eq!(hunk_ranges.len(), 4);
+        assert_eq!(index_after_interest, 3);
+        assert_eq!(index_after_last_added, 4);
+        assert_eq!(hunk_ranges[0].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[0].start, 4);
         assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
-        assert_eq!(hunk_ranges[1].start, 5);
+        assert_eq!(hunk_ranges[1].start, 1);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].start, 4);
+        assert_eq!(hunk_ranges[3].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[3].start, 5);
 
         Ok(())
     }
@@ -1052,7 +1110,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_b_id,
                 start: 4,
-                lines: 0, // this range will be ignored
+                lines: 0,
                 line_shift: 0,
             },
             HunkRange {
@@ -1068,7 +1126,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_b_id,
                 start: 4,
-                lines: 0, // this range will be ignored,
+                lines: 0,
                 line_shift: 0,
             },
             HunkRange {
@@ -1084,11 +1142,19 @@ mod tests {
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 0, 1, hunks, 2);
 
-        assert_eq!(hunk_ranges.len(), 1);
-        assert_eq!(index_after_interest, 0);
-        assert_eq!(index_after_last_added, 0);
-        assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
-        assert_eq!(hunk_ranges[0].start, 11);
+        assert_eq!(hunk_ranges.len(), 5);
+        assert_eq!(index_after_interest, 3);
+        assert_eq!(index_after_last_added, 4);
+        assert_eq!(hunk_ranges[0].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[0].start, 4);
+        assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[1].start, 1);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].start, 4);
+        assert_eq!(hunk_ranges[3].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[3].start, 5);
+        assert_eq!(hunk_ranges[4].commit_id, commit_a_id);
+        assert_eq!(hunk_ranges[4].start, 11);
 
         Ok(())
     }
@@ -1122,20 +1188,22 @@ mod tests {
             stack_id: StackId::generate(),
             commit_id: commit_b_id,
             start: 4,
-            lines: 0, // this range will be ignored
+            lines: 0,
             line_shift: 0,
         }];
 
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 2, 2, hunks, 0);
 
-        assert_eq!(hunk_ranges.len(), 2);
-        assert_eq!(index_after_interest, 2);
-        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges.len(), 3);
+        assert_eq!(index_after_interest, 3);
+        assert_eq!(index_after_last_added, 3);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[0].start, 1);
         assert_eq!(hunk_ranges[1].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].start, 11);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].start, 4);
 
         Ok(())
     }
@@ -1482,18 +1550,19 @@ mod tests {
             stack_id: StackId::generate(),
             commit_id: commit_c_id,
             start: 4,
-            lines: 0, // ranges with 0 lines are filtered out
+            lines: 0,
             line_shift: 1,
         }];
 
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks, 0);
-        assert_eq!(hunk_ranges.len(), 2);
-        assert_eq!(index_after_interest, 1);
-        assert_eq!(index_after_last_added, 1);
+        assert_eq!(hunk_ranges.len(), 3);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 2);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
-        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
-        assert_eq!(hunk_ranges[1].start, 5);
+        assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].start, 5);
 
         Ok(())
     }
@@ -1537,7 +1606,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_c_id,
                 start: 4,
-                lines: 0, // ranges with 0 lines are filtered out
+                lines: 0,
                 line_shift: 1,
             },
             HunkRange {
@@ -1553,20 +1622,25 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_c_id,
                 start: 6,
-                lines: 0, // ranges with 0 lines are filtered out
+                lines: 0,
                 line_shift: 1,
             },
         ];
 
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 1, 2, hunks, 2);
-        assert_eq!(hunk_ranges.len(), 3);
-        assert_eq!(index_after_interest, 2);
-        assert_eq!(index_after_last_added, 2);
+        assert_eq!(hunk_ranges.len(), 5);
+        assert_eq!(index_after_interest, 4);
+        assert_eq!(index_after_last_added, 4);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
-        assert_eq!(hunk_ranges[1].start, 5);
-        assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[1].start, 4);
+        assert_eq!(hunk_ranges[2].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[2].start, 5);
+        assert_eq!(hunk_ranges[3].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[3].start, 6);
+        assert_eq!(hunk_ranges[4].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[4].start, 5);
 
         Ok(())
     }
@@ -1609,18 +1683,21 @@ mod tests {
             stack_id: StackId::generate(),
             commit_id: commit_c_id,
             start: 4,
-            lines: 0, // ranges with 0 lines are filtered out
+            lines: 0,
             line_shift: 1,
         }];
 
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 1, 1, hunks, 0);
-        assert_eq!(hunk_ranges.len(), 3);
-        assert_eq!(index_after_interest, 1);
-        assert_eq!(index_after_last_added, 1);
+        assert_eq!(hunk_ranges.len(), 4);
+        assert_eq!(index_after_interest, 2);
+        assert_eq!(index_after_last_added, 2);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
-        assert_eq!(hunk_ranges[1].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
         assert_eq!(hunk_ranges[2].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].start, 3);
+        assert_eq!(hunk_ranges[3].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[3].start, 5);
 
         Ok(())
     }
@@ -1664,7 +1741,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_c_id,
                 start: 4,
-                lines: 0, // ranges with 0 lines are filtered out
+                lines: 0,
                 line_shift: 1,
             },
             HunkRange {
@@ -1680,7 +1757,7 @@ mod tests {
                 stack_id: StackId::generate(),
                 commit_id: commit_c_id,
                 start: 6,
-                lines: 0, // ranges with 0 lines are filtered out
+                lines: 0,
                 line_shift: 1,
             },
             HunkRange {
@@ -1695,14 +1772,22 @@ mod tests {
 
         let (index_after_interest, index_after_last_added) =
             insert_hunk_ranges(&mut hunk_ranges, 1, 1, hunks, 3);
-        assert_eq!(hunk_ranges.len(), 5);
-        assert_eq!(index_after_interest, 3);
-        assert_eq!(index_after_last_added, 3);
+        assert_eq!(hunk_ranges.len(), 7);
+        assert_eq!(index_after_interest, 5);
+        assert_eq!(index_after_last_added, 5);
         assert_eq!(hunk_ranges[0].commit_id, commit_a_id);
         assert_eq!(hunk_ranges[1].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[1].start, 4);
         assert_eq!(hunk_ranges[2].commit_id, commit_c_id);
-        assert_eq!(hunk_ranges[3].commit_id, commit_b_id);
-        assert_eq!(hunk_ranges[4].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[2].start, 5);
+        assert_eq!(hunk_ranges[3].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[3].start, 6);
+        assert_eq!(hunk_ranges[4].commit_id, commit_c_id);
+        assert_eq!(hunk_ranges[4].start, 8);
+        assert_eq!(hunk_ranges[5].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[5].start, 3);
+        assert_eq!(hunk_ranges[6].commit_id, commit_b_id);
+        assert_eq!(hunk_ranges[6].start, 5);
 
         Ok(())
     }

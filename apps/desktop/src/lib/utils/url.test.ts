@@ -1,4 +1,4 @@
-import { remoteUrlIsHttp, convertRemoteToWebUrl, getEditorUri } from '$lib/utils/url';
+import { convertRemoteToWebUrl, getEditorUri } from '$lib/utils/url';
 import { describe, expect, test } from 'vitest';
 
 describe.concurrent('cleanUrl', () => {
@@ -24,22 +24,6 @@ describe.concurrent('cleanUrl', () => {
 		expect(convertRemoteToWebUrl('git@github.com:user/repo.git')).toEqual(
 			'https://github.com/user/repo'
 		);
-	});
-
-	const httpRemoteUrls = ['https://github.com/user/repo.git', 'http://192.168.1.1/user/repo.git'];
-
-	test.each(httpRemoteUrls)('HTTP Remote - %s', (remoteUrl) => {
-		expect(remoteUrlIsHttp(remoteUrl)).toBe(true);
-	});
-
-	const nonHttpRemoteUrls = [
-		'git@github.com:user/repo.git',
-		'ssh://git@github.com:22/user/repo.git',
-		'git://github.com/user/repo.git'
-	];
-
-	test.each(nonHttpRemoteUrls)('Non HTTP Remote - %s', (remoteUrl) => {
-		expect(remoteUrlIsHttp(remoteUrl)).toBe(false);
 	});
 });
 

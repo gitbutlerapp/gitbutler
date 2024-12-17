@@ -51,13 +51,15 @@ fn head() {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let descriptions = branch
-        .commits
+    let descriptions = branch.series[0]
+        .clone()
+        .unwrap()
+        .patches
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();
@@ -121,13 +123,15 @@ fn middle() {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let descriptions = branch
-        .commits
+    let descriptions = branch.series[0]
+        .clone()
+        .unwrap()
+        .patches
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();
@@ -182,13 +186,15 @@ fn forcepush_allowed() {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let descriptions = branch
-        .commits
+    let descriptions = branch.series[0]
+        .clone()
+        .unwrap()
+        .patches
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();
@@ -291,13 +297,15 @@ fn root() {
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
-        .0
+        .branches
         .into_iter()
         .find(|b| b.id == branch_id)
         .unwrap();
 
-    let descriptions = branch
-        .commits
+    let descriptions = branch.series[0]
+        .clone()
+        .unwrap()
+        .patches
         .iter()
         .map(|c| c.description.clone())
         .collect::<Vec<_>>();

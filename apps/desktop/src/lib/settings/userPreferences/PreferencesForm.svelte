@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { Project, ProjectsService } from '$lib/backend/projects';
-	import SectionCard from '$lib/components/SectionCard.svelte';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import Section from '$lib/settings/Section.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
@@ -11,8 +11,8 @@
 	const project = getContext(Project);
 
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
-
 	let omitCertificateCheck = project?.omit_certificate_check;
+	let useNewBranchIntegrationAlgorithm = project?.use_new_branch_integration_algorithm;
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
 
@@ -26,44 +26,78 @@
 		await projectsService.updateProject(project);
 	}
 
+	async function setUseNewBranchIntegrationAlgorithm(value: boolean) {
+		project.use_new_branch_integration_algorithm = value;
+		await projectsService.updateProject(project);
+	}
+
 	async function handleOmitCertificateCheckClick(event: MouseEvent) {
 		await setOmitCertificateCheck((event.target as HTMLInputElement)?.checked);
+	}
+
+	async function handleUseNewBranchIntegrationAlgorithmClick(event: MouseEvent) {
+		await setUseNewBranchIntegrationAlgorithm((event.target as HTMLInputElement)?.checked);
 	}
 </script>
 
 <Section gap={8}>
 	<SectionCard orientation="row" labelFor="omitCertificateCheck">
-		<svelte:fragment slot="title">Ignore host certificate checks</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Ignore host certificate checks
+		{/snippet}
+		{#snippet caption()}
 			Enabling this will ignore host certificate checks when authenticating with ssh.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle
 				id="omitCertificateCheck"
 				checked={omitCertificateCheck}
 				onclick={handleOmitCertificateCheckClick}
 			/>
-		</svelte:fragment>
+		{/snippet}
+	</SectionCard>
+
+	<SectionCard orientation="row" labelFor="newBranchIntegrationAlgorithm">
+		{#snippet title()}
+			Use new branch integration algorithm
+		{/snippet}
+		{#snippet caption()}
+			Enable this to start using the improved way of integrating remote changes into the local
+			virtual branches in your workspace.
+			<br />
+			This does not affect how the target branch is integrated.
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="newBranchIntegrationAlgorithm"
+				checked={useNewBranchIntegrationAlgorithm}
+				onclick={handleUseNewBranchIntegrationAlgorithmClick}
+			/>
+		{/snippet}
 	</SectionCard>
 
 	<SectionCard labelFor="runHooks" orientation="row">
-		<svelte:fragment slot="title">Run commit hooks</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Run commit hooks
+		{/snippet}
+		{#snippet caption()}
 			Enabling this will run any git pre and post commit hooks you have configured in your
 			repository.
-		</svelte:fragment>
-		<svelte:fragment slot="actions">
+		{/snippet}
+		{#snippet actions()}
 			<Toggle id="runHooks" bind:checked={$runCommitHooks} />
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 
 	<SectionCard orientation="row" centerAlign>
-		<svelte:fragment slot="title">Snapshot lines threshold</svelte:fragment>
-		<svelte:fragment slot="caption">
+		{#snippet title()}
+			Snapshot lines threshold
+		{/snippet}
+		{#snippet caption()}
 			The number of lines that trigger a snapshot when saving.
-		</svelte:fragment>
+		{/snippet}
 
-		<svelte:fragment slot="actions">
+		{#snippet actions()}
 			<Textbox
 				type="number"
 				width={100}
@@ -76,6 +110,6 @@
 					setSnapshotLinesThreshold(parseInt(value));
 				}}
 			/>
-		</svelte:fragment>
+		{/snippet}
 	</SectionCard>
 </Section>

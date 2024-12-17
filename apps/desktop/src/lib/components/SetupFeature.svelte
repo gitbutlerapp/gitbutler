@@ -1,9 +1,29 @@
 <script lang="ts">
-	export let disabled = false;
-	export let success = false;
-	export let topBorder = false;
+	import type { Snippet } from 'svelte';
 
-	export let labelFor = '';
+	interface Props {
+		disabled?: boolean;
+		success?: boolean;
+		topBorder?: boolean;
+		labelFor?: string;
+		actions?: Snippet;
+		icon?: Snippet;
+		title?: Snippet;
+		body?: Snippet;
+		toggle?: Snippet;
+	}
+
+	const {
+		disabled = false,
+		success = false,
+		topBorder = false,
+		labelFor = '',
+		actions,
+		icon,
+		title,
+		body,
+		toggle
+	}: Props = $props();
 </script>
 
 <label
@@ -12,30 +32,30 @@
 	class:success
 	class:disabled
 	class:top-border={topBorder}
-	class:clickable={labelFor !== '' && !$$slots.actions}
+	class:clickable={labelFor !== '' && !actions}
 >
 	<div class="setup-feature__icon">
-		<slot name="icon" />
+		{@render icon?.()}
 	</div>
 	<div class="setup-feature__content">
 		<div class="setup-feature__title text-14 text-bold">
-			<slot name="title" />
+			{@render title?.()}
 		</div>
 
 		<div class="setup-feature__row">
 			<div class="setup-feature__body text-12 text-body">
-				<slot name="body" />
+				{@render body?.()}
 			</div>
-			{#if $$slots.actions}
+			{#if actions}
 				<div class="setup-feature__toggle">
-					<slot name="toggle" />
+					{@render toggle?.()}
 				</div>
 			{/if}
 		</div>
 
-		{#if $$slots.actions}
+		{#if actions}
 			<div class="setup-feature__actions">
-				<slot name="actions" />
+				{@render actions?.()}
 			</div>
 		{/if}
 	</div>

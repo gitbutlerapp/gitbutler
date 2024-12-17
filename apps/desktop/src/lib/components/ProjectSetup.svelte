@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ProjectSetupTarget from './ProjectSetupTarget.svelte';
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { Project, ProjectsService } from '$lib/backend/projects';
 	import { BaseBranchService, type RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';
@@ -11,15 +12,20 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';
 
-	export let remoteBranches: RemoteBranchInfo[];
+	interface Props {
+		remoteBranches: RemoteBranchInfo[];
+	}
+
+	const { remoteBranches }: Props = $props();
 
 	const project = getContext(Project);
 	const projectsService = getContext(ProjectsService);
 	const branchController = getContext(BranchController);
 	const baseBranchService = getContext(BaseBranchService);
+	const posthog = getContext(PostHogWrapper);
 
-	let selectedBranch = ['', ''];
-	let loading = false;
+	let selectedBranch = $state(['', '']);
+	let loading = $state(false);
 
 	async function setTarget() {
 		if (!selectedBranch[0] || selectedBranch[0] === '') return;
@@ -35,6 +41,7 @@
 			await branchController.setTarget(selectedBranch[0], selectedBranch[1]);
 			goto(`/${project.id}/`, { invalidateAll: true });
 		} finally {
+			posthog.capture('Project Setup Complete');
 			loading = false;
 		}
 	}
@@ -56,8 +63,8 @@
 		<ProjectSetupTarget
 			projectName={project.title}
 			{remoteBranches}
-			on:branchSelected={async (e) => {
-				selectedBranch = e.detail;
+			onBranchSelected={async (branch) => {
+				selectedBranch = branch;
 				// TODO: Temporary solution to forcing Windows to use system executable
 				if (platformName === 'windows') {
 					setTarget();

@@ -73,6 +73,20 @@ export class ModeService {
 			return [plainToInstance(RemoteFile, entry[0]), entry[1] as ConflictEntryPresence | undefined];
 		}) as [RemoteFile, ConflictEntryPresence | undefined][];
 	}
+
+	async awaitNotEditing(): Promise<void> {
+		return await new Promise((resolve) => {
+			const unsubscribe = this.mode.subscribe((operatingMode) => {
+				if (operatingMode && operatingMode?.type !== 'Edit') {
+					resolve();
+
+					setTimeout(() => {
+						unsubscribe();
+					}, 0);
+				}
+			});
+		});
+	}
 }
 
 function subscribeToHead(projectId: string, callback: (headAndMode: HeadAndMode) => void) {

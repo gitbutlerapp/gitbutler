@@ -6,14 +6,16 @@ const config: StorybookConfig = {
 	addons: [
 		getAbsolutePath('@storybook/addon-links'),
 		getAbsolutePath('@storybook/addon-essentials'),
-		getAbsolutePath('storybook-dark-mode'),
-		getAbsolutePath('@storybook/experimental-addon-test')
+		'@storybook/addon-svelte-csf',
+		getAbsolutePath('@storybook/experimental-addon-test'),
+		getAbsolutePath('storybook-dark-mode')
 	],
 	framework: {
 		name: getAbsolutePath('@storybook/sveltekit'),
 		options: {}
 	}
 };
+
 export default config;
 
 function getAbsolutePath(value: string): any {

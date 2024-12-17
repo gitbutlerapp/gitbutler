@@ -60,7 +60,7 @@ impl CommandContext {
     }
 
     /// Return the [`project`](Self::project) repository.
-    pub fn repository(&self) -> &git2::Repository {
+    pub fn repo(&self) -> &git2::Repository {
         &self.git_repository
     }
 
@@ -76,14 +76,14 @@ impl CommandContext {
     /// Also note that there are plenty of other places where repositories are opened ad-hoc, and
     /// there is no need to use this type there at all - opening a repo is very cheap still.
     pub fn gix_repository(&self) -> Result<gix::Repository> {
-        Ok(gix::open(self.repository().path())?)
+        Ok(gix::open(self.repo().path())?)
     }
 
     /// Return a newly opened `gitoxide` repository, with all configuration available
     /// to correctly figure out author and committer names (i.e. with most global configuration loaded),
     /// *and* which will perform diffs quickly thanks to an adequate object cache.
     pub fn gix_repository_for_merging(&self) -> Result<gix::Repository> {
-        gix_repository_for_merging(self.repository().path())
+        gix_repository_for_merging(self.repo().path())
     }
 
     /// Return a newly opened `gitoxide` repository, with all configuration available
@@ -103,7 +103,7 @@ impl CommandContext {
     /// commits, fetch or push.
     pub fn gix_repository_minimal(&self) -> Result<gix::Repository> {
         Ok(gix::open_opts(
-            self.repository().path(),
+            self.repo().path(),
             gix::open::Options::isolated(),
         )?)
     }

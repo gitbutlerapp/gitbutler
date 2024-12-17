@@ -2,8 +2,10 @@ import { GitHubBranch } from './githubBranch';
 import { GitHubChecksMonitor } from './githubChecksMonitor';
 import { GitHubListingService } from './githubListingService';
 import { GitHubPrService } from './githubPrService';
+import { GitHubRepoService } from './githubRepoService';
 import { GitHubIssueService } from '$lib/forge/github/issueService';
 import { Octokit } from '@octokit/rest';
+import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { Forge, ForgeName } from '../interface/forge';
@@ -19,14 +21,17 @@ export class GitHub implements Forge {
 	private forkStr?: string;
 	private octokit?: Octokit;
 	private projectMetrics?: ProjectMetrics;
+	private posthog?: PostHogWrapper;
 
 	constructor({
 		repo,
 		baseBranch,
 		forkStr,
 		octokit,
-		projectMetrics
+		projectMetrics,
+		posthog
 	}: ForgeArguments & {
+		posthog?: PostHogWrapper;
 		octokit?: Octokit;
 		projectMetrics?: ProjectMetrics;
 	}) {
@@ -36,6 +41,7 @@ export class GitHub implements Forge {
 		this.forkStr = forkStr;
 		this.octokit = octokit;
 		this.projectMetrics = projectMetrics;
+		this.posthog = posthog;
 	}
 
 	listService() {
@@ -49,7 +55,14 @@ export class GitHub implements Forge {
 		if (!this.octokit) {
 			return;
 		}
-		return new GitHubPrService(this.octokit, this.repo);
+		return new GitHubPrService(this.octokit, this.repo, this.baseBranch, this.posthog);
+	}
+
+	repoService() {
+		if (!this.octokit) {
+			return;
+		}
+		return new GitHubRepoService(this.octokit, this.repo);
 	}
 
 	issueService() {

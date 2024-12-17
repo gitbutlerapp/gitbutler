@@ -39,7 +39,6 @@
 		oncontextmenu?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
 		// Snippets
-		ignoreChildren?: boolean;
 		children?: Snippet;
 	}
 </script>
@@ -85,7 +84,6 @@
 		onmousedown,
 		oncontextmenu,
 		onkeydown,
-		ignoreChildren = false,
 		children
 	}: Props = $props();
 
@@ -128,7 +126,7 @@
 		tabindex={clickable ? tabindex : -1}
 		data-clickable={clickable}
 	>
-		{#if !ignoreChildren && children}
+		{#if children}
 			<span
 				class="label text-semibold"
 				class:text-12={size === 'button' || size === 'cta'}
@@ -141,7 +139,7 @@
 		{#if icon || loading}
 			<div class="btn-icon">
 				{#if loading}
-					<Icon name="spinner" spinnerRadius={4.5} />
+					<Icon name="spinner" spinnerRadius={size === 'tag' ? 4 : 5} />
 				{:else if icon}
 					<Icon name={icon} />
 				{/if}
@@ -453,6 +451,7 @@
 			border-bottom-right-radius: 0;
 			border-right: none;
 
+			&.neutral,
 			&.pop,
 			&.success,
 			&.error,

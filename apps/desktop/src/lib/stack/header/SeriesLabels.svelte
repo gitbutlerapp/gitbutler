@@ -24,10 +24,12 @@
 			return 'local';
 		})
 	);
+
+	let selectorShown = $state(false);
 </script>
 
 <div class="stack-series-row">
-	<SeriesLabelsRow series={series.map((s) => s.name)} showCounterLabel={disableSelector} />
+	<SeriesLabelsRow series={series.map((s) => s.name)} showRestAmount={disableSelector} />
 
 	<!-- SERIES SELECTOR -->
 	{#if series.length > 1}
@@ -36,6 +38,9 @@
 				popupAlign="right"
 				customWidth={300}
 				options={shiftedSeries.map((b) => ({ label: b.name, value: b.name }))}
+				ontoggle={(isOpen) => {
+					selectorShown = isOpen;
+				}}
 				onselect={(value) => {
 					// find in DOM and scroll to
 					const el = document.querySelector(`[data-series-name="${value}"]`) as HTMLElement;
@@ -43,17 +48,20 @@
 					if (!el) return;
 
 					el.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
-					el.classList.add('series-highlight-animation');
+
+					setTimeout(() => {
+						el.classList.add('series-highlight-animation');
+					}, 300);
 
 					setTimeout(() => {
 						el.classList.remove('series-highlight-animation');
-					}, 1000);
+					}, 1200);
 				}}
 			>
 				{#snippet customSelectButton()}
-					<div class="selector-series-select">
+					<div class="selector-series-select" class:opened={selectorShown}>
 						<span class="text-12 text-semibold">{shiftedSeries.length} more</span>
-						<Icon name="chevron-down-small" />
+						<div class="selector-series-select__icon"><Icon name="chevron-down-small" /></div>
 					</div>
 				{/snippet}
 
@@ -62,7 +70,7 @@
 						<div class="selector-series-chain-icon"></div>
 						<div class="selector-series-icon-and-name">
 							<div class="selector-series-icon {seriesTypes[idx]}"></div>
-							<span class="selector-series-name text-12 truncate">{item.label}</span>
+							<span class="selector-series-name text-12 text-semibold truncate">{item.label}</span>
 						</div>
 						<div class="selector-series-scroll-to text-11">
 							<span>Scroll here</span>
@@ -119,31 +127,40 @@
 		align-items: center;
 		gap: 2px;
 		padding: 2px 4px 2px 6px;
+		margin-left: -2px;
 		color: var(--clr-text-1);
-		background-color: var(--clr-bg-1);
 		border-radius: var(--radius-m);
-		border: 1px solid var(--clr-border-2);
-		height: 100%;
 		text-wrap: nowrap;
 		transition: border-color var(--transition-fast);
 
 		&:hover {
-			border-color: var(--clr-border-1);
+			background-color: var(--clr-bg-1-muted);
 		}
+
+		&.opened {
+			background-color: var(--clr-bg-1-muted);
+
+			& .selector-series-select__icon {
+				transform: rotate(180deg);
+			}
+		}
+	}
+
+	.selector-series-select__icon {
+		display: flex;
+		color: var(--clr-text-2);
 	}
 
 	.selector-series-item {
 		position: relative;
 		display: flex;
 		align-items: center;
-		gap: 6px;
+		gap: 10px;
 		width: 100%;
 		padding: 6px 2px 6px 6px;
 		border-radius: var(--radius-s);
 
 		&:hover {
-			/* background-color: var(--clr-bg-1-muted); */
-
 			.selector-series-scroll-to {
 				opacity: 1;
 				flex: none;

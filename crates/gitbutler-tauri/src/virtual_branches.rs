@@ -2,7 +2,7 @@ pub mod commands {
     use anyhow::{anyhow, Context};
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
     use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
-    use gitbutler_branch_actions::internal::PushResult;
+    use gitbutler_branch_actions::internal::{PushResult, StackListResult};
     use gitbutler_branch_actions::upstream_integration::{
         BaseBranchResolution, BaseBranchResolutionApproach, Resolution, StackStatuses,
     };
@@ -59,10 +59,17 @@ pub mod commands {
         let project = projects.get(project_id)?;
         gitbutler_branch_actions::list_virtual_branches(&project)
             .map_err(Into::into)
-            .map(|(branches, skipped_files)| VirtualBranches {
-                branches,
-                skipped_files,
-            })
+            .map(
+                |StackListResult {
+                     branches,
+                     skipped_files,
+                     dependency_errors,
+                 }| VirtualBranches {
+                    branches,
+                    skipped_files,
+                    dependency_errors,
+                },
+            )
     }
 
     #[tauri::command(async)]

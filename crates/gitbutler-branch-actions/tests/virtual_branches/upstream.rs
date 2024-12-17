@@ -33,7 +33,7 @@ fn detect_upstream_commits() {
     };
 
     // push
-    gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(project, branch1_id, false).unwrap();
 
     let oid3 = {
         // create third commit
@@ -43,16 +43,17 @@ fn detect_upstream_commits() {
 
     {
         // should correctly detect pushed commits
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        assert_eq!(branches[0].commits.len(), 3);
-        assert_eq!(branches[0].commits[0].id, oid3);
-        assert!(!branches[0].commits[0].is_remote);
-        assert_eq!(branches[0].commits[1].id, oid2);
-        assert!(branches[0].commits[1].is_remote);
-        assert_eq!(branches[0].commits[2].id, oid1);
-        assert!(branches[0].commits[2].is_remote);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 3);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid3);
+        assert!(!branches[0].series[0].clone().unwrap().patches[0].is_local_and_remote);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[1].id, oid2);
+        assert!(branches[0].series[0].clone().unwrap().patches[1].is_local_and_remote);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[2].id, oid1);
+        assert!(branches[0].series[0].clone().unwrap().patches[2].is_local_and_remote);
     }
 }
 
@@ -93,11 +94,13 @@ fn detect_integrated_commits() {
         // merge branch upstream
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
-            .0
+            .branches
             .into_iter()
             .find(|b| b.id == branch1_id)
             .unwrap();
-        repository.merge(&branch.upstream.as_ref().unwrap().name);
+        repository
+            .merge(&branch.upstream.as_ref().unwrap().name)
+            .unwrap();
         repository.fetch();
     }
 
@@ -109,15 +112,17 @@ fn detect_integrated_commits() {
 
     {
         // should correctly detect pushed commits
-        let (branches, _) = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
+        let branches = list_result.branches;
+
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
-        assert_eq!(branches[0].commits.len(), 3);
-        assert_eq!(branches[0].commits[0].id, oid3);
-        assert!(!branches[0].commits[0].is_integrated);
-        assert_eq!(branches[0].commits[1].id, oid2);
-        assert!(branches[0].commits[1].is_integrated);
-        assert_eq!(branches[0].commits[2].id, oid1);
-        assert!(branches[0].commits[2].is_integrated);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 3);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[0].id, oid3);
+        assert!(!branches[0].series[0].clone().unwrap().patches[0].is_integrated);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[1].id, oid2);
+        assert!(branches[0].series[0].clone().unwrap().patches[1].is_integrated);
+        assert_eq!(branches[0].series[0].clone().unwrap().patches[2].id, oid1);
+        assert!(branches[0].series[0].clone().unwrap().patches[2].is_integrated);
     }
 }

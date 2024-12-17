@@ -8,7 +8,7 @@ use git2::build::CheckoutBuilder;
 use gitbutler_branch_actions::internal::list_virtual_branches;
 use gitbutler_branch_actions::{update_workspace_commit, RemoteBranchFile};
 use gitbutler_cherry_pick::{ConflictedTreeKey, RepositoryExt as _};
-use gitbutler_command_context::CommandContext;
+use gitbutler_command_context::{gix_repository_for_merging, CommandContext};
 use gitbutler_commit::{
     commit_ext::CommitExt,
     commit_headers::{CommitHeadersV2, HasCommitHeaders},
@@ -18,6 +18,7 @@ use gitbutler_operating_modes::{
     operating_mode, read_edit_mode_metadata, write_edit_mode_metadata, EditModeMetadata,
     OperatingMode, EDIT_BRANCH_REF, WORKSPACE_BRANCH_REF,
 };
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_index, GixRepositoryExt};
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
 use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::{rebase::cherry_rebase, RepositoryExt};
@@ -28,74 +29,112 @@ use serde::Serialize;
 
 pub mod commands;
 
+/// Returns an index of the the tree of `commit` if it is unconflicted, *or* produce a merged tree
+/// if `commit` is conflicted. That tree is turned into an index that records the conflicts that occurred
+/// during the merge.
 fn get_commit_index(repository: &git2::Repository, commit: &git2::Commit) -> Result<git2::Index> {
     let commit_tree = commit.tree().context("Failed to get commit's tree")?;
     // Checkout the commit as unstaged changes
     if commit.is_conflicted() {
         let base = commit_tree
             .get_name(".conflict-base-0")
-            .context("Failed to get base")?;
-        let base = repository
-            .find_tree(base.id())
-            .context("Failed to find base tree")?;
-        // Ours
+            .context("Failed to get base")?
+            .id();
         let ours = commit_tree
             .get_name(".conflict-side-0")
-            .context("Failed to get base")?;
-        let ours = repository
-            .find_tree(ours.id())
-            .context("Failed to find base tree")?;
-        // Theirs
+            .context("Failed to get base")?
+            .id();
         let theirs = commit_tree
             .get_name(".conflict-side-1")
-            .context("Failed to get base")?;
-        let theirs = repository
-            .find_tree(theirs.id())
-            .context("Failed to find base tree")?;
+            .context("Failed to get base")?
+            .id();
 
-        let index = repository
-            .merge_trees(&base, &ours, &theirs, None)
-            .context("Failed to merge trees")?;
-
-        Ok(index)
+        let gix_repo = gix_repository_for_merging(repository.path())?;
+        // Merge without favoring a side this time to get a tree containing the actual conflicts.
+        let mut merge_result = gix_repo.merge_trees(
+            git2_to_gix_object_id(base),
+            git2_to_gix_object_id(ours),
+            git2_to_gix_object_id(theirs),
+            gix_repo.default_merge_labels(),
+            gix_repo.tree_merge_options()?,
+        )?;
+        let merged_tree_id = merge_result.tree.write()?;
+        let mut index = gix_repo.index_from_tree(&merged_tree_id)?;
+        if !merge_result.index_changed_after_applying_conflicts(
+            &mut index,
+            gix::merge::tree::TreatAsUnresolved::git(),
+            gix::merge::tree::apply_index_entries::RemovalMode::Mark,
+        ) {
+            tracing::warn!("There must be an issue with conflict-commit creation as re-merging the conflicting trees didn't yield a conflicting index.");
+        }
+        gix_to_git2_index(&index)
     } else {
         let mut index = git2::Index::new()?;
-        index
-            .read_tree(&commit_tree)
-            .context("Failed to set index tree")?;
-
+        index.read_tree(&commit_tree)?;
         Ok(index)
     }
 }
 
-fn checkout_edit_branch(ctx: &CommandContext, commit: &git2::Commit) -> Result<()> {
-    let repository = ctx.repository();
+/// Returns a commit to be the HEAD of `gitbutler/edit`
+///
+/// This should a commit who's tree is what the commit getting edited
+/// (the editee) is based on.
+///
+/// If the editee is conflicted:
+/// We should checkout `.conflict-side-0`. This is because the resulting merge
+/// is always based on top of `.conflict-side-0`, so this is the preferable
+/// base.
+///
+/// If the parent is conflicted:
+/// We should checkout the parent's `.auto-resolution` because that is what
+/// the editee is based on
+///
+/// Otherwise:
+/// We can simply return the parent commit.
+fn find_or_create_base_commit<'a>(
+    repository: &'a git2::Repository,
+    commit: &git2::Commit<'a>,
+) -> Result<git2::Commit<'a>> {
+    let is_conflicted = commit.is_conflicted();
+    let is_parent_conflicted = commit.parent(0)?.is_conflicted();
+
+    // If neither is conflicted, we can use the old parent.
+    if !(is_conflicted || is_parent_conflicted) {
+        return Ok(commit.parent(0)?);
+    };
+
+    let base_tree = if is_conflicted {
+        repository.find_real_tree(commit, ConflictedTreeKey::Ours)?
+    } else {
+        let parent = commit.parent(0)?;
+        repository.find_real_tree(&parent, ConflictedTreeKey::AutoResolution)?
+    };
 
     let author_signature = signature(SignaturePurpose::Author)?;
     let committer_signature = signature(SignaturePurpose::Committer)?;
+    let base = repository.commit(
+        None,
+        &author_signature,
+        &committer_signature,
+        "Conflict base",
+        &base_tree,
+        &[],
+    )?;
+
+    Ok(repository.find_commit(base)?)
+}
+
+fn checkout_edit_branch(ctx: &CommandContext, commit: git2::Commit) -> Result<()> {
+    let repository = ctx.repo();
 
     // Checkout commits's parent
-    let commit_parent = if commit.is_conflicted() {
-        let base_tree = repository.find_real_tree(commit, ConflictedTreeKey::Ours)?;
-
-        let base = repository.commit(
-            None,
-            &author_signature,
-            &committer_signature,
-            "Conflict base",
-            &base_tree,
-            &[],
-        )?;
-        repository.find_commit(base)?
-    } else {
-        commit.parent(0)?
-    };
+    let commit_parent = find_or_create_base_commit(repository, &commit)?;
     repository.reference(EDIT_BRANCH_REF, commit_parent.id(), true, "")?;
     repository.set_head(EDIT_BRANCH_REF)?;
     repository.checkout_head(Some(CheckoutBuilder::new().force().remove_untracked(true)))?;
 
     // Checkout the commit as unstaged changes
-    let mut index = get_commit_index(repository, commit)?;
+    let mut index = get_commit_index(repository, &commit)?;
 
     repository.checkout_index(
         Some(&mut index),
@@ -134,7 +173,7 @@ fn find_virtual_branch_by_reference(
 
 pub(crate) fn enter_edit_mode(
     ctx: &CommandContext,
-    commit: &git2::Commit,
+    commit: git2::Commit,
     branch: &git2::Reference,
     _perm: &mut WorktreeWritePermission,
 ) -> Result<EditModeMetadata> {
@@ -151,8 +190,8 @@ pub(crate) fn enter_edit_mode(
         bail!("Can not enter edit mode for a reference which does not have a cooresponding virtual branch")
     }
 
-    checkout_edit_branch(ctx, commit).context("Failed to checkout edit branch")?;
     write_edit_mode_metadata(ctx, &edit_mode_metadata).context("Failed to persist metadata")?;
+    checkout_edit_branch(ctx, commit).context("Failed to checkout edit branch")?;
 
     Ok(edit_mode_metadata)
 }
@@ -161,7 +200,7 @@ pub(crate) fn abort_and_return_to_workspace(
     ctx: &CommandContext,
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
-    let repository = ctx.repository();
+    let repository = ctx.repo();
 
     // Checkout gitbutler workspace branch
     repository
@@ -178,7 +217,7 @@ pub(crate) fn save_and_return_to_workspace(
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let edit_mode_metadata = read_edit_mode_metadata(ctx).context("Failed to read metadata")?;
-    let repository = ctx.repository();
+    let repository = ctx.repo();
     let vb_state = VirtualBranchesHandle::new(ctx.project().gb_dir());
 
     // Get important references
@@ -205,7 +244,7 @@ pub(crate) fn save_and_return_to_workspace(
             ..commit_headers
         });
     let new_commit_oid = ctx
-        .repository()
+        .repo()
         .commit_with_signature(
             None,
             &commit.author(),
@@ -259,7 +298,7 @@ pub(crate) fn starting_index_state(
         bail!("Starting index state can only be fetched while in edit mode")
     };
 
-    let repository = ctx.repository();
+    let repository = ctx.repo();
 
     let commit = repository.find_commit(metadata.commit_oid)?;
     let commit_parent_tree = if commit.is_conflicted() {

@@ -5,14 +5,26 @@ use std::{
 
 use gitbutler_stack::StackId;
 use itertools::Itertools;
+use serde::Serialize;
 
 use crate::{HunkRange, InputCommit, InputStack, StackRanges};
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RangeCalculationError {
+    pub error_message: String,
+    pub stack_id: StackId,
+    #[serde(with = "gitbutler_serde::oid")]
+    pub commit_id: git2::Oid,
+    pub path: PathBuf,
+}
 
 #[derive(Debug)]
 pub struct WorkspaceRanges {
     paths: HashMap<PathBuf, Vec<HunkRange>>,
     pub commit_dependencies: HashMap<StackId, HashMap<git2::Oid, HashSet<git2::Oid>>>,
     pub inverse_commit_dependencies: HashMap<StackId, HashMap<git2::Oid, HashSet<git2::Oid>>>,
+    pub errors: Vec<RangeCalculationError>,
 }
 
 /// Provides blame-like functionality for looking up what commit(s) have touched a specific line
@@ -27,8 +39,9 @@ pub struct WorkspaceRanges {
 impl WorkspaceRanges {
     pub fn create(input_stacks: Vec<InputStack>) -> anyhow::Result<WorkspaceRanges> {
         let mut stacks = vec![];
+        let mut errors = vec![];
         for input_stack in input_stacks {
-            let mut stack = StackRanges {
+            let mut stack_ranges = StackRanges {
                 stack_id: input_stack.stack_id,
                 ..Default::default()
             };
@@ -36,10 +49,20 @@ impl WorkspaceRanges {
             for commit in commits {
                 let InputCommit { commit_id, files } = commit;
                 for file in files {
-                    stack.add(stack_id, commit_id, &file.path, file.diffs)?;
+                    if let Some(error) = stack_ranges
+                        .add(stack_id, commit_id, &file.path, file.diffs)
+                        .err()
+                    {
+                        errors.push(RangeCalculationError {
+                            error_message: error.to_string(),
+                            stack_id,
+                            commit_id,
+                            path: file.path,
+                        });
+                    }
                 }
             }
-            stacks.push(stack);
+            stacks.push(stack_ranges);
         }
         let paths = stacks
             .iter()
@@ -60,6 +83,7 @@ impl WorkspaceRanges {
                 .collect(),
             commit_dependencies,
             inverse_commit_dependencies,
+            errors,
         })
     }
 
@@ -68,7 +92,7 @@ impl WorkspaceRanges {
         if let Some(hunk_range) = self.paths.get(path) {
             let intersection = hunk_range
                 .iter()
-                .filter(|hunk| hunk.intersects(start, lines))
+                .filter(|hunk| hunk.intersects(start, lines).unwrap_or(false))
                 .collect_vec();
             if !intersection.is_empty() {
                 return Some(intersection);
@@ -174,7 +198,7 @@ mod tests {
 
     use gitbutler_stack::StackId;
 
-    use crate::{input::InputFile, parse_diff_from_string};
+    use crate::{input::InputFile, parse_diff_from_string, InputDiff};
 
     use super::*;
 
@@ -444,18 +468,13 @@ mod tests {
                     commit_id: commit1_id,
                     files: vec![InputFile {
                         path: path.to_owned(),
-                        diffs: vec![parse_diff_from_string(
-                            "@@ -1,6 +1,7 @@
-1
-2
-3
-+4
-5
-6
-7
-",
-                            gitbutler_diff::ChangeType::Modified,
-                        )?],
+                        diffs: vec![InputDiff {
+                            change_type: gitbutler_diff::ChangeType::Modified,
+                            old_start: 2,
+                            old_lines: 1,
+                            new_start: 2,
+                            new_lines: 1,
+                        }],
                     }],
                 }],
             },
@@ -467,24 +486,28 @@ mod tests {
                         path: path.to_owned(),
                         diffs: vec![
                             parse_diff_from_string(
-                                "@@ -1,5 +1,3 @@
--1
--2
-3
-5
+                                "@@ -6,8 +6,6 @@
+
 6
+7
+8
+-9
+-10
+11
+12
+13
 ",
                                 gitbutler_diff::ChangeType::Modified,
                             )?,
                             parse_diff_from_string(
-                                "@@ -10,6 +8,7 @@
-10
-11
-12
-+13
+                                "@@ -14,6 +12,7 @@
 14
 15
 16
++17
+18
+19
+20
 ",
                                 gitbutler_diff::ChangeType::Modified,
                             )?,
@@ -499,10 +522,88 @@ mod tests {
         assert_eq!(dependencies_1[0].commit_id, commit1_id);
         assert_eq!(dependencies_1[0].stack_id, stack1_id);
 
-        let dependencies_2 = workspace_ranges.intersection(&path, 12, 1).unwrap();
+        let dependencies_2 = workspace_ranges.intersection(&path, 10, 1).unwrap();
         assert_eq!(dependencies_2.len(), 1);
         assert_eq!(dependencies_2[0].commit_id, commit2_id);
         assert_eq!(dependencies_2[0].stack_id, stack2_id);
+
+        let dependencies_3 = workspace_ranges.intersection(&path, 15, 1).unwrap();
+        assert_eq!(dependencies_3.len(), 1);
+        assert_eq!(dependencies_3[0].commit_id, commit2_id);
+        assert_eq!(dependencies_3[0].stack_id, stack2_id);
+
+        Ok(())
+    }
+
+    #[test]
+    fn gracefully_handle_invalid_input_commits() -> anyhow::Result<()> {
+        let path = PathBuf::from_str("/test.txt")?;
+
+        let stack_id = StackId::generate();
+        let commit_a_id = git2::Oid::from_str("a")?;
+        let commit_b_id = git2::Oid::from_str("b")?;
+        let commit_c_id = git2::Oid::from_str("c")?;
+
+        // Invalid input, two subsequent commits with the same changes.
+        let workspace_ranges = WorkspaceRanges::create(vec![InputStack {
+            stack_id,
+            commits: vec![
+                InputCommit {
+                    commit_id: commit_a_id, // Delete file
+                    files: vec![InputFile {
+                        path: path.to_owned(),
+                        diffs: vec![InputDiff {
+                            change_type: gitbutler_diff::ChangeType::Deleted,
+                            old_start: 1,
+                            old_lines: 2,
+                            new_start: 0,
+                            new_lines: 0,
+                        }],
+                    }],
+                },
+                InputCommit {
+                    commit_id: commit_b_id, // Delete file, again
+                    files: vec![InputFile {
+                        path: path.to_owned(),
+                        diffs: vec![InputDiff {
+                            change_type: gitbutler_diff::ChangeType::Deleted,
+                            old_start: 1,
+                            old_lines: 2,
+                            new_start: 0,
+                            new_lines: 0,
+                        }],
+                    }],
+                },
+                InputCommit {
+                    commit_id: commit_c_id, // Re-add file
+                    files: vec![InputFile {
+                        path: path.to_owned(),
+                        diffs: vec![InputDiff {
+                            change_type: gitbutler_diff::ChangeType::Added,
+                            old_start: 0,
+                            old_lines: 0,
+                            new_start: 1,
+                            new_lines: 5,
+                        }],
+                    }],
+                },
+            ],
+        }])?;
+
+        let dependencies_1 = workspace_ranges.intersection(&path, 2, 1).unwrap();
+        assert_eq!(dependencies_1.len(), 1);
+        assert_eq!(dependencies_1[0].commit_id, commit_c_id);
+        assert_eq!(dependencies_1[0].stack_id, stack_id);
+
+        let errors = &workspace_ranges.errors;
+        assert_eq!(errors.len(), 1);
+        assert_eq!(errors[0].commit_id, commit_b_id);
+        assert_eq!(errors[0].stack_id, stack_id);
+        assert_eq!(errors[0].path, path);
+        assert_eq!(
+            errors[0].error_message,
+            "File recreation must be an addition"
+        );
 
         Ok(())
     }

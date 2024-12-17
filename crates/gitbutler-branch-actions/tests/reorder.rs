@@ -317,7 +317,7 @@ fn conflicting_reorder_stack() -> Result<()> {
     // MB:       a    : MB:        a    :
 
     let (ctx, _temp_dir) = command_ctx("overlapping-commits")?;
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let test = test_ctx(&ctx)?;
 
     // There is a stack of 2:
@@ -436,8 +436,12 @@ impl CommitHelpers for Vec<(Oid, String, bool, u128)> {
 
 /// Commits from list_virtual_branches
 fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>> {
-    let (vbranches, _) = list_virtual_branches(ctx.project()).unwrap();
-    let vbranch = vbranches.iter().find(|vb| vb.name == "my_stack").unwrap();
+    let list_result = list_virtual_branches(ctx.project()).unwrap();
+    let vbranch = list_result
+        .branches
+        .iter()
+        .find(|vb| vb.name == "my_stack")
+        .unwrap();
     let mut out = vec![];
     for series in vbranch.series.clone() {
         let messages = series
@@ -452,7 +456,7 @@ fn vb_commits(ctx: &CommandContext) -> Vec<Vec<(git2::Oid, String, bool, u128)>>
 }
 
 fn file(ctx: &CommandContext, commit_id: git2::Oid) -> String {
-    let repo = ctx.repository();
+    let repo = ctx.repo();
     let commit = repo.find_commit(commit_id).unwrap();
     let tree = commit.tree().unwrap();
     let entry = tree.get_name("file").unwrap();
