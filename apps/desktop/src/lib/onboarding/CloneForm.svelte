@@ -127,7 +127,7 @@
 	<Button
 		style="pop"
 		kind="solid"
-		icon={errors.length > 0 ? 'update-small' : 'chevron-right-small'}
+		icon={errors.length > 0 ? 'update' : 'chevron-right-small'}
 		disabled={loading}
 		{loading}
 		onclick={cloneRepository}

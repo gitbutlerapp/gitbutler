@@ -1,6 +1,7 @@
 <script lang="ts">
 	import BoardEmptyState from './BoardEmptyState.svelte';
 	import FullviewLoading from './FullviewLoading.svelte';
+	import PageLoadFailed from './PageLoadFailed.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import BranchDropzone from '$lib/branch/BranchDropzone.svelte';
 	import BranchLane from '$lib/branch/BranchLane.svelte';
@@ -89,7 +90,7 @@
 
 <svelte:window onkeydown={handleKeyDown} />
 {#if $error}
-	<div>Something went wrong...</div>
+	<PageLoadFailed error={$error} />
 {:else if !$branches}
 	<FullviewLoading />
 {:else}
