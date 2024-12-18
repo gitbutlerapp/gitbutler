@@ -11,6 +11,7 @@
     clippy::too_many_lines
 )]
 
+use gitbutler_settings::SettingsHandle;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
     askpass, commands, config, forge, github, logs, menu, modes, open, projects, remotes, repo,
@@ -85,22 +86,28 @@ fn main() {
                         });
                     }
 
-                    let (app_data_dir, app_cache_dir, app_log_dir) = {
+                    let (app_data_dir, app_cache_dir, app_log_dir, config_dir) = {
                         let paths = app_handle.path();
                         (
                             paths.app_data_dir().expect("missing app data dir"),
                             paths.app_cache_dir().expect("missing app cache dir"),
                             paths.app_log_dir().expect("missing app log dir"),
+                            paths.config_dir().expect("missing config dir"),
                         )
                     };
                     std::fs::create_dir_all(&app_data_dir).expect("failed to create app data dir");
                     std::fs::create_dir_all(&app_cache_dir).expect("failed to create cache dir");
+                    let config_dir = config_dir.join("gitbutler");
+                    std::fs::create_dir_all(&config_dir).expect("failed to create config dir");
 
                     tracing::info!(version = %app_handle.package_info().version,
                                    name = %app_handle.package_info().name, "starting app");
 
                     app_handle.manage(WindowState::new(app_handle.clone()));
 
+                    let app_settings = SettingsHandle::create(config_dir)?;
+                    app_settings.watch_in_background()?;
+                    app_handle.manage(app_settings);
                     let app = App {
                         app_data_dir: app_data_dir.clone(),
                     };
