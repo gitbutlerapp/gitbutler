@@ -2731,9 +2731,12 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "gitbutler-fs",
+ "notify",
  "serde",
  "serde_json",
  "serde_json_lenient",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

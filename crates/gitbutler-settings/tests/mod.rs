@@ -3,7 +3,8 @@ use gitbutler_settings::AppSettings;
 #[test]
 #[allow(clippy::bool_assert_comparison)]
 fn test_load_settings() {
-    let settings = AppSettings::load("tests/fixtures/modify_default_true_to_false").unwrap();
+    let settings =
+        AppSettings::load("tests/fixtures/modify_default_true_to_false.json".into()).unwrap();
     assert_eq!(settings.telemetry.app_metrics_enabled, false); // modified
     assert_eq!(settings.telemetry.app_error_reporting_enabled, true); // default
     assert_eq!(settings.telemetry.app_non_anon_metrics_enabled, false); // default
