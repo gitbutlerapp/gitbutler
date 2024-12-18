@@ -6,16 +6,17 @@ use anyhow::Result;
 use serde_json::json;
 
 static DEFAULTS: &str = include_str!("../assets/defaults.jsonc");
-const SETTINGS_FILE: &str = "settings.json";
 
 impl AppSettings {
     /// Load the settings from the configuration directory. If a config file name is not provided, the default `gitbutler_settings.json` one is used.
-    pub fn load(config_dir: impl Into<PathBuf>) -> Result<Self> {
-        let config_path = config_dir.into().join(SETTINGS_FILE);
-
+    pub fn load(config_path: PathBuf) -> Result<Self> {
         // Load the defaults
         let mut settings: serde_json::Value = serde_json_lenient::from_str(DEFAULTS)?;
 
+        // If the file on config_path does not exist, create it empty
+        if !config_path.exists() {
+            gitbutler_fs::write(config_path.clone(), "{}\n")?;
+        }
         // Load customizations
         let customizations = serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
 
@@ -25,12 +26,9 @@ impl AppSettings {
     }
 
     /// Save the updated fields of the AppSettings in the custom configuration file.
-    pub fn save(&self, config_dir: impl Into<PathBuf>) -> Result<()> {
-        let config_dir = config_dir.into();
-        let config_path = config_dir.clone().join(SETTINGS_FILE);
-
+    pub fn save(&self, config_path: PathBuf) -> Result<()> {
         // Load the current settings
-        let current = serde_json::to_value(AppSettings::load(config_dir)?)?;
+        let current = serde_json::to_value(AppSettings::load(config_path.clone())?)?;
 
         // Derive changed values only compared to the current settings
         let update = serde_json::to_value(self)?;

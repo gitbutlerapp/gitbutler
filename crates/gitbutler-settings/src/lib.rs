@@ -4,5 +4,7 @@ pub use legacy::LegacySettings;
 
 mod app_settings;
 mod json;
-pub mod persistence;
+mod persistence;
+mod watch;
 pub use app_settings::AppSettings;
+pub use watch::SettingsHandle;
