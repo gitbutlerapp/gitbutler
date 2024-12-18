@@ -78,7 +78,7 @@ mod frontend {
                 self.0
                     .source()
                     .map(|err| Cow::Owned(err.to_string()))
-                    .unwrap_or_else(|| Cow::Borrowed("Something went wrong"))
+                    .unwrap_or_else(|| Cow::Borrowed("An unknown backend error occurred"))
             });
             map.serialize_entry("message", &message)?;
             map.end()
