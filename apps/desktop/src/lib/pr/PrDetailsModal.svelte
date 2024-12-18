@@ -473,7 +473,7 @@
 				onclick={async () => await handleCreatePR(close)}
 			>
 				{pushBeforeCreate ? 'Push & ' : ''}
-				{$createDraft ? 'Create pull request draft' : `Create pull request`}
+				{$createDraft ? 'Create draft pull request' : `Create pull request`}
 
 				{#snippet contextMenuSlot()}
 					<ContextMenuSection>
