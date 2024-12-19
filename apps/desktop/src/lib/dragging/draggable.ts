@@ -1,4 +1,4 @@
-import { DraggableFile, type Draggable } from './draggables';
+import { DroppableFile, type Droppable } from './draggables';
 import { dropzoneRegistry } from './dropzone';
 import { type CommitStatus } from '$lib/vbranches/types';
 import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
@@ -20,7 +20,7 @@ export type DraggableConfig = {
 	readonly date?: string;
 	readonly authorImgUrl?: string;
 	readonly commitType?: CommitStatus;
-	readonly dropData?: Draggable;
+	readonly dropData?: Droppable;
 	readonly viewportId?: string;
 };
 
@@ -72,7 +72,7 @@ function setupDragHandlers(
 			return;
 		}
 
-		if (opts.dropData instanceof DraggableFile) {
+		if (opts.dropData instanceof DroppableFile) {
 			selectedElements = [];
 			for (const file of opts.dropData.files) {
 				const element = parentNode.querySelector(`[data-file-id="${file.id}"]`);

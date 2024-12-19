@@ -1,4 +1,4 @@
-import { DraggableCommit, DraggableHunk, DraggableFile } from '$lib/dragging/draggables';
+import { DroppableCommit, DroppableHunk, DroppableFile } from '$lib/dragging/draggables';
 import { filesToOwnership } from '$lib/vbranches/ownership';
 import { LocalFile, type VirtualBranch } from '$lib/vbranches/types';
 import type { BranchController } from '$lib/vbranches/branchController';
@@ -11,19 +11,19 @@ class BranchDragActions {
 
 	acceptMoveCommit(data: any) {
 		return (
-			data instanceof DraggableCommit && data.branchId !== this.branch.id && !data.commit.conflicted
+			data instanceof DroppableCommit && data.branchId !== this.branch.id && !data.commit.conflicted
 		);
 	}
 
-	onMoveCommit(data: DraggableCommit) {
+	onMoveCommit(data: DroppableCommit) {
 		this.branchController.moveCommit(this.branch.id, data.commit.id, data.commit.branchId);
 	}
 
 	acceptBranchDrop(data: any) {
-		if (data instanceof DraggableHunk && !data.commitId && data.branchId !== this.branch.id) {
+		if (data instanceof DroppableHunk && !data.commitId && data.branchId !== this.branch.id) {
 			return !data.hunk.locked;
 		} else if (
-			data instanceof DraggableFile &&
+			data instanceof DroppableFile &&
 			data.file instanceof LocalFile &&
 			this.branch.id !== data.branchId
 		) {
@@ -33,14 +33,14 @@ class BranchDragActions {
 		}
 	}
 
-	onBranchDrop(data: DraggableHunk | DraggableFile) {
-		if (data instanceof DraggableHunk) {
+	onBranchDrop(data: DroppableHunk | DroppableFile) {
+		if (data instanceof DroppableHunk) {
 			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
 			this.branchController.updateBranchOwnership(
 				this.branch.id,
 				(newOwnership + '\n' + this.branch.ownership).trim()
 			);
-		} else if (data instanceof DraggableFile) {
+		} else if (data instanceof DroppableFile) {
 			const newOwnership = filesToOwnership(data.files);
 			this.branchController.updateBranchOwnership(
 				this.branch.id,

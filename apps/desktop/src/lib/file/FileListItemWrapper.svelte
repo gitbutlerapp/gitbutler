@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
 	import { draggableChips, type DraggableConfig } from '$lib/dragging/draggable';
-	import { DraggableFile } from '$lib/dragging/draggables';
+	import { DroppableFile } from '$lib/dragging/draggables';
 	import { itemsSatisfy } from '$lib/utils/array';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
@@ -73,11 +73,11 @@
 	// Manage the lifecycle of the draggable chips.
 	$effect(() => {
 		if (draggableEl) {
-			const draggableFile = new DraggableFile(branchId || '', file, $commit, selectedFiles);
+			const droppableFile = new DroppableFile(branchId || '', file, $commit, selectedFiles);
 			const config = {
 				label: `${file.filename}`,
 				filePath: file.path,
-				dropData: draggableFile,
+				dropData: droppableFile,
 				disabled: !draggable,
 				viewportId: 'board-viewport',
 				selector: '.selected-draggable'

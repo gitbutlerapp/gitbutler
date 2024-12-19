@@ -2,7 +2,7 @@
 	import HunkDiff from './HunkDiff.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { draggableElement } from '$lib/dragging/draggable';
-	import { DraggableHunk } from '$lib/dragging/draggables';
+	import { DroppableHunk } from '$lib/dragging/draggables';
 	import HunkContextMenu from '$lib/hunk/HunkContextMenu.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
@@ -78,7 +78,7 @@
 		class:opacity-60={section.hunk.locked && !isFileLocked}
 		oncontextmenu={(e) => e.preventDefault()}
 		use:draggableElement={{
-			dropData: new DraggableHunk($branch?.id || '', section.hunk, section.hunk.lockedTo, commitId),
+			dropData: new DroppableHunk($branch?.id || '', section.hunk, section.hunk.lockedTo, commitId),
 			disabled: draggingDisabled
 		}}
 	>
