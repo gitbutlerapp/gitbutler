@@ -214,7 +214,7 @@
 	/* LIST ITEM */
 	.list-item {
 		display: flex;
-		align-items: center;
+		text-align: left;
 		color: var(--clr-scale-ntrl-10);
 		font-weight: 700;
 		padding: 10px 10px;
@@ -236,12 +236,11 @@
 		}
 		& .icon {
 			display: flex;
+			margin-top: 2px;
 			color: var(--clr-scale-ntrl-50);
 		}
 		& .label {
-			height: 16px;
-			text-overflow: ellipsis;
-			overflow: hidden;
+			line-height: 140%;
 		}
 	}
 
