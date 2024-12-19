@@ -1,6 +1,6 @@
 import { setSentryUser } from '$lib/analytics/sentry';
 import { writable, type Writable } from 'svelte/store';
-import type { HttpClient } from '@gitbutler/shared/httpClient';
+import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
 export interface User {
 	id: string;

@@ -20,6 +20,7 @@ export function setStorageItem(key: string, value: unknown): void {
 
 export function persisted<T>(initial: T, key: string): Persisted<T> {
 	function setAndPersist(value: T, set: (value: T) => void) {
+		console.log(key, value);
 		setStorageItem(key, value);
 		set(value);
 	}

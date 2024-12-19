@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext } from '@gitbutler/shared/context';
-	import { HttpClient } from '@gitbutler/shared/httpClient';
+	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
 	import { onMount } from 'svelte';

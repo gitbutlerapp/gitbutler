@@ -1,9 +1,9 @@
+import { loadableUpsert, loadableUpsertMany } from '$lib/network/loadable';
 import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
-import type { Project } from '$lib/organizations/types';
+import type { LoadableProject } from '$lib/organizations/types';
 
-const projectsAdapter = createEntityAdapter({
-	selectId: (project: Project) => project.repositoryId,
-	sortComparer: (a: Project, b: Project) => a.slug.localeCompare(b.slug)
+const projectsAdapter = createEntityAdapter<LoadableProject, LoadableProject['id']>({
+	selectId: (project: LoadableProject) => project.id
 });
 
 const projectsSlice = createSlice({
@@ -14,8 +14,8 @@ const projectsSlice = createSlice({
 		addProjects: projectsAdapter.addMany,
 		removeProject: projectsAdapter.removeOne,
 		removeProjects: projectsAdapter.removeMany,
-		upsertProject: projectsAdapter.upsertOne,
-		upsertProjects: projectsAdapter.upsertMany
+		upsertProject: loadableUpsert(projectsAdapter),
+		upsertProjects: loadableUpsertMany(projectsAdapter)
 	}
 });
 
