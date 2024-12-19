@@ -8,12 +8,9 @@ import type {
 	HunkLock
 } from '../vbranches/types';
 
-export function nonDraggable() {
-	return {
-		disabled: true,
-		data: undefined
-	};
-}
+export const NON_DRAGGABLE = {
+	disabled: true
+};
 
 export class DraggableHunk {
 	constructor(
@@ -30,9 +27,9 @@ export class DraggableHunk {
 
 export class DraggableFile {
 	constructor(
-		public readonly branchId: string,
-		public file: AnyFile,
-		public commit: AnyCommit | undefined,
+		readonly branchId: string,
+		readonly file: AnyFile,
+		readonly commit: AnyCommit | undefined,
 		/**
 		 * When a a file is dragged we compare it to what is already selected,
 		 * if dragged item is part of the selection we consider that to be to

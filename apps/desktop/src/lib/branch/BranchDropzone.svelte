@@ -14,10 +14,13 @@
 
 	const branchController = getContext(BranchController);
 
-	function accepts(data: any) {
-		if (data instanceof DraggableFile)
+	function accepts(data: unknown) {
+		if (data instanceof DraggableFile) {
 			return !(data.isCommitted || data.files.some((f) => f.locked));
-		if (data instanceof DraggableHunk) return !(data.isCommitted || data.hunk.locked);
+		}
+		if (data instanceof DraggableHunk) {
+			return !(data.isCommitted || data.hunk.locked);
+		}
 		return false;
 	}
 

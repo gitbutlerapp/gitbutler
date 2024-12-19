@@ -1,7 +1,7 @@
 export interface DropzoneConfiguration {
 	disabled: boolean;
-	accepts: (data: any) => boolean;
-	onDrop: (data: any) => Promise<void> | void;
+	accepts: (data: unknown) => boolean;
+	onDrop: (data: unknown) => Promise<void> | void;
 	onActivationStart: () => void;
 	onActivationEnd: () => void;
 	onHoverStart: () => void;
@@ -14,11 +14,11 @@ export class Dropzone {
 	private hovered: boolean = false;
 	private registered: boolean = false;
 	private target!: HTMLElement;
-	private data?: any;
+	private data?: unknown;
 
-	private boundOnDrop: (e: DragEvent) => any;
-	private boundOnDragEnter: (e: DragEvent) => any;
-	private boundOnDragLeave: (e: DragEvent) => any;
+	private boundOnDrop: (e: DragEvent) => void;
+	private boundOnDragEnter: (e: DragEvent) => void;
+	private boundOnDragLeave: (e: DragEvent) => void;
 
 	constructor(
 		private configuration: DropzoneConfiguration,
@@ -31,10 +31,10 @@ export class Dropzone {
 		this.setTarget();
 	}
 
-	async register(data: any) {
+	register(data: unknown) {
 		this.data = data;
 
-		if (!this.configuration.accepts(await this.data)) return;
+		if (!this.configuration.accepts(this.data)) return;
 
 		if (this.registered) {
 			this.unregister();
@@ -50,6 +50,7 @@ export class Dropzone {
 			this.activated = true;
 		}, 10);
 	}
+
 	async reregister(newConfig: DropzoneConfiguration) {
 		if (this.registered) {
 			this.unregisterListeners();
@@ -58,7 +59,7 @@ export class Dropzone {
 		this.configuration = newConfig;
 		this.setTarget();
 
-		if (!this.configuration.accepts(await this.data)) {
+		if (!this.configuration.accepts(this.data)) {
 			this.registerListeners();
 
 			if (this.activated) {
@@ -108,7 +109,7 @@ export class Dropzone {
 	private async onDrop(e: DragEvent) {
 		e.preventDefault();
 		if (!this.activated) return;
-		this.configuration.onDrop(await this.data);
+		this.configuration.onDrop(this.data);
 	}
 
 	private onDragEnter(e: DragEvent) {

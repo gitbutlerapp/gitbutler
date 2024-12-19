@@ -6,7 +6,7 @@
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
-	import { DraggableCommit, nonDraggable } from '$lib/dragging/draggables';
+	import { DraggableCommit, NON_DRAGGABLE } from '$lib/dragging/draggables';
 	import BranchFilesList from '$lib/file/BranchFilesList.svelte';
 	import { ModeService } from '$lib/modes/service';
 	import { UserService } from '$lib/stores/user';
@@ -256,6 +256,7 @@
 	tabindex="0"
 	use:draggableCommit={isDraggable
 		? {
+				disabled: false,
 				label: commit.descriptionTitle,
 				sha: commitShortSha,
 				date: getTimeAgo(commit.createdAt),
@@ -264,7 +265,7 @@
 				data: new DraggableCommit(commit.branchId, commit, isHeadCommit, currentSeries?.name),
 				viewportId: 'board-viewport'
 			}
-		: nonDraggable()}
+		: NON_DRAGGABLE}
 >
 	{#if lines}
 		<div>

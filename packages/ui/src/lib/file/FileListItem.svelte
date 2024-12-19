@@ -67,6 +67,7 @@
 	bind:this={ref}
 	{id}
 	data-locked={locked}
+	data-file-id={filePath}
 	class="file-list-item"
 	class:selected-draggable={selected}
 	class:clickable

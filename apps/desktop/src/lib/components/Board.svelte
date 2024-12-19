@@ -117,7 +117,7 @@
 					onmousedown={(e) => (dragHandle = e.target)}
 					ondragstart={(e) => {
 						if (dragHandle.dataset.dragHandle === undefined) {
-							// We rely on elements with id `drag-handle` to initiate this drag
+							// Only elements with`data-drag-handle` attribute can initiate drag.
 							e.preventDefault();
 							e.stopPropagation();
 							return;
