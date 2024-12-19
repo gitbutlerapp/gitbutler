@@ -1,34 +1,33 @@
-use std::path::PathBuf;
+use std::path::Path;
 
-use crate::app_settings::AppSettings;
 use crate::json::{json_difference, merge_non_null_json_value};
+use crate::AppSettings;
 use anyhow::Result;
 use serde_json::json;
 
 static DEFAULTS: &str = include_str!("../assets/defaults.jsonc");
 
 impl AppSettings {
-    /// Load the settings from the configuration directory. If a config file name is not provided, the default `gitbutler_settings.json` one is used.
-    pub fn load(config_path: PathBuf) -> Result<Self> {
-        // Load the defaults
-        let mut settings: serde_json::Value = serde_json_lenient::from_str(DEFAULTS)?;
-
+    /// Load the settings from the configuration directory, or initialize the file with an empty JSON object at `config_path`.
+    /// Finally, merge all customizations from `config_path` into the default settings.
+    pub fn load(config_path: &Path) -> Result<Self> {
         // If the file on config_path does not exist, create it empty
         if !config_path.exists() {
-            gitbutler_fs::write(config_path.clone(), "{}\n")?;
+            gitbutler_fs::write(config_path, "{}\n")?;
         }
-        // Load customizations
-        let customizations = serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
 
-        // Merge the customizations into the settings
+        // merge customizations from disk into the defaults to get a complete set of settings.
+        let customizations = serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
+        let mut settings: serde_json::Value = serde_json_lenient::from_str(DEFAULTS)?;
+
         merge_non_null_json_value(customizations, &mut settings);
         Ok(serde_json::from_value(settings)?)
     }
 
-    /// Save the updated fields of the AppSettings in the custom configuration file.
-    pub fn save(&self, config_path: PathBuf) -> Result<()> {
+    /// Save all value in this instance to the custom configuration file *if they differ* from the defaults.
+    pub fn save(&self, config_path: &Path) -> Result<()> {
         // Load the current settings
-        let current = serde_json::to_value(AppSettings::load(config_path.clone())?)?;
+        let current = serde_json::to_value(AppSettings::load(config_path)?)?;
 
         // Derive changed values only compared to the current settings
         let update = serde_json::to_value(self)?;
@@ -41,7 +40,7 @@ impl AppSettings {
 
         // Load the existing customizations only
         let mut customizations =
-            serde_json_lenient::from_str(&std::fs::read_to_string(config_path.clone())?)?;
+            serde_json_lenient::from_str(&std::fs::read_to_string(config_path)?)?;
 
         // Merge the new customizations into the existing ones
         // TODO: This will nuke any comments in the file

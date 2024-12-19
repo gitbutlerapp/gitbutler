@@ -11,7 +11,7 @@
     clippy::too_many_lines
 )]
 
-use gitbutler_settings::SettingsHandle;
+use gitbutler_settings::AppSettingsWithDiskSync;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
     askpass, commands, config, forge, github, logs, menu, modes, open, projects, remotes, repo,
@@ -105,7 +105,7 @@ fn main() {
 
                     app_handle.manage(WindowState::new(app_handle.clone()));
 
-                    let app_settings = SettingsHandle::create(config_dir, {
+                    let mut app_settings = AppSettingsWithDiskSync::new(config_dir, {
                         let app_handle = app_handle.clone();
                         move |app_settings| {
                             gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)

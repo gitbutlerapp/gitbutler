@@ -1,5 +1,5 @@
 pub mod commands {
-    use gitbutler_settings::SettingsHandle;
+    use gitbutler_settings::AppSettingsWithDiskSync;
     use std::collections::HashMap;
     use tauri::State;
 
@@ -18,10 +18,10 @@ pub mod commands {
     #[tauri::command(async)]
     #[instrument(skip(settings), err(Debug))]
     pub async fn init_device_oauth(
-        settings: State<'_, SettingsHandle>,
+        settings: State<'_, AppSettingsWithDiskSync>,
     ) -> Result<Verification, Error> {
         let mut req_body = HashMap::new();
-        let client_id = settings.read()?.github_oauth_app.oauth_client_id.clone();
+        let client_id = settings.get()?.github_oauth_app.oauth_client_id.clone();
         req_body.insert("client_id", client_id.as_str());
         req_body.insert("scope", "repo");
 
@@ -50,7 +50,7 @@ pub mod commands {
     #[tauri::command(async)]
     #[instrument(skip(settings), err(Debug))]
     pub async fn check_auth_status(
-        settings: State<'_, SettingsHandle>,
+        settings: State<'_, AppSettingsWithDiskSync>,
         device_code: &str,
     ) -> Result<String, Error> {
         #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -59,7 +59,7 @@ pub mod commands {
         }
 
         let mut req_body = HashMap::new();
-        let client_id = settings.read()?.github_oauth_app.oauth_client_id.clone();
+        let client_id = settings.get()?.github_oauth_app.oauth_client_id.clone();
         req_body.insert("client_id", client_id.as_str());
         req_body.insert("device_code", device_code);
         req_body.insert("grant_type", "urn:ietf:params:oauth:grant-type:device_code");

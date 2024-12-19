@@ -1,16 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct AppSettings {
-    /// Whether the user has passed the onboarding flow.
-    pub onboarding_complete: bool,
-    /// Telemetry settings
-    pub telemetry: TelemetrySettings,
-    /// Client ID for the GitHub OAuth application
-    pub github_oauth_app: GitHubOAuthAppSettings,
-}
-
 #[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct TelemetrySettings {
