@@ -5,7 +5,7 @@
 	import SeriesDividerLine from './SeriesDividerLine.svelte';
 	import SeriesHeader from '$lib/branch/SeriesHeader.svelte';
 	import CommitList from '$lib/commit/CommitList.svelte';
-	import { DraggableCommit } from '$lib/dragging/draggables';
+	import { CommitDropData } from '$lib/dragging/draggables';
 	import {
 		StackingReorderDropzoneManagerFactory,
 		buildNewStackOrder
@@ -43,14 +43,14 @@
 	);
 
 	function accepts(data: unknown) {
-		if (!(data instanceof DraggableCommit)) return false;
+		if (!(data instanceof CommitDropData)) return false;
 		if (data.branchId !== branch.id) return false;
 
 		return true;
 	}
 
-	function onDrop(data: DraggableCommit, allSeries: PatchSeries[], currentSeries: PatchSeries) {
-		if (!(data instanceof DraggableCommit)) return;
+	function onDrop(data: CommitDropData, allSeries: PatchSeries[], currentSeries: PatchSeries) {
+		if (!(data instanceof CommitDropData)) return;
 
 		const stackOrder = buildNewStackOrder(allSeries, currentSeries, data.commit.id, 'top');
 
