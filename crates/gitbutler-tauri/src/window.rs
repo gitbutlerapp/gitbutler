@@ -1,4 +1,4 @@
-pub(super) mod state {
+pub(crate) mod state {
     use std::{collections::BTreeMap, sync::Arc};
 
     use anyhow::{Context, Result};
@@ -8,15 +8,16 @@ pub(super) mod state {
     use tauri::{AppHandle, Manager};
     use tracing::instrument;
 
-    mod event {
+    pub(crate) mod event {
         use anyhow::{Context, Result};
         use gitbutler_project::ProjectId;
+        use gitbutler_settings::AppSettings;
         use gitbutler_watcher::Change;
         use tauri::Emitter;
 
         /// A change we want to inform the frontend about.
         #[derive(Debug, Clone, PartialEq, Eq)]
-        pub(super) struct ChangeForFrontend {
+        pub struct ChangeForFrontend {
             name: String,
             payload: serde_json::Value,
             project_id: ProjectId,
@@ -61,8 +62,19 @@ pub(super) mod state {
             }
         }
 
+        impl From<AppSettings> for ChangeForFrontend {
+            fn from(settings: AppSettings) -> Self {
+                ChangeForFrontend {
+                    name: "settings://update".to_string(),
+                    payload: serde_json::json!(settings),
+                    // TODO: remove dummy project id
+                    project_id: ProjectId::default(),
+                }
+            }
+        }
+
         impl ChangeForFrontend {
-            pub(super) fn send(&self, app_handle: &tauri::AppHandle) -> Result<()> {
+            pub fn send(&self, app_handle: &tauri::AppHandle) -> Result<()> {
                 app_handle
                     .emit(&self.name, Some(&self.payload))
                     .context("emit event")?;
