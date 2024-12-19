@@ -52,6 +52,10 @@ impl TestingRepository {
         }
     }
 
+    pub fn gix_repository(&self) -> gix::Repository {
+        gix::open(self.repository.path()).unwrap()
+    }
+
     pub fn open_with_initial_commit(files: &[(&str, &str)]) -> Self {
         let tempdir = tempdir().unwrap();
         let repository = git2::Repository::init_opts(tempdir.path(), &init_opts()).unwrap();
@@ -90,6 +94,7 @@ impl TestingRepository {
     ) -> git2::Commit<'a> {
         self.commit_tree_inner(parent, &Uuid::new_v4().to_string(), files, Some(change_id))
     }
+
     pub fn commit_tree<'a>(
         &'a self,
         parent: Option<&git2::Commit<'_>>,
