@@ -262,7 +262,7 @@
 				date: getTimeAgo(commit.createdAt),
 				authorImgUrl: authorImgUrl,
 				commitType: type,
-				data: new DraggableCommit(commit.branchId, commit, isHeadCommit, currentSeries?.name),
+				dropData: new DraggableCommit(commit.branchId, commit, isHeadCommit, currentSeries?.name),
 				viewportId: 'board-viewport'
 			}
 		: NON_DRAGGABLE}
