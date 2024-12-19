@@ -78,7 +78,7 @@
 		class:opacity-60={section.hunk.locked && !isFileLocked}
 		oncontextmenu={(e) => e.preventDefault()}
 		use:draggableElement={{
-			data: new DraggableHunk($branch?.id || '', section.hunk, section.hunk.lockedTo, commitId),
+			dropData: new DraggableHunk($branch?.id || '', section.hunk, section.hunk.lockedTo, commitId),
 			disabled: draggingDisabled
 		}}
 	>

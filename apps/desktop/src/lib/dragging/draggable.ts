@@ -20,7 +20,7 @@ export type DraggableConfig = {
 	readonly date?: string;
 	readonly authorImgUrl?: string;
 	readonly commitType?: CommitStatus;
-	readonly data?: Draggable;
+	readonly dropData?: Draggable;
 	readonly viewportId?: string;
 };
 
@@ -72,9 +72,9 @@ function setupDragHandlers(
 			return;
 		}
 
-		if (opts.data instanceof DraggableFile) {
+		if (opts.dropData instanceof DraggableFile) {
 			selectedElements = [];
-			for (const file of opts.data.files) {
+			for (const file of opts.dropData.files) {
 				const element = parentNode.querySelector(`[data-file-id="${file.id}"]`);
 				if (element) {
 					if (file.locked) {
@@ -101,7 +101,7 @@ function setupDragHandlers(
 		}
 
 		for (const dropzone of Array.from(dropzoneRegistry.values())) {
-			dropzone.activate(opts.data);
+			dropzone.activate(opts.dropData);
 		}
 
 		clone = createClone(opts, selectedElements);

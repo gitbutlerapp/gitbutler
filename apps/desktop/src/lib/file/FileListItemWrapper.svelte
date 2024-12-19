@@ -77,7 +77,7 @@
 			const config = {
 				label: `${file.filename}`,
 				filePath: file.path,
-				data: draggableFile,
+				dropData: draggableFile,
 				disabled: !draggable,
 				viewportId: 'board-viewport',
 				selector: '.selected-draggable'
