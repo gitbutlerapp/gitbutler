@@ -3,7 +3,7 @@ import { dropzoneRegistry } from './dropzone';
 import { type CommitStatus } from '$lib/vbranches/types';
 import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-import { isDefined } from '@gitbutler/ui/utils/typeguards';
+
 // Added to element being dragged (not the clone that follows the cursor).
 const DRAGGING_CLASS = 'dragging';
 
@@ -40,7 +40,7 @@ function createElement<K extends keyof HTMLElementTagNameMap>(
 function setupDragHandlers(
 	node: HTMLElement,
 	opts: DraggableConfig | NonDraggableConfig,
-	createClone: (opts: DraggableConfig, selectedElements: HTMLElement[]) => HTMLElement | undefined,
+	createClone: (opts: DraggableConfig, selectedElements: Element[]) => HTMLElement | undefined,
 	params: {
 		handlerWidth: boolean;
 		maxHeight?: number;
@@ -51,12 +51,9 @@ function setupDragHandlers(
 	if (opts.disabled) return;
 	let dragHandle: HTMLElement | null;
 	let clone: HTMLElement | undefined;
-	let selectedElements: HTMLElement[] = [];
+	let selectedElements: Element[] = [];
 
 	function handleMouseDown(e: MouseEvent) {
-		// if (opts.data instanceof DraggableFile) {
-		// 	const selection = opts.data.files
-		// }
 		dragHandle = e.target as HTMLElement;
 	}
 
@@ -69,18 +66,29 @@ function setupDragHandlers(
 			return false;
 		}
 
-		if (opts.selector) {
-			const parentNode = node.parentElement?.parentElement;
-			if (!parentNode) {
-				console.error('draggable parent node not found');
-				return;
-			}
-			if (opts.data instanceof DraggableFile) {
-				selectedElements = opts.data.files
-					.map((file) => {
-						return parentNode.querySelector(`[data-file-id="${file.id}"]`) as HTMLElement;
-					})
-					.filter(isDefined);
+		const parentNode = node.parentElement?.parentElement;
+		if (!parentNode) {
+			console.error('draggable parent node not found');
+			return;
+		}
+
+		if (opts.data instanceof DraggableFile) {
+			selectedElements = [];
+			for (const file of opts.data.files) {
+				const element = parentNode.querySelector(`[data-file-id="${file.id}"]`);
+				if (element) {
+					if (file.locked) {
+						element.classList.add('locked-file-animation');
+						element.addEventListener(
+							'animationend',
+							() => {
+								element.classList.remove('locked-file-animation');
+							},
+							{ once: true }
+						);
+					}
+					selectedElements.push(element);
+				}
 			}
 		}
 
@@ -298,7 +306,7 @@ export function createChipsElement(
 }
 
 export function draggableChips(node: HTMLElement, initialOpts: DraggableConfig) {
-	function createClone(opts: DraggableConfig, selectedElements: HTMLElement[]) {
+	function createClone(opts: DraggableConfig, selectedElements: Element[]) {
 		if (opts.disabled) return;
 		return createChipsElement(selectedElements.length, opts.label, opts.filePath);
 	}
