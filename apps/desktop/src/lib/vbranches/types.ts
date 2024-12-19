@@ -348,7 +348,7 @@ export class RemoteFile {
 	large!: boolean;
 
 	get id(): string {
-		return this.path;
+		return 'remote:' + this.path;
 	}
 
 	get filename(): string {
