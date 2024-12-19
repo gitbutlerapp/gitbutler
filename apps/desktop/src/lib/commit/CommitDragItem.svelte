@@ -32,7 +32,7 @@
 
 <!-- We require the dropzones to be nested -->
 {#snippet ammendDropzone()}
-	<Dropzone accepts={actions!.acceptAmend.bind(actions)} ondrop={actions!.onAmend.bind(actions)}>
+	<Dropzone accepts={actions!.acceptsAmend.bind(actions)} ondrop={actions!.onAmend.bind(actions)}>
 		{@render squashDropzone()}
 
 		{#snippet overlay({ hovered, activated })}
@@ -42,7 +42,7 @@
 {/snippet}
 
 {#snippet squashDropzone()}
-	<Dropzone accepts={actions!.acceptSquash.bind(actions)} ondrop={actions!.onSquash.bind(actions)}>
+	<Dropzone accepts={actions!.acceptsSquash.bind(actions)} ondrop={actions!.onSquash.bind(actions)}>
 		{@render children()}
 
 		{#snippet overlay({ hovered, activated })}

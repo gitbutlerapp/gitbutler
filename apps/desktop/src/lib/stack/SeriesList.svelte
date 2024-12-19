@@ -42,7 +42,7 @@
 		stackingReorderDropzoneManagerFactory.build(branch)
 	);
 
-	function accepts(data: any) {
+	function accepts(data: unknown) {
 		if (!(data instanceof DraggableCommit)) return false;
 		if (data.branchId !== branch.id) return false;
 

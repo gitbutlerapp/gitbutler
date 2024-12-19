@@ -1,12 +1,17 @@
+import { DraggableFile, type Draggable } from './draggables';
 import { dropzoneRegistry } from './dropzone';
 import { type CommitStatus } from '$lib/vbranches/types';
 import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
-import type { Draggable } from './draggables';
+import { isDefined } from '@gitbutler/ui/utils/typeguards';
 // Added to element being dragged (not the clone that follows the cursor).
 const DRAGGING_CLASS = 'dragging';
 
-export interface DraggableConfig {
+export type NonDraggableConfig = {
+	disabled: true;
+};
+
+export type DraggableConfig = {
 	readonly selector?: string;
 	readonly disabled?: boolean;
 	readonly label?: string;
@@ -15,9 +20,9 @@ export interface DraggableConfig {
 	readonly date?: string;
 	readonly authorImgUrl?: string;
 	readonly commitType?: CommitStatus;
-	readonly data?: Draggable | Promise<Draggable>;
+	readonly data?: Draggable;
 	readonly viewportId?: string;
-}
+};
 
 function createElement<K extends keyof HTMLElementTagNameMap>(
 	tag: K,
@@ -34,8 +39,8 @@ function createElement<K extends keyof HTMLElementTagNameMap>(
 
 function setupDragHandlers(
 	node: HTMLElement,
-	opts: DraggableConfig,
-	createClone: (opts: DraggableConfig, selectedElements: HTMLElement[]) => HTMLElement,
+	opts: DraggableConfig | NonDraggableConfig,
+	createClone: (opts: DraggableConfig, selectedElements: HTMLElement[]) => HTMLElement | undefined,
 	params: {
 		handlerWidth: boolean;
 		maxHeight?: number;
@@ -43,15 +48,20 @@ function setupDragHandlers(
 		handlerWidth: false
 	}
 ) {
+	if (opts.disabled) return;
 	let dragHandle: HTMLElement | null;
-	let clone: HTMLElement;
+	let clone: HTMLElement | undefined;
 	let selectedElements: HTMLElement[] = [];
 
 	function handleMouseDown(e: MouseEvent) {
+		// if (opts.data instanceof DraggableFile) {
+		// 	const selection = opts.data.files
+		// }
 		dragHandle = e.target as HTMLElement;
 	}
 
 	function handleDragStart(e: DragEvent) {
+		if (opts.disabled) return;
 		e.stopPropagation();
 
 		if (dragHandle && dragHandle.dataset.noDrag !== undefined) {
@@ -65,41 +75,49 @@ function setupDragHandlers(
 				console.error('draggable parent node not found');
 				return;
 			}
-			selectedElements = Array.from(
-				parentNode.querySelectorAll(opts.selector) as NodeListOf<HTMLElement>
-			);
+			if (opts.data instanceof DraggableFile) {
+				selectedElements = opts.data.files
+					.map((file) => {
+						return parentNode.querySelector(`[data-file-id="${file.id}"]`) as HTMLElement;
+					})
+					.filter(isDefined);
+			}
 		}
 
 		if (selectedElements.length === 0) {
 			selectedElements = [node];
 		}
 
-		clone = createClone(opts, selectedElements);
-		if (params.handlerWidth) {
-			clone.style.width = node.clientWidth + 'px';
-		}
-		if (params.maxHeight) {
-			clone.style.maxHeight = pxToRem(params.maxHeight) as string;
+		for (const element of selectedElements) {
+			element.classList.add(DRAGGING_CLASS);
 		}
 
-		selectedElements.forEach((el) => el.classList.add(DRAGGING_CLASS));
-		document.body.appendChild(clone);
-
-		Array.from(dropzoneRegistry.values()).forEach((dropzone) => {
+		for (const dropzone of Array.from(dropzoneRegistry.values())) {
 			dropzone.register(opts.data);
-		});
+		}
 
-		if (e.dataTransfer) {
+		clone = createClone(opts, selectedElements);
+		if (clone) {
 			if (params.handlerWidth) {
-				e.dataTransfer.setDragImage(clone, e.offsetX, e.offsetY);
-			} else {
-				e.dataTransfer.setDragImage(clone, clone.offsetWidth - 20, 25);
+				clone.style.width = node.clientWidth + 'px';
 			}
+			if (params.maxHeight) {
+				clone.style.maxHeight = pxToRem(params.maxHeight) as string;
+			}
+			document.body.appendChild(clone);
 
-			// Get chromium to fire dragover & drop events
-			// https://stackoverflow.com/questions/6481094/html5-drag-and-drop-ondragover-not-firing-in-chrome/6483205#6483205
-			e.dataTransfer?.setData('text/html', 'd'); // cannot be empty string
-			e.dataTransfer.effectAllowed = 'uninitialized';
+			if (e.dataTransfer) {
+				if (params.handlerWidth) {
+					e.dataTransfer.setDragImage(clone, e.offsetX, e.offsetY);
+				} else {
+					e.dataTransfer.setDragImage(clone, clone.offsetWidth - 20, 25);
+				}
+
+				// Get chromium to fire dragover & drop events
+				// https://stackoverflow.com/questions/6481094/html5-drag-and-drop-ondragover-not-firing-in-chrome/6483205#6483205
+				e.dataTransfer?.setData('text/html', 'd'); // cannot be empty string
+				e.dataTransfer.effectAllowed = 'uninitialized';
+			}
 		}
 	}
 
@@ -111,11 +129,10 @@ function setupDragHandlers(
 	function loopScroll(viewport: HTMLElement, direction: 'left' | 'right', scrollSpeed: number) {
 		viewport.scrollBy({
 			left: direction === 'left' ? -scrollSpeed : scrollSpeed,
-			// left: direction === 'left' ? -40 : 40,
 			behavior: 'smooth'
 		});
 
-		timeoutId = setTimeout(() => loopScroll(viewport, direction, scrollSpeed), timerShutter); // Store the timeout ID
+		timeoutId = setTimeout(() => loopScroll(viewport, direction, scrollSpeed), timerShutter);
 	}
 
 	function handleDrag(e: DragEvent) {
@@ -155,7 +172,6 @@ function setupDragHandlers(
 		});
 
 		if (timeoutId) {
-			// Clear the timeout
 			clearTimeout(timeoutId);
 			timeoutId = undefined;
 		}
@@ -229,8 +245,12 @@ export function createCommitElement(
 	return cardEl;
 }
 
-export function draggableCommit(node: HTMLElement, initialOpts: DraggableConfig) {
+export function draggableCommit(
+	node: HTMLElement,
+	initialOpts: DraggableConfig | NonDraggableConfig
+) {
 	function createClone(opts: DraggableConfig) {
+		if (opts.disabled) return;
 		return createCommitElement(opts.commitType, opts.label, opts.sha, opts.date, opts.authorImgUrl);
 	}
 	return setupDragHandlers(node, initialOpts, createClone, {
@@ -279,6 +299,7 @@ export function createChipsElement(
 
 export function draggableChips(node: HTMLElement, initialOpts: DraggableConfig) {
 	function createClone(opts: DraggableConfig, selectedElements: HTMLElement[]) {
+		if (opts.disabled) return;
 		return createChipsElement(selectedElements.length, opts.label, opts.filePath);
 	}
 	return setupDragHandlers(node, initialOpts, createClone);

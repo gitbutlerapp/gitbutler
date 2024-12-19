@@ -11,7 +11,7 @@ export class StackingReorderDropzone {
 		public commitId: string
 	) {}
 
-	accepts(data: any) {
+	accepts(data: unknown) {
 		if (!(data instanceof DraggableCommit)) return false;
 		if (data.branchId !== this.branchId) return false;
 

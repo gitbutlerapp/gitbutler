@@ -18,7 +18,7 @@ export class CommitDragActions {
 		private commit: DetailedCommit | Commit
 	) {}
 
-	acceptAmend(data: any) {
+	acceptsAmend(dropData: unknown): boolean {
 		if (this.commit instanceof Commit) {
 			return false;
 		}
@@ -32,16 +32,16 @@ export class CommitDragActions {
 		}
 
 		if (
-			data instanceof DraggableHunk &&
-			data.branchId === this.branch.id &&
-			data.commitId !== this.commit.id &&
+			dropData instanceof DraggableHunk &&
+			dropData.branchId === this.branch.id &&
+			dropData.commitId !== this.commit.id &&
 			!this.commit.conflicted
 		) {
 			return true;
 		} else if (
-			data instanceof DraggableFile &&
-			data.branchId === this.branch.id &&
-			data.commit?.id !== this.commit.id &&
+			dropData instanceof DraggableFile &&
+			dropData.branchId === this.branch.id &&
+			dropData.commit?.id !== this.commit.id &&
 			!this.commit.conflicted
 		) {
 			return true;
@@ -50,22 +50,22 @@ export class CommitDragActions {
 		}
 	}
 
-	onAmend(data: any) {
-		if (data instanceof DraggableHunk) {
-			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
+	onAmend(dropData: unknown): void {
+		if (dropData instanceof DraggableHunk) {
+			const newOwnership = `${dropData.hunk.filePath}:${dropData.hunk.id}`;
 			this.branchController.amendBranch(this.branch.id, this.commit.id, newOwnership);
-		} else if (data instanceof DraggableFile) {
-			if (data.file instanceof LocalFile) {
+		} else if (dropData instanceof DraggableFile) {
+			if (dropData.file instanceof LocalFile) {
 				// this is an uncommitted file change being amended to a previous commit
-				const newOwnership = filesToOwnership(data.files);
+				const newOwnership = filesToOwnership(dropData.files);
 				this.branchController.amendBranch(this.branch.id, this.commit.id, newOwnership);
-			} else if (data.file instanceof RemoteFile) {
+			} else if (dropData.file instanceof RemoteFile) {
 				// this is a file from a commit, rather than an uncommitted file
-				const newOwnership = filesToSimpleOwnership(data.files);
-				if (data.commit) {
+				const newOwnership = filesToSimpleOwnership(dropData.files);
+				if (dropData.commit) {
 					this.branchController.moveCommitFile(
 						this.branch.id,
-						data.commit.id,
+						dropData.commit.id,
 						this.commit.id,
 						newOwnership
 					);
@@ -74,20 +74,20 @@ export class CommitDragActions {
 		}
 	}
 
-	acceptSquash(data: any) {
+	acceptsSquash(dropData: unknown): boolean {
 		if (this.commit instanceof Commit) {
 			return false;
 		}
-		if (!(data instanceof DraggableCommit)) return false;
-		if (data.branchId !== this.branch.id) return false;
+		if (!(dropData instanceof DraggableCommit)) return false;
+		if (dropData.branchId !== this.branch.id) return false;
 
-		if (this.commit.conflicted || data.commit.conflicted) return false;
+		if (this.commit.conflicted || dropData.commit.conflicted) return false;
 
-		if (data.commit.isParentOf(this.commit)) {
-			if (data.commit.isIntegrated) return false;
-			if (data.commit.isRemote && !this.project.ok_with_force_push) return false;
+		if (dropData.commit.isParentOf(this.commit)) {
+			if (dropData.commit.isIntegrated) return false;
+			if (dropData.commit.isRemote && !this.project.ok_with_force_push) return false;
 			return true;
-		} else if (this.commit.isParentOf(data.commit)) {
+		} else if (this.commit.isParentOf(dropData.commit)) {
 			if (this.commit.isIntegrated) return false;
 			if (this.commit.isRemote && !this.project.ok_with_force_push) return false;
 			return true;
@@ -96,14 +96,16 @@ export class CommitDragActions {
 		}
 	}
 
-	onSquash(data: any) {
+	onSquash(dropData: unknown): void {
 		if (this.commit instanceof Commit) {
 			return;
 		}
-		if (data.commit.isParentOf(this.commit)) {
-			this.branchController.squashBranchCommit(data.branchId, this.commit.id);
-		} else if (this.commit.isParentOf(data.commit)) {
-			this.branchController.squashBranchCommit(data.branchId, data.commit.id);
+		if (dropData instanceof DraggableCommit) {
+			if (dropData.commit.isParentOf(this.commit)) {
+				this.branchController.squashBranchCommit(dropData.branchId, this.commit.id);
+			} else if (this.commit.isParentOf(dropData.commit)) {
+				this.branchController.squashBranchCommit(dropData.branchId, dropData.commit.id);
+			}
 		}
 	}
 }
