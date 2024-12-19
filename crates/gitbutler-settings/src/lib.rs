@@ -8,3 +8,4 @@ mod persistence;
 mod watch;
 pub use app_settings::AppSettings;
 pub use watch::SettingsHandle;
+pub mod api;

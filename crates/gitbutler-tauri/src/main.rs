@@ -15,7 +15,7 @@ use gitbutler_settings::SettingsHandle;
 use gitbutler_tauri::settings::SettingsStore;
 use gitbutler_tauri::{
     askpass, commands, config, forge, github, logs, menu, modes, open, projects, remotes, repo,
-    secret, stack, undo, users, virtual_branches, zip, App, WindowState,
+    secret, settings, stack, undo, users, virtual_branches, zip, App, WindowState,
 };
 use tauri::Emitter;
 use tauri::{generate_context, Manager};
@@ -239,6 +239,9 @@ fn main() {
                     open::open_url,
                     forge::commands::get_available_review_templates,
                     forge::commands::get_review_template_contents,
+                    settings::get_app_settings,
+                    settings::update_onboarding_complete,
+                    settings::update_telemetry,
                 ])
                 .menu(menu::build)
                 .on_window_event(|window, event| match event {

@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::{mpsc, Arc, RwLock, RwLockReadGuard},
+    sync::{mpsc, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
     time::Duration,
 };
 
@@ -37,6 +37,16 @@ impl SettingsHandle {
         self.app_settings
             .try_read()
             .map_err(|e| anyhow::anyhow!("Could not read settings: {:?}", e))
+    }
+
+    pub fn write(&self) -> Result<RwLockWriteGuard<'_, AppSettings>> {
+        self.app_settings
+            .try_write()
+            .map_err(|e| anyhow::anyhow!("Could not write settings: {:?}", e))
+    }
+
+    pub fn config_path(&self) -> PathBuf {
+        self.config_path.clone()
     }
 
     pub fn watch_in_background(&self) -> Result<()> {
