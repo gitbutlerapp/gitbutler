@@ -1,13 +1,13 @@
 {
+	/// Whether the user has passed the onboarding flow.
+	"onboardingComplete": false,
 	"telemetry": {
 		/// Whether the anonymous metrics are enabled.
 		"appMetricsEnabled": true,
 		/// Whether anonymous error reporting is enabled.
 		"appErrorReportingEnabled": true,
 		/// Whether non-anonymous metrics are enabled.
-		"appNonAnonMetricsEnabled": false,
-		/// Whether the user has confirmed the analytics (has passed the onboarding flow).
-		"appAnalyticsConfirmed": false
+		"appNonAnonMetricsEnabled": false
 	},
 	"githubOauthApp": {
 		/// Client ID for the GitHub OAuth application. Set this to use custom (non-GitButler) OAuth application.

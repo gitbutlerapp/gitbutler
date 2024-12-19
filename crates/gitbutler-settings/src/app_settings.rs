@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct AppSettings {
+    /// Whether the user has passed the onboarding flow.
+    pub onboarding_complete: bool,
     /// Telemetry settings
     pub telemetry: TelemetrySettings,
     /// Client ID for the GitHub OAuth application
@@ -18,8 +20,6 @@ pub struct TelemetrySettings {
     pub app_error_reporting_enabled: bool,
     /// Whether non-anonymous metrics are enabled.
     pub app_non_anon_metrics_enabled: bool,
-    /// Whether the user has confirmed the analytics (has passed the onboarding flow).
-    pub app_analytics_confirmed: bool,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
