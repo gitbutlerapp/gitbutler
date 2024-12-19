@@ -3,6 +3,8 @@ import { type CommitStatus } from '$lib/vbranches/types';
 import { getFileIcon } from '@gitbutler/ui/file/getFileIcon';
 import { pxToRem } from '@gitbutler/ui/utils/pxToRem';
 import type { Draggable } from './draggables';
+// Added to element being dragged (not the clone that follows the cursor).
+const DRAGGING_CLASS = 'dragging';
 
 export interface DraggableConfig {
 	readonly selector?: string;
@@ -80,7 +82,7 @@ function setupDragHandlers(
 			clone.style.maxHeight = pxToRem(params.maxHeight) as string;
 		}
 
-		selectedElements.forEach((el) => el.classList.add('drag-handle'));
+		selectedElements.forEach((el) => el.classList.add(DRAGGING_CLASS));
 		document.body.appendChild(clone);
 
 		Array.from(dropzoneRegistry.values()).forEach((dropzone) => {
@@ -147,7 +149,7 @@ function setupDragHandlers(
 	function handleDragEnd(e: DragEvent) {
 		e.stopPropagation();
 		if (clone) clone.remove();
-		selectedElements.forEach((el) => el.classList.remove('drag-handle'));
+		selectedElements.forEach((el) => el.classList.remove(DRAGGING_CLASS));
 		Array.from(dropzoneRegistry.values()).forEach((dropzone) => {
 			dropzone.unregister();
 		});

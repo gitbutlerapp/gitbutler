@@ -146,13 +146,8 @@
 	}
 }
 
-.drag-handle {
+.dragging {
 	opacity: 0.5;
-
-	/* disable children events in order to prevent false dragleave events */
-	& > * {
-		pointer-events: none;
-	}
 }
 
 @keyframes dropzone-scale {
