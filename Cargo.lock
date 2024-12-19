@@ -2728,6 +2728,16 @@ dependencies = [
 [[package]]
 name = "gitbutler-settings"
 version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "gitbutler-fs",
+ "notify",
+ "serde",
+ "serde_json",
+ "serde_json_lenient",
+ "tokio",
+ "tracing",
+]
 
 [[package]]
 name = "gitbutler-stack"
@@ -7336,6 +7346,18 @@ name = "serde_json"
 version = "1.0.133"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c7fceb2473b9166b2294ef05efcb65a3db80803f0b03ef86a5fc88a2b85ee377"
+dependencies = [
+ "itoa 1.0.11",
+ "memchr",
+ "ryu",
+ "serde",
+]
+
+[[package]]
+name = "serde_json_lenient"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0e033097bf0d2b59a62b42c18ebbb797503839b26afdda2c4e1415cb6c813540"
 dependencies = [
  "itoa 1.0.11",
  "memchr",
