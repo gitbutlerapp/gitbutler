@@ -1,7 +1,7 @@
 export interface DropzoneConfiguration {
 	disabled: boolean;
-	accepts: (data: unknown) => boolean;
-	onDrop: (data: unknown) => Promise<void> | void;
+	accepts: (dropData: unknown) => boolean;
+	onDrop: (dropData: unknown) => Promise<void> | void;
 	onActivationStart: () => void;
 	onActivationEnd: () => void;
 	onHoverStart: () => void;
@@ -31,8 +31,8 @@ export class Dropzone {
 		this.setTarget();
 	}
 
-	register(data: unknown) {
-		this.data = data;
+	register(dropData: unknown) {
+		this.data = dropData;
 
 		if (!this.configuration.accepts(this.data)) return;
 
