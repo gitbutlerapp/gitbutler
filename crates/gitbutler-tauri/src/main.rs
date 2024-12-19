@@ -105,9 +105,11 @@ fn main() {
 
                     app_handle.manage(WindowState::new(app_handle.clone()));
 
-                    let handle = app_handle.clone();
-                    let app_settings = SettingsHandle::create(config_dir, move |app_settings| {
-                        gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&handle)
+                    let app_settings = SettingsHandle::create(config_dir, {
+                        let app_handle = app_handle.clone();
+                        move |app_settings| {
+                            gitbutler_tauri::ChangeForFrontend::from(app_settings).send(&app_handle)
+                        }
                     })?;
                     app_settings.watch_in_background()?;
                     app_handle.manage(app_settings);

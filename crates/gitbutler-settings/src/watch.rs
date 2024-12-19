@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::{mpsc::channel, Arc, OnceLock, RwLock, RwLockReadGuard},
+    sync::{mpsc, Arc, RwLock, RwLockReadGuard},
     time::Duration,
 };
 
@@ -10,7 +10,7 @@ use notify::{event::ModifyKind, Config, Event, RecommendedWatcher, RecursiveMode
 
 pub struct SettingsHandle {
     config_path: PathBuf,
-    app_settings: &'static RwLock<AppSettings>,
+    app_settings: Arc<RwLock<AppSettings>>,
     #[allow(clippy::type_complexity)]
     send_event: Arc<dyn Fn(AppSettings) -> Result<()> + Send + Sync + 'static>,
 }
@@ -25,9 +25,7 @@ impl SettingsHandle {
         let config_path = config_dir.into().join(SETTINGS_FILE);
         let app_settings = app_settings::AppSettings::load(config_path.clone())?;
 
-        static CONFIG: OnceLock<RwLock<AppSettings>> = OnceLock::new();
-        let app_settings = CONFIG.get_or_init(|| RwLock::new(app_settings));
-
+        let app_settings = Arc::new(RwLock::new(app_settings));
         Ok(Self {
             config_path,
             app_settings,
@@ -42,8 +40,8 @@ impl SettingsHandle {
     }
 
     pub fn watch_in_background(&self) -> Result<()> {
-        let (tx, rx) = channel();
-        let settings = self.app_settings;
+        let (tx, rx) = mpsc::channel();
+        let settings = self.app_settings.clone();
         let config_path = self.config_path.clone();
         let send_event = self.send_event.clone();
 
@@ -59,14 +57,14 @@ impl SettingsHandle {
                         kind: notify::event::EventKind::Modify(ModifyKind::Data(_)),
                         ..
                     })) => {
-                        if let Ok(mut s) = settings.try_write() {
-                            if let Ok(update) = app_settings::AppSettings::load(config_path.clone())
-                            {
-                                if *s != update {
-                                    tracing::info!("settings.json modified; refreshing settings");
-                                    *s = update.clone();
-                                    send_event(update)?;
-                                }
+                        let Ok(mut last_seen_settings) = settings.try_write() else {
+                            continue;
+                        };
+                        if let Ok(update) = app_settings::AppSettings::load(config_path.clone()) {
+                            if *last_seen_settings != update {
+                                tracing::info!("settings.json modified; refreshing settings");
+                                *last_seen_settings = update.clone();
+                                send_event(update)?;
                             }
                         }
                     }
