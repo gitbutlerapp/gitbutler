@@ -5,7 +5,7 @@
 	import middleSheetSvg from '$lib/assets/new-branch/middle-sheet.svg?raw';
 	import topSheetSvg from '$lib/assets/new-branch/top-sheet.svg?raw';
 	// import components
-	import { DraggableFile, DraggableHunk } from '$lib/dragging/draggables';
+	import { DroppableFile, DroppableHunk } from '$lib/dragging/draggables';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { filesToOwnership } from '$lib/vbranches/ownership';
@@ -15,20 +15,20 @@
 	const branchController = getContext(BranchController);
 
 	function accepts(dropData: unknown) {
-		if (dropData instanceof DraggableFile) {
+		if (dropData instanceof DroppableFile) {
 			return !(dropData.isCommitted || dropData.files.some((f) => f.locked));
 		}
-		if (dropData instanceof DraggableHunk) {
+		if (dropData instanceof DroppableHunk) {
 			return !(dropData.isCommitted || dropData.hunk.locked);
 		}
 		return false;
 	}
 
-	function onDrop(data: DraggableFile | DraggableHunk) {
-		if (data instanceof DraggableHunk) {
+	function onDrop(data: DroppableFile | DroppableHunk) {
+		if (data instanceof DroppableHunk) {
 			const ownership = `${data.hunk.filePath}:${data.hunk.id}`;
 			branchController.createBranch({ ownership });
-		} else if (data instanceof DraggableFile) {
+		} else if (data instanceof DroppableFile) {
 			const ownership = filesToOwnership(data.files);
 			branchController.createBranch({ ownership });
 		}

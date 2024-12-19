@@ -1,4 +1,4 @@
-import { DraggableCommit } from '$lib/dragging/draggables';
+import { DroppableCommit } from '$lib/dragging/draggables';
 import type { BranchController } from '$lib/vbranches/branchController';
 import type { VirtualBranch, PatchSeries, StackOrder } from '$lib/vbranches/types';
 
@@ -12,7 +12,7 @@ export class StackingReorderDropzone {
 	) {}
 
 	accepts(data: unknown) {
-		if (!(data instanceof DraggableCommit)) return false;
+		if (!(data instanceof DroppableCommit)) return false;
 		if (data.branchId !== this.branchId) return false;
 
 		// Do not show dropzones directly above or below the commit in question
@@ -27,7 +27,7 @@ export class StackingReorderDropzone {
 	}
 
 	onDrop(data: any) {
-		if (!(data instanceof DraggableCommit)) return;
+		if (!(data instanceof DroppableCommit)) return;
 		if (data.branchId !== this.branchId) return;
 
 		const stackOrder = buildNewStackOrder(
