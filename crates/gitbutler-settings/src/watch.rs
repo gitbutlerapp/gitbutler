@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::{mpsc::channel, OnceLock, RwLock},
+    sync::{mpsc::channel, Arc, OnceLock, RwLock},
     time::Duration,
 };
 
@@ -11,12 +11,17 @@ use notify::{event::ModifyKind, Config, Event, RecommendedWatcher, RecursiveMode
 pub struct SettingsHandle {
     config_path: PathBuf,
     app_settings: &'static RwLock<AppSettings>,
+    #[allow(clippy::type_complexity)]
+    send_event: Arc<dyn Fn(AppSettings) -> Result<()> + Send + Sync + 'static>,
 }
 
 const SETTINGS_FILE: &str = "settings.json";
 
 impl SettingsHandle {
-    pub fn create(config_dir: impl Into<PathBuf>) -> Result<Self> {
+    pub fn create(
+        config_dir: impl Into<PathBuf>,
+        send_event: impl Fn(AppSettings) -> Result<()> + Send + Sync + 'static,
+    ) -> Result<Self> {
         let config_path = config_dir.into().join(SETTINGS_FILE);
         let app_settings = app_settings::AppSettings::load(config_path.clone())?;
 
@@ -26,6 +31,7 @@ impl SettingsHandle {
         Ok(Self {
             config_path,
             app_settings,
+            send_event: Arc::new(send_event),
         })
     }
 
@@ -37,6 +43,7 @@ impl SettingsHandle {
         let (tx, rx) = channel();
         let settings = self.app_settings;
         let config_path = self.config_path.clone();
+        let send_event = self.send_event.clone();
 
         tokio::task::spawn_blocking(move || -> Result<()> {
             let watcher_config = Config::default()
@@ -55,7 +62,8 @@ impl SettingsHandle {
                             {
                                 if *s != update {
                                     tracing::info!("settings.json modified; refreshing settings");
-                                    *s = update;
+                                    *s = update.clone();
+                                    send_event(update)?;
                                 }
                             }
                         }
