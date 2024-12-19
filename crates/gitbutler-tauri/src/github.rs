@@ -1,4 +1,5 @@
 pub mod commands {
+    use gitbutler_settings::AppSettingsWithDiskSync;
     use std::collections::HashMap;
     use tauri::State;
 
@@ -6,20 +7,7 @@ pub mod commands {
     use serde::{Deserialize, Serialize};
     use tracing::instrument;
 
-    use crate::{
-        error::Error,
-        settings::{self, SettingsStore},
-    };
-
-    const GITHUB_CLIENT_ID: &str = "cd51880daa675d9e6452";
-    fn client_id(store: &SettingsStore) -> String {
-        store
-            .app_settings()
-            .github_oauth_client_id
-            .as_deref()
-            .unwrap_or(GITHUB_CLIENT_ID)
-            .to_string()
-    }
+    use crate::error::Error;
 
     #[derive(Debug, Deserialize, Serialize, Clone, Default)]
     pub struct Verification {
@@ -28,12 +16,12 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(store), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub async fn init_device_oauth(
-        store: State<'_, settings::SettingsStore>,
+        settings: State<'_, AppSettingsWithDiskSync>,
     ) -> Result<Verification, Error> {
         let mut req_body = HashMap::new();
-        let client_id = client_id(&store);
+        let client_id = settings.get()?.github_oauth_app.oauth_client_id.clone();
         req_body.insert("client_id", client_id.as_str());
         req_body.insert("scope", "repo");
 
@@ -60,9 +48,9 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(store), err(Debug))]
+    #[instrument(skip(settings), err(Debug))]
     pub async fn check_auth_status(
-        store: State<'_, settings::SettingsStore>,
+        settings: State<'_, AppSettingsWithDiskSync>,
         device_code: &str,
     ) -> Result<String, Error> {
         #[derive(Debug, Deserialize, Serialize, Clone, Default)]
@@ -71,7 +59,7 @@ pub mod commands {
         }
 
         let mut req_body = HashMap::new();
-        let client_id = client_id(&store);
+        let client_id = settings.get()?.github_oauth_app.oauth_client_id.clone();
         req_body.insert("client_id", client_id.as_str());
         req_body.insert("device_code", device_code);
         req_body.insert("grant_type", "urn:ietf:params:oauth:grant-type:device_code");
