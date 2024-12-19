@@ -2,6 +2,7 @@
 	import { PromptService } from '$lib/ai/promptService';
 	import Content from '$lib/components/AIPromptEdit/Content.svelte';
 	import { getContext } from '@gitbutler/shared/context';
+	import { writableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { get } from 'svelte/store';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';
@@ -22,7 +23,7 @@
 		prompts = promptService.branchPrompts;
 	}
 
-	const userPrompts = $derived(prompts.userPrompts);
+	const userPrompts = $derived(writableToReactive(prompts.userPrompts));
 
 	function createNewPrompt() {
 		prompts?.userPrompts.set([
@@ -39,7 +40,7 @@
 	}
 </script>
 
-{#if prompts && $userPrompts}
+{#if prompts && userPrompts.current}
 	<div class="prompt-item__title">
 		<h3 class="text-15 text-bold">
 			{promptUse === 'commits' ? 'Commit message' : 'Branch name'}
@@ -57,9 +58,9 @@
 			}}
 		/>
 
-		{#each $userPrompts as _prompt, idx}
+		{#each userPrompts.current || [] as _prompt, idx}
 			<Content
-				bind:prompt={$userPrompts[idx] as UserPrompt}
+				bind:prompt={userPrompts.current[idx] as UserPrompt}
 				displayMode="writable"
 				deletePrompt={(prompt) => deletePrompt(prompt)}
 			/>

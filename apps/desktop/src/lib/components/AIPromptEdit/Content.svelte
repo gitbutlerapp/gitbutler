@@ -15,7 +15,7 @@
 
 	let expanded = $state(false);
 	let editing = $state(false);
-	let promptMessages = $state($state.snapshot(prompt.prompt));
+	let promptMessages = $state(structuredClone($state.snapshot(prompt.prompt)));
 	let promptName = $state(prompt.name);
 	const initialName = $derived(promptName);
 	let isInEditing = $state(false) as boolean;
