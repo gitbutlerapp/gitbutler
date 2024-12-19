@@ -52,16 +52,6 @@
 	let indeterminate = $state(false);
 	let checked = $state(false);
 
-	function addAnimationEndListener(element: HTMLElement) {
-		element.addEventListener(
-			'animationend',
-			() => {
-				element.classList.remove('locked-file-animation');
-			},
-			{ once: true }
-		);
-	}
-
 	$effect(() => {
 		if (file && $selectedOwnership) {
 			const hunksContained = itemsSatisfy(file.hunks, (h) =>
@@ -105,19 +95,6 @@
 			chips?.destroy();
 		};
 	});
-
-	async function handleDragStart() {
-		// Add animation end listener to files
-		$selectedFiles.forEach((f) => {
-			if (f.locked) {
-				const lockedElement = document.getElementById(`file-${f.id}`);
-				if (lockedElement) {
-					lockedElement.classList.add('locked-file-animation');
-					addAnimationEndListener(lockedElement);
-				}
-			}
-		});
-	}
 </script>
 
 <FileContextMenu
@@ -129,7 +106,7 @@
 />
 
 <FileListItem
-	id={`file-${file.id}`}
+	id={file.id}
 	bind:ref={draggableEl}
 	filePath={file.path}
 	fileStatus={computeFileStatus(file)}
@@ -172,7 +149,6 @@
 			}
 		}
 	}}
-	ondragstart={handleDragStart}
 	oncontextmenu={(e) => {
 		if (fileIdSelection.has(file.id, $commit?.id)) {
 			contextMenu?.open(e, { files: $selectedFiles });

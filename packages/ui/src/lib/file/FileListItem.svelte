@@ -32,7 +32,6 @@
 		onclick?: (e: MouseEvent) => void;
 		onresolveclick?: (e: MouseEvent) => void;
 		onkeydown?: (e: KeyboardEvent) => void;
-		ondragstart?: (e: DragEvent) => void;
 		oncontextmenu?: (e: MouseEvent) => void;
 	}
 
@@ -56,7 +55,6 @@
 		onclick,
 		onresolveclick,
 		onkeydown,
-		ondragstart,
 		oncontextmenu
 	}: Props = $props();
 
@@ -65,9 +63,8 @@
 
 <div
 	bind:this={ref}
-	{id}
 	data-locked={locked}
-	data-file-id={filePath}
+	data-file-id={id}
 	class="file-list-item"
 	class:selected-draggable={selected}
 	class:clickable
@@ -82,11 +79,6 @@
 			e.preventDefault();
 			e.stopPropagation();
 			oncontextmenu(e);
-		}
-	}}
-	ondragstart={(e) => {
-		if (draggable) {
-			ondragstart?.(e);
 		}
 	}}
 >
