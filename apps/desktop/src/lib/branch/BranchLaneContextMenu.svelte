@@ -52,6 +52,10 @@
 	function saveAndUnapply() {
 		branchController.saveAndUnapply(stack.id);
 	}
+
+	const isVirginLane = $derived(
+		stack.name.toLowerCase().includes('lane') && commits.length === 0 && stack.files?.length === 0
+	);
 </script>
 
 <ContextMenu bind:this={contextMenuEl} leftClickTrigger={trigger} {ontoggle}>
@@ -67,6 +71,7 @@
 	<ContextMenuSection>
 		<ContextMenuItem
 			label="Unapply"
+			disabled={isVirginLane}
 			onclick={async () => {
 				if (commits.length === 0 && stack.files?.length === 0) {
 					await branchController.unapplyWithoutSaving(stack.id);
@@ -78,7 +83,8 @@
 		/>
 
 		<ContextMenuItem
-			label="Unapply and drop changes"
+			label={isVirginLane ? 'Remove lane' : 'Unapply & drop changes'}
+			disabled={stack.files?.length === 0 && commits.length !== 0}
 			onclick={async () => {
 				if (
 					stack.name.toLowerCase().includes('lane') &&
