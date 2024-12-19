@@ -31,13 +31,13 @@ export class Dropzone {
 		this.setTarget();
 	}
 
-	register(dropData: unknown) {
+	activate(dropData: unknown) {
 		this.data = dropData;
 
 		if (!this.configuration.accepts(this.data)) return;
 
 		if (this.registered) {
-			this.unregister();
+			this.deactivate();
 		}
 
 		this.registered = true;
@@ -51,7 +51,7 @@ export class Dropzone {
 		}, 10);
 	}
 
-	async reregister(newConfig: DropzoneConfiguration) {
+	reactivate(newConfig: DropzoneConfiguration) {
 		if (this.registered) {
 			this.unregisterListeners();
 		}
@@ -72,7 +72,7 @@ export class Dropzone {
 		}
 	}
 
-	unregister() {
+	deactivate() {
 		if (this.registered) {
 			this.unregisterListeners();
 		}
@@ -138,7 +138,7 @@ export function dropzone(node: HTMLElement, configuration: DropzoneConfiguration
 		if (config.disabled) return;
 
 		if (instance) {
-			instance.unregister();
+			instance.deactivate();
 		}
 
 		instance = new Dropzone(config, node);
@@ -147,7 +147,7 @@ export function dropzone(node: HTMLElement, configuration: DropzoneConfiguration
 
 	function cleanup() {
 		if (instance) {
-			instance.unregister();
+			instance.deactivate();
 			instance = undefined;
 		}
 		dropzoneRegistry.delete(node);
@@ -163,7 +163,7 @@ export function dropzone(node: HTMLElement, configuration: DropzoneConfiguration
 			}
 
 			if (instance) {
-				instance.reregister(newConfig);
+				instance.reactivate(newConfig);
 			} else {
 				setup(newConfig);
 			}
