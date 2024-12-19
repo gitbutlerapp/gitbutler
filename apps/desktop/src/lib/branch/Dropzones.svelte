@@ -19,19 +19,19 @@
 	const actions = $derived(branchDragActionsFactory.build($branch));
 
 	const commitTypes: Props['type'][] = ['commit', 'all'];
-	function acceptsCommits(data: unknown) {
+	function acceptsCommits(dropData: unknown) {
 		if (!commitTypes.includes(type)) {
 			return false;
 		}
-		return actions.acceptMoveCommit(data);
+		return actions.acceptMoveCommit(dropData);
 	}
 
 	const fileTypes: Props['type'][] = ['file', 'all'];
-	function acceptsFiles(data: unknown) {
+	function acceptsFiles(dropData: unknown) {
 		if (!fileTypes.includes(type)) {
 			return false;
 		}
-		return actions.acceptBranchDrop(data);
+		return actions.acceptBranchDrop(dropData);
 	}
 </script>
 
