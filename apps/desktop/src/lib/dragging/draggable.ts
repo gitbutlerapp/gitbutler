@@ -93,7 +93,7 @@ function setupDragHandlers(
 		}
 
 		for (const dropzone of Array.from(dropzoneRegistry.values())) {
-			dropzone.register(opts.data);
+			dropzone.activate(opts.data);
 		}
 
 		clone = createClone(opts, selectedElements);
@@ -168,7 +168,7 @@ function setupDragHandlers(
 		if (clone) clone.remove();
 		selectedElements.forEach((el) => el.classList.remove(DRAGGING_CLASS));
 		Array.from(dropzoneRegistry.values()).forEach((dropzone) => {
-			dropzone.unregister();
+			dropzone.deactivate();
 		});
 
 		if (timeoutId) {
