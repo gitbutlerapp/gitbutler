@@ -1,6 +1,6 @@
 use std::{
     path::PathBuf,
-    sync::{mpsc::channel, Arc, OnceLock, RwLock},
+    sync::{mpsc::channel, Arc, OnceLock, RwLock, RwLockReadGuard},
     time::Duration,
 };
 
@@ -35,8 +35,10 @@ impl SettingsHandle {
         })
     }
 
-    pub fn settings(&self) -> &'static RwLock<AppSettings> {
+    pub fn read(&self) -> Result<RwLockReadGuard<'_, AppSettings>> {
         self.app_settings
+            .try_read()
+            .map_err(|e| anyhow::anyhow!("Could not read settings: {:?}", e))
     }
 
     pub fn watch_in_background(&self) -> Result<()> {
