@@ -52,6 +52,22 @@
 	function saveAndUnapply() {
 		branchController.saveAndUnapply(branch.id);
 	}
+
+	const isVirginLane = $derived(
+		branch.name.toLowerCase().includes('lane') && commits.length === 0 && branch.files?.length === 0
+	);
+
+	function getUnapplyLabel() {
+		if (isVirginLane) {
+			return 'Remove lane';
+		} else if (branch.files?.length > 0 && commits.length === 0) {
+			return 'Remove & drop changes';
+		} else if (commits.length > 0) {
+			return 'Unapply & drop changes';
+		}
+
+		return 'Unapply & drop changes';
+	}
 </script>
 
 <ContextMenu bind:this={contextMenuEl} leftClickTrigger={trigger} {ontoggle}>
@@ -65,33 +81,35 @@
 		/>
 	</ContextMenuSection>
 	<ContextMenuSection>
-		<ContextMenuItem
-			label="Unapply"
-			onclick={async () => {
-				if (commits.length === 0 && branch.files?.length === 0) {
-					await branchController.unapplyWithoutSaving(branch.id);
-				} else {
-					saveAndUnapply();
-				}
-				contextMenuEl?.close();
-			}}
-		/>
+		{#if !isVirginLane}
+			<ContextMenuItem
+				label={branch.files?.length === 0 && commits.length > 0
+					? 'Unapply'
+					: 'Unapply & save changes'}
+				onclick={async () => {
+					if (commits.length === 0 && branch.files?.length === 0) {
+						await branchController.unapplyWithoutSaving(branch.id);
+					} else {
+						saveAndUnapply();
+					}
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
 
-		<ContextMenuItem
-			label="Unapply and drop changes"
-			onclick={async () => {
-				if (
-					branch.name.toLowerCase().includes('lane') &&
-					commits.length === 0 &&
-					branch.files?.length === 0
-				) {
-					await branchController.unapplyWithoutSaving(branch.id);
-				} else {
-					deleteBranchModal.show(branch);
-				}
-				contextMenuEl?.close();
-			}}
-		/>
+		{#if branch.files?.length > 0 || commits.length === 0}
+			<ContextMenuItem
+				label={getUnapplyLabel()}
+				onclick={async () => {
+					if (isVirginLane) {
+						await branchController.unapplyWithoutSaving(branch.id);
+					} else {
+						deleteBranchModal.show(branch);
+					}
+					contextMenuEl?.close();
+				}}
+			/>
+		{/if}
 	</ContextMenuSection>
 
 	<ContextMenuSection>
