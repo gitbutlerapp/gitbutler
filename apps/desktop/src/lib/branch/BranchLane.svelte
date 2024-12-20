@@ -20,7 +20,7 @@
 	import { writable } from 'svelte/store';
 	import { slide } from 'svelte/transition';
 
-	const { branch }: { branch: BranchStack } = $props();
+	const { stack: branch }: { stack: BranchStack } = $props();
 
 	// BRANCH
 	const branchStore = createContextStore(BranchStack, branch);

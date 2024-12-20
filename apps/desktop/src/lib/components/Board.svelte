@@ -139,7 +139,7 @@
 						clone?.remove();
 					}}
 				>
-					<BranchLane {branch} />
+					<BranchLane stack={branch} />
 				</div>
 			{/each}
 		</div>

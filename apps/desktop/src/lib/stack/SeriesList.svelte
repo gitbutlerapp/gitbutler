@@ -18,11 +18,11 @@
 	import { isError } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
-		branch: BranchStack;
+		stack: BranchStack;
 		lastPush: Date | undefined;
 	}
 
-	const { branch, lastPush }: Props = $props();
+	const { stack: branch, lastPush }: Props = $props();
 
 	const branchController = getContext(BranchController);
 

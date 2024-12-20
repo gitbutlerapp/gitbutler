@@ -48,10 +48,10 @@ export class StackingReorderDropzoneManager {
 
 	constructor(
 		private branchController: BranchController,
-		private branch: BranchStack
+		private stack: BranchStack
 	) {
 		const seriesMap = new Map();
-		this.branch.validSeries.forEach((series) => {
+		this.stack.validSeries.forEach((series) => {
 			seriesMap.set(series.name, series);
 		});
 		this.series = seriesMap;
@@ -64,10 +64,10 @@ export class StackingReorderDropzoneManager {
 		}
 
 		return new StackingReorderDropzone(
-			this.branch.id,
+			this.stack.id,
 			this.branchController,
 			currentSeries,
-			this.branch.validSeries,
+			this.stack.validSeries,
 			'top'
 		);
 	}
@@ -79,10 +79,10 @@ export class StackingReorderDropzoneManager {
 		}
 
 		return new StackingReorderDropzone(
-			this.branch.id,
+			this.stack.id,
 			this.branchController,
 			currentSeries,
-			this.branch.validSeries,
+			this.stack.validSeries,
 			commitId
 		);
 	}
@@ -91,8 +91,8 @@ export class StackingReorderDropzoneManager {
 export class StackingReorderDropzoneManagerFactory {
 	constructor(private branchController: BranchController) {}
 
-	build(branch: BranchStack) {
-		return new StackingReorderDropzoneManager(this.branchController, branch);
+	build(stack: BranchStack) {
+		return new StackingReorderDropzoneManager(this.branchController, stack);
 	}
 }
 
