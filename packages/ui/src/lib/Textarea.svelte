@@ -167,13 +167,6 @@
 		display: flex;
 	}
 
-	.textarea-char-count {
-		position: absolute;
-		top: 8px;
-		right: 8px;
-		color: var(--clr-text-3);
-	}
-
 	.textarea-measure-el,
 	.textarea {
 		padding: var(--padding-top) var(--padding-right) var(--padding-bottom) var(--padding-left);
