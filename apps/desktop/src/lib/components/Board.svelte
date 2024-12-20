@@ -14,7 +14,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
-	import type { VirtualBranch } from '$lib/vbranches/types';
+	import type { BranchStack } from '$lib/vbranches/types';
 
 	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
@@ -33,7 +33,7 @@
 		}
 	});
 
-	let sortedBranches = $state<VirtualBranch[]>([]);
+	let sortedBranches = $state<BranchStack[]>([]);
 	$effect(() => {
 		sortedBranches = $branches?.sort((a, b) => a.order - b.order) || [];
 	});
@@ -139,7 +139,7 @@
 						clone?.remove();
 					}}
 				>
-					<BranchLane {branch} />
+					<BranchLane stack={branch} />
 				</div>
 			{/each}
 		</div>

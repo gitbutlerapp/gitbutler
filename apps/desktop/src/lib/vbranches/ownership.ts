@@ -1,5 +1,5 @@
 import { unstringifyFileKey } from './fileIdSelection';
-import type { VirtualBranch, AnyFile, Hunk, RemoteHunk, RemoteFile } from './types';
+import type { BranchStack, AnyFile, Hunk, RemoteHunk, RemoteFile } from './types';
 import type { Writable } from 'svelte/store';
 
 export function filesToOwnership(files: AnyFile[]) {
@@ -46,11 +46,11 @@ function branchFilesToClaims(files: AnyFile[]): FileClaims {
 }
 
 function selectAddedClaims(
-	branch: VirtualBranch,
+	stack: BranchStack,
 	previousState: SelectedOwnershipState,
 	selection: Map<string, HunkClaims>
 ) {
-	for (const file of branch.files) {
+	for (const file of stack.files) {
 		const existingFile = previousState.claims.get(file.id);
 
 		if (!existingFile) {
@@ -81,11 +81,11 @@ function selectAddedClaims(
 
 function ignoreRemovedClaims(
 	previousState: SelectedOwnershipState,
-	branch: VirtualBranch,
+	stack: BranchStack,
 	selection: Map<string, HunkClaims>
 ) {
 	for (const [fileId, hunkClaims] of previousState.selection.entries()) {
-		const branchFile = branch.files.find((f) => f.id === fileId);
+		const branchFile = stack.files.find((f) => f.id === fileId);
 		if (branchFile) {
 			for (const hunkId of hunkClaims.keys()) {
 				const branchHunk = branchFile.hunks.find((h) => h.id === hunkId);
@@ -109,15 +109,15 @@ interface SelectedOwnershipState {
 }
 
 function getState(
-	branch: VirtualBranch,
+	stack: BranchStack,
 	previousState?: SelectedOwnershipState
 ): SelectedOwnershipState {
-	const claims = branchFilesToClaims(branch.files);
+	const claims = branchFilesToClaims(stack.files);
 
 	if (previousState !== undefined) {
 		const selection = new Map<FilePath, HunkClaims>();
-		selectAddedClaims(branch, previousState, selection);
-		ignoreRemovedClaims(previousState, branch, selection);
+		selectAddedClaims(stack, previousState, selection);
+		ignoreRemovedClaims(previousState, stack, selection);
 
 		return { selection, claims };
 	}
@@ -134,14 +134,14 @@ export class SelectedOwnership {
 		this.selection = state.selection;
 	}
 
-	static fromBranch(branch: VirtualBranch) {
-		const state = getState(branch);
+	static fromBranch(stack: BranchStack) {
+		const state = getState(stack);
 		const ownership = new SelectedOwnership(state);
 		return ownership;
 	}
 
-	update(branch: VirtualBranch) {
-		const { selection, claims } = getState(branch, {
+	update(stack: BranchStack) {
+		const { selection, claims } = getState(stack, {
 			claims: this.claims,
 			selection: this.selection
 		});

@@ -3,7 +3,7 @@ import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { get } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';
-import type { VirtualBranch } from '$lib/vbranches/types';
+import type { BranchStack } from '$lib/vbranches/types';
 
 export type StackStatus = {
 	treeStatus: TreeStatus;
@@ -37,7 +37,7 @@ export type TreeStatus = {
 	type: 'empty' | 'conflicted' | 'saflyUpdatable';
 };
 
-export type StackStatusInfo = { stack: VirtualBranch; status: StackStatus };
+export type StackStatusInfo = { stack: BranchStack; status: StackStatus };
 
 export type StackStatusesWithBranches =
 	| {

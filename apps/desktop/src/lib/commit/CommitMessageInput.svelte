@@ -16,7 +16,7 @@
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
-	import { VirtualBranch, DetailedCommit, Commit } from '$lib/vbranches/types';
+	import { BranchStack, DetailedCommit, Commit } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
@@ -44,7 +44,7 @@
 
 	const selectedOwnership = getContextStore(SelectedOwnership);
 	const aiService = getContext(AIService);
-	const branch = getContextStore(VirtualBranch);
+	const stack = getContextStore(BranchStack);
 	const project = getContext(Project);
 	const promptService = getContext(PromptService);
 
@@ -72,7 +72,7 @@
 
 	async function getDiffInput(): Promise<DiffInput[]> {
 		if (!existingCommit) {
-			return $branch.files.flatMap((f) =>
+			return $stack.files.flatMap((f) =>
 				f.hunks
 					.filter((h) => $selectedOwnership.isSelected(f.id, h.id))
 					.map((h) => ({
@@ -105,7 +105,7 @@
 			useEmojiStyle: $commitGenerationUseEmojis,
 			useBriefStyle: $commitGenerationExtraConcise,
 			commitTemplate: prompt,
-			branchName: $branch.series[0]?.name,
+			branchName: $stack.series[0]?.name,
 			onToken: (t) => {
 				if (firstToken) {
 					commitMessage = '';

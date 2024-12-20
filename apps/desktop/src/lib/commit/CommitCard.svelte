@@ -20,7 +20,7 @@
 		DetailedCommit,
 		PatchSeries,
 		RemoteFile,
-		VirtualBranch,
+		BranchStack,
 		type CommitStatus
 	} from '$lib/vbranches/types';
 	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
@@ -37,7 +37,7 @@
 	const user = userService.user;
 
 	interface Props {
-		branch?: VirtualBranch | undefined;
+		branch?: BranchStack | undefined;
 		currentSeries?: PatchSeries | undefined;
 		commit: DetailedCommit | Commit;
 		commitUrl?: string | undefined;
@@ -225,7 +225,7 @@
 	}}
 	bind:menu={contextMenu}
 	baseBranch={$baseBranch}
-	{branch}
+	stack={branch}
 	{commit}
 	isRemote={type === 'remote'}
 	commitUrl={showOpenInBrowser ? commitUrl : undefined}

@@ -9,7 +9,7 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { getLockText } from '$lib/vbranches/tooltip';
-	import { VirtualBranch, type AnyFile, LocalFile } from '$lib/vbranches/types';
+	import { BranchStack, type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { Writable } from 'svelte/store';
@@ -27,8 +27,8 @@
 	const { file, isUnapplied, selected, showCheckbox, readonly, onclick, onkeydown }: Props =
 		$props();
 
-	const branch = maybeGetContextStore(VirtualBranch);
-	const branchId = $derived($branch?.id);
+	const stack = maybeGetContextStore(BranchStack);
+	const branchId = $derived($stack?.id);
 	const selectedOwnership: Writable<SelectedOwnership> | undefined =
 		maybeGetContextStore(SelectedOwnership);
 	const fileIdSelection = getContext(FileIdSelection);
@@ -43,7 +43,6 @@
 			? getLockText(lockedIds, ($localCommits || []).concat($remoteCommits || []))
 			: ''
 	);
-
 	const selectedFiles = fileIdSelection.files;
 	const draggable = !readonly && !isUnapplied;
 
@@ -101,7 +100,7 @@
 	bind:this={contextMenu}
 	trigger={draggableEl}
 	{isUnapplied}
-	branchId={$branch?.id}
+	branchId={$stack?.id}
 	isBinary={file.binary}
 />
 
