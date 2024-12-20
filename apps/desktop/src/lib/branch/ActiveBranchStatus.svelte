@@ -18,8 +18,8 @@
 		remoteExists: boolean;
 	} = $props();
 
-	const branch = getContextStore(BranchStack);
-	const upstreamName = $derived($branch.upstreamName);
+	const stack = getContextStore(BranchStack);
+	const upstreamName = $derived($stack.upstreamName);
 	const forge = getForge();
 	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
 
@@ -29,7 +29,7 @@
 
 	$effect(() => {
 		nameNormalizationService
-			.normalize($branch.displayName)
+			.normalize($stack.displayName)
 			.then((name) => {
 				normalizedBranchName = name;
 			})
@@ -96,6 +96,6 @@
 			e.stopPropagation();
 		}}
 	>
-		{isLaneCollapsed ? 'View branch' : $branch.displayName}
+		{isLaneCollapsed ? 'View branch' : $stack.displayName}
 	</Button>
 {/if}

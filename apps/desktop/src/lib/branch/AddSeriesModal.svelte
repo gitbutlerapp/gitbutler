@@ -22,7 +22,7 @@
 	const { parentSeriesName }: Props = $props();
 
 	const branchController = getContext(BranchController);
-	const branch = getContextStore(BranchStack);
+	const stack = getContextStore(BranchStack);
 
 	let createRefModal = $state<ReturnType<typeof Modal>>();
 	let createRefName: string | undefined = $state();
@@ -36,7 +36,7 @@
 			return;
 		}
 
-		branchController.createPatchSeries($branch.id, slugifiedRefName);
+		branchController.createPatchSeries($stack.id, slugifiedRefName);
 		createRefModal?.close();
 	}
 

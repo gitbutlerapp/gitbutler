@@ -27,8 +27,8 @@
 	const { file, isUnapplied, selected, showCheckbox, readonly, onclick, onkeydown }: Props =
 		$props();
 
-	const branch = maybeGetContextStore(VirtualBranch);
-	const branchId = $derived($branch?.id);
+	const stack = maybeGetContextStore(BranchStack);
+	const branchId = $derived($stack?.id);
 	const selectedOwnership: Writable<SelectedOwnership> | undefined =
 		maybeGetContextStore(SelectedOwnership);
 	const fileIdSelection = getContext(FileIdSelection);
@@ -100,7 +100,7 @@
 	bind:this={contextMenu}
 	trigger={draggableEl}
 	{isUnapplied}
-	branchId={$branch?.id}
+	branchId={$stack?.id}
 	isBinary={file.binary}
 />
 

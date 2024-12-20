@@ -46,7 +46,7 @@
 	const project = getContext(Project);
 	// const prService = getForgePrService();
 	const listingService = getForgeListingService();
-	const branch = $derived($branchStore);
+	const stack = $derived($branchStore);
 
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
 	const defaultBranchWidthRem = persisted<number>(24, 'defaulBranchWidth' + project.id);
@@ -56,17 +56,17 @@
 	let laneWidth: number | undefined = $state();
 	let rsViewport = $state<HTMLElement>();
 
-	const branchHasFiles = $derived(branch.files !== undefined && branch.files.length > 0);
-	const branchHasNoCommits = $derived(branch.validSeries.flatMap((s) => s.patches).length === 0);
+	const branchHasFiles = $derived(stack.files !== undefined && stack.files.length > 0);
+	const branchHasNoCommits = $derived(stack.validSeries.flatMap((s) => s.patches).length === 0);
 
 	$effect(() => {
-		if ($commitBoxOpen && branch.files.length === 0) {
+		if ($commitBoxOpen && stack.files.length === 0) {
 			commitBoxOpen.set(false);
 		}
 	});
 
 	onMount(() => {
-		laneWidth = lscache.get(laneWidthKey + branch.id);
+		laneWidth = lscache.get(laneWidthKey + stack.id);
 	});
 
 	let scrollEndVisible = $state(true);
@@ -78,7 +78,7 @@
 		const upstreamPatches: DetailedCommit[] = [];
 		const branchPatches: DetailedCommit[] = [];
 
-		branch.validSeries.map((series) => {
+		stack.validSeries.map((series) => {
 			upstreamPatches.push(...series.upstreamPatches);
 			branchPatches.push(...series.patches);
 			hasConflicts = branchPatches.some((patch) => patch.conflicted);
@@ -101,7 +101,7 @@
 	async function push() {
 		isPushingCommits = true;
 		try {
-			await branchController.pushBranch(branch.id, branch.requiresForce);
+			await branchController.pushBranch(stack.id, stack.requiresForce);
 			$listingService?.refresh();
 			lastPush = new Date();
 		} finally {
@@ -162,12 +162,12 @@
 
 {#if $isLaneCollapsed}
 	<div class="collapsed-lane-container">
-		<CollapsedLane uncommittedChanges={branch.files.length} {isLaneCollapsed} />
+		<CollapsedLane uncommittedChanges={stack.files.length} {isLaneCollapsed} />
 		<div class="collapsed-lane-divider" data-remove-from-draggable></div>
 	</div>
 {:else}
 	<div class="resizer-wrapper">
-		<div class="branch-card hide-native-scrollbar" class:target-branch={branch.selectedForChanges}>
+		<div class="branch-card hide-native-scrollbar" class:target-branch={stack.selectedForChanges}>
 			<ScrollableContainer
 				wide
 				padding={{
@@ -181,7 +181,7 @@
 					class="branch-card__contents"
 				>
 					<StackHeader
-						stack={branch}
+						{stack}
 						onCollapseButtonClick={() => {
 							$isLaneCollapsed = true;
 						}}
@@ -216,7 +216,7 @@
 						<Spacer dotted />
 						<div style:position="relative">
 							<div class="lane-branches">
-								<SeriesList stack={branch} {lastPush} />
+								<SeriesList {stack} {lastPush} />
 							</div>
 							{#if canPush}
 								<div
@@ -248,9 +248,9 @@
 											: undefined}
 										onclick={push}
 									>
-										{branch.requiresForce
+										{stack.requiresForce
 											? 'Force push'
-											: branch.validSeries.length > 1
+											: stack.validSeries.length > 1
 												? 'Push All'
 												: 'Push'}
 									</Button>
@@ -302,7 +302,7 @@
 						defaultLineColor={$fileIdSelection.length === 1 ? 'transparent' : 'var(--clr-border-2)'}
 						onWidth={(value) => {
 							laneWidth = value / (16 * $userSettings.zoom);
-							lscache.set(laneWidthKey + branch.id, laneWidth, 7 * 1440); // 7 day ttl
+							lscache.set(laneWidthKey + stack.id, laneWidth, 7 * 1440); // 7 day ttl
 							$defaultBranchWidthRem = laneWidth;
 						}}
 					/>

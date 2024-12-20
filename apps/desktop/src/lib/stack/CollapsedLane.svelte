@@ -14,8 +14,8 @@
 	const { uncommittedChanges = 0, isLaneCollapsed }: Props = $props();
 
 	const branchStore = getContextStore(BranchStack);
-	const branch = $derived($branchStore);
-	const nonArchivedSeries = $derived(branch.validSeries.filter((s) => !s.archived));
+	const stack = $derived($branchStore);
+	const nonArchivedSeries = $derived(stack.validSeries.filter((s) => !s.archived));
 
 	function expandLane() {
 		$isLaneCollapsed = false;
@@ -26,7 +26,7 @@
 
 <div
 	class="card collapsed-lane"
-	class:collapsed-lane_target-branch={branch.selectedForChanges}
+	class:collapsed-lane_target-branch={stack.selectedForChanges}
 	onkeydown={(e) => e.key === 'Enter' && expandLane()}
 	tabindex="0"
 	role="button"
@@ -57,7 +57,7 @@
 			</div>
 
 			<div class="collapsed-lane__info__details">
-				{#if branch.selectedForChanges}
+				{#if stack.selectedForChanges}
 					<Button style="pop" kind="soft" size="tag" clickable={false} icon="target">
 						Default lane
 					</Button>

@@ -7,7 +7,7 @@
 	import type { Snippet } from 'svelte';
 
 	const branchDragActionsFactory = getContext(BranchDragActionsFactory);
-	const branch = getContextStore(BranchStack);
+	const stack = getContextStore(BranchStack);
 
 	interface Props {
 		children: Snippet;
@@ -16,7 +16,7 @@
 
 	const { children, type = 'all' }: Props = $props();
 
-	const actions = $derived(branchDragActionsFactory.build($branch));
+	const actions = $derived(branchDragActionsFactory.build($stack));
 
 	const commitTypes: Props['type'][] = ['commit', 'all'];
 	function acceptsCommits(dropData: unknown) {
