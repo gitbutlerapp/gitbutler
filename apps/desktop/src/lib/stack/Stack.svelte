@@ -181,7 +181,7 @@
 					class="branch-card__contents"
 				>
 					<StackHeader
-						{branch}
+						stack={branch}
 						onCollapseButtonClick={() => {
 							$isLaneCollapsed = true;
 						}}
@@ -216,7 +216,7 @@
 						<Spacer dotted />
 						<div style:position="relative">
 							<div class="lane-branches">
-								<SeriesList {branch} {lastPush} />
+								<SeriesList stack={branch} {lastPush} />
 							</div>
 							{#if canPush}
 								<div

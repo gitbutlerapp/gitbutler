@@ -225,7 +225,7 @@
 	}}
 	bind:menu={contextMenu}
 	baseBranch={$baseBranch}
-	{branch}
+	stack={branch}
 	{commit}
 	isRemote={type === 'remote'}
 	commitUrl={showOpenInBrowser ? commitUrl : undefined}

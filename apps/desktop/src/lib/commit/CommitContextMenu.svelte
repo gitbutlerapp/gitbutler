@@ -14,7 +14,7 @@
 		leftClickTrigger: HTMLElement | undefined;
 		rightClickTrigger: HTMLElement | undefined;
 		baseBranch: BaseBranch;
-		branch: BranchStack | undefined;
+		stack: BranchStack | undefined;
 		commit: DetailedCommit | Commit;
 		commitUrl: string | undefined;
 		isRemote: boolean;
@@ -30,7 +30,7 @@
 		leftClickTrigger,
 		rightClickTrigger,
 		baseBranch,
-		branch,
+		stack: branch,
 		commit,
 		commitUrl,
 		isRemote,

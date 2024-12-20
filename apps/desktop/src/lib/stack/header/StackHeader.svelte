@@ -7,13 +7,13 @@
 	import { isError } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
-		branch: BranchStack;
+		stack: BranchStack;
 		onCollapseButtonClick: () => void;
 	}
 
 	const branchController = getContext(BranchController);
 
-	const { onCollapseButtonClick, branch }: Props = $props();
+	const { onCollapseButtonClick, stack: branch }: Props = $props();
 
 	const nonArchivedSeries = $derived(
 		branch.series.filter((s) => {
