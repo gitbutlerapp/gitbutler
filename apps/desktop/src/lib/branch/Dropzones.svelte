@@ -2,12 +2,12 @@
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import type { Snippet } from 'svelte';
 
 	const branchDragActionsFactory = getContext(BranchDragActionsFactory);
-	const branch = getContextStore(VirtualBranch);
+	const branch = getContextStore(BranchStack);
 
 	interface Props {
 		children: Snippet;

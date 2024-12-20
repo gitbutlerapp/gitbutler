@@ -6,7 +6,7 @@
 	import SelectItem from '$lib/select/SelectItem.svelte';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import {
 		getBaseBrancheResolution,
 		getResolutionApproach,
@@ -177,7 +177,7 @@
 	}
 </script>
 
-{#snippet stackStatus(stack: VirtualBranch, stackStatus: StackStatus)}
+{#snippet stackStatus(stack: BranchStack, stackStatus: StackStatus)}
 	<IntegrationSeriesRow series={integrationRowSeries(stackStatus)}>
 		{#snippet select()}
 			{#if !stackFullyIntegrated(stackStatus) && results.get(stack.id)}

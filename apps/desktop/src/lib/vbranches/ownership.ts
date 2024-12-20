@@ -1,5 +1,5 @@
 import { unstringifyFileKey } from './fileIdSelection';
-import type { VirtualBranch, AnyFile, Hunk, RemoteHunk, RemoteFile } from './types';
+import type { BranchStack, AnyFile, Hunk, RemoteHunk, RemoteFile } from './types';
 import type { Writable } from 'svelte/store';
 
 export function filesToOwnership(files: AnyFile[]) {
@@ -46,7 +46,7 @@ function branchFilesToClaims(files: AnyFile[]): FileClaims {
 }
 
 function selectAddedClaims(
-	branch: VirtualBranch,
+	branch: BranchStack,
 	previousState: SelectedOwnershipState,
 	selection: Map<string, HunkClaims>
 ) {
@@ -81,7 +81,7 @@ function selectAddedClaims(
 
 function ignoreRemovedClaims(
 	previousState: SelectedOwnershipState,
-	branch: VirtualBranch,
+	branch: BranchStack,
 	selection: Map<string, HunkClaims>
 ) {
 	for (const [fileId, hunkClaims] of previousState.selection.entries()) {
@@ -109,7 +109,7 @@ interface SelectedOwnershipState {
 }
 
 function getState(
-	branch: VirtualBranch,
+	branch: BranchStack,
 	previousState?: SelectedOwnershipState
 ): SelectedOwnershipState {
 	const claims = branchFilesToClaims(branch.files);
@@ -134,13 +134,13 @@ export class SelectedOwnership {
 		this.selection = state.selection;
 	}
 
-	static fromBranch(branch: VirtualBranch) {
+	static fromBranch(branch: BranchStack) {
 		const state = getState(branch);
 		const ownership = new SelectedOwnership(state);
 		return ownership;
 	}
 
-	update(branch: VirtualBranch) {
+	update(branch: BranchStack) {
 		const { selection, claims } = getState(branch, {
 			claims: this.claims,
 			selection: this.selection

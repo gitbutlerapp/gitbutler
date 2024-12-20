@@ -4,7 +4,7 @@
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import type { Writable } from 'svelte/store';
 
@@ -15,7 +15,7 @@
 	const { commitBoxOpen }: Props = $props();
 
 	const project = getContext(Project);
-	const branchStore = getContextStore(VirtualBranch);
+	const branchStore = getContextStore(BranchStack);
 
 	const branch = $derived($branchStore);
 

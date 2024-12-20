@@ -8,7 +8,7 @@
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
+	import { BranchStack, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -61,7 +61,7 @@
 
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
-	const branchStore = getContextStore(VirtualBranch);
+	const branchStore = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 

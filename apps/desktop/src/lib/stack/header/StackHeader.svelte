@@ -2,12 +2,12 @@
 	import HeaderControlSection from './HeaderControlSection.svelte';
 	import HeaderMetaSection from './HeaderMetaSection.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { isError } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
-		branch: VirtualBranch;
+		branch: BranchStack;
 		onCollapseButtonClick: () => void;
 	}
 

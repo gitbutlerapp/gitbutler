@@ -34,7 +34,7 @@
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
+	import { PatchSeries, BranchStack } from '$lib/vbranches/types';
 	import { parentBranch } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -62,7 +62,7 @@
 
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
-	const branchStore = getContextStore(VirtualBranch);
+	const branchStore = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
 	const prService = getForgePrService();
 	const aiService = getContext(AIService);

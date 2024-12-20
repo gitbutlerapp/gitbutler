@@ -2,7 +2,7 @@
 	import { getNameNormalizationServiceContext } from '$lib/branches/nameNormalizationService';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 
@@ -18,7 +18,7 @@
 		remoteExists: boolean;
 	} = $props();
 
-	const branch = getContextStore(VirtualBranch);
+	const branch = getContextStore(BranchStack);
 	const upstreamName = $derived($branch.upstreamName);
 	const forge = getForge();
 	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);

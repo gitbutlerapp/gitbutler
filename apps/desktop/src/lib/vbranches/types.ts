@@ -117,8 +117,8 @@ export class DependencyError {
 }
 
 export class VirtualBranches {
-	@Type(() => VirtualBranch)
-	branches!: VirtualBranch[];
+	@Type(() => BranchStack)
+	branches!: BranchStack[];
 	@Type(() => SkippedFile)
 	skippedFiles!: SkippedFile[];
 	@Type(() => DependencyError)
@@ -129,7 +129,7 @@ export function isPatchSeries(item: PatchSeries | Error): item is PatchSeries {
 	return item instanceof PatchSeries;
 }
 
-export class VirtualBranch {
+export class BranchStack {
 	id!: string;
 	name!: string;
 	notes!: string;

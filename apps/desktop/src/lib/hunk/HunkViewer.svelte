@@ -8,7 +8,7 @@
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
 	import { type HunkSection } from '$lib/utils/fileSections';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
-	import { VirtualBranch, type Hunk } from '$lib/vbranches/types';
+	import { BranchStack, type Hunk } from '$lib/vbranches/types';
 	import {
 		getContext,
 		getContextStoreBySymbol,
@@ -43,7 +43,7 @@
 	const selectedOwnership: Writable<SelectedOwnership> | undefined =
 		maybeGetContextStore(SelectedOwnership);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	const branch = maybeGetContextStore(VirtualBranch);
+	const branch = maybeGetContextStore(BranchStack);
 	const project = getContext(Project);
 
 	let alwaysShow = $state(false);

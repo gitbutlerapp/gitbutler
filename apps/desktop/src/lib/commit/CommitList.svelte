@@ -15,7 +15,7 @@
 		BranchController,
 		type SeriesIntegrationStrategy
 	} from '$lib/vbranches/branchController';
-	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
+	import { PatchSeries, BranchStack } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -57,7 +57,7 @@
 		isBottom = false
 	}: Props = $props();
 
-	const branch = getContextStore(VirtualBranch);
+	const branch = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
 	const lineManagerFactory = getContext(LineManagerFactory);
 

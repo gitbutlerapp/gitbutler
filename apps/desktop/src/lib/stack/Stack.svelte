@@ -21,7 +21,7 @@
 	// import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { DetailedCommit, VirtualBranch } from '$lib/vbranches/types';
+	import { DetailedCommit, BranchStack } from '$lib/vbranches/types';
 	// import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -40,7 +40,7 @@
 	// const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);
 	const fileIdSelection = getContext(FileIdSelection);
-	const branchStore = getContextStore(VirtualBranch);
+	const branchStore = getContextStore(BranchStack);
 	// const baseBranchService = getContext(BaseBranchService);
 	// const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);

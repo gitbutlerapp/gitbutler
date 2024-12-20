@@ -24,7 +24,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
-	import { PatchSeries, VirtualBranch, type CommitStatus } from '$lib/vbranches/types';
+	import { PatchSeries, BranchStack, type CommitStatus } from '$lib/vbranches/types';
 	import {
 		allPreviousSeriesHavePrNumber,
 		childBranch,
@@ -52,7 +52,7 @@
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
 	const promptService = getContext(PromptService);
-	const stackStore = getContextStore(VirtualBranch);
+	const stackStore = getContextStore(BranchStack);
 	const stack = $derived($stackStore);
 
 	const parent = $derived(
