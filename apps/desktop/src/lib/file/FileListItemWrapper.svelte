@@ -9,7 +9,7 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { getLockText } from '$lib/vbranches/tooltip';
-	import { VirtualBranch, type AnyFile, LocalFile } from '$lib/vbranches/types';
+	import { BranchStack, type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { Writable } from 'svelte/store';
@@ -43,7 +43,6 @@
 			? getLockText(lockedIds, ($localCommits || []).concat($remoteCommits || []))
 			: ''
 	);
-
 	const selectedFiles = fileIdSelection.files;
 	const draggable = !readonly && !isUnapplied;
 

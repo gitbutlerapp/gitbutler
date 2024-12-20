@@ -6,7 +6,7 @@
 	import { updatePrDescriptionTables } from '$lib/forge/shared/prFooter';
 	import { User } from '$lib/stores/user';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -27,7 +27,7 @@
 
 	let { contextMenuEl = $bindable(), trigger, onCollapse, ontoggle }: Props = $props();
 
-	const branchStore = getContextStore(VirtualBranch);
+	const branchStore = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
 	const prService = getForgePrService();
 	const user = getContextStore(User);

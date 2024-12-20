@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
@@ -13,7 +13,7 @@
 
 	const { uncommittedChanges = 0, isLaneCollapsed }: Props = $props();
 
-	const branchStore = getContextStore(VirtualBranch);
+	const branchStore = getContextStore(BranchStack);
 	const branch = $derived($branchStore);
 	const nonArchivedSeries = $derived(branch.validSeries.filter((s) => !s.archived));
 
