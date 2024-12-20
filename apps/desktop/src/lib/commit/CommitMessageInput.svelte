@@ -57,8 +57,11 @@
 
 	let titleTextArea: HTMLTextAreaElement | undefined = $state();
 	let descriptionTextArea: HTMLTextAreaElement | undefined = $state();
+	let isTitleFocused = $state(true);
+	let isDescriptionFocused = $state(false);
 
 	const { title, description } = $derived(splitMessage(commitMessage));
+
 	$effect(() => {
 		valid = !!title;
 	});
@@ -202,9 +205,15 @@
 	export function focus() {
 		titleTextArea?.focus();
 	}
-
-	const maxTitleLength = 50;
 </script>
+
+{#snippet charCounter(tooltip: string, count: number)}
+	<Tooltip text={tooltip}>
+		<span class="text-11 text-semibold text-body commit-box__textarea-char-counter-label">
+			{count}
+		</span>
+	</Tooltip>
+{/snippet}
 
 {#if isExpanded}
 	<div class="commit-box__textarea-wrapper text-input">
@@ -222,6 +231,13 @@
 			maxRows={10}
 			bind:textBoxEl={titleTextArea}
 			autofocus
+			onfocus={() => {
+				isTitleFocused = true;
+				isDescriptionFocused = false;
+			}}
+			onblur={() => {
+				isTitleFocused = false;
+			}}
 			oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 				const target = e.currentTarget;
 				commitMessage = concatMessage(target.value, description);
@@ -241,6 +257,13 @@
 				minRows={1}
 				maxRows={30}
 				bind:textBoxEl={descriptionTextArea}
+				onfocus={() => {
+					isDescriptionFocused = true;
+					isTitleFocused = false;
+				}}
+				onblur={() => {
+					isDescriptionFocused = false;
+				}}
 				oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 					const target = e.currentTarget;
 					commitMessage = concatMessage(title, target.value);
@@ -249,16 +272,12 @@
 			/>
 		{/if}
 
-		{#if title.length > 1}
-			<Tooltip
-				text={title.length > maxTitleLength
-					? `Summary is too long,\n${maxTitleLength} characters or less is best.\nUse description for more details`
-					: `Summary chars`}
-			>
-				<span class="text-11 text-semibold text-body commit-box__textarea-char-counter-label">
-					{title.length}
-				</span>
-			</Tooltip>
+		{#if title.length > 0 && isTitleFocused}
+			{@render charCounter('Summary chars', title.length)}
+		{/if}
+
+		{#if description.length > 0 && isDescriptionFocused}
+			{@render charCounter('Description chars', description.length)}
 		{/if}
 
 		<Tooltip
@@ -340,34 +359,6 @@
 		color: var(--clr-text-3);
 		padding: 4px;
 	}
-
-	/* .commit-box__textarea-char-counter {
-		display: flex;
-		align-items: center;
-		justify-content: center;
-
-		position: absolute;
-		bottom: 12px;
-		left: 12px;
-
-		padding: 4px 6px;
-		min-width: 20px;
-		color: var(--clr-text-2);
-		border-radius: var(--radius-m);
-
-
-		background: var(--clr-theme-ntrl-soft);
-	}
-
-	.textarea-char-counter_exsceeded {
-
-		padding: 4px 7px 4px 4px;
-
-		& .commit-box__textarea-char-counter-label {
-			margin-left: 4px;
-
-		}
-	} */
 
 	.commit-box__texarea-actions {
 		position: absolute;
