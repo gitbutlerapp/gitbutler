@@ -79,10 +79,10 @@
 		aiConfigurationValid = await aiService.validateConfiguration();
 	}
 
-	const branch = $derived($branchStore);
+	const stack = $derived($branchStore);
 
 	export function showSeriesRenameModal(seriesName: string) {
-		renameSeriesModal.show(branch.validSeries.find((s) => s.name === seriesName));
+		renameSeriesModal.show(stack.validSeries.find((s) => s.name === seriesName));
 	}
 
 	let isOpenedByMouse = $state(false);
@@ -152,7 +152,7 @@
 			<ContextMenuItem
 				label="Rename"
 				onclick={async () => {
-					renameSeriesModal.show(branch);
+					renameSeriesModal.show(stack);
 					contextMenuEl?.close();
 				}}
 			/>
@@ -161,7 +161,7 @@
 			<ContextMenuItem
 				label="Delete"
 				onclick={() => {
-					deleteSeriesModal.show(branch);
+					deleteSeriesModal.show(stack);
 					contextMenuEl?.close();
 				}}
 			/>
@@ -212,7 +212,7 @@
 	bind:this={renameSeriesModal}
 	onSubmit={(close) => {
 		if (newHeadName && newHeadName !== headName) {
-			branchController.updateSeriesName(branch.id, headName, newHeadName);
+			branchController.updateSeriesName(stack.id, headName, newHeadName);
 		}
 		close();
 	}}
@@ -239,7 +239,7 @@
 	onSubmit={async (close) => {
 		try {
 			isDeleting = true;
-			await branchController.removePatchSeries(branch.id, headName);
+			await branchController.removePatchSeries(stack.id, headName);
 			close();
 		} finally {
 			isDeleting = false;

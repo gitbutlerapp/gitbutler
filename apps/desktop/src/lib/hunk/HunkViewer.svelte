@@ -43,7 +43,7 @@
 	const selectedOwnership: Writable<SelectedOwnership> | undefined =
 		maybeGetContextStore(SelectedOwnership);
 	const userSettings = getContextStoreBySymbol<Settings>(SETTINGS);
-	const branch = maybeGetContextStore(BranchStack);
+	const stack = maybeGetContextStore(BranchStack);
 	const project = getContext(Project);
 
 	let alwaysShow = $state(false);
@@ -78,7 +78,7 @@
 		class:opacity-60={section.hunk.locked && !isFileLocked}
 		oncontextmenu={(e) => e.preventDefault()}
 		use:draggableElement={{
-			data: new HunkDropData($branch?.id || '', section.hunk, section.hunk.lockedTo, commitId),
+			data: new HunkDropData($stack?.id || '', section.hunk, section.hunk.lockedTo, commitId),
 			disabled: draggingDisabled
 		}}
 	>

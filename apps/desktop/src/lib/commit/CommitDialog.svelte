@@ -28,10 +28,10 @@
 	const syncedSnapshotService = getContext(SyncedSnapshotService);
 	const canTakeSnapshot = syncedSnapshotService.canTakeSnapshot;
 	const selectedOwnership = getContextStore(SelectedOwnership);
-	const branch = getContextStore(BranchStack);
+	const stack = getContextStore(BranchStack);
 
 	const runCommitHooks = projectRunCommitHooks(projectId);
-	const commitMessage = persistedCommitMessage(projectId, $branch.id);
+	const commitMessage = persistedCommitMessage(projectId, $stack.id);
 
 	let commitMessageInput = $state<CommitMessageInput>();
 	let isCommitting = $state(false);
@@ -43,8 +43,8 @@
 		isCommitting = true;
 		try {
 			await branchController.commitBranch(
-				$branch.id,
-				$branch.name,
+				$stack.id,
+				$stack.name,
 				message.trim(),
 				$selectedOwnership.toString(),
 				$runCommitHooks
@@ -52,7 +52,7 @@
 			$commitMessage = '';
 
 			if (commitAndPublish) {
-				syncedSnapshotService.takeSyncedSnapshot($branch.id);
+				syncedSnapshotService.takeSyncedSnapshot($stack.id);
 			}
 		} finally {
 			isCommitting = false;

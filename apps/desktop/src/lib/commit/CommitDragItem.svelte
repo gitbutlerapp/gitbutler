@@ -15,10 +15,10 @@
 
 	const { commit, children }: Props = $props();
 
-	const branch = maybeGetContextStore(BranchStack);
+	const stack = maybeGetContextStore(BranchStack);
 
 	const actions = $derived<CommitDragActions | undefined>(
-		$branch && commitDragActionsFactory.build($branch, commit)
+		$stack && commitDragActionsFactory.build($stack, commit)
 	);
 </script>
 
