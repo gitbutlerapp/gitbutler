@@ -163,7 +163,7 @@ fn forcepush_allowed() {
             .unwrap()
     };
 
-    gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(project, branch_id, false).unwrap();
 
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
@@ -240,7 +240,7 @@ fn forcepush_forbidden() {
             .unwrap()
     };
 
-    gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+    gitbutler_branch_actions::stack::push_stack(project, branch_id, false).unwrap();
 
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();

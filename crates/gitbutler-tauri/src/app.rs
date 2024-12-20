@@ -5,8 +5,6 @@ use gitbutler_branch_actions::conflicts;
 use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
-use gitbutler_reference::RemoteRefname;
-use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::StackId;
 
@@ -35,10 +33,13 @@ impl App {
         Ok(())
     }
 
-    pub fn git_remote_branches(&self, project_id: ProjectId) -> Result<Vec<RemoteRefname>> {
+    pub fn git_remote_branches(&self, project_id: ProjectId) -> Result<Vec<String>> {
         let project = self.projects().get(project_id)?;
         let ctx = CommandContext::open(&project)?;
-        ctx.repo().remote_branches()
+        let branches = ctx.repo().branches(Some(git2::BranchType::Remote))?;
+        Ok(branches
+            .filter_map(|branch| Some(branch.ok()?.0.name().ok()??.to_string()))
+            .collect::<Vec<_>>())
     }
 
     pub fn git_test_push(
