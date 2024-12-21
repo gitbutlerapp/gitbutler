@@ -307,7 +307,6 @@ impl RepositoryExt for git2::Repository {
                     .ok_or_else(|| anyhow::anyhow!("Failed to convert path to string"))?
                     .to_string();
 
-                let output;
                 // support literal ssh key
                 if let (true, signing_key) = is_literal_ssh_key(&signing_key) {
                     // write the key to a temp file
@@ -324,43 +323,24 @@ impl RepositoryExt for git2::Repository {
                     }
 
                     let key_file_path = key_storage.into_temp_path();
-
                     let args = format!(
                         "{} -U {}",
                         key_file_path.to_string_lossy(),
                         buffer_file_to_sign_path.to_string_lossy()
                     );
                     cmd_string += &args;
-
-                    let mut signing_cmd: std::process::Command =
-                        gix::command::prepare(cmd_string).with_shell().into();
-
-                    #[cfg(windows)]
-                    signing_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
-                    signing_cmd.stderr(Stdio::piped());
-                    signing_cmd.stdout(Stdio::piped());
-                    signing_cmd.stdin(Stdio::null());
-
-                    let child = signing_cmd.spawn()?;
-                    output = child.wait_with_output()?;
                 } else {
                     let args = format!("{} {}", signing_key, buffer_file_to_sign_path_str);
                     cmd_string += &args;
-
-                    let mut signing_cmd: std::process::Command =
-                        gix::command::prepare(cmd_string).with_shell().into();
-
-                    #[cfg(windows)]
-                    signing_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
-
-                    signing_cmd.stderr(Stdio::piped());
-                    signing_cmd.stdout(Stdio::piped());
-                    signing_cmd.stdin(Stdio::null());
-
-                    let child = signing_cmd.spawn()?;
-                    output = child.wait_with_output()?;
-                }
+                };
+                let mut signing_cmd: std::process::Command = gix::command::prepare(cmd_string)
+                    .with_shell_disallow_manual_argument_splitting()
+                    .into();
+                let output = signing_cmd
+                    .stderr(Stdio::piped())
+                    .stdout(Stdio::piped())
+                    .stdin(Stdio::null())
+                    .output()?;
 
                 if output.status.success() {
                     // read signed_storage path plus .sig
