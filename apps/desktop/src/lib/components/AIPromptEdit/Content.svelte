@@ -65,6 +65,7 @@
 
 		prompt.prompt = promptMessages;
 		prompt.name = promptName;
+		prompt = prompt;
 		editing = false;
 	}
 
