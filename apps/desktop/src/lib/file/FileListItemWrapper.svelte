@@ -1,7 +1,7 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
 	import { draggableChips, type DraggableConfig } from '$lib/dragging/draggable';
-	import { DraggableFile } from '$lib/dragging/draggables';
+	import { FileDropData } from '$lib/dragging/draggables';
 	import { itemsSatisfy } from '$lib/utils/array';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
@@ -9,7 +9,7 @@
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { getLockText } from '$lib/vbranches/tooltip';
-	import { VirtualBranch, type AnyFile, LocalFile } from '$lib/vbranches/types';
+	import { BranchStack, type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
 	import type { Writable } from 'svelte/store';
@@ -27,8 +27,8 @@
 	const { file, isUnapplied, selected, showCheckbox, readonly, onclick, onkeydown }: Props =
 		$props();
 
-	const branch = maybeGetContextStore(VirtualBranch);
-	const branchId = $derived($branch?.id);
+	const stack = maybeGetContextStore(BranchStack);
+	const branchId = $derived($stack?.id);
 	const selectedOwnership: Writable<SelectedOwnership> | undefined =
 		maybeGetContextStore(SelectedOwnership);
 	const fileIdSelection = getContext(FileIdSelection);
@@ -43,7 +43,6 @@
 			? getLockText(lockedIds, ($localCommits || []).concat($remoteCommits || []))
 			: ''
 	);
-
 	const selectedFiles = fileIdSelection.files;
 	const draggable = !readonly && !isUnapplied;
 
@@ -73,11 +72,11 @@
 	// Manage the lifecycle of the draggable chips.
 	$effect(() => {
 		if (draggableEl) {
-			const draggableFile = new DraggableFile(branchId || '', file, $commit, selectedFiles);
-			const config = {
+			const dropData = new FileDropData(branchId || '', file, $commit, selectedFiles);
+			const config: DraggableConfig = {
 				label: `${file.filename}`,
 				filePath: file.path,
-				data: draggableFile,
+				data: dropData,
 				disabled: !draggable,
 				viewportId: 'board-viewport',
 				selector: '.selected-draggable'
@@ -101,7 +100,7 @@
 	bind:this={contextMenu}
 	trigger={draggableEl}
 	{isUnapplied}
-	branchId={$branch?.id}
+	branchId={$stack?.id}
 	isBinary={file.binary}
 />
 

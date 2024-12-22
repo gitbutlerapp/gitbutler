@@ -6,7 +6,7 @@
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch, type Commit, type DetailedCommit } from '$lib/vbranches/types';
+	import { BranchStack, type Commit, type DetailedCommit } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 
 	interface Props {
@@ -14,7 +14,7 @@
 		leftClickTrigger: HTMLElement | undefined;
 		rightClickTrigger: HTMLElement | undefined;
 		baseBranch: BaseBranch;
-		branch: VirtualBranch | undefined;
+		stack: BranchStack | undefined;
 		commit: DetailedCommit | Commit;
 		commitUrl: string | undefined;
 		isRemote: boolean;
@@ -30,7 +30,7 @@
 		leftClickTrigger,
 		rightClickTrigger,
 		baseBranch,
-		branch,
+		stack: branch,
 		commit,
 		commitUrl,
 		isRemote,

@@ -1,18 +1,11 @@
 import { get, type Readable } from 'svelte/store';
-import type {
-	AnyCommit,
-	AnyFile,
-	DetailedCommit,
-	Hunk,
-	Commit,
-	HunkLock
-} from '../vbranches/types';
+import type { AnyCommit, AnyFile, DetailedCommit, Hunk, HunkLock } from '../vbranches/types';
 
 export const NON_DRAGGABLE = {
 	disabled: true
 };
 
-export class DraggableHunk {
+export class HunkDropData {
 	constructor(
 		public readonly branchId: string,
 		public readonly hunk: Hunk,
@@ -25,7 +18,7 @@ export class DraggableHunk {
 	}
 }
 
-export class DraggableFile {
+export class FileDropData {
 	constructor(
 		readonly branchId: string,
 		readonly file: AnyFile,
@@ -54,7 +47,7 @@ export class DraggableFile {
 	}
 }
 
-export class DraggableCommit {
+export class CommitDropData {
 	constructor(
 		public readonly branchId: string,
 		public readonly commit: DetailedCommit,
@@ -63,11 +56,4 @@ export class DraggableCommit {
 	) {}
 }
 
-export class DraggableRemoteCommit {
-	constructor(
-		public readonly branchId: string,
-		public readonly remoteCommit: Commit
-	) {}
-}
-
-export type Draggable = DraggableFile | DraggableHunk | DraggableCommit;
+export type DropData = FileDropData | HunkDropData | CommitDropData;

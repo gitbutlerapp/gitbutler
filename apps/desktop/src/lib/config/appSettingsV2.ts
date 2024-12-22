@@ -12,8 +12,6 @@ export class SettingsService {
 	});
 
 	private async handlePayload(settings: AppSettings) {
-		// TODO: Remove this log
-		console.log(settings);
 		this.settings.set(settings);
 	}
 
@@ -39,27 +37,27 @@ export class SettingsService {
 }
 
 export class AppSettings {
-	/** Whether the user has passed the onboarding flow. */
+	// Whether the user has passed the onboarding flow.
 	onboardingComplete!: boolean;
-	/** Telemetry settings */
+	// Telemetry settings
 	telemetry!: TelemetrySettings;
 }
 
 export class TelemetrySettings {
-	/** Whether the anonymous metrics are enabled. */
+	// Whether the anonymous metrics are enabled.
 	appMetricsEnabled!: boolean;
-	/** Whether anonymous error reporting is enabled. */
+	// Whether anonymous error reporting is enabled.
 	appErrorReportingEnabled!: boolean;
-	/** Whether non-anonymous metrics are enabled. */
+	// Whether non-anonymous metrics are enabled.
 	appNonAnonMetricsEnabled!: boolean;
 }
 
-/** Request updating the TelemetrySettings. Only the fields that are set are updated */
+// Request updating the TelemetrySettings. Only the fields that are set are updated
 export class TelemetryUpdate {
-	/** Whether the anonymous metrics are enabled. */
+	// Whether the anonymous metrics are enabled.
 	appMetricsEnabled?: boolean | undefined;
-	/** Whether anonymous error reporting is enabled. */
+	// Whether anonymous error reporting is enabled.
 	appErrorReportingEnabled?: boolean | undefined;
-	/** Whether non-anonymous metrics are enabled. */
+	// Whether non-anonymous metrics are enabled.
 	appNonAnonMetricsEnabled?: boolean | undefined;
 }

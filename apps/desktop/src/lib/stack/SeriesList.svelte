@@ -5,7 +5,7 @@
 	import SeriesDividerLine from './SeriesDividerLine.svelte';
 	import SeriesHeader from '$lib/branch/SeriesHeader.svelte';
 	import CommitList from '$lib/commit/CommitList.svelte';
-	import { DraggableCommit } from '$lib/dragging/draggables';
+	import { CommitDropData } from '$lib/dragging/draggables';
 	import {
 		StackingReorderDropzoneManagerFactory,
 		buildNewStackOrder
@@ -13,16 +13,16 @@
 	import CardOverlay from '$lib/dropzone/CardOverlay.svelte';
 	import Dropzone from '$lib/dropzone/Dropzone.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { isPatchSeries, PatchSeries, type VirtualBranch } from '$lib/vbranches/types';
+	import { isPatchSeries, PatchSeries, type BranchStack } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { isError } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
-		branch: VirtualBranch;
+		stack: BranchStack;
 		lastPush: Date | undefined;
 	}
 
-	const { branch, lastPush }: Props = $props();
+	const { stack: branch, lastPush }: Props = $props();
 
 	const branchController = getContext(BranchController);
 
@@ -43,14 +43,14 @@
 	);
 
 	function accepts(data: unknown) {
-		if (!(data instanceof DraggableCommit)) return false;
+		if (!(data instanceof CommitDropData)) return false;
 		if (data.branchId !== branch.id) return false;
 
 		return true;
 	}
 
-	function onDrop(data: DraggableCommit, allSeries: PatchSeries[], currentSeries: PatchSeries) {
-		if (!(data instanceof DraggableCommit)) return;
+	function onDrop(data: CommitDropData, allSeries: PatchSeries[], currentSeries: PatchSeries) {
+		if (!(data instanceof CommitDropData)) return;
 
 		const stackOrder = buildNewStackOrder(allSeries, currentSeries, data.commit.id, 'top');
 

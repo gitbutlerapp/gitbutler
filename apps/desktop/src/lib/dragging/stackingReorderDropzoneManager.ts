@@ -1,6 +1,6 @@
-import { DraggableCommit } from '$lib/dragging/draggables';
+import { CommitDropData } from '$lib/dragging/draggables';
 import type { BranchController } from '$lib/vbranches/branchController';
-import type { VirtualBranch, PatchSeries, StackOrder } from '$lib/vbranches/types';
+import type { BranchStack, PatchSeries, StackOrder } from '$lib/vbranches/types';
 
 export class StackingReorderDropzone {
 	constructor(
@@ -12,7 +12,7 @@ export class StackingReorderDropzone {
 	) {}
 
 	accepts(data: unknown) {
-		if (!(data instanceof DraggableCommit)) return false;
+		if (!(data instanceof CommitDropData)) return false;
 		if (data.branchId !== this.branchId) return false;
 
 		// Do not show dropzones directly above or below the commit in question
@@ -27,7 +27,7 @@ export class StackingReorderDropzone {
 	}
 
 	onDrop(data: any) {
-		if (!(data instanceof DraggableCommit)) return;
+		if (!(data instanceof CommitDropData)) return;
 		if (data.branchId !== this.branchId) return;
 
 		const stackOrder = buildNewStackOrder(
@@ -48,10 +48,10 @@ export class StackingReorderDropzoneManager {
 
 	constructor(
 		private branchController: BranchController,
-		private branch: VirtualBranch
+		private stack: BranchStack
 	) {
 		const seriesMap = new Map();
-		this.branch.validSeries.forEach((series) => {
+		this.stack.validSeries.forEach((series) => {
 			seriesMap.set(series.name, series);
 		});
 		this.series = seriesMap;
@@ -64,10 +64,10 @@ export class StackingReorderDropzoneManager {
 		}
 
 		return new StackingReorderDropzone(
-			this.branch.id,
+			this.stack.id,
 			this.branchController,
 			currentSeries,
-			this.branch.validSeries,
+			this.stack.validSeries,
 			'top'
 		);
 	}
@@ -79,10 +79,10 @@ export class StackingReorderDropzoneManager {
 		}
 
 		return new StackingReorderDropzone(
-			this.branch.id,
+			this.stack.id,
 			this.branchController,
 			currentSeries,
-			this.branch.validSeries,
+			this.stack.validSeries,
 			commitId
 		);
 	}
@@ -91,8 +91,8 @@ export class StackingReorderDropzoneManager {
 export class StackingReorderDropzoneManagerFactory {
 	constructor(private branchController: BranchController) {}
 
-	build(branch: VirtualBranch) {
-		return new StackingReorderDropzoneManager(this.branchController, branch);
+	build(stack: BranchStack) {
+		return new StackingReorderDropzoneManager(this.branchController, stack);
 	}
 }
 

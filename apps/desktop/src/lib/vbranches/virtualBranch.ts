@@ -1,4 +1,4 @@
-import { DependencyError, PatchSeries, VirtualBranch, VirtualBranches } from './types';
+import { DependencyError, PatchSeries, BranchStack, VirtualBranches } from './types';
 import { invoke, listen } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { plainToInstance } from 'class-transformer';
@@ -46,7 +46,7 @@ export class VirtualBranchService {
 	readonly error = writable();
 	readonly branchesError = writable<any>();
 
-	readonly branches = writable<VirtualBranch[] | undefined>(undefined, () => {
+	readonly branches = writable<BranchStack[] | undefined>(undefined, () => {
 		this.refresh();
 		const unsubscribe = this.subscribe(async (branches) => await this.handlePayload(branches));
 		return () => {
@@ -76,7 +76,7 @@ export class VirtualBranchService {
 		}
 	}
 
-	private async handlePayload(branches: VirtualBranch[]) {
+	private async handlePayload(branches: BranchStack[]) {
 		this.linkRelatedCommits(branches);
 		this.branches.set(branches);
 		this.branchesError.set(undefined);
@@ -88,7 +88,7 @@ export class VirtualBranchService {
 	 * neeed to know if a commit corresponds to something upstream, such
 	 * that we can tell e.g. if a commit has been rebased.
 	 */
-	private async linkRelatedCommits(branches: VirtualBranch[]) {
+	private async linkRelatedCommits(branches: BranchStack[]) {
 		branches.forEach(async (branch) => {
 			const upstreamName = branch.upstream?.name;
 			if (upstreamName) {
@@ -107,7 +107,7 @@ export class VirtualBranchService {
 		});
 	}
 
-	private async listVirtualBranches(): Promise<VirtualBranch[]> {
+	private async listVirtualBranches(): Promise<BranchStack[]> {
 		const response = await invoke<any>('list_virtual_branches', { projectId: this.projectId });
 		const virtualBranches = plainToInstance(VirtualBranches, response);
 
@@ -128,13 +128,13 @@ Path: ${e.path}`);
 		}
 	}
 
-	private subscribe(callback: (branches: VirtualBranch[]) => void) {
+	private subscribe(callback: (branches: BranchStack[]) => void) {
 		return listen<any>(`project://${this.projectId}/virtual-branches`, (event) =>
 			callback(plainToInstance(VirtualBranches, event.payload).branches)
 		);
 	}
 
-	private updateMetrics(branches: VirtualBranch[]) {
+	private updateMetrics(branches: BranchStack[]) {
 		try {
 			const files = branches.flatMap((branch) => branch.files);
 			const hunks = files.flatMap((file) => file.hunks);

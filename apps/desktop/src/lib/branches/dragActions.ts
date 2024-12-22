@@ -1,31 +1,31 @@
-import { DraggableCommit, DraggableHunk, DraggableFile } from '$lib/dragging/draggables';
+import { CommitDropData, HunkDropData, FileDropData } from '$lib/dragging/draggables';
 import { filesToOwnership } from '$lib/vbranches/ownership';
-import { LocalFile, type VirtualBranch } from '$lib/vbranches/types';
+import { LocalFile, type BranchStack } from '$lib/vbranches/types';
 import type { BranchController } from '$lib/vbranches/branchController';
 
 class BranchDragActions {
 	constructor(
 		private branchController: BranchController,
-		private branch: VirtualBranch
+		private stack: BranchStack
 	) {}
 
 	acceptMoveCommit(data: any) {
 		return (
-			data instanceof DraggableCommit && data.branchId !== this.branch.id && !data.commit.conflicted
+			data instanceof CommitDropData && data.branchId !== this.stack.id && !data.commit.conflicted
 		);
 	}
 
-	onMoveCommit(data: DraggableCommit) {
-		this.branchController.moveCommit(this.branch.id, data.commit.id, data.commit.branchId);
+	onMoveCommit(data: CommitDropData) {
+		this.branchController.moveCommit(this.stack.id, data.commit.id, data.commit.branchId);
 	}
 
 	acceptBranchDrop(data: any) {
-		if (data instanceof DraggableHunk && !data.commitId && data.branchId !== this.branch.id) {
+		if (data instanceof HunkDropData && !data.commitId && data.branchId !== this.stack.id) {
 			return !data.hunk.locked;
 		} else if (
-			data instanceof DraggableFile &&
+			data instanceof FileDropData &&
 			data.file instanceof LocalFile &&
-			this.branch.id !== data.branchId
+			this.stack.id !== data.branchId
 		) {
 			return !data.files.some((f) => f.locked);
 		} else {
@@ -33,18 +33,18 @@ class BranchDragActions {
 		}
 	}
 
-	onBranchDrop(data: DraggableHunk | DraggableFile) {
-		if (data instanceof DraggableHunk) {
+	onBranchDrop(data: HunkDropData | FileDropData) {
+		if (data instanceof HunkDropData) {
 			const newOwnership = `${data.hunk.filePath}:${data.hunk.id}`;
 			this.branchController.updateBranchOwnership(
-				this.branch.id,
-				(newOwnership + '\n' + this.branch.ownership).trim()
+				this.stack.id,
+				(newOwnership + '\n' + this.stack.ownership).trim()
 			);
-		} else if (data instanceof DraggableFile) {
+		} else if (data instanceof FileDropData) {
 			const newOwnership = filesToOwnership(data.files);
 			this.branchController.updateBranchOwnership(
-				this.branch.id,
-				(newOwnership + '\n' + this.branch.ownership).trim()
+				this.stack.id,
+				(newOwnership + '\n' + this.stack.ownership).trim()
 			);
 		}
 	}
@@ -53,7 +53,7 @@ class BranchDragActions {
 export class BranchDragActionsFactory {
 	constructor(private branchController: BranchController) {}
 
-	build(branch: VirtualBranch) {
-		return new BranchDragActions(this.branchController, branch);
+	build(stack: BranchStack) {
+		return new BranchDragActions(this.branchController, stack);
 	}
 }

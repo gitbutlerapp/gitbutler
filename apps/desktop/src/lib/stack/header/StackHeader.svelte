@@ -2,18 +2,18 @@
 	import HeaderControlSection from './HeaderControlSection.svelte';
 	import HeaderMetaSection from './HeaderMetaSection.svelte';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { isError } from '@gitbutler/ui/utils/typeguards';
 
 	interface Props {
-		branch: VirtualBranch;
+		stack: BranchStack;
 		onCollapseButtonClick: () => void;
 	}
 
 	const branchController = getContext(BranchController);
 
-	const { onCollapseButtonClick, branch }: Props = $props();
+	const { onCollapseButtonClick, stack: branch }: Props = $props();
 
 	const nonArchivedSeries = $derived(
 		branch.series.filter((s) => {

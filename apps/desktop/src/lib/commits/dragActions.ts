@@ -1,10 +1,10 @@
-import { DraggableCommit, DraggableFile, DraggableHunk } from '$lib/dragging/draggables';
+import { CommitDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
 import { filesToOwnership, filesToSimpleOwnership } from '$lib/vbranches/ownership';
 import {
 	LocalFile,
 	Commit,
 	RemoteFile,
-	type VirtualBranch,
+	type BranchStack,
 	type DetailedCommit
 } from '$lib/vbranches/types';
 import type { Project } from '$lib/backend/projects';
@@ -14,7 +14,7 @@ export class CommitDragActions {
 	constructor(
 		private branchController: BranchController,
 		private project: Project,
-		private branch: VirtualBranch,
+		private stack: BranchStack,
 		private commit: DetailedCommit | Commit
 	) {}
 
@@ -32,15 +32,15 @@ export class CommitDragActions {
 		}
 
 		if (
-			dropData instanceof DraggableHunk &&
-			dropData.branchId === this.branch.id &&
+			dropData instanceof HunkDropData &&
+			dropData.branchId === this.stack.id &&
 			dropData.commitId !== this.commit.id &&
 			!this.commit.conflicted
 		) {
 			return true;
 		} else if (
-			dropData instanceof DraggableFile &&
-			dropData.branchId === this.branch.id &&
+			dropData instanceof FileDropData &&
+			dropData.branchId === this.stack.id &&
 			dropData.commit?.id !== this.commit.id &&
 			!this.commit.conflicted
 		) {
@@ -51,20 +51,20 @@ export class CommitDragActions {
 	}
 
 	onAmend(dropData: unknown): void {
-		if (dropData instanceof DraggableHunk) {
+		if (dropData instanceof HunkDropData) {
 			const newOwnership = `${dropData.hunk.filePath}:${dropData.hunk.id}`;
-			this.branchController.amendBranch(this.branch.id, this.commit.id, newOwnership);
-		} else if (dropData instanceof DraggableFile) {
+			this.branchController.amendBranch(this.stack.id, this.commit.id, newOwnership);
+		} else if (dropData instanceof FileDropData) {
 			if (dropData.file instanceof LocalFile) {
 				// this is an uncommitted file change being amended to a previous commit
 				const newOwnership = filesToOwnership(dropData.files);
-				this.branchController.amendBranch(this.branch.id, this.commit.id, newOwnership);
+				this.branchController.amendBranch(this.stack.id, this.commit.id, newOwnership);
 			} else if (dropData.file instanceof RemoteFile) {
 				// this is a file from a commit, rather than an uncommitted file
 				const newOwnership = filesToSimpleOwnership(dropData.files);
 				if (dropData.commit) {
 					this.branchController.moveCommitFile(
-						this.branch.id,
+						this.stack.id,
 						dropData.commit.id,
 						this.commit.id,
 						newOwnership
@@ -78,8 +78,8 @@ export class CommitDragActions {
 		if (this.commit instanceof Commit) {
 			return false;
 		}
-		if (!(dropData instanceof DraggableCommit)) return false;
-		if (dropData.branchId !== this.branch.id) return false;
+		if (!(dropData instanceof CommitDropData)) return false;
+		if (dropData.branchId !== this.stack.id) return false;
 
 		if (this.commit.conflicted || dropData.commit.conflicted) return false;
 
@@ -100,7 +100,7 @@ export class CommitDragActions {
 		if (this.commit instanceof Commit) {
 			return;
 		}
-		if (dropData instanceof DraggableCommit) {
+		if (dropData instanceof CommitDropData) {
 			if (dropData.commit.isParentOf(this.commit)) {
 				this.branchController.squashBranchCommit(dropData.branchId, this.commit.id);
 			} else if (this.commit.isParentOf(dropData.commit)) {
@@ -116,7 +116,7 @@ export class CommitDragActionsFactory {
 		private project: Project
 	) {}
 
-	build(branch: VirtualBranch, commit: DetailedCommit | Commit) {
-		return new CommitDragActions(this.branchController, this.project, branch, commit);
+	build(stack: BranchStack, commit: DetailedCommit | Commit) {
+		return new CommitDragActions(this.branchController, this.project, stack, commit);
 	}
 }

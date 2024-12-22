@@ -34,7 +34,7 @@
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { PatchSeries, VirtualBranch } from '$lib/vbranches/types';
+	import { PatchSeries, BranchStack } from '$lib/vbranches/types';
 	import { parentBranch } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
@@ -62,7 +62,7 @@
 
 	const project = getContext(Project);
 	const baseBranch = getContextStore(BaseBranch);
-	const branchStore = getContextStore(VirtualBranch);
+	const branchStore = getContextStore(BranchStack);
 	const branchController = getContext(BranchController);
 	const prService = getForgePrService();
 	const aiService = getContext(AIService);
@@ -71,14 +71,14 @@
 	const forgeListingService = getForgeListingService();
 	const templateService = getContext(TemplateService);
 
-	const branch = $derived($branchStore);
+	const stack = $derived($branchStore);
 	const commits = $derived(
 		props.type === 'preview'
 			? props.currentSeries.patches
 			: [...props.currentSeries.patches, ...props.currentSeries.upstreamPatches]
 	);
 	const upstreamName = $derived(
-		props.type === 'preview' ? props.currentSeries.name : branch.upstreamName
+		props.type === 'preview' ? props.currentSeries.name : stack.upstreamName
 	);
 	const forgeBranch = $derived(upstreamName ? $forge?.branch(upstreamName) : undefined);
 	const baseBranchName = $derived($baseBranch.shortName);
@@ -156,15 +156,15 @@
 		}
 
 		// All ids that existed prior to creating a new one (including archived).
-		const prNumbers = branch.validSeries.map((series) => series.prNumber);
+		const prNumbers = stack.validSeries.map((series) => series.prNumber);
 
 		isLoading = true;
 		try {
 			let upstreamBranchName = upstreamName;
 
 			if (pushBeforeCreate) {
-				const firstPush = !branch.upstream;
-				const pushResult = await branchController.pushBranch(branch.id, branch.requiresForce);
+				const firstPush = !stack.upstream;
+				const pushResult = await branchController.pushBranch(stack.id, stack.requiresForce);
 
 				if (pushResult) {
 					upstreamBranchName = getBranchNameFromRef(pushResult.refname, pushResult.remote);
@@ -192,7 +192,7 @@
 			}
 
 			// Find the index of the current branch so we know where we want to point the pr.
-			const branches = branch.validSeries;
+			const branches = stack.validSeries;
 			const currentIndex = branches.findIndex((b) => b.name === currentSeries.name);
 			if (currentIndex === -1) {
 				throw new Error('Branch index not found.');
@@ -216,7 +216,7 @@
 			});
 
 			// Store the new pull request number with the branch data.
-			await branchController.updateBranchPrNumber(branch.id, currentSeries.name, pr.number);
+			await branchController.updateBranchPrNumber(stack.id, currentSeries.name, pr.number);
 
 			// If we now have two or more pull requests we add a stack table to the description.
 			prNumbers[currentIndex] = pr.number;

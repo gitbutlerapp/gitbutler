@@ -4,7 +4,7 @@
 	import CommitDialog from '$lib/commit/CommitDialog.svelte';
 	import BranchFiles from '$lib/file/BranchFiles.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
-	import { VirtualBranch } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import type { Writable } from 'svelte/store';
 
@@ -15,9 +15,9 @@
 	const { commitBoxOpen }: Props = $props();
 
 	const project = getContext(Project);
-	const branchStore = getContextStore(VirtualBranch);
+	const branchStore = getContextStore(BranchStack);
 
-	const branch = $derived($branchStore);
+	const stack = $derived($branchStore);
 
 	let commitDialog = $state<ReturnType<typeof CommitDialog>>();
 </script>
@@ -26,18 +26,18 @@
 	<Dropzones type="file">
 		<BranchFiles
 			isUnapplied={false}
-			files={branch.files}
-			branches={branch.validSeries}
+			files={stack.files}
+			branches={stack.validSeries}
 			showCheckboxes={$commitBoxOpen}
 			allowMultiple
 			commitDialogExpanded={commitBoxOpen}
 			focusCommitDialog={() => commitDialog?.focus()}
 		/>
-		{#if branch.conflicted}
+		{#if stack.conflicted}
 			<div class="card-notifications">
 				<InfoMessage filled outlined={false} style="error">
 					{#snippet title()}
-						{#if branch.files.some((f) => f.conflicted)}
+						{#if stack.files.some((f) => f.conflicted)}
 							This virtual branch conflicts with upstream changes. Please resolve all conflicts and
 							commit before you can continue.
 						{:else}
@@ -53,7 +53,7 @@
 		bind:this={commitDialog}
 		projectId={project.id}
 		expanded={commitBoxOpen}
-		hasSectionsAfter={branch.validSeries.flatMap((s) => s.patches).length > 0}
+		hasSectionsAfter={stack.validSeries.flatMap((s) => s.patches).length > 0}
 	/>
 </div>
 
