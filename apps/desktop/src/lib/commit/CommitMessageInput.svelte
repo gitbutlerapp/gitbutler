@@ -273,7 +273,7 @@
 					style="ghost"
 					outline
 					icon="ai-small"
-					disabled={!($aiGenEnabled && aiConfigurationValid)}
+					disabled={!(aiConfigurationValid)}
 					loading={aiLoading}
 					menuPosition="top"
 					onclick={async () => await generateCommitMessage()}
