@@ -52,7 +52,7 @@
 			displayMode="readOnly"
 			prompt={{
 				prompt: prompts.defaultPrompt,
-				name: 'Default Prompt',
+				name: 'Default prompt',
 				id: 'default'
 			}}
 		/>

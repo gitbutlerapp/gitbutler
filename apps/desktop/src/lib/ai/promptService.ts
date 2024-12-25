@@ -89,7 +89,7 @@ export class PromptService {
 	createDefaultUserPrompt(type: 'commits' | 'branches'): UserPrompt {
 		return {
 			id: crypto.randomUUID(),
-			name: 'My Prompt',
+			name: 'My prompt',
 			prompt: type === 'branches' ? SHORT_DEFAULT_BRANCH_TEMPLATE : SHORT_DEFAULT_COMMIT_TEMPLATE
 		};
 	}
