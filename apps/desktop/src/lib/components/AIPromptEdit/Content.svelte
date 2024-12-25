@@ -201,6 +201,7 @@
 		}
 
 		& .icon {
+			display: flex;
 			color: var(--clr-text-2);
 		}
 	}
