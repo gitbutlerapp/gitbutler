@@ -2,7 +2,7 @@ import { defineConfig } from '@terrazzo/cli';
 import css from '@terrazzo/plugin-css';
 
 function pxToRem(token) {
-	if (token.$type === 'dimension' && token.$value.slice(-2) === 'px') {
+	if (token.$type === 'dimension' && token.$value.value === 'px') {
 		return token.$value.slice(0, -2) / 16 + 'rem';
 	}
 }
