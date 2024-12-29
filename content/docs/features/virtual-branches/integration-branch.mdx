@@ -30,13 +30,13 @@ To keep Git command output for things that look at the index and HEAD (such as `
 
 For instance, if you have two files on Branch A and two files on Branch B, then `git status` will simply list four files as modified.
 
-However, to help out, we also write out a branch with a custom commit message that tries to explain the state of things and what is happening. This is written to a branch we own called `gitbutler/integration` and you shouldn't touch it.
+However, to help out, we also write out a branch with a custom commit message that tries to explain the state of things and what is happening. This is written to a branch we own called `gitbutler/workspace` and you shouldn't touch it.
 
 If you run `git log`, the first commit should be our custom commit message and the tree of that commit is the union of all the committed work on all your applied virtual branches, as though they were all merged together into one (something stock Git can understand).
 
 ## Committing, Branching, Checking Out
 
-However, if you try to use something that writes to HEAD, like `git commit` or `git checkout`, then you might have some headaches. By default, our client will simply overwrite the `gitbutler/integration` branch commit whenever something significant changes.
+However, if you try to use something that writes to HEAD, like `git commit` or `git checkout`, then you might have some headaches. By default, our client will simply overwrite the `gitbutler/workspace` branch commit whenever something significant changes.
 
 We won't touch the working directory in an unexpected way, so whatever you commit won't be lost, but the commit itself will be forgotten. Don't do branch stuff in stock Git while trying to use GitButler for now. We have ideas on how to make this somewhat doable in the future, but right now it's easier on everyone to stick with one or the other.
 
