@@ -48,7 +48,7 @@
 		></div>
 	</div>
 {:else if style === 'full'}
-	<Badge style={getStatusColor(status)} {kind} label={getFullStatusText(status)} />
+	<Badge style={getStatusColor(status)} {kind}>{getFullStatusText(status)}</Badge>
 {/if}
 
 <style lang="postcss">
