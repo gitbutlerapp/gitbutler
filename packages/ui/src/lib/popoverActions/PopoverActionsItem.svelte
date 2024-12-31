@@ -57,7 +57,7 @@
 			background-color: var(--clr-bg-1-muted);
 
 			.overflow-actions-btn__icon {
-				opacity: 0.8;
+				opacity: var(--opacity-btn-icon-soft-hover);
 			}
 		}
 	}
@@ -69,6 +69,6 @@
 	.overflow-actions-btn__icon {
 		pointer-events: none;
 		display: flex;
-		opacity: 0.5;
+		opacity: var(--opacity-btn-icon-soft);
 	}
 </style>
