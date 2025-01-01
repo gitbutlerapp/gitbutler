@@ -10,8 +10,8 @@ autotests = false
 git2.workspace = true
 gix = { workspace = true, features = [] }
 gix-utils = "0.1.12"
-itertools = "0.13"
-anyhow = "1.0.93"
+itertools = "0.14"
+anyhow = "1.0.95"
 serde = { workspace = true, features = ["std"] }
 toml.workspace = true
 tracing.workspace = true

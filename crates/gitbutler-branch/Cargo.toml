@@ -7,13 +7,13 @@ publish = false
 autotests = false
 
 [dependencies]
-anyhow = "1.0.93"
+anyhow = "1.0.95"
 git2.workspace = true
 gix = { workspace = true, features = [] }
 gitbutler-reference.workspace = true
 gitbutler-diff.workspace = true
 gitbutler-stack.workspace = true
-itertools = "0.13"
+itertools = "0.14"
 serde = { workspace = true, features = ["std"] }
 bstr.workspace = true
 lazy_static = "1.4.0"
