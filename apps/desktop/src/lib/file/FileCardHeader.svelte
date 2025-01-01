@@ -49,10 +49,10 @@
 				{/if}
 				<div class="header__tag-group">
 					{#if fileStats.added}
-						<Badge size="tag" style="success" kind="soft">+{fileStats.added}</Badge>
+						<Badge size="icon" style="success" kind="soft">+{fileStats.added}</Badge>
 					{/if}
 					{#if fileStats.removed}
-						<Badge size="tag" style="error" kind="soft">-{fileStats.removed}</Badge>
+						<Badge size="icon" style="error" kind="soft">-{fileStats.removed}</Badge>
 					{/if}
 					{#if fileStatus}
 						<FileStatusTag status={fileStatus} />

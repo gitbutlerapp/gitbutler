@@ -21,4 +21,4 @@
 	}
 </script>
 
-<Badge size="tag" style={statusToColor(status)}>{status}</Badge>
+<Badge size="icon" style={statusToColor(status)}>{status}</Badge>
