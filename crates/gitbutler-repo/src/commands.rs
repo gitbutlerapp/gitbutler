@@ -1,4 +1,4 @@
-use crate::{remote::GitRemote, Config, RepositoryExt};
+use crate::{remote::GitRemote, sigining::sign_buffer, Config, RepositoryExt};
 use anyhow::{bail, Result};
 use base64::engine::Engine as _;
 use git2::Oid;
@@ -138,7 +138,7 @@ impl RepoCommands for Project {
 
     fn check_signing_settings(&self) -> Result<bool> {
         let ctx = CommandContext::open(self)?;
-        let signed = ctx.repo().sign_buffer(b"test");
+        let signed = sign_buffer(ctx.repo(), b"test");
         match signed {
             Ok(_) => Ok(true),
             Err(e) => Err(e),

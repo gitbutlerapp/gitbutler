@@ -10,7 +10,9 @@ use gitbutler_stack::{Stack, StackId};
 
 use crate::askpass;
 use gitbutler_repo::{
+    committing::RepositoryExt as _,
     credentials,
+    identity::RepositoryExt as _,
     logging::{LogUntil, RepositoryExt as _},
     RepositoryExt,
 };

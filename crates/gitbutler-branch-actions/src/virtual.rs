@@ -28,6 +28,7 @@ use gitbutler_oxidize::{
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
+    committing::RepositoryExt as _,
     logging::{LogUntil, RepositoryExt as _},
     rebase::{cherry_rebase, cherry_rebase_group},
     RepositoryExt,

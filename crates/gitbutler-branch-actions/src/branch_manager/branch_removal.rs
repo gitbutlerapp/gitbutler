@@ -9,6 +9,7 @@ use gitbutler_oxidize::gix_to_git2_oid;
 use gitbutler_oxidize::{git2_to_gix_object_id, GixRepositoryExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_reference::{normalize_branch_name, ReferenceName, Refname};
+use gitbutler_repo::committing::RepositoryExt as _;
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
 use gitbutler_repo_actions::RepoActionsExt;
