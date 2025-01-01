@@ -2,6 +2,7 @@
 	import FileStatusTag from './FileStatusTag.svelte';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { computeAddedRemovedByFiles } from '$lib/utils/metrics';
+	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import FileIcon from '@gitbutler/ui/file/FileIcon.svelte';
 	import { splitFilePath } from '@gitbutler/ui/utils/filePath';
@@ -33,32 +34,25 @@
 				{#if file.conflicted || isFileLocked}
 					<div class="header__tag-group">
 						{#if isFileLocked}
-							<Button
+							<Badge
 								size="tag"
-								clickable={false}
 								icon="locked-small"
 								style="warning"
 								tooltip="File changes cannot be moved because part of this file was already committed into this branch"
-								>Locked</Button
+								>Locked</Badge
 							>
 						{/if}
 						{#if file.conflicted}
-							<Button size="tag" clickable={false} icon="warning-small" style="error"
-								>Has conflicts</Button
-							>
+							<Badge size="tag" icon="warning-small" style="error">Has conflicts</Badge>
 						{/if}
 					</div>
 				{/if}
 				<div class="header__tag-group">
 					{#if fileStats.added}
-						<Button size="tag" clickable={false} style="success" kind="soft"
-							>+{fileStats.added}</Button
-						>
+						<Badge size="tag" style="success" kind="soft">+{fileStats.added}</Badge>
 					{/if}
 					{#if fileStats.removed}
-						<Button size="tag" clickable={false} style="error" kind="soft"
-							>-{fileStats.removed}</Button
-						>
+						<Badge size="tag" style="error" kind="soft">-{fileStats.removed}</Badge>
 					{/if}
 					{#if fileStatus}
 						<FileStatusTag status={fileStatus} />

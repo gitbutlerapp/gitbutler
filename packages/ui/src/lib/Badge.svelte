@@ -47,7 +47,7 @@
 		align-items: center;
 		justify-content: center;
 		text-align: center;
-		border-radius: 14px;
+		border-radius: 20px;
 		line-height: 90%;
 
 		/* SOLID */

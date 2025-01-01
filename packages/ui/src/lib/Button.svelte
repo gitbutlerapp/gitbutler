@@ -4,7 +4,6 @@
 		el?: HTMLElement;
 		// Interaction props
 		disabled?: boolean;
-		clickable?: boolean;
 		loading?: boolean;
 		activated?: boolean;
 		tabindex?: number | undefined;
@@ -54,7 +53,6 @@
 	let {
 		el = $bindable(),
 		disabled = false,
-		clickable = true,
 		id = undefined,
 		loading = false,
 		activated = false,
@@ -88,7 +86,7 @@
 	}: Props = $props();
 
 	function handleAction(e: MouseEvent) {
-		if (loading || disabled || !clickable) {
+		if (loading || disabled) {
 			e.preventDefault();
 			e.stopPropagation();
 		} else {
@@ -109,7 +107,6 @@
 		class:wide
 		class:grow
 		class:is-dropdown={dropdownChild}
-		class:not-clickable={!clickable}
 		class:fixed-width={!children && !wide}
 		class:activated
 		style:align-self={align}
@@ -123,8 +120,7 @@
 		{type}
 		{id}
 		{...testId ? { 'data-testid': testId } : null}
-		tabindex={clickable ? tabindex : -1}
-		data-clickable={clickable}
+		{tabindex}
 	>
 		{#if children}
 			<span
@@ -186,14 +182,6 @@
 		&.reversed-direction {
 			flex-direction: row-reverse;
 		}
-		&.not-clickable {
-			cursor: default;
-
-			&:focus-within {
-				outline: none;
-				animation: none;
-			}
-		}
 		&.shrinkable {
 			overflow: hidden;
 			width: fit-content;
@@ -236,7 +224,7 @@
 		--icon-opacity: var(--opacity-btn-icon-soft);
 		--btn-text-clr: var(--clr-theme-ntrl-on-soft);
 
-		&:not(.not-clickable, &:disabled):hover,
+		&:not(&:disabled):hover,
 		&.activated {
 			--icon-opacity: var(--opacity-btn-icon-soft-hover);
 			--btn-bg: var(--clr-bg-1-muted);
@@ -263,7 +251,7 @@
 			--btn-border-clr: var(--clr-theme-ntrl-soft-outline);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
 				--icon-opacity: var(--opacity-btn-icon-soft-hover);
 				--btn-bg: var(--clr-theme-ntrl-soft-hover);
@@ -275,7 +263,7 @@
 			--btn-bg: var(--clr-theme-ntrl-element);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
+			&:not(&:disabled):hover {
 				--icon-opacity: var(--opacity-btn-icon-solid-hover);
 				--btn-bg: var(--clr-theme-ntrl-element-hover);
 			}
@@ -290,7 +278,7 @@
 			--btn-border-clr: var(--clr-theme-pop-soft-outline);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
 				--icon-opacity: var(--opacity-btn-icon-soft-hover);
 				--btn-bg: var(--clr-theme-pop-soft-hover);
@@ -302,7 +290,7 @@
 			--btn-bg: var(--clr-theme-pop-element);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
 				--icon-opacity: var(--opacity-btn-icon-solid-hover);
 				--btn-bg: var(--clr-theme-pop-element-hover);
@@ -318,7 +306,7 @@
 			--btn-border-clr: var(--clr-theme-succ-soft-outline);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
 				--icon-opacity: var(--opacity-btn-icon-soft-hover);
 				--btn-bg: var(--clr-theme-succ-soft-hover);
@@ -330,7 +318,7 @@
 			--btn-bg: var(--clr-theme-succ-element);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
 				--icon-opacity: var(--opacity-btn-icon-solid-hover);
 				--btn-bg: var(--clr-theme-succ-element-hover);
@@ -346,7 +334,7 @@
 			--btn-border-clr: var(--clr-theme-err-soft-outline);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
 				--icon-opacity: var(--opacity-btn-icon-soft-hover);
 				--btn-bg: var(--clr-theme-err-soft-hover);
@@ -358,7 +346,7 @@
 			--btn-bg: var(--clr-theme-err-element);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
 				--icon-opacity: var(--opacity-btn-icon-solid-hover);
 				--btn-bg: var(--clr-theme-err-element-hover);
@@ -374,7 +362,7 @@
 			--btn-border-clr: var(--clr-theme-warn-soft-outline);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
 				--icon-opacity: var(--opacity-btn-icon-soft-hover);
 				--btn-bg: var(--clr-theme-warn-soft-hover);
@@ -386,7 +374,7 @@
 			--btn-bg: var(--clr-theme-warn-element);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
 				--icon-opacity: var(--opacity-btn-icon-solid-hover);
 				--btn-bg: var(--clr-theme-warn-element-hover);
@@ -402,7 +390,7 @@
 			--btn-border-clr: var(--clr-theme-purp-soft-outline);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
 				--icon-opacity: var(--opacity-btn-icon-soft-hover);
 				--btn-bg: var(--clr-theme-purp-soft-hover);
@@ -414,7 +402,7 @@
 			--btn-bg: var(--clr-theme-purp-element);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
 				--icon-opacity: var(--opacity-btn-icon-solid-hover);
 				--btn-bg: var(--clr-theme-purp-element-hover);

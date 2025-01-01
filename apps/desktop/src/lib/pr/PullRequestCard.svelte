@@ -15,6 +15,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
+	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 	import type { ForgePrMonitor } from '$lib/forge/interface/forgePrMonitor';
@@ -267,28 +268,26 @@
 			<span>{pr?.title}</span>
 		</div>
 		<div class="pr-header-tags">
-			<Button
+			<Badge
 				reversedDirection
 				size="tag"
-				clickable={false}
 				icon={prStatusInfo.icon}
 				style={prStatusInfo.style}
-				kind={'soft'}
+				kind="soft"
 				tooltip="PR status"
 			>
 				{prStatusInfo.text}
-			</Button>
+			</Badge>
 			{#if !pr.closedAt && checksTagInfo}
-				<Button
+				<Badge
 					size="tag"
-					clickable={false}
 					icon={checksTagInfo.icon}
 					style={checksTagInfo.style}
 					kind={checksTagInfo.icon === 'success-small' ? 'solid' : 'soft'}
 					tooltip={checksTagInfo.tooltip}
 				>
 					{checksTagInfo.text}
-				</Button>
+				</Badge>
 			{/if}
 			{#if pr.htmlUrl}
 				<Button
