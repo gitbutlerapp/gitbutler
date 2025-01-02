@@ -246,11 +246,11 @@ fn main() {
                 .menu(menu::build)
                 .on_window_event(|window, event| match event {
                     #[cfg(target_os = "macos")]
-                    tauri::WindowEvent::CloseRequested { api, .. } => {
-                        if window.app_handle().windows().len() == 1 {
-                            tracing::debug!("Hiding all application windows and preventing exit");
-                            window.app_handle().hide().ok();
-                            api.prevent_close();
+                    tauri::WindowEvent::CloseRequested { .. } => {
+                        let app_handle = window.app_handle();
+                        if app_handle.windows().len() == 1 {
+                            app_handle.cleanup_before_exit();
+                            app_handle.exit(0);
                         }
                     }
                     tauri::WindowEvent::Destroyed => {
@@ -276,18 +276,7 @@ fn main() {
                 .build(tauri_context)
                 .expect("Failed to build tauri app")
                 .run(|app_handle, event| {
-                    #[cfg(target_os = "macos")]
-                    if let tauri::RunEvent::ExitRequested { api, .. } = event {
-                        tracing::debug!("Hiding all windows and preventing exit");
-                        app_handle.hide().ok();
-                        api.prevent_exit();
-                    }
-
-                    // To make the compiler happy.
-                    #[cfg(not(target_os = "macos"))]
-                    {
-                        let _ = (app_handle, event);
-                    }
+                    let _ = (app_handle, event);
                 });
         });
 }
