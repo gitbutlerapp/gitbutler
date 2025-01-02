@@ -9,7 +9,7 @@ autotests = false
 [dependencies]
 git2.workspace = true
 gix = { workspace = true, features = ["merge", "status", "tree-editor"] }
-anyhow = "1.0.93"
+anyhow = "1.0.95"
 bstr.workspace = true
 tracing.workspace = true
 tempfile = "3.14"
@@ -26,7 +26,7 @@ gitbutler-url.workspace = true
 gitbutler-cherry-pick.workspace = true
 gitbutler-oxidize.workspace = true
 uuid.workspace = true
-itertools = "0.13"
+itertools = "0.14"
 toml.workspace = true
 base64 = "0.22.1"
 infer = "0.16.0"
