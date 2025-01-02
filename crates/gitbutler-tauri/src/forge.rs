@@ -49,7 +49,7 @@ pub mod commands {
             .into());
         }
         Ok(project
-            .read_file_from_workspace(None, relative_path)?
+            .read_file_from_workspace(relative_path)?
             .content
             .context("PR template was not valid UTF-8")?)
     }
