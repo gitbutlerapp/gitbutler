@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { invoke } from '$lib/backend/ipc';
 	import { Project } from '$lib/backend/projects';
+	import { FileService } from '$lib/files/fileService';
 	import HunkViewer from '$lib/hunk/HunkViewer.svelte';
 	import InfoMessage from '$lib/shared/InfoMessage.svelte';
 	import LargeDiffMessage from '$lib/shared/LargeDiffMessage.svelte';
@@ -8,14 +8,8 @@
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import { getContext } from '@gitbutler/shared/context';
+	import type { FileInfo } from '$lib/files/file';
 	import type { HunkSection, ContentSection } from '$lib/utils/fileSections';
-
-	interface FileInfo {
-		content: string;
-		name?: string;
-		mimeType?: string;
-		size?: number;
-	}
 
 	interface Props {
 		filePath: string;
@@ -43,6 +37,7 @@
 
 	let alwaysShow = $state(false);
 	const project = getContext(Project);
+	const fileService = getContext(FileService);
 	const localCommits = isFileLocked ? getLocalCommits() : undefined;
 	const remoteCommits = isFileLocked ? getLocalAndRemoteCommits() : undefined;
 
@@ -80,18 +75,15 @@
 	});
 
 	async function fetchBlobInfo() {
+		if (!isBinary) {
+			return;
+		}
 		try {
-			const fetchedFileInfo: FileInfo = await invoke('get_blob_info', {
-				relativePath: filePath,
-				projectId: project.id,
-				commitId
-			});
-			fileInfo = fetchedFileInfo;
-
-			// If file.size > 5mb; don't render it
-			if (fileInfo.size && fileInfo.size > 5 * 1024 * 1024) {
-				isLarge = true;
-			}
+			const file = commitId
+				? await fileService.readFromCommit(filePath, project.id, commitId)
+				: await fileService.readFromWorkspace(filePath, project.id);
+			fileInfo = file.data;
+			isLarge = file.isLarge;
 		} catch (error) {
 			console.error(error);
 		}

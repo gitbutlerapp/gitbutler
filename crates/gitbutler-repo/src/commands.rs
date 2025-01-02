@@ -102,7 +102,14 @@ pub trait RepoCommands {
     fn get_local_config(&self, key: &str) -> Result<Option<String>>;
     fn set_local_config(&self, key: &str, value: &str) -> Result<()>;
     fn check_signing_settings(&self) -> Result<bool>;
-    /// Read `probably_relative_path` in the following order:
+
+    /// Read `path` from the tree of the given commit.
+    ///
+    /// Bails when given an absolute path since that would suggest we are looking for a file in
+    /// the workspace. Returns `FileInfo::default()` if file could not be found.
+    fn read_file_from_commit(&self, commit_id: Oid, path: &Path) -> Result<FileInfo>;
+
+    /// Read `path` in the following order:
     ///
     /// * worktree
     /// * index
@@ -111,16 +118,8 @@ pub trait RepoCommands {
     /// This order makes sense if you imagine that deleted files are shown, like in a `git status`,
     /// so we want to know what's deleted.
     ///
-    /// If `probably_relative_path` is absolute, we will assure it's in the worktree.
-    /// If `treeish` is given, it will only be read from the given tree.
-    ///
-    /// If nothing could be found at `probably_relative_path`, the returned structure indicates this,
-    /// but it's no error.
-    fn read_file_from_workspace(
-        &self,
-        treeish: Option<Oid>,
-        probably_relative_path: &Path,
-    ) -> Result<FileInfo>;
+    /// Returns `FileInfo::default()` if file could not be found.
+    fn read_file_from_workspace(&self, path: &Path) -> Result<FileInfo>;
 }
 
 impl RepoCommands for Project {
@@ -182,23 +181,32 @@ impl RepoCommands for Project {
         Ok(())
     }
 
-    fn read_file_from_workspace(
-        &self,
-        treeish: Option<Oid>,
-        probably_relative_path: &Path,
-    ) -> Result<FileInfo> {
+    fn read_file_from_commit(&self, commit_id: Oid, relative_path: &Path) -> Result<FileInfo> {
+        if !relative_path.is_relative() {
+            bail!(
+                "Refusing to read '{:?}' from commit {:?} as it's not relative to the worktree",
+                relative_path,
+                commit_id
+            );
+        }
+
         let ctx = CommandContext::open(self)?;
         let repo = ctx.repo();
+        let tree = repo.find_commit(commit_id)?.tree()?;
 
-        if let Some(treeish) = treeish {
-            if !probably_relative_path.is_relative() {
-                bail!(
-                    "Refusing to read '{}' from tree as it's not relative to the worktree",
-                    probably_relative_path.display(),
-                );
+        Ok(match tree.get_path(relative_path) {
+            Ok(entry) => {
+                let blob = repo.find_blob(entry.id())?;
+                FileInfo::from_content(relative_path, blob.content())
             }
-            return read_file_from_tree(repo, Some(treeish), probably_relative_path);
-        }
+            Err(e) if e.code() == git2::ErrorCode::NotFound => FileInfo::deleted(),
+            Err(e) => return Err(e.into()),
+        })
+    }
+
+    fn read_file_from_workspace(&self, probably_relative_path: &Path) -> Result<FileInfo> {
+        let ctx = CommandContext::open(self)?;
+        let repo = ctx.repo();
 
         let (path_in_worktree, relative_path) = if probably_relative_path.is_relative() {
             (
@@ -234,34 +242,20 @@ impl RepoCommands for Project {
             }
             Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
                 match repo.index()?.get_path(&relative_path, 0) {
+                    // Read file that has been deleted and not staged for commit.
                     Some(entry) => {
                         let blob = repo.find_blob(entry.id)?;
                         FileInfo::from_content(&relative_path, blob.content())
                     }
-                    None => read_file_from_tree(repo, None, &relative_path)?,
+                    // Read file that has been deleted and staged for commit. Note that file not
+                    // found returns FileInfo::default() rather than an error.
+                    None => self.read_file_from_commit(
+                        repo.head()?.peel_to_commit()?.id(),
+                        &relative_path,
+                    )?,
                 }
             }
             Err(err) => return Err(err.into()),
         })
     }
-}
-
-fn read_file_from_tree(
-    repo: &git2::Repository,
-    treeish: Option<Oid>,
-    relative_path: &Path,
-) -> Result<FileInfo> {
-    let tree = if let Some(id) = treeish {
-        repo.find_object(id, None)?.peel_to_tree()?
-    } else {
-        repo.head()?.peel_to_tree()?
-    };
-    Ok(match tree.get_path(relative_path) {
-        Ok(entry) => {
-            let blob = repo.find_blob(entry.id())?;
-            FileInfo::from_content(relative_path, blob.content())
-        }
-        Err(e) if e.code() == git2::ErrorCode::NotFound => FileInfo::deleted(),
-        Err(e) => return Err(e.into()),
-    })
 }

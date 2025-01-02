@@ -10,6 +10,7 @@ import { PromptService } from '$lib/backend/prompt';
 import { Tauri } from '$lib/backend/tauri';
 import { UpdaterService } from '$lib/backend/updater';
 import { loadAppSettings } from '$lib/config/appSettings';
+import { FileService } from '$lib/files/fileService';
 import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
@@ -45,7 +46,8 @@ export const load: LayoutLoad = async () => {
 	const tokenMemoryService = new TokenMemoryService();
 	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
 	const authService = new AuthService();
-	const updaterService = new UpdaterService(new Tauri(), posthog);
+	const tauri = new Tauri();
+	const updaterService = new UpdaterService(tauri, posthog);
 	const promptService = new PromptService();
 
 	const userService = new UserService(httpClient, tokenMemoryService, posthog);
@@ -59,6 +61,7 @@ export const load: LayoutLoad = async () => {
 	const aiPromptService = new AIPromptService();
 	const lineManagerFactory = new LineManagerFactory();
 	const stackingLineManagerFactory = new StackingLineManagerFactory();
+	const fileService = new FileService(tauri);
 
 	return {
 		commandService,
@@ -77,6 +80,8 @@ export const load: LayoutLoad = async () => {
 		lineManagerFactory,
 		stackingLineManagerFactory,
 		secretsService,
-		posthog
+		posthog,
+		tauri,
+		fileService
 	};
 };
