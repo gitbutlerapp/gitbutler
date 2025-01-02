@@ -9,6 +9,7 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext } from '@gitbutler/shared/context';
+	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
@@ -96,11 +97,9 @@
 				</span>
 			</h2>
 			{#if pr.draft}
-				<Button size="tag" clickable={false} style="neutral" icon="draft-pr-small">Draft</Button>
+				<Badge size="tag" style="neutral" icon="draft-pr-small">Draft</Badge>
 			{:else}
-				<Button size="tag" clickable={false} style="success" kind="solid" icon="pr-small">
-					Open
-				</Button>
+				<Badge size="tag" style="success" kind="solid" icon="pr-small">Open</Badge>
 			{/if}
 		</div>
 

@@ -17,7 +17,6 @@
 
 <Button
 	size="tag"
-	clickable
 	reversedDirection
 	style="ghost"
 	outline

@@ -206,7 +206,7 @@
 		{#if $base}
 			<div class="section">
 				<h3 class="text-14 text-semibold section-title">
-					<span>Incoming changes</span><Badge label={$base.upstreamCommits.length} />
+					<span>Incoming changes</span><Badge>{$base.upstreamCommits.length}</Badge>
 				</h3>
 				<div class="scroll-wrap">
 					<ScrollableContainer maxHeight={pxToRem(268)}>
