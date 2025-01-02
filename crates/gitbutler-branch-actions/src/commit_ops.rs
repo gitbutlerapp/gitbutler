@@ -1,10 +1,9 @@
 use anyhow::{bail, Result};
 use gitbutler_oxidize::GixRepositoryExt;
 
-/// Finds the first parent of a given commit
-fn get_first_parent(commit: gix::Commit) -> Result<gix::Commit> {
-    let first_parent = commit.parent_ids().take(1).collect::<Vec<_>>();
-    let Some(first_parent) = first_parent.first() else {
+/// Finds the first parent of a given commit.
+fn get_first_parent<'repo>(commit: &gix::Commit<'repo>) -> Result<gix::Commit<'repo>> {
+    let Some(first_parent) = commit.parent_ids().next() else {
         bail!("Failed to find first parent of {}", commit.id())
     };
     let first_parent = first_parent.object()?.into_commit();
@@ -12,14 +11,14 @@ fn get_first_parent(commit: gix::Commit) -> Result<gix::Commit> {
 }
 
 /// Gets the changes that one commit introduced compared to the base,
-/// excluding anything between the commit and the base
+/// excluding anything between the commit and the base.
 fn get_exclusive_tree(
     repository: &gix::Repository,
     commit_id: gix::ObjectId,
     base_id: gix::ObjectId,
 ) -> Result<gix::ObjectId> {
     let commit = repository.find_commit(commit_id)?;
-    let commit_parent = get_first_parent(commit.clone())?;
+    let commit_parent = get_first_parent(&commit)?;
     let base = repository.find_commit(base_id)?;
 
     repository
@@ -36,7 +35,12 @@ fn get_exclusive_tree(
         .map(Into::into)
 }
 
-/// Takes two commits and determines if one is a subset of or equal to the other
+/// Takes two commits and determines if one is a subset of or equal to the other.
+///
+/// ### Performance
+///
+/// `repository` should have been configured [`with_object_memory()`](gix::Repository::with_object_memory())
+/// to prevent real objects to be written while probing for set inclusion.
 #[allow(dead_code)]
 fn is_subset(
     repository: &gix::Repository,
