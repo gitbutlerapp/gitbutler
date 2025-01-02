@@ -21,7 +21,7 @@ fn get_exclusive_tree(
     let commit_parent = get_first_parent(&commit)?;
     let base = repository.find_commit(base_id)?;
 
-    repository
+    let merged_tree = repository
         .merge_trees(
             commit_parent.tree_id()?,
             commit.tree_id()?,
@@ -30,9 +30,8 @@ fn get_exclusive_tree(
             repository.merge_options_force_ours()?,
         )?
         .tree
-        .write()
-        .map_err(Into::into)
-        .map(Into::into)
+        .write()?;
+    Ok(merged_tree.into())
 }
 
 /// Takes two commits and determines if one is a subset of or equal to the other.
@@ -53,7 +52,7 @@ fn is_subset(
 
     let common_base = repository.find_commit(common_base_id)?;
 
-    let (options, _) = repository.merge_options_fail_fast()?;
+    let (options, unresolved) = repository.merge_options_fail_fast()?;
     let mut merged_exclusives = repository.merge_trees(
         common_base.tree_id()?,
         exclusive_superset,
@@ -62,7 +61,7 @@ fn is_subset(
         options,
     )?;
 
-    if merged_exclusives.conflicts.is_empty() {
+    if !merged_exclusives.has_unresolved_conflicts(unresolved) {
         Ok(exclusive_superset == merged_exclusives.tree.write()?)
     } else {
         Ok(false)
