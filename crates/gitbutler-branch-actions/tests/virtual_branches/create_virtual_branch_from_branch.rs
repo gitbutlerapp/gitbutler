@@ -28,7 +28,7 @@ fn integration() {
 
         std::fs::write(repository.path().join("file.txt"), "first\n").unwrap();
         gitbutler_branch_actions::create_commit(project, branch_id, "first", None, false).unwrap();
-        gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+        gitbutler_branch_actions::stack::push_stack(project, branch_id, false).unwrap();
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
@@ -37,7 +37,7 @@ fn integration() {
             .find(|branch| branch.id == branch_id)
             .unwrap();
 
-        let name = branch.upstream.unwrap().name;
+        let name = branch.series[0].as_ref().unwrap().name.parse().unwrap();
 
         gitbutler_branch_actions::unapply_without_saving_virtual_branch(project, branch_id)
             .unwrap();
@@ -72,7 +72,7 @@ fn integration() {
 
     {
         // merge branch into master
-        gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
+        gitbutler_branch_actions::stack::push_stack(project, branch_id, false).unwrap();
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
             .unwrap()
@@ -210,7 +210,6 @@ fn conflicts_with_uncommited() {
         .unwrap();
     assert_eq!(new_branch_id, new_branch.id);
     assert_eq!(new_branch.series[0].clone().unwrap().patches.len(), 1);
-    assert!(new_branch.upstream.is_some());
 }
 
 #[test]
@@ -266,7 +265,6 @@ fn conflicts_with_commited() {
         .unwrap();
     assert_eq!(new_branch_id, new_branch.id);
     assert_eq!(new_branch.series[0].clone().unwrap().patches.len(), 1);
-    assert!(new_branch.upstream.is_some());
 }
 
 #[test]

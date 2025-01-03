@@ -416,17 +416,6 @@ pub fn save_and_unapply_virutal_branch(
     result
 }
 
-pub fn push_virtual_branch(
-    project: &Project,
-    stack_id: StackId,
-    with_force: bool,
-    askpass: Option<Option<StackId>>,
-) -> Result<vbranch::PushResult> {
-    let ctx = open_with_verify(project)?;
-    assure_open_workspace_mode(&ctx).context("Pushing a branch requires open workspace mode")?;
-    vbranch::push(&ctx, stack_id, with_force, askpass)
-}
-
 pub fn find_git_branches(project: Project, branch_name: &str) -> Result<Vec<RemoteBranchData>> {
     let ctx = CommandContext::open(&project)?;
     remote::find_git_branches(&ctx, branch_name)

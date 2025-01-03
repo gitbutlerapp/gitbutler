@@ -65,7 +65,6 @@ fn dirty_non_target() {
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
-    assert!(branches[0].upstream.is_none());
     assert_eq!(branches[0].name, "some-feature");
 }
 
@@ -92,7 +91,6 @@ fn dirty_target() {
     assert_eq!(branches.len(), 1);
     assert_eq!(branches[0].files.len(), 1);
     assert_eq!(branches[0].files[0].hunks.len(), 1);
-    assert!(branches[0].upstream.is_none());
     assert_eq!(branches[0].name, "master");
 }
 
@@ -119,7 +117,6 @@ fn commit_on_non_target_local() {
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
-    assert!(branches[0].upstream.is_none());
     assert_eq!(branches[0].name, "some-feature");
 }
 
@@ -147,7 +144,6 @@ fn commit_on_non_target_remote() {
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
-    assert!(branches[0].upstream.is_some());
     assert_eq!(branches[0].name, "some-feature");
 }
 
@@ -173,7 +169,6 @@ fn commit_on_target() {
     assert_eq!(branches.len(), 1);
     assert!(branches[0].files.is_empty());
     assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 1);
-    assert!(branches[0].upstream.is_none());
     assert_eq!(branches[0].name, "master");
 }
 
