@@ -36,6 +36,8 @@
 	let diffLengthLimit: number | undefined = $state();
 	let ollamaEndpoint: string | undefined = $state();
 	let ollamaModel: string | undefined = $state();
+	let mlxEndpoint: string | undefined = $state();
+	let mlxModel: string | undefined = $state();
 
 	async function setConfiguration(key: GitAIConfigKey, value: string | undefined) {
 		if (!initialized) return;
@@ -62,6 +64,9 @@
 
 		ollamaEndpoint = await aiService.getOllamaEndpoint();
 		ollamaModel = await aiService.getOllamaModelName();
+
+		mlxEndpoint = await aiService.getMlxEndpoint();
+		mlxModel = await aiService.getMlxModelName();
 
 		// Ensure reactive declarations have finished running before we set initialized to true
 		await tick();
@@ -157,6 +162,12 @@
 	});
 	run(() => {
 		setConfiguration(GitAIConfigKey.OllamaModelName, ollamaModel);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.MlxEndpoint, mlxEndpoint);
+	});
+	run(() => {
+		setConfiguration(GitAIConfigKey.MlxModelName, mlxModel);
 	});
 	run(() => {
 		if (form) form.modelKind.value = modelKind;
@@ -332,6 +343,33 @@
 					/>
 
 					<Textbox label="Model" bind:value={ollamaModel} placeholder="llama3" />
+				</div>
+			</SectionCard>
+		{/if}
+
+		<SectionCard
+			roundedBottom={modelKind !== ModelKind.MLX}
+			orientation="row"
+			labelFor="mlx"
+			bottomBorder={modelKind !== ModelKind.MLX}
+		>
+			{#snippet title()}
+				MLX
+			{/snippet}
+			{#snippet actions()}
+				<RadioButton name="modelKind" id="custom" value={ModelKind.MLX} />
+			{/snippet}
+		</SectionCard>
+		{#if modelKind === ModelKind.MLX}
+			<SectionCard roundedTop={false} orientation="row" topDivider>
+				<div class="inputs-group">
+					<Textbox
+						label="Endpoint"
+						bind:value={mlxEndpoint}
+						placeholder="http://localhost:8080"
+					/>
+
+					<Textbox label="Model" bind:value={mlxModel} placeholder="mlx-community/Llama-3.2-3B-Instruct-4bit" />
 				</div>
 			</SectionCard>
 		{/if}
