@@ -15,8 +15,28 @@ pub fn git2_to_gix_object_id(id: git2::Oid) -> gix::ObjectId {
     gix::ObjectId::try_from(id.as_bytes()).expect("git2 oid is always valid")
 }
 
+pub trait OidExt {
+    fn to_gix(self) -> gix::ObjectId;
+}
+
+impl OidExt for git2::Oid {
+    fn to_gix(self) -> gix::ObjectId {
+        git2_to_gix_object_id(self)
+    }
+}
+
 pub fn gix_to_git2_oid(id: impl Into<gix::ObjectId>) -> git2::Oid {
     git2::Oid::from_bytes(id.into().as_bytes()).expect("always valid")
+}
+
+pub trait ObjectIdExt {
+    fn to_git2(self) -> git2::Oid;
+}
+
+impl ObjectIdExt for gix::ObjectId {
+    fn to_git2(self) -> git2::Oid {
+        gix_to_git2_oid(self)
+    }
 }
 
 pub fn git2_signature_to_gix_signature<'a>(
@@ -100,4 +120,17 @@ pub fn gix_to_git2_index(index: &gix::index::State) -> anyhow::Result<git2::Inde
         out.add(&git2_entry)?
     }
     Ok(out)
+}
+
+pub fn print_tree(tree: gix::Tree<'_>) {
+    let mut recorder = gix::traverse::tree::Recorder::default();
+    tree.traverse().breadthfirst(&mut recorder).unwrap();
+    let repo = tree.repo;
+    for record in recorder.records {
+        println!(
+            "{}: {}",
+            record.filepath,
+            repo.find_blob(record.oid).unwrap().data.as_bstr()
+        );
+    }
 }
