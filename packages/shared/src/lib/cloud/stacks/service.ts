@@ -1,6 +1,6 @@
 import { writableDerived } from '$lib/storeUtils';
 import { derived, get, type Readable, type Writable } from 'svelte/store';
-import type { HttpClient } from '$lib/httpClient';
+import type { HttpClient } from '$lib/network/httpClient';
 
 interface ApiPatchStatstics {
 	file_count: number;

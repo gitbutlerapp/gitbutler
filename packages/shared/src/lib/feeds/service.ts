@@ -6,7 +6,7 @@ import { POLLING_FAST, POLLING_REGULAR } from '$lib/polling';
 import { guardReadableTrue } from '$lib/storeUtils';
 import { apiToUser } from '$lib/users/types';
 import { upsertUsers } from '$lib/users/usersSlice';
-import type { HttpClient } from '$lib/httpClient';
+import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
 export class FeedService {

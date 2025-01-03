@@ -6,7 +6,7 @@ import { persisted } from '@gitbutler/shared/persisted';
 import { open } from '@tauri-apps/plugin-dialog';
 import { plainToInstance } from 'class-transformer';
 import { derived, get, writable, type Readable } from 'svelte/store';
-import type { HttpClient } from '@gitbutler/shared/httpClient';
+import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 import { goto } from '$app/navigation';
 
 export type KeyType = 'gitCredentialsHelper' | 'local' | 'systemExecutable';

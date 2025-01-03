@@ -21,7 +21,7 @@ import { get } from 'svelte/store';
 import type { GitConfigService } from '$lib/backend/gitConfigService';
 import type { SecretsService } from '$lib/secrets/secretsService';
 import type { TokenMemoryService } from '$lib/stores/tokenMemoryService';
-import type { HttpClient } from '@gitbutler/shared/httpClient';
+import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
 const maxDiffLengthLimitForAPI = 5000;
 const prDescriptionTokenLimit = 4096;

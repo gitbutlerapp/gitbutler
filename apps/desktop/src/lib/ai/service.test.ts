@@ -24,7 +24,7 @@ import {
 import { buildFailureFromAny, ok, unwrap, type Result } from '$lib/result';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { Hunk } from '$lib/vbranches/types';
-import { HttpClient } from '@gitbutler/shared/httpClient';
+import { HttpClient } from '@gitbutler/shared/network/httpClient';
 import { plainToInstance } from 'class-transformer';
 import { get } from 'svelte/store';
 import { expect, test, describe, vi } from 'vitest';

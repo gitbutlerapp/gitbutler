@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getContext } from '@gitbutler/shared/context';
-	import { HttpClient } from '@gitbutler/shared/httpClient';
+	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import hljs from 'highlight.js';
 	import { marked } from 'marked';
 	import { onMount } from 'svelte';

@@ -8,7 +8,7 @@
 		RepositoriesApiService
 	} from '@gitbutler/shared/cloud/repositories/service';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
-	import { HttpClient } from '@gitbutler/shared/httpClient';
+	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
