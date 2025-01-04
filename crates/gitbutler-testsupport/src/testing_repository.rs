@@ -145,6 +145,7 @@ impl TestingRepository {
         index
             .add_all(["*"], git2::IndexAddOption::DEFAULT, None)
             .unwrap();
+        index.write().unwrap();
 
         let signature = git2::Signature::now("Caleb", "caleb@gitbutler.com").unwrap();
         let commit_headers =

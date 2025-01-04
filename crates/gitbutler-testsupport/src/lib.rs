@@ -1,6 +1,7 @@
 #![forbid(rust_2018_idioms)]
 pub const VAR_NO_CLEANUP: &str = "GITBUTLER_TESTS_NO_CLEANUP";
 
+use gix::bstr::BStr;
 /// Direct access to lower-level utilities for cases where this is enough.
 ///
 /// Prefer to use [`read_only`] and [`writable`] otherwise.
@@ -101,6 +102,63 @@ pub mod writable {
         Ok((project, root))
     }
 }
+/// Display a Git tree in the style of the `tree` CLI program, but include blob contents and usful Git metadata.
+pub fn visualize_gix_tree(tree_id: gix::Id<'_>) -> termtree::Tree<String> {
+    fn visualize_tree(
+        id: gix::Id<'_>,
+        name_and_mode: Option<(&BStr, gix::object::tree::EntryMode)>,
+    ) -> anyhow::Result<termtree::Tree<String>> {
+        fn short_id(id: &gix::hash::oid) -> String {
+            id.to_string()[..7].to_string()
+        }
+        let repo = id.repo;
+        let entry_name =
+            |id: &gix::hash::oid, name: Option<(&BStr, gix::object::tree::EntryMode)>| -> String {
+                match name {
+                    None => short_id(id),
+                    Some((name, mode)) => {
+                        format!(
+                            "{name}:{mode}{} {}",
+                            short_id(id),
+                            match repo.find_blob(id) {
+                                Ok(blob) => format!("{:?}", blob.data.as_bstr()),
+                                Err(_) => "".into(),
+                            },
+                            mode = if mode.is_tree() {
+                                "".into()
+                            } else {
+                                format!("{:o}:", mode.0)
+                            }
+                        )
+                    }
+                }
+            };
+
+        let mut tree = termtree::Tree::new(entry_name(&id, name_and_mode));
+        for entry in repo.find_tree(id)?.iter() {
+            let entry = entry?;
+            if entry.mode().is_tree() {
+                tree.push(visualize_tree(
+                    entry.id(),
+                    Some((entry.filename(), entry.mode())),
+                )?);
+            } else {
+                tree.push(entry_name(
+                    entry.oid(),
+                    Some((entry.filename(), entry.mode())),
+                ));
+            }
+        }
+        Ok(tree)
+    }
+    visualize_tree(tree_id, None).unwrap()
+}
+
+/// Visualize a git2 tree, otherwise just like [`visualize_gix_tree()`].
+pub fn visualize_git2_tree(tree_id: git2::Oid, repo: &git2::Repository) -> termtree::Tree<String> {
+    let repo = gix::open_opts(repo.path(), gix::open::Options::isolated()).unwrap();
+    visualize_gix_tree(git2_to_gix_object_id(tree_id).attach(&repo))
+}
 
 pub mod read_only {
     use crate::DRIVER;
@@ -153,8 +211,12 @@ pub mod read_only {
     }
 }
 
+use gitbutler_oxidize::git2_to_gix_object_id;
+use gix::bstr::ByteSlice;
+use gix::prelude::ObjectIdExt;
 use once_cell::sync::Lazy;
 use std::path::{Path, PathBuf};
+
 pub(crate) static DRIVER: Lazy<PathBuf> = Lazy::new(|| {
     let mut cargo = std::process::Command::new(env!("CARGO"));
     let res = cargo
