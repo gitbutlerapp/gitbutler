@@ -4,6 +4,7 @@ use std::{
 };
 
 use gitbutler_repo::RepositoryExt as _;
+use gitbutler_testsupport::gix_testtools::scripted_fixture_read_only;
 use gitbutler_testsupport::testing_repository::TestingRepository;
 use gitbutler_testsupport::visualize_git2_tree;
 
@@ -177,22 +178,46 @@ mod head_upsert_truthtable {
 
     // | modify             | modify            | upsert    |
     #[test]
-    fn index_modify_worktree_modify() -> anyhow::Result<()> {
+    fn index_modify_worktree_modify_racy_git() -> anyhow::Result<()> {
         let test = TestingRepository::open_with_initial_commit(&[("file1.txt", "content1")]);
 
-        std::fs::write(test.tempdir.path().join("file1.txt"), "content2")?;
+        let file_path = test.tempdir.path().join("file1.txt");
+        std::fs::write(&file_path, "content2")?;
 
         let mut index = test.repository.index()?;
         index.add_path(Path::new("file1.txt"))?;
         index.write()?;
 
-        std::fs::write(test.tempdir.path().join("file1.txt"), "content3")?;
+        // This change is made within the same second, so if racy-git isn't handled correctly,
+        // this change won't be seen.
+        std::fs::write(file_path, "content3")?;
 
         let tree: git2::Tree = test.repository.create_wd_tree()?;
 
         insta::assert_snapshot!(visualize_git2_tree(tree.id(), &test.repository), @r#"
         d377861
         └── file1.txt:100644:a2b3229 "content3"
+        "#);
+        Ok(())
+    }
+
+    // | modify             |                   | upsert    |
+    #[test]
+    fn index_modify() -> anyhow::Result<()> {
+        let test = TestingRepository::open_with_initial_commit(&[("file1.txt", "content1")]);
+
+        let file_path = test.tempdir.path().join("file1.txt");
+        std::fs::write(&file_path, "content2")?;
+
+        let mut index = test.repository.index()?;
+        index.add_path(Path::new("file1.txt"))?;
+        index.write()?;
+
+        let tree: git2::Tree = test.repository.create_wd_tree()?;
+
+        insta::assert_snapshot!(visualize_git2_tree(tree.id(), &test.repository), @r#"
+        f87e9ef
+        └── file1.txt:100644:db00fd6 "content2"
         "#);
         Ok(())
     }
@@ -398,7 +423,11 @@ fn tracked_file_becomes_directory_in_worktree() -> anyhow::Result<()> {
     std::fs::write(worktree_path.join("file"), "content in directory")?;
 
     let tree: git2::Tree = test.repository.create_wd_tree().unwrap();
-    insta::assert_snapshot!(visualize_git2_tree(tree.id(), &test.repository), @r"");
+    insta::assert_snapshot!(visualize_git2_tree(tree.id(), &test.repository), @r#"
+    8b80519
+    └── soon-directory:df6d699 
+        └── file:100644:dadf628 "content in directory"
+    "#);
     Ok(())
 }
 
@@ -413,7 +442,10 @@ fn tracked_directory_becomes_file_in_worktree() -> anyhow::Result<()> {
     std::fs::write(worktree_path, "content")?;
 
     let tree: git2::Tree = test.repository.create_wd_tree().unwrap();
-    insta::assert_snapshot!(visualize_git2_tree(tree.id(), &test.repository), @r"");
+    insta::assert_snapshot!(visualize_git2_tree(tree.id(), &test.repository), @r#"
+    637be29
+    └── soon-file:100644:6b584e8 "content"
+    "#);
     Ok(())
 }
 
@@ -449,11 +481,81 @@ fn tracked_file_swapped_with_non_file() -> anyhow::Result<()> {
         .status()?
         .success());
 
-    let tree: git2::Tree = test.repository.create_wd_tree().unwrap();
+    let tree: git2::Tree = test.repository.create_wd_tree()?;
     assert_eq!(
         tree.len(),
         0,
         "It completely ignores non-files, it doesn't see them, just like Git, even when previously tracked"
     );
     Ok(())
+}
+
+#[test]
+fn ignored_files() -> anyhow::Result<()> {
+    let test = TestingRepository::open_with_initial_commit(&[
+        ("tracked", "content"),
+        (".gitignore", "*.ignored"),
+    ]);
+
+    let ignored_path = test.tempdir.path().join("I-am.ignored");
+    std::fs::write(&ignored_path, "")?;
+
+    let tree: git2::Tree = test.repository.create_wd_tree()?;
+    // ignored files aren't picked up.
+    insta::assert_snapshot!(visualize_git2_tree(tree.id(), &test.repository), @r#"
+    38b94c0
+    ├── .gitignore:100644:669be81 "*.ignored"
+    └── tracked:100644:6b584e8 "content"
+    "#);
+    Ok(())
+}
+
+#[test]
+fn intent_to_add_is_picked_up_just_like_untracked() -> anyhow::Result<()> {
+    let repo = repo("intent-to-add")?;
+
+    let tree: git2::Tree = repo.create_wd_tree()?;
+    // We pick up what's in the worktree, independently of the intent-to-add flag.
+    insta::assert_snapshot!(visualize_git2_tree(tree.id(), &repo), @r#"
+    d6a22f9
+    └── to-be-added:100644:6b584e8 "content"
+    "#);
+    Ok(())
+}
+
+#[test]
+fn submodule_in_index_is_picked_up() -> anyhow::Result<()> {
+    let repo = repo("with-submodule-in-index")?;
+
+    let tree: git2::Tree = repo.create_wd_tree()?;
+    // Everything that is not contending with the worktree that is already in the index
+    // is picked up, even if it involves submodules.
+    insta::assert_snapshot!(visualize_git2_tree(tree.id(), &repo), @r#"
+    de956ee
+    ├── .gitmodules:100644:db28142 "[submodule \"sm\"]\n\tpath = sm\n\turl = ../module\n"
+    └── sm:160000:2e70126
+    "#);
+    Ok(())
+}
+
+#[test]
+fn submodule_change() -> anyhow::Result<()> {
+    let repo = repo("with-submodule-new-commit")?;
+
+    let tree: git2::Tree = repo.create_wd_tree()?;
+
+    // Changes to submodule heads are also picked up.
+    insta::assert_snapshot!(visualize_git2_tree(tree.id(), &repo), @r#"
+    8b0adff
+    ├── .gitmodules:100644:db28142 "[submodule \"sm\"]\n\tpath = sm\n\turl = ../module\n"
+    └── sm:160000:e8a2d3a
+    "#);
+    Ok(())
+}
+
+fn repo(name: &str) -> anyhow::Result<git2::Repository> {
+    let worktree_dir = scripted_fixture_read_only("make_create_wd_tree_repos.sh")
+        .map_err(|err| anyhow::Error::from_boxed(err))?
+        .join(name);
+    Ok(git2::Repository::open(worktree_dir)?)
 }
