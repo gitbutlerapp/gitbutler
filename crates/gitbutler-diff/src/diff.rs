@@ -16,6 +16,8 @@ pub type DiffByPathMap = HashMap<PathBuf, FileDiff>;
 pub enum ChangeType {
     /// Entry does not exist in old version
     Added,
+    /// Entry is untracked item in workdir
+    Untracked,
     /// Entry does not exist in new version
     Deleted,
     /// Entry content changed between old and new
@@ -26,7 +28,8 @@ impl From<git2::Delta> for ChangeType {
         use git2::Delta as D;
         use ChangeType as C;
         match v {
-            D::Untracked | D::Added => C::Added,
+            D::Added => C::Added,
+            D::Untracked => C::Untracked,
             D::Modified
             | D::Unmodified
             | D::Renamed
@@ -609,6 +612,7 @@ fn reverse_lines(
 pub fn reverse_hunk(hunk: &GitHunk) -> Option<GitHunk> {
     let new_change_type = match hunk.change_type {
         ChangeType::Added => ChangeType::Deleted,
+        ChangeType::Untracked => ChangeType::Deleted,
         ChangeType::Deleted => ChangeType::Added,
         ChangeType::Modified => ChangeType::Modified,
     };
@@ -635,6 +639,7 @@ pub fn reverse_hunk_lines(
     lines: Vec<(Option<u32>, Option<u32>)>,
 ) -> Option<GitHunk> {
     let new_change_type = match hunk.change_type {
+        ChangeType::Untracked => ChangeType::Deleted,
         ChangeType::Added => ChangeType::Deleted,
         ChangeType::Deleted => ChangeType::Added,
         ChangeType::Modified => ChangeType::Modified,

@@ -12,13 +12,14 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
+use git2::{ApplyLocation, ApplyOptions, Repository, ResetType};
 use git2_hooks::HookResult;
 use gitbutler_branch::BranchUpdateRequest;
 use gitbutler_branch::{dedup, dedup_fmt};
 use gitbutler_cherry_pick::RepositoryExt as _;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
-use gitbutler_diff::{trees, GitHunk, Hunk};
+use gitbutler_diff::{trees, ChangeType, GitHunk, Hunk};
 use gitbutler_error::error::Code;
 use gitbutler_hunk_dependency::RangeCalculationError;
 use gitbutler_operating_modes::assure_open_workspace_mode;
@@ -732,44 +733,6 @@ pub fn commit(
     ownership: Option<&BranchOwnershipClaims>,
     run_hooks: bool,
 ) -> Result<git2::Oid> {
-    let mut message_buffer = message.to_owned();
-
-    fn join_output<'a>(stdout: &'a str, stderr: &'a str) -> Cow<'a, str> {
-        let stdout = stdout.trim();
-        if stdout.is_empty() {
-            stderr.trim().into()
-        } else {
-            stdout.into()
-        }
-    }
-
-    if run_hooks {
-        let hook_result =
-            git2_hooks::hooks_commit_msg(ctx.repo(), Some(&["../.husky"]), &mut message_buffer)
-                .context("failed to run hook")
-                .context(Code::CommitHookFailed)?;
-
-        if let HookResult::RunNotSuccessful { stdout, stderr, .. } = &hook_result {
-            return Err(
-                anyhow!("commit-msg hook rejected: {}", join_output(stdout, stderr))
-                    .context(Code::CommitHookFailed),
-            );
-        }
-
-        let hook_result = git2_hooks::hooks_pre_commit(ctx.repo(), Some(&["../.husky"]))
-            .context("failed to run hook")
-            .context(Code::CommitHookFailed)?;
-
-        if let HookResult::RunNotSuccessful { stdout, stderr, .. } = &hook_result {
-            return Err(
-                anyhow!("commit hook rejected: {}", join_output(stdout, stderr))
-                    .context(Code::CommitHookFailed),
-            );
-        }
-    }
-
-    let message = &message_buffer;
-
     // get the files to commit
     let diffs = gitbutler_diff::workdir(ctx.repo(), get_workspace_head(ctx)?)?;
     let statuses = get_applied_status_cached(ctx, None, &diffs)
@@ -781,49 +744,69 @@ pub fn commit(
         .find(|(stack, _)| stack.id == stack_id)
         .with_context(|| format!("stack {stack_id} not found"))?;
 
+    let selected_files = if let Some(ownership) = ownership {
+        files
+            .clone()
+            .into_iter()
+            .filter_map(|file| {
+                let hunks = file
+                    .hunks
+                    .into_iter()
+                    .filter(|hunk| {
+                        let hunk: GitHunk = hunk.clone().into();
+                        ownership
+                            .claims
+                            .iter()
+                            .find(|f| f.file_path.eq(&file.path))
+                            .map_or(false, |f| {
+                                f.hunks.iter().any(|h| {
+                                    h.start == hunk.new_start
+                                        && h.end == hunk.new_start + hunk.new_lines
+                                })
+                            })
+                    })
+                    .collect::<Vec<_>>();
+                if !hunks.is_empty() {
+                    Some((file.path, hunks))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>()
+    } else {
+        files
+            .clone()
+            .into_iter()
+            .map(|file| (file.path, file.hunks))
+            .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>()
+    };
+
+    let final_message = if run_hooks {
+        run_message_hook(ctx, message.to_owned())?
+    } else {
+        message.to_owned()
+    };
+
+    if run_hooks {
+        stage_files(ctx, &selected_files)?;
+        let result = run_pre_commit_hook(ctx);
+        if result.is_err() {
+            unstage_all(ctx)?;
+            result?;
+        }
+    }
+
     update_conflict_markers(ctx, &diffs).context(Code::CommitMergeConflictFailure)?;
 
     ctx.assure_unconflicted()
         .context(Code::CommitMergeConflictFailure)?;
 
-    let tree_oid = if let Some(ownership) = ownership {
-        let files = files.into_iter().filter_map(|file| {
-            let hunks = file
-                .hunks
-                .into_iter()
-                .filter(|hunk| {
-                    let hunk: GitHunk = hunk.clone().into();
-                    ownership
-                        .claims
-                        .iter()
-                        .find(|f| f.file_path.eq(&file.path))
-                        .map_or(false, |f| {
-                            f.hunks.iter().any(|h| {
-                                h.start == hunk.new_start
-                                    && h.end == hunk.new_start + hunk.new_lines
-                            })
-                        })
-                })
-                .collect::<Vec<_>>();
-            if hunks.is_empty() {
-                None
-            } else {
-                Some((file.path, hunks))
-            }
-        });
-        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head(), files)?
-    } else {
-        let files = files
-            .into_iter()
-            .map(|file| (file.path, file.hunks))
-            .collect::<Vec<(PathBuf, Vec<VirtualBranchHunk>)>>();
-        gitbutler_diff::write::hunks_onto_commit(ctx, branch.head(), files)?
-    };
-
     let git_repository = ctx.repo();
     let parent_commit = git_repository
         .find_commit(branch.head())
         .context(format!("failed to find commit {:?}", branch.head()))?;
+
+    let tree_oid = gitbutler_diff::write::hunks_onto_commit(ctx, branch.head(), selected_files)?;
     let tree = git_repository
         .find_tree(tree_oid)
         .context(format!("failed to find tree {:?}", tree_oid))?;
@@ -838,13 +821,18 @@ pub fn commit(
             let merge_parent = git_repository
                 .find_commit(merge_parent)
                 .context(format!("failed to find merge parent {:?}", merge_parent))?;
-            let commit_oid = ctx.commit(message, &tree, &[&parent_commit, &merge_parent], None)?;
+            let commit_oid = ctx.commit(
+                &final_message,
+                &tree,
+                &[&parent_commit, &merge_parent],
+                None,
+            )?;
             conflicts::clear(ctx)
                 .context("failed to clear conflicts")
                 .context(Code::CommitMergeConflictFailure)?;
             commit_oid
         }
-        None => ctx.commit(message, &tree, &[&parent_commit], None)?,
+        None => ctx.commit(&final_message, &tree, &[&parent_commit], None)?,
     };
 
     if run_hooks {
@@ -860,6 +848,104 @@ pub fn commit(
         .context("failed to update gitbutler workspace")?;
 
     Ok(commit_oid)
+}
+
+fn join_output<'a>(stdout: &'a str, stderr: &'a str) -> Cow<'a, str> {
+    let stdout = stdout.trim();
+    if stdout.is_empty() {
+        stderr.trim().into()
+    } else {
+        stdout.into()
+    }
+}
+
+fn run_message_hook(ctx: &CommandContext, mut message: String) -> Result<String> {
+    let hook_result = git2_hooks::hooks_commit_msg(ctx.repo(), Some(&["../.husky"]), &mut message)
+        .context("failed to run hook")
+        .context(Code::CommitHookFailed)?;
+
+    if let HookResult::RunNotSuccessful { stdout, stderr, .. } = &hook_result {
+        return Err(
+            anyhow!("commit-msg hook rejected: {}", join_output(stdout, stderr))
+                .context(Code::CommitHookFailed),
+        );
+    }
+    Ok(message)
+}
+
+fn run_pre_commit_hook(ctx: &CommandContext) -> Result<()> {
+    let hook_result = git2_hooks::hooks_pre_commit(ctx.repo(), Some(&["../.husky"]))
+        .context("failed to run hook")
+        .context(Code::CommitHookFailed)?;
+
+    if let HookResult::RunNotSuccessful { stdout, stderr, .. } = &hook_result {
+        return Err(
+            anyhow!("commit hook rejected: {}", join_output(stdout, stderr))
+                .context(Code::CommitHookFailed),
+        );
+    }
+    Ok(())
+}
+
+pub(crate) fn unstage_all(ctx: &CommandContext) -> Result<()> {
+    let repo = ctx.repo();
+    // Get the HEAD commit (current commit)
+    let head_commit = repo.head()?.peel_to_commit()?;
+    // Reset the index to match the HEAD commit
+    repo.reset(head_commit.as_object(), ResetType::Mixed, None)?;
+    Ok(())
+}
+
+fn diff_workdir_to_index<'a>(repo: &'a Repository, path: &PathBuf) -> Result<git2::Diff<'a>> {
+    let index = repo.index()?;
+    let mut diff_opts = git2::DiffOptions::new();
+    diff_opts
+        .recurse_untracked_dirs(true)
+        .include_untracked(true)
+        .show_binary(true)
+        .show_untracked_content(true)
+        .ignore_submodules(true)
+        .context_lines(3)
+        .pathspec(path);
+    Ok(repo.diff_index_to_workdir(Some(&index), Some(&mut diff_opts))?)
+}
+
+fn stage_file(ctx: &CommandContext, path: &PathBuf, hunks: &Vec<VirtualBranchHunk>) -> Result<()> {
+    let repo = ctx.repo();
+    let mut index = repo.index()?;
+    if hunks.iter().any(|h| h.change_type == ChangeType::Untracked) {
+        index.add_path(path)?;
+        index.write()?;
+        return Ok(());
+    }
+
+    let mut apply_opts = ApplyOptions::new();
+    apply_opts.hunk_callback(|cb_hunk| {
+        cb_hunk.map_or(false, |cb_hunk| {
+            for hunk in hunks {
+                if hunk.start == cb_hunk.new_start()
+                    && hunk.end == cb_hunk.new_start() + cb_hunk.new_lines()
+                {
+                    return true;
+                }
+            }
+            false
+        })
+    });
+
+    let diff = diff_workdir_to_index(repo, path)?;
+    repo.apply(&diff, ApplyLocation::Index, Some(&mut apply_opts))?;
+    Ok(())
+}
+
+fn stage_files(
+    ctx: &CommandContext,
+    files_to_stage: &Vec<(PathBuf, Vec<VirtualBranchHunk>)>,
+) -> Result<()> {
+    for (path_to_stage, hunks_to_stage) in files_to_stage {
+        stage_file(ctx, path_to_stage, hunks_to_stage)?;
+    }
+    Ok(())
 }
 
 pub(crate) fn push(

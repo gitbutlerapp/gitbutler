@@ -195,7 +195,10 @@ where
                 // upsert into the builder
                 builder.upsert(rel_path, new_blob_oid, filemode);
             } else if !full_path_exists
-                && discard_hunk.map_or(false, |hunk| hunk.change_type == crate::ChangeType::Added)
+                && discard_hunk.map_or(false, |hunk| {
+                    hunk.change_type == crate::ChangeType::Added
+                        || hunk.change_type == crate::ChangeType::Untracked
+                })
             {
                 // File was deleted but now that hunk is being discarded with an inversed hunk
                 let mut all_diffs = BString::default();

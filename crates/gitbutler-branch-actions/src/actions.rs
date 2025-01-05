@@ -2,7 +2,7 @@ use super::r#virtual as vbranch;
 use crate::branch_upstream_integration;
 use crate::branch_upstream_integration::IntegrationStrategy;
 use crate::move_commits;
-use crate::r#virtual::StackListResult;
+use crate::r#virtual::{unstage_all, StackListResult};
 use crate::reorder::{self, StackOrder};
 use crate::upstream_integration::{
     self, BaseBranchResolution, BaseBranchResolutionApproach, Resolution, StackStatuses,
@@ -47,6 +47,12 @@ pub fn create_commit(
     let mut guard = project.exclusive_worktree_access();
     let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
     let result = vbranch::commit(&ctx, stack_id, message, ownership, run_hooks).map_err(Into::into);
+
+    if run_hooks && result.is_err() {
+        // If commit hooks fail then files will still be staged.
+        unstage_all(&ctx)?
+    }
+
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         ctx.project().snapshot_commit_creation(
             snapshot_tree,
