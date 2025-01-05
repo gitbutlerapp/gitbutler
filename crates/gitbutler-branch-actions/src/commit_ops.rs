@@ -34,6 +34,17 @@ fn get_exclusive_tree(
     Ok(merged_tree.into())
 }
 
+#[derive(PartialEq, Debug)]
+enum SubsetKind {
+    /// The subset_id is not equal to or a subset of superset_id.
+    /// superset_id MAY still be a strict subset of subset_id
+    NotSubset,
+    /// The subset_id is a strict subset of superset_id
+    Subset,
+    /// The subset_id and superset_id are equivalent commits
+    Equal,
+}
+
 /// Takes two commits and determines if one is a subset of or equal to the other.
 ///
 /// ### Performance
@@ -46,9 +57,13 @@ fn is_subset(
     superset_id: gix::ObjectId,
     subset_id: gix::ObjectId,
     common_base_id: gix::ObjectId,
-) -> Result<bool> {
+) -> Result<SubsetKind> {
     let exclusive_superset = get_exclusive_tree(repository, superset_id, common_base_id)?;
     let exclusive_subset = get_exclusive_tree(repository, subset_id, common_base_id)?;
+
+    if exclusive_superset == exclusive_subset {
+        return Ok(SubsetKind::Equal);
+    }
 
     let common_base = repository.find_commit(common_base_id)?;
 
@@ -61,10 +76,12 @@ fn is_subset(
         options,
     )?;
 
-    if !merged_exclusives.has_unresolved_conflicts(unresolved) {
-        Ok(exclusive_superset == merged_exclusives.tree.write()?)
+    if merged_exclusives.has_unresolved_conflicts(unresolved)
+        || exclusive_superset != merged_exclusives.tree.write()?
+    {
+        Ok(SubsetKind::NotSubset)
     } else {
-        Ok(false)
+        Ok(SubsetKind::Subset)
     }
 }
 
@@ -134,6 +151,8 @@ mod test {
     mod is_subset {
         use gitbutler_oxidize::OidExt;
 
+        use crate::commit_ops::SubsetKind;
+
         use super::super::is_subset;
         use super::*;
 
@@ -147,13 +166,16 @@ mod test {
                 &[("foo.txt", "bar"), ("bar.txt", "baz")],
             );
 
-            assert!(is_subset(
-                &test_repository.gix_repository(),
-                second_commit.id().to_gix(),
-                second_commit.id().to_gix(),
-                base_commit.id().to_gix()
+            assert_eq!(
+                is_subset(
+                    &test_repository.gix_repository(),
+                    second_commit.id().to_gix(),
+                    second_commit.id().to_gix(),
+                    base_commit.id().to_gix()
+                )
+                .unwrap(),
+                SubsetKind::Equal
             )
-            .unwrap())
         }
 
         #[test]
@@ -170,21 +192,27 @@ mod test {
                 &[("foo.txt", "bar"), ("bar.txt", "baz")],
             );
 
-            assert!(is_subset(
-                &test_repository.gix_repository(),
-                superset.id().to_gix(),
-                subset.id().to_gix(),
-                base_commit.id().to_gix()
-            )
-            .unwrap());
+            assert_eq!(
+                is_subset(
+                    &test_repository.gix_repository(),
+                    superset.id().to_gix(),
+                    subset.id().to_gix(),
+                    base_commit.id().to_gix()
+                )
+                .unwrap(),
+                SubsetKind::Subset
+            );
 
-            assert!(!is_subset(
-                &test_repository.gix_repository(),
-                subset.id().to_gix(),
-                superset.id().to_gix(),
-                base_commit.id().to_gix()
-            )
-            .unwrap());
+            assert_eq!(
+                is_subset(
+                    &test_repository.gix_repository(),
+                    subset.id().to_gix(),
+                    superset.id().to_gix(),
+                    base_commit.id().to_gix()
+                )
+                .unwrap(),
+                SubsetKind::NotSubset
+            );
         }
 
         #[test]
@@ -221,21 +249,27 @@ mod test {
             // identify that the changes each commit introduced are infact
             // a superset/subset of each other
 
-            assert!(is_subset(
-                &test_repository.gix_repository(),
-                superset.id().to_gix(),
-                subset.id().to_gix(),
-                base_commit.id().to_gix()
-            )
-            .unwrap());
+            assert_eq!(
+                is_subset(
+                    &test_repository.gix_repository(),
+                    superset.id().to_gix(),
+                    subset.id().to_gix(),
+                    base_commit.id().to_gix()
+                )
+                .unwrap(),
+                SubsetKind::Subset
+            );
 
-            assert!(!is_subset(
-                &test_repository.gix_repository(),
-                subset.id().to_gix(),
-                superset.id().to_gix(),
-                base_commit.id().to_gix()
-            )
-            .unwrap());
+            assert_eq!(
+                is_subset(
+                    &test_repository.gix_repository(),
+                    subset.id().to_gix(),
+                    superset.id().to_gix(),
+                    base_commit.id().to_gix()
+                )
+                .unwrap(),
+                SubsetKind::NotSubset
+            );
         }
     }
 }
