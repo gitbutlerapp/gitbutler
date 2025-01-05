@@ -18,3 +18,6 @@ pub fn configure_git2() {
     // These settings are only changed from `main` of applications.
     git2::opts::strict_object_creation(false);
 }
+
+/// The maximum size of files to automatically start tracking, i.e. untracked files we pick up for tree-creation.
+pub const AUTO_TRACK_LIMIT_BYTES: u64 = 32 * 1024 * 1024;

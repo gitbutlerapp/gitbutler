@@ -13,6 +13,7 @@ use gitbutler_error::error::Marker;
 use gitbutler_oplog::SnapshotExt;
 use gitbutler_oxidize::GixRepositoryExt;
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{Refname, RemoteRefname};
 use gitbutler_repo::logging::{LogUntil, RepositoryExt as _};
 use gitbutler_repo::{
@@ -305,7 +306,7 @@ impl BranchManager<'_> {
 
         // We don't support having two branches applied that conflict with each other
         {
-            let uncommited_changes_tree_id = repo.create_wd_tree()?.id();
+            let uncommited_changes_tree_id = repo.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?.id();
             let gix_repo = self.ctx.gix_repository_for_merging_non_persisting()?;
             let merges_cleanly = gix_repo
                 .merges_cleanly_compat(

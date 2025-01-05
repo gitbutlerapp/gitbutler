@@ -20,7 +20,7 @@ use gitbutler_oxidize::{
 };
 use gitbutler_project::{
     access::{WorktreeReadPermission, WorktreeWritePermission},
-    Project,
+    Project, AUTO_TRACK_LIMIT_BYTES,
 };
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo::SignaturePurpose;
@@ -29,8 +29,6 @@ use gix::bstr::ByteSlice;
 use gix::object::tree::diff::Change;
 use gix::prelude::ObjectIdExt;
 use tracing::instrument;
-
-const SNAPSHOT_FILE_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
 
 /// The Oplog allows for crating snapshots of the current state of the project as well as restoring to a previous snapshot.
 /// Snapshots include the state of the working directory as well as all additional GitButler state (e.g. virtual branches, conflict state).
@@ -312,7 +310,7 @@ impl OplogExt for Project {
         let old_wd_tree_id = tree_from_applied_vbranches(&gix_repo, commit.parent(0)?.id())?;
         let old_wd_tree = repo.find_tree(old_wd_tree_id)?;
 
-        repo.ignore_large_files_in_diffs(SNAPSHOT_FILE_LIMIT_BYTES)?;
+        repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
 
         let mut diff_opts = git2::DiffOptions::new();
         diff_opts
@@ -602,7 +600,7 @@ fn restore_snapshot(
     let workdir_tree_id = tree_from_applied_vbranches(&gix_repo, snapshot_commit_id)?;
     let workdir_tree = repo.find_tree(workdir_tree_id)?;
 
-    repo.ignore_large_files_in_diffs(SNAPSHOT_FILE_LIMIT_BYTES)?;
+    repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
 
     // Define the checkout builder
     let mut checkout_builder = git2::build::CheckoutBuilder::new();
@@ -739,7 +737,7 @@ fn lines_since_snapshot(project: &Project, repo: &git2::Repository) -> Result<us
     // This looks at the diff between the tree of the currently selected as 'default' branch (where new changes go)
     // and that same tree in the last snapshot. For some reason, comparing workdir to the workdir subree from
     // the snapshot simply does not give us what we need here, so instead using tree to tree comparison.
-    repo.ignore_large_files_in_diffs(SNAPSHOT_FILE_LIMIT_BYTES)?;
+    repo.ignore_large_files_in_diffs(AUTO_TRACK_LIMIT_BYTES)?;
 
     let oplog_state = OplogHandle::new(&project.gb_dir());
     let Some(oplog_commit_id) = oplog_state.oplog_head()? else {

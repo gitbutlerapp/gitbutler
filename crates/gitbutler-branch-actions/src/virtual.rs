@@ -26,6 +26,7 @@ use gitbutler_oxidize::{
     git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt,
 };
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{normalize_branch_name, Refname, RemoteRefname};
 use gitbutler_repo::{
     logging::{LogUntil, RepositoryExt as _},
@@ -1089,7 +1090,7 @@ pub fn is_remote_branch_mergeable(
 
     let base_tree = find_base_tree(ctx.repo(), &branch_commit, &target_commit)?;
 
-    let wd_tree = ctx.repo().create_wd_tree()?;
+    let wd_tree = ctx.repo().create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
 
     let branch_tree = branch_commit.tree().context("failed to find branch tree")?;
     let gix_repo_in_memory = ctx.gix_repository_for_merging()?.with_object_memory();
