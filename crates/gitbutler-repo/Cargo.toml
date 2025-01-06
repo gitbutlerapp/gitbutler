@@ -8,6 +8,7 @@ autotests = false
 
 [dependencies]
 git2.workspace = true
+git2-hooks = "0.4"
 gix = { workspace = true, features = ["merge", "status", "tree-editor"] }
 anyhow = "1.0.95"
 bstr.workspace = true
@@ -25,6 +26,7 @@ gitbutler-commit.workspace = true
 gitbutler-url.workspace = true
 gitbutler-cherry-pick.workspace = true
 gitbutler-oxidize.workspace = true
+gitbutler-diff.workspace = true
 uuid.workspace = true
 itertools = "0.14"
 toml.workspace = true

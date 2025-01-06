@@ -2,7 +2,7 @@ use super::r#virtual as vbranch;
 use crate::branch_upstream_integration;
 use crate::branch_upstream_integration::IntegrationStrategy;
 use crate::move_commits;
-use crate::r#virtual::{unstage_all, StackListResult};
+use crate::r#virtual::StackListResult;
 use crate::reorder::{self, StackOrder};
 use crate::upstream_integration::{
     self, BaseBranchResolution, BaseBranchResolutionApproach, Resolution, StackStatuses,
@@ -29,6 +29,7 @@ use gitbutler_oplog::{
 };
 use gitbutler_project::{FetchResult, Project};
 use gitbutler_reference::{ReferenceName, Refname, RemoteRefname};
+use gitbutler_repo::staging;
 use gitbutler_repo::RepositoryExt;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{BranchOwnershipClaims, StackId};
@@ -50,7 +51,7 @@ pub fn create_commit(
 
     if run_hooks && result.is_err() {
         // If commit hooks fail then files will still be staged.
-        unstage_all(&ctx)?
+        staging::unstage_all(&ctx)?
     }
 
     let _ = snapshot_tree.and_then(|snapshot_tree| {
