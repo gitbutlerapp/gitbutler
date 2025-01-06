@@ -57,7 +57,7 @@ mod gravatar;
 mod status;
 use gitbutler_stack::VirtualBranchesHandle;
 pub use status::get_applied_status;
-trait VirtualBranchesExt {
+pub trait VirtualBranchesExt {
     fn virtual_branches(&self) -> VirtualBranchesHandle;
 }
 
@@ -79,4 +79,5 @@ pub use branch::{
 
 pub use integration::GITBUTLER_WORKSPACE_COMMIT_TITLE;
 
+pub mod ownership;
 pub mod stack;

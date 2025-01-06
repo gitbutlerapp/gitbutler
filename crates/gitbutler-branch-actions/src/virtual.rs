@@ -5,6 +5,7 @@ use crate::{
     file::VirtualBranchFile,
     hunk::VirtualBranchHunk,
     integration::get_workspace_head,
+    ownership::filter_hunks_by_ownership,
     remote::branch_to_remote_branch,
     stack::stack_series,
     status::{get_applied_status, get_applied_status_cached},
@@ -744,30 +745,7 @@ pub fn commit(
         .map::<Result<&BranchOwnershipClaims>, _>(Ok)
         .unwrap_or_else(|| Ok(&stack.ownership))?;
 
-    let selected_files = ownership
-        .claims
-        .iter()
-        .map(|claim| {
-            if let Some(diff) = diffs.get(&claim.file_path) {
-                let hunks = claim
-                    .hunks
-                    .iter()
-                    .filter_map(|claimed_hunk| {
-                        diff.hunks
-                            .iter()
-                            .find(|diff_hunk| {
-                                claimed_hunk.start == diff_hunk.new_start
-                                    && claimed_hunk.end == diff_hunk.new_start + diff_hunk.new_lines
-                            })
-                            .cloned()
-                    })
-                    .collect_vec();
-                Ok((claim.file_path.clone(), hunks))
-            } else {
-                Err(anyhow!("Claim not found in workspace diff"))
-            }
-        })
-        .collect::<Result<Vec<(_, Vec<_>)>>>()?;
+    let selected_files = filter_hunks_by_ownership(&diffs, ownership)?;
 
     let final_message = if run_hooks {
         hooks::message(ctx, message.to_owned())?

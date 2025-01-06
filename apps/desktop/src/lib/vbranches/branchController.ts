@@ -52,6 +52,18 @@ export class BranchController {
 		}
 	}
 
+	async runHooks(stackId: string, ownership: string) {
+		try {
+			await invoke<void>('run_hooks', {
+				projectId: this.projectId,
+				stackId,
+				ownership
+			});
+		} catch (err: any) {
+			showError('Failed to run hooks', err);
+		}
+	}
+
 	async commitBranch(
 		branchId: string,
 		branchName: string,

@@ -59,6 +59,10 @@
 		}
 	}
 
+	async function runHooks() {
+		await branchController.runHooks(projectId, $selectedOwnership.toString());
+	}
+
 	function close() {
 		$expanded = false;
 	}
@@ -149,6 +153,13 @@
 				{/snippet}
 			</DropDownButton>
 		{:else}
+			<Button
+				onclick={() => {
+					runHooks();
+				}}
+				style="pop"
+				kind="solid">Run hooks</Button
+			>
 			<Button
 				style="pop"
 				kind="solid"

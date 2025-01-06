@@ -174,6 +174,7 @@ fn main() {
                     repo::commands::get_uncommited_files,
                     repo::commands::get_commit_file,
                     repo::commands::get_workspace_file,
+                    repo::commands::run_hooks,
                     virtual_branches::commands::list_virtual_branches,
                     virtual_branches::commands::create_virtual_branch,
                     virtual_branches::commands::delete_local_branch,

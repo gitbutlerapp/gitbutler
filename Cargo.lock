@@ -2830,6 +2830,7 @@ dependencies = [
  "gitbutler-user",
  "gitbutler-watcher",
  "gix",
+ "itertools 0.14.0",
  "log",
  "once_cell",
  "open",
