@@ -309,7 +309,8 @@ pub fn list_virtual_branches(
     ctx: &CommandContext,
     perm: &mut WorktreeWritePermission,
 ) -> Result<StackListResult> {
-    list_virtual_branches_cached(ctx, perm, None)
+    let diffs = gitbutler_diff::workdir(ctx.repo(), get_workspace_head(ctx)?)?;
+    list_virtual_branches_cached(ctx, perm, &diffs)
 }
 
 /// `worktree_changes` are all changed files against the current `HEAD^{tree}` and index
@@ -321,7 +322,7 @@ pub fn list_virtual_branches_cached(
     // TODO(ST): this should really only shared access, but there is some internals
     //           that conditionally write things.
     perm: &mut WorktreeWritePermission,
-    worktree_changes: Option<gitbutler_diff::DiffByPathMap>,
+    worktree_changes: &gitbutler_diff::DiffByPathMap,
 ) -> Result<StackListResult> {
     assure_open_workspace_mode(ctx)
         .context("Listing virtual branches requires open workspace mode")?;
@@ -349,7 +350,7 @@ pub fn list_virtual_branches_cached(
     let cache = gix_repo.commit_graph_if_enabled()?;
     let mut graph = gix_repo.revision_graph(cache.as_ref());
     for (mut branch, mut files) in status.branches {
-        update_conflict_markers(ctx, files.clone())?;
+        update_conflict_markers(ctx, worktree_changes)?;
 
         let upstream_branch = match &branch.upstream {
             Some(upstream) => repo.maybe_find_branch_by_refname(&Refname::from(upstream))?,
@@ -770,7 +771,8 @@ pub fn commit(
     let message = &message_buffer;
 
     // get the files to commit
-    let statuses = get_applied_status(ctx, None)
+    let diffs = gitbutler_diff::workdir(ctx.repo(), get_workspace_head(ctx)?)?;
+    let statuses = get_applied_status_cached(ctx, None, &diffs)
         .context("failed to get status by branch")?
         .branches;
 
@@ -779,7 +781,7 @@ pub fn commit(
         .find(|(stack, _)| stack.id == stack_id)
         .with_context(|| format!("stack {stack_id} not found"))?;
 
-    update_conflict_markers(ctx, files.clone()).context(Code::CommitMergeConflictFailure)?;
+    update_conflict_markers(ctx, &diffs).context(Code::CommitMergeConflictFailure)?;
 
     ctx.assure_unconflicted()
         .context(Code::CommitMergeConflictFailure)?;
@@ -1713,14 +1715,16 @@ pub(crate) fn update_commit_message(
 // Goes through a set of changes and checks if conflicts are present. If no conflicts
 // are present in a file it will be resolved, meaning it will be removed from the
 // conflicts file.
-fn update_conflict_markers(ctx: &CommandContext, files: Vec<VirtualBranchFile>) -> Result<()> {
+fn update_conflict_markers(
+    ctx: &CommandContext,
+    files: &gitbutler_diff::DiffByPathMap,
+) -> Result<()> {
     let conflicting_files = conflicts::conflicting_files(ctx)?;
-    for file in files {
+    for (path, file_diff) in files {
         let mut conflicted = false;
-        if conflicting_files.contains(&file.path) {
+        if conflicting_files.contains(path) {
             // check file for conflict markers, resolve the file if there are none in any hunk
-            for hunk in file.hunks {
-                let hunk: GitHunk = hunk.clone().into();
+            for hunk in &file_diff.hunks {
                 if hunk.diff_lines.contains_str(b"<<<<<<< ours") {
                     conflicted = true;
                 }
@@ -1729,7 +1733,7 @@ fn update_conflict_markers(ctx: &CommandContext, files: Vec<VirtualBranchFile>) 
                 }
             }
             if !conflicted {
-                conflicts::resolve(ctx, file.path).unwrap();
+                conflicts::resolve(ctx, path).unwrap();
             }
         }
     }

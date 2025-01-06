@@ -237,7 +237,7 @@ pub(crate) fn set_base_branch(
                 gitbutler_diff::write::hunks_onto_commit(
                     ctx,
                     current_head_commit.id(),
-                    gitbutler_diff::diff_files_into_hunks(wd_diff),
+                    gitbutler_diff::diff_files_into_hunks(&wd_diff),
                 )?,
                 current_head_commit.id(),
                 0,
