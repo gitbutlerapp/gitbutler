@@ -1,11 +1,13 @@
 use std::collections::HashMap;
 
-use anyhow::{Context, Result};
+use anyhow::{anyhow, Context, Result};
 use gitbutler_commit::commit_ext::CommitExt;
 use gitbutler_oplog::entry::{OperationKind, SnapshotDetails};
 use gitbutler_oplog::{OplogExt, SnapshotExt};
+use gitbutler_oxidize::OidExt as _;
 use gitbutler_project::Project;
 use gitbutler_reference::normalize_branch_name;
+use gitbutler_repo::RepositoryExt as _;
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::stack_context::{CommandContextExt, StackContext};
 use gitbutler_stack::{CommitOrChangeId, PatchReferenceUpdate, StackBranch};
@@ -13,10 +15,13 @@ use gitbutler_stack::{Stack, StackId, Target};
 use serde::{Deserialize, Serialize};
 
 use crate::dependencies::{commit_dependencies_from_stack, StackDependencies};
+use crate::integration_check::{
+    compat_find_integrated_commits, IntegrationStatuses, IntegrationStatusesExt,
+};
 use crate::{
     actions::open_with_verify,
     commit::{commit_to_vbranch_commit, VirtualBranchCommit},
-    r#virtual::{CommitData, IsCommitIntegrated, PatchSeries},
+    r#virtual::{CommitData, PatchSeries},
     VirtualBranchesExt,
 };
 use gitbutler_operating_modes::assure_open_workspace_mode;
@@ -189,10 +194,23 @@ pub fn push_stack(project: &Project, stack_id: StackId, with_force: bool) -> Res
         &default_target.push_remote_name(),
         Some("push_stack".into()),
     )?;
-    let gix_repo = ctx.gix_repository_for_merging_non_persisting()?;
-    let cache = gix_repo.commit_graph_if_enabled()?;
-    let mut graph = gix_repo.revision_graph(cache.as_ref());
-    let mut check_commit = IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
+
+    let gix_repository = ctx.gix_repository()?;
+    let cache = gix_repository.commit_graph_if_enabled()?;
+    let mut graph = gix_repository.revision_graph(cache.as_ref());
+    let target_branch = repo
+        .maybe_find_branch_by_refname(&default_target.branch.clone().into())?
+        .ok_or(anyhow!("Branch not found"))?;
+    let integration_statuses = compat_find_integrated_commits(
+        &gix_repository,
+        repo,
+        &mut graph,
+        default_target.sha.to_gix(),
+        target_branch.get().peel_to_commit()?.id().to_gix(),
+        stack.head().to_gix(),
+        ctx.project().use_new_integration_check,
+    )?;
+
     let stack_branches = stack.branches();
     for branch in stack_branches {
         if branch.archived {
@@ -203,7 +221,12 @@ pub fn push_stack(project: &Project, stack_id: StackId, with_force: bool) -> Res
             // Nothing to push for this one
             continue;
         }
-        if branch_integrated(&mut check_commit, &branch, &ctx.to_stack_context()?, &stack)? {
+        if branch_integrated(
+            &integration_statuses,
+            &branch,
+            &ctx.to_stack_context()?,
+            &stack,
+        )? {
             // Already integrated, nothing to push
             continue;
         }
@@ -220,7 +243,7 @@ pub fn push_stack(project: &Project, stack_id: StackId, with_force: bool) -> Res
 }
 
 pub(crate) fn branch_integrated(
-    check_commit: &mut IsCommitIntegrated,
+    integration_statuses: &IntegrationStatuses,
     branch: &StackBranch,
     stack_context: &StackContext,
     stack: &Stack,
@@ -228,10 +251,7 @@ pub(crate) fn branch_integrated(
     if branch.archived {
         return Ok(true);
     }
-    let branch_head = stack_context
-        .repository()
-        .find_commit(branch.head_oid(stack_context, stack)?)?;
-    check_commit.is_integrated(&branch_head)
+    Ok(integration_statuses.is_integrated(branch.head_oid(stack_context, stack)?.to_gix()))
 }
 
 /// Returns the stack series for the API.
@@ -241,7 +261,7 @@ pub(crate) fn stack_series(
     ctx: &StackContext,
     stack: &mut Stack,
     default_target: &Target,
-    check_commit: &mut IsCommitIntegrated,
+    integration_statuses: &IntegrationStatuses,
     stack_dependencies: StackDependencies,
 ) -> (Vec<Result<PatchSeries, serde_error::Error>>, bool) {
     let mut requires_force = false;
@@ -252,7 +272,7 @@ pub(crate) fn stack_series(
             stack_branch,
             stack,
             default_target,
-            check_commit,
+            integration_statuses,
             &stack_dependencies,
             &api_series
                 .iter()
@@ -282,7 +302,7 @@ fn stack_branch_to_api_branch(
     stack_branch: StackBranch,
     stack: &Stack,
     default_target: &Target,
-    check_commit: &mut IsCommitIntegrated,
+    integration_statuses: &IntegrationStatuses,
     stack_dependencies: &StackDependencies,
     parent_series: &[&PatchSeries],
 ) -> Result<(PatchSeries, bool)> {
@@ -310,7 +330,7 @@ fn stack_branch_to_api_branch(
     // Reverse first instead of later, so that we catch the first integrated commit
     for commit in branch_commits.clone().local_commits.iter().rev() {
         if !is_integrated {
-            is_integrated = check_commit.is_integrated(commit)?;
+            is_integrated = integration_statuses.is_integrated(commit.id().to_gix());
         }
         let copied_from_remote_id = CommitData::try_from(commit)
             .ok()
@@ -395,7 +415,7 @@ fn stack_branch_to_api_branch(
             }) {
                 true
             } else {
-                check_commit.is_integrated(commit)?
+                integration_statuses.is_integrated(commit.id().to_gix())
             }
         };
 

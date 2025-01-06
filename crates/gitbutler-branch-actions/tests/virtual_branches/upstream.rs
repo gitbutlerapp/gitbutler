@@ -45,6 +45,7 @@ fn detect_upstream_commits() {
         // should correctly detect pushed commits
         let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         let branches = list_result.branches;
+        dbg!(branches[0].series[0].clone().unwrap().patches);
         assert_eq!(branches.len(), 1);
         assert_eq!(branches[0].id, branch1_id);
         assert_eq!(branches[0].series[0].clone().unwrap().patches.len(), 3);

@@ -1,10 +1,11 @@
+use crate::integration_check::{compat_find_integrated_commits, IntegrationStatusesExt};
 use crate::stack::branch_integrated;
-use crate::{r#virtual::IsCommitIntegrated, BranchManagerExt, VirtualBranchesExt as _};
+use crate::{BranchManagerExt, VirtualBranchesExt as _};
 use anyhow::{anyhow, bail, Context, Result};
 use gitbutler_cherry_pick::RepositoryExt;
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
-use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt};
+use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::logging::RepositoryExt as _;
 use gitbutler_repo::RepositoryExt as _;
@@ -152,6 +153,7 @@ pub struct UpstreamIntegrationContext<'a> {
     stacks_in_workspace: Vec<Stack>,
     new_target: git2::Commit<'a>,
     target: Target,
+    use_new_integration_check: bool,
 }
 
 impl<'a> UpstreamIntegrationContext<'a> {
@@ -180,6 +182,7 @@ impl<'a> UpstreamIntegrationContext<'a> {
             new_target,
             target: target.clone(),
             stacks_in_workspace,
+            use_new_integration_check: command_context.project().use_new_integration_check,
         })
     }
 }
@@ -193,25 +196,19 @@ fn get_stack_status(
     target: Target,
     new_target_commit_id: gix::ObjectId,
     stack: &Stack,
+    use_new_integration_check: bool,
 ) -> Result<StackStatus> {
     let cache = gix_repository.commit_graph_if_enabled()?;
     let mut graph = gix_repository.revision_graph(cache.as_ref());
-    let upstream_commit_oids = repository.l(
-        gix_to_git2_oid(new_target_commit_id),
-        LogUntil::Commit(target.sha),
-        true,
-    )?;
-    let new_target_tree_id = gix_repository
-        .find_commit(new_target_commit_id)?
-        .tree_id()?;
-    let mut check_commit = IsCommitIntegrated::new_basic(
+    let integration_statuses = compat_find_integrated_commits(
         gix_repository,
         repository,
         &mut graph,
-        git2_to_gix_object_id(target.sha),
-        new_target_tree_id.detach(),
-        upstream_commit_oids,
-    );
+        target.sha.to_gix(),
+        new_target_commit_id,
+        stack.head().to_gix(),
+        use_new_integration_check,
+    )?;
 
     let mut unintegrated_branch_found = false;
 
@@ -229,7 +226,7 @@ fn get_stack_status(
         // If an integrated branch has been found, there is no need to bother
         // with subsequent branches.
         if !unintegrated_branch_found
-            && branch_integrated(&mut check_commit, branch, &stack_context, stack)?
+            && branch_integrated(&integration_statuses, branch, &stack_context, stack)?
         {
             branch_statuses.push(NameAndStatus {
                 name: branch.name.clone(),
@@ -328,6 +325,7 @@ pub fn upstream_integration_statuses(
         new_target,
         target,
         stacks_in_workspace,
+        use_new_integration_check,
         ..
     } = context;
     let old_target = repository.find_commit(target.sha)?;
@@ -350,6 +348,7 @@ pub fn upstream_integration_statuses(
                     target.clone(),
                     git2_to_gix_object_id(new_target.id()),
                     stack,
+                    *use_new_integration_check,
                 )?,
             ))
         })
@@ -537,6 +536,7 @@ fn compute_resolutions(
         new_target,
         target,
         stacks_in_workspace,
+        use_new_integration_check,
         ..
     } = context;
 
@@ -595,16 +595,15 @@ fn compute_resolutions(
                         gitbutler_command_context::gix_repository_for_merging(repository.path())?;
                     let cache = gix_repository.commit_graph_if_enabled()?;
                     let mut graph = gix_repository.revision_graph(cache.as_ref());
-                    let upstream_commit_oids =
-                        repository.l(new_target.id(), LogUntil::Commit(target.sha), true)?;
-                    let mut check_commit = IsCommitIntegrated::new_basic(
+                    let integration_statuses = compat_find_integrated_commits(
                         &gix_repository,
                         repository,
                         &mut graph,
-                        git2_to_gix_object_id(target.sha),
-                        git2_to_gix_object_id(new_target.tree_id()),
-                        upstream_commit_oids,
-                    );
+                        target.sha.to_gix(),
+                        new_target.id().to_gix(),
+                        branch_stack.head().to_gix(),
+                        *use_new_integration_check,
+                    )?;
 
                     // Rebase the commits, then try rebasing the tree. If
                     // the tree ends up conflicted, commit the tree.
@@ -628,8 +627,7 @@ fn compute_resolutions(
                     let virtual_branch_commits = virtual_branch_commits
                         .into_iter()
                         .filter_map(|commit| {
-                            let is_integrated = check_commit.is_integrated(&commit).ok()?;
-                            if is_integrated {
+                            if integration_statuses.is_integrated(commit.id().to_gix()) {
                                 None
                             } else {
                                 Some(commit.id())

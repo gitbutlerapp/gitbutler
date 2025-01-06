@@ -6,9 +6,9 @@ use git2::Tree;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
-use gitbutler_oxidize::{
-    git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, gix_to_git2_signature,
-};
+use gitbutler_oxidize::ObjectIdExt as _;
+use gitbutler_oxidize::OidExt as _;
+use gitbutler_oxidize::{git2_signature_to_gix_signature, gix_to_git2_signature};
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
 use gix::objs::WriteTo;
@@ -347,48 +347,20 @@ impl RepositoryExt for git2::Repository {
         parents: &[&git2::Commit<'_>],
         commit_headers: Option<CommitHeadersV2>,
     ) -> Result<git2::Oid> {
-        let repo = gix::open(self.path())?;
-        let mut commit = gix::objs::Commit {
-            message: message.into(),
-            tree: git2_to_gix_object_id(tree.id()),
-            author: git2_signature_to_gix_signature(author),
-            committer: git2_signature_to_gix_signature(committer),
-            encoding: None,
-            parents: parents
+        let id = gix::open(self.path())?.commit_with_signature(
+            update_ref.map(|update_ref| update_ref.to_string()),
+            author,
+            committer,
+            message,
+            tree.id().to_gix(),
+            &parents
                 .iter()
-                .map(|commit| git2_to_gix_object_id(commit.id()))
-                .collect(),
-            extra_headers: commit_headers.unwrap_or_default().into(),
-        };
+                .map(|parent| parent.id().to_gix())
+                .collect::<Vec<gix::ObjectId>>(),
+            commit_headers,
+        )?;
 
-        if self.gb_config()?.sign_commits.unwrap_or(false) {
-            let mut buf = Vec::new();
-            commit.write_to(&mut buf)?;
-            let signature = self.sign_buffer(&buf);
-            match signature {
-                Ok(signature) => {
-                    commit.extra_headers.push(("gpgsig".into(), signature));
-                }
-                Err(e) => {
-                    // If signing fails, set the "gitbutler.signCommits" config to false before erroring out
-                    self.set_gb_config(GbConfig {
-                        sign_commits: Some(false),
-                        ..GbConfig::default()
-                    })?;
-                    return Err(
-                        anyhow!("Failed to sign commit: {}", e).context(Code::CommitSigningFailed)
-                    );
-                }
-            }
-        }
-        // TODO: extra-headers should be supported in `gix` directly.
-        let oid = gix_to_git2_oid(repo.write_object(&commit)?);
-
-        // update reference
-        if let Some(refname) = update_ref {
-            self.reference(&refname.to_string(), oid, true, message)?;
-        }
-        Ok(oid)
+        Ok(id.to_git2())
     }
 
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString> {
@@ -607,5 +579,78 @@ impl CheckoutTreeBuidler<'_> {
         self.repo
             .checkout_tree(self.tree.as_object(), Some(&mut self.checkout_builder))
             .map_err(Into::into)
+    }
+}
+
+pub trait GixRepositoryExt {
+    #[allow(clippy::too_many_arguments)]
+    fn commit_with_signature(
+        &self,
+        update_ref: Option<String>,
+        author: &git2::Signature<'_>,
+        committer: &git2::Signature<'_>,
+        message: &str,
+        tree: gix::ObjectId,
+        parents: &[gix::ObjectId],
+        commit_headers: Option<CommitHeadersV2>,
+    ) -> Result<gix::ObjectId>;
+}
+
+impl GixRepositoryExt for gix::Repository {
+    #[allow(clippy::too_many_arguments)]
+    fn commit_with_signature(
+        &self,
+        update_ref: Option<String>,
+        author: &git2::Signature<'_>,
+        committer: &git2::Signature<'_>,
+        message: &str,
+        tree: gix::ObjectId,
+        parents: &[gix::ObjectId],
+        commit_headers: Option<CommitHeadersV2>,
+    ) -> Result<gix::ObjectId> {
+        let git2_repository = git2::Repository::open(self.git_dir())?;
+        let mut commit = gix::objs::Commit {
+            message: message.into(),
+            tree,
+            author: git2_signature_to_gix_signature(author),
+            committer: git2_signature_to_gix_signature(committer),
+            encoding: None,
+            parents: parents.into(),
+            extra_headers: commit_headers.unwrap_or_default().into(),
+        };
+
+        if git2_repository.gb_config()?.sign_commits.unwrap_or(false) {
+            let mut buf = Vec::new();
+            commit.write_to(&mut buf)?;
+            let signature = git2_repository.sign_buffer(&buf);
+            match signature {
+                Ok(signature) => {
+                    commit.extra_headers.push(("gpgsig".into(), signature));
+                }
+                Err(e) => {
+                    // If signing fails, set the "gitbutler.signCommits" config to false before erroring out
+                    git2_repository.set_gb_config(GbConfig {
+                        sign_commits: Some(false),
+                        ..GbConfig::default()
+                    })?;
+                    return Err(
+                        anyhow!("Failed to sign commit: {}", e).context(Code::CommitSigningFailed)
+                    );
+                }
+            }
+        }
+        // TODO: extra-headers should be supported in `gix` directly.
+        let oid = self.write_object(&commit)?;
+
+        // update reference
+        if let Some(refname) = update_ref {
+            git2_repository.reference(
+                &refname.to_string(),
+                oid.detach().to_git2(),
+                true,
+                message,
+            )?;
+        }
+        Ok(oid.into())
     }
 }

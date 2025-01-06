@@ -96,6 +96,12 @@ pub struct Project {
     pub snapshot_lines_threshold: Option<usize>,
     #[serde(default)]
     pub use_new_branch_integration_algorithm: Option<bool>,
+    #[serde(default = "default_false")]
+    pub use_new_integration_check: bool,
+}
+
+fn default_false() -> bool {
+    false
 }
 
 impl Project {
