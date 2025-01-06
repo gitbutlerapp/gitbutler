@@ -575,8 +575,8 @@ fn submodule_change() -> anyhow::Result<()> {
 fn big_files_check_is_disabled_with_zero() -> anyhow::Result<()> {
     let test = TestingRepository::open_with_initial_commit(&[]);
 
-    std::fs::write(&test.tempdir.path().join("empty"), "")?;
-    std::fs::write(&test.tempdir.path().join("with-content"), "content")?;
+    std::fs::write(test.tempdir.path().join("empty"), "")?;
+    std::fs::write(test.tempdir.path().join("with-content"), "content")?;
 
     let tree: git2::Tree = test.repository.create_wd_tree(0)?;
 

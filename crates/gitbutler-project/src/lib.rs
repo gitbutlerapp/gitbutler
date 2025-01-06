@@ -20,4 +20,5 @@ pub fn configure_git2() {
 }
 
 /// The maximum size of files to automatically start tracking, i.e. untracked files we pick up for tree-creation.
-pub const AUTO_TRACK_LIMIT_BYTES: u64 = 32 * 1024 * 1024;
+/// **Inactive for now** while it's hard to tell if it's safe *not* to pick up everything.
+pub const AUTO_TRACK_LIMIT_BYTES: u64 = 0;

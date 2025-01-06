@@ -20,7 +20,6 @@ use gitbutler_operating_modes::{
 };
 use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_index, GixRepositoryExt};
 use gitbutler_project::access::{WorktreeReadPermission, WorktreeWritePermission};
-use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_reference::{ReferenceName, Refname};
 use gitbutler_repo::{rebase::cherry_rebase, RepositoryExt};
 use gitbutler_repo::{signature, SignaturePurpose};
@@ -235,7 +234,9 @@ pub(crate) fn save_and_return_to_workspace(
     let parents = commit.parents().collect::<Vec<_>>();
 
     // Recommit commit
-    let tree = repository.create_wd_tree(AUTO_TRACK_LIMIT_BYTES)?;
+    // While we perform hard resets we should pick up everything to avoid loosing worktree state.
+    let pick_up_untracked_files_of_any_size = 0;
+    let tree = repository.create_wd_tree(pick_up_untracked_files_of_any_size)?;
 
     let (_, committer) = repository.signatures()?;
     let commit_headers = commit
