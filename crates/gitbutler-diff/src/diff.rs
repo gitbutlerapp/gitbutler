@@ -656,9 +656,11 @@ pub fn reverse_hunk_lines(
 }
 
 pub fn diff_files_into_hunks(
-    files: DiffByPathMap,
-) -> impl Iterator<Item = (PathBuf, Vec<GitHunk>)> {
-    files.into_iter().map(|(path, file)| (path, file.hunks))
+    files: &DiffByPathMap,
+) -> impl Iterator<Item = (PathBuf, Vec<GitHunk>)> + '_ {
+    files
+        .iter()
+        .map(|(path, file)| (path.clone(), file.hunks.clone()))
 }
 
 #[cfg(test)]

@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use anyhow::{bail, Context as _, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
@@ -76,12 +74,12 @@ fn inner_undo_commit(
         .context("failed to get parent tree")?;
 
     let diff = gitbutler_diff::trees(repository, &commit_parent_tree, &commit_tree, true)?;
-    let diff: HashMap<_, _> = gitbutler_diff::diff_files_into_hunks(diff).collect();
     let ownership_update = diff
         .iter()
-        .filter_map(|(file_path, hunks)| {
+        .filter_map(|(file_path, file_diff)| {
             let file_path = file_path.clone();
-            let hunks = hunks
+            let hunks = file_diff
+                .hunks
                 .iter()
                 .map(Into::into)
                 .filter(|hunk: &Hunk| hunk.start != 0 && hunk.end != 0)

@@ -93,7 +93,7 @@ fn get_source_branch_diffs(
         &uncommitted_changes_tree,
         true,
     )
-    .map(|diff| gitbutler_diff::diff_files_into_hunks(diff).collect::<HashMap<_, _>>())?;
+    .map(|diff| gitbutler_diff::diff_files_into_hunks(&diff).collect::<HashMap<_, _>>())?;
 
     Ok(uncommitted_changes_diff)
 }
