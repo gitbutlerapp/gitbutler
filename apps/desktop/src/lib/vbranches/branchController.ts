@@ -53,20 +53,15 @@ export class BranchController {
 	}
 
 	async runHooks(stackId: string, ownership: string) {
-		try {
-			await invoke<void>('run_hooks', {
-				projectId: this.projectId,
-				stackId,
-				ownership
-			});
-		} catch (err: any) {
-			showError('Failed to run hooks', err);
-		}
+		await invoke<void>('run_hooks', {
+			projectId: this.projectId,
+			stackId,
+			ownership
+		});
 	}
 
 	async commitBranch(
 		branchId: string,
-		branchName: string,
 		message: string,
 		ownership: string | undefined = undefined,
 		runHooks = false
@@ -85,7 +80,6 @@ export class BranchController {
 				showSignError(err);
 			} else {
 				showError('Failed to commit changes', err);
-				throw err;
 			}
 			this.posthog.capture('Commit Failed', err);
 		}

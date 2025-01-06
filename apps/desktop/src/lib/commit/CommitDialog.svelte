@@ -5,6 +5,7 @@
 	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
 	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
+	import { showError } from '$lib/notifications/toasts';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import { BranchController } from '$lib/vbranches/branchController';
@@ -35,6 +36,7 @@
 
 	let commitMessageInput = $state<CommitMessageInput>();
 	let isCommitting = $state(false);
+	let isRunningHooks = $state(false);
 	let commitMessageValid = $state(false);
 	let isInViewport = $state(false);
 
@@ -44,7 +46,6 @@
 		try {
 			await branchController.commitBranch(
 				$stack.id,
-				$stack.name,
 				message.trim(),
 				$selectedOwnership.toString(),
 				$runCommitHooks
@@ -60,7 +61,14 @@
 	}
 
 	async function runHooks() {
-		await branchController.runHooks(projectId, $selectedOwnership.toString());
+		isRunningHooks = true;
+		try {
+			await branchController.runHooks(projectId, $selectedOwnership.toString());
+		} catch (err: unknown) {
+			showError('Failed to run hooks', err);
+		} finally {
+			isRunningHooks = false;
+		}
 	}
 
 	function close() {
@@ -110,6 +118,20 @@
 		{#if $expanded && !isCommitting}
 			<div class="cancel-btn-wrapper" transition:slideFade={{ duration: 200, axis: 'x' }}>
 				<Button style="ghost" outline id="commit-to-branch" onclick={close}>Cancel</Button>
+				{#if $expanded}
+					<Button
+						onclick={() => {
+							runHooks();
+						}}
+						style="pop"
+						loading={isRunningHooks}
+						kind="solid"
+						disabled={isRunningHooks || $selectedOwnership.nothingSelected()}
+						id="run-hooks"
+					>
+						Run hooks
+					</Button>
+				{/if}
 			</div>
 		{/if}
 		{#if $expanded && canShowCommitAndPublish}
@@ -153,13 +175,6 @@
 				{/snippet}
 			</DropDownButton>
 		{:else}
-			<Button
-				onclick={() => {
-					runHooks();
-				}}
-				style="pop"
-				kind="solid">Run hooks</Button
-			>
 			<Button
 				style="pop"
 				kind="solid"
@@ -208,6 +223,7 @@
 	.cancel-btn-wrapper {
 		overflow: hidden;
 		margin-right: 6px;
+		white-space: nowrap;
 	}
 
 	/* MODIFIERS */
