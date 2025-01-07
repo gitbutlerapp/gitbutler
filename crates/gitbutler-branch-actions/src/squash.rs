@@ -45,26 +45,7 @@ pub(crate) fn squash_commits(
         &destination_commit,
     )?;
 
-    // Create a new commit that that has the source trees merged into the target tree
-    let base_tree = git2_to_gix_object_id(destination_commit.tree_id());
-    let mut final_tree_id = git2_to_gix_object_id(destination_commit.tree_id());
-    let gix_repo = ctx.gix_repository_for_merging()?;
-    let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
-    for source_commit in &source_commits {
-        let source_tree = git2_to_gix_object_id(source_commit.tree_id());
-        let mut merge = gix_repo.merge_trees(
-            base_tree,
-            final_tree_id,
-            source_tree,
-            gix_repo.default_merge_labels(),
-            merge_options_fail_fast.clone(),
-        )?;
-        if merge.has_unresolved_conflicts(conflict_kind) {
-            bail!("Merge failed with conflicts");
-        }
-        final_tree_id = merge.tree.write()?.detach();
-    }
-    let final_tree = ctx.repo().find_tree(gix_to_git2_oid(final_tree_id))?;
+    let final_tree = squash_tree(ctx, &source_commits, &destination_commit)?;
     // Squash commit messages string separated by newlines
     let source_messages = source_commits
         .iter()
@@ -190,4 +171,32 @@ fn validate(
     }
 
     Ok(())
+}
+
+// Create a new tree that that has the source trees merged into the target tree
+fn squash_tree<'a>(
+    ctx: &'a CommandContext,
+    source_commits: &[git2::Commit<'_>],
+    destination_commit: &git2::Commit<'_>,
+) -> Result<git2::Tree<'a>> {
+    let base_tree = git2_to_gix_object_id(destination_commit.tree_id());
+    let mut final_tree_id = git2_to_gix_object_id(destination_commit.tree_id());
+    let gix_repo = ctx.gix_repository_for_merging()?;
+    let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
+    for source_commit in source_commits {
+        let source_tree = git2_to_gix_object_id(source_commit.tree_id());
+        let mut merge = gix_repo.merge_trees(
+            base_tree,
+            final_tree_id,
+            source_tree,
+            gix_repo.default_merge_labels(),
+            merge_options_fail_fast.clone(),
+        )?;
+        if merge.has_unresolved_conflicts(conflict_kind) {
+            bail!("Merge failed with conflicts");
+        }
+        final_tree_id = merge.tree.write()?.detach();
+    }
+    let final_tree = ctx.repo().find_tree(gix_to_git2_oid(final_tree_id))?;
+    Ok(final_tree)
 }
