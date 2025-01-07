@@ -2,7 +2,7 @@ pub mod commands {
     use anyhow::{anyhow, Context};
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
     use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
-    use gitbutler_branch_actions::internal::{PushResult, StackListResult};
+    use gitbutler_branch_actions::internal::StackListResult;
     use gitbutler_branch_actions::upstream_integration::{
         BaseBranchResolution, BaseBranchResolutionApproach, Resolution, StackStatuses,
     };
@@ -290,26 +290,6 @@ pub mod commands {
         gitbutler_branch_actions::reset_files(&project, branch_id, &files)?;
         emit_vbranches(&windows, project_id);
         Ok(())
-    }
-
-    #[tauri::command(async)]
-    #[instrument(skip(projects, windows), err(Debug))]
-    pub fn push_virtual_branch(
-        windows: State<'_, WindowState>,
-        projects: State<'_, projects::Controller>,
-        project_id: ProjectId,
-        branch_id: StackId,
-        with_force: bool,
-    ) -> Result<PushResult, Error> {
-        let project = projects.get(project_id)?;
-        let upstream_refname = gitbutler_branch_actions::push_virtual_branch(
-            &project,
-            branch_id,
-            with_force,
-            Some(Some(branch_id)),
-        )?;
-        emit_vbranches(&windows, project_id);
-        Ok(upstream_refname)
     }
 
     #[tauri::command(async)]

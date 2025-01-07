@@ -88,6 +88,7 @@ fn detect_integrated_commits() {
     };
 
     // push
+    #[allow(deprecated)]
     gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None).unwrap();
 
     {

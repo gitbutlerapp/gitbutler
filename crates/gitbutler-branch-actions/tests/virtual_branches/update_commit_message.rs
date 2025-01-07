@@ -174,6 +174,7 @@ fn forcepush_allowed() {
             .unwrap()
     };
 
+    #[allow(deprecated)]
     gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
     gitbutler_branch_actions::update_commit_message(
@@ -236,6 +237,7 @@ fn forcepush_forbidden() {
             .unwrap()
     };
 
+    #[allow(deprecated)]
     gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
     assert_eq!(

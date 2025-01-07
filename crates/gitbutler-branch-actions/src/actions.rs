@@ -416,6 +416,7 @@ pub fn save_and_unapply_virutal_branch(
     result
 }
 
+#[deprecated(note = "use gitbutler_branch_actions::stack::push_stack instead")]
 pub fn push_virtual_branch(
     project: &Project,
     stack_id: StackId,

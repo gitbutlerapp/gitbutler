@@ -28,6 +28,7 @@ fn integration() {
 
         std::fs::write(repository.path().join("file.txt"), "first\n").unwrap();
         gitbutler_branch_actions::create_commit(project, branch_id, "first", None, false).unwrap();
+        #[allow(deprecated)]
         gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
@@ -72,6 +73,7 @@ fn integration() {
 
     {
         // merge branch into master
+        #[allow(deprecated)]
         gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
