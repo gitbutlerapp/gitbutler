@@ -1547,6 +1547,7 @@ pub(crate) fn insert_blank_commit(
 }
 
 /// squashes a commit from a virtual branch into its parent.
+#[deprecated(note = "use crate::squash::squash_commits instead")]
 pub(crate) fn squash(ctx: &CommandContext, stack_id: StackId, commit_id: git2::Oid) -> Result<()> {
     ctx.assure_resolved()?;
 

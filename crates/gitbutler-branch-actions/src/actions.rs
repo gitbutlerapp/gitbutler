@@ -432,6 +432,7 @@ pub fn find_git_branches(project: Project, branch_name: &str) -> Result<Vec<Remo
     remote::find_git_branches(&ctx, branch_name)
 }
 
+#[deprecated(note = "use squash_commits instead")]
 pub fn squash(project: &Project, stack_id: StackId, commit_oid: git2::Oid) -> Result<()> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Squashing a commit requires open workspace mode")?;
@@ -440,7 +441,31 @@ pub fn squash(project: &Project, stack_id: StackId, commit_oid: git2::Oid) -> Re
         SnapshotDetails::new(OperationKind::SquashCommit),
         guard.write_permission(),
     );
+    #[allow(deprecated)]
     vbranch::squash(&ctx, stack_id, commit_oid).map_err(Into::into)
+}
+
+pub fn squash_commits(
+    project: &Project,
+    stack_id: StackId,
+    source_ids: Vec<git2::Oid>,
+    destination_id: git2::Oid,
+) -> Result<()> {
+    let ctx = open_with_verify(project)?;
+    assure_open_workspace_mode(&ctx).context("Squashing a commit requires open workspace mode")?;
+    let mut guard = project.exclusive_worktree_access();
+    let _ = ctx.project().create_snapshot(
+        SnapshotDetails::new(OperationKind::SquashCommit),
+        guard.write_permission(),
+    );
+    crate::squash::squash_commits(
+        &ctx,
+        stack_id,
+        source_ids,
+        destination_id,
+        guard.write_permission(),
+    )
+    .map_err(Into::into)
 }
 
 pub fn update_commit_message(
