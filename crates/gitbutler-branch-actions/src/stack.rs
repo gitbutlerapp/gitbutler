@@ -316,7 +316,6 @@ fn stack_branch_to_api_branch(
         None
     };
     let mut patches: Vec<VirtualBranchCommit> = vec![];
-    let mut is_integrated = false;
 
     let remote_commit_data = branch_commits
         .remote_commits
@@ -329,9 +328,6 @@ fn stack_branch_to_api_branch(
 
     // Reverse first instead of later, so that we catch the first integrated commit
     for commit in branch_commits.clone().local_commits.iter().rev() {
-        if !is_integrated {
-            is_integrated = integration_statuses.is_integrated(commit.id().to_gix());
-        }
         let copied_from_remote_id = CommitData::try_from(commit)
             .ok()
             .and_then(|data| remote_commit_data.get(&data).copied());
@@ -364,6 +360,8 @@ fn stack_branch_to_api_branch(
         }
 
         let commit_dependencies = commit_dependencies_from_stack(stack_dependencies, commit.id());
+
+        let is_integrated = integration_statuses.is_integrated(commit.id().to_gix());
 
         let vcommit = commit_to_vbranch_commit(
             repository,
@@ -405,19 +403,7 @@ fn stack_branch_to_api_branch(
             continue;
         }
 
-        let is_integrated = {
-            if parent_series.iter().any(|series| {
-                if !series.archived {
-                    return false;
-                };
-
-                series.upstream_patches.iter().any(|p| p.id == commit.id())
-            }) {
-                true
-            } else {
-                integration_statuses.is_integrated(commit.id().to_gix())
-            }
-        };
+        let is_integrated = integration_statuses.is_integrated(commit.id().to_gix());
 
         let commit_dependencies = commit_dependencies_from_stack(stack_dependencies, commit.id());
 

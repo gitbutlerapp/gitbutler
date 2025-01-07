@@ -11,31 +11,28 @@ use itertools::Itertools as _;
 use crate::commit_ops::{get_exclusive_tree, get_first_parent, is_subset, SubsetKind};
 
 #[derive(Debug, PartialEq)]
-enum SquashCollectionStatus {
+enum RelationStatus {
     Complete,
     Incomplete,
 }
 
+/// Describes the relationship between commits in two lists
 #[derive(Debug, PartialEq)]
-struct SquashCollection {
+struct CommitRelation {
     /// The squahsed commit that we have found squashee commits for
     target: gix::ObjectId,
     /// The commits that we have found commits that look like
     /// they have been squahsed into the target
     /// commits are ordered from child-most to parent-most
-    squashed: Vec<gix::ObjectId>,
+    components: Vec<gix::ObjectId>,
     /// Whether the combined squashed commits exactly match the target
     /// commit
-    status: SquashCollectionStatus,
+    status: RelationStatus,
 }
 
-impl SquashCollection {
-    fn complete_match(&self) -> bool {
-        matches!(self.status, SquashCollectionStatus::Complete)
-    }
-
+impl CommitRelation {
     fn is_squash(&self) -> bool {
-        self.squashed.len() > 1
+        self.components.len() > 1
     }
 }
 
@@ -91,6 +88,9 @@ fn combine_commits(
 /// commits in the `rights` array. These objects describe which commits in
 /// the `lefts` array are either equal to, or squashed into commits on the
 /// right.
+/// This will only find entries in the `lefts` array that are subsets of
+/// commits in the `rights` array. This means it will find `lefts` commits
+/// that have been squashed into or contained by the `rights` array.
 ///
 /// Commits ordered from child-most to parent-most and must be based off
 /// of the base commit.
@@ -99,70 +99,71 @@ fn find_related_commits(
     lefts: &[gix::ObjectId],
     rights: &[gix::ObjectId],
     base: gix::ObjectId,
-) -> Result<Vec<SquashCollection>> {
-    // For the comments inside this
-    let mut squashes: Vec<SquashCollection> = vec![];
+) -> Result<Vec<CommitRelation>> {
+    let mut relations: Vec<CommitRelation> = vec![];
 
     for left in lefts {
-        let mut found_supersets: Vec<SquashCollection> = vec![];
+        // First identify the list of commits on the RHS which are supersets
+        // or equal to the current `left` commit.
+        let mut found_supersets: Vec<CommitRelation> = vec![];
 
         for right in rights {
-            // is left a subset of right
             match is_subset(repository, *right, *left, base)? {
-                SubsetKind::Subset => found_supersets.push(SquashCollection {
+                SubsetKind::Subset => found_supersets.push(CommitRelation {
                     target: *right,
-                    squashed: vec![*left],
-                    status: SquashCollectionStatus::Incomplete,
+                    components: vec![*left],
+                    status: RelationStatus::Incomplete,
                 }),
                 SubsetKind::Equal => {
-                    found_supersets.push(SquashCollection {
+                    found_supersets.push(CommitRelation {
                         target: *right,
-                        squashed: vec![*left],
-                        status: SquashCollectionStatus::Complete,
+                        components: vec![*left],
+                        status: RelationStatus::Complete,
                     });
                 }
                 _ => {}
             }
         }
 
-        // Loop over all the existing found entries and see if the
-        // commit can be part of those squash collections.
-        for squash in squashes.iter_mut() {
-            let commits = [squash.squashed.clone(), vec![*left]].concat();
+        // We also want to see if the `left` commit *could* be part of one of
+        // the existing relations.
+        // We don't need to include any `found_supersets` in this loop because
+        // it would only end up adding the `left` commit to the `components`
+        // list twice.
+        for relation in relations.iter_mut() {
+            let commits = [relation.components.clone(), vec![*left]].concat();
             let combined_commit = combine_commits(repository, &commits, base)?;
 
-            match is_subset(repository, squash.target, combined_commit, base)? {
+            match is_subset(repository, relation.target, combined_commit, base)? {
                 SubsetKind::Equal => {
-                    squash.squashed = commits;
-                    squash.status = SquashCollectionStatus::Complete;
+                    relation.components = commits;
+                    relation.status = RelationStatus::Complete;
                 }
                 SubsetKind::Subset => {
-                    squash.squashed = commits;
+                    relation.components = commits;
                 }
                 _ => {}
             }
         }
 
-        squashes.append(&mut found_supersets);
+        relations.append(&mut found_supersets);
     }
 
-    Ok(squashes)
+    Ok(relations)
 }
 
+/// Describes if and how a given commit is integrated.
 #[derive(Debug, PartialEq)]
 pub(crate) enum IntegrationStatus {
     Integrated {
+        /// If the commit was squashed into an upstream commit
         was_squashed: bool,
+        /// If the commit is itself a squash of many upstream commits
         is_squash: bool,
+        /// If the commit has a complete match in upstream.
         complete_match: bool,
     },
     NotIntegrated,
-}
-
-impl IntegrationStatus {
-    pub(crate) fn is_integrated(&self) -> bool {
-        matches!(self, Self::Integrated { .. })
-    }
 }
 
 pub(crate) type IntegrationStatuses = HashMap<gix::ObjectId, IntegrationStatus>;
@@ -173,49 +174,54 @@ pub(crate) trait IntegrationStatusesExt {
 
 impl IntegrationStatusesExt for IntegrationStatuses {
     fn is_integrated(&self, oid: gix::ObjectId) -> bool {
-        self.get(&oid)
-            .map_or(false, |status| status.is_integrated())
+        self.get(&oid).map_or(false, |status| {
+            matches!(status, IntegrationStatus::Integrated { .. })
+        })
     }
 }
 
+/// Get the integration statuses of a list of commits
 pub(crate) fn find_integrated_commits(
     repository: &gix::Repository,
-    left: gix::ObjectId,
-    right: gix::ObjectId,
+    local_head: gix::ObjectId,
+    remote_head: gix::ObjectId,
 ) -> Result<IntegrationStatuses> {
     let repository = gix_repository_for_merging(repository.git_dir())?.with_object_memory();
-    let base = repository.merge_base(left, right)?.detach();
+    let base = repository.merge_base(local_head, remote_head)?.detach();
 
-    let lefts = repository
-        .rev_walk([base, left])
+    let locals = repository
+        .rev_walk([local_head])
         .first_parent_only()
         .with_pruned([base])
+        .sorting(gix::revision::walk::Sorting::BreadthFirst)
         .all()?
         .filter_map(|info| Some(info.ok()?.id))
         .collect::<Vec<_>>();
 
-    let rights = repository
-        .rev_walk([base, right])
+    let remotes = repository
+        .rev_walk([remote_head])
         .first_parent_only()
         .with_pruned([base])
+        .sorting(gix::revision::walk::Sorting::BreadthFirst)
         .all()?
         .filter_map(|info| Some(info.ok()?.id))
         .collect::<Vec<_>>();
 
-    dbg!(&lefts, &rights);
-
-    let mut integration_statuses = lefts
+    let mut integration_statuses = locals
         .iter()
         .map(|oid| (*oid, IntegrationStatus::NotIntegrated))
         .collect::<IntegrationStatuses>();
 
-    let right_descriptions = find_related_commits(&repository, &lefts, &rights, base)?;
-    let left_descriptions = find_related_commits(&repository, &rights, &lefts, base)?;
+    // Find the local commits that are either directly in or part of squash
+    // commits in the remote commits list
+    let right_descriptions = find_related_commits(&repository, &locals, &remotes, base)?;
+    // Do the same for remote commits, but we will only look at complete squashes
+    let left_descriptions = find_related_commits(&repository, &remotes, &locals, base)?;
 
     for description in &right_descriptions {
-        for commit in &description.squashed {
+        for commit in &description.components {
             if let Some(status) = integration_statuses.get_mut(commit) {
-                if !status.is_integrated() {
+                if matches!(status, IntegrationStatus::NotIntegrated) {
                     *status = IntegrationStatus::Integrated {
                         was_squashed: false,
                         is_squash: false,
@@ -224,23 +230,20 @@ pub(crate) fn find_integrated_commits(
                 }
 
                 if let IntegrationStatus::Integrated {
-                    was_squashed: in_squash,
+                    was_squashed,
                     complete_match,
                     ..
                 } = status
                 {
-                    *in_squash = *in_squash || description.is_squash();
-                    *complete_match = *complete_match || description.complete_match();
+                    *was_squashed = *was_squashed || description.is_squash();
+                    *complete_match =
+                        *complete_match || description.status == RelationStatus::Complete;
                 }
             }
         }
     }
 
     for description in left_descriptions {
-        // if !(/*description.complete_match()||*/description.is_squash()) {
-        //     continue;
-        // }
-
         if let Some(status) = integration_statuses.get_mut(&description.target) {
             *status = IntegrationStatus::Integrated {
                 was_squashed: false,
@@ -259,7 +262,9 @@ type MergeBaseCommitGraph<'repo, 'cache> = gix::revwalk::Graph<
     gix::revision::plumbing::graph::Commit<gix::revision::plumbing::merge_base::Flags>,
 >;
 
-pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
+/// Old platform for finding the integration status of commits
+#[deprecated]
+struct IsCommitIntegrated<'repo, 'cache, 'graph> {
     gix_repo: &'repo gix::Repository,
     graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
     target_commit_id: gix::ObjectId,
@@ -268,7 +273,9 @@ pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
     upstream_change_ids: Vec<String>,
 }
 
+#[allow(deprecated)]
 impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
+    #[deprecated]
     fn new_basic(
         gix_repository: &'repo gix::Repository,
         repository: &'repo git2::Repository,
@@ -302,7 +309,9 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
     }
 }
 
+#[allow(deprecated)]
 impl IsCommitIntegrated<'_, '_, '_> {
+    #[deprecated]
     fn is_integrated(&mut self, commit: &git2::Commit<'_>) -> Result<bool> {
         if self.target_commit_id == git2_to_gix_object_id(commit.id()) {
             // could not be integrated if heads are the same.
@@ -366,6 +375,8 @@ impl IsCommitIntegrated<'_, '_, '_> {
     }
 }
 
+/// Used to switch between the old and new algorithms. We will be able to
+/// get rid of all of this when we are confident in the new algorithm.
 pub(crate) fn compat_find_integrated_commits<'repo>(
     gix_repository: &'repo gix::Repository,
     repository: &'repo git2::Repository,
@@ -376,20 +387,19 @@ pub(crate) fn compat_find_integrated_commits<'repo>(
     use_new: bool,
 ) -> Result<IntegrationStatuses> {
     if use_new {
-        find_integrated_commits(gix_repository, stack_head, target_commit_id)
+        find_integrated_commits(gix_repository, stack_head, upstream_commit_id)
     } else {
         let upstream_commit = gix_repository.find_commit(upstream_commit_id)?;
-        let base = gix_repository
-            .merge_base(stack_head, upstream_commit_id)?
-            .detach();
 
         let upstream_commits = gix_repository
             .rev_walk([upstream_commit_id])
-            .with_pruned([base])
+            .with_pruned([target_commit_id])
+            .sorting(gix::revision::walk::Sorting::BreadthFirst)
             .all()?
             .filter_map(|info| Some(info.ok()?.id))
             .collect::<Vec<_>>();
 
+        #[allow(deprecated)]
         let mut is_commit_integrated = IsCommitIntegrated::new_basic(
             gix_repository,
             repository,
@@ -402,7 +412,8 @@ pub(crate) fn compat_find_integrated_commits<'repo>(
         let stack_commits = gix_repository
             .rev_walk([stack_head])
             .first_parent_only()
-            .with_pruned([base])
+            .with_pruned([target_commit_id])
+            .sorting(gix::revision::walk::Sorting::BreadthFirst)
             .all()?
             .filter_map(|info| Some(info.ok()?.id))
             .collect::<Vec<_>>();
@@ -414,8 +425,10 @@ pub(crate) fn compat_find_integrated_commits<'repo>(
 
         for commit_id in stack_commits {
             let commit = repository.find_commit(commit_id.to_git2())?;
+            #[allow(deprecated)]
             if is_commit_integrated.is_integrated(&commit)? {
                 if let Some(integration_status) = integration_statuses.get_mut(&commit_id) {
+                    dbg!(&commit_id);
                     *integration_status = IntegrationStatus::Integrated {
                         was_squashed: false,
                         is_squash: false,
@@ -482,16 +495,16 @@ mod test {
                 )
                 .unwrap(),
                 vec![
-                    SquashCollection {
+                    CommitRelation {
                         target: y.id().to_gix(),
                         // A could have ben squashed into Y
-                        squashed: vec![b.id().to_gix(), a.id().to_gix()],
-                        status: SquashCollectionStatus::Complete
+                        components: vec![b.id().to_gix(), a.id().to_gix()],
+                        status: RelationStatus::Complete
                     },
-                    SquashCollection {
+                    CommitRelation {
                         target: x.id().to_gix(),
-                        squashed: vec![a.id().to_gix()],
-                        status: SquashCollectionStatus::Complete
+                        components: vec![a.id().to_gix()],
+                        status: RelationStatus::Complete
                     },
                 ]
             )
@@ -518,16 +531,16 @@ mod test {
                 )
                 .unwrap(),
                 vec![
-                    SquashCollection {
+                    CommitRelation {
                         target: x.id().to_gix(),
                         // A could have also been squashed into X
-                        squashed: vec![b.id().to_gix(), a.id().to_gix()],
-                        status: SquashCollectionStatus::Complete
+                        components: vec![b.id().to_gix(), a.id().to_gix()],
+                        status: RelationStatus::Complete
                     },
-                    SquashCollection {
+                    CommitRelation {
                         target: y.id().to_gix(),
-                        squashed: vec![a.id().to_gix()],
-                        status: SquashCollectionStatus::Complete
+                        components: vec![a.id().to_gix()],
+                        status: RelationStatus::Complete
                     },
                 ]
             )
@@ -553,11 +566,11 @@ mod test {
                     base_commit.id().to_gix()
                 )
                 .unwrap(),
-                vec![SquashCollection {
+                vec![CommitRelation {
                     target: y.id().to_gix(),
                     // A is considered squashed, because it's changes are superceded by B
-                    squashed: vec![b.id().to_gix(), a.id().to_gix()],
-                    status: SquashCollectionStatus::Complete
+                    components: vec![b.id().to_gix(), a.id().to_gix()],
+                    status: RelationStatus::Complete
                 },]
             )
         }
@@ -581,10 +594,10 @@ mod test {
                     base_commit.id().to_gix()
                 )
                 .unwrap(),
-                vec![SquashCollection {
+                vec![CommitRelation {
                     target: x.id().to_gix(),
-                    squashed: vec![b.id().to_gix(), a.id().to_gix()],
-                    status: SquashCollectionStatus::Complete
+                    components: vec![b.id().to_gix(), a.id().to_gix()],
+                    status: RelationStatus::Complete
                 }]
             )
         }
@@ -610,10 +623,10 @@ mod test {
                     base_commit.id().to_gix()
                 )
                 .unwrap(),
-                vec![SquashCollection {
+                vec![CommitRelation {
                     target: x.id().to_gix(),
-                    squashed: vec![b.id().to_gix()],
-                    status: SquashCollectionStatus::Complete
+                    components: vec![b.id().to_gix()],
+                    status: RelationStatus::Complete
                 }]
             )
         }
@@ -688,7 +701,7 @@ mod test {
             );
 
             assert_eq!(
-                dbg!(find_related_commits(
+                find_related_commits(
                     &test_repository.gix_repository(),
                     &[
                         e.id().to_gix(),
@@ -708,25 +721,25 @@ mod test {
                     ],
                     base_commit.id().to_gix()
                 )
-                .unwrap()),
-                dbg!(vec![
-                    SquashCollection {
+                .unwrap(),
+                vec![
+                    CommitRelation {
                         target: cde.id().to_gix(),
                         // A *could* have also been squashed into CDE
-                        squashed: vec![
+                        components: vec![
                             e.id().to_gix(),
                             d.id().to_gix(),
                             c.id().to_gix(),
                             a.id().to_gix()
                         ],
-                        status: SquashCollectionStatus::Complete
+                        status: RelationStatus::Complete
                     },
-                    SquashCollection {
+                    CommitRelation {
                         target: ab.id().to_gix(),
-                        squashed: vec![b.id().to_gix(), a.id().to_gix()],
-                        status: SquashCollectionStatus::Complete
+                        components: vec![b.id().to_gix(), a.id().to_gix()],
+                        status: RelationStatus::Complete
                     }
-                ])
+                ]
             )
         }
     }
