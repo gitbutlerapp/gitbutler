@@ -3,12 +3,14 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "build:openapi": "node scripts/generate-docs.mjs",
-    "build": "pnpm build:openapi && next build",
+    "build:openapi": "node scripts/generate-docs.js",
+    "build:llmstxt": "node scripts/generate-llmstxt.js",
+    "build": "pnpm build:openapi && pnpm build:llmstxt && next build",
     "dev": "next dev",
     "start": "next start"
   },
   "dependencies": {
+    "@fumadocs/mdx-remote": "^0.2.3",
     "@radix-ui/react-dialog": "^1.1.2",
     "@shikijs/transformers": "^1.22.2",
     "cmdk": "^1.0.4",
