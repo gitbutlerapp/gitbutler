@@ -14,7 +14,12 @@
 		"sourceMap": true,
 		"strict": true,
 		"experimentalDecorators": true,
-		"types": ["@wdio/globals/types", "@wdio/mocha-framework", "vitest/importMeta"]
+		"types": [
+			"@wdio/globals/types",
+			"@wdio/mocha-framework",
+			"vitest/importMeta",
+			"@vitest/browser/matchers"
+		]
 	},
 	"include": [
 		"vitest-setup.js",
