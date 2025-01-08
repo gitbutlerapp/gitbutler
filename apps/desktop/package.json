@@ -54,7 +54,7 @@
 		"@tauri-apps/plugin-shell": "^2.0.1",
 		"@tauri-apps/plugin-store": "^2.1.0",
 		"@tauri-apps/plugin-updater": "^2.0.0",
-		"@testing-library/jest-dom": "^6.4.8",
+		"@testing-library/jest-dom": "^6.6.3",
 		"@testing-library/svelte": "5.2.5",
 		"@types/diff-match-patch": "^1.0.36",
 		"@types/git-url-parse": "^9.0.3",

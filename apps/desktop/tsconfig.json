@@ -18,7 +18,8 @@
 			"@wdio/globals/types",
 			"@wdio/mocha-framework",
 			"vitest/importMeta",
-			"@vitest/browser/matchers"
+			"@vitest/browser/matchers",
+			"vitest/jsdom"
 		]
 	},
 	"include": [

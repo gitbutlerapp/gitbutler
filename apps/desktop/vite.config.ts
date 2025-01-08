@@ -60,15 +60,9 @@ export default defineConfig({
 		sourcemap: true
 	},
 	test: {
-		deps: {
-			inline: ['sorcery']
-		},
-		includeSource: ['src/**/*.{js,ts}'],
+		includeSource: ['src/**/*.test.{js,ts}'],
 		exclude: ['node_modules/**/*', 'e2e/**/*'],
 		environment: 'jsdom',
-		setupFiles: ['./vitest-setup.js'],
-		alias: {
-			'@testing-library/svelte': '@testing-library/svelte/svelte5'
-		}
+		setupFiles: ['./vitest-setup.js']
 	}
 });
