@@ -7,10 +7,10 @@ catalog:
   vite: 5.4.11
 catalogs:
   svelte:
-    svelte: 5.2.1
-    '@sveltejs/kit': 2.8.1
-    svelte-check: 4.0.9
-    '@sveltejs/vite-plugin-svelte': 4.0.1
-    '@sveltejs/adapter-static': 3.0.6
+    svelte: 5.17.0
+    '@sveltejs/kit': 2.15.2
+    svelte-check: 4.1.2
+    '@sveltejs/vite-plugin-svelte': 4.0.4
+    '@sveltejs/adapter-static': 3.0.8
   redux:
     '@reduxjs/toolkit': '^2.3.0'
