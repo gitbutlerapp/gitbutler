@@ -31,7 +31,7 @@ mod checkout_branch_trees {
 
         fs::write(test_project.path().join("foo.txt"), "content").unwrap();
 
-        branch_actions::create_commit(&project, branch_1, "commit one", None, false).unwrap();
+        branch_actions::create_commit(&project, branch_1, "commit one", None).unwrap();
 
         let branch_2 =
             branch_actions::create_virtual_branch(&project, &BranchCreateRequest::default())
@@ -39,7 +39,7 @@ mod checkout_branch_trees {
 
         fs::write(test_project.path().join("bar.txt"), "content").unwrap();
 
-        branch_actions::create_commit(&project, branch_2, "commit two", None, false).unwrap();
+        branch_actions::create_commit(&project, branch_2, "commit two", None).unwrap();
 
         let tree = test_project
             .local_repository

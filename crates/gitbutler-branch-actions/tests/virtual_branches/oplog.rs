@@ -43,7 +43,6 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             branch_id,
             &format!("commit {round}"),
             None,
-            false, /* run hook */
         )?;
         assert_eq!(
             wd_file_count(&worktree_dir)?,
@@ -114,7 +113,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
     let _commit1_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)?;
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None)?;
 
     // dont store large files
     let file_path = repository.path().join("large.txt");
@@ -129,7 +128,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     fs::write(repository.path().join("file2.txt"), "content2")?;
     fs::write(repository.path().join("file3.txt"), "content3")?;
     let commit2_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)?;
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None)?;
 
     // Create conflict state
     let conflicts_path = repository.path().join(".git").join("conflicts");
@@ -146,7 +145,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     fs::write(repository.path().join("file4.txt"), "content4")?;
     let _commit3_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None, false)?;
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None)?;
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)?
         .branches
@@ -281,7 +280,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
     let _commit1_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)?;
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None)?;
 
     let repo = git2::Repository::open(&project.path)?;
 
@@ -295,7 +294,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     // create second commit
     fs::write(repository.path().join("file.txt"), "changed content")?;
     let _commit2_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)?;
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None)?;
 
     // check the workspace commit changed
     let head = repo.head().expect("never unborn");

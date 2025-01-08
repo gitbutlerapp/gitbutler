@@ -26,7 +26,6 @@ fn should_unapply_diff() {
         branches.first().unwrap().id,
         "asdf",
         None,
-        false,
     );
     assert!(c.is_ok());
 

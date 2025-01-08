@@ -34,7 +34,7 @@ fn should_lock_updated_hunks() {
         assert!(!branch.files[0].hunks[0].locked);
     }
 
-    gitbutler_branch_actions::create_commit(project, branch_id, "test", None, false).unwrap();
+    gitbutler_branch_actions::create_commit(project, branch_id, "test", None).unwrap();
 
     {
         // change in the committed hunks leads to hunk locking
@@ -85,14 +85,8 @@ fn should_reset_into_same_branch() {
     lines[0] = "change 1".to_string();
     repository.write_file("file.txt", &lines);
 
-    gitbutler_branch_actions::create_commit(
-        project,
-        branch_2_id,
-        "commit to branch 2",
-        None,
-        false,
-    )
-    .unwrap();
+    gitbutler_branch_actions::create_commit(project, branch_2_id, "commit to branch 2", None)
+        .unwrap();
 
     let files = get_virtual_branch(project, branch_2_id).files;
     assert_eq!(files.len(), 0);
