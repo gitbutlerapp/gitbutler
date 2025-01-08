@@ -240,12 +240,11 @@
 
 	.path-container {
 		display: flex;
-		justify-content: flex-end;
+		justify-content: flex-start;
 		flex-shrink: 0;
 		flex-grow: 1;
 		flex-basis: 0px;
 		min-width: 50px;
-		direction: rtl;
 		text-align: left;
 		overflow: hidden;
 	}
@@ -256,7 +255,6 @@
 		line-height: 120%;
 		opacity: 0.3;
 		transition: opacity var(--transition-fast);
-		direction: rtl;
 		max-width: 100%;
 		text-align: left;
 	}
