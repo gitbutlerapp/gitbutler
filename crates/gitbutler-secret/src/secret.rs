@@ -168,7 +168,7 @@ pub mod git_credentials {
             Ok(())
         }
 
-        #[instrument(skip(self), err(Debug))]
+        #[instrument(skip(self))]
         fn get_password(&self) -> keyring::Result<String> {
             let (mut cascade, get_action, prompt) = self
                 .store
