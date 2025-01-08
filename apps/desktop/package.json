@@ -91,7 +91,7 @@
 		"tinykeys": "^2.1.0",
 		"ts-node": "^10.9.2",
 		"vite": "catalog:",
-		"vitest": "^2.1.8"
+		"vitest": "catalog:"
 	},
 	"dependencies": {
 		"dayjs": "^1.11.13",
