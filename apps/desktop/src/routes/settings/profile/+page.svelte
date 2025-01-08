@@ -12,7 +12,6 @@
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 
 	const userService = getContext(UserService);
@@ -29,11 +28,12 @@
 
 	let deleteConfirmationModal: ReturnType<typeof Modal> | undefined = $state();
 
-	onMount(() => {
+	$effect(() => {
 		if ($user && !loaded) {
 			loaded = true;
 			userService.getUser().then((cloudUser) => {
 				cloudUser.github_access_token = $user?.github_access_token; // prevent overwriting with null
+				userPicture = cloudUser.picture;
 				userService.setUser(cloudUser);
 			});
 			newName = $user?.name || '';
