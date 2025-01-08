@@ -7,5 +7,5 @@ publish = false
 
 [dependencies]
 anyhow.workspace = true
-gix.workspace = true
 git2.workspace = true
+gix = { workspace = true, features = ["merge"] }
