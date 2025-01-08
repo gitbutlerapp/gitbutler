@@ -7,6 +7,7 @@ use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{git2_to_gix_object_id, GixRepositoryExt as _, ObjectIdExt as _, OidExt};
 use gitbutler_repo::{signature, GixRepositoryExt};
 use itertools::Itertools as _;
+use tracing::instrument;
 
 use crate::commit_ops::{get_exclusive_tree, get_first_parent, is_subset, SubsetKind};
 
@@ -103,6 +104,12 @@ fn find_related_commits(
     let mut relations: Vec<CommitRelation> = vec![];
 
     for left in lefts {
+        // Ignore conflicted commits
+        let left_commit = repository.find_commit(*left)?;
+        if left_commit.is_conflicted() {
+            continue;
+        }
+
         // First identify the list of commits on the RHS which are supersets
         // or equal to the current `left` commit.
         let mut found_supersets: Vec<CommitRelation> = vec![];
@@ -313,6 +320,10 @@ impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
 impl IsCommitIntegrated<'_, '_, '_> {
     #[deprecated]
     fn is_integrated(&mut self, commit: &git2::Commit<'_>) -> Result<bool> {
+        if commit.is_conflicted() {
+            return Ok(false);
+        }
+
         if self.target_commit_id == git2_to_gix_object_id(commit.id()) {
             // could not be integrated if heads are the same.
             return Ok(false);
@@ -377,6 +388,7 @@ impl IsCommitIntegrated<'_, '_, '_> {
 
 /// Used to switch between the old and new algorithms. We will be able to
 /// get rid of all of this when we are confident in the new algorithm.
+#[instrument(skip(gix_repository, repository, graph))]
 pub(crate) fn compat_find_integrated_commits<'repo>(
     gix_repository: &'repo gix::Repository,
     repository: &'repo git2::Repository,
