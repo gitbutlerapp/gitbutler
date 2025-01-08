@@ -36,16 +36,10 @@ pub mod commands {
         branch: StackId,
         message: &str,
         ownership: Option<BranchOwnershipClaims>,
-        run_hooks: bool,
     ) -> Result<String, Error> {
         let project = projects.get(project_id)?;
-        let oid = gitbutler_branch_actions::create_commit(
-            &project,
-            branch,
-            message,
-            ownership.as_ref(),
-            run_hooks,
-        )?;
+        let oid =
+            gitbutler_branch_actions::create_commit(&project, branch, message, ownership.as_ref())?;
         emit_vbranches(&windows, project_id);
         Ok(oid.to_string())
     }

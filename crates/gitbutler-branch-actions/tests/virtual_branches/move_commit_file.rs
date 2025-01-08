@@ -26,16 +26,14 @@ fn move_file_down() -> anyhow::Result<()> {
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit1_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
     let commit1 = repository.find_commit(commit1_id).unwrap();
 
     // create commit
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap();
     let commit2 = repository.find_commit(commit2_id).unwrap();
 
     // amend another hunk
@@ -98,14 +96,12 @@ fn move_file_up() -> anyhow::Result<()> {
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     fs::write(repository.path().join("file2.txt"), "content2").unwrap();
     let commit1_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
 
     // create commit
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
     let commit2_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap();
 
     // amend another hunk
     let to_amend: BranchOwnershipClaims = "file2.txt:1-2".parse().unwrap();
@@ -156,14 +152,14 @@ fn move_file_up_overlapping_hunks() {
 
     // create bottom commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
-    let _commit1_id = gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
+    let _commit1_id = gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None)
 
         .unwrap();
 
     // create middle commit one
     fs::write(repository.path().join("file2.txt"), "content2\ncontent2a\n").unwrap();
     fs::write(repository.path().join("file3.txt"), "content3").unwrap();
-    let commit2_id = gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)
+    let commit2_id = gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None)
 
         .unwrap();
 
@@ -174,13 +170,13 @@ fn move_file_up_overlapping_hunks() {
     )
     .unwrap();
     fs::write(repository.path().join("file4.txt"), "content4").unwrap();
-    let commit3_id = gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None, false)
+    let commit3_id = gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None)
 
         .unwrap();
 
     // create top commit
     fs::write(repository.path().join("file5.txt"), "content5").unwrap();
-    let _commit4_id = gitbutler_branch_actions::create_commit(project, branch_id, "commit four", None, false)
+    let _commit4_id = gitbutler_branch_actions::create_commit(project, branch_id, "commit four", None)
 
         .unwrap();
 

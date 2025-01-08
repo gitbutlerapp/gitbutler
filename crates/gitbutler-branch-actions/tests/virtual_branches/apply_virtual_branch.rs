@@ -37,7 +37,7 @@ fn rebase_commit() {
         .unwrap();
         fs::write(repository.path().join("another_file.txt"), "virtual").unwrap();
 
-        gitbutler_branch_actions::create_commit(project, branch1_id, "virtual commit", None, false)
+        gitbutler_branch_actions::create_commit(project, branch1_id, "virtual commit", None)
             .unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();

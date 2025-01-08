@@ -30,7 +30,7 @@ async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
     let list_result = list_virtual_branches(project).unwrap();
     let branches = list_result.branches;
 
-    create_commit(project, branches[0].id, "first commit", None, false)?;
+    create_commit(project, branches[0].id, "first commit", None)?;
 
     let list_result = list_virtual_branches(project).unwrap();
     let branches = list_result.branches;
@@ -57,7 +57,7 @@ async fn hunk_locking_confused_by_line_number_shift() -> anyhow::Result<()> {
     // We're forced to call this before making a second commit.
     let list_result = list_virtual_branches(project).unwrap();
     let branches = list_result.branches;
-    create_commit(project, branches[1].id, "second commit", None, false)?;
+    create_commit(project, branches[1].id, "second commit", None)?;
 
     // At this point we expect no uncommitted files, and one commit per branch.
     let list_result = list_virtual_branches(project).unwrap();
@@ -111,7 +111,7 @@ async fn hunk_locking_with_deleted_lines_only() -> anyhow::Result<()> {
     // We have to do this before creating a commit.
     let list_result = list_virtual_branches(project).unwrap();
     let branches = list_result.branches;
-    create_commit(project, branches[0].id, "first commit", None, false)?;
+    create_commit(project, branches[0].id, "first commit", None)?;
 
     let list_result = list_virtual_branches(project).unwrap();
     let branches = list_result.branches;

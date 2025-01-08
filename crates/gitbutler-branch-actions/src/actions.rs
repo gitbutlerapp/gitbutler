@@ -40,13 +40,13 @@ pub fn create_commit(
     stack_id: StackId,
     message: &str,
     ownership: Option<&BranchOwnershipClaims>,
-    run_hooks: bool,
 ) -> Result<git2::Oid> {
     let ctx = open_with_verify(project)?;
     assure_open_workspace_mode(&ctx).context("Creating a commit requires open workspace mode")?;
     let mut guard = project.exclusive_worktree_access();
     let snapshot_tree = ctx.project().prepare_snapshot(guard.read_permission());
-    let result = vbranch::commit(&ctx, stack_id, message, ownership, run_hooks).map_err(Into::into);
+    let result = vbranch::commit(&ctx, stack_id, message, ownership).map_err(Into::into);
+
     let _ = snapshot_tree.and_then(|snapshot_tree| {
         ctx.project().snapshot_commit_creation(
             snapshot_tree,
