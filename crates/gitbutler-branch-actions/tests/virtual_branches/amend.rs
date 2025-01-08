@@ -41,8 +41,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
 
     #[allow(deprecated)]
     gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
@@ -101,8 +100,7 @@ fn forcepush_forbidden() {
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
 
     #[allow(deprecated)]
     gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
@@ -140,8 +138,7 @@ fn non_locked_hunk() -> anyhow::Result<()> {
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
@@ -195,8 +192,7 @@ fn locked_hunk() -> anyhow::Result<()> {
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()
@@ -256,8 +252,7 @@ fn non_existing_ownership() {
     // create commit
     fs::write(repository.path().join("file.txt"), "content").unwrap();
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap();
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)
         .unwrap()

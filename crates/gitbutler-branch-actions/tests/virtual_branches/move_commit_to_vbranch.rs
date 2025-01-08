@@ -28,8 +28,7 @@ fn no_diffs() {
     let source_branch_id = branches[0].id;
 
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
 
     let target_branch_id =
         gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
@@ -84,22 +83,19 @@ fn multiple_commits() {
     let source_branch_id = branches[0].id;
 
     // Create a commit on the source branch
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None, false)
-        .unwrap();
+    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None).unwrap();
 
     std::fs::write(repository.path().join("b.txt"), "This is b").unwrap();
 
     // Create a second commit on the source branch, to be moved
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "Add b", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, source_branch_id, "Add b", None).unwrap();
 
     std::fs::write(repository.path().join("c.txt"), "This is c").unwrap();
 
     // Create a third commit on the source branch
 
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add c", None, false)
-        .unwrap();
+    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add c", None).unwrap();
 
     let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
         project,
@@ -113,8 +109,7 @@ fn multiple_commits() {
     std::fs::write(repository.path().join("d.txt"), "This is d").unwrap();
 
     // Create a commit on the destination branch
-    gitbutler_branch_actions::create_commit(project, target_branch_id, "Add d", None, false)
-        .unwrap();
+    gitbutler_branch_actions::create_commit(project, target_branch_id, "Add d", None).unwrap();
 
     // Move the top commit from the source branch to the destination branch
     gitbutler_branch_actions::move_commit(project, target_branch_id, commit_oid, source_branch_id)
@@ -180,15 +175,13 @@ fn multiple_commits_with_diffs() {
     let source_branch_id = branches[0].id;
 
     // Create a commit on the source branch
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None, false)
-        .unwrap();
+    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None).unwrap();
 
     std::fs::write(repository.path().join("b.txt"), "This is b").unwrap();
 
     // Create as second commit on the source branch, to be moved
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "Add b", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, source_branch_id, "Add b", None).unwrap();
 
     // Uncommitted changes on the source branch
     std::fs::write(repository.path().join("c.txt"), "This is c").unwrap();
@@ -216,8 +209,7 @@ fn multiple_commits_with_diffs() {
     std::fs::write(repository.path().join("d.txt"), "This is d").unwrap();
 
     // Create a commit on the destination branch
-    gitbutler_branch_actions::create_commit(project, target_branch_id, "Add d", None, false)
-        .unwrap();
+    gitbutler_branch_actions::create_commit(project, target_branch_id, "Add d", None).unwrap();
 
     // Uncommitted changes on the destination branch
     std::fs::write(repository.path().join("e.txt"), "This is e").unwrap();
@@ -313,8 +305,7 @@ fn diffs_on_source_branch() {
     let source_branch_id = branches[0].id;
 
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
 
     std::fs::write(
         repository.path().join("another file.txt"),
@@ -387,8 +378,7 @@ fn diffs_on_target_branch() {
     let source_branch_id = branches[0].id;
 
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
 
     let target_branch_id = gitbutler_branch_actions::create_virtual_branch(
         project,
@@ -466,8 +456,7 @@ fn diffs_on_both_branches() {
     let source_branch_id = branches[0].id;
 
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
 
     // Uncommitted changes on the source branch
     std::fs::write(
@@ -594,8 +583,7 @@ fn target_commit_locked_to_ancestors() {
 
     let source_branch_id = branches[0].id;
 
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None, false)
-        .unwrap();
+    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None).unwrap();
 
     std::fs::write(repository.path().join("a.txt"), "This is a \n\n Updated").unwrap();
     std::fs::write(repository.path().join("b.txt"), "This is b").unwrap();
@@ -605,7 +593,6 @@ fn target_commit_locked_to_ancestors() {
         source_branch_id,
         "Add b and update b",
         None,
-        false,
     )
     .unwrap();
 
@@ -648,8 +635,7 @@ fn target_commit_locked_to_descendants() {
 
     let source_branch_id = branches[0].id;
 
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None, false)
-        .unwrap();
+    gitbutler_branch_actions::create_commit(project, source_branch_id, "Add a", None).unwrap();
 
     std::fs::write(repository.path().join("b.txt"), "This is b").unwrap();
 
@@ -658,14 +644,12 @@ fn target_commit_locked_to_descendants() {
         source_branch_id,
         "Add b and update b",
         None,
-        false,
     )
     .unwrap();
 
     std::fs::write(repository.path().join("b.txt"), "This is b and an update").unwrap();
 
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "Update b", None, false)
-        .unwrap();
+    gitbutler_branch_actions::create_commit(project, source_branch_id, "Update b", None).unwrap();
 
     let target_branch_id =
         gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
@@ -707,8 +691,7 @@ fn locked_hunks_on_source_branch() {
     let source_branch_id = branches[0].id;
 
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
 
     std::fs::write(repository.path().join("file.txt"), "locked content").unwrap();
 
@@ -753,8 +736,7 @@ fn no_commit() {
 
     let source_branch_id = branches[0].id;
 
-    gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None, false)
-        .unwrap();
+    gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
 
     let target_branch_id =
         gitbutler_branch_actions::create_virtual_branch(project, &BranchCreateRequest::default())
@@ -797,8 +779,7 @@ fn no_branch() {
     let source_branch_id = branches[0].id;
 
     let commit_oid =
-        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, source_branch_id, "commit", None).unwrap();
 
     let id = StackId::generate();
     assert_eq!(

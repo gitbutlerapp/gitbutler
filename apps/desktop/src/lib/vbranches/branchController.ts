@@ -52,20 +52,21 @@ export class BranchController {
 		}
 	}
 
-	async commitBranch(
-		branchId: string,
-		branchName: string,
-		message: string,
-		ownership: string | undefined = undefined,
-		runHooks = false
-	) {
+	async runHooks(stackId: string, ownership: string) {
+		await invoke<void>('run_hooks', {
+			projectId: this.projectId,
+			stackId,
+			ownership
+		});
+	}
+
+	async commitBranch(branchId: string, message: string, ownership: string | undefined = undefined) {
 		try {
 			await invoke<void>('commit_virtual_branch', {
 				projectId: this.projectId,
 				branch: branchId,
 				message,
-				ownership,
-				runHooks: runHooks
+				ownership
 			});
 			this.posthog.capture('Commit Successful');
 		} catch (err: any) {

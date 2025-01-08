@@ -23,13 +23,13 @@ fn detect_upstream_commits() {
     let oid1 = {
         // create first commit
         fs::write(repository.path().join("file.txt"), "content").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false).unwrap()
+        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None).unwrap()
     };
 
     let oid2 = {
         // create second commit
         fs::write(repository.path().join("file.txt"), "content2").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false).unwrap()
+        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None).unwrap()
     };
 
     // push
@@ -38,7 +38,7 @@ fn detect_upstream_commits() {
     let oid3 = {
         // create third commit
         fs::write(repository.path().join("file.txt"), "content3").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false).unwrap()
+        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None).unwrap()
     };
 
     {
@@ -78,13 +78,13 @@ fn detect_integrated_commits() {
     let oid1 = {
         // create first commit
         fs::write(repository.path().join("file.txt"), "content").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false).unwrap()
+        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None).unwrap()
     };
 
     let oid2 = {
         // create second commit
         fs::write(repository.path().join("file.txt"), "content2").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false).unwrap()
+        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None).unwrap()
     };
 
     // push
@@ -108,7 +108,7 @@ fn detect_integrated_commits() {
     let oid3 = {
         // create third commit
         fs::write(repository.path().join("file.txt"), "content3").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None, false).unwrap()
+        gitbutler_branch_actions::create_commit(project, branch1_id, "commit", None).unwrap()
     };
 
     {

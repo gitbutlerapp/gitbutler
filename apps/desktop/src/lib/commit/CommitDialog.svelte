@@ -2,7 +2,7 @@
 	import CommitMessageInput from './CommitMessageInput.svelte';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
+	import { persistedCommitMessage } from '$lib/config/config';
 	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
@@ -29,8 +29,6 @@
 	const canTakeSnapshot = syncedSnapshotService.canTakeSnapshot;
 	const selectedOwnership = getContextStore(SelectedOwnership);
 	const stack = getContextStore(BranchStack);
-
-	const runCommitHooks = projectRunCommitHooks(projectId);
 	const commitMessage = persistedCommitMessage(projectId, $stack.id);
 
 	let commitMessageInput = $state<CommitMessageInput>();
@@ -42,13 +40,7 @@
 		const message = $commitMessage;
 		isCommitting = true;
 		try {
-			await branchController.commitBranch(
-				$stack.id,
-				$stack.name,
-				message.trim(),
-				$selectedOwnership.toString(),
-				$runCommitHooks
-			);
+			await branchController.commitBranch($stack.id, message.trim(), $selectedOwnership.toString());
 			$commitMessage = '';
 
 			if (commitAndPublish) {

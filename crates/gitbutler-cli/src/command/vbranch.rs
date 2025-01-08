@@ -186,13 +186,11 @@ pub fn commit(project: Project, branch_name: String, message: String) -> Result<
         )
     }
 
-    let run_hooks = false;
     debug_print(gitbutler_branch_actions::create_commit(
         &project,
         stack.id,
         &message,
         Some(&target_branch.ownership),
-        run_hooks,
     )?)
 }
 
