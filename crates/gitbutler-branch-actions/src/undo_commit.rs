@@ -7,13 +7,14 @@ use gitbutler_repo::{
     rebase::cherry_rebase_group,
 };
 use gitbutler_stack::{OwnershipClaim, Stack, StackId};
+use tracing::instrument;
 
 use crate::VirtualBranchesExt as _;
 
 /// Removes a commit from a branch by rebasing all commits _except_ for it
 /// onto it's parent.
 ///
-/// if successful, it will update the branch head to the new head commit.
+/// If successful, it will update the branch head to the new head commit.
 ///
 /// It intentionally does **not** update the branch tree. It is a feature
 /// of the operation that the branch tree will not be updated as it allows
@@ -21,10 +22,11 @@ use crate::VirtualBranchesExt as _;
 ///
 /// This may create conflicted commits above the commit that is getting
 /// undone.
+#[instrument(level = tracing::Level::DEBUG, skip(ctx))]
 pub(crate) fn undo_commit(
     ctx: &CommandContext,
     stack_id: StackId,
-    commit_oid: git2::Oid,
+    commit_to_remove: git2::Oid,
 ) -> Result<Stack> {
     let vb_state = ctx.project().virtual_branches();
 
@@ -33,7 +35,7 @@ pub(crate) fn undo_commit(
     let UndoResult {
         new_head: new_head_commit,
         ownership_update,
-    } = inner_undo_commit(ctx.repo(), stack.head(), commit_oid)?;
+    } = rebase_excluding(ctx.repo(), stack.head(), commit_to_remove)?;
 
     for ownership in ownership_update {
         stack.ownership.put(ownership);
@@ -41,7 +43,7 @@ pub(crate) fn undo_commit(
 
     stack.set_stack_head(ctx, new_head_commit, None)?;
 
-    let removed_commit = ctx.repo().find_commit(commit_oid)?;
+    let removed_commit = ctx.repo().find_commit(commit_to_remove)?;
     stack.replace_head(ctx, &removed_commit, &removed_commit.parent(0)?)?;
 
     crate::integration::update_workspace_commit(&vb_state, ctx)
@@ -55,7 +57,8 @@ struct UndoResult {
     ownership_update: Vec<OwnershipClaim>,
 }
 
-fn inner_undo_commit(
+#[instrument(level = tracing::Level::DEBUG, skip(repository))]
+fn rebase_excluding(
     repository: &git2::Repository,
     branch_head_commit: git2::Oid,
     commit_to_remove: git2::Oid,
@@ -82,14 +85,13 @@ fn inner_undo_commit(
                 .hunks
                 .iter()
                 .map(Into::into)
-                .filter(|hunk: &Hunk| hunk.start != 0 && hunk.end != 0)
+                .filter(|hunk: &Hunk| !hunk.is_null())
                 .collect::<Vec<_>>();
             if hunks.is_empty() {
                 return None;
             }
-            Some((file_path, hunks))
+            Some(OwnershipClaim { file_path, hunks })
         })
-        .map(|(file_path, hunks)| OwnershipClaim { file_path, hunks })
         .collect::<Vec<_>>();
 
     // if commit is the head, just set head to the parent
@@ -131,7 +133,7 @@ mod test {
             assert_commit_tree_matches, TestingRepository,
         };
 
-        use crate::undo_commit::{inner_undo_commit, UndoResult};
+        use crate::undo_commit::{rebase_excluding, UndoResult};
 
         #[test]
         fn undoing_conflicted_commit_errors() {
@@ -146,7 +148,7 @@ mod test {
 
             // Branch looks like "A -> ConflictedCommit"
 
-            let result = inner_undo_commit(
+            let result = rebase_excluding(
                 &test_repository.repository,
                 conflicted_commit.id(),
                 conflicted_commit.id(),
@@ -169,7 +171,7 @@ mod test {
             let UndoResult {
                 new_head,
                 ownership_update,
-            } = inner_undo_commit(&test_repository.repository, c.id(), c.id()).unwrap();
+            } = rebase_excluding(&test_repository.repository, c.id(), c.id()).unwrap();
 
             assert_eq!(new_head, b.id(), "The new head should be C's parent");
             assert_eq!(
@@ -208,7 +210,7 @@ mod test {
             let UndoResult {
                 new_head,
                 ownership_update,
-            } = inner_undo_commit(&test_repository.repository, c.id(), b.id()).unwrap();
+            } = rebase_excluding(&test_repository.repository, c.id(), b.id()).unwrap();
 
             let new_head_commit: git2::Commit =
                 test_repository.repository.find_commit(new_head).unwrap();

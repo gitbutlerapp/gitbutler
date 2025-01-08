@@ -9,8 +9,12 @@ pub type HunkHash = md5::Digest;
 
 #[derive(Debug, Eq, Clone)]
 pub struct Hunk {
+    /// A hash over the actual lines of the hunk, including the newlines between them
+    /// (i.e. the first character of the first line to the last character of the last line in the input buffer)
     pub hash: Option<HunkHash>,
+    /// The index of the first line this hunk is representing.
     pub start: u32,
+    /// The index of *one past* the last line this hunk is representing.
     pub end: u32,
 }
 
@@ -91,6 +95,7 @@ impl Display for Hunk {
     }
 }
 
+/// Instantiation
 impl Hunk {
     pub fn new(start: u32, end: u32, hash: Option<HunkHash>) -> Result<Self> {
         if start > end {
@@ -104,18 +109,28 @@ impl Hunk {
         self.hash = Some(hash);
         self
     }
+}
 
-    pub(crate) fn contains(&self, line: u32) -> bool {
+/// Access
+impl Hunk {
+    fn contains_line(&self, line: u32) -> bool {
         self.start <= line && self.end >= line
     }
 
     pub fn intersects(&self, another: &diff::GitHunk) -> bool {
-        self.contains(another.new_start)
-            || self.contains(another.new_start + another.new_lines)
+        self.contains_line(another.new_start)
+            || self.contains_line(another.new_start + another.new_lines)
             || another.contains(self.start)
             || another.contains(self.end)
     }
 
+    pub fn is_null(&self) -> bool {
+        self.start == self.end && self.start == 0
+    }
+}
+
+/// Hashing
+impl Hunk {
     /// Produce a hash from `diff` as hex-string, which is **assumed to have a one-line diff header**!
     /// `diff` can also be entirely empty, or not contain a diff header which is when it will just be hashed
     /// with [`Self::hash()`].

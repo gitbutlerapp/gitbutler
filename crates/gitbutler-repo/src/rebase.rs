@@ -14,6 +14,7 @@ use gitbutler_commit::{
 };
 use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt as _};
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 /// cherry-pick based rebase, which handles empty commits
 /// this function takes a commit range and generates a Vector of commit oids
@@ -46,6 +47,7 @@ pub fn cherry_rebase(
 /// rebase empty commits (two commits with identical trees)
 ///
 /// the commit id's to rebase should be ordered such that the child most commit is first
+#[instrument(level = tracing::Level::DEBUG, skip(repository, ids_to_rebase))]
 pub fn cherry_rebase_group(
     repository: &git2::Repository,
     target_commit_oid: git2::Oid,
