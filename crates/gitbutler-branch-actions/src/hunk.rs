@@ -53,7 +53,7 @@ impl VirtualBranchHunk {
         hunk: GitHunk,
         hash: Digest,
         mtimes: &mut MTimeCache,
-        locked_to: &[HunkLock],
+        locked_to: Box<[HunkLock]>,
     ) -> Self {
         // Get the unique branch ids (lock.branch_id) from hunk.locked_to that a hunk is locked to (if any)
         let branch_deps_count = locked_to.iter().map(|lock| lock.branch_id).unique().count();
@@ -70,7 +70,7 @@ impl VirtualBranchHunk {
             binary: hunk.binary,
             hash,
             locked: !locked_to.is_empty(),
-            locked_to: Some(locked_to.into()),
+            locked_to: Some(locked_to),
             change_type: hunk.change_type,
             poisoned: branch_deps_count > 1,
         }
@@ -117,7 +117,7 @@ pub(crate) fn file_hunks_from_diffs<'a>(
                         hunk,
                         hash,
                         &mut mtimes,
-                        locked_to,
+                        locked_to.clone().into_boxed_slice(),
                     )
                 })
                 .collect::<Vec<_>>();
