@@ -234,7 +234,9 @@ pub(crate) fn save_and_return_to_workspace(
     let parents = commit.parents().collect::<Vec<_>>();
 
     // Recommit commit
-    let tree = repository.create_wd_tree()?;
+    // While we perform hard resets we should pick up everything to avoid loosing worktree state.
+    let pick_up_untracked_files_of_any_size = 0;
+    let tree = repository.create_wd_tree(pick_up_untracked_files_of_any_size)?;
 
     let (_, committer) = repository.signatures()?;
     let commit_headers = commit

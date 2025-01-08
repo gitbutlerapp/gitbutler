@@ -4,6 +4,7 @@ use gitbutler_command_context::CommandContext;
 use gitbutler_commit::commit_ext::CommitExt as _;
 use gitbutler_oxidize::{git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt};
 use gitbutler_project::access::WorktreeWritePermission;
+use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
 use gitbutler_repo::rebase::cherry_rebase_group;
 use gitbutler_repo::RepositoryExt as _;
 use gitbutler_stack::{Stack, VirtualBranchesHandle};
@@ -23,7 +24,7 @@ pub fn checkout_branch_trees<'a>(
 
     if stacks.is_empty() {
         // If there are no applied branches, then return the current uncommtied state
-        return repository.create_wd_tree();
+        return repository.create_wd_tree(AUTO_TRACK_LIMIT_BYTES);
     };
 
     if stacks.len() == 1 {

@@ -1,8 +1,8 @@
 use crate::Config;
 use crate::SignaturePurpose;
 use anyhow::{anyhow, bail, Context, Result};
-use bstr::BString;
-use git2::{StatusOptions, Tree};
+use bstr::{BStr, BString};
+use git2::Tree;
 use gitbutler_commit::commit_headers::CommitHeadersV2;
 use gitbutler_config::git::{GbConfig, GitConfig};
 use gitbutler_error::error::Code;
@@ -11,14 +11,14 @@ use gitbutler_oxidize::{
 };
 use gitbutler_reference::{Refname, RemoteRefname};
 use gix::filter::plumbing::pipeline::convert::ToGitOutcome;
-use gix::fs::is_executable;
 use gix::objs::WriteTo;
-use std::io;
+use gix::status::index_worktree;
+use std::collections::HashSet;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
-use std::{io::Write, path::Path, process::Stdio, str};
+use std::{io::Write, process::Stdio, str};
 use tracing::instrument;
 
 /// Extension trait for `git2::Repository`.
@@ -43,8 +43,15 @@ pub trait RepositoryExt {
     fn sign_buffer(&self, buffer: &[u8]) -> Result<BString>;
     fn checkout_tree_builder<'a>(&'a self, tree: &'a git2::Tree<'a>) -> CheckoutTreeBuidler<'a>;
     fn maybe_find_branch_by_refname(&self, name: &Refname) -> Result<Option<git2::Branch>>;
-    /// Based on the index, add all data similar to `git add .` and create a tree from it, which is returned.
-    fn create_wd_tree(&self) -> Result<Tree>;
+    /// Add all untracked and modified files in the worktree to
+    /// the object database, and create a tree from it.
+    ///
+    /// Use `untracked_limit_in_bytes` to control the maximum file size for untracked files
+    /// before we stop tracking them automatically. Set it to 0 to disable the limit.
+    ///
+    /// It should also be noted that this will fail if run on an empty branch
+    /// or if the HEAD branch has no commits.
+    fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> Result<Tree>;
 
     /// Returns the `gitbutler/workspace` branch if the head currently points to it, or fail otherwise.
     /// Use it before any modification to the repository, or extra defensively each time the
@@ -106,16 +113,15 @@ impl RepositoryExt for git2::Repository {
         Ok(branch)
     }
 
-    /// Note that this will add all untracked and modified files in the worktree to
-    /// the object database, and create a tree from it.
-    ///
-    /// Note that right now, it doesn't skip big files.
-    ///
-    /// It should also be noted that this will fail if run on an empty branch
-    /// or if the HEAD branch has no commits
-    #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]
-    fn create_wd_tree(&self) -> Result<Tree> {
-        let gix_repo = gix::open_opts(
+    #[instrument(level = tracing::Level::DEBUG, skip(self, untracked_limit_in_bytes), err(Debug))]
+    fn create_wd_tree(&self, untracked_limit_in_bytes: u64) -> Result<Tree> {
+        use bstr::ByteSlice;
+        use gix::dir::walk::EmissionMode;
+        use gix::status;
+        use gix::status::plumbing::index_as_worktree::{Change, EntryStatus};
+        use gix::status::tree_index::TrackRenames;
+
+        let repo = gix::open_opts(
             self.path(),
             gix::open::Options::default().permissions(gix::open::Permissions {
                 config: gix::open::permissions::Config {
@@ -126,86 +132,196 @@ impl RepositoryExt for git2::Repository {
                 ..Default::default()
             }),
         )?;
-        let (mut pipeline, index) = gix_repo.filter_pipeline(None)?;
-        let mut tree_update_builder = git2::build::TreeUpdateBuilder::new();
+        let (mut pipeline, index) = repo.filter_pipeline(None)?;
+        let workdir = repo.work_dir().context("Need non-bare repository")?;
+        let mut added_worktree_file = |rela_path: &BStr,
+                                       head_tree_editor: &mut gix::object::tree::Editor<'_>|
+         -> anyhow::Result<bool> {
+            let rela_path_as_path = gix::path::from_bstr(rela_path);
+            let path = workdir.join(&rela_path_as_path);
+            let Ok(md) = std::fs::symlink_metadata(&path) else {
+                return Ok(false);
+            };
+            if untracked_limit_in_bytes != 0 && md.len() > untracked_limit_in_bytes {
+                return Ok(false);
+            }
+            let (id, kind) = if md.is_symlink() {
+                let target = std::fs::read_link(&path).with_context(|| {
+                    format!(
+                        "Failed to read link at '{}' for adding to the object database",
+                        path.display()
+                    )
+                })?;
+                let id = repo.write_blob(gix::path::into_bstr(target).as_bytes())?;
+                (id, gix::object::tree::EntryKind::Link)
+            } else if md.is_file() {
+                let file = std::fs::File::open(&path).with_context(|| {
+                    format!(
+                        "Could not open file at '{}' for adding it to the object database",
+                        path.display()
+                    )
+                })?;
+                let file_for_git =
+                    pipeline.convert_to_git(file, rela_path_as_path.as_ref(), &index)?;
+                let id = match file_for_git {
+                    ToGitOutcome::Unchanged(mut file) => repo.write_blob_stream(&mut file)?,
+                    ToGitOutcome::Buffer(buf) => repo.write_blob(buf)?,
+                    ToGitOutcome::Process(mut read) => repo.write_blob_stream(&mut read)?,
+                };
 
-        let worktree_path = self.workdir().context("Could not find worktree path")?;
-
-        let statuses = self.statuses(Some(
-            StatusOptions::new()
-                .renames_from_rewrites(false)
-                .renames_head_to_index(false)
-                .renames_index_to_workdir(false)
-                .include_untracked(true)
-                .recurse_untracked_dirs(true),
-        ))?;
-
-        // Truth table for upsert/remove:
-        // | HEAD Tree -> Index | Index -> Worktree | Action    |
-        // | add                | delete            | no-action |
-        // | modify             | delete            | remove    |
-        // |                    | delete            | remove    |
-        // | delete             |                   | remove    |
-        // | delete             | add               | upsert    |
-        // | add                |                   | upsert    |
-        // |                    | add               | upsert    |
-        // | add                | modify            | upsert    |
-        // | modify             | modify            | upsert    |
-
-        let mut buf = Vec::with_capacity(1024);
-        for status_entry in &statuses {
-            let status = status_entry.status();
-            let path = status_entry.path().context("Failed to get path")?;
-            let path = Path::new(path);
-
-            if status.is_index_new() && status.is_wt_deleted() {
-                // This is a no-op
-            } else if (status.is_index_deleted() && !status.is_wt_new()) || status.is_wt_deleted() {
-                tree_update_builder.remove(path);
+                let kind = if gix::fs::is_executable(&md) {
+                    gix::object::tree::EntryKind::BlobExecutable
+                } else {
+                    gix::object::tree::EntryKind::Blob
+                };
+                (id, kind)
             } else {
-                let file_path = worktree_path.join(path).to_owned();
+                // This is probably a type-change to something we can't track. Instead of keeping
+                // what's in `HEAD^{tree}` we remove the entry.
+                head_tree_editor.remove(rela_path)?;
+                return Ok(true);
+            };
 
-                if file_path.is_symlink() {
-                    let resolved_path = file_path.read_link()?;
-                    let path_str = resolved_path
-                        .to_str()
-                        .context("Failed to convert path to str")?;
-
-                    let blob = self.blob(path_str.as_bytes())?;
-                    tree_update_builder.upsert(path, blob, git2::FileMode::Link);
-                } else if let io::Result::Ok(file) = std::fs::File::open(&file_path) {
-                    // We might have an entry for a file that does not exist on disk,
-                    // like in the case of a file conflict.
-                    let file_for_git = pipeline.convert_to_git(file, path, &index)?;
-                    let data = match file_for_git {
-                        ToGitOutcome::Unchanged(mut file) => {
-                            buf.clear();
-                            std::io::copy(&mut file, &mut buf)?;
-                            &buf
-                        }
-                        ToGitOutcome::Buffer(buf) => buf,
-                        ToGitOutcome::Process(mut read) => {
-                            buf.clear();
-                            std::io::copy(&mut read, &mut buf)?;
-                            &buf
-                        }
-                    };
-                    let blob_id = self.blob(data)?;
-
-                    let file_type = if is_executable(&file_path.metadata()?) {
-                        git2::FileMode::BlobExecutable
-                    } else {
-                        git2::FileMode::Blob
-                    };
-
-                    tree_update_builder.upsert(path, blob_id, file_type);
+            head_tree_editor.upsert(rela_path, kind, id)?;
+            Ok(true)
+        };
+        let mut head_tree_editor = repo.edit_tree(repo.head_tree_id()?)?;
+        let status_changes = repo
+            .status(gix::progress::Discard)?
+            .tree_index_track_renames(TrackRenames::Disabled)
+            .index_worktree_rewrites(None)
+            .index_worktree_submodules(gix::status::Submodule::Given {
+                ignore: gix::submodule::config::Ignore::Dirty,
+                check_dirty: true,
+            })
+            .index_worktree_options_mut(|opts| {
+                if let Some(opts) = opts.dirwalk_options.as_mut() {
+                    opts.set_emit_ignored(None)
+                        .set_emit_pruned(false)
+                        .set_emit_tracked(false)
+                        .set_emit_untracked(EmissionMode::Matching)
+                        .set_emit_collapsed(None);
                 }
+            })
+            .into_iter(None)?;
+
+        let mut worktreepaths_changed = HashSet::new();
+        // We have to apply untracked items last, but don't have ordering here so impose it ourselves.
+        let mut untracked_items = Vec::new();
+        for change in status_changes {
+            let change = change?;
+            match change {
+                status::Item::TreeIndex(gix::diff::index::Change::Deletion {
+                    location, ..
+                }) => {
+                    // These changes play second fiddle - they are overwritten by worktree-changes,
+                    // or we assure we don't overwrite, as we may arrive out of order.
+                    if !worktreepaths_changed.contains(location.as_bstr()) {
+                        head_tree_editor.remove(location.as_ref())?;
+                    }
+                }
+                status::Item::TreeIndex(
+                    gix::diff::index::Change::Addition {
+                        location,
+                        entry_mode,
+                        id,
+                        ..
+                    }
+                    | gix::diff::index::Change::Modification {
+                        location,
+                        entry_mode,
+                        id,
+                        ..
+                    },
+                ) => {
+                    if let Some(entry_mode) = entry_mode
+                        .to_tree_entry_mode()
+                        // These changes play second fiddle - they are overwritten by worktree-changes,
+                        // or we assure we don't overwrite, as we may arrive out of order.
+                        .filter(|_| !worktreepaths_changed.contains(location.as_bstr()))
+                    {
+                        head_tree_editor.upsert(
+                            location.as_ref(),
+                            entry_mode.kind(),
+                            id.as_ref(),
+                        )?;
+                    }
+                }
+                status::Item::IndexWorktree(index_worktree::Item::Modification {
+                    rela_path,
+                    status: EntryStatus::Change(Change::Removed),
+                    ..
+                }) => {
+                    head_tree_editor.remove(rela_path.as_bstr())?;
+                    worktreepaths_changed.insert(rela_path);
+                }
+                // modified or untracked files are unconditionally added as blob.
+                // Note that this implementation will re-read the whole blob even on type-change
+                status::Item::IndexWorktree(index_worktree::Item::Modification {
+                    rela_path,
+                    status:
+                        EntryStatus::Change(Change::Type | Change::Modification { .. })
+                        | EntryStatus::IntentToAdd,
+                    ..
+                }) => {
+                    if added_worktree_file(rela_path.as_ref(), &mut head_tree_editor)? {
+                        worktreepaths_changed.insert(rela_path);
+                    }
+                }
+                status::Item::IndexWorktree(index_worktree::Item::DirectoryContents {
+                    entry:
+                        gix::dir::Entry {
+                            rela_path,
+                            status: gix::dir::entry::Status::Untracked,
+                            ..
+                        },
+                    ..
+                }) => {
+                    untracked_items.push(rela_path);
+                }
+                status::Item::IndexWorktree(index_worktree::Item::Modification {
+                    rela_path,
+                    status: EntryStatus::Change(Change::SubmoduleModification(change)),
+                    ..
+                }) => {
+                    if let Some(possibly_changed_head_commit) = change.checked_out_head_id {
+                        head_tree_editor.upsert(
+                            rela_path.as_bstr(),
+                            gix::object::tree::EntryKind::Commit,
+                            possibly_changed_head_commit,
+                        )?;
+                        worktreepaths_changed.insert(rela_path);
+                    }
+                }
+                status::Item::IndexWorktree(index_worktree::Item::Rewrite { .. })
+                | status::Item::TreeIndex(gix::diff::index::Change::Rewrite { .. }) => {
+                    unreachable!("disabled")
+                }
+                status::Item::IndexWorktree(
+                    index_worktree::Item::Modification {
+                        status: EntryStatus::Conflict(_) | EntryStatus::NeedsUpdate(_),
+                        ..
+                    }
+                    | index_worktree::Item::DirectoryContents {
+                        entry:
+                            gix::dir::Entry {
+                                status:
+                                    gix::dir::entry::Status::Tracked
+                                    | gix::dir::entry::Status::Pruned
+                                    | gix::dir::entry::Status::Ignored(_),
+                                ..
+                            },
+                        ..
+                    },
+                ) => {}
             }
         }
 
-        let head_tree = self.head()?.peel_to_tree()?;
-        let tree_oid = tree_update_builder.create_updated(self, &head_tree)?;
+        for rela_path in untracked_items {
+            added_worktree_file(rela_path.as_ref(), &mut head_tree_editor)?;
+        }
 
+        let tree_oid = gix_to_git2_oid(head_tree_editor.write()?);
         Ok(self.find_tree(tree_oid)?)
     }
 

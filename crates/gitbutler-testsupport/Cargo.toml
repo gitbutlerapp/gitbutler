@@ -31,4 +31,5 @@ gitbutler-url.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-oxidize.workspace = true
 gitbutler-commit.workspace = true
+termtree = "0.5.1"
 uuid.workspace = true

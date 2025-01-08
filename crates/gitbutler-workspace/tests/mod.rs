@@ -6,6 +6,7 @@ mod checkout_branch_trees {
     use gitbutler_branch::BranchCreateRequest;
     use gitbutler_branch_actions as branch_actions;
     use gitbutler_command_context::CommandContext;
+    use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
     use gitbutler_repo::RepositoryExt as _;
     use gitbutler_testsupport::{paths, testing_repository::assert_tree_matches, TestProject};
     use gitbutler_workspace::checkout_branch_trees;
@@ -40,7 +41,10 @@ mod checkout_branch_trees {
 
         branch_actions::create_commit(&project, branch_2, "commit two", None, false).unwrap();
 
-        let tree = test_project.local_repository.create_wd_tree().unwrap();
+        let tree = test_project
+            .local_repository
+            .create_wd_tree(AUTO_TRACK_LIMIT_BYTES)
+            .unwrap();
 
         // Assert original state
         assert_tree_matches(
@@ -70,7 +74,10 @@ mod checkout_branch_trees {
 
         // Assert tree is indeed empty
         {
-            let tree: git2::Tree = test_project.local_repository.create_wd_tree().unwrap();
+            let tree: git2::Tree = test_project
+                .local_repository
+                .create_wd_tree(AUTO_TRACK_LIMIT_BYTES)
+                .unwrap();
 
             // Tree should be empty
             assert_eq!(
@@ -85,7 +92,10 @@ mod checkout_branch_trees {
 
         checkout_branch_trees(&ctx, guard.write_permission()).unwrap();
 
-        let tree = test_project.local_repository.create_wd_tree().unwrap();
+        let tree = test_project
+            .local_repository
+            .create_wd_tree(AUTO_TRACK_LIMIT_BYTES)
+            .unwrap();
 
         // Should be back to original state
         assert_tree_matches(
