@@ -7,6 +7,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from '@gitbutler/shared/context';
+	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -45,9 +46,9 @@
 			<div class="header__remote-branch">
 				{#if remoteBranch}
 					<Tooltip text="At least some of your changes have been pushed">
-						<Button size="tag" icon="branch-small" style="neutral" kind="solid" clickable={false}>
+						<Badge size="tag" icon="branch-small" style="neutral" kind="solid">
 							{localBranch ? 'local and remote' : 'remote'}
-						</Button>
+						</Badge>
 					</Tooltip>
 
 					{#if forgeBranch}
@@ -75,7 +76,6 @@
 				{#if pr?.htmlUrl}
 					<Button
 						size="tag"
-						clickable
 						icon="pr-small"
 						style="ghost"
 						outline

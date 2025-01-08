@@ -9,7 +9,6 @@
 		args: {
 			loading: false,
 			disabled: false,
-			clickable: true,
 			size: 'button',
 			icon: 'ai-small',
 			style: 'neutral',

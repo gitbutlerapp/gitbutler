@@ -79,7 +79,7 @@ pub fn list_virtual_branches(project: &Project) -> Result<StackListResult> {
 
 pub fn list_virtual_branches_cached(
     project: &Project,
-    worktree_changes: Option<DiffByPathMap>,
+    worktree_changes: DiffByPathMap,
 ) -> Result<StackListResult> {
     let ctx = open_with_verify(project)?;
 
@@ -89,7 +89,7 @@ pub fn list_virtual_branches_cached(
     vbranch::list_virtual_branches_cached(
         &ctx,
         project.exclusive_worktree_access().write_permission(),
-        worktree_changes,
+        &worktree_changes,
     )
     .map_err(Into::into)
 }

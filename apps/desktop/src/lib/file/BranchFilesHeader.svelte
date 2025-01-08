@@ -70,7 +70,7 @@
 		{/if}
 		<div class="header__title text-13 text-semibold">
 			<span>{title}</span>
-			<Badge label={files.length + (conflictedFiles?.entries.size || 0)} />
+			<Badge>{files.length + (conflictedFiles?.entries.size || 0)}</Badge>
 		</div>
 	</div>
 </div>

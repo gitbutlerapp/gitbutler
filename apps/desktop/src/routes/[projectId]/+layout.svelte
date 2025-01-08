@@ -18,6 +18,7 @@
 	import { showHistoryView } from '$lib/config/config';
 	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
+	import { FileService } from '$lib/files/fileService';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import { createForgeStore } from '$lib/forge/interface/forge';
@@ -93,6 +94,7 @@
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
 		setContext(CloudBranchesService, data.cloudBranchesService);
 		setContext(CloudBranchCreationService, data.cloudBranchCreationService);
+		setContext(FileService, data.fileService);
 	});
 
 	const routesService = getRoutesService();

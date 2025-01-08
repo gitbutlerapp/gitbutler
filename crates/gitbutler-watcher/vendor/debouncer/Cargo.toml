@@ -17,7 +17,7 @@ notify = { version = "6.0.1" }
 parking_lot.workspace = true
 file-id = "0.2.2"
 walkdir = "2.2.2"
-crossbeam-channel = "0.5.13"
+crossbeam-channel = "0.5.14"
 
 mock_instant = { version = "0.5.1", optional = true }
 
@@ -25,7 +25,7 @@ mock_instant = { version = "0.5.1", optional = true }
 gitbutler-notify-debouncer = { path = ".", features = ["mock_instant"] }
 pretty_assertions = "1.4.1"
 rstest = "0.23"
-serde = { version = "1.0.215", features = ["derive"] }
+serde = { version = "1.0.217", features = ["derive"] }
 deser-hjson = "1.1.1"
 
 [lints.clippy]

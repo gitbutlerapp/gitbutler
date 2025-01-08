@@ -4,7 +4,6 @@
 		el?: HTMLElement;
 		// Interaction props
 		disabled?: boolean;
-		clickable?: boolean;
 		loading?: boolean;
 		activated?: boolean;
 		tabindex?: number | undefined;
@@ -54,7 +53,6 @@
 	let {
 		el = $bindable(),
 		disabled = false,
-		clickable = true,
 		id = undefined,
 		loading = false,
 		activated = false,
@@ -88,7 +86,7 @@
 	}: Props = $props();
 
 	function handleAction(e: MouseEvent) {
-		if (loading || disabled || !clickable) {
+		if (loading || disabled) {
 			e.preventDefault();
 			e.stopPropagation();
 		} else {
@@ -109,7 +107,6 @@
 		class:wide
 		class:grow
 		class:is-dropdown={dropdownChild}
-		class:not-clickable={!clickable}
 		class:fixed-width={!children && !wide}
 		class:activated
 		style:align-self={align}
@@ -123,8 +120,7 @@
 		{type}
 		{id}
 		{...testId ? { 'data-testid': testId } : null}
-		tabindex={clickable ? tabindex : -1}
-		data-clickable={clickable}
+		{tabindex}
 	>
 		{#if children}
 			<span
@@ -155,10 +151,10 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		border: 1px solid transparent;
+		border: 1px solid var(--btn-border-clr, transparent);
 		cursor: pointer;
 		color: var(--btn-text-clr);
-		background: var(--btn-bg);
+		background: var(--btn-bg, transparent);
 		transition:
 			background var(--transition-fast),
 			opacity var(--transition-fast),
@@ -185,14 +181,6 @@
 		}
 		&.reversed-direction {
 			flex-direction: row-reverse;
-		}
-		&.not-clickable {
-			cursor: default;
-
-			&:focus-within {
-				outline: none;
-				animation: none;
-			}
 		}
 		&.shrinkable {
 			overflow: hidden;
@@ -233,13 +221,12 @@
 
 	/* STYLES */
 	.ghost {
-		--icon-opacity: 0.5;
+		--icon-opacity: var(--opacity-btn-icon-soft);
 		--btn-text-clr: var(--clr-theme-ntrl-on-soft);
-		--btn-bg: transparent;
 
-		&:not(.not-clickable, &:disabled):hover,
+		&:not(&:disabled):hover,
 		&.activated {
-			--icon-opacity: 0.6;
+			--icon-opacity: var(--opacity-btn-icon-soft-hover);
 			--btn-bg: var(--clr-bg-1-muted);
 		}
 
@@ -258,25 +245,26 @@
 
 	.neutral {
 		&.soft {
-			--icon-opacity: 0.5;
+			--icon-opacity: var(--opacity-btn-icon-soft);
 			--btn-text-clr: var(--clr-theme-ntrl-on-soft);
 			--btn-bg: var(--clr-theme-ntrl-soft);
+			--btn-border-clr: var(--clr-theme-ntrl-soft-outline);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: 0.6;
+				--icon-opacity: var(--opacity-btn-icon-soft-hover);
 				--btn-bg: var(--clr-theme-ntrl-soft-hover);
 			}
 		}
 		&.solid {
-			--icon-opacity: 0.7;
+			--icon-opacity: var(--opacity-btn-icon-solid);
 			--btn-text-clr: var(--clr-theme-ntrl-on-element);
 			--btn-bg: var(--clr-theme-ntrl-element);
 
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover {
-				--icon-opacity: 0.8;
+			&:not(&:disabled):hover {
+				--icon-opacity: var(--opacity-btn-icon-solid-hover);
 				--btn-bg: var(--clr-theme-ntrl-element-hover);
 			}
 		}
@@ -284,24 +272,27 @@
 
 	.pop {
 		&.soft {
-			--icon-opacity: 0.6;
+			--icon-opacity: var(--opacity-btn-icon-soft);
 			--btn-text-clr: var(--clr-theme-pop-on-soft);
 			--btn-bg: var(--clr-theme-pop-soft);
+			--btn-border-clr: var(--clr-theme-pop-soft-outline);
+
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: 0.7;
+				--icon-opacity: var(--opacity-btn-icon-soft-hover);
 				--btn-bg: var(--clr-theme-pop-soft-hover);
 			}
 		}
 		&.solid {
-			--icon-opacity: 0.8;
+			--icon-opacity: var(--opacity-btn-icon-solid);
 			--btn-text-clr: var(--clr-theme-pop-on-element);
 			--btn-bg: var(--clr-theme-pop-element);
+
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: 0.9;
+				--icon-opacity: var(--opacity-btn-icon-solid-hover);
 				--btn-bg: var(--clr-theme-pop-element-hover);
 			}
 		}
@@ -309,24 +300,27 @@
 
 	.success {
 		&.soft {
-			--icon-opacity: 0.6;
+			--icon-opacity: var(--opacity-btn-icon-soft);
 			--btn-text-clr: var(--clr-theme-succ-on-soft);
 			--btn-bg: var(--clr-theme-succ-soft);
+			--btn-border-clr: var(--clr-theme-succ-soft-outline);
+
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: 0.7;
+				--icon-opacity: var(--opacity-btn-icon-soft-hover);
 				--btn-bg: var(--clr-theme-succ-soft-hover);
 			}
 		}
 		&.solid {
-			--icon-opacity: 0.8;
+			--icon-opacity: var(--opacity-btn-icon-solid);
 			--btn-text-clr: var(--clr-theme-succ-on-element);
 			--btn-bg: var(--clr-theme-succ-element);
+
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: 0.9;
+				--icon-opacity: var(--opacity-btn-icon-solid-hover);
 				--btn-bg: var(--clr-theme-succ-element-hover);
 			}
 		}
@@ -334,24 +328,27 @@
 
 	.error {
 		&.soft {
-			--icon-opacity: 0.6;
+			--icon-opacity: var(--opacity-btn-icon-soft);
 			--btn-text-clr: var(--clr-theme-err-on-soft);
 			--btn-bg: var(--clr-theme-err-soft);
+			--btn-border-clr: var(--clr-theme-err-soft-outline);
+
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: 0.7;
+				--icon-opacity: var(--opacity-btn-icon-soft-hover);
 				--btn-bg: var(--clr-theme-err-soft-hover);
 			}
 		}
 		&.solid {
-			--icon-opacity: 0.8;
+			--icon-opacity: var(--opacity-btn-icon-solid);
 			--btn-text-clr: var(--clr-theme-err-on-element);
 			--btn-bg: var(--clr-theme-err-element);
+
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: 0.9;
+				--icon-opacity: var(--opacity-btn-icon-solid-hover);
 				--btn-bg: var(--clr-theme-err-element-hover);
 			}
 		}
@@ -359,24 +356,27 @@
 
 	.warning {
 		&.soft {
-			--icon-opacity: 0.6;
+			--icon-opacity: var(--opacity-btn-icon-soft);
 			--btn-text-clr: var(--clr-theme-warn-on-soft);
 			--btn-bg: var(--clr-theme-warn-soft);
+			--btn-border-clr: var(--clr-theme-warn-soft-outline);
+
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: 0.7;
+				--icon-opacity: var(--opacity-btn-icon-soft-hover);
 				--btn-bg: var(--clr-theme-warn-soft-hover);
 			}
 		}
 		&.solid {
-			--icon-opacity: 0.8;
+			--icon-opacity: var(--opacity-btn-icon-solid);
 			--btn-text-clr: var(--clr-theme-warn-on-element);
 			--btn-bg: var(--clr-theme-warn-element);
+
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: 0.9;
+				--icon-opacity: var(--opacity-btn-icon-solid-hover);
 				--btn-bg: var(--clr-theme-warn-element-hover);
 			}
 		}
@@ -384,24 +384,27 @@
 
 	.purple {
 		&.soft {
-			--icon-opacity: 0.6;
+			--icon-opacity: var(--opacity-btn-icon-soft);
 			--btn-text-clr: var(--clr-theme-purp-on-soft);
 			--btn-bg: var(--clr-theme-purp-soft);
+			--btn-border-clr: var(--clr-theme-purp-soft-outline);
+
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: 0.7;
+				--icon-opacity: var(--opacity-btn-icon-soft-hover);
 				--btn-bg: var(--clr-theme-purp-soft-hover);
 			}
 		}
 		&.solid {
-			--icon-opacity: 0.8;
+			--icon-opacity: var(--opacity-btn-icon-solid);
 			--btn-text-clr: var(--clr-theme-purp-on-element);
 			--btn-bg: var(--clr-theme-purp-element);
+
 			/* if button */
-			&:not(.not-clickable, &:disabled):hover,
+			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: 0.9;
+				--icon-opacity: var(--opacity-btn-icon-solid-hover);
 				--btn-bg: var(--clr-theme-purp-element-hover);
 			}
 		}
@@ -451,22 +454,24 @@
 			border-bottom-right-radius: 0;
 			border-right: none;
 
-			&.neutral,
-			&.pop,
-			&.success,
-			&.error,
-			&.warning,
-			&.purple {
-				&:after {
-					content: '';
-					background-color: currentColor;
-					z-index: var(--z-lifted);
-					position: absolute;
-					top: 0;
-					right: 0;
-					width: 1px;
-					height: 100%;
-					opacity: 0.2;
+			&.solid {
+				&.neutral,
+				&.pop,
+				&.success,
+				&.error,
+				&.warning,
+				&.purple {
+					&:after {
+						content: '';
+						background-color: currentColor;
+						z-index: var(--z-lifted);
+						position: absolute;
+						top: 0;
+						right: 0;
+						width: 1px;
+						height: 100%;
+						opacity: 0.4;
+					}
 				}
 			}
 		}

@@ -7,11 +7,11 @@ publish = false
 autotests = false
 
 [dependencies]
-anyhow = "1.0.93"
+anyhow = "1.0.95"
 git2.workspace = true
 gitbutler-repo.workspace = true
 serde = { workspace = true, features = ["std"] }
-itertools = "0.13"
+itertools = "0.14"
 strum = { version = "0.26", features = ["derive"] }
 tracing.workspace = true
 gix = { workspace = true, features = ["dirwalk", "credentials", "parallel"] }

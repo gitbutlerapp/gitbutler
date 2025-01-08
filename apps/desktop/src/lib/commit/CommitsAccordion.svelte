@@ -86,7 +86,6 @@
 		&.is-last {
 			border-bottom: none;
 			border-radius: 0 0 var(--radius-m) var(--radius-m);
-			overflow: hidden;
 		}
 
 		&.is-open {

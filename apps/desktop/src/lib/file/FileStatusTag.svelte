@@ -1,5 +1,5 @@
 <script lang="ts">
-	import Button from '@gitbutler/ui/Button.svelte';
+	import Badge from '@gitbutler/ui/Badge.svelte';
 	import type { FileStatus } from '@gitbutler/ui/file/types';
 	import type { ComponentColor } from '@gitbutler/ui/utils/colorTypes';
 
@@ -21,4 +21,4 @@
 	}
 </script>
 
-<Button size="tag" clickable={false} style={statusToColor(status)}>{status}</Button>
+<Badge size="icon" style={statusToColor(status)}>{status}</Badge>

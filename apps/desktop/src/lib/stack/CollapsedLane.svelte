@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { BranchStack } from '$lib/vbranches/types';
 	import { getContextStore } from '@gitbutler/shared/context';
+	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
@@ -42,25 +43,17 @@
 		<div class="collapsed-lane__info" style="width: {headerInfoHeight}px">
 			<div class="collapsed-lane__label-wrap">
 				{#if uncommittedChanges > 0}
-					<Button
-						size="tag"
-						clickable={false}
-						style="warning"
-						kind="soft"
-						tooltip="Uncommitted changes"
-					>
+					<Badge size="tag" style="warning" kind="soft" tooltip="Uncommitted changes">
 						{uncommittedChanges}
 						{uncommittedChanges === 1 ? 'change' : 'changes'}
-					</Button>
+					</Badge>
 				{/if}
 				<SeriesLabelsRow series={nonArchivedSeries.map((s) => s.name)} showRestAmount />
 			</div>
 
 			<div class="collapsed-lane__info__details">
 				{#if stack.selectedForChanges}
-					<Button style="pop" kind="soft" size="tag" clickable={false} icon="target">
-						Default lane
-					</Button>
+					<Badge style="pop" kind="soft" size="tag" icon="target">Default lane</Badge>
 				{/if}
 			</div>
 		</div>

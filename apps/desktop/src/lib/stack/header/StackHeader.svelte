@@ -26,6 +26,7 @@
 <div class="stack-header">
 	<HeaderControlSection
 		isDefault={branch.selectedForChanges}
+		{onCollapseButtonClick}
 		onDefaultSet={async () => {
 			await branchController.setSelectedForChanges(branch.id);
 		}}

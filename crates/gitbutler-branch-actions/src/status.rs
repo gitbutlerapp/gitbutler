@@ -34,7 +34,8 @@ pub fn get_applied_status(
     ctx: &CommandContext,
     perm: Option<&mut WorktreeWritePermission>,
 ) -> Result<VirtualBranchesStatus> {
-    get_applied_status_cached(ctx, perm, None)
+    let diffs = gitbutler_diff::workdir(ctx.repo(), get_workspace_head(ctx)?)?;
+    get_applied_status_cached(ctx, perm, &diffs)
 }
 
 /// Returns branches and their associated file changes, in addition to a list
@@ -47,26 +48,21 @@ pub fn get_applied_status(
 pub fn get_applied_status_cached(
     ctx: &CommandContext,
     perm: Option<&mut WorktreeWritePermission>,
-    worktree_changes: Option<gitbutler_diff::DiffByPathMap>,
+    worktree_changes: &gitbutler_diff::DiffByPathMap,
 ) -> Result<VirtualBranchesStatus> {
     assure_open_workspace_mode(ctx).context("ng applied status requires open workspace mode")?;
-    let workspace_head = get_workspace_head(ctx)?;
     let mut virtual_branches = ctx
         .project()
         .virtual_branches()
         .list_stacks_in_workspace()?;
-    let base_file_diffs = worktree_changes.map(Ok).unwrap_or_else(|| {
-        gitbutler_diff::workdir(ctx.repo(), workspace_head.to_owned())
-            .context("failed to diff workdir")
-    })?;
 
     let mut skipped_files: Vec<gitbutler_diff::FileDiff> = Vec::new();
-    for file_diff in base_file_diffs.values() {
+    for file_diff in worktree_changes.values() {
         if file_diff.skipped {
             skipped_files.push(file_diff.clone());
         }
     }
-    let mut base_diffs: HashMap<_, _> = diff_files_into_hunks(base_file_diffs).collect();
+    let mut base_diffs: HashMap<_, _> = diff_files_into_hunks(worktree_changes).collect();
 
     // sort by order, so that the default branch is first (left in the ui)
     virtual_branches.sort_by(|a, b| a.order.cmp(&b.order));

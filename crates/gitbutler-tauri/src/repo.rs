@@ -1,7 +1,6 @@
 pub mod commands {
     use crate::error::{Error, UnmarkedError};
     use anyhow::Result;
-    use git2::Oid;
     use gitbutler_branch_actions::RemoteBranchFile;
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
@@ -72,17 +71,25 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects))]
-    pub fn get_blob_info(
+    pub fn get_commit_file(
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         relative_path: &Path,
-        commit_id: Option<String>,
+        commit_id: String,
     ) -> Result<FileInfo, Error> {
         let project = projects.get(project_id)?;
-        let commit_oid = commit_id
-            .map(|id| Oid::from_str(&id).map_err(|e| anyhow::anyhow!(e)))
-            .transpose()?;
+        let commit_oid = git2::Oid::from_str(commit_id.as_ref()).map_err(anyhow::Error::from)?;
+        Ok(project.read_file_from_commit(commit_oid, relative_path)?)
+    }
 
-        Ok(project.read_file_from_workspace(commit_oid, relative_path)?)
+    #[tauri::command(async)]
+    #[instrument(skip(projects))]
+    pub fn get_workspace_file(
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        relative_path: &Path,
+    ) -> Result<FileInfo, Error> {
+        let project = projects.get(project_id)?;
+        Ok(project.read_file_from_workspace(relative_path)?)
     }
 }

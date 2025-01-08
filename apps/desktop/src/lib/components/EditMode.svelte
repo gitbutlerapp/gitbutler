@@ -266,7 +266,7 @@
 		<div bind:this={filesList} class="card files">
 			<div class="header" class:show-border={isCommitListScrolled}>
 				<h3 class="text-13 text-semibold">Commit files</h3>
-				<Badge label={files.length} />
+				<Badge>{files.length}</Badge>
 			</div>
 			<ScrollableContainer
 				onscroll={(e) => {

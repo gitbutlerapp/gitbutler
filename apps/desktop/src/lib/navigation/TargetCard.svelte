@@ -56,7 +56,7 @@
 				</Tooltip>
 				{#if ($base?.behind || 0) > 0 && !baseBranchDiverged}
 					<Tooltip text="Unmerged upstream commits">
-						<Badge label={$base?.behind || 0} />
+						<Badge>{$base?.behind || 0}</Badge>
 					</Tooltip>
 				{/if}
 				{#if baseBranchDiverged}
