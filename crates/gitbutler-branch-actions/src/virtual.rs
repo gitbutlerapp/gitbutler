@@ -5,6 +5,7 @@ use crate::{
     file::VirtualBranchFile,
     hunk::VirtualBranchHunk,
     integration::get_workspace_head,
+    integration_check::compat_find_integrated_commits,
     remote::branch_to_remote_branch,
     stack::stack_series,
     status::{get_applied_status, get_applied_status_cached},
@@ -24,6 +25,7 @@ use gitbutler_hunk_dependency::RangeCalculationError;
 use gitbutler_operating_modes::assure_open_workspace_mode;
 use gitbutler_oxidize::{
     git2_signature_to_gix_signature, git2_to_gix_object_id, gix_to_git2_oid, GixRepositoryExt,
+    OidExt,
 };
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_project::AUTO_TRACK_LIMIT_BYTES;
@@ -36,10 +38,9 @@ use gitbutler_repo::{
 use gitbutler_repo_actions::RepoActionsExt;
 use gitbutler_stack::{
     reconcile_claims, stack_context::CommandContextExt, BranchOwnershipClaims, Stack, StackId,
-    Target, VirtualBranchesHandle,
+    VirtualBranchesHandle,
 };
 use gitbutler_time::time::now_since_unix_epoch_ms;
-use itertools::Itertools;
 use serde::Serialize;
 use std::borrow::Cow;
 use std::{collections::HashMap, path::PathBuf, vec};
@@ -335,6 +336,13 @@ pub fn list_virtual_branches_cached(
         .get_default_target()
         .context("failed to get default target")?;
 
+    let Some(target_branch) = ctx
+        .repo()
+        .maybe_find_branch_by_refname(&default_target.branch.clone().into())?
+    else {
+        bail!("Impossible state: target branch missing in list virtual branches")
+    };
+
     let status = get_applied_status_cached(ctx, Some(perm), worktree_changes)?;
     let max_selected_for_changes = status
         .branches
@@ -360,14 +368,21 @@ pub fn list_virtual_branches_cached(
 
         // find all commits on head that are not on target.sha
         let commits = repo.log(branch.head(), LogUntil::Commit(default_target.sha), false)?;
-        let mut check_commit =
-            IsCommitIntegrated::new(ctx, &default_target, &gix_repo, &mut graph)?;
+        let integrated_commits = compat_find_integrated_commits(
+            &gix_repo,
+            repo,
+            &mut graph,
+            default_target.sha.to_gix(),
+            target_branch.get().peel_to_commit()?.id().to_gix(),
+            branch.head().to_gix(),
+            ctx.project().use_new_integration_check,
+        )?;
 
         let merge_base = gix_repo
             .merge_base_with_graph(
                 git2_to_gix_object_id(default_target.sha),
                 git2_to_gix_object_id(branch.head()),
-                check_commit.graph,
+                &mut graph,
             )
             .context("failed to find merge base")?;
         let merge_base = gix_to_git2_oid(merge_base);
@@ -410,7 +425,7 @@ pub fn list_virtual_branches_cached(
             &ctx.to_stack_context()?,
             &mut branch,
             &default_target,
-            &mut check_commit,
+            &integrated_commits,
             stack_dependencies,
         );
 
@@ -919,153 +934,6 @@ pub(crate) fn push(
         remote: upstream_remote,
         refname: gitbutler_reference::Refname::Remote(remote_branch),
     })
-}
-
-type MergeBaseCommitGraph<'repo, 'cache> = gix::revwalk::Graph<
-    'repo,
-    'cache,
-    gix::revision::plumbing::graph::Commit<gix::revision::plumbing::merge_base::Flags>,
->;
-
-pub(crate) struct IsCommitIntegrated<'repo, 'cache, 'graph> {
-    gix_repo: &'repo gix::Repository,
-    graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
-    target_commit_id: gix::ObjectId,
-    upstream_tree_id: gix::ObjectId,
-    upstream_commits: Vec<git2::Oid>,
-    upstream_change_ids: Vec<String>,
-}
-
-impl<'repo, 'cache, 'graph> IsCommitIntegrated<'repo, 'cache, 'graph> {
-    pub(crate) fn new(
-        ctx: &'repo CommandContext,
-        target: &Target,
-        gix_repo: &'repo gix::Repository,
-        graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
-    ) -> anyhow::Result<Self> {
-        let remote_branch = ctx
-            .repo()
-            .maybe_find_branch_by_refname(&target.branch.clone().into())?
-            .ok_or(anyhow!("failed to get branch"))?;
-        let remote_head = remote_branch.get().peel_to_commit()?;
-        let upstream_tree_id = ctx.repo().find_commit(remote_head.id())?.tree_id();
-
-        let upstream_commits =
-            ctx.repo()
-                .log(remote_head.id(), LogUntil::Commit(target.sha), true)?;
-        let upstream_change_ids = upstream_commits
-            .iter()
-            .filter_map(|commit| commit.change_id())
-            .sorted()
-            .collect();
-        let upstream_commits = upstream_commits
-            .iter()
-            .map(|commit| commit.id())
-            .sorted()
-            .collect();
-        Ok(Self {
-            gix_repo,
-            graph,
-            target_commit_id: git2_to_gix_object_id(target.sha),
-            upstream_tree_id: git2_to_gix_object_id(upstream_tree_id),
-            upstream_commits,
-            upstream_change_ids,
-        })
-    }
-
-    /// Used to construct [`IsCommitIntegrated`] without a [`CommandContext`]. If
-    /// you have a `CommandContext` available, use [`Self::new`] instead.
-    pub(crate) fn new_basic(
-        gix_repository: &'repo gix::Repository,
-        repository: &'repo git2::Repository,
-        graph: &'graph mut MergeBaseCommitGraph<'repo, 'cache>,
-        target_commit_id: gix::ObjectId,
-        upstream_tree_id: gix::ObjectId,
-        mut upstream_commits: Vec<git2::Oid>,
-    ) -> Self {
-        // Ensure upstream commits are sorted for binary search
-        upstream_commits.sort();
-        let upstream_change_ids = upstream_commits
-            .iter()
-            .filter_map(|oid| {
-                let commit = repository.find_commit(*oid).ok()?;
-                commit.change_id()
-            })
-            .sorted()
-            .collect();
-        Self {
-            gix_repo: gix_repository,
-            graph,
-            target_commit_id,
-            upstream_tree_id,
-            upstream_commits,
-            upstream_change_ids,
-        }
-    }
-}
-
-impl IsCommitIntegrated<'_, '_, '_> {
-    pub(crate) fn is_integrated(&mut self, commit: &git2::Commit) -> Result<bool> {
-        if self.target_commit_id == git2_to_gix_object_id(commit.id()) {
-            // could not be integrated if heads are the same.
-            return Ok(false);
-        }
-
-        if self.upstream_commits.is_empty() {
-            // could not be integrated - there is nothing new upstream.
-            return Ok(false);
-        }
-
-        if let Some(change_id) = commit.change_id() {
-            if self.upstream_change_ids.binary_search(&change_id).is_ok() {
-                return Ok(true);
-            }
-        }
-
-        if self.upstream_commits.binary_search(&commit.id()).is_ok() {
-            return Ok(true);
-        }
-
-        let merge_base_id = self.gix_repo.merge_base_with_graph(
-            self.target_commit_id,
-            git2_to_gix_object_id(commit.id()),
-            self.graph,
-        )?;
-        if gix_to_git2_oid(merge_base_id).eq(&commit.id()) {
-            // if merge branch is the same as branch head and there are upstream commits
-            // then it's integrated
-            return Ok(true);
-        }
-
-        let merge_base_tree_id = self.gix_repo.find_commit(merge_base_id)?.tree_id()?;
-        if merge_base_tree_id == self.upstream_tree_id {
-            // if merge base is the same as upstream tree, then it's integrated
-            return Ok(true);
-        }
-
-        // try to merge our tree into the upstream tree
-        let (merge_options, conflict_kind) = self.gix_repo.merge_options_no_rewrites_fail_fast()?;
-        let mut merge_output = self
-            .gix_repo
-            .merge_trees(
-                merge_base_tree_id,
-                git2_to_gix_object_id(commit.tree_id()),
-                self.upstream_tree_id,
-                Default::default(),
-                merge_options,
-            )
-            .context("failed to merge trees")?;
-
-        if merge_output.has_unresolved_conflicts(conflict_kind) {
-            return Ok(false);
-        }
-
-        let merge_tree_id = merge_output.tree.write()?.detach();
-
-        // if the merge_tree is the same as the new_target_tree and there are no files (uncommitted changes)
-        // then the vbranch is fully merged
-        Ok(merge_tree_id == self.upstream_tree_id)
-    }
 }
 
 pub fn is_remote_branch_mergeable(

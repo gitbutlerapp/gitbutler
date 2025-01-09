@@ -5,6 +5,7 @@ pub use commands::{FileInfo, RepoCommands};
 pub use remote::GitRemote;
 
 mod repository_ext;
+pub use repository_ext::GixRepositoryExt;
 pub use repository_ext::RepositoryExt;
 
 pub mod credentials;

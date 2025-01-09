@@ -2,7 +2,7 @@ use anyhow::{bail, Result};
 use gitbutler_oxidize::GixRepositoryExt;
 
 /// Finds the first parent of a given commit.
-fn get_first_parent<'repo>(commit: &gix::Commit<'repo>) -> Result<gix::Commit<'repo>> {
+pub(crate) fn get_first_parent<'repo>(commit: &gix::Commit<'repo>) -> Result<gix::Commit<'repo>> {
     let Some(first_parent) = commit.parent_ids().next() else {
         bail!("Failed to find first parent of {}", commit.id())
     };
@@ -12,7 +12,7 @@ fn get_first_parent<'repo>(commit: &gix::Commit<'repo>) -> Result<gix::Commit<'r
 
 /// Gets the changes that one commit introduced compared to the base,
 /// excluding anything between the commit and the base.
-fn get_exclusive_tree(
+pub(crate) fn get_exclusive_tree(
     repository: &gix::Repository,
     commit_id: gix::ObjectId,
     base_id: gix::ObjectId,
@@ -35,7 +35,7 @@ fn get_exclusive_tree(
 }
 
 #[derive(PartialEq, Debug)]
-enum SubsetKind {
+pub(crate) enum SubsetKind {
     /// The subset_id is not equal to or a subset of superset_id.
     /// superset_id MAY still be a strict subset of subset_id
     NotSubset,
@@ -52,7 +52,7 @@ enum SubsetKind {
 /// `repository` should have been configured [`with_object_memory()`](gix::Repository::with_object_memory())
 /// to prevent real objects to be written while probing for set inclusion.
 #[allow(dead_code)]
-fn is_subset(
+pub(crate) fn is_subset(
     repository: &gix::Repository,
     superset_id: gix::ObjectId,
     subset_id: gix::ObjectId,

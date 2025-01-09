@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Project, ProjectsService } from '$lib/backend/projects';
+	import { Project, ProjectService, ProjectsService } from '$lib/backend/projects';
 	import { projectRunCommitHooks } from '$lib/config/config';
 	import Section from '$lib/settings/Section.svelte';
 	import { getContext } from '@gitbutler/shared/context';
@@ -8,13 +8,22 @@
 	import Toggle from '@gitbutler/ui/Toggle.svelte';
 
 	const projectsService = getContext(ProjectsService);
+	const projectService = getContext(ProjectService);
 	const project = getContext(Project);
+	const projectStore = projectService.project;
 
 	let snaphotLinesThreshold = project?.snapshot_lines_threshold || 20; // when undefined, the default is 20
 	let omitCertificateCheck = project?.omit_certificate_check;
 	let useNewBranchIntegrationAlgorithm = project?.use_new_branch_integration_algorithm;
 
 	const runCommitHooks = projectRunCommitHooks(project.id);
+
+	function toggleUseNewIntegrationCheck() {
+		const updatedProject = structuredClone($projectStore);
+		if (!updatedProject) return;
+		updatedProject.use_new_integration_check = !updatedProject.use_new_integration_check;
+		projectsService.updateProject(updatedProject);
+	}
 
 	async function setOmitCertificateCheck(value: boolean | undefined) {
 		project.omit_certificate_check = !!value;
@@ -109,6 +118,20 @@
 				onchange={(value: string) => {
 					setSnapshotLinesThreshold(parseInt(value));
 				}}
+			/>
+		{/snippet}
+	</SectionCard>
+
+	<SectionCard labelFor="newIntegrationAlgorithm" orientation="row">
+		{#snippet title()}New Integration Algorithm{/snippet}
+		{#snippet caption()}
+			A new algorithm for finding integrated commits
+		{/snippet}
+		{#snippet actions()}
+			<Toggle
+				id="newIntegrationAlgorithm"
+				checked={$projectStore?.use_new_integration_check}
+				onclick={toggleUseNewIntegrationCheck}
 			/>
 		{/snippet}
 	</SectionCard>

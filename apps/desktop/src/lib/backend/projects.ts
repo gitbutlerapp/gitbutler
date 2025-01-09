@@ -28,6 +28,7 @@ export class Project {
 	use_diff_context: boolean | undefined;
 	snapshot_lines_threshold!: number | undefined;
 	use_new_branch_integration_algorithm: boolean | undefined;
+	use_new_integration_check!: boolean;
 	// Produced just for the frontend to determine if the project is open in any window.
 	is_open!: boolean;
 
