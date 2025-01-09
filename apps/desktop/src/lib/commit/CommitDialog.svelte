@@ -1,12 +1,16 @@
 <script lang="ts">
 	import CommitMessageInput from './CommitMessageInput.svelte';
+	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import ContextMenuItem from '$lib/components/contextmenu/ContextMenuItem.svelte';
 	import ContextMenuSection from '$lib/components/contextmenu/ContextMenuSection.svelte';
-	import { persistedCommitMessage } from '$lib/config/config';
+	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
 	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
+	import { HooksService } from '$lib/hooks/hooksService';
+	import { showError } from '$lib/notifications/toasts';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
+	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { BranchStack } from '$lib/vbranches/types';
@@ -25,29 +29,70 @@
 	const { projectId, expanded, hasSectionsAfter }: Props = $props();
 
 	const branchController = getContext(BranchController);
+	const hooksService = getContext(HooksService);
+	const posthog = getContext(PostHogWrapper);
 	const syncedSnapshotService = getContext(SyncedSnapshotService);
 	const canTakeSnapshot = syncedSnapshotService.canTakeSnapshot;
 	const selectedOwnership = getContextStore(SelectedOwnership);
 	const stack = getContextStore(BranchStack);
 	const commitMessage = persistedCommitMessage(projectId, $stack.id);
+	const canShowCommitAndPublish = $derived($cloudCommunicationFunctionality && $canTakeSnapshot);
+	const runHooks = projectRunCommitHooks(projectId);
 
 	let commitMessageInput = $state<CommitMessageInput>();
 	let isCommitting = $state(false);
 	let commitMessageValid = $state(false);
 	let isInViewport = $state(false);
 
-	async function commit() {
-		const message = $commitMessage;
-		isCommitting = true;
-		try {
-			await branchController.commitBranch($stack.id, message.trim(), $selectedOwnership.toString());
-			$commitMessage = '';
+	let commitAndPublish = $state(false);
+	let commitButton = $state<DropDownButton>();
 
-			if (commitAndPublish) {
-				syncedSnapshotService.takeSyncedSnapshot($stack.id);
+	async function commit() {
+		isCommitting = true;
+		const message = $commitMessage;
+		const ownership = $selectedOwnership.toString();
+
+		try {
+			if ($runHooks) {
+				const preCommitHook = await hooksService.preCommit(projectId, ownership);
+
+				if (preCommitHook.status === 'success') {
+					toasts.success('Pre-commit hook successful');
+				} else if (preCommitHook.status === 'failure') {
+					showError('Pre-commit hook failed', preCommitHook.error);
+					return; // Abort commit if hook failed.
+				}
 			}
+			await branchController.commit($stack.id, message.trim(), ownership);
+		} catch (err: unknown) {
+			showError('Failed to commit changes', err);
+			posthog.capture('Commit Failed', { error: err });
+			return;
 		} finally {
 			isCommitting = false;
+		}
+
+		// Run both without awaiting unless commit failed.
+		runPostCommitActions();
+		if ($runHooks) {
+			runPostCommitHook();
+		}
+	}
+
+	async function runPostCommitActions() {
+		// Clear the commit message editor.
+		commitMessage.set('');
+
+		// Publishing a snapshot seems to imply posting a bleep.
+		if (commitAndPublish) {
+			await syncedSnapshotService.takeSyncedSnapshot($stack.id);
+		}
+	}
+
+	async function runPostCommitHook() {
+		const postCommitHook = await hooksService.postCommit(projectId);
+		if (postCommitHook.status === 'failure') {
+			showError('Post-commit hook failed', postCommitHook.error);
 		}
 	}
 
@@ -60,11 +105,6 @@
 		await tick();
 		commitMessageInput?.focus();
 	}
-
-	const canShowCommitAndPublish = $derived($cloudCommunicationFunctionality && $canTakeSnapshot);
-
-	let commitAndPublish = $state(false);
-	let commitButton = $state<DropDownButton>();
 </script>
 
 <div

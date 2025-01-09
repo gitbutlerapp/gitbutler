@@ -10,7 +10,9 @@ pub use repository_ext::RepositoryExt;
 pub mod credentials;
 
 mod config;
+pub mod hooks;
 mod remote;
+pub mod staging;
 
 pub use config::Config;
 
