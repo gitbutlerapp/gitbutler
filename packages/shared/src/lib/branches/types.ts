@@ -1,3 +1,5 @@
+import type { LoadableData } from '$lib/network/types';
+
 export type ApiPatchStatistics = {
 	file_count: number;
 	section_count: number;
@@ -72,6 +74,8 @@ export type Patch = {
 	reviewAll: PatchReview;
 };
 
+export type LoadablePatch = LoadableData<Patch, Patch['changeId']>;
+
 export function apiToPatch(api: ApiPatch): Patch {
 	return {
 		changeId: api.change_id,
@@ -122,6 +126,8 @@ export type Branch = {
 	contributors: string[];
 	patch_ids: string[];
 };
+
+export type LoadableBranch = LoadableData<Branch, Branch['branchId']>;
 
 export function apiToBranch(api: ApiBranch): Branch {
 	return {

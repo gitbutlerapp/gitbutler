@@ -1,3 +1,5 @@
+import { branchesReducer } from '@gitbutler/shared/branches/branchesSlice';
+import { patchesReducer } from '@gitbutler/shared/branches/patchesSlice';
 import { feedsReducer } from '@gitbutler/shared/feeds/feedsSlice';
 import { postsReducer } from '@gitbutler/shared/feeds/postsSlice';
 import { organizationsReducer } from '@gitbutler/shared/organizations/organizationsSlice';
@@ -55,6 +57,8 @@ export class DesktopState extends AppState implements AppDesktopOnlyState {
 			orgnaizations: organizationsReducer,
 			users: usersReducer,
 			projects: projectsReducer,
+			branches: branchesReducer,
+			patches: patchesReducer,
 			desktopOnly: desktopOnly.reducer
 		}
 	});
