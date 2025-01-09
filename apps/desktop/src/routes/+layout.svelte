@@ -38,6 +38,7 @@
 	import { User, UserService } from '$lib/stores/user';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
+	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
@@ -70,6 +71,7 @@
 	const organizationService = new OrganizationService(data.cloud, appState.appDispatch);
 	const cloudUserService = new CloudUserService(data.cloud, appState.appDispatch);
 	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
+	const cloudBranchService = new CloudBranchService(data.cloud, appState.appDispatch);
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
@@ -79,6 +81,7 @@
 	setContext(OrganizationService, organizationService);
 	setContext(CloudUserService, cloudUserService);
 	setContext(CloudProjectService, cloudProjectService);
+	setContext(CloudBranchService, cloudBranchService);
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
