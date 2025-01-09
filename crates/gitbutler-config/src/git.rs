@@ -1,6 +1,9 @@
 use anyhow::Result;
 use git2::ConfigLevel;
+use gix::bstr::{BStr, ByteVec};
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
+use std::ffi::OsStr;
 
 #[derive(Debug, PartialEq, Clone, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
@@ -24,11 +27,17 @@ pub trait GitConfig {
 
 impl GitConfig for git2::Repository {
     fn gb_config(&self) -> Result<GbConfig> {
-        let sign_commits = get_bool(self, SIGN_COMMITS)?;
-        let signing_key = get_string(self, SIGNING_KEY)?;
-        let signing_format = get_string(self, SIGNING_FORMAT)?;
-        let gpg_program = get_string(self, GPG_PROGRAM)?;
-        let gpg_ssh_program = get_string(self, GPG_SSH_PROGRAM)?;
+        let repo = gix::open(self.path())?;
+        let config = repo.config_snapshot();
+        let sign_commits = config.boolean(SIGN_COMMITS);
+        let signing_key = config.string(SIGNING_KEY).and_then(bstring_into_string);
+        let signing_format = config.string(SIGNING_FORMAT).and_then(bstring_into_string);
+        let gpg_program = config
+            .trusted_program(GPG_PROGRAM)
+            .and_then(osstr_into_string);
+        let gpg_ssh_program = config
+            .trusted_program(GPG_SSH_PROGRAM)
+            .and_then(osstr_into_string);
         Ok(GbConfig {
             sign_commits,
             signing_key,
@@ -57,25 +66,23 @@ impl GitConfig for git2::Repository {
     }
 }
 
-fn get_bool(repo: &git2::Repository, key: &str) -> Result<Option<bool>> {
-    let config = repo.config()?;
-    match config.get_bool(key) {
-        Ok(value) => Ok(Some(value)),
-        Err(err) => match err.code() {
-            git2::ErrorCode::NotFound => Ok(None),
-            _ => Err(err.into()),
-        },
+fn bstring_into_string(s: Cow<'_, BStr>) -> Option<String> {
+    match Vec::from(s.into_owned()).into_string() {
+        Ok(s) => Some(s),
+        Err(err) => {
+            tracing::warn!("Could not convert to string due to illegal UTF8: {err}");
+            None
+        }
     }
 }
 
-fn get_string(repo: &git2::Repository, key: &str) -> Result<Option<String>> {
-    let config = repo.config()?;
-    match config.get_string(key) {
-        Ok(value) => Ok(Some(value)),
-        Err(err) => match err.code() {
-            git2::ErrorCode::NotFound => Ok(None),
-            _ => Err(err.into()),
-        },
+fn osstr_into_string(s: Cow<'_, OsStr>) -> Option<String> {
+    match Vec::from(gix::path::try_os_str_into_bstr(s).ok()?.into_owned()).into_string() {
+        Ok(s) => Some(s),
+        Err(err) => {
+            tracing::warn!("Could not convert to string due to illegal UTF8: {err}");
+            None
+        }
     }
 }
 

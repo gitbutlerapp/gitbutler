@@ -2428,7 +2428,9 @@ dependencies = [
  "anyhow",
  "git2",
  "gitbutler-project",
+ "gix",
  "serde",
+ "tracing",
 ]
 
 [[package]]
