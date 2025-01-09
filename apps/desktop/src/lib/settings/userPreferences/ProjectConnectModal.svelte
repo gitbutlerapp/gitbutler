@@ -35,7 +35,7 @@
 	);
 
 	const organizationProjects = $derived.by(() => {
-		if (chosenOrganization?.type !== 'found') return [];
+		if (chosenOrganization?.status !== 'found') return [];
 		return (
 			chosenOrganization.value.projectRepositoryIds?.map((repositoryId) => ({
 				project: projectsSelectors.selectById(appState.projects, repositoryId),
@@ -45,7 +45,7 @@
 	});
 
 	function connectToOrganization(projectSlug?: string) {
-		if (targetProject?.type !== 'found' || chosenOrganization?.type !== 'found') return;
+		if (targetProject?.status !== 'found' || chosenOrganization?.status !== 'found') return;
 
 		projectsService.connectProjectToOrganization(
 			targetProject.value.repositoryId,
@@ -55,7 +55,7 @@
 	}
 
 	const title = $derived.by(() => {
-		if (targetProject?.type !== 'found' || chosenOrganization?.type !== 'found') return;
+		if (targetProject?.status !== 'found' || chosenOrganization?.status !== 'found') return;
 
 		return `Join ${targetProject.value.name} into ${chosenOrganization.value.name}`;
 	});

@@ -17,12 +17,12 @@ export class UserService {
 	getUserInterest(login: string): Interest {
 		return this.userInterests
 			.findOrCreateSubscribable({ login }, async () => {
-				this.appDispatch.dispatch(addUser({ type: 'loading', id: login }));
+				this.appDispatch.dispatch(addUser({ status: 'loading', id: login }));
 
 				try {
 					const apiUser = await this.httpClient.get<ApiUser>(`user/${login}`);
 					const user = apiToUser(apiUser);
-					this.appDispatch.dispatch(upsertUser({ type: 'found', id: login, value: user }));
+					this.appDispatch.dispatch(upsertUser({ status: 'found', id: login, value: user }));
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(upsertUser(errorToLoadable(error, login)));
 				}

@@ -32,7 +32,7 @@ export function projectCloudSync(
 	);
 
 	$effect(() => {
-		if (!project.current?.api || !loadableCloudProject || loadableCloudProject.type !== 'found')
+		if (!project.current?.api || !loadableCloudProject || loadableCloudProject.status !== 'found')
 			return;
 
 		const cloudProject = loadableCloudProject.value;

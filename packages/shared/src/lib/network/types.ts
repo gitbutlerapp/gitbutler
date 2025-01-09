@@ -8,8 +8,8 @@ export class ApiError extends Error {
 }
 
 export type Loadable<T> =
-	| { type: 'loading' | 'not-found' }
-	| { type: 'found'; value: T }
-	| { type: 'error'; error: Error };
+	| { status: 'loading' | 'not-found' }
+	| { status: 'found'; value: T }
+	| { status: 'error'; error: Error };
 
 export type LoadableData<T, Id> = Loadable<T> & { id: Id };

@@ -13,13 +13,13 @@
 
 {#if !loadable}
 	<p>Uninitialized...</p>
-{:else if loadable.type === 'found'}
+{:else if loadable.status === 'found'}
 	{@render children(loadable.value)}
-{:else if loadable.type === 'loading'}
+{:else if loadable.status === 'loading'}
 	<p>Loading...</p>
-{:else if loadable.type === 'not-found'}
+{:else if loadable.status === 'not-found'}
 	<p>Not found</p>
-{:else if loadable.type === 'error'}
+{:else if loadable.status === 'error'}
 	<p>{loadable.error.message}</p>
 {:else}
 	<p>Unknown state</p>

@@ -56,10 +56,10 @@ export function getFeedIdentityForRepositoryId(
 	);
 
 	const current = $derived.by<Loadable<string>>(() => {
-		if (!isFound(parentProject.current)) return parentProject.current || { type: 'loading' };
+		if (!isFound(parentProject.current)) return parentProject.current || { status: 'loading' };
 
 		return {
-			type: 'found',
+			status: 'found',
 			value: `${parentProject.current.value.owner}/${parentProject.current.value.slug}`
 		};
 	});

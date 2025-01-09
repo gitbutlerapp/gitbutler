@@ -33,7 +33,7 @@ export class OrganizationService {
 			.findOrCreateSubscribable(undefined, async () => {
 				const apiOrganizations = await this.httpClient.get<ApiOrganization[]>('organization');
 				const organizations = apiOrganizations.map<LoadableOrganization>((apiOrganizations) => ({
-					type: 'found',
+					status: 'found',
 					id: apiOrganizations.slug,
 					value: apiToOrganization(apiOrganizations)
 				}));
@@ -46,7 +46,7 @@ export class OrganizationService {
 	getOrganizationWithDetailsInterest(slug: string): Interest {
 		return this.orgnaizationInterests
 			.findOrCreateSubscribable({ slug }, async () => {
-				this.appDispatch.dispatch(addOrganization({ type: 'loading', id: slug }));
+				this.appDispatch.dispatch(addOrganization({ status: 'loading', id: slug }));
 
 				try {
 					const apiOrganization = await this.httpClient.get<ApiOrganizationWithDetails>(
@@ -54,7 +54,7 @@ export class OrganizationService {
 					);
 
 					const projects = apiOrganization.projects.map<LoadableProject>((apiProject) => ({
-						type: 'found',
+						status: 'found',
 						id: apiProject.repository_id,
 						value: apiToProject(apiProject)
 					}));
@@ -62,7 +62,7 @@ export class OrganizationService {
 
 					this.appDispatch.dispatch(
 						upsertOrganization({
-							type: 'found',
+							status: 'found',
 							id: slug,
 							value: apiToOrganization(apiOrganization)
 						})
@@ -87,7 +87,9 @@ export class OrganizationService {
 			}
 		});
 		const organization = apiToOrganization(apiOrganization);
-		this.appDispatch.dispatch(upsertOrganization({ type: 'found', id: slug, value: organization }));
+		this.appDispatch.dispatch(
+			upsertOrganization({ status: 'found', id: slug, value: organization })
+		);
 
 		return organization;
 	}
@@ -101,7 +103,9 @@ export class OrganizationService {
 		);
 
 		const organization = apiToOrganization(apiOrganization);
-		this.appDispatch.dispatch(upsertOrganization({ type: 'found', id: slug, value: organization }));
+		this.appDispatch.dispatch(
+			upsertOrganization({ status: 'found', id: slug, value: organization })
+		);
 
 		return organization;
 	}

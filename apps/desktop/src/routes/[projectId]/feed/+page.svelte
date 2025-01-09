@@ -23,7 +23,7 @@
 	);
 
 	const feed = $derived.by(() => {
-		if (feedIdentity?.current.type !== 'found') return;
+		if (feedIdentity?.current.status !== 'found') return;
 		return getFeed(appState, feedService, feedIdentity?.current.value);
 	});
 
@@ -38,7 +38,7 @@
 			if (
 				entries[0]?.isIntersecting &&
 				lastPost.current?.createdAt &&
-				feedIdentity?.current.type === 'found'
+				feedIdentity?.current.status === 'found'
 			) {
 				feedService.getFeedPage(feedIdentity.current.value, lastPost.current.createdAt);
 			}

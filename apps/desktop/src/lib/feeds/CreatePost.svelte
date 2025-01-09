@@ -73,8 +73,8 @@
 	// Post creation
 	let newPostContent = $derived(persisted('', `postContent--${feedIdentity}--${replyTo}`));
 	function createPost() {
-		if (feedIdentity?.current.type !== 'found') return;
-		if (parentProject?.current?.type !== 'found') return;
+		if (feedIdentity?.current.status !== 'found') return;
+		if (parentProject?.current?.status !== 'found') return;
 
 		feedService.createPost(
 			$newPostContent,
