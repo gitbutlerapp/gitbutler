@@ -660,6 +660,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
 
 [[package]]
+name = "but-cli"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-core",
+ "clap",
+ "tracing",
+ "tracing-forest",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "but-core"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "gix",
+ "serde",
+ "toml 0.8.19",
+ "walkdir",
+]
+
+[[package]]
 name = "byte-unit"
 version = "5.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
