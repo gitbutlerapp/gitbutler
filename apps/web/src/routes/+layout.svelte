@@ -4,6 +4,7 @@
 	import Navigation from '$lib/components/Navigation.svelte';
 	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
+	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
@@ -46,9 +47,10 @@
 	setContext(ProjectService, projectService);
 	const newUserService = new NewUserService(httpClient, appState.appDispatch);
 	setContext(NewUserService, newUserService);
-
 	const branchService = new BranchService(httpClient, appState.appDispatch);
 	setContext(BranchService, branchService);
+	const patchSerice = new PatchService(httpClient, appState.appDispatch);
+	setContext(PatchService, patchSerice);
 
 	$effect(() => {
 		const token = get(authService.token) || $page.url.searchParams.get('gb_access_token');

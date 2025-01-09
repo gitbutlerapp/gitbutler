@@ -1,4 +1,4 @@
-import { upsertBranch, upsertBranches } from '$lib/branches/branchesSlice';
+import { addBranch, upsertBranch, upsertBranches } from '$lib/branches/branchesSlice';
 import { upsertPatches } from '$lib/branches/patchesSlice';
 import {
 	apiToBranch,
@@ -10,6 +10,7 @@ import {
 	type LoadablePatch
 } from '$lib/branches/types';
 import { InterestStore, type Interest } from '$lib/interest/intrestStore';
+import { errorToLoadable } from '$lib/network/loadable';
 import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
@@ -32,7 +33,10 @@ export class BranchService {
 		private readonly appDispatch: AppDispatch
 	) {}
 
-	getBranches(repositoryId: string, branchStatus: BranchStatus = BranchStatus.All): Interest {
+	getBranchesInterest(
+		repositoryId: string,
+		branchStatus: BranchStatus = BranchStatus.All
+	): Interest {
 		return this.branchesInterests
 			.findOrCreateSubscribable({ repositoryId, branchStatus }, async () => {
 				try {
@@ -61,6 +65,37 @@ export class BranchService {
 					this.appDispatch.dispatch(upsertPatches(patches));
 				} catch (_error: unknown) {
 					/* empty */
+				}
+			})
+			.createInterest();
+	}
+
+	getBranchInterest(repositoryId: string, branchId: string): Interest {
+		return this.branchInterests
+			.findOrCreateSubscribable({ branchId }, async () => {
+				this.appDispatch.dispatch(addBranch({ status: 'loading', id: branchId }));
+				try {
+					const apiBranch = await this.httpClient.get<ApiBranch>(
+						`patch_stack/${repositoryId}/${branchId}`
+					);
+					const branch: LoadableBranch = {
+						status: 'found',
+						id: apiBranch.branch_id,
+						value: apiToBranch(apiBranch)
+					};
+
+					const patches = apiBranch.patches.map(
+						(api): LoadablePatch => ({
+							status: 'found',
+							id: api.change_id,
+							value: apiToPatch(api)
+						})
+					);
+
+					this.appDispatch.dispatch(upsertBranch(branch));
+					this.appDispatch.dispatch(upsertPatches(patches));
+				} catch (error: unknown) {
+					this.appDispatch.dispatch(upsertBranch(errorToLoadable(error, branchId)));
 				}
 			})
 			.createInterest();

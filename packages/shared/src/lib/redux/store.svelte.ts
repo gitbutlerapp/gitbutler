@@ -1,4 +1,5 @@
 import { branchesReducer } from '$lib/branches/branchesSlice';
+import { patchSectionsReducer } from '$lib/branches/patchSectionsSlice';
 import { patchesReducer } from '$lib/branches/patchesSlice';
 import { feedsReducer } from '$lib/feeds/feedsSlice';
 import { postsReducer } from '$lib/feeds/postsSlice';
@@ -44,6 +45,10 @@ export interface AppBranchesState {
 	readonly branches: ReturnType<typeof branchesReducer>;
 }
 
+export interface AppPatchSectionsState {
+	readonly patchSections: ReturnType<typeof patchSectionsReducer>;
+}
+
 export class AppDispatch {
 	constructor(readonly dispatch: typeof AppState.prototype._store.dispatch) {}
 }
@@ -57,7 +62,8 @@ export class AppState
 		AppUsersState,
 		AppProjectsState,
 		AppPatchesState,
-		AppBranchesState
+		AppBranchesState,
+		AppPatchSectionsState
 {
 	/**
 	 * The base store.
@@ -74,7 +80,8 @@ export class AppState
 			users: usersReducer,
 			projects: projectsReducer,
 			patches: patchesReducer,
-			branches: branchesReducer
+			branches: branchesReducer,
+			patchSections: patchSectionsReducer
 		}
 	});
 
@@ -112,6 +119,10 @@ export class AppState
 		[this.selectSelf],
 		(rootState) => rootState.branches
 	);
+	private readonly selectPatchSections = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.patchSections
+	);
 
 	readonly example = $derived(this.selectExample(this.rootState));
 	readonly posts = $derived(this.selectPosts(this.rootState));
@@ -121,6 +132,7 @@ export class AppState
 	readonly projects = $derived(this.selectProjects(this.rootState));
 	readonly patches = $derived(this.selectPatches(this.rootState));
 	readonly branches = $derived(this.selectBranches(this.rootState));
+	readonly patchSections = $derived(this.selectPatchSections(this.rootState));
 
 	constructor() {
 		$effect(() => {

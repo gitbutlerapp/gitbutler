@@ -1,5 +1,112 @@
 import type { LoadableData } from '$lib/network/types';
 
+export type ApiDiffSection = {
+	id: number;
+	section_type: 'diff';
+	identifier: string;
+	title?: string;
+	position?: number;
+
+	diff_sha: string;
+	base_file_sha: string;
+	new_file_sha: string;
+	old_path?: string;
+	old_size?: number;
+	new_path?: string;
+	new_size?: number;
+	hunks?: number;
+	lines?: number;
+	deletions?: number;
+	diff_patch?: string;
+};
+
+export type DiffSection = {
+	id: number;
+	sectionType: 'diff';
+	identifier: string;
+	title?: string;
+	position?: number;
+
+	diffSha: string;
+	baseFileSha: string;
+	newFileSha: string;
+	oldPath?: string;
+	oldSize?: number;
+	newPath?: string;
+	newSize?: number;
+	hunks?: number;
+	lines?: number;
+	deletions?: number;
+	diffPatch?: string;
+};
+
+export type ApiTextSection = {
+	id: number;
+	section_type: 'text';
+	identifier: string;
+	title?: string;
+	position?: number;
+
+	version?: number;
+	type?: string;
+	code?: string;
+	plain_text?: string;
+	data?: unknown;
+};
+
+export type TextSection = {
+	id: number;
+	sectionType: 'text';
+	identifier: string;
+	title?: string;
+	position?: number;
+
+	version?: number;
+	type?: string;
+	code?: string;
+	plainText?: string;
+	data?: unknown;
+};
+
+export type ApiSection = ApiDiffSection | ApiTextSection;
+export type Section = DiffSection | TextSection;
+
+export function apiToSection(apiSection: ApiSection): Section {
+	if (apiSection.section_type === 'diff') {
+		return {
+			id: apiSection.id,
+			sectionType: 'diff',
+			identifier: apiSection.identifier,
+			title: apiSection.title,
+			position: apiSection.position,
+			diffSha: apiSection.diff_sha,
+			baseFileSha: apiSection.base_file_sha,
+			newFileSha: apiSection.new_file_sha,
+			oldPath: apiSection.old_path,
+			oldSize: apiSection.old_size,
+			newPath: apiSection.new_path,
+			newSize: apiSection.new_size,
+			hunks: apiSection.hunks,
+			lines: apiSection.lines,
+			deletions: apiSection.deletions,
+			diffPatch: apiSection.diff_patch
+		};
+	} else {
+		return {
+			id: apiSection.id,
+			sectionType: 'text',
+			identifier: apiSection.identifier,
+			title: apiSection.title,
+			position: apiSection.position,
+			version: apiSection.version,
+			type: apiSection.type,
+			code: apiSection.code,
+			plainText: apiSection.plain_text,
+			data: apiSection.data
+		};
+	}
+}
+
 export type ApiPatchStatistics = {
 	file_count: number;
 	section_count: number;
@@ -58,6 +165,7 @@ export type ApiPatch = {
 	statistics: ApiPatchStatistics;
 	review: ApiPatchReview;
 	review_all: ApiPatchReview;
+	sections?: ApiSection[];
 };
 
 export type Patch = {
@@ -72,6 +180,7 @@ export type Patch = {
 	statistics: PatchStatistics;
 	review: PatchReview;
 	reviewAll: PatchReview;
+	sectionIds?: number[];
 };
 
 export type LoadablePatch = LoadableData<Patch, Patch['changeId']>;
@@ -87,7 +196,8 @@ export function apiToPatch(api: ApiPatch): Patch {
 		contributors: api.contributors,
 		statistics: apiToPatchStatistics(api.statistics),
 		review: apiToPatchReview(api.review),
-		reviewAll: apiToPatchReview(api.review_all)
+		reviewAll: apiToPatchReview(api.review_all),
+		sectionIds: api.sections?.map((section) => section.id)
 	};
 }
 
