@@ -1,6 +1,5 @@
 import { derived, type Readable } from 'svelte/store';
 import type { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
-import type { CloudBranch, CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 
 /**
  * This service is responsible for integrating the client side oplog
@@ -10,20 +9,20 @@ export class CloudBranchCreationService {
 	canCreateBranch: Readable<boolean>;
 
 	constructor(
-		private readonly syncedSnapshotService: SyncedSnapshotService,
-		private readonly cloudBranchesService: CloudBranchesService
+		private readonly syncedSnapshotService: SyncedSnapshotService
+		// private readonly cloudBranchesService: CloudBranchesService
 	) {
 		this.canCreateBranch = derived(
-			[this.syncedSnapshotService.canTakeSnapshot, this.cloudBranchesService.canCreateBranch],
-			([canTakeSnapshot, canCreateBranch]) => {
-				return canTakeSnapshot && canCreateBranch;
+			[this.syncedSnapshotService.canTakeSnapshot],
+			([canTakeSnapshot]) => {
+				return canTakeSnapshot;
 			}
 		);
 	}
 
-	async createBranch(branchId: string): Promise<CloudBranch> {
-		const oplogSha = await this.syncedSnapshotService.takeSyncedSnapshot();
-		const cloudBranch = await this.cloudBranchesService.createBranch(branchId, oplogSha);
-		return cloudBranch;
+	async createBranch(_branchId: string): Promise<void> {
+		const _oplogSha = await this.syncedSnapshotService.takeSyncedSnapshot();
+		// const cloudBranch = await this.cloudBranchesService.createBranch(branchId, oplogSha);
+		// return cloudBranch;
 	}
 }

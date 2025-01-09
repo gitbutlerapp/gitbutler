@@ -1,10 +1,8 @@
 <script lang="ts">
-	import CloudBranchIndex from '@gitbutler/shared/cloud/stacks/CloudBranchIndex.svelte';
 </script>
 
 <div class="series-container">
 	<h2 class="text-head-24 heading">Your branches:</h2>
-	<CloudBranchIndex />
 </div>
 
 <style lang="postcss">

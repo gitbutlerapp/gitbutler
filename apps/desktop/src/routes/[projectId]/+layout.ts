@@ -18,17 +18,14 @@ import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 import { BranchController } from '$lib/vbranches/branchController';
 import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-import { BranchesApiService, CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 import { error } from '@sveltejs/kit';
-import { derived } from 'svelte/store';
 import type { LayoutLoad } from './$types';
 
 export const prerender = false;
 
 // eslint-disable-next-line
 export const load: LayoutLoad = async ({ params, parent }) => {
-	const { authService, projectsService, cloud, commandService, userService, posthog } =
-		await parent();
+	const { authService, projectsService, commandService, userService, posthog } = await parent();
 
 	const projectId = params.projectId;
 	projectsService.setLastOpenedProject(projectId);
@@ -88,20 +85,12 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 	const uncommitedFileWatcher = new UncommitedFilesWatcher(project);
 	const upstreamIntegrationService = new UpstreamIntegrationService(project, vbranchService);
-	const repositoryId = derived(projectsService.getProjectStore(projectId), (project) => {
-		return project?.api?.repository_id;
-	});
 	const syncedSnapshotService = new SyncedSnapshotService(
 		commandService,
 		userService.user,
 		projectsService.getProjectStore(projectId)
 	);
-	const branchesApiService = new BranchesApiService(cloud);
-	const cloudBranchesService = new CloudBranchesService(repositoryId, branchesApiService);
-	const cloudBranchCreationService = new CloudBranchCreationService(
-		syncedSnapshotService,
-		cloudBranchesService
-	);
+	const cloudBranchCreationService = new CloudBranchCreationService(syncedSnapshotService);
 
 	return {
 		authService,
@@ -129,7 +118,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 		// Cloud-related services
 		syncedSnapshotService,
-		cloudBranchesService,
 		cloudBranchCreationService
 	};
 };
