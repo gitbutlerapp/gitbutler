@@ -16,10 +16,14 @@ export class ProjectService {
 	getProjectInterest(repositoryId: string): Interest {
 		return this.projectInterests
 			.findOrCreateSubscribable({ repositoryId }, async () => {
-				const apiProject = await this.httpClient.get<ApiProject>(`projects/${repositoryId}`);
-				const project = apiToProject(apiProject);
+				try {
+					const apiProject = await this.httpClient.get<ApiProject>(`projects/${repositoryId}`);
+					const project = apiToProject(apiProject);
 
-				this.appDispatch.dispatch(upsertProject(project));
+					this.appDispatch.dispatch(upsertProject(project));
+				} catch (error) {
+					console.error('Error getting project interest - ', error);
+				}
 			})
 			.createInterest();
 	}
