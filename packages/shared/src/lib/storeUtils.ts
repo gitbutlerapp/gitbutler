@@ -56,7 +56,8 @@ export function writableDerived<A, B>(
 	return derivedStore;
 }
 
-export type Reactive<T> = { current: T };
+export type Reactive<T> = { readonly current: T };
+export type WritableReactive<T> = { current: T };
 
 export async function guardReadableTrue(target: Readable<boolean>): Promise<boolean> {
 	return await new Promise((resolve) => {

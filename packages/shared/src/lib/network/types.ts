@@ -6,3 +6,10 @@ export class ApiError extends Error {
 		super(message);
 	}
 }
+
+export type Loadable<T> =
+	| { type: 'loading' | 'not-found' }
+	| { type: 'found'; value: T }
+	| { type: 'error'; error: Error };
+
+export type LoadableData<T, Id> = Loadable<T> & { id: Id };

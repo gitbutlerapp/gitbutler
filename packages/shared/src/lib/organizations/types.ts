@@ -1,4 +1,4 @@
-import type { LoadableData } from '$lib/network/loadable';
+import type { LoadableData } from '$lib/network/types';
 
 export type ApiProject = {
 	slug: string;

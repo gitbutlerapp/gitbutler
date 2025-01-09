@@ -1,41 +1,47 @@
 import { registerInterest } from '$lib/interest/registerInterestFunction.svelte';
+import { isFound } from '$lib/network/loadable';
 import { projectsSelectors } from '$lib/organizations/projectsSlice';
-import type { Loadable } from '$lib/network/loadable';
+import type { Loadable } from '$lib/network/types';
 import type { ProjectService } from '$lib/organizations/projectService';
 import type { LoadableProject } from '$lib/organizations/types';
 import type { AppOrganizationsState, AppProjectsState } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
+
+export function getProjectByRepositoryId(
+	appState: AppProjectsState,
+	projectService: ProjectService,
+	projectRepositoryId: string
+): Reactive<LoadableProject | undefined> {
+	registerInterest(projectService.getProjectInterest(projectRepositoryId));
+	const current = $derived(projectsSelectors.selectById(appState.projects, projectRepositoryId));
+
+	return {
+		get current() {
+			return current;
+		}
+	};
+}
 
 export function getParentForRepositoryId(
 	appState: AppProjectsState & AppOrganizationsState,
 	projectService: ProjectService,
 	projectRepositoryId: string
 ): Reactive<LoadableProject | undefined> {
-	registerInterest(projectService.getProjectInterest(projectRepositoryId));
-
 	const current = $derived.by(() => {
-		const loadableProject = projectsSelectors.selectById(appState.projects, projectRepositoryId);
+		const project = getProjectByRepositoryId(appState, projectService, projectRepositoryId);
 
-		if (
-			!loadableProject ||
-			loadableProject.type !== 'found' ||
-			!loadableProject.value.parentProjectRepositoryId
-		)
-			return;
+		if (!isFound(project.current) || !project.current.value.parentProjectRepositoryId) return;
 
-		registerInterest(
-			projectService.getProjectInterest(loadableProject.value.parentProjectRepositoryId)
-		);
-
-		return projectsSelectors.selectById(
-			appState.projects,
-			loadableProject.value.parentProjectRepositoryId
+		return getProjectByRepositoryId(
+			appState,
+			projectService,
+			project.current.value.parentProjectRepositoryId
 		);
 	});
 
 	return {
 		get current() {
-			return current;
+			return current?.current;
 		}
 	};
 }
@@ -50,8 +56,7 @@ export function getFeedIdentityForRepositoryId(
 	);
 
 	const current = $derived.by<Loadable<string>>(() => {
-		if (!parentProject.current) return { type: 'loading' };
-		if (parentProject.current.type !== 'found') return parentProject.current;
+		if (!isFound(parentProject.current)) return parentProject.current || { type: 'loading' };
 
 		return {
 			type: 'found',

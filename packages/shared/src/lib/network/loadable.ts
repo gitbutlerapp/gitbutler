@@ -1,12 +1,12 @@
-import { ApiError } from '$lib/network/types';
+import { ApiError, type Loadable, type LoadableData } from '$lib/network/types';
 import type { EntityId, EntityAdapter, EntityState } from '@reduxjs/toolkit';
 
-export type Loadable<T> =
-	| { type: 'loading' | 'not-found' }
-	| { type: 'found'; value: T }
-	| { type: 'error'; error: Error };
-
-export type LoadableData<T, Id> = Loadable<T> & { id: Id };
+export function isFound<T>(loadable?: Loadable<T>): loadable is {
+	type: 'found';
+	value: T;
+} {
+	return loadable?.type === 'found';
+}
 
 export function errorToLoadable<T, Id>(error: unknown, id: Id): LoadableData<T, Id> {
 	if (error instanceof Error) {
