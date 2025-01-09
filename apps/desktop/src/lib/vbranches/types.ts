@@ -23,6 +23,8 @@ function transformResultToType(type: any, value: any) {
 export type ChangeType =
 	/// Entry does not exist in old version
 	| 'added'
+	/// Entry is untracked item in workdir
+	| 'untracked'
 	/// Entry does not exist in new version
 	| 'deleted'
 	/// Entry content changed between old and new

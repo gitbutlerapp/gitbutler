@@ -1,10 +1,12 @@
 pub mod commands {
     use crate::error::{Error, UnmarkedError};
     use anyhow::Result;
-    use gitbutler_branch_actions::RemoteBranchFile;
+    use gitbutler_branch_actions::{hooks, RemoteBranchFile};
     use gitbutler_project as projects;
     use gitbutler_project::ProjectId;
+    use gitbutler_repo::hooks::{HookResult, MessageHookResult};
     use gitbutler_repo::{FileInfo, RepoCommands};
+    use gitbutler_stack::BranchOwnershipClaims;
     use std::path::Path;
     use std::sync::atomic::AtomicBool;
     use tauri::State;
@@ -91,5 +93,37 @@ pub mod commands {
     ) -> Result<FileInfo, Error> {
         let project = projects.get(project_id)?;
         Ok(project.read_file_from_workspace(relative_path)?)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects))]
+    pub fn pre_commit_hook(
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        ownership: BranchOwnershipClaims,
+    ) -> Result<HookResult, Error> {
+        let project = projects.get(project_id)?;
+        Ok(hooks::pre_commit(&project, &ownership)?)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects))]
+    pub fn post_commit_hook(
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+    ) -> Result<HookResult, Error> {
+        let project = projects.get(project_id)?;
+        Ok(hooks::post_commit(&project)?)
+    }
+
+    #[tauri::command(async)]
+    #[instrument(skip(projects))]
+    pub fn message_hook(
+        projects: State<'_, projects::Controller>,
+        project_id: ProjectId,
+        message: String,
+    ) -> Result<MessageHookResult, Error> {
+        let project = projects.get(project_id)?;
+        Ok(hooks::commit_msg(&project, message)?)
     }
 }

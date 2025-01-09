@@ -60,7 +60,7 @@ export class BranchController {
 		});
 	}
 
-	async commitBranch(branchId: string, message: string, ownership: string | undefined = undefined) {
+	async commit(branchId: string, message: string, ownership: string | undefined = undefined) {
 		try {
 			await invoke<void>('commit_virtual_branch', {
 				projectId: this.projectId,
