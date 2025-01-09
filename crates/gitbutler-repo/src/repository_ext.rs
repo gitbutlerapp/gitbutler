@@ -15,7 +15,7 @@ use gix::objs::WriteTo;
 use gix::status::index_worktree;
 use std::borrow::Cow;
 use std::collections::HashSet;
-use std::ffi::OsStr;
+use std::ffi::OsString;
 #[cfg(unix)]
 use std::os::unix::fs::PermissionsExt;
 #[cfg(windows)]
@@ -417,17 +417,15 @@ impl RepositoryExt for git2::Repository {
             signature_storage.write_all(buffer)?;
             let buffer_file_to_sign_path = signature_storage.into_temp_path();
 
-            let gpg_program = config.trusted_program("gpg.ssh.program");
-            let mut gpg_program = gpg_program.unwrap_or(Cow::Borrowed(OsStr::new("ssh-keygen")));
-            // if cmd is "", use gpg
-            if gpg_program.is_empty() {
-                gpg_program = Cow::Borrowed(OsStr::new("ssh-keygen"));
-            }
+            let gpg_program = config
+                .trusted_program("gpg.ssh.program")
+                .filter(|program| !program.is_empty())
+                .map_or_else(
+                    || Path::new("ssh-keygen").into(),
+                    |program| Cow::Owned(program.into_owned().into()),
+                );
 
-            let mut cmd_string = format!(
-                "{} -Y sign -n git -f ",
-                gix::path::os_str_into_bstr(gpg_program.as_ref())?
-            );
+            let mut cmd_string = format!("{} -Y sign -n git -f ", gpg_program.display());
 
             let buffer_file_to_sign_path_str = buffer_file_to_sign_path
                 .to_str()
@@ -453,16 +451,14 @@ impl RepositoryExt for git2::Repository {
                 let args = format!(
                     "{} -U {}",
                     key_file_path.to_string_lossy(),
-                    buffer_file_to_sign_path.to_string_lossy()
+                    buffer_file_to_sign_path_str,
                 );
                 cmd_string += &args;
             } else {
                 let args = format!("{} {}", signing_key, buffer_file_to_sign_path_str);
                 cmd_string += &args;
             };
-            let mut signing_cmd: std::process::Command = gix::command::prepare(cmd_string)
-                .with_shell_disallow_manual_argument_splitting()
-                .into();
+            let mut signing_cmd: std::process::Command = command_with_login_shell(cmd_string);
             let output = signing_cmd
                 .stderr(Stdio::piped())
                 .stdout(Stdio::piped())
@@ -484,19 +480,20 @@ impl RepositoryExt for git2::Repository {
         } else {
             let gpg_program = config
                 .trusted_program("gpg.program")
-                .map(|program| Cow::Owned(program.into_owned().into()))
-                .unwrap_or_else(|| Path::new("gpg").into());
+                .filter(|program| !program.is_empty())
+                .map_or_else(
+                    || Path::new("gpg").into(),
+                    |program| Cow::Owned(program.into_owned().into()),
+                );
 
-            let mut cmd = std::process::Command::new(gpg_program.as_ref());
+            let mut cmd = command_with_login_shell(format!(
+                "{gpg_program} --status-fd=2 -bsau {signing_key} -",
+                gpg_program = gpg_program.display(),
+            ));
 
-            cmd.args(["--status-fd=2", "-bsau", signing_key])
-                .arg("-")
-                .stdout(Stdio::piped())
+            cmd.stdout(Stdio::piped())
                 .stderr(Stdio::piped())
                 .stdin(Stdio::piped());
-
-            #[cfg(windows)]
-            cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
 
             let mut child = match cmd.spawn() {
                 Ok(child) => child,
@@ -580,6 +577,13 @@ impl RepositoryExt for git2::Repository {
 
         Ok(output)
     }
+}
+
+pub fn command_with_login_shell(shell_cmd: impl Into<OsString>) -> std::process::Command {
+    gix::command::prepare(shell_cmd)
+        .with_shell_disallow_manual_argument_splitting()
+        .with_shell_program(gix::path::env::login_shell().unwrap_or("bash".as_ref()))
+        .into()
 }
 
 /// Signs the buffer with the configured gpg key, returning the signature.
