@@ -7,18 +7,22 @@
 	import {
 		projectAiGenEnabled,
 		projectCommitGenerationExtraConcise,
-		projectCommitGenerationUseEmojis
+		projectCommitGenerationUseEmojis,
+		projectRunCommitHooks
 	} from '$lib/config/config';
+	import { HooksService } from '$lib/hooks/hooksService';
 	import { showError } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
+	import * as toasts from '$lib/utils/toasts';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { BranchStack, DetailedCommit, Commit } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
+	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import { isWhiteSpaceString } from '@gitbutler/ui/utils/string';
@@ -47,12 +51,15 @@
 	const stack = getContextStore(BranchStack);
 	const project = getContext(Project);
 	const promptService = getContext(PromptService);
+	const hooksService = getContext(HooksService);
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(project.id);
 	const commitGenerationUseEmojis = projectCommitGenerationUseEmojis(project.id);
+	const runHooks = projectRunCommitHooks(project.id);
 
 	let aiLoading = $state(false);
+	let hookRunning = $state(false);
 	let aiConfigurationValid = $state(false);
 
 	let titleTextArea: HTMLTextAreaElement | undefined = $state();
@@ -132,6 +139,23 @@
 		}
 
 		aiLoading = false;
+	}
+
+	async function runMessageHook() {
+		hookRunning = true;
+		try {
+			const result = await hooksService.message(project.id, commitMessage);
+			if (result.status === 'message') {
+				commitMessage = result.message;
+				toasts.success('Message hook modified your message');
+			} else if (result.status === 'failure') {
+				showError('Message hook failed', result.error);
+			}
+		} catch (err: unknown) {
+			showError('Message hook failed', err);
+		} finally {
+			hookRunning = false;
+		}
 	}
 
 	onMount(async () => {
@@ -237,6 +261,9 @@
 			}}
 			onblur={() => {
 				isTitleFocused = false;
+				if ($runHooks) {
+					runMessageHook();
+				}
 			}}
 			oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 				const target = e.currentTarget;
@@ -263,6 +290,9 @@
 				}}
 				onblur={() => {
 					isDescriptionFocused = false;
+					if ($runHooks) {
+						runMessageHook();
+					}
 				}}
 				oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 					const target = e.currentTarget;
@@ -288,6 +318,9 @@
 					: undefined}
 		>
 			<div class="commit-box__texarea-actions" class:commit-box-actions_expanded={isExpanded}>
+				{#if hookRunning}
+					<Icon name="spinner" opacity={0.4} />
+				{/if}
 				<DropDownButton
 					style="ghost"
 					outline
@@ -361,6 +394,9 @@
 	}
 
 	.commit-box__texarea-actions {
+		display: flex;
+		align-items: center;
+		gap: 10px;
 		position: absolute;
 		right: 12px;
 		bottom: 12px;

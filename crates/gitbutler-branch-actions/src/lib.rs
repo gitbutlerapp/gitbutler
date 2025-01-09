@@ -82,4 +82,5 @@ pub use branch::{
 pub use integration::GITBUTLER_WORKSPACE_COMMIT_TITLE;
 
 mod commit_ops;
+pub mod hooks;
 pub mod stack;
