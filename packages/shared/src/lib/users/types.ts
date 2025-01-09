@@ -1,3 +1,5 @@
+import type { LoadableData } from '$lib/network/types';
+
 export type ApiUser = {
 	id: number;
 	login: string;
@@ -12,6 +14,8 @@ export type User = {
 	email?: string;
 	avatarUrl?: string;
 };
+
+export type LoadableUser = LoadableData<User, User['login']>;
 
 export function apiToUser(apiUser: ApiUser): User {
 	return {

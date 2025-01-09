@@ -7,7 +7,7 @@ import {
 import { ModelKind, type AIClient, type AIEvalOptions, type Prompt } from '$lib/ai/types';
 import { andThenAsync, ok, wrapAsync, type Result } from '$lib/result';
 import { stringStreamGenerator } from '$lib/utils/promise';
-import type { HttpClient } from '@gitbutler/shared/httpClient';
+import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 
 function splitPromptMessagesIfNecessary(
 	modelKind: ModelKind,

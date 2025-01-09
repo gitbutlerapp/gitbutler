@@ -8,6 +8,7 @@
 	import { postsSelectors } from '@gitbutler/shared/feeds/postsSlice';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { registerInterest } from '@gitbutler/shared/interest/registerInterestFunction.svelte';
+	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { UserService } from '@gitbutler/shared/users/userService';
 	import Button from '@gitbutler/ui/Button.svelte';
@@ -48,12 +49,16 @@
 				<div class="bleep-container">
 					<SectionCard>
 						<div class="author">
-							<Avatar
-								size="medium"
-								tooltip={author?.current?.name || 'Unknown'}
-								srcUrl={author?.current?.avatarUrl || ''}
-							/>
-							<p>{author?.current?.name}</p>
+							<Loading loadable={author?.current}>
+								{#snippet children(author)}
+									<Avatar
+										size="medium"
+										tooltip={author.name || 'Unknown'}
+										srcUrl={author.avatarUrl || ''}
+									/>
+									<p>{author.name}</p>
+								{/snippet}
+							</Loading>
 						</div>
 
 						<Markdown content={post.content} />

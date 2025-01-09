@@ -2,7 +2,7 @@ import { registerInterest } from '@gitbutler/shared/interest/registerInterestFun
 import { projectsSelectors } from '@gitbutler/shared/organizations/projectsSlice';
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import type { ProjectService, ProjectsService } from '$lib/backend/projects';
-import type { HttpClient } from '@gitbutler/shared/httpClient';
+import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 import type { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 import type { AppProjectsState } from '@gitbutler/shared/redux/store.svelte';
 
@@ -25,14 +25,17 @@ export function projectCloudSync(
 		registerInterest(cloudProjectInterest);
 	});
 
-	const cloudProject = $derived(
+	const loadableCloudProject = $derived(
 		project.current?.api
 			? projectsSelectors.selectById(appState.projects, project.current.api.repository_id)
 			: undefined
 	);
 
 	$effect(() => {
-		if (!project.current?.api || !cloudProject) return;
+		if (!project.current?.api || !loadableCloudProject || loadableCloudProject.status !== 'found')
+			return;
+
+		const cloudProject = loadableCloudProject.value;
 		const persistedProjectUpdatedAt = new Date(project.current.api.updated_at).getTime();
 		const cloudProjectUpdatedAt = new Date(cloudProject.updatedAt).getTime();
 		if (persistedProjectUpdatedAt >= cloudProjectUpdatedAt) return;

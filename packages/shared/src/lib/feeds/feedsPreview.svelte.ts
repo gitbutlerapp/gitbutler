@@ -9,7 +9,7 @@ import type { FeedService } from '$lib/feeds/service';
 import type { Feed, Post } from '$lib/feeds/types';
 import type { AppFeedsState, AppPostsState, AppUsersState } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
-import type { User } from '$lib/users/types';
+import type { LoadableUser } from '$lib/users/types';
 import type { UserService } from '$lib/users/userService';
 
 export function getFeed(
@@ -66,7 +66,7 @@ export function getPostAuthor(
 	renderInView?: {
 		element?: HTMLElement;
 	}
-): Reactive<User | undefined> {
+): Reactive<LoadableUser | undefined> {
 	const current = $derived.by(() => {
 		const postInterest = feedService.getPostWithRepliesInterest(postId);
 		if (renderInView) {

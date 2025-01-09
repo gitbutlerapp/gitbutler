@@ -4,7 +4,7 @@ import { showError } from '$lib/notifications/toasts';
 import { copyToClipboard } from '$lib/utils/clipboard';
 import { sleep } from '$lib/utils/sleep';
 import { openExternalUrl } from '$lib/utils/url';
-import { type HttpClient } from '@gitbutler/shared/httpClient';
+import { type HttpClient } from '@gitbutler/shared/network/httpClient';
 import { plainToInstance } from 'class-transformer';
 import { derived, writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';

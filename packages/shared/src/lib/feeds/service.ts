@@ -4,9 +4,9 @@ import { apiToPost, type ApiPost, type ApiPostWithReplies, type Post } from '$li
 import { InterestStore } from '$lib/interest/intrestStore';
 import { POLLING_FAST, POLLING_REGULAR } from '$lib/polling';
 import { guardReadableTrue } from '$lib/storeUtils';
-import { apiToUser } from '$lib/users/types';
+import { apiToUser, type LoadableUser } from '$lib/users/types';
 import { upsertUsers } from '$lib/users/usersSlice';
-import type { HttpClient } from '$lib/httpClient';
+import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
 export class FeedService {
@@ -42,7 +42,14 @@ export class FeedService {
 		const query = lastPostTimestamp ? `?from_created_at=${lastPostTimestamp}` : '';
 		const apiFeed = await this.httpClient.get<ApiPost[]>(`feed/project/${identifier}${query}`);
 		this.appDispatch.dispatch(upsertPosts(apiFeed.map(apiToPost)));
-		this.appDispatch.dispatch(upsertUsers(apiFeed.map((apiPost) => apiToUser(apiPost.user))));
+		const users = apiFeed.map(
+			(apiPost): LoadableUser => ({
+				status: 'found',
+				value: apiToUser(apiPost.user),
+				id: apiPost.user.login
+			})
+		);
+		this.appDispatch.dispatch(upsertUsers(users));
 
 		const actionArguments = { identifier, postIds: apiFeed.map((post) => post.uuid) };
 		if (lastPostTimestamp) {
@@ -103,12 +110,13 @@ export class FeedService {
 
 		const posts = [post, ...apiPostWithReplies.replies.map(apiToPost)];
 		this.appDispatch.dispatch(upsertPosts(posts));
-		this.appDispatch.dispatch(
-			upsertUsers(
-				[apiPostWithReplies, ...apiPostWithReplies.replies].map((apiPost) =>
-					apiToUser(apiPost.user)
-				)
-			)
+		const users = [apiPostWithReplies, ...apiPostWithReplies.replies].map(
+			(apiPost): LoadableUser => ({
+				status: 'found',
+				id: apiPost.user.login,
+				value: apiToUser(apiPost.user)
+			})
 		);
+		this.appDispatch.dispatch(upsertUsers(users));
 	}
 }
