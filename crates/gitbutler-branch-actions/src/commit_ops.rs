@@ -12,7 +12,7 @@ fn get_first_parent<'repo>(commit: &gix::Commit<'repo>) -> Result<gix::Commit<'r
 
 /// Gets the changes that one commit introduced compared to the base,
 /// excluding anything between the commit and the base.
-fn get_exclusive_tree(
+pub fn get_exclusive_tree(
     repository: &gix::Repository,
     commit_id: gix::ObjectId,
     base_id: gix::ObjectId,
