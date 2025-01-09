@@ -9,10 +9,10 @@ use gitbutler_repo::{
     RepositoryExt as _,
 };
 use gitbutler_stack::{stack_context::CommandContextExt, StackId};
-use gitbutler_workspace::{compute_updated_branch_head, BranchHeadAndTree};
+use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
 use itertools::Itertools;
 
-use crate::VirtualBranchesExt;
+use crate::{commit_ops::get_exclusive_tree, VirtualBranchesExt};
 
 /// Squashes one or multiple commuits from a virtual branch into a destination commit
 /// All of the commits involved have to be in the same stack
@@ -21,14 +21,16 @@ pub(crate) fn squash_commits(
     stack_id: StackId,
     source_ids: Vec<git2::Oid>,
     desitnation_id: git2::Oid,
-    _perm: &mut WorktreeWritePermission,
+    perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let vb_state = ctx.project().virtual_branches();
     let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let default_target = vb_state.get_default_target()?;
-    let branch_commit_oids =
-        ctx.repo()
-            .l(stack.head(), LogUntil::Commit(default_target.sha), false)?;
+    let merge_base = ctx.repo().merge_base(stack.head(), default_target.sha)?;
+
+    let branch_commit_oids = ctx
+        .repo()
+        .l(stack.head(), LogUntil::Commit(merge_base), false)?;
 
     let source_commits: Vec<git2::Commit> = source_ids
         .iter()
@@ -45,7 +47,7 @@ pub(crate) fn squash_commits(
         &destination_commit,
     )?;
 
-    let final_tree = squash_tree(ctx, &source_commits, &destination_commit)?;
+    let final_tree = squash_tree(ctx, &source_commits, &destination_commit, merge_base)?;
     // Squash commit messages string separated by newlines
     let source_messages = source_commits
         .iter()
@@ -82,10 +84,6 @@ pub(crate) fn squash_commits(
         })
         .collect::<Vec<_>>();
 
-    let merge_base = ctx
-        .repo()
-        .merge_base(destination_commit.id(), default_target.sha)?;
-
     // Rebase the commits in the stack so that the source commits are removed and the destination commit
     // is replaces with a new commit with the final tree that is the result of the merge
     let new_stack_head = cherry_rebase_group(ctx.repo(), merge_base, &ids_to_rebase, false)?;
@@ -95,22 +93,24 @@ pub(crate) fn squash_commits(
         tree: new_tree_oid,
     } = compute_updated_branch_head(ctx.repo(), &stack, new_stack_head)?;
 
-    let new_destination_commit = ctx.repo().find_commit(new_head_oid)?;
-
-    // Update stack heads, starting with the desitnation commit
-    // If the destination commit happens to be a head, update the head to the new commit
-    stack.replace_head(ctx, &destination_commit, &new_destination_commit)?;
-    // Go over the source commits and for each one, if it happens to be a head, update the head to be the first parent of the commit
-    // as long as the parent iself is not in the list of source commits, otherwise do nothing
-    for source_commit in &source_commits {
-        let parent = source_commit.parent(0)?;
-        if !source_commits.iter().any(|c| c.id() == parent.id()) {
-            stack.replace_head(ctx, source_commit, &parent)?;
-        }
-    }
-    // Finally, update the stack head
     stack.set_stack_head(ctx, new_head_oid, Some(new_tree_oid))?;
 
+    checkout_branch_trees(ctx, perm)?;
+    crate::integration::update_workspace_commit(&vb_state, ctx)
+        .context("failed to update gitbutler workspace")?;
+
+    // Finally, update branch heads in the stack if present
+    for source_commit in &source_commits {
+        // Find the next eligible ancestor commit that is not in the source commits
+        let mut ancestor = source_commit.parent(0)?;
+        while source_commits.iter().any(|c| c.id() == ancestor.id()) {
+            if ancestor.id() == merge_base {
+                break; // Don's search past the merge base
+            }
+            ancestor = ancestor.parent(0)?;
+        }
+        stack.replace_head(ctx, source_commit, &ancestor)?;
+    }
     Ok(())
 }
 
@@ -178,13 +178,18 @@ fn squash_tree<'a>(
     ctx: &'a CommandContext,
     source_commits: &[git2::Commit<'_>],
     destination_commit: &git2::Commit<'_>,
+    merge_base: git2::Oid,
 ) -> Result<git2::Tree<'a>> {
     let base_tree = git2_to_gix_object_id(destination_commit.tree_id());
     let mut final_tree_id = git2_to_gix_object_id(destination_commit.tree_id());
     let gix_repo = ctx.gix_repository_for_merging()?;
     let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     for source_commit in source_commits {
-        let source_tree = git2_to_gix_object_id(source_commit.tree_id());
+        let source_tree = get_exclusive_tree(
+            &gix_repo,
+            git2_to_gix_object_id(source_commit.id()),
+            git2_to_gix_object_id(merge_base),
+        )?;
         let mut merge = gix_repo.merge_trees(
             base_tree,
             final_tree_id,
