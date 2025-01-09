@@ -60,12 +60,16 @@
 							roundedTop={index === 0}
 							orientation="row"
 						>
-							<Avatar
-								size="medium"
-								tooltip={user.current?.name || 'Unknown'}
-								srcUrl={user.current?.avatarUrl || ''}
-							/>
-							<p>{user.current?.name}</p>
+							<Loading loadable={user.current}>
+								{#snippet children(user)}
+									<Avatar
+										size="medium"
+										tooltip={user?.name || 'Unknown'}
+										srcUrl={user?.avatarUrl || ''}
+									/>
+									<p>{user?.name}</p>
+								{/snippet}
+							</Loading>
 						</SectionCard>
 					{/each}
 				</div>

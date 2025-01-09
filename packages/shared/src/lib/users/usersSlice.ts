@@ -1,9 +1,9 @@
+import { loadableUpsert, loadableUpsertMany } from '$lib/network/loadable';
 import { createEntityAdapter, createSlice } from '@reduxjs/toolkit';
-import type { User } from '$lib/users/types';
+import type { LoadableUser } from '$lib/users/types';
 
-const usersAdapter = createEntityAdapter({
-	selectId: (user: User) => user.login,
-	sortComparer: (a: User, b: User) => a.login.localeCompare(b.login)
+const usersAdapter = createEntityAdapter<LoadableUser, LoadableUser['id']>({
+	selectId: (user: LoadableUser) => user.id
 });
 
 const usersSlice = createSlice({
@@ -14,8 +14,8 @@ const usersSlice = createSlice({
 		addUsers: usersAdapter.addMany,
 		removeUser: usersAdapter.removeOne,
 		removeUsers: usersAdapter.removeMany,
-		upsertUser: usersAdapter.upsertOne,
-		upsertUsers: usersAdapter.upsertMany
+		upsertUser: loadableUpsert(usersAdapter),
+		upsertUsers: loadableUpsertMany(usersAdapter)
 	}
 });
 
