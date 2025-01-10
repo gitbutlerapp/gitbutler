@@ -679,7 +679,6 @@ pub fn diff_files_into_hunks(
 }
 
 #[cfg(test)]
-
 mod test {
     use super::*;
 

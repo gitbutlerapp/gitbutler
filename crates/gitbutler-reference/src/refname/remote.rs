@@ -113,6 +113,6 @@ impl PartialEq<FullNameRef> for Refname {
         shortname
             .strip_prefix(self.remote.as_bytes())
             .and_then(|rest| rest.strip_suffix(self.branch.as_bytes()))
-            .map_or(false, |rest| rest == b"/")
+            .is_some_and(|rest| rest == b"/")
     }
 }

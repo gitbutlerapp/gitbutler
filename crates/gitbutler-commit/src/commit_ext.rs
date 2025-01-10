@@ -43,9 +43,8 @@ impl CommitExt for gix::Commit<'_> {
     }
 
     fn is_signed(&self) -> bool {
-        self.decode().map_or(false, |decoded| {
-            decoded.extra_headers().pgp_signature().is_some()
-        })
+        self.decode()
+            .is_ok_and(|decoded| decoded.extra_headers().pgp_signature().is_some())
     }
 
     fn is_conflicted(&self) -> bool {
