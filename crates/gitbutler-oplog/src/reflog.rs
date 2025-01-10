@@ -81,16 +81,16 @@ fn build_reflog_content(commits: &[gix::ObjectId]) -> String {
     let mut previous_oid = gix::ObjectId::null(gix::index::hash::Kind::Sha1);
 
     let mut log = String::default();
-    for (index, commit) in commits.iter().enumerate() {
-        let message = if index == 0 {
-            branch_creation_message(&commit.to_string())
+    for (is_first, commit_id) in commits.iter().enumerate().map(|(idx, id)| (idx == 0, id)) {
+        let message = if is_first {
+            branch_creation_message(&commit_id.to_string())
         } else {
-            format!("reset: moving to {commit}")
+            format!("reset: moving to {commit_id}")
         };
 
         // Named with "_string" so we can still assign previous_oid later
         let previous_oid_string = previous_oid.to_string();
-        let new_oid_string = commit.to_string();
+        let new_oid_string = commit_id.to_string();
 
         let reflog_line = gix::refs::file::log::LineRef {
             previous_oid: previous_oid_string.as_str().into(),
@@ -99,7 +99,7 @@ fn build_reflog_content(commits: &[gix::ObjectId]) -> String {
             message: message.as_str().into(),
         };
 
-        previous_oid = *commit;
+        previous_oid = *commit_id;
 
         log.push_str(&serialize_line(reflog_line));
         log.push('\n');
@@ -151,7 +151,6 @@ mod set_target_ref {
         let contents = std::fs::read_to_string(&log_file_path)?;
         assert_eq!(reflog_lines(&contents).len(), 2);
 
-        let contents = std::fs::read_to_string(&log_file_path)?;
         let lines = reflog_lines(&contents);
         assert_signature(lines[0].signature);
         Ok(())
