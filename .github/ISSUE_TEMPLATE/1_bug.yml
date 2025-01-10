@@ -49,7 +49,7 @@ body:
   - type: textarea
     id: repro
     attributes:
-      label: How to reproduce
+      label: How to reproduce (Optional)
       description: How do you trigger this bug? Please walk us through it step by step.
       placeholder: |
         1. ...
@@ -61,7 +61,7 @@ body:
   - type: textarea
     id: expected
     attributes:
-      label: Expected behavior
+      label: Expected behavior (Optional)
       description: Explain what you expected to actually have happened.
       placeholder: |
         1. Setting ... option should not crash the application
@@ -70,7 +70,7 @@ body:
   - type: textarea
     id: logs
     attributes:
-      label: Relevant log output
+      label: Relevant log output (Optional)
       description: Please copy and paste any relevant log output. This will be automatically formatted into code, so no need for backticks.
       render: shell
     validations:
