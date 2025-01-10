@@ -1,4 +1,6 @@
-import { isStr } from '@gitbutler/ui/utils/string';
+import { KNOWN_ERRORS } from '$lib/error/knownErrors';
+import { isBackendError, isHttpError } from '$lib/error/typeguards';
+import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import posthog from 'posthog-js';
 import { writable, type Writable } from 'svelte/store';
 import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
@@ -31,22 +33,18 @@ export function showToast(toast: Toast) {
 }
 
 export function showError(title: string, error: unknown) {
-	// Silence GitHub octokit.js when disconnected
-	// TODO: Fix this elsewhere.
-	if (error instanceof Object) {
-		if (
-			'status' in error &&
-			'message' in error &&
-			error.status === 500 &&
-			error.message === 'Load failed'
-		)
-			return;
-		const message = 'message' in error ? error.message : String(error);
-		showToast({ title, error: message, style: 'error' });
-	}
-
-	if (isStr(error)) {
-		showToast({ title, error, style: 'error' });
+	if (isBackendError(error) && error.code in KNOWN_ERRORS) {
+		showToast({ title, message: KNOWN_ERRORS[error.code], error });
+	} else if (isHttpError(error)) {
+		// Silence GitHub octokit.js when disconnected. This should ideally be
+		// prevented using `navigator.onLine` to avoid making requests when
+		// working offline.
+		if (error.status === 500 && error.message === 'Load failed') return;
+		showToast({ title, error: error.message, style: 'error' });
+	} else if (isErrorlike(error)) {
+		showToast({ title, error: error.message, style: 'error' });
+	} else {
+		showToast({ title, error: String(error), style: 'error' });
 	}
 }
 

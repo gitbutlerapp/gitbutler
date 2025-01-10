@@ -69,12 +69,7 @@ export class BranchController {
 			});
 			this.posthog.capture('Commit Successful');
 		} catch (err: any) {
-			if (err.code === 'errors.commit.signing_failed') {
-				showSignError(err);
-			} else {
-				showError('Failed to commit changes', err);
-				throw err;
-			}
+			showError('Failed to commit changes', err);
 			this.posthog.capture('Commit Failed', err);
 		}
 	}
@@ -503,12 +498,7 @@ export class BranchController {
 				targetCommitOid
 			});
 		} catch (err: any) {
-			// TODO: Probably we wanna have error code checking in a more generic way
-			if (err.code === 'errors.commit.signing_failed') {
-				showSignError(err);
-			} else {
-				showError('Failed to squash commit', err);
-			}
+			showError('Failed to squash commit', err);
 		}
 	}
 
@@ -565,12 +555,7 @@ export class BranchController {
 				message
 			});
 		} catch (err: any) {
-			// TODO: Probably we wanna have error code checking in a more generic way
-			if (err.code === 'errors.commit.signing_failed') {
-				showSignError(err);
-			} else {
-				showError('Failed to change commit message', err);
-			}
+			showError('Failed to change commit message', err);
 		}
 	}
 
@@ -583,12 +568,7 @@ export class BranchController {
 				offset
 			});
 		} catch (err: any) {
-			// TODO: Probably we wanna have error code checking in a more generic way
-			if (err.code === 'errors.commit.signing_failed') {
-				showSignError(err);
-			} else {
-				showError('Failed to insert blank commit', err);
-			}
+			showError('Failed to insert blank commit', err);
 		}
 	}
 
@@ -601,25 +581,7 @@ export class BranchController {
 				sourceBranchId
 			});
 		} catch (err: any) {
-			// TODO: Probably we wanna have error code checking in a more generic way
-			if (err.code === 'errors.commit.signing_failed') {
-				showSignError(err);
-			} else {
-				showError('Failed to move commit', err);
-			}
+			showError('Failed to move commit', err);
 		}
 	}
-}
-
-function showSignError(err: any) {
-	showToast({
-		title: 'Failed to commit due to signing error',
-		message: `
-Signing is now disabled, so subsequent commits will not fail. You can configure commit signing in the project settings.
-
-Please check our [documentation](https://docs.gitbutler.com/features/virtual-branches/verifying-commits) on setting up commit signing and verification.
-					`,
-		error: err.message,
-		style: 'error'
-	});
 }
