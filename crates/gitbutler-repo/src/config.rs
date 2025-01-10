@@ -1,4 +1,6 @@
 use anyhow::Result;
+use bstr::ByteVec;
+use std::borrow::Cow;
 
 pub struct Config<'a> {
     git_repository: &'a git2::Repository,
@@ -39,15 +41,11 @@ impl Config<'_> {
     }
 
     pub fn get_local(&self, key: &str) -> Result<Option<String>> {
-        let config = self.git_repository.config()?;
-        match config
-            .open_level(git2::ConfigLevel::Local)
-            .and_then(|local| local.get_string(key))
-        {
-            Ok(value) => Ok(Some(value)),
-            Err(e) if e.code() == git2::ErrorCode::NotFound => Ok(None),
-            Err(e) => Err(e.into()),
-        }
+        let repo = gix::open(self.git_repository.path())?;
+        Ok(repo
+            .config_snapshot()
+            .string_filter(key, |meta| meta.source == gix::config::Source::Local)
+            .and_then(|s| Vec::from(Cow::into_owned(s)).into_string().ok()))
     }
 
     fn get_string(&self, key: &str) -> Result<Option<String>> {
