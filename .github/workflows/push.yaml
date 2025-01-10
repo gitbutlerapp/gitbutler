@@ -24,7 +24,7 @@ jobs:
               - '.github/workflows/**'
               - '.github/actions/**'
             docs:
-              - '*.md'
+              - '**/*.md'
             node:
               - *workflows
               - 'apps/**'
