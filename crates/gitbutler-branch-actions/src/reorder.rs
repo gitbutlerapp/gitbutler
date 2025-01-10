@@ -188,6 +188,7 @@ pub fn commits_order(stack_context: &StackContext, stack: &Stack) -> Result<Stac
     let order: Result<Vec<SeriesOrder>> = stack
         .branches()
         .iter()
+        .filter(|b| !b.archived)
         .rev()
         .map(|b| {
             Ok(SeriesOrder {
