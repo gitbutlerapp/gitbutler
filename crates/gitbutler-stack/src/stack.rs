@@ -659,7 +659,12 @@ impl Stack {
         let state = branch_state(ctx);
 
         // same heads, just differente commits
-        if self.heads.iter().map(|h| &h.name).collect::<HashSet<_>>()
+        if self
+            .heads
+            .iter()
+            .filter(|h| !h.archived)
+            .map(|h| &h.name)
+            .collect::<HashSet<_>>()
             != new_heads.keys().collect::<HashSet<_>>()
         {
             return Err(anyhow!("The new head names do not match the current heads"));
