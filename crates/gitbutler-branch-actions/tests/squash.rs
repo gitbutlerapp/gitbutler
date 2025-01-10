@@ -145,11 +145,10 @@ fn squash_above() -> Result<()> {
         blob_content(ctx.repo(), branches.b2.patches[1].id, "file2_3")?,
         "change3\n"
     );
-    // TODO: this is a bug - file 1 and change1 should not be here
-    // assert_eq!(
-    //     blob_content(ctx.repo(), branches.b2.patches[1].id, "file1")?,
-    //     "change1\n"
-    // );
+    assert_eq!(
+        blob_content(ctx.repo(), branches.b2.patches[1].id, "file1")?,
+        "change1\n"
+    );
     assert_eq!(branches.b2.patches[2].description, "commit 2");
 
     // branch 3
@@ -438,11 +437,10 @@ fn squash_multiple_above_and_below() -> Result<()> {
         blob_content(ctx.repo(), branches.b2.patches[1].id, "file5")?,
         "change5\n"
     );
-    // TODO: this is a bug - file 1 and change1 should not be here
-    // assert_eq!(
-    //     blob_content(ctx.repo(), branches.b2.patches[1].id, "file1")?,
-    //     "change1\n"
-    // );
+    assert_eq!(
+        blob_content(ctx.repo(), branches.b2.patches[1].id, "file1")?,
+        "change1\n"
+    );
     assert_eq!(branches.b2.patches[2].description, "commit 2");
 
     // branch 3

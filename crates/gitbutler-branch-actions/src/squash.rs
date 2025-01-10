@@ -47,7 +47,12 @@ pub(crate) fn squash_commits(
         &destination_commit,
     )?;
 
-    let final_tree = squash_tree(ctx, &source_commits, &destination_commit)?;
+    let final_tree = squash_tree(
+        ctx,
+        &source_commits,
+        &destination_commit,
+        &branch_commit_oids,
+    )?;
     // Squash commit messages string separated by newlines
     let source_messages = source_commits
         .iter()
@@ -178,18 +183,42 @@ fn squash_tree<'a>(
     ctx: &'a CommandContext,
     source_commits: &[git2::Commit<'_>],
     destination_commit: &git2::Commit<'_>,
+    branch_commit_oids: &[git2::Oid], // most recent first
 ) -> Result<git2::Tree<'a>> {
     let mut final_tree_id = destination_commit.tree_id().to_gix();
     let gix_repo = ctx.gix_repository_for_merging()?;
     let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     for source_commit in source_commits {
-        let mut merge = gix_repo.merge_trees(
-            source_commit.parent(0)?.tree_id().to_gix(),
-            source_commit.tree_id().to_gix(),
-            final_tree_id,
-            gix_repo.default_merge_labels(),
-            merge_options_fail_fast.clone(),
-        )?;
+        let mut merge = if source_commit.before(destination_commit, branch_commit_oids) {
+            // source_commit is BEFORE destination_commit
+            let first = gix_repo
+                .merge_trees(
+                    source_commit.parent(0)?.tree_id().to_gix(),
+                    source_commit.tree_id().to_gix(),
+                    destination_commit.parent(0)?.tree_id().to_gix(),
+                    gix_repo.default_merge_labels(),
+                    merge_options_fail_fast.clone(),
+                )?
+                .tree
+                .write()?;
+            gix_repo.merge_trees(
+                destination_commit.parent(0)?.tree_id().to_gix(),
+                first,
+                final_tree_id,
+                gix_repo.default_merge_labels(),
+                merge_options_fail_fast.clone(),
+            )?
+        } else {
+            // source_commit is AFTER destination_commit
+            gix_repo.merge_trees(
+                source_commit.parent(0)?.tree_id().to_gix(),
+                source_commit.tree_id().to_gix(),
+                final_tree_id,
+                gix_repo.default_merge_labels(),
+                merge_options_fail_fast.clone(),
+            )?
+        };
+
         if merge.has_unresolved_conflicts(conflict_kind) {
             bail!("Merge failed with conflicts");
         }
@@ -197,4 +226,25 @@ fn squash_tree<'a>(
     }
     let final_tree = ctx.repo().find_tree(final_tree_id.to_git2())?;
     Ok(final_tree)
+}
+
+trait Compare {
+    fn before(&self, to_compare: &git2::Commit, branch_commit_oids: &[git2::Oid]) -> bool;
+}
+
+impl Compare for git2::Commit<'_> {
+    fn before(&self, to_compare: &git2::Commit, branch_commit_oids: &[git2::Oid]) -> bool {
+        let left = to_compare.id();
+        let right = self.id();
+        let mut found_right = false;
+        for id in branch_commit_oids {
+            if *id == right {
+                found_right = true;
+            }
+            if *id == left {
+                return !found_right;
+            }
+        }
+        false
+    }
 }
