@@ -59,8 +59,10 @@
 		if (token) {
 			authService.setToken(token);
 
-			$page.url.searchParams.delete('gb_access_token');
-			goto(`?${$page.url.searchParams.toString()}`);
+			if ($page.url.searchParams.has('gb_access_token')) {
+				$page.url.searchParams.delete('gb_access_token');
+				goto(`?${$page.url.searchParams.toString()}`);
+			}
 		}
 	});
 </script>
