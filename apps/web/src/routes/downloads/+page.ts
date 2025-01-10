@@ -1,4 +1,4 @@
-import type { Build, Release } from '$lib/types/releases';
+import { getValidReleases, type Build, type Release } from '$lib/types/releases';
 import type { PageLoad } from './$types';
 
 function processBuilds(builds: Build[]) {
@@ -26,7 +26,7 @@ export const load: PageLoad = async () => {
 	const releaseResponse = await fetch(
 		'https://gitbutler.com/api/downloads?limit=4&channel=release'
 	);
-	releases = await releaseResponse.json();
+	releases = getValidReleases(await releaseResponse.json());
 	const latestRelease = releases[0];
 
 	releases.forEach((release) => {
@@ -45,7 +45,7 @@ export const load: PageLoad = async () => {
 	const nightlyResponse = await fetch(
 		'https://gitbutler.com/api/downloads?limit=9&channel=nightly'
 	);
-	nightlies = await nightlyResponse.json();
+	nightlies = getValidReleases(await nightlyResponse.json());
 	nightlies.forEach((nightlyRelease) => {
 		nightlyRelease.builds = processBuilds(nightlyRelease.builds);
 	});
