@@ -1,4 +1,4 @@
-name: Bug report
+name: Bug Report
 description: Report an issue so we can improve
 labels: [bug]
 body:
@@ -7,14 +7,14 @@ body:
     attributes:
       label: Version
       description: Which version of GitButler are you running?
-      placeholder: 0.12.5
+      placeholder: 0.14.1
     validations:
       required: true
   - type: dropdown
     id: operating-system
     attributes:
       label: Operating System
-      description: What OS are you using GitButler on?
+      description: Which operating system are you using?
       options:
         - macOS
         - Windows
@@ -28,30 +28,43 @@ body:
       label: Distribution Method
       description: Which package of GitButler are you using?
       options:
-        - dmg (Apple Silicon)
-        - dmg (Intel)
+        - dmg (Mac OS - Apple Silicon)
+        - dmg (Mac OS - Intel)
         - msi (Windows)
+        - winget (Windows)
         - deb (Linux)
+        - rpm (Linux)
         - AppImage (Linux)
+        - Flatpak (Linux)
       default: 0
     validations:
       required: true
   - type: textarea
+    id: description
     attributes:
       label: Describe the issue
       description: Describe for us what the issue is and what you have tried so far to fix it. Add any extra useful information in this section. Feel free to use screenshots over a picture of your code) or a video explanation.
     validations:
       required: true
   - type: textarea
+    id: repro
     attributes:
       label: How to reproduce
-      description: Explain with clear steps how to reproduce the issue
+      description: How do you trigger this bug? Please walk us through it step by step.
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+        ...
     validations:
       required: false
   - type: textarea
+    id: expected
     attributes:
       label: Expected behavior
-      description: Explain what should have happened instead of what actually happened
+      description: Explain what you expected to actually have happened.
+      placeholder: |
+        1. Setting ... option should not crash the application
     validations:
       required: false
   - type: textarea

@@ -3,3 +3,6 @@ contact_links:
   - name: Get help from the community (Discord)
     url: https://discord.com/invite/MmFkmaJ42D
     about: Ask questions and discuss with other community members
+  - name: Security
+    url: https://gitbutler.com/.well-known/security.txt
+    about: Security sensitive issues should be handled via the instructions in our `security.txt`.
