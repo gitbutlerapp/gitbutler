@@ -3,13 +3,13 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
-	import type { ComponentColor, ComponentStyleKind } from '@gitbutler/ui/utils/colorTypes';
+	import type { ComponentColorType, ComponentKindType } from '@gitbutler/ui/utils/colorTypes';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		icon?: keyof typeof iconsJson;
-		style?: ComponentColor;
-		kind?: ComponentStyleKind;
+		style?: ComponentColorType;
+		kind?: ComponentKindType;
 		outline?: boolean;
 		disabled?: boolean;
 		loading?: boolean;

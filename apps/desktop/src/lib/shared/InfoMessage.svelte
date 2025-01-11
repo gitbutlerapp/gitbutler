@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import type { ComponentColor } from '@gitbutler/ui/utils/colorTypes';
-	export type MessageStyle = Exclude<ComponentColor, 'ghost' | 'purple'>;
+	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
+	export type MessageStyle = Exclude<ComponentColorType, 'ghost' | 'purple'>;
 </script>
 
 <script lang="ts">
@@ -9,7 +9,7 @@
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
-	type IconColor = ComponentColor | undefined;
+	type IconColor = ComponentColorType | undefined;
 	type IconName = keyof typeof iconsJson;
 
 	interface Props {
@@ -62,7 +62,7 @@
 		success: 'success'
 	};
 
-	const primaryButtonMap: { [Key in MessageStyle]: ComponentColor } = {
+	const primaryButtonMap: { [Key in MessageStyle]: ComponentColorType } = {
 		neutral: 'pop',
 		pop: 'pop',
 		warning: 'warning',

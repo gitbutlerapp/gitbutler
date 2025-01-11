@@ -1,15 +1,14 @@
 <script lang="ts">
 	import Badge from '$lib/Badge.svelte';
-	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
+	import type { ComponentColorType } from '$lib/utils/colorTypes';
 	import type { FileStatus } from './types';
 
 	interface Props {
 		status: FileStatus;
 		style?: 'dot' | 'full';
-		kind?: ComponentStyleKind;
 	}
 
-	const { status, style = 'full', kind = 'solid' }: Props = $props();
+	const { status, style = 'full' }: Props = $props();
 
 	function getFullStatusText(status: FileStatus): string {
 		switch (status) {
@@ -24,7 +23,7 @@
 		}
 	}
 
-	function getStatusColor(status: FileStatus): ComponentColor {
+	function getStatusColor(status: FileStatus): ComponentColorType {
 		switch (status) {
 			case 'A':
 				return 'success';
@@ -48,7 +47,7 @@
 		></div>
 	</div>
 {:else if style === 'full'}
-	<Badge style={getStatusColor(status)} {kind}>{getFullStatusText(status)}</Badge>
+	<Badge style={getStatusColor(status)}>{getFullStatusText(status)}</Badge>
 {/if}
 
 <style lang="postcss">

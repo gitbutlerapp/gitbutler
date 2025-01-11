@@ -1,7 +1,7 @@
 <script module lang="ts">
 	import Button from '$lib/Button.svelte';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
-	import type { ComponentColor } from '$lib/utils/colorTypes';
+	import type { ComponentColorType } from '$lib/utils/colorTypes';
 
 	const { Story } = defineMeta({
 		title: 'Inputs / Button',
@@ -24,7 +24,7 @@
 }: {
 	label: string;
 	outline: boolean;
-	style?: ComponentColor;
+	style?: ComponentColorType;
 	reversedDirection?: boolean;
 })}
 	<div class="group">

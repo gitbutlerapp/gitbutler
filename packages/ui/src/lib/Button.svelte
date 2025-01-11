@@ -19,8 +19,8 @@
 		align?: 'flex-start' | 'center' | 'flex-end' | 'stretch' | 'baseline' | 'auto';
 		dropdownChild?: boolean;
 		// Style props
-		style?: ComponentColor;
-		kind?: ComponentStyleKind;
+		style?: ComponentColorType;
+		kind?: ComponentKindType;
 		outline?: boolean;
 		dashed?: boolean;
 		solidBackground?: boolean;
@@ -47,7 +47,7 @@
 	import Icon from '$lib/Icon.svelte';
 	import { pxToRem } from '$lib/utils/pxToRem';
 	import type iconsJson from '$lib/data/icons.json';
-	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
+	import type { ComponentColorType, ComponentKindType } from '$lib/utils/colorTypes';
 	import type { Snippet } from 'svelte';
 
 	let {

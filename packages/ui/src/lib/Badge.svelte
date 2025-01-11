@@ -2,12 +2,12 @@
 	import Tooltip from './Tooltip.svelte';
 	import Icon from '$lib/Icon.svelte';
 	import type iconsJson from '$lib/data/icons.json';
-	import type { ComponentColor, ComponentStyleKind } from '$lib/utils/colorTypes';
+	import type { ComponentColorType } from '$lib/utils/colorTypes';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		style?: ComponentColor;
-		kind?: ComponentStyleKind;
+		style?: ComponentColorType;
+		kind?: 'solid' | 'soft';
 		size?: 'icon' | 'tag';
 		icon?: keyof typeof iconsJson | undefined;
 		reversedDirection?: boolean;
