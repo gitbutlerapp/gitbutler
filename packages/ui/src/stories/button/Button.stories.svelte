@@ -1,6 +1,6 @@
 <script module lang="ts">
 	import Button from '$lib/Button.svelte';
-	import { componentColorConst, componentKindConst } from '$lib/utils/colorTypes';
+	import { componentColorConst } from '$lib/utils/colorTypes';
 	import { defineMeta } from '@storybook/addon-svelte-csf';
 	import { fn, expect, userEvent, within } from '@storybook/test';
 
@@ -14,8 +14,6 @@
 			icon: 'ai-small',
 			style: 'neutral',
 			kind: 'solid',
-			outline: false,
-			dashed: false,
 			solidBackground: false,
 			helpShowDelay: 1200,
 			id: 'button',
@@ -46,7 +44,7 @@
 				}
 			},
 			kind: {
-				options: componentKindConst,
+				options: ['solid', 'outline', 'ghost'],
 				control: {
 					type: 'select'
 				}

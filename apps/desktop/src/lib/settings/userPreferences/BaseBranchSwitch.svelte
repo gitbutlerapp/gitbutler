@@ -114,7 +114,6 @@
 				</InfoMessage>
 			{:else}
 				<Button
-					size="cta"
 					style="ghost"
 					outline
 					onclick={onSetBaseBranchClick}

@@ -16,96 +16,98 @@
 	};
 </script>
 
-{#snippet buttons({
+{#snippet buttonGroup({
+	size,
 	label,
-	outline,
 	style,
 	reversedDirection
 }: {
+	size: 'cta' | 'button' | 'tag';
 	label: string;
-	outline: boolean;
 	style?: ComponentColorType;
 	reversedDirection?: boolean;
 })}
 	<div class="group">
-		<Button size="cta" {style} kind="soft" icon="plus-small" {reversedDirection}>{label}</Button>
-		<Button size="cta" {style} kind="solid" {outline} icon="plus-small" {reversedDirection}>
+		<Button {size} {style} kind="solid" icon="plus-small" {reversedDirection}>
 			{label}
 		</Button>
-		<Button size="cta" {style} kind="soft" {reversedDirection}>{label}</Button>
-		<Button size="cta" {style} kind="solid" {outline} {reversedDirection}>{label}</Button>
-		<Button size="cta" {style} kind="soft" icon="plus-small" />
-		<Button size="cta" {style} kind="solid" {outline} icon="plus-small" />
+		<Button {size} {style} kind="outline" icon="plus-small" {reversedDirection}>{label}</Button>
+		<Button {size} {style} kind="ghost" icon="plus-small" {reversedDirection}>{label}</Button>
+
+		<Button {size} {style} kind="solid" {reversedDirection}>{label}</Button>
+		<Button {size} {style} kind="outline" {reversedDirection}>{label}</Button>
+		<Button {size} {style} kind="ghost" {reversedDirection}>{label}</Button>
+
+		<Button {size} {style} kind="solid" icon="plus-small" />
+		<Button {size} {style} kind="outline" icon="plus-small" />
+		<Button {size} {style} kind="ghost" icon="plus-small" />
 	</div>
-	<div class="group">
-		<Button size="button" {style} kind="soft" icon="plus-small" {reversedDirection}>{label}</Button>
-		<Button size="button" {style} kind="solid" {outline} icon="plus-small" {reversedDirection}>
-			{label}
-		</Button>
-		<Button size="button" {style} kind="soft" {reversedDirection}>{label}</Button>
-		<Button size="button" {style} kind="solid" {outline} {reversedDirection}>{label}</Button>
-		<Button size="button" {style} kind="soft" icon="plus-small" />
-		<Button size="button" {style} kind="solid" {outline} icon="plus-small" />
-	</div>
-	<div class="group">
-		<Button size="tag" {style} kind="soft" icon="plus-small" {reversedDirection}>{label}</Button>
-		<Button size="tag" {style} kind="solid" {outline} icon="plus-small" {reversedDirection}>
-			{label}
-		</Button>
-		<Button size="tag" {style} kind="soft" {reversedDirection}>{label}</Button>
-		<Button size="tag" {style} kind="solid" {outline} {reversedDirection}>{label}</Button>
-		<Button size="tag" {style} kind="soft" icon="plus-small" />
-		<Button size="tag" {style} kind="solid" {outline} icon="plus-small" />
-	</div>
+{/snippet}
+
+{#snippet buttons({
+	label,
+	style,
+	reversedDirection
+}: {
+	label: string;
+	style?: ComponentColorType;
+	reversedDirection?: boolean;
+})}
+	{@render buttonGroup({
+		size: 'cta',
+		label,
+		style,
+		reversedDirection
+	})}
+	{@render buttonGroup({
+		size: 'button',
+		label,
+		style,
+		reversedDirection
+	})}
+	{@render buttonGroup({
+		size: 'tag',
+		label,
+		style,
+		reversedDirection
+	})}
 {/snippet}
 
 <Story name="All">
 	<div class="wrapper">
-		{@render buttons({
-			label: defaultProps.label,
-			outline: true,
-			style: 'ghost',
-			reversedDirection: defaultProps.reversedDirection
-		})}
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			outline: false,
 			style: 'neutral',
 			reversedDirection: defaultProps.reversedDirection
 		})}
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			outline: false,
 			style: 'pop',
 			reversedDirection: defaultProps.reversedDirection
 		})}
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			outline: false,
 			style: 'success',
 			reversedDirection: defaultProps.reversedDirection
 		})}
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			outline: false,
 			style: 'error',
 			reversedDirection: defaultProps.reversedDirection
 		})}
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			outline: false,
 			style: 'warning',
 			reversedDirection: defaultProps.reversedDirection
 		})}
 		<hr class="divider" />
 		{@render buttons({
 			label: defaultProps.label,
-			outline: false,
 			style: 'purple',
 			reversedDirection: defaultProps.reversedDirection
 		})}

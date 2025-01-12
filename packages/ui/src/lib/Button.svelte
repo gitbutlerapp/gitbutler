@@ -21,10 +21,7 @@
 		// Style props
 		style?: ComponentColorType;
 		kind?: ComponentKindType;
-		outline?: boolean;
-		dashed?: boolean;
 		solidBackground?: boolean;
-		borderRadius?: 'medium' | 'large';
 		// Additional elements
 		icon?: keyof typeof iconsJson | undefined;
 		tooltip?: string;
@@ -69,10 +66,7 @@
 		dropdownChild = false,
 		style = 'neutral',
 		kind = 'solid',
-		outline = false,
-		dashed = false,
 		solidBackground = false,
-		borderRadius = 'medium',
 		testId,
 		icon,
 		tooltip,
@@ -98,9 +92,7 @@
 <Tooltip text={tooltip} align={tooltipAlign} position={tooltipPosition}>
 	<button
 		bind:this={el}
-		class="btn focus-state {style} {kind} {size}-size br-{borderRadius}"
-		class:outline
-		class:dashed
+		class="btn focus-state {style} {kind} {size}-size"
 		class:solidBackground
 		class:reversed-direction={reversedDirection}
 		class:shrinkable
@@ -119,8 +111,8 @@
 		{onkeydown}
 		{type}
 		{id}
-		{...testId ? { 'data-testid': testId } : null}
 		{tabindex}
+		{...testId ? { 'data-testid': testId } : null}
 	>
 		{#if children}
 			<span
@@ -151,10 +143,22 @@
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		border: 1px solid var(--btn-border-clr, transparent);
 		cursor: pointer;
-		color: var(--btn-text-clr);
-		background: var(--btn-bg, transparent);
+		border-radius: var(--radius-m);
+
+		color: var(--label-clr);
+		background: color-mix(
+			in srgb,
+			var(--btn-bg, transparent),
+			transparent calc((1 - var(--opacity-btn-bg, 1)) * 100%)
+		);
+		border: 1px solid
+			color-mix(
+				in srgb,
+				var(--btn-border-clr, transparent),
+				transparent calc((1 - var(--btn-border-opacity, 1)) * 100%)
+			);
+
 		transition:
 			background var(--transition-fast),
 			opacity var(--transition-fast),
@@ -168,6 +172,21 @@
 		-webkit-transform-style: preserve-3d;
 		-webkit-backface-visibility: hidden;
 
+		&.outline,
+		&.ghost {
+			--opacity-btn-bg: 0;
+			--icon-opacity: var(--opacity-btn-icon-outline);
+
+			/* if button */
+			&:not(&:disabled):hover,
+			&.activated {
+				--icon-opacity: var(--opacity-btn-icon-outline-hover);
+				--opacity-btn-bg: var(--opacity-btn-outline-bg-hover);
+			}
+		}
+		&.outline {
+			--btn-border-opacity: var(--opacity-btn-outline);
+		}
 		&:disabled {
 			cursor: default;
 			opacity: 0.5;
@@ -182,6 +201,7 @@
 		&.reversed-direction {
 			flex-direction: row-reverse;
 		}
+
 		&.shrinkable {
 			overflow: hidden;
 			width: fit-content;
@@ -191,14 +211,6 @@
 				overflow: hidden;
 				text-overflow: ellipsis;
 			}
-		}
-
-		&.br-medium {
-			border-radius: var(--radius-m);
-		}
-
-		&.br-large {
-			border-radius: var(--radius-l);
 		}
 	}
 
@@ -220,46 +232,25 @@
 	}
 
 	/* STYLES */
-	.ghost {
-		--icon-opacity: var(--opacity-btn-icon-soft);
-		--btn-text-clr: var(--clr-theme-ntrl-on-soft);
-
-		&:not(&:disabled):hover,
-		&.activated {
-			--icon-opacity: var(--opacity-btn-icon-soft-hover);
-			--btn-bg: var(--clr-bg-1-muted);
-		}
-
-		&.outline {
-			border: 1px solid var(--clr-border-2);
-		}
-
-		&.dashed {
-			border-style: dashed;
-		}
-
-		&.solidBackground {
-			background: var(--clr-bg-1);
-		}
-	}
-
 	.neutral {
-		&.soft {
-			--icon-opacity: var(--opacity-btn-icon-soft);
-			--btn-text-clr: var(--clr-theme-ntrl-on-soft);
-			--btn-bg: var(--clr-theme-ntrl-soft);
+		&.outline,
+		&.ghost {
+			--label-clr: var(--clr-btn-ntrl-outline-text);
+			--btn-bg: var(--clr-btn-ntrl-outline-bg);
 			--btn-border-clr: var(--clr-theme-ntrl-soft-outline);
 
 			/* if button */
 			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: var(--opacity-btn-icon-soft-hover);
-				--btn-bg: var(--clr-theme-ntrl-soft-hover);
+				--label-clr: var(--clr-btn-ntrl-outline-text-hover);
 			}
+		}
+		&.outline {
+			--btn-border-clr: var(--clr-btn-ntrl-outline);
 		}
 		&.solid {
 			--icon-opacity: var(--opacity-btn-icon-solid);
-			--btn-text-clr: var(--clr-theme-ntrl-on-element);
+			--label-clr: var(--clr-theme-ntrl-on-element);
 			--btn-bg: var(--clr-theme-ntrl-element);
 
 			/* if button */
@@ -271,22 +262,24 @@
 	}
 
 	.pop {
-		&.soft {
-			--icon-opacity: var(--opacity-btn-icon-soft);
-			--btn-text-clr: var(--clr-theme-pop-on-soft);
-			--btn-bg: var(--clr-theme-pop-soft);
+		&.outline,
+		&.ghost {
+			--label-clr: var(--clr-btn-pop-outline-text);
+			--btn-bg: var(--clr-btn-pop-outline-bg);
 			--btn-border-clr: var(--clr-theme-pop-soft-outline);
 
 			/* if button */
 			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: var(--opacity-btn-icon-soft-hover);
-				--btn-bg: var(--clr-theme-pop-soft-hover);
+				--label-clr: var(--clr-btn-pop-outline-text-hover);
 			}
+		}
+		&.outline {
+			--btn-border-clr: var(--clr-btn-pop-outline);
 		}
 		&.solid {
 			--icon-opacity: var(--opacity-btn-icon-solid);
-			--btn-text-clr: var(--clr-theme-pop-on-element);
+			--label-clr: var(--clr-theme-pop-on-element);
 			--btn-bg: var(--clr-theme-pop-element);
 
 			/* if button */
@@ -299,22 +292,24 @@
 	}
 
 	.success {
-		&.soft {
-			--icon-opacity: var(--opacity-btn-icon-soft);
-			--btn-text-clr: var(--clr-theme-succ-on-soft);
-			--btn-bg: var(--clr-theme-succ-soft);
+		&.outline,
+		&.ghost {
+			--label-clr: var(--clr-btn-succ-outline-text);
+			--btn-bg: var(--clr-btn-succ-outline-bg);
 			--btn-border-clr: var(--clr-theme-succ-soft-outline);
 
 			/* if button */
 			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: var(--opacity-btn-icon-soft-hover);
-				--btn-bg: var(--clr-theme-succ-soft-hover);
+				--label-clr: var(--clr-btn-succ-outline-text-hover);
 			}
+		}
+		&.outline {
+			--btn-border-clr: var(--clr-btn-succ-outline);
 		}
 		&.solid {
 			--icon-opacity: var(--opacity-btn-icon-solid);
-			--btn-text-clr: var(--clr-theme-succ-on-element);
+			--label-clr: var(--clr-theme-succ-on-element);
 			--btn-bg: var(--clr-theme-succ-element);
 
 			/* if button */
@@ -327,22 +322,24 @@
 	}
 
 	.error {
-		&.soft {
-			--icon-opacity: var(--opacity-btn-icon-soft);
-			--btn-text-clr: var(--clr-theme-err-on-soft);
-			--btn-bg: var(--clr-theme-err-soft);
+		&.outline,
+		&.ghost {
+			--label-clr: var(--clr-btn-err-outline-text);
+			--btn-bg: var(--clr-btn-err-outline-bg);
 			--btn-border-clr: var(--clr-theme-err-soft-outline);
 
 			/* if button */
 			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: var(--opacity-btn-icon-soft-hover);
-				--btn-bg: var(--clr-theme-err-soft-hover);
+				--label-clr: var(--clr-btn-err-outline-text-hover);
 			}
+		}
+		&.outline {
+			--btn-border-clr: var(--clr-btn-err-outline);
 		}
 		&.solid {
 			--icon-opacity: var(--opacity-btn-icon-solid);
-			--btn-text-clr: var(--clr-theme-err-on-element);
+			--label-clr: var(--clr-theme-err-on-element);
 			--btn-bg: var(--clr-theme-err-element);
 
 			/* if button */
@@ -355,22 +352,24 @@
 	}
 
 	.warning {
-		&.soft {
-			--icon-opacity: var(--opacity-btn-icon-soft);
-			--btn-text-clr: var(--clr-theme-warn-on-soft);
-			--btn-bg: var(--clr-theme-warn-soft);
+		&.outline,
+		&.ghost {
+			--label-clr: var(--clr-btn-warn-outline-text);
+			--btn-bg: var(--clr-btn-warn-outline-bg);
 			--btn-border-clr: var(--clr-theme-warn-soft-outline);
 
 			/* if button */
 			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: var(--opacity-btn-icon-soft-hover);
-				--btn-bg: var(--clr-theme-warn-soft-hover);
+				--label-clr: var(--clr-btn-warn-outline-text-hover);
 			}
+		}
+		&.outline {
+			--btn-border-clr: var(--clr-btn-warn-outline);
 		}
 		&.solid {
 			--icon-opacity: var(--opacity-btn-icon-solid);
-			--btn-text-clr: var(--clr-theme-warn-on-element);
+			--label-clr: var(--clr-theme-warn-on-element);
 			--btn-bg: var(--clr-theme-warn-element);
 
 			/* if button */
@@ -383,22 +382,24 @@
 	}
 
 	.purple {
-		&.soft {
-			--icon-opacity: var(--opacity-btn-icon-soft);
-			--btn-text-clr: var(--clr-theme-purp-on-soft);
-			--btn-bg: var(--clr-theme-purp-soft);
+		&.outline,
+		&.ghost {
+			--label-clr: var(--clr-btn-purp-outline-text);
+			--btn-bg: var(--clr-btn-purp-outline-bg);
 			--btn-border-clr: var(--clr-theme-purp-soft-outline);
 
 			/* if button */
 			&:not(&:disabled):hover,
 			&.activated {
-				--icon-opacity: var(--opacity-btn-icon-soft-hover);
-				--btn-bg: var(--clr-theme-purp-soft-hover);
+				--label-clr: var(--clr-btn-purp-outline-text-hover);
 			}
+		}
+		&.outline {
+			--btn-border-clr: var(--clr-btn-purp-outline);
 		}
 		&.solid {
 			--icon-opacity: var(--opacity-btn-icon-solid);
-			--btn-text-clr: var(--clr-theme-purp-on-element);
+			--label-clr: var(--clr-theme-purp-on-element);
 			--btn-bg: var(--clr-theme-purp-element);
 
 			/* if button */
