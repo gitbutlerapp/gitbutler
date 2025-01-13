@@ -22,6 +22,24 @@ export function getProjectByRepositoryId(
 	};
 }
 
+export function getAllUserProjects(
+	user: string,
+	appState: AppProjectsState,
+	projectService: ProjectService
+): Reactive<LoadableProject[]> {
+	registerInterest(projectService.getAllProjectsInterest(user));
+	const current = $derived.by(() => {
+		const allProjects = projectsSelectors.selectAll(appState.projects);
+		return allProjects.filter((project) => isFound(project) && project.value.owner === user);
+	});
+
+	return {
+		get current() {
+			return current;
+		}
+	};
+}
+
 export function getParentForRepositoryId(
 	appState: AppProjectsState & AppOrganizationsState,
 	projectService: ProjectService,
