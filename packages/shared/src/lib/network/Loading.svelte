@@ -1,4 +1,5 @@
 <script lang="ts" generics="A">
+	import LoadingState from './LoadingState.svelte';
 	import type { LoadableData } from '$lib/network/types';
 	import type { Snippet } from 'svelte';
 
@@ -16,7 +17,7 @@
 {:else if loadable.status === 'found'}
 	{@render children(loadable.value)}
 {:else if loadable.status === 'loading'}
-	<p>Loading...</p>
+	<LoadingState />
 {:else if loadable.status === 'not-found'}
 	<p>Not found</p>
 {:else if loadable.status === 'error'}
