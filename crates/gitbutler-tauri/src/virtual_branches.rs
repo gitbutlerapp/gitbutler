@@ -459,24 +459,6 @@ pub mod commands {
         Ok(branches)
     }
 
-    /// Deprecated in favor of `squash_commits`
-    #[tauri::command(async)]
-    #[instrument(skip(projects, windows), err(Debug))]
-    pub fn squash_branch_commit(
-        windows: State<'_, WindowState>,
-        projects: State<'_, projects::Controller>,
-        project_id: ProjectId,
-        branch_id: StackId,
-        target_commit_oid: String,
-    ) -> Result<(), Error> {
-        let project = projects.get(project_id)?;
-        let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
-        #[allow(deprecated)]
-        gitbutler_branch_actions::squash(&project, branch_id, target_commit_oid)?;
-        emit_vbranches(&windows, project_id);
-        Ok(())
-    }
-
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
     pub fn squash_commits(
