@@ -35,7 +35,6 @@
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
-	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -92,7 +91,6 @@
 
 		// Cloud related services
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
-		setContext(CloudBranchesService, data.cloudBranchesService);
 		setContext(CloudBranchCreationService, data.cloudBranchCreationService);
 		setContext(FileService, data.fileService);
 	});

@@ -30,7 +30,6 @@
 		childBranch,
 		parentBranch
 	} from '$lib/vbranches/virtualBranch';
-	import { CloudBranchesService } from '@gitbutler/shared/cloud/stacks/service';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
@@ -147,12 +146,8 @@
 	}
 
 	const cloudBranchCreationService = getContext(CloudBranchCreationService);
-	const cloudBranchesService = getContext(CloudBranchesService);
-	const cloudBranch = $derived(cloudBranchesService.branchForBranchId(stack.id));
 	const showCreateCloudBranch = $derived(
-		$cloudReviewFunctionality &&
-			cloudBranchCreationService.canCreateBranch &&
-			$cloudBranch.state === 'not-found'
+		$cloudReviewFunctionality && cloudBranchCreationService.canCreateBranch
 	);
 
 	/**
