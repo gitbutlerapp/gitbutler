@@ -105,9 +105,7 @@
 	<div class="clone__field repositoryTargetPath">
 		<div class="text-13 text-semibold clone__field--label">Where to clone</div>
 		<Textbox bind:value={targetDirPath} placeholder={'/Users/tipsy/Documents'} />
-		<Button style="ghost" outline kind="solid" disabled={loading} onclick={handleCloneTargetSelect}>
-			Choose..
-		</Button>
+		<Button kind="outline" disabled={loading} onclick={handleCloneTargetSelect}>Choose..</Button>
 	</div>
 </Section>
 
@@ -121,9 +119,7 @@
 {/if}
 
 <div class="clone__actions">
-	<Button style="ghost" outline kind="solid" disabled={loading} onclick={handleCancel}>
-		Cancel
-	</Button>
+	<Button kind="outline" disabled={loading} onclick={handleCancel}>Cancel</Button>
 	<Button
 		style="pop"
 		kind="solid"

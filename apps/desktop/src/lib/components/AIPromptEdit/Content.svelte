@@ -155,12 +155,9 @@
 		{#if displayMode === 'writable'}
 			<div class="actions">
 				{#if editing}
-					<Button style="ghost" outline onclick={() => cancel()}>Cancel</Button>
-					<Button
-						disabled={errorMessages.length > 0}
-						kind="solid"
-						style="pop"
-						onclick={() => save()}>Save Changes</Button
+					<Button kind="outline" onclick={() => cancel()}>Cancel</Button>
+					<Button disabled={errorMessages.length > 0} style="pop" onclick={() => save()}
+						>Save Changes</Button
 					>
 				{:else}
 					<Button
@@ -171,7 +168,7 @@
 						}}
 						icon="bin-small">Delete</Button
 					>
-					<Button style="ghost" outline icon="edit-text" onclick={() => (editing = true)}
+					<Button kind="outline" icon="edit-text" onclick={() => (editing = true)}
 						>Edit prompt</Button
 					>
 				{/if}

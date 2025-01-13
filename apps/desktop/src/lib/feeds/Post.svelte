@@ -69,7 +69,7 @@
 						onclick={() => {
 							goto(`/${projectId}/feed/${postId}`);
 						}}
-						kind="soft">Replies: {post.replyIds.length}</Button
+						kind="outline">Replies: {post.replyIds.length}</Button
 					>
 				</div>
 			{:else}

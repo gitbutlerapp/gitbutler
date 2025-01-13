@@ -80,8 +80,8 @@
 	</p>
 	<Textbox label="Choose a remote name" bind:value={inputRemoteName} required />
 	{#snippet controls(close)}
-		<Button style="ghost" outline onclick={() => closeModal(close)}>Cancel</Button>
-		<Button style="pop" kind="solid" type="submit" grow {loading}>Confirm</Button>
+		<Button kind="outline" onclick={() => closeModal(close)}>Cancel</Button>
+		<Button style="pop" type="submit" grow {loading}>Confirm</Button>
 	{/snippet}
 </Modal>
 

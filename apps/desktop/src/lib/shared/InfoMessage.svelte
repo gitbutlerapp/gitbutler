@@ -69,6 +69,8 @@
 		error: 'error',
 		success: 'pop'
 	};
+
+	const resolvedIconName = iconName ?? (iconMap[style] as IconName);
 </script>
 
 <div
@@ -77,7 +79,7 @@
 	class:has-background={filled}
 	class:shadow
 >
-	<Icon name={iconName ? iconName : iconMap[style]} color={iconColorMap[style]} />
+	<Icon name={resolvedIconName} color={iconColorMap[style]} />
 	<div class="info-message__inner">
 		<div class="info-message__content">
 			{#if title}
@@ -102,7 +104,7 @@
 		{#if primaryLabel || secondaryLabel}
 			<div class="info-message__actions">
 				{#if secondaryLabel}
-					<Button style="ghost" outline onclick={() => secondaryAction?.()} icon={secondaryIcon}>
+					<Button kind="outline" onclick={() => secondaryAction?.()} icon={secondaryIcon}>
 						{secondaryLabel}
 					</Button>
 				{/if}

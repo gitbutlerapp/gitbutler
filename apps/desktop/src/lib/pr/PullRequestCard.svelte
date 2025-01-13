@@ -293,8 +293,7 @@
 				<Button
 					icon="open-link"
 					size="tag"
-					style="ghost"
-					outline
+					kind="outline"
 					tooltip="Open in browser"
 					onclick={() => {
 						openExternalUrl(pr.htmlUrl);
@@ -352,8 +351,7 @@
 				/>
 			{:else if !pr.merged}
 				<Button
-					style="ghost"
-					outline
+					kind="outline"
 					disabled={reopenStatus.disabled}
 					tooltip={reopenStatus.tooltip}
 					{loading}

@@ -18,8 +18,7 @@
 <Button
 	size="tag"
 	reversedDirection
-	style="ghost"
-	outline
+	kind="outline"
 	icon="update"
 	tooltip="Last fetch from upstream"
 	{loading}

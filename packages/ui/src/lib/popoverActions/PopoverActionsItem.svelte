@@ -42,7 +42,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: var(--clr-text-1);
+		color: var(--clr-btn-ntrl-outline-text);
 
 		background-color: var(--clr-bg-1);
 		border-left: 1px solid var(--clr-border-2);

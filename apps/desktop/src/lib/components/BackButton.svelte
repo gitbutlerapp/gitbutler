@@ -11,8 +11,7 @@
 </script>
 
 <Button
-	style="ghost"
-	outline
+	kind="outline"
 	onmousedown={() => {
 		if (history.length > 0) {
 			history.back();

@@ -36,7 +36,7 @@
 		<div class="draggable" data-drag-handle>
 			<Icon name="draggable" />
 		</div>
-		<Button style="ghost" outline icon="unfold-lane" tooltip="Expand lane" onclick={expandLane} />
+		<Button kind="outline" icon="unfold-lane" tooltip="Expand lane" onclick={expandLane} />
 	</div>
 
 	<div class="collapsed-lane__info-wrap" bind:clientHeight={headerInfoHeight}>

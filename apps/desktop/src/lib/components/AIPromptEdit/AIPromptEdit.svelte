@@ -44,9 +44,8 @@
 		<h3 class="text-15 text-bold">
 			{promptUse === 'commits' ? 'Commit message' : 'Branch name'}
 		</h3>
-		<Button style="ghost" outline icon="plus-small" onclick={createNewPrompt}>New prompt</Button>
+		<Button kind="outline" icon="plus-small" onclick={createNewPrompt}>New prompt</Button>
 	</div>
-
 	<div class="content">
 		<Content
 			displayMode="readOnly"

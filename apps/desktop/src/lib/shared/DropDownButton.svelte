@@ -10,7 +10,6 @@
 		icon?: keyof typeof iconsJson;
 		style?: ComponentColorType;
 		kind?: ComponentKindType;
-		outline?: boolean;
 		disabled?: boolean;
 		loading?: boolean;
 		wide?: boolean;
@@ -26,8 +25,7 @@
 	const {
 		icon,
 		style = 'neutral',
-		kind = 'soft',
-		outline = false,
+		kind = 'outline',
 		disabled = false,
 		loading = false,
 		wide = false,
@@ -68,7 +66,6 @@
 				{icon}
 				{kind}
 				{type}
-				{outline}
 				reversedDirection
 				disabled={disabled || loading}
 				dropdownChild
@@ -81,7 +78,6 @@
 				bind:el={iconEl}
 				{style}
 				{kind}
-				{outline}
 				icon={visible ? 'chevron-up' : 'chevron-down'}
 				{loading}
 				disabled={disabled || loading}

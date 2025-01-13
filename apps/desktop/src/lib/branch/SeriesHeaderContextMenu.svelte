@@ -227,8 +227,8 @@
 	{/if}
 
 	{#snippet controls(close)}
-		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" kind="solid" type="submit">Rename</Button>
+		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+		<Button style="pop" type="submit">Rename</Button>
 	{/snippet}
 </Modal>
 
@@ -250,8 +250,8 @@
 		Are you sure you want to delete <code class="code-string">{headName}</code>?
 	{/snippet}
 	{#snippet controls(close)}
-		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="error" kind="solid" type="submit" loading={isDeleting}>Delete</Button>
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<Button style="error" type="submit" loading={isDeleting}>Delete</Button>
 	{/snippet}
 </Modal>
 

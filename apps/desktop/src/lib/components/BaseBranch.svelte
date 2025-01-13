@@ -339,8 +339,8 @@
 		</div>
 
 		{#snippet controls(close)}
-			<Button style="ghost" outline onclick={close}>Cancel</Button>
-			<Button style="error" kind="solid" type="submit" icon="warning"
+			<Button kind="outline" onclick={close}>Cancel</Button>
+			<Button style="error" type="submit" icon="warning"
 				>{resetBaseTo[resetBaseStrategy!].title}</Button
 			>
 		{/snippet}

@@ -312,7 +312,7 @@
 	</p>
 
 	<div class="editmode__actions">
-		<Button style="ghost" outline onclick={abort} disabled={loading} {loading}>Cancel</Button>
+		<Button kind="outline" onclick={abort} disabled={loading} {loading}>Cancel</Button>
 		{#if conflictedFiles.length > 0}
 			<Button
 				style="neutral"
@@ -356,8 +356,8 @@
 		</p>
 	{/snippet}
 	{#snippet controls(close)}
-		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" kind="solid">Save and exit</Button>
+		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+		<Button style="error" type="submit">Save and exit</Button>
 	{/snippet}
 </Modal>
 

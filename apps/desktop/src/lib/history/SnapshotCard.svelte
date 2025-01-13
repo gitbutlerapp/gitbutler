@@ -177,8 +177,7 @@
 		<div class="restore-btn">
 			<Button
 				size="tag"
-				style="ghost"
-				outline
+				kind="outline"
 				tooltip="Restores GitButler and your files to the state before this operation. Revert actions can also be undone."
 				onclick={() => {
 					onRestoreClick();

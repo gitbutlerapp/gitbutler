@@ -289,8 +289,7 @@
 		>
 			<div class="commit-box__texarea-actions" class:commit-box-actions_expanded={isExpanded}>
 				<DropDownButton
-					style="ghost"
-					outline
+					kind="outline"
 					icon="ai-small"
 					disabled={!($aiGenEnabled && aiConfigurationValid)}
 					loading={aiLoading}

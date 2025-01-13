@@ -152,7 +152,7 @@
 			Your code remains safe. it only clears the configuration.
 		{/snippet}
 
-		<Button style="error" kind="soft" onclick={() => deleteConfirmationModal?.show()}>
+		<Button style="error" kind="outline" onclick={() => deleteConfirmationModal?.show()}>
 			Remove projects…
 		</Button>
 

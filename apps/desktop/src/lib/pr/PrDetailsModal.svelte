@@ -461,7 +461,7 @@
 
 	{#snippet controls(close)}
 		{#if props.type !== 'display'}
-			<Button style="ghost" outline onclick={close}>Cancel</Button>
+			<Button kind="outline" onclick={close}>Cancel</Button>
 
 			<DropDownButton
 				bind:this={createPrDropDown}
@@ -497,8 +497,7 @@
 		{:else}
 			<div class="pr-footer__actions">
 				<Button
-					style="ghost"
-					outline
+					kind="outline"
 					icon={prLinkCopied ? 'tick-small' : 'copy-small'}
 					disabled={prLinkCopied}
 					onclick={() => {
@@ -506,15 +505,14 @@
 					}}>{prLinkCopied ? 'Link copied!' : 'Copy PR link'}</Button
 				>
 				<Button
-					style="ghost"
-					outline
+					kind="outline"
 					icon="open-link"
 					onclick={() => {
 						openExternalUrl(props.pr.htmlUrl);
 					}}>Open in browser</Button
 				>
 			</div>
-			<Button style="ghost" outline onclick={close}>Close</Button>
+			<Button kind="outline" onclick={close}>Close</Button>
 		{/if}
 	{/snippet}
 </Modal>

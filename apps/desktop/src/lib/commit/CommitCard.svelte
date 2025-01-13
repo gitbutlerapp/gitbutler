@@ -192,10 +192,8 @@
 		/>
 	{/snippet}
 	{#snippet controls(close)}
-		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="neutral" type="submit" kind="solid" grow disabled={!commitMessageValid}>
-			Submit
-		</Button>
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<Button style="neutral" type="submit" grow disabled={!commitMessageValid}>Submit</Button>
 	{/snippet}
 </Modal>
 
@@ -208,8 +206,8 @@
 		</div>
 	{/snippet}
 	{#snippet controls(close)}
-		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" outline type="submit">Yes</Button>
+		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+		<Button style="pop" type="submit">Yes</Button>
 	{/snippet}
 </Modal>
 
@@ -391,8 +389,7 @@
 								{#if !conflicted}
 									<Button
 										size="tag"
-										style="ghost"
-										outline
+										kind="outline"
 										icon="undo-small"
 										onclick={(e: MouseEvent) => {
 											handleUncommit(e);
@@ -401,8 +398,7 @@
 								{/if}
 								<Button
 									size="tag"
-									style="ghost"
-									outline
+									kind="outline"
 									icon="edit-small"
 									onclick={(e: MouseEvent) => {
 										openCommitMessageModal(e);
@@ -410,7 +406,7 @@
 								>
 							{/if}
 							{#if canEdit()}
-								<Button size="tag" style="ghost" outline onclick={handleEditPatch}>
+								<Button size="tag" kind="outline" onclick={handleEditPatch}>
 									{#if conflicted}
 										Resolve conflicts
 									{:else}

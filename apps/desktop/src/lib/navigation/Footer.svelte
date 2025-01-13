@@ -21,7 +21,7 @@
 	<div class="left-btns">
 		<Button
 			icon="mail"
-			style="ghost"
+			kind="ghost"
 			size="cta"
 			tooltip="Share feedback"
 			tooltipAlign="start"
@@ -31,7 +31,7 @@
 		/>
 		<Button
 			icon="settings"
-			style="ghost"
+			kind="ghost"
 			size="cta"
 			tooltip="Project settings"
 			tooltipAlign={isNavCollapsed ? 'start' : 'center'}
@@ -42,7 +42,7 @@
 		/>
 		<Button
 			icon="timeline"
-			style="ghost"
+			kind="ghost"
 			size="cta"
 			tooltip="Project history"
 			tooltipAlign={isNavCollapsed ? 'start' : 'center'}

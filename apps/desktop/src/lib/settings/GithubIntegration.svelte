@@ -103,9 +103,7 @@
 			Allows you to view and create Pull Requests.
 		{/snippet}
 		{#if $user?.github_access_token}
-			<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}>
-				Forget
-			</Button>
+			<Button kind="outline" {disabled} icon="bin-small" onclick={forgetGitHub}>Forget</Button>
 		{:else}
 			<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 		{/if}
@@ -134,7 +132,7 @@
 					</span>
 					<Button
 						style="neutral"
-						kind="soft"
+						kind="outline"
 						icon="copy"
 						disabled={codeCopied}
 						onclick={() => {

@@ -28,15 +28,13 @@
 			label: 'Integrate upstream',
 			style: 'warning',
 			kind: 'solid',
-			outline: false,
 			icon: undefined,
 			action: () => integrate()
 		},
 		reset: {
 			label: 'Reset to remote…',
 			style: 'ghost',
-			outline: true,
-			kind: 'soft',
+			kind: 'outline',
 			icon: 'warning-small',
 			action: confirmReset
 		}
@@ -126,11 +124,10 @@
 {/snippet}
 
 {#snippet integrateUpstreamButton(strategy: IntegrationStrategy)}
-	{@const { label, icon, style, kind, outline, action } = integrationStrategies[strategy]}
+	{@const { label, icon, style, kind, action } = integrationStrategies[strategy]}
 	<Button
 		{style}
 		{kind}
-		{outline}
 		grow
 		{icon}
 		reversedDirection
@@ -291,8 +288,8 @@
 			</p>
 		{/snippet}
 		{#snippet controls(close)}
-			<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
-			<Button style="error" type="submit" kind="solid">Reset</Button>
+			<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+			<Button style="error" type="submit">Reset</Button>
 		{/snippet}
 	</Modal>
 {/if}

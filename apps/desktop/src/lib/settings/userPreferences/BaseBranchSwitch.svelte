@@ -114,8 +114,7 @@
 				</InfoMessage>
 			{:else}
 				<Button
-					style="ghost"
-					outline
+					kind="outline"
 					onclick={onSetBaseBranchClick}
 					id="set-base-branch"
 					loading={isSwitching}

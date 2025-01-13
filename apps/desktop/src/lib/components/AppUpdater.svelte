@@ -25,7 +25,7 @@
 {#if version || status === 'Up-to-date'}
 	<div class="update-banner" data-testid="update-banner" class:busy={$loading}>
 		<div class="floating-button">
-			<Button icon="cross-small" style="ghost" onclick={handleDismiss} />
+			<Button icon="cross-small" kind="ghost" onclick={handleDismiss} />
 		</div>
 		<div class="img">
 			<div class="circle-img">
@@ -118,8 +118,7 @@
 		<div class="buttons">
 			{#if releaseNotes}
 				<Button
-					style="ghost"
-					outline
+					kind="outline"
 					onmousedown={() => {
 						showToast({
 							id: 'release-notes',

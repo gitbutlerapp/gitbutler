@@ -61,7 +61,7 @@
 			</div>
 		</div>
 	</div>
-	<Button icon="cross" style="ghost" onclick={() => onClose?.()} />
+	<Button icon="cross" kind="ghost" onclick={() => onClose?.()} />
 </div>
 
 <style lang="postcss">
