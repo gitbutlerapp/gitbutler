@@ -6,6 +6,8 @@ use std::{
     time::Duration,
 };
 
+use crate::reflog::ReflogCommits;
+
 use super::{
     entry::{OperationKind, Snapshot, SnapshotDetails, Trailer},
     reflog::set_reference_to_oplog,
@@ -507,9 +509,7 @@ fn commit_snapshot(
 
     oplog_state.set_oplog_head(snapshot_commit_id)?;
 
-    let vb_state = VirtualBranchesHandle::new(ctx.gb_dir());
-    let target_commit_id = vb_state.get_default_target()?.sha;
-    set_reference_to_oplog(&ctx.path, target_commit_id, snapshot_commit_id)?;
+    set_reference_to_oplog(&ctx.path, ReflogCommits::create(ctx)?)?;
 
     Ok(snapshot_commit_id)
 }

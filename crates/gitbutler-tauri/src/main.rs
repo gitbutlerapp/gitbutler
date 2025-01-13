@@ -219,6 +219,7 @@ fn main() {
                     stack::update_series_description,
                     stack::update_series_pr_number,
                     stack::push_stack,
+                    stack::push_stack_to_review,
                     secret::secret_get_global,
                     secret::secret_set_global,
                     undo::list_snapshots,

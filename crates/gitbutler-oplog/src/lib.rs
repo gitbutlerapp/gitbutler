@@ -1,7 +1,7 @@
 pub mod entry;
 mod oplog;
 pub use oplog::OplogExt;
-mod reflog;
+pub mod reflog;
 mod snapshot;
 pub use snapshot::SnapshotExt;
 mod state;

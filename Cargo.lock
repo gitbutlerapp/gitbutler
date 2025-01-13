@@ -2760,6 +2760,7 @@ version = "0.0.0"
 dependencies = [
  "bstr",
  "git2",
+ "gitbutler-oxidize",
  "gix",
  "serde",
 ]
@@ -2791,6 +2792,7 @@ dependencies = [
  "gitbutler-fs",
  "gitbutler-git",
  "gitbutler-id",
+ "gitbutler-oxidize",
  "gitbutler-reference",
  "gitbutler-repo",
  "gitbutler-repo-actions",
@@ -2804,6 +2806,7 @@ dependencies = [
  "tempfile",
  "toml 0.8.19",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -2824,11 +2827,13 @@ dependencies = [
  "gitbutler-error",
  "gitbutler-id",
  "gitbutler-oplog",
+ "gitbutler-oxidize",
  "gitbutler-project",
  "gitbutler-reference",
  "gitbutler-stack",
  "gitbutler-url",
  "gitbutler-user",
+ "gix",
  "itertools 0.14.0",
  "tracing",
 ]

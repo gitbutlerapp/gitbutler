@@ -316,6 +316,7 @@ impl Stack {
             description: None,
             pr_number: Default::default(),
             archived: Default::default(),
+            review_id: uuid::Uuid::new_v4().to_string(),
         };
         let state = branch_state(ctx);
 
@@ -398,6 +399,7 @@ impl Stack {
             description,
             pr_number: Default::default(),
             archived: Default::default(),
+            review_id: uuid::Uuid::new_v4().to_string(),
         };
         self.add_series(ctx, new_head, Some(current_top_head.name.clone()))
     }
