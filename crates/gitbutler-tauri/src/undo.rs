@@ -37,7 +37,11 @@ pub fn restore_snapshot(
     sha: String,
 ) -> Result<(), Error> {
     let project = projects.get(project_id).context("failed to get project")?;
-    project.restore_snapshot(sha.parse().map_err(anyhow::Error::from)?)?;
+    let mut guard = project.exclusive_worktree_access();
+    project.restore_snapshot(
+        sha.parse().map_err(anyhow::Error::from)?,
+        guard.write_permission(),
+    )?;
     Ok(())
 }
 

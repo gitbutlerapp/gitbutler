@@ -21,7 +21,8 @@ pub mod snapshot {
 
     pub fn restore(project: Project, snapshot_id: String) -> Result<()> {
         let _guard = project.try_exclusive_access()?;
-        project.restore_snapshot(snapshot_id.parse()?)?;
+        let mut guard = project.exclusive_worktree_access();
+        project.restore_snapshot(snapshot_id.parse()?, guard.write_permission())?;
         Ok(())
     }
 

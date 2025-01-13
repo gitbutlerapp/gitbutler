@@ -237,6 +237,7 @@ mod push_virtual_branch {
         fs::write(repository.path().join("file.txt"), "content").unwrap();
 
         gitbutler_branch_actions::create_commit(project, branch1_id, "test", None, false).unwrap();
+        #[allow(deprecated)]
         gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None).unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
@@ -285,6 +286,7 @@ mod push_virtual_branch {
             fs::write(repository.path().join("file.txt"), "content").unwrap();
             gitbutler_branch_actions::create_commit(project, branch1_id, "test", None, false)
                 .unwrap();
+            #[allow(deprecated)]
             gitbutler_branch_actions::push_virtual_branch(project, branch1_id, false, None)
                 .unwrap();
             branch1_id
@@ -314,6 +316,7 @@ mod push_virtual_branch {
             fs::write(repository.path().join("file.txt"), "updated content").unwrap();
             gitbutler_branch_actions::create_commit(project, branch2_id, "test", None, false)
                 .unwrap();
+            #[allow(deprecated)]
             gitbutler_branch_actions::push_virtual_branch(project, branch2_id, false, None)
                 .unwrap();
             branch2_id

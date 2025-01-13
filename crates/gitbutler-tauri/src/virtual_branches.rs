@@ -2,7 +2,7 @@ pub mod commands {
     use anyhow::{anyhow, Context};
     use gitbutler_branch::{BranchCreateRequest, BranchUpdateRequest};
     use gitbutler_branch_actions::branch_upstream_integration::IntegrationStrategy;
-    use gitbutler_branch_actions::internal::{PushResult, StackListResult};
+    use gitbutler_branch_actions::internal::StackListResult;
     use gitbutler_branch_actions::upstream_integration::{
         BaseBranchResolution, BaseBranchResolutionApproach, Resolution, StackStatuses,
     };
@@ -293,26 +293,6 @@ pub mod commands {
     }
 
     #[tauri::command(async)]
-    #[instrument(skip(projects, windows), err(Debug))]
-    pub fn push_virtual_branch(
-        windows: State<'_, WindowState>,
-        projects: State<'_, projects::Controller>,
-        project_id: ProjectId,
-        branch_id: StackId,
-        with_force: bool,
-    ) -> Result<PushResult, Error> {
-        let project = projects.get(project_id)?;
-        let upstream_refname = gitbutler_branch_actions::push_virtual_branch(
-            &project,
-            branch_id,
-            with_force,
-            Some(Some(branch_id)),
-        )?;
-        emit_vbranches(&windows, project_id);
-        Ok(upstream_refname)
-    }
-
-    #[tauri::command(async)]
     #[instrument(skip(projects), err(Debug))]
     pub fn can_apply_remote_branch(
         projects: State<'_, projects::Controller>,
@@ -481,16 +461,28 @@ pub mod commands {
 
     #[tauri::command(async)]
     #[instrument(skip(projects, windows), err(Debug))]
-    pub fn squash_branch_commit(
+    pub fn squash_commits(
         windows: State<'_, WindowState>,
         projects: State<'_, projects::Controller>,
         project_id: ProjectId,
         branch_id: StackId,
+        source_commit_oids: Vec<String>,
         target_commit_oid: String,
     ) -> Result<(), Error> {
         let project = projects.get(project_id)?;
-        let target_commit_oid = git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
-        gitbutler_branch_actions::squash(&project, branch_id, target_commit_oid)?;
+        let source_commit_oids: Vec<git2::Oid> = source_commit_oids
+            .into_iter()
+            .map(|oid| git2::Oid::from_str(&oid))
+            .collect::<Result<_, _>>()
+            .map_err(|e| anyhow!(e))?;
+        let destination_commit_oid =
+            git2::Oid::from_str(&target_commit_oid).map_err(|e| anyhow!(e))?;
+        gitbutler_branch_actions::squash_commits(
+            &project,
+            branch_id,
+            source_commit_oids,
+            destination_commit_oid,
+        )?;
         emit_vbranches(&windows, project_id);
         Ok(())
     }

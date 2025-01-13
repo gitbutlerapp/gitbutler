@@ -1,6 +1,7 @@
 //! GitButler internal library containing functionality related to branches, i.e. the virtual branches implementation
 mod actions;
 // This is our API
+#[allow(deprecated)]
 pub use actions::{
     amend, can_apply_remote_branch, create_commit, create_virtual_branch,
     create_virtual_branch_from_branch, delete_local_branch, fetch_from_remotes, find_commit,
@@ -9,10 +10,11 @@ pub use actions::{
     list_virtual_branches, list_virtual_branches_cached, move_commit, move_commit_file,
     push_base_branch, push_virtual_branch, reorder_stack, reset_files, reset_virtual_branch,
     resolve_upstream_integration, save_and_unapply_virutal_branch, set_base_branch,
-    set_target_push_remote, squash, unapply_lines, unapply_ownership,
+    set_target_push_remote, squash_commits, unapply_lines, unapply_ownership,
     unapply_without_saving_virtual_branch, undo_commit, update_branch_order, update_commit_message,
     update_virtual_branch, upstream_integration_statuses,
 };
+mod squash;
 
 mod r#virtual;
 pub use r#virtual::{BranchStatus, VirtualBranch, VirtualBranchHunksByPathMap, VirtualBranches};

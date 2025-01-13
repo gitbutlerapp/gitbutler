@@ -83,17 +83,7 @@ export class CommitDragActions {
 
 		if (this.commit.conflicted || dropData.commit.conflicted) return false;
 
-		if (dropData.commit.isParentOf(this.commit)) {
-			if (dropData.commit.isIntegrated) return false;
-			if (dropData.commit.isRemote && !this.project.ok_with_force_push) return false;
-			return true;
-		} else if (this.commit.isParentOf(dropData.commit)) {
-			if (this.commit.isIntegrated) return false;
-			if (this.commit.isRemote && !this.project.ok_with_force_push) return false;
-			return true;
-		} else {
-			return false;
-		}
+		return true;
 	}
 
 	onSquash(dropData: unknown): void {
@@ -101,11 +91,11 @@ export class CommitDragActions {
 			return;
 		}
 		if (dropData instanceof CommitDropData) {
-			if (dropData.commit.isParentOf(this.commit)) {
-				this.branchController.squashBranchCommit(dropData.branchId, this.commit.id);
-			} else if (this.commit.isParentOf(dropData.commit)) {
-				this.branchController.squashBranchCommit(dropData.branchId, dropData.commit.id);
-			}
+			this.branchController.squashBranchCommit(
+				dropData.branchId,
+				dropData.commit.id,
+				this.commit.id
+			);
 		}
 	}
 }

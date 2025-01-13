@@ -44,6 +44,7 @@ fn forcepush_allowed() -> anyhow::Result<()> {
         gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
             .unwrap();
 
+    #[allow(deprecated)]
     gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
     {
@@ -103,6 +104,7 @@ fn forcepush_forbidden() {
         gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
             .unwrap();
 
+    #[allow(deprecated)]
     gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
     {

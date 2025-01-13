@@ -5,3 +5,5 @@ mod extra;
 mod reorder;
 
 mod dependencies;
+
+mod squash;
