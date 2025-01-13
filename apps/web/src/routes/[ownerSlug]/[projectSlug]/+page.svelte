@@ -9,3 +9,5 @@
 </script>
 
 <h2>Project page: {data.ownerSlug}/{data.projectSlug}</h2>
+
+<a href={`/${data.ownerSlug}/${data.projectSlug}/reviews`}>Project Reviews</a>
