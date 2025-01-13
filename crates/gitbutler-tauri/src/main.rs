@@ -203,6 +203,7 @@ fn main() {
                     virtual_branches::commands::list_branches,
                     virtual_branches::commands::get_branch_listing_details,
                     virtual_branches::commands::squash_branch_commit,
+                    virtual_branches::commands::squash_commits,
                     virtual_branches::commands::fetch_from_remotes,
                     virtual_branches::commands::move_commit,
                     virtual_branches::commands::normalize_branch_name,
