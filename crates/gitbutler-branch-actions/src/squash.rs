@@ -12,7 +12,10 @@ use gitbutler_stack::{stack_context::CommandContextExt, StackId};
 use gitbutler_workspace::{checkout_branch_trees, compute_updated_branch_head, BranchHeadAndTree};
 use itertools::Itertools;
 
-use crate::VirtualBranchesExt;
+use crate::{
+    reorder::{commits_order, reorder_stack},
+    VirtualBranchesExt,
+};
 
 /// Squashes one or multiple commuits from a virtual branch into a destination commit
 /// All of the commits involved have to be in the same stack
@@ -24,36 +27,76 @@ pub(crate) fn squash_commits(
     perm: &mut WorktreeWritePermission,
 ) -> Result<()> {
     let vb_state = ctx.project().virtual_branches();
-    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
+    let stack = vb_state.get_stack_in_workspace(stack_id)?;
     let default_target = vb_state.get_default_target()?;
     let merge_base = ctx.repo().merge_base(stack.head(), default_target.sha)?;
 
+    // =========== Step 1: Reorder
+
+    let order = commits_order(&ctx.to_stack_context()?, &stack)?;
+    let mut updated_order = commits_order(&ctx.to_stack_context()?, &stack)?;
+    // Remove source ids
+    for branch in updated_order.series.iter_mut() {
+        branch.commit_ids.retain(|id| !source_ids.contains(id));
+    }
+    // Put all source oids on top of (after) the destination oid
+    for branch in updated_order.series.iter_mut() {
+        if let Some(pos) = branch
+            .commit_ids
+            .iter()
+            .position(|&id| id == desitnation_id)
+        {
+            branch.commit_ids.splice(pos..pos, source_ids.clone());
+        }
+    }
+    if order != updated_order {
+        reorder_stack(ctx, stack_id, updated_order, perm)?;
+    }
+
+    // =========== Step 2: Squash
+
+    // stack was updated by reorder_stack, therefore it is reloaded
+    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
     let branch_commit_oids = ctx
         .repo()
         .l(stack.head(), LogUntil::Commit(merge_base), false)?;
 
-    let source_commits: Vec<git2::Commit> = source_ids
+    let branch_commits = branch_commit_oids
         .iter()
         .filter_map(|id| ctx.repo().find_commit(*id).ok())
-        .collect();
+        .collect_vec();
 
-    let destination_commit = ctx.repo().find_commit(desitnation_id)?;
+    // Find the new destination commit using the change id, error if not found
+    let destination_change_id = ctx.repo().find_commit(desitnation_id)?.change_id();
+    let destination_commit = branch_commits
+        .iter()
+        .find(|c| c.change_id() == destination_change_id)
+        .context("Destination commit not found in the stack")?;
+
+    // Find the new source commits using the change ids, error if not found
+    let source_commits = source_ids
+        .iter()
+        .filter_map(|id| ctx.repo().find_commit(*id).ok())
+        .map(|c| {
+            branch_commits
+                .iter()
+                .find(|b| b.change_id() == c.change_id())
+                .cloned()
+                .context("Source commit not found in the stack")
+        })
+        .collect::<Result<Vec<_>>>()?;
 
     validate(
         ctx,
         &stack,
         &branch_commit_oids,
         &source_commits,
-        &destination_commit,
+        destination_commit,
     )?;
 
-    let final_tree = squash_tree(
-        ctx,
-        &source_commits,
-        &destination_commit,
-        &branch_commit_oids,
-    )?;
-    // Squash commit messages string separated by newlines
+    let final_tree = squash_tree(ctx, &source_commits, destination_commit)?;
+
+    // Squash commit messages string separating with newlines
     let source_messages = source_commits
         .iter()
         .map(|c| c.message().unwrap_or_default())
@@ -143,10 +186,7 @@ fn validate(
     }
 
     if destination_commit.is_conflicted() {
-        bail!(
-            "cannot squash into conflicted destination commit {}",
-            destination_commit.id()
-        );
+        bail!("cannot squash into conflicted destination commit",);
     }
 
     let stack_ctx = ctx.to_stack_context()?;
@@ -183,41 +223,18 @@ fn squash_tree<'a>(
     ctx: &'a CommandContext,
     source_commits: &[git2::Commit<'_>],
     destination_commit: &git2::Commit<'_>,
-    branch_commit_oids: &[git2::Oid], // most recent first
 ) -> Result<git2::Tree<'a>> {
     let mut final_tree_id = destination_commit.tree_id().to_gix();
     let gix_repo = ctx.gix_repository_for_merging()?;
     let (merge_options_fail_fast, conflict_kind) = gix_repo.merge_options_fail_fast()?;
     for source_commit in source_commits {
-        let mut merge = if source_commit.before(destination_commit, branch_commit_oids) {
-            // source_commit is BEFORE destination_commit
-            let first = gix_repo
-                .merge_trees(
-                    source_commit.parent(0)?.tree_id().to_gix(),
-                    source_commit.tree_id().to_gix(),
-                    destination_commit.parent(0)?.tree_id().to_gix(),
-                    gix_repo.default_merge_labels(),
-                    merge_options_fail_fast.clone(),
-                )?
-                .tree
-                .write()?;
-            gix_repo.merge_trees(
-                destination_commit.parent(0)?.tree_id().to_gix(),
-                first,
-                final_tree_id,
-                gix_repo.default_merge_labels(),
-                merge_options_fail_fast.clone(),
-            )?
-        } else {
-            // source_commit is AFTER destination_commit
-            gix_repo.merge_trees(
-                source_commit.parent(0)?.tree_id().to_gix(),
-                source_commit.tree_id().to_gix(),
-                final_tree_id,
-                gix_repo.default_merge_labels(),
-                merge_options_fail_fast.clone(),
-            )?
-        };
+        let mut merge = gix_repo.merge_trees(
+            source_commit.parent(0)?.tree_id().to_gix(),
+            source_commit.tree_id().to_gix(),
+            final_tree_id,
+            gix_repo.default_merge_labels(),
+            merge_options_fail_fast.clone(),
+        )?;
 
         if merge.has_unresolved_conflicts(conflict_kind) {
             bail!("Merge failed with conflicts");
@@ -226,25 +243,4 @@ fn squash_tree<'a>(
     }
     let final_tree = ctx.repo().find_tree(final_tree_id.to_git2())?;
     Ok(final_tree)
-}
-
-trait Compare {
-    fn before(&self, to_compare: &git2::Commit, branch_commit_oids: &[git2::Oid]) -> bool;
-}
-
-impl Compare for git2::Commit<'_> {
-    fn before(&self, to_compare: &git2::Commit, branch_commit_oids: &[git2::Oid]) -> bool {
-        let left = to_compare.id();
-        let right = self.id();
-        let mut found_right = false;
-        for id in branch_commit_oids {
-            if *id == right {
-                found_right = true;
-            }
-            if *id == left {
-                return !found_right;
-            }
-        }
-        false
-    }
 }

@@ -181,7 +181,7 @@ fn squash_producting_conflict_errors_out() -> Result<()> {
     );
     assert_eq!(
         result.unwrap_err().to_string(),
-        "Merge failed with conflicts"
+        format!("cannot squash into conflicted destination commit",)
     );
     Ok(())
 }
