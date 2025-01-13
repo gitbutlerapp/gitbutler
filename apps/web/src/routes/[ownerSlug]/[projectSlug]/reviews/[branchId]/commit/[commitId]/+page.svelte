@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ProjectReviewCommitParameters } from '../../../../../types';
+	import type { ProjectReviewCommitParameters } from '$lib/project/types';
 
 	interface Props {
 		data: ProjectReviewCommitParameters;
