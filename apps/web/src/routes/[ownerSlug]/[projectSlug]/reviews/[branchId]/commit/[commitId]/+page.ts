@@ -1,5 +1,5 @@
+import type { ProjectReviewCommitParameters } from '$lib/project/types';
 import type { PageLoad } from './$types';
-import type { ProjectReviewCommitParameters } from '../../../../../types';
 
 // eslint-disable-next-line func-style
 export const load: PageLoad<ProjectReviewCommitParameters> = async ({ params }) => {

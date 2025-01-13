@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ProjectParameters } from '../../types';
+	import type { ProjectParameters } from '$lib/project/types';
 
 	interface Props {
 		data: ProjectParameters;

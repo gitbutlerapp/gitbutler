@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ProjectReviewParameters } from '../../../types';
+	import type { ProjectReviewParameters } from '$lib/project/types';
 
 	interface Props {
 		data: ProjectReviewParameters;
