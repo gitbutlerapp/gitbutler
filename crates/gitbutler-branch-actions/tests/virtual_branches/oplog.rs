@@ -185,8 +185,10 @@ fn basic_oplog() -> anyhow::Result<()> {
         ]
     );
 
-    let mut guard = project.exclusive_worktree_access();
-    project.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
+    {
+        let mut guard = project.exclusive_worktree_access();
+        project.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
+    }
 
     // restores the conflict files
     let file_lines = std::fs::read_to_string(&conflicts_path)?;
@@ -197,7 +199,10 @@ fn basic_oplog() -> anyhow::Result<()> {
     assert_eq!(snapshots[1].lines_added, 2);
     assert_eq!(snapshots[1].lines_removed, 0);
 
-    project.restore_snapshot(snapshots[2].clone().commit_id, guard.write_permission())?;
+    {
+        let mut guard = project.exclusive_worktree_access();
+        project.restore_snapshot(snapshots[2].clone().commit_id, guard.write_permission())?;
+    }
 
     // the restore removed our new branch
     let branches = gitbutler_branch_actions::list_virtual_branches(project)?;
@@ -224,7 +229,10 @@ fn basic_oplog() -> anyhow::Result<()> {
     let commit = repo.find_commit(commit2_id);
     assert!(commit.is_err());
 
-    project.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
+    {
+        let mut guard = project.exclusive_worktree_access();
+        project.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
+    }
 
     // test missing commits are recreated
     let commit = repo.find_commit(commit2_id);
