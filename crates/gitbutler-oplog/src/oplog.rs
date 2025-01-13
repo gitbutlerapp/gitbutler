@@ -111,7 +111,11 @@ pub trait OplogExt {
     ///
     /// If there are files that are untracked and larger than `SNAPSHOT_FILE_LIMIT_BYTES`, they are excluded from snapshot creation and restoring.
     /// Returns the sha of the created revert snapshot commit or None if snapshots are disabled.
-    fn restore_snapshot(&self, snapshot_commit_id: git2::Oid) -> Result<git2::Oid>;
+    fn restore_snapshot(
+        &self,
+        snapshot_commit_id: git2::Oid,
+        guard: &mut WorktreeWritePermission,
+    ) -> Result<git2::Oid>;
 
     /// Determines if a new snapshot should be created due to file changes being created since the last snapshot.
     /// The needs for the automatic snapshotting are:
@@ -279,9 +283,13 @@ impl OplogExt for Project {
         Ok(snapshots)
     }
 
-    fn restore_snapshot(&self, snapshot_commit_id: git2::Oid) -> Result<git2::Oid> {
-        let mut guard = self.exclusive_worktree_access();
-        restore_snapshot(self, snapshot_commit_id, guard.write_permission())
+    fn restore_snapshot(
+        &self,
+        snapshot_commit_id: git2::Oid,
+        guard: &mut WorktreeWritePermission,
+    ) -> Result<git2::Oid> {
+        // let mut guard = self.exclusive_worktree_access();
+        restore_snapshot(self, snapshot_commit_id, guard)
     }
 
     #[instrument(level = tracing::Level::DEBUG, skip(self), err(Debug))]

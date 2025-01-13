@@ -183,6 +183,19 @@ fn squash_producting_conflict_errors_out() -> Result<()> {
         result.unwrap_err().to_string(),
         format!("cannot squash into conflicted destination commit",)
     );
+
+    // After a failed squash, the stack should be unchanged (i.e. the reordering that takes place is reversed)
+    let branches = list_branches(ctx.project())?;
+    // branch 3
+    assert_eq!(branches.b3.patches[0].description, "commit 5");
+    // branch 2
+    assert_eq!(branches.b2.patches.len(), 3);
+    assert_eq!(branches.b2.patches[0].description, "commit 4");
+    assert_eq!(branches.b2.patches[1].description, "commit 3");
+    assert_eq!(branches.b2.patches[2].description, "commit 2");
+    // branch 1
+    assert_eq!(branches.b1.patches.len(), 1);
+    assert_eq!(branches.b1.patches[0].description, "commit 1");
     Ok(())
 }
 

@@ -1,6 +1,10 @@
 use anyhow::{bail, Context, Ok, Result};
 use gitbutler_command_context::CommandContext;
 use gitbutler_commit::{commit_ext::CommitExt, commit_headers::HasCommitHeaders};
+use gitbutler_oplog::{
+    entry::{OperationKind, SnapshotDetails},
+    OplogExt,
+};
 use gitbutler_oxidize::{GixRepositoryExt, ObjectIdExt, OidExt};
 use gitbutler_project::access::WorktreeWritePermission;
 use gitbutler_repo::{
@@ -20,6 +24,25 @@ use crate::{
 /// Squashes one or multiple commuits from a virtual branch into a destination commit
 /// All of the commits involved have to be in the same stack
 pub(crate) fn squash_commits(
+    ctx: &CommandContext,
+    stack_id: StackId,
+    source_ids: Vec<git2::Oid>,
+    desitnation_id: git2::Oid,
+    perm: &mut WorktreeWritePermission,
+) -> Result<()> {
+    // create a snapshot
+    let snap = ctx
+        .project()
+        .create_snapshot(SnapshotDetails::new(OperationKind::SquashCommit), perm)?;
+    let result = do_squash_commits(ctx, stack_id, source_ids, desitnation_id, perm);
+    // if result is error, restore from snapshot
+    if result.is_err() {
+        ctx.project().restore_snapshot(snap, perm)?;
+    }
+    result
+}
+
+fn do_squash_commits(
     ctx: &CommandContext,
     stack_id: StackId,
     source_ids: Vec<git2::Oid>,
