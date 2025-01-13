@@ -1,7 +1,8 @@
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use gitbutler_fs::write;
+use gitbutler_oxidize::OidExt as _;
 use gitbutler_repo::{GITBUTLER_COMMIT_AUTHOR_EMAIL, GITBUTLER_COMMIT_AUTHOR_NAME};
 use gix::config::tree::Key;
 
@@ -58,18 +59,7 @@ pub(super) fn set_reference_to_oplog(
         )?;
     }
 
-    let mut content = match std::fs::read_to_string(&reflog_file_path) {
-        Ok(c) => c,
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => String::new(),
-        Err(err) => return Err(err.into()),
-    };
-    content = set_target_ref(&content, &target_commit_id.to_string()).with_context(|| {
-        format!(
-            "Something was wrong with oplog reflog file at \"{}\"",
-            reflog_file_path.display()
-        )
-    })?;
-    content = set_oplog_ref(&content, &oplog_commit_id.to_string())?;
+    let content = build_reflog_content(&[target_commit_id.to_gix(), oplog_commit_id.to_gix()]);
     write(reflog_file_path, content)?;
 
     Ok(())
@@ -87,46 +77,35 @@ fn standard_signature() -> gix::actor::SignatureRef<'static> {
     }
 }
 
-fn set_target_ref(reflog_content: &str, target_commit_id_hex: &str) -> Result<String> {
-    // 0000000000000000000000000000000000000000 82873b54925ab268e9949557f28d070d388e7774 Kiril Videlov <kiril@videlov.com> 1714037434 +0200\tbranch: Created from 82873b54925ab268e9949557f28d070d388e7774
-    let mut lines = gix::refs::file::log::iter::forward(reflog_content.as_bytes());
-    let message = branch_creation_message(target_commit_id_hex);
-    let expected_first_line = gix::refs::file::log::LineRef {
-        previous_oid: "0000000000000000000000000000000000000000".into(),
-        new_oid: target_commit_id_hex.into(),
-        signature: standard_signature(),
-        message: message.as_str().into(),
-    };
-    let mut first_line = lines
-        .next()
-        .unwrap_or(Ok(expected_first_line))
-        .unwrap_or(expected_first_line);
+fn build_reflog_content(commits: &[gix::ObjectId]) -> String {
+    let mut previous_oid = gix::ObjectId::null(gix::index::hash::Kind::Sha1);
 
-    first_line.new_oid = target_commit_id_hex.into();
-    let message = format!("branch: Created from {target_commit_id_hex}");
-    first_line.message = message.as_str().into();
+    let mut log = String::default();
+    for (is_first, commit_id) in commits.iter().enumerate().map(|(idx, id)| (idx == 0, id)) {
+        let message = if is_first {
+            branch_creation_message(&commit_id.to_string())
+        } else {
+            format!("reset: moving to {commit_id}")
+        };
 
-    Ok(serialize_line(first_line))
-}
+        // Named with "_string" so we can still assign previous_oid later
+        let previous_oid_string = previous_oid.to_string();
+        let new_oid_string = commit_id.to_string();
 
-fn set_oplog_ref(reflog_content: &str, oplog_commit_id_hex: &str) -> Result<String> {
-    // 82873b54925ab268e9949557f28d070d388e7774 7e8eab472636a26611214bebea7d6b79c971fb8b Kiril Videlov <kiril@videlov.com> 1714044124 +0200\treset: moving to 7e8eab472636a26611214bebea7d6b79c971fb8b
-    let mut lines = gix::refs::file::log::iter::forward(reflog_content.as_bytes());
-    let first_line = lines.next().context("need the creation-line in reflog")??;
+        let reflog_line = gix::refs::file::log::LineRef {
+            previous_oid: previous_oid_string.as_str().into(),
+            new_oid: new_oid_string.as_str().into(),
+            signature: standard_signature(),
+            message: message.as_str().into(),
+        };
 
-    let new_msg = format!("reset: moving to {}", oplog_commit_id_hex);
-    let second_line = gix::refs::file::log::LineRef {
-        previous_oid: first_line.new_oid,
-        new_oid: oplog_commit_id_hex.into(),
-        message: new_msg.as_str().into(),
-        ..first_line
-    };
+        previous_oid = *commit_id;
 
-    Ok(format!(
-        "{}\n{}\n",
-        serialize_line(first_line),
-        serialize_line(second_line)
-    ))
+        log.push_str(&serialize_line(reflog_line));
+        log.push('\n');
+    }
+
+    log
 }
 
 fn serialize_line(line: gix::refs::file::log::LineRef<'_>) -> String {
@@ -172,7 +151,6 @@ mod set_target_ref {
         let contents = std::fs::read_to_string(&log_file_path)?;
         assert_eq!(reflog_lines(&contents).len(), 2);
 
-        let contents = std::fs::read_to_string(&log_file_path)?;
         let lines = reflog_lines(&contents);
         assert_signature(lines[0].signature);
         Ok(())

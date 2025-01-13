@@ -1,13 +1,14 @@
 import { InterestStore, type Interest } from '$lib/interest/intrestStore';
 import { errorToLoadable } from '$lib/network/loadable';
-import { addProject, upsertProject } from '$lib/organizations/projectsSlice';
-import { type ApiProject, apiToProject } from '$lib/organizations/types';
-import { POLLING_REGULAR } from '$lib/polling';
+import { addProject, upsertProject, upsertProjects } from '$lib/organizations/projectsSlice';
+import { type ApiProject, apiToProject, type LoadableProject } from '$lib/organizations/types';
+import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';
 import type { AppDispatch } from '$lib/redux/store.svelte';
 
 export class ProjectService {
 	private readonly projectInterests = new InterestStore<{ repositoryId: string }>(POLLING_REGULAR);
+	private readonly userProjectsInterests = new InterestStore<{ user: string }>(POLLING_GLACIALLY);
 
 	constructor(
 		private readonly httpClient: HttpClient,
@@ -27,6 +28,26 @@ export class ProjectService {
 					);
 				} catch (error: unknown) {
 					this.appDispatch.dispatch(upsertProject(errorToLoadable(error, repositoryId)));
+				}
+			})
+			.createInterest();
+	}
+
+	getAllProjectsInterest(user: string): Interest {
+		return this.userProjectsInterests
+			.findOrCreateSubscribable({ user }, async () => {
+				try {
+					const apiProjects = await this.httpClient.get<ApiProject[]>('projects');
+
+					const projects: LoadableProject[] = apiProjects.map((apiProject) => ({
+						status: 'found',
+						id: apiProject.repository_id,
+						value: apiToProject(apiProject)
+					}));
+
+					this.appDispatch.dispatch(upsertProjects(projects));
+				} catch (error: unknown) {
+					this.appDispatch.dispatch(upsertProject(errorToLoadable(error, user)));
 				}
 			})
 			.createInterest();
