@@ -139,7 +139,6 @@
 						<Button
 							wide
 							style="pop"
-							kind="solid"
 							testId="download-update"
 							onmousedown={async () => {
 								await updaterService.downloadAndInstall();
@@ -151,7 +150,6 @@
 						<Button
 							wide
 							style="pop"
-							kind="solid"
 							testId="got-it"
 							onmousedown={async () => {
 								updaterService.dismiss();
@@ -162,7 +160,6 @@
 					{:else if status === 'Done'}
 						<Button
 							style="pop"
-							kind="solid"
 							wide
 							testId="restart-app"
 							onclick={async () => await updaterService.relaunchApp()}

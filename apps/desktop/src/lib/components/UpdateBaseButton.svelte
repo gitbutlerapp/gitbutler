@@ -27,7 +27,6 @@
 	<Button
 		size="tag"
 		style="error"
-		kind="solid"
 		tooltip="Merge upstream into common base"
 		onclick={() => {
 			openModal();

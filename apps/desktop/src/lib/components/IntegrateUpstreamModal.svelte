@@ -286,7 +286,6 @@
 				wide
 				type="submit"
 				style="pop"
-				kind="solid"
 				disabled={isDivergedResolved || !branchStatuses}
 				loading={integratingUpstream === 'loading' || !branchStatuses}>Update workspace</Button
 			>

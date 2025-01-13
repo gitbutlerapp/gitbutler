@@ -20,7 +20,6 @@
 {#if $user}
 	<Button
 		style="error"
-		kind="solid"
 		{wide}
 		icon="signout"
 		onclick={async () => {
@@ -44,7 +43,6 @@
 	<div>
 		<Button
 			style="pop"
-			kind="solid"
 			loading={$loading}
 			icon="signin"
 			{wide}

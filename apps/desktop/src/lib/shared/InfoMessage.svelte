@@ -111,7 +111,6 @@
 				{#if primaryLabel}
 					<Button
 						style={primaryButtonMap[style]}
-						kind="solid"
 						onclick={() => primaryAction?.()}
 						icon={primaryIcon}
 					>

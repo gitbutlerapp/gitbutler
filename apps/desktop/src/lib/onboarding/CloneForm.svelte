@@ -122,7 +122,6 @@
 	<Button kind="outline" disabled={loading} onclick={handleCancel}>Cancel</Button>
 	<Button
 		style="pop"
-		kind="solid"
 		icon={errors.length > 0 ? 'update' : 'chevron-right-small'}
 		disabled={loading}
 		{loading}

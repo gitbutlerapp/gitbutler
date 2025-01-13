@@ -120,7 +120,7 @@
 						<Textbox label="Email" bind:value={$user.email} readonly />
 					</div>
 
-					<Button type="submit" style="pop" kind="solid" loading={saving}>Update profile</Button>
+					<Button type="submit" style="pop" loading={saving}>Update profile</Button>
 				</div>
 			</form>
 		</SectionCard>
@@ -165,8 +165,8 @@
 			<p>Are you sure you want to remove all GitButler projects?</p>
 
 			{#snippet controls(close)}
-				<Button style="error" kind="solid" loading={isDeleting} type="submit">Remove</Button>
-				<Button style="pop" kind="solid" onclick={close}>Cancel</Button>
+				<Button style="error" kind="outline" loading={isDeleting} type="submit">Remove</Button>
+				<Button style="pop" onclick={close}>Cancel</Button>
 			{/snippet}
 		</Modal>
 	</SectionCard>

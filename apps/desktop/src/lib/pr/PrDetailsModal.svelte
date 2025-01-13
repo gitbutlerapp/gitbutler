@@ -435,7 +435,6 @@
 								<div class="pr-ai__actions">
 									<Button
 										style="neutral"
-										kind="solid"
 										icon="ai-small"
 										tooltip={!aiConfigurationValid
 											? 'Log in or provide your own API key'
@@ -466,7 +465,6 @@
 			<DropDownButton
 				bind:this={createPrDropDown}
 				style="pop"
-				kind="solid"
 				disabled={isLoading || aiIsLoading || !prTitle.value}
 				loading={isLoading}
 				type="submit"

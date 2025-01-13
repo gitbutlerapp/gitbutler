@@ -34,7 +34,7 @@
 	let modal = $state<Modal>();
 </script>
 
-<Button style="error" kind="solid" icon="bin-small" reversedDirection onclick={handleClick}>
+<Button style="error" icon="bin-small" reversedDirection onclick={handleClick}>
 	Remove project…
 </Button>
 
@@ -60,7 +60,7 @@
 	{#snippet controls()}
 		<Button
 			style="error"
-			kind="solid"
+			kind="outline"
 			reversedDirection
 			loading={isDeleting}
 			icon="bin-small"
@@ -68,7 +68,7 @@
 		>
 			Remove
 		</Button>
-		<Button style="pop" kind="solid" onclick={close}>Cancel</Button>
+		<Button style="pop" onclick={close}>Cancel</Button>
 	{/snippet}
 </Modal>
 

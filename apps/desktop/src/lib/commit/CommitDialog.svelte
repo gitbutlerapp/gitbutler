@@ -105,7 +105,7 @@
 	<div class="actions" class:commit-box__actions-expanded={$expanded}>
 		{#if $expanded && !isCommitting}
 			<div class="cancel-btn-wrapper" transition:slideFade={{ duration: 200, axis: 'x' }}>
-				<Button style="neutral" kind="solid" id="commit-to-branch" onclick={close}>Cancel</Button>
+				<Button style="neutral" id="commit-to-branch" onclick={close}>Cancel</Button>
 			</div>
 		{/if}
 		{#if $expanded && canShowCommitAndPublish}

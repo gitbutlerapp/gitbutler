@@ -316,7 +316,6 @@
 		{#if conflictedFiles.length > 0}
 			<Button
 				style="neutral"
-				kind="solid"
 				onclick={openAllConflictedFiles}
 				icon="open-link"
 				tooltip={conflictedFiles.length === 1
@@ -326,14 +325,7 @@
 				Open conflicted files
 			</Button>
 		{/if}
-		<Button
-			style="pop"
-			kind="solid"
-			icon="tick-small"
-			onclick={handleSave}
-			disabled={loading}
-			{loading}
-		>
+		<Button style="pop" icon="tick-small" onclick={handleSave} disabled={loading} {loading}>
 			Save and exit
 		</Button>
 	</div>

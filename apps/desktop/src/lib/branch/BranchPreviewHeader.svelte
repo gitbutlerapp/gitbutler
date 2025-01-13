@@ -46,7 +46,7 @@
 			<div class="header__remote-branch">
 				{#if remoteBranch}
 					<Tooltip text="At least some of your changes have been pushed">
-						<Badge size="tag" icon="branch-small" style="neutral" kind="solid">
+						<Badge size="tag" icon="branch-small" style="neutral">
 							{localBranch ? 'local and remote' : 'remote'}
 						</Badge>
 					</Tooltip>
@@ -167,7 +167,7 @@
 	{/snippet}
 	{#snippet controls(close)}
 		<Button kind="outline" onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" kind="solid" loading={isDeleting}>Delete</Button>
+		<Button style="error" type="submit" loading={isDeleting}>Delete</Button>
 	{/snippet}
 </Modal>
 
