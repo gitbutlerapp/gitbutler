@@ -1,9 +1,14 @@
 <script lang="ts">
+	import FileMenuAction from '$components/FileMenuAction.svelte';
+	import History from '$components/History.svelte';
+	import Navigation from '$components/Navigation.svelte';
+	import NoBaseBranch from '$components/NoBaseBranch.svelte';
+	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
+	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
+	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import { projectCloudSync } from '$lib/backend/projectCloudSync.svelte';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import { TemplateService } from '$lib/backend/templateService';
-	import FileMenuAction from '$lib/barmenuActions/FileMenuAction.svelte';
-	import ProjectSettingsMenuAction from '$lib/barmenuActions/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
@@ -11,9 +16,6 @@
 	import { GitBranchService } from '$lib/branches/gitBranch';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import { CommitService } from '$lib/commits/service';
-	import NoBaseBranch from '$lib/components/NoBaseBranch.svelte';
-	import NotOnGitButlerBranch from '$lib/components/NotOnGitButlerBranch.svelte';
-	import ProblemLoadingRepo from '$lib/components/ProblemLoadingRepo.svelte';
 	import { showHistoryView } from '$lib/config/config';
 	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
@@ -24,12 +26,10 @@
 	import { createForgeListingServiceStore } from '$lib/forge/interface/forgeListingService';
 	import { createForgePrServiceStore } from '$lib/forge/interface/forgePrService';
 	import { createForgeRepoServiceStore } from '$lib/forge/interface/forgeRepoService';
-	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 	import { ModeService } from '$lib/modes/service';
-	import Navigation from '$lib/navigation/Navigation.svelte';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { debounce } from '$lib/utils/debounce';
 	import { BranchController } from '$lib/vbranches/branchController';

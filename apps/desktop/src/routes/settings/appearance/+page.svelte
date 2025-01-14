@@ -1,17 +1,17 @@
 <script lang="ts">
+	import HunkDiff from '$components/HunkDiff.svelte';
+	import RadioButton from '$components/RadioButton.svelte';
+	import Select from '$components/Select.svelte';
+	import SelectItem from '$components/SelectItem.svelte';
+	import SettingsPage from '$components/SettingsPage.svelte';
+	import ThemeSelector from '$components/ThemeSelector.svelte';
 	import { autoSelectBranchNameFeature } from '$lib/config/uiFeatureFlags';
-	import HunkDiff from '$lib/hunk/HunkDiff.svelte';
-	import SettingsPage from '$lib/layout/SettingsPage.svelte';
-	import Select from '$lib/select/Select.svelte';
-	import SelectItem from '$lib/select/SelectItem.svelte';
-	import ThemeSelector from '$lib/settings/ThemeSelector.svelte';
 	import {
 		SETTINGS,
 		type Settings,
 		type ScrollbarVisilitySettings,
 		type CodeEditorSettings
 	} from '$lib/settings/userSettings';
-	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import { type Hunk } from '$lib/vbranches/types';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';

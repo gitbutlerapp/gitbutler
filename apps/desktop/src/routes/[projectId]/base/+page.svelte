@@ -1,11 +1,11 @@
 <script lang="ts">
+	import BaseBranch from '$components/BaseBranch.svelte';
+	import FileCard from '$components/FileCard.svelte';
+	import FullviewLoading from '$components/FullviewLoading.svelte';
+	import Resizer from '$components/Resizer.svelte';
+	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import BaseBranch from '$lib/components/BaseBranch.svelte';
-	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
-	import FileCard from '$lib/file/FileCard.svelte';
-	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import Resizer from '$lib/shared/Resizer.svelte';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import lscache from 'lscache';

@@ -1,7 +1,7 @@
 <script lang="ts">
+	import CloneForm from '$components/CloneForm.svelte';
+	import DecorativeSplitView from '$components/DecorativeSplitView.svelte';
 	import cloningRepoSvg from '$lib/assets/illustrations/cloning-repo.svg?raw';
-	import DecorativeSplitView from '$lib/components/DecorativeSplitView.svelte';
-	import CloneForm from '$lib/onboarding/CloneForm.svelte';
 </script>
 
 <DecorativeSplitView img={cloningRepoSvg}>

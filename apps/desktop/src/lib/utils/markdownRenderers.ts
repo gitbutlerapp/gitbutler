@@ -1,16 +1,16 @@
-import Blockquote from '$lib/components/markdownRenderers/Blockquote.svelte';
-import Br from '$lib/components/markdownRenderers/Br.svelte';
-import Code from '$lib/components/markdownRenderers/Code.svelte';
-import Codespan from '$lib/components/markdownRenderers/Codespan.svelte';
-import Heading from '$lib/components/markdownRenderers/Heading.svelte';
-import Html from '$lib/components/markdownRenderers/Html.svelte';
-import Image from '$lib/components/markdownRenderers/Image.svelte';
-import List from '$lib/components/markdownRenderers/List.svelte';
-import ListItem from '$lib/components/markdownRenderers/ListItem.svelte';
-import Paragraph from '$lib/components/markdownRenderers/Paragraph.svelte';
-import Strong from '$lib/components/markdownRenderers/Strong.svelte';
-import Text from '$lib/components/markdownRenderers/Text.svelte';
-import Link from '$lib/shared/Link.svelte';
+import Link from '$components/Link.svelte';
+import Blockquote from '$components/markdownRenderers/Blockquote.svelte';
+import Br from '$components/markdownRenderers/Br.svelte';
+import Code from '$components/markdownRenderers/Code.svelte';
+import Codespan from '$components/markdownRenderers/Codespan.svelte';
+import Heading from '$components/markdownRenderers/Heading.svelte';
+import Html from '$components/markdownRenderers/Html.svelte';
+import Image from '$components/markdownRenderers/Image.svelte';
+import List from '$components/markdownRenderers/List.svelte';
+import ListItem from '$components/markdownRenderers/ListItem.svelte';
+import Paragraph from '$components/markdownRenderers/Paragraph.svelte';
+import Strong from '$components/markdownRenderers/Strong.svelte';
+import Text from '$components/markdownRenderers/Text.svelte';
 
 export const renderers = {
 	link: Link,

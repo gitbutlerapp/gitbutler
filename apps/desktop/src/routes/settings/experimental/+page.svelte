@@ -1,10 +1,10 @@
 <script lang="ts">
+	import SettingsPage from '$components/SettingsPage.svelte';
 	import {
 		cloudFunctionality,
 		cloudCommunicationFunctionality,
 		cloudReviewFunctionality
 	} from '$lib/config/uiFeatureFlags';
-	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { User } from '$lib/stores/user';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';

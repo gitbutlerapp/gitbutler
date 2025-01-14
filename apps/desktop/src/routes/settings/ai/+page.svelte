@@ -1,16 +1,16 @@
 <script lang="ts">
+	import AIPromptEdit from '$components/AIPromptEdit.svelte';
+	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
+	import InfoMessage from '$components/InfoMessage.svelte';
+	import RadioButton from '$components/RadioButton.svelte';
+	import Section from '$components/Section.svelte';
+	import Select from '$components/Select.svelte';
+	import SelectItem from '$components/SelectItem.svelte';
+	import SettingsPage from '$components/SettingsPage.svelte';
 	import { AISecretHandle, AIService, GitAIConfigKey, KeyOption } from '$lib/ai/service';
 	import { OpenAIModelName, AnthropicModelName, ModelKind } from '$lib/ai/types';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
-	import AIPromptEdit from '$lib/components/AIPromptEdit/AIPromptEdit.svelte';
-	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { getSecretsService } from '$lib/secrets/secretsService';
-	import Select from '$lib/select/Select.svelte';
-	import SelectItem from '$lib/select/SelectItem.svelte';
-	import AuthorizationBanner from '$lib/settings/AuthorizationBanner.svelte';
-	import Section from '$lib/settings/Section.svelte';
-	import InfoMessage from '$lib/shared/InfoMessage.svelte';
-	import RadioButton from '$lib/shared/RadioButton.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
