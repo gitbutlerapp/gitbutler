@@ -1,18 +1,18 @@
 <script lang="ts">
-	import TabContent from '$lib/components/tabs/TabContent.svelte';
-	import TabList from '$lib/components/tabs/TabList.svelte';
-	import TabTrigger from '$lib/components/tabs/TabTrigger.svelte';
-	import Tabs from '$lib/components/tabs/Tabs.svelte';
+	import BaseBranchSwitch from '$components/BaseBranchSwitch.svelte';
+	import CloudForm from '$components/CloudForm.svelte';
+	import CloudProjectSettings from '$components/CloudProjectSettings.svelte';
+	import DetailsForm from '$components/DetailsForm.svelte';
+	import GitForm from '$components/GitForm.svelte';
+	import PreferencesForm from '$components/PreferencesForm.svelte';
+	import RemoveProjectForm from '$components/RemoveProjectForm.svelte';
+	import Section from '$components/Section.svelte';
+	import SettingsPage from '$components/SettingsPage.svelte';
+	import TabContent from '$components/TabContent.svelte';
+	import TabList from '$components/TabList.svelte';
+	import TabTrigger from '$components/TabTrigger.svelte';
+	import Tabs from '$components/Tabs.svelte';
 	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
-	import SettingsPage from '$lib/layout/SettingsPage.svelte';
-	import Section from '$lib/settings/Section.svelte';
-	import BaseBranchSwitch from '$lib/settings/userPreferences/BaseBranchSwitch.svelte';
-	import CloudForm from '$lib/settings/userPreferences/CloudForm.svelte';
-	import CloudProjectSettings from '$lib/settings/userPreferences/CloudProjectSettings.svelte';
-	import DetailsForm from '$lib/settings/userPreferences/DetailsForm.svelte';
-	import GitForm from '$lib/settings/userPreferences/GitForm.svelte';
-	import PreferencesForm from '$lib/settings/userPreferences/PreferencesForm.svelte';
-	import RemoveProjectForm from '$lib/settings/userPreferences/RemoveProjectForm.svelte';
 </script>
 
 <SettingsPage title="Project settings">

@@ -3,6 +3,14 @@
 	import '@gitbutler/ui/main.css';
 	import '../styles.css';
 
+	import AppUpdater from '$components/AppUpdater.svelte';
+	import GlobalSettingsMenuAction from '$components/GlobalSettingsMenuAction.svelte';
+	import PromptModal from '$components/PromptModal.svelte';
+	import ReloadMenuAction from '$components/ReloadMenuAction.svelte';
+	import ShareIssueModal from '$components/ShareIssueModal.svelte';
+	import SwitchThemeMenuAction from '$components/SwitchThemeMenuAction.svelte';
+	import ToastController from '$components/ToastController.svelte';
+	import ZoomInOutMenuAction from '$components/ZoomInOutMenuAction.svelte';
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
@@ -12,17 +20,10 @@
 	import { ProjectsService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
-	import GlobalSettingsMenuAction from '$lib/barmenuActions/GlobalSettingsMenuAction.svelte';
-	import ReloadMenuAction from '$lib/barmenuActions/ReloadMenuAction.svelte';
-	import SwitchThemeMenuAction from '$lib/barmenuActions/SwitchThemeMenuAction.svelte';
-	import ZoomInOutMenuAction from '$lib/barmenuActions/ZoomInOutMenuAction.svelte';
 	import {
 		IpcNameNormalizationService,
 		setNameNormalizationServiceContext
 	} from '$lib/branches/nameNormalizationService';
-	import AppUpdater from '$lib/components/AppUpdater.svelte';
-	import PromptModal from '$lib/components/PromptModal.svelte';
-	import ShareIssueModal from '$lib/components/ShareIssueModal.svelte';
 	import { AppSettings } from '$lib/config/appSettings';
 	import {
 		createGitHubUserServiceStore as createGitHubUserServiceStore,
@@ -30,7 +31,6 @@
 	} from '$lib/forge/github/githubUserService';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import { HooksService } from '$lib/hooks/hooksService';
-	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { DesktopDispatch, DesktopState } from '$lib/redux/store.svelte';
 	import { RemotesService } from '$lib/remotes/service';

@@ -4,8 +4,8 @@
 	// - And it does NOT have a cooresponding vbranch
 	// - And it does NOT have a cooresponding remote
 	// It may also display details about a cooresponding pr if they exist
-	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
-	import PullRequestPreview from '$lib/components/PullRequestPreview.svelte';
+	import FullviewLoading from '$components/FullviewLoading.svelte';
+	import PullRequestPreview from '$components/PullRequestPreview.svelte';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import type { PullRequest } from '$lib/forge/interface/types';
 	import type { Readable } from 'svelte/store';

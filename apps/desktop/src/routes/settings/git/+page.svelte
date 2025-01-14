@@ -1,7 +1,7 @@
 <script lang="ts">
+	import Link from '$components/Link.svelte';
+	import SettingsPage from '$components/SettingsPage.svelte';
 	import { GitConfigService } from '$lib/backend/gitConfigService';
-	import SettingsPage from '$lib/layout/SettingsPage.svelte';
-	import Link from '$lib/shared/Link.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';

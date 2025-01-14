@@ -1,7 +1,7 @@
 <script lang="ts">
-	import SettingsPage from '$lib/layout/SettingsPage.svelte';
-	import AuthorizationBanner from '$lib/settings/AuthorizationBanner.svelte';
-	import GithubIntegration from '$lib/settings/GithubIntegration.svelte';
+	import AuthorizationBanner from '$components/AuthorizationBanner.svelte';
+	import GithubIntegration from '$components/GithubIntegration.svelte';
+	import SettingsPage from '$components/SettingsPage.svelte';
 	import { UserService } from '$lib/stores/user';
 	import { getContext } from '@gitbutler/shared/context';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';

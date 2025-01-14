@@ -3,7 +3,7 @@ import { isBackendError, isHttpError } from '$lib/error/typeguards';
 import { isErrorlike } from '@gitbutler/ui/utils/typeguards';
 import posthog from 'posthog-js';
 import { writable, type Writable } from 'svelte/store';
-import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
+import type { MessageStyle } from '$components/InfoMessage.svelte';
 
 export interface Toast {
 	id?: string;

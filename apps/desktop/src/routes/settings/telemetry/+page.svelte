@@ -1,6 +1,6 @@
 <script lang="ts">
-	import SettingsPage from '$lib/layout/SettingsPage.svelte';
-	import AnalyticsSettings from '$lib/settings/AnalyticsSettings.svelte';
+	import AnalyticsSettings from '$components/AnalyticsSettings.svelte';
+	import SettingsPage from '$components/SettingsPage.svelte';
 </script>
 
 <SettingsPage title="Telemetry">

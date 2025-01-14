@@ -1,13 +1,13 @@
 <script lang="ts">
+	import Board from '$components/Board.svelte';
+	import MetricsReporter from '$components/MetricsReporter.svelte';
+	import Scrollbar from '$components/Scrollbar.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import Board from '$lib/components/Board.svelte';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { getForge } from '$lib/forge/interface/forge';
-	import MetricsReporter from '$lib/metrics/MetricsReporter.svelte';
 	import { ModeService } from '$lib/modes/service';
 	import { showToast } from '$lib/notifications/toasts';
-	import Scrollbar from '$lib/scroll/Scrollbar.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';

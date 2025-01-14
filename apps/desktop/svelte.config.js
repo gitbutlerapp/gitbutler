@@ -5,6 +5,9 @@ import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 const config = {
 	preprocess: vitePreprocess({ script: true }),
 	kit: {
+		alias: {
+			$components: './src/components'
+		},
 		adapter: staticAdapter({
 			pages: 'build',
 			assets: 'build',

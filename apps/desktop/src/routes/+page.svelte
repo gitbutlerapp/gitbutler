@@ -1,6 +1,6 @@
 <script lang="ts">
+	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import { ProjectsService } from '$lib/backend/projects';
-	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { derived as derivedStore } from 'svelte/store';
 	import { goto } from '$app/navigation';

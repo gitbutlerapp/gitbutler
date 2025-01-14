@@ -1,5 +1,5 @@
 <script lang="ts">
-	import SettingsPage from '$lib/layout/SettingsPage.svelte';
+	import SettingsPage from '$components/SettingsPage.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import RegisterInterest from '@gitbutler/shared/interest/RegisterInterest.svelte';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';

@@ -1,8 +1,8 @@
 <script lang="ts">
+	import BranchPreview from '$components/BranchPreview.svelte';
+	import FullviewLoading from '$components/FullviewLoading.svelte';
+	import PageLoadFailed from '$components/PageLoadFailed.svelte';
 	import { GitBranchService } from '$lib/branches/gitBranch';
-	import BranchPreview from '$lib/components/BranchPreview.svelte';
-	import FullviewLoading from '$lib/components/FullviewLoading.svelte';
-	import PageLoadFailed from '$lib/components/PageLoadFailed.svelte';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { BranchData } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';

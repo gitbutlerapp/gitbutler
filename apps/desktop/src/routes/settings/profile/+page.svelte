@@ -1,8 +1,8 @@
 <script lang="ts">
+	import Login from '$components/Login.svelte';
+	import SettingsPage from '$components/SettingsPage.svelte';
+	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { deleteAllData } from '$lib/backend/data';
-	import Login from '$lib/components/Login.svelte';
-	import WelcomeSigninAction from '$lib/components/WelcomeSigninAction.svelte';
-	import SettingsPage from '$lib/layout/SettingsPage.svelte';
 	import { showError } from '$lib/notifications/toasts';
 	import { UserService } from '$lib/stores/user';
 	import * as toasts from '$lib/utils/toasts';

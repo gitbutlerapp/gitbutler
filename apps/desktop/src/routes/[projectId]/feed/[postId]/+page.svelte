@@ -1,8 +1,8 @@
 <script lang="ts">
-	import Markdown from '$lib/components/Markdown.svelte';
-	import CreatePost from '$lib/feeds/CreatePost.svelte';
-	import Post from '$lib/feeds/Post.svelte';
-	import ScrollableContainer from '$lib/scroll/ScrollableContainer.svelte';
+	import CreatePost from '$components/CreatePost.svelte';
+	import Markdown from '$components/Markdown.svelte';
+	import Post from '$components/Post.svelte';
+	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getPostAuthor } from '@gitbutler/shared/feeds/feedsPreview.svelte';
 	import { postsSelectors } from '@gitbutler/shared/feeds/postsSlice';
