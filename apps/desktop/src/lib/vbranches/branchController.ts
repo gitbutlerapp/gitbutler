@@ -52,20 +52,21 @@ export class BranchController {
 		}
 	}
 
-	async commitBranch(
-		branchId: string,
-		branchName: string,
-		message: string,
-		ownership: string | undefined = undefined,
-		runHooks = false
-	) {
+	async runHooks(stackId: string, ownership: string) {
+		await invoke<void>('run_hooks', {
+			projectId: this.projectId,
+			stackId,
+			ownership
+		});
+	}
+
+	async commit(branchId: string, message: string, ownership: string | undefined = undefined) {
 		try {
 			await invoke<void>('commit_virtual_branch', {
 				projectId: this.projectId,
 				branch: branchId,
 				message,
-				ownership,
-				runHooks: runHooks
+				ownership
 			});
 			this.posthog.capture('Commit Successful');
 		} catch (err: any) {
@@ -490,11 +491,12 @@ export class BranchController {
 		}
 	}
 
-	async squashBranchCommit(branchId: string, targetCommitOid: string) {
+	async squashBranchCommit(branchId: string, sourceCommitOid: string, targetCommitOid: string) {
 		try {
-			await invoke<void>('squash_branch_commit', {
+			await invoke<void>('squash_commits', {
 				projectId: this.projectId,
 				branchId,
+				sourceCommitOids: [sourceCommitOid], // The API has the ability to squash multiple commits, but currently the UI only squashes one at a time
 				targetCommitOid
 			});
 		} catch (err: any) {

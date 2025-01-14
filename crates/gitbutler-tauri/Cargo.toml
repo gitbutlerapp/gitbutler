@@ -85,6 +85,7 @@ gitbutler-forge.workspace = true
 gitbutler-settings.workspace = true
 open = "5"
 url = "2.5.4"
+itertools = "0.14"
 
 [lints.clippy]
 all = "deny"

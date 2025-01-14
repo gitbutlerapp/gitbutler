@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { OwnerParameters } from './types';
+	import type { OwnerParameters } from '$lib/project/types';
 
 	interface Props {
 		data: OwnerParameters;

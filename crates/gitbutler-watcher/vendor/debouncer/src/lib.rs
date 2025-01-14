@@ -125,7 +125,7 @@ struct Queue {
 
 impl Queue {
     fn was_created(&self) -> bool {
-        self.events.front().map_or(false, |event| {
+        self.events.front().is_some_and(|event| {
             matches!(
                 event.kind,
                 EventKind::Create(_) | EventKind::Modify(ModifyKind::Name(RenameMode::To))
@@ -134,7 +134,7 @@ impl Queue {
     }
 
     fn was_removed(&self) -> bool {
-        self.events.front().map_or(false, |event| {
+        self.events.front().is_some_and(|event| {
             matches!(
                 event.kind,
                 EventKind::Remove(_) | EventKind::Modify(ModifyKind::Name(RenameMode::From))
@@ -592,7 +592,7 @@ pub fn new_debouncer_opt<F: DebounceEventHandler, T: Watcher, C: FileIdCache + S
                         prev_queue_count = queue_count
                     }
 
-                    if flush_after.map_or(false, |threshold| idle_count >= threshold) {
+                    if flush_after.is_some_and(|threshold| idle_count >= threshold) {
                         idle_count = 0;
                         prev_queue_count = 0;
                         should_flush = true;

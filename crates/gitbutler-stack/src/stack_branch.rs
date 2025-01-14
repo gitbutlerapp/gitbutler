@@ -139,7 +139,6 @@ impl StackBranch {
             .clone()
             .map(|ref_name| ref_name.remote().to_owned())
             .unwrap_or(default_target.push_remote_name());
-
         if self.pushed(&remote, repository) {
             let upstream_head = repository
                 .find_reference(self.remote_reference(&remote).as_str())?

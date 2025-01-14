@@ -65,7 +65,7 @@ mod go_back_to_workspace {
         .unwrap();
 
         std::fs::write(repository.path().join("another file.txt"), "content").unwrap();
-        gitbutler_branch_actions::create_commit(project, vbranch_id, "one", None, false).unwrap();
+        gitbutler_branch_actions::create_commit(project, vbranch_id, "one", None).unwrap();
 
         let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();
         let branches = list_result.branches;

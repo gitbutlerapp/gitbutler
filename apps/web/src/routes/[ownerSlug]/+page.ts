@@ -1,5 +1,5 @@
+import type { OwnerParameters } from '$lib/project/types';
 import type { PageLoad } from './$types';
-import type { OwnerParameters } from './types';
 
 // eslint-disable-next-line func-style
 export const load: PageLoad<OwnerParameters> = async ({ params }) => {

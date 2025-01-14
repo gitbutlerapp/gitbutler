@@ -660,6 +660,30 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79296716171880943b8470b5f8d03aa55eb2e645a4874bdbb28adb49162e012c"
 
 [[package]]
+name = "but-cli"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "but-core",
+ "clap",
+ "tracing",
+ "tracing-forest",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "but-core"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "gix",
+ "serde",
+ "toml 0.8.19",
+ "walkdir",
+]
+
+[[package]]
 name = "byte-unit"
 version = "5.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2669,10 +2693,12 @@ dependencies = [
  "base64 0.22.1",
  "bstr",
  "git2",
+ "git2-hooks",
  "gitbutler-cherry-pick",
  "gitbutler-command-context",
  "gitbutler-commit",
  "gitbutler-config",
+ "gitbutler-diff",
  "gitbutler-error",
  "gitbutler-oxidize",
  "gitbutler-project",
@@ -2685,6 +2711,7 @@ dependencies = [
  "insta",
  "itertools 0.14.0",
  "resolve-path",
+ "scopeguard",
  "serde",
  "serde_json",
  "tempfile",
@@ -2849,6 +2876,7 @@ dependencies = [
  "gitbutler-user",
  "gitbutler-watcher",
  "gix",
+ "itertools 0.14.0",
  "log",
  "once_cell",
  "open",

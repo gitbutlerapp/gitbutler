@@ -43,7 +43,6 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
             branch_id,
             &format!("commit {round}"),
             None,
-            false, /* run hook */
         )?;
         assert_eq!(
             wd_file_count(&worktree_dir)?,
@@ -66,8 +65,9 @@ fn workdir_vbranch_restore() -> anyhow::Result<()> {
 
     let previous_files_count = wd_file_count(&worktree_dir)?;
     assert_eq!(previous_files_count, 3, "one file per round");
+    let mut guard = project.exclusive_worktree_access();
     project
-        .restore_snapshot(snapshots[0].commit_id)
+        .restore_snapshot(snapshots[0].commit_id, guard.write_permission())
         .expect("restoration succeeds");
 
     assert_eq!(
@@ -113,7 +113,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
     let _commit1_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)?;
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None)?;
 
     // dont store large files
     let file_path = repository.path().join("large.txt");
@@ -128,7 +128,7 @@ fn basic_oplog() -> anyhow::Result<()> {
     fs::write(repository.path().join("file2.txt"), "content2")?;
     fs::write(repository.path().join("file3.txt"), "content3")?;
     let commit2_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)?;
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None)?;
 
     // Create conflict state
     let conflicts_path = repository.path().join(".git").join("conflicts");
@@ -145,7 +145,7 @@ fn basic_oplog() -> anyhow::Result<()> {
 
     fs::write(repository.path().join("file4.txt"), "content4")?;
     let _commit3_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None, false)?;
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None)?;
 
     let branch = gitbutler_branch_actions::list_virtual_branches(project)?
         .branches
@@ -184,7 +184,10 @@ fn basic_oplog() -> anyhow::Result<()> {
         ]
     );
 
-    project.restore_snapshot(snapshots[1].clone().commit_id)?;
+    {
+        let mut guard = project.exclusive_worktree_access();
+        project.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
+    }
 
     // restores the conflict files
     let file_lines = std::fs::read_to_string(&conflicts_path)?;
@@ -195,7 +198,10 @@ fn basic_oplog() -> anyhow::Result<()> {
     assert_eq!(snapshots[1].lines_added, 2);
     assert_eq!(snapshots[1].lines_removed, 0);
 
-    project.restore_snapshot(snapshots[2].clone().commit_id)?;
+    {
+        let mut guard = project.exclusive_worktree_access();
+        project.restore_snapshot(snapshots[2].clone().commit_id, guard.write_permission())?;
+    }
 
     // the restore removed our new branch
     let branches = gitbutler_branch_actions::list_virtual_branches(project)?;
@@ -222,7 +228,10 @@ fn basic_oplog() -> anyhow::Result<()> {
     let commit = repo.find_commit(commit2_id);
     assert!(commit.is_err());
 
-    project.restore_snapshot(snapshots[1].clone().commit_id)?;
+    {
+        let mut guard = project.exclusive_worktree_access();
+        project.restore_snapshot(snapshots[1].clone().commit_id, guard.write_permission())?;
+    }
 
     // test missing commits are recreated
     let commit = repo.find_commit(commit2_id);
@@ -271,7 +280,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     // create commit
     fs::write(repository.path().join("file.txt"), "content")?;
     let _commit1_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)?;
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None)?;
 
     let repo = git2::Repository::open(&project.path)?;
 
@@ -285,7 +294,7 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
     // create second commit
     fs::write(repository.path().join("file.txt"), "changed content")?;
     let _commit2_id =
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)?;
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None)?;
 
     // check the workspace commit changed
     let head = repo.head().expect("never unborn");
@@ -302,8 +311,10 @@ fn restores_gitbutler_workspace() -> anyhow::Result<()> {
         3,
         "one vbranch, two commits, one snapshot each"
     );
+
+    let mut guard = project.exclusive_worktree_access();
     project
-        .restore_snapshot(snapshots[0].commit_id)
+        .restore_snapshot(snapshots[0].commit_id, guard.write_permission())
         .expect("can restore the most recent snapshot, to undo commit 2, resetting to commit 1");
 
     let head = repo.head().expect("never unborn");

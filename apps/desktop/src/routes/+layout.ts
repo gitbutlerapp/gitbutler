@@ -11,6 +11,7 @@ import { Tauri } from '$lib/backend/tauri';
 import { UpdaterService } from '$lib/backend/updater';
 import { loadAppSettings } from '$lib/config/appSettings';
 import { FileService } from '$lib/files/fileService';
+import { HooksService } from '$lib/hooks/hooksService';
 import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
@@ -62,6 +63,7 @@ export const load: LayoutLoad = async () => {
 	const lineManagerFactory = new LineManagerFactory();
 	const stackingLineManagerFactory = new StackingLineManagerFactory();
 	const fileService = new FileService(tauri);
+	const hooksService = new HooksService(tauri);
 
 	return {
 		commandService,
@@ -82,6 +84,7 @@ export const load: LayoutLoad = async () => {
 		secretsService,
 		posthog,
 		tauri,
-		fileService
+		fileService,
+		hooksService
 	};
 };

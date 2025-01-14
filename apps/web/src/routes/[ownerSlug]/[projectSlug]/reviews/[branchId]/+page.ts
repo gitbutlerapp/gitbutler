@@ -1,5 +1,5 @@
+import type { ProjectReviewParameters } from '$lib/project/types';
 import type { PageLoad } from './$types';
-import type { ProjectReviewParameters } from '../../../types';
 
 // eslint-disable-next-line func-style
 export const load: PageLoad<ProjectReviewParameters> = async ({ params }) => {

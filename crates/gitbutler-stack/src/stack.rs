@@ -530,11 +530,6 @@ impl Stack {
     pub fn archive_integrated_heads(&mut self, ctx: &CommandContext) -> Result<()> {
         self.ensure_initialized()?;
 
-        // Don't archive if there is only one branch
-        if self.heads.iter().filter(|branch| !branch.archived).count() == 1 {
-            return Ok(());
-        }
-
         self.updated_timestamp_ms = gitbutler_time::time::now_ms();
         let state = branch_state(ctx);
         let commit_ids = self.stack_patches(&ctx.to_stack_context()?, false)?;

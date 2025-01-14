@@ -27,7 +27,8 @@ fn integration() {
         .unwrap();
 
         std::fs::write(repository.path().join("file.txt"), "first\n").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "first", None, false).unwrap();
+        gitbutler_branch_actions::create_commit(project, branch_id, "first", None).unwrap();
+        #[allow(deprecated)]
         gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
@@ -58,7 +59,7 @@ fn integration() {
         // add a commit
         std::fs::write(repository.path().join("file.txt"), "first\nsecond").unwrap();
 
-        gitbutler_branch_actions::create_commit(project, branch_id, "second", None, false).unwrap();
+        gitbutler_branch_actions::create_commit(project, branch_id, "second", None).unwrap();
     }
 
     {
@@ -72,6 +73,7 @@ fn integration() {
 
     {
         // merge branch into master
+        #[allow(deprecated)]
         gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
         let branch = gitbutler_branch_actions::list_virtual_branches(project)
@@ -245,8 +247,7 @@ fn conflicts_with_commited() {
         let branches = list_result.branches;
         assert_eq!(branches.len(), 1);
 
-        gitbutler_branch_actions::create_commit(project, branches[0].id, "hej", None, false)
-            .unwrap();
+        gitbutler_branch_actions::create_commit(project, branches[0].id, "hej", None).unwrap();
     };
 
     // branch should be created unapplied, because of the conflict

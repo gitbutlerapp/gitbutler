@@ -365,7 +365,7 @@ fn new_locked_hunk_without_modifying_existing() {
     let branches = list_result.branches;
     assert_eq!(branches[0].files.len(), 1);
 
-    gitbutler_branch_actions::create_commit(project, branches[0].id, "second commit", None, false)
+    gitbutler_branch_actions::create_commit(project, branches[0].id, "second commit", None)
         .expect("failed to create commit");
 
     let list_result = gitbutler_branch_actions::list_virtual_branches(project).unwrap();

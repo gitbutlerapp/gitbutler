@@ -38,6 +38,12 @@ impl PartialEq for Hunk {
     }
 }
 
+impl PartialEq<diff::GitHunk> for Hunk {
+    fn eq(&self, other: &diff::GitHunk) -> bool {
+        self.start == other.new_start && self.end == other.new_start + other.new_lines
+    }
+}
+
 impl From<RangeInclusive<u32>> for Hunk {
     fn from(range: RangeInclusive<u32>) -> Self {
         Hunk {

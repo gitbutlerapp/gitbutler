@@ -23,20 +23,17 @@ fn head() {
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap()
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)
-            .unwrap()
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap()
     };
 
     let commit_three_oid = {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None, false)
-            .unwrap()
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None).unwrap()
     };
     let commit_three = repository.find_commit(commit_three_oid).unwrap();
     let before_change_id = &commit_three.change_id();
@@ -97,20 +94,17 @@ fn middle() {
 
     {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap()
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
     };
 
     let commit_two_oid = {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)
-            .unwrap()
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None, false)
-            .unwrap()
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None).unwrap()
     };
 
     gitbutler_branch_actions::update_commit_message(
@@ -170,10 +164,10 @@ fn forcepush_allowed() {
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap()
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
     };
 
+    #[allow(deprecated)]
     gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
     gitbutler_branch_actions::update_commit_message(
@@ -232,10 +226,10 @@ fn forcepush_forbidden() {
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap()
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
     };
 
+    #[allow(deprecated)]
     gitbutler_branch_actions::push_virtual_branch(project, branch_id, false, None).unwrap();
 
     assert_eq!(
@@ -271,20 +265,17 @@ fn root() {
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap()
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file two.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None, false)
-            .unwrap()
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit two", None).unwrap()
     };
 
     {
         fs::write(repository.path().join("file three.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None, false)
-            .unwrap()
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit three", None).unwrap()
     };
 
     gitbutler_branch_actions::update_commit_message(
@@ -335,8 +326,7 @@ fn empty() {
 
     let commit_one_oid = {
         fs::write(repository.path().join("file one.txt"), "").unwrap();
-        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None, false)
-            .unwrap()
+        gitbutler_branch_actions::create_commit(project, branch_id, "commit one", None).unwrap()
     };
 
     assert_eq!(

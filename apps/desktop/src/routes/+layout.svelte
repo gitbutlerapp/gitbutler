@@ -29,6 +29,7 @@
 		GitHubUserService
 	} from '$lib/forge/github/githubUserService';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
+	import { HooksService } from '$lib/hooks/hooksService';
 	import ToastController from '$lib/notifications/ToastController.svelte';
 	import { platformName } from '$lib/platform/platform';
 	import { DesktopDispatch, DesktopState } from '$lib/redux/store.svelte';
@@ -85,6 +86,7 @@
 	setContext(CloudProjectService, cloudProjectService);
 	setContext(CloudBranchService, cloudBranchService);
 	setContext(CloudPatchService, cloudPatchService);
+	setContext(HooksService, data.hooksService);
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);

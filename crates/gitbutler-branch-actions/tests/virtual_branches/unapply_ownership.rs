@@ -28,7 +28,7 @@ fn should_unapply_with_commits() {
         "1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n",
     )
     .unwrap();
-    gitbutler_branch_actions::create_commit(project, branch_id, "test", None, false).unwrap();
+    gitbutler_branch_actions::create_commit(project, branch_id, "test", None).unwrap();
 
     // change in the committed hunks leads to hunk locking
     fs::write(

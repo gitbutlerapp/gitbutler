@@ -67,7 +67,7 @@ where
         let full_path_exists = full_path.exists();
         let discard_hunk = (hunks.len() == 1).then(|| &hunks[0]);
         if full_path_exists || allow_new_file {
-            if discard_hunk.map_or(false, |hunk| hunk.change_type == crate::ChangeType::Deleted) {
+            if discard_hunk.is_some_and(|hunk| hunk.change_type == crate::ChangeType::Deleted) {
                 // File was created but now that hunk is being discarded with an inversed hunk
                 builder.remove(rel_path);
                 fs::remove_file(full_path.clone()).or_else(|err| {
@@ -131,7 +131,7 @@ where
                 )?;
                 builder.upsert(rel_path, blob_oid, filemode);
             } else if let Ok(tree_entry) = base_tree.get_path(rel_path) {
-                if discard_hunk.map_or(false, |hunk| hunk.binary) {
+                if discard_hunk.is_some_and(|hunk| hunk.binary) {
                     let new_blob_oid = &hunks[0].diff_lines;
                     // convert string to Oid
                     let new_blob_oid = new_blob_oid
@@ -195,7 +195,10 @@ where
                 // upsert into the builder
                 builder.upsert(rel_path, new_blob_oid, filemode);
             } else if !full_path_exists
-                && discard_hunk.map_or(false, |hunk| hunk.change_type == crate::ChangeType::Added)
+                && discard_hunk.is_some_and(|hunk| {
+                    hunk.change_type == crate::ChangeType::Added
+                        || hunk.change_type == crate::ChangeType::Untracked
+                })
             {
                 // File was deleted but now that hunk is being discarded with an inversed hunk
                 let mut all_diffs = BString::default();

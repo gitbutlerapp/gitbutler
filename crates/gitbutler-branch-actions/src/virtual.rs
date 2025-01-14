@@ -12,7 +12,6 @@ use crate::{
 };
 use anyhow::{anyhow, bail, Context, Result};
 use bstr::{BString, ByteSlice};
-use git2_hooks::HookResult;
 use gitbutler_branch::BranchUpdateRequest;
 use gitbutler_branch::{dedup, dedup_fmt};
 use gitbutler_cherry_pick::RepositoryExt as _;
@@ -41,7 +40,6 @@ use gitbutler_stack::{
 use gitbutler_time::time::now_since_unix_epoch_ms;
 use itertools::Itertools;
 use serde::Serialize;
-use std::borrow::Cow;
 use std::{collections::HashMap, path::PathBuf, vec};
 use tracing::instrument;
 
@@ -731,46 +729,7 @@ pub fn commit(
     stack_id: StackId,
     message: &str,
     ownership: Option<&BranchOwnershipClaims>,
-    run_hooks: bool,
 ) -> Result<git2::Oid> {
-    let mut message_buffer = message.to_owned();
-
-    fn join_output<'a>(stdout: &'a str, stderr: &'a str) -> Cow<'a, str> {
-        let stdout = stdout.trim();
-        if stdout.is_empty() {
-            stderr.trim().into()
-        } else {
-            stdout.into()
-        }
-    }
-
-    if run_hooks {
-        let hook_result =
-            git2_hooks::hooks_commit_msg(ctx.repo(), Some(&["../.husky"]), &mut message_buffer)
-                .context("failed to run hook")
-                .context(Code::CommitHookFailed)?;
-
-        if let HookResult::RunNotSuccessful { stdout, stderr, .. } = &hook_result {
-            return Err(
-                anyhow!("commit-msg hook rejected: {}", join_output(stdout, stderr))
-                    .context(Code::CommitHookFailed),
-            );
-        }
-
-        let hook_result = git2_hooks::hooks_pre_commit(ctx.repo(), Some(&["../.husky"]))
-            .context("failed to run hook")
-            .context(Code::CommitHookFailed)?;
-
-        if let HookResult::RunNotSuccessful { stdout, stderr, .. } = &hook_result {
-            return Err(
-                anyhow!("commit hook rejected: {}", join_output(stdout, stderr))
-                    .context(Code::CommitHookFailed),
-            );
-        }
-    }
-
-    let message = &message_buffer;
-
     // get the files to commit
     let diffs = gitbutler_diff::workdir(ctx.repo(), get_workspace_head(ctx)?)?;
     let statuses = get_applied_status_cached(ctx, None, &diffs)
@@ -847,12 +806,6 @@ pub fn commit(
         }
         None => ctx.commit(message, &tree, &[&parent_commit], None)?,
     };
-
-    if run_hooks {
-        git2_hooks::hooks_post_commit(ctx.repo(), Some(&["../.husky"]))
-            .context("failed to run hook")
-            .context(Code::CommitHookFailed)?;
-    }
 
     let vb_state = ctx.project().virtual_branches();
     branch.set_stack_head(ctx, commit_oid, Some(tree_oid))?;
@@ -1544,97 +1497,6 @@ pub(crate) fn insert_blank_commit(
     }
 
     Ok(())
-}
-
-/// squashes a commit from a virtual branch into its parent.
-pub(crate) fn squash(ctx: &CommandContext, stack_id: StackId, commit_id: git2::Oid) -> Result<()> {
-    ctx.assure_resolved()?;
-
-    let vb_state = ctx.project().virtual_branches();
-    let mut stack = vb_state.get_stack_in_workspace(stack_id)?;
-    let default_target = vb_state.get_default_target()?;
-    let branch_commit_oids =
-        ctx.repo()
-            .l(stack.head(), LogUntil::Commit(default_target.sha), false)?;
-
-    if !branch_commit_oids.contains(&commit_id) {
-        bail!("commit {commit_id} not in the branch")
-    }
-
-    let commit_to_squash = ctx
-        .repo()
-        .find_commit(commit_id)
-        .context("failed to find commit")?;
-
-    let parent_commit = commit_to_squash
-        .parent(0)
-        .context("failed to find parent commit")?;
-
-    if commit_to_squash.is_conflicted() || parent_commit.is_conflicted() {
-        bail!("Can not squash conflicted commits");
-    }
-
-    let pushed_commit_oids = stack.upstream_head.map_or_else(
-        || Ok(vec![]),
-        |upstream_head| {
-            ctx.repo()
-                .l(upstream_head, LogUntil::Commit(default_target.sha), false)
-        },
-    )?;
-
-    if pushed_commit_oids.contains(&parent_commit.id()) && !stack.allow_rebasing {
-        // squashing into a pushed commit will cause a force push that is not allowed
-        bail!("force push not allowed");
-    }
-
-    if !branch_commit_oids.contains(&parent_commit.id()) {
-        bail!("can not squash root commit");
-    }
-
-    // create a commit that:
-    //  * has the tree of the target commit
-    //  * has the message combined of the target commit and parent commit
-    //  * has parents of the parents commit.
-    let parents: Vec<_> = parent_commit.parents().collect();
-
-    let new_commit_oid = ctx
-        .repo()
-        .commit_with_signature(
-            None,
-            &commit_to_squash.author(),
-            &commit_to_squash.committer(),
-            &format!(
-                "{}\n{}",
-                parent_commit.message_bstr(),
-                commit_to_squash.message_bstr(),
-            ),
-            &commit_to_squash.tree().context("failed to find tree")?,
-            &parents.iter().collect::<Vec<_>>(),
-            // use the squash commit's headers
-            commit_to_squash.gitbutler_headers(),
-        )
-        .context("failed to commit")?;
-
-    let ids_to_rebase = {
-        let ids = branch_commit_oids
-            .split(|oid| oid.eq(&commit_id))
-            .collect::<Vec<_>>();
-        ids.first().copied()
-    }
-    .with_context(|| format!("commit {commit_id} not in the branch"))?;
-    let ids_to_rebase = ids_to_rebase.to_vec();
-
-    match cherry_rebase_group(ctx.repo(), new_commit_oid, &ids_to_rebase, false) {
-        Ok(new_head_id) => {
-            // save new branch head
-            stack.set_stack_head(ctx, new_head_id, None)?;
-
-            crate::integration::update_workspace_commit(&vb_state, ctx)
-                .context("failed to update gitbutler workspace")?;
-            Ok(())
-        }
-        Err(err) => Err(err.context("rebase error").context(Code::Unknown)),
-    }
 }
 
 // changes a commit message for commit_oid, rebases everything above it, updates branch head if successful

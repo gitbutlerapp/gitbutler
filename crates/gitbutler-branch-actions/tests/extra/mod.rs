@@ -55,7 +55,7 @@ fn commit_on_branch_then_change_file_then_get_status() -> Result<()> {
     assert_eq!(branch.series[0].clone()?.patches.len(), 0);
 
     // commit
-    internal::commit(ctx, stack1_id, "test commit", None, false)?;
+    internal::commit(ctx, stack1_id, "test commit", None)?;
 
     // status (no files)
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
@@ -148,7 +148,7 @@ fn track_binary_files() -> Result<()> {
     );
 
     // commit
-    internal::commit(ctx, stack1_id, "test commit", None, false)?;
+    internal::commit(ctx, stack1_id, "test commit", None)?;
 
     // status (no files)
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission()).unwrap();
@@ -173,7 +173,7 @@ fn track_binary_files() -> Result<()> {
     file.write_all(&image_data)?;
 
     // commit
-    internal::commit(ctx, stack1_id, "test commit", None, false)?;
+    internal::commit(ctx, stack1_id, "test commit", None)?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission()).unwrap();
     let branches = list_result.branches;
@@ -1492,8 +1492,8 @@ fn upstream_integrated_vbranch() -> Result<()> {
     )?;
 
     // create a new virtual branch from the remote branch
-    internal::commit(ctx, stack1_id, "integrated commit", None, false)?;
-    internal::commit(ctx, stack2_id, "non-integrated commit", None, false)?;
+    internal::commit(ctx, stack1_id, "integrated commit", None)?;
+    internal::commit(ctx, stack2_id, "non-integrated commit", None)?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branches = list_result.branches;
@@ -1563,7 +1563,7 @@ fn commit_same_hunk_twice() -> Result<()> {
     assert_eq!(branch.series[0].clone()?.patches.len(), 0);
 
     // commit
-    internal::commit(ctx, stack1_id, "first commit to test.txt", None, false)?;
+    internal::commit(ctx, stack1_id, "first commit to test.txt", None)?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branches = list_result.branches;
@@ -1603,7 +1603,7 @@ fn commit_same_hunk_twice() -> Result<()> {
         "commit is still there"
     );
 
-    internal::commit(ctx, stack1_id, "second commit to test.txt", None, false)?;
+    internal::commit(ctx, stack1_id, "second commit to test.txt", None)?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branches = list_result.branches;
@@ -1665,7 +1665,7 @@ fn commit_same_file_twice() -> Result<()> {
     assert_eq!(branch.series[0].clone()?.patches.len(), 0);
 
     // commit
-    internal::commit(ctx, stack1_id, "first commit to test.txt", None, false)?;
+    internal::commit(ctx, stack1_id, "first commit to test.txt", None)?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branches = list_result.branches;
@@ -1704,7 +1704,7 @@ fn commit_same_file_twice() -> Result<()> {
         "commit is still there"
     );
 
-    internal::commit(ctx, stack1_id, "second commit to test.txt", None, false)?;
+    internal::commit(ctx, stack1_id, "second commit to test.txt", None)?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branches = list_result.branches;
@@ -1771,7 +1771,6 @@ fn commit_partial_by_hunk() -> Result<()> {
         stack1_id,
         "first commit to test.txt",
         Some(&"test.txt:1-6".parse::<BranchOwnershipClaims>().unwrap()),
-        false,
     )?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
@@ -1790,7 +1789,6 @@ fn commit_partial_by_hunk() -> Result<()> {
         stack1_id,
         "second commit to test.txt",
         Some(&"test.txt:16-22".parse::<BranchOwnershipClaims>().unwrap()),
-        false,
     )?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
@@ -1836,7 +1834,7 @@ fn commit_partial_by_file() -> Result<()> {
         .id;
 
     // commit
-    internal::commit(ctx, stack1_id, "branch1 commit", None, false)?;
+    internal::commit(ctx, stack1_id, "branch1 commit", None)?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branches = list_result.branches;
@@ -1888,7 +1886,7 @@ fn commit_add_and_delete_files() -> Result<()> {
         .id;
 
     // commit
-    internal::commit(ctx, stack1_id, "branch1 commit", None, false)?;
+    internal::commit(ctx, stack1_id, "branch1 commit", None)?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branches = list_result.branches;
@@ -1946,7 +1944,7 @@ fn commit_executable_and_symlinks() -> Result<()> {
         .id;
 
     // commit
-    internal::commit(ctx, stack1_id, "branch1 commit", None, false)?;
+    internal::commit(ctx, stack1_id, "branch1 commit", None)?;
 
     let list_result = internal::list_virtual_branches(ctx, guard.write_permission())?;
     let branches = list_result.branches;
@@ -2073,125 +2071,6 @@ fn verify_branch_not_workspace() -> Result<()> {
     assert_eq!(
         format!("{:#}", verify_result.unwrap_err()),
         "<verification-failed>: project is on refs/heads/master. Please checkout gitbutler/workspace to continue"
-    );
-
-    Ok(())
-}
-
-#[test]
-fn pre_commit_hook_rejection() -> Result<()> {
-    let suite = Suite::default();
-    let Case { project, ctx, .. } = &suite.new_case_with_files(HashMap::from([
-        (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
-        (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
-    ]));
-
-    set_test_target(ctx)?;
-
-    let branch_manager = ctx.branch_manager();
-    let mut guard = project.exclusive_worktree_access();
-    let stack1_id = branch_manager
-        .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
-        .expect("failed to create virtual branch")
-        .id;
-
-    std::fs::write(
-        Path::new(&project.path).join("test.txt"),
-        "line0\nline1\nline2\nline3\nline4\n",
-    )?;
-
-    let hook = b"#!/bin/sh
-    echo 'rejected'
-    exit 1
-            ";
-
-    git2_hooks::create_hook(ctx.repo(), git2_hooks::HOOK_PRE_COMMIT, hook);
-
-    let res = internal::commit(ctx, stack1_id, "test commit", None, true);
-
-    let err = res.unwrap_err();
-    assert_eq!(
-        err.source().unwrap().to_string(),
-        "commit hook rejected: rejected"
-    );
-
-    Ok(())
-}
-
-#[test]
-fn post_commit_hook() -> Result<()> {
-    let suite = Suite::default();
-    let Case { project, ctx, .. } = &suite.new_case_with_files(HashMap::from([
-        (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
-        (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
-    ]));
-
-    set_test_target(ctx)?;
-
-    let branch_manager = ctx.branch_manager();
-    let mut guard = project.exclusive_worktree_access();
-    let stack1_id = branch_manager
-        .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
-        .expect("failed to create virtual branch")
-        .id;
-
-    std::fs::write(
-        Path::new(&project.path).join("test.txt"),
-        "line0\nline1\nline2\nline3\nline4\n",
-    )?;
-
-    let hook = b"#!/bin/sh
-    touch hook_ran
-            ";
-
-    git2_hooks::create_hook(ctx.repo(), git2_hooks::HOOK_POST_COMMIT, hook);
-
-    let hook_ran_proof = ctx.repo().path().parent().unwrap().join("hook_ran");
-
-    assert!(!hook_ran_proof.exists());
-
-    internal::commit(ctx, stack1_id, "test commit", None, true)?;
-
-    assert!(hook_ran_proof.exists());
-
-    Ok(())
-}
-
-#[test]
-fn commit_msg_hook_rejection() -> Result<()> {
-    let suite = Suite::default();
-    let Case { project, ctx, .. } = &suite.new_case_with_files(HashMap::from([
-        (PathBuf::from("test.txt"), "line1\nline2\nline3\nline4\n"),
-        (PathBuf::from("test2.txt"), "line5\nline6\nline7\nline8\n"),
-    ]));
-
-    set_test_target(ctx)?;
-
-    let branch_manager = ctx.branch_manager();
-    let mut guard = project.exclusive_worktree_access();
-    let stack1_id = branch_manager
-        .create_virtual_branch(&BranchCreateRequest::default(), guard.write_permission())
-        .expect("failed to create virtual branch")
-        .id;
-
-    std::fs::write(
-        Path::new(&project.path).join("test.txt"),
-        "line0\nline1\nline2\nline3\nline4\n",
-    )?;
-
-    let hook = b"#!/bin/sh
-    echo 'rejected'
-    exit 1
-            ";
-
-    git2_hooks::create_hook(ctx.repo(), git2_hooks::HOOK_COMMIT_MSG, hook);
-
-    let res = internal::commit(ctx, stack1_id, "test commit", None, true);
-
-    let err = res.unwrap_err();
-    assert_eq!(
-        err.source().unwrap().to_string(),
-        "commit-msg hook rejected: rejected"
     );
 
     Ok(())
