@@ -3,14 +3,13 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
-	import type { ComponentColor, ComponentStyleKind } from '@gitbutler/ui/utils/colorTypes';
+	import type { ComponentColorType, ComponentKindType } from '@gitbutler/ui/utils/colorTypes';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
 		icon?: keyof typeof iconsJson;
-		style?: ComponentColor;
-		kind?: ComponentStyleKind;
-		outline?: boolean;
+		style?: ComponentColorType;
+		kind?: ComponentKindType;
 		disabled?: boolean;
 		loading?: boolean;
 		wide?: boolean;
@@ -26,8 +25,7 @@
 	const {
 		icon,
 		style = 'neutral',
-		kind = 'soft',
-		outline = false,
+		kind = 'outline',
 		disabled = false,
 		loading = false,
 		wide = false,
@@ -68,7 +66,6 @@
 				{icon}
 				{kind}
 				{type}
-				{outline}
 				reversedDirection
 				disabled={disabled || loading}
 				dropdownChild
@@ -81,7 +78,6 @@
 				bind:el={iconEl}
 				{style}
 				{kind}
-				{outline}
 				icon={visible ? 'chevron-up' : 'chevron-down'}
 				{loading}
 				disabled={disabled || loading}

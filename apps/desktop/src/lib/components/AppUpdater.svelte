@@ -25,7 +25,7 @@
 {#if version || status === 'Up-to-date'}
 	<div class="update-banner" data-testid="update-banner" class:busy={$loading}>
 		<div class="floating-button">
-			<Button icon="cross-small" style="ghost" onclick={handleDismiss} />
+			<Button icon="cross-small" kind="ghost" onclick={handleDismiss} />
 		</div>
 		<div class="img">
 			<div class="circle-img">
@@ -118,8 +118,7 @@
 		<div class="buttons">
 			{#if releaseNotes}
 				<Button
-					style="ghost"
-					outline
+					kind="outline"
 					onmousedown={() => {
 						showToast({
 							id: 'release-notes',
@@ -140,7 +139,6 @@
 						<Button
 							wide
 							style="pop"
-							kind="solid"
 							testId="download-update"
 							onmousedown={async () => {
 								await updaterService.downloadAndInstall();
@@ -152,7 +150,6 @@
 						<Button
 							wide
 							style="pop"
-							kind="solid"
 							testId="got-it"
 							onmousedown={async () => {
 								updaterService.dismiss();
@@ -163,7 +160,6 @@
 					{:else if status === 'Done'}
 						<Button
 							style="pop"
-							kind="solid"
 							wide
 							testId="restart-app"
 							onclick={async () => await updaterService.relaunchApp()}

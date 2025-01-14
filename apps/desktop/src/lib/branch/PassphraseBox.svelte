@@ -40,8 +40,7 @@
 		/>
 		<div class="passbox__actions">
 			<Button
-				style="ghost"
-				outline
+				kind="outline"
 				disabled={isSubmitting}
 				onclick={async () => {
 					if (!prompt) return;
@@ -52,7 +51,6 @@
 			</Button>
 			<Button
 				style="pop"
-				kind="solid"
 				grow
 				onclick={async () => await submit()}
 				disabled={submitDisabled || isSubmitting}

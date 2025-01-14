@@ -1,9 +1,5 @@
-export type ComponentStyleKind = 'solid' | 'soft';
-export type ComponentColor =
-	| 'neutral'
-	| 'ghost'
-	| 'pop'
-	| 'success'
-	| 'error'
-	| 'warning'
-	| 'purple';
+export const componentKindConst = ['solid', 'outline', 'ghost'] as const;
+export type ComponentKindType = (typeof componentKindConst)[number];
+
+export const componentColorConst = ['neutral', 'pop', 'success', 'error', 'warning', 'purple'];
+export type ComponentColorType = (typeof componentColorConst)[number];

@@ -52,12 +52,10 @@
 		{@const [remoteName, branchName] = selectedBranch[0].split(/\/(.*)/s)}
 		<KeysForm {remoteName} {branchName} disabled={loading} />
 		<div class="actions">
-			<Button style="ghost" outline disabled={loading} onclick={() => (selectedBranch[0] = '')}>
+			<Button kind="outline" disabled={loading} onclick={() => (selectedBranch[0] = '')}>
 				Back
 			</Button>
-			<Button style="pop" kind="solid" {loading} onclick={setTarget} testId="accept-git-auth">
-				Let's go!
-			</Button>
+			<Button style="pop" {loading} onclick={setTarget} testId="accept-git-auth">Let's go!</Button>
 		</div>
 	{:else}
 		<ProjectSetupTarget

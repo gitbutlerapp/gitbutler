@@ -281,12 +281,11 @@
 
 	{#snippet controls()}
 		<div class="controls">
-			<Button onclick={() => modal?.close()} style="ghost" outline>Cancel</Button>
+			<Button onclick={() => modal?.close()} kind="outline">Cancel</Button>
 			<Button
 				wide
 				type="submit"
 				style="pop"
-				kind="solid"
 				disabled={isDivergedResolved || !branchStatuses}
 				loading={integratingUpstream === 'loading' || !branchStatuses}>Update workspace</Button
 			>

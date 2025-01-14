@@ -16,13 +16,13 @@
 		},
 		argTypes: {
 			style: {
-				options: ['neutral', 'ghost', 'pop', 'success', 'error', 'warning', 'purple'],
+				options: ['neutral', 'pop', 'success', 'error', 'warning', 'purple'],
 				control: {
 					type: 'select'
 				}
 			},
 			kind: {
-				options: ['solid', 'soft'],
+				options: ['solid', 'outline', 'ghost'],
 				control: {
 					type: 'select'
 				}
@@ -37,16 +37,8 @@
 
 {#snippet template({ ...args }: Args<typeof Story>, _context: StoryContext<typeof Story>)}
 	<div class="drodown-btn">
-		<Button style={args.style} kind={args.kind} outline={args.outline} dropdownChild
-			>Dropdown</Button
-		>
-		<Button
-			style={args.style}
-			kind={args.kind}
-			outline={args.outline}
-			icon="chevron-down-small"
-			dropdownChild
-		/>
+		<Button style={args.style} kind={args.kind} dropdownChild>Dropdown</Button>
+		<Button style={args.style} kind={args.kind} icon="chevron-down-small" dropdownChild />
 	</div>
 {/snippet}
 

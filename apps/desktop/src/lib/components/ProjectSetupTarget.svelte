@@ -242,10 +242,9 @@
 		</SetupFeature>
 	</div>
 	<div class="action-buttons">
-		<Button style="ghost" outline onmousedown={deleteProjectAndGoBack}>Cancel</Button>
+		<Button kind="outline" onmousedown={deleteProjectAndGoBack}>Cancel</Button>
 		<Button
 			style="pop"
-			kind="solid"
 			{loading}
 			onclick={onSetTargetClick}
 			icon="chevron-right-small"

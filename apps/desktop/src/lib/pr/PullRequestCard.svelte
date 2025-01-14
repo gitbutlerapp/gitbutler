@@ -17,7 +17,7 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
-	import { type ComponentColor } from '@gitbutler/ui/utils/colorTypes';
+	import { type ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 	import type { ForgePrMonitor } from '$lib/forge/interface/forgePrMonitor';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
 	import type { MessageStyle } from '$lib/shared/InfoMessage.svelte';
@@ -53,7 +53,7 @@
 	type StatusInfo = {
 		text: string;
 		icon: keyof typeof iconsJson | undefined;
-		style?: ComponentColor;
+		style?: ComponentColorType;
 		messageStyle?: MessageStyle;
 		tooltip?: string;
 	};
@@ -293,8 +293,7 @@
 				<Button
 					icon="open-link"
 					size="tag"
-					style="ghost"
-					outline
+					kind="outline"
 					tooltip="Open in browser"
 					onclick={() => {
 						openExternalUrl(pr.htmlUrl);
@@ -352,8 +351,7 @@
 				/>
 			{:else if !pr.merged}
 				<Button
-					style="ghost"
-					outline
+					kind="outline"
 					disabled={reopenStatus.disabled}
 					tooltip={reopenStatus.tooltip}
 					{loading}

@@ -34,7 +34,7 @@
 					<div class="back-btn__icon">
 						<Button
 							icon="chevron-left"
-							style="ghost"
+							kind="ghost"
 							onmousedown={() => {
 								if (history.length > 0) {
 									history.back();

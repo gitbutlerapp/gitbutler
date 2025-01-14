@@ -65,8 +65,7 @@
 				</div>
 				<div class="new-branch-button">
 					<Button
-						style="ghost"
-						outline
+						kind="outline"
 						icon="plus-small"
 						onmousedown={async () => await branchController.createBranch({})}>New branch</Button
 					>

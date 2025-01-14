@@ -13,8 +13,7 @@
 <div class="line-container" class:is-last={isLast} class:is-first={isFirst}>
 	<div class="barnch-plus-btn">
 		<Button
-			style="ghost"
-			outline
+			kind="outline"
 			solidBackground
 			icon="plus-small"
 			size="tag"

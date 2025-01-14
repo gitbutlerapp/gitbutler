@@ -1,6 +1,6 @@
 <script lang="ts" module>
-	import type { ComponentColor } from '@gitbutler/ui/utils/colorTypes';
-	export type MessageStyle = Exclude<ComponentColor, 'ghost' | 'purple'>;
+	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
+	export type MessageStyle = Exclude<ComponentColorType, 'ghost' | 'purple'>;
 </script>
 
 <script lang="ts">
@@ -9,7 +9,7 @@
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { Snippet } from 'svelte';
 
-	type IconColor = ComponentColor | undefined;
+	type IconColor = ComponentColorType | undefined;
 	type IconName = keyof typeof iconsJson;
 
 	interface Props {
@@ -62,13 +62,15 @@
 		success: 'success'
 	};
 
-	const primaryButtonMap: { [Key in MessageStyle]: ComponentColor } = {
+	const primaryButtonMap: { [Key in MessageStyle]: ComponentColorType } = {
 		neutral: 'pop',
 		pop: 'pop',
 		warning: 'warning',
 		error: 'error',
 		success: 'pop'
 	};
+
+	const resolvedIconName = iconName ?? (iconMap[style] as IconName);
 </script>
 
 <div
@@ -77,7 +79,7 @@
 	class:has-background={filled}
 	class:shadow
 >
-	<Icon name={iconName ? iconName : iconMap[style]} color={iconColorMap[style]} />
+	<Icon name={resolvedIconName} color={iconColorMap[style]} />
 	<div class="info-message__inner">
 		<div class="info-message__content">
 			{#if title}
@@ -102,14 +104,13 @@
 		{#if primaryLabel || secondaryLabel}
 			<div class="info-message__actions">
 				{#if secondaryLabel}
-					<Button style="ghost" outline onclick={() => secondaryAction?.()} icon={secondaryIcon}>
+					<Button kind="outline" onclick={() => secondaryAction?.()} icon={secondaryIcon}>
 						{secondaryLabel}
 					</Button>
 				{/if}
 				{#if primaryLabel}
 					<Button
 						style={primaryButtonMap[style]}
-						kind="solid"
 						onclick={() => primaryAction?.()}
 						icon={primaryIcon}
 					>

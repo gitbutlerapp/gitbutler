@@ -38,26 +38,34 @@
 
 <style lang="postcss">
 	.overflow-actions-btn {
+		--label-clr: var(--clr-btn-ntrl-outline-text);
+		--icon-opacity: var(--opacity-btn-icon-outline);
+		--btn-bg: var(--clr-bg-1);
+		--opacity-btn-bg: 0;
+
+		color: var(--label-clr);
+		background: color-mix(
+			in srgb,
+			var(--btn-bg, transparent),
+			var(--clr-btn-ntrl-outline-bg) calc(var(--opacity-btn-bg, 0) * 100%)
+		);
+		border: 1px solid var(--clr-border-2);
+		border-right: none;
+
 		padding: 3px 5px;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		color: var(--clr-text-1);
-
-		background-color: var(--clr-bg-1);
-		border-left: 1px solid var(--clr-border-2);
-		border-top: 1px solid var(--clr-border-2);
-		border-bottom: 1px solid var(--clr-border-2);
 		transition:
 			background-color var(--transition-fast),
 			opacity var(--transition-fast);
 
 		&:hover,
 		&.activated {
-			background-color: var(--clr-bg-1-muted);
+			--opacity-btn-bg: var(--opacity-btn-outline-bg-hover);
 
 			.overflow-actions-btn__icon {
-				opacity: var(--opacity-btn-icon-soft-hover);
+				--icon-opacity: var(--opacity-btn-icon-outline-hover);
 			}
 		}
 	}
@@ -69,6 +77,6 @@
 	.overflow-actions-btn__icon {
 		pointer-events: none;
 		display: flex;
-		opacity: var(--opacity-btn-icon-soft);
+		opacity: var(--icon-opacity);
 	}
 </style>

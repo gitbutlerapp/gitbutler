@@ -80,8 +80,8 @@
 	</p>
 	<Textbox label="Choose a remote name" bind:value={inputRemoteName} required />
 	{#snippet controls(close)}
-		<Button style="ghost" outline onclick={() => closeModal(close)}>Cancel</Button>
-		<Button style="pop" kind="solid" type="submit" grow {loading}>Confirm</Button>
+		<Button kind="outline" onclick={() => closeModal(close)}>Cancel</Button>
+		<Button style="pop" type="submit" grow {loading}>Confirm</Button>
 	{/snippet}
 </Modal>
 
@@ -99,7 +99,7 @@
 			{#if pr.draft}
 				<Badge size="tag" style="neutral" icon="draft-pr-small">Draft</Badge>
 			{:else}
-				<Badge size="tag" style="success" kind="solid" icon="pr-small">Open</Badge>
+				<Badge size="tag" style="success" icon="pr-small">Open</Badge>
 			{/if}
 		</div>
 
@@ -124,7 +124,6 @@
 		<div class="card__footer">
 			<Button
 				style="pop"
-				kind="solid"
 				tooltip="Does not create a commit. Can be toggled."
 				onclick={async () => createRemoteModal?.show()}>Apply from fork</Button
 			>

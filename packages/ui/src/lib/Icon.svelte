@@ -1,11 +1,11 @@
 <script lang="ts" module>
 	import { pxToRem } from '$lib/utils/pxToRem';
-	export type IconColor = ComponentColor | undefined;
+	export type IconColor = ComponentColorType | undefined;
 </script>
 
 <script lang="ts">
 	import iconsJson from '$lib/data/icons.json';
-	import type { ComponentColor } from '$lib/utils/colorTypes';
+	import type { ComponentColorType } from '$lib/utils/colorTypes';
 
 	interface Props {
 		name: keyof typeof iconsJson;

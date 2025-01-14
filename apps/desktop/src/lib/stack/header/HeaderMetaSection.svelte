@@ -23,7 +23,7 @@
 	<Button
 		bind:el={kebabButtonEl}
 		activated={isContextMenuOpen}
-		style="ghost"
+		kind="ghost"
 		icon="kebab"
 		size="tag"
 		onclick={() => {

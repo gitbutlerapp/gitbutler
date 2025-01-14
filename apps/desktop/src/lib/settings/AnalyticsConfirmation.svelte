@@ -18,7 +18,6 @@
 	<div class="analytics-confirmation__actions">
 		<Button
 			style="pop"
-			kind="solid"
 			testId="analytics-continue"
 			icon="chevron-right-small"
 			onclick={() => {

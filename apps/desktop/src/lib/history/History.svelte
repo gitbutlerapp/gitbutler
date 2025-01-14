@@ -123,7 +123,7 @@
 					</div>
 				</i>
 				<h3 class="sideview__header-title text-15 text-bold">Project history</h3>
-				<Button style="ghost" icon="cross" onclick={onHide} />
+				<Button kind="ghost" icon="cross" onclick={onHide} />
 			</div>
 
 			<!-- EMPTY STATE -->

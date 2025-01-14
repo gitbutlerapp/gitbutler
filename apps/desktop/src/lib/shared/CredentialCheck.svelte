@@ -107,14 +107,7 @@
 			</InfoMessage>
 		</div>
 	{/if}
-	<Button
-		style="pop"
-		kind="solid"
-		wide
-		icon="item-tick"
-		disabled={loading}
-		onclick={checkCredentials}
-	>
+	<Button style="pop" wide icon="item-tick" disabled={loading} onclick={checkCredentials}>
 		{#if loading || checks?.length === 0}
 			Test credentials
 		{:else}

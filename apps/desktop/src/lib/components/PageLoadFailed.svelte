@@ -16,8 +16,7 @@
 		</p>
 		<div class="actions">
 			<Button
-				outline
-				style="ghost"
+				kind="outline"
 				icon="update"
 				onclick={() => {
 					location.reload();

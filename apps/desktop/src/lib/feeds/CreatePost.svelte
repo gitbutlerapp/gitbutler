@@ -147,9 +147,9 @@
 
 	<div class="create-bleep-container">
 		{#if pictureObjectUrl}
-			<Button kind="soft" onclick={() => (pictureObjectUrl = undefined)}>Remove picture</Button>
+			<Button kind="outline" onclick={() => (pictureObjectUrl = undefined)}>Remove picture</Button>
 		{:else}
-			<Button kind="soft" onclick={() => pictureInput?.click()}>🖼️</Button>
+			<Button kind="outline" onclick={() => pictureInput?.click()}>🖼️</Button>
 		{/if}
 		<Button onclick={createPost}>Create Bleep 🚀</Button>
 	</div>

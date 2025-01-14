@@ -71,11 +71,8 @@
 				</div>
 
 				<div class="button-container">
-					<Button
-						type="button"
-						style="pop"
-						kind="solid"
-						onclick={async () => await locate(project.id)}>Locate project…</Button
+					<Button type="button" style="pop" onclick={async () => await locate(project.id)}
+						>Locate project…</Button
 					>
 					<RemoveProjectButton
 						noModal

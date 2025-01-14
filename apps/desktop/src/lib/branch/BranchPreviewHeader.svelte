@@ -46,7 +46,7 @@
 			<div class="header__remote-branch">
 				{#if remoteBranch}
 					<Tooltip text="At least some of your changes have been pushed">
-						<Badge size="tag" icon="branch-small" style="neutral" kind="solid">
+						<Badge size="tag" icon="branch-small" style="neutral">
 							{localBranch ? 'local and remote' : 'remote'}
 						</Badge>
 					</Tooltip>
@@ -55,8 +55,7 @@
 						<Button
 							size="tag"
 							icon="open-link"
-							style="ghost"
-							outline
+							kind="outline"
 							shrinkable
 							onclick={(e: MouseEvent) => {
 								const url = forgeBranch.url;
@@ -77,8 +76,7 @@
 					<Button
 						size="tag"
 						icon="pr-small"
-						style="ghost"
-						outline
+						kind="outline"
 						onclick={(e: MouseEvent) => {
 							const url = pr?.htmlUrl;
 							if (url) openExternalUrl(url);
@@ -94,8 +92,7 @@
 		<div class="header__actions">
 			<div class="header__buttons">
 				<Button
-					style="ghost"
-					outline
+					kind="outline"
 					tooltip="Restores these changes into your working directory"
 					icon="plus-small"
 					loading={isApplying}
@@ -128,8 +125,7 @@
 					Apply
 				</Button>
 				<Button
-					style="ghost"
-					outline
+					kind="outline"
 					tooltip="Deletes the local branch. If this branch is also present on a remote, it will not be deleted there."
 					icon="bin-small"
 					loading={isDeleting}
@@ -170,8 +166,8 @@
 		Are you sure you want to delete <code class="code-string">{branch.name}</code>?
 	{/snippet}
 	{#snippet controls(close)}
-		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="error" type="submit" kind="solid" loading={isDeleting}>Delete</Button>
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<Button style="error" type="submit" loading={isDeleting}>Delete</Button>
 	{/snippet}
 </Modal>
 

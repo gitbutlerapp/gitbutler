@@ -67,7 +67,6 @@
 		<div class="switchrepo__actions">
 			<Button
 				style="pop"
-				kind="solid"
 				icon="undo-small"
 				reversedDirection
 				onclick={() => {

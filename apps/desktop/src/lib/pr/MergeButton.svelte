@@ -15,7 +15,6 @@
 		tooltip?: string;
 		style?: ButtonProps['style'];
 		kind?: ButtonProps['kind'];
-		outline?: boolean;
 	}
 
 	const {
@@ -25,9 +24,8 @@
 		disabled = false,
 		wide = false,
 		tooltip = '',
-		style = 'ghost',
-		kind = 'soft',
-		outline = true
+		style = 'neutral',
+		kind = 'outline'
 	}: Props = $props();
 
 	function persistedAction(projectId: string): Persisted<MergeMethod> {
@@ -49,7 +47,6 @@
 <DropDownButton
 	bind:this={dropDown}
 	onclick={() => onclick?.($action)}
-	{outline}
 	{style}
 	{kind}
 	{loading}

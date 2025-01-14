@@ -68,11 +68,11 @@
 	{#if isLast && editing}
 		<div class="bubble-actions">
 			{#if !disableRemove}
-				<Button icon="bin-small" kind="soft" style="error" onclick={() => onRemoveLastExample()}>
+				<Button icon="bin-small" kind="outline" style="error" onclick={() => onRemoveLastExample()}>
 					Remove example
 				</Button>
 			{/if}
-			<Button style="ghost" outline grow onclick={() => onAddExample()}>Add new example</Button>
+			<Button kind="outline" grow onclick={() => onAddExample()}>Add new example</Button>
 		</div>
 	{/if}
 </div>

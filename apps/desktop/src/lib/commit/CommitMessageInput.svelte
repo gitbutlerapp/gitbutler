@@ -322,8 +322,7 @@
 					<Icon name="spinner" opacity={0.4} />
 				{/if}
 				<DropDownButton
-					style="ghost"
-					outline
+					kind="outline"
 					icon="ai-small"
 					disabled={!($aiGenEnabled && aiConfigurationValid)}
 					loading={aiLoading}

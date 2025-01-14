@@ -71,7 +71,7 @@
 </script>
 
 {#if minimal}
-	<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
+	<Button style="pop" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 {:else}
 	<SectionCard orientation="row">
 		{#snippet iconSide()}
@@ -103,11 +103,9 @@
 			Allows you to view and create Pull Requests.
 		{/snippet}
 		{#if $user?.github_access_token}
-			<Button style="ghost" outline {disabled} icon="bin-small" onclick={forgetGitHub}>
-				Forget
-			</Button>
+			<Button kind="outline" {disabled} icon="bin-small" onclick={forgetGitHub}>Forget</Button>
 		{:else}
-			<Button style="pop" kind="solid" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
+			<Button style="pop" {disabled} onclick={gitHubStartOauth}>Authorize</Button>
 		{/if}
 	</SectionCard>
 {/if}
@@ -134,7 +132,7 @@
 					</span>
 					<Button
 						style="neutral"
-						kind="soft"
+						kind="outline"
 						icon="copy"
 						disabled={codeCopied}
 						onclick={() => {
@@ -157,7 +155,6 @@
 					</p>
 					<Button
 						style="pop"
-						kind="solid"
 						disabled={GhActivationLinkPressed}
 						icon="open-link"
 						onclick={() => {
@@ -182,7 +179,6 @@
 				<div class="step-section__content">
 					<Button
 						style="pop"
-						kind="solid"
 						{loading}
 						disabled={loading}
 						onclick={async () => {

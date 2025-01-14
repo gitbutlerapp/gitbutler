@@ -33,7 +33,6 @@
 		<Button
 			loading={$loading}
 			style="pop"
-			kind="solid"
 			onclick={async () => {
 				await userService.login();
 			}}>Log in or Sign up</Button

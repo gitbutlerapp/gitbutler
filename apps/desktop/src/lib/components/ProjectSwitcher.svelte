@@ -76,7 +76,6 @@
 
 	<Button
 		style="pop"
-		kind="solid"
 		icon="chevron-right-small"
 		disabled={selectedProjectId === project?.id}
 		onmousedown={() => {

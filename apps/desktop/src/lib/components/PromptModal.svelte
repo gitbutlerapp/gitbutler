@@ -71,12 +71,10 @@
 	<Textbox autofocus type="password" bind:value disabled={!!$error || loading} />
 
 	{#snippet controls()}
-		<Button style="ghost" type="reset" outline disabled={loading} onclick={handleCancelButton}
+		<Button kind="outline" type="reset" disabled={loading} onclick={handleCancelButton}
 			>Cancel</Button
 		>
-		<Button style="pop" type="submit" kind="solid" grow disabled={!!$error || loading} {loading}>
-			Submit
-		</Button>
+		<Button style="pop" type="submit" grow disabled={!!$error || loading} {loading}>Submit</Button>
 	{/snippet}
 </Modal>
 

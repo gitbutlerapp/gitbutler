@@ -76,8 +76,8 @@
 		</p>
 	{/snippet}
 	{#snippet controls(close)}
-		<Button style="ghost" outline type="reset" onclick={close}>Cancel</Button>
-		<Button style="pop" type="submit" kind="solid" disabled={!createRefName}>Add new branch</Button>
+		<Button kind="outline" type="reset" onclick={close}>Cancel</Button>
+		<Button style="pop" type="submit" disabled={!createRefName}>Add new branch</Button>
 	{/snippet}
 </Modal>
 

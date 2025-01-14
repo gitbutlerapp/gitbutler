@@ -191,7 +191,6 @@
 
 		<Button
 			style="pop"
-			kind="solid"
 			tooltip={`Merges the commits from ${base.branchName} into the base of all applied virtual branches`}
 			disabled={$mode?.type !== 'OpenWorkspace' || integrateUpstreamModalOpen}
 			loading={integrateUpstreamModalOpen}
@@ -225,7 +224,6 @@
 					<Button
 						wide
 						icon="warning"
-						kind="solid"
 						style={resetBaseTo.remote.color}
 						tooltip={resetBaseTo.remote.tooltip}
 						loading={baseBranchIsUpdating || integrateUpstreamModalOpen}
@@ -264,7 +262,6 @@
 						wide
 						style={resetBaseTo.local.color}
 						icon={onlyLocalAhead ? undefined : 'warning'}
-						kind="solid"
 						tooltip={pushButtonTooltip}
 						loading={baseBranchIsUpdating || confirmResetModalOpen}
 						disabled={$mode?.type !== 'OpenWorkspace' ||
@@ -281,7 +278,6 @@
 							wide
 							style="error"
 							icon="warning"
-							kind="solid"
 							tooltip="Discard your local changes"
 							disabled={$mode?.type !== 'OpenWorkspace' || integrateUpstreamModalOpen}
 							loading={integrateUpstreamModalOpen}
@@ -339,8 +335,8 @@
 		</div>
 
 		{#snippet controls(close)}
-			<Button style="ghost" outline onclick={close}>Cancel</Button>
-			<Button style="error" kind="solid" type="submit" icon="warning"
+			<Button kind="outline" onclick={close}>Cancel</Button>
+			<Button style="error" type="submit" icon="warning"
 				>{resetBaseTo[resetBaseStrategy!].title}</Button
 			>
 		{/snippet}

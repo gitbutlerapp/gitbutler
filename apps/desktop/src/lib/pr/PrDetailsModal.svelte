@@ -435,7 +435,6 @@
 								<div class="pr-ai__actions">
 									<Button
 										style="neutral"
-										kind="solid"
 										icon="ai-small"
 										tooltip={!aiConfigurationValid
 											? 'Log in or provide your own API key'
@@ -461,12 +460,11 @@
 
 	{#snippet controls(close)}
 		{#if props.type !== 'display'}
-			<Button style="ghost" outline onclick={close}>Cancel</Button>
+			<Button kind="outline" onclick={close}>Cancel</Button>
 
 			<DropDownButton
 				bind:this={createPrDropDown}
 				style="pop"
-				kind="solid"
 				disabled={isLoading || aiIsLoading || !prTitle.value}
 				loading={isLoading}
 				type="submit"
@@ -497,8 +495,7 @@
 		{:else}
 			<div class="pr-footer__actions">
 				<Button
-					style="ghost"
-					outline
+					kind="outline"
 					icon={prLinkCopied ? 'tick-small' : 'copy-small'}
 					disabled={prLinkCopied}
 					onclick={() => {
@@ -506,15 +503,14 @@
 					}}>{prLinkCopied ? 'Link copied!' : 'Copy PR link'}</Button
 				>
 				<Button
-					style="ghost"
-					outline
+					kind="outline"
 					icon="open-link"
 					onclick={() => {
 						openExternalUrl(props.pr.htmlUrl);
 					}}>Open in browser</Button
 				>
 			</div>
-			<Button style="ghost" outline onclick={close}>Close</Button>
+			<Button kind="outline" onclick={close}>Close</Button>
 		{/if}
 	{/snippet}
 </Modal>

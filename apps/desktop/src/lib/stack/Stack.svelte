@@ -239,7 +239,6 @@
 								>
 									<Button
 										style="neutral"
-										kind="solid"
 										wide
 										loading={isPushingCommits}
 										disabled={hasConflicts}
@@ -256,38 +255,6 @@
 									</Button>
 								</div>
 							{/if}
-							<!-- {#await canMergeAll then isMergeable}
-								{#if isMergeable}
-									<div
-										class="lane-branches__action merge-all"
-										class:scroll-end-visible={scrollEndVisible}
-										use:intersectionObserver={{
-											callback: (entry) => {
-												if (entry?.isIntersecting) {
-													scrollEndVisible = false;
-												} else {
-													scrollEndVisible = true;
-												}
-											},
-											options: {
-												root: null,
-												rootMargin: `-100% 0px 0px 0px`,
-												threshold: 0
-											}
-										}}
-									>
-										<MergeButton
-											style="neutral"
-											kind="solid"
-											wide
-											projectId={project.id}
-											tooltip="Merge all possible branches"
-											loading={isMergingSeries}
-											onclick={mergeAll}
-										/>
-									</div>
-								{/if}
-							{/await} -->
 						</div>
 					</div>
 				</div>

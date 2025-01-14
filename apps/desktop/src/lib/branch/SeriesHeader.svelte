@@ -397,9 +397,8 @@
 							/>
 						{:else}
 							<Button
-								style="ghost"
+								kind="outline"
 								wide
-								outline
 								disabled={branch.patches.length === 0 || !$forge || !$prService || conflictedSeries}
 								onclick={() => handleOpenPR()}
 								tooltip={conflictedSeries
@@ -441,8 +440,8 @@
 				</p>
 			{/snippet}
 			{#snippet controls(close)}
-				<Button style="ghost" outline onclick={close}>Cancel</Button>
-				<Button style="error" kind="solid" type="submit">Create pull request</Button>
+				<Button kind="outline" onclick={close}>Cancel</Button>
+				<Button style="warning" type="submit">Create pull request</Button>
 			{/snippet}
 		</Modal>
 	</Dropzones>

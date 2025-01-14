@@ -118,8 +118,7 @@
 			<Textbox value={MERGE_DIFF_COMMAND + $commit.id.slice(0, 7)} wide readonly />
 			<Button
 				icon="copy"
-				style="ghost"
-				outline
+				kind="outline"
 				onmousedown={() => copyToClipboard(MERGE_DIFF_COMMAND + $commit.id.slice(0, 7))}
 			/>
 		</div>

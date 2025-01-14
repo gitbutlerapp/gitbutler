@@ -156,9 +156,7 @@
 		All changes will be lost for <strong>{branch.name}</strong>. Are you sure you want to continue?
 	{/snippet}
 	{#snippet controls(close)}
-		<Button style="ghost" outline onclick={close}>Cancel</Button>
-		<Button style="error" kind="solid" type="submit" loading={isDeleting}
-			>Unapply and drop changes</Button
-		>
+		<Button kind="outline" onclick={close}>Cancel</Button>
+		<Button style="error" type="submit" loading={isDeleting}>Unapply and drop changes</Button>
 	{/snippet}
 </Modal>
