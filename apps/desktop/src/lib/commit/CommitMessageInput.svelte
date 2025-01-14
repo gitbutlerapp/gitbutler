@@ -14,7 +14,6 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { isFailure } from '$lib/result';
 	import DropDownButton from '$lib/shared/DropDownButton.svelte';
-	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import * as toasts from '$lib/utils/toasts';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
@@ -25,8 +24,7 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
-	import { isWhiteSpaceString } from '@gitbutler/ui/utils/string';
-	import { onMount, tick } from 'svelte';
+	import { onMount } from 'svelte';
 
 	interface Props {
 		existingCommit?: DetailedCommit | Commit;
@@ -62,20 +60,12 @@
 	let hookRunning = $state(false);
 	let aiConfigurationValid = $state(false);
 
-	let titleTextArea: HTMLTextAreaElement | undefined = $state();
-	let descriptionTextArea: HTMLTextAreaElement | undefined = $state();
-	let isTitleFocused = $state(true);
-	let isDescriptionFocused = $state(false);
-
-	const { title, description } = $derived(splitMessage(commitMessage));
+	let messageTextArea: HTMLTextAreaElement | undefined = $state();
+	let isMessageFocused = $state(false);
 
 	$effect(() => {
-		valid = !!title;
+		valid = !!commitMessage;
 	});
-
-	function concatMessage(title: string, description: string) {
-		return `${title}\n\n${description}`;
-	}
 
 	async function getDiffInput(): Promise<DiffInput[]> {
 		if (!existingCommit) {
@@ -162,9 +152,7 @@
 		aiConfigurationValid = await aiService.validateConfiguration();
 	});
 
-	function handleDescriptionKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
-		const value = e.currentTarget.value;
-
+	function handleKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
 		if (e.key === KeyName.Escape) {
 			e.preventDefault();
 			cancel();
@@ -172,62 +160,6 @@
 		}
 
 		if (commit && (e.ctrlKey || e.metaKey) && e.key === KeyName.Enter) commit();
-
-		if (e.key === KeyName.Delete && value.length === 0) {
-			e.preventDefault();
-			if (titleTextArea) {
-				titleTextArea.focus();
-				titleTextArea.selectionStart = titleTextArea.textLength;
-			}
-			return;
-		}
-
-		if (e.key === 'a' && (e.metaKey || e.ctrlKey) && value.length === 0) {
-			// select previous textarea on cmd+a if this textarea is empty
-			e.preventDefault();
-			titleTextArea?.select();
-			return;
-		}
-	}
-
-	function handleSummaryKeyDown(e: KeyboardEvent & { currentTarget: HTMLTextAreaElement }) {
-		if (e.key === KeyName.Escape) {
-			e.preventDefault();
-			cancel();
-			return;
-		}
-
-		if (commit && (e.ctrlKey || e.metaKey) && e.key === KeyName.Enter) commit();
-		if (e.key === KeyName.Enter) {
-			e.preventDefault();
-
-			const caretStart = e.currentTarget.selectionStart;
-			const caretEnd = e.currentTarget.selectionEnd;
-			const value = e.currentTarget.value;
-
-			// if the caret is not at the end of the text, move the rest of the text to the description
-			// get rid of the selected text
-			if (caretStart < value.length || caretEnd < value.length) {
-				const toKeep = value.slice(0, caretStart);
-				const toMove = value.slice(caretEnd);
-				const newDescription = isWhiteSpaceString(description)
-					? toMove
-					: `${toMove}\n${description}`;
-				commitMessage = concatMessage(toKeep, newDescription);
-				tick().then(() => {
-					if (descriptionTextArea) {
-						descriptionTextArea.focus();
-						descriptionTextArea.setSelectionRange(0, 0);
-					}
-				});
-			}
-
-			descriptionTextArea?.focus();
-		}
-	}
-
-	export function focus() {
-		titleTextArea?.focus();
 	}
 </script>
 
@@ -242,72 +174,34 @@
 {#if isExpanded}
 	<div class="commit-box__textarea-wrapper text-input">
 		<Textarea
-			value={title}
+			value={commitMessage}
 			unstyled
-			placeholder="Commit summary"
+			placeholder="Commit message (required)"
 			disabled={aiLoading}
 			fontSize={13}
-			padding={{ top: 12, right: 28, bottom: 0, left: 12 }}
-			fontWeight="semibold"
+			padding={{ top: 12, right: 12, bottom: 0, left: 12 }}
 			spellcheck={false}
-			flex="1"
 			minRows={1}
-			maxRows={10}
-			bind:textBoxEl={titleTextArea}
-			autofocus
+			maxRows={30}
+			bind:textBoxEl={messageTextArea}
 			onfocus={() => {
-				isTitleFocused = true;
-				isDescriptionFocused = false;
+				isMessageFocused = true;
 			}}
 			onblur={() => {
-				isTitleFocused = false;
+				isMessageFocused = false;
 				if ($runHooks) {
 					runMessageHook();
 				}
 			}}
 			oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
 				const target = e.currentTarget;
-				commitMessage = concatMessage(target.value, description);
+				commitMessage = target.value;
 			}}
-			onkeydown={handleSummaryKeyDown}
+			onkeydown={handleKeyDown}
 		/>
 
-		{#if title.length > 0 || description}
-			<Textarea
-				value={description}
-				unstyled
-				placeholder="Commit description (optional)"
-				disabled={aiLoading}
-				fontSize={13}
-				padding={{ top: 0, right: 12, bottom: 0, left: 12 }}
-				spellcheck={false}
-				minRows={1}
-				maxRows={30}
-				bind:textBoxEl={descriptionTextArea}
-				onfocus={() => {
-					isDescriptionFocused = true;
-					isTitleFocused = false;
-				}}
-				onblur={() => {
-					isDescriptionFocused = false;
-					if ($runHooks) {
-						runMessageHook();
-					}
-				}}
-				oninput={(e: Event & { currentTarget: EventTarget & HTMLTextAreaElement }) => {
-					const target = e.currentTarget;
-					commitMessage = concatMessage(title, target.value);
-				}}
-				onkeydown={handleDescriptionKeyDown}
-			/>
-		{/if}
-
-		{#if title.length > 0 && isTitleFocused}
-			{@render charCounter('Summary chars', title.length)}
-		{/if}
-
-		{#if description.length > 0 && isDescriptionFocused}
-			{@render charCounter('Description chars', description.length)}
+		{#if commitMessage.length > 0 && isMessageFocused}
+			{@render charCounter('Message chars', commitMessage.length)}
 		{/if}
 
 		<Tooltip
