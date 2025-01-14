@@ -684,6 +684,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "but-workspace"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "gitbutler-id",
+ "gitbutler-stack",
+]
+
+[[package]]
 name = "byte-unit"
 version = "5.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2853,6 +2863,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backtrace",
+ "but-workspace",
  "console-subscriber",
  "dirs 5.0.1",
  "futures",
@@ -2875,6 +2886,7 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-repo-actions",
  "gitbutler-secret",
+ "gitbutler-serde",
  "gitbutler-settings",
  "gitbutler-stack",
  "gitbutler-storage",

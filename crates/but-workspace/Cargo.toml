@@ -1,0 +1,15 @@
+[package]
+name = "but-workspace"
+version = "0.0.0"
+edition = "2021"
+authors = ["GitButler <gitbutler@gitbutler.com>"]
+publish = false
+
+[lib]
+doctest = false
+
+[dependencies]
+anyhow.workspace = true
+bstr.workspace = true
+gitbutler-id.workspace = true
+gitbutler-stack.workspace = true

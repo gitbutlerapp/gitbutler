@@ -1,14 +1,12 @@
 [workspace]
-members = [
-    "crates/gitbutler-*",
-    "crates/but-*"
-]
+members = ["crates/gitbutler-*", "crates/but-*"]
 resolver = "2"
 
 [workspace.dependencies]
 bstr = "1.11.1"
 # Add the `tracing` or `tracing-detail` features to see more of gitoxide in the logs. Useful to see which programs it invokes.
-gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "a22f13bec0cdd580ee92390a98d5d522eb29978d", default-features = false, features = [] }
+gix = { git = "https://github.com/GitoxideLabs/gitoxide", rev = "a22f13bec0cdd580ee92390a98d5d522eb29978d", default-features = false, features = [
+] }
 git2 = { version = "0.20.0", features = [
     "vendored-openssl",
     "vendored-libgit2",
@@ -17,7 +15,12 @@ uuid = { version = "1.11.0", features = ["v4", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
 thiserror = "2.0.9"
 tokio = { version = "1.42.0", default-features = false }
-keyring = { version = "3.6.1", features = ["apple-native", "windows-native", "linux-native", "crypto-rust"] }
+keyring = { version = "3.6.1", features = [
+    "apple-native",
+    "windows-native",
+    "linux-native",
+    "crypto-rust",
+] }
 anyhow = "1.0.95"
 parking_lot = "0.12.3"
 futures = "0.3.31"
@@ -62,6 +65,7 @@ gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
 gitbutler-settings = { path = "crates/gitbutler-settings" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
 but-core = { path = "crates/but-core" }
+but-workspace = { path = "crates/but-workspace" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better
