@@ -6,7 +6,6 @@
 	import ProjectSettingsMenuAction from '$lib/barmenuActions/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { GitBranchService } from '$lib/branches/gitBranch';
@@ -27,6 +26,7 @@
 	import { createForgeRepoServiceStore } from '$lib/forge/interface/forgeRepoService';
 	import History from '$lib/history/History.svelte';
 	import { HistoryService } from '$lib/history/history';
+	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 	import { ModeService } from '$lib/modes/service';
 	import Navigation from '$lib/navigation/Navigation.svelte';
@@ -91,7 +91,7 @@
 
 		// Cloud related services
 		setContext(SyncedSnapshotService, data.syncedSnapshotService);
-		setContext(CloudBranchCreationService, data.cloudBranchCreationService);
+		setContext(StackPublishingService, data.stackPublishingService);
 		setContext(FileService, data.fileService);
 	});
 

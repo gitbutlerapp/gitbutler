@@ -10,10 +10,8 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import SeriesHeaderContextMenu from '$lib/branch/SeriesHeaderContextMenu.svelte';
-	import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 	import ContextMenu from '$lib/components/contextmenu/ContextMenu.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { cloudReviewFunctionality } from '$lib/config/uiFeatureFlags';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
@@ -144,11 +142,6 @@
 	async function updateStatusAndChecks() {
 		await Promise.allSettled([prMonitor?.refresh(), checksMonitor?.update()]);
 	}
-
-	const cloudBranchCreationService = getContext(CloudBranchCreationService);
-	const showCreateCloudBranch = $derived(
-		$cloudReviewFunctionality && cloudBranchCreationService.canCreateBranch
-	);
 
 	/**
 	 * We are starting to store pull request id's locally so if we find one that does not have
@@ -377,7 +370,7 @@
 				{/if}
 			</div>
 		</div>
-		{#if ($prService && !hasNoCommits) || showCreateCloudBranch}
+		{#if $prService && !hasNoCommits}
 			<div class="branch-action">
 				<div class="branch-action__line" style:--bg-color={lineColor}></div>
 				<div class="branch-action__body">
@@ -415,16 +408,6 @@
 								Create pull request
 							</Button>
 						{/if}
-					{/if}
-
-					{#if showCreateCloudBranch}
-						<Button
-							kind="outline"
-							disabled={branch.patches.length === 0}
-							onclick={() => {
-								cloudBranchCreationService.createBranch(stack.id);
-							}}>Publish Branch</Button
-						>
 					{/if}
 				</div>
 			</div>

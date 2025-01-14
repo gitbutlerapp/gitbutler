@@ -8,5 +8,6 @@ publish = false
 [dependencies]
 git2.workspace = true
 gix.workspace = true
-serde = { workspace = true, features = ["std"]}
+serde = { workspace = true, features = ["std"] }
 bstr.workspace = true
+gitbutler-oxidize.workspace = true

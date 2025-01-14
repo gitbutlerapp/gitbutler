@@ -239,7 +239,7 @@ fn update_project(
     Ok(())
 }
 
-fn push_to_gitbutler_server(
+pub(crate) fn push_to_gitbutler_server(
     ctx: &CommandContext,
     user: Option<&users::User>,
     ref_specs: &[&str],
@@ -299,11 +299,11 @@ fn push_to_gitbutler_server(
     Ok(total_objects_pushed > 0)
 }
 
-enum RemoteKind {
+pub(crate) enum RemoteKind {
     Code,
     Oplog,
 }
-fn remote(ctx: &CommandContext, kind: RemoteKind) -> Result<git2::Remote> {
+pub(crate) fn remote(ctx: &CommandContext, kind: RemoteKind) -> Result<git2::Remote> {
     let api_project = ctx.project().api.as_ref().context("api not set")?;
     let url = match kind {
         RemoteKind::Code => {

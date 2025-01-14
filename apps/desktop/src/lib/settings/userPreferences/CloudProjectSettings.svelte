@@ -141,40 +141,42 @@
 
 	<Loading loadable={cloudProject}>
 		{#snippet children(cloudProject)}
-			<Section>
-				{#snippet title()}
-					Link your project with an organization
-				{/snippet}
+			{#if !cloudProject.parentProjectRepositoryId}
+				<Section>
+					{#snippet title()}
+						Link your project with an organization
+					{/snippet}
 
-				<RegisterInterest interest={usersOrganizationsInterest} />
+					<RegisterInterest interest={usersOrganizationsInterest} />
 
-				<div>
-					{#each usersOrganizations as loadableOrganization, index}
-						<SectionCard
-							roundedBottom={index === usersOrganizations.length - 1}
-							roundedTop={index === 0}
-							orientation="row"
-							centerAlign
-						>
-							{#snippet children()}
-								<Loading loadable={loadableOrganization}>
-									{#snippet children(organization)}
-										<h5 class="text-15 text-bold flex-grow">
-											{organization.name || organization.slug}
-										</h5>
-									{/snippet}
-								</Loading>
-							{/snippet}
-							{#snippet actions()}
-								<ProjectConnectModal
-									organizationSlug={loadableOrganization.id}
-									projectRepositoryId={cloudProject.repositoryId}
-								/>
-							{/snippet}
-						</SectionCard>
-					{/each}
-				</div>
-			</Section>
+					<div>
+						{#each usersOrganizations as loadableOrganization, index}
+							<SectionCard
+								roundedBottom={index === usersOrganizations.length - 1}
+								roundedTop={index === 0}
+								orientation="row"
+								centerAlign
+							>
+								{#snippet children()}
+									<Loading loadable={loadableOrganization}>
+										{#snippet children(organization)}
+											<h5 class="text-15 text-bold flex-grow">
+												{organization.name || organization.slug}
+											</h5>
+										{/snippet}
+									</Loading>
+								{/snippet}
+								{#snippet actions()}
+									<ProjectConnectModal
+										organizationSlug={loadableOrganization.id}
+										projectRepositoryId={cloudProject.repositoryId}
+									/>
+								{/snippet}
+							</SectionCard>
+						{/each}
+					</div>
+				</Section>
+			{/if}
 		{/snippet}
 	</Loading>
 {:else if !$project?.api?.repository_id}

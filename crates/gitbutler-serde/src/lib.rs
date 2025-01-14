@@ -44,6 +44,31 @@ pub mod oid_opt {
     }
 }
 
+pub mod object_id_opt {
+    use gitbutler_oxidize::{ObjectIdExt, OidExt};
+    use serde::{Deserialize, Deserializer, Serialize};
+
+    pub fn serialize<S>(v: &Option<gix::ObjectId>, s: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        v.as_ref().map(|v| v.to_git2().to_string()).serialize(s)
+    }
+
+    pub fn deserialize<'de, D>(d: D) -> Result<Option<gix::ObjectId>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let hex = <Option<String> as Deserialize>::deserialize(d)?;
+        hex.map(|v| {
+            v.parse::<git2::Oid>()
+                .map(|oid| oid.to_gix())
+                .map_err(|err: git2::Error| serde::de::Error::custom(err.to_string()))
+        })
+        .transpose()
+    }
+}
+
 pub mod oid_vec {
     use serde::{Deserialize, Deserializer, Serialize};
 
