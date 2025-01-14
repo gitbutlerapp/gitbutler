@@ -13,6 +13,7 @@ doctest = false
 
 [dependencies]
 but-core.workspace = true
+but-workspace.workspace = true
 
 clap = { version = "4.5.23", features = ["derive", "env"] }
 anyhow = "1.0.95"

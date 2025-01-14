@@ -665,6 +665,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-core",
+ "but-workspace",
  "clap",
  "tracing",
  "tracing-forest",

@@ -10,3 +10,14 @@ pub mod status {
         debug_print("call into but-core")
     }
 }
+
+pub mod stacks {
+    use std::path::Path;
+
+    use crate::command::debug_print;
+
+    pub fn doit(current_dir: &Path) -> anyhow::Result<()> {
+        let gb_state_path = current_dir.join(".git").join("gitbutler");
+        debug_print(but_workspace::stacks(&gb_state_path))
+    }
+}
