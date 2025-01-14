@@ -10,6 +10,10 @@ use gix::config::tree::Key;
 
 use crate::state::OplogHandle;
 
+/// A collection of commits that we want to protect from `git GC`.
+///
+/// It can easily be produced from a [`Project`] to get the status quo to update the reflog after the project changed.
+#[derive(Debug, Clone, Copy)]
 pub struct ReflogCommits {
     target: gix::ObjectId,
     oplog: Option<gix::ObjectId>,
@@ -17,7 +21,8 @@ pub struct ReflogCommits {
 }
 
 impl ReflogCommits {
-    pub fn create(project: &Project) -> Result<Self> {
+    /// Collect the current state of all relevant commits that we want to protect in the reflog to prevent them from being GC'd.
+    pub fn new(project: &Project) -> Result<Self> {
         let vb_state = VirtualBranchesHandle::new(project.gb_dir());
         let target = vb_state.get_default_target()?.sha.to_gix();
         let last_pushed_base = vb_state.last_pushed_base()?;
@@ -174,28 +179,12 @@ mod set_target_ref {
         let worktree_dir = dir.path();
 
         let oplog = git2::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
-        set_reference_to_oplog(
-            worktree_dir,
-            ReflogCommits {
-                target: commit_id.to_gix(),
-                oplog: Some(oplog.to_gix()),
-                last_pushed_base: None,
-            },
-        )
-        .expect("success");
+        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
         std::fs::write(&log_file_path, [])?;
 
-        set_reference_to_oplog(
-            worktree_dir,
-            ReflogCommits {
-                target: commit_id.to_gix(),
-                oplog: Some(oplog.to_gix()),
-                last_pushed_base: None,
-            },
-        )
-        .expect("success");
+        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
         assert_eq!(reflog_lines(&contents).len(), 2);
@@ -211,28 +200,12 @@ mod set_target_ref {
         let worktree_dir = dir.path();
 
         let oplog = git2::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
-        set_reference_to_oplog(
-            worktree_dir,
-            ReflogCommits {
-                target: commit_id.to_gix(),
-                oplog: Some(oplog.to_gix()),
-                last_pushed_base: None,
-            },
-        )
-        .expect("success");
+        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
         std::fs::write(&log_file_path, b"a gobbled mess that is no reflog")?;
 
-        set_reference_to_oplog(
-            worktree_dir,
-            ReflogCommits {
-                target: commit_id.to_gix(),
-                oplog: Some(oplog.to_gix()),
-                last_pushed_base: None,
-            },
-        )
-        .expect("success");
+        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
         assert_eq!(reflog_lines(&contents).len(), 2);
@@ -245,28 +218,12 @@ mod set_target_ref {
         let worktree_dir = dir.path();
 
         let oplog = git2::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
-        set_reference_to_oplog(
-            worktree_dir,
-            ReflogCommits {
-                target: commit_id.to_gix(),
-                oplog: Some(oplog.to_gix()),
-                last_pushed_base: None,
-            },
-        )
-        .expect("success");
+        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let loose_ref_path = worktree_dir.join(".git/refs/heads/gitbutler/target");
         std::fs::remove_file(&loose_ref_path)?;
 
-        set_reference_to_oplog(
-            worktree_dir,
-            ReflogCommits {
-                target: commit_id.to_gix(),
-                oplog: Some(oplog.to_gix()),
-                last_pushed_base: None,
-            },
-        )
-        .expect("success");
+        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
         assert!(
             loose_ref_path.is_file(),
             "the file was recreated, just in case there is only a reflog and no branch"
@@ -280,28 +237,13 @@ mod set_target_ref {
         let worktree_dir = dir.path();
 
         let oplog = git2::Oid::from_str("0123456789abcdef0123456789abcdef0123456")?;
-        set_reference_to_oplog(
-            worktree_dir,
-            ReflogCommits {
-                target: commit_id.to_gix(),
-                oplog: Some(oplog.to_gix()),
-                last_pushed_base: None,
-            },
-        )
-        .expect("success");
+        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
 
         let log_file_path = worktree_dir.join(".git/logs/refs/heads/gitbutler/target");
         std::fs::remove_file(&log_file_path)?;
 
-        set_reference_to_oplog(
-            worktree_dir,
-            ReflogCommits {
-                target: commit_id.to_gix(),
-                oplog: Some(oplog.to_gix()),
-                last_pushed_base: None,
-            },
-        )
-        .expect("missing reflog files are recreated");
+        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog))
+            .expect("missing reflog files are recreated");
         assert!(log_file_path.is_file(), "the file was recreated");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
@@ -323,15 +265,7 @@ mod set_target_ref {
         // Set ref for the first time
         let oplog_hex = "0123456789abcdef0123456789abcdef01234567";
         let oplog = git2::Oid::from_str(oplog_hex)?;
-        set_reference_to_oplog(
-            worktree_dir,
-            ReflogCommits {
-                target: commit_id.to_gix(),
-                oplog: Some(oplog.to_gix()),
-                last_pushed_base: None,
-            },
-        )
-        .expect("success");
+        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, oplog)).expect("success");
         assert!(log_file_path.exists());
         let contents = std::fs::read_to_string(&log_file_path)?;
         let lines = reflog_lines(&contents);
@@ -365,15 +299,8 @@ mod set_target_ref {
         // Update the oplog head only
         let another_oplog_hex = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
         let another_oplog = git2::Oid::from_str(another_oplog_hex)?;
-        set_reference_to_oplog(
-            worktree_dir,
-            ReflogCommits {
-                target: commit_id.to_gix(),
-                oplog: Some(another_oplog.to_gix()),
-                last_pushed_base: None,
-            },
-        )
-        .expect("success");
+        set_reference_to_oplog(worktree_dir, reflog_commits(commit_id, another_oplog))
+            .expect("success");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
         let lines: Vec<_> = reflog_lines(&contents);
@@ -402,15 +329,8 @@ mod set_target_ref {
         // Update the target head only
         let new_target_hex = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
         let new_target = git2::Oid::from_str(new_target_hex)?;
-        set_reference_to_oplog(
-            worktree_dir,
-            ReflogCommits {
-                target: new_target.to_gix(),
-                oplog: Some(another_oplog.to_gix()),
-                last_pushed_base: None,
-            },
-        )
-        .expect("success");
+        set_reference_to_oplog(worktree_dir, reflog_commits(new_target, another_oplog))
+            .expect("success");
 
         let contents = std::fs::read_to_string(&log_file_path)?;
         let lines: Vec<_> = reflog_lines(&contents);
@@ -453,6 +373,14 @@ mod set_target_ref {
             sig.time.seconds, 0,
             "we don't accidentally use the default time as it would caues GC as well"
         );
+    }
+
+    fn reflog_commits(target: git2::Oid, oplog: git2::Oid) -> ReflogCommits {
+        ReflogCommits {
+            target: target.to_gix(),
+            oplog: Some(oplog.to_gix()),
+            last_pushed_base: None,
+        }
     }
 
     fn setup_repo() -> anyhow::Result<(tempfile::TempDir, git2::Oid)> {

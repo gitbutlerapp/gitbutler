@@ -509,7 +509,7 @@ fn commit_snapshot(
 
     oplog_state.set_oplog_head(snapshot_commit_id)?;
 
-    set_reference_to_oplog(&ctx.path, ReflogCommits::create(ctx)?)?;
+    set_reference_to_oplog(&ctx.path, ReflogCommits::new(ctx)?)?;
 
     Ok(snapshot_commit_id)
 }

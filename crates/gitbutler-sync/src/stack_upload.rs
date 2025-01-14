@@ -29,7 +29,7 @@ pub fn push_stack_to_review(ctx: &CommandContext, user: &User, stack_id: StackId
     let Some(review_base_id) = vb_state.upsert_last_pushed_base(&repository)? else {
         bail!("This is impossible. If you got here, I'm sorry.");
     };
-    set_reference_to_oplog(&ctx.project().path, ReflogCommits::create(ctx.project())?)?;
+    set_reference_to_oplog(&ctx.project().path, ReflogCommits::new(ctx.project())?)?;
 
     let target_commit_id = vb_state.get_default_target()?.sha.to_gix();
     let commits = repository
