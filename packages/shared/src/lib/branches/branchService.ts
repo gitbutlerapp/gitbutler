@@ -9,7 +9,7 @@ import {
 	type LoadableBranch,
 	type LoadablePatch
 } from '$lib/branches/types';
-import { InterestStore, type Interest } from '$lib/interest/intrestStore';
+import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { POLLING_GLACIALLY, POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';

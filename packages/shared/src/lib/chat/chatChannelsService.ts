@@ -7,7 +7,7 @@ import {
 	type LoadableChatChannel,
 	type SendChatMessageParams
 } from '$lib/chat/types';
-import { InterestStore, type Interest } from '$lib/interest/intrestStore';
+import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';
@@ -59,10 +59,10 @@ export class ChatChannelsService {
 			});
 
 			// Re-fetch the chat messages to get the new message
-			// this.chatMessagesInterests.invalidate({
-			// 	projectId: params.projectId,
-			// 	changeId: params.changeId
-			// });
+			this.chatMessagesInterests.invalidate({
+				projectId: params.projectId,
+				changeId: params.changeId
+			});
 		} catch (error) {
 			console.error('Failed to send chat message', error);
 		}

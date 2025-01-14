@@ -1,4 +1,4 @@
-import { InterestStore, type Interest } from '$lib/interest/intrestStore';
+import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { type HttpClient } from '$lib/network/httpClient';
 import { errorToLoadable } from '$lib/network/loadable';
 import {

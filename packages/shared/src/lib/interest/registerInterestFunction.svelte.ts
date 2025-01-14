@@ -1,4 +1,4 @@
-import type { Interest } from '$lib/interest/intrestStore';
+import type { Interest } from '$lib/interest/interestStore';
 
 export type InView = {
 	element?: HTMLElement;
