@@ -166,5 +166,7 @@ export class AppState
 
 			return unsubscribe;
 		});
+
+		$inspect(this.rootState);
 	}
 }

@@ -4,6 +4,7 @@ import { registerInterest, type InView } from '$lib/interest/registerInterestFun
 import type { BranchService } from '$lib/branches/branchService';
 import type { AppBranchesState } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
+import { isFound } from '$lib/network/loadable';
 
 export function getBranchReviews(
 	appState: AppBranchesState,
@@ -15,7 +16,13 @@ export function getBranchReviews(
 	const branchReviewsInterest = branchService.getBranchesInterest(repositoryId, status);
 	registerInterest(branchReviewsInterest, inView);
 
-	const branchReviews = $derived(branchesSelectors.selectAll(appState.branches));
+	const branchReviews = $derived(
+		branchesSelectors
+			.selectAll(appState.branches)
+			.filter((branch) => isFound(branch) && branch.value.repositoryId === repositoryId)
+	);
+
+	console.log(branchReviews);
 
 	return {
 		get current() {

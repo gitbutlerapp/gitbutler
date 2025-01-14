@@ -221,6 +221,7 @@ export type ApiBranch = {
 	stack_size?: number;
 	contributors: string[];
 	patches: ApiPatch[];
+	repository_id: string;
 };
 
 export type Branch = {
@@ -231,10 +232,11 @@ export type Branch = {
 	description?: string;
 	status?: BranchStatus;
 	version?: number;
-	created_at: string;
+	createdAt: string;
 	stackSize?: number;
 	contributors: string[];
-	patch_ids: string[];
+	patchIds: string[];
+	repositoryId: string;
 };
 
 export type LoadableBranch = LoadableData<Branch, Branch['branchId']>;
@@ -248,9 +250,10 @@ export function apiToBranch(api: ApiBranch): Branch {
 		description: api.description,
 		status: api.status,
 		version: api.version,
-		created_at: api.created_at,
+		createdAt: api.created_at,
 		stackSize: api.stack_size,
 		contributors: api.contributors,
-		patch_ids: api.patches.map((patch) => patch.change_id)
+		patchIds: api.patches.map((patch) => patch.change_id),
+		repositoryId: api.repository_id
 	};
 }

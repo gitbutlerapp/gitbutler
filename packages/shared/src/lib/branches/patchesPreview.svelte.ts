@@ -16,7 +16,7 @@ export function getPatch(
 	const patchInterest = patchService.getPatchWithSectionsInterest(branchId, changeId);
 	registerInterest(patchInterest, inView);
 
-	const patch = $derived(patchesSelectors.selectById(appState.patches, branchId));
+	const patch = $derived(patchesSelectors.selectById(appState.patches, changeId));
 
 	return {
 		get current() {

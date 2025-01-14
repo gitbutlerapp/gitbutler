@@ -25,6 +25,7 @@ export class PatchService {
 			.findOrCreateSubscribable({ changeId }, async () => {
 				this.appDispatch.dispatch(addPatch({ status: 'loading', id: changeId }));
 				try {
+					console.log(branchId, changeId);
 					const apiPatch = await this.httpClient.get<ApiPatch>(
 						`patch_stack/${branchId}/patch/${changeId}`
 					);
