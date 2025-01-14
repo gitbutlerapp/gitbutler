@@ -4,14 +4,16 @@ use anyhow::{bail, Result};
 // A happy little module for uploading stacks.
 
 use gitbutler_command_context::CommandContext;
+use gitbutler_commit::commit_headers::HasCommitHeaders as _;
 use gitbutler_oplog::reflog::{set_reference_to_oplog, ReflogCommits};
-use gitbutler_oxidize::OidExt as _;
+use gitbutler_oxidize::{git2_signature_to_gix_signature, OidExt as _};
+use gitbutler_repo::{commit_message::CommitMessage, signature};
 use gitbutler_stack::{
     stack_context::{CommandContextExt, StackContext},
     Stack, StackId, VirtualBranchesHandle,
 };
 use gitbutler_user::User;
-use gix::bstr::{BString, ByteSlice, ByteVec as _};
+use gix::bstr::ByteSlice;
 
 use crate::cloud::{push_to_gitbutler_server, remote, RemoteKind};
 
@@ -77,58 +79,6 @@ fn branch_heads(stack: &Stack, stack_context: &StackContext<'_>) -> Result<Vec<B
     Ok(heads)
 }
 
-struct CommitMessage {
-    title: BString,
-    body: BString,
-    trailers: Vec<(BString, BString)>,
-}
-
-impl CommitMessage {
-    // I tried not allocating but couldn't get it right. This works fine
-    fn to_bstring(&self) -> BString {
-        let mut out = BString::default();
-        out.push_str(self.title.clone());
-        out.push_str(b"\n\n");
-        out.push_str(self.body.clone());
-        out.push_str(b"\n\n");
-        out.push_str(self.trailers_as_bstring());
-        out
-    }
-
-    fn trailers_as_bstring(&self) -> BString {
-        let mut out = BString::default();
-        for (index, trailer) in self.trailers.iter().enumerate() {
-            let trailer = gix::bstr::join(": ", [&trailer.0, &trailer.1]);
-            out.push_str(trailer);
-
-            if index != self.trailers.len() - 1 {
-                out.push_str(b"\n")
-            }
-        }
-        out
-    }
-
-    fn new(commit: gix::objs::CommitRef<'_>) -> Self {
-        let message_ref = commit.message();
-        let body_ref = message_ref.body();
-
-        CommitMessage {
-            title: commit.message().title.to_owned(),
-            body: body_ref
-                .map(|body_ref| body_ref.without_trailer().as_bstr().to_owned())
-                .unwrap_or_default(),
-            trailers: body_ref
-                .map(|body_ref| {
-                    body_ref
-                        .trailers()
-                        .map(|trailer| (trailer.token.to_owned(), trailer.value.to_owned()))
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default(),
-        }
-    }
-}
-
 /// Rewrites a series of commits in preperation for pusing to gitbutler review.
 ///
 /// The heads and commits should be passed in child-most to parent-most order.
@@ -142,24 +92,25 @@ fn format_stack_for_review(
 ) -> Result<gix::ObjectId> {
     let mut previous_commit = base_commit;
 
-    for (index, commit_id) in commits.iter().enumerate().rev() {
+    for commit_id in commits.iter().rev() {
         let commit = repository.find_commit(*commit_id)?;
         let decoded_commit = commit.decode()?;
         let mut message = CommitMessage::new(decoded_commit.clone());
         let mut object: gix::objs::Commit = decoded_commit.into();
 
-        // The parent-most commit is the last one in the array
-        if index == commits.len() - 1 {
-            message
-                .trailers
-                .push((b"Base-Commit".into(), base_commit.to_string().into()));
-        }
-
         message
             .trailers
-            .push((b"Original-Commit".into(), commit_id.to_string().into()));
+            .push(("Original-Commit".into(), commit_id.to_string().into()));
 
-        'heads: for stack_head in heads {
+        let change_id = commit
+            .gitbutler_headers()
+            .map(|headers| headers.change_id)
+            .unwrap_or_else(|| commit.id.to_string());
+        message
+            .trailers
+            .push(("Change-Id".into(), change_id.into()));
+
+        'heads: for stack_head in heads.iter().rev() {
             if stack_head.id != *commit_id {
                 continue 'heads;
             }
@@ -168,13 +119,16 @@ fn format_stack_for_review(
                 .as_bytes()
                 .as_bstr()
                 .to_owned();
-            message.trailers.push((b"Branch-Head".into(), value))
+            message.trailers.push(("Branch-Head".into(), value))
         }
 
         object.message = message.to_bstring();
         // Remove the signing header so we don't have an invalid signature
         object.extra_headers.retain(|entry| entry.0 != "gpgsig");
         object.parents = [previous_commit].into();
+        object.committer = git2_signature_to_gix_signature(signature(
+            gitbutler_repo::SignaturePurpose::Committer,
+        )?);
 
         previous_commit = repository.write_object(object)?.detach();
     }

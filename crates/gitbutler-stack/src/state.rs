@@ -9,6 +9,7 @@ use gitbutler_error::error::Code;
 use gitbutler_fs::read_toml_file_or_default;
 use gitbutler_oxidize::OidExt as _;
 use gitbutler_reference::Refname;
+use gitbutler_repo::commit_message::CommitMessage;
 use gitbutler_serde::object_id_opt;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -17,6 +18,9 @@ use crate::{
     stack::{Stack, StackId},
     target::Target,
 };
+
+const LAST_PUSHED_BASE_VERSION_HEADER: &str = "base-commit-version";
+const LAST_PUSHED_BASE_VERSION: &str = "1";
 
 /// The state of virtual branches data, as persisted in a TOML file.
 #[derive(Serialize, Deserialize, Debug, Default)]
@@ -171,7 +175,6 @@ impl VirtualBranchesHandle {
     /// if that branch doesn't exist.
     pub fn try_stack(&self, id: StackId) -> Result<Option<Stack>> {
         let virtual_branches = self.read_file()?;
-        dbg!(&virtual_branches);
         Ok(virtual_branches.branches.get(&id).cloned())
     }
 
@@ -314,9 +317,17 @@ impl VirtualBranchesHandle {
                 .tree_id()?
                 .detach();
 
+            let up_to_date = repository
+                .find_commit(last_pushed_base)?
+                .decode()?
+                .extra_headers()
+                .find(LAST_PUSHED_BASE_VERSION_HEADER)
+                .unwrap_or("unversioned".into())
+                == LAST_PUSHED_BASE_VERSION;
+
             // If the base commit's tree is the same as the previously pushed
             // one, we have no need to update it.
-            if base_tree_id == last_pushed_tree {
+            if base_tree_id == last_pushed_tree && up_to_date {
                 return Ok(Some(last_pushed_base));
             }
 
@@ -358,8 +369,16 @@ fn alter_parentage(
     to_rewrite: gix::ObjectId,
     new_parents: &[gix::ObjectId],
 ) -> Result<gix::ObjectId> {
-    let mut to_rewrite: gix::objs::Commit = repository.find_commit(to_rewrite)?.decode()?.into();
+    let decoded = repository.find_commit(to_rewrite)?;
+    let decoded = decoded.decode()?;
+    let mut message = CommitMessage::new(decoded.clone());
+    message.trailers.push(("Base-Commit".into(), "".into()));
+    let mut to_rewrite: gix::objs::Commit = decoded.into();
     to_rewrite.parents = new_parents.into();
     to_rewrite.extra_headers.retain(|entry| entry.0 != "gpgsig");
+    to_rewrite.extra_headers.push((
+        LAST_PUSHED_BASE_VERSION_HEADER.into(),
+        LAST_PUSHED_BASE_VERSION.into(),
+    ));
     Ok(repository.write_object(to_rewrite)?.into())
 }
