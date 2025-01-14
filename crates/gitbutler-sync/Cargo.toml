@@ -22,3 +22,5 @@ gitbutler-id.workspace = true
 gitbutler-url.workspace = true
 gitbutler-stack.workspace = true
 gitbutler-oxidize.workspace = true
+gitbutler-repo.workspace = true
+gitbutler-commit.workspace = true
