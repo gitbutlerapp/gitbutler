@@ -9,7 +9,7 @@
 	let { data }: Props = $props();
 </script>
 
-<h2>Review page: {data.ownerSlug}/{data.projectSlug} {data.branchId}/{data.commitId}</h2>
+<h2>Review page: {data.ownerSlug}/{data.projectSlug} {data.branchId}/{data.changeId}</h2>
 
 <div class="review-page">
 	<div class="review-main-content">the main area with the diffs</div>

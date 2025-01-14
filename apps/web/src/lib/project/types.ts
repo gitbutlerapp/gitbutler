@@ -11,5 +11,5 @@ export interface ProjectReviewParameters extends ProjectParameters {
 }
 
 export interface ProjectReviewCommitParameters extends ProjectReviewParameters {
-	commitId: string;
+	changeId: string;
 }
