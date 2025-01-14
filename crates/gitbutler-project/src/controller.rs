@@ -40,7 +40,7 @@ impl Controller {
             Ok(repo) if repo.is_bare() => {
                 bail!("bare repositories are unsupported");
             }
-            Ok(repo) if repo.worktree().map_or(false, |wt| !wt.is_main()) => {
+            Ok(repo) if repo.worktree().is_some_and(|wt| !wt.is_main()) => {
                 if path.join(".git").is_file() {
                     bail!("can only work in main worktrees");
                 };

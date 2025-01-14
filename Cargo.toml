@@ -1,42 +1,7 @@
 [workspace]
 members = [
-    "crates/gitbutler-tauri",
-    "crates/gitbutler-git",
-    "crates/gitbutler-watcher",
-    "crates/gitbutler-watcher/vendor/debouncer",
-    "crates/gitbutler-testsupport",
-    "crates/gitbutler-cli",
-    "crates/gitbutler-branch-actions",
-    "crates/gitbutler-sync",
-    "crates/gitbutler-oplog",
-    "crates/gitbutler-repo",
-    "crates/gitbutler-repo-actions",
-    "crates/gitbutler-command-context",
-    "crates/gitbutler-feedback",
-    "crates/gitbutler-config",
-    "crates/gitbutler-project",
-    "crates/gitbutler-user",
-    "crates/gitbutler-branch",
-    "crates/gitbutler-reference",
-    "crates/gitbutler-error",
-    "crates/gitbutler-serde",
-    "crates/gitbutler-secret",
-    "crates/gitbutler-id",
-    "crates/gitbutler-storage",
-    "crates/gitbutler-fs",
-    "crates/gitbutler-time",
-    "crates/gitbutler-commit",
-    "crates/gitbutler-tagged-string",
-    "crates/gitbutler-url",
-    "crates/gitbutler-diff",
-    "crates/gitbutler-operating-modes",
-    "crates/gitbutler-edit-mode",
-    "crates/gitbutler-cherry-pick",
-    "crates/gitbutler-oxidize",
-    "crates/gitbutler-stack",
-    "crates/gitbutler-hunk-dependency",
-    "crates/gitbutler-settings",
-    "crates/gitbutler-workspace",
+    "crates/gitbutler-*",
+    "crates/but-*"
 ]
 resolver = "2"
 
@@ -96,6 +61,7 @@ gitbutler-forge = { path = "crates/gitbutler-forge" }
 gitbutler-hunk-dependency = { path = "crates/gitbutler-hunk-dependency" }
 gitbutler-settings = { path = "crates/gitbutler-settings" }
 gitbutler-workspace = { path = "crates/gitbutler-workspace" }
+but-core = { path = "crates/but-core" }
 
 [profile.release]
 codegen-units = 1 # Compile crates one after another so the compiler can optimize better

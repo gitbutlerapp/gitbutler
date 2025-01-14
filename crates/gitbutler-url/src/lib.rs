@@ -31,7 +31,7 @@ impl Url {
     pub fn is_github(&self) -> bool {
         self.host
             .as_ref()
-            .map_or(false, |host| host.contains("github.com"))
+            .is_some_and(|host| host.contains("github.com"))
     }
 }
 

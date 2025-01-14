@@ -34,7 +34,7 @@ impl RepositoryExtLite for git2::Repository {
                 let path = worktree_dir.join(gix::path::from_bstr(item.entry.rela_path.as_bstr()));
                 let file_is_too_large = path
                     .metadata()
-                    .map_or(false, |md| md.is_file() && md.len() > limit_in_bytes);
+                    .is_ok_and(|md| md.is_file() && md.len() > limit_in_bytes);
                 file_is_too_large
                     .then(|| Vec::from(item.entry.rela_path).into_string().ok())
                     .flatten()
