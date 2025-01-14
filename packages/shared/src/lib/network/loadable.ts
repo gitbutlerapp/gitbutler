@@ -48,10 +48,25 @@ export function loadableUpsertMany<T, Id extends EntityId>(
 				return payload;
 			}
 
+			let merged: T;
+
+			const unmergableTypes = ['string', 'number', 'boolean', 'bigint', 'symbol', 'undefined'];
+
+			if (
+				unmergableTypes.includes(typeof entity.value) ||
+				unmergableTypes.includes(typeof payload.value)
+			) {
+				merged = payload.value;
+			} else if (Array.isArray(entity.value) || Array.isArray(payload.value)) {
+				merged = payload.value;
+			} else {
+				merged = { ...entity.value, ...payload.value };
+			}
+
 			const newValue: LoadableData<T, Id> = {
 				status: 'found',
 				id: payload.id,
-				value: { ...entity.value, ...payload.value }
+				value: merged
 			};
 
 			return newValue;
@@ -59,4 +74,15 @@ export function loadableUpsertMany<T, Id extends EntityId>(
 
 		adapter.setMany(state, values);
 	};
+}
+
+export function and<T>(
+	a: Loadable<unknown> | undefined,
+	b: Loadable<T> | undefined
+): Loadable<T> | undefined {
+	if (isFound(a)) {
+		return b;
+	} else {
+		return a;
+	}
 }
