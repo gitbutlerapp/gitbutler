@@ -19,9 +19,9 @@
 
 <Loading loadable={project.current}>
 	{#snippet children(project)}
-		<a href="/{project.owner}/{project.name}">
+		<a href="/{project.owner}/{project.slug}">
 			<div class="card">
-				<p>{project.owner}/{project.name}</p>
+				<p>{project.owner}/{project.slug}</p>
 				<p>{project.createdAt}</p>
 			</div>
 		</a>
