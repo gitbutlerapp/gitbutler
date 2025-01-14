@@ -1,5 +1,4 @@
-import { registerInterest } from '@gitbutler/shared/interest/registerInterestFunction.svelte';
-import { projectsSelectors } from '@gitbutler/shared/organizations/projectsSlice';
+import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
 import type { ProjectService, ProjectsService } from '$lib/backend/projects';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
@@ -16,26 +15,21 @@ export function projectCloudSync(
 	const project = readableToReactive(projectService.project);
 	const authentictionAvailable = readableToReactive(httpClient.authenticationAvailable);
 
-	$effect(() => {
-		if (!project.current?.api || !authentictionAvailable) return;
-
-		const cloudProjectInterest = cloudProjectService.getProjectInterest(
-			project.current.api.repository_id
-		);
-		registerInterest(cloudProjectInterest);
-	});
-
 	const loadableCloudProject = $derived(
-		project.current?.api
-			? projectsSelectors.selectById(appState.projects, project.current.api.repository_id)
+		project.current?.api && authentictionAvailable
+			? getProjectByRepositoryId(appState, cloudProjectService, project.current.api.repository_id)
 			: undefined
 	);
 
 	$effect(() => {
-		if (!project.current?.api || !loadableCloudProject || loadableCloudProject.status !== 'found')
+		if (
+			!project.current?.api ||
+			!loadableCloudProject?.current ||
+			loadableCloudProject?.current.status !== 'found'
+		)
 			return;
 
-		const cloudProject = loadableCloudProject.value;
+		const cloudProject = loadableCloudProject.current.value;
 		const persistedProjectUpdatedAt = new Date(project.current.api.updated_at).getTime();
 		const cloudProjectUpdatedAt = new Date(cloudProject.updatedAt).getTime();
 		if (persistedProjectUpdatedAt >= cloudProjectUpdatedAt) return;

@@ -29,6 +29,12 @@ pub struct StackBranch {
     /// This would occur when the branch has been merged at the remote and the workspace has been updated with that change.
     #[serde(default)]
     pub archived: bool,
+
+    #[serde(default = "random_uuid")]
+    pub review_id: String,
+}
+fn random_uuid() -> String {
+    uuid::Uuid::new_v4().to_string()
 }
 
 /// A patch identifier which is either `CommitId` or a `ChangeId`.

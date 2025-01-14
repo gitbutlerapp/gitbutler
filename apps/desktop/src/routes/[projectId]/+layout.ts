@@ -2,7 +2,6 @@ import { getUserErrorCode, invoke } from '$lib/backend/ipc';
 import { ProjectService, type Project } from '$lib/backend/projects';
 import { TemplateService } from '$lib/backend/templateService';
 import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-import { CloudBranchCreationService } from '$lib/branch/cloudBranchCreationService';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { GitBranchService } from '$lib/branches/gitBranch';
@@ -11,6 +10,7 @@ import { CommitService } from '$lib/commits/service';
 import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 import { FetchSignal } from '$lib/fetchSignal/fetchSignal.js';
 import { HistoryService } from '$lib/history/history';
+import { StackPublishingService } from '$lib/history/stackPublishingService';
 import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ModeService } from '$lib/modes/service';
@@ -90,7 +90,11 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 		userService.user,
 		projectsService.getProjectStore(projectId)
 	);
-	const cloudBranchCreationService = new CloudBranchCreationService(syncedSnapshotService);
+	const stackPublishingService = new StackPublishingService(
+		commandService,
+		userService.user,
+		projectsService.getProjectStore(projectId)
+	);
 
 	return {
 		authService,
@@ -118,6 +122,6 @@ export const load: LayoutLoad = async ({ params, parent }) => {
 
 		// Cloud-related services
 		syncedSnapshotService,
-		cloudBranchCreationService
+		stackPublishingService
 	};
 };

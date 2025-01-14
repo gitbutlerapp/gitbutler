@@ -51,6 +51,7 @@ pub fn create_series(project: &Project, stack_id: StackId, req: CreateSeriesRequ
                 description: req.description,
                 pr_number: Default::default(),
                 archived: Default::default(),
+                review_id: uuid::Uuid::new_v4().to_string(),
             },
             req.preceding_head,
         )

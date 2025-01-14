@@ -7,8 +7,9 @@ use anyhow::{anyhow, Result};
 use git2::Repository;
 use gitbutler_error::error::Code;
 use gitbutler_fs::read_toml_file_or_default;
-// use gitbutler_project::Project;
+use gitbutler_oxidize::OidExt as _;
 use gitbutler_reference::Refname;
+use gitbutler_serde::object_id_opt;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 
@@ -26,6 +27,9 @@ pub struct VirtualBranches {
     branch_targets: HashMap<StackId, Target>,
     /// The current state of the virtual branches
     branches: HashMap<StackId, Stack>,
+
+    #[serde(with = "object_id_opt", default)]
+    last_pushed_base: Option<gix::ObjectId>,
 }
 
 impl VirtualBranches {
@@ -95,6 +99,14 @@ impl VirtualBranchesHandle {
             .ok_or(anyhow!("there is no default target").context(Code::DefaultTargetNotFound))
     }
 
+    /// Gets the default target for the given repository.
+    ///
+    /// Errors if the file cannot be read or written.
+    pub fn maybe_get_default_target(&self) -> Result<Option<Target>> {
+        let virtual_branches = self.read_file()?;
+        Ok(virtual_branches.default_target)
+    }
+
     /// Sets the state of the given virtual branch.
     ///
     /// Errors if the file cannot be read or written.
@@ -159,6 +171,7 @@ impl VirtualBranchesHandle {
     /// if that branch doesn't exist.
     pub fn try_stack(&self, id: StackId) -> Result<Option<Stack>> {
         let virtual_branches = self.read_file()?;
+        dbg!(&virtual_branches);
         Ok(virtual_branches.branches.get(&id).cloned())
     }
 
@@ -272,8 +285,81 @@ impl VirtualBranchesHandle {
 
         Ok(())
     }
+
+    /// Returns a base commit for use when pushing a stack for review.
+    /// The last pushed base either has no parents, or either has the base
+    /// that was pushed previously as the base.
+    ///
+    /// The returned commit will always have the same tree as
+    /// `default_target.sha`.
+    ///
+    /// This function will return `Ok(None)` if there is no default target.
+    pub fn upsert_last_pushed_base(
+        &self,
+        repository: &gix::Repository,
+    ) -> Result<Option<gix::ObjectId>> {
+        let mut virtual_branches = self.read_file()?;
+        let Some(default_target) = &virtual_branches.default_target else {
+            return Ok(None);
+        };
+
+        let base_tree_id = repository
+            .find_commit(default_target.sha.to_gix())?
+            .tree_id()?
+            .detach();
+
+        if let Some(last_pushed_base) = virtual_branches.last_pushed_base {
+            let last_pushed_tree = repository
+                .find_commit(last_pushed_base)?
+                .tree_id()?
+                .detach();
+
+            // If the base commit's tree is the same as the previously pushed
+            // one, we have no need to update it.
+            if base_tree_id == last_pushed_tree {
+                return Ok(Some(last_pushed_base));
+            }
+
+            virtual_branches.last_pushed_base = Some(alter_parentage(
+                repository,
+                default_target.sha.to_gix(),
+                &[last_pushed_base],
+            )?);
+        } else {
+            // There was no previous last_pushed_base to point to, so we create
+            // the first base which doesn't have any parents.
+            virtual_branches.last_pushed_base = Some(alter_parentage(
+                repository,
+                default_target.sha.to_gix(),
+                &[],
+            )?);
+        }
+
+        self.write_file(&virtual_branches)?;
+
+        Ok(virtual_branches.last_pushed_base)
+    }
+
+    /// Provides direct access to the last_pushed_base. If you are actually
+    /// pushing, you probably want
+    pub fn last_pushed_base(&self) -> Result<Option<gix::ObjectId>> {
+        let virtual_branches = self.read_file()?;
+        Ok(virtual_branches.last_pushed_base)
+    }
 }
 
 fn write<P: AsRef<Path>>(file_path: P, virtual_branches: &VirtualBranches) -> Result<()> {
     gitbutler_fs::write(file_path, toml::to_string(&virtual_branches)?)
+}
+
+/// Re-commit a commit with altered parentage
+fn alter_parentage(
+    repository: &gix::Repository,
+    to_rewrite: gix::ObjectId,
+    new_parents: &[gix::ObjectId],
+) -> Result<gix::ObjectId> {
+    let mut to_rewrite: gix::objs::Commit = repository.find_commit(to_rewrite)?.decode()?.into();
+    to_rewrite.parents = new_parents.into();
+    to_rewrite.extra_headers.retain(|entry| entry.0 != "gpgsig");
+    Ok(repository.write_object(to_rewrite)?.into())
 }

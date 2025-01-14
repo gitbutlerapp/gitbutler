@@ -22,6 +22,7 @@ fn add_series_success() -> Result<()> {
         description: Some("my description".into()),
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, reference, None);
     assert!(result.is_ok());
@@ -76,6 +77,7 @@ fn add_series_top_base() -> Result<()> {
         description: Some("my description".into()),
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, reference, None);
     println!("{:?}", result);
@@ -102,6 +104,7 @@ fn add_multiple_series() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx
         .stack
@@ -115,6 +118,7 @@ fn add_multiple_series() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, head_2, None);
     assert!(result.is_ok());
@@ -129,6 +133,7 @@ fn add_multiple_series() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
 
     let result = test_ctx.stack.add_series(&ctx, head_1, None);
@@ -155,6 +160,7 @@ fn add_series_commit_id_when_change_id_available() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, reference, None);
     assert_eq!(
@@ -177,6 +183,7 @@ fn add_series_invalid_name_fails() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, reference, None);
     assert_eq!(result.err().unwrap().to_string(), "Invalid branch name");
@@ -193,6 +200,7 @@ fn add_series_duplicate_name_fails() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
     assert!(result.is_ok());
@@ -214,6 +222,7 @@ fn add_series_matching_git_ref_is_ok() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
     assert!(result.is_ok()); // allow this
@@ -230,6 +239,7 @@ fn add_series_including_refs_head_fails() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
     assert_eq!(
@@ -249,6 +259,7 @@ fn add_series_target_commit_doesnt_exist() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
     assert!(result
@@ -269,6 +280,7 @@ fn add_series_target_change_id_doesnt_exist() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
     assert_eq!(
@@ -289,6 +301,7 @@ fn add_series_target_commit_not_in_stack() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, reference.clone(), None);
     assert_eq!(
@@ -344,6 +357,7 @@ fn remove_series_with_multiple_last_heads() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, to_stay.clone(), None);
     assert!(result.is_ok());
@@ -376,6 +390,7 @@ fn remove_series_no_orphan_commits() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     }; // references the oldest commit
     let result = test_ctx.stack.add_series(&ctx, to_stay.clone(), None);
     assert!(result.is_ok());
@@ -558,6 +573,7 @@ fn update_series_target_success() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let result = test_ctx.stack.add_series(&ctx, series_1, None);
     assert!(result.is_ok());
@@ -660,6 +676,7 @@ fn list_series_two_heads_same_commit() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     // add `head_before` before the initial head
     let result = test_ctx.stack.add_series(&ctx, head_before, None);
@@ -706,6 +723,7 @@ fn list_series_two_heads_different_commit() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
 
     let stack_context = ctx.to_stack_context()?;
@@ -781,6 +799,7 @@ fn replace_head_single() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     test_ctx.stack.add_series(&ctx, from_head, None)?;
     // replace with previous head
@@ -814,6 +833,7 @@ fn replace_head_single_with_merge_base() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     test_ctx.stack.add_series(&ctx, from_head, None)?;
     // replace with merge base
@@ -851,6 +871,7 @@ fn replace_head_with_invalid_commit_error() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     test_ctx.stack.add_series(&ctx, from_head, None)?;
     let stack = test_ctx.stack.clone();
@@ -879,6 +900,7 @@ fn replace_head_with_same_noop() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     test_ctx.stack.add_series(&ctx, from_head, None)?;
     let stack = test_ctx.stack.clone();
@@ -966,6 +988,7 @@ fn replace_head_multiple() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     let from_head_2 = StackBranch {
         name: "from_head_2".into(),
@@ -973,6 +996,7 @@ fn replace_head_multiple() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     // both references point to the same commit
     test_ctx.stack.add_series(&ctx, from_head_1, None)?;
@@ -1014,6 +1038,7 @@ fn replace_head_top_of_stack_multiple() -> Result<()> {
         description: None,
         pr_number: Default::default(),
         archived: Default::default(),
+        review_id: "asdf".into(),
     };
     // an extra head just beneath the top of the stack
     test_ctx.stack.add_series(&ctx, extra_head, None)?;
@@ -1070,6 +1095,7 @@ fn archive_heads_success() -> Result<()> {
             description: None,
             pr_number: Default::default(),
             archived: Default::default(),
+            review_id: "asdf".into(),
         },
     );
     assert_eq!(test_ctx.stack.heads.len(), 2);

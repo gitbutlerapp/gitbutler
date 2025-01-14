@@ -1,7 +1,9 @@
 use gitbutler_branch_actions::stack::CreateSeriesRequest;
+use gitbutler_command_context::CommandContext;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
 use gitbutler_stack::StackId;
+use gitbutler_user::User;
 use tauri::State;
 use tracing::instrument;
 
@@ -110,5 +112,20 @@ pub fn push_stack(
     let project = projects.get(project_id)?;
     gitbutler_branch_actions::stack::push_stack(&project, branch_id, with_force)?;
     emit_vbranches(&windows, project_id);
+    Ok(())
+}
+
+#[tauri::command(async)]
+#[instrument(skip(projects), err(Debug))]
+pub fn push_stack_to_review(
+    projects: State<'_, projects::Controller>,
+    project_id: ProjectId,
+    stack_id: StackId,
+    user: User,
+) -> Result<(), Error> {
+    let project = projects.get(project_id)?;
+    let ctx = CommandContext::open(&project)?;
+    gitbutler_sync::stack_upload::push_stack_to_review(&ctx, &user, stack_id)?;
+
     Ok(())
 }
