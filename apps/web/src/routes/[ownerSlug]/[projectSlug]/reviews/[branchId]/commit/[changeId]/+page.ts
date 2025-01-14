@@ -7,6 +7,6 @@ export const load: PageLoad<ProjectReviewCommitParameters> = async ({ params }) 
 		ownerSlug: params.ownerSlug,
 		projectSlug: params.projectSlug,
 		branchId: params.branchId,
-		commitId: params.commitId
+		changeId: params.changeId
 	};
 };
