@@ -39,19 +39,19 @@ export function loadableUpsertMany<T, Id extends EntityId>(
 		action: { payload: LoadableData<T, Id>[] }
 	) => {
 		const values = action.payload.map((payload) => {
-			const value = state.entities[payload.id];
-			if (value === undefined) {
+			const entity = state.entities[payload.id];
+			if (entity === undefined) {
 				return payload;
 			}
 
-			if (!(value.status === 'found' && payload.status === 'found')) {
+			if (!(entity.status === 'found' && payload.status === 'found')) {
 				return payload;
 			}
 
 			const newValue: LoadableData<T, Id> = {
 				status: 'found',
 				id: payload.id,
-				value: { ...value, ...payload.value }
+				value: { ...entity.value, ...payload.value }
 			};
 
 			return newValue;
