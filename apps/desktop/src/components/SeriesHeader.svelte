@@ -10,6 +10,7 @@
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
 	import { PromptService } from '$lib/ai/promptService';
+	import { isFailure } from '$lib/ai/result';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
@@ -18,7 +19,6 @@
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { showError } from '$lib/notifications/toasts';
-	import { isFailure } from '$lib/result';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { listCommitFiles } from '$lib/vbranches/remoteCommits';

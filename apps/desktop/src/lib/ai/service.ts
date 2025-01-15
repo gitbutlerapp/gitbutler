@@ -15,7 +15,7 @@ import {
 	OllamaClient
 } from '$lib/ai/ollamaClient';
 import { OpenAIClient } from '$lib/ai/openAIClient';
-import { buildFailureFromAny, isFailure, ok, type Result } from '$lib/result';
+import { buildFailureFromAny, isFailure, ok, type Result } from '$lib/ai/result';
 import { splitMessage } from '$lib/utils/commitMessage';
 import { get } from 'svelte/store';
 import type { GitConfigService } from '$lib/backend/gitConfigService';

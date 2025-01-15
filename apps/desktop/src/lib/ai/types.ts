@@ -1,5 +1,5 @@
 import { isStr } from '@gitbutler/ui/utils/string';
-import type { Result } from '$lib/result';
+import type { Result } from '$lib/ai/result';
 import type { Persisted } from '@gitbutler/shared/persisted';
 
 export enum ModelKind {

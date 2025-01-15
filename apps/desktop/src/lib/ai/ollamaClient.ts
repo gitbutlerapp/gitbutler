@@ -3,8 +3,8 @@ import {
 	LONG_DEFAULT_COMMIT_TEMPLATE,
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
+import { andThen, buildFailureFromAny, ok, wrap, wrapAsync, type Result } from '$lib/ai/result';
 import { MessageRole, type PromptMessage, type AIClient, type Prompt } from '$lib/ai/types';
-import { andThen, buildFailureFromAny, ok, wrap, wrapAsync, type Result } from '$lib/result';
 import { isNonEmptyObject } from '@gitbutler/ui/utils/typeguards';
 import { fetch } from '@tauri-apps/plugin-http';
 

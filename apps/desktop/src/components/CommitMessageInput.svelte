@@ -3,6 +3,7 @@
 	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import DropDownButton from '$components/DropDownButton.svelte';
 	import { PromptService } from '$lib/ai/promptService';
+	import { isFailure } from '$lib/ai/result';
 	import { AIService, type DiffInput } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import {
@@ -13,7 +14,6 @@
 	} from '$lib/config/config';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { showError } from '$lib/notifications/toasts';
-	import { isFailure } from '$lib/result';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import * as toasts from '$lib/utils/toasts';

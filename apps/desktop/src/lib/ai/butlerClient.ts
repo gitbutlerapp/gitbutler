@@ -4,8 +4,8 @@ import {
 	SHORT_DEFAULT_COMMIT_TEMPLATE,
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
+import { andThenAsync, ok, wrapAsync, type Result } from '$lib/ai/result';
 import { ModelKind, type AIClient, type AIEvalOptions, type Prompt } from '$lib/ai/types';
-import { andThenAsync, ok, wrapAsync, type Result } from '$lib/result';
 import { stringStreamGenerator } from '$lib/utils/promise';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 

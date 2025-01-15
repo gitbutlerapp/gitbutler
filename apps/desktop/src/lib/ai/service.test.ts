@@ -6,6 +6,7 @@ import {
 	SHORT_DEFAULT_COMMIT_TEMPLATE,
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
+import { buildFailureFromAny, ok, unwrap, type Result } from '$lib/ai/result';
 import {
 	AISecretHandle,
 	AIService,
@@ -21,7 +22,6 @@ import {
 	type AIClient,
 	type Prompt
 } from '$lib/ai/types';
-import { buildFailureFromAny, ok, unwrap, type Result } from '$lib/result';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { Hunk } from '$lib/vbranches/types';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
