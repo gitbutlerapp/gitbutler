@@ -47,7 +47,7 @@ function setupDragHandlers(
 	} = {
 		handlerWidth: false
 	}
-) {
+): SvelteActionReturnType {
 	if (opts.disabled) return;
 	let dragHandle: HTMLElement | null;
 	let clone: HTMLElement | undefined;
