@@ -5,7 +5,7 @@
 		createIntegratedCommitsContextStore,
 		createLocalCommitsContextStore,
 		createLocalAndRemoteCommitsContextStore
-	} from '$lib/vbranches/contexts';
+	} from '$lib/commits/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { DetailedCommit, LocalFile, PatchSeries, RemoteFile } from '$lib/vbranches/types';

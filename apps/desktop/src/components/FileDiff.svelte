@@ -2,10 +2,10 @@
 	import HunkViewer from '$components/HunkViewer.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
+	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/commits/contexts';
 	import { FileService } from '$lib/files/fileService';
 	import { Project } from '$lib/project/project';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
-	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { FileInfo } from '$lib/files/file';

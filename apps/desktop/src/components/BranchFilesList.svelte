@@ -2,6 +2,7 @@
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import FileListItemSmart from './FileListItemWrapper.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
+	import { getCommitStore } from '$lib/commits/contexts';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { sortLikeFileTree } from '$lib/files/filetree';
 	import { chunk } from '$lib/utils/array';
@@ -9,7 +10,6 @@
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { updateSelection } from '$lib/utils/selection';
-	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection, stringifyKey } from '$lib/vbranches/fileIdSelection';
 	import { SelectedOwnership, updateOwnership } from '$lib/vbranches/ownership';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
