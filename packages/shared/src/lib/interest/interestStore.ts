@@ -50,6 +50,10 @@ class Subscription<Arguments> {
 			}
 		};
 	}
+
+	refetch(): void {
+		this.upsert();
+	}
 }
 
 export class InterestStore<Arguments> {
@@ -67,5 +71,14 @@ export class InterestStore<Arguments> {
 		}
 
 		return subscription;
+	}
+
+	invalidate(args: Arguments): void {
+		const subscription = this.subscriptions.find((subscription) =>
+			shallowCompare(subscription.args, args)
+		);
+		if (subscription) {
+			subscription.refetch();
+		}
 	}
 }

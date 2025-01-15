@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Interest } from '$lib/interest/intrestStore';
+	import type { Interest } from '$lib/interest/interestStore';
 
 	type Props = {
 		interest: Interest;

@@ -1,4 +1,4 @@
-import { InterestStore, type Interest } from '$lib/interest/intrestStore';
+import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { POLLING_SLOW } from '$lib/polling';
 import { apiToUser, type ApiUser } from '$lib/users/types';

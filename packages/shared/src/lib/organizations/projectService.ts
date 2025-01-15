@@ -1,4 +1,4 @@
-import { InterestStore, type Interest } from '$lib/interest/intrestStore';
+import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { addProject, upsertProject, upsertProjects } from '$lib/organizations/projectsSlice';
 import { type ApiProject, apiToProject, type LoadableProject } from '$lib/organizations/types';

@@ -1,7 +1,7 @@
 import { upsertPatchSections } from '$lib/branches/patchSectionsSlice';
 import { addPatch, upsertPatch } from '$lib/branches/patchesSlice';
 import { apiToPatch, apiToSection, type ApiPatch, type Patch } from '$lib/branches/types';
-import { InterestStore, type Interest } from '$lib/interest/intrestStore';
+import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { POLLING_REGULAR } from '$lib/polling';
 import type { HttpClient } from '$lib/network/httpClient';

@@ -1,7 +1,7 @@
 import { feedAppend, feedPrepend } from '$lib/feeds/feedsSlice';
 import { upsertPost, upsertPosts } from '$lib/feeds/postsSlice';
 import { apiToPost, type ApiPost, type ApiPostWithReplies, type Post } from '$lib/feeds/types';
-import { InterestStore } from '$lib/interest/intrestStore';
+import { InterestStore } from '$lib/interest/interestStore';
 import { POLLING_FAST, POLLING_REGULAR } from '$lib/polling';
 import { guardReadableTrue } from '$lib/storeUtils';
 import { apiToUser, type LoadableUser } from '$lib/users/types';
