@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { checkAuthStatus, initDeviceOauth } from '$lib/backend/github';
 	import { getGitHubUserServiceStore } from '$lib/forge/github/githubUserService';
 	import { UserService } from '$lib/user/userService';
 	import { copyToClipboard } from '$lib/utils/clipboard';
@@ -34,7 +33,7 @@
 	let gitHubOauthModal: ReturnType<typeof Modal> | undefined = $state();
 
 	function gitHubStartOauth() {
-		initDeviceOauth().then((verification) => {
+		$githubUserService?.initDeviceOauth().then((verification) => {
 			userCode = verification.user_code;
 			deviceCode = verification.device_code;
 			gitHubOauthModal?.show();
@@ -43,9 +42,9 @@
 
 	async function gitHubOauthCheckStatus(deviceCode: string) {
 		loading = true;
-		if (!$user) return;
+		if (!$user || !$githubUserService) return;
 		try {
-			const accessToken = await checkAuthStatus({ deviceCode });
+			const accessToken = await $githubUserService.checkAuthStatus({ deviceCode });
 			$user.github_access_token = accessToken;
 			await userService.setUser($user);
 			// TODO: Remove setting of gh username since it isn't used anywhere.

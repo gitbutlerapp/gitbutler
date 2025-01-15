@@ -128,7 +128,9 @@
 	// This store is literally only used once, on GitHub oauth, to set the
 	// gh username on the user object. Furthermore, it isn't used anywhere.
 	// TODO: Remove the gh username completely?
-	const githubUserService = $derived(octokit ? new GitHubUserService(octokit) : undefined);
+	const githubUserService = $derived(
+		octokit ? new GitHubUserService(data.tauri, octokit) : undefined
+	);
 	const ghUserServiceStore = createGitHubUserServiceStore(undefined);
 	$effect(() => {
 		ghUserServiceStore.set(githubUserService);
