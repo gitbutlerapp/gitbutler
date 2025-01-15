@@ -1,6 +1,7 @@
 import { branchesReducer } from '$lib/branches/branchesSlice';
 import { patchSectionsReducer } from '$lib/branches/patchSectionsSlice';
 import { patchesReducer } from '$lib/branches/patchesSlice';
+import { chatChannelsReducer } from '$lib/chat/chatChannelsSlice';
 import { feedsReducer } from '$lib/feeds/feedsSlice';
 import { postsReducer } from '$lib/feeds/postsSlice';
 import { organizationsReducer } from '$lib/organizations/organizationsSlice';
@@ -49,6 +50,10 @@ export interface AppPatchSectionsState {
 	readonly patchSections: ReturnType<typeof patchSectionsReducer>;
 }
 
+export interface AppChatChannelsState {
+	readonly chatChannels: ReturnType<typeof chatChannelsReducer>;
+}
+
 export class AppDispatch {
 	constructor(readonly dispatch: typeof AppState.prototype._store.dispatch) {}
 }
@@ -63,7 +68,8 @@ export class AppState
 		AppProjectsState,
 		AppPatchesState,
 		AppBranchesState,
-		AppPatchSectionsState
+		AppPatchSectionsState,
+		AppChatChannelsState
 {
 	/**
 	 * The base store.
@@ -81,7 +87,8 @@ export class AppState
 			projects: projectsReducer,
 			patches: patchesReducer,
 			branches: branchesReducer,
-			patchSections: patchSectionsReducer
+			patchSections: patchSectionsReducer,
+			chatChannels: chatChannelsReducer
 		}
 	});
 
@@ -123,6 +130,10 @@ export class AppState
 		[this.selectSelf],
 		(rootState) => rootState.patchSections
 	);
+	private readonly selectChatChannels = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.chatChannels
+	);
 
 	readonly example = $derived(this.selectExample(this.rootState));
 	readonly posts = $derived(this.selectPosts(this.rootState));
@@ -133,6 +144,7 @@ export class AppState
 	readonly patches = $derived(this.selectPatches(this.rootState));
 	readonly branches = $derived(this.selectBranches(this.rootState));
 	readonly patchSections = $derived(this.selectPatchSections(this.rootState));
+	readonly chatChannels = $derived(this.selectChatChannels(this.rootState));
 
 	constructor() {
 		$effect(() => {
