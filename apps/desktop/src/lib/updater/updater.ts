@@ -1,9 +1,9 @@
-import { Tauri } from './tauri';
 import { showToast } from '$lib/notifications/toasts';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { type DownloadEvent, Update } from '@tauri-apps/plugin-updater';
 import { writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
+import type { Tauri } from '$lib/backend/tauri';
 
 type UpdateStatus = {
 	version?: string;
