@@ -7,10 +7,10 @@
 	import Resizer from '$components/Resizer.svelte';
 	import TargetCard from '$components/TargetCard.svelte';
 	import WorkspaceButton from '$components/WorkspaceButton.svelte';
-	import { ProjectService } from '$lib/backend/projects';
 	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/mode/modeService';
 	import { platformName } from '$lib/platform/platform';
+	import { ProjectService } from '$lib/project/projects';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';

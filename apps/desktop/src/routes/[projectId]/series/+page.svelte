@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ProjectService } from '$lib/backend/projects';
+	import { ProjectService } from '$lib/project/projects';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReviews } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { getContext } from '@gitbutler/shared/context';

@@ -2,9 +2,9 @@
 	import HunkDiff from './HunkDiff.svelte';
 	import HunkContextMenu from '$components/HunkContextMenu.svelte';
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { draggableElement } from '$lib/dragging/draggable';
 	import { HunkDropData } from '$lib/dragging/draggables';
+	import { Project } from '$lib/project/projects';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { type HunkSection } from '$lib/utils/fileSections';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';

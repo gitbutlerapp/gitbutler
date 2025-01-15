@@ -15,7 +15,6 @@
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { CommandService, invoke } from '$lib/backend/ipc';
-	import { ProjectsService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
 	import { UpdaterService } from '$lib/backend/updater';
 	import {
@@ -31,6 +30,7 @@
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { platformName } from '$lib/platform/platform';
+	import { ProjectsService } from '$lib/project/projects';
 	import { DesktopDispatch, DesktopState } from '$lib/redux/store.svelte';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { setSecretsService } from '$lib/secrets/secretsService';

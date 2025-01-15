@@ -2,7 +2,7 @@
 	import OptionsGroup from '$components/OptionsGroup.svelte';
 	import Select from '$components/Select.svelte';
 	import SelectItem from '$components/SelectItem.svelte';
-	import { ProjectsService, Project } from '$lib/backend/projects';
+	import { ProjectsService, Project } from '$lib/project/projects';
 	import { getContext, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';

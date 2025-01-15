@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Markdown from '$components/Markdown.svelte';
-	import { ProjectService } from '$lib/backend/projects';
+	import { ProjectService } from '$lib/project/projects';
 	import { getContext } from '@gitbutler/shared/context';
 	import { getPostAuthor } from '@gitbutler/shared/feeds/feedsPreview.svelte';
 	import { postsSelectors } from '@gitbutler/shared/feeds/postsSlice';

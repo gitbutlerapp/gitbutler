@@ -5,8 +5,8 @@
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
-	import { ProjectsService, Project } from '$lib/backend/projects';
 	import { showError } from '$lib/notifications/toasts';
+	import { ProjectsService, Project } from '$lib/project/projects';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';

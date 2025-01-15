@@ -8,10 +8,10 @@
 	import StackHeader from '$components/StackHeader.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
-	import { Project } from '$lib/backend/projects';
+	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
+	import { Project } from '$lib/project/projects';
 	// import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	// import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
-	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	// import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	// import { type MergeMethod } from '$lib/forge/interface/types';

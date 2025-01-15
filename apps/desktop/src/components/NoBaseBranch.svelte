@@ -2,8 +2,8 @@
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSetup from '$components/ProjectSetup.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { getRemoteBranches } from '$lib/baseBranch/baseBranchService';
+	import { Project } from '$lib/project/projects';
 	import { getContext } from '@gitbutler/shared/context';
 
 	const project = getContext(Project);

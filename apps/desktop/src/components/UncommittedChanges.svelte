@@ -3,7 +3,7 @@
 	import CommitDialog from '$components/CommitDialog.svelte';
 	import Dropzones from '$components/Dropzones.svelte';
 	import InfoMessage from '$components/InfoMessage.svelte';
-	import { Project } from '$lib/backend/projects';
+	import { Project } from '$lib/project/projects';
 	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import type { Writable } from 'svelte/store';

@@ -3,8 +3,8 @@
 	import ContextMenuItem from '$components/ContextMenuItem.svelte';
 	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import { AIService } from '$lib/ai/service';
-	import { Project } from '$lib/backend/projects';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { Project } from '$lib/project/projects';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
