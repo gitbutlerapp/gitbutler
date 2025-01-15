@@ -5,6 +5,7 @@ import { check } from '@tauri-apps/plugin-updater';
 export class Tauri {
 	invoke = invokeIpc;
 	listen = listenIpc;
-	checkUpdate = check;
+	// Disable in-app updater for Flatpak builds
+	checkUpdate = process.env.FLATPAK_ID ? () => null : check;
 	currentVersion = getVersion;
 }
