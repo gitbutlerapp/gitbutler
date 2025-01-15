@@ -1,3 +1,4 @@
+import { showError } from '$lib/notifications/toasts';
 import { readable, type Readable } from 'svelte/store';
 import type { RepoInfo } from '$lib/url/gitUrl';
 import type { ForgeRepoService, RepoDetailedInfo } from '../interface/forgeRepoService';
@@ -17,14 +18,17 @@ export class GitHubRepoService implements ForgeRepoService {
 		});
 	}
 
-	private async getInfo(): Promise<RepoDetailedInfo> {
-		const response = await this.octokit.rest.repos.get({
-			owner: this.repo.owner,
-			repo: this.repo.name
-		});
-
-		return {
-			deleteBranchAfterMerge: response.data.delete_branch_on_merge
-		};
+	private async getInfo(): Promise<RepoDetailedInfo | undefined> {
+		try {
+			const response = await this.octokit.rest.repos.get({
+				owner: this.repo.owner,
+				repo: this.repo.name
+			});
+			return {
+				deleteBranchAfterMerge: response.data.delete_branch_on_merge
+			};
+		} catch (err: unknown) {
+			showError('Failed to load GitHub repo info', err);
+		}
 	}
 }
