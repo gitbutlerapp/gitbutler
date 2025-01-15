@@ -5,7 +5,7 @@
 	import Markdown from '$components/Markdown.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
-	import { transformAnyCommit } from '$lib/commitLines/transformers';
+	import { transformAnyCommit } from '$lib/commits/transformers';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
