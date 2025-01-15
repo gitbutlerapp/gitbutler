@@ -2,9 +2,9 @@
 	import BranchPreview from '$components/BranchPreview.svelte';
 	import FullviewLoading from '$components/FullviewLoading.svelte';
 	import PageLoadFailed from '$components/PageLoadFailed.svelte';
+	import { BranchData } from '$lib/branches/branch';
 	import { GitBranchService } from '$lib/branches/gitBranch';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { BranchData } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { page } from '$app/stores';
 

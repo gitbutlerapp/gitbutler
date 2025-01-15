@@ -5,11 +5,11 @@
 	import Markdown from '$components/Markdown.svelte';
 	import Resizer from '$components/Resizer.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
+	import { BranchData } from '$lib/branches/branch';
 	import { transformAnyCommit } from '$lib/commits/transformers';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { BranchData } from '$lib/vbranches/types';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import Line from '@gitbutler/ui/commitLines/Line.svelte';
 	import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';

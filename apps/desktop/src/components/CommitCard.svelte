@@ -4,6 +4,8 @@
 	import CommitMessageInput from '$components/CommitMessageInput.svelte';
 	import ContextMenu from '$components/ContextMenu.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BranchStack } from '$lib/branches/branch';
+	import { PatchSeries } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { persistedCommitMessage } from '$lib/config/config';
@@ -15,14 +17,7 @@
 	import { UserService } from '$lib/user/userService';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
-	import {
-		Commit,
-		DetailedCommit,
-		PatchSeries,
-		RemoteFile,
-		BranchStack,
-		type CommitStatus
-	} from '$lib/vbranches/types';
+	import { Commit, DetailedCommit, RemoteFile, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore, maybeGetContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';

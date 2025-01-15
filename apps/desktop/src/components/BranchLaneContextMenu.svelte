@@ -2,11 +2,11 @@
 	import ContextMenu from '$components/ContextMenu.svelte';
 	import ContextMenuItem from '$components/ContextMenuItem.svelte';
 	import ContextMenuSection from '$components/ContextMenuSection.svelte';
+	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { updatePrDescriptionTables } from '$lib/forge/shared/prFooter';
 	import { User } from '$lib/user/user';
-	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';

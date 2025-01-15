@@ -18,9 +18,9 @@
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import type { MessageStyle } from '$components/InfoMessage.svelte';
+	import type { PatchSeries } from '$lib/branches/branch';
 	import type { ForgePrMonitor } from '$lib/forge/interface/forgePrMonitor';
 	import type { DetailedPullRequest } from '$lib/forge/interface/types';
-	import type { PatchSeries } from '$lib/vbranches/types';
 	import type iconsJson from '@gitbutler/ui/data/icons.json';
 	import type { ComponentColorType } from '@gitbutler/ui/utils/colorTypes';
 

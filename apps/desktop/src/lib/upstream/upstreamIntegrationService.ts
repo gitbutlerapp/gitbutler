@@ -2,8 +2,8 @@ import { invoke } from '$lib/backend/ipc';
 import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { get } from 'svelte/store';
+import type { BranchStack } from '$lib/branches/branch';
 import type { Project } from '$lib/project/project';
-import type { BranchStack } from '$lib/vbranches/types';
 
 export type StackStatus = {
 	treeStatus: TreeStatus;

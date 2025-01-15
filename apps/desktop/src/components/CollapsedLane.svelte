@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { BranchStack } from '$lib/vbranches/types';
+	import { BranchStack } from '$lib/branches/branch';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';

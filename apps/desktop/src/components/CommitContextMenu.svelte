@@ -3,10 +3,11 @@
 	import ContextMenuItem from '$components/ContextMenuItem.svelte';
 	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BranchStack, type Commit, type DetailedCommit } from '$lib/vbranches/types';
+	import { type Commit, type DetailedCommit } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 
 	interface Props {

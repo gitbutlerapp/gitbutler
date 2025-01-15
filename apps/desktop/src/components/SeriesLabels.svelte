@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Select from '$components/Select.svelte';
-	import { isPatchSeries, PatchSeries } from '$lib/vbranches/types';
+	import { isPatchSeries } from '$lib/branches/branch';
+	import { PatchSeries } from '$lib/branches/branch';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import SeriesLabelsRow from '@gitbutler/ui/SeriesLabelsRow.svelte';
 	import { isError } from '@gitbutler/ui/utils/typeguards';

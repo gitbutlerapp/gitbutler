@@ -3,6 +3,7 @@
 	import Select from '$components/Select.svelte';
 	import SelectItem from '$components/SelectItem.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BranchStack } from '$lib/branches/branch';
 	import { getForge } from '$lib/forge/interface/forge';
 	import {
 		getBaseBrancheResolution,
@@ -19,7 +20,6 @@
 	} from '$lib/upstream/upstreamIntegrationService';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';

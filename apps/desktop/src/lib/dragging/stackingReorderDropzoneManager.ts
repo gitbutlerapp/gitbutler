@@ -1,6 +1,8 @@
 import { CommitDropData } from '$lib/dragging/draggables';
+import type { BranchStack } from '$lib/branches/branch';
+import type { PatchSeries } from '$lib/branches/branch';
+import type { StackOrder } from '$lib/branches/branch';
 import type { BranchController } from '$lib/branches/branchController';
-import type { BranchStack, PatchSeries, StackOrder } from '$lib/vbranches/types';
 
 export class StackingReorderDropzone {
 	constructor(
