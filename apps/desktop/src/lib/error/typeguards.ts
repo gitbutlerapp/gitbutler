@@ -17,7 +17,7 @@ export function isHttpError(err: unknown): err is HttpError {
 		err !== null &&
 		'message' in err &&
 		typeof err.message === 'string' &&
-		'code' in err &&
-		typeof err.code === 'string'
+		'status' in err &&
+		typeof err.status === 'number'
 	);
 }
