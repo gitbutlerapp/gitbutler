@@ -1,4 +1,4 @@
-import { InterestStore, type Interest } from '$lib/interest/intrestStore';
+import { InterestStore, type Interest } from '$lib/interest/interestStore';
 import { errorToLoadable } from '$lib/network/loadable';
 import { addRepositoryId, upsertRepositoryId } from '$lib/organizations/repositoryIdLookupsSlice';
 import { stringifyProjectIdentity } from '$lib/organizations/types';

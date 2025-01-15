@@ -1,3 +1,4 @@
+import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { LoadableData } from '$lib/network/types';
 
 export type ApiDiffSection = {
@@ -166,6 +167,8 @@ export type ApiPatch = {
 	review: ApiPatchReview;
 	review_all: ApiPatchReview;
 	sections?: ApiSection[];
+	created_at: string;
+	updated_at: string;
 };
 
 export type Patch = {
@@ -181,7 +184,29 @@ export type Patch = {
 	review: PatchReview;
 	reviewAll: PatchReview;
 	sectionIds?: number[];
+	createdAt: string;
+	updatedAt: string;
 };
+
+export function getPatchStatus(
+	patch: Patch
+): 'approved' | 'changes-requested' | 'unreviewed' | 'in-discussion' {
+	if (patch.review.rejected.length > 0) return 'changes-requested';
+	if (patch.review.signedOff.length > 0) return 'approved';
+	if (patch.review.viewed.length > 0) return 'in-discussion';
+	return 'unreviewed';
+}
+
+export async function getPatchContributorsWithAvatars(patch: Patch) {
+	return await Promise.all(
+		patch.contributors.map(async (contributor) => {
+			return {
+				srcUrl: await gravatarUrlFromEmail(contributor),
+				name: contributor
+			};
+		})
+	);
+}
 
 export type LoadablePatch = LoadableData<Patch, Patch['changeId']>;
 
@@ -197,11 +222,13 @@ export function apiToPatch(api: ApiPatch): Patch {
 		statistics: apiToPatchStatistics(api.statistics),
 		review: apiToPatchReview(api.review),
 		reviewAll: apiToPatchReview(api.review_all),
-		sectionIds: api.sections?.map((section) => section.id)
+		sectionIds: api.sections?.map((section) => section.id),
+		createdAt: api.created_at,
+		updatedAt: api.updated_at
 	};
 }
 
-export const enum BranchStatus {
+export enum BranchStatus {
 	Active = 'active',
 	Inactive = 'inactive',
 	Closed = 'closed',
@@ -218,6 +245,7 @@ export type ApiBranch = {
 	status?: BranchStatus;
 	version?: number;
 	created_at: string;
+	updated_at: string;
 	stack_size?: number;
 	contributors: string[];
 	patches: ApiPatch[];
@@ -233,6 +261,7 @@ export type Branch = {
 	status?: BranchStatus;
 	version?: number;
 	createdAt: string;
+	updatedAt: string;
 	stackSize?: number;
 	contributors: string[];
 	patchIds: string[];
@@ -251,6 +280,7 @@ export function apiToBranch(api: ApiBranch): Branch {
 		status: api.status,
 		version: api.version,
 		createdAt: api.created_at,
+		updatedAt: api.updated_at,
 		stackSize: api.stack_size,
 		contributors: api.contributors,
 		patchIds: api.patches.map((patch) => patch.change_id),
