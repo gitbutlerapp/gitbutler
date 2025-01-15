@@ -667,6 +667,7 @@ dependencies = [
  "but-core",
  "but-workspace",
  "clap",
+ "gitbutler-project",
  "tracing",
  "tracing-forest",
  "tracing-subscriber",

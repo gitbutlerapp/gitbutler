@@ -12,27 +12,27 @@
 use anyhow::Result;
 use bstr::BString;
 use gitbutler_id::id::Id;
-use gitbutler_stack::{Stack, VirtualBranchesHandle};
+use gitbutler_stack::VirtualBranchesHandle;
 use std::path::Path;
 
 /// Represents a lightweight version of a [`gitbutler_stack::Stack`] for listing.
 #[derive(Debug, Clone)]
 pub struct StackEntry {
     /// The ID of the stack.
-    pub id: Id<Stack>,
-    /// The list of the branche names that are part of the stack.
+    pub id: Id<gitbutler_stack::Stack>,
+    /// The list of the branch names that are part of the stack.
     /// The list is never empty.
     /// The first entry in the list is always the most recent branch on top the stack.
     pub branch_names: Vec<BString>,
 }
 
 /// Returns the list of stacks that are currently part of the workspace.
-/// If there no applied stacks, the returned Vec is empy.
+/// If there are no applied stacks, the returned Vec is empty.
 /// If the GitButler state file in the provided path is missing or invalid, an error is returned.
 ///
-/// - `path`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository
-pub fn stacks(gb_state_path: &Path) -> Result<Vec<StackEntry>> {
-    let state = state_handle(gb_state_path);
+/// - `gb_dir`: The path to the GitButler state for the project. Normally this is `.git/gitbutler` in the project's repository.
+pub fn stacks(gb_dir: &Path) -> Result<Vec<StackEntry>> {
+    let state = state_handle(gb_dir);
     Ok(state
         .list_stacks_in_workspace()?
         .into_iter()

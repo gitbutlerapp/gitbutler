@@ -1,3 +1,4 @@
+use crate::error::Error;
 use gitbutler_id::id::Id;
 use gitbutler_project as projects;
 use gitbutler_project::ProjectId;
@@ -12,18 +13,16 @@ use tracing::instrument;
 pub fn stacks(
     projects: State<'_, projects::Controller>,
     project_id: ProjectId,
-) -> anyhow::Result<Vec<StackEntry>> {
+) -> anyhow::Result<Vec<StackEntry>, Error> {
     let project = projects.get(project_id)?;
     let stacks = but_workspace::stacks(&project.gb_dir())?;
-    let stacks: Vec<StackEntry> = stacks.into_iter().map(Into::into).collect();
-    Ok(stacks)
+    Ok(stacks.into_iter().map(Into::into).collect())
 }
 
-/// Frontend version of [`but_workspace::StackEntry`]
 #[derive(Debug, Clone, Serialize)]
 pub struct StackEntry {
-    pub id: Id<Stack>,
-    pub branch_names: Vec<BStringForFrontend>,
+    id: Id<Stack>,
+    branch_names: Vec<BStringForFrontend>,
 }
 
 impl From<but_workspace::StackEntry> for StackEntry {
