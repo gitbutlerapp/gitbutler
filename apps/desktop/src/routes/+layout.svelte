@@ -14,8 +14,6 @@
 	import { PromptService as AIPromptService } from '$lib/ai/promptService';
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
-	import { AuthService } from '$lib/backend/auth';
-	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { CommandService, invoke } from '$lib/backend/ipc';
 	import { ProjectsService } from '$lib/backend/projects';
 	import { PromptService } from '$lib/backend/prompt';
@@ -25,6 +23,7 @@
 		setNameNormalizationServiceContext
 	} from '$lib/branches/nameNormalizationService';
 	import { AppSettings } from '$lib/config/appSettings';
+	import { GitConfigService } from '$lib/config/gitConfigService';
 	import {
 		createGitHubUserServiceStore as createGitHubUserServiceStore,
 		GitHubUserService
@@ -102,7 +101,6 @@
 	setContext(GitConfigService, data.gitConfig);
 	setContext(AIService, data.aiService);
 	setContext(PromptService, data.promptService);
-	setContext(AuthService, data.authService);
 	setContext(HttpClient, data.cloud);
 	setContext(User, data.userService.user);
 	setContext(RemotesService, data.remotesService);

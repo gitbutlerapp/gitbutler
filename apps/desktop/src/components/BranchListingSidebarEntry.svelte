@@ -1,11 +1,11 @@
 <script lang="ts">
-	import { GitConfigService } from '$lib/backend/gitConfigService';
 	import { Project } from '$lib/backend/projects';
 	import {
 		BranchListingDetails,
 		BranchListingService,
 		type BranchListing
 	} from '$lib/branches/branchListing';
+	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
