@@ -5,10 +5,10 @@
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { BaseBranchService, type RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';
+	import { BranchController } from '$lib/branches/branchController';
 	import { platformName } from '$lib/platform/platform';
 	import { Project } from '$lib/project/project';
 	import { ProjectsService } from '$lib/project/projectsService';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import { goto } from '$app/navigation';

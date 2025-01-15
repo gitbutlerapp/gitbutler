@@ -1,5 +1,6 @@
 import { getUserErrorCode, invoke } from '$lib/backend/ipc';
 import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+import { BranchController } from '$lib/branches/branchController';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
 import { GitBranchService } from '$lib/branches/gitBranch';
@@ -16,7 +17,6 @@ import { ModeService } from '$lib/mode/modeService';
 import { TemplateService } from '$lib/pr/templateService';
 import { type Project } from '$lib/project/project';
 import { ProjectService } from '$lib/project/projectService';
-import { BranchController } from '$lib/vbranches/branchController';
 import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 import { error } from '@sveltejs/kit';

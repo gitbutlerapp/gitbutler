@@ -1,11 +1,11 @@
 <script lang="ts">
 	import BranchLabel from './BranchLabel.svelte';
+	import { BranchController } from '$lib/branches/branchController';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';

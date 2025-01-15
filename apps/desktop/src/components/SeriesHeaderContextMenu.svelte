@@ -3,11 +3,11 @@
 	import ContextMenuItem from '$components/ContextMenuItem.svelte';
 	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import { AIService } from '$lib/ai/service';
+	import { BranchController } from '$lib/branches/branchController';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { Project } from '$lib/project/project';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import { BranchStack, type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';

@@ -2,12 +2,12 @@
 	import ContextMenu from '$components/ContextMenu.svelte';
 	import ContextMenuItem from '$components/ContextMenuItem.svelte';
 	import ContextMenuSection from '$components/ContextMenuSection.svelte';
+	import { BranchController } from '$lib/branches/branchController';
 	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import * as toasts from '$lib/utils/toasts';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import { isAnyFile, LocalFile } from '$lib/vbranches/types';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';

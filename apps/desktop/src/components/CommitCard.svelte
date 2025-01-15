@@ -4,6 +4,7 @@
 	import CommitMessageInput from '$components/CommitMessageInput.svelte';
 	import ContextMenu from '$components/ContextMenu.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BranchController } from '$lib/branches/branchController';
 	import { createCommitStore } from '$lib/commits/contexts';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
@@ -14,7 +15,6 @@
 	import { UserService } from '$lib/user/userService';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import {
 		Commit,
 		DetailedCommit,

@@ -2,8 +2,8 @@
 	import FileCardHeader from './FileCardHeader.svelte';
 	import FileDiff from './FileDiff.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
+	import { BranchController } from '$lib/branches/branchController';
 	import { ContentSection, HunkSection, parseFileSections } from '$lib/utils/fileSections';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { AnyFile } from '$lib/vbranches/types';
 

@@ -13,6 +13,7 @@
 	import { isFailure } from '$lib/ai/result';
 	import { AIService } from '$lib/ai/service';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BranchController } from '$lib/branches/branchController';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { FileService } from '$lib/files/fileService';
 	import { getForge } from '$lib/forge/interface/forge';
@@ -21,7 +22,6 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import { PatchSeries, BranchStack, type CommitStatus } from '$lib/vbranches/types';
 	import {
 		allPreviousSeriesHavePrNumber,
