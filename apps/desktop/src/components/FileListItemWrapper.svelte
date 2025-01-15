@@ -1,11 +1,11 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
+	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/commits/contexts';
+	import { getCommitStore } from '$lib/commits/contexts';
 	import { draggableChips, type DraggableConfig } from '$lib/dragging/draggable';
 	import { FileDropData } from '$lib/dragging/draggables';
 	import { itemsSatisfy } from '$lib/utils/array';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
-	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
-	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { getLockText } from '$lib/vbranches/tooltip';

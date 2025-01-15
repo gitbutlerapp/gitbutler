@@ -1,5 +1,5 @@
 import { buildContextStore } from '@gitbutler/shared/context';
-import type { AnyCommit, DetailedCommit } from './types';
+import type { AnyCommit, DetailedCommit } from '../vbranches/types';
 
 // When we can't use type for context objects we build typed getter/setter pairs
 // to avoid using symbols explicitly.
