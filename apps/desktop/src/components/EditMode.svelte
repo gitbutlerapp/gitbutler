@@ -11,7 +11,7 @@
 	} from '$lib/conflictEntryPresence';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { ModeService, type EditModeMetadata } from '$lib/mode/modeService';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UserService } from '$lib/user/userService';
 	import { computeFileStatus } from '$lib/utils/fileStatus';

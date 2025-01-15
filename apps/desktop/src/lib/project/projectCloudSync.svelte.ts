@@ -1,6 +1,7 @@
 import { getProjectByRepositoryId } from '@gitbutler/shared/organizations/projectsPreview.svelte';
 import { readableToReactive } from '@gitbutler/shared/reactiveUtils.svelte';
-import type { ProjectService, ProjectsService } from '$lib/project/projects';
+import type { ProjectsService } from '$lib/project/projectsService';
+import type { ProjectService } from './projectService';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 import type { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
 import type { AppProjectsState } from '@gitbutler/shared/redux/store.svelte';

@@ -27,7 +27,7 @@
 	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ReactivePRBody, ReactivePRTitle } from '$lib/pr/prContent.svelte';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { sleep } from '$lib/utils/sleep';

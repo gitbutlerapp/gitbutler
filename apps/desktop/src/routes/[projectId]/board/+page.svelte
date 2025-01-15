@@ -7,7 +7,7 @@
 	import { getForge } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { PageData } from './$types';
 	import { goto } from '$app/navigation';

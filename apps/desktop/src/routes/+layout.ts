@@ -10,7 +10,7 @@ import { loadAppSettings } from '$lib/config/appSettings';
 import { GitConfigService } from '$lib/config/gitConfigService';
 import { FileService } from '$lib/files/fileService';
 import { HooksService } from '$lib/hooks/hooksService';
-import { ProjectsService } from '$lib/project/projects';
+import { ProjectsService } from '$lib/project/projectsService';
 import { RemotesService } from '$lib/remotes/remotesService';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';

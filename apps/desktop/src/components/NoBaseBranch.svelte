@@ -3,7 +3,7 @@
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSetup from '$components/ProjectSetup.svelte';
 	import { getRemoteBranches } from '$lib/baseBranch/baseBranchService';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 
 	const project = getContext(Project);

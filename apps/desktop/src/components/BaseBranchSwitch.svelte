@@ -4,7 +4,7 @@
 	import SelectItem from '$components/SelectItem.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { getRemoteBranches } from '$lib/baseBranch/baseBranchService';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';

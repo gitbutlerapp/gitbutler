@@ -4,7 +4,7 @@
 	import Markdown from '$components/Markdown.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { showError } from '$lib/notifications/toasts';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';

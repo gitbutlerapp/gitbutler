@@ -6,7 +6,8 @@
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import loadErrorSvg from '$lib/assets/illustrations/load-error.svg?raw';
 	import { showError } from '$lib/notifications/toasts';
-	import { ProjectsService, Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';

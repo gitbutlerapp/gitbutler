@@ -6,7 +6,8 @@
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { BaseBranchService, type RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';
 	import { platformName } from '$lib/platform/platform';
-	import { Project, ProjectsService } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';

@@ -3,7 +3,7 @@
 	import SelectItem from '$components/SelectItem.svelte';
 	import { TemplateService } from '$lib/backend/templateService';
 	import { getForge } from '$lib/forge/interface/forge';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 

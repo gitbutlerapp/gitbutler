@@ -3,7 +3,7 @@
 	import Section from '$components/Section.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';

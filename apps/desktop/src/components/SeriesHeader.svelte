@@ -18,7 +18,7 @@
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { showError } from '$lib/notifications/toasts';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { listCommitFiles } from '$lib/vbranches/remoteCommits';

@@ -30,7 +30,7 @@
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { platformName } from '$lib/platform/platform';
-	import { ProjectsService } from '$lib/project/projects';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { DesktopDispatch, DesktopState } from '$lib/redux/store.svelte';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { setSecretsService } from '$lib/secrets/secretsService';

@@ -2,7 +2,7 @@
 	import Select from '$components/Select.svelte';
 	import SelectItem from '$components/SelectItem.svelte';
 	import { PromptService } from '$lib/ai/promptService';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import type { Prompts, UserPrompt } from '$lib/ai/types';

@@ -10,7 +10,7 @@
 	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
 	import { ModeService } from '$lib/mode/modeService';
 	import { platformName } from '$lib/platform/platform';
-	import { ProjectService } from '$lib/project/projects';
+	import { ProjectService } from '$lib/project/projectService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';

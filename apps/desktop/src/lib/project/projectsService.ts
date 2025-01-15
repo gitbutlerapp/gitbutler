@@ -1,3 +1,4 @@
+import { Project, type CloudProject } from './project';
 import { invoke } from '$lib/backend/ipc';
 import { showError } from '$lib/notifications/toasts';
 import { sleep } from '$lib/utils/sleep';
@@ -8,43 +9,6 @@ import { plainToInstance } from 'class-transformer';
 import { derived, get, writable, type Readable } from 'svelte/store';
 import type { HttpClient } from '@gitbutler/shared/network/httpClient';
 import { goto } from '$app/navigation';
-
-export type KeyType = 'gitCredentialsHelper' | 'local' | 'systemExecutable';
-export type LocalKey = {
-	local: { private_key_path: string };
-};
-
-export type Key = Exclude<KeyType, 'local'> | LocalKey;
-
-export class Project {
-	id!: string;
-	title!: string;
-	description?: string;
-	path!: string;
-	api?: CloudProject & { sync: boolean; sync_code: boolean | undefined };
-	preferred_key!: Key;
-	ok_with_force_push!: boolean;
-	omit_certificate_check: boolean | undefined;
-	use_diff_context: boolean | undefined;
-	snapshot_lines_threshold!: number | undefined;
-	use_new_branch_integration_algorithm: boolean | undefined;
-	// Produced just for the frontend to determine if the project is open in any window.
-	is_open!: boolean;
-
-	get vscodePath() {
-		return this.path.includes('\\') ? '/' + this.path.replace('\\', '/') : this.path;
-	}
-}
-
-export type CloudProject = {
-	name: string;
-	description: string | null;
-	repository_id: string;
-	git_url: string;
-	git_code_url: string;
-	created_at: string;
-	updated_at: string;
-};
 
 export class ProjectsService {
 	private persistedId = persisted<string | undefined>(undefined, 'lastProject');
@@ -215,21 +179,5 @@ export class ProjectsService {
 
 	async getCloudProject(repositoryId: string): Promise<CloudProject> {
 		return await this.httpClient.get(`projects/${repositoryId}.json`);
-	}
-}
-
-/**
- * Provides a store to an individual proejct
- *
- * Its preferable to use this service over the static Project context.
- */
-export class ProjectService {
-	project: Readable<Project | undefined>;
-
-	constructor(
-		projectsService: ProjectsService,
-		readonly projectId: string
-	) {
-		this.project = projectsService.getProjectStore(projectId);
 	}
 }

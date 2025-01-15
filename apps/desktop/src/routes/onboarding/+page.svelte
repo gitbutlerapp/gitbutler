@@ -5,7 +5,7 @@
 	import analyticsSvg from '$lib/assets/illustrations/analytics.svg?raw';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
 	import { AppSettings } from '$lib/config/appSettings';
-	import { ProjectsService } from '$lib/project/projects';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { sleep } from '$lib/utils/sleep';
 	import { getContext } from '@gitbutler/shared/context';
 	import { goto } from '$app/navigation';

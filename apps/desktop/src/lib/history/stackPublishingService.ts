@@ -1,6 +1,6 @@
 import { CommandService } from '$lib/backend/ipc';
 import { derived, get, type Readable } from 'svelte/store';
-import type { Project } from '$lib/project/projects';
+import type { Project } from '$lib/project/project';
 import type { User } from '$lib/user/user';
 
 export class StackPublishingService {

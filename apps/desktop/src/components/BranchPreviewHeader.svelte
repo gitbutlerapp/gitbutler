@@ -2,7 +2,7 @@
 	import BranchLabel from './BranchLabel.svelte';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { ModeService } from '$lib/mode/modeService';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
