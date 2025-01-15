@@ -1,8 +1,8 @@
 <script lang="ts">
 	import DomainButton from './DomainButton.svelte';
 	import SyncButton from '$components/SyncButton.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { Project } from '$lib/project/projects';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Icon from '@gitbutler/ui/Icon.svelte';

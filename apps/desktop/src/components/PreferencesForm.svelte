@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Section from '$components/Section.svelte';
-	import { Project, ProjectsService } from '$lib/backend/projects';
 	import { projectRunCommitHooks } from '$lib/config/config';
+	import { Project, ProjectsService } from '$lib/project/projects';
 	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';

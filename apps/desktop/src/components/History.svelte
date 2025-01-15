@@ -5,8 +5,8 @@
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import SnapshotCard from '$components/SnapshotCard.svelte';
 	import emptyFolderSvg from '$lib/assets/empty-state/empty-folder.svg?raw';
-	import { Project } from '$lib/backend/projects';
 	import { HistoryService, createdOnDay } from '$lib/history/history';
+	import { Project } from '$lib/project/projects';
 	import { RemoteFile } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ProjectService } from '$lib/backend/projects';
+	import { ProjectService } from '$lib/project/projects';
 	import { getContext } from '@gitbutler/shared/context';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';

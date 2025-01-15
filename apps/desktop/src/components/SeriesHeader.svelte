@@ -12,13 +12,13 @@
 	import { PromptService } from '$lib/ai/promptService';
 	import { isFailure } from '$lib/ai/result';
 	import { AIService } from '$lib/ai/service';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { showError } from '$lib/notifications/toasts';
+	import { Project } from '$lib/project/projects';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { listCommitFiles } from '$lib/vbranches/remoteCommits';

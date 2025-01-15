@@ -4,7 +4,7 @@
 	import RemoveProjectButton from './RemoveProjectButton.svelte';
 	import InfoMessage, { type MessageStyle } from '$components/InfoMessage.svelte';
 	import notFoundSvg from '$lib/assets/illustrations/not-found.svg?raw';
-	import { ProjectsService } from '$lib/backend/projects';
+	import { ProjectsService } from '$lib/project/projects';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';

@@ -16,7 +16,6 @@
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { isFailure } from '$lib/ai/result';
 	import { AIService } from '$lib/ai/service';
-	import { Project } from '$lib/backend/projects';
 	import { TemplateService } from '$lib/backend/templateService';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -28,6 +27,7 @@
 	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ReactivePRBody, ReactivePRTitle } from '$lib/pr/prContent.svelte';
+	import { Project } from '$lib/project/projects';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { sleep } from '$lib/utils/sleep';

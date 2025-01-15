@@ -3,7 +3,7 @@ import { parseRemoteFiles } from '$lib/vbranches/remoteCommits';
 import { RemoteFile } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { readable, type Readable } from 'svelte/store';
-import type { Project } from '$lib/backend/projects';
+import type { Project } from '$lib/project/projects';
 import type { ContentSection, HunkSection } from '$lib/utils/fileSections';
 
 type ParsedFiles = [RemoteFile, (ContentSection | HunkSection)[]][];

@@ -2,9 +2,9 @@
 	// This is always displayed in the context of not having a cooresponding vbranch or remote
 	import Link from '$components/Link.svelte';
 	import Markdown from '$components/Markdown.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { showError } from '$lib/notifications/toasts';
+	import { Project } from '$lib/project/projects';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';

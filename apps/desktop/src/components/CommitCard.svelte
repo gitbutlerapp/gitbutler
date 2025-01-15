@@ -3,12 +3,12 @@
 	import BranchFilesList from '$components/BranchFilesList.svelte';
 	import CommitMessageInput from '$components/CommitMessageInput.svelte';
 	import ContextMenu from '$components/ContextMenu.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { CommitDropData, NON_DRAGGABLE } from '$lib/dragging/draggables';
 	import { ModeService } from '$lib/mode/modeService';
+	import { Project } from '$lib/project/projects';
 	import { UserService } from '$lib/user/userService';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';

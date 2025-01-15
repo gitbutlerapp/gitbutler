@@ -4,9 +4,9 @@
 	import KeysForm from '$components/KeysForm.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import newProjectSvg from '$lib/assets/illustrations/new-project.svg?raw';
-	import { Project, ProjectsService } from '$lib/backend/projects';
 	import { BaseBranchService, type RemoteBranchInfo } from '$lib/baseBranch/baseBranchService';
 	import { platformName } from '$lib/platform/platform';
+	import { Project, ProjectsService } from '$lib/project/projects';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';

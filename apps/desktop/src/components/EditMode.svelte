@@ -1,7 +1,6 @@
 <script lang="ts">
 	import FileContextMenu from '$components/FileContextMenu.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
-	import { Project } from '$lib/backend/projects';
 	import { CommitService } from '$lib/commits/service';
 	import {
 		conflictEntryHint,
@@ -12,6 +11,7 @@
 	} from '$lib/conflictEntryPresence';
 	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { ModeService, type EditModeMetadata } from '$lib/mode/modeService';
+	import { Project } from '$lib/project/projects';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { UserService } from '$lib/user/userService';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
