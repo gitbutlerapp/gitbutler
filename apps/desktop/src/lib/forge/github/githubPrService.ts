@@ -1,6 +1,7 @@
 import { GitHubPrMonitor } from './githubPrMonitor';
 import { DEFAULT_HEADERS } from './headers';
 import { ghResponseToInstance, parseGitHubDetailedPullRequest } from './types';
+import { projectDeleteRemoteBranchAfterMerge } from '$lib/config/config';
 import { sleep } from '$lib/utils/sleep';
 import { writable } from 'svelte/store';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
@@ -22,7 +23,9 @@ export class GitHubPrService implements ForgePrService {
 		private repo: RepoInfo,
 		private baseBranch: string,
 		private posthog?: PostHogWrapper
-	) {}
+	) {
+		console.log(projectDeleteRemoteBranchAfterMerge());
+	}
 
 	async createPr({
 		title,
@@ -84,6 +87,10 @@ export class GitHubPrService implements ForgePrService {
 			pull_number: prNumber,
 			merge_method: method
 		});
+
+		if (true) {
+			console.log('SHOULD DELETE BRNACH');
+		}
 	}
 
 	async reopen(prNumber: number) {

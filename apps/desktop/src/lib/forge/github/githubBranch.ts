@@ -8,4 +8,11 @@ export class GitHubBranch implements ForgeBranch {
 		}
 		this.url = `${baseUrl}/compare/${baseBranch}...${name}`;
 	}
+
+	/**
+	 * @desc Delete branch from remote only
+	 */
+	async delete(ref: string) {
+		this.octokit.delete();
+	}
 }
