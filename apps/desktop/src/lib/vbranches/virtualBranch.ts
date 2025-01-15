@@ -5,7 +5,7 @@ import { plainToInstance } from 'class-transformer';
 import { writable } from 'svelte/store';
 import type { BranchListingService } from '$lib/branches/branchListing';
 import type { ProjectMetrics } from '$lib/metrics/projectMetrics';
-import type { ModeService } from '$lib/modes/service';
+import type { ModeService } from '$lib/mode/modeService';
 
 export function allPreviousSeriesHavePrNumber(
 	seriesName: string,

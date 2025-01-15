@@ -14,7 +14,7 @@ import { HistoryService } from '$lib/history/history';
 import { StackPublishingService } from '$lib/history/stackPublishingService';
 import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
-import { ModeService } from '$lib/modes/service';
+import { ModeService } from '$lib/mode/modeService';
 import { BranchController } from '$lib/vbranches/branchController';
 import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
