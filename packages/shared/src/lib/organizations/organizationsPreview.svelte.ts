@@ -5,6 +5,20 @@ import type { LoadableOrganization } from '$lib/organizations/types';
 import type { AppOrganizationsState } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
 
+export function getOrganizations(
+	appState: AppOrganizationsState,
+	organizationService: OrganizationService
+): Reactive<LoadableOrganization[]> {
+	registerInterest(organizationService.getOrganizationListingInterest());
+	const current = $derived(organizationsSelectors.selectAll(appState.organizations));
+
+	return {
+		get current() {
+			return current;
+		}
+	};
+}
+
 export function getOrganizationBySlug(
 	appState: AppOrganizationsState,
 	organizationService: OrganizationService,

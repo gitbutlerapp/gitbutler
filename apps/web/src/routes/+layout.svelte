@@ -10,6 +10,7 @@
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import { WebRoutesService, setRoutesService } from '@gitbutler/shared/sharedRoutes';
 	import { UserService as NewUserService } from '@gitbutler/shared/users/userService';
@@ -54,6 +55,8 @@
 	setContext(PatchService, patchSerice);
 	const chatChannelService = new ChatChannelsService(httpClient, appState.appDispatch);
 	setContext(ChatChannelsService, chatChannelService);
+	const repositoryIdLookupService = new RepositoryIdLookupService(httpClient, appState.appDispatch);
+	setContext(RepositoryIdLookupService, repositoryIdLookupService);
 
 	$effect(() => {
 		const token = get(authService.token) || $page.url.searchParams.get('gb_access_token');

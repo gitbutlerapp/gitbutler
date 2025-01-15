@@ -6,6 +6,7 @@ import { feedsReducer } from '$lib/feeds/feedsSlice';
 import { postsReducer } from '$lib/feeds/postsSlice';
 import { organizationsReducer } from '$lib/organizations/organizationsSlice';
 import { projectsReducer } from '$lib/organizations/projectsSlice';
+import { repositoryIdLookupsReducer } from '$lib/organizations/repositoryIdLookupsSlice';
 import { exampleReducer } from '$lib/redux/example';
 import { usersReducer } from '$lib/users/usersSlice';
 import { configureStore, createSelector } from '@reduxjs/toolkit';
@@ -54,6 +55,10 @@ export interface AppChatChannelsState {
 	readonly chatChannels: ReturnType<typeof chatChannelsReducer>;
 }
 
+export interface AppRepositoryIdLookupsState {
+	readonly repositoryIdLookups: ReturnType<typeof repositoryIdLookupsReducer>;
+}
+
 export class AppDispatch {
 	constructor(readonly dispatch: typeof AppState.prototype._store.dispatch) {}
 }
@@ -69,7 +74,8 @@ export class AppState
 		AppPatchesState,
 		AppBranchesState,
 		AppPatchSectionsState,
-		AppChatChannelsState
+		AppChatChannelsState,
+		AppRepositoryIdLookupsState
 {
 	/**
 	 * The base store.
@@ -88,7 +94,8 @@ export class AppState
 			patches: patchesReducer,
 			branches: branchesReducer,
 			patchSections: patchSectionsReducer,
-			chatChannels: chatChannelsReducer
+			chatChannels: chatChannelsReducer,
+			repositoryIdLookups: repositoryIdLookupsReducer
 		}
 	});
 
@@ -134,6 +141,10 @@ export class AppState
 		[this.selectSelf],
 		(rootState) => rootState.chatChannels
 	);
+	private readonly selectRepositoryIdLookups = createSelector(
+		[this.selectSelf],
+		(rootState) => rootState.repositoryIdLookups
+	);
 
 	readonly example = $derived(this.selectExample(this.rootState));
 	readonly posts = $derived(this.selectPosts(this.rootState));
@@ -145,6 +156,7 @@ export class AppState
 	readonly branches = $derived(this.selectBranches(this.rootState));
 	readonly patchSections = $derived(this.selectPatchSections(this.rootState));
 	readonly chatChannels = $derived(this.selectChatChannels(this.rootState));
+	readonly repositoryIdLookups = $derived(this.selectRepositoryIdLookups(this.rootState));
 
 	constructor() {
 		$effect(() => {

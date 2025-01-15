@@ -1,6 +1,8 @@
 import { branchesSelectors } from '$lib/branches/branchesSlice';
-import { BranchStatus, type LoadableBranch } from '$lib/branches/types';
+import { BranchStatus, type Branch, type LoadableBranch } from '$lib/branches/types';
 import { registerInterest, type InView } from '$lib/interest/registerInterestFunction.svelte';
+import { isFound } from '$lib/network/loadable';
+import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { BranchService } from '$lib/branches/branchService';
 import type { AppBranchesState } from '$lib/redux/store.svelte';
 import type { Reactive } from '$lib/storeUtils';
@@ -15,7 +17,13 @@ export function getBranchReviews(
 	const branchReviewsInterest = branchService.getBranchesInterest(repositoryId, status);
 	registerInterest(branchReviewsInterest, inView);
 
-	const branchReviews = $derived(branchesSelectors.selectAll(appState.branches));
+	const branchReviews = $derived(
+		branchesSelectors
+			.selectAll(appState.branches)
+			.filter((branch) => isFound(branch) && branch.value.repositoryId === repositoryId)
+	);
+
+	console.log(branchReviews);
 
 	return {
 		get current() {
@@ -41,4 +49,15 @@ export function getBranchReview(
 			return branchReview;
 		}
 	};
+}
+
+export async function getContributorsWithAvatars(branch: Branch) {
+	return await Promise.all(
+		branch.contributors.map(async (contributor) => {
+			return {
+				srcUrl: await gravatarUrlFromEmail(contributor),
+				name: contributor
+			};
+		})
+	);
 }

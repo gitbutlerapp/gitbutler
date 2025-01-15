@@ -45,6 +45,7 @@
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';
+	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppDispatch, AppState } from '@gitbutler/shared/redux/store.svelte';
 	import {
 		DesktopRoutesService,
@@ -75,6 +76,7 @@
 	const cloudProjectService = new CloudProjectService(data.cloud, appState.appDispatch);
 	const cloudBranchService = new CloudBranchService(data.cloud, appState.appDispatch);
 	const cloudPatchService = new CloudPatchService(data.cloud, appState.appDispatch);
+	const repositoryIdLookupService = new RepositoryIdLookupService(data.cloud, appState.appDispatch);
 
 	setContext(AppState, appState);
 	setContext(AppDispatch, appState.appDispatch);
@@ -86,6 +88,7 @@
 	setContext(CloudProjectService, cloudProjectService);
 	setContext(CloudBranchService, cloudBranchService);
 	setContext(CloudPatchService, cloudPatchService);
+	setContext(RepositoryIdLookupService, repositoryIdLookupService);
 	setContext(HooksService, data.hooksService);
 
 	// Setters do not need to be reactive since `data` never updates
