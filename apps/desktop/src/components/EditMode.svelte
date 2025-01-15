@@ -12,8 +12,8 @@
 	} from '$lib/conflictEntryPresence';
 	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { UserService } from '$lib/stores/user';
 	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
+	import { UserService } from '$lib/user/userService';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { Commit, type RemoteFile } from '$lib/vbranches/types';

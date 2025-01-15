@@ -4,7 +4,7 @@
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { deleteAllData } from '$lib/backend/data';
 	import { showError } from '$lib/notifications/toasts';
-	import { UserService } from '$lib/stores/user';
+	import { UserService } from '$lib/user/userService';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';

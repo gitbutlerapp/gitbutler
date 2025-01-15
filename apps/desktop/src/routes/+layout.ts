@@ -15,7 +15,7 @@ import { HooksService } from '$lib/hooks/hooksService';
 import { RemotesService } from '$lib/remotes/service';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
-import { UserService } from '$lib/stores/user';
+import { UserService } from '$lib/user/userService';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
 import { LineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';
 import { LineManagerFactory as StackingLineManagerFactory } from '@gitbutler/ui/commitLines/lineManager';

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { invoke, listen } from '$lib/backend/ipc';
 	import * as zip from '$lib/backend/zip';
-	import { User } from '$lib/stores/user';
+	import { User } from '$lib/user/user';
 	import * as toasts from '$lib/utils/toasts';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';

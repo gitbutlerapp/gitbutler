@@ -5,7 +5,7 @@
 		cloudCommunicationFunctionality,
 		cloudReviewFunctionality
 	} from '$lib/config/uiFeatureFlags';
-	import { User } from '$lib/stores/user';
+	import { User } from '$lib/user/user';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Toggle from '@gitbutler/ui/Toggle.svelte';

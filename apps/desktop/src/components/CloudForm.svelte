@@ -4,7 +4,7 @@
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
 	import { Project } from '$lib/backend/projects';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { UserService } from '$lib/stores/user';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
