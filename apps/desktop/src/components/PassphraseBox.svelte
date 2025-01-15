@@ -2,7 +2,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
-	import type { SystemPromptHandle } from '$lib/backend/prompt';
+	import type { SystemPromptHandle } from '$lib/prompt/promptService';
 
 	interface Props {
 		prompt: SystemPromptHandle | undefined;
