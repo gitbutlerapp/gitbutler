@@ -42,10 +42,19 @@ pub mod status {
 pub mod stacks {
     use std::path::PathBuf;
 
+    use but_workspace::stack_branches;
+    use gitbutler_command_context::CommandContext;
+
     use crate::command::{debug_print, project_from_path};
 
     pub fn list(current_dir: PathBuf) -> anyhow::Result<()> {
         let project = project_from_path(current_dir)?;
         debug_print(but_workspace::stacks(&project.gb_dir()))
+    }
+
+    pub fn branches(id: String, current_dir: PathBuf) -> anyhow::Result<()> {
+        let project = project_from_path(current_dir)?;
+        let ctx = CommandContext::open(&project)?;
+        debug_print(stack_branches(id, &ctx))
     }
 }

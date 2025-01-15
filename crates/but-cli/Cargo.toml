@@ -12,6 +12,7 @@ path = "src/main.rs"
 doctest = false
 
 [dependencies]
+gitbutler-command-context.workspace = true
 gitbutler-project.workspace = true
 but-core.workspace = true
 but-workspace.workspace = true
