@@ -6,7 +6,6 @@
 	import NotOnGitButlerBranch from '$components/NotOnGitButlerBranch.svelte';
 	import ProblemLoadingRepo from '$components/ProblemLoadingRepo.svelte';
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
-	import { projectCloudSync } from '$lib/backend/projectCloudSync.svelte';
 	import { Project, ProjectService } from '$lib/backend/projects';
 	import { TemplateService } from '$lib/backend/templateService';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
@@ -31,6 +30,7 @@
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 	import { ModeService } from '$lib/mode/modeService';
+	import { projectCloudSync } from '$lib/project/projectCloudSync.svelte';
 	import { debounce } from '$lib/utils/debounce';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
