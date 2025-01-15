@@ -20,6 +20,7 @@
 	import { cloudFunctionality } from '$lib/config/uiFeatureFlags';
 	import { StackingReorderDropzoneManagerFactory } from '$lib/dragging/stackingReorderDropzoneManager';
 	import { FileService } from '$lib/files/fileService';
+	import { UncommitedFilesWatcher } from '$lib/files/watcher';
 	import { DefaultForgeFactory } from '$lib/forge/forgeFactory';
 	import { octokitFromAccessToken } from '$lib/forge/github/octokit';
 	import { createForgeStore } from '$lib/forge/interface/forge';
@@ -29,8 +30,7 @@
 	import { HistoryService } from '$lib/history/history';
 	import { StackPublishingService } from '$lib/history/stackPublishingService';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
-	import { ModeService } from '$lib/modes/service';
-	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
+	import { ModeService } from '$lib/mode/modeService';
 	import { debounce } from '$lib/utils/debounce';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';

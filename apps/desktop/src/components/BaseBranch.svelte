@@ -6,7 +6,7 @@
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { transformAnyCommit } from '$lib/commits/transformers';
 	import { getForge } from '$lib/forge/interface/forge';
-	import { ModeService } from '$lib/modes/service';
+	import { ModeService } from '$lib/mode/modeService';
 	import { groupByCondition } from '$lib/utils/array';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';

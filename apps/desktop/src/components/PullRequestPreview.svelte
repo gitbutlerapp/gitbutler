@@ -5,7 +5,7 @@
 	import { Project } from '$lib/backend/projects';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { showError } from '$lib/notifications/toasts';
-	import { RemotesService } from '$lib/remotes/service';
+	import { RemotesService } from '$lib/remotes/remotesService';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext } from '@gitbutler/shared/context';

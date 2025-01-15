@@ -12,7 +12,7 @@ import { UpdaterService } from '$lib/backend/updater';
 import { loadAppSettings } from '$lib/config/appSettings';
 import { FileService } from '$lib/files/fileService';
 import { HooksService } from '$lib/hooks/hooksService';
-import { RemotesService } from '$lib/remotes/service';
+import { RemotesService } from '$lib/remotes/remotesService';
 import { RustSecretService } from '$lib/secrets/secretsService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { UserService } from '$lib/user/userService';

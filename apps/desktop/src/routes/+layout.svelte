@@ -33,7 +33,7 @@
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { platformName } from '$lib/platform/platform';
 	import { DesktopDispatch, DesktopState } from '$lib/redux/store.svelte';
-	import { RemotesService } from '$lib/remotes/service';
+	import { RemotesService } from '$lib/remotes/remotesService';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
 	import { User } from '$lib/user/user';
