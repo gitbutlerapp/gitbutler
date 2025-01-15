@@ -1,7 +1,7 @@
 import { CommandService } from '$lib/backend/ipc';
 import { derived, get, type Readable } from 'svelte/store';
 import type { Project } from '$lib/backend/projects';
-import type { User } from '$lib/stores/user';
+import type { User } from '$lib/user/user';
 
 export class SyncedSnapshotService {
 	/**

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { User } from '$lib/stores/user';
+	import { User } from '$lib/user/user';
 	import { getContextStore } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { goto } from '$app/navigation';

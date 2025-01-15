@@ -36,7 +36,8 @@
 	import { RemotesService } from '$lib/remotes/service';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
-	import { User, UserService } from '$lib/stores/user';
+	import { User } from '$lib/user/user';
+	import { UserService } from '$lib/user/userService';
 	import * as events from '$lib/utils/events';
 	import { unsubscribe } from '$lib/utils/unsubscribe';
 	import { BranchService as CloudBranchService } from '@gitbutler/shared/branches/branchService';

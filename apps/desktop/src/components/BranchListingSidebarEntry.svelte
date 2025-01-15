@@ -7,7 +7,7 @@
 		type BranchListing
 	} from '$lib/branches/branchListing';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { UserService } from '$lib/stores/user';
+	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
 	import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
