@@ -20,6 +20,7 @@
 		setNameNormalizationServiceContext
 	} from '$lib/branches/nameNormalizationService';
 	import { AppSettings } from '$lib/config/appSettings';
+	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import {
 		createGitHubUserServiceStore as createGitHubUserServiceStore,
@@ -90,6 +91,7 @@
 	setContext(CloudPatchService, cloudPatchService);
 	setContext(RepositoryIdLookupService, repositoryIdLookupService);
 	setContext(HooksService, data.hooksService);
+	setContext(SettingsService, data.settingsService);
 
 	// Setters do not need to be reactive since `data` never updates
 	setSecretsService(data.secretsService);
