@@ -2,6 +2,7 @@
 	import BranchFilesHeader from './BranchFilesHeader.svelte';
 	import FileListItemSmart from './FileListItemWrapper.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
+	import { SelectedOwnership, updateOwnership } from '$lib/branches/ownership';
 	import { getCommitStore } from '$lib/commits/contexts';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { sortLikeFileTree } from '$lib/files/filetree';
@@ -11,7 +12,6 @@
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { updateSelection } from '$lib/utils/selection';
 	import { FileIdSelection, stringifyKey } from '$lib/vbranches/fileIdSelection';
-	import { SelectedOwnership, updateOwnership } from '$lib/vbranches/ownership';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';

@@ -1,5 +1,5 @@
+import { filesToOwnership, filesToSimpleOwnership } from '$lib/branches/ownership';
 import { CommitDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
-import { filesToOwnership, filesToSimpleOwnership } from '$lib/vbranches/ownership';
 import {
 	LocalFile,
 	Commit,

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import FileContextMenu from './FileContextMenu.svelte';
+	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/commits/contexts';
 	import { getCommitStore } from '$lib/commits/contexts';
 	import { draggableChips, type DraggableConfig } from '$lib/dragging/draggable';
@@ -7,7 +8,6 @@
 	import { itemsSatisfy } from '$lib/utils/array';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
-	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { getLockText } from '$lib/vbranches/tooltip';
 	import { BranchStack, type AnyFile, LocalFile } from '$lib/vbranches/types';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
