@@ -14,6 +14,11 @@
 	import { AIService } from '$lib/ai/service';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchController } from '$lib/branches/branchController';
+	import {
+		allPreviousSeriesHavePrNumber,
+		childBranch,
+		parentBranch
+	} from '$lib/branches/virtualBranchService';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { FileService } from '$lib/files/fileService';
 	import { getForge } from '$lib/forge/interface/forge';
@@ -23,11 +28,6 @@
 	import { Project } from '$lib/project/project';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { PatchSeries, BranchStack, type CommitStatus } from '$lib/vbranches/types';
-	import {
-		allPreviousSeriesHavePrNumber,
-		childBranch,
-		parentBranch
-	} from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';

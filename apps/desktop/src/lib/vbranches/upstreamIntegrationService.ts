@@ -1,5 +1,5 @@
 import { invoke } from '$lib/backend/ipc';
-import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
+import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { get } from 'svelte/store';
 import type { Project } from '$lib/project/project';

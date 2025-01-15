@@ -12,6 +12,7 @@
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { GitBranchService } from '$lib/branches/gitBranch';
+	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { CommitDragActionsFactory } from '$lib/commits/dragActions';
 	import { CommitService } from '$lib/commits/service';
 	import { showHistoryView } from '$lib/config/config';
@@ -35,7 +36,6 @@
 	import { ProjectService } from '$lib/project/projectService';
 	import { debounce } from '$lib/utils/debounce';
 	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
-	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';

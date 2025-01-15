@@ -18,6 +18,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchController } from '$lib/branches/branchController';
+	import { parentBranch } from '$lib/branches/virtualBranchService';
 	import { projectAiGenEnabled } from '$lib/config/config';
 	import { mapErrorToToast } from '$lib/forge/github/errorMap';
 	import { getForge } from '$lib/forge/interface/forge';
@@ -35,7 +36,6 @@
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { PatchSeries, BranchStack } from '$lib/vbranches/types';
-	import { parentBranch } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';

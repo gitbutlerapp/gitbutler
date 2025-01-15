@@ -6,11 +6,11 @@
 	import BranchLane from '$components/BranchLane.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { BranchController } from '$lib/branches/branchController';
+	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { showHistoryView } from '$lib/config/config';
 	import { cloneElement } from '$lib/dragging/draggable';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { throttle } from '$lib/utils/misc';
-	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
