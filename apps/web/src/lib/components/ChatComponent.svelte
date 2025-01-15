@@ -19,9 +19,7 @@
 	const chatChannelService = getContext(ChatChannelsService);
 	const chatChannel = getChatChannel(appState, chatChannelService, projectId, changeId);
 
-	let message = $state<string>();
-
-	async function sendMessage() {
+	async function sendMessage(message: string | undefined) {
 		if (message === undefined || message.trim() === '') {
 			return;
 		}
@@ -32,35 +30,36 @@
 			changeId,
 			chat: message
 		});
-
-		message = undefined;
 	}
 </script>
 
 <div class="chat-card">
-	{#if chatChannel}
-		<Loading loadable={chatChannel.current}>
-			{#snippet children(channel)}
-				<div class="chat-messages">
+	<div class="chat-messages">
+		{#if chatChannel}
+			<Loading loadable={chatChannel.current}>
+				{#snippet children(channel)}
 					{#each channel.messages as message}
-						<!-- TODO: Actually retrieve the correct data -->
-						<Message author={message.userId.toString()} content={JSON.stringify(message.comment)} />
+						<Message {message} />
 					{/each}
-				</div>
-			{/snippet}
-		</Loading>
-	{/if}
-	<ChatInputProps bind:message {sendMessage} />
+				{/snippet}
+			</Loading>
+		{/if}
+	</div>
+	<ChatInputProps {sendMessage} />
 </div>
 
 <style lang="postcss">
 	.chat-card {
 		width: 100%;
 		height: 50vh;
+		overflow: hidden;
 		display: flex;
 		flex-direction: column;
 		height: 100%;
-		border: 1px solid #ccc;
+
+		border-radius: var(--ml, 10px);
+		border: 1px solid var(--border-2, #d4d0ce);
+		background: var(--bg-1, #fff);
 	}
 
 	.chat-messages {
