@@ -1,4 +1,4 @@
-import type { OwnerParameters } from '$lib/project/types';
+import type { OwnerParameters } from '$lib/routing';
 import type { PageLoad } from './$types';
 
 // eslint-disable-next-line func-style

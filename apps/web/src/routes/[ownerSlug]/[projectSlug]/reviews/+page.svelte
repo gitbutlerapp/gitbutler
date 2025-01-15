@@ -9,7 +9,7 @@
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import Badge from '@gitbutler/ui/Badge.svelte';
-	import type { ProjectParameters } from '$lib/project/types';
+	import type { ProjectParameters } from '$lib/routing';
 
 	interface Props {
 		data: ProjectParameters;

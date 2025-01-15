@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { AuthService } from '$lib/auth/authService';
+	import { projectsPath } from '$lib/routing';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { env } from '$env/dynamic/public';
@@ -41,7 +42,7 @@
 				</a>
 			</div>
 			<div class="link">
-				<a class="nav-link nav-button" href="/repositories" aria-label="projects"> Projects </a>
+				<a class="nav-link nav-button" href={projectsPath()} aria-label="projects">Projects</a>
 			</div>
 		{/if}
 		<div class="link">

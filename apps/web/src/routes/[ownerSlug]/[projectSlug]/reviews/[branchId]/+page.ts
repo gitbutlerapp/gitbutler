@@ -1,4 +1,4 @@
-import type { ProjectReviewParameters } from '$lib/project/types';
+import type { ProjectReviewParameters } from '$lib/routing';
 import type { PageLoad } from './$types';
 
 // eslint-disable-next-line func-style

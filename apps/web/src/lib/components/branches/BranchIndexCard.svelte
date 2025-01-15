@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { projectReviewBranchPath, type ProjectParameters } from '$lib/routing';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import {
 		getBranchReview,
@@ -13,7 +14,6 @@
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
-	import type { ProjectParameters } from '$lib/project/types';
 
 	dayjs.extend(relativeTime);
 
@@ -54,7 +54,7 @@
 		<tr class:roundedTop class:roundedBottom class="row">
 			<td>1</td>
 			<td>
-				<a href={`/${linkParams.ownerSlug}/${linkParams.projectSlug}/reviews/${branchId}`}>
+				<a href={projectReviewBranchPath({ ...linkParams, branchId })}>
 					{branch.title}
 				</a>
 			</td>
