@@ -103,7 +103,6 @@
 	export async function focus() {
 		$expanded = true;
 		await tick();
-		commitMessageInput?.focus();
 	}
 </script>
 
