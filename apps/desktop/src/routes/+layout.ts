@@ -5,6 +5,7 @@ import { PostHogWrapper } from '$lib/analytics/posthog';
 import { CommandService } from '$lib/backend/ipc';
 import { Tauri } from '$lib/backend/tauri';
 import { loadAppSettings } from '$lib/config/appSettings';
+import { SettingsService } from '$lib/config/appSettingsV2';
 import { GitConfigService } from '$lib/config/gitConfigService';
 import { FileService } from '$lib/files/fileService';
 import { HooksService } from '$lib/hooks/hooksService';
@@ -62,6 +63,7 @@ export const load: LayoutLoad = async () => {
 	const stackingLineManagerFactory = new StackingLineManagerFactory();
 	const fileService = new FileService(tauri);
 	const hooksService = new HooksService(tauri);
+	const settingsService = new SettingsService(tauri);
 
 	return {
 		commandService,
@@ -82,6 +84,7 @@ export const load: LayoutLoad = async () => {
 		posthog,
 		tauri,
 		fileService,
-		hooksService
+		hooksService,
+		settingsService
 	};
 };

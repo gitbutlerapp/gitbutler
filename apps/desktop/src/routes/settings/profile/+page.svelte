@@ -2,7 +2,7 @@
 	import Login from '$components/Login.svelte';
 	import SettingsPage from '$components/SettingsPage.svelte';
 	import WelcomeSigninAction from '$components/WelcomeSigninAction.svelte';
-	import { deleteAllData } from '$lib/backend/data';
+	import { SettingsService } from '$lib/config/appSettingsV2';
 	import { showError } from '$lib/notifications/toasts';
 	import { UserService } from '$lib/user/userService';
 	import * as toasts from '$lib/utils/toasts';
@@ -15,6 +15,7 @@
 	import { goto } from '$app/navigation';
 
 	const userService = getContext(UserService);
+	const settingsService = getContext(SettingsService);
 	const user = userService.user;
 
 	const fileTypes = ['image/jpeg', 'image/png'];
@@ -78,7 +79,7 @@
 	async function onDeleteClicked() {
 		isDeleting = true;
 		try {
-			deleteAllData();
+			await settingsService.deleteAllData();
 			await userService.logout();
 			// TODO: Delete user from observable!!!
 			toasts.success('All data deleted');
