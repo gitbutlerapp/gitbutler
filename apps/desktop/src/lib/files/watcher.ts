@@ -1,10 +1,9 @@
 import { listen, invoke } from '$lib/backend/ipc';
-import { parseRemoteFiles } from '$lib/vbranches/remoteCommits';
+import { parseFileSections, type ContentSection, type HunkSection } from '$lib/utils/fileSections';
 import { RemoteFile } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { readable, type Readable } from 'svelte/store';
 import type { Project } from '$lib/project/project';
-import type { ContentSection, HunkSection } from '$lib/utils/fileSections';
 
 type ParsedFiles = [RemoteFile, (ContentSection | HunkSection)[]][];
 
@@ -44,4 +43,10 @@ export class UncommitedFilesWatcher {
 			callback(parseRemoteFiles(orderedFiles));
 		});
 	}
+}
+
+function parseRemoteFiles(files: RemoteFile[]) {
+	return files.map(
+		(file) => [file, parseFileSections(file)] as [RemoteFile, (ContentSection | HunkSection)[]]
+	);
 }

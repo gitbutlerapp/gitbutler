@@ -1,3 +1,5 @@
+import { RemoteFile } from '$lib/vbranches/types';
+import { plainToInstance } from 'class-transformer';
 import type { Tauri } from '$lib/backend/tauri';
 import type { FileInfo } from './file';
 
@@ -25,6 +27,13 @@ export class FileService {
 			data,
 			isLarge: isLarge(data.size)
 		};
+	}
+
+	async listCommitFiles(projectId: string, commitOid: string) {
+		return plainToInstance(
+			RemoteFile,
+			await this.tauri.invoke<any[]>('list_commit_files', { projectId, commitOid })
+		).sort((a, b) => a.path?.localeCompare(b.path));
 	}
 }
 
