@@ -6,12 +6,12 @@
 	import { getCommitStore } from '$lib/commits/contexts';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
 	import { sortLikeFileTree } from '$lib/files/filetree';
+	import { FileIdSelection, stringifyKey } from '$lib/selection/fileIdSelection';
 	import { chunk } from '$lib/utils/array';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import { selectFilesInList } from '$lib/utils/selectFilesInList';
 	import { updateSelection } from '$lib/utils/selection';
-	import { FileIdSelection, stringifyKey } from '$lib/vbranches/fileIdSelection';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';

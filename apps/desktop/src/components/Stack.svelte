@@ -13,6 +13,7 @@
 	import { Project } from '$lib/project/project';
 	// import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	// import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	// import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	// import { type MergeMethod } from '$lib/forge/interface/types';
@@ -20,7 +21,6 @@
 	// import MergeButton from '$components/MergeButton.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	// import * as toasts from '$lib/utils/toasts';
-	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { DetailedCommit, BranchStack } from '$lib/vbranches/types';
 	// import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
