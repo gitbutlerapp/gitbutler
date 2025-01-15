@@ -6,7 +6,7 @@
 		createLocalCommitsContextStore,
 		createLocalAndRemoteCommitsContextStore
 	} from '$lib/commits/contexts';
-	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
+	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { DetailedCommit, LocalFile, PatchSeries, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';

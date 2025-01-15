@@ -5,8 +5,8 @@
 	import Resizer from '$components/Resizer.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { getContext, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import lscache from 'lscache';
 	import { onMount, setContext } from 'svelte';

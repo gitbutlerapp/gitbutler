@@ -1,4 +1,4 @@
-import { unstringifyFileKey } from '../vbranches/fileIdSelection';
+import { unstringifyFileKey } from '../selection/fileIdSelection';
 import type { BranchStack, AnyFile, Hunk, RemoteHunk, RemoteFile } from '../vbranches/types';
 import type { Writable } from 'svelte/store';
 

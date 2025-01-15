@@ -1,5 +1,5 @@
 import { getSelectionDirection } from './getSelectionDirection';
-import { type FileIdSelection } from '$lib/vbranches/fileIdSelection';
+import { type FileIdSelection } from '$lib/selection/fileIdSelection';
 import { get } from 'svelte/store';
 import type { AnyCommit, AnyFile } from '$lib/vbranches/types';
 

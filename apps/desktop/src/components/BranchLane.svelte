@@ -5,8 +5,8 @@
 	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { projectLaneCollapsed } from '$lib/config/config';
 	import { Project } from '$lib/project/project';
+	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { RemoteFile, BranchStack } from '$lib/vbranches/types';
 	import {
 		getContext,
