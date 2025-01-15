@@ -18,6 +18,8 @@ pub struct Args {
 pub enum Subcommands {
     /// Update the local workspace against an updated remote or target branch.
     Status,
+    /// Returns the list of stacks that are currently part of the GitButler workspace.
+    Stacks,
 }
 
 #[cfg(test)]

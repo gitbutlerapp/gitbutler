@@ -665,7 +665,9 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "but-core",
+ "but-workspace",
  "clap",
+ "gitbutler-project",
  "tracing",
  "tracing-forest",
  "tracing-subscriber",
@@ -681,6 +683,16 @@ dependencies = [
  "serde",
  "toml 0.8.19",
  "walkdir",
+]
+
+[[package]]
+name = "but-workspace"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "bstr",
+ "gitbutler-id",
+ "gitbutler-stack",
 ]
 
 [[package]]
@@ -2853,6 +2865,7 @@ version = "0.0.0"
 dependencies = [
  "anyhow",
  "backtrace",
+ "but-workspace",
  "console-subscriber",
  "dirs 5.0.1",
  "futures",
@@ -2875,6 +2888,7 @@ dependencies = [
  "gitbutler-repo",
  "gitbutler-repo-actions",
  "gitbutler-secret",
+ "gitbutler-serde",
  "gitbutler-settings",
  "gitbutler-stack",
  "gitbutler-storage",

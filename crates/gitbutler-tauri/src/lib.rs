@@ -40,3 +40,5 @@ pub mod virtual_branches;
 pub mod settings;
 pub mod stack;
 pub mod zip;
+
+pub mod workspace;

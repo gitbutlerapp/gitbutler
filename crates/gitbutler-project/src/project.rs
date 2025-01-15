@@ -1,10 +1,11 @@
+use anyhow::Context;
+use gitbutler_id::id::Id;
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::{
     path::{self, PathBuf},
     time,
 };
-
-use gitbutler_id::id::Id;
-use serde::{Deserialize, Serialize};
 
 use crate::default_true::DefaultTrue;
 
@@ -96,6 +97,21 @@ pub struct Project {
     pub snapshot_lines_threshold: Option<usize>,
     #[serde(default)]
     pub use_new_branch_integration_algorithm: Option<bool>,
+}
+
+/// Instantiation
+impl Project {
+    /// Search upwards from `path` to discover a Git worktree.
+    pub fn from_path(path: &Path) -> anyhow::Result<Project> {
+        let worktree_dir = gix::discover(path)?
+            .work_dir()
+            .context("Bare repositories aren't supported")?
+            .to_owned();
+        Ok(Project {
+            path: worktree_dir,
+            ..Default::default()
+        })
+    }
 }
 
 impl Project {

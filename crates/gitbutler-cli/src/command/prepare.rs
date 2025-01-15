@@ -4,14 +4,7 @@ use anyhow::{bail, Context};
 use gitbutler_project::Project;
 
 pub fn project_from_path(path: PathBuf) -> anyhow::Result<Project> {
-    let worktree_dir = gix::discover(path)?
-        .work_dir()
-        .context("Bare repositories aren't supported")?
-        .to_owned();
-    Ok(Project {
-        path: worktree_dir,
-        ..Default::default()
-    })
+    Project::from_path(&path)
 }
 
 pub fn project_controller(

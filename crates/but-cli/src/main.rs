@@ -16,6 +16,7 @@ fn main() -> Result<()> {
 
     match args.cmd {
         args::Subcommands::Status => command::status::doit(),
+        args::Subcommands::Stacks => command::stacks::list(args.current_dir),
     }
 }
 
