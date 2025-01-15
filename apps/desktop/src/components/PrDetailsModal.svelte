@@ -14,6 +14,7 @@
 	import DropDownButton from '$components/DropDownButton.svelte';
 	import Markdown from '$components/Markdown.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
+	import { isFailure } from '$lib/ai/result';
 	import { AIService } from '$lib/ai/service';
 	import { Project } from '$lib/backend/projects';
 	import { TemplateService } from '$lib/backend/templateService';
@@ -27,7 +28,6 @@
 	import { updatePrDescriptionTables as updatePrStackInfo } from '$lib/forge/shared/prFooter';
 	import { showError, showToast } from '$lib/notifications/toasts';
 	import { ReactivePRBody, ReactivePRTitle } from '$lib/pr/prContent.svelte';
-	import { isFailure } from '$lib/result';
 	import { getBranchNameFromRef } from '$lib/utils/branch';
 	import { KeyName, onMetaEnter } from '$lib/utils/hotkeys';
 	import { sleep } from '$lib/utils/sleep';

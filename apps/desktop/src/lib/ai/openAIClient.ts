@@ -3,7 +3,7 @@ import {
 	SHORT_DEFAULT_COMMIT_TEMPLATE,
 	SHORT_DEFAULT_PR_TEMPLATE
 } from '$lib/ai/prompts';
-import { andThenAsync, ok, wrapAsync, type Result } from '$lib/result';
+import { andThenAsync, ok, wrapAsync, type Result } from '$lib/ai/result';
 import OpenAI from 'openai';
 import type { OpenAIModelName, Prompt, AIClient, AIEvalOptions } from '$lib/ai/types';
 import type { ChatCompletionChunk } from 'openai/resources/index.mjs';
