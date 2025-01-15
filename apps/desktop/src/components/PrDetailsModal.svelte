@@ -17,6 +17,8 @@
 	import { isFailure } from '$lib/ai/result';
 	import { AIService } from '$lib/ai/service';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BranchStack } from '$lib/branches/branch';
+	import { PatchSeries } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { parentBranch } from '$lib/branches/virtualBranchService';
 	import { projectAiGenEnabled } from '$lib/config/config';
@@ -35,7 +37,6 @@
 	import { sleep } from '$lib/utils/sleep';
 	import { error } from '$lib/utils/toasts';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { PatchSeries, BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';

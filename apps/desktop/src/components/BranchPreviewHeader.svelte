@@ -12,8 +12,8 @@
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Tooltip from '@gitbutler/ui/Tooltip.svelte';
+	import type { BranchData } from '$lib/branches/branch';
 	import type { PullRequest } from '$lib/forge/interface/types';
-	import type { BranchData } from '$lib/vbranches/types';
 	import { goto } from '$app/navigation';
 
 	interface Props {

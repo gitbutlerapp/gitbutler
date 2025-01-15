@@ -1,12 +1,7 @@
+import { type BranchStack } from '$lib/branches/branch';
 import { filesToOwnership, filesToSimpleOwnership } from '$lib/branches/ownership';
 import { CommitDropData, FileDropData, HunkDropData } from '$lib/dragging/draggables';
-import {
-	LocalFile,
-	Commit,
-	RemoteFile,
-	type BranchStack,
-	type DetailedCommit
-} from '$lib/vbranches/types';
+import { LocalFile, Commit, RemoteFile, type DetailedCommit } from '$lib/vbranches/types';
 import type { BranchController } from '$lib/branches/branchController';
 import type { Project } from '$lib/project/project';
 

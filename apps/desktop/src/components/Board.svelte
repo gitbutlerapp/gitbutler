@@ -14,7 +14,7 @@
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';
 	import { flip } from 'svelte/animate';
-	import type { BranchStack } from '$lib/vbranches/types';
+	import type { BranchStack } from '$lib/branches/branch';
 
 	const vbranchService = getContext(VirtualBranchService);
 	const branchController = getContext(BranchController);

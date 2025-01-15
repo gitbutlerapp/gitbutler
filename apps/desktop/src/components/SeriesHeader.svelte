@@ -13,6 +13,8 @@
 	import { isFailure } from '$lib/ai/result';
 	import { AIService } from '$lib/ai/service';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
+	import { BranchStack } from '$lib/branches/branch';
+	import { PatchSeries } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import {
 		allPreviousSeriesHavePrNumber,
@@ -27,7 +29,7 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { PatchSeries, BranchStack, type CommitStatus } from '$lib/vbranches/types';
+	import { type CommitStatus } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';

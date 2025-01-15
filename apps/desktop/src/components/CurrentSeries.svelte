@@ -5,7 +5,8 @@
 		createLocalAndRemoteCommitsContextStore
 	} from '$lib/commits/contexts';
 	import { getColorFromBranchType } from '@gitbutler/ui/utils/getColorFromBranchType';
-	import type { PatchSeries, DetailedCommit } from '$lib/vbranches/types';
+	import type { PatchSeries } from '$lib/branches/branch';
+	import type { DetailedCommit } from '$lib/vbranches/types';
 	import type { Snippet } from 'svelte';
 
 	interface Props {

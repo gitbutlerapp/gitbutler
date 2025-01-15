@@ -1,8 +1,9 @@
 <script lang="ts">
 	import CardOverlay from '$components/CardOverlay.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
+	import { BranchStack } from '$lib/branches/branch';
 	import { CommitDragActions, CommitDragActionsFactory } from '$lib/commits/dragActions';
-	import { Commit, BranchStack, DetailedCommit } from '$lib/vbranches/types';
+	import { Commit, DetailedCommit } from '$lib/vbranches/types';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import type { Snippet } from 'svelte';
 

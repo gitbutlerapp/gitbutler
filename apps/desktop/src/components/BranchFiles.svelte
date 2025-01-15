@@ -8,7 +8,8 @@
 	} from '$lib/commits/contexts';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { getContext } from '@gitbutler/shared/context';
-	import type { DetailedCommit, LocalFile, PatchSeries, RemoteFile } from '$lib/vbranches/types';
+	import type { PatchSeries } from '$lib/branches/branch';
+	import type { DetailedCommit, LocalFile, RemoteFile } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {

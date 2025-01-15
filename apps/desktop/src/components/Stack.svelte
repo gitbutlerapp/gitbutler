@@ -8,6 +8,7 @@
 	import StackHeader from '$components/StackHeader.svelte';
 	import laneNewSvg from '$lib/assets/empty-state/lane-new.svg?raw';
 	import noChangesSvg from '$lib/assets/empty-state/lane-no-changes.svg?raw';
+	import { BranchStack } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { Project } from '$lib/project/project';
@@ -21,7 +22,7 @@
 	// import MergeButton from '$components/MergeButton.svelte';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	// import * as toasts from '$lib/utils/toasts';
-	import { DetailedCommit, BranchStack } from '$lib/vbranches/types';
+	import { DetailedCommit } from '$lib/vbranches/types';
 	// import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore, getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';

@@ -7,13 +7,14 @@
 	import CommitList from '$components/CommitList.svelte';
 	import Dropzone from '$components/Dropzone.svelte';
 	import SeriesHeader from '$components/SeriesHeader.svelte';
+	import { isPatchSeries, type BranchStack } from '$lib/branches/branch';
+	import { PatchSeries } from '$lib/branches/branch';
 	import { BranchController } from '$lib/branches/branchController';
 	import { CommitDropData } from '$lib/dragging/draggables';
 	import {
 		StackingReorderDropzoneManagerFactory,
 		buildNewStackOrder
 	} from '$lib/dragging/stackingReorderDropzoneManager';
-	import { isPatchSeries, PatchSeries, type BranchStack } from '$lib/vbranches/types';
 	import { getContext } from '@gitbutler/shared/context';
 	import { isError } from '@gitbutler/ui/utils/typeguards';
 
