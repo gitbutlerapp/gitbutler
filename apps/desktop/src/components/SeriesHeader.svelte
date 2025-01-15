@@ -14,6 +14,7 @@
 	import { AIService } from '$lib/ai/service';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { projectAiGenEnabled } from '$lib/config/config';
+	import { FileService } from '$lib/files/fileService';
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
@@ -21,7 +22,6 @@
 	import { Project } from '$lib/project/project';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
-	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { PatchSeries, BranchStack, type CommitStatus } from '$lib/vbranches/types';
 	import {
 		allPreviousSeriesHavePrNumber,
@@ -49,6 +49,7 @@
 	const project = getContext(Project);
 	const aiService = getContext(AIService);
 	const promptService = getContext(PromptService);
+	const fileService = getContext(FileService);
 	const stackStore = getContextStore(BranchStack);
 	const stack = $derived($stackStore);
 
@@ -209,7 +210,7 @@
 		if (!aiGenEnabled || !branch) return;
 
 		let hunk_promises = branch.patches.flatMap(async (p) => {
-			let files = await listCommitFiles(project.id, p.id);
+			let files = await fileService.listCommitFiles(project.id, p.id);
 			return files.flatMap((f) =>
 				f.hunks.map((h) => {
 					return { filePath: f.path, diff: h.diff };

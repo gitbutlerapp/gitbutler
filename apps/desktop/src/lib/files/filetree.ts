@@ -4,7 +4,7 @@
  * This module provides support for tranforming a list of files into a
  * hirerarchical structure for easy rendering.
  */
-import type { AnyFile } from './types';
+import type { AnyFile } from '../vbranches/types';
 
 export interface TreeNode {
 	name: string;

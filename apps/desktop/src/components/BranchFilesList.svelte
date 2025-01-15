@@ -3,6 +3,7 @@
 	import FileListItemSmart from './FileListItemWrapper.svelte';
 	import LazyloadContainer from '$components/LazyloadContainer.svelte';
 	import { conflictEntryHint } from '$lib/conflictEntryPresence';
+	import { sortLikeFileTree } from '$lib/files/filetree';
 	import { chunk } from '$lib/utils/array';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { KeyName } from '$lib/utils/hotkeys';
@@ -10,7 +11,6 @@
 	import { updateSelection } from '$lib/utils/selection';
 	import { getCommitStore } from '$lib/vbranches/contexts';
 	import { FileIdSelection, stringifyKey } from '$lib/vbranches/fileIdSelection';
-	import { sortLikeFileTree } from '$lib/vbranches/filetree';
 	import { SelectedOwnership, updateOwnership } from '$lib/vbranches/ownership';
 	import { getContext, maybeGetContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';

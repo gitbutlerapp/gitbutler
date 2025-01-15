@@ -7,6 +7,7 @@
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { CommitDropData, NON_DRAGGABLE } from '$lib/dragging/draggables';
+	import { FileService } from '$lib/files/fileService';
 	import { ModeService } from '$lib/mode/modeService';
 	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
@@ -14,7 +15,6 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { createCommitStore } from '$lib/vbranches/contexts';
-	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
 	import {
 		Commit,
 		DetailedCommit,
@@ -70,6 +70,7 @@
 	const baseBranch = getContextStore(BaseBranch);
 	const project = getContext(Project);
 	const modeService = maybeGetContext(ModeService);
+	const fileService = getContext(FileService);
 
 	const commitStore = createCommitStore(commit);
 
@@ -96,7 +97,7 @@
 	);
 
 	async function loadFiles() {
-		files = await listCommitFiles(project.id, commit.id);
+		files = await fileService.listCommitFiles(project.id, commit.id);
 	}
 
 	function toggleFiles() {

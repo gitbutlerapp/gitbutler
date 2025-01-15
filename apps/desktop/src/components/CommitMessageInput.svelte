@@ -11,6 +11,7 @@
 		projectCommitGenerationUseEmojis,
 		projectRunCommitHooks
 	} from '$lib/config/config';
+	import { FileService } from '$lib/files/fileService';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
@@ -18,7 +19,6 @@
 	import { KeyName } from '$lib/utils/hotkeys';
 	import * as toasts from '$lib/utils/toasts';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
-	import { listCommitFiles } from '$lib/vbranches/remoteCommits';
 	import { BranchStack, DetailedCommit, Commit } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
@@ -52,6 +52,7 @@
 	const project = getContext(Project);
 	const promptService = getContext(PromptService);
 	const hooksService = getContext(HooksService);
+	const fileService = getContext(FileService);
 
 	const aiGenEnabled = projectAiGenEnabled(project.id);
 	const commitGenerationExtraConcise = projectCommitGenerationExtraConcise(project.id);
@@ -89,7 +90,7 @@
 			);
 		}
 
-		const files = await listCommitFiles(project.id, existingCommit.id);
+		const files = await fileService.listCommitFiles(project.id, existingCommit.id);
 		return files.flatMap((file) =>
 			file.hunks.map((hunk) => ({
 				filePath: file.path,
