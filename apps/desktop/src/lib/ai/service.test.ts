@@ -22,13 +22,14 @@ import {
 	type AIClient,
 	type Prompt
 } from '$lib/ai/types';
+import { Tauri } from '$lib/backend/tauri';
+import { type GbConfig, GitConfigService } from '$lib/config/gitConfigService';
 import { TokenMemoryService } from '$lib/stores/tokenMemoryService';
 import { Hunk } from '$lib/vbranches/types';
 import { HttpClient } from '@gitbutler/shared/network/httpClient';
 import { plainToInstance } from 'class-transformer';
 import { get } from 'svelte/store';
 import { expect, test, describe, vi } from 'vitest';
-import type { GbConfig, GitConfigService } from '$lib/backend/gitConfigService';
 import type { SecretsService } from '$lib/secrets/secretsService';
 
 const defaultGitConfig = Object.freeze({
@@ -44,8 +45,10 @@ const defaultSecretsConfig = Object.freeze({
 	[AISecretHandle.OpenAIKey]: undefined
 });
 
-class DummyGitConfigService implements GitConfigService {
-	constructor(private config: { [index: string]: string | undefined }) {}
+class DummyGitConfigService extends GitConfigService {
+	constructor(private config: { [index: string]: string | undefined }) {
+		super(new Tauri());
+	}
 	async getGbConfig(_projectId: string): Promise<GbConfig> {
 		throw new Error('Method not implemented.');
 	}
@@ -65,6 +68,16 @@ class DummyGitConfigService implements GitConfigService {
 	}
 	async remove(key: string): Promise<undefined> {
 		delete this.config[key];
+	}
+	async checkGitFetch(_projectId: string, _remoteName: string | null | undefined): Promise<void> {
+		throw new Error('Method not implemented.');
+	}
+	async checkGitPush(
+		_projectId: string,
+		_remoteName: string | null | undefined,
+		_branchName: string | null | undefined
+	): Promise<{ name: string; ok: boolean } | undefined> {
+		throw new Error('Method not implemented.');
 	}
 }
 

@@ -1,6 +1,6 @@
 import { invoke } from '$lib/backend/ipc';
 import { buildContext } from '@gitbutler/shared/context';
-import type { GitConfigService } from '$lib/backend/gitConfigService';
+import type { GitConfigService } from '$lib/config/gitConfigService';
 
 export type SecretsService = {
 	get(handle: string): Promise<string | undefined>;

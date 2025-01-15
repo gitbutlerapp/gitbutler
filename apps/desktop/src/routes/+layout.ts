@@ -2,14 +2,13 @@ import { PromptService as AIPromptService } from '$lib/ai/promptService';
 import { AIService } from '$lib/ai/service';
 import { initAnalyticsIfEnabled } from '$lib/analytics/analytics';
 import { PostHogWrapper } from '$lib/analytics/posthog';
-import { AuthService } from '$lib/backend/auth';
-import { GitConfigService } from '$lib/backend/gitConfigService';
 import { CommandService } from '$lib/backend/ipc';
 import { ProjectsService } from '$lib/backend/projects';
 import { PromptService } from '$lib/backend/prompt';
 import { Tauri } from '$lib/backend/tauri';
 import { UpdaterService } from '$lib/backend/updater';
 import { loadAppSettings } from '$lib/config/appSettings';
+import { GitConfigService } from '$lib/config/gitConfigService';
 import { FileService } from '$lib/files/fileService';
 import { HooksService } from '$lib/hooks/hooksService';
 import { RemotesService } from '$lib/remotes/remotesService';
@@ -46,7 +45,6 @@ export const load: LayoutLoad = async () => {
 
 	const tokenMemoryService = new TokenMemoryService();
 	const httpClient = new HttpClient(window.fetch, PUBLIC_API_BASE_URL, tokenMemoryService.token);
-	const authService = new AuthService();
 	const tauri = new Tauri();
 	const updaterService = new UpdaterService(tauri, posthog);
 	const promptService = new PromptService();
@@ -55,7 +53,7 @@ export const load: LayoutLoad = async () => {
 
 	const projectsService = new ProjectsService(defaultPath, httpClient);
 
-	const gitConfig = new GitConfigService();
+	const gitConfig = new GitConfigService(tauri);
 	const secretsService = new RustSecretService(gitConfig);
 	const aiService = new AIService(gitConfig, secretsService, httpClient, tokenMemoryService);
 	const remotesService = new RemotesService();
@@ -69,7 +67,6 @@ export const load: LayoutLoad = async () => {
 		commandService,
 		tokenMemoryService,
 		appSettings,
-		authService,
 		cloud: httpClient,
 		projectsService,
 		updaterService,
