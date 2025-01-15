@@ -5,7 +5,7 @@
 	import { getCommitStore } from '$lib/commits/contexts';
 	import { draggableChips, type DraggableConfig } from '$lib/dragging/draggable';
 	import { FileDropData } from '$lib/dragging/draggables';
-	import { getLockText } from '$lib/files/tooltip';
+	import { getLockText } from '$lib/files/lock';
 	import { FileIdSelection } from '$lib/selection/fileIdSelection';
 	import { itemsSatisfy } from '$lib/utils/array';
 	import { computeFileStatus } from '$lib/utils/fileStatus';

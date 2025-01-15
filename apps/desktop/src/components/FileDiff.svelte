@@ -4,7 +4,7 @@
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/commits/contexts';
 	import { FileService } from '$lib/files/fileService';
-	import { getLockText } from '$lib/files/tooltip';
+	import { getLockText } from '$lib/files/lock';
 	import { Project } from '$lib/project/project';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { getContext } from '@gitbutler/shared/context';
