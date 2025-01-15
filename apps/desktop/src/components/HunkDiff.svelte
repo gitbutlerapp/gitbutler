@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
+	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { create } from '$lib/utils/codeHighlight';
 	import {
 		type ContentSection,
@@ -7,7 +8,6 @@
 		type Line,
 		CountColumnSide
 	} from '$lib/utils/fileSections';
-	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { type Hunk } from '$lib/vbranches/types';
 	import { maybeGetContextStore } from '@gitbutler/shared/context';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { SelectedOwnership } from '$lib/vbranches/ownership';
+	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { maybeGetContextStore } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Checkbox from '@gitbutler/ui/Checkbox.svelte';
