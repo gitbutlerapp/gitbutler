@@ -34,8 +34,8 @@
 	import { Project } from '$lib/project/project';
 	import { projectCloudSync } from '$lib/project/projectCloudSync.svelte';
 	import { ProjectService } from '$lib/project/projectService';
+	import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 	import { debounce } from '$lib/utils/debounce';
-	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { ProjectService as CloudProjectService } from '@gitbutler/shared/organizations/projectService';

@@ -18,7 +18,7 @@ import { ModeService } from '$lib/mode/modeService';
 import { TemplateService } from '$lib/pr/templateService';
 import { type Project } from '$lib/project/project';
 import { ProjectService } from '$lib/project/projectService';
-import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
+import { UpstreamIntegrationService } from '$lib/upstream/upstreamIntegrationService';
 import { error } from '@sveltejs/kit';
 import type { LayoutLoad } from './$types';
 
