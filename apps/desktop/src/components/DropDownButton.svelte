@@ -25,7 +25,7 @@
 	const {
 		icon,
 		style = 'neutral',
-		kind = 'outline',
+		kind = 'solid',
 		disabled = false,
 		loading = false,
 		wide = false,
