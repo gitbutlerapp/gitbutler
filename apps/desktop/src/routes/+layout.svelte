@@ -15,7 +15,6 @@
 	import { AIService } from '$lib/ai/service';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { CommandService, invoke } from '$lib/backend/ipc';
-	import { PromptService } from '$lib/backend/prompt';
 	import {
 		IpcNameNormalizationService,
 		setNameNormalizationServiceContext
@@ -30,6 +29,7 @@
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { platformName } from '$lib/platform/platform';
 	import { ProjectsService } from '$lib/project/projectsService';
+	import { PromptService } from '$lib/prompt/promptService';
 	import { DesktopDispatch, DesktopState } from '$lib/redux/store.svelte';
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { setSecretsService } from '$lib/secrets/secretsService';
