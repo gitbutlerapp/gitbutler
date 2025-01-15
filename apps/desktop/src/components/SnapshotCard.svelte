@@ -1,7 +1,7 @@
 <script lang="ts">
 	import SnapshotAttachment from './SnapshotAttachment.svelte';
 	import { createdOnDay } from '$lib/history/history';
-	import { ModeService } from '$lib/modes/service';
+	import { ModeService } from '$lib/mode/modeService';
 	import { toHumanReadableTime } from '$lib/utils/time';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';

@@ -10,9 +10,9 @@
 		type ConflictEntryPresence,
 		type ConflictState
 	} from '$lib/conflictEntryPresence';
-	import { ModeService, type EditModeMetadata } from '$lib/modes/service';
+	import { UncommitedFilesWatcher } from '$lib/files/watcher';
+	import { ModeService, type EditModeMetadata } from '$lib/mode/modeService';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
-	import { UncommitedFilesWatcher } from '$lib/uncommitedFiles/watcher';
 	import { UserService } from '$lib/user/userService';
 	import { computeFileStatus } from '$lib/utils/fileStatus';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';

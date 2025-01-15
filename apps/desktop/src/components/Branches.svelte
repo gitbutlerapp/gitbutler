@@ -5,8 +5,10 @@
 	import PullRequestSidebarEntry from '$components/PullRequestSidebarEntry.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import noBranchesSvg from '$lib/assets/empty-state/no-branches.svg?raw';
-	import { CombinedBranchListingService } from '$lib/branches/branchListing';
-	import { type SidebarEntrySubject } from '$lib/navigation/types';
+	import {
+		CombinedBranchListingService,
+		type SidebarEntrySubject
+	} from '$lib/branches/branchListing';
 	import { getContext } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import EmptyStatePlaceholder from '@gitbutler/ui/EmptyStatePlaceholder.svelte';

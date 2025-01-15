@@ -8,7 +8,7 @@
 	import { persistedCommitMessage } from '$lib/config/config';
 	import { draggableCommit } from '$lib/dragging/draggable';
 	import { CommitDropData, NON_DRAGGABLE } from '$lib/dragging/draggables';
-	import { ModeService } from '$lib/modes/service';
+	import { ModeService } from '$lib/mode/modeService';
 	import { UserService } from '$lib/user/userService';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';

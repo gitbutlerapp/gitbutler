@@ -1,6 +1,6 @@
 <script lang="ts">
 	import AccountLink from '$components/AccountLink.svelte';
-	import { ModeService } from '$lib/modes/service';
+	import { ModeService } from '$lib/mode/modeService';
 	import * as events from '$lib/utils/events';
 	import { getContext } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';

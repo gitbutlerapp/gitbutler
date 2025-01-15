@@ -6,7 +6,7 @@
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 	import { projectHttpsWarningBannerDismissed } from '$lib/config/config';
 	import { getForge } from '$lib/forge/interface/forge';
-	import { ModeService } from '$lib/modes/service';
+	import { ModeService } from '$lib/mode/modeService';
 	import { showToast } from '$lib/notifications/toasts';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { PageData } from './$types';

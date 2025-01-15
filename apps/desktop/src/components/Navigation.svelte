@@ -9,7 +9,7 @@
 	import WorkspaceButton from '$components/WorkspaceButton.svelte';
 	import { ProjectService } from '$lib/backend/projects';
 	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
-	import { ModeService } from '$lib/modes/service';
+	import { ModeService } from '$lib/mode/modeService';
 	import { platformName } from '$lib/platform/platform';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { createKeybind } from '$lib/utils/hotkeys';
