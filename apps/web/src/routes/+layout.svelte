@@ -5,6 +5,7 @@
 	import { UserService } from '$lib/user/userService';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
+	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
 	import { FeedService } from '@gitbutler/shared/feeds/service';
 	import { HttpClient } from '@gitbutler/shared/network/httpClient';
 	import { OrganizationService } from '@gitbutler/shared/organizations/organizationService';
@@ -51,6 +52,8 @@
 	setContext(BranchService, branchService);
 	const patchSerice = new PatchService(httpClient, appState.appDispatch);
 	setContext(PatchService, patchSerice);
+	const chatChannelService = new ChatChannelsService(httpClient, appState.appDispatch);
+	setContext(ChatChannelsService, chatChannelService);
 
 	$effect(() => {
 		const token = get(authService.token) || $page.url.searchParams.get('gb_access_token');

@@ -14,7 +14,8 @@
 <div class="review-page">
 	<div class="review-main-content">the main area with the diffs</div>
 	<div class="review-chat">
-		<ChatComponent />
+		<!-- TODO: the project slug should be resolved to be a project ID -->
+		<ChatComponent projectId={data.projectSlug} branchId={data.branchId} changeId={data.changeId} />
 	</div>
 </div>
 
