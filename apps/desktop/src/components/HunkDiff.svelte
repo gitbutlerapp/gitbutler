@@ -1,6 +1,5 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
-	import { type Row, Operation, type DiffRows } from '$lib/hunk/types';
 	import { create } from '$lib/utils/codeHighlight';
 	import {
 		type ContentSection,
@@ -315,6 +314,24 @@
 	}
 
 	const hunkLineInfo = $derived(getHunkLineInfo(subsections));
+
+	interface Row {
+		beforeLineNumber?: number;
+		afterLineNumber?: number;
+		tokens: string[];
+		type: SectionType;
+		size: number;
+		isLast: boolean;
+	}
+
+	enum Operation {
+		Equal = 0,
+		Insert = 1,
+		Delete = -1,
+		Edit = 2
+	}
+
+	type DiffRows = { prevRows: Row[]; nextRows: Row[] };
 </script>
 
 {#snippet countColumn(row: Row, side: CountColumnSide)}
