@@ -1,4 +1,4 @@
-import { invoke } from './ipc';
+import { invoke } from '../backend/ipc';
 
 export class TemplateService {
 	constructor(private projectId: string) {}

@@ -1,5 +1,4 @@
 import { getUserErrorCode, invoke } from '$lib/backend/ipc';
-import { TemplateService } from '$lib/backend/templateService';
 import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import { BranchListingService } from '$lib/branches/branchListing';
 import { BranchDragActionsFactory } from '$lib/branches/dragActions.js';
@@ -14,6 +13,7 @@ import { StackPublishingService } from '$lib/history/stackPublishingService';
 import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
 import { ProjectMetrics } from '$lib/metrics/projectMetrics';
 import { ModeService } from '$lib/mode/modeService';
+import { TemplateService } from '$lib/pr/templateService';
 import { type Project } from '$lib/project/project';
 import { ProjectService } from '$lib/project/projectService';
 import { BranchController } from '$lib/vbranches/branchController';

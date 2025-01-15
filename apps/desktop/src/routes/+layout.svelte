@@ -16,7 +16,6 @@
 	import { PostHogWrapper } from '$lib/analytics/posthog';
 	import { CommandService, invoke } from '$lib/backend/ipc';
 	import { PromptService } from '$lib/backend/prompt';
-	import { UpdaterService } from '$lib/backend/updater';
 	import {
 		IpcNameNormalizationService,
 		setNameNormalizationServiceContext
@@ -35,6 +34,7 @@
 	import { RemotesService } from '$lib/remotes/remotesService';
 	import { setSecretsService } from '$lib/secrets/secretsService';
 	import { SETTINGS, loadUserSettings } from '$lib/settings/userSettings';
+	import { UpdaterService } from '$lib/updater/updater';
 	import { User } from '$lib/user/user';
 	import { UserService } from '$lib/user/userService';
 	import * as events from '$lib/utils/events';
