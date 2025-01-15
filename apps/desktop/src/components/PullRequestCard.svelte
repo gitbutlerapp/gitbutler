@@ -5,6 +5,7 @@
 	import MergeButton from '$components/MergeButton.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { VirtualBranchService } from '$lib/branches/virtualBranchService';
 	import { type ForgeChecksMonitor } from '$lib/forge/interface/forgeChecksMonitor';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
@@ -13,7 +14,6 @@
 	import { Project } from '$lib/project/project';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
-	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
