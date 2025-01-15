@@ -10,7 +10,7 @@
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
 	import { getForgeRepoService } from '$lib/forge/interface/forgeRepoService';
 	import { showError } from '$lib/notifications/toasts';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';

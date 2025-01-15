@@ -6,7 +6,8 @@
 	import Section from '$components/Section.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { showError } from '$lib/notifications/toasts';
-	import { ProjectsService, type Key, type KeyType, Project } from '$lib/project/projects';
+	import { type Key, type KeyType, Project } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';

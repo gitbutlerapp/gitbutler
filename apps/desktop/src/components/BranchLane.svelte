@@ -3,7 +3,7 @@
 	import Resizer from '$components/Resizer.svelte';
 	import Stack from '$components/Stack.svelte';
 	import { projectLaneCollapsed } from '$lib/config/config';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { FileIdSelection } from '$lib/vbranches/fileIdSelection';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';

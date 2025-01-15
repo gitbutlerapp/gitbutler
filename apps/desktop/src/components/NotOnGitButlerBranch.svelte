@@ -6,7 +6,8 @@
 	import ProjectNameLabel from '$components/ProjectNameLabel.svelte';
 	import derectionDoubtSvg from '$lib/assets/illustrations/direction-doubt.svg?raw';
 	import { showError } from '$lib/notifications/toasts';
-	import { ProjectsService, Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import * as toasts from '$lib/utils/toasts';
 	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContext } from '@gitbutler/shared/context';

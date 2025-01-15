@@ -3,7 +3,7 @@
 	import InfoMessage from '$components/InfoMessage.svelte';
 	import LargeDiffMessage from '$components/LargeDiffMessage.svelte';
 	import { FileService } from '$lib/files/fileService';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { computeAddedRemovedByHunk } from '$lib/utils/metrics';
 	import { getLocalCommits, getLocalAndRemoteCommits } from '$lib/vbranches/contexts';
 	import { getLockText } from '$lib/vbranches/tooltip';

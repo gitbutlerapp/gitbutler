@@ -4,7 +4,7 @@
 	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import { AIService } from '$lib/ai/service';
 	import { projectAiGenEnabled } from '$lib/config/config';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { copyToClipboard } from '$lib/utils/clipboard';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { BranchController } from '$lib/vbranches/branchController';

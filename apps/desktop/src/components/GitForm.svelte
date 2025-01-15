@@ -3,7 +3,8 @@
 	import KeysForm from '$components/KeysForm.svelte';
 	import Section from '$components/Section.svelte';
 	import { platformName } from '$lib/platform/platform';
-	import { Project, ProjectsService } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import SectionCard from '@gitbutler/ui/SectionCard.svelte';
 	import Spacer from '@gitbutler/ui/Spacer.svelte';

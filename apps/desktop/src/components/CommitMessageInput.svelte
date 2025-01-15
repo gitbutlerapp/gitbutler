@@ -13,7 +13,7 @@
 	} from '$lib/config/config';
 	import { HooksService } from '$lib/hooks/hooksService';
 	import { showError } from '$lib/notifications/toasts';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { splitMessage } from '$lib/utils/commitMessage';
 	import { KeyName } from '$lib/utils/hotkeys';
 	import * as toasts from '$lib/utils/toasts';

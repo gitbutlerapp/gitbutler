@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';

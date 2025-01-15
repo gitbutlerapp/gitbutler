@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { listen } from '$lib/backend/ipc';
-	import { ProjectsService } from '$lib/project/projects';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { createKeybind } from '$lib/utils/hotkeys';
 	import { getContext } from '@gitbutler/shared/context';
 	import { onMount } from 'svelte';

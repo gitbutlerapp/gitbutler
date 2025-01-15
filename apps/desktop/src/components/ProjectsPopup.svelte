@@ -1,6 +1,6 @@
 <script lang="ts">
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
-	import { ProjectsService } from '$lib/project/projects';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import Icon from '@gitbutler/ui/Icon.svelte';
 	import { portal } from '@gitbutler/ui/utils/portal';

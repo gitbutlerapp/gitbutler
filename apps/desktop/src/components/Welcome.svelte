@@ -4,7 +4,7 @@
 	import IconLink from '$components/IconLink.svelte';
 	import cloneRepoSvg from '$lib/assets/welcome/clone-repo.svg?raw';
 	import newProjectSvg from '$lib/assets/welcome/new-local-project.svg?raw';
-	import { ProjectsService } from '$lib/project/projects';
+	import { ProjectsService } from '$lib/project/projectsService';
 	import { getContext } from '@gitbutler/shared/context';
 	import { goto } from '$app/navigation';
 

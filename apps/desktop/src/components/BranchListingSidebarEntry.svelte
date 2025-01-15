@@ -6,7 +6,7 @@
 	} from '$lib/branches/branchListing';
 	import { GitConfigService } from '$lib/config/gitConfigService';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
-	import { Project } from '$lib/project/projects';
+	import { Project } from '$lib/project/project';
 	import { UserService } from '$lib/user/userService';
 	import { getContext } from '@gitbutler/shared/context';
 	import SidebarEntry from '@gitbutler/ui/SidebarEntry.svelte';
