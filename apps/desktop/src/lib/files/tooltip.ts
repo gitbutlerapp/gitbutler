@@ -1,4 +1,4 @@
-import { HunkLock, type DetailedCommit } from './types';
+import { HunkLock, type DetailedCommit } from '../vbranches/types';
 import { uniqeByPropValues, unique } from '$lib/utils/filters';
 
 export function getLockText(hunkLocks: HunkLock | HunkLock[], commits: DetailedCommit[]): string {
