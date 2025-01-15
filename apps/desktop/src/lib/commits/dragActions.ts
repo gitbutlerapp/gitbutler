@@ -7,8 +7,8 @@ import {
 	type BranchStack,
 	type DetailedCommit
 } from '$lib/vbranches/types';
+import type { BranchController } from '$lib/branches/branchController';
 import type { Project } from '$lib/project/project';
-import type { BranchController } from '$lib/vbranches/branchController';
 
 export class CommitDragActions {
 	constructor(

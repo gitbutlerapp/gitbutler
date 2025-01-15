@@ -8,6 +8,7 @@
 	import ProjectSettingsMenuAction from '$components/ProjectSettingsMenuAction.svelte';
 	import { BaseBranch, NoDefaultTarget } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
+	import { BranchController } from '$lib/branches/branchController';
 	import { BranchListingService, CombinedBranchListingService } from '$lib/branches/branchListing';
 	import { BranchDragActionsFactory } from '$lib/branches/dragActions';
 	import { GitBranchService } from '$lib/branches/gitBranch';
@@ -33,7 +34,6 @@
 	import { projectCloudSync } from '$lib/project/projectCloudSync.svelte';
 	import { ProjectService } from '$lib/project/projectService';
 	import { debounce } from '$lib/utils/debounce';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import { UpstreamIntegrationService } from '$lib/vbranches/upstreamIntegrationService';
 	import { VirtualBranchService } from '$lib/vbranches/virtualBranch';
 	import { getContext } from '@gitbutler/shared/context';

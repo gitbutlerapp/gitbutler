@@ -4,8 +4,8 @@ import * as toasts from '$lib/utils/toasts';
 import type { PostHogWrapper } from '$lib/analytics/posthog';
 import type { BaseBranchService } from '$lib/baseBranch/baseBranchService';
 import type { BranchListingService } from '$lib/branches/branchListing';
-import type { BranchPushResult, Hunk, LocalFile, StackOrder } from './types';
-import type { VirtualBranchService } from './virtualBranch';
+import type { BranchPushResult, Hunk, LocalFile, StackOrder } from '../vbranches/types';
+import type { VirtualBranchService } from '../vbranches/virtualBranch';
 
 export type CommitIdOrChangeId = { CommitId: string } | { ChangeId: string };
 export type SeriesIntegrationStrategy = 'merge' | 'rebase' | 'hardreset';

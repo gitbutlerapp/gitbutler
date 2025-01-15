@@ -11,9 +11,9 @@
 	import ContextMenu from '$components/ContextMenu.svelte';
 	import ContextMenuItem from '$components/ContextMenuItem.svelte';
 	import ContextMenuSection from '$components/ContextMenuSection.svelte';
+	import { BranchController } from '$lib/branches/branchController';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
 	import type { ContentSection } from '$lib/utils/fileSections';

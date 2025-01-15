@@ -4,6 +4,7 @@
 	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import DropDownButton from '$components/DropDownButton.svelte';
 	import { PostHogWrapper } from '$lib/analytics/posthog';
+	import { BranchController } from '$lib/branches/branchController';
 	import { persistedCommitMessage, projectRunCommitHooks } from '$lib/config/config';
 	import { cloudCommunicationFunctionality } from '$lib/config/uiFeatureFlags';
 	import { SyncedSnapshotService } from '$lib/history/syncedSnapshotService';
@@ -11,7 +12,6 @@
 	import { showError } from '$lib/notifications/toasts';
 	import { intersectionObserver } from '$lib/utils/intersectionObserver';
 	import * as toasts from '$lib/utils/toasts';
-	import { BranchController } from '$lib/vbranches/branchController';
 	import { SelectedOwnership } from '$lib/vbranches/ownership';
 	import { BranchStack } from '$lib/vbranches/types';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
