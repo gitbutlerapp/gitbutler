@@ -263,7 +263,7 @@ impl RepositoryExt for git2::Repository {
                 status::Item::IndexWorktree(index_worktree::Item::Modification {
                     rela_path,
                     status:
-                        EntryStatus::Change(Change::Type | Change::Modification { .. })
+                        EntryStatus::Change(Change::Type { .. } | Change::Modification { .. })
                         | EntryStatus::IntentToAdd,
                     ..
                 }) => {
@@ -582,7 +582,8 @@ impl RepositoryExt for git2::Repository {
 pub fn command_with_login_shell(shell_cmd: impl Into<OsString>) -> std::process::Command {
     gix::command::prepare(shell_cmd)
         .with_shell_disallow_manual_argument_splitting()
-        .with_shell_program(gix::path::env::login_shell().unwrap_or("bash".as_ref()))
+        // On Windows, this yields the Git-bundled `sh.exe`, on Linux it uses `/bin/sh`.
+        .with_shell_program(gix::path::env::shell())
         .into()
 }
 
