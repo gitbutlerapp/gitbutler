@@ -10,7 +10,6 @@
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
 	import { PromptService } from '$lib/ai/promptService';
-	import { isFailure } from '$lib/ai/result';
 	import { AIService } from '$lib/ai/service';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchStack } from '$lib/branches/branch';
@@ -27,7 +26,6 @@
 	import { getForge } from '$lib/forge/interface/forge';
 	import { getForgeListingService } from '$lib/forge/interface/forgeListingService';
 	import { getForgePrService } from '$lib/forge/interface/forgePrService';
-	import { showError } from '$lib/notifications/toasts';
 	import { Project } from '$lib/project/project';
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
@@ -222,18 +220,10 @@
 		let hunks = (await Promise.all(hunk_promises)).flat();
 
 		const prompt = promptService.selectedBranchPrompt(project.id);
-		const messageResult = await aiService.summarizeBranch({
+		const message = await aiService.summarizeBranch({
 			hunks,
 			branchTemplate: prompt
 		});
-
-		if (isFailure(messageResult)) {
-			showError('Failed to generate branch name', messageResult.failure);
-
-			return;
-		}
-
-		const message = messageResult.value;
 
 		if (message && message !== branch.name) {
 			branchController.updateSeriesName(stack.id, branch.name, message);

@@ -14,7 +14,6 @@
 	import DropDownButton from '$components/DropDownButton.svelte';
 	import Markdown from '$components/Markdown.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
-	import { isFailure } from '$lib/ai/result';
 	import { AIService } from '$lib/ai/service';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BranchStack } from '$lib/branches/branch';
@@ -257,31 +256,30 @@
 
 		let firstToken = true;
 
-		const descriptionResult = await aiService?.describePR({
-			title: prTitle.value,
-			body: prBody.value,
-			directive: aiDescriptionDirective,
-			commitMessages: commits.map((c) => c.description),
-			prBodyTemplate: templateBody,
-			onToken: (token) => {
-				if (firstToken) {
-					prBody.reset();
-					firstToken = false;
+		try {
+			const description = await aiService?.describePR({
+				title: prTitle.value,
+				body: prBody.value,
+				directive: aiDescriptionDirective,
+				commitMessages: commits.map((c) => c.description),
+				prBodyTemplate: templateBody,
+				onToken: (token) => {
+					if (firstToken) {
+						prBody.reset();
+						firstToken = false;
+					}
+					prBody.append(token);
 				}
-				prBody.append(token);
+			});
+
+			if (description) {
+				prBody.set(description);
 			}
-		});
-
-		if (isFailure(descriptionResult)) {
-			showError('Failed to generate commit message', descriptionResult.failure);
+		} finally {
 			aiIsLoading = false;
-			return;
+			aiDescriptionDirective = undefined;
+			await tick();
 		}
-
-		prBody.set(descriptionResult.value);
-		aiIsLoading = false;
-		aiDescriptionDirective = undefined;
-		await tick();
 	}
 
 	function handleModalKeydown(e: KeyboardEvent) {
