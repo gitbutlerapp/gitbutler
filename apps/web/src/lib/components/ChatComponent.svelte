@@ -1,5 +1,5 @@
 <script lang="ts">
-	import ChatInputProps from '$lib/components/chat/ChatInputProps.svelte';
+	import ChatInputProps from '$lib/components/chat/ChatInput.svelte';
 	import Message from '$lib/components/chat/Message.svelte';
 	import { getChatChannel } from '@gitbutler/shared/chat/chatChannelsPreview.svelte';
 	import { ChatChannelsService } from '@gitbutler/shared/chat/chatChannelsService';
