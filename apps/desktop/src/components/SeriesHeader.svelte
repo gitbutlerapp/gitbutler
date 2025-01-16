@@ -5,7 +5,6 @@
 	import Dropzones from './Dropzones.svelte';
 	import SeriesDescription from './SeriesDescription.svelte';
 	import SeriesHeaderStatusIcon from './SeriesHeaderStatusIcon.svelte';
-	import ContextMenu from '$components/ContextMenu.svelte';
 	import PrDetailsModal from '$components/PrDetailsModal.svelte';
 	import PullRequestCard from '$components/PullRequestCard.svelte';
 	import SeriesHeaderContextMenu from '$components/SeriesHeaderContextMenu.svelte';
@@ -30,6 +29,7 @@
 	import { openExternalUrl } from '$lib/utils/url';
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import PopoverActionsContainer from '@gitbutler/ui/popoverActions/PopoverActionsContainer.svelte';
 	import PopoverActionsItem from '@gitbutler/ui/popoverActions/PopoverActionsItem.svelte';

@@ -9,9 +9,6 @@
 <script lang="ts">
 	import PrDetailsModalHeader from './PrDetailsModalHeader.svelte';
 	import PrTemplateSection from './PrTemplateSection.svelte';
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
-	import DropDownButton from '$components/DropDownButton.svelte';
 	import Markdown from '$components/Markdown.svelte';
 	import ScrollableContainer from '$components/ScrollableContainer.svelte';
 	import { AIService } from '$lib/ai/service';
@@ -39,6 +36,9 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import { persisted } from '@gitbutler/shared/persisted';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
+	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import Modal from '@gitbutler/ui/Modal.svelte';
 	import Textarea from '@gitbutler/ui/Textarea.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';

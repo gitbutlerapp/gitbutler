@@ -1,9 +1,9 @@
 <script lang="ts">
 	import SeriesRowLabels from './SeriesLabels.svelte';
 	import BranchLaneContextMenu from '$components/BranchLaneContextMenu.svelte';
-	import ContextMenu from '$components/ContextMenu.svelte';
 	import { PatchSeries } from '$lib/branches/branch';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
 
 	interface Props {
 		series: (PatchSeries | Error)[];

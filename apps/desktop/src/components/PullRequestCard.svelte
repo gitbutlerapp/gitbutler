@@ -1,7 +1,4 @@
 <script lang="ts">
-	import ContextMenu from '$components/ContextMenu.svelte';
-	import ContextMenuItem from '$components/ContextMenuItem.svelte';
-	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import MergeButton from '$components/MergeButton.svelte';
 	import { BaseBranch } from '$lib/baseBranch/baseBranch';
 	import { BaseBranchService } from '$lib/baseBranch/baseBranchService';
@@ -17,6 +14,9 @@
 	import { getContext, getContextStore } from '@gitbutler/shared/context';
 	import Badge from '@gitbutler/ui/Badge.svelte';
 	import Button from '@gitbutler/ui/Button.svelte';
+	import ContextMenu from '@gitbutler/ui/ContextMenu.svelte';
+	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
+	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import type { MessageStyle } from '$components/InfoMessage.svelte';
 	import type { PatchSeries } from '$lib/branches/branch';
 	import type { ForgePrMonitor } from '$lib/forge/interface/forgePrMonitor';
