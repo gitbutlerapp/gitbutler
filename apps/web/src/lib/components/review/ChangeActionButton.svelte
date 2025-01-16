@@ -1,30 +1,90 @@
 <script lang="ts">
+	import { PatchService } from '@gitbutler/shared/branches/patchService';
+	import { getContext } from '@gitbutler/shared/context';
 	import ContextMenuItem from '@gitbutler/ui/ContextMenuItem.svelte';
 	import ContextMenuSection from '@gitbutler/ui/ContextMenuSection.svelte';
 	import DropDownButton from '@gitbutler/ui/DropDownButton.svelte';
 	import type { Patch } from '@gitbutler/shared/branches/types';
 
 	interface Props {
+		branchUuid: string;
 		patch: Patch;
 	}
 
-	const { patch }: Props = $props();
+	const actionLabels = {
+		approve: 'Approve commit',
+		requestChanges: 'Request changes'
+	} as const;
 
-	function approve() {
-		console.log('Approve patch', patch.changeId);
+	type Action = keyof typeof actionLabels;
+
+	const { patch, branchUuid }: Props = $props();
+
+	const patchService = getContext(PatchService);
+
+	let action = $state<Action>('approve');
+	let isExecuting = $state(false);
+	let dropDownButton = $state<ReturnType<typeof DropDownButton>>();
+
+	const buttonColor = $derived.by(() => {
+		switch (action) {
+			case 'approve':
+				return 'pop';
+			case 'requestChanges':
+				return 'purple';
+		}
+	});
+
+	async function approve() {
+		await patchService.updatePatch(branchUuid, patch.changeId, { signOff: true });
 	}
 
-	function requestChanges() {
-		console.log('Request changes for patch', patch.changeId);
+	async function requestChanges() {
+		await patchService.updatePatch(branchUuid, patch.changeId, { signOff: false });
+	}
+
+	async function handleClick() {
+		if (isExecuting) return;
+		isExecuting = true;
+		try {
+			switch (action) {
+				case 'approve':
+					await approve();
+					break;
+				case 'requestChanges':
+					await requestChanges();
+					break;
+			}
+		} finally {
+			isExecuting = false;
+		}
 	}
 </script>
 
-<DropDownButton icon="success" style="pop" type="submit">
-	Approve commit
+<DropDownButton
+	bind:this={dropDownButton}
+	loading={isExecuting}
+	icon="success"
+	style={buttonColor}
+	onclick={handleClick}
+>
+	{actionLabels[action]}
 	{#snippet contextMenuSlot()}
 		<ContextMenuSection>
-			<ContextMenuItem label="Approve commit" onclick={approve} />
-			<ContextMenuItem label="Request changes" onclick={requestChanges} />
+			<ContextMenuItem
+				label={actionLabels.approve}
+				onclick={() => {
+					action = 'approve';
+					dropDownButton?.close();
+				}}
+			/>
+			<ContextMenuItem
+				label={actionLabels.requestChanges}
+				onclick={() => {
+					action = 'requestChanges';
+					dropDownButton?.close();
+				}}
+			/>
 		</ContextMenuSection>
 	{/snippet}
 </DropDownButton>

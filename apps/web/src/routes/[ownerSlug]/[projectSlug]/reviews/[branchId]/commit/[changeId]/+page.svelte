@@ -104,7 +104,9 @@
 							<ChangeNavigator {goToPatch} currentPatchId={patch.changeId} {patchIds} />
 						{/if}
 
-						<ChangeActionButton {patch} />
+						{#if branchUuid !== undefined}
+							<ChangeActionButton {branchUuid} {patch} />
+						{/if}
 					</div>
 				</div>
 
