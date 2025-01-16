@@ -8,6 +8,14 @@ export function isFound<T>(loadable?: Loadable<T>): loadable is {
 	return loadable?.status === 'found';
 }
 
+export function isError<T>(loadable?: Loadable<T>): loadable is { status: 'error'; error: Error } {
+	return loadable?.status === 'error';
+}
+
+export function isNotFound<T>(loadable?: Loadable<T>): loadable is { status: 'not-found' } {
+	return loadable?.status === 'not-found';
+}
+
 export function errorToLoadable<T, Id>(error: unknown, id: Id): LoadableData<T, Id> {
 	if (error instanceof Error) {
 		if (error instanceof ApiError && error.response.status === 404) {
@@ -85,4 +93,35 @@ export function and<T>(
 	} else {
 		return a;
 	}
+}
+
+export function dig<T, R>(
+	loadable: Loadable<T> | undefined,
+	digger: (current: T) => R
+): R | undefined {
+	if (isFound(loadable)) {
+		return digger(loadable.value);
+	}
+	return undefined;
+}
+
+export function compose<A, B>(
+	a: Loadable<A> | undefined,
+	b: Loadable<B> | undefined
+): Loadable<[A, B]> {
+	if (isFound(a) && isFound(b)) {
+		return { status: 'found', value: [a.value, b.value] };
+	}
+
+	const failureStates = [isError, isNotFound];
+	for (const state of failureStates) {
+		if (state(a)) {
+			return a;
+		}
+		if (state(b)) {
+			return b;
+		}
+	}
+
+	return { status: 'loading' };
 }
