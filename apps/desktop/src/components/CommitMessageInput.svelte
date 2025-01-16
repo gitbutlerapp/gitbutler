@@ -3,7 +3,6 @@
 	import ContextMenuSection from '$components/ContextMenuSection.svelte';
 	import DropDownButton from '$components/DropDownButton.svelte';
 	import { PromptService } from '$lib/ai/promptService';
-	import { isFailure } from '$lib/ai/result';
 	import { AIService, type DiffInput } from '$lib/ai/service';
 	import { BranchStack } from '$lib/branches/branch';
 	import { SelectedOwnership } from '$lib/branches/ownership';
@@ -101,46 +100,35 @@
 	}
 
 	async function generateCommitMessage() {
-		const diffInput = await getDiffInput();
-
 		aiLoading = true;
+		try {
+			const diffInput = await getDiffInput();
 
-		const prompt = promptService.selectedCommitPrompt(project.id);
+			const prompt = promptService.selectedCommitPrompt(project.id);
 
-		let firstToken = true;
+			let firstToken = true;
 
-		const generatedMessageResult = await aiService.summarizeCommit({
-			diffInput,
-			useEmojiStyle: $commitGenerationUseEmojis,
-			useBriefStyle: $commitGenerationExtraConcise,
-			commitTemplate: prompt,
-			branchName: $stack.series[0]?.name,
-			onToken: (t) => {
-				if (firstToken) {
-					commitMessage = '';
-					firstToken = false;
+			const output = await aiService.summarizeCommit({
+				diffInput,
+				useEmojiStyle: $commitGenerationUseEmojis,
+				useBriefStyle: $commitGenerationExtraConcise,
+				commitTemplate: prompt,
+				branchName: $stack.series[0]?.name,
+				onToken: (t) => {
+					if (firstToken) {
+						commitMessage = '';
+						firstToken = false;
+					}
+					commitMessage += t;
 				}
-				commitMessage += t;
+			});
+
+			if (output) {
+				commitMessage = output;
 			}
-		});
-
-		if (isFailure(generatedMessageResult)) {
-			showError('Failed to generate commit message', generatedMessageResult.failure);
+		} finally {
 			aiLoading = false;
-			return;
 		}
-
-		const generatedMessage = generatedMessageResult.value;
-
-		if (generatedMessage) {
-			commitMessage = generatedMessage;
-		} else {
-			showError('Failed to generate commit message', 'Prompt returned no response');
-			aiLoading = false;
-			return;
-		}
-
-		aiLoading = false;
 	}
 
 	async function runMessageHook() {
