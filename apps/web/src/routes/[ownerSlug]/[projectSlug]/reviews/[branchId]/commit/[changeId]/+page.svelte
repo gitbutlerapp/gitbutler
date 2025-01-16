@@ -1,16 +1,19 @@
 <script lang="ts">
 	import ChatComponent from '$lib/components/ChatComponent.svelte';
+	import Section from '$lib/components/review/Section.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
-	import { getPatch } from '@gitbutler/shared/branches/patchesPreview.svelte';
+	import { getPatch, getPatchSections } from '@gitbutler/shared/branches/patchesPreview.svelte';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
-	import { isFound } from '@gitbutler/shared/network/loadable';
+	import { dig, isFound } from '@gitbutler/shared/network/loadable';
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
 	import type { ProjectReviewCommitParameters } from '$lib/project/types';
+
+	const DESCRIPTION_PLACE_HOLDER = 'No description provided';
 
 	interface Props {
 		data: ProjectReviewCommitParameters;
@@ -33,21 +36,47 @@
 			: undefined
 	);
 
-	const branchUuid = $derived(isFound(branch?.current) ? branch.current.value.uuid : undefined);
+	const patchIds = $derived(dig(branch?.current, (b) => b.patchIds));
+	const branchUuid = $derived(dig(branch?.current, (b) => b.uuid));
 
-	const change = $derived(
+	const patch = $derived(
 		branchUuid !== undefined
 			? getPatch(appState, patchService, branchUuid, data.changeId)
+			: undefined
+	);
+
+	const patchSections = $derived(
+		branchUuid !== undefined
+			? getPatchSections(appState, patchService, branchUuid, data.changeId)
 			: undefined
 	);
 </script>
 
 <div class="review-page">
-	<Loading loadable={change?.current}>
-		{#snippet children(change)}
+	<Loading loadable={patch?.current}>
+		{#snippet children(patch)}
 			<div class="review-main-content">
-				<h3 class="review-main-content-title">{change.title}</h3>
-				<p>{change.description}</p>
+				<h3 class="review-main-content-title">{patch.title}</h3>
+				<div>
+					<p>{patchIds?.length}</p>
+				</div>
+
+				<p class="review-main-content-description">
+					{patch.description?.trim() || DESCRIPTION_PLACE_HOLDER}
+				</p>
+
+				<div class="review-main-content-info">
+					<p>Contributors: {patch.contributors.join(', ')}</p>
+					<p>Created: {patch.createdAt}</p>
+					<pre>{JSON.stringify(patch.review)}</pre>
+					<pre>{JSON.stringify(patch.statistics)}</pre>
+				</div>
+
+				{#if patchSections?.current !== undefined}
+					{#each patchSections.current as section}
+						<Section {section} />
+					{/each}
+				{/if}
 			</div>
 		{/snippet}
 	</Loading>
@@ -66,10 +95,12 @@
 		display: flex;
 		width: 100%;
 		flex-grow: 1;
+		gap: 20px;
 	}
 
 	.review-main-content {
 		width: 100%;
+		max-width: 50%;
 	}
 
 	.review-main-content-title {
@@ -80,6 +111,15 @@
 		font-style: normal;
 		font-weight: var(--weight-bold, 600);
 		line-height: 120%; /* 21.6px */
+	}
+
+	.review-main-content-description {
+		color: var(--text-1, #1a1614);
+		font-family: var(--font-family-mono, 'Geist Mono');
+		font-size: 12px;
+		font-style: normal;
+		font-weight: var(--weight-regular, 400);
+		line-height: 160%; /* 19.2px */
 	}
 
 	.review-chat {
