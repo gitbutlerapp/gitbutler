@@ -11,7 +11,7 @@
 	import { lookupProject } from '@gitbutler/shared/organizations/repositoryIdLookupPreview.svelte';
 	import { RepositoryIdLookupService } from '@gitbutler/shared/organizations/repositoryIdLookupService';
 	import { AppState } from '@gitbutler/shared/redux/store.svelte';
-	import type { ProjectReviewCommitParameters } from '$lib/project/types';
+	import type { ProjectReviewCommitParameters } from '$lib/routing';
 
 	const DESCRIPTION_PLACE_HOLDER = 'No description provided';
 

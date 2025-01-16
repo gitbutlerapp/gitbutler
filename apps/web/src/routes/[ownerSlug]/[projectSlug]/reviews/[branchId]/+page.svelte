@@ -1,6 +1,7 @@
 <script lang="ts">
 	import Factoid from '$lib/components/Factoid.svelte';
 	import ChangeIndexCard from '$lib/components/changes/ChangeIndexCard.svelte';
+	import { projectReviewBranchCommitPath, type ProjectReviewParameters } from '$lib/routing';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import {
 		getBranchReview,
@@ -18,7 +19,8 @@
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
-	import type { ProjectReviewParameters } from '$lib/project/types';
+	import type { Branch } from '@gitbutler/shared/branches/types';
+	import { goto } from '$app/navigation';
 
 	dayjs.extend(relativeTime);
 
@@ -46,7 +48,19 @@
 			? getContributorsWithAvatars(branch.current.value)
 			: Promise.resolve([])
 	);
+
+	function visitFirstCommit(branch: Branch) {
+		if ((branch.patchIds?.length || 0) === 0) return;
+
+		goto(projectReviewBranchCommitPath({ ...data, changeId: branch.patchIds[0] }));
+	}
 </script>
+
+{#snippet startReview(branch: Branch)}
+	{#if (branch.stackSize || 0) > 0}
+		<Button style="pop" onclick={() => visitFirstCommit(branch)}>Start review</Button>
+	{/if}
+{/snippet}
 
 <h2>Review page: {data.ownerSlug}/{data.projectSlug} {data.branchId}</h2>
 
@@ -59,7 +73,7 @@
 					<div class="actions">
 						<Button icon="plus" kind="outline">Add summary</Button>
 						<Button icon="chain-link" kind="outline">Share link</Button>
-						<Button style="pop">Start review</Button>
+						{@render startReview(branch)}
 					</div>
 				</div>
 				<div class="stats">

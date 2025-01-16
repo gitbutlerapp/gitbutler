@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { projectPath } from '$lib/routing';
 	import { getContext } from '@gitbutler/shared/context';
 	import Loading from '@gitbutler/shared/network/Loading.svelte';
 	import { ProjectService } from '@gitbutler/shared/organizations/projectService';
@@ -19,7 +20,7 @@
 
 <Loading loadable={project.current}>
 	{#snippet children(project)}
-		<a href="/{project.owner}/{project.slug}">
+		<a href={projectPath({ ownerSlug: project.owner, projectSlug: project.slug })}>
 			<div class="card">
 				<p>{project.owner}/{project.slug}</p>
 				<p>{project.createdAt}</p>

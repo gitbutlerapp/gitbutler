@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ProjectParameters } from '$lib/project/types';
+	import { projectReviewPath, type ProjectParameters } from '$lib/routing';
 
 	interface Props {
 		data: ProjectParameters;
@@ -10,4 +10,4 @@
 
 <h2>Project page: {data.ownerSlug}/{data.projectSlug}</h2>
 
-<a href={`/${data.ownerSlug}/${data.projectSlug}/reviews`}>Project Reviews</a>
+<a href={projectReviewPath(data)}>Project Reviews</a>
