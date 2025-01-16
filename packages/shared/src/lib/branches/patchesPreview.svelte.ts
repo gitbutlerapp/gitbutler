@@ -35,7 +35,7 @@ export function getPatchSections(
 	const patchInterest = patchService.getPatchWithSectionsInterest(branchUuid, changeId);
 	registerInterest(patchInterest, inView);
 
-	const patch = $derived(patchesSelectors.selectById(appState.patches, branchUuid));
+	const patch = $derived(patchesSelectors.selectById(appState.patches, changeId));
 	const sections = $derived.by(() => {
 		if (patch?.status !== 'found') return;
 
