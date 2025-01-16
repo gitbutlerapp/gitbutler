@@ -117,18 +117,23 @@
 				<table class="commits-table">
 					<thead>
 						<tr>
-							<th>Status</th>
-							<th>Name</th>
-							<th>Changes</th>
-							<th>Last update</th>
-							<th>Authors</th>
-							<th>Reviewers</th>
-							<th>Comments</th>
+							<th><div>Status</div></th>
+							<th><div>Name</div></th>
+							<th><div>Changes</div></th>
+							<th><div>Last update</div></th>
+							<th><div>Authors</div></th>
+							<th><div>Reviewers</div></th>
+							<th><div>Comments</div></th>
 						</tr>
 					</thead>
 					<tbody>
-						{#each branch.patchIds || [] as changeId}
-							<ChangeIndexCard {changeId} params={data} branchUuid={branch.uuid} />
+						{#each branch.patchIds || [] as changeId, index}
+							<ChangeIndexCard
+								{changeId}
+								params={data}
+								branchUuid={branch.uuid}
+								last={index === branch.patchIds.length - 1}
+							/>
 						{/each}
 					</tbody>
 				</table>
@@ -174,21 +179,28 @@
 
 	.commits-table {
 		th {
-			text-align: left;
-			padding: 16px;
+			padding: 0;
+			> div {
+				text-align: left;
+				padding: 16px;
 
-			border-top: 1px solid var(--clr-border-2);
-			border-bottom: 1px solid var(--clr-border-2);
-			overflow: hidden;
+				border-top: 1px solid var(--clr-border-2);
+				border-bottom: 1px solid var(--clr-border-2);
+				overflow: hidden;
+			}
 
 			&:first-child {
-				border-left: 1px solid var(--clr-border-2);
-				border-top-left-radius: var(--radius-m);
+				> div {
+					border-left: 1px solid var(--clr-border-2);
+					border-top-left-radius: var(--radius-m);
+				}
 			}
 
 			&:last-child {
-				border-right: 1px solid var(--clr-border-2);
-				border-top-right-radius: var(--radius-m);
+				> div {
+					border-right: 1px solid var(--clr-border-2);
+					border-top-right-radius: var(--radius-m);
+				}
 			}
 		}
 	}

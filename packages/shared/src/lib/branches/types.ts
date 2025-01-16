@@ -250,6 +250,8 @@ export type ApiBranch = {
 	contributors: string[];
 	patches: ApiPatch[];
 	repository_id: string;
+	branch_stack_id?: string;
+	branch_stack_order?: number;
 };
 
 export type Branch = {
@@ -266,6 +268,8 @@ export type Branch = {
 	contributors: string[];
 	patchIds: string[];
 	repositoryId: string;
+	stackId: string;
+	stackOrder: number;
 };
 
 export type LoadableBranch = LoadableData<Branch, Branch['branchId']>;
@@ -284,6 +288,9 @@ export function apiToBranch(api: ApiBranch): Branch {
 		stackSize: api.stack_size,
 		contributors: api.contributors,
 		patchIds: api.patches.map((patch) => patch.change_id),
-		repositoryId: api.repository_id
+		repositoryId: api.repository_id,
+		// Its good enough
+		stackId: api.branch_stack_id || String(Math.random()),
+		stackOrder: api.branch_stack_order || 1
 	};
 }
