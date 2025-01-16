@@ -1,5 +1,6 @@
 <script lang="ts">
 	import ChatComponent from '$lib/components/ChatComponent.svelte';
+	import Section from '$lib/components/review/Section.svelte';
 	import { BranchService } from '@gitbutler/shared/branches/branchService';
 	import { getBranchReview } from '@gitbutler/shared/branches/branchesPreview.svelte';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
@@ -68,11 +69,14 @@
 					<p>Contributors: {patch.contributors.join(', ')}</p>
 					<p>Created: {patch.createdAt}</p>
 					<pre>{JSON.stringify(patch.review)}</pre>
+					<pre>{JSON.stringify(patch.statistics)}</pre>
 				</div>
 
-				<div>
-					<pre>{JSON.stringify(patchSections?.current, null, 2)}</pre>
-				</div>
+				{#if patchSections?.current !== undefined}
+					{#each patchSections.current as section}
+						<Section {section} />
+					{/each}
+				{/if}
 			</div>
 		{/snippet}
 	</Loading>
@@ -91,6 +95,7 @@
 		display: flex;
 		width: 100%;
 		flex-grow: 1;
+		gap: 20px;
 	}
 
 	.review-main-content {
