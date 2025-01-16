@@ -1,3 +1,4 @@
+import { deduplicate } from '$lib/utils/array';
 import { gravatarUrlFromEmail } from '@gitbutler/ui/avatar/gravatar';
 import type { LoadableData } from '$lib/network/types';
 
@@ -197,15 +198,28 @@ export function getPatchStatus(
 	return 'unreviewed';
 }
 
-export async function getPatchContributorsWithAvatars(patch: Patch) {
+async function getUsersWithAvatars(userEmails: string[]) {
 	return await Promise.all(
-		patch.contributors.map(async (contributor) => {
+		userEmails.map(async (user) => {
 			return {
-				srcUrl: await gravatarUrlFromEmail(contributor),
-				name: contributor
+				srcUrl: await gravatarUrlFromEmail(user),
+				name: user
 			};
 		})
 	);
+}
+
+export async function getPatchContributorsWithAvatars(patch: Patch) {
+	return await getUsersWithAvatars(patch.contributors);
+}
+
+export async function getPatchReviewersWithAvatars(patch: Patch) {
+	const reviewers = deduplicate([...patch.review.rejected, ...patch.review.signedOff]);
+	return await getUsersWithAvatars(reviewers);
+}
+
+export async function getPatchViewersWithAvatars(patch: Patch) {
+	return await getUsersWithAvatars(patch.review.viewed);
 }
 
 export type LoadablePatch = LoadableData<Patch, Patch['changeId']>;
