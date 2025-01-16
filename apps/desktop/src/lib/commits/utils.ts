@@ -1,4 +1,4 @@
-import type { DetailedCommit } from '$lib/vbranches/types';
+import type { DetailedCommit } from './commit';
 
 type DivergenceResult =
 	| { type: 'localDiverged'; commit: DetailedCommit }

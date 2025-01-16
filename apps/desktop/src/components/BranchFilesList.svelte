@@ -16,7 +16,8 @@
 	import Button from '@gitbutler/ui/Button.svelte';
 	import Textbox from '@gitbutler/ui/Textbox.svelte';
 	import FileListItem from '@gitbutler/ui/file/FileListItem.svelte';
-	import type { AnyFile, ConflictEntries } from '$lib/vbranches/types';
+	import type { ConflictEntries } from '$lib/files/conflicts';
+	import type { AnyFile } from '$lib/files/file';
 	import type { Writable } from 'svelte/store';
 
 	const MERGE_DIFF_COMMAND = 'git diff-tree --cc ';

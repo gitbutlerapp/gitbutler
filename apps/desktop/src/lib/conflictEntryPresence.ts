@@ -1,5 +1,6 @@
+import type { RemoteFile } from './files/file';
+import type { RemoteHunk } from './hunks/hunk';
 import type { FileStatus } from './utils/fileStatus';
-import type { RemoteFile, RemoteHunk } from './vbranches/types';
 
 export interface ConflictEntryPresence {
 	ours: boolean;

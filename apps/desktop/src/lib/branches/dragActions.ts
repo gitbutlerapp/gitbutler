@@ -1,7 +1,7 @@
 import { type BranchStack } from './branch';
 import { filesToOwnership } from '$lib/branches/ownership';
 import { CommitDropData, HunkDropData, FileDropData } from '$lib/dragging/draggables';
-import { LocalFile } from '$lib/vbranches/types';
+import { LocalFile } from '$lib/files/file';
 import type { BranchController } from '$lib/branches/branchController';
 
 class BranchDragActions {

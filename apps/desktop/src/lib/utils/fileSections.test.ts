@@ -1,5 +1,6 @@
+import { LocalFile } from '$lib/files/file';
+import { Hunk } from '$lib/hunks/hunk';
 import { parseHunkSection, parseFileSections, SectionType } from '$lib/utils/fileSections';
-import { LocalFile, Hunk } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { expect, test } from 'vitest';
 import type { ContentSection, HunkSection } from '$lib/utils/fileSections';

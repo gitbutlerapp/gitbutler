@@ -6,10 +6,10 @@
 	import { SelectedOwnership } from '$lib/branches/ownership';
 	import { draggableElement } from '$lib/dragging/draggable';
 	import { HunkDropData } from '$lib/dragging/draggables';
+	import { type Hunk } from '$lib/hunks/hunk';
 	import { Project } from '$lib/project/project';
 	import { SETTINGS, type Settings } from '$lib/settings/userSettings';
 	import { type HunkSection } from '$lib/utils/fileSections';
-	import { type Hunk } from '$lib/vbranches/types';
 	import {
 		getContext,
 		getContextStoreBySymbol,

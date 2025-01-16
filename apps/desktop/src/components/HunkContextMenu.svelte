@@ -16,8 +16,8 @@
 	import { getEditorUri, openExternalUrl } from '$lib/utils/url';
 	import { getContextStoreBySymbol } from '@gitbutler/shared/context';
 	import { getContext } from '@gitbutler/shared/context';
+	import type { Hunk } from '$lib/hunks/hunk';
 	import type { ContentSection } from '$lib/utils/fileSections';
-	import type { Hunk } from '$lib/vbranches/types';
 	import type { Writable } from 'svelte/store';
 
 	interface Props {

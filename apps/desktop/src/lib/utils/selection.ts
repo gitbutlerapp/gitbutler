@@ -4,8 +4,8 @@
 import { getSelectionDirection } from './getSelectionDirection';
 import { KeyName } from './hotkeys';
 import { stringifyKey, unstringifyFileKey } from '$lib/selection/fileIdSelection';
+import type { AnyFile } from '$lib/files/file';
 import type { FileIdSelection } from '$lib/selection/fileIdSelection';
-import type { AnyFile } from '$lib/vbranches/types';
 
 function getFile(files: AnyFile[], id: string): AnyFile | undefined {
 	return files.find((f) => f.id === id);

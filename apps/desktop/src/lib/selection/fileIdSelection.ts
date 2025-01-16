@@ -1,4 +1,6 @@
-import { RemoteFile, type AnyFile, type LocalFile } from '$lib/vbranches/types';
+import { RemoteFile } from '$lib/files/file';
+import { type LocalFile } from '$lib/files/file';
+import { type AnyFile } from '$lib/files/file';
 import { isDefined } from '@gitbutler/ui/utils/typeguards';
 import { writable, type Readable } from 'svelte/store';
 

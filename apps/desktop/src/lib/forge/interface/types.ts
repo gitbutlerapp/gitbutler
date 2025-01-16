@@ -1,5 +1,5 @@
+import type { Author } from '$lib/commits/commit';
 import type { RepoInfo } from '$lib/url/gitUrl';
-import type { Author } from '$lib/vbranches/types';
 
 export interface Label {
 	name: string;

@@ -1,5 +1,5 @@
 import { getEphemeralStorageItem, setEphemeralStorageItem } from '@gitbutler/shared/persisted';
-import type { DetailedCommit } from '$lib/vbranches/types';
+import type { DetailedCommit } from '$lib/commits/commit';
 
 const PERSITANCE_TIME_MIN = 5;
 

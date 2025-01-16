@@ -1,6 +1,6 @@
+import { RemoteFile } from './file';
 import { listen, invoke } from '$lib/backend/ipc';
 import { parseFileSections, type ContentSection, type HunkSection } from '$lib/utils/fileSections';
-import { RemoteFile } from '$lib/vbranches/types';
 import { plainToInstance } from 'class-transformer';
 import { readable, type Readable } from 'svelte/store';
 import type { Project } from '$lib/project/project';
