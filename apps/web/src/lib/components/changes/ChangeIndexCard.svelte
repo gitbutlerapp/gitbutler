@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { projectReviewBranchCommitPath, type ProjectReviewParameters } from '$lib/routing';
 	import { PatchService } from '@gitbutler/shared/branches/patchService';
 	import { getPatch } from '@gitbutler/shared/branches/patchesPreview.svelte';
 	import {
@@ -13,7 +14,6 @@
 	import AvatarGroup from '@gitbutler/ui/avatar/AvatarGroup.svelte';
 	import dayjs from 'dayjs';
 	import relativeTime from 'dayjs/plugin/relativeTime';
-	import type { ProjectReviewParameters } from '$lib/routing';
 
 	dayjs.extend(relativeTime);
 
@@ -23,7 +23,7 @@
 		branchUuid: string;
 	};
 
-	const { changeId, params: _params, branchUuid }: Props = $props();
+	const { changeId, params, branchUuid }: Props = $props();
 
 	const appState = getContext(AppState);
 	const patchService = getContext(PatchService);
@@ -52,7 +52,11 @@
 	{#snippet children(patch)}
 		<tr class="row">
 			<td><div>{@render status(getPatchStatus(patch))}</div></td>
-			<td><div>{patch.title}</div></td>
+			<td
+				><a href={projectReviewBranchCommitPath({ ...params, changeId: patch.changeId })}
+					>{patch.title}</a
+				></td
+			>
 			<td><div>{dayjs(patch.updatedAt).fromNow()}</div></td>
 			<td><div>+{patch.statistics.lines} -{patch.statistics.deletions}</div></td>
 			<td>

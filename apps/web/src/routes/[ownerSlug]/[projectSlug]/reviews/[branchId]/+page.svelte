@@ -113,24 +113,26 @@
 				</div>
 			</div>
 
-			<table class="commits-table">
-				<thead>
-					<tr>
-						<th>Status</th>
-						<th>Name</th>
-						<th>Changes</th>
-						<th>Last update</th>
-						<th>Authors</th>
-						<th>Reviewers</th>
-						<th>Comments</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each branch.patchIds || [] as changeId}
-						<ChangeIndexCard {changeId} params={data} branchUuid={branch.uuid} />
-					{/each}
-				</tbody>
-			</table>
+			<div>
+				<table class="commits-table">
+					<thead>
+						<tr>
+							<th>Status</th>
+							<th>Name</th>
+							<th>Changes</th>
+							<th>Last update</th>
+							<th>Authors</th>
+							<th>Reviewers</th>
+							<th>Comments</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each branch.patchIds || [] as changeId}
+							<ChangeIndexCard {changeId} params={data} branchUuid={branch.uuid} />
+						{/each}
+					</tbody>
+				</table>
+			</div>
 		</div>
 	{/snippet}
 </Loading>
